@@ -14,6 +14,15 @@ from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.secrets import scan_secrets
 
+# Secret-shaped fixtures are assembled at runtime, never written as a literal,
+# so no high-signal secret is committed to this source file — otherwise the
+# gate's own SEC-01 check and GitHub push protection flag the fixtures. The
+# reassembled runtime strings still match the scan patterns under test.
+_AWS_KEY = "AKIA" + "IOSFODNN7EXAMPLE"
+_GH_TOKEN = "ghp_" + "a" * 36
+_PRIVATE_KEY_HEADER = "-----BEGIN " + "RSA PRIVATE KEY-----"
+_PRIVATE_KEY_FOOTER = "-----END " + "RSA PRIVATE KEY-----"
+
 
 def one_file(
     repo: Path,
@@ -47,19 +56,18 @@ def codes(findings: list[Finding]) -> list[str | None]:
 
 
 def test_private_key_block_fails(tmp_path: Path) -> None:
-    text = "-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----\n"
+    text = f"{_PRIVATE_KEY_HEADER}\nMIIE...\n{_PRIVATE_KEY_FOOTER}\n"
     findings = scan_secrets(one_file(tmp_path, "key.pem", text, {1, 2, 3}))
     assert "private-key" in codes(findings)
 
 
 def test_aws_access_key_fails(tmp_path: Path) -> None:
-    cs = one_file(tmp_path, "c.py", 'KEY = "AKIAIOSFODNN7EXAMPLE"\n', {1})
+    cs = one_file(tmp_path, "c.py", f'KEY = "{_AWS_KEY}"\n', {1})
     assert codes(scan_secrets(cs)) == ["aws-access-key-id"]
 
 
 def test_github_token_fails(tmp_path: Path) -> None:
-    token = "ghp_" + "a" * 36
-    cs = one_file(tmp_path, "c.py", f'tok = "{token}"\n', {1})
+    cs = one_file(tmp_path, "c.py", f'tok = "{_GH_TOKEN}"\n', {1})
     assert "github-token" in codes(scan_secrets(cs))
 
 
@@ -86,19 +94,19 @@ def test_ordinary_code_is_not_flagged(tmp_path: Path) -> None:
 
 def test_pre_existing_secret_is_not_the_workers(tmp_path: Path) -> None:
     """A secret on a line the worker didn't touch is out of scope."""
-    text = 'OLD = "AKIAIOSFODNN7EXAMPLE"\nnew_value = 42\n'
+    text = f'OLD = "{_AWS_KEY}"\nnew_value = 42\n'
     cs = one_file(tmp_path, "c.py", text, {2})  # worker only added line 2
     assert scan_secrets(cs) == []
 
 
 def test_untracked_file_is_scanned_whole(tmp_path: Path) -> None:
-    text = "def f():\n    return 1\n\n\nSECRET = 'AKIAIOSFODNN7EXAMPLE'\n"
+    text = f"def f():\n    return 1\n\n\nSECRET = '{_AWS_KEY}'\n"
     cs = one_file(tmp_path, "new.py", text, None)  # whole file added
     assert "aws-access-key-id" in codes(scan_secrets(cs))
 
 
 def test_binary_change_is_skipped(tmp_path: Path) -> None:
-    (tmp_path / "blob.bin").write_bytes(b"AKIAIOSFODNN7EXAMPLE\x00\xff")
+    (tmp_path / "blob.bin").write_bytes(_AWS_KEY.encode() + b"\x00\xff")
     change = FileChange("blob.bin", "M", frozenset({1}), is_binary=True)
     cs = ChangeSet(repo=tmp_path, base="HEAD", files=(change,))
     assert scan_secrets(cs) == []

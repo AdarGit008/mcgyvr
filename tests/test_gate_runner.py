@@ -52,8 +52,10 @@ def test_secret_stops_before_lint(
     """A leaked key is a hard fail; the expensive lint/format never runs."""
     repo = repo_with_base(tmp_path)
     # Poorly formatted AND leaks a key: if lint ran we'd see two checks, but the
-    # secret short-circuit means only the secret finding comes back.
-    (repo / "bad.py").write_text('KEY="AKIAIOSFODNN7EXAMPLE"\n')
+    # secret short-circuit means only the secret finding comes back. The key is
+    # assembled at runtime so no secret literal is committed to this source.
+    aws_key = "AKIA" + "IOSFODNN7EXAMPLE"
+    (repo / "bad.py").write_text(f'KEY="{aws_key}"\n')
 
     def explode(*_a: object, **_k: object) -> list[object]:
         raise AssertionError("lint must not run once a secret is found")
