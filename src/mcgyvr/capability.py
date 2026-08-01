@@ -47,6 +47,7 @@ class Model:
     id: str
     family: str
     vram_gb_working: float
+    weights_gb: float
     quant: str
     quality: list[Measurement]
     throughput: list[Measurement]
@@ -62,6 +63,23 @@ class Model:
     def best_quality(self) -> float | None:
         """Highest valid HumanEval+ pass@1 measured, or None if unmeasured."""
         return max((m.value for m in self.quality), default=None)
+
+    @property
+    def best_throughput(self) -> float | None:
+        """Highest tok/s measured on a backend this model can actually run on.
+
+        A model pinned to one backend must not borrow a throughput figure
+        taken on another, because the other run was a different quantization
+        of different weights: qwen3-coder-30b-a3b's ollama measurement is Q4
+        at 8.9 GB, not the Q2_K entry this row describes (CAV-02). Filtering
+        by backend keeps a number attached to the thing it measured.
+        """
+        relevant = [
+            m.value
+            for m in self.throughput
+            if self.requires_backend is None or m.backend == self.requires_backend
+        ]
+        return max(relevant, default=None)
 
 
 @dataclass(frozen=True)
@@ -151,6 +169,7 @@ def load(path: Path | None = None) -> CapabilityTable:
             id=str(entry["id"]),
             family=str(entry["family"]),
             vram_gb_working=float(entry["vram_gb_working"]),
+            weights_gb=float(entry["weights_gb"]),
             quant=str(entry.get("quant", "")),
             quality=_measurements(entry.get("quality", []), "humaneval_plus_pass1"),
             throughput=_measurements(entry.get("throughput_tok_s", []), "value"),
