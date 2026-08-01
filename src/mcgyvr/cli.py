@@ -17,7 +17,7 @@ from mcgyvr.config import CONFIG_FILENAME, CONFIG_PATH_ENV, ConfigError
 from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import detect
-from mcgyvr.initialize import initialize
+from mcgyvr.initialize import InitError, initialize
 
 
 def _capabilities(args: argparse.Namespace) -> int:
@@ -123,6 +123,10 @@ def _init(args: argparse.Namespace) -> int:
     path = Path(args.path) if args.path else resolve_config_path()
     try:
         result = initialize(path, force=args.force)
+    except InitError as exc:
+        # Loud on purpose: nothing was written, and the message says why.
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     except (ConfigError, CapabilityTableError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

@@ -12,15 +12,16 @@ machine with no GPU and on one with four.
 
 from __future__ import annotations
 
+import textwrap
 from pathlib import Path
 
 import pytest
 
 from mcgyvr.capability import load as load_table
-from mcgyvr.config import ConfigError
 from mcgyvr.config import load as load_config
+from mcgyvr.config import parse as parse_config
 from mcgyvr.detect import Backend, Detection, Gpu
-from mcgyvr.initialize import build, initialize, render
+from mcgyvr.initialize import InitError, build, initialize, render
 
 BARE = Detection(
     gpus=(),
@@ -86,35 +87,82 @@ def test_the_generated_file_loads_without_edits(tmp_path: Path, table) -> None: 
     """The whole point: init's output is the loader's input, unmodified."""
     for name, detection in (("small", SMALL_RIG), ("keyless", KEYLESS_RIG)):
         path = tmp_path / f"{name}.yaml"
-        result = initialize(path, detection=detection, table=table)
-        assert result.loadable
+        initialize(path, detection=detection, table=table)
         config = load_config(path)
         assert config.data["version"] == 1
 
 
-def test_a_machine_with_nothing_gets_a_starting_point_that_says_it_is_one(  # type: ignore[no-untyped-def]
+def test_a_machine_with_no_backend_refuses_rather_than_writing(  # type: ignore[no-untyped-def]
     tmp_path: Path, table
 ) -> None:
-    """No GPU, no backend, no Docker.
+    """No GPU, no backend, nothing to dispatch to.
 
-    There is nothing to dispatch to, so the file deliberately does NOT load:
-    a config that dispatches nowhere would fail later and further from the
-    cause. What init owes here is a file, a worked example of what to bind,
-    and a plain statement that it is incomplete.
+    A file that dispatches nowhere is not a head start — it is a
+    misconfiguration that surfaces later and further from its cause. So init
+    writes nothing and says what to fix.
     """
     path = tmp_path / "mcgyvr.yaml"
-    result = initialize(path, detection=BARE, table=table)
-    assert result.written, "a starting point is still written"
-    assert not result.loadable
-    assert any("does not load yet" in limit for limit in result.limits)
-    assert any("No GPU was detected" in limit for limit in result.limits)
-    assert any("No local rung is bound" in limit for limit in result.limits)
+    with pytest.raises(InitError) as exc:
+        initialize(path, detection=BARE, table=table)
 
-    text = path.read_text(encoding="utf-8")
-    assert "worker_local_qwen2.5-coder-7b" in text, "show the shape to bind"
+    assert not path.exists(), "nothing may be left behind on a refusal"
+    message = str(exc.value)
+    assert "Refusing to write a config that cannot load" in message
+    assert "No local backend answered" in message
+    assert "no GPU this build can see" in message
 
-    with pytest.raises(ConfigError, match="source"):
-        load_config(path)
+
+def test_the_refusal_says_how_to_fix_it_both_ways(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+    """A loud failure that does not say what to do is just a loud failure."""
+    with pytest.raises(InitError) as exc:
+        initialize(tmp_path / "c.yaml", detection=BARE, table=table)
+    message = str(exc.value)
+    assert "start a local backend" in message
+    assert "api_key_env: ANTHROPIC_API_KEY" in message, "a worked API-source example"
+    assert "worker_api_claude-opus-5" in message, "named by the convention"
+
+
+def test_the_worked_example_in_the_refusal_actually_loads(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """We tell the user to paste it, so it had better be a valid config."""
+    with pytest.raises(InitError) as exc:
+        initialize(tmp_path / "c.yaml", detection=BARE, table=table)
+
+    block = "\n".join(
+        line[6:] for line in str(exc.value).splitlines() if line.startswith("      ")
+    )
+    config = parse_config(textwrap.dedent(block))
+    assert [t.name for t in config.ladder.tiers] == ["worker_api_claude-opus-5"]
+    assert not config.is_local_only
+
+
+def test_a_reachable_backend_with_nothing_bindable_also_refuses(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """A backend is up, but no GPU means no rung fits — still unwritable."""
+    detection = Detection(
+        gpus=(),
+        cpu_count=4,
+        ram_gb=16.0,
+        backends=(Backend("ollama", "http://localhost:11434", "ollama", (), "probe"),),
+        docker=False,
+        provenance={"docker": "docker is not on PATH"},
+    )
+    with pytest.raises(InitError) as exc:
+        initialize(tmp_path / "c.yaml", detection=detection, table=table)
+    assert "Reachable backends: ollama" in str(exc.value)
+
+
+def test_a_refusal_never_touches_an_existing_config(tmp_path: Path, table) -> None:  # type: ignore[no-untyped-def]
+    """Someone's working config must survive a re-run on a broken machine."""
+    path = tmp_path / "mcgyvr.yaml"
+    initialize(path, detection=KEYLESS_RIG, table=table)
+    before = path.read_text(encoding="utf-8")
+
+    with pytest.raises(InitError):
+        initialize(path, detection=BARE, table=table, force=True)
+    assert path.read_text(encoding="utf-8") == before
 
 
 def test_the_small_rig_gets_the_moe_rung_written_into_the_file(  # type: ignore[no-untyped-def]
@@ -196,6 +244,7 @@ def test_an_unreadable_config_is_not_silently_replaced(tmp_path: Path, table) ->
     assert not result.written
     assert path.read_text(encoding="utf-8").startswith("this:")
     assert result.deltas, "it must say why it declined"
+    assert "does not parse" in str(result.deltas[0])
 
 
 # --- honest about what is missing ----------------------------------------

@@ -43,8 +43,9 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   Idempotent: re-running reports a delta and never overwrites hand edits
   without `--force`. The generated file's comments are rendered from the
   same schema the loader validates against, so a comment cannot drift from
-  the rule it describes. What is not configured — no key, no Docker, no GPU
-  — is reported with what it costs.
+  the rule it describes. What is not configured — no key, no Docker — is
+  reported with what it costs. If nothing can be dispatched to, init refuses
+  and names what to bind rather than writing a config that cannot load.
 
 ### Changed
 - `pyyaml` is now a runtime dependency. The config file is YAML because it

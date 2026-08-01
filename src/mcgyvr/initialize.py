@@ -13,9 +13,12 @@ Three properties are enforced here rather than left to habit:
    product asks a person to maintain — so clobbering them silently would be
    the worst thing this command could do. Writing over them requires
    ``force``, and the delta says exactly what would change.
-3. **Honest about what is missing.** No API key, no Docker and no GPU are
-   all supported, and each is reported with what it costs rather than
-   quietly degraded.
+3. **Honest about what is missing.** No API key and no Docker are both
+   supported, and each is reported with what it costs rather than quietly
+   degraded. Nothing to dispatch to is NOT supported: rather than write a
+   config that cannot load, init refuses and says what to bind. A file that
+   dispatches nowhere is not a head start — it is a misconfiguration that
+   surfaces later and further from its cause.
 
 The generated file's comments are rendered from ``config.SCHEMA`` — the same
 declarations the loader validates against. A comment cannot drift from the
@@ -48,6 +51,55 @@ _BARE_SAFE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.\-]*$")
 _RESERVED = frozenset({"true", "false", "null", "yes", "no", "on", "off", "~"})
 
 
+class InitError(Exception):
+    """There is nothing to write a working config from.
+
+    Raised instead of writing a config that cannot load. A file that
+    dispatches nowhere is not a head start — it is a misconfiguration that
+    surfaces later and further from its cause, which is exactly what the
+    loader's fail-loud rule exists to prevent (ADR-0001; ``mcgyvr.config``).
+    """
+
+
+def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
+    """Say what was tried, what is missing, and what to do about it."""
+    if detection.backends:
+        found = ", ".join(f"{b.name} at {b.base_url}" for b in detection.backends)
+        situation = (
+            f"Reachable backends: {found} — but nothing in the capability "
+            f"table can be bound to them on this machine."
+        )
+    else:
+        situation = "No local backend answered on any default endpoint."
+
+    vram = (
+        f"{detection.largest_vram_gb:g} GB of VRAM"
+        if detection.largest_vram_gb is not None
+        else "no GPU this build can see"
+    )
+    return (
+        f"Refusing to write a config that cannot load.\n\n"
+        f"{situation} With {vram}, no rung can be proposed, and a config "
+        f"with no source or no rung dispatches nowhere.\n\n"
+        f"The loader would reject it with: {why}\n\n"
+        f"Fix one of these, then re-run:\n"
+        f"  - start a local backend (ollama, llama-server, vLLM, LM Studio, "
+        f"TGI) and re-run, or\n"
+        f"  - write the file by hand and bind an API source:\n\n"
+        f"      version: 1\n"
+        f"      sources:\n"
+        f"        anthropic:\n"
+        f'          base_url: "https://api.anthropic.com"\n'
+        f"          api: openai\n"
+        f"          api_key_env: ANTHROPIC_API_KEY\n"
+        f"      ladder:\n"
+        f"        tiers:\n"
+        f"          - name: worker_api_claude-opus-5\n"
+        f"            source: anthropic\n"
+        f"            model: claude-opus-5\n"
+    )
+
+
 @dataclass(frozen=True)
 class Delta:
     """One difference between the config on disk and what would be written."""
@@ -68,7 +120,6 @@ class InitResult:
     deltas: tuple[Delta, ...] = ()
     decisions: tuple[str, ...] = ()
     limits: tuple[str, ...] = ()
-    loadable: bool = True
     content: str = ""
 
 
@@ -176,26 +227,6 @@ def render(data: Mapping[str, Any], decisions: Sequence[str] = ()) -> str:
                 f"#   {line}"
                 for line in textwrap.wrap(decision, width=74, subsequent_indent="    ")
             )
-    if not data.get("sources") or not data.get("ladder", {}).get("tiers"):
-        lines.extend(
-            [
-                "#",
-                "# NOTE: nothing local was reachable, so this file has no source",
-                "# and no rung. It will NOT load until you bind both — that is",
-                "# deliberate: a config that dispatches nowhere would fail later",
-                "# and further from the cause. Uncomment and adjust:",
-                "#",
-                "#   sources:",
-                "#     ollama:",
-                '#       base_url: "http://localhost:11434"',
-                "#       api: ollama",
-                "#   ladder:",
-                "#     tiers:",
-                "#       - name: worker_local_qwen2.5-coder-7b",
-                "#         source: ollama",
-                '#         model: "qwen2.5-coder:7b"',
-            ]
-        )
     lines.append("")
     lines.extend(_render_fields(SCHEMA, data, 0))
     text = "\n".join(lines).rstrip("\n")
@@ -275,11 +306,6 @@ def _limits(detection: Detection, proposal: Proposal) -> tuple[str, ...]:
     what this install cannot do yet, not about what was chosen.
     """
     limits = list(detection.notes) + list(proposal.notes)
-    if proposal.is_local_empty:
-        limits.append(
-            "No local rung is bound, so nothing can run without an API "
-            "source. Bind one under `sources` and point `ladder.tiers` at it."
-        )
     limits.append(
         "No API provider is configured. This is a supported install: the "
         "deterministic gate is the acceptance bar, and verification is off "
@@ -343,25 +369,17 @@ def initialize(
     )
     data = build(found, proposal)
     decisions = _decisions(found, proposal)
-    limits = list(_limits(found, proposal))
+    limits = _limits(found, proposal)
     content = render(data, decisions)
 
-    # Parse our own output. It normalizes the proposal the same way a loaded
-    # config is normalized — without which a delta reports defaults the file
-    # never mentioned as changes — and it means init cannot quietly emit
-    # something the loader would reject.
+    # Parse our own output before anything is written. It normalizes the
+    # proposal the same way a loaded config is normalized — without which a
+    # delta reports defaults the file never mentioned as changes — and it is
+    # what makes it impossible for init to emit a config the loader rejects.
     try:
         normalized: Mapping[str, Any] = parse_config(content).data
-        loadable = True
     except ConfigError as exc:
-        normalized = data
-        loadable = False
-        limits.insert(
-            0,
-            f"The generated file does not load yet: {exc} Bind a source and a "
-            f"rung — the commented example at the top of the file shows the "
-            f"shape.",
-        )
+        raise InitError(_nothing_to_bind(found, exc)) from exc
 
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -371,8 +389,7 @@ def initialize(
             created=True,
             written=True,
             decisions=decisions,
-            limits=tuple(limits),
-            loadable=loadable,
+            limits=limits,
             content=content,
         )
 
@@ -402,8 +419,7 @@ def initialize(
             written=True,
             deltas=deltas,
             decisions=decisions,
-            limits=tuple(limits),
-            loadable=loadable,
+            limits=limits,
             content=content,
         )
 
@@ -413,7 +429,6 @@ def initialize(
         written=False,
         deltas=deltas,
         decisions=decisions,
-        limits=tuple(limits),
-        loadable=loadable,
+        limits=limits,
         content=content,
     )
