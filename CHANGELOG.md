@@ -118,6 +118,37 @@ Format: [Keep a Changelog](https://keepachangelog.com).
 - `mcgyvr read --hint PATH` and `--holds PATH` — name a path you believe is
   relevant, or one whose current content you already hold; rejected hints are
   printed rather than silently dropped.
+- Task contract schema, loader and validation (`src/mcgyvr/contract.py`) —
+  the boundary between the calling agent and mcgyvr (#14, E2). In delegated
+  mode a contract is an internal artifact the orchestrator produces; in direct
+  mode it is public API an agent authors, and both go through one loader, so
+  "a contract the orchestrator emits is one the direct-mode API accepts" holds
+  because there is a single definition rather than two that agree. `SCHEMA` is
+  declarative data — kind, requiredness, default and prose per key — so the
+  authoring guide (#18) can be rendered from what the validator walks. Four
+  things are enforced at load rather than discovered mid-task: every rejection
+  names the field and says what a valid value looks like (this is API surface
+  for an agent, so an unparseable rejection is a defect); unknown and
+  duplicate keys fail; self-contradiction is rejected outright — a target its
+  own scope forbids, a pattern both allowed and forbidden, a scope that
+  permits nothing, a duplicated dependency, an output cap larger than the
+  whole prompt budget; and single-target discipline holds, so a glob target is
+  legal only for a task type the deterministic tier executes outright, because
+  a model worker's output has exactly one destination. Path matching is never
+  re-implemented — every scope decision goes through `mcgyvr.scope.Scope`.
+  Field layout follows the split #94 arrived at from small-model research:
+  worker-facing keys (`task`, `target`, `deps` as signatures rather than
+  source, `interface`, `stop_conditions`, `output_schema`, `context`) are
+  separated from orchestrator-only ones (`risk`, `verification`, `acceptance`,
+  `limits`), and `Contract.worker_view()` is the only accessor for the former,
+  so "orchestrator-only fields never reach the worker prompt" is enforced by
+  there being no other way in. The task-type vocabulary is a seed, not the
+  catalog: it declares only whether the deterministic tier can execute a type,
+  which is the one bit the glob rule needs — what each type guarantees and
+  where it starts belongs to #15.
+- `mcgyvr contract PATH` — validate a task contract and show what it resolves
+  to, with `--worker-view` to print exactly the fields a worker prompt may be
+  built from.
 
 ### Changed
 - `mcgyvr.orchestrator.index` exposes the per-file primitives a build is made
