@@ -324,6 +324,32 @@ def _index(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve(args: argparse.Namespace) -> int:
+    from mcgyvr.orchestrator import IndexBuildError, Verdict, build_index, resolve
+
+    root = Path(args.repo).resolve()
+    if not root.is_dir():
+        print(f"error: {root} is not a directory", file=sys.stderr)
+        return 1
+    try:
+        index = build_index(root)
+    except IndexBuildError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    result = resolve(index, args.query, limit=args.limit)
+    count = len(result.candidates)
+    print(f'"{args.query}" — {result.verdict.value}, {count} candidate(s):')
+    if result.verdict is Verdict.EMPTY:
+        print("  (no candidate matched — try a symbol name or a filename)")
+    for rank, candidate in enumerate(result.candidates, start=1):
+        print(f"  {rank}. {candidate.path}  ({candidate.score:g})")
+        for reason in candidate.evidence:
+            print(f"       · {reason}")
+    # An ambiguous outcome is a reportable state, not a failure of the command.
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -448,6 +474,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="cap the number of text-search hits shown (default: 20)",
     )
     idx.set_defaults(func=_index)
+
+    res = sub.add_parser(
+        "resolve",
+        help="resolve a natural-language target to a ranked shortlist of paths",
+    )
+    res.add_argument(
+        "query",
+        help='what to find, in words — e.g. "the fetch helper" or a symbol name',
+    )
+    res.add_argument(
+        "repo",
+        nargs="?",
+        default=".",
+        help="repository to resolve against (default: current directory)",
+    )
+    res.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        metavar="N",
+        help="cap the shortlist to N candidates (default: 10)",
+    )
+    res.set_defaults(func=_resolve)
 
     args = parser.parse_args(argv)
     result: int = args.func(args)
