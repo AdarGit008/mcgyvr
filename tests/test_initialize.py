@@ -119,7 +119,7 @@ def test_the_refusal_says_how_to_fix_it_both_ways(tmp_path: Path, table) -> None
     message = str(exc.value)
     assert "start a local backend" in message
     assert "api_key_env: ANTHROPIC_API_KEY" in message, "a worked API-source example"
-    assert "worker_api_claude-opus-5" in message, "named by the convention"
+    assert "api_claude-opus-5" in message, "named by the convention"
 
 
 def test_the_worked_example_in_the_refusal_actually_loads(  # type: ignore[no-untyped-def]
@@ -133,7 +133,7 @@ def test_the_worked_example_in_the_refusal_actually_loads(  # type: ignore[no-un
         line[6:] for line in str(exc.value).splitlines() if line.startswith("      ")
     )
     config = parse_config(textwrap.dedent(block))
-    assert [t.name for t in config.ladder.tiers] == ["worker_api_claude-opus-5"]
+    assert [t.name for t in config.ladder.tiers] == ["api_claude-opus-5"]
     assert not config.is_local_only
 
 
@@ -185,8 +185,8 @@ def test_tiers_are_named_by_role_locality_and_model(tmp_path: Path, table) -> No
     initialize(path, detection=KEYLESS_RIG, table=table)
     config = load_config(path)
     for tier in config.ladder.tiers:
-        assert tier.name.startswith("worker_local_")
-    assert "worker_local_qwen2.5-coder-7b" in [t.name for t in config.ladder.tiers]
+        assert tier.name.startswith("local_")
+    assert "local_qwen2.5-coder-7b" in [t.name for t in config.ladder.tiers]
 
 
 # --- idempotence and not clobbering hand edits ---------------------------

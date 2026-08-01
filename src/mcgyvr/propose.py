@@ -62,9 +62,9 @@ from mcgyvr.capability import CapabilityTable, Model
 # judgment about measurement resolution, not itself a measured value.
 MIN_QUALITY_GAIN = 0.03
 
-# Naming tokens for a binding: <role>_<locality>_<model>.
-WORKER = "worker"
-ORCHESTRATOR = "orch"
+# Naming tokens for a ladder tier: <locality>_<model>. There is no role
+# token: a binding's role is derived from where it sits in the schema, and
+# the ladder holds workers only.
 LOCAL = "local"
 API = "api"
 
@@ -182,15 +182,21 @@ def _slower(candidate: Model, reference: Model) -> bool:
     return theirs is not None and ours is not None and theirs < ours
 
 
-def binding_name(model_id: str, *, role: str = WORKER, locality: str = LOCAL) -> str:
-    """Name a binding ``<role>_<locality>_<model>``.
+def binding_name(model_id: str, *, locality: str = LOCAL) -> str:
+    """Name a ladder tier ``<locality>_<model>``.
 
-    The name is what everything downstream refers to a binding by — risk
+    The name is what everything downstream refers to a tier by — risk
     floors, routing policy, telemetry — so it says what the thing IS
-    (a worker or the orchestrator; local or behind an API) rather than
-    where it sits in an ordering. An index-based name would silently change
-    meaning when a rung is inserted, which for a policy reference is a
-    rename that looks like an edit.
+    (local or behind an API) rather than where it sits in an ordering. An
+    index-based name would silently change meaning when a rung is inserted,
+    which for a policy reference is a rename that looks like an edit.
+
+    There is no role token. A binding's role is derived from where it sits
+    in the schema: under ``orchestrator`` it is the orchestrator, under
+    ``verifier`` it is the verifier, and in the ladder it is a worker. Only
+    tiers carry a name, so a role token would be constant across every name
+    that exists — it would spend characters saying the one thing already
+    known from the name's location.
 
     The model segment is normalized because a model id is not a safe name:
     ``Qwen/Qwen2.5-Coder-14B-Instruct-AWQ`` carries a path separator and
@@ -200,7 +206,7 @@ def binding_name(model_id: str, *, role: str = WORKER, locality: str = LOCAL) ->
     """
     segment = model_id.rsplit("/", 1)[-1].lower()
     segment = re.sub(r"[^a-z0-9.-]+", "-", segment).strip("-")
-    return f"{role}_{locality}_{segment}"
+    return f"{locality}_{segment}"
 
 
 def _tie_reason(loser: Model, winner: Model) -> str:
