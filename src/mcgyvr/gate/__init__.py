@@ -13,14 +13,21 @@ how many files changed. See :mod:`mcgyvr.gate.changeset`.
 
 from __future__ import annotations
 
+from mcgyvr.gate.adapter import LanguageAdapter, ToolUnavailableError
+from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.changeset import (
     ChangeSet,
     ChangeSetError,
     FileChange,
 )
+from mcgyvr.gate.findings import Finding
 
 __all__ = [
     "ChangeSet",
     "ChangeSetError",
     "FileChange",
+    "Finding",
+    "LanguageAdapter",
+    "PythonAdapter",
+    "ToolUnavailableError",
 ]
