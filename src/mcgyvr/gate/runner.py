@@ -31,6 +31,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from mcgyvr.gate.acceptance import Acceptance
 from mcgyvr.gate.adapter import LanguageAdapter, ToolUnavailableError
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, FileChange
@@ -72,7 +73,13 @@ class Gate:
             tuple(adapters) if adapters is not None else (PythonAdapter(),)
         )
 
-    def run(self, changeset: ChangeSet, scope: Scope | None = None) -> GateResult:
+    def run(
+        self,
+        changeset: ChangeSet,
+        scope: Scope | None = None,
+        *,
+        acceptance: Acceptance | None = None,
+    ) -> GateResult:
         findings: list[Finding] = []
 
         # 1 & 2 — hard, decisive checks first. A failure here stops the run.
@@ -100,6 +107,16 @@ class Gate:
         env_issues: list[str] = []
         for adapter in self.adapters:
             findings.extend(self._run_adapter(adapter, changeset, env_issues))
+
+        # 5 — acceptance commands (#38): the strongest signal but the most
+        # expensive, needing the sandbox (E4). It runs last and only when
+        # nothing cheaper already rejected the change — there is no value in
+        # spinning a suite for a diff that already fails lint or leaks a key.
+        # A missing tool (an env issue, not a finding) does not hold it back.
+        if acceptance is not None and not findings:
+            report = acceptance.run()
+            findings.extend(report.findings)
+            env_issues.extend(report.environment_issues)
 
         return GateResult(
             findings=tuple(findings),
