@@ -50,6 +50,7 @@ overlooked.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -60,6 +61,12 @@ from mcgyvr.capability import CapabilityTable, Model
 # the harness, close enough to keep a real gradient on a small card. It is a
 # judgment about measurement resolution, not itself a measured value.
 MIN_QUALITY_GAIN = 0.03
+
+# Naming tokens for a binding: <role>_<locality>_<model>.
+WORKER = "worker"
+ORCHESTRATOR = "orch"
+LOCAL = "local"
+API = "api"
 
 # CAV-04: a marginal fit degrades rather than failing, which makes it look
 # like a working binding. Absolute, not a fraction — see CapabilityTable.
@@ -173,6 +180,27 @@ def _slower(candidate: Model, reference: Model) -> bool:
     theirs = candidate.best_throughput
     ours = reference.best_throughput
     return theirs is not None and ours is not None and theirs < ours
+
+
+def binding_name(model_id: str, *, role: str = WORKER, locality: str = LOCAL) -> str:
+    """Name a binding ``<role>_<locality>_<model>``.
+
+    The name is what everything downstream refers to a binding by — risk
+    floors, routing policy, telemetry — so it says what the thing IS
+    (a worker or the orchestrator; local or behind an API) rather than
+    where it sits in an ordering. An index-based name would silently change
+    meaning when a rung is inserted, which for a policy reference is a
+    rename that looks like an edit.
+
+    The model segment is normalized because a model id is not a safe name:
+    ``Qwen/Qwen2.5-Coder-14B-Instruct-AWQ`` carries a path separator and
+    ``qwen2.5-coder:7b`` a colon, and both end up as YAML keys a human
+    edits. Only the final path segment is kept, lowercased, with anything
+    outside ``[a-z0-9.-]`` folded to a dash.
+    """
+    segment = model_id.rsplit("/", 1)[-1].lower()
+    segment = re.sub(r"[^a-z0-9.-]+", "-", segment).strip("-")
+    return f"{role}_{locality}_{segment}"
 
 
 def _tie_reason(loser: Model, winner: Model) -> str:
@@ -394,7 +422,7 @@ def propose(
         below = ladder[index - 1] if index else None
         rungs.append(
             Rung(
-                name=f"local-{index + 1}",
+                name=binding_name(model.id),
                 model=model.id,
                 source=source.name,
                 quality=model.best_quality or 0.0,
