@@ -12,15 +12,16 @@ The two cards are the table's own measurement rigs: 6 GB (rig_a) and 12 GB
 
 from __future__ import annotations
 
+import inspect
 from itertools import pairwise
 
 import pytest
 
+from mcgyvr import propose as propose_module
 from mcgyvr.capability import load
 from mcgyvr.propose import (
     API,
     MIN_QUALITY_GAIN,
-    ORCHESTRATOR,
     AvailableSource,
     binding_name,
     propose,
@@ -262,24 +263,33 @@ def test_rungs_are_named_by_what_they_are(table) -> None:  # type: ignore[no-unt
     """`<role>_<locality>_<model>` — a name that survives inserting a rung."""
     proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA, LLAMA_SERVER])
     assert [r.name for r in proposal.rungs] == [
-        "worker_local_qwen2.5-coder-1.5b",
-        "worker_local_qwen2.5-coder-3b",
-        "worker_local_qwen2.5-coder-7b",
-        "worker_local_qwen2.5-coder-14b",
+        "local_qwen2.5-coder-1.5b",
+        "local_qwen2.5-coder-3b",
+        "local_qwen2.5-coder-7b",
+        "local_qwen2.5-coder-14b",
     ]
 
 
 def test_binding_names_are_safe_to_use_as_config_keys() -> None:
     """A model id is not a name: it carries colons and path separators."""
-    assert binding_name("qwen2.5-coder:7b") == "worker_local_qwen2.5-coder-7b"
+    assert binding_name("qwen2.5-coder:7b") == "local_qwen2.5-coder-7b"
     assert (
         binding_name("Qwen/Qwen2.5-Coder-14B-Instruct-AWQ")
-        == "worker_local_qwen2.5-coder-14b-instruct-awq"
+        == "local_qwen2.5-coder-14b-instruct-awq"
     )
-    assert (
-        binding_name("claude-opus-5", role=ORCHESTRATOR, locality=API)
-        == "orch_api_claude-opus-5"
-    )
+    assert binding_name("claude-opus-5", locality=API) == "api_claude-opus-5"
+
+
+def test_a_tier_name_carries_no_role_token() -> None:
+    """The role is derived from where a binding sits, never spelled in a name.
+
+    Only ladder tiers carry a name, and the ladder holds workers only — so a
+    role token would be constant everywhere it appeared. This is the
+    regression guard for that being re-added.
+    """
+    assert not hasattr(propose_module, "ORCHESTRATOR")
+    assert not hasattr(propose_module, "WORKER")
+    assert "role" not in inspect.signature(binding_name).parameters
 
 
 def test_rung_names_are_unique_within_a_proposal(table) -> None:  # type: ignore[no-untyped-def]
