@@ -208,9 +208,76 @@
         { "value": 15.4, "rig": "rig_a", "backend": "llama-server", "date": "2026-07-27" }
       ],
       "notes": "Quality unmeasured pending a re-run with an adequate output budget. Not proposed."
+    },
+    {
+      "id": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
+      "family": "qwen2.5-coder",
+      "params_b": 7,
+      "quant": "AWQ-4bit",
+      "weights_gb": 5.29,
+      "vram_gb_working": 9.9,
+      "requires_backend": "vllm",
+      "quality": [],
+      "throughput_tok_s": [
+        { "value": 67.5, "rig": "rig_b", "backend": "vllm", "date": "2026-08-01" },
+        { "value": 489.0, "rig": "rig_b", "backend": "vllm", "date": "2026-08-01", "note": "aggregate at 16 concurrent (CON-04)" }
+      ],
+      "notes": "Same weights as qwen2.5-coder:7b in a different quantization and server. Quality is deliberately empty: throughput and features were measured, HumanEval+ was not, and the q4_K_M score must not be borrowed across a different quantization. vram_gb_working is the server's CONFIGURED allocation (gpu-memory-utilization 0.90 of a 12 GB card), not an intrinsic footprint — the fit rule's assumptions do not transfer to this backend unchanged."
+    },
+    {
+      "id": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
+      "family": "qwen2.5-coder",
+      "params_b": 14,
+      "quant": "AWQ-4bit",
+      "weights_gb": 9.29,
+      "vram_gb_working": 11.6,
+      "requires_backend": "vllm",
+      "quality": [],
+      "throughput_tok_s": [
+        { "value": 19.5, "rig": "rig_b", "backend": "vllm", "date": "2026-08-01", "caveat": "CAV-04" }
+      ],
+      "notes": "A second, independent instance of CAV-04 and a useful one: at 11.6 GB allocated on a 12 GB card it ran 19-20 tok/s against 32.2 tok/s for the same model class under a simpler server — the batching backend was 38% SLOWER because it had no memory to batch with, and required eager execution. A marginal fit does not merely lose its backend's advantages; it inverts them."
     }
   ],
+  "backends": {
+    "_doc": "Backend choice is a function of VRAM, not preference. A batching server needs headroom to batch; below that it is strictly worse than a simple one.",
+    "ollama": {
+      "wire_protocol": "ollama",
+      "strengths": ["multiple distinct models resident concurrently", "GGUF native", "setup in one command"],
+      "limits": ["no continuous batching", "no structured-output enforcement", "backend-native generate API is unsafe for quality measurement (CAV-01)"]
+    },
+    "vllm": {
+      "wire_protocol": "openai",
+      "strengths": ["continuous batching (8.5x at 16 concurrent, CON-04)", "JSON-schema structured output", "prefix caching", "sleep/wake model swap (CON-06)"],
+      "limits": ["one model per process", "VRAM allocation is configured, not intrinsic — footprint is gpu-memory-utilization, not weight size", "needs Docker on newer glibc", "not viable below ~8 GB: no batching headroom"],
+      "measured_on": "rig_b"
+    }
+  },
   "concurrency_findings": [
+    {
+      "id": "CON-04",
+      "summary": "Continuous batching scales 8.5x to 16 concurrent requests, then plateaus at memory bandwidth.",
+      "detail": "Qwen2.5-Coder-7B-AWQ under vLLM on a 12 GB card: 1 req 68 tok/s, 2 req 127 (1.9x), 4 req 168 (2.6x), 8 req 289 (4.7x), 12 req 402 (6.6x), 16 req 489 (8.5x). Ceiling ~490 tok/s, bounded by 360 GB/s memory bandwidth, not compute. Per-request latency stayed within 0.39-2.01 s throughout.",
+      "consequence": "Per-source parallel capacity is worth setting high on a batching backend, but returns are sublinear and plateau — capacity beyond the knee buys latency variance, not throughput.",
+      "rig": "rig_b",
+      "date": "2026-08-01"
+    },
+    {
+      "id": "CON-05",
+      "summary": "Prefix caching returned a 43.3% hit rate on a shared 39-token prefix, and scales with prefix size.",
+      "detail": "Measured on HumanEval tasks sharing a system prompt; 19% wall-clock speedup at that prefix length.",
+      "consequence": "Directly relevant to the shared worker bundle: every local worker receives the same <=2 KB system prompt, which is roughly 50x the prefix measured here, so the benefit should be substantially larger in normal operation.",
+      "rig": "rig_b",
+      "date": "2026-08-01"
+    },
+    {
+      "id": "CON-06",
+      "summary": "A batching server can free 97.9% of its VRAM and return in about six seconds.",
+      "detail": "Sleep 4.74 s freeing 11.8 GB to 251 MB (weights offloaded to host RAM), wake 1.09 s. The endpoint stays up throughout; a container restart for the same effect takes ~60 s. KV cache AND prefix cache are discarded on wake.",
+      "consequence": "Makes two differently-sized rungs viable on one card. The discarded caches are the catch: a swap resets exactly the CON-05 benefit, so swapping mid-batch trades one optimization for another.",
+      "rig": "rig_b",
+      "date": "2026-08-01"
+    },
     {
       "id": "CON-01",
       "summary": "Distinct models run genuinely concurrently on one GPU.",

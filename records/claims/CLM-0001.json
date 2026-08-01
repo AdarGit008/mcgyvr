@@ -18,6 +18,10 @@
     {
       "url": "https://github.com/AdarGit008/local-ai/blob/e13a051/research/srv2_benchmark_results_2026-07-31.md",
       "supports_because": "Second rig, independent run: supplies the 14B and MoE figures and the cross-rig comparison that lets the table express ratios rather than single-machine absolutes."
+    },
+    {
+      "url": "https://github.com/AdarGit008/local-ai/blob/02ee1f7/research/vllm_srv2_assessment_2026-08-01.md",
+      "supports_because": "Source for the table's backend block and concurrency findings CON-04 through CON-06: the measured batching curve to 16 concurrent, prefix-cache hit rate, and sleep/wake timings, with the reproduction scripts alongside it. Also supplies the second independent instance of CAV-04, where a marginal fit made the faster backend 38% slower than the simpler one."
     }
   ]
 }
