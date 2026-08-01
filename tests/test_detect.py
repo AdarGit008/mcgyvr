@@ -16,8 +16,8 @@ import pytest
 
 from mcgyvr import detect as detect_module
 from mcgyvr.detect import (
-    DEFAULT_ENDPOINTS,
-    Endpoint,
+    DEFAULT_PROBE_TARGETS,
+    ProbeTarget,
     detect,
     detect_docker,
     detect_gpus,
@@ -153,7 +153,7 @@ def test_ollama_listing_is_read_in_its_own_protocol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stub_http(monkeypatch, {"http://localhost:11434/api/tags": OLLAMA_TAGS})
-    found = probe(Endpoint("ollama", "http://localhost:11434", "ollama"))
+    found = probe(ProbeTarget("ollama", "http://localhost:11434", "ollama"))
     assert found is not None
     assert found.models == ("qwen2.5-coder:7b", "qwen2.5-coder:3b")
     assert found.has_model("qwen2.5-coder:7b")
@@ -164,7 +164,7 @@ def test_openai_listing_is_read_in_its_own_protocol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stub_http(monkeypatch, {"http://localhost:8000/v1/models": OPENAI_MODELS})
-    found = probe(Endpoint("vllm", "http://localhost:8000", "openai"))
+    found = probe(ProbeTarget("vllm", "http://localhost:8000", "openai"))
     assert found is not None
     assert found.models == ("Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",)
 
@@ -173,7 +173,7 @@ def test_an_endpoint_that_does_not_answer_is_simply_absent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stub_http(monkeypatch, {})
-    assert probe(Endpoint("vllm", "http://localhost:8000", "openai")) is None
+    assert probe(ProbeTarget("vllm", "http://localhost:8000", "openai")) is None
 
 
 def test_a_malformed_listing_is_a_backend_with_no_models(
@@ -181,7 +181,7 @@ def test_a_malformed_listing_is_a_backend_with_no_models(
 ) -> None:
     """It answered, so it exists; it just told us nothing we can bind."""
     stub_http(monkeypatch, {"http://localhost:8000/v1/models": {"data": "nonsense"}})
-    found = probe(Endpoint("vllm", "http://localhost:8000", "openai"))
+    found = probe(ProbeTarget("vllm", "http://localhost:8000", "openai"))
     assert found is not None and found.models == ()
 
 
@@ -189,7 +189,7 @@ def test_probes_do_not_stop_at_the_first_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stub_http(monkeypatch, {"http://localhost:1234/v1/models": OPENAI_MODELS})
-    found = probe_all(DEFAULT_ENDPOINTS)
+    found = probe_all(DEFAULT_PROBE_TARGETS)
     assert [b.name for b in found] == ["lmstudio"]
 
 
@@ -204,8 +204,8 @@ def test_every_endpoint_is_probed_concurrently(
         return None
 
     monkeypatch.setattr(detect_module, "_get_json", slow, raising=True)
-    probe_all(DEFAULT_ENDPOINTS)
-    assert len(seen) == len(DEFAULT_ENDPOINTS), "every endpoint must be tried"
+    probe_all(DEFAULT_PROBE_TARGETS)
+    assert len(seen) == len(DEFAULT_PROBE_TARGETS), "every endpoint must be tried"
 
 
 def test_a_hanging_endpoint_cannot_hang_detection(
@@ -219,7 +219,7 @@ def test_a_hanging_endpoint_cannot_hang_detection(
         return None
 
     monkeypatch.setattr(detect_module, "_get_json", record, raising=True)
-    probe_all(DEFAULT_ENDPOINTS)
+    probe_all(DEFAULT_PROBE_TARGETS)
     assert captured and all(t > 0 for t in captured), "no probe may be unbounded"
 
 

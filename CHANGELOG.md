@@ -214,6 +214,12 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   including which rungs were skipped and why.
 
 ### Changed
+- `detect.Endpoint` is now `detect.ProbeTarget`, and `DEFAULT_ENDPOINTS` is
+  `DEFAULT_PROBE_TARGETS`. The two concepts had collided on one name: a probe
+  target is a *candidate* address that may turn out to have nothing behind it
+  and exists before any config does, while `pool.Endpoint` is somewhere a rung
+  is configured to run. Naming them apart keeps "where might something be" and
+  "where does this rung run" from reading as the same idea.
 - `mcgyvr.orchestrator.index` exposes the per-file primitives a build is made
   of (`read_source`, `index_source`, `IndexAssembler`, `enumerate_files`) so
   the cached build reuses them rather than reimplementing the bounds. Both

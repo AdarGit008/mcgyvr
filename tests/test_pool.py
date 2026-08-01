@@ -129,10 +129,10 @@ def test_nothing_else_imports_the_endpoint_type() -> None:
     """An architectural guard: if this fails, something above the seam has learned
     where work runs, and re-pointing a rung stops being a config edit.
 
-    Checked by parsing imports rather than grepping for the word — ``detect.py``
-    has its own unrelated ``Endpoint`` (a well-known local address to probe,
-    which exists before any config does), and a substring search cannot tell the
-    two apart.
+    Checked by parsing imports rather than grepping for the word, so the guard
+    stays about *who depends on the seam* rather than about who happens to use
+    the name — which is what lets a same-named type elsewhere be a naming
+    question instead of a false failure here.
     """
     src = Path(__file__).resolve().parent.parent / "src" / "mcgyvr"
     offenders: list[str] = []
