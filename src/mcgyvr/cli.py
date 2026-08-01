@@ -273,6 +273,57 @@ def _attach(args: argparse.Namespace) -> int:
     return 0
 
 
+def _index(args: argparse.Namespace) -> int:
+    from mcgyvr.orchestrator import IndexBuildError, build_index
+
+    root = Path(args.repo).resolve()
+    if not root.is_dir():
+        print(f"error: {root} is not a directory", file=sys.stderr)
+        return 1
+    try:
+        index = build_index(root)
+    except IndexBuildError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    stats = index.stats
+    print(f"Indexed {root}")
+    print(
+        f"  {stats.files_indexed} files, {stats.symbol_count} symbols, "
+        f"{_mib(stats.bytes_indexed)} in {stats.elapsed_seconds:.3f}s"
+    )
+    if stats.languages:
+        langs = ", ".join(f"{name} x{n}" for name, n in sorted(stats.languages.items()))
+        print(f"  languages: {langs}")
+    if stats.files_skipped_large or stats.files_skipped_binary:
+        print(
+            f"  skipped: {stats.files_skipped_large} large, "
+            f"{stats.files_skipped_binary} binary"
+        )
+    if stats.degraded_extensions:
+        print("  text-only (no grammar): " + ", ".join(stats.degraded_extensions))
+
+    if args.search:
+        hits = index.search(args.search, limit=args.limit)
+        print(f'\nText search "{args.search}" — {len(hits)} hit(s):')
+        for match in hits:
+            print(f"  {match.path}:{match.line}: {match.text.strip()}")
+
+    if args.symbol:
+        defs = index.symbols.definitions(args.symbol)
+        refs = index.symbols.references(args.symbol)
+        print(
+            f'\nSymbol "{args.symbol}" — '
+            f"{len(defs)} definition(s), {len(refs)} reference(s):"
+        )
+        for symbol in defs:
+            detail = f" [{symbol.detail}]" if symbol.detail else ""
+            print(f"  def  {symbol.path}:{symbol.line}{detail}")
+        for symbol in refs:
+            print(f"  ref  {symbol.path}:{symbol.line}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -366,6 +417,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="clone a URL into DIR and keep it, instead of an ephemeral temp dir",
     )
     att.set_defaults(func=_attach)
+
+    idx = sub.add_parser(
+        "index",
+        help="build the deterministic index of a repository and show what it cost",
+    )
+    idx.add_argument(
+        "repo",
+        nargs="?",
+        default=".",
+        help="repository to index (default: current directory)",
+    )
+    idx.add_argument(
+        "--search",
+        default=None,
+        metavar="TERM",
+        help="also run a text search for TERM and show the hits",
+    )
+    idx.add_argument(
+        "--symbol",
+        default=None,
+        metavar="NAME",
+        help="also show where NAME is defined and referenced",
+    )
+    idx.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        metavar="N",
+        help="cap the number of text-search hits shown (default: 20)",
+    )
+    idx.set_defaults(func=_index)
 
     args = parser.parse_args(argv)
     result: int = args.func(args)
