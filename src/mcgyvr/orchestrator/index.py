@@ -29,12 +29,14 @@ avoid. The repository is therefore required to be a git checkout — which is wh
 
 from __future__ import annotations
 
+import hashlib
 import re
 import subprocess
 import time
 from collections import defaultdict
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind, extract, language_of
@@ -43,7 +45,7 @@ from mcgyvr.orchestrator.symbols import Symbol, SymbolKind, extract, language_of
 # a file past a megabyte is a vendored bundle, a data blob or a lockfile, and
 # reading it would spend the build's time budget on something no resolver wants
 # to point a reader at. The cap is reported, never silent.
-_MAX_FILE_BYTES = 1 << 20
+DEFAULT_MAX_FILE_BYTES = 1 << 20
 
 # How much of a file to sniff for a NUL byte before deciding it is binary. A
 # text file has none; git uses the same "NUL in the first chunk" heuristic.
@@ -52,6 +54,19 @@ _BINARY_SNIFF_BYTES = 8192
 
 class IndexBuildError(Exception):
     """The index could not be built (enumeration failed, or the repo is unusable)."""
+
+
+class SkipReason(StrEnum):
+    """Why an enumerated file contributed nothing to the index.
+
+    Every skip is counted and reported on :class:`BuildStats` — a file that was
+    listed but not indexed is a hole in the shortlist, and a silent hole reads
+    as "there was nothing there".
+    """
+
+    LARGE = "large"
+    BINARY = "binary"
+    GONE = "gone"
 
 
 @dataclass(frozen=True)
@@ -75,6 +90,23 @@ class IndexedFile:
     path: str
     language: str | None
     lines: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class FileIndex:
+    """One file's whole contribution to the index: its text and its symbols.
+
+    This is the unit the cache (#52) stores and validates, which is what makes
+    "a changed file invalidates its own entries and no others" a property of
+    the data rather than a rule someone has to remember. ``digest`` identifies
+    the exact bytes that produced ``file`` and ``symbols``, so a file that was
+    merely touched can be told from one that actually changed.
+    """
+
+    file: IndexedFile
+    symbols: tuple[Symbol, ...]
+    size_bytes: int
+    digest: str
 
 
 @dataclass(frozen=True)
@@ -175,7 +207,7 @@ class Index:
         return tuple(matches)
 
 
-def build_index(root: Path, *, max_file_bytes: int = _MAX_FILE_BYTES) -> Index:
+def build_index(root: Path, *, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) -> Index:
     """Build the index of the git repository at ``root``.
 
     Enumerates every non-ignored file via git, reads each once (skipping any
@@ -183,63 +215,135 @@ def build_index(root: Path, *, max_file_bytes: int = _MAX_FILE_BYTES) -> Index:
     and extracts its symbols. The build is timed and the numbers are returned on
     :attr:`Index.stats`.
 
+    Every file is read and parsed here, unconditionally. The cached builder in
+    :mod:`mcgyvr.orchestrator.cache` reuses this module's per-file primitives to
+    skip the work for files that have not changed; both assemble their result
+    through :class:`IndexAssembler`, so a cached build and a fresh one cannot
+    drift into reporting differently.
+
     Raises :class:`IndexBuildError` when ``root`` is not a usable git repository —
     the enumerator has no ignore rules to honour without one.
     """
-    started = time.perf_counter()
-    files: list[IndexedFile] = []
-    symbols: list[Symbol] = []
-    skipped_large = 0
-    skipped_binary = 0
-    bytes_indexed = 0
-    languages: dict[str, int] = defaultdict(int)
-    degraded: set[str] = set()
-
-    for rel in _enumerate(root):
-        absolute = root / rel
-        try:
-            size = absolute.stat().st_size
-        except OSError:
-            continue  # listed by git but gone from disk (a race); skip quietly
-        if size > max_file_bytes:
-            skipped_large += 1
+    assembler = IndexAssembler()
+    for rel in enumerate_files(root):
+        raw = read_source(root, rel, max_file_bytes=max_file_bytes)
+        if isinstance(raw, SkipReason):
+            assembler.skipped(raw)
             continue
-        try:
-            raw = absolute.read_bytes()
-        except OSError:
-            continue
-        if _is_binary(raw):
-            skipped_binary += 1
-            continue
+        assembler.add(index_source(rel, raw))
+    return assembler.finish(root)
 
-        language = language_of(rel)
-        if language is None:
-            _record_degraded(rel, degraded)
-        else:
-            languages[language] += 1
-        text = raw.decode("utf-8", "surrogateescape")
-        files.append(
-            IndexedFile(path=rel, language=language, lines=tuple(text.split("\n")))
-        )
-        bytes_indexed += size
-        symbols.extend(extract(rel, raw))
 
-    table = SymbolTable(tuple(symbols))
-    stats = BuildStats(
-        elapsed_seconds=time.perf_counter() - started,
-        files_indexed=len(files),
-        files_skipped_large=skipped_large,
-        files_skipped_binary=skipped_binary,
-        bytes_indexed=bytes_indexed,
-        symbol_count=len(table),
-        languages=dict(languages),
-        degraded_extensions=tuple(sorted(degraded)),
+def digest_of(raw: bytes) -> str:
+    """A short content fingerprint of ``raw``.
+
+    BLAKE2b truncated to 128 bits: not a security boundary, just an identity
+    for "these are the same bytes I indexed last time". Truncation keeps the
+    cache file small when there is one of these per file.
+    """
+    return hashlib.blake2b(raw, digest_size=16).hexdigest()
+
+
+def read_source(
+    root: Path, rel: str, *, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES
+) -> bytes | SkipReason:
+    """The bytes of ``rel`` under ``root``, or why it will not be indexed.
+
+    Applies the two bounds in one place — the size cap before the read, so an
+    oversized file is never pulled into memory, and the binary sniff after —
+    so the fresh build and the cached build cannot disagree about what counts
+    as indexable. A file git listed but that is gone from disk is a race, not
+    an error: it comes back as :attr:`SkipReason.GONE`.
+    """
+    absolute = root / rel
+    try:
+        if absolute.stat().st_size > max_file_bytes:
+            return SkipReason.LARGE
+        raw = absolute.read_bytes()
+    except OSError:
+        return SkipReason.GONE
+    if _is_binary(raw):
+        return SkipReason.BINARY
+    return raw
+
+
+def index_source(rel: str, raw: bytes) -> FileIndex:
+    """Index one file's bytes: decode it for search and extract its symbols.
+
+    This is the expensive half of a build — ``ast.parse`` and tree-sitter both
+    live behind :func:`~mcgyvr.orchestrator.symbols.extract` — and so it is
+    exactly what the cache exists to avoid repeating for an unchanged file.
+    """
+    language = language_of(rel)
+    text = raw.decode("utf-8", "surrogateescape")
+    return FileIndex(
+        file=IndexedFile(path=rel, language=language, lines=tuple(text.split("\n"))),
+        symbols=tuple(extract(rel, raw)),
+        size_bytes=len(raw),
+        digest=digest_of(raw),
     )
-    return Index(root=root, files=tuple(files), symbols=table, stats=stats)
 
 
-def _enumerate(root: Path) -> Iterator[str]:
+class IndexAssembler:
+    """Accumulates per-file results into an :class:`Index`, counting as it goes.
+
+    Both builders assemble through this, so "what the build cost and what it
+    left out" is computed once. Timing starts at construction: a cached build
+    that reuses everything legitimately reports a near-zero elapsed time, which
+    is the number that makes the cache's value visible.
+    """
+
+    def __init__(self) -> None:
+        self._started = time.perf_counter()
+        self._files: list[IndexedFile] = []
+        self._symbols: list[Symbol] = []
+        self._skipped_large = 0
+        self._skipped_binary = 0
+        self._bytes_indexed = 0
+        self._languages: dict[str, int] = defaultdict(int)
+        self._degraded: set[str] = set()
+
+    def add(self, result: FileIndex) -> None:
+        """Fold one indexed file — freshly built or restored from cache — in."""
+        if result.file.language is None:
+            _record_degraded(result.file.path, self._degraded)
+        else:
+            self._languages[result.file.language] += 1
+        self._files.append(result.file)
+        self._symbols.extend(result.symbols)
+        self._bytes_indexed += result.size_bytes
+
+    def skipped(self, reason: SkipReason) -> None:
+        """Count a file that was enumerated but not indexed."""
+        if reason is SkipReason.LARGE:
+            self._skipped_large += 1
+        elif reason is SkipReason.BINARY:
+            self._skipped_binary += 1
+        # GONE is a disk race, not a decision the index made; nothing to report.
+
+    def finish(self, root: Path) -> Index:
+        """The assembled index, with the stats gathered along the way."""
+        table = SymbolTable(tuple(self._symbols))
+        stats = BuildStats(
+            elapsed_seconds=time.perf_counter() - self._started,
+            files_indexed=len(self._files),
+            files_skipped_large=self._skipped_large,
+            files_skipped_binary=self._skipped_binary,
+            bytes_indexed=self._bytes_indexed,
+            symbol_count=len(table),
+            languages=dict(self._languages),
+            degraded_extensions=tuple(sorted(self._degraded)),
+        )
+        return Index(root=root, files=tuple(self._files), symbols=table, stats=stats)
+
+
+def enumerate_files(root: Path) -> Iterator[str]:
     """Repo-relative paths of every non-ignored file, respecting ignore rules.
+
+    This is never cached. The file list is always re-derived from git, which is
+    what makes the cache structurally unable to serve a path that no longer
+    exists: a deleted file is absent from this enumeration, so nothing
+    downstream ever asks the cache about it (#52).
 
     ``ls-files --cached --others --exclude-standard`` lists tracked files and
     untracked-but-not-ignored files together, applying ``.gitignore`` and git's

@@ -12,6 +12,14 @@ tree under #45.
 
 from __future__ import annotations
 
+from mcgyvr.orchestrator.cache import (
+    CachedBuild,
+    CacheStats,
+    build_index_cached,
+    cache_path,
+)
+from mcgyvr.orchestrator.cache import clear as clear_cache
+from mcgyvr.orchestrator.cache import prune as prune_cache
 from mcgyvr.orchestrator.index import (
     BuildStats,
     Index,
@@ -36,6 +44,8 @@ __all__ = [
     "AttachError",
     "AttachedRepo",
     "BuildStats",
+    "CacheStats",
+    "CachedBuild",
     "Candidate",
     "Deferral",
     "Exploration",
@@ -52,6 +62,10 @@ __all__ = [
     "Verdict",
     "attach",
     "build_index",
+    "build_index_cached",
+    "cache_path",
+    "clear_cache",
     "explore",
+    "prune_cache",
     "resolve",
 ]
