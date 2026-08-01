@@ -46,8 +46,14 @@ MIB_PER_GB = 1024.0
 
 
 @dataclass(frozen=True)
-class Endpoint:
-    """A place a backend might be listening, and the protocol to ask in."""
+class ProbeTarget:
+    """A place a backend might be listening, and the protocol to ask in.
+
+    A *candidate* address, not a resolved one: nothing is known to be here
+    until :func:`probe` gets an answer. Distinct from
+    :class:`mcgyvr.pool.Endpoint`, which is somewhere a rung is configured to
+    run and exists only once there is a config to resolve.
+    """
 
     name: str
     base_url: str
@@ -58,12 +64,12 @@ class Endpoint:
 # convention, which is a guess about identity but not about capability:
 # what matters downstream is the wire protocol and the model list, and
 # both are read from the answer rather than assumed.
-DEFAULT_ENDPOINTS: tuple[Endpoint, ...] = (
-    Endpoint("ollama", "http://localhost:11434", "ollama"),
-    Endpoint("llama-server", "http://localhost:8080", "openai"),
-    Endpoint("vllm", "http://localhost:8000", "openai"),
-    Endpoint("lmstudio", "http://localhost:1234", "openai"),
-    Endpoint("tgi", "http://localhost:3000", "openai"),
+DEFAULT_PROBE_TARGETS: tuple[ProbeTarget, ...] = (
+    ProbeTarget("ollama", "http://localhost:11434", "ollama"),
+    ProbeTarget("llama-server", "http://localhost:8080", "openai"),
+    ProbeTarget("vllm", "http://localhost:8000", "openai"),
+    ProbeTarget("lmstudio", "http://localhost:1234", "openai"),
+    ProbeTarget("tgi", "http://localhost:3000", "openai"),
 )
 
 
@@ -176,31 +182,31 @@ def _models_from(payload: Any, api: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(found))  # de-duplicated, order preserved
 
 
-def probe(endpoint: Endpoint, timeout: float = PROBE_TIMEOUT_S) -> Backend | None:
-    """Ask one endpoint what it is serving. None means nothing usable there."""
-    path = "/api/tags" if endpoint.api == "ollama" else "/v1/models"
-    url = endpoint.base_url.rstrip("/") + path
+def probe(target: ProbeTarget, timeout: float = PROBE_TIMEOUT_S) -> Backend | None:
+    """Ask one target what it is serving. None means nothing usable there."""
+    path = "/api/tags" if target.api == "ollama" else "/v1/models"
+    url = target.base_url.rstrip("/") + path
     payload = _get_json(url, timeout)
     if payload is None:
         return None
     return Backend(
-        name=endpoint.name,
-        base_url=endpoint.base_url,
-        api=endpoint.api,
-        models=_models_from(payload, endpoint.api),
-        how=f"answered GET {path} at {endpoint.base_url} within {timeout:g}s",
+        name=target.name,
+        base_url=target.base_url,
+        api=target.api,
+        models=_models_from(payload, target.api),
+        how=f"answered GET {path} at {target.base_url} within {timeout:g}s",
     )
 
 
 def probe_all(
-    endpoints: Sequence[Endpoint] = DEFAULT_ENDPOINTS,
+    targets: Sequence[ProbeTarget] = DEFAULT_PROBE_TARGETS,
     timeout: float = PROBE_TIMEOUT_S,
 ) -> tuple[Backend, ...]:
-    """Probe every endpoint at once, so the wall clock is one timeout."""
-    if not endpoints:
+    """Probe every target at once, so the wall clock is one timeout."""
+    if not targets:
         return ()
-    with ThreadPoolExecutor(max_workers=len(endpoints)) as pool:
-        results = pool.map(lambda e: probe(e, timeout), endpoints)
+    with ThreadPoolExecutor(max_workers=len(targets)) as pool:
+        results = pool.map(lambda t: probe(t, timeout), targets)
     return tuple(b for b in results if b is not None)
 
 
@@ -271,14 +277,14 @@ def detect_docker() -> tuple[bool, str]:
 
 
 def detect(
-    endpoints: Sequence[Endpoint] = DEFAULT_ENDPOINTS,
+    targets: Sequence[ProbeTarget] = DEFAULT_PROBE_TARGETS,
     timeout: float = PROBE_TIMEOUT_S,
 ) -> Detection:
     """Survey the machine. Never raises: a bare machine is a valid answer."""
     gpus, gpu_notes = detect_gpus()
     ram_gb, ram_how = detect_ram_gb()
     docker, docker_how = detect_docker()
-    backends = probe_all(endpoints, timeout)
+    backends = probe_all(targets, timeout)
     cpu_count = os.cpu_count()
 
     provenance: dict[str, str] = {
@@ -293,7 +299,7 @@ def detect(
 
     notes = list(gpu_notes)
     if not backends:
-        tried = ", ".join(e.base_url for e in endpoints)
+        tried = ", ".join(t.base_url for t in targets)
         notes.append(
             f"No local backend answered. Tried: {tried or '(none)'}. This is "
             f"a supported install — the ladder degrades to whatever is bound "

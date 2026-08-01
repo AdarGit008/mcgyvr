@@ -75,6 +75,50 @@ Format: [Keep a Changelog](https://keepachangelog.com).
 - `mcgyvr index` — build the index for a repository and show what it cost,
   with optional `--search TERM` (text) and `--symbol NAME` (definitions and
   references).
+- Target resolution (`src/mcgyvr/orchestrator/resolve.py`) — a phrase a caller
+  would actually type becomes a ranked shortlist of paths (#48, E7). The whole
+  cost argument is that a model reads a few files rather than a repository, so
+  something must choose those few files; if that chooser were itself a model
+  the saving would be circular. This is the deterministic bridge, and it calls
+  no model — there is nothing in it but the index (#47) and string work.
+  Scoring is two-tier: a whole-query match (the phrase reduced to content words
+  and squashed to letters, equal to a symbol name or a filename — so "the fetch
+  helper" finds `fetchHelper`) is a near-certain hit and dominates anything
+  fuzzy; failing that, per-token matches accumulate across symbol names,
+  filenames and path components, each token weighted by how rare it is in the
+  repository so a common word cannot outvote a rare one, and scaled by how much
+  of a name it accounts for so a named symbol beats a fragment of a longer one.
+  Test files are demoted rather than excluded, so they surface when asked for
+  without crowding out source. Two things are held rather than hoped for: every
+  candidate reports the evidence that ranked it, so the expensive reader can
+  judge the shortlist instead of trusting it; and ambiguity is an outcome, not a
+  guess — when no candidate clearly leads its runner-up the verdict says
+  `AMBIGUOUS` and hands back the contenders, rather than promoting a coin-flip
+  to "the answer".
+- `mcgyvr resolve QUERY [REPO]` — resolve a natural-language target to a ranked
+  shortlist, with the evidence behind each candidate and `--limit` to cap it.
+- Bounded targeted reads (`src/mcgyvr/orchestrator/read.py`) — the one place in
+  exploration where tokens are spent (#49, E7). Attach, index and resolve all
+  cost nothing; here the orchestrator finally reads source, so this is where the
+  north star is won or lost. A candidate's query-relevant symbol definitions and
+  text hits become line anchors, each widened to a bounded window and merged
+  with its neighbours so an overlap is read once; a candidate that matched only
+  on its filename has no anchor, so its window is the file head — the imports
+  and top-level shape that stand in for "what is this file". Three commitments
+  are structural. The spend is bounded and recorded: a budget in estimated
+  tokens caps the exploration, every region carries its own cost, and the
+  estimator is a plain deterministic function of the text — no model to ask —
+  that a caller owning a real tokenizer can replace to account exactly. Every
+  read is attributed to the candidate rank that motivated it and the reason the
+  region mattered, so the spend is auditable against the shortlist. And
+  exhaustion forces a decision rather than silent continuation: the first region
+  that does not fit ends the read, it and everything after it are recorded as
+  deferred with what they would have cost, and the plan is marked exhausted. A
+  caller that overruns gets an explicit partial plan, never a quietly truncated
+  one.
+- `mcgyvr read QUERY [REPO]` — resolve a target, then read the regions it
+  justifies within `--budget` estimated tokens, with `--context` to set the
+  window size; what was read and what was deferred are both reported.
 - Index cache (`src/mcgyvr/orchestrator/cache.py`) — exploration cost
   amortized across tasks (#52, E7). A build is persisted per repository under
   `$XDG_CACHE_HOME/mcgyvr/index`, keyed by absolute path so two worktrees of
@@ -215,6 +259,12 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   fell back to a checkout path that is not there. This was already latent for
   the capability table; the catalog made it fatal, since the contract schema
   reads it and `import mcgyvr.contract` would have failed outright.
+- `detect.Endpoint` is now `detect.ProbeTarget`, and `DEFAULT_ENDPOINTS` is
+  `DEFAULT_PROBE_TARGETS`. The two concepts had collided on one name: a probe
+  target is a *candidate* address that may turn out to have nothing behind it
+  and exists before any config does, while `pool.Endpoint` is somewhere a rung
+  is configured to run. Naming them apart keeps "where might something be" and
+  "where does this rung run" from reading as the same idea.
 - `mcgyvr.orchestrator.index` exposes the per-file primitives a build is made
   of (`read_source`, `index_source`, `IndexAssembler`, `enumerate_files`) so
   the cached build reuses them rather than reimplementing the bounds. Both
