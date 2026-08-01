@@ -350,6 +350,51 @@ def _resolve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _read(args: argparse.Namespace) -> int:
+    from mcgyvr.orchestrator import (
+        ExplorationError,
+        IndexBuildError,
+        build_index,
+        explore,
+        resolve,
+    )
+
+    root = Path(args.repo).resolve()
+    if not root.is_dir():
+        print(f"error: {root} is not a directory", file=sys.stderr)
+        return 1
+    try:
+        index = build_index(root)
+    except IndexBuildError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    resolution = resolve(index, args.query, limit=args.limit)
+    try:
+        plan = explore(index, resolution, budget=args.budget, context=args.context)
+    except ExplorationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    state = "exhausted" if plan.exhausted else "complete"
+    print(
+        f'"{args.query}" — read {len(plan.reads)} region(s), '
+        f"{plan.spent}/{plan.budget} est. tokens ({state}):"
+    )
+    for read in plan.reads:
+        print(
+            f"  #{read.candidate_rank} {read.path}:{read.start}-{read.end}"
+            f"  [{read.reason}]  ~{read.estimated_tokens}t"
+        )
+    if plan.deferred:
+        cost = sum(item.estimated_tokens for item in plan.deferred)
+        print(f"\n  deferred {len(plan.deferred)} region(s) (~{cost}t over budget):")
+        for item in plan.deferred:
+            print(f"    #{item.candidate_rank} {item.path}:{item.start}-{item.end}")
+    # Exhaustion is a reported plan, not a command failure — the caller decides.
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -497,6 +542,43 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="cap the shortlist to N candidates (default: 10)",
     )
     res.set_defaults(func=_resolve)
+
+    rd = sub.add_parser(
+        "read",
+        help="resolve a target, then read the regions it justifies within a budget",
+    )
+    rd.add_argument(
+        "query",
+        help='what to find, in words — e.g. "the fetch helper" or a symbol name',
+    )
+    rd.add_argument(
+        "repo",
+        nargs="?",
+        default=".",
+        help="repository to read from (default: current directory)",
+    )
+    rd.add_argument(
+        "--budget",
+        type=int,
+        default=2000,
+        metavar="TOKENS",
+        help="cap exploration at TOKENS estimated tokens (default: 2000)",
+    )
+    rd.add_argument(
+        "--context",
+        type=int,
+        default=25,
+        metavar="LINES",
+        help="lines per read window around each anchor (default: 25)",
+    )
+    rd.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        metavar="N",
+        help="cap the resolver shortlist to N candidates first (default: 10)",
+    )
+    rd.set_defaults(func=_read)
 
     args = parser.parse_args(argv)
     result: int = args.func(args)

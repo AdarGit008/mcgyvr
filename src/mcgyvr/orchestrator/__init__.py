@@ -21,6 +21,13 @@ from mcgyvr.orchestrator.index import (
     SymbolTable,
     build_index,
 )
+from mcgyvr.orchestrator.read import (
+    Deferral,
+    Exploration,
+    ExplorationError,
+    TargetedRead,
+    explore,
+)
 from mcgyvr.orchestrator.repo import AttachedRepo, AttachError, attach
 from mcgyvr.orchestrator.resolve import Candidate, Resolution, Verdict, resolve
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
@@ -30,6 +37,9 @@ __all__ = [
     "AttachedRepo",
     "BuildStats",
     "Candidate",
+    "Deferral",
+    "Exploration",
+    "ExplorationError",
     "Index",
     "IndexBuildError",
     "IndexedFile",
@@ -38,8 +48,10 @@ __all__ = [
     "Symbol",
     "SymbolKind",
     "SymbolTable",
+    "TargetedRead",
     "Verdict",
     "attach",
     "build_index",
+    "explore",
     "resolve",
 ]
