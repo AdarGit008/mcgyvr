@@ -20,6 +20,15 @@ from mcgyvr.orchestrator.cache import (
 )
 from mcgyvr.orchestrator.cache import clear as clear_cache
 from mcgyvr.orchestrator.cache import prune as prune_cache
+from mcgyvr.orchestrator.context import (
+    Acceleration,
+    ContextFinding,
+    Discrepancy,
+    SuppliedContext,
+    VerifiedContext,
+    accelerate,
+    verify,
+)
 from mcgyvr.orchestrator.index import (
     BuildStats,
     Index,
@@ -41,13 +50,16 @@ from mcgyvr.orchestrator.resolve import Candidate, Resolution, Verdict, resolve
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 
 __all__ = [
+    "Acceleration",
     "AttachError",
     "AttachedRepo",
     "BuildStats",
     "CacheStats",
     "CachedBuild",
     "Candidate",
+    "ContextFinding",
     "Deferral",
+    "Discrepancy",
     "Exploration",
     "ExplorationError",
     "Index",
@@ -55,11 +67,14 @@ __all__ = [
     "IndexedFile",
     "Match",
     "Resolution",
+    "SuppliedContext",
     "Symbol",
     "SymbolKind",
     "SymbolTable",
     "TargetedRead",
     "Verdict",
+    "VerifiedContext",
+    "accelerate",
     "attach",
     "build_index",
     "build_index_cached",
@@ -68,4 +83,5 @@ __all__ = [
     "explore",
     "prune_cache",
     "resolve",
+    "verify",
 ]
