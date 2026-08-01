@@ -236,6 +236,43 @@ def _init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _attach(args: argparse.Namespace) -> int:
+    from mcgyvr.orchestrator import AttachError, attach
+
+    into = Path(args.into) if args.into else None
+    try:
+        with attach(args.source, into=into) as repo:
+            # Print inside the context: for an ephemeral clone the working
+            # location only exists here, and the point is to show it resolved.
+            print(f"Repository attached ({repo.origin}):")
+            print(f"  root:     {repo.root}")
+            print(
+                f"  revision: {repo.revision}"
+                + (" (empty tree — no commit yet)" if repo.is_unborn else "")
+            )
+            print(f"  source:   {repo.source}")
+            if repo.ephemeral:
+                print("  lifetime: ephemeral (removed when this command exits)")
+            if repo.is_dirty:
+                print(
+                    f"\nWorking tree is dirty — {len(repo.dirty)} uncommitted path(s):"
+                )
+                for path in repo.dirty:
+                    print(f"  {path}")
+                print(
+                    "\nA change measured against a dirty tree also carries these "
+                    "edits; commit or stash them before dispatching work."
+                )
+            else:
+                print("  worktree: clean")
+    except AttachError as exc:
+        # Loud on purpose: the boundary is "a repository is required", and the
+        # message names what to supply.
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -313,6 +350,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="overwrite an existing config, discarding hand edits",
     )
     ini.set_defaults(func=_init)
+
+    att = sub.add_parser(
+        "attach",
+        help="attach a repository (local path or clone URL) and show its state",
+    )
+    att.add_argument(
+        "source",
+        help="a local git checkout, or a URL to clone (https/ssh/git/file)",
+    )
+    att.add_argument(
+        "--into",
+        default=None,
+        metavar="DIR",
+        help="clone a URL into DIR and keep it, instead of an ephemeral temp dir",
+    )
+    att.set_defaults(func=_attach)
 
     args = parser.parse_args(argv)
     result: int = args.func(args)
