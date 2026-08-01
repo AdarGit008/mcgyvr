@@ -34,6 +34,15 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcgyvr"]
 
+# The shipped data files are read at runtime through `importlib.resources`, so
+# they have to be inside the package in a wheel — `data/` sits at the repo root
+# for editing, and the loaders' checkout fallback only works from a source tree.
+# Without this a wheel install cannot load the task catalog, and since the
+# contract schema reads it, `import mcgyvr.contract` would fail outright.
+[tool.hatch.build.targets.wheel.force-include]
+"data/capability-table.json" = "mcgyvr/data/capability-table.json"
+"data/task-catalog.json" = "mcgyvr/data/task-catalog.json"
+
 [tool.ruff]
 line-length = 88
 target-version = "py312"

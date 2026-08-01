@@ -213,7 +213,52 @@ Format: [Keep a Changelog](https://keepachangelog.com).
 - `mcgyvr pool` — show the ladder as it resolves against the declared sources,
   including which rungs were skipped and why.
 
+- Decomposition catalog (`data/task-catalog.json`, `src/mcgyvr/catalog.py`) —
+  the vocabulary of what mcgyvr can be asked to do (#15, E2). Each entry states
+  what accepting it promises, which family of the ladder it may start on, and
+  what evidence a contract of that type must carry. It is *data*: adding a task
+  type is an edit to the JSON and nothing else, proven by a test that invents a
+  type in a temporary file and drives it through contract validation rather than
+  by grepping the source for names. The start is a **family** (deterministic →
+  local → api) rather than a rung, because rung names are chosen by whoever
+  wrote the config and a catalog naming them would only be valid on the machine
+  it was written for; a family resolves against any ladder, and it is a floor a
+  dearer rung satisfies. `Catalog.unservable(config)` answers "what can this
+  install not start" by name rather than by count. `deterministic` is derived
+  from the family rather than declared, so the two cannot disagree — the move
+  ADR-0003 makes for binding names.
+  The inherited local-ai vocabulary was validated rather than adopted: of
+  seventeen inherited types nine are carried and eight are removed, each with
+  its reason kept in the file. `function_implementation` is the only entry the
+  capability table directly warrants — it is the shape HumanEval+ measures — so
+  every other entry carries a structural argument in its own `warrant` field
+  instead of an optimistic route. `multi_file_refactor` is removed as
+  structurally unservable, not merely hard: the worker output protocol is one
+  file per reply (#25), so no model rung can emit a coordinated multi-file
+  change at all. `interface_design` is removed because no acceptance evidence
+  exists for it. `simple_bug_fix`/`complex_bug_fix` collapse into `bug_fix`,
+  because difficulty is routing state that risk (#16) and escalation (#24)
+  already hold, and a second copy is one that can disagree.
+- `mcgyvr catalog [NAME]` — show the vocabulary and what each type guarantees,
+  `--against CONFIG` to name the types a configured ladder cannot start, and
+  `--excluded` to show what was considered and removed with the reason.
+- A contract whose task type requires evidence only a command can produce is
+  rejected when it declares no acceptance commands. A `bug_fix` with nothing to
+  run does not fail loudly — it is accepted on the gate alone, and its guarantee
+  goes unbacked.
+
 ### Changed
+- The task-type vocabulary moved out of `mcgyvr.contract` into the catalog. The
+  contract schema now resolves the valid set per validation rather than freezing
+  it at import, so a type added to the JSON is accepted without touching code —
+  a snapshot taken at import would have been a copy of the catalog living in
+  code, which is the thing #15 forbids.
+- The shipped data files are force-included into the wheel
+  (`tool.hatch.build.targets.wheel.force-include`). They are read through
+  `importlib.resources` but lived only at the repo root, so an installed wheel
+  fell back to a checkout path that is not there. This was already latent for
+  the capability table; the catalog made it fatal, since the contract schema
+  reads it and `import mcgyvr.contract` would have failed outright.
 - `detect.Endpoint` is now `detect.ProbeTarget`, and `DEFAULT_ENDPOINTS` is
   `DEFAULT_PROBE_TARGETS`. The two concepts had collided on one name: a probe
   target is a *candidate* address that may turn out to have nothing behind it

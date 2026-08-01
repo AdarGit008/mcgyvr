@@ -18,7 +18,6 @@ import pytest
 
 from mcgyvr.contract import (
     SCHEMA_VERSION,
-    TASK_TYPES,
     Contract,
     ContractFileError,
     ContractSchemaError,
@@ -26,6 +25,7 @@ from mcgyvr.contract import (
     load,
     loads,
     parse,
+    task_types,
 )
 
 MINIMAL = """
@@ -35,6 +35,7 @@ task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
 stop_conditions:
   - The retry policy is not stated anywhere in the repo.
+acceptance: ["pytest -q"]
 scope:
   allow: ["src/**/*.py"]
 """
@@ -201,7 +202,10 @@ def test_literal_target_is_allowed_for_a_model_task_type() -> None:
         (MINIMAL + "\noutput_schema: freeform\n", "output_schema:"),
         (MINIMAL + "\nverification:\n  policy: vibes\n", "verification.policy:"),
         (MINIMAL + "\nlimits:\n  attempts: 0\n", "limits.attempts:"),
-        (MINIMAL + "\nacceptance: pytest -q\n", "acceptance:"),
+        (
+            MINIMAL.replace('acceptance: ["pytest -q"]', "acceptance: pytest -q"),
+            "acceptance:",
+        ),
         (
             MINIMAL.replace('allow: ["src/**/*.py"]', 'allow: ["/etc/passwd"]'),
             "scope.allow.0:",
@@ -396,13 +400,17 @@ def test_scope_is_the_canonical_matcher() -> None:
 
 
 def test_every_declared_task_type_loads() -> None:
-    for kind in TASK_TYPES:
+    for kind in task_types():
+        # A type whose evidence needs a command must carry one; that is the
+        # catalog's rule, so the fixture obeys it rather than working around it.
+        acceptance = '["pytest -q"]' if kind.needs_acceptance_commands else "[]"
         document = f"""
 id: t
 task_type: {kind.name}
 task: Do the thing.
 target: src/pkg/fetch.py
 stop_conditions: ["An unknown."]
+acceptance: {acceptance}
 scope:
   allow: ["src/**"]
 """
@@ -413,7 +421,7 @@ scope:
 
 def test_every_task_type_is_documented() -> None:
     """A type nobody can explain is one nobody can choose correctly."""
-    for kind in TASK_TYPES:
+    for kind in task_types():
         assert kind.doc.strip()
         assert kind.name.islower()
 
