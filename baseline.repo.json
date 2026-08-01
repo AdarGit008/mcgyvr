@@ -7,7 +7,11 @@
   "workflow": "multi-lane",
   "anchoring": "strict",
   "ground_truth_boundary": { "forge": "github", "default_branch": "main" },
-  "lanes": { "namespace": "lane/*", "lease_ttl": "7d" },
+  "lanes": {
+    "namespace": "lane/*",
+    "lease_ttl": "7d",
+    "families": ["dependabot/**"]
+  },
   "join_keys": ["Baseline-Agent", "Baseline-Issue"],
   "engine_pin": "2.x",
   "staleness": { "facts_ttl": "1h", "orient_ceiling": "24h" }
