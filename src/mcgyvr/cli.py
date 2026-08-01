@@ -9,9 +9,13 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 from mcgyvr import __version__
 from mcgyvr.capability import CapabilityTableError, load
+from mcgyvr.config import CONFIG_FILENAME, CONFIG_PATH_ENV, ConfigError
+from mcgyvr.config import config_path as resolve_config_path
+from mcgyvr.config import load as load_config
 
 
 def _capabilities(args: argparse.Namespace) -> int:
@@ -42,6 +46,37 @@ def _capabilities(args: argparse.Namespace) -> int:
     return 0
 
 
+def _config(args: argparse.Namespace) -> int:
+    path = Path(args.path) if args.path else resolve_config_path()
+    try:
+        config = load_config(path)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"{config.path}: valid\n")
+    print("Sources:")
+    for source in config.sources.values():
+        credential = (
+            f"key from ${source.api_key_env}" if source.api_key_env else "no credential"
+        )
+        print(
+            f"  {source.name:<16} {source.api:<8} {source.base_url:<32} "
+            f"x{source.max_parallel}  ({credential})"
+        )
+
+    print("\nLadder, cheapest first:")
+    for tier in config.ladder.tiers:
+        print(f"  {tier.name:<16} {tier.model:<32} on {tier.source}")
+
+    if config.is_local_only:
+        print(
+            "\nEvery rung runs locally: this install needs no API key, and the "
+            "deterministic gate is its acceptance bar."
+        )
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -62,6 +97,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="show only models that fit this much VRAM with working headroom",
     )
     caps.set_defaults(func=_capabilities)
+
+    conf = sub.add_parser(
+        "config",
+        help="validate the configuration file and show what it resolves to",
+    )
+    conf.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+    )
+    conf.set_defaults(func=_config)
 
     args = parser.parse_args(argv)
     result: int = args.func(args)
