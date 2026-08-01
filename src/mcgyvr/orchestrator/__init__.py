@@ -22,19 +22,24 @@ from mcgyvr.orchestrator.index import (
     build_index,
 )
 from mcgyvr.orchestrator.repo import AttachedRepo, AttachError, attach
+from mcgyvr.orchestrator.resolve import Candidate, Resolution, Verdict, resolve
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 
 __all__ = [
     "AttachError",
     "AttachedRepo",
     "BuildStats",
+    "Candidate",
     "Index",
     "IndexBuildError",
     "IndexedFile",
     "Match",
+    "Resolution",
     "Symbol",
     "SymbolKind",
     "SymbolTable",
+    "Verdict",
     "attach",
     "build_index",
+    "resolve",
 ]
