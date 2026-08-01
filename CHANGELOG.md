@@ -75,8 +75,60 @@ Format: [Keep a Changelog](https://keepachangelog.com).
 - `mcgyvr index` — build the index for a repository and show what it cost,
   with optional `--search TERM` (text) and `--symbol NAME` (definitions and
   references).
+- Index cache (`src/mcgyvr/orchestrator/cache.py`) — exploration cost
+  amortized across tasks (#52, E7). A build is persisted per repository under
+  `$XDG_CACHE_HOME/mcgyvr/index`, keyed by absolute path so two worktrees of
+  one repository never share entries, and reused per file. Three properties
+  are structural rather than remembered: the file list is never cached (every
+  build re-enumerates through git, so a deleted path is absent from the
+  enumeration and the cache is never asked about it), invalidation is per file
+  (each entry carries its own stamp, so a change rebuilds that file and leaves
+  every other entry standing), and the cache is an accelerator that can never
+  be load-bearing (an unreadable, mismatched or unwritable cache degrades to a
+  full build, never to a wrong or failed one). Validity is decided cheapest
+  first: a matching size and mtime reuses a file without opening it, a moved
+  stamp falls back to a content fingerprint that still avoids reparsing when
+  the bytes are unchanged, and only new content is parsed again. Entries
+  recorded during the build's own clock tick are distrusted and revalidated by
+  content, as git does for racily-clean entries. The directory is bounded
+  (`DEFAULT_MAX_CACHE_BYTES`, evicting whole repositories least-recently-used
+  first) and `CacheStats` reports what the cache actually did, because a cache
+  that silently does nothing looks exactly like one that works.
+- `mcgyvr index --no-cache`, `--refresh-cache` and `--clear-cache` — build
+  without the cache, rebuild and re-store it, or remove this repository's
+  cached index.
+- Agent-supplied context (`src/mcgyvr/orchestrator/context.py`) — the caller's
+  existing knowledge as an accelerator that can never become load-bearing (#51,
+  E7). A calling agent that has already read the repository supplies the paths
+  it believes matter and the text it holds; a file whose supplied content is
+  verified equal to the repository's costs the exploration budget nothing, and
+  the budget it did not consume goes to regions the caller has not seen. What
+  keeps a fallible hint from steering the plan is structural rather than
+  promised: hints may only re-rank the shortlist the deterministic pass already
+  produced, so they can neither add a path nor remove one; supplied text is
+  believed only when it matches the index exactly, so a stale copy cannot feed
+  itself back as fact; and the hint's weight is derived from the resolver's own
+  dominance threshold and pinned below it, so a boost provably cannot overtake
+  a resolved leader. Within a shortlist the resolver declined to separate a
+  hint decides read order and can finish a call the index had nearly made, but
+  two equally-scored candidates stay ambiguous however firmly one is asserted —
+  a hint may confirm a judgement, not supply one. Every rejected hint is
+  reported as a `ContextFinding`, because context that contradicts the
+  repository is worth more said than swallowed.
+- `mcgyvr read --hint PATH` and `--holds PATH` — name a path you believe is
+  relevant, or one whose current content you already hold; rejected hints are
+  printed rather than silently dropped.
 
 ### Changed
+- `mcgyvr.orchestrator.index` exposes the per-file primitives a build is made
+  of (`read_source`, `index_source`, `IndexAssembler`, `enumerate_files`) so
+  the cached build reuses them rather than reimplementing the bounds. Both
+  builders assemble through `IndexAssembler`, so a cached build and a fresh
+  one cannot drift into reporting differently.
+- A targeted read records whether the caller already held it (`TargetedRead.
+  supplied`) alongside its real estimated cost, and an exploration reports what
+  supplied context saved it (`Exploration.saved`). A free read stays visible and
+  costed rather than disappearing from the account.
 - `pyyaml` is now a runtime dependency. The config file is YAML because it
   carries policy that needs comments to stay hand-editable (ADR-0001).
 - Worker bindings are named `<role>_<locality>_<model>` (for example

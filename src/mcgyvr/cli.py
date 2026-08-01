@@ -274,14 +274,30 @@ def _attach(args: argparse.Namespace) -> int:
 
 
 def _index(args: argparse.Namespace) -> int:
-    from mcgyvr.orchestrator import IndexBuildError, build_index
+    from mcgyvr.orchestrator import (
+        IndexBuildError,
+        build_index,
+        build_index_cached,
+        clear_cache,
+    )
 
     root = Path(args.repo).resolve()
     if not root.is_dir():
         print(f"error: {root} is not a directory", file=sys.stderr)
         return 1
+
+    if args.clear_cache:
+        removed = clear_cache(root)
+        print(f"Cleared {len(removed)} cached index(es) for {root}")
+        return 0
+
+    cache = None
     try:
-        index = build_index(root)
+        if args.no_cache:
+            index = build_index(root)
+        else:
+            built = build_index_cached(root, refresh=args.refresh_cache)
+            index, cache = built.index, built.cache
     except IndexBuildError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -302,6 +318,12 @@ def _index(args: argparse.Namespace) -> int:
         )
     if stats.degraded_extensions:
         print("  text-only (no grammar): " + ", ".join(stats.degraded_extensions))
+    if cache is not None:
+        print(
+            f"  cache: {cache.reused} reused, {cache.restamped} unchanged, "
+            f"{cache.rebuilt} rebuilt, {cache.dropped} dropped"
+            + (f" — {cache.note}" if cache.note else "")
+        )
 
     if args.search:
         hits = index.search(args.search, limit=args.limit)
@@ -547,6 +569,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=20,
         metavar="N",
         help="cap the number of text-search hits shown (default: 20)",
+    )
+    idx.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="build from source without reading or writing the index cache",
+    )
+    idx.add_argument(
+        "--refresh-cache",
+        action="store_true",
+        help="ignore the cached index, rebuild from source, and store the result",
+    )
+    idx.add_argument(
+        "--clear-cache",
+        action="store_true",
+        help="remove this repository's cached index and exit",
     )
     idx.set_defaults(func=_index)
 
