@@ -21,13 +21,24 @@ from mcgyvr.gate.changeset import (
     FileChange,
 )
 from mcgyvr.gate.findings import Finding
+from mcgyvr.gate.preflight import (
+    PreflightIssue,
+    check_clean_tree,
+    check_prompt_fits,
+)
+from mcgyvr.gate.runner import Gate, GateResult
 
 __all__ = [
     "ChangeSet",
     "ChangeSetError",
     "FileChange",
     "Finding",
+    "Gate",
+    "GateResult",
     "LanguageAdapter",
+    "PreflightIssue",
     "PythonAdapter",
     "ToolUnavailableError",
+    "check_clean_tree",
+    "check_prompt_fits",
 ]
