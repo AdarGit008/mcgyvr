@@ -74,6 +74,7 @@ tools and local models, with the gate as the acceptance bar.
 |------|---------|
 | `src/mcgyvr/` | The package |
 | `data/` | Capability table and its provenance |
+| `docs/config-reference.md` | Every config key — generated from the schema, not hand-written |
 | `docs/decisions/` | Decision records — forks and rationale only |
 | `records/` | Session records, judgments, claims (baseline forensic tier) |
 | `tools/baseline/` | Vendored [baseline-skill](https://github.com/AdarGit008/baseline-skill), pinned by `tools/baseline.lock.json` |
