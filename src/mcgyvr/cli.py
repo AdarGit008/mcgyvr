@@ -79,6 +79,52 @@ def _config(args: argparse.Namespace) -> int:
     return 0
 
 
+def _contract(args: argparse.Namespace) -> int:
+    import json
+
+    from mcgyvr.contract import ContractError, load
+
+    try:
+        contract = load(Path(args.path))
+    except ContractError as exc:
+        # The whole point of the loader is that this message is actionable:
+        # it names the field and what a valid value looks like.
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.worker_view:
+        print(json.dumps(contract.worker_view(), indent=2))
+        return 0
+
+    tier = "deterministic tier" if contract.is_deterministic else "model tier"
+    print(f"{args.path}: valid\n")
+    print(f"  {contract.id}  [{contract.task_type}] — {tier}")
+    print(f"  target:  {contract.target}")
+    print(f"  allow:   {', '.join(contract.scope.allow)}")
+    if contract.scope.forbid:
+        print(f"  forbid:  {', '.join(contract.scope.forbid)}")
+    if contract.deps:
+        print(f"  deps:    {', '.join(d.path for d in contract.deps)}")
+    if contract.stop_conditions:
+        print(f"  stops:   {len(contract.stop_conditions)} condition(s)")
+    print(
+        f"  risk:    {contract.risk} — verified by "
+        f"{contract.verification.policy.replace('_', ' ')}"
+    )
+    print(
+        f"  limits:  <={contract.limits.max_output_tokens} output tokens, "
+        f"<={contract.max_input_tokens} prompt tokens, "
+        f"{contract.limits.attempts} attempt(s)"
+    )
+    if contract.acceptance:
+        print("  acceptance:")
+        for command in contract.acceptance:
+            print(f"    $ {command}")
+    else:
+        print("  acceptance: none declared — the gate's own checks decide")
+    return 0
+
+
 def _detect(args: argparse.Namespace) -> int:
     found = detect()
 
@@ -479,6 +525,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
     )
     conf.set_defaults(func=_config)
+
+    con = sub.add_parser(
+        "contract",
+        help="validate a task contract and show what it resolves to",
+    )
+    con.add_argument("path", help="contract file to validate (YAML or JSON)")
+    con.add_argument(
+        "--worker-view",
+        action="store_true",
+        help="print exactly the fields a worker prompt may be built from",
+    )
+    con.set_defaults(func=_contract)
 
     det = sub.add_parser(
         "detect",
