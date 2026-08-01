@@ -47,6 +47,35 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   reported with what it costs. If nothing can be dispatched to, init refuses
   and names what to bind rather than writing a config that cannot load.
 
+- Repository attach (`src/mcgyvr/orchestrator/repo.py`) — the required first
+  input to any orchestration (#46, E7). A local checkout and a clone URL
+  converge on one internal state through a single code path: a canonical repo
+  root (a subdirectory normalises to the toplevel), the starting revision
+  everything downstream is judged against (the empty tree for an unborn repo),
+  and whether the working tree is dirty. A clone lands in a working location
+  with a declared lifetime — ephemeral by default, removed when the attach
+  context closes, or into a caller-owned directory. The "a repository is
+  required" boundary is enforced loudly: no input, a non-git directory, a file,
+  an unrecognisable input, or a failed clone each fail before any work with a
+  message naming what to supply.
+- `mcgyvr attach` — attach a repository and show its resolved state (root,
+  revision, lifetime, and any uncommitted paths).
+- Deterministic index (`src/mcgyvr/orchestrator/index.py`,
+  `orchestrator/symbols.py`) — the zero-token substrate the cost argument
+  rests on (#47, E7). Enumerates a repository's non-ignored files through
+  `git ls-files` (so `.gitignore` is honoured, not re-implemented), holds
+  their text for fast search, and extracts a shallow symbol table —
+  definitions, references, exports — reusing the gate's per-language
+  investment: Python via the standard library's `ast`, JS/TS via tree-sitter.
+  No model is called anywhere in it. The build is bounded and reported
+  (`BuildStats`: elapsed time, files indexed, large/binary files skipped,
+  symbols, per-language counts) and degrades to text-only on a language with
+  no grammar rather than failing — a repository in an unindexed language still
+  yields a searchable text index and an empty symbol table.
+- `mcgyvr index` — build the index for a repository and show what it cost,
+  with optional `--search TERM` (text) and `--symbol NAME` (definitions and
+  references).
+
 ### Changed
 - `pyyaml` is now a runtime dependency. The config file is YAML because it
   carries policy that needs comments to stay hand-editable (ADR-0001).

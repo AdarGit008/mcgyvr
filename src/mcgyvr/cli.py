@@ -236,6 +236,120 @@ def _init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _attach(args: argparse.Namespace) -> int:
+    from mcgyvr.orchestrator import AttachError, attach
+
+    into = Path(args.into) if args.into else None
+    try:
+        with attach(args.source, into=into) as repo:
+            # Print inside the context: for an ephemeral clone the working
+            # location only exists here, and the point is to show it resolved.
+            print(f"Repository attached ({repo.origin}):")
+            print(f"  root:     {repo.root}")
+            print(
+                f"  revision: {repo.revision}"
+                + (" (empty tree — no commit yet)" if repo.is_unborn else "")
+            )
+            print(f"  source:   {repo.source}")
+            if repo.ephemeral:
+                print("  lifetime: ephemeral (removed when this command exits)")
+            if repo.is_dirty:
+                print(
+                    f"\nWorking tree is dirty — {len(repo.dirty)} uncommitted path(s):"
+                )
+                for path in repo.dirty:
+                    print(f"  {path}")
+                print(
+                    "\nA change measured against a dirty tree also carries these "
+                    "edits; commit or stash them before dispatching work."
+                )
+            else:
+                print("  worktree: clean")
+    except AttachError as exc:
+        # Loud on purpose: the boundary is "a repository is required", and the
+        # message names what to supply.
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _index(args: argparse.Namespace) -> int:
+    from mcgyvr.orchestrator import IndexBuildError, build_index
+
+    root = Path(args.repo).resolve()
+    if not root.is_dir():
+        print(f"error: {root} is not a directory", file=sys.stderr)
+        return 1
+    try:
+        index = build_index(root)
+    except IndexBuildError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    stats = index.stats
+    print(f"Indexed {root}")
+    print(
+        f"  {stats.files_indexed} files, {stats.symbol_count} symbols, "
+        f"{_mib(stats.bytes_indexed)} in {stats.elapsed_seconds:.3f}s"
+    )
+    if stats.languages:
+        langs = ", ".join(f"{name} x{n}" for name, n in sorted(stats.languages.items()))
+        print(f"  languages: {langs}")
+    if stats.files_skipped_large or stats.files_skipped_binary:
+        print(
+            f"  skipped: {stats.files_skipped_large} large, "
+            f"{stats.files_skipped_binary} binary"
+        )
+    if stats.degraded_extensions:
+        print("  text-only (no grammar): " + ", ".join(stats.degraded_extensions))
+
+    if args.search:
+        hits = index.search(args.search, limit=args.limit)
+        print(f'\nText search "{args.search}" — {len(hits)} hit(s):')
+        for match in hits:
+            print(f"  {match.path}:{match.line}: {match.text.strip()}")
+
+    if args.symbol:
+        defs = index.symbols.definitions(args.symbol)
+        refs = index.symbols.references(args.symbol)
+        print(
+            f'\nSymbol "{args.symbol}" — '
+            f"{len(defs)} definition(s), {len(refs)} reference(s):"
+        )
+        for symbol in defs:
+            detail = f" [{symbol.detail}]" if symbol.detail else ""
+            print(f"  def  {symbol.path}:{symbol.line}{detail}")
+        for symbol in refs:
+            print(f"  ref  {symbol.path}:{symbol.line}")
+    return 0
+
+
+def _resolve(args: argparse.Namespace) -> int:
+    from mcgyvr.orchestrator import IndexBuildError, Verdict, build_index, resolve
+
+    root = Path(args.repo).resolve()
+    if not root.is_dir():
+        print(f"error: {root} is not a directory", file=sys.stderr)
+        return 1
+    try:
+        index = build_index(root)
+    except IndexBuildError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    result = resolve(index, args.query, limit=args.limit)
+    count = len(result.candidates)
+    print(f'"{args.query}" — {result.verdict.value}, {count} candidate(s):')
+    if result.verdict is Verdict.EMPTY:
+        print("  (no candidate matched — try a symbol name or a filename)")
+    for rank, candidate in enumerate(result.candidates, start=1):
+        print(f"  {rank}. {candidate.path}  ({candidate.score:g})")
+        for reason in candidate.evidence:
+            print(f"       · {reason}")
+    # An ambiguous outcome is a reportable state, not a failure of the command.
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -313,6 +427,76 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="overwrite an existing config, discarding hand edits",
     )
     ini.set_defaults(func=_init)
+
+    att = sub.add_parser(
+        "attach",
+        help="attach a repository (local path or clone URL) and show its state",
+    )
+    att.add_argument(
+        "source",
+        help="a local git checkout, or a URL to clone (https/ssh/git/file)",
+    )
+    att.add_argument(
+        "--into",
+        default=None,
+        metavar="DIR",
+        help="clone a URL into DIR and keep it, instead of an ephemeral temp dir",
+    )
+    att.set_defaults(func=_attach)
+
+    idx = sub.add_parser(
+        "index",
+        help="build the deterministic index of a repository and show what it cost",
+    )
+    idx.add_argument(
+        "repo",
+        nargs="?",
+        default=".",
+        help="repository to index (default: current directory)",
+    )
+    idx.add_argument(
+        "--search",
+        default=None,
+        metavar="TERM",
+        help="also run a text search for TERM and show the hits",
+    )
+    idx.add_argument(
+        "--symbol",
+        default=None,
+        metavar="NAME",
+        help="also show where NAME is defined and referenced",
+    )
+    idx.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        metavar="N",
+        help="cap the number of text-search hits shown (default: 20)",
+    )
+    idx.set_defaults(func=_index)
+
+    res = sub.add_parser(
+        "resolve",
+        help="resolve a natural-language target to a ranked shortlist of paths",
+    )
+    res.add_argument(
+        "query",
+        help='what to find, in words — e.g. "the fetch helper" or a symbol name',
+    )
+    res.add_argument(
+        "repo",
+        nargs="?",
+        default=".",
+        help="repository to resolve against (default: current directory)",
+    )
+    res.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        metavar="N",
+        help="cap the shortlist to N candidates (default: 10)",
+    )
+    res.set_defaults(func=_resolve)
 
     args = parser.parse_args(argv)
     result: int = args.func(args)

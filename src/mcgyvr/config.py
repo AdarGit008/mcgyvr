@@ -146,7 +146,18 @@ SOURCE_FIELDS: tuple[Field, ...] = (
 )
 
 TIER_FIELDS: tuple[Field, ...] = (
-    Field("name", "str", "How this rung is referred to elsewhere.", required=True),
+    Field(
+        "name",
+        "str",
+        "How this rung is referred to elsewhere — risk floors, routing "
+        "policy, telemetry. Conventionally `<locality>_<model>`, e.g. "
+        "`local_qwen2.5-coder-7b`, which says what the rung is rather than "
+        "where it sits: a positional name silently changes meaning when a "
+        "rung is inserted above it. There is no role in the name because a "
+        "binding's role is already given by where it sits — this is the "
+        "ladder, so it is a worker.",
+        required=True,
+    ),
     Field(
         "source",
         "str",

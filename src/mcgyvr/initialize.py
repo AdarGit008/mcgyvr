@@ -94,7 +94,7 @@ def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
         f"          api_key_env: ANTHROPIC_API_KEY\n"
         f"      ladder:\n"
         f"        tiers:\n"
-        f"          - name: worker_api_claude-opus-5\n"
+        f"          - name: api_claude-opus-5\n"
         f"            source: anthropic\n"
         f"            model: claude-opus-5\n"
     )

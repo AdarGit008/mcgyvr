@@ -78,7 +78,7 @@ An ordered list. Each entry takes these keys:
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `name` | text | **yes** | — | How this rung is referred to elsewhere. |
+| `name` | text | **yes** | — | How this rung is referred to elsewhere — risk floors, routing policy, telemetry. Conventionally `<locality>_<model>`, e.g. `local_qwen2.5-coder-7b`, which says what the rung is rather than where it sits: a positional name silently changes meaning when a rung is inserted above it. There is no role in the name because a binding's role is already given by where it sits — this is the ladder, so it is a worker. |
 | `source` | text | **yes** | — | Which declared source executes this rung. Resolution happens at the execution seam only — nothing above it knows where work ran. |
 | `model` | text | **yes** | — | Model identifier as the source names it. |
 
