@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "_purpose": "The vocabulary of what mcgyvr can be asked to do. Each entry states what accepting it promises (`guarantee`), which family of the ladder it may start on (`starts_on`), and what evidence a contract of that type must carry (`required_evidence`). This file is the only definition: adding a task type is an edit here, not a code change. See data/README.md for how the vocabulary was validated and what was removed from it.",
+  "vendored_from": {
+    "repo": "AdarGit008/local-ai",
+    "status": "archived",
+    "date": "2026-08-01",
+    "_note": "The starting vocabulary was inherited from local-ai's triage map. It was inherited, not validated. `excluded` below records what did not survive validation and why."
+  },
+
+  "families": [
+    {
+      "name": "deterministic",
+      "doc": "Tools. A program executes the change; no model is asked and no tokens are spent. Exactly one attempt, because a tool fails identically on retry."
+    },
+    {
+      "name": "local",
+      "doc": "Models served by a source needing no credential. The keyless install runs here with the deterministic gate as its whole acceptance bar."
+    },
+    {
+      "name": "api",
+      "doc": "Models served by a source needing a credential. The dearest family, and the one the north star measures spend against."
+    }
+  ],
+
+  "_families_note": "Ordered cheapest to dearest, per ADR-0001 boundary 3. A family is the ladder-independent way to say where work starts: rung names are chosen by whoever wrote the config, so a catalog that named rungs would only be valid on the machine it was written for. A family resolves against any ladder — a rung is `api` when its source declares an `api_key_env` and `local` when it does not.",
+
+  "evidence_kinds": [
+    {
+      "name": "gate",
+      "doc": "The deterministic acceptance gate. Carried by every type; it is the floor, not a choice.",
+      "needs_commands": false
+    },
+    {
+      "name": "tool_idempotent",
+      "doc": "Re-running the tool that produced the change produces no further change. Available only to the deterministic family, where a tool owns the output.",
+      "needs_commands": false
+    },
+    {
+      "name": "references_resolved",
+      "doc": "Every reference the index resolved was updated. What the index could not resolve — dynamic access, reflection, strings — is reported as unhandled rather than assumed absent.",
+      "needs_commands": false
+    },
+    {
+      "name": "no_semantic_change",
+      "doc": "The parsed structure is unchanged apart from the region the type is allowed to touch. A structural check, so the gate can judge it without running anything.",
+      "needs_commands": false
+    },
+    {
+      "name": "type_check",
+      "doc": "The project's type checker passes on the changed target.",
+      "needs_commands": true
+    },
+    {
+      "name": "tests_pass",
+      "doc": "The contract's acceptance commands pass in the sandbox.",
+      "needs_commands": true
+    },
+    {
+      "name": "failing_test_first",
+      "doc": "An acceptance command that demonstrates the defect — it must fail before the change and pass after. Without it a fix is indistinguishable from a plausible edit.",
+      "needs_commands": true
+    }
+  ],
+
+  "task_types": [
+    {
+      "name": "format",
+      "starts_on": "deterministic",
+      "guarantee": "The target is byte-identical to what the project's own formatter produces. No semantic change, and nothing is decided that the formatter's configuration did not already decide.",
+      "required_evidence": ["gate", "tool_idempotent", "no_semantic_change"],
+      "warrant": "structural — the project's formatter is the definition of the correct output, so there is nothing for a model to be better at.",
+      "doc": "Reformat existing code with the project's own formatter."
+    },
+    {
+      "name": "import_sort",
+      "starts_on": "deterministic",
+      "guarantee": "Imports are ordered as the project's own tool orders them, with no other change to the file.",
+      "required_evidence": ["gate", "tool_idempotent", "no_semantic_change"],
+      "warrant": "structural — same argument as `format`; the tool's configuration is the specification.",
+      "doc": "Order imports with the project's own tool."
+    },
+    {
+      "name": "lint_fix",
+      "starts_on": "deterministic",
+      "guarantee": "Every autofix the project's linter applies is applied, and nothing else is. A diagnostic the linter will not fix itself is explicitly out of scope for this type rather than handed to a model under the same name.",
+      "required_evidence": ["gate", "tool_idempotent"],
+      "warrant": "structural — the linter decides both what is wrong and what the fix is.",
+      "doc": "Apply the project linter's own autofixes."
+    },
+    {
+      "name": "rename_symbol",
+      "starts_on": "deterministic",
+      "guarantee": "Every reference the index resolved is renamed, across every file that holds one. References the index could not resolve are reported, not silently left behind.",
+      "required_evidence": ["gate", "references_resolved", "no_semantic_change"],
+      "warrant": "structural — the index (#47) already resolved the references, so this fans across files without a model. It is the only multi-file type in the catalog, and it is deterministic for exactly that reason.",
+      "doc": "Rename a symbol across the files that reference it."
+    },
+    {
+      "name": "docstring",
+      "starts_on": "local",
+      "guarantee": "Docstrings change and nothing else does — the gate compares the parsed structure and rejects a reply that edited code while claiming to document it.",
+      "required_evidence": ["gate", "no_semantic_change"],
+      "warrant": "measured, weakly — prose about code already present is the cheapest thing a small worker is asked for, and `no_semantic_change` makes a wrong answer detectable without running anything.",
+      "doc": "Write or correct a docstring for one named target. Prose about existing behaviour, so it is cheap but not mechanical."
+    },
+    {
+      "name": "type_annotation",
+      "starts_on": "local",
+      "guarantee": "Annotations are added to the named target and the project's type checker accepts the result. The checker, not the worker, decides whether the inference was right.",
+      "required_evidence": ["gate", "type_check", "no_semantic_change"],
+      "warrant": "structural — the acceptance evidence is a checker's verdict rather than a judgement, so a wrong answer is caught rather than argued about.",
+      "doc": "Add type annotations to one target."
+    },
+    {
+      "name": "function_implementation",
+      "starts_on": "local",
+      "guarantee": "One function is implemented against the interface the contract states, and the contract's acceptance commands pass.",
+      "required_evidence": ["gate", "tests_pass"],
+      "warrant": "measured — this is the shape HumanEval+ actually measures (short, self-contained function synthesis against a stated signature), so the capability table's ordering is a usable proxy for it. It is the only type of which that is true.",
+      "doc": "Implement one function against a stated interface. The canonical single-target model task."
+    },
+    {
+      "name": "test_scaffold",
+      "starts_on": "local",
+      "guarantee": "Tests are written for one named target against its stated interface, and they pass. The target itself is outside the contract's scope, so a worker cannot make a test pass by changing what it tests.",
+      "required_evidence": ["gate", "tests_pass"],
+      "warrant": "structural — the scope boundary removes the failure mode that makes generated tests worthless, and it is enforced by the gate rather than asked for in a prompt.",
+      "doc": "Write tests for one named target against its stated interface."
+    },
+    {
+      "name": "bug_fix",
+      "starts_on": "local",
+      "guarantee": "Defined wrong behaviour in one target is corrected, demonstrated by a command that fails before the change and passes after.",
+      "required_evidence": ["gate", "failing_test_first", "tests_pass"],
+      "warrant": "structural, not measured — the capability table ranks synthesis against a given signature and says nothing about diagnosis in a repository the model can see (data/README.md), so nothing here warrants the diagnostic step. What makes a cheap attempt safe to make anyway is `failing_test_first`: with a demonstration required up front, a worker that did not understand the defect produces a change that visibly fails rather than a plausible one that lands.",
+      "doc": "Correct defined wrong behaviour in one target, with a test that demonstrates the correction."
+    }
+  ],
+
+  "excluded": [
+    {
+      "name": "comment_addition",
+      "reason": "No acceptance evidence distinguishes a good comment from a bad one, or from no change at all. Where the comment is a docstring the gate can at least assert nothing else moved, and that type exists; a bare comment leaves the gate with nothing to judge.",
+      "superseded_by": "docstring"
+    },
+    {
+      "name": "string_literal_edit",
+      "reason": "An exact edit at a known location is an operation the deterministic tier should perform outright, not a kind of work to route. It belongs to #81 as an edit primitive; as a task type it would spend a model rung on something no model is needed for."
+    },
+    {
+      "name": "config_edit",
+      "reason": "The gate's structural checks are Python and JS/TS only (ADR-0001 boundary 8). A YAML or TOML change has no adapter, so acceptance would rest on nothing but the file still parsing — too thin a bar for a file that decides how everything else runs. Revisit when an adapter covers the format."
+    },
+    {
+      "name": "multi_file_refactor",
+      "reason": "Structurally unservable, not merely hard: the worker output protocol is one file's complete content in one fenced block (#25), so no model rung can emit a coordinated multi-file change at all. Routing it optimistically would guarantee a failure at the parse step rather than at the gate. `rename_symbol` is the one multi-file operation the catalog carries, and it is deterministic precisely because the index resolves the references instead of a model guessing them."
+    },
+    {
+      "name": "algorithm_implementation",
+      "reason": "Not a distinct guarantee. The contract already carries the interface and the acceptance commands, so this differs from `function_implementation` only in how hard the prompt is — and difficulty is what the ladder escalates over, not a name in the vocabulary.",
+      "superseded_by": "function_implementation"
+    },
+    {
+      "name": "simple_bug_fix",
+      "reason": "Encodes difficulty in the type name. Difficulty is already routing state, held by risk classification (#16) and resolved by escalation (#24); a second copy in the vocabulary is a copy that can disagree with the first.",
+      "superseded_by": "bug_fix"
+    },
+    {
+      "name": "complex_bug_fix",
+      "reason": "Same as `simple_bug_fix` — difficulty is not a type.",
+      "superseded_by": "bug_fix"
+    },
+    {
+      "name": "interface_design",
+      "reason": "No acceptance evidence exists for it. A designed interface has no command that can fail, so the deterministic gate cannot accept it and a model verifier would be the only judge — which spends expensive tokens to decide whether expensive tokens were well spent, and inverts the north star. Design is the calling agent's work; mcgyvr owns what is below the contract (ADR-0001)."
+    }
+  ]
+}

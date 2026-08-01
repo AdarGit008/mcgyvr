@@ -119,6 +119,86 @@ def _pool(args: argparse.Namespace) -> int:
     return 0
 
 
+def _catalog(args: argparse.Namespace) -> int:
+    from mcgyvr.catalog import CatalogError, catalog
+
+    try:
+        book = catalog()
+    except CatalogError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    # Resolving against a ladder is optional: without one there is still a
+    # vocabulary to show, and "which of these can *I* run" is a different
+    # question from "what does mcgyvr know how to be asked for".
+    config = None
+    unservable: set[str] = set()
+    if args.against is not False:
+        path = Path(args.against) if args.against else resolve_config_path()
+        try:
+            config = load_config(path)
+        except ConfigError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        unservable = {t.name for t in book.unservable(config)}
+
+    if args.name:
+        kind = book.get(args.name)
+        if kind is None:
+            gone = book.excluded_entry(args.name)
+            if gone is not None:
+                print(f"{args.name}: not in the vocabulary.\n", file=sys.stderr)
+                print(f"  {gone.reason}", file=sys.stderr)
+                if gone.superseded_by:
+                    print(f"\n  Use `{gone.superseded_by}` instead.", file=sys.stderr)
+                return 1
+            print(
+                f"error: {args.name!r} is not a known task type. "
+                f"Valid: {', '.join(book.names)}",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"{kind.name}  [starts on {kind.starts_on.name}]\n")
+        print(f"  {kind.doc}\n")
+        print(f"  guarantee:  {kind.guarantee}\n")
+        print(f"  warrant:    {kind.warrant}\n")
+        print("  evidence required:")
+        for evidence in kind.required_evidence:
+            mark = "$" if evidence.needs_commands else "-"
+            print(f"    {mark} {evidence.name}: {evidence.doc}")
+        if config is not None and kind.name in unservable:
+            print(
+                f"\n  NOT SERVABLE by {config.path}: no rung at or above "
+                f"`{kind.starts_on.name}` is bound."
+            )
+        return 0
+
+    print("Task types, cheapest family first:\n")
+    for kind in book.task_types:
+        flag = "  (unservable here)" if kind.name in unservable else ""
+        print(f"  {kind.name:<24} {kind.starts_on.name:<14}{flag}")
+        print(f"      {kind.guarantee}")
+        print(f"      evidence: {', '.join(kind.evidence_names)}\n")
+
+    if config is not None:
+        if unservable:
+            # Naming them is the point: a count would tell a caller there is a
+            # problem without telling them which task to stop asking for.
+            print(f"{len(unservable)} type(s) this ladder cannot start:")
+            for name in sorted(unservable):
+                print(f"  {name}")
+        else:
+            print(f"Every type is servable by the ladder in {config.path}.")
+
+    if args.excluded:
+        print("\nConsidered and removed:\n")
+        for gone in book.excluded:
+            replacement = f" (use `{gone.superseded_by}`)" if gone.superseded_by else ""
+            print(f"  {gone.name}{replacement}")
+            print(f"      {gone.reason}\n")
+    return 0
+
+
 def _contract(args: argparse.Namespace) -> int:
     import json
 
@@ -577,6 +657,34 @@ def main(argv: Sequence[str] | None = None) -> int:
         help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
     )
     pool.set_defaults(func=_pool)
+
+    cat = sub.add_parser(
+        "catalog",
+        help="show the task types mcgyvr can be asked for, and what each guarantees",
+    )
+    cat.add_argument(
+        "name",
+        nargs="?",
+        default=None,
+        help="show one task type in full (default: list them all)",
+    )
+    cat.add_argument(
+        "--against",
+        nargs="?",
+        default=False,
+        const=None,
+        metavar="CONFIG",
+        help=(
+            "resolve against a configured ladder and name the types it cannot "
+            f"start (default config: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})"
+        ),
+    )
+    cat.add_argument(
+        "--excluded",
+        action="store_true",
+        help="also show the types considered and removed, with the reason",
+    )
+    cat.set_defaults(func=_catalog)
 
     con = sub.add_parser(
         "contract",

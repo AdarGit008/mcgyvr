@@ -7,7 +7,7 @@ onward (#13). Both modes go through the one loader here, so "a contract the
 orchestrator emits is one the direct-mode API accepts" is a property of there
 being a single definition, not a promise maintained in two places.
 
-Four things are load-bearing, and each is enforced at load rather than
+Five things are load-bearing, and each is enforced at load rather than
 discovered later:
 
 1. **Every rejection names the field and the fix.** This is API surface for an
@@ -25,6 +25,11 @@ discovered later:
    literal destination. A glob-scoped target is legal only for task types the
    deterministic tier can execute outright, because only those can fan a
    change across files without a model guessing where its output goes.
+5. **A type's required evidence must be producible.** The catalog states what
+   evidence each task type needs to be judgeable at all; where that evidence
+   can only come from running something, a contract declaring no acceptance
+   commands is rejected. A `bug_fix` with nothing to run does not fail — it
+   gets accepted on the gate alone, which is worse.
 
 The field layout follows the split #94 arrived at from small-model research:
 worker-facing fields (``task``, ``target``, ``deps``, ``interface``,
@@ -44,24 +49,27 @@ them would make every contract key answerable to a config concern. What is
 emphatically *not* duplicated is path matching — every scope decision here
 goes through :class:`mcgyvr.scope.Scope`, the one canonical matcher.
 
-The task-type vocabulary here is a **seed, not the catalog**. #15 owns the
-catalog: what each type guarantees, which rung it starts on, and what
-acceptance evidence it requires. This module declares only the one bit the
-schema provably needs — whether the deterministic tier can execute a type,
-which is what decides the glob rule above.
+The task-type vocabulary is **not defined here**. :mod:`mcgyvr.catalog` reads it
+from ``data/task-catalog.json`` (#15), and this module asks the catalog what a
+type guarantees rather than knowing any type by name — which is what keeps
+"adding a task type does not require a code change" true of this file too. Two
+of the catalog's properties are load-bearing here: ``deterministic`` decides the
+glob rule above, and ``needs_acceptance_commands`` decides rule 5.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
 import yaml
 
+from mcgyvr.catalog import CatalogError, catalog
+from mcgyvr.catalog import TaskType as CatalogTaskType
 from mcgyvr.scope import Scope
 
 SCHEMA_VERSION = 1
@@ -93,99 +101,41 @@ class ContractSchemaError(ContractError):
     """
 
 
-# --- the task-type seed (#15 owns the catalog) ----------------------------
+# --- the task-type vocabulary (owned by mcgyvr.catalog / #15) --------------
+
+# Re-exported so a caller validating a contract does not need to know the
+# catalog exists. These are thin views over the loaded catalog, computed once,
+# and NOT a second definition — nothing here names a task type.
 
 
-@dataclass(frozen=True)
-class TaskType:
-    """One kind of work mcgyvr knows how to be asked for.
-
-    ``deterministic`` is the only property this module needs: whether the
-    deterministic tier can execute the type outright, which decides whether a
-    glob-scoped target is legal. Everything else a catalog entry carries — its
-    guarantee, its starting rung, its required acceptance evidence — belongs to
-    #15 and is deliberately absent here rather than guessed at.
-    """
-
-    name: str
-    deterministic: bool
-    doc: str
+def task_types() -> tuple[CatalogTaskType, ...]:
+    """Every task type the catalog declares."""
+    return catalog().task_types
 
 
-TASK_TYPES: tuple[TaskType, ...] = (
-    TaskType(
-        "format",
-        True,
-        "Reformat existing code with the project's own formatter. No "
-        "semantic change, so a tool executes it and a model is never asked.",
-    ),
-    TaskType(
-        "import_sort",
-        True,
-        "Order imports with the project's own tool. Deterministic for the "
-        "same reason formatting is.",
-    ),
-    TaskType(
-        "rename_symbol",
-        True,
-        "Rename a symbol across the files that reference it. The index (#47) "
-        "already knows where those are, so this fans out without a model.",
-    ),
-    TaskType(
-        "lint_fix",
-        True,
-        "Apply the project linter's own autofixes. What the tool will not fix "
-        "itself is out of scope for this type.",
-    ),
-    TaskType(
-        "docstring",
-        False,
-        "Write or correct a docstring for one named target. Prose about "
-        "existing behaviour, so it is cheap but not mechanical.",
-    ),
-    TaskType(
-        "type_annotation",
-        False,
-        "Add type annotations to one target. A model reads the body to infer "
-        "intent; the type-checker in acceptance decides whether it was right.",
-    ),
-    TaskType(
-        "function_implementation",
-        False,
-        "Implement one function against a stated interface. The canonical "
-        "single-target model task.",
-    ),
-    TaskType(
-        "bug_fix",
-        False,
-        "Correct defined wrong behaviour in one target, with a test that "
-        "demonstrates the correction.",
-    ),
-    TaskType(
-        "test_scaffold",
-        False,
-        "Write tests for one named target against its stated interface.",
-    ),
-)
-
-TASK_TYPE_NAMES: tuple[str, ...] = tuple(t.name for t in TASK_TYPES)
-_BY_NAME: Mapping[str, TaskType] = {t.name: t for t in TASK_TYPES}
+def task_type_names() -> tuple[str, ...]:
+    return catalog().names
 
 
-def task_type(name: str) -> TaskType:
+def task_type(name: str) -> CatalogTaskType:
     """The declared task type called ``name``.
 
     Raises :class:`ContractSchemaError` naming the vocabulary, because an
-    unknown task type is exactly the case where a caller needs to see the
-    valid set rather than a boolean.
+    unknown task type is exactly the case where a caller needs to see the valid
+    set rather than a boolean. The catalog raises its own error type; it is
+    translated here so that everything a contract can be rejected for is one
+    exception family.
     """
-    found = _BY_NAME.get(name)
-    if found is None:
-        raise ContractSchemaError(
-            f"task_type: {name!r} is not a known task type. "
-            f"Valid: {', '.join(TASK_TYPE_NAMES)}"
-        )
-    return found
+    try:
+        return catalog().require(name)
+    except CatalogError as exc:
+        gone = catalog().excluded_entry(name)
+        if gone is not None:
+            hint = f" Use {gone.superseded_by!r} instead." if gone.superseded_by else ""
+            raise ContractSchemaError(
+                f"task_type: {name!r} is not in the vocabulary. {gone.reason}{hint}"
+            ) from exc
+        raise ContractSchemaError(f"task_type: {exc}") from exc
 
 
 # --- the declared schema --------------------------------------------------
@@ -210,6 +160,13 @@ class Field:
     a surface an agent is asked to author against. ``worker_facing`` marks the
     keys :meth:`Contract.worker_view` may expose — the split is declared on the
     schema so it cannot drift from the prompt builder that honours it.
+
+    ``choices_from`` is for an enum whose valid set is owned elsewhere — today
+    only ``task_type``, whose vocabulary lives in the catalog. Resolving it per
+    validation rather than freezing it into ``choices`` at import is what makes
+    "adding a task type does not require a code change" true: a snapshot taken
+    when this module was imported would be a copy of the catalog living in code,
+    which is the thing #15 forbids.
     """
 
     name: str
@@ -222,6 +179,11 @@ class Field:
     min_value: int | None = None
     worker_facing: bool = False
     hint: str = ""
+    choices_from: Callable[[], tuple[str, ...]] | None = None
+
+    def valid_choices(self) -> tuple[str, ...]:
+        """The enum's valid set, resolved now rather than at import."""
+        return self.choices_from() if self.choices_from is not None else self.choices
 
 
 DEP_FIELDS: tuple[Field, ...] = (
@@ -344,7 +306,7 @@ SCHEMA: tuple[Field, ...] = (
         "decides whether the deterministic tier can execute the contract "
         "outright, and therefore whether a glob target is legal.",
         required=True,
-        choices=TASK_TYPE_NAMES,
+        choices_from=task_type_names,
         worker_facing=True,
     ),
     Field(
@@ -509,9 +471,9 @@ class Contract:
     limits: Limits = Limits(1024, 2)
 
     @property
-    def type(self) -> TaskType:
+    def type(self) -> CatalogTaskType:
         """The declared task type, as its catalog entry."""
-        return _BY_NAME[self.task_type]
+        return catalog().require(self.task_type)
 
     @property
     def is_deterministic(self) -> bool:
@@ -726,9 +688,10 @@ def _value(raw: object, spec: Field, path: str) -> Any:
         return _str(raw, path, allow_empty=not spec.required)
     if spec.kind == "enum":
         text = _str(raw, path)
-        if text not in spec.choices:
+        valid = spec.valid_choices()
+        if text not in valid:
             raise ContractSchemaError(
-                f"{path}: {text!r} is not valid here. Valid: {', '.join(spec.choices)}"
+                f"{path}: {text!r} is not valid here. Valid: {', '.join(valid)}"
             )
         return text
     if spec.kind in ("str_list", "glob_list"):
@@ -863,7 +826,7 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"{kind.name!r} runs on a model, whose output has exactly one "
             f"destination. Name a single literal path, or use a task type the "
             f"deterministic tier executes "
-            f"({', '.join(t.name for t in TASK_TYPES if t.deterministic)})."
+            f"({', '.join(t.name for t in task_types() if t.deterministic)})."
         )
 
     overlap = sorted(set(allow) & set(forbid))
@@ -894,6 +857,16 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"stop_conditions: is empty, but task type {kind.name!r} runs on "
             f"a model. Without a stated trigger to report BLOCKED, a worker "
             f"that meets an unknown will guess. Name at least one condition."
+        )
+
+    if kind.needs_acceptance_commands and not data["acceptance"]:
+        needed = ", ".join(e.name for e in kind.required_evidence if e.needs_commands)
+        raise ContractSchemaError(
+            f"acceptance: is empty, but task type {kind.name!r} requires "
+            f"evidence only a command can produce ({needed}). Its guarantee is "
+            f'"{kind.guarantee}" — with nothing to run, a change would be '
+            f"accepted on the gate alone and the guarantee would be unbacked. "
+            f"Name at least one command that demonstrates it."
         )
 
     seen: set[str] = set()
