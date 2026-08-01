@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 
 from mcgyvr.gate.acceptance import Acceptance
 from mcgyvr.gate.adapter import LanguageAdapter, ToolUnavailableError
-from mcgyvr.gate.adapters import PythonAdapter
+from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.secrets import scan_secrets
@@ -70,7 +70,9 @@ class Gate:
 
     def __init__(self, adapters: Sequence[LanguageAdapter] | None = None) -> None:
         self.adapters: tuple[LanguageAdapter, ...] = (
-            tuple(adapters) if adapters is not None else (PythonAdapter(),)
+            tuple(adapters)
+            if adapters is not None
+            else (PythonAdapter(), JavaScriptAdapter())
         )
 
     def run(
