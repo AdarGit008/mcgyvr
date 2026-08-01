@@ -15,7 +15,7 @@ an hour.
 ## Where the numbers come from
 
 Every measurement was taken in
-[`AdarGit008/local-ai`](https://github.com/AdarGit008/local-ai) (archived)
+[`AdarGit008/local-ai`](https://github.com/AdarGit008/local-ai)
 between 2026-07-26 and 2026-07-31, on two rigs described in the table's
 `measurement_rigs`. Quality is HumanEval+ pass@1, greedy decoding, EvalPlus
 v0.4.0.dev44, 164 tasks. Throughput is single-request eval rate on a trivial

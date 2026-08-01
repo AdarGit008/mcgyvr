@@ -247,7 +247,39 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   run does not fail loudly — it is accepted on the gate alone, and its guarantee
   goes unbacked.
 
+- Decision `0004-inherited-research-is-re-verified-before-it-is-adopted` —
+  research carried over from local-ai is checked against its own cited sources
+  and against mcgyvr's measurements before it becomes an issue, and a retained
+  number is either registered in `records/claims/` or dropped from the text that
+  uses it. Written after an audit of the six inherited architecture decisions
+  found the premise they are sized against uncited and contradicted by the
+  measurements vendored in `data/`.
+- Decision `0005-gate-checks-never-run-target-code-on-the-host` — no gate check
+  imports, executes or plugin-loads target-repository code in the orchestrator
+  process. For a check that validates against installed packages this is
+  correctness before it is safety: on the host it would resolve against mcgyvr's
+  own environment, not the target's.
+- Decision `0006-the-type-checker-is-the-target-repositorys` — mcgyvr locates
+  whatever type checker a repository already declares and never synthesises its
+  flags. Imposing `--strict` on an untyped repository rejects every change on
+  every rung, and escalation cannot fix it.
+- Decision `0007-dependency-signatures-come-from-the-index-not-from-a-model` —
+  the decomposer names which symbols a contract depends on; the deterministic
+  index states what they look like. A model-authored signature would be an
+  unchecked hallucination entering the worker prompt as ground truth.
+- Decision `0008-sampling-breadth-is-policy-and-selection-is-the-first-gate-pass`
+  — how many draws a rung gets is configuration policy, defaulting to one, and
+  the winner is the first candidate the gate accepts. Consensus selection has
+  nothing to rank when the gate's last rung is already execution.
+- Decision `0009-output-discipline-is-a-cap-not-a-stop-sequence` — v1 bounds a
+  worker reply with `limits.max_output_tokens` and a named failure, and sends no
+  stop sequences. Against a whole-file reply shape the proposed stop set
+  truncates at the second definition and yields a valid partial file.
+
 ### Changed
+- `README.md` and `data/README.md` no longer describe `AdarGit008/local-ai` as
+  archived; it is not. ADR-0001 is left as written — a decision record states
+  what was decided, and is not edited to track a fact that changed after it.
 - The task-type vocabulary moved out of `mcgyvr.contract` into the catalog. The
   contract schema now resolves the valid set per validation rather than freezing
   it at import, so a type added to the JSON is accepted without touching code —

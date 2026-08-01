@@ -81,8 +81,8 @@ tools and local models, with the gate as the acceptance bar.
 
 ## Prior work
 
-mcgyvr supersedes [`AdarGit008/local-ai`](https://github.com/AdarGit008/local-ai)
-(archived), an MVP that answered the questions this design rests on:
+mcgyvr supersedes [`AdarGit008/local-ai`](https://github.com/AdarGit008/local-ai),
+an MVP that answered the questions this design rests on:
 worker context policy, the acceptance-gate check set, the single-file worker
 output protocol, and the model measurements now vendored in `data/`.
 
