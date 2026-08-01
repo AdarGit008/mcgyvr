@@ -79,6 +79,46 @@ def _config(args: argparse.Namespace) -> int:
     return 0
 
 
+def _pool(args: argparse.Namespace) -> int:
+    from mcgyvr.pool import SourceUnavailableError, source_map
+
+    path = Path(args.path) if args.path else resolve_config_path()
+    try:
+        config = load_config(path)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    pool = source_map(config)
+
+    # The ladder, not the endpoints: this command answers "what can run", and
+    # where each rung runs is the seam's business (#20). A rung that cannot run
+    # names its source in the reason, which is when that fact starts to matter.
+    print(f"{config.path}: {len(pool)} usable rung(s), cheapest first:\n")
+    for rung in pool.rungs:
+        print(f"  {rung.name:<20} {rung.model}")
+    if not pool.rungs:
+        print("  (none — every rung's source is unusable)")
+
+    if pool.skipped:
+        print(f"\nSkipped {len(pool.skipped)} rung(s):")
+        for skip in pool.skipped:
+            print(f"  {skip.name:<20} {skip.model}\n      ↳ {skip.reason}")
+
+    for role in ("orchestrator", "verifier"):
+        try:
+            binding = pool.role(role)
+        except SourceUnavailableError as exc:
+            print(f"\n{role}: unavailable — {exc}")
+            continue
+        if binding is not None:
+            print(f"\n{role}: {binding.model}")
+
+    # An empty or shortened ladder is a reported state, not a command failure —
+    # for a keyless install it may be exactly what was configured.
+    return 0
+
+
 def _detect(args: argparse.Namespace) -> int:
     found = detect()
 
@@ -479,6 +519,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
     )
     conf.set_defaults(func=_config)
+
+    pool = sub.add_parser(
+        "pool",
+        help="show the ladder as it resolves against the declared sources",
+    )
+    pool.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+    )
+    pool.set_defaults(func=_pool)
 
     det = sub.add_parser(
         "detect",
