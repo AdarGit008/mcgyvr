@@ -430,14 +430,18 @@ def open_sandbox(
     docker_available: bool | None = None,
     image: str | None = None,
     setup: Sequence[str] = (),
+    endpoints: Sequence[str] = (),
 ) -> Sandbox:
     """Construct the sandbox a task should run in, not yet entered.
 
     ``mode`` comes from ``sandbox.mode`` in config; ``image``/``setup`` from
-    the rest of the ``sandbox`` block. Docker availability is detected here
-    unless the caller supplies it (tests, and callers that already probed).
-    The returned sandbox carries ``notes`` naming the weaker mode when one is
-    in force — the caller surfaces them once at open.
+    the rest of the ``sandbox`` block. ``endpoints`` are the configured worker
+    ``base_url``s the container must be able to reach; loopback ones are
+    translated to the host alias by the Docker mode, and they are passed only
+    there — the temp-directory mode already runs on the host. Docker
+    availability is detected here unless the caller supplies it (tests, and
+    callers that already probed). The returned sandbox carries ``notes`` naming
+    the weaker mode when one is in force — the caller surfaces them once at open.
     """
     if docker_available is None:
         from mcgyvr.detect import detect_docker
@@ -454,6 +458,7 @@ def open_sandbox(
             base=base,
             image=image,
             setup=tuple(setup),
+            endpoints=tuple(endpoints),
             notes=choice.notes,
         )
 

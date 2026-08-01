@@ -13,6 +13,7 @@ how many files changed. See :mod:`mcgyvr.gate.changeset`.
 
 from __future__ import annotations
 
+from mcgyvr.gate.acceptance import Acceptance, AcceptanceReport
 from mcgyvr.gate.adapter import LanguageAdapter, ToolUnavailableError
 from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.gate.changeset import (
@@ -29,6 +30,8 @@ from mcgyvr.gate.preflight import (
 from mcgyvr.gate.runner import Gate, GateResult
 
 __all__ = [
+    "Acceptance",
+    "AcceptanceReport",
     "ChangeSet",
     "ChangeSetError",
     "FileChange",
