@@ -1,0 +1,16 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0002",
+  "statement": "Benchmarking Qwen2.5-Coder 7B and larger through Ollama's /api/generate endpoint yields invalid HumanEval+ scores — measured at 32.3% (7B) and 17.1% (14B) against 84.1% and 87.8% for the same weights served over an OpenAI-compatible endpoint.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "medium",
+  "citations": [
+    {
+      "url": "https://github.com/AdarGit008/local-ai/blob/e13a051/research/srv2_benchmark_results_2026-07-31.md",
+      "supports_because": "Records both sides of the comparison on one rig with the same weights and dataset, and the control that makes it a harness finding rather than a model finding: non-Qwen models (yi-coder:9b, deepseek-coder-v2:16b) scored correctly through the same Ollama path."
+    }
+  ],
+  "_confidence_note": "Medium, not high: reproduced across two model sizes on one rig with a working control, but not isolated to a specific cause in Ollama, not filed upstream, and not re-tested against a later Ollama release. It is stated as an observed condition to design around (CAV-01), not as a diagnosis."
+}

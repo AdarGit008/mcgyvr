@@ -1,0 +1,23 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0001",
+  "statement": "The local-model quality and throughput figures mcgyvr ships in data/capability-table.json are measured on real hardware, not estimated or interpolated — including qwen3-coder-30b-a3b at 87.8% HumanEval+ pass@1 in roughly 3 GB of VRAM.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "high",
+  "citations": [
+    {
+      "url": "https://github.com/AdarGit008/local-ai/blob/e13a051/data/moe_humaneval_plus_summary_2026-07-28.md",
+      "supports_because": "Records the qwen3-coder-30b-a3b run directly: Q2_K GGUF under llama-server, HumanEval+ 164 tasks, greedy decoding, 92.7% base / 87.8% plus at ~3 GB — the exact figure the table carries."
+    },
+    {
+      "url": "https://github.com/AdarGit008/local-ai/blob/e13a051/data/humaneval_plus_summary_2026-07-26.md",
+      "supports_because": "Records the dense Qwen2.5-Coder runs (1.5B/3B/7B) with framework version, decoding settings and hardware, which are the provenance fields reproduced per-measurement in the shipped table."
+    },
+    {
+      "url": "https://github.com/AdarGit008/local-ai/blob/e13a051/research/srv2_benchmark_results_2026-07-31.md",
+      "supports_because": "Second rig, independent run: supplies the 14B and MoE figures and the cross-rig comparison that lets the table express ratios rather than single-machine absolutes."
+    }
+  ]
+}

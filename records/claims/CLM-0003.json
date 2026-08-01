@@ -1,0 +1,17 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0003",
+  "statement": "Routing scoped coding work down a ladder of deterministic tools and local models returns more accepted work per unit of expensive-token spend than having the calling agent do that work itself.",
+  "type": "technical",
+  "build_state": "assumed-unmeasured",
+  "blast_radius": "existential",
+  "confidence": "medium",
+  "de_risk_milestone": "v1 minimal telemetry over real tasks on the author's own repositories: accepted-and-merged work per expensive token, compared against the same contracts executed on the API tier. If offload does not win — because escalation after local failure costs more than starting high, or because deterministic exploration cannot bound planning spend — the product's premise is wrong and the ladder should collapse to the tiers that do win.",
+  "citations": [
+    {
+      "url": "https://github.com/AdarGit008/local-ai/blob/e13a051/data/humaneval_plus_summary_2026-07-26.md",
+      "supports_because": "Establishes the necessary condition, not the claim itself: a 3B model reaches 80.5% and a 7B 82.9% on scoped function synthesis, so a meaningful share of grunt work is within local reach at zero token cost. It says nothing about whether the surrounding orchestration is cheaper than not orchestrating."
+    }
+  ],
+  "_note": "This is the product's reason to exist and it is deliberately registered as unmeasured. local-ai built the execution pipeline to answer it and never ran a real task through it, so no evidence exists either way. Nothing in mcgyvr's documentation may state it as established until the de-risk milestone is met."
+}
