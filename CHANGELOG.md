@@ -60,6 +60,21 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   message naming what to supply.
 - `mcgyvr attach` — attach a repository and show its resolved state (root,
   revision, lifetime, and any uncommitted paths).
+- Deterministic index (`src/mcgyvr/orchestrator/index.py`,
+  `orchestrator/symbols.py`) — the zero-token substrate the cost argument
+  rests on (#47, E7). Enumerates a repository's non-ignored files through
+  `git ls-files` (so `.gitignore` is honoured, not re-implemented), holds
+  their text for fast search, and extracts a shallow symbol table —
+  definitions, references, exports — reusing the gate's per-language
+  investment: Python via the standard library's `ast`, JS/TS via tree-sitter.
+  No model is called anywhere in it. The build is bounded and reported
+  (`BuildStats`: elapsed time, files indexed, large/binary files skipped,
+  symbols, per-language counts) and degrades to text-only on a language with
+  no grammar rather than failing — a repository in an unindexed language still
+  yields a searchable text index and an empty symbol table.
+- `mcgyvr index` — build the index for a repository and show what it cost,
+  with optional `--search TERM` (text) and `--symbol NAME` (definitions and
+  references).
 
 ### Changed
 - `pyyaml` is now a runtime dependency. The config file is YAML because it

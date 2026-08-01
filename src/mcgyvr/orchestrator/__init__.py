@@ -12,6 +12,29 @@ tree under #45.
 
 from __future__ import annotations
 
+from mcgyvr.orchestrator.index import (
+    BuildStats,
+    Index,
+    IndexBuildError,
+    IndexedFile,
+    Match,
+    SymbolTable,
+    build_index,
+)
 from mcgyvr.orchestrator.repo import AttachedRepo, AttachError, attach
+from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 
-__all__ = ["AttachError", "AttachedRepo", "attach"]
+__all__ = [
+    "AttachError",
+    "AttachedRepo",
+    "BuildStats",
+    "Index",
+    "IndexBuildError",
+    "IndexedFile",
+    "Match",
+    "Symbol",
+    "SymbolKind",
+    "SymbolTable",
+    "attach",
+    "build_index",
+]
