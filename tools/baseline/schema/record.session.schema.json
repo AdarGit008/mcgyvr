@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/AdarGit008/baseline-skill/schema/record.session.schema.json",
+  "title": "session record — frontmatter of records/sessions/<lane>/<YYYY-MM-DD>-<HHMMSS>-<agent>.md",
+  "description": "The forensic tier's sole content (C06): why, dead ends, unfinished intent. Written by `baseline log` (scrubbed at write time) and validated against this schema before the file exists. The body carries '## Did', '## Dead ends', and '## Left open' with a 'next:' line — the exact shape orient already reads as the lane's pause state. Filenames are collision-free by construction (CF1: date-time-agent, no counter). Records are append-only once committed (REC-01 proof lands M4c). Deliberately minimal: context belongs in the body prose, not in new fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record", "lane", "agent", "started"],
+  "properties": {
+    "record": {
+      "type": "string",
+      "enum": ["session/1"],
+      "description": "Record kind + schema version. Lets the engine refuse or migrate a record written for a different contract."
+    },
+    "lane": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\s\\\\]+$",
+      "description": "Lane id = branch name (FS2: lane identity is the branch, not an assignment). Must match the directory the record lives under; no whitespace/backslash, and the writer refuses any lane that resolves outside records/sessions/."
+    },
+    "agent": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Slugged author (agent or human) — also the filename suffix, which is what keeps same-second writes by different agents collision-free."
+    },
+    "started": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "UTC start instant; the filename's <YYYY-MM-DD>-<HHMMSS> is derived from it."
+    }
+  }
+}

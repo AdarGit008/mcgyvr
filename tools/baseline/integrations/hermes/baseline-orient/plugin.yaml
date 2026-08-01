@@ -1,0 +1,9 @@
+name: baseline-orient
+version: 0.1.0
+description: "Opens each Hermes session oriented: runs `baseline orient` (the baseline skill's derived-state survey — live lanes, backlog, divergence) at session start and via an /orient slash command, so a session starts from derived state instead of a hand-maintained status doc. Shells out to the baseline CLI; no provider keys, no network of its own."
+author: Adar (AdarGit008)
+hooks:
+  - on_session_start
+provides:
+  commands:
+    - orient

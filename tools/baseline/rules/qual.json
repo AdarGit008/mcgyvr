@@ -1,0 +1,267 @@
+{
+  "rules": [
+    {
+      "id": "QUAL-01",
+      "title": "A linter is configured",
+      "category": "quality",
+      "severity": "warn",
+      "source": "https://docs.opslevel.com/docs/maturity-report",
+      "lesson": "static-hygiene maturity axis",
+      "rationale": "Tests prove behavior; a linter catches the class of defects tests don't (unused vars, unsafe patterns) before review.",
+      "fix": "Add a linter config: eslint.config.js / .eslintrc, a [tool.ruff] section, .golangci.yml, .rubocop.yml, or biome.json.",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "heuristic",
+      "check": {
+        "kind": "any-of",
+        "checks": [
+          {
+            "kind": "any-file",
+            "globs": [
+              "eslint.config.js",
+              "eslint.config.mjs",
+              "eslint.config.cjs",
+              ".eslintrc",
+              ".eslintrc.*",
+              "ruff.toml",
+              ".ruff.toml",
+              ".golangci.yml",
+              ".golangci.yaml",
+              ".rubocop.yml",
+              "biome.json",
+              "biome.jsonc",
+              ".flake8",
+              ".pylintrc"
+            ]
+          },
+          {
+            "kind": "grep",
+            "globs": [
+              "pyproject.toml",
+              "setup.cfg",
+              "tox.ini"
+            ],
+            "pattern": "\\[tool\\.(ruff|flake8|pylint)\\]|\\[flake8\\]",
+            "mode": "present"
+          },
+          {
+            "kind": "grep",
+            "globs": [
+              "package.json"
+            ],
+            "pattern": "\"(eslint|biome|@biomejs|standard|xo)\"",
+            "mode": "present"
+          }
+        ]
+      }
+    },
+    {
+      "id": "QUAL-02",
+      "title": "A formatter is configured",
+      "category": "quality",
+      "severity": "warn",
+      "source": "https://pre-commit.com/",
+      "lesson": "style is machine-normalized, not argued",
+      "rationale": "A configured formatter ends style debates and keeps diffs about substance.",
+      "fix": "Add a formatter config: .prettierrc / prettier key, [tool.black] or [tool.ruff.format], rustfmt.toml (Go: gofmt is implied).",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "heuristic",
+      "check": {
+        "kind": "any-of",
+        "checks": [
+          {
+            "kind": "any-file",
+            "globs": [
+              ".prettierrc",
+              ".prettierrc.*",
+              "prettier.config.*",
+              "rustfmt.toml",
+              ".rustfmt.toml",
+              ".clang-format",
+              "**/*.go"
+            ]
+          },
+          {
+            "kind": "grep",
+            "globs": [
+              "pyproject.toml"
+            ],
+            "pattern": "\\[tool\\.black\\]|\\[tool\\.ruff\\.format\\]|\\[tool\\.yapf\\]",
+            "mode": "present"
+          },
+          {
+            "kind": "grep",
+            "globs": [
+              "package.json"
+            ],
+            "pattern": "\"prettier\"|\"@biomejs|\"dprint\"",
+            "mode": "present"
+          }
+        ]
+      }
+    },
+    {
+      "id": "QUAL-03",
+      "title": "Type-checking is strict where supported",
+      "category": "quality",
+      "severity": "warn",
+      "source": "https://www.typescriptlang.org/tsconfig#strict",
+      "lesson": "strict types catch a defect class at the door",
+      "rationale": "TS without strict, or mypy without strict, lets whole categories of null/any bugs through; the strict flag is the cheap on-switch.",
+      "fix": "Set compilerOptions.strict=true in tsconfig (or strict in mypy/pyright) and invoke the typecheck in CI.",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "heuristic",
+      "check": {
+        "kind": "any-of",
+        "checks": [
+          {
+            "kind": "json-field",
+            "globs": [
+              "tsconfig.json",
+              "tsconfig.base.json"
+            ],
+            "path": "compilerOptions.strict",
+            "assert": "true"
+          },
+          {
+            "kind": "grep",
+            "globs": [
+              "tsconfig.json",
+              "tsconfig.base.json"
+            ],
+            "pattern": "\"extends\"\\s*:\\s*\"[^\"]*strict",
+            "mode": "present"
+          },
+          {
+            "kind": "grep",
+            "globs": [
+              "pyproject.toml",
+              "mypy.ini",
+              "setup.cfg",
+              "pyrightconfig.json"
+            ],
+            "pattern": "strict\\s*=\\s*[Tt]rue|\"strict\":\\s*true|typeCheckingMode.*strict",
+            "mode": "present"
+          }
+        ]
+      }
+    },
+    {
+      "id": "QUAL-04",
+      "title": "The linter is actually enforced (run in CI or pre-commit)",
+      "category": "quality",
+      "severity": "warn",
+      "source": "https://pre-commit.com/",
+      "lesson": "configured != enforced",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "rationale": "QUAL-01 checks a linter is configured; this checks it actually runs where it gates merges. A config nobody runs proves nothing. Skips if no linter is configured.",
+      "fix": "Invoke the linter in CI (or via 'pre-commit run --all-files') so a lint failure fails the build.",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "heuristic",
+      "check": {
+        "kind": "implies",
+        "when_label": "a linter config",
+        "when": {
+          "kind": "any-of",
+          "checks": [
+            {
+              "kind": "any-file",
+              "globs": [
+                "eslint.config.js",
+                "eslint.config.mjs",
+                "eslint.config.cjs",
+                ".eslintrc",
+                ".eslintrc.*",
+                "ruff.toml",
+                ".ruff.toml",
+                ".golangci.yml",
+                ".golangci.yaml",
+                ".rubocop.yml",
+                "biome.json",
+                ".flake8",
+                ".pylintrc"
+              ]
+            },
+            {
+              "kind": "grep",
+              "globs": [
+                "pyproject.toml",
+                "setup.cfg",
+                "tox.ini"
+              ],
+              "pattern": "\\[tool\\.(ruff|flake8|pylint)\\]|\\[flake8\\]",
+              "mode": "present"
+            }
+          ]
+        },
+        "then": {
+          "kind": "grep",
+          "globs": [
+            ".github/workflows/*.yml",
+            ".github/workflows/*.yaml",
+            ".gitlab-ci.yml",
+            ".circleci/config.yml",
+            "azure-pipelines.yml",
+            ".pre-commit-config.yaml",
+            ".pre-commit-config.yml",
+            "Makefile"
+          ],
+          "strip_comments": true,
+          "pattern": "eslint|ruff\\s+(check|\\.)|golangci-lint\\s+run|rubocop|biome\\s+(check|ci|lint)|pre-commit\\s+run|npm\\s+run\\s+lint|\\bxo\\b|flake8|pylint|standardx?\\b",
+          "mode": "present"
+        },
+        "then_fail_detail": "linter configured but never invoked in CI/pre-commit/Makefile"
+      }
+    }
+  ]
+}

@@ -1,0 +1,374 @@
+{
+  "rules": [
+    {
+      "id": "BUILD-01",
+      "title": "Dependency manifest present",
+      "category": "build",
+      "severity": "blocker",
+      "lesson": "SW-1 build-readiness is proven by execution",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "rationale": "No manifest = nothing to install = Task 1 can't run.",
+      "fix": "Add package.json / pyproject.toml / go.mod / Cargo.toml as Task 0.",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "deterministic",
+      "check": {
+        "kind": "any-file",
+        "globs": [
+          "package.json",
+          "pyproject.toml",
+          "go.mod",
+          "Cargo.toml",
+          "build.gradle*",
+          "pom.xml"
+        ]
+      }
+    },
+    {
+      "id": "BUILD-02",
+      "title": "Lockfile committed",
+      "category": "build",
+      "severity": "warn",
+      "lesson": "SW-1",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "rationale": "Reproducible installs; a clean checkout resolves the same deps.",
+      "fix": "Commit pnpm-lock.yaml / poetry.lock / uv.lock / Cargo.lock / go.sum.",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "deterministic",
+      "check": {
+        "kind": "any-file",
+        "globs": [
+          "pnpm-lock.yaml",
+          "package-lock.json",
+          "yarn.lock",
+          "poetry.lock",
+          "uv.lock",
+          "Cargo.lock",
+          "go.sum",
+          "requirements*.txt"
+        ]
+      }
+    },
+    {
+      "id": "BUILD-03",
+      "title": "CI workflow present",
+      "category": "build",
+      "severity": "blocker",
+      "lesson": "SW-1 / CTX-7 make a robot check it",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "rationale": "Enforcement lives in CI, not in a human remembering to run checks.",
+      "fix": "Add .github/workflows/ci.yml (or equivalent) that lints, typechecks, tests.",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "deterministic",
+      "check": {
+        "kind": "any-file",
+        "globs": [
+          ".github/workflows/*.yml",
+          ".github/workflows/*.yaml",
+          ".gitlab-ci.yml",
+          ".circleci/config.yml",
+          "azure-pipelines.yml"
+        ]
+      }
+    },
+    {
+      "id": "BUILD-04",
+      "title": "Env/secret template present",
+      "category": "build",
+      "severity": "warn",
+      "lesson": "SW-1",
+      "applies_to": [
+        "node",
+        "python",
+        "service"
+      ],
+      "rationale": "A joining dev can boot without guessing env vars; keeps secrets out of code.",
+      "fix": "Add .env.example enumerating every required var (no real values).",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "deterministic",
+      "check": {
+        "kind": "any-file",
+        "globs": [
+          ".env.example",
+          ".env.sample",
+          ".env.template",
+          "env.example"
+        ]
+      }
+    },
+    {
+      "id": "BUILD-05",
+      "title": "Task 1 passes on a clean checkout",
+      "category": "build",
+      "severity": "blocker",
+      "lesson": "SW-1 (the crown check)",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "rationale": "'Ready to build' = a fresh clone can install and run the first test (green or intentionally red). Skipped by --no-exec.",
+      "fix": "Set config.bootstrap_command to your install+test command; make it pass on a clean tree.",
+      "sources": [
+        "tree",
+        "exec"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check"
+      ],
+      "certainty": "deterministic",
+      "check": {
+        "kind": "command",
+        "run_from_config": "bootstrap_command"
+      }
+    },
+    {
+      "id": "BUILD-06",
+      "title": "Baseline gate wired into CI",
+      "category": "build",
+      "severity": "warn",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "lesson": "CTX-7 extend enforcement to the narrative layer",
+      "rationale": "This standard only bites if CI runs it on every PR.",
+      "fix": "Add a CI step: node tools/baseline/check.mjs.",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "heuristic",
+      "check": {
+        "kind": "grep",
+        "globs": [
+          ".github/workflows/*.yml",
+          ".github/workflows/*.yaml",
+          ".gitlab-ci.yml"
+        ],
+        "pattern": "baseline[/-]check(\\.mjs)?|baseline\\.mjs|baseline/check",
+        "mode": "present"
+      }
+    },
+    {
+      "id": "BUILD-07",
+      "title": "A single documented bootstrap entrypoint exists",
+      "category": "build",
+      "severity": "warn",
+      "source": "https://blog.thoughtbot.com/bin-setup",
+      "lesson": "Joel #2 / thoughtbot bin/setup",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "rationale": "BUILD-05 proves the bootstrap works; this proves a newcomer can FIND it without tribal knowledge — one conventional command, not a wiki page.",
+      "fix": "Add bin/setup (or a Makefile/Taskfile 'setup' target) and reference it by name in the README.",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "deterministic",
+      "check": {
+        "kind": "any-of",
+        "checks": [
+          {
+            "kind": "any-file",
+            "globs": [
+              "bin/setup",
+              "script/setup",
+              "scripts/setup*",
+              "Makefile",
+              "Taskfile.yml",
+              "Taskfile.yaml",
+              "justfile",
+              "Justfile"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "BUILD-08",
+      "title": "Standard task commands are declared machine-readably",
+      "category": "build",
+      "severity": "warn",
+      "source": "https://dev.to/",
+      "lesson": "SW-1 / task-command discoverability",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "rationale": "A 'test' and 'lint' command declared in the manifest (not only prose) lets CI, tooling, and newcomers invoke them the same way.",
+      "fix": "Add test + lint scripts to package.json (or test:/lint: targets to Makefile/Taskfile, or [tool] entries to pyproject).",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "heuristic",
+      "check": {
+        "kind": "any-of",
+        "checks": [
+          {
+            "kind": "json-field",
+            "globs": [
+              "package.json"
+            ],
+            "path": "scripts.test",
+            "assert": "nonempty"
+          },
+          {
+            "kind": "grep",
+            "globs": [
+              "Makefile",
+              "Taskfile.yml",
+              "Taskfile.yaml",
+              "justfile"
+            ],
+            "pattern": "^(test|lint)\\s*:",
+            "mode": "present"
+          },
+          {
+            "kind": "grep",
+            "globs": [
+              "pyproject.toml",
+              "tox.ini",
+              "noxfile.py",
+              "Makefile"
+            ],
+            "pattern": "\\[tool\\.pytest|\\[tool\\.poe\\.tasks|\\[tool\\.hatch\\.envs|\\[project\\.scripts|^testenv|def test_|nox\\.session|^\\s*(test|lint)\\s*:",
+            "mode": "present"
+          }
+        ]
+      }
+    },
+    {
+      "id": "BUILD-09",
+      "title": "Bootstrap is idempotent (safe to re-run)",
+      "category": "build",
+      "severity": "warn",
+      "profile": "advanced",
+      "source": "https://blog.thoughtbot.com/bin-setup",
+      "lesson": "SW-1 re-runnable setup",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "rationale": "A setup script that clobbers or hard-fails on a second run breaks the 'just run setup' promise the moment anyone re-runs it.",
+      "fix": "Make the bootstrap command exit 0 when invoked twice on an already-set-up checkout (guard destructive steps).",
+      "sources": [
+        "tree",
+        "exec"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check"
+      ],
+      "certainty": "deterministic",
+      "check": {
+        "kind": "command",
+        "run_from_config": "bootstrap_command",
+        "repeat": 2
+      }
+    },
+    {
+      "id": "BUILD-10",
+      "title": "CI actually invokes the test suite",
+      "category": "build",
+      "severity": "warn",
+      "source": "https://docs.cortex.io/standardize/scorecards/scorecard-examples",
+      "lesson": "a CI job that never runs tests is theater",
+      "applies_to": [
+        "node",
+        "python",
+        "service",
+        "library"
+      ],
+      "rationale": "BUILD-03 checks a CI file exists; this checks it actually runs tests — a cheap static complement to BUILD-05 (which only runs when you wire the bootstrap command).",
+      "fix": "Add a test step to CI: npm test / pytest / go test / make test / cargo test / gradle test / tox.",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "heuristic",
+      "check": {
+        "kind": "grep",
+        "globs": [
+          ".github/workflows/*.yml",
+          ".github/workflows/*.yaml",
+          ".gitlab-ci.yml"
+        ],
+        "strip_comments": true,
+        "pattern": "npm (run )?test|pnpm (run )?test|yarn test|node --test|deno test|bun test|pytest|python -m pytest|go test|make test|(?<![./\\w])(jest|vitest|mocha)\\b(?![-\\w])|cargo test|\\.?/?gradlew? test|mvn test|rspec|phpunit|dotnet test|\\btox\\b",
+        "mode": "present"
+      }
+    }
+  ]
+}

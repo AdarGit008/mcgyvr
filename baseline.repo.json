@@ -1,0 +1,14 @@
+{
+  "_note": "Repo descriptor for mcgyvr — a skill that offloads scoped coding work from an agent harness to a configurable worker ladder.",
+  "schema_version": 1,
+  "type": "library",
+  "lifecycle": "experimental",
+  "maturity": "prototype",
+  "workflow": "multi-lane",
+  "anchoring": "strict",
+  "ground_truth_boundary": { "forge": "github", "default_branch": "main" },
+  "lanes": { "namespace": "lane/*", "lease_ttl": "7d" },
+  "join_keys": ["Baseline-Agent", "Baseline-Issue"],
+  "engine_pin": "2.x",
+  "staleness": { "facts_ttl": "1h", "orient_ceiling": "24h" }
+}

@@ -1,0 +1,9 @@
+{
+  "_preset": "readiness-only — the V1-equivalent posture (baseline.repo.json, NOT a config file): score the repo against the rules, no multi-lane workflow contract. Minimal descriptor — single-lane, anchoring off, no lanes block. Copy to <repo>/baseline.repo.json, then set type.",
+  "schema_version": 1,
+  "type": "library",
+  "lifecycle": "production",
+  "maturity": "released",
+  "workflow": "single-lane",
+  "anchoring": "off"
+}

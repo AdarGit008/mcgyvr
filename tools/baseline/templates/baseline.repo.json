@@ -1,0 +1,19 @@
+{
+  "_help": "The repo's identity & posture — the one file baseline requires (schema: schema/repo.schema.json). copy this in as the first act of adoption and confirm type. Keys starting with _ are inline notes and are ignored.",
+  "schema_version": 1,
+  "type": "service",
+  "_type": "node | python | service | library | docs — what this repo IS. Supersedes filesystem auto-detection.",
+  "lifecycle": "experimental",
+  "_lifecycle": "experimental | production | deprecated",
+  "maturity": "prototype",
+  "_maturity": "prototype | claimed | released — scrutiny rises with maturity (CLAIM rules activate at 'claimed').",
+  "workflow": "multi-lane",
+  "_workflow": "multi-lane (V2 default — any solo dev gets lanes) | single-lane (readiness-only) | multi-lane-local (CF5: lanes from origin alone, the forge is never consulted).",
+  "anchoring": "strict",
+  "_anchoring": "strict | relaxed | off — work-to-issue anchoring strictness, orthogonal to workflow.",
+  "ground_truth_boundary": { "forge": "github", "default_branch": "main" },
+  "lanes": { "namespace": "lane/*", "lease_ttl": "7d" },
+  "join_keys": ["Baseline-Agent", "Baseline-Issue"],
+  "engine_pin": "2.x",
+  "staleness": { "facts_ttl": "1h", "orient_ceiling": "24h" }
+}

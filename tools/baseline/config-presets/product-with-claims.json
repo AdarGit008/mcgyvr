@@ -1,0 +1,14 @@
+{
+  "_preset": "product-with-claims — a repo that makes competitive/novelty claims (a product, a launch, a 'first/only/fastest' pitch). Turns the CLAIM-* discipline ON: every claim needs a build-state, a blast-radius grade, and novelty claims need a dated prior-art pass with resolving citations.",
+  "project_type": "service",
+  "makes_external_claims": true,
+  "claims_file": "docs/CLAIMS.json",
+  "_claims_file": "where a legacy V1 monolith is detected (CLAIM-07 flags it; gen migrate-claims explodes it). Claims LIVE in records/claims/ — scaffold from templates/claim.json.",
+  "prior_art_recheck_days": 90,
+  "_prior_art_recheck_days": "CLAIM-03: a novelty/competitive claim's prior-art pass goes stale after this many days and must be re-run.",
+  "bootstrap_command": "npm ci && npm test",
+  "decision_globs": [
+    "docs/decisions/0*.md",
+    "adr/*.md"
+  ]
+}

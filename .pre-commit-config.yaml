@@ -1,0 +1,9 @@
+# Secret-scanning gate. Install once per clone: `pre-commit install`.
+# gitleaks scans staged changes (records included) for secret shapes before
+# they land — the push-boundary gate baseline REC-05/SEC-12 want visible at
+# rest. rev is pinned to an immutable release tag, not a floating branch.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks

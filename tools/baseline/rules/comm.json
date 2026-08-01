@@ -1,0 +1,96 @@
+{
+  "rules": [
+    {
+      "id": "COMM-01",
+      "title": "LICENSE file present",
+      "category": "community",
+      "severity": "blocker",
+      "applies_to": "all",
+      "source": "https://github.com/todogroup/repolinter",
+      "lesson": "highest-agreement repo-health rule",
+      "rationale": "No license = legally all-rights-reserved; nobody can safely use or contribute, and it's the most trivially checkable defect.",
+      "fix": "Add a LICENSE (or COPYING) file at the repo root; pick one at choosealicense.com.",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "deterministic",
+      "check": {
+        "kind": "any-file",
+        "globs": [
+          "LICENSE",
+          "LICENSE.*",
+          "LICENCE",
+          "LICENCE.*",
+          "COPYING",
+          "COPYING.*"
+        ]
+      }
+    },
+    {
+      "id": "COMM-02",
+      "title": "README exists with newcomer-critical sections",
+      "category": "community",
+      "severity": "warn",
+      "applies_to": "all",
+      "source": "https://github.com/RichardLitt/standard-readme",
+      "lesson": "standard-readme",
+      "rationale": "A README that lacks what-it-is / install / usage forces newcomers to read code to get started.",
+      "fix": "Add a root README with install/setup and usage/quickstart sections.",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "deterministic",
+      "check": {
+        "kind": "file-contains",
+        "globs": [
+          "README.md",
+          "README.rst",
+          "readme.md",
+          "Readme.md"
+        ],
+        "min_len": 400,
+        "pattern": "^#{1,3}\\s.*(install|setup|getting started|quick ?start|usage|run|build|example)"
+      }
+    },
+    {
+      "id": "COMM-03",
+      "title": "CHANGELOG present with an Unreleased section",
+      "category": "community",
+      "severity": "warn",
+      "applies_to": "all",
+      "source": "https://keepachangelog.com/",
+      "lesson": "Keep a Changelog",
+      "rationale": "A changelog with an Unreleased section gives consumers a human-readable record of what changed and a place to accrue the next release's notes.",
+      "fix": "Add CHANGELOG.md following keepachangelog.com, including an '## [Unreleased]' section.",
+      "sources": [
+        "tree"
+      ],
+      "on_unreachable": "skip",
+      "contexts": [
+        "check",
+        "reconcile"
+      ],
+      "certainty": "deterministic",
+      "check": {
+        "kind": "file-contains",
+        "globs": [
+          "CHANGELOG.md",
+          "CHANGELOG",
+          "docs/CHANGELOG.md",
+          "CHANGELOG.rst"
+        ],
+        "pattern": "unreleased"
+      }
+    }
+  ]
+}

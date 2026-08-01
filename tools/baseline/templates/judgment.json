@@ -1,0 +1,13 @@
+{
+  "_help": "One judgment, one file: records/judgments/JDG-NNNN.json (schema/record.judgment.schema.json). kind ∈ sign-off | deviation | risk-acceptance | break-glass. Every judgment is dated, owned (by), scoped (subject), reasoned, and EXPIRES (review_by). expected_state snapshots the world you assumed; tripwire is the machine-evaluable condition that voids the judgment when that world changes; a break-glass also names the gate it relieves and must land on main via its own prior PR (FS5). Author + evaluate with `baseline jdg new|check` (M4b); reconcile sweeps tripwires on cron (M6).",
+  "record": "judgment/1",
+  "id": "JDG-0001",
+  "kind": "risk-acceptance",
+  "date": "2026-07-11",
+  "by": "your-handle",
+  "subject": "SEC-13",
+  "reason": "Dependency-vuln scan deferred until the first external consumer; the zero-dependency runner keeps the attack surface minimal meanwhile.",
+  "review_by": "2026-10-01",
+  "expected_state": { "descriptor.maturity": "prototype" },
+  "tripwire": { "fact": "descriptor.maturity", "op": "ne", "value": "prototype" }
+}

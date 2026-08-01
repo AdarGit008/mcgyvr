@@ -1,0 +1,15 @@
+{
+  "_preset": "node-service — a Node/TypeScript web service or app. project_type=service auto-enables the OPS rules (health/readiness endpoint, structured logs, graceful shutdown on SIGTERM, outbound timeouts, runbook, service descriptor).",
+  "project_type": "service",
+  "makes_external_claims": false,
+  "bootstrap_command": "npm ci && npm test",
+  "_bootstrap_command": "BUILD-05 crown check: a clean checkout installs and runs the first test. Must exit 0. Swap npm for pnpm/yarn as needed.",
+  "decision_globs": [
+    "docs/decisions/0*.md",
+    "adr/*.md"
+  ],
+  "sources_of_truth": {
+    "status": "derived — baseline orient",
+    "decisions": "docs/decisions/"
+  }
+}

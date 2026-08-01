@@ -1,0 +1,15 @@
+{
+  "_help": "One external claim, one file: records/claims/CLM-NNNN.json (schema/record.claim.schema.json). Exploded from the V1 docs/CLAIMS.json monolith by `gen migrate-claims` (M4c) — `slug` preserves the V1 id. Field semantics are V1's: statement/type/build_state/blast_radius always; existential claims add de_risk_milestone; novelty/competitive/market claims add prior_art_checked + how_we_differ; every citation says WHY it supports (supports_because). CLAIM rules activate at descriptor maturity 'claimed'.",
+  "record": "claim/1",
+  "id": "CLM-0001",
+  "statement": "<the claim, exactly as asserted to the outside world>",
+  "type": "competitive",
+  "build_state": "assumed-unmeasured",
+  "blast_radius": "recoverable",
+  "prior_art_checked": "2026-07-11",
+  "how_we_differ": "<the differentiation argument>",
+  "confidence": "medium",
+  "citations": [
+    { "url": "https://example.com/evidence", "supports_because": "<why this source supports the claim — a bare link is not evidence>" }
+  ]
+}

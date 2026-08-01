@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/AdarGit008/baseline-skill/schema/record.judgment.schema.json",
+  "title": "judgment record — records/judgments/JDG-NNNN.json",
+  "description": "One judgment, one owned file (C17) — the unified ledger that replaces the shared signoff.json. Kinds: 'sign-off' (a dated human judgment satisfying a manual rule), 'deviation' (an accepted rule violation), 'risk-acceptance' (an accepted risk with expiry), 'break-glass' (an expiring override of a fail-closed admit/reconcile gate; FS5: it must land on main via its own prior PR — enforcement is M6's job, expressibility is this schema's). Risk acceptance is dated human judgment (C08); expected_state snapshots the world the judgment assumed, tripwire is the machine-evaluable condition that voids it, review_by expires it. The evaluator ships in M4b (`baseline jdg check`); the reconcile sweep that fires tripwires on cron is M6.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record", "id", "kind", "date", "by", "subject", "reason", "review_by"],
+  "properties": {
+    "record": {
+      "type": "string",
+      "enum": ["judgment/1"],
+      "description": "Record kind + schema version."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^JDG-[0-9]{4}$",
+      "description": "The record's identity — must match the filename."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["sign-off", "deviation", "risk-acceptance", "break-glass"],
+      "description": "What species of judgment this is. A break-glass additionally carries 'gate'."
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "When the judgment was made. A judgment is dated or it is not a judgment."
+    },
+    "by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Who judged — a person, never an agent rubber-stamp."
+    },
+    "subject": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What is judged: a rule id (TEST-03), a file (baseline.repo.json — the DESC-03 shape), or a scope string."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The rationale — why this deviation/risk/override is acceptable. Exists in no diff."
+    },
+    "review_by": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Expiry: the date by which this judgment must be re-made or it lapses. Every judgment expires — that is what keeps the ledger from fossilizing."
+    },
+    "expected_state": {
+      "type": "object",
+      "description": "Snapshot of the world the judgment assumed: a map of dotted fact path -> expected value (e.g. {\"descriptor.maturity\": \"prototype\"}). Machine-comparable by `baseline jdg check` (M4b)."
+    },
+    "tripwire": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fact", "op"],
+      "description": "The condition that VOIDS this judgment when it becomes true — how the engine detects the accepted world changed (C08). Evaluated by M4b's `baseline jdg check`; swept on cron by M6's reconcile.",
+      "properties": {
+        "fact": { "type": "string", "minLength": 1, "description": "Dotted derived-fact path (same namespace expected_state uses)." },
+        "op": { "type": "string", "enum": ["eq", "ne", "gt", "lt", "exists", "absent"], "description": "Comparison; 'exists'/'absent' take no value." },
+        "value": { "description": "Comparand for eq/ne/gt/lt — any JSON value." }
+      }
+    },
+    "gate": {
+      "type": "string",
+      "enum": ["admit", "reconcile"],
+      "description": "break-glass only: which fail-closed gate this record relieves (FS5). Ignored for other kinds until M4b's per-kind laws tighten it."
+    }
+  }
+}

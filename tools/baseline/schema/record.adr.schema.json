@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/AdarGit008/baseline-skill/schema/record.adr.schema.json",
+  "title": "decision record — extracted header of records/decisions/ADR-NNNN.md",
+  "description": "ADRs stay markdown (templates/adr.md): rationale and rejected alternatives exist in no diff, and prose is their natural form. This schema binds the machine-read header lines ('Status:' / 'Date:' / 'Supersedes:' / 'Superseded-by:', extracted by src/records.mjs with statuses lowercased) — the fields CTX-02/CTX-03 already enforce semantically. V1 ADR homes (docs/decisions/, docs/adr/) remain valid via decision_globs; records/decisions/ is the V2 home.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "date"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "accepted", "superseded", "deprecated", "rejected", "amended", "draft", "active"],
+      "description": "Decision state (the adr-status check's accepted vocabulary, lowercased). Superseded/deprecated require a forward link — that stays CTX-02's job."
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "When the decision was made."
+    },
+    "supersedes": {
+      "type": "string",
+      "description": "The ADR this one reverses ('none' or 'ADR-NNNN')."
+    },
+    "superseded_by": {
+      "type": "string",
+      "description": "The ADR that reversed this one ('none' or 'ADR-NNNN') — the forward link CTX-02 requires on superseded records."
+    }
+  }
+}

@@ -1,0 +1,234 @@
+{
+  "schema_version": 1,
+  "_purpose": "Decision data for `mcgyvr init`: given detected hardware, propose worker bindings without benchmarking the user's machine. Every number here is measured, not estimated, and carries its provenance. See data/README.md for methodology and known-bad measurements.",
+  "vendored_from": {
+    "repo": "AdarGit008/local-ai",
+    "status": "archived",
+    "date": "2026-08-01"
+  },
+  "quality_metric": {
+    "name": "humaneval_plus_pass1",
+    "dataset": "HumanEval+ (164 tasks, base + extra tests)",
+    "decoding": "greedy (temperature=0, n_samples=1)",
+    "framework": "EvalPlus v0.4.0.dev44",
+    "_caveat": "Coding-benchmark pass@1 is a proxy for worker suitability, not a promise about a user's repo. It ranks models; it does not predict acceptance rate on real contracts."
+  },
+  "measurement_rigs": {
+    "rig_a": {
+      "gpu": "NVIDIA GeForce GTX 1660 SUPER",
+      "vram_gb": 6,
+      "architecture": "Turing",
+      "cuda_cores": 1408,
+      "cpu": "Intel i5-9600K (6c/6t)",
+      "ram_gb": 32
+    },
+    "rig_b": {
+      "gpu": "NVIDIA GeForce RTX 3060",
+      "vram_gb": 12,
+      "architecture": "Ampere",
+      "cuda_cores": 3584,
+      "cpu": "Intel i9-10900F (10c/20t)",
+      "ram_gb": 32
+    }
+  },
+  "harness_caveats": [
+    {
+      "id": "CAV-01",
+      "severity": "critical",
+      "summary": "Ollama /api/generate yields invalid HumanEval+ scores for Qwen2.5-Coder 7B and larger.",
+      "detail": "Measured 32.3% (7b) and 17.1% (14b) via ollama /api/generate; the same weights via llama-server scored 84.1% and 87.8% — deltas of +54.9pp and +73.8pp. Non-Qwen models (yi-coder, deepseek-coder-v2) scored correctly through the same ollama path.",
+      "consequence": "Any capability data collected through ollama /api/generate for these models must be discarded. A table built from them would systematically under-route to the best available local models.",
+      "date": "2026-07-31"
+    },
+    {
+      "id": "CAV-02",
+      "severity": "high",
+      "summary": "Ollama resolves qwen3-coder-30b-a3b to an F16 weight set (~18 GB), not a Q4 quant.",
+      "detail": "The F16 pull spills ~59% to CPU on a 12 GB card, runs ~100 s/task and scores 3.7%. The same model as a Q2_K GGUF under llama-server scores 87.8% in ~3 GB.",
+      "consequence": "MoE models of this family must be bound to an explicit GGUF quant under llama-server, never left to ollama tag resolution.",
+      "date": "2026-07-31"
+    },
+    {
+      "id": "CAV-03",
+      "severity": "medium",
+      "summary": "The gpt-oss-20b score below is disputed and should not be used for routing.",
+      "detail": "Originally attributed to MXFP4 quantization destroying code quality. Later investigation attributed the failure to an insufficient output token budget in the harness, not to the quantization.",
+      "consequence": "Treat gpt-oss-20b as unmeasured until re-run. Do not propose it, and do not cite 53.7% as its quality.",
+      "date": "2026-07-31"
+    },
+    {
+      "id": "CAV-04",
+      "severity": "medium",
+      "summary": "A model that fits VRAM only marginally thrashes rather than failing.",
+      "detail": "qwen2.5-coder:7b (~5 GB) on a 6 GB card ran at 30.4 tok/s against 57.6 tok/s on a 12 GB card — a 1.9x penalty from a card with 2.5x fewer cores, indicating memory pressure rather than compute limits.",
+      "consequence": "Propose a binding only where the model's footprint leaves headroom for KV cache; marginal fits are a worse experience than the tier below.",
+      "date": "2026-07-31"
+    }
+  ],
+  "models": [
+    {
+      "id": "qwen2.5-coder:1.5b",
+      "family": "qwen2.5-coder",
+      "params_b": 1.5,
+      "quant": "q4_K_M",
+      "weights_gb": 0.99,
+      "vram_gb_working": 1.5,
+      "quality": [
+        { "humaneval_plus_pass1": 0.652, "humaneval_pass1": 0.707, "backend": "ollama", "rig": "rig_a", "date": "2026-07-26" },
+        { "humaneval_plus_pass1": 0.591, "humaneval_pass1": 0.640, "backend": "ollama", "rig": "rig_b", "date": "2026-07-31" }
+      ],
+      "throughput_tok_s": [
+        { "value": 130.6, "rig": "rig_a", "backend": "ollama", "date": "2026-07-31" },
+        { "value": 54.29, "rig": "rig_b", "backend": "ollama", "date": "2026-07-31" }
+      ],
+      "notes": "Fastest option on a small card and by a wide margin. Quality is the floor of what is useful; suits mechanical, tightly-scoped contracts."
+    },
+    {
+      "id": "qwen2.5-coder:3b",
+      "family": "qwen2.5-coder",
+      "params_b": 3,
+      "quant": "q4_K_M",
+      "weights_gb": 1.9,
+      "vram_gb_working": 2.4,
+      "quality": [
+        { "humaneval_plus_pass1": 0.805, "humaneval_pass1": 0.841, "backend": "ollama", "rig": "rig_a", "date": "2026-07-26" },
+        { "humaneval_plus_pass1": 0.768, "humaneval_pass1": 0.823, "backend": "ollama", "rig": "rig_b", "date": "2026-07-31" }
+      ],
+      "throughput_tok_s": [
+        { "value": 87.8, "rig": "rig_a", "backend": "ollama", "date": "2026-07-31" },
+        { "value": 96.97, "rig": "rig_b", "backend": "ollama", "date": "2026-07-31" }
+      ],
+      "notes": "Best quality-per-GB below 6 GB. The 1.5B→3B step is +15.3pp HumanEval+; the 3B→7B step is +2.4pp on the same rig."
+    },
+    {
+      "id": "qwen2.5-coder:7b",
+      "family": "qwen2.5-coder",
+      "params_b": 7,
+      "quant": "q4_K_M",
+      "weights_gb": 4.7,
+      "vram_gb_working": 5.0,
+      "quality": [
+        { "humaneval_plus_pass1": 0.829, "humaneval_pass1": 0.872, "backend": "ollama", "rig": "rig_a", "date": "2026-07-26" },
+        { "humaneval_plus_pass1": 0.841, "humaneval_pass1": 0.872, "backend": "llama-server", "rig": "rig_b", "date": "2026-07-31" }
+      ],
+      "throughput_tok_s": [
+        { "value": 30.4, "rig": "rig_a", "backend": "ollama", "date": "2026-07-31", "caveat": "CAV-04" },
+        { "value": 57.59, "rig": "rig_b", "backend": "ollama", "date": "2026-07-31" }
+      ],
+      "invalid_measurements": [
+        { "humaneval_plus_pass1": 0.323, "backend": "ollama /api/generate", "rig": "rig_b", "caveat": "CAV-01" }
+      ],
+      "notes": "Needs ≥8 GB to run without memory pressure."
+    },
+    {
+      "id": "qwen2.5-coder:14b",
+      "family": "qwen2.5-coder",
+      "params_b": 14,
+      "quant": "q4_K_M",
+      "weights_gb": 9.0,
+      "vram_gb_working": 9.5,
+      "quality": [
+        { "humaneval_plus_pass1": 0.878, "humaneval_pass1": 0.909, "backend": "llama-server", "rig": "rig_b", "date": "2026-07-31" }
+      ],
+      "throughput_tok_s": [
+        { "value": 32.18, "rig": "rig_b", "backend": "ollama", "date": "2026-07-31" }
+      ],
+      "invalid_measurements": [
+        { "humaneval_plus_pass1": 0.171, "backend": "ollama /api/generate", "rig": "rig_b", "caveat": "CAV-01" }
+      ],
+      "notes": "Highest measured dense-model quality. Needs ≥12 GB."
+    },
+    {
+      "id": "yi-coder:9b",
+      "family": "yi-coder",
+      "params_b": 9,
+      "quant": "q4",
+      "weights_gb": 5.0,
+      "vram_gb_working": 5.5,
+      "quality": [
+        { "humaneval_plus_pass1": 0.689, "humaneval_pass1": 0.744, "backend": "ollama", "rig": "rig_b", "date": "2026-07-31" }
+      ],
+      "throughput_tok_s": [
+        { "value": 57.35, "rig": "rig_b", "backend": "ollama", "date": "2026-07-31" }
+      ],
+      "notes": "Dominated by qwen2.5-coder:7b — smaller, faster and 15pp better. Present for completeness."
+    },
+    {
+      "id": "deepseek-coder-v2:16b",
+      "family": "deepseek-coder-v2",
+      "params_b": 16,
+      "architecture": "moe",
+      "quant": "q4",
+      "weights_gb": 8.9,
+      "vram_gb_working": 9.4,
+      "quality": [
+        { "humaneval_plus_pass1": 0.726, "humaneval_pass1": 0.768, "backend": "ollama", "rig": "rig_b", "date": "2026-07-31" }
+      ],
+      "throughput_tok_s": [
+        { "value": 110.35, "rig": "rig_b", "backend": "ollama", "date": "2026-07-31" }
+      ],
+      "notes": "Fastest large model measured, but 15pp below qwen2.5-coder:14b at a similar footprint. A throughput lane, never a quality rung — binding it above 7B inverts the quality gradient."
+    },
+    {
+      "id": "qwen3-coder-30b-a3b",
+      "family": "qwen3-coder",
+      "params_b": 30,
+      "active_params_b": 3,
+      "architecture": "moe",
+      "quant": "Q2_K",
+      "weights_gb": 3.0,
+      "vram_gb_working": 3.0,
+      "requires_backend": "llama-server",
+      "quality": [
+        { "humaneval_plus_pass1": 0.878, "humaneval_pass1": 0.927, "backend": "llama-server", "rig": "rig_a", "date": "2026-07-28" }
+      ],
+      "throughput_tok_s": [
+        { "value": 13.0, "rig": "rig_a", "backend": "llama-server", "date": "2026-07-28", "note": "-ngl 10 partial GPU offload" },
+        { "value": 24.19, "rig": "rig_b", "backend": "ollama", "date": "2026-07-31", "note": "Q4, 8.9 GB" }
+      ],
+      "invalid_measurements": [
+        { "humaneval_plus_pass1": 0.037, "backend": "ollama", "rig": "rig_b", "caveat": "CAV-02" }
+      ],
+      "notes": "Highest quality per GB measured: 14B-class quality in ~3 GB. Slow, and requires an explicit GGUF quant under llama-server. Strong fit for a quality rung on a small card where latency is not the constraint."
+    },
+    {
+      "id": "gpt-oss-20b",
+      "family": "gpt-oss",
+      "params_b": 20,
+      "active_params_b": 4,
+      "architecture": "moe",
+      "quant": "MXFP4",
+      "weights_gb": 4.9,
+      "vram_gb_working": 4.9,
+      "quality": [],
+      "disputed_measurements": [
+        { "humaneval_plus_pass1": 0.537, "humaneval_pass1": 0.549, "backend": "llama-server", "rig": "rig_a", "date": "2026-07-28", "caveat": "CAV-03" }
+      ],
+      "throughput_tok_s": [
+        { "value": 15.4, "rig": "rig_a", "backend": "llama-server", "date": "2026-07-27" }
+      ],
+      "notes": "Quality unmeasured pending a re-run with an adequate output budget. Not proposed."
+    }
+  ],
+  "concurrency_findings": [
+    {
+      "id": "CON-01",
+      "summary": "Distinct models run genuinely concurrently on one GPU.",
+      "detail": "Three models (1.5B + 3B + 16B MoE) completed in 23.6 s wall against ~44 s serial, each holding its solo throughput, at 11.8 GB total on a 12 GB card.",
+      "rig": "rig_b",
+      "date": "2026-07-31"
+    },
+    {
+      "id": "CON-02",
+      "summary": "Same-model concurrency scales 1.6–3.1x with server-side parallelism enabled.",
+      "detail": "Requires the backend's parallel-slot setting; a single-slot server serializes same-model requests.",
+      "date": "2026-07-31"
+    },
+    {
+      "id": "CON-03",
+      "summary": "Aggregate throughput across separate machines degrades 0–15%.",
+      "detail": "Separate GPUs share no bus; a pool spanning hosts is close to additive.",
+      "date": "2026-07-31"
+    }
+  ]
+}
