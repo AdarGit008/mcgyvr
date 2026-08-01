@@ -1,0 +1,333 @@
+"""The source map — where work runs, and the seam that keeps it a secret.
+
+A source is an endpoint with a capacity and a wire protocol. This module is the
+one place that knows which source serves which rung, and it exists so that
+nothing above it has to. Above the seam a caller sees a *ladder of rungs*: named
+steps, cheapest first, each with a model. Below it, a rung resolves to an
+:class:`Endpoint` a runner can dispatch against. The resolution happens here and
+nowhere else.
+
+That division is the whole point, and it is what #20 asks for:
+
+* **A tier moves between sources with a config edit and no code change.** Rungs
+  bind to sources *by name*, resolved at call time. Nothing is compiled against
+  a host, so re-pointing a rung at a different machine — or at a hosted API — is
+  a line in the config file, not a patch.
+* **Nothing outside the seam reads a source or a backend.** :class:`Rung`
+  carries a name and a model and deliberately nothing else: no URL, no protocol,
+  no source name. A caller cannot accidentally depend on where work ran, because
+  the type it holds does not say. Only :meth:`SourceMap.bind` produces an
+  ``Endpoint``, and only a runner should be calling it.
+* **Backend support is a protocol question, not a per-vendor integration.**
+  There are exactly two wire protocols, :class:`Protocol`. ``openai`` covers
+  vLLM, llama-server, LM Studio, TGI and the hosted providers; adding a backend
+  that speaks one of them is a config entry, not code.
+* **An unusable source degrades the ladder rather than raising.** A rung whose
+  source cannot serve it is dropped from :attr:`SourceMap.rungs` and recorded in
+  :attr:`SourceMap.skipped` with a reason in words. A pool with nothing usable
+  is an empty ladder that says why, not an exception — the caller decides what
+  an empty ladder means, because for a keyless install it may be expected.
+
+**What is deliberately not here.** A tier naming a source that was never
+declared is a typo, and E1's loader already refuses it at load time; that is the
+right place for it, and this module does not re-litigate it. Live reachability —
+is the endpoint actually answering — belongs to #22, which needs timeouts and
+per-run caching that structural resolution does not. Capacity is *carried* here
+(:attr:`Endpoint.max_parallel`) but not *enforced*; the semaphore is #23, which
+acquires at this same seam so that a task escalating across sources accounts
+correctly. So the degradation this module performs is structural only: a source
+whose credential is named but absent from the environment cannot serve anything,
+and that is knowable without touching the network.
+
+**On credentials.** An ``Endpoint`` carries the environment variable's *name*,
+never its value. The value is read at dispatch through :meth:`Endpoint.credential`
+so that a secret never sits in a dataclass, never lands in a repr, and never
+reaches a log through one. Presence is checked when the map is built — that is
+what lets an unusable rung be skipped early — and the value is resolved later,
+which means a variable exported mid-run is picked up and one unset mid-run fails
+loudly at the point of use. That gap is deliberate: the alternative is holding
+the secret for the lifetime of the process.
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from enum import StrEnum
+
+from mcgyvr.config import Config, Source
+
+_ROLES = ("orchestrator", "verifier")
+
+
+class PoolError(Exception):
+    """A dispatch could not be resolved to somewhere to run."""
+
+
+class UnknownRungError(PoolError):
+    """A rung was asked for by a name the ladder does not offer."""
+
+
+class SourceUnavailableError(PoolError):
+    """A rung's source exists but cannot currently serve it."""
+
+
+class Protocol(StrEnum):
+    """A wire protocol, which is the only thing a runner needs to know.
+
+    ``OPENAI`` is the OpenAI-compatible chat-completions shape, which vLLM,
+    llama-server, LM Studio, TGI and the hosted providers all speak. Supporting
+    a new backend is therefore a config entry naming one of these, not a new
+    integration — which is why this enum has two members and is expected to keep
+    having two.
+    """
+
+    OLLAMA = "ollama"
+    OPENAI = "openai"
+
+
+@dataclass(frozen=True)
+class Endpoint:
+    """Everything needed to dispatch, and nothing about who asked. Below the seam.
+
+    ``max_parallel`` is the source's declared capacity, carried so #23 can bound
+    concurrency at this seam; this module does not enforce it. ``source`` is the
+    declared source name, kept for capacity accounting and telemetry — both of
+    which live below the seam.
+
+    ``credential_env`` is the *name* of the variable holding the key, never the
+    key. Use :meth:`credential` to resolve it at the moment of dispatch.
+    """
+
+    source: str
+    base_url: str
+    protocol: Protocol
+    max_parallel: int
+    credential_env: str | None
+
+    @property
+    def requires_credential(self) -> bool:
+        """Whether this endpoint expects a key at all — local ones do not."""
+        return self.credential_env is not None
+
+    def credential(self) -> str | None:
+        """The key for this endpoint, read from the environment at call time.
+
+        ``None`` for a keyless endpoint, which is the ordinary case for a local
+        backend. Raises :class:`SourceUnavailableError` when a key is expected and the
+        variable is unset — the map checks presence when it is built, so reaching
+        this means the environment changed underneath the run, and saying so is
+        better than dispatching an unauthenticated request.
+        """
+        if self.credential_env is None:
+            return None
+        value = os.environ.get(self.credential_env)
+        if not value:
+            raise SourceUnavailableError(
+                f"source {self.source!r} needs a credential, but "
+                f"${self.credential_env} is not set. Export it in your shell or "
+                f"put it in a git-ignored .env; never write the value into the "
+                f"config file."
+            )
+        return value
+
+
+@dataclass(frozen=True)
+class Rung:
+    """One usable step of the ladder, as seen from above the seam.
+
+    A name and a model, and by construction nothing else. There is no endpoint,
+    protocol or source here, so a caller holding a ``Rung`` cannot come to depend
+    on where its work runs — which is the property that lets a rung be re-pointed
+    at a different machine without anything above noticing.
+    """
+
+    name: str
+    model: str
+
+
+@dataclass(frozen=True)
+class Skipped:
+    """A rung the pool cannot offer, with the reason stated in words.
+
+    Kept beside the usable rungs rather than discarded, because a ladder that
+    quietly got shorter is indistinguishable from one that was always that
+    length — and the difference is usually the thing worth knowing.
+    """
+
+    name: str
+    model: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class RoleBinding:
+    """A non-ladder role (orchestrator, verifier) resolved to somewhere to run."""
+
+    role: str
+    model: str
+    endpoint: Endpoint
+
+
+class SourceMap:
+    """The ladder, resolved against the declared sources.
+
+    Built by :func:`source_map`. Holds the usable rungs in declared order —
+    cheapest first, since that is how a ladder is written — the rungs that were
+    skipped and why, and the single method that crosses the seam.
+    """
+
+    def __init__(
+        self,
+        rungs: tuple[Rung, ...],
+        skipped: tuple[Skipped, ...],
+        endpoints: dict[str, Endpoint],
+        roles: dict[str, RoleBinding],
+        role_skips: dict[str, str],
+    ) -> None:
+        self._rungs = rungs
+        self._skipped = skipped
+        self._endpoints = endpoints
+        self._roles = roles
+        self._role_skips = role_skips
+
+    @property
+    def rungs(self) -> tuple[Rung, ...]:
+        """The usable rungs, cheapest first."""
+        return self._rungs
+
+    @property
+    def skipped(self) -> tuple[Skipped, ...]:
+        """The rungs that could not be offered, each with its reason."""
+        return self._skipped
+
+    def __bool__(self) -> bool:
+        """True when at least one rung is usable."""
+        return bool(self._rungs)
+
+    def __len__(self) -> int:
+        return len(self._rungs)
+
+    def get(self, name: str) -> Rung | None:
+        """The usable rung of this name, or ``None``."""
+        return next((rung for rung in self._rungs if rung.name == name), None)
+
+    def bind(self, name: str) -> Endpoint:
+        """Resolve a rung to the endpoint that serves it — the seam crossing.
+
+        This is the only way to obtain an :class:`Endpoint`, and it is meant for
+        a runner about to dispatch. Everything above the seam should be working
+        with :class:`Rung`, which cannot tell it where anything runs.
+
+        Raises :class:`UnknownRungError` when no rung has this name, and
+        :class:`SourceUnavailableError` when the rung exists but was skipped — the two
+        are different mistakes and the messages keep them apart.
+        """
+        endpoint = self._endpoints.get(name)
+        if endpoint is not None:
+            return endpoint
+        skipped = next((s for s in self._skipped if s.name == name), None)
+        if skipped is not None:
+            raise SourceUnavailableError(
+                f"rung {name!r} is not available: {skipped.reason}"
+            )
+        offered = ", ".join(rung.name for rung in self._rungs) or "none"
+        raise UnknownRungError(f"no rung named {name!r}. Offered: {offered}")
+
+    def role(self, role: str) -> RoleBinding | None:
+        """The binding for a non-ladder role, or ``None`` when it has no source.
+
+        ``None`` is an ordinary answer, not a failure: a role is "unset until
+        something needs it", and a keyless install runs with no verifier at all.
+        A role whose source is declared but unusable raises
+        :class:`SourceUnavailableError`, because that is a misconfiguration the caller
+        asked about rather than a role it declined to use.
+        """
+        if role not in _ROLES:
+            raise UnknownRungError(f"no such role {role!r}. Roles: {', '.join(_ROLES)}")
+        binding = self._roles.get(role)
+        if binding is not None:
+            return binding
+        reason = self._role_skips.get(role)
+        if reason is not None:
+            raise SourceUnavailableError(f"role {role!r} cannot run: {reason}")
+        return None
+
+
+def source_map(config: Config) -> SourceMap:
+    """Resolve a config's ladder against its sources, degrading where it must.
+
+    Every rung whose source can serve it becomes a :class:`Rung`, in declared
+    order. A rung whose source cannot — today, only a named credential missing
+    from the environment — becomes a :class:`Skipped` with the reason. Nothing
+    raises: an install with no usable rung at all yields an empty ladder that
+    can say why, which the caller is better placed to interpret than this module
+    is.
+
+    A tier naming an undeclared source cannot reach here; E1's loader rejects
+    that at load time, where a typo belongs.
+    """
+    usable: list[Rung] = []
+    skipped: list[Skipped] = []
+    endpoints: dict[str, Endpoint] = {}
+
+    for tier in config.ladder.tiers:
+        source = config.sources[tier.source]
+        reason = _unusable(source)
+        if reason is not None:
+            skipped.append(Skipped(name=tier.name, model=tier.model, reason=reason))
+            continue
+        usable.append(Rung(name=tier.name, model=tier.model))
+        endpoints[tier.name] = _endpoint(source)
+
+    roles: dict[str, RoleBinding] = {}
+    role_skips: dict[str, str] = {}
+    for role in _ROLES:
+        block = config.get(role) or {}
+        bound, model = block.get("source"), block.get("model")
+        if bound is None or model is None:
+            continue
+        source = config.sources[bound]
+        reason = _unusable(source)
+        if reason is not None:
+            role_skips[role] = reason
+            continue
+        roles[role] = RoleBinding(role=role, model=model, endpoint=_endpoint(source))
+
+    return SourceMap(
+        rungs=tuple(usable),
+        skipped=tuple(skipped),
+        endpoints=endpoints,
+        roles=roles,
+        role_skips=role_skips,
+    )
+
+
+# --- small deterministic helpers -------------------------------------------
+
+
+def _endpoint(source: Source) -> Endpoint:
+    """A declared source as the endpoint a runner dispatches against."""
+    return Endpoint(
+        source=source.name,
+        base_url=source.base_url,
+        protocol=Protocol(source.api),
+        max_parallel=source.max_parallel,
+        credential_env=source.api_key_env,
+    )
+
+
+def _unusable(source: Source) -> str | None:
+    """Why this source cannot serve anything, or ``None`` when it can.
+
+    Structural only, and knowable without the network: a source that names a
+    credential the environment does not hold cannot authenticate, so every rung
+    on it is unusable before a request is ever attempted. Whether a reachable
+    source is actually *answering* is #22's question, and needs a probe.
+    """
+    if source.api_key_env and not os.environ.get(source.api_key_env):
+        return (
+            f"source {source.name!r} needs ${source.api_key_env}, which is not "
+            f"set in the environment"
+        )
+    return None

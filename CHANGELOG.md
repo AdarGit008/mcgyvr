@@ -149,6 +149,25 @@ Format: [Keep a Changelog](https://keepachangelog.com).
 - `mcgyvr contract PATH` — validate a task contract and show what it resolves
   to, with `--worker-view` to print exactly the fields a worker prompt may be
   built from.
+- Source map (`src/mcgyvr/pool.py`) — the seam between a ladder and the machines
+  that serve it (#20, E3). Rungs bind to sources by name and resolve at call
+  time, so moving a rung to another machine, or to a hosted API, is a config
+  edit and not a patch. What keeps that true is that a `Rung` carries a name and
+  a model and deliberately nothing else: no URL, no protocol, no source. A
+  caller above the seam cannot come to depend on where work ran, because the
+  type it holds cannot say. Only `SourceMap.bind` yields an `Endpoint`, and only
+  a runner should call it. Backends are a protocol question rather than a
+  per-vendor integration — `openai` covers vLLM, llama-server, LM Studio, TGI
+  and the hosted providers, so adding one is a config entry. A source that
+  cannot serve shortens the ladder instead of raising: the rung is skipped with
+  its reason in words, an install with nothing usable gets an empty ladder that
+  can explain itself, and the caller decides what that means, since for a
+  keyless install it may be exactly what was configured. Credentials are named,
+  never held — an `Endpoint` carries the variable's name and resolves the value
+  at dispatch, so a secret never sits in a dataclass and cannot reach a log
+  through a repr.
+- `mcgyvr pool` — show the ladder as it resolves against the declared sources,
+  including which rungs were skipped and why.
 
 ### Changed
 - `mcgyvr.orchestrator.index` exposes the per-file primitives a build is made
