@@ -17,6 +17,7 @@ from mcgyvr.config import CONFIG_FILENAME, CONFIG_PATH_ENV, ConfigError
 from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
 from mcgyvr.detect import detect
+from mcgyvr.initialize import initialize
 
 
 def _capabilities(args: argparse.Namespace) -> int:
@@ -118,6 +119,47 @@ def _detect(args: argparse.Namespace) -> int:
     return 0
 
 
+def _init(args: argparse.Namespace) -> int:
+    path = Path(args.path) if args.path else resolve_config_path()
+    try:
+        result = initialize(path, force=args.force)
+    except (ConfigError, CapabilityTableError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if result.created:
+        print(f"Wrote {result.path}\n")
+    elif result.written:
+        print(f"Overwrote {result.path} (--force)\n")
+    else:
+        print(f"{result.path} already exists — nothing was changed.\n")
+
+    if result.decisions:
+        print("What was decided, and why:")
+        for decision in result.decisions:
+            print(f"  - {decision}")
+        print()
+
+    if not result.written:
+        if result.deltas:
+            print("Re-running with --force would change:")
+            for delta in result.deltas:
+                print(f"  - {delta}")
+            print(
+                "\nYour edits are kept. Pass --force to accept the proposal "
+                "above, or leave the file as it is."
+            )
+        else:
+            print("The proposal matches the file on disk exactly.")
+        print()
+
+    if result.limits:
+        print("What is NOT configured, and what that costs:")
+        for limit in result.limits:
+            print(f"  - {limit}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -156,6 +198,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="show what this machine can run, and how each fact was detected",
     )
     det.set_defaults(func=_detect)
+
+    ini = sub.add_parser(
+        "init",
+        help="detect this machine and write a config bound to what it has",
+    )
+    ini.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help=f"where to write (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+    )
+    ini.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite an existing config, discarding hand edits",
+    )
+    ini.set_defaults(func=_init)
 
     args = parser.parse_args(argv)
     result: int = args.func(args)

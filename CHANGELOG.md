@@ -38,6 +38,18 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   measurements taken on a backend the model can actually run on — a figure
   from another backend describes different weights (CAV-02).
 
+- `mcgyvr init` (`src/mcgyvr/initialize.py`) — detect the machine, propose a
+  ladder, and write the config. Non-interactive, so an agent can invoke it.
+  Idempotent: re-running reports a delta and never overwrites hand edits
+  without `--force`. The generated file's comments are rendered from the
+  same schema the loader validates against, so a comment cannot drift from
+  the rule it describes. What is not configured — no key, no Docker, no GPU
+  — is reported with what it costs.
+
 ### Changed
 - `pyyaml` is now a runtime dependency. The config file is YAML because it
   carries policy that needs comments to stay hand-editable (ADR-0001).
+- Worker bindings are named `<role>_<locality>_<model>` (for example
+  `worker_local_qwen2.5-coder-7b`), replacing the positional `local-N`. A
+  name says what a binding IS rather than where it sits in an ordering, so
+  inserting a rung cannot silently change what a policy reference means.

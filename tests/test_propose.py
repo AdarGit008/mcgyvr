@@ -18,8 +18,11 @@ import pytest
 
 from mcgyvr.capability import load
 from mcgyvr.propose import (
+    API,
     MIN_QUALITY_GAIN,
+    ORCHESTRATOR,
     AvailableSource,
+    binding_name,
     propose,
 )
 
@@ -255,11 +258,38 @@ def test_presence_breaks_ties_without_overriding_the_gradient(table) -> None:  #
     )
 
 
-def test_rungs_are_named_cheapest_first(table) -> None:  # type: ignore[no-untyped-def]
+def test_rungs_are_named_by_what_they_are(table) -> None:  # type: ignore[no-untyped-def]
+    """`<role>_<locality>_<model>` — a name that survives inserting a rung."""
     proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA, LLAMA_SERVER])
     assert [r.name for r in proposal.rungs] == [
-        f"local-{i + 1}" for i in range(len(proposal.rungs))
+        "worker_local_qwen2.5-coder-1.5b",
+        "worker_local_qwen2.5-coder-3b",
+        "worker_local_qwen2.5-coder-7b",
+        "worker_local_qwen2.5-coder-14b",
     ]
+
+
+def test_binding_names_are_safe_to_use_as_config_keys() -> None:
+    """A model id is not a name: it carries colons and path separators."""
+    assert binding_name("qwen2.5-coder:7b") == "worker_local_qwen2.5-coder-7b"
+    assert (
+        binding_name("Qwen/Qwen2.5-Coder-14B-Instruct-AWQ")
+        == "worker_local_qwen2.5-coder-14b-instruct-awq"
+    )
+    assert (
+        binding_name("claude-opus-5", role=ORCHESTRATOR, locality=API)
+        == "orch_api_claude-opus-5"
+    )
+
+
+def test_rung_names_are_unique_within_a_proposal(table) -> None:  # type: ignore[no-untyped-def]
+    """The config loader rejects duplicate tier names, so this must hold."""
+    for card in (SMALL_CARD, BIG_CARD):
+        names = [
+            r.name
+            for r in propose(table, vram_gb=card, sources=[OLLAMA, LLAMA_SERVER]).rungs
+        ]
+        assert len(names) == len(set(names))
 
 
 def test_the_proposal_is_deterministic(table) -> None:  # type: ignore[no-untyped-def]
