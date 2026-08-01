@@ -16,6 +16,7 @@ from mcgyvr.capability import CapabilityTableError, load
 from mcgyvr.config import CONFIG_FILENAME, CONFIG_PATH_ENV, ConfigError
 from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
+from mcgyvr.detect import detect
 
 
 def _capabilities(args: argparse.Namespace) -> int:
@@ -77,6 +78,46 @@ def _config(args: argparse.Namespace) -> int:
     return 0
 
 
+def _detect(args: argparse.Namespace) -> int:
+    found = detect()
+
+    if found.gpus:
+        print("GPU:")
+        for gpu in found.gpus:
+            print(f"  {gpu.name} — {gpu.vram_gb:g} GB  ({gpu.how})")
+    else:
+        print("GPU: none detected")
+
+    context = []
+    if found.cpu_count is not None:
+        context.append(f"{found.cpu_count} CPUs")
+    if found.ram_gb is not None:
+        context.append(f"{found.ram_gb:g} GB RAM")
+    if context:
+        print(f"Host: {', '.join(context)}")
+
+    print(f"Docker: {'yes' if found.docker else 'no'}  ({found.provenance['docker']})")
+
+    if found.backends:
+        print("\nBackends reachable:")
+        for backend in found.backends:
+            print(f"  {backend.name:<14} {backend.base_url:<26} api={backend.api}")
+            if backend.models:
+                for model in backend.models:
+                    print(f"      already pulled: {model}")
+            else:
+                print("      (reachable, but reports no models)")
+            print(f"      {backend.how}")
+    else:
+        print("\nBackends reachable: none")
+
+    if found.notes:
+        print("\nWhat could not be determined, and what it costs:")
+        for note in found.notes:
+            print(f"  - {note}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="mcgyvr",
@@ -109,6 +150,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
     )
     conf.set_defaults(func=_config)
+
+    det = sub.add_parser(
+        "detect",
+        help="show what this machine can run, and how each fact was detected",
+    )
+    det.set_defaults(func=_detect)
 
     args = parser.parse_args(argv)
     result: int = args.func(args)
