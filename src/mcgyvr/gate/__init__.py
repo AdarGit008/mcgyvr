@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from mcgyvr.gate.acceptance import Acceptance, AcceptanceReport
 from mcgyvr.gate.adapter import LanguageAdapter, ToolUnavailableError
-from mcgyvr.gate.adapters import PythonAdapter
+from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import (
     ChangeSet,
     ChangeSetError,
@@ -38,6 +38,7 @@ __all__ = [
     "Finding",
     "Gate",
     "GateResult",
+    "JavaScriptAdapter",
     "LanguageAdapter",
     "PreflightIssue",
     "PythonAdapter",

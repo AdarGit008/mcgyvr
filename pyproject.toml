@@ -7,6 +7,9 @@ license = { file = "LICENSE" }
 requires-python = ">=3.12"
 dependencies = [
     "pyyaml>=6.0.3",
+    "tree-sitter>=0.23",
+    "tree-sitter-javascript>=0.23",
+    "tree-sitter-typescript>=0.23",
 ]
 
 [project.urls]
@@ -41,6 +44,13 @@ extend-exclude = ["tools/baseline"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+
+# The formatter is declared explicitly (not left to defaults) so it is a
+# machine-readable statement of intent the baseline detects (QUAL-02); these
+# are ruff's defaults, so `ruff format` behaviour is unchanged.
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 
 [tool.mypy]
 python_version = "3.12"
