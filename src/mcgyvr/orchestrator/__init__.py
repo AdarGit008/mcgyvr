@@ -12,6 +12,15 @@ tree under #45.
 
 from __future__ import annotations
 
+from mcgyvr.orchestrator.context import (
+    Acceleration,
+    ContextFinding,
+    Discrepancy,
+    SuppliedContext,
+    VerifiedContext,
+    accelerate,
+    verify,
+)
 from mcgyvr.orchestrator.index import (
     BuildStats,
     Index,
@@ -33,11 +42,14 @@ from mcgyvr.orchestrator.resolve import Candidate, Resolution, Verdict, resolve
 from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 
 __all__ = [
+    "Acceleration",
     "AttachError",
     "AttachedRepo",
     "BuildStats",
     "Candidate",
+    "ContextFinding",
     "Deferral",
+    "Discrepancy",
     "Exploration",
     "ExplorationError",
     "Index",
@@ -45,13 +57,17 @@ __all__ = [
     "IndexedFile",
     "Match",
     "Resolution",
+    "SuppliedContext",
     "Symbol",
     "SymbolKind",
     "SymbolTable",
     "TargetedRead",
     "Verdict",
+    "VerifiedContext",
+    "accelerate",
     "attach",
     "build_index",
     "explore",
     "resolve",
+    "verify",
 ]

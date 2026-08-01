@@ -354,9 +354,12 @@ def _read(args: argparse.Namespace) -> int:
     from mcgyvr.orchestrator import (
         ExplorationError,
         IndexBuildError,
+        SuppliedContext,
+        accelerate,
         build_index,
         explore,
         resolve,
+        verify,
     )
 
     root = Path(args.repo).resolve()
@@ -370,22 +373,49 @@ def _read(args: argparse.Namespace) -> int:
         return 1
 
     resolution = resolve(index, args.query, limit=args.limit)
+
+    # Supplied context enters only here, after the deterministic pass has already
+    # produced its shortlist — it can re-rank and pay for reads, never redirect.
+    contents: dict[str, str] = {}
+    for held in args.holds:
+        try:
+            contents[held] = (root / held).read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"error: cannot read --holds {held}: {exc}", file=sys.stderr)
+            return 1
+    supplied = SuppliedContext(paths=tuple(args.hint), contents=contents)
+    verified = verify(index, supplied)
+    accelerated = accelerate(resolution, verified)
+    resolution = accelerated.resolution
+
     try:
-        plan = explore(index, resolution, budget=args.budget, context=args.context)
+        plan = explore(
+            index,
+            resolution,
+            budget=args.budget,
+            context=args.context,
+            supplied=verified,
+        )
     except ExplorationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
     state = "exhausted" if plan.exhausted else "complete"
+    saved = f", {plan.saved} saved" if plan.saved else ""
     print(
         f'"{args.query}" — read {len(plan.reads)} region(s), '
-        f"{plan.spent}/{plan.budget} est. tokens ({state}):"
+        f"{plan.spent}/{plan.budget} est. tokens{saved} ({state}):"
     )
     for read in plan.reads:
+        held_marker = " (supplied)" if read.supplied else ""
         print(
             f"  #{read.candidate_rank} {read.path}:{read.start}-{read.end}"
-            f"  [{read.reason}]  ~{read.estimated_tokens}t"
+            f"  [{read.reason}]  ~{read.estimated_tokens}t{held_marker}"
         )
+    # A rejected hint is always surfaced: silence would be the caller trusting a
+    # picture the repository does not agree with.
+    for finding in accelerated.findings:
+        print(f"  ! {finding.path}: {finding.detail}")
     if plan.deferred:
         cost = sum(item.estimated_tokens for item in plan.deferred)
         print(f"\n  deferred {len(plan.deferred)} region(s) (~{cost}t over budget):")
@@ -577,6 +607,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=10,
         metavar="N",
         help="cap the resolver shortlist to N candidates first (default: 10)",
+    )
+    rd.add_argument(
+        "--hint",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help=(
+            "a path you believe is relevant; re-ranks the shortlist but can never "
+            "add to it or overturn a resolved leader (repeatable)"
+        ),
+    )
+    rd.add_argument(
+        "--holds",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help=(
+            "a path whose current content you already hold; verified against the "
+            "index, and if it matches its regions cost the budget nothing "
+            "(repeatable)"
+        ),
     )
     rd.set_defaults(func=_read)
 

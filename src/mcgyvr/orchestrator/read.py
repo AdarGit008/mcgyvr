@@ -35,6 +35,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from mcgyvr.orchestrator.context import VerifiedContext
 from mcgyvr.orchestrator.index import Index, IndexedFile
 from mcgyvr.orchestrator.resolve import (
     Candidate,
@@ -71,6 +72,11 @@ class TargetedRead:
     ``start`` and ``end`` are 1-based inclusive line numbers; ``text`` is exactly
     those lines. ``candidate_rank`` is the 1-based shortlist position that pulled
     this region in, and ``reason`` says why the region mattered.
+
+    ``estimated_tokens`` is always the region's real estimated cost, whether or
+    not the budget paid it. ``supplied`` marks a region the caller already holds
+    (#51): its content was verified equal to the repository's, so it was charged
+    nothing. The two fields together are the audit trail for what a hint saved.
     """
 
     path: str
@@ -80,6 +86,7 @@ class TargetedRead:
     reason: str
     candidate_rank: int
     estimated_tokens: int
+    supplied: bool = False
 
 
 @dataclass(frozen=True)
@@ -107,6 +114,10 @@ class Exploration:
     ``exhausted`` is true exactly when something was deferred. The plan is the
     forced decision surface — a caller reads ``exhausted`` and acts, rather than
     receiving a silently shortened result.
+
+    ``saved`` is the estimated cost of the regions the caller already held, which
+    the budget therefore did not pay — the measurable value of supplied context
+    (#51), and zero when none was given.
     """
 
     query: str
@@ -115,6 +126,7 @@ class Exploration:
     reads: tuple[TargetedRead, ...]
     deferred: tuple[Deferral, ...]
     exhausted: bool
+    saved: int = 0
 
     @property
     def complete(self) -> bool:
@@ -140,6 +152,7 @@ def explore(
     budget: int = _DEFAULT_BUDGET,
     context: int = _DEFAULT_CONTEXT,
     estimate: Callable[[str], int] | None = None,
+    supplied: VerifiedContext | None = None,
 ) -> Exploration:
     """Read the regions the shortlist justifies, best-first, within ``budget``.
 
@@ -150,12 +163,21 @@ def explore(
     exhausted. ``estimate`` counts a region's tokens; the default is a
     deterministic character-based approximation.
 
+    ``supplied`` is verified caller context (#51). A region in a file whose text
+    the caller already holds — and which :func:`~mcgyvr.orchestrator.context.verify`
+    confirmed matches the repository — is charged nothing, because the caller is
+    not being asked to read anything it does not already have. Region planning is
+    unaffected: which regions exist is still decided entirely by the index and the
+    shortlist, so supplied context can make exploration cheaper but never
+    different. Unverified or contradicted context never reaches here.
+
     Raises :class:`ExplorationError` when ``budget`` is not positive — there is
     no bounded exploration to perform.
     """
     if budget <= 0:
         raise ExplorationError(f"exploration budget must be positive, got {budget}")
     tokens = estimate if estimate is not None else _estimate_tokens
+    free = supplied.fresh if supplied is not None else frozenset()
 
     files = {file.path: file for file in index.files}
     query_tokens = frozenset(_content_tokens(resolution.query))
@@ -164,16 +186,25 @@ def explore(
     reads: list[TargetedRead] = []
     deferred: list[Deferral] = []
     spent = 0
+    saved = 0
     stopped = False
     for region in regions:
         text = _slice(files[region.path], region.start, region.end)
         cost = tokens(text)
+        # A region the caller already holds is free, so it is always taken — even
+        # after the budget has run out. Taking it cannot displace anything, since
+        # it charges nothing and the prefix below is defined over *charged*
+        # regions only; refusing it would discard a saving for no gain.
+        held = region.path in free
         # Read a strict best-first prefix: the first region that does not fit ends
         # the exploration, and it and everything after it are deferred. A cheaper
         # region further down is *not* pulled ahead of a costlier higher-priority
         # one — the deferral list stays a faithful account of where budget ran out.
-        if not stopped and spent + cost <= budget:
-            spent += cost
+        if held or (not stopped and spent + cost <= budget):
+            if held:
+                saved += cost
+            else:
+                spent += cost
             reads.append(
                 TargetedRead(
                     path=region.path,
@@ -183,6 +214,7 @@ def explore(
                     reason=region.reason,
                     candidate_rank=region.candidate_rank,
                     estimated_tokens=cost,
+                    supplied=held,
                 )
             )
         else:
@@ -205,6 +237,7 @@ def explore(
         reads=tuple(reads),
         deferred=tuple(deferred),
         exhausted=bool(deferred),
+        saved=saved,
     )
 
 
