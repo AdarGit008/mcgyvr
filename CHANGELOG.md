@@ -21,6 +21,12 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   that are legitimately optional fail at the point of use, naming the key
   and how to bind it.
 - `mcgyvr config` — validate a config file and show what it resolves to.
+- Hardware and backend detection (`src/mcgyvr/detect.py`). Reports GPUs and
+  VRAM, host CPU/RAM, Docker, and which local backends answer — each fact
+  with how it was detected, and each failed probe with what it could not
+  determine. Absence is an outcome, not an error: no GPU, no Docker and no
+  backend is a supported machine. Nothing is benchmarked.
+- `mcgyvr detect` — show the survey and its provenance.
 - Worker binding proposal (`src/mcgyvr/propose.py`). Turns a card size and
   the reachable backends into a ladder whose rungs climb in measured
   quality, stating for each binding why it was chosen and what it costs to
