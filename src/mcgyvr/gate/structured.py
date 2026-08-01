@@ -15,14 +15,21 @@ dependency); until then YAML files are left unvalidated rather than guessed at.
 from __future__ import annotations
 
 import json
+from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.findings import Finding
 
-try:  # optional: present once the config epic adds PyYAML as a runtime dep
-    import yaml as _yaml  # type: ignore[import-untyped]
-except ImportError:  # pragma: no cover - exercised by whichever env lacks it
+# Optional: a YAML parser is present once the config epic adds PyYAML as a
+# runtime dependency. Imported dynamically and held as Any so this module type
+# checks identically whether or not the parser (and its stubs) are installed —
+# a static `import yaml` would flip between "unused ignore" and "missing import"
+# across those two environments.
+try:  # pragma: no cover - branch taken depends on whether PyYAML is installed
+    _yaml: Any = import_module("yaml")
+except ImportError:  # pragma: no cover
     _yaml = None
 
 _JSON_EXT = (".json",)
