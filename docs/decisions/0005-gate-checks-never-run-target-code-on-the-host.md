@@ -1,8 +1,11 @@
 # ADR-0005 — gate checks never run target code on the host
 
-Status: Accepted
+Status: Amended
 Supersedes: none
 Superseded-by: none
+Amended-by: ADR-0010 (2026-08-02) — the rejected alternative "install the tools
+into the per-repo image and add a sandbox-executed gate rung" is adopted. The
+Decision below is unchanged and still binds.
 Date: 2026-08-01
 
 ## Context
@@ -132,6 +135,15 @@ ADR-0004 requires and registers as debt: run these tools over changes the
 acceptance rung already accepted, and count what they catch. If the yield is
 real, this rung is the right shape for it, and this record is the thing to
 supersede.
+
+**Amended 2026-08-02 by ADR-0010: this alternative is adopted.** The deferral
+above is withdrawn, and not because the measurement came in — because the
+quantity it named cannot carry the argument. "Yield only over what the declared
+checks miss" is observable only where declared checks exist, and the strongest
+case for the rung is repositories that declare none, which cannot form a
+contract of the relevant type at all (`contract.py:862`) and so contribute no
+rows rather than zero rows. The rest of this record, including its Decision,
+stands as written.
 
 ## Rejected: exempt the gate process from boundary 6
 
