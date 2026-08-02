@@ -36,7 +36,7 @@ _SHA = re.compile(r"^[0-9a-f]{7,40}$")
 _MOVING = frozenset({"main", "master", "HEAD", "develop", "dev", "trunk", "latest"})
 
 
-def _citations() -> list[tuple[str, str, dict]]:
+def _citations() -> list[tuple[str, str, dict[str, str]]]:
     """Every (claim id, source path, citation) triple in the register."""
     out = []
     for path in CLAIMS:
