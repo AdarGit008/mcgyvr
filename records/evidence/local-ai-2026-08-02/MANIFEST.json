@@ -1,0 +1,70 @@
+{
+  "source_repo": "git@github.com:AdarGit008/local-ai.git",
+  "source_commit": "55a084ecf74a3027bd90f3a4f95fb570812e34b7",
+  "permalink_base": "https://github.com/AdarGit008/local-ai/blob/55a084ecf74a3027bd90f3a4f95fb570812e34b7/",
+  "vendored_utc": "2026-08-02T19:57:31Z",
+  "supports": "mcgyvr records/claims/CLM-0004 (bundle size vs first-pass acceptance, 160 runs) and the capability-table figures.",
+  "files": [
+    {
+      "path": "data/context_exp/summary_2026-07-28.md",
+      "present": true,
+      "sha256": "365618c65aa751a7cc58ffef62519647e2c8d574c8da9a80415745a492f4394e",
+      "bytes": 4893
+    },
+    {
+      "path": "data/context_exp/results_q3b.jsonl",
+      "present": true,
+      "sha256": "dec750f2ef8cb207a91766655f637eeafbf3aaa242bbb74aaca6576a08d5f041",
+      "bytes": 28157
+    },
+    {
+      "path": "data/context_exp/results_qwen3.jsonl",
+      "present": true,
+      "sha256": "e1e745d6f499355c160f916865a0932ca076ae235ec1af78ef9f6aae8273c901",
+      "bytes": 21656
+    },
+    {
+      "path": "data/humaneval_plus_summary_2026-07-26.md",
+      "present": true,
+      "sha256": "b54a1c06d08d9b16dae125b3b8214cb0b1c04f929ec81c9e7258fb2659308a3a",
+      "bytes": 1989
+    },
+    {
+      "path": "data/humaneval_plus_qwen1.5b_2026-07-26.jsonl",
+      "present": true,
+      "sha256": "55962e4874f610a8365692a05e602044f2e9bcecca5de1b1882e082db2df6a14",
+      "bytes": 118981
+    },
+    {
+      "path": "data/humaneval_plus_qwen3b_2026-07-26.jsonl",
+      "present": true,
+      "sha256": "56cc85b0b818a38d3299b5dc4fa3ca90e9ea618e7a8730aa67968c079886500e",
+      "bytes": 120821
+    },
+    {
+      "path": "data/humaneval_plus_qwen7b_2026-07-26.jsonl",
+      "present": true,
+      "sha256": "a2daa7160a59e09f4e17d264913fac6893b0d45957c7cda340729832e18523db",
+      "bytes": 98138
+    },
+    {
+      "path": "data/context_exp/bundles/c1.md",
+      "present": true,
+      "bytes": 440
+    },
+    {
+      "path": "data/context_exp/bundles/c2.md",
+      "present": true,
+      "bytes": 1972
+    },
+    {
+      "path": "data/context_exp/bundles/c3.md",
+      "present": true,
+      "bytes": 8342
+    },
+    {
+      "path": "research/context_size_experiment_2026-07-28.md",
+      "present": true
+    }
+  ]
+}
