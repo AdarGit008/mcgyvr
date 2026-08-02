@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ghostcall"
+version = "0.1.1"
+description = "Detect hallucinated API calls in LLM-generated Python code"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "Pasqualino Sorice" }]
+keywords = ["llm", "ai", "hallucination", "linter", "static-analysis", "python"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "click>=8.0",
+    "rich>=13.0",
+    "rich-click>=1.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-cov", "ruff"]
+
+[project.scripts]
+ghostcall = "ghostcall.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/linosorice/ghostcall"
+Issues = "https://github.com/linosorice/ghostcall/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ghostcall"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"

@@ -1,0 +1,75 @@
+{
+  "source_repo": "https://github.com/linosorice/ghostcall.git",
+  "source_commit": "56b74fc266cde790ef3d4fc474c1388ee2960d5f",
+  "permalink_base": "https://github.com/linosorice/ghostcall/blob/56b74fc266cde790ef3d4fc474c1388ee2960d5f/",
+  "vendored_utc": "2026-08-02T20:58:51Z",
+  "supports": "mcgyvr records/claims/CLM-0006 (#125): the ADR-0004 verification of the ghostcall description inherited from #93. Vendored because the source is an unarchived zero-star personal repository, and the claim is a line count and a dependency list that must stay recomputable if it disappears. Third-party source, unmodified, reproduced under its MIT LICENSE (vendored alongside).",
+  "files": [
+    {
+      "path": "LICENSE",
+      "present": true,
+      "sha256": "5ee9b7eac03335cbc3b6feb744290d5d488cb67bff04af7e3604df767931d6dd",
+      "bytes": 1074
+    },
+    {
+      "path": "pyproject.toml",
+      "present": true,
+      "sha256": "2164b613f40be8e4cc689dee332ad8baa80ce28bb905c23ecab9b20110b6a7fd",
+      "bytes": 1347
+    },
+    {
+      "path": "README.md",
+      "present": true,
+      "sha256": "1bfe81161a1772a9ea7ebbe64799683810719022c95e8370e6723c3a7ac196a2",
+      "bytes": 4417
+    },
+    {
+      "path": "src/ghostcall/__init__.py",
+      "present": true,
+      "sha256": "ae739b3e3b817044ada923b44ba82c752fe8b7c2133908d58fff8fd4b5146298",
+      "bytes": 22
+    },
+    {
+      "path": "src/ghostcall/__main__.py",
+      "present": true,
+      "sha256": "e33b27169ac8d8b457e2dc64ccdd1ee81b83e281c7bebde7ebf8673b34f42bdf",
+      "bytes": 70
+    },
+    {
+      "path": "src/ghostcall/parser.py",
+      "present": true,
+      "sha256": "1064c2f95141120125bcd7e3679d1d7817b6468abdca169dfb7138457dbf24ba",
+      "bytes": 3364
+    },
+    {
+      "path": "src/ghostcall/checker.py",
+      "present": true,
+      "sha256": "f89e2a6024155f4676cf348a6caa09009b699a6253ab668abc48882d33e51e47",
+      "bytes": 2145
+    },
+    {
+      "path": "src/ghostcall/suggest.py",
+      "present": true,
+      "sha256": "ddd5a2d321e8a063c7158bf6ec0d34067738f0184445d1608738f69299be1fc7",
+      "bytes": 508
+    },
+    {
+      "path": "src/ghostcall/markdown.py",
+      "present": true,
+      "sha256": "0261d718069ab05ba8ac6e380551aeabbfa0cc93e92f56706c1ff53d0e50f2de",
+      "bytes": 544
+    },
+    {
+      "path": "src/ghostcall/cli.py",
+      "present": true,
+      "sha256": "989dd943b5d1acce34464173d164712293e1e6fa3d69285ea4de25e166895d26",
+      "bytes": 1991
+    },
+    {
+      "path": "src/ghostcall/output.py",
+      "present": true,
+      "sha256": "a060cbdf9bc9a249bea5d5e465da2f5ea02fca4bc149c8d09d772ba7fffaf5a4",
+      "bytes": 2592
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0006",
+  "statement": "The ghostcall description inherited from #93 — \"linosorice/ghostcall, ~330 lines, zero deps, pure stdlib, pip-installable\" — survives on identity and packaging and fails on dependencies. At commit 56b74fc266cde790ef3d4fc474c1388ee2960d5f the repository exists, is MIT-licensed, is not archived, and does what #93 says it does (detect hallucinated API calls in LLM-generated Python). It is pip-installable: hatchling build, console script `ghostcall`, version 0.1.1, with a release workflow. \"Zero deps, pure stdlib\" is FALSE of the package, which declares three runtime dependencies — click>=8.0, rich>=13.0, rich-click>=1.7. It is TRUE of the engine: parser.py, checker.py, suggest.py and markdown.py import only ast, importlib, inspect, difflib, dataclasses, typing and re, and total 173 non-blank non-comment lines; all three dependencies are confined to cli.py and output.py (126 SLOC of presentation) which a gate rung does not call. \"~330 lines\" is not a measurement anyone took: it is ghostcall's own README figure, and src/ measures 381 physical / 303 non-blank non-comment lines. Separately and load-bearing for #123: checker.check() resolves a call by `importlib.import_module` on the target's own import roots, which executes the target's module-level code — so this cannot run host-side under ADR-0005 at any size.",
+  "type": "technical",
+  "build_state": "designed-unshipped",
+  "blast_radius": "recoverable",
+  "confidence": "high",
+  "citations": [
+    {
+      "url": "records/evidence/ghostcall-2026-08-02/pyproject.toml",
+      "supports_because": "The dependency list is the half of the inherited claim that fails, and this is the file that declares it: three runtime dependencies under [project].dependencies, against a claim of zero. It also carries the packaging half that passes — hatchling backend, [project.scripts] entry point, version 0.1.1."
+    },
+    {
+      "url": "records/evidence/ghostcall-2026-08-02/src/ghostcall/checker.py",
+      "supports_because": "Both engine findings read off this file directly: its imports are stdlib-only (importlib, inspect, dataclasses, typing), and check() calls importlib.import_module on the target's import root, which is what makes host-side execution an ADR-0005 violation rather than a preference."
+    },
+    {
+      "url": "records/evidence/ghostcall-2026-08-02/README.md",
+      "supports_because": "Names the origin of the \"~330 lines\" and \"stdlib\" wording — the project's own prose about the four files that matter. This is what #93 paraphrased, which is why the error is a citation error rather than a measurement error: no one ever counted."
+    },
+    {
+      "url": "records/evidence/ghostcall-2026-08-02/MANIFEST.json",
+      "supports_because": "Pins the vendored copy to the upstream commit with a sha256 per file, so the line counts above can be recomputed from the same bytes rather than taken on report — the property ADR-0004 asks for and the one the upstream repository cannot itself guarantee."
+    },
+    {
+      "url": "https://github.com/linosorice/ghostcall/blob/56b74fc266cde790ef3d4fc474c1388ee2960d5f/pyproject.toml",
+      "supports_because": "The upstream original at the same commit, so the vendored copy can be diffed against its source for as long as the repository exists."
+    }
+  ],
+  "_verification_note": "This settles the ADR-0004 gate #125 put in front of any image work on #123, and it settles it as a qualified yes: the tool is real and the engine is installable into a per-repo image with no third-party packages, which is the property the rung actually needed. What it does NOT establish is that ghostcall is the right resolver — this checked the description, not the yield, and the false-positive figure (#125 Count 3) is still unmeasured. Two facts worth carrying forward: the repository is a zero-star personal project last pushed 2026-04-19, which is why the source is vendored here rather than cited by URL alone; and the ~330 figure was inherited from the subject's own README, the exact shape ADR-0004 exists to catch.",
+  "_measurement_note": "Line counts are over src/ghostcall/*.py at the pinned commit. Physical = `wc -l`; SLOC = lines matching neither ^\\s*$ nor ^\\s*#, which does not exclude docstrings. Engine = parser + checker + suggest + markdown (93 + 61 + 10 + 9 = 173); presentation = cli + output (63 + 63 = 126); the remaining 4 are __init__ and __main__."
+}
