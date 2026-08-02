@@ -1,0 +1,28 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0005",
+  "statement": "The premise the inherited research document was sized against — small models \"achieve 94%+ syntactic validity with ~0% semantic correctness\" — is false on the half that carried the argument. Measured on identical stored completions (n=164 per corpus, five corpora, HumanEval+ greedy): syntactic validity by ast.parse is 100% for qwen2.5-coder 1.5B/3B/7B and qwen3-coder-30b-a3b and 98.2% for gpt-oss-20b, while semantic correctness on the same rows is 65.2% / 80.5% / 82.9% / 88.4% / 53.7% — not ~0%.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "high",
+  "citations": [
+    {
+      "url": "records/evidence/local-ai-2026-08-02/premise/premise.jsonl",
+      "supports_because": "The per-completion rows the syntactic rate is computed from — one line per task with its ast.parse verdict, unaggregated, so the rate can be recomputed rather than trusted."
+    },
+    {
+      "url": "records/evidence/local-ai-2026-08-02/premise/humaneval_plus_qwen1.5b_2026-07-26_eval_results.json",
+      "supports_because": "EvalPlus per-task pass/fail for the 1.5B, run over the same stored completions the syntactic rate was measured on. Measuring both rates on identical rows is the only way the 94%/~0% claim is even well-formed, and no prior run did it."
+    },
+    {
+      "url": "records/evidence/local-ai-2026-08-02/data/humaneval_plus_summary_2026-07-26.md",
+      "supports_because": "The original generation run's own summary, which independently reports the same HumanEval+ pass rates and so rules out the re-evaluation having produced them."
+    },
+    {
+      "url": "https://github.com/AdarGit008/local-ai/blob/d201ea1/tools/mcgyvr_evidence.py",
+      "supports_because": "The rig, commit-pinned: the `premise` subcommand that produced both halves. It re-runs from a checkout, which is what makes the number reproducible rather than reported."
+    }
+  ],
+  "_confidence_note": "High for what it measures, and deliberately narrow. HumanEval+ is self-contained single-function synthesis — the easiest shape a code model faces — so this BOUNDS the inherited claim and does not generalise to repository-situated contract work, where semantic correctness will be lower. Its independent check is that the three qwen2.5-coder figures reproduce data/capability-table.json (0.652 / 0.805 / 0.829) to three decimals from a separate rig run, which is why confidence is high despite one benchmark family. What this record does NOT establish is a replacement premise: the correct reading is that the inherited number was never evidence, not that 65-88% is the semantic rate for contract work. See ADR-0004 — the ordering that premise was used to sort is the thing that needs re-deriving, and that is not settled here."
+}
