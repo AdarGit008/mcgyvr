@@ -8,8 +8,16 @@
   "confidence": "medium",
   "citations": [
     {
+      "url": "records/evidence/local-ai-2026-08-02/data/context_exp/summary_2026-07-28.md",
+      "supports_because": "The controlled experiment behind the numbers: a 20-task contract set run across a four-condition context ladder on one model, which is what isolates bundle size as the variable and shows the non-monotonic result (2 KB better, 8 KB worse). Vendored into this repository so the claim survives the source repo changing or going private."
+    },
+    {
+      "url": "records/evidence/local-ai-2026-08-02/data/context_exp/results_q3b.jsonl",
+      "supports_because": "The 80 raw qwen2.5-coder:3b runs the 45%-to-70% figure is computed from — one row per task per condition, so the rate can be recomputed rather than trusted. This is the underlying data the original permalink did not include."
+    },
+    {
       "url": "https://github.com/AdarGit008/local-ai/blob/e13a051/data/context_exp/summary_2026-07-28.md",
-      "supports_because": "The controlled experiment behind the numbers: a 20-task contract set run across a four-condition context ladder on one model, which is what isolates bundle size as the variable and shows the non-monotonic result (2 KB better, 8 KB worse)."
+      "supports_because": "The original commit-pinned source of the vendored summary above, retained so the vendored copy can be checked against where it came from."
     }
   ],
   "_confidence_note": "Medium: 160 runs across 2 models x 4 conditions x 20 tasks on one rig. The effect appeared on the small worker only — the 30B MoE was at ceiling on this task set and insensitive to bundle size, so the claim is scoped to small workers and the percentages should not be quoted as generalizing to other models, task sets or languages until re-measured."

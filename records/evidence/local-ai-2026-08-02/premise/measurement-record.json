@@ -1,0 +1,97 @@
+{
+  "record": "claim/1",
+  "id": "PROPOSED-premise",
+  "statement": "On stored HumanEval+ completions from local workers, syntactic validity and semantic correctness are measured on the same outputs; see `measured` for the per-model pair.",
+  "type": "empirical",
+  "build_state": "measured",
+  "blast_radius": "recoverable",
+  "confidence": "high",
+  "n": 820,
+  "measured": {
+    "humaneval_plus_qwen1.5b_2026-07-26": {
+      "n": 164,
+      "syntactic_valid": 164,
+      "syntactic_rate": 1.0,
+      "semantic_pass_at_1": 0.7073,
+      "semantic_source": "evalplus.evaluate, this run",
+      "humaneval_plus_pass_at_1": 0.6524,
+      "semantic_raw": {
+        "pass@1": 0.7073,
+        "humaneval_plus_pass@1": 0.6524,
+        "n_tasks": 164
+      }
+    },
+    "humaneval_plus_qwen3b_2026-07-26": {
+      "n": 164,
+      "syntactic_valid": 164,
+      "syntactic_rate": 1.0,
+      "semantic_pass_at_1": 0.8415,
+      "semantic_source": "evalplus.evaluate, this run",
+      "humaneval_plus_pass_at_1": 0.8049,
+      "semantic_raw": {
+        "pass@1": 0.8415,
+        "humaneval_plus_pass@1": 0.8049,
+        "n_tasks": 164
+      }
+    },
+    "humaneval_plus_qwen7b_2026-07-26": {
+      "n": 164,
+      "syntactic_valid": 164,
+      "syntactic_rate": 1.0,
+      "semantic_pass_at_1": 0.8659,
+      "semantic_source": "evalplus.evaluate, this run",
+      "humaneval_plus_pass_at_1": 0.8293,
+      "semantic_raw": {
+        "pass@1": 0.8659,
+        "humaneval_plus_pass@1": 0.8293,
+        "n_tasks": 164
+      }
+    },
+    "moe_gpt_oss_humaneval_plus_2026-07-28": {
+      "n": 164,
+      "syntactic_valid": 161,
+      "syntactic_rate": 0.9817,
+      "semantic_pass_at_1": 0.5488,
+      "semantic_source": "evalplus.evaluate, this run",
+      "humaneval_plus_pass_at_1": 0.5366,
+      "semantic_raw": {
+        "pass@1": 0.5488,
+        "humaneval_plus_pass@1": 0.5366,
+        "n_tasks": 164
+      }
+    },
+    "moe_qwen3_coder_humaneval_plus_2026-07-28": {
+      "n": 164,
+      "syntactic_valid": 164,
+      "syntactic_rate": 1.0,
+      "semantic_pass_at_1": 0.9268,
+      "semantic_source": "evalplus.evaluate, this run",
+      "humaneval_plus_pass_at_1": 0.8841,
+      "semantic_raw": {
+        "pass@1": 0.9268,
+        "humaneval_plus_pass@1": 0.8841,
+        "n_tasks": 164
+      }
+    }
+  },
+  "citations": [
+    {
+      "url": "local-ai@55a084ecf74a3027bd90f3a4f95fb570812e34b7:data/mcgyvr_evidence/2026-08-02/raw/premise.jsonl",
+      "supports_because": "The per-observation rows this number was computed from, unaggregated."
+    }
+  ],
+  "_rig": {
+    "repo": "local-ai",
+    "commit": "55a084ecf74a3027bd90f3a4f95fb570812e34b7",
+    "script": "tools/mcgyvr_evidence.py",
+    "subcommand": "premise",
+    "argv": [
+      "--out",
+      "data/mcgyvr_evidence/2026-08-02",
+      "premise",
+      "--semantic"
+    ],
+    "utc": "2026-08-02T20:01:42Z"
+  },
+  "_confidence_note": "HumanEval+ is self-contained single-function synthesis \u2014 the easiest shape a code model faces, and NOT representative of repository-situated contract work. It bounds the inherited '~0% semantic correctness' claim rather than replacing it. Syntactic validity here is ast.parse on the stored completion; a run with --semantic also carries evalplus test-pass on the identical rows. Without --semantic the semantic half is absent, not zero."
+}
