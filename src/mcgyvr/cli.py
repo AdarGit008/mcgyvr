@@ -507,6 +507,11 @@ def _index(args: argparse.Namespace) -> int:
         for symbol in defs:
             detail = f" [{symbol.detail}]" if symbol.detail else ""
             print(f"  def  {symbol.path}:{symbol.line}{detail}")
+            # The signature is what a contract would carry as a dep (ADR-0007),
+            # so showing it here is how a reviewer checks the text against the
+            # file without loading the index themselves.
+            for line in symbol.signature.splitlines():
+                print(f"         {line}")
         for symbol in refs:
             print(f"  ref  {symbol.path}:{symbol.line}")
     return 0

@@ -62,7 +62,7 @@ from mcgyvr.orchestrator.symbols import Symbol, SymbolKind
 # version is discarded wholesale rather than migrated: the cache is
 # reconstructible from the repository, so rebuilding is always cheaper than
 # being subtly wrong about what a stale entry contains.
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 
 # Bound on how much disk the cache may occupy across all repositories. Beyond
 # it, whole repository caches are evicted least-recently-used first. A default,
@@ -451,7 +451,9 @@ def _encode(entry: _Entry) -> dict[str, Any]:
         "digest": entry.digest,
         "language": entry.language,
         "lines": list(entry.lines),
-        "symbols": [[s.name, str(s.kind), s.line, s.detail] for s in entry.symbols],
+        "symbols": [
+            [s.name, str(s.kind), s.line, s.detail, s.signature] for s in entry.symbols
+        ],
     }
 
 
@@ -470,8 +472,8 @@ def _decode(raw: Any) -> _Entry:
         lines=tuple(str(line) for line in raw["lines"]),
         symbols=tuple(
             # The path is filled in from the cache key by _Entry.as_file_index.
-            Symbol(str(name), SymbolKind(kind), "", int(line), str(detail))
-            for name, kind, line, detail in raw["symbols"]
+            Symbol(str(name), SymbolKind(kind), "", int(line), str(detail), str(sig))
+            for name, kind, line, detail, sig in raw["symbols"]
         ),
     )
 
