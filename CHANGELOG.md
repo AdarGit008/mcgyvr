@@ -338,6 +338,29 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   An unreachable source's rungs become ordinary `Skipped` entries carrying the
   probe's own words, in declared ladder order alongside the structurally-skipped
   ones; everything down is an empty ladder that can say why, not a hang.
+- Type-check command locator (`LanguageAdapter.locate_type_check_command`) —
+  the adapter capability ADR-0006 asks for (#114, E12). mcgyvr never chooses a
+  type checker and never synthesises its flags; it locates whatever the target
+  repository already declared and returns that invocation. Python finds a
+  checker in the files that checker itself reads — `[tool.mypy]`, `mypy.ini`,
+  `.mypy.ini`, a `[mypy]` section in `setup.cfg`, `[tool.pyright]`,
+  `pyrightconfig.json` — and JS/TS treats a `tsconfig.json` as the declaration,
+  yielding `tsc --noEmit`. A repository declaring none yields `None`, which is
+  load-bearing rather than a shrug: a `type_annotation` contract is not
+  available there, and the contract loader already refuses one with no
+  acceptance command. Detection parses rather than greps, because a substring
+  match fires on a dependency pin, on a comment, and on another tool's key that
+  happens to contain the name — each of which would fabricate a command for a
+  repository that runs no checker, failing in the sandbox as though the worker
+  were at fault. The returned command is bare: `mypy` with no arguments reads
+  the repository's own `files` and `exclude`, and adding a path would substitute
+  mcgyvr's idea of the scope for the one the project wrote down. Strictness is
+  whatever the repository set — imposing `--strict` on an unannotated repository
+  is not a stricter check but a different one that every rung fails, converting
+  spend into a guaranteed zero. Two guards hold the absences: no forbidden flag
+  in any arm's output, and nothing in the locator or its helpers calls a
+  subprocess, an import or an eval, asserted by parsing their ASTs rather than
+  by inspection.
 - `mcgyvr pool --probe` — additionally ask each source whether it is answering,
   drop the rungs of any that is not, and report every source that was asked with
   how long it took and how the verdict was reached. `--probe-timeout` sets the
