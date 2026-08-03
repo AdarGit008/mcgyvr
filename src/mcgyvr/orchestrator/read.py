@@ -182,7 +182,7 @@ def explore(
     """
     if budget <= 0:
         raise ExplorationError(f"exploration budget must be positive, got {budget}")
-    tokens = estimate if estimate is not None else _estimate_tokens
+    tokens = estimate if estimate is not None else estimate_tokens
     free = supplied.fresh if supplied is not None else frozenset()
 
     files = {file.path: file for file in index.files}
@@ -365,12 +365,17 @@ def _unique(items: list[str]) -> list[str]:
     return list(dict.fromkeys(items))
 
 
-def _estimate_tokens(text: str) -> int:
+def estimate_tokens(text: str) -> int:
     """A deterministic, model-free token estimate — roughly four characters each.
 
     Not a tokenizer: a stable proxy so the budget is enforced the same way every
     run. A caller with a real tokenizer passes its own ``estimate`` to account
     exactly; this only has to be monotonic in the text it is given.
+
+    Public so that anything else sizing a budget in tokens — the decomposer
+    sizing ``context.max_input_tokens`` (#50) — measures with the same proxy the
+    read plan spends against, rather than growing a second one that could drift
+    from it. What the proxy's error actually is remains #117's to measure.
     """
     return max(1, (len(text) + 3) // 4)
 

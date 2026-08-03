@@ -186,6 +186,41 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   this" bucket. `SymbolTable.imports(path)` narrows to one file, which is the
   question a decomposer asks of a target. Sizing the context budget from this
   is #50's; enforcing it remains `check_prompt_fits`.
+- Decomposition (`src/mcgyvr/orchestrator/decompose.py`) — a prompt and an
+  indexed repository become validated contracts (#50, E7). This is the judgment
+  step, and the design question is how little of a contract a model's opinion is
+  allowed to author. The answer generalises ADR-0007: a model decides
+  *relevance* — which kind of work this is, which file it lands in, which of a
+  file's symbols the target needs — and the repository decides *fact*. So the
+  seam is not "the model writes a contract and we check it" but "the model
+  writes references and the index resolves them": a `Proposal` names a symbol
+  and there is no field on it that could carry a signature. Four properties are
+  structural rather than remembered. Every emitted contract came through
+  `contract.loads`, the same entry point direct mode uses, because that is the
+  only way out of the module — so "an emitted contract is one the direct-mode
+  API accepts" is a property of the code path, and a document the loader rejects
+  becomes a refusal carrying the loader's own field-naming message. A dependency
+  the index cannot state is refused rather than described, which is ADR-0007's
+  deliberate trade: a missing dep degrades a prompt, an invented one poisons it
+  and reads as authoritative. A request nothing can be made of returns an
+  explanation and an empty contract list — there is no fallback that wraps an
+  unparsed prompt in one big contract, because a degenerate single contract is
+  worse than a refusal for looking like a plan. And nothing is emitted that no
+  configured ladder can serve, checked with the catalog's own `servable()`
+  against a real config, naming what the ladder *can* run. Contract ids are
+  derived from the work rather than from a clock, so the same prompt over the
+  same repository yields the same contracts; two identical proposals collide and
+  the duplicate is refused rather than given an ordinal. `context.max_input_
+  tokens` is sized off `Contract.worker_view()` — the only accessor a worker
+  prompt may be built from, so what is measured is what will be sent — floored
+  at the schema default and with no margin added, the error band being #117's to
+  measure rather than this module's to invent.
+- `Proposer` — the judgment seam, with no default binding. A caller supplies
+  one; `RecordedProposer` returns a fixed list, which is what makes "the same
+  prompt and repository yield the same shape" an assertion about the decomposer
+  rather than about a model's temperature. The deterministic pass always runs
+  first and is handed over as `Evidence` (ADR-0001 boundary 2) — a proposer
+  reads what exploration found and has no way to ask the repository for more.
 - Task contract schema, loader and validation (`src/mcgyvr/contract.py`) —
   the boundary between the calling agent and mcgyvr (#14, E2). In delegated
   mode a contract is an internal artifact the orchestrator produces; in direct
@@ -332,6 +367,10 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   costed rather than disappearing from the account.
 - The index cache format is version 2: an entry's symbols carry a signature, so
   a version 1 cache is discarded and rebuilt rather than served without one.
+- `orchestrator.read._estimate_tokens` is now the public `estimate_tokens`, so
+  the decomposer sizes a context budget with the same proxy the read plan spends
+  against instead of growing a second one that could drift from it. What the
+  proxy's error actually is remains #117's to measure.
 - The resolver and the read planner name the symbol kinds they act on rather
   than excluding references. A reference and an import are both occurrences of
   a name declared elsewhere, so neither makes a file a candidate for that name
