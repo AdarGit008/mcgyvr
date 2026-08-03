@@ -26,6 +26,15 @@ dev = [
     "mypy>=1.18",
     "types-pyyaml>=6.0.12.20260724",
 ]
+# Measurement-only, and deliberately not in `dev`. #117 measures the token
+# estimator's error against real tokenizers, which needs one; the product must
+# never acquire one, because a tokenizer in `dependencies` would make the
+# estimator's whole reason for existing — a model-free proxy — pointless. Not a
+# default group, so `make setup` and CI never install it:
+#     uv sync --frozen --group measure
+measure = [
+    "tokenizers>=0.20",
+]
 
 [build-system]
 requires = ["hatchling"]

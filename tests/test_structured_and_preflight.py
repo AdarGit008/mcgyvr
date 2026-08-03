@@ -7,6 +7,7 @@ worker's ledger and, for the dirty-tree case, never touch the tree.
 
 from __future__ import annotations
 
+import math
 import subprocess
 from pathlib import Path
 
@@ -14,7 +15,9 @@ import pytest
 
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.preflight import (
+    ESTIMATE_RESERVE,
     PreflightIssue,
+    TokenCount,
     check_clean_tree,
     check_prompt_fits,
 )
@@ -117,7 +120,20 @@ def test_untracked_file_makes_the_tree_dirty(tmp_path: Path) -> None:
 
 def test_prompt_that_fits_passes() -> None:
     assert check_prompt_fits(1000, context_window=8192) is None
-    assert check_prompt_fits(4000, context_window=8192, output_reserve=4000) is None
+    # 4000 estimated against a 4192 budget used to pass. It no longer does: the
+    # same text could really be 5280 tokens, which CLM-0011 measured rather than
+    # supposed, and admitting it is how a prompt reaches a backend that refuses
+    # it. Counted exactly, the same numbers still fit.
+    assert check_prompt_fits(3000, context_window=8192, output_reserve=4000) is None
+    assert (
+        check_prompt_fits(
+            4000,
+            context_window=8192,
+            output_reserve=4000,
+            counted_by=TokenCount.TOKENIZER,
+        )
+        is None
+    )
 
 
 def test_prompt_too_large_is_rejected_before_spend() -> None:
@@ -129,6 +145,49 @@ def test_output_reserve_counts_against_the_budget() -> None:
     # 5000 prompt + 4000 reserve = 9000 > 8192 window.
     issue = check_prompt_fits(5000, context_window=8192, output_reserve=4000)
     assert issue is not None and issue.reason == "prompt-too-large"
+
+
+# --- #117: the check says which count it enforced with -----------------------
+
+
+def test_an_estimated_count_is_charged_the_measured_reserve() -> None:
+    """The reserve is the measured band, not a constant nobody can source."""
+    window = 10_000
+    # Just inside the window on its face; over it once the estimator's own
+    # error is reserved against.
+    estimated = 8000
+    assert estimated < window
+    assert math.ceil(estimated * (1 + ESTIMATE_RESERVE)) > window
+
+    issue = check_prompt_fits(estimated, context_window=window)
+    assert issue is not None and issue.reason == "prompt-too-large"
+
+
+def test_a_rejection_is_attributable_to_the_proxy_or_to_the_prompt() -> None:
+    """Which count was enforced with is the difference between two diagnoses."""
+    estimated = check_prompt_fits(9000, context_window=8192)
+    exact = check_prompt_fits(
+        9000, context_window=8192, counted_by=TokenCount.TOKENIZER
+    )
+
+    assert estimated is not None and exact is not None
+    assert "estimated tokens" in estimated.message
+    assert "CLM-0011" in estimated.message
+    assert "counted exactly" in exact.message
+    assert "CLM-0011" not in exact.message
+
+
+def test_an_exact_count_reserves_nothing() -> None:
+    """A real tokenizer needs no protection against the proxy's error."""
+    window = 10_000
+    assert check_prompt_fits(9500, window, counted_by=TokenCount.TOKENIZER) is None
+    assert check_prompt_fits(9500, window) is not None
+
+
+def test_the_reserve_is_the_measured_undercount_not_a_round_number() -> None:
+    """A margin that drifted to a tidy 0.25 or 0.5 would have stopped being measured."""
+    assert 0.30 <= ESTIMATE_RESERVE <= 0.35
+    assert ESTIMATE_RESERVE not in (0.25, 0.5)
 
 
 def test_preflight_issue_is_not_a_finding() -> None:
