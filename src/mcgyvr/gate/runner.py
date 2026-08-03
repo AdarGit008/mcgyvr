@@ -17,8 +17,15 @@ scope, and stopping saves the expensive subprocesses.
    fails to parse is not linted, and lint/format run once per adapter over all
    its files, so the subprocess count stays flat as the change grows.
 
-Acceptance-command execution (#38) is the last rung and needs the per-task
-sandbox (E4) to run in; the gate accepts a runner for it when one is wired.
+5. **semantic resolution** — do the names the worker called exist in the
+   environment this repository declares? (#123) This one needs the per-task
+   sandbox, because answering it means importing the target's own packages.
+6. **acceptance commands** — the contract's own suite (#38), also in the
+   sandbox.
+
+Both sandboxed rungs are injected rather than constructed, and the cheaper of
+the two goes first: a sub-second resolution pass has no business queueing
+behind a test suite (ADR-0010).
 
 Every finding is attributed to a worker-added line wherever the check can know
 one. A tool that is not installed is recorded as an *environment* issue, not a
@@ -37,6 +44,7 @@ from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.gate.changeset import ChangeSet, FileChange
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.secrets import scan_secrets
+from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.structured import validate_structured_data
 from mcgyvr.scope import Scope
 
@@ -49,10 +57,18 @@ class GateResult:
     things that stopped a check from running (a missing tool) — they do not by
     themselves reject the worker, but they are surfaced so a degraded run is
     never mistaken for a fully-checked one.
+
+    ``observations`` are findings a rung reported without rejecting on: real,
+    line-attributed, and deliberately not part of the verdict. The semantic
+    rung (#123) starts there, because the sample behind its false-positive
+    rate is thin (#129) and a check that argues with correct code costs every
+    change while catching few. Promoting a rung from observation to rejection
+    is a policy flip, not a rewrite.
     """
 
     findings: tuple[Finding, ...] = ()
     environment_issues: tuple[str, ...] = field(default=())
+    observations: tuple[Finding, ...] = field(default=())
 
     @property
     def accepted(self) -> bool:
@@ -80,9 +96,11 @@ class Gate:
         changeset: ChangeSet,
         scope: Scope | None = None,
         *,
+        semantic: SemanticCheck | None = None,
         acceptance: Acceptance | None = None,
     ) -> GateResult:
         findings: list[Finding] = []
+        observations: list[Finding] = []
 
         # 1 & 2 — hard, decisive checks first. A failure here stops the run.
         if scope is not None:
@@ -110,7 +128,18 @@ class Gate:
         for adapter in self.adapters:
             findings.extend(self._run_adapter(adapter, changeset, env_issues))
 
-        # 5 — acceptance commands (#38): the strongest signal but the most
+        # 5 — semantic resolution (#123): the first rung that needs the
+        # sandbox, and much the cheaper of the two that do. It resolves the
+        # names on added lines against the packages the repository actually
+        # installs — the coverage `tests_pass` cannot give, since a suite is a
+        # verdict on itself and not on a diff (ADR-0010).
+        if semantic is not None and not findings:
+            semantic_report = semantic.run(changeset)
+            findings.extend(semantic_report.findings)
+            observations.extend(semantic_report.observations)
+            env_issues.extend(semantic_report.environment_issues)
+
+        # 6 — acceptance commands (#38): the strongest signal but the most
         # expensive, needing the sandbox (E4). It runs last and only when
         # nothing cheaper already rejected the change — there is no value in
         # spinning a suite for a diff that already fails lint or leaks a key.
@@ -123,6 +152,7 @@ class Gate:
         return GateResult(
             findings=tuple(findings),
             environment_issues=tuple(env_issues),
+            observations=tuple(observations),
         )
 
     def _run_adapter(

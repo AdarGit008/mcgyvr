@@ -42,6 +42,17 @@ packages = ["src/mcgyvr"]
 [tool.hatch.build.targets.wheel.force-include]
 "data/capability-table.json" = "mcgyvr/data/capability-table.json"
 "data/task-catalog.json" = "mcgyvr/data/task-catalog.json"
+# The semantic rung's resolver engine (#123, ADR-0011). These four files are
+# third-party source vendored as evidence under `records/` and pinned by
+# sha256 there and again in `gate/semantic.py`; they are *staged into the
+# sandbox* as data and are never imported by mcgyvr, so they ship as files
+# rather than as a dependency. Same reason as the data files above: a record
+# outside `src/` does not exist in a wheel.
+"records/evidence/ghostcall-2026-08-02/src/ghostcall/__init__.py" = "mcgyvr/gate/_engine/ghostcall/__init__.py"
+"records/evidence/ghostcall-2026-08-02/src/ghostcall/parser.py" = "mcgyvr/gate/_engine/ghostcall/parser.py"
+"records/evidence/ghostcall-2026-08-02/src/ghostcall/checker.py" = "mcgyvr/gate/_engine/ghostcall/checker.py"
+"records/evidence/ghostcall-2026-08-02/src/ghostcall/suggest.py" = "mcgyvr/gate/_engine/ghostcall/suggest.py"
+"records/evidence/ghostcall-2026-08-02/LICENSE" = "mcgyvr/gate/_engine/ghostcall/LICENSE"
 
 [tool.ruff]
 line-length = 88

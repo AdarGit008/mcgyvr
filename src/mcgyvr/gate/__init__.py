@@ -28,6 +28,7 @@ from mcgyvr.gate.preflight import (
     check_prompt_fits,
 )
 from mcgyvr.gate.runner import Gate, GateResult
+from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
 
 __all__ = [
     "Acceptance",
@@ -42,6 +43,8 @@ __all__ = [
     "LanguageAdapter",
     "PreflightIssue",
     "PythonAdapter",
+    "SemanticCheck",
+    "SemanticReport",
     "ToolUnavailableError",
     "check_clean_tree",
     "check_prompt_fits",
