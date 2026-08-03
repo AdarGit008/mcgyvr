@@ -125,7 +125,17 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
     assert pool.rungs[0].name == "cheap"
 
 
-def test_nothing_else_imports_the_endpoint_type() -> None:
+# The modules allowed to hold an `Endpoint`, which is to say the ones that live
+# *below* the seam. `pool.py` defines it; `runner.py` (#21) is what it was
+# defined for — dispatch is the whole reason the type exists, and a runner is
+# the last place that can still be said to not know who asked. Anything else
+# reaching for it is the failure this guard is here to catch, so the list is
+# named rather than pattern-matched: a third entry should be an argument
+# someone makes on purpose, not a file that quietly matched.
+BELOW_THE_SEAM = {"pool.py", "runner.py"}
+
+
+def test_nothing_above_the_seam_imports_the_endpoint_type() -> None:
     """An architectural guard: if this fails, something above the seam has learned
     where work runs, and re-pointing a rung stops being a config edit.
 
@@ -137,7 +147,7 @@ def test_nothing_else_imports_the_endpoint_type() -> None:
     src = Path(__file__).resolve().parent.parent / "src" / "mcgyvr"
     offenders: list[str] = []
     for path in src.rglob("*.py"):
-        if path.name == "pool.py":
+        if path.name in BELOW_THE_SEAM:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
