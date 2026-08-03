@@ -1,0 +1,33 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0008",
+  "statement": "Absence is zero across the pinned reach corpus: 0 of 77 commits and 0 of 3 repositories declare no runnable check. Every commit in every frame declares at least one, and the declarations recomputed here per commit agree exactly with the declared_check field #125 wrote into corpus.json by hand — AdarGit008/mcgyvr via a Makefile 'test' target and [tool.pytest.ini_options] (20/20 commits), pallets/click via [tool.pytest.ini_options] and [tool.coverage] (30/30), immerjs/immer via package.json scripts.test and scripts.coverage (27/27). The result is honest and close to uninformative about the world, and that is the finding: the corpus takes one mature repository per launch language, so every frame declared a check before any commit was enumerated, and this population is not a sampling frame for the absence question. Any real absence rate needs a different corpus. What this does establish is that the corpus cannot be used to size the 'nothing declared' branch of an acceptance rung, and that #123 must not be argued from it.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "high",
+  "citations": [
+    {
+      "url": "records/measurements/reach-2026-08-03/count2-absence.jsonl",
+      "supports_because": "One row per commit, each recording whether a runnable check was declared and — where it was — the file and the specific signal that produced the hit, so a reader can disagree with a particular detection rather than with the total."
+    },
+    {
+      "url": "tools/reach/count2.py",
+      "supports_because": "The detection rules, which are the arguable part of a zero. It counts a check only where a repository states one (a pytest section, a Makefile target, a scripts.test entry, a CI step) and deliberately does not count a tests/ directory, because treating a convention as a declaration would let the measurement assume its own answer."
+    },
+    {
+      "url": "records/corpora/reach-2026-08-02/README.md",
+      "supports_because": "States how the frames were chosen — one external repository per launch language, from mature projects — which is the structural reason absence was going to be zero and why the number must not be read as an estimate of anything outside the corpus."
+    },
+    {
+      "url": "tests/test_reach_counts.py",
+      "supports_because": "Pins the cross-validation: the corpus asserts each frame declares a check, Count 2 re-derives that independently from each commit's tree, and the test fails if the two ever disagree. Two independent statements of the same fact are what make the zero trustworthy as a measurement rather than as a restatement of the corpus."
+    },
+    {
+      "url": "src/mcgyvr/contract.py",
+      "supports_because": "Why absence matters at all: a contract whose task type requires acceptance commands is rejected at load when none are given, over TaskType.needs_acceptance_commands. Where nothing runnable is declared, those task types are unreachable today rather than weakly checked — so the rung would be what makes them reachable, not an increment on an existing gate."
+    }
+  ],
+  "_confidence_note": "High in the number and in its uselessness as an estimate. The zero is exact over this corpus and independently cross-checked against corpus.json, so there is little room for it to be wrong here; the confidence does not extend one repository beyond the frame, and no percentage from it should be quoted as a rate of anything.",
+  "_measurement_note": "Evaluated at each commit's own tree rather than once per repository, since a repository that declares a suite today need not have when a given change landed. It is git metadata only — no container, nothing from a target executed. The detector is deliberately generous about what counts as a declaration (any of pytest config, Makefile target, scripts.test, or a CI step running a test command), which biases toward finding a declaration and therefore toward a LOW absence figure; with the corpus at zero, a more permissive detector could not have lowered it further."
+}
