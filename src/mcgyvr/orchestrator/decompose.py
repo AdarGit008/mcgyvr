@@ -13,7 +13,7 @@ look like, whether the file exists at all. So the seam this module draws is not
 *references* and the index resolves them". A :class:`Proposal` names a symbol; it
 cannot state a signature, because there is no field for one.
 
-Four properties are structural rather than remembered:
+Five properties are structural rather than remembered:
 
 * **Every emitted contract came through the public loader.** A proposal is
   assembled into a document, serialised, and parsed by
@@ -243,7 +243,7 @@ def decompose(
         else explore(index, resolution, budget=budget)
     )
     vocabulary = _vocabulary(config)
-    owners = tuple(adapters) if adapters is not None else _DEFAULT_ADAPTERS()
+    owners = tuple(adapters) if adapters is not None else _default_adapters()
     evidence = Evidence(
         prompt=prompt,
         index=index,
@@ -299,9 +299,13 @@ def _vocabulary(config: Config | None) -> tuple[TaskType, ...]:
     return known.servable(config)
 
 
-def _DEFAULT_ADAPTERS() -> tuple[LanguageAdapter, ...]:  # noqa: N802
-    """The gate's own adapter set — the same pair :class:`~mcgyvr.gate.runner.Gate`
-    builds, so ownership means one thing across both."""
+def _default_adapters() -> tuple[LanguageAdapter, ...]:
+    """The gate's own adapter set.
+
+    The same pair :class:`~mcgyvr.gate.runner.Gate` builds, so "which language
+    owns this file" means one thing on both sides of the seam rather than two
+    lists that have to be kept in step.
+    """
     return (PythonAdapter(), JavaScriptAdapter())
 
 
