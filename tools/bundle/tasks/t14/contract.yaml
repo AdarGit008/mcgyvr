@@ -1,0 +1,36 @@
+id: t14-loop-to-array-methods
+task_type: function_implementation
+task: |
+  Rewrite activeEmails using array methods. It must return the lowercased
+  addresses of the active users, in input order, and behave exactly as it
+  does now. The rewritten file must contain no `for` keyword and must not
+  call `.push` - the acceptance script reads the file and checks for both.
+  Return the complete rewritten file.
+
+  Current content of solution.ts:
+
+  ```ts
+  export interface User {
+    email: string;
+    active: boolean;
+  }
+
+  /** The lowercased addresses of the active users, in order. */
+  export function activeEmails(users: readonly User[]): string[] {
+    const out: string[] = [];
+    for (const user of users) {
+      if (user.active) {
+        out.push(user.email.toLowerCase());
+      }
+    }
+    return out;
+  }
+  ```
+target: solution.ts
+interface: "export function activeEmails(users: readonly User[]): string[]"
+stop_conditions:
+  - Whether an absent `active` property counts as active is not stated.
+acceptance: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,16 @@
+id: t01-run-length-encode
+task_type: function_implementation
+task: >-
+  Implement runLengthEncode. Replace every maximal run of one repeated
+  character with that character followed by the run length, in order:
+  "aaabbc" encodes to "a3b2c1". A run of length one still carries its
+  count, so "abc" encodes to "a1b1c1". The empty string encodes to the
+  empty string. Throw an Error if the argument is not a string.
+target: solution.ts
+interface: "export function runLengthEncode(input: string): string"
+stop_conditions:
+  - The expected encoding of a run longer than nine characters is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

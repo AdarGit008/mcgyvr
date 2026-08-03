@@ -1,0 +1,24 @@
+id: t19-safe-divide
+task_type: bug_fix
+task: |
+  safeDivide is not safe. Harden it: throw an Error when the divisor is
+  zero (including -0), and throw an Error unless both arguments are finite
+  numbers. A boolean is not a number here even though JavaScript will
+  happily divide by one - reject it. Return the complete fixed file.
+
+  Current content of solution.ts:
+
+  ```ts
+  /** a divided by b. */
+  export function safeDivide(a: number, b: number): number {
+    return a / b;
+  }
+  ```
+target: solution.ts
+interface: "export function safeDivide(a: number, b: number): number"
+stop_conditions:
+  - Whether the result should be rounded is not stated.
+acceptance: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

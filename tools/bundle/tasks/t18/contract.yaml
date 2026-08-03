@@ -1,0 +1,39 @@
+id: t18-annotate-event-log
+task_type: type_annotation
+task: |
+  Add explicit TypeScript types to EventLog: an exported Event type with a
+  string name and a number timestamp, a typed private field, and typed
+  signatures on both methods. `since` returns the events at or after the
+  given timestamp. Use the modern array form - `Event[]`, never
+  `Array<Event>`; the acceptance script reads the file and rejects the
+  generic form. Change nothing about the behaviour. The file is run by
+  Node's type stripping, so use erasable syntax only: no enum, no
+  namespace, no constructor parameter properties. Return the complete
+  annotated file.
+
+  Current content of solution.ts:
+
+  ```ts
+  /** An append-only log of timestamped events. */
+  export class EventLog {
+    #events = [];
+
+    /** Append one event. */
+    record(event) {
+      this.#events.push(event);
+    }
+
+    /** Every event at or after the given timestamp, in insertion order. */
+    since(timestamp) {
+      return this.#events.filter((event) => event.timestamp >= timestamp);
+    }
+  }
+  ```
+target: solution.ts
+interface: "export interface Event { name: string; timestamp: number } export class EventLog { record(event: Event): void; since(timestamp: number): Event[] }"
+stop_conditions:
+  - Whether `since` should return copies of the events is not stated.
+acceptance: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

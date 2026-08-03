@@ -1,0 +1,17 @@
+id: t04-lru-cache
+task_type: function_implementation
+task: >-
+  Implement LruCache, a fixed-capacity least-recently-used cache. get
+  returns the value or undefined and counts as a use; set inserts or
+  updates and counts as a use; when a set would exceed capacity the
+  least recently used entry is evicted first. size reports the current
+  entry count. The constructor throws an Error unless capacity is a
+  positive integer.
+target: solution.ts
+interface: "export class LruCache<K, V> { constructor(capacity: number); get(key: K): V | undefined; set(key: K, value: V): void; get size(): number }"
+stop_conditions:
+  - Whether a get on a missing key counts as a use is not stated.
+acceptance: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

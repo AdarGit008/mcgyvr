@@ -1,0 +1,30 @@
+id: t16-recursion-to-iteration
+task_type: function_implementation
+task: |
+  fibMod is recursive and overflows the stack long before the inputs it
+  must support. Rewrite it iteratively. It returns the nth Fibonacci
+  number modulo 1000000007, counting from fibMod(0) === 0 and
+  fibMod(1) === 1, and must handle n up to 200000. Throw an Error unless
+  n is a non-negative integer. Return the complete rewritten file.
+
+  Current content of solution.ts:
+
+  ```ts
+  const MODULUS = 1000000007;
+
+  /** The nth Fibonacci number, modulo 1000000007. */
+  export function fibMod(n: number): number {
+    if (n < 2) {
+      return n;
+    }
+    return (fibMod(n - 1) + fibMod(n - 2)) % MODULUS;
+  }
+  ```
+target: solution.ts
+interface: "export function fibMod(n: number): number"
+stop_conditions:
+  - Whether the modulus may change is not stated.
+acceptance: ["node accept.mjs"]
+risk: high
+scope:
+  allow: ["solution.ts"]

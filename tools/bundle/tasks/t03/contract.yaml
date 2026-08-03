@@ -1,0 +1,17 @@
+id: t03-parse-semver
+task_type: function_implementation
+task: >-
+  Implement parseSemver. Parse a semantic version string of the form
+  MAJOR.MINOR.PATCH with an optional -prerelease and an optional +build,
+  returning the three numbers plus the prerelease and build strings, each
+  null when absent. All three numeric parts are required and must be
+  digits with no leading zero (except "0" itself). Throw an Error naming
+  the input for anything that does not match.
+target: solution.ts
+interface: "export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null }"
+stop_conditions:
+  - Whether a "v" prefix should be accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

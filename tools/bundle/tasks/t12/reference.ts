@@ -1,0 +1,4 @@
+/** The values with every negative number removed. */
+export function removeNegatives(values: readonly number[]): number[] {
+  return values.filter((value) => value >= 0);
+}

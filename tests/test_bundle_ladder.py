@@ -1,0 +1,437 @@
+"""Offline invariants over #144's JS/TS condition ladder and its task set.
+
+The measurement itself needs a worker; none of this does. What is checkable
+without one is whether the *instrument* is sound, and that is where the mistakes
+that would silently spoil a run actually live:
+
+* **c2 must be the shipped bundle, byte for byte.** This is the property that
+  makes a future result quotable about ``prompts/javascript.md`` rather than
+  about a file resembling it — the same rule
+  ``test_worker_prompt.py`` holds for Python's ``c2.md``. A drift here would not
+  fail the sweep; it would produce numbers describing a prompt nobody ships.
+* **The ladder must stay nested.** CLM-0004's conditions are cumulative — c1 is
+  c2's opening, c2 is c3's — so a condition is *only* a size. If an edit made
+  c1 differ from c2's first section in wording as well as length, the ladder
+  would be measuring two variables and reporting one.
+* **The task set must be dispatchable by this project.** Every contract goes
+  through the real loader, and every target must be owned by the JS/TS adapter,
+  because a task whose contract mcgyvr rejects or whose target selects no bundle
+  is not measuring the shipped path.
+
+The one test that needs Node is marked and skips without it: CI's test job
+installs no JavaScript toolchain, and a test that silently required one would be
+a test that guards nothing. The full reference-vs-acceptance selftest is the
+rig's ``--selftest``, run before any sweep.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import shutil
+import subprocess
+import sys
+import types
+from pathlib import Path
+
+import pytest
+
+from mcgyvr.contract import Contract, load
+from mcgyvr.pool import Protocol
+from mcgyvr.runner import Completion, Request, StopReason
+from mcgyvr.worker.bundle import MAX_BUNDLE_BYTES, bundle_for, strip_provenance
+
+REPO = Path(__file__).resolve().parent.parent
+BUNDLE_TOOLS = REPO / "tools" / "bundle"
+TASKS = BUNDLE_TOOLS / "tasks"
+CONDITIONS = BUNDLE_TOOLS / "conditions"
+SHIPPED = REPO / "src" / "mcgyvr" / "prompts" / "javascript.md"
+
+# The composition the task set was built to, mapped onto mcgyvr's own catalog
+# vocabulary. It is not CLM-0004's composition and cannot be: the Python set
+# used `refactor` and `edge_case`, neither of which exists in
+# `data/task-catalog.json`, so those intents are carried by the types that own
+# them here. Pinned as a test so a task added later has to state which arm it
+# joins rather than quietly re-weighting the mix a rate is averaged over.
+COMPOSITION = {
+    "function_implementation": 11,
+    "bug_fix": 7,
+    "type_annotation": 2,
+}
+
+
+def _measure() -> types.ModuleType:
+    """The rig, imported by path — ``tools/`` is not a package."""
+    spec = importlib.util.spec_from_file_location(
+        "bundle_measure", BUNDLE_TOOLS / "measure.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _task_dirs() -> list[Path]:
+    return sorted(d for d in TASKS.iterdir() if d.is_dir())
+
+
+def _contracts() -> list[Contract]:
+    return [load(d / "contract.yaml") for d in _task_dirs()]
+
+
+def _condition(name: str) -> str:
+    return (CONDITIONS / f"{name}.md").read_text(encoding="utf-8")
+
+
+# --- the task set --------------------------------------------------------
+
+
+def test_the_task_set_is_twenty_tasks() -> None:
+    """CLM-0004's n. A different one would not be comparable with its rates."""
+    assert len(_task_dirs()) == 20
+
+
+def test_every_task_ships_a_contract_a_reference_and_an_acceptance_script() -> None:
+    for directory in _task_dirs():
+        assert (directory / "contract.yaml").is_file(), directory.name
+        assert (directory / "reference.ts").is_file(), directory.name
+        assert (directory / "accept.mjs").is_file(), directory.name
+
+
+def test_every_contract_loads_through_the_real_loader() -> None:
+    """A contract this project would reject is not one it could dispatch."""
+    assert len(_contracts()) == 20
+
+
+def test_every_task_selects_the_jsts_bundle() -> None:
+    """The experiment is about the JS/TS bundle; a target must reach it."""
+    for contract in _contracts():
+        selected = bundle_for(contract.target)
+        assert selected is not None, contract.id
+        assert selected.language == "js/ts", contract.id
+
+
+def test_every_task_declares_a_runnable_acceptance_command() -> None:
+    """Acceptance is the contract's, executed — so it has to be there to run."""
+    for contract in _contracts():
+        assert contract.acceptance, contract.id
+        assert all(command.startswith("node ") for command in contract.acceptance)
+
+
+def test_the_composition_is_the_one_the_rates_will_be_averaged_over() -> None:
+    counts: dict[str, int] = {}
+    for contract in _contracts():
+        counts[contract.task_type] = counts.get(contract.task_type, 0) + 1
+    assert counts == COMPOSITION
+
+
+def test_no_task_is_measured_as_unmeasurable() -> None:
+    """No contract may declare an output schema the reply parser cannot read.
+
+    ``whole_file`` is the only shape ``parse_reply`` implements. A task
+    declaring ``unified_diff`` would fail every cell of every condition on a
+    refusal that says nothing about the bundle.
+    """
+    for contract in _contracts():
+        assert contract.output_schema == "whole_file", contract.id
+
+
+# --- the ladder ----------------------------------------------------------
+
+
+def test_the_ladder_is_nested() -> None:
+    """Each condition opens with the one below it, so size is the only variable."""
+    c1, c2, c3 = _condition("c1"), _condition("c2"), _condition("c3")
+    assert c2.startswith(c1)
+    assert c3.startswith(c2)
+
+
+def test_c2_is_the_shipped_bundle_byte_for_byte() -> None:
+    """The rig refuses to dispatch otherwise; this says so without a worker."""
+    measure = _measure()
+    measure.check_c2_is_the_shipped_bundle()
+
+    shipped = bundle_for("solution.ts")
+    assert shipped is not None
+    assert shipped.text.encode("utf-8") == (CONDITIONS / "c2.md").read_bytes()
+
+
+def test_the_provenance_marker_is_not_sent_to_the_worker() -> None:
+    """The marker is about the file, so it is not in the file's prompt.
+
+    It was: 162 of the 2039 bytes the loader handed a worker were an HTML
+    comment telling the model its instructions were an unmeasured port. Both
+    the ceiling and the opening of the system prompt were being spent on it.
+    """
+    raw = SHIPPED.read_text(encoding="utf-8")
+    shipped = bundle_for("solution.ts")
+    assert shipped is not None
+
+    assert raw.startswith("<!--")
+    assert "<!--" not in shipped.text
+    assert shipped.text == strip_provenance(raw)
+    assert shipped.size_bytes == len(shipped.text.encode("utf-8"))
+    assert shipped.size_bytes < len(raw.encode("utf-8"))
+
+
+def test_stripping_provenance_leaves_a_markerless_bundle_alone() -> None:
+    """Python's bundle has no marker; the strip must be a no-op on it."""
+    python = (REPO / "src" / "mcgyvr" / "prompts" / "python.md").read_text(
+        encoding="utf-8"
+    )
+    assert strip_provenance(python) == python
+    assert strip_provenance("# heading\n\n<!-- a comment lower down -->\n") == (
+        "# heading\n\n<!-- a comment lower down -->\n"
+    )
+    # An unterminated marker is content, not a licence to eat the file.
+    assert strip_provenance("<!-- never closed\nbody\n") == "<!-- never closed\nbody\n"
+
+
+def test_only_the_lower_rungs_would_pass_the_measured_ceiling() -> None:
+    """c3 is over ``MAX_BUNDLE_BYTES`` on purpose — it is the degradation end.
+
+    If c3 ever fit under the ceiling it would have stopped being the condition
+    CLM-0004 named, and the ladder would have no upper arm.
+    """
+    assert len(_condition("c1").encode("utf-8")) <= MAX_BUNDLE_BYTES
+    assert len(_condition("c2").encode("utf-8")) <= MAX_BUNDLE_BYTES
+    assert len(_condition("c3").encode("utf-8")) > MAX_BUNDLE_BYTES
+
+
+def test_c0_is_the_absence_of_a_system_prompt() -> None:
+    """Not an empty file: the same state a target with no bundle produces."""
+    measure = _measure()
+    assert measure.condition_text("c0") == ""
+    assert not (CONDITIONS / "c0.md").exists()
+
+
+def test_the_shipped_bundle_still_declares_itself_unmeasured() -> None:
+    """Until a sweep has run, the marker is the claim — and it names this issue.
+
+    ``Bundle.measured`` must stay False for ``js/ts`` for the same reason: the
+    acceptance for #144 is that it flips only when the shipped file is the
+    artifact a measurement was taken on.
+    """
+    text = SHIPPED.read_text(encoding="utf-8")
+    assert text.startswith("<!--")
+    assert "UNMEASURED" in text
+    assert "#144" in text
+
+    shipped = bundle_for("solution.ts")
+    assert shipped is not None
+    assert shipped.measured is False
+
+
+# --- the sweep, against a stub worker ------------------------------------
+
+
+class _StubRunner:
+    """A worker that returns whatever the test tells it to, in order."""
+
+    def __init__(self, *replies: tuple[str, StopReason]) -> None:
+        self._replies = list(replies)
+        self.requests: list[Request] = []
+
+    def generate(self, model: str, request: Request) -> Completion:
+        self.requests.append(request)
+        text, stop = self._replies.pop(0)
+        return Completion(
+            text=text,
+            stop_reason=stop,
+            raw_stop_reason=stop.value,
+            model=model,
+            source="stub",
+            protocol=Protocol.OPENAI,
+            max_output_tokens=request.max_output_tokens,
+            latency_s=1.5,
+            input_tokens=100,
+            output_tokens=50,
+        )
+
+
+def _first_task() -> object:
+    measure = _measure()
+    return measure.load_tasks(["t01"])[0]
+
+
+def _fenced(path: Path) -> str:
+    return f"```ts\n{path.read_text(encoding='utf-8')}```\n"
+
+
+requires_node = pytest.mark.skipif(
+    shutil.which("node") is None,
+    reason="acceptance runs on Node; CI's test job installs no JS toolchain",
+)
+
+
+@requires_node
+def test_a_good_reply_is_scored_as_a_first_pass(tmp_path: Path) -> None:
+    measure = _measure()
+    task = measure.load_tasks(["t01"])[0]
+    runner = _StubRunner((_fenced(task.reference), StopReason.COMPLETE))
+
+    row = measure.measure_cell(
+        task, "c2", runner, "stub-model", tmp_path, remediate=True
+    )
+
+    assert row["pass1"] is True
+    assert row["pass_final"] is True
+    assert row["remediation_used"] is False
+    assert row["condition"] == "c2"
+    assert row["bundle_bytes"] == len(_condition("c2").encode("utf-8"))
+    assert row["completion_tokens"] == 50
+    # One dispatch: a pass must not spend a remediation round.
+    assert len(runner.requests) == 1
+    assert runner.requests[0].system == _condition("c2")
+    assert runner.requests[0].quality_sensitive is True
+
+
+def test_c0_dispatches_with_no_system_prompt(tmp_path: Path) -> None:
+    measure = _measure()
+    task = measure.load_tasks(["t01"])[0]
+    runner = _StubRunner(("no fence here", StopReason.COMPLETE))
+
+    measure.measure_cell(task, "c0", runner, "stub-model", tmp_path, remediate=False)
+
+    assert runner.requests[0].system == ""
+
+
+def test_a_truncated_reply_is_refused_rather_than_run(tmp_path: Path) -> None:
+    """The stop reason decides. A cut-off file can parse and still be wrong."""
+    measure = _measure()
+    task = measure.load_tasks(["t01"])[0]
+    runner = _StubRunner((_fenced(task.reference), StopReason.TRUNCATED))
+
+    row = measure.measure_cell(
+        task, "c2", runner, "stub-model", tmp_path, remediate=True
+    )
+
+    assert row["pass1"] is False
+    assert row["parse_error"] == "incomplete-reply"
+    assert row["stop_reason"] == "truncated"
+    # Refused before acceptance, and no remediation spent on an unparseable reply.
+    assert len(runner.requests) == 1
+
+
+@requires_node
+def test_a_failing_reply_spends_one_remediation_round(tmp_path: Path) -> None:
+    measure = _measure()
+    task = measure.load_tasks(["t01"])[0]
+    wrong = (
+        "```ts\nexport function runLengthEncode(input: string): string {\n"
+        "  return input;\n}\n```\n"
+    )
+    runner = _StubRunner(
+        (wrong, StopReason.COMPLETE),
+        (_fenced(task.reference), StopReason.COMPLETE),
+    )
+
+    row = measure.measure_cell(
+        task, "c2", runner, "stub-model", tmp_path, remediate=True
+    )
+
+    assert row["pass1"] is False
+    assert row["pass_final"] is True
+    assert row["remediation_used"] is True
+    assert len(runner.requests) == 2
+    # The acceptance output is what the second attempt is given to work from.
+    assert "failed its acceptance check" in runner.requests[1].prompt
+
+
+@requires_node
+def test_no_remediate_stops_after_the_first_attempt(tmp_path: Path) -> None:
+    measure = _measure()
+    task = measure.load_tasks(["t01"])[0]
+    wrong = (
+        "```ts\nexport function runLengthEncode(input: string): string {\n"
+        "  return input;\n}\n```\n"
+    )
+    runner = _StubRunner((wrong, StopReason.COMPLETE))
+
+    row = measure.measure_cell(
+        task, "c2", runner, "stub-model", tmp_path, remediate=False
+    )
+
+    assert row["pass1"] is False
+    assert row["pass_final"] is False
+    assert row["remediation_used"] is False
+    assert len(runner.requests) == 1
+
+
+def test_a_dispatch_error_is_a_row_not_an_exception(tmp_path: Path) -> None:
+    """A cell lost to a flaky endpoint must not read as a model failure."""
+    measure = _measure()
+    task = measure.load_tasks(["t01"])[0]
+
+    class _Broken:
+        def generate(self, model: str, request: Request) -> Completion:
+            from mcgyvr.runner import TransportError
+
+            raise TransportError("connection refused")
+
+    row = measure.measure_cell(
+        task, "c1", _Broken(), "stub-model", tmp_path, remediate=True
+    )
+
+    assert row["pass1"] is False
+    assert "TransportError" in str(row["dispatch_error"])
+    assert "latency_s" not in row
+
+
+def test_the_summary_counts_every_cell(tmp_path: Path) -> None:
+    measure = _measure()
+    rows = tmp_path / "results.jsonl"
+    rows.write_text(
+        "\n".join(
+            [
+                '{"task":"t01","condition":"c0","pass1":false,"pass_final":false,'
+                '"latency_s":4.7,"prompt_tokens":198,"completion_tokens":403}',
+                '{"task":"t01","condition":"c2","pass1":true,"pass_final":true,'
+                '"latency_s":1.9,"prompt_tokens":605,"completion_tokens":124}',
+                '{"task":"t02","condition":"c2","pass1":false,"pass_final":false,'
+                '"parse_error":"no-fenced-block"}',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = measure.summarise(rows)
+
+    assert "| c0 | 0/1 (0%) | 0/1 | 4.7 | 198 | 403 |" in summary
+    assert "| c2 | 1/2 (50%) | 1/2 | 1.9 | 605 | 124 |" in summary
+    assert "1 replies the parser refused" in summary
+
+
+def test_resume_skips_the_cells_already_recorded(tmp_path: Path) -> None:
+    measure = _measure()
+    rows = tmp_path / "results.jsonl"
+    rows.write_text(
+        '{"task":"t01","condition":"c0"}\n{"task":"t02","condition":"c0"}\n',
+        encoding="utf-8",
+    )
+    assert measure.done_keys(rows) == {("t01", "c0"), ("t02", "c0")}
+    assert measure.done_keys(tmp_path / "absent.jsonl") == set()
+
+
+# --- the precondition ----------------------------------------------------
+
+
+@requires_node
+def test_every_reference_passes_its_own_acceptance() -> None:
+    """The rig's ``--selftest``, run as a test. Red here invalidates a sweep.
+
+    CLM-0004's design makes this a precondition rather than a nicety: an
+    acceptance script that its own reference cannot satisfy would charge a model
+    for the task set's defect, in every condition equally, and the ladder would
+    still look like a ladder.
+    """
+    proc = subprocess.run(
+        [sys.executable, str(BUNDLE_TOOLS / "measure.py"), "--selftest"],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+        timeout=300,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "20/20 references pass" in proc.stdout

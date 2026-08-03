@@ -20,13 +20,15 @@ test holds the two files equal. Rewording it — even improving it — would mea
 the numbers above describe a file that is no longer the one being shipped. If
 the bundle should change, the change has to be measured first.
 
-**The JS/TS bundle is not measured, and says so in its own first line.**
-CLM-0004's confidence note bars generalising its percentages to another
+**The JS/TS bundle is not measured, and says so in a marker the worker never
+sees.** CLM-0004's confidence note bars generalising its percentages to another
 language until re-measured, so ``prompts/javascript.md`` is an idiom port
 carrying no evidentiary weight. It is shipped because a worker on a JS/TS
 contract with no bundle at all is the c0 condition, which measured worst of the
 four — but "probably better than nothing" is a prediction, and it is recorded
-as one.
+as one. The marker stating that is stripped by :func:`strip_provenance`, which
+is what keeps a file's standing sayable in the file without spending the
+worker's prompt on it; ``tools/bundle/`` is the instrument that would settle it.
 
 One bundle per language adapter, selected by asking the gate's adapters which
 one owns the contract's target. That reuses the ownership rules the gate
@@ -114,8 +116,40 @@ def _read(filename: str) -> str | None:
     return resource.read_text(encoding="utf-8")
 
 
+def strip_provenance(text: str) -> str:
+    """A bundle without its leading HTML-comment marker.
+
+    A marker says what standing the file has — which measurement it is, or that
+    it is none. That is a note to a reader of the repository, and #144 found it
+    being sent to the model: ``javascript.md``'s two-line marker was 162 bytes
+    of the 2039 the loader handed a worker, and it opened the system prompt by
+    telling the model its own instructions were an unmeasured port whose figures
+    should not be cited. Both are defects. It spent the ceiling that
+    :data:`MAX_BUNDLE_BYTES` exists to enforce on text that is not instructions,
+    and it put meta-commentary where a small model expects its role.
+
+    Stripping here makes the marker provenance rather than prompt, and that is
+    what lets #144's two acceptance conditions hold at once: a bundle can carry
+    an UNMEASURED marker *and* be byte-identical to the condition a sweep
+    measured, because the marker is not in the bytes either one sends. Without
+    this, marking a file and measuring it are mutually exclusive.
+
+    Only a marker at the very start is removed, and only through the first
+    ``-->``. A comment further down is content — the file is Markdown, and this
+    is not a comment stripper.
+    """
+    if not text.startswith("<!--"):
+        return text
+    _, separator, rest = text.partition("-->\n")
+    return rest if separator else text
+
+
 def load_bundle(language: str) -> Bundle:
     """Load one language's bundle, refusing it if it broke the ceiling.
+
+    The bundle is the file's body: a leading provenance marker is stripped by
+    :func:`strip_provenance` before anything else, so neither the ceiling nor
+    the worker ever sees it.
 
     Raises :class:`BundleMissingError` for a language with no bundle file and
     :class:`BundleTooLargeError` for one that outgrew the measurement.
@@ -126,12 +160,13 @@ def load_bundle(language: str) -> Bundle:
             f"no bundle is registered for language {language!r} "
             f"(registered: {', '.join(sorted(_BUNDLE_FILES))})"
         )
-    text = _read(filename)
-    if text is None:
+    raw = _read(filename)
+    if raw is None:
         raise BundleMissingError(
             f"bundle file {filename!r} for language {language!r} is not present "
             f"in this installation"
         )
+    text = strip_provenance(raw)
     size = len(text.encode("utf-8"))
     if size > MAX_BUNDLE_BYTES:
         raise BundleTooLargeError(filename, size)

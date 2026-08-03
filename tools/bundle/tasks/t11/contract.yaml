@@ -1,0 +1,23 @@
+id: t11-numeric-sort-comparator
+task_type: bug_fix
+task: |
+  sortAscending orders numbers as text, so [10, 9, 100] comes back as
+  [10, 100, 9]. Fix it to order numerically, ascending, without mutating
+  the argument. Return the complete fixed file.
+
+  Current content of solution.ts:
+
+  ```ts
+  /** The numbers, ascending. */
+  export function sortAscending(values: readonly number[]): number[] {
+    return [...values].sort();
+  }
+  ```
+target: solution.ts
+interface: "export function sortAscending(values: readonly number[]): number[]"
+stop_conditions:
+  - Where NaN should be ordered is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,29 @@
+id: t12-mutation-during-iteration
+task_type: bug_fix
+task: |
+  removeNegatives skips elements: it splices out of the same array it is
+  walking, so the index moves past the element that shifted into the gap.
+  Fix it to remove every negative number. The argument must not be
+  mutated - return a new array. Return the complete fixed file.
+
+  Current content of solution.ts:
+
+  ```ts
+  /** The values with every negative number removed. */
+  export function removeNegatives(values: number[]): number[] {
+    values.forEach((value, index) => {
+      if (value < 0) {
+        values.splice(index, 1);
+      }
+    });
+    return values;
+  }
+  ```
+target: solution.ts
+interface: "export function removeNegatives(values: readonly number[]): number[]"
+stop_conditions:
+  - Whether negative zero counts as negative is not stated.
+acceptance: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

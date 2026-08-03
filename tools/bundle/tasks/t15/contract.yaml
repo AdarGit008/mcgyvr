@@ -1,0 +1,43 @@
+id: t15-deduplicate-behind-wrappers
+task_type: function_implementation
+task: |
+  celsiusToFahrenheit and celsiusToKelvin repeat the same validation. Move
+  the shared validation into one non-exported helper that both call, so the
+  checks are written once. Both exported names, their signatures and their
+  behaviour must stay exactly as they are. The acceptance script reads the
+  file and requires the phrase "must be a finite number" to appear exactly
+  once. Return the complete rewritten file.
+
+  Current content of solution.ts:
+
+  ```ts
+  /** The temperature in degrees Fahrenheit. */
+  export function celsiusToFahrenheit(celsius: number): number {
+    if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+      throw new Error("celsius must be a finite number");
+    }
+    if (celsius < -273.15) {
+      throw new Error("celsius must be at or above absolute zero");
+    }
+    return celsius * 1.8 + 32;
+  }
+
+  /** The temperature in kelvin. */
+  export function celsiusToKelvin(celsius: number): number {
+    if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+      throw new Error("celsius must be a finite number");
+    }
+    if (celsius < -273.15) {
+      throw new Error("celsius must be at or above absolute zero");
+    }
+    return celsius + 273.15;
+  }
+  ```
+target: solution.ts
+interface: "export function celsiusToFahrenheit(celsius: number): number; export function celsiusToKelvin(celsius: number): number"
+stop_conditions:
+  - Whether the helper should be exported for testing is not stated.
+acceptance: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]
