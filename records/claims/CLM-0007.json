@@ -1,0 +1,33 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0007",
+  "statement": "Over the pinned reach corpus, the repositories' own declared checks execute most of what accepted changes added, and the gap a static rung could address is small — single-digit to low-double-digit percentages, not the 20-40% or ~60% figures the inherited ADRs quote without citation. Of 5,671 added lines an instrument considered executable, 5,038 were executed and 633 were not: 11.2% of executable added lines, 4.5% of added source lines, about 9 executable lines per accepted change. Per frame, which is how this must be read: AdarGit008/mcgyvr 572 of 4,379 unreached (13.1%, 20 of 20 changes, coverage IMPOSED because the repository declares none); pallets/click 26 of 369 (7.0%, 30 of 30, coverage declared as [tool.coverage.run]); immerjs/immer 35 of 923 (3.8%, 17 of 27, coverage declared as scripts.coverage). The two frames measured on their own declared terms are the lower two. Coverage is 67 of 77 changes and 14,192 of the corpus's 14,272 added source lines (99.4%); the 10 unmeasured changes are immer commits predating its migration from Jest to vitest, each listed with its reason. A further 8,521 added lines — 60.0% of what was measured — are non-executable (blank, comment, docstring or excluded) and were never going to execute; reporting the gap as added-minus-reached folds those in and overstates it more than fivefold. No added line's file went unreported by its instrument.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "medium",
+  "citations": [
+    {
+      "url": "records/measurements/reach-2026-08-03/count1-reach.jsonl",
+      "supports_because": "The rows the totals reduce from — one per change, each carrying its added-line count, the four-way classification, the suite's exit status, the runner's own pass/fail summary, and the coverage instrument the repository declared at THAT commit. Every figure in the statement is a sum over this file and recomputes with `tools/reach/count1.py --summarise`."
+    },
+    {
+      "url": "records/measurements/reach-2026-08-03/README.md",
+      "supports_because": "States the method and the limits the numbers may not be quoted without: which frames declare their own coverage instrument and which had one imposed, that the two instruments define an executable line differently, why a non-zero suite is kept while a missing report is excluded, and the two rig defects that were found and fixed before these figures were taken."
+    },
+    {
+      "url": "records/corpora/reach-2026-08-02/corpus.json",
+      "supports_because": "The pinned denominator. The 14,272 added source lines are this file's total, not a quantity the measurement chose for itself — count1.py recomputes which lines each change added and refuses to proceed when its total disagrees with this one, which is what keeps the numerator and denominator over the same population."
+    },
+    {
+      "url": "tools/reach/count1.py",
+      "supports_because": "The rig, where the load-bearing choices are visible and arguable: measurement at each change's own commit rather than once per frame, the four-outcome classification that keeps non-executable lines out of the gap, and the per-commit record of what the repository declared at the time."
+    },
+    {
+      "url": "tests/test_reach_counts.py",
+      "supports_because": "Checks offline that the rows still partition the pinned corpus with nothing counted twice, and that reached + unreached + non-executable + not-reported equals the added lines for every measured change — the arithmetic that makes 11.2% a ratio of two reconciled quantities rather than of two numbers that never met."
+    }
+  ],
+  "_confidence_note": "Medium, and the reason is the corpus rather than the instrument. n = 3 repositories; the external frames are windowed (depth-120 clones), not sampled; and mcgyvr is 81% of the added line count, so the pooled figure is mostly a fact about this repository — which is also the frame with the highest gap AND the only one whose coverage instrument was imposed rather than declared. Read the per-frame numbers. The direction of the pooled bias is knowable: dropping mcgyvr leaves 61 of 1,292 executable added lines unreached, 4.7%.",
+  "_measurement_note": "'Executable' is the instrument's judgement and the two instruments differ: coverage.py reports every statement line, istanbul is read here at each statement's start line, so immer's executable denominator is narrower in kind than the Python frames'. Suite outcomes are recorded, not assumed: click's 30 and immer's 17 measured suites all exited 0; mcgyvr's exited non-zero on 19 of 20, every one of them the same single test (test_detect.py::test_every_reported_fact_has_provenance) asserting on a Docker daemon the measurement container does not expose. All exited 1 (tests failed) rather than 2 (collection failed), so no suite was truncated. THREE defects were found and fixed before these figures, and the middle one is why the immer denominator is 17: (a) uv's rayon pool failing to spawn threads under a 1024-PID container ceiling silently lost 7 mcgyvr changes; (b) vitest's report directory persisted between commits, so a failed run copied the PREVIOUS commit's coverage through — 10 immer rows were another commit's data, and the output directory is now wiped per commit; (c) those same 10 commits predate immer's Jest-to-vitest migration and declared 'jest --coverage' at the time, so the corpus's single per-frame declared_check, read at the pinned tip, is anachronistic for them. They are excluded rather than measured with a command the repository never declared then."
+}

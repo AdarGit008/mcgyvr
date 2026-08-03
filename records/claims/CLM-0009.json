@@ -1,0 +1,33 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0009",
+  "statement": "Run over human-authored Python that shipped, the candidate resolver ghostcall produced zero false positives on the lines a change added: 0 hallucinated verdicts across 358 resolved call chains on added lines, over 50 accepted changes in the two Python frames of the pinned reach corpus (AdarGit008/mcgyvr 228 calls, pallets/click 130). Zero of 358 is an upper bound, not a demonstration of zero — by the rule of three the true rate is under roughly 0.8% at 95% confidence, and the added-line restriction makes the sample small. Widened to every call in the files those changes touched (5,002 chains), the resolver produced 7 hallucinated verdicts at 4 distinct call sites, and ALL FOUR ARE PLATFORM-CONDITIONAL CODE that is correct on the platform it guards: os.startfile (Windows-only, src/click/_termui_impl.py:792 and :805) and sys.stdout._original_fd / sys.stderr._original_fd (click's own runtime test shim, src/click/testing.py:671-672). One module_missing root appeared, msvcrt, which is also Windows-only. This is a characterisable failure mode rather than noise: ghostcall resolves a call by importing and introspecting the LIVE interpreter, so any correctly-guarded API belonging to another platform, or any attribute installed at runtime, is indistinguishable to it from an invented one. A rung adopting this resolver inherits that behaviour, and the mitigation is a property of the design (what the container's platform is, and whether guarded branches are excluded), not of the tool.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "medium",
+  "citations": [
+    {
+      "url": "records/measurements/reach-2026-08-03/count3-falsepos.jsonl",
+      "supports_because": "One row per change, carrying the call counts, the status breakdown, and every hallucinated verdict written out with its path, line and resolved chain — including the ones off the added lines, which are the only evidence in this corpus about what the resolver actually objects to. A bare total would have hidden all four."
+    },
+    {
+      "url": "tools/reach/count3.py",
+      "supports_because": "The counting rules, which is where this claim could most easily go wrong: it restricts to added lines because the rung judges added lines, records the whole-file rate beside that, and deliberately counts module_missing separately from hallucinated rather than folding an environment outcome into a verdict about the code."
+    },
+    {
+      "url": "records/evidence/ghostcall-2026-08-02/src/ghostcall/checker.py",
+      "supports_because": "The mechanism behind the failure mode: check() resolves a chain with importlib.import_module and getattr against the running interpreter, so os.startfile on Linux is missing in exactly the way an invented API is missing. The four flags are read off this behaviour, not inferred from the outputs."
+    },
+    {
+      "url": "records/measurements/reach-2026-08-03/README.md",
+      "supports_because": "States the proxy this count rests on and its limit — every file measured passed a declared, human-gated check, so a flag is a PRESUMPTIVE false positive; shipped code can carry a latent bug, which is why each flag is listed for checking by hand rather than asserted to be wrong."
+    },
+    {
+      "url": "records/claims/CLM-0006.json",
+      "supports_because": "The claim this one completes. CLM-0006 verified ghostcall's identity, packaging and stdlib-only engine and said explicitly that it had checked the description and not the yield, leaving the choice of resolver open. This is the yield."
+    }
+  ],
+  "_confidence_note": "Medium. The zero is real but thin: 358 calls is a small sample, only 2 of 3 frames are in scope because ghostcall parses Python, and the JS/TS half of the launch languages therefore has no candidate measured at all. The proxy is also load-bearing — 'this code shipped, so a flag is wrong' — and it is a proxy, since mcgyvr's acceptance rung has never run on any of these changes.",
+  "_measurement_note": "Run in a container, which CLM-0006 established is a constraint rather than a preference here: check() imports the target's own modules and therefore executes their module-level code. calls_in_files is a sum over changes and double-counts call sites in files touched by more than one change, which is why the 7 verdicts reduce to 4 distinct sites; the added-line figure does not double-count. The container is Linux, so the platform-conditional flags are an artefact of that choice and would differ on another platform — which is itself the finding."
+}

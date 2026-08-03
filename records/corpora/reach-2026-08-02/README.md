@@ -84,9 +84,16 @@ changes mcgyvr accepted".
   nothing.
 - Test and documentation additions are excluded. The rung's territory is source.
 
-## What is not here yet
+## What was computed over this
 
-Counts 1, 2 and 3 themselves. This lane pins the denominator and verifies
-ghostcall ([CLM-0006](../../claims/CLM-0006.json)); the counts need each frame's
-suite run under coverage **in a container**, per ADR-0005 and ADR-0010, and
-that is the next session's work.
+Counts 1, 2 and 3 live in
+[`records/measurements/reach-2026-08-03/`](../../measurements/reach-2026-08-03/README.md),
+under [#129](https://github.com/AdarGit008/mcgyvr/issues/129) — one row per
+change, with the tools that reproduce them. The suites are run under coverage
+**in a container**, per ADR-0005 and ADR-0010.
+
+Two things there bear on this file. The rig recomputes each change's added
+*lines* (this file pins only their count) and refuses to proceed when the two
+disagree, so the numerators cannot drift from this denominator unnoticed. And
+Count 2 re-derives each frame's `declared_check` from every commit's tree
+independently of the table above; the two agree.
