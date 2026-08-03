@@ -19,13 +19,17 @@ classification, which HTTP would only obscure.
 
 from __future__ import annotations
 
+import email.message
 import time
 import urllib.error
+import urllib.request
+from collections.abc import Callable, Mapping, Sequence
 
 import pytest
 
 from mcgyvr.availability import (
     Availability,
+    ProbeFn,
     Verdict,
     probe_endpoint,
 )
@@ -133,9 +137,9 @@ def dead(_endpoint: Endpoint, _timeout: float) -> Verdict:
 class Counting:
     """A probe that records how many times it was actually called."""
 
-    def __init__(self, verdict=dead) -> None:
+    def __init__(self, verdict: ProbeFn = dead) -> None:
         self.calls: list[str] = []
-        self._verdict = verdict
+        self._verdict: ProbeFn = verdict
 
     def __call__(self, target: Endpoint, timeout: float) -> Verdict:
         self.calls.append(target.source)
@@ -216,7 +220,10 @@ def test_a_non_positive_timeout_is_refused() -> None:
 # --- 2. classification -----------------------------------------------------
 
 
-def _stub_urlopen(monkeypatch, behaviour) -> None:
+Behaviour = Callable[[urllib.request.Request, float], "_Response"]
+
+
+def _stub_urlopen(monkeypatch: pytest.MonkeyPatch, behaviour: Behaviour) -> None:
     monkeypatch.setattr(
         "mcgyvr.availability.urllib.request.urlopen",
         lambda request, timeout: behaviour(request, timeout),
@@ -246,11 +253,17 @@ class _Response:
         (503, False),
     ],
 )
-def test_http_status_is_read_as_liveness(monkeypatch, status, expected_live) -> None:
-    def behaviour(_request, _timeout):
+def test_http_status_is_read_as_liveness(
+    monkeypatch: pytest.MonkeyPatch, status: int, expected_live: bool
+) -> None:
+    def behaviour(_request: urllib.request.Request, _timeout: float) -> _Response:
         if status >= 400:
             raise urllib.error.HTTPError(
-                "http://localhost:8000/v1/models", status, "", {}, None
+                "http://localhost:8000/v1/models",
+                status,
+                "",
+                email.message.Message(),
+                None,
             )
         return _Response(status)
 
@@ -261,7 +274,9 @@ def test_http_status_is_read_as_liveness(monkeypatch, status, expected_live) -> 
     assert str(status) in verdict.how
 
 
-def test_a_404_carries_the_argument_for_reading_it_as_live(monkeypatch) -> None:
+def test_a_404_carries_the_argument_for_reading_it_as_live(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The classification most likely to look like a bug states its own case.
 
     Reading a 404 at the model-list path as *down* would skip a source that
@@ -269,9 +284,9 @@ def test_a_404_carries_the_argument_for_reading_it_as_live(monkeypatch) -> None:
     the ladder, which is worse than the wasted attempt it saves.
     """
 
-    def behaviour(_request, _timeout):
+    def behaviour(_request: urllib.request.Request, _timeout: float) -> _Response:
         raise urllib.error.HTTPError(
-            "http://localhost:8000/v1/models", 404, "", {}, None
+            "http://localhost:8000/v1/models", 404, "", email.message.Message(), None
         )
 
     _stub_urlopen(monkeypatch, behaviour)
@@ -282,10 +297,12 @@ def test_a_404_carries_the_argument_for_reading_it_as_live(monkeypatch) -> None:
     assert "optional" in verdict.how
 
 
-def test_a_credential_refusal_names_the_variable(monkeypatch) -> None:
-    def behaviour(_request, _timeout):
+def test_a_credential_refusal_names_the_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def behaviour(_request: urllib.request.Request, _timeout: float) -> _Response:
         raise urllib.error.HTTPError(
-            "https://api.example.com/v1/models", 401, "", {}, None
+            "https://api.example.com/v1/models", 401, "", email.message.Message(), None
         )
 
     _stub_urlopen(monkeypatch, behaviour)
@@ -305,8 +322,10 @@ def test_a_credential_refusal_names_the_variable(monkeypatch) -> None:
     assert "sk-not-a-real-key" not in verdict.reason  # never quote the value
 
 
-def test_transport_failure_is_down_and_never_raises(monkeypatch) -> None:
-    def behaviour(_request, _timeout):
+def test_transport_failure_is_down_and_never_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def behaviour(_request: urllib.request.Request, _timeout: float) -> _Response:
         raise TimeoutError("timed out")
 
     _stub_urlopen(monkeypatch, behaviour)
@@ -317,10 +336,12 @@ def test_transport_failure_is_down_and_never_raises(monkeypatch) -> None:
     assert "TimeoutError" in verdict.how
 
 
-def test_each_protocol_is_asked_at_its_own_listing_path(monkeypatch) -> None:
+def test_each_protocol_is_asked_at_its_own_listing_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     asked: list[str] = []
 
-    def behaviour(request, _timeout):
+    def behaviour(request: urllib.request.Request, _timeout: float) -> _Response:
         asked.append(request.full_url)
         return _Response(200)
 
@@ -334,11 +355,11 @@ def test_each_protocol_is_asked_at_its_own_listing_path(monkeypatch) -> None:
     ]
 
 
-def test_a_probe_is_a_listing_not_a_generation(monkeypatch) -> None:
+def test_a_probe_is_a_listing_not_a_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     """A probe that cost tokens would be a probe nobody runs."""
     methods: list[str] = []
 
-    def behaviour(request, _timeout):
+    def behaviour(request: urllib.request.Request, _timeout: float) -> _Response:
         methods.append(request.get_method())
         assert request.data is None
         return _Response(200)
@@ -359,7 +380,7 @@ class Stub:
         self.down = set(down)
         self.asked: list[str] = []
 
-    def unavailable(self, endpoints):
+    def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:
         self.asked = [e.source for e in endpoints]
         return {
             e.source: f"source {e.source!r} did not answer"
@@ -408,7 +429,9 @@ def test_all_sources_down_is_an_empty_ladder_that_says_why() -> None:
     assert all(s.reason for s in pool.skipped)
 
 
-def test_a_structurally_skipped_source_is_never_probed(monkeypatch) -> None:
+def test_a_structurally_skipped_source_is_never_probed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Nothing is learned by asking whether a host we have no key for is awake."""
     monkeypatch.delenv("MCGYVR_AVAIL_TEST_KEY", raising=False)
     stub = Stub()
@@ -420,7 +443,9 @@ def test_a_structurally_skipped_source_is_never_probed(monkeypatch) -> None:
     assert "MCGYVR_AVAIL_TEST_KEY" in pool.skipped[0].reason
 
 
-def test_skipped_keeps_ladder_order_across_both_causes(monkeypatch) -> None:
+def test_skipped_keeps_ladder_order_across_both_causes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Structural and unreachable skips interleave in declared order, not in
     two blocks — the order a reader is entitled to expect."""
     monkeypatch.delenv("MCGYVR_AVAIL_TEST_KEY", raising=False)
