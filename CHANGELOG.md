@@ -361,6 +361,28 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   in any arm's output, and nothing in the locator or its helpers calls a
   subprocess, an import or an eval, asserted by parsing their ASTs rather than
   by inspection.
+- The decomposer emits the located type-check command into a contract's
+  `acceptance` (#142, E7). ADR-0006 ended by naming the gap — "what is missing
+  is not a step; it is whoever fills the list in" — and this is that: a
+  `type_annotation` proposal that declares no acceptance command of its own gets
+  the checker the target's language adapter located, and a repository declaring
+  none yields a refusal saying so rather than a contract that cannot load. A
+  proposal carrying its own commands is neither overruled nor appended to; only
+  `type_check` is filled in, because `locate_test_command` guesses a runner
+  rather than reading a declaration and `failing_test_first` needs a specific
+  test no locator can name. **The command is emitted exactly as located** — the
+  target is never appended, which settles the question #114 left for this layer.
+  Measured, not assumed: `tsc --noEmit file.ts` discards `tsconfig.json`
+  entirely, so on a `strict: true` project the project-wide run reports `TS7006`
+  and exits 2 while the per-file run over the same file exits 0 — appending
+  would silently replace the check with a weaker one that passes. mypy's
+  `exclude` likewise does not apply to a file named on the command line. The
+  case that motivated appending — bare `mypy` exiting 2 with "Missing target
+  module, package, files, or command" on a repository that configures no
+  `files` — is caught by `Acceptance.precondition` against the unchanged tree,
+  before an attempt is spent and without charging a worker, as is the larger
+  version of the same problem: a repository carrying a backlog of pre-existing
+  type errors.
 - `mcgyvr pool --probe` — additionally ask each source whether it is answering,
   drop the rungs of any that is not, and report every source that was asked with
   how long it took and how the verdict was reached. `--probe-timeout` sets the

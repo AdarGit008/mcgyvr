@@ -21,6 +21,7 @@ import pytest
 from mcgyvr import contract as contract_module
 from mcgyvr.catalog import catalog
 from mcgyvr.config import Config, Ladder
+from mcgyvr.gate.adapters import PythonAdapter
 from mcgyvr.orchestrator.decompose import (
     DepRef,
     Proposal,
@@ -356,3 +357,210 @@ def test_a_contract_whose_worker_view_exceeds_the_default_is_sized_up(
     assert built.max_input_tokens >= estimate_tokens(built.deps[0].signature)
     # Still a contract the public API accepts.
     assert contract_module.loads(contract_module.dumps(built)) == built
+
+
+# --- the located type checker reaches the contract (#142, ADR-0006) ---------
+#
+# ADR-0006 ends by naming the gap these cover: "the schema already demands a
+# type-check command for the one task type whose guarantee requires one, and
+# nothing yet supplies it." #114 built the locator; this is the wiring.
+
+
+def an_annotation(**overrides: object) -> Proposal:
+    """A `type_annotation` proposal with no acceptance of its own.
+
+    The empty `acceptance` is the point. `type_annotation` requires `type_check`
+    evidence, which only a command can produce, so a contract that reaches the
+    loader like this cannot load — which is what the decomposer has to prevent
+    by filling the list in or by refusing.
+    """
+    base = {
+        "task_type": "type_annotation",
+        "task": "annotate listing() and its return.",
+        "target": "listing.py",
+        "stop_conditions": ("the intended element type is ambiguous",),
+    }
+    return Proposal(**{**base, **overrides})  # type: ignore[arg-type]
+
+
+def declaring_mypy(repo: Index) -> Index:
+    """The same repository, having declared mypy the way mypy reads it."""
+    (repo.root / "pyproject.toml").write_text(
+        '[tool.mypy]\nfiles = ["."]\nstrict = true\n'
+    )
+    git(repo.root, "add", "-A")
+    git(repo.root, "commit", "-q", "-m", "declare mypy")
+    return build_index(repo.root)
+
+
+class StubAdapter(PythonAdapter):
+    """An adapter that declares a fixed multi-token command for every repository.
+
+    The positive control. "The target is never appended" is an assertion about
+    an absence, and an absence is easy to satisfy vacuously — a pipeline that
+    dropped every argument would pass it too. This transmits `--flag`, so the
+    absence tests are known to be reading a command that arguments *can* reach.
+    """
+
+    def locate_type_check_command(self, repo: Path) -> list[str] | None:
+        return ["checker", "--flag"]
+
+
+def test_the_repositorys_own_checker_becomes_the_acceptance_command(
+    repo: Index,
+) -> None:
+    (built,) = decompose(
+        declaring_mypy(repo), "annotate", propose=RecordedProposer((an_annotation(),))
+    ).contracts
+
+    assert built.acceptance == ("mypy",)
+
+
+def test_a_repository_declaring_no_checker_emits_no_type_annotation(
+    repo: Index,
+) -> None:
+    """ADR-0006: the correct outcome arriving at the correct layer.
+
+    The contract would fail to load anyway. Refusing here is what makes the
+    answer a sentence about the repository rather than a complaint about a field.
+    """
+    result = decompose(repo, "annotate", propose=RecordedProposer((an_annotation(),)))
+
+    assert result.contracts == ()
+    (refusal,) = result.refusals
+    assert refusal.subject == "listing.py"
+    assert "declares no type checker" in refusal.reason
+    assert "ADR-0006" in refusal.reason
+    # It names both ways forward, not just the failure.
+    assert "Configure a checker" in refusal.reason
+    assert "declare the command" in refusal.reason
+
+
+def test_a_proposals_own_acceptance_is_neither_overruled_nor_appended_to(
+    repo: Index,
+) -> None:
+    """The contract always wins over a sniff — `adapter.py:102-105` says so.
+
+    Appending would let it win and lose at once: the declared command would run,
+    and so would the one it was declared instead of.
+    """
+    declared = an_annotation(acceptance=("make typecheck",))
+    (built,) = decompose(
+        declaring_mypy(repo), "annotate", propose=RecordedProposer((declared,))
+    ).contracts
+
+    assert built.acceptance == ("make typecheck",)
+
+
+def test_the_located_command_is_emitted_exactly_as_located(repo: Index) -> None:
+    """Nothing is appended — not the target, not a path, not a flag.
+
+    `tsc --noEmit file.ts` discards `tsconfig.json` entirely, and mypy's
+    `exclude` does not apply to a file named on the command line, so appending
+    the target would not narrow the check in either language: it would replace
+    it with a different one. Measured on both tools; the reasoning is in
+    `_acceptance_for`.
+    """
+    (built,) = decompose(
+        declaring_mypy(repo), "annotate", propose=RecordedProposer((an_annotation(),))
+    ).contracts
+
+    (command,) = built.acceptance
+    assert command == "mypy"
+    assert built.target not in command
+
+
+def test_arguments_do_reach_the_contract_when_the_locator_states_them(
+    repo: Index,
+) -> None:
+    """The positive control for the assertion above: absence, not emptiness."""
+    (built,) = decompose(
+        repo,
+        "annotate",
+        propose=RecordedProposer((an_annotation(),)),
+        adapters=(StubAdapter(),),
+    ).contracts
+
+    assert built.acceptance == ("checker --flag",)
+
+
+def test_a_typescript_repository_gets_its_own_project_wide_check(
+    tmp_path: Path,
+) -> None:
+    """The JS/TS arm, which is where per-file checking is not expressible at all."""
+    root = tmp_path / "ts"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    (root / "tsconfig.json").write_text('{"compilerOptions":{"strict":true}}\n')
+    (root / "listing.ts").write_text(
+        "export function listing(items) {\n  return items;\n}\n"
+    )
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "seed")
+
+    proposal = an_annotation(target="listing.ts")
+    (built,) = decompose(
+        build_index(root), "annotate", propose=RecordedProposer((proposal,))
+    ).contracts
+
+    assert built.acceptance == ("tsc --noEmit",)
+    assert "listing.ts" not in built.acceptance[0]
+
+
+def test_a_target_no_language_owns_cannot_be_type_checked(tmp_path: Path) -> None:
+    root = tmp_path / "prose"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    (root / "pyproject.toml").write_text('[tool.mypy]\nfiles = ["."]\n')
+    (root / "notes.md").write_text("# notes\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "seed")
+
+    proposal = an_annotation(target="notes.md")
+    result = decompose(
+        build_index(root), "annotate", propose=RecordedProposer((proposal,))
+    )
+
+    assert result.contracts == ()
+    reason = result.refusals[0].reason
+    assert "no language adapter owns 'notes.md'" in reason
+    # The refusal names the languages this build actually carries.
+    assert "python" in reason and "js/ts" in reason
+
+
+def test_a_test_command_is_not_located_for_a_type_that_needs_one(repo: Index) -> None:
+    """Only `type_check` is filled in — `tests_pass` still fails at the loader.
+
+    `locate_test_command` answers `pytest` for any repository with a `tests/`
+    directory, which is a guess about the runner rather than a reading of a
+    declaration; and `failing_test_first` needs a *specific* test that fails
+    before the change, which no locator can name. Both stay the proposer's.
+    """
+    (repo.root / "tests").mkdir()
+    (repo.root / "tests" / "test_listing.py").write_text(
+        "def test_x() -> None:\n    pass\n"
+    )
+    git(repo.root, "add", "-A")
+    git(repo.root, "commit", "-q", "-m", "add tests")
+    result = decompose(
+        build_index(repo.root), "fix", propose=RecordedProposer((a_fix(acceptance=()),))
+    )
+
+    assert result.contracts == ()
+    assert "does not validate" in result.refusals[0].reason
+
+
+def test_the_repository_level_refusal_is_reported_once_per_proposal(
+    repo: Index,
+) -> None:
+    """Two annotation proposals, one repository fact — each is told the same thing.
+
+    The check sits before dependency resolution so that "this repository runs no
+    checker" cannot arrive disguised as a different complaint per proposal.
+    """
+    proposals = (an_annotation(), an_annotation(target="pagination.py"))
+    result = decompose(repo, "annotate", propose=RecordedProposer(proposals))
+
+    assert result.contracts == ()
+    assert [r.subject for r in result.refusals] == ["listing.py", "pagination.py"]
+    assert all("declares no type checker" in r.reason for r in result.refusals)
