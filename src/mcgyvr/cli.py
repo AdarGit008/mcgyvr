@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from mcgyvr import __version__
+from mcgyvr.availability import PROBE_TIMEOUT_S
 from mcgyvr.capability import CapabilityTableError, load
 from mcgyvr.config import CONFIG_FILENAME, CONFIG_PATH_ENV, ConfigError
 from mcgyvr.config import config_path as resolve_config_path
@@ -89,7 +90,12 @@ def _pool(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    pool = source_map(config)
+    availability = None
+    if args.probe:
+        from mcgyvr.availability import Availability
+
+        availability = Availability(timeout_s=args.probe_timeout)
+    pool = source_map(config, probe=availability)
 
     # The ladder, not the endpoints: this command answers "what can run", and
     # where each rung runs is the seam's business (#20). A rung that cannot run
@@ -113,6 +119,16 @@ def _pool(args: argparse.Namespace) -> int:
             continue
         if binding is not None:
             print(f"\n{role}: {binding.model}")
+
+    if availability is not None:
+        # Every source that was actually asked, live ones included. A ladder
+        # that came back intact is only reassuring if you can see that the
+        # question was put — otherwise it is indistinguishable from a probe
+        # that quietly did nothing.
+        print(f"\nProbed {len(availability.verdicts)} source(s):")
+        for name, verdict in sorted(availability.verdicts.items()):
+            state = "live" if verdict.live else "down"
+            print(f"  {name:<20} {state:<5} {verdict.elapsed_s:.2f}s  {verdict.how}")
 
     # An empty or shortened ladder is a reported state, not a command failure —
     # for a keyless install it may be exactly what was configured.
@@ -660,6 +676,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         nargs="?",
         default=None,
         help=f"config to read (default: ${CONFIG_PATH_ENV} or ./{CONFIG_FILENAME})",
+    )
+    pool.add_argument(
+        "--probe",
+        action="store_true",
+        help=(
+            "also ask each source whether it is answering, and drop the rungs "
+            "of any that is not (off by default: resolving a ladder should not "
+            "require a network)"
+        ),
+    )
+    pool.add_argument(
+        "--probe-timeout",
+        type=float,
+        default=PROBE_TIMEOUT_S,
+        metavar="SECONDS",
+        help=f"how long a source has to answer a probe (default: {PROBE_TIMEOUT_S:g})",
     )
     pool.set_defaults(func=_pool)
 
