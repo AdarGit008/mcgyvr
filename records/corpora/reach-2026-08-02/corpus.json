@@ -1,0 +1,862 @@
+{
+  "record": "corpus/1",
+  "id": "reach-2026-08-02",
+  "issue": 125,
+  "pinned_utc": "2026-08-02T21:03:43Z",
+  "purpose": "The fixed set of accepted changes that #125's three counts are computed over. Enumerated and pinned so the counts re-run to the same numbers rather than being recomputed against whatever the default branches hold later.",
+  "enumeration": {
+    "method": "Per frame: walk the default branch newest-first in the stated unit, keep a change only if it adds at least one line matching source_glob, stop at limit. Added lines are git numstat additions, which is the same quantity gate/changeset.py attributes as added_lines.",
+    "limits": {
+      "AdarGit008/mcgyvr": 100,
+      "pallets/click": 30,
+      "immerjs/immer": 30
+    },
+    "window": "mcgyvr is enumerated over its complete history (29 first-parent merges, 20 of which add source). click and immer were enumerated inside a depth-120 shallow clone taken at the pinned commit, so their frames are the most recent qualifying commits within that window and NOT a sample of the whole history. immer yields 27 rather than 30 because the window ran out, not because a filter rejected three.",
+    "excluded": "Merge commits in the external frames (their changes are attributed to the commits they merge). Deletions and binary changes, which carry no added lines by construction. Test and documentation additions, which are not the rung's territory."
+  },
+  "totals": {
+    "frames": 3,
+    "changes": 77,
+    "added_source_lines": 14272
+  },
+  "frames": [
+    {
+      "repo": "AdarGit008/mcgyvr",
+      "language": "python",
+      "role": "self",
+      "pinned_commit": "0edb366bb1566a7eb173d0860965b0ad1d409cc9",
+      "unit": "first-parent merge into main (one accepted pull request)",
+      "source_glob": "src/**/*.py",
+      "declared_check": {
+        "command": "uv run pytest",
+        "declared_in": "Makefile:16 / [tool.pytest.ini_options]",
+        "declares_coverage_config": false
+      },
+      "changes": [
+        {
+          "commit": "1d344f0537f84c4c9f4b3d97432fb107d74b59a6",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #108 from AdarGit008/lane/15",
+          "added_source_lines": 520,
+          "source_files": [
+            "src/mcgyvr/catalog.py",
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/contract.py"
+          ]
+        },
+        {
+          "commit": "33927c119f470c6d1089bd06ba0c032dc8557d79",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #107 from AdarGit008/lane/106",
+          "added_source_lines": 31,
+          "source_files": [
+            "src/mcgyvr/detect.py"
+          ]
+        },
+        {
+          "commit": "f25726b50330e9059e2d83b64f38d5e1e79ca903",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #104 from AdarGit008/lane/20",
+          "added_source_lines": 385,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/pool.py"
+          ]
+        },
+        {
+          "commit": "d104f7ff2d83acf82d8349675143e31db64d1ae1",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #102 from AdarGit008/lane/14",
+          "added_source_lines": 973,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/contract.py"
+          ]
+        },
+        {
+          "commit": "998c6dd0197bc8b74e0eb83682c52889380d1248",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #100 from AdarGit008/lane/51",
+          "added_source_lines": 420,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/orchestrator/__init__.py",
+            "src/mcgyvr/orchestrator/context.py",
+            "src/mcgyvr/orchestrator/read.py"
+          ]
+        },
+        {
+          "commit": "05d06bbb180c8a7e98fe00aee9297590905cf9a1",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #101 from AdarGit008/lane/52",
+          "added_source_lines": 717,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/orchestrator/__init__.py",
+            "src/mcgyvr/orchestrator/cache.py",
+            "src/mcgyvr/orchestrator/index.py"
+          ]
+        },
+        {
+          "commit": "f49b5b9aae7b39b1968a600b9c8398b7eb0fed74",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #98 from AdarGit008/lane/49",
+          "added_source_lines": 444,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/orchestrator/__init__.py",
+            "src/mcgyvr/orchestrator/read.py"
+          ]
+        },
+        {
+          "commit": "bf9935e56bbbf73391eebf916b7e09e4a0ee5c83",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #90 from AdarGit008/lane/48",
+          "added_source_lines": 577,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/orchestrator/__init__.py",
+            "src/mcgyvr/orchestrator/resolve.py"
+          ]
+        },
+        {
+          "commit": "6510422eddad80298d8661a1c47d4df4b61db45e",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #88 from AdarGit008/lane/87",
+          "added_source_lines": 30,
+          "source_files": [
+            "src/mcgyvr/config.py",
+            "src/mcgyvr/initialize.py",
+            "src/mcgyvr/propose.py"
+          ]
+        },
+        {
+          "commit": "4cad7936b0174088268d9a4dec13ff3443a443f2",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #89 from AdarGit008/lane/47",
+          "added_source_lines": 729,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/orchestrator/__init__.py",
+            "src/mcgyvr/orchestrator/index.py",
+            "src/mcgyvr/orchestrator/symbols.py"
+          ]
+        },
+        {
+          "commit": "9985c990e90b13aed4f64e3854dcccc425194c6c",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #86 from AdarGit008/lane/46",
+          "added_source_lines": 380,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/orchestrator/__init__.py",
+            "src/mcgyvr/orchestrator/repo.py"
+          ]
+        },
+        {
+          "commit": "291b87c2bc9b1a1836519bf0b4538f3c1e53b717",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #84 from AdarGit008/lane/12",
+          "added_source_lines": 263,
+          "source_files": [
+            "src/mcgyvr/docgen.py"
+          ]
+        },
+        {
+          "commit": "bd17a761864c819741a3821e13390639f14d68ed",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #85 from AdarGit008/lane/36",
+          "added_source_lines": 366,
+          "source_files": [
+            "src/mcgyvr/gate/__init__.py",
+            "src/mcgyvr/gate/adapters/__init__.py",
+            "src/mcgyvr/gate/adapters/javascript.py",
+            "src/mcgyvr/gate/runner.py"
+          ]
+        },
+        {
+          "commit": "7a3e915e95cf82654cce30e809f9c7368d9f8388",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #83 from AdarGit008/lane/38",
+          "added_source_lines": 360,
+          "source_files": [
+            "src/mcgyvr/gate/__init__.py",
+            "src/mcgyvr/gate/acceptance.py",
+            "src/mcgyvr/gate/runner.py",
+            "src/mcgyvr/sandbox/base.py"
+          ]
+        },
+        {
+          "commit": "9c0e6dc01567484c74964be5b10744bcfb1ff56a",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #80 from AdarGit008/lane/26",
+          "added_source_lines": 1804,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/sandbox/__init__.py",
+            "src/mcgyvr/sandbox/base.py",
+            "src/mcgyvr/sandbox/docker.py",
+            "src/mcgyvr/sandbox/image.py",
+            "src/mcgyvr/sandbox/stack.py",
+            "src/mcgyvr/sandbox/tempdir.py"
+          ]
+        },
+        {
+          "commit": "35c116d23b0ed774aebf06ad1f1802f20aa2e2b0",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #79 from AdarGit008/lane/11",
+          "added_source_lines": 526,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/initialize.py",
+            "src/mcgyvr/propose.py"
+          ]
+        },
+        {
+          "commit": "ff1e999474aaa1d0d7777f6926e2f773feb154f3",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #78 from AdarGit008/lane/10",
+          "added_source_lines": 432,
+          "source_files": [
+            "src/mcgyvr/capability.py",
+            "src/mcgyvr/propose.py"
+          ]
+        },
+        {
+          "commit": "fa15a40d18459bb6722c932bdcebed91fc7c29f5",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #77 from AdarGit008/lane/32",
+          "added_source_lines": 1375,
+          "source_files": [
+            "src/mcgyvr/gate/__init__.py",
+            "src/mcgyvr/gate/adapter.py",
+            "src/mcgyvr/gate/adapters/__init__.py",
+            "src/mcgyvr/gate/adapters/python.py",
+            "src/mcgyvr/gate/changeset.py",
+            "src/mcgyvr/gate/findings.py",
+            "src/mcgyvr/gate/preflight.py",
+            "src/mcgyvr/gate/runner.py",
+            "src/mcgyvr/gate/secrets.py",
+            "src/mcgyvr/gate/structured.py",
+            "src/mcgyvr/scope.py"
+          ]
+        },
+        {
+          "commit": "037d9cd90f8d22ec71a61dc6e254f22236a74a24",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #76 from AdarGit008/lane/9",
+          "added_source_lines": 369,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/detect.py"
+          ]
+        },
+        {
+          "commit": "167850c1049ba9d7be85e549f058bd281dafb552",
+          "date": "2026-08-01",
+          "subject": "Merge pull request #73 from AdarGit008/lane/8",
+          "added_source_lines": 862,
+          "source_files": [
+            "src/mcgyvr/cli.py",
+            "src/mcgyvr/config.py"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "pallets/click",
+      "language": "python",
+      "role": "external",
+      "pinned_commit": "00e592cea702e0b2caa0dee42489fdb1c22cd845",
+      "unit": "non-merge commit on the default branch",
+      "source_glob": "src/**/*.py",
+      "declared_check": {
+        "command": "pytest",
+        "declared_in": "[tool.pytest.ini_options] testpaths=['tests']",
+        "declares_coverage_config": true
+      },
+      "changes": [
+        {
+          "commit": "0f4738df88e3ea47c40a4a442103596a61cfee79",
+          "date": "2026-07-24",
+          "subject": "Fix docs and changelog",
+          "added_source_lines": 7,
+          "source_files": [
+            "src/click/_compat.py",
+            "src/click/core.py",
+            "src/click/shell_completion.py",
+            "src/click/termui.py",
+            "src/click/utils.py"
+          ]
+        },
+        {
+          "commit": "3b16957cba718a6d77ef680114de8e0830c436ba",
+          "date": "2026-07-22",
+          "subject": "Make `prompt`/`ParamType` typing work without runtime `typing_extensions`",
+          "added_source_lines": 71,
+          "source_files": [
+            "src/click/termui.py",
+            "src/click/types.py"
+          ]
+        },
+        {
+          "commit": "0585f456baa6eeb2edbaab7c85fa796a004aef86",
+          "date": "2026-07-22",
+          "subject": "`click.prompt` typing clarifications / improvements",
+          "added_source_lines": 89,
+          "source_files": [
+            "src/click/termui.py",
+            "src/click/types.py"
+          ]
+        },
+        {
+          "commit": "c2ed41490baa08002714ab79afa4a41f2d67c02c",
+          "date": "2026-07-20",
+          "subject": "Deprecate `isolated_filesystem` and document its limits",
+          "added_source_lines": 26,
+          "source_files": [
+            "src/click/testing.py"
+          ]
+        },
+        {
+          "commit": "051725fa7e0c69effc9107066d8791c5b99242c3",
+          "date": "2026-07-17",
+          "subject": "Add tests to deprecations. Better deprecate streams.",
+          "added_source_lines": 15,
+          "source_files": [
+            "src/click/__init__.py",
+            "src/click/utils.py"
+          ]
+        },
+        {
+          "commit": "7a0a3447f6ddd2c15438c5d098e289323f9f9556",
+          "date": "2026-07-16",
+          "subject": "Mark clearly functions private status. Deprecated Python 2 utilities.",
+          "added_source_lines": 91,
+          "source_files": [
+            "src/click/__init__.py",
+            "src/click/_termui_impl.py",
+            "src/click/core.py",
+            "src/click/termui.py",
+            "src/click/types.py",
+            "src/click/utils.py"
+          ]
+        },
+        {
+          "commit": "8f300853dc5f33120d9872ea0e4c9e00318446b1",
+          "date": "2026-07-11",
+          "subject": "Streamline option flag management",
+          "added_source_lines": 229,
+          "source_files": [
+            "src/click/core.py"
+          ]
+        },
+        {
+          "commit": "71f2bafa541e7f798834e74076786ff4281ac83e",
+          "date": "2026-07-09",
+          "subject": "Strip all ANSI sequences",
+          "added_source_lines": 5,
+          "source_files": [
+            "src/click/_compat.py"
+          ]
+        },
+        {
+          "commit": "3495fba163dd61dea837cd557095df6c21515ac8",
+          "date": "2026-07-09",
+          "subject": "Warn when an argument name collide with other parameters",
+          "added_source_lines": 44,
+          "source_files": [
+            "src/click/core.py"
+          ]
+        },
+        {
+          "commit": "07c909f23f0f83b5ca137c167b9a134d66201f67",
+          "date": "2026-07-08",
+          "subject": "Validate style() color arguments, fix explicit black color argument",
+          "added_source_lines": 27,
+          "source_files": [
+            "src/click/termui.py"
+          ]
+        },
+        {
+          "commit": "13f075c4bd2d1343eaac528994165750671da351",
+          "date": "2026-07-08",
+          "subject": "Update documentation following Colorama removal",
+          "added_source_lines": 2,
+          "source_files": [
+            "src/click/termui.py"
+          ]
+        },
+        {
+          "commit": "9f9b149ea30287b4977b800a024ee68144b8c869",
+          "date": "2026-07-07",
+          "subject": "Add `@custom_version_option`, freeze `@version_option`",
+          "added_source_lines": 53,
+          "source_files": [
+            "src/click/__init__.py",
+            "src/click/decorators.py"
+          ]
+        },
+        {
+          "commit": "93ba0075f4881b858b61f89a753c7c10e330027e",
+          "date": "2026-07-01",
+          "subject": "Strip ANSI from `confirm()` and `prompt()` when the stream don't support them",
+          "added_source_lines": 14,
+          "source_files": [
+            "src/click/termui.py"
+          ]
+        },
+        {
+          "commit": "6f85d26dcd50c1745e81040ed4f2b61f8bf293cf",
+          "date": "2026-06-27",
+          "subject": "Do not trigger a `BytesWarning` under `python -bb`",
+          "added_source_lines": 2,
+          "source_files": [
+            "src/click/types.py"
+          ]
+        },
+        {
+          "commit": "1ac08db953684e10ed97adbbda81381efd82ce09",
+          "date": "2026-06-26",
+          "subject": "Fix ruff E501 line-too-long in PowerShell template",
+          "added_source_lines": 5,
+          "source_files": [
+            "src/click/shell_completion.py"
+          ]
+        },
+        {
+          "commit": "27b3ee2633f80aeb04d6e15c2fb3c91542efa32b",
+          "date": "2026-06-26",
+          "subject": "Add built-in PowerShell shell completion support",
+          "added_source_lines": 95,
+          "source_files": [
+            "src/click/shell_completion.py"
+          ]
+        },
+        {
+          "commit": "c4a6b57bb8a79556ceb6a91b1e756bbaf896ffae",
+          "date": "2026-06-22",
+          "subject": "type-hint out varibale",
+          "added_source_lines": 1,
+          "source_files": [
+            "src/click/shell_completion.py"
+          ]
+        },
+        {
+          "commit": "748a34d01e0f4f2e5f75e293c1dd8480b16c2068",
+          "date": "2026-06-22",
+          "subject": "optimize split_arg_string with extend(...) instead of a for loop system.",
+          "added_source_lines": 1,
+          "source_files": [
+            "src/click/shell_completion.py"
+          ]
+        },
+        {
+          "commit": "bec59289d8cf9b9b4010642b2fee483e5f8eeefc",
+          "date": "2026-06-14",
+          "subject": "Fix `package_name` resolution when top-level module differs from distribution name",
+          "added_source_lines": 30,
+          "source_files": [
+            "src/click/decorators.py"
+          ]
+        },
+        {
+          "commit": "762c97eef7c1b3779678992f26a553a2a8c80793",
+          "date": "2026-06-10",
+          "subject": "Fix double-bracketing of choices in synopsis",
+          "added_source_lines": 6,
+          "source_files": [
+            "src/click/core.py"
+          ]
+        },
+        {
+          "commit": "051bb0f30b545cf7426deef819811815297c2798",
+          "date": "2026-06-03",
+          "subject": "Do not let the GC close a borrowed `stdout`",
+          "added_source_lines": 52,
+          "source_files": [
+            "src/click/_termui_impl.py",
+            "src/click/utils.py"
+          ]
+        },
+        {
+          "commit": "399919f740bfd26cb30d544877fafd03cfcd9091",
+          "date": "2026-05-29",
+          "subject": "Support incremental output in the pager",
+          "added_source_lines": 4,
+          "source_files": [
+            "src/click/termui.py"
+          ]
+        },
+        {
+          "commit": "bff780ff9df7a8d0a271db2f80c17c7be32dc2a1",
+          "date": "2026-05-29",
+          "subject": "Fix layout, align full version",
+          "added_source_lines": 4,
+          "source_files": [
+            "src/click/_termui_impl.py"
+          ]
+        },
+        {
+          "commit": "684b3f5b5150761ec1c930bef300eb6169f483d8",
+          "date": "2026-05-28",
+          "subject": "Add help parameter to arguments",
+          "added_source_lines": 43,
+          "source_files": [
+            "src/click/core.py"
+          ]
+        },
+        {
+          "commit": "665736bc85a19a7a2357c071394b4a545617faa3",
+          "date": "2026-05-27",
+          "subject": "Mark commands as optional in the synopsis",
+          "added_source_lines": 8,
+          "source_files": [
+            "src/click/core.py"
+          ]
+        },
+        {
+          "commit": "88b8e313f7ec09ddd16f33bded0b4c39d7935f58",
+          "date": "2026-05-27",
+          "subject": "platform-dependent `testing.CaptureMode` type alias",
+          "added_source_lines": 4,
+          "source_files": [
+            "src/click/testing.py"
+          ]
+        },
+        {
+          "commit": "aef225df47377a1bc3d967327b501f577dd5462c",
+          "date": "2026-05-25",
+          "subject": "Add type annotations for instance attributes in `formatting`",
+          "added_source_lines": 11,
+          "source_files": [
+            "src/click/formatting.py"
+          ]
+        },
+        {
+          "commit": "9207bdc073181b0699938a7d7b4d0b7dde23fe4f",
+          "date": "2026-05-25",
+          "subject": "Add type annotations for instance attributes in `exceptions`",
+          "added_source_lines": 42,
+          "source_files": [
+            "src/click/exceptions.py"
+          ]
+        },
+        {
+          "commit": "ea76281c3f5ad062e9f24eb5deaa961ac6a5c0e7",
+          "date": "2026-05-25",
+          "subject": "Add type annotations for instance attributes in `shell_completion`",
+          "added_source_lines": 11,
+          "source_files": [
+            "src/click/shell_completion.py"
+          ]
+        },
+        {
+          "commit": "bb0cd175d574a06fb4a5a7276ebe9570bb5c083d",
+          "date": "2026-05-25",
+          "subject": "Static typing improvements in `click.shell_completion`",
+          "added_source_lines": 40,
+          "source_files": [
+            "src/click/shell_completion.py"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "immerjs/immer",
+      "language": "javascript",
+      "role": "external",
+      "pinned_commit": "a3be9df762c1dbe9959a011ddbab0ce838cbc468",
+      "unit": "non-merge commit on the default branch",
+      "source_glob": "src/**/*.ts",
+      "declared_check": {
+        "command": "vitest run --coverage",
+        "declared_in": "package.json scripts.coverage",
+        "declares_coverage_config": true
+      },
+      "changes": [
+        {
+          "commit": "a3be9df762c1dbe9959a011ddbab0ce838cbc468",
+          "date": "2026-07-16",
+          "subject": "fix: correct curried produceWithPatches return type (#1249)",
+          "added_source_lines": 16,
+          "source_files": [
+            "src/types/types-external.ts"
+          ]
+        },
+        {
+          "commit": "e38ad71f256844bf2dc28c1120c33c930c881bb6",
+          "date": "2026-07-16",
+          "subject": "fix: throw proper immer error when applyPatches path traverses null (#1251)",
+          "added_source_lines": 2,
+          "source_files": [
+            "src/plugins/patches.ts"
+          ]
+        },
+        {
+          "commit": "a73672ab76b5d9fd94f278a23c6c1931a03147e5",
+          "date": "2026-07-16",
+          "subject": "fix: draft relocated base refs after reverse/sort in array-methods plugin (#1255)",
+          "added_source_lines": 25,
+          "source_files": [
+            "src/core/proxy.ts",
+            "src/plugins/arrayMethods.ts"
+          ]
+        },
+        {
+          "commit": "858d0365aa292a1f2028ccac3dfa8fccfbfa75c4",
+          "date": "2026-07-03",
+          "subject": "fix: improve DraftMap.{entries,values}() compatibility#1228 (#1228)",
+          "added_source_lines": 28,
+          "source_files": [
+            "src/plugins/mapset.ts"
+          ]
+        },
+        {
+          "commit": "16e225b5a316d9ef6695e9aee45eab6e7bf4258a",
+          "date": "2026-07-03",
+          "subject": "fix: undefined assigned to a prototype-inherited key gets dropped (#1262)",
+          "added_source_lines": 1,
+          "source_files": [
+            "src/core/proxy.ts"
+          ]
+        },
+        {
+          "commit": "48fc3788609ce46dd789c313768bae4f48b00ec5",
+          "date": "2026-07-01",
+          "subject": "fix: prevent prototype pollution via constructor.prototype access (CVE-2026-XXXX) (#1259)",
+          "added_source_lines": 44,
+          "source_files": [
+            "src/core/proxy.ts"
+          ]
+        },
+        {
+          "commit": "bf2d15439259887f98f2737cf7ebde4234d5adea",
+          "date": "2026-05-08",
+          "subject": "fix: update current and original typings to assert draft value is unwrapped (#1236)",
+          "added_source_lines": 7,
+          "source_files": [
+            "src/core/current.ts",
+            "src/core/immerClass.ts",
+            "src/utils/common.ts"
+          ]
+        },
+        {
+          "commit": "7390d6c3ae8b54df165c003b14b088a085950f76",
+          "date": "2026-05-06",
+          "subject": "fix: improve higher order type inference for WritableDraft (#1205)",
+          "added_source_lines": 15,
+          "source_files": [
+            "src/types/types-external.ts"
+          ]
+        },
+        {
+          "commit": "d3bc436d0f39dd9c273f1fad3061c17f73ffd82a",
+          "date": "2026-05-04",
+          "subject": "fix: handle nested proxies after spreading and inserting into an array",
+          "added_source_lines": 45,
+          "source_files": [
+            "src/plugins/arrayMethods.ts"
+          ]
+        },
+        {
+          "commit": "90a77655af5a9dd3fbf7688f95952d32511b430c",
+          "date": "2026-02-09",
+          "subject": "fix: handle nested proxies after spreading and inserting into an array",
+          "added_source_lines": 45,
+          "source_files": [
+            "src/plugins/arrayMethods.ts"
+          ]
+        },
+        {
+          "commit": "f0d1c1b3c57003c9962f7c8bf1f1d7d801aaa2e1",
+          "date": "2026-01-19",
+          "subject": "refactor: format with latest prettier",
+          "added_source_lines": 63,
+          "source_files": [
+            "src/core/immerClass.ts",
+            "src/core/proxy.ts",
+            "src/immer.ts",
+            "src/plugins/patches.ts",
+            "src/types/types-external.ts",
+            "src/utils/common.ts",
+            "src/utils/errors.ts"
+          ]
+        },
+        {
+          "commit": "78ea6941f0de564e10c9e20c91449ea37d477991",
+          "date": "2025-12-29",
+          "subject": "fix: recursive T for WritableDraft (#1197)",
+          "added_source_lines": 13,
+          "source_files": [
+            "src/types/types-external.ts"
+          ]
+        },
+        {
+          "commit": "b208d58698e5a72c64d55bb467b9e7c9fd00c92a",
+          "date": "2025-12-28",
+          "subject": "fix: Fix broken array patching and ensure all values in draft Maps/Sets are finalized (#12",
+          "added_source_lines": 33,
+          "source_files": [
+            "src/core/finalize.ts",
+            "src/core/proxy.ts",
+            "src/plugins/mapset.ts",
+            "src/plugins/patches.ts"
+          ]
+        },
+        {
+          "commit": "d38a9d046b79e65fc879ed286be43e9753e24144",
+          "date": "2025-12-19",
+          "subject": "feat: Override array methods to avoid proxy creation while iterating and updating (#1184)",
+          "added_source_lines": 462,
+          "source_files": [
+            "src/core/finalize.ts",
+            "src/core/proxy.ts",
+            "src/core/scope.ts",
+            "src/immer.ts",
+            "src/plugins/arrayMethods.ts",
+            "src/plugins/patches.ts",
+            "src/utils/common.ts",
+            "src/utils/plugins.ts"
+          ]
+        },
+        {
+          "commit": "ad510d4bfaa192d6217dec15003d4f2821dad9f9",
+          "date": "2025-11-27",
+          "subject": "Re-add isDraftable check to skip freezing non-obj values",
+          "added_source_lines": 1,
+          "source_files": [
+            "src/utils/common.ts"
+          ]
+        },
+        {
+          "commit": "d6c12028c05c1f7bbbdba0e3978b7c06988aa7f2",
+          "date": "2025-11-23",
+          "subject": "perf: Rewrite finalization system to use a callback approach instead of tree traversal (#1",
+          "added_source_lines": 680,
+          "source_files": [
+            "src/core/finalize.ts",
+            "src/core/immerClass.ts",
+            "src/core/proxy.ts",
+            "src/core/scope.ts",
+            "src/immer.ts",
+            "src/plugins/mapset.ts",
+            "src/plugins/patches.ts",
+            "src/types/types-internal.ts",
+            "src/utils/common.ts",
+            "src/utils/errors.ts",
+            "src/utils/plugins.ts"
+          ]
+        },
+        {
+          "commit": "e1996ceb8a3a180c565b7304a4f3c4ce3b1a08ff",
+          "date": "2025-10-25",
+          "subject": "feat: Optimize Immer performance where possible, introduce `setUseStrictIteration` (#1164)",
+          "added_source_lines": 117,
+          "source_files": [
+            "src/core/current.ts",
+            "src/core/finalize.ts",
+            "src/core/immerClass.ts",
+            "src/immer.ts",
+            "src/utils/common.ts"
+          ]
+        },
+        {
+          "commit": "85faaa24d4095c7887913a1a4fb218bf2bb881f3",
+          "date": "2025-09-01",
+          "subject": "fix: Mark exports as pure, for better tree-shakability (#1124)",
+          "added_source_lines": 9,
+          "source_files": [
+            "src/immer.ts"
+          ]
+        },
+        {
+          "commit": "aa24400ea1f53b20927ac3619ea4fcd98c3a2172",
+          "date": "2025-09-01",
+          "subject": "fix: non-enumerable (immutable) methods on Map/Set (#1069)",
+          "added_source_lines": 6,
+          "source_files": [
+            "src/utils/common.ts"
+          ]
+        },
+        {
+          "commit": "b4f71a6f2bdeafd24cd4669921082f8ac2e84cfc",
+          "date": "2025-09-01",
+          "subject": "Fix: freezing of Map values during finalization (#1150)",
+          "added_source_lines": 5,
+          "source_files": [
+            "src/core/finalize.ts"
+          ]
+        },
+        {
+          "commit": "19cbe47ae3db3b4a8940409ab1814ce1a9af3458",
+          "date": "2024-09-19",
+          "subject": "Prefix param with underscore to prevent unused param warning (#1145)",
+          "added_source_lines": 2,
+          "source_files": [
+            "src/utils/common.ts"
+          ]
+        },
+        {
+          "commit": "4da2e0d5af3c155ba26af1364a7095366adff6ba",
+          "date": "2024-04-27",
+          "subject": "fix: Make  `applyPatches` to accept  `readonly Patch[]` (#1094)",
+          "added_source_lines": 3,
+          "source_files": [
+            "src/core/immerClass.ts",
+            "src/plugins/patches.ts",
+            "src/utils/plugins.ts"
+          ]
+        },
+        {
+          "commit": "073d6345fa2d68b9a8214395681ccf8c4daa696e",
+          "date": "2024-04-27",
+          "subject": "chore: Fix typo in comment in common.ts (#1113)",
+          "added_source_lines": 1,
+          "source_files": [
+            "src/utils/common.ts"
+          ]
+        },
+        {
+          "commit": "5a8f6e7bee76407502ca128f95ad25d277c054e3",
+          "date": "2024-04-27",
+          "subject": "fix: export lost types (#1116)",
+          "added_source_lines": 2,
+          "source_files": [
+            "src/immer.ts"
+          ]
+        },
+        {
+          "commit": "511ccee3edee4942f81ef6c26b56a4022b6588b4",
+          "date": "2024-04-27",
+          "subject": "introduce StrictMode enum",
+          "added_source_lines": 10,
+          "source_files": [
+            "src/core/immerClass.ts",
+            "src/immer.ts",
+            "src/utils/common.ts"
+          ]
+        },
+        {
+          "commit": "85a8f7b4238014679cda9d5a26c0ae31a7950278",
+          "date": "2024-04-27",
+          "subject": "Introduce `class_only` strict mode setting",
+          "added_source_lines": 36,
+          "source_files": [
+            "src/core/immerClass.ts",
+            "src/utils/common.ts"
+          ]
+        },
+        {
+          "commit": "744d2d9216e4638a05da545432009059d3396e85",
+          "date": "2024-03-11",
+          "subject": "faster unstrict mode",
+          "added_source_lines": 6,
+          "source_files": [
+            "src/utils/common.ts"
+          ]
+        }
+      ]
+    }
+  ]
+}
