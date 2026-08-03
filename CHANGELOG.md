@@ -406,6 +406,42 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   stop sequences. Against a whole-file reply shape the proposed stop set
   truncates at the second definition and yields a valid partial file.
 
+- Worker prompt bundle and the single-file output protocol
+  (`src/mcgyvr/worker/`, #25). A worker is now sent two messages: a measured
+  skill bundle as its system prompt, and the contract as the user message —
+  the split CLM-0004 varied only the system half of. The shipped Python
+  bundle is byte-identical to the `c2` condition the measurement was taken
+  on (45% → 70% first-pass acceptance on qwen2.5-coder:3b, ~2.5× faster),
+  and a test holds the two files equal, so a reworded bundle fails rather
+  than quietly invalidating the numbers. The ≤2 KB ceiling is enforced by
+  the loader, not documented: the 8 KB condition measured *worse*, so an
+  oversized bundle is a load-time refusal naming what to re-measure. One
+  bundle per language adapter, selected by asking the gate's adapters which
+  one owns the contract's target rather than by a second table of
+  extensions; a target no adapter owns gets no bundle rather than another
+  language's.
+- The JS/TS bundle is an unmeasured idiom port and says so in its own first
+  line. CLM-0004's confidence note bars generalising its percentages to
+  another language until re-measured, so the bundle carries no evidentiary
+  weight and `Bundle.measured` is how a caller tells the two apart.
+- A worker's reply becomes a file only when it is unambiguously one file.
+  `parse_reply` accepts exactly one fenced block and refuses everything else
+  by name — no fence, two blocks, an unterminated fence, an empty block.
+  Truncation is refused before parsing, because a reply cut off at the cap
+  can still contain a syntactically perfect block and nothing in the text
+  says the tail is missing; only the backend's stop reason knows. A contract
+  declaring `unified_diff` is refused rather than parsed as whole-file
+  content, which would apply a patch's body lines as source. No stop
+  sequences are derived: ADR-0009's decision stands, and the absence is
+  recorded where the derivation would have lived.
+- `check_prompt_fits` has its first production caller. Assembly measures the
+  two messages together against the contract's own `max_input_tokens` and
+  returns a `PreflightIssue` rather than raising, since a caller needs the
+  assembled prompt in order to report what did not fit. The estimate is
+  injectable and the count says which kind it was, so a caller with a real
+  tokenizer opts out of CLM-0011's 32% reserve — and the assembled prompt is
+  now a thing that exists to re-measure the band over.
+
 ### Changed
 - `README.md` and `data/README.md` no longer describe `AdarGit008/local-ai` as
   archived; it is not. ADR-0001 is left as written — a decision record states
