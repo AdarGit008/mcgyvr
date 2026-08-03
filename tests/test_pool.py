@@ -132,7 +132,17 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # reaching for it is the failure this guard is here to catch, so the list is
 # named rather than pattern-matched: a third entry should be an argument
 # someone makes on purpose, not a file that quietly matched.
-BELOW_THE_SEAM = {"pool.py", "runner.py"}
+#
+# `availability.py` (#22) is the third, added deliberately. The argument: it
+# does the same kind of thing a runner does — it takes an endpoint and sends it
+# a request over the network — and it is the only other module that needs a
+# base URL and a protocol to do its job. Crucially it does not travel *upward*:
+# `source_map` consults it through `SourceProbe`, which passes endpoints down
+# and gets back a mapping of source name to reason, so nothing above the seam
+# gains a way to learn where a rung runs. If a future module wants on this list
+# because it "just needs the URL", that is the case this guard exists to make
+# someone argue.
+BELOW_THE_SEAM = {"pool.py", "runner.py", "availability.py"}
 
 
 def test_nothing_above_the_seam_imports_the_endpoint_type() -> None:

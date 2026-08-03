@@ -31,8 +31,12 @@ That division is the whole point, and it is what #20 asks for:
 **What is deliberately not here.** A tier naming a source that was never
 declared is a typo, and E1's loader already refuses it at load time; that is the
 right place for it, and this module does not re-litigate it. Live reachability —
-is the endpoint actually answering — belongs to #22, which needs timeouts and
-per-run caching that structural resolution does not. Capacity is *carried* here
+is the endpoint actually answering — is #22's, and it enters through
+:class:`SourceProbe`: a caller passes something that can say which sources are
+down, and its answers become ordinary :class:`Skipped` entries. The narrowness of
+that interface is the point. This module still knows nothing about HTTP,
+timeouts, caching or retries; it knows only that a source may turn out to be
+unusable for a reason it did not compute itself. Capacity is *carried* here
 (:attr:`Endpoint.max_parallel`) but not *enforced*; the semaphore is #23, which
 acquires at this same seam so that a task escalating across sources accounts
 correctly. So the degradation this module performs is structural only: a source
@@ -52,12 +56,32 @@ the secret for the lifetime of the process.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Protocol as TypingProtocol
 
 from mcgyvr.config import Config, Source
 
 _ROLES = ("orchestrator", "verifier")
+
+
+class SourceProbe(TypingProtocol):
+    """Anything that can say which sources cannot currently serve, and why.
+
+    The whole of #22's surface as this module sees it. It is a structural type
+    rather than an import so that resolving a ladder never drags in a network
+    stack: :class:`~mcgyvr.availability.Availability` satisfies it, and so does a
+    dict-backed stub in a test, and neither is named here.
+
+    Implementations must not raise. A source that cannot be probed is a source
+    that is down, and it is reported as such with a reason — the same rule that
+    keeps :func:`source_map` from raising on a missing credential.
+    """
+
+    def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:
+        """Source name → why it cannot serve, holding only the ones that cannot."""
+        ...
 
 
 class PoolError(Exception):
@@ -254,15 +278,28 @@ class SourceMap:
         return None
 
 
-def source_map(config: Config) -> SourceMap:
+def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
     """Resolve a config's ladder against its sources, degrading where it must.
 
     Every rung whose source can serve it becomes a :class:`Rung`, in declared
-    order. A rung whose source cannot — today, only a named credential missing
-    from the environment — becomes a :class:`Skipped` with the reason. Nothing
-    raises: an install with no usable rung at all yields an empty ladder that
-    can say why, which the caller is better placed to interpret than this module
-    is.
+    order. A rung whose source cannot becomes a :class:`Skipped` with the reason.
+    Nothing raises: an install with no usable rung at all yields an empty ladder
+    that can say why, which the caller is better placed to interpret than this
+    module is.
+
+    Without ``probe`` the resolution is **structural** and touches no network: a
+    source whose named credential is absent from the environment cannot
+    authenticate, and that is knowable here. With one, live reachability is
+    folded in afterwards on the same terms — an unreachable source's rungs move
+    to :attr:`SourceMap.skipped` carrying the probe's own words, so nothing
+    downstream has to distinguish "skipped because unconfigured" from "skipped
+    because down" unless it wants to.
+
+    The probe runs **once for the whole map**, over the distinct sources that
+    survived the structural pass, which is what makes a dead source cost one
+    timeout per run rather than one per rung or one per attempt. Sources already
+    ruled out structurally are never probed: there is nothing to learn from
+    asking whether a host we have no key for is awake.
 
     A tier naming an undeclared source cannot reach here; E1's loader rejects
     that at load time, where a typo belongs.
@@ -294,6 +331,26 @@ def source_map(config: Config) -> SourceMap:
             continue
         roles[role] = RoleBinding(role=role, model=model, endpoint=_endpoint(source))
 
+    if probe is not None:
+        # One endpoint per *source*, not per rung. `endpoints` is keyed by rung
+        # name, so a source serving four rungs appears four times, and handing
+        # that to a probe would make correct behaviour depend on the probe
+        # deduplicating for us. The seam should not ask for work it does not
+        # need done.
+        asking: dict[str, Endpoint] = {}
+        for endpoint in (*endpoints.values(), *(b.endpoint for b in roles.values())):
+            asking.setdefault(endpoint.source, endpoint)
+        down = probe.unavailable(tuple(asking.values()))
+        if down:
+            usable, skipped, endpoints = _drop_unreachable(
+                config, usable, skipped, endpoints, down
+            )
+            for role, binding in list(roles.items()):
+                reason = down.get(binding.endpoint.source)
+                if reason is not None:
+                    role_skips[role] = reason
+                    del roles[role]
+
     return SourceMap(
         rungs=tuple(usable),
         skipped=tuple(skipped),
@@ -301,6 +358,43 @@ def source_map(config: Config) -> SourceMap:
         roles=roles,
         role_skips=role_skips,
     )
+
+
+def _drop_unreachable(
+    config: Config,
+    usable: list[Rung],
+    skipped: list[Skipped],
+    endpoints: dict[str, Endpoint],
+    down: Mapping[str, str],
+) -> tuple[list[Rung], list[Skipped], dict[str, Endpoint]]:
+    """Move the rungs on unreachable sources over to ``skipped``.
+
+    Both lists are rebuilt in declared tier order rather than filtered in place.
+    The ladder is written cheapest-first, so a report that reordered it while
+    shortening it would be harder to read than one that simply got shorter — and
+    that applies to the skipped list too, which would otherwise end up with the
+    structurally-skipped rungs first and the unreachable ones bolted on the end,
+    in an order matching neither the config nor anything else.
+    """
+    by_name = {rung.name: rung for rung in usable}
+    already = {skip.name: skip for skip in skipped}
+    kept: list[Rung] = []
+    grew: list[Skipped] = []
+    for tier in config.ladder.tiers:
+        structural = already.get(tier.name)
+        if structural is not None:
+            grew.append(structural)
+            continue
+        rung = by_name.get(tier.name)
+        if rung is None:  # not usable and not skipped: cannot happen
+            continue
+        reason = down.get(endpoints[tier.name].source)
+        if reason is None:
+            kept.append(rung)
+            continue
+        grew.append(Skipped(name=rung.name, model=rung.model, reason=reason))
+        del endpoints[tier.name]
+    return kept, grew, endpoints
 
 
 # --- small deterministic helpers -------------------------------------------

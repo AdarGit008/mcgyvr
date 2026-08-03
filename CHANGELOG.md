@@ -303,6 +303,45 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   through a repr.
 - `mcgyvr pool` — show the ladder as it resolves against the declared sources,
   including which rungs were skipped and why.
+- Availability probing (`src/mcgyvr/availability.py`) — per-source liveness,
+  priced at one short timeout per run (#22, E3). The problem is cost, not
+  detection: a ladder escalates, so a dead source discovered at dispatch time is
+  discovered again on every attempt, and three rungs on one dead host would be
+  three timeouts for one fact. A verdict is therefore cached for the life of an
+  `Availability`, a batch is probed concurrently, and the timeout is seconds
+  where the dispatch timeout is two minutes — a local 7B taking ninety seconds
+  to answer is healthy, a host taking ninety seconds to accept a connection is
+  not. A probe reads the protocol's model-list path and never sends a
+  generation, which would cost tokens and would conflate a host that is down
+  with a model that is not loaded. Classification turns on the fact that any
+  HTTP answer proves something is listening, so the question is whether a
+  *dispatch* would work: transport failure and 5xx are down; 401 and 403 are
+  down because the source is answering and would refuse every rung on it
+  identically; and **404 and 405 are live**, because the model-list path is
+  optional and reading it as down would silently shorten the ladder by skipping
+  a source that serves generations perfectly well. That asymmetry tracks the two
+  kinds of source mcgyvr talks to, which fail differently: a **local backend**
+  (Ollama, llama-server, vLLM, LM Studio, TGI, on hardware the user controls)
+  characteristically fails by not running, or by not implementing the model
+  listing at all — which is what the 404 arm is for; a **hosted provider** fails
+  by rejecting a key that is wrong, expired or revoked — which is what the 401
+  arm is for, and which is a different fault from the unset variable
+  `source_map` already catches without a network. Nothing branches on the
+  distinction, since nothing reliably separates them — a local server can want a
+  key and a self-hosted vLLM can sit on a public hostname — so the reason text
+  names the credential variable when there is one and says none is configured
+  when there is not. Probing is opt-in —
+  `source_map(config)` still touches no network, and reachability enters through
+  `SourceProbe`, a two-method structural type that hands endpoints down and gets
+  back source-name-to-reason, so `pool.py` still knows nothing of HTTP, timeouts
+  or retries and nothing above the seam gains a way to learn where a rung runs.
+  An unreachable source's rungs become ordinary `Skipped` entries carrying the
+  probe's own words, in declared ladder order alongside the structurally-skipped
+  ones; everything down is an empty ladder that can say why, not a hang.
+- `mcgyvr pool --probe` — additionally ask each source whether it is answering,
+  drop the rungs of any that is not, and report every source that was asked with
+  how long it took and how the verdict was reached. `--probe-timeout` sets the
+  budget.
 
 - Decomposition catalog (`data/task-catalog.json`, `src/mcgyvr/catalog.py`) —
   the vocabulary of what mcgyvr can be asked to do (#15, E2). Each entry states
