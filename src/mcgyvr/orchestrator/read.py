@@ -60,6 +60,12 @@ _LEAD = 3
 # and past a handful they stop adding regions the windows don't already cover.
 _MAX_TEXT_ANCHORS = 5
 
+# Which symbol kinds may anchor a window. A definition or an export is a place
+# worth reading; a reference and an import are mentions of something declared
+# elsewhere, and anchoring on an import line would spend the budget on a file's
+# header instead of on its substance.
+_ANCHOR_KINDS = frozenset({SymbolKind.DEFINITION, SymbolKind.EXPORT})
+
 
 class ExplorationError(Exception):
     """Exploration was asked for the impossible — a non-positive budget."""
@@ -261,7 +267,7 @@ def _plan_regions(
     """
     symbols_by_path: dict[str, list[Symbol]] = defaultdict(list)
     for symbol in index.symbols.all():
-        if symbol.kind is not SymbolKind.REFERENCE:
+        if symbol.kind in _ANCHOR_KINDS:
             symbols_by_path[symbol.path].append(symbol)
 
     regions: list[_Region] = []

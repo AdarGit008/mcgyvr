@@ -120,6 +120,13 @@ _TEST_PATH = re.compile(
 # when both match equally otherwise.
 _KIND_BONUS = {SymbolKind.EXPORT: 1.5, SymbolKind.DEFINITION: 1.0}
 
+# Which kinds make a file a candidate for a name. Named positively, because the
+# two that are excluded are excluded for the same reason: a reference and an
+# import are both occurrences of a name declared somewhere else, and ranking a
+# file as the place to look because it calls or imports ``fetch`` would point a
+# reader away from the definition rather than at it.
+_LANDING_KINDS = frozenset({SymbolKind.DEFINITION, SymbolKind.EXPORT})
+
 # How decisively the leader must beat the runner-up to count as resolved rather
 # than ambiguous. Below this ratio the field is too close to call, and the
 # resolution reports the tie instead of breaking it.
@@ -224,7 +231,7 @@ class _Corpus:
         for file in index.files:
             self._index_path(file.path)
         for symbol in index.symbols.all():
-            if symbol.kind is not SymbolKind.REFERENCE:
+            if symbol.kind in _LANDING_KINDS:
                 self._index_symbol(symbol)
 
     def _index_path(self, path: str) -> None:
