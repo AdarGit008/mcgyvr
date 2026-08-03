@@ -23,7 +23,9 @@ from mcgyvr.gate.changeset import (
 )
 from mcgyvr.gate.findings import Finding
 from mcgyvr.gate.preflight import (
+    ESTIMATE_RESERVE,
     PreflightIssue,
+    TokenCount,
     check_clean_tree,
     check_prompt_fits,
 )
@@ -31,6 +33,7 @@ from mcgyvr.gate.runner import Gate, GateResult
 from mcgyvr.gate.semantic import SemanticCheck, SemanticReport
 
 __all__ = [
+    "ESTIMATE_RESERVE",
     "Acceptance",
     "AcceptanceReport",
     "ChangeSet",
@@ -45,6 +48,7 @@ __all__ = [
     "PythonAdapter",
     "SemanticCheck",
     "SemanticReport",
+    "TokenCount",
     "ToolUnavailableError",
     "check_clean_tree",
     "check_prompt_fits",
