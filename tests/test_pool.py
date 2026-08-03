@@ -142,7 +142,17 @@ def test_the_ladder_above_the_seam_exposes_only_names_and_models() -> None:
 # gains a way to learn where a rung runs. If a future module wants on this list
 # because it "just needs the URL", that is the case this guard exists to make
 # someone argue.
-BELOW_THE_SEAM = {"pool.py", "runner.py", "availability.py"}
+#
+# `capacity.py` (#23) is the fourth, and its argument is narrower than
+# availability's. It never talks to anything: of an endpoint it reads exactly two
+# fields, `source` — the key its semaphores are held under — and `max_parallel`,
+# the number it is enforcing. It touches neither `base_url` nor `protocol` nor
+# the credential, so it cannot dispatch even by accident. And it is the use
+# `Endpoint` itself names: "``source`` is the declared source name, kept for
+# capacity accounting and telemetry — both of which live below the seam"
+# (`pool.py`). Nothing travels upward either — a caller above the seam hands
+# `run_batch` a capacity and gets back outcomes, and never an endpoint.
+BELOW_THE_SEAM = {"pool.py", "runner.py", "availability.py", "capacity.py"}
 
 
 def test_nothing_above_the_seam_imports_the_endpoint_type() -> None:

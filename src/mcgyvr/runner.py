@@ -61,10 +61,13 @@ unauthenticated-looking credential. No error message here interpolates a key.
 
 **What is deliberately not here.** Whether an endpoint is answering at all is
 #22's question and needs probing; this module reports a failure to reach one
-and does not cache that judgement. Bounding how many dispatches run at once is
-#23's, and acquires at this same seam. Choosing *which* rung to send a contract
-to, and escalating when it fails, are #24's. Assembling the prompt and parsing a
-worker's file-shaped answer are #25's — a :class:`Request` here carries text.
+and does not cache that judgement. How many dispatches a source may run at once
+is :mod:`mcgyvr.capacity`'s (#23) — it acquires at this same seam, through the
+optional ``capacity`` argument below, and is held for the length of one request
+so that escalating across sources cannot leak a slot. Choosing *which* rung to
+send a contract to, and escalating when it fails, are #24's. Assembling the
+prompt and parsing a worker's file-shaped answer are #25's — a
+:class:`Request` here carries text.
 """
 
 from __future__ import annotations
@@ -78,6 +81,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, ClassVar
 
+from mcgyvr.capacity import Capacity
 from mcgyvr.pool import Endpoint, Protocol, SourceMap, UnknownRungError
 
 # Local models on modest hardware are slow rather than broken: a 7B answering a
@@ -501,7 +505,13 @@ def runner_for(endpoint: Endpoint) -> Runner:
     return _RUNNERS[endpoint.protocol](endpoint)
 
 
-def dispatch(source_map: SourceMap, rung: str, request: Request) -> Completion:
+def dispatch(
+    source_map: SourceMap,
+    rung: str,
+    request: Request,
+    *,
+    capacity: Capacity | None = None,
+) -> Completion:
     """Send a request to a rung of the ladder, whatever is serving it.
 
     The intended way in, and the reason nothing above the seam needs to touch
@@ -512,27 +522,51 @@ def dispatch(source_map: SourceMap, rung: str, request: Request) -> Completion:
     :class:`~mcgyvr.pool.SourceUnavailableError` from the binding unchanged —
     asking for a rung that does not exist and asking for one whose source
     cannot serve it stay different mistakes.
+
+    ``capacity`` bounds how many dispatches this source may have in flight
+    (#23), and is held for exactly the length of the request. Holding it here
+    rather than around a whole task is what makes escalation account correctly:
+    a task moving from a local rung to an API one occupies each source only
+    while it is talking to it. ``None`` — the default — dispatches unbounded,
+    which is right for a single request and wrong for a batch; that is what
+    :func:`~mcgyvr.capacity.run_batch` exists to prevent by handing every job
+    the capacity it must dispatch under.
     """
     endpoint = source_map.bind(rung)
     step = source_map.get(rung)
     if step is None:  # unreachable: bind() raises first for both causes
         raise UnknownRungError(f"no rung named {rung!r}")
-    return runner_for(endpoint).generate(step.model, request)
+    if capacity is None:
+        return runner_for(endpoint).generate(step.model, request)
+    with capacity.hold(endpoint):
+        return runner_for(endpoint).generate(step.model, request)
 
 
 def dispatch_role(
-    source_map: SourceMap, role: str, request: Request
+    source_map: SourceMap,
+    role: str,
+    request: Request,
+    *,
+    capacity: Capacity | None = None,
 ) -> Completion | None:
     """Send a request to a non-ladder role, or ``None`` when it has none.
 
     ``None`` mirrors :meth:`~mcgyvr.pool.SourceMap.role`: a keyless install runs
     with no verifier at all, and that is an ordinary state rather than a
     failure. A role whose source is declared but unusable still raises.
+
+    A role is bounded by the same per-source capacity as a rung, because it is
+    the same machine: a verifier sharing a card with the ladder competes with
+    it for slots, and a bound that only counted ladder traffic would be
+    describing a different machine than the one under load.
     """
     binding = source_map.role(role)
     if binding is None:
         return None
-    return runner_for(binding.endpoint).generate(binding.model, request)
+    if capacity is None:
+        return runner_for(binding.endpoint).generate(binding.model, request)
+    with capacity.hold(binding.endpoint):
+        return runner_for(binding.endpoint).generate(binding.model, request)
 
 
 # --- transport --------------------------------------------------------------

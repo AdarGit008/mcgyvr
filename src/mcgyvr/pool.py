@@ -37,9 +37,11 @@ down, and its answers become ordinary :class:`Skipped` entries. The narrowness o
 that interface is the point. This module still knows nothing about HTTP,
 timeouts, caching or retries; it knows only that a source may turn out to be
 unusable for a reason it did not compute itself. Capacity is *carried* here
-(:attr:`Endpoint.max_parallel`) but not *enforced*; the semaphore is #23, which
-acquires at this same seam so that a task escalating across sources accounts
-correctly. So the degradation this module performs is structural only: a source
+(:attr:`Endpoint.max_parallel`) and enforced in :mod:`mcgyvr.capacity` (#23),
+which keys its semaphores by the source name this module resolves to and holds
+one for the length of a single dispatch — so a task escalating across sources
+accounts correctly without this module learning what a thread is. So the
+degradation this module performs is structural only: a source
 whose credential is named but absent from the environment cannot serve anything,
 and that is knowable without touching the network.
 

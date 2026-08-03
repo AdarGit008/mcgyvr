@@ -387,6 +387,35 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   drop the rungs of any that is not, and report every source that was asked with
   how long it took and how the verdict was reached. `--probe-timeout` sets the
   budget.
+- Capacity semaphore and concurrent dispatch (`src/mcgyvr/capacity.py`) — the
+  bound `max_parallel` had been declaring since E1 and nothing was enforcing
+  (#23, E3). `Capacity.of(config)` holds one semaphore per **source**, because a
+  ladder of four rungs on one machine is four names for one card, and
+  `runner.dispatch(..., capacity=)` holds a slot for exactly the length of one
+  request. That placement is the whole of the escalation guarantee: a task moving
+  from a local rung to an API one occupies each source only while it is talking
+  to it, so "escalation does not leak or double-count" follows from where the
+  acquisition sits rather than from a per-task ledger that could be got wrong —
+  a task never owns a slot. A slot is returned however the dispatch leaves, so a
+  backend that times out does not cost the source capacity for the rest of the
+  run. `run_batch` runs a batch of jobs under that bound, defaulting to as many
+  threads as there are slots in total and returning one outcome per job **in
+  input order**, since ordering by completion would make a batch reproducible
+  only on a quiet machine; a job that raises becomes a named failure beside its
+  neighbours' results rather than sinking the batch. `Usage` reports per source
+  the acquisitions, the peak concurrency actually reached, and the time callers
+  spent *waiting* — the last being the one number that says a declared capacity
+  is the ceiling. A nested dispatch to a source the calling thread already holds
+  is refused by name rather than deadlocking silently against itself, which at
+  the default `max_parallel: 1` is what it would otherwise do. Measured on the
+  executor: 12 jobs of 50 ms across sources of capacity 3 and 2 took 0.205 s
+  against 0.604 s serial (2.94x, floor 0.15 s set by the two-slot source).
+- The binding proposal states what a capacity number does not buy (CON-02). A
+  single-slot server handed concurrent requests **serializes them rather than
+  refusing them**, so an over-declared `max_parallel` is not an error anyone will
+  see — it is a queue nobody will. The config schema already carried CON-01's
+  good news that distinct models genuinely run concurrently on one card, and the
+  good news is the half that gets remembered.
 
 - Decomposition catalog (`data/task-catalog.json`, `src/mcgyvr/catalog.py`) —
   the vocabulary of what mcgyvr can be asked to do (#15, E2). Each entry states
