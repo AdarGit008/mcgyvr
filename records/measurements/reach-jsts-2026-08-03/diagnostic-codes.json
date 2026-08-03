@@ -1,0 +1,73 @@
+{
+  "_note": "Extracted by the driver from lib/typescript.js of the resolver that produced the verdicts, so the classification and the measurement come from the same bytes. `class` is this repository's assignment, not TypeScript's.",
+  "resolver": "typescript@5.9.3",
+  "tarball": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+  "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+  "codes": {
+    "2304": {
+      "key": "Cannot_find_name_0",
+      "message": "Cannot find name '{0}'.",
+      "class": "existence"
+    },
+    "2305": {
+      "key": "Module_0_has_no_exported_member_1",
+      "message": "Module '{0}' has no exported member '{1}'.",
+      "class": "existence"
+    },
+    "2307": {
+      "key": "Cannot_find_module_0_or_its_corresponding_type_declarations",
+      "message": "Cannot find module '{0}' or its corresponding type declarations.",
+      "class": "environment"
+    },
+    "2318": {
+      "key": "Cannot_find_global_type_0",
+      "message": "Cannot find global type '{0}'.",
+      "class": "environment"
+    },
+    "2339": {
+      "key": "Property_0_does_not_exist_on_type_1",
+      "message": "Property '{0}' does not exist on type '{1}'.",
+      "class": "existence"
+    },
+    "2551": {
+      "key": "Property_0_does_not_exist_on_type_1_Did_you_mean_2",
+      "message": "Property '{0}' does not exist on type '{1}'. Did you mean '{2}'?",
+      "class": "existence"
+    },
+    "2552": {
+      "key": "Cannot_find_name_0_Did_you_mean_1",
+      "message": "Cannot find name '{0}'. Did you mean '{1}'?",
+      "class": "existence"
+    },
+    "2580": {
+      "key": "Cannot_find_name_0_Do_you_need_to_install_type_definitions_for_node_Try_npm_i_save_dev_types_Slashnode",
+      "message": "Cannot find name '{0}'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.",
+      "class": "environment"
+    },
+    "2583": {
+      "key": "Cannot_find_name_0_Do_you_need_to_change_your_target_library_Try_changing_the_lib_compiler_option_to_1_or_later",
+      "message": "Cannot find name '{0}'. Do you need to change your target library? Try changing the 'lib' compiler option to '{1}' or later.",
+      "class": "environment"
+    },
+    "2688": {
+      "key": "Cannot_find_type_definition_file_for_0",
+      "message": "Cannot find type definition file for '{0}'.",
+      "class": "environment"
+    },
+    "2694": {
+      "key": "Namespace_0_has_no_exported_member_1",
+      "message": "Namespace '{0}' has no exported member '{1}'.",
+      "class": "existence"
+    },
+    "2724": {
+      "key": "_0_has_no_exported_member_named_1_Did_you_mean_2",
+      "message": "'{0}' has no exported member named '{1}'. Did you mean '{2}'?",
+      "class": "existence"
+    },
+    "2792": {
+      "key": "Cannot_find_module_0_Did_you_mean_to_set_the_moduleResolution_option_to_nodenext_or_to_add_aliases_to_the_paths_option",
+      "message": "Cannot find module '{0}'. Did you mean to set the 'moduleResolution' option to 'nodenext', or to add aliases to the 'paths' option?",
+      "class": "environment"
+    }
+  }
+}
