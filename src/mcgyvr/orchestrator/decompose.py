@@ -35,6 +35,9 @@ Four properties are structural rather than remembered:
   a keyless install genuinely cannot run a type that must start on ``api``, and
   the honest answer is to say so by name rather than to route optimistically and
   fail at dispatch.
+* **A type whose evidence only a checker can produce is emitted with that
+  checker's command, or not emitted.** This is ADR-0006's other half, and #142's
+  whole subject; see :func:`_acceptance_for`.
 
 **The proposer seam.** :data:`Proposer` is where judgment enters, and it has no
 default binding. A caller supplies one; the tests supply a fixed one, which is
@@ -49,19 +52,24 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shlex
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from mcgyvr import contract as contract_module
 from mcgyvr.catalog import TaskType, catalog
 from mcgyvr.contract import Contract, ContractError
+from mcgyvr.gate.adapter import LanguageAdapter
+from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.orchestrator.index import Index
 from mcgyvr.orchestrator.read import Exploration, estimate_tokens, explore
 from mcgyvr.orchestrator.resolve import Resolution, resolve
 from mcgyvr.orchestrator.symbols import SymbolKind
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
+    from pathlib import Path
+
     from mcgyvr.config import Config
 
 # How much of the identifying material goes into a contract id. Short enough to
@@ -69,6 +77,14 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # decomposition do not collide by accident — and a collision is refused rather
 # than silently resolved, so this is a readability choice, not a safety one.
 _ID_DIGEST_BYTES = 5
+
+# The one evidence kind a locator can supply the command for, named as the
+# catalog names it. Keying on the string is the coupling that belongs here: the
+# catalog is the vocabulary, and `data/task-catalog.json` is where "type_check"
+# means "The project's type checker passes on the changed target". The other two
+# command-needing kinds — `tests_pass`, `failing_test_first` — are deliberately
+# absent; see :func:`_acceptance_for`.
+_TYPE_CHECK = "type_check"
 
 
 @dataclass(frozen=True)
@@ -194,6 +210,7 @@ def decompose(
     propose: Proposer,
     config: Config | None = None,
     budget: int | None = None,
+    adapters: Sequence[LanguageAdapter] | None = None,
 ) -> Decomposition:
     """Turn ``prompt`` and an indexed repository into validated contracts.
 
@@ -209,6 +226,12 @@ def decompose(
     configured — and the emitted contracts are then only as routable as the
     config that eventually loads them.
 
+    ``adapters`` are consulted for the one thing a proposal cannot state and the
+    repository can: which type checker it runs (:func:`_acceptance_for`). The
+    default is the gate's own set, so a decomposition and the gate that later
+    judges it agree on which language owns a file by construction rather than by
+    two lists being kept in step.
+
     Never raises for an undecomposable request: a prompt nothing can be made of
     returns a :class:`Decomposition` whose ``contracts`` is empty and whose
     ``refusals`` say why.
@@ -220,6 +243,7 @@ def decompose(
         else explore(index, resolution, budget=budget)
     )
     vocabulary = _vocabulary(config)
+    owners = tuple(adapters) if adapters is not None else _DEFAULT_ADAPTERS()
     evidence = Evidence(
         prompt=prompt,
         index=index,
@@ -249,7 +273,7 @@ def decompose(
     refusals: list[Refusal] = []
     seen: dict[str, str] = {}
     for proposal in proposals:
-        emitted = _emit(proposal, index, vocabulary, seen)
+        emitted = _emit(proposal, index, vocabulary, seen, owners)
         if isinstance(emitted, Refusal):
             refusals.append(emitted)
             continue
@@ -275,18 +299,29 @@ def _vocabulary(config: Config | None) -> tuple[TaskType, ...]:
     return known.servable(config)
 
 
+def _DEFAULT_ADAPTERS() -> tuple[LanguageAdapter, ...]:  # noqa: N802
+    """The gate's own adapter set — the same pair :class:`~mcgyvr.gate.runner.Gate`
+    builds, so ownership means one thing across both."""
+    return (PythonAdapter(), JavaScriptAdapter())
+
+
 def _emit(
     proposal: Proposal,
     index: Index,
     vocabulary: tuple[TaskType, ...],
     seen: dict[str, str],
+    adapters: Sequence[LanguageAdapter],
 ) -> tuple[Contract, str] | Refusal:
     """One proposal as a validated contract, or the reason it is not one.
 
     The order of the checks is the order in which a failure is cheapest to
     explain: the vocabulary before the repository, the repository before the
     schema. A caller that named an unservable type is told that, rather than
-    being told about a target that was never the problem.
+    being told about a target that was never the problem. The repository's
+    type checker is looked for before this proposal's own references are
+    resolved for the same reason — "this repository runs no checker" is a fact
+    about the whole tree, and reporting it first stops one repository-level
+    truth arriving disguised as a different complaint per proposal.
     """
     servable = {t.name for t in vocabulary}
     if proposal.task_type not in servable:
@@ -301,6 +336,12 @@ def _emit(
             "no such file in the index — a contract's target must be a path the "
             "repository holds; check the path, or index a repository that has it",
         )
+
+    kind = next(t for t in vocabulary if t.name == proposal.task_type)
+    acceptance = _acceptance_for(proposal, kind, index.root, adapters)
+    if isinstance(acceptance, Refusal):
+        return acceptance
+    proposal = replace(proposal, acceptance=acceptance)
 
     dependencies: list[dict[str, str]] = []
     for ref in proposal.deps:
@@ -352,6 +393,110 @@ def _unservable_reason(task_type: str, servable: set[str]) -> str:
         f"rung serves it — bind one, or ask for work of a type this ladder can "
         f"run: {', '.join(sorted(servable)) or 'none'}"
     )
+
+
+def _acceptance_for(
+    proposal: Proposal,
+    kind: TaskType,
+    root: Path,
+    adapters: Sequence[LanguageAdapter],
+) -> tuple[str, ...] | Refusal:
+    """The contract's acceptance list: the proposal's, or the repository's checker.
+
+    ADR-0006 ends with a gap it names precisely — "the schema already demands a
+    type-check command for the one task type whose guarantee requires one, and
+    nothing yet supplies it. What is missing is not a step; it is whoever fills
+    the list in." This is that. The locator (#114) reads what the repository
+    declared; this puts it where #38's sandboxed runner already looks.
+
+    Three rules, in this order:
+
+    * **A proposal that declares its own commands is never touched** — not
+      overruled, and not appended to. ``locate_type_check_command`` documents
+      itself as "a fallback for when the contract declares no acceptance
+      command; the contract always wins when it does", and appending would make
+      the contract win *and also* lose.
+    * **Only ``type_check`` is filled in.** ``tests_pass`` and
+      ``failing_test_first`` also need commands and are deliberately left to
+      fail at the loader. A located test command is a much weaker claim than a
+      located checker — ``locate_test_command`` returns ``pytest`` for any
+      repository with a ``tests/`` directory, which is a guess about the runner,
+      not a reading of a declaration — and ``failing_test_first`` needs a
+      *specific* test that fails before the change and passes after, which no
+      locator can name at all.
+    * **No checker means no contract.** ADR-0006: "Where the locator returns
+      ``None``, the decomposer does not emit ``type_annotation`` for that
+      repository — the contract would fail to load anyway, which is the correct
+      outcome arriving at the correct layer." Refusing here rather than letting
+      :func:`_load` reject it is what turns a schema complaint into a sentence
+      about the repository.
+
+    **The command is emitted exactly as located.** Nothing is appended — not the
+    target, not a path, not a flag — and that closes the question #114 left for
+    this layer ("a repository whose ``[tool.mypy]`` sets no ``files`` gets a
+    command that needs a target, and supplying it is the decomposer's job, since
+    only it knows what the change touched"). The premise is right and the
+    conclusion does not follow, on three measurements taken here:
+
+    1. ``tsc --noEmit path/to/file.ts`` **discards ``tsconfig.json`` entirely** —
+       naming files on the command line is how you tell ``tsc`` to ignore the
+       project. On a project with ``strict: true``, ``tsc --noEmit`` reports
+       ``TS7006`` and exits 2 while ``tsc --noEmit src/a.ts`` over the same file
+       exits 0. Appending the target would not narrow the check; it would
+       silently replace it with a weaker one that passes, which is worse than
+       no check because it reports success.
+    2. mypy's ``exclude`` is not applied to a file named on the command line. On
+       a tree whose ``[tool.mypy]`` excludes ``pkg/vendor/``, bare ``mypy``
+       exits 0 and ``mypy pkg/vendor/bad.py`` exits 1 on the same file.
+       Appending the target would type-check a file the repository said to skip
+       — inventing scope, which is the one thing ADR-0006 forbids.
+    3. The failure the question feared does not reach the worker.
+       :meth:`~mcgyvr.gate.acceptance.Acceptance.precondition` runs the whole
+       list against the **unchanged** tree before the first attempt, so a
+       repository whose bare ``mypy`` cannot run (exit 2, "Missing target
+       module, package, files, or command") is a ``PreflightIssue`` — an
+       orchestration fault, named, with no attempt spent. So is a repository
+       carrying a backlog of pre-existing type errors, which is the larger
+       version of the same problem and which no amount of argument-appending
+       would have fixed.
+
+    A per-file type check is not a smaller version of a project-wide one. It is
+    a different check, and in one of the two launch languages it is not
+    expressible at all — the same asymmetry #133 measured, arriving here.
+    """
+    if proposal.acceptance:
+        return proposal.acceptance
+    if _TYPE_CHECK not in kind.evidence_names:
+        return proposal.acceptance
+
+    owner = _owner(proposal.target, adapters)
+    if owner is None:
+        languages = ", ".join(a.name for a in adapters) or "none"
+        return Refusal(
+            proposal.target,
+            f"no language adapter owns {proposal.target!r}, so the checker that "
+            f"would judge {kind.name!r} cannot be located — its guarantee needs "
+            f"evidence only a type checker can produce. Retarget a file in a "
+            f"language this build carries ({languages}), or declare the command "
+            f"in the proposal's acceptance",
+        )
+
+    located = owner.locate_type_check_command(root)
+    if located is None:
+        return Refusal(
+            proposal.target,
+            f"this repository declares no type checker, so {kind.name!r} is not "
+            f"available here — its guarantee needs evidence only a checker can "
+            f"produce, and mcgyvr runs the one the repository configured rather "
+            f"than choosing one (ADR-0006). Configure a checker in the "
+            f"repository, or declare the command in the proposal's acceptance",
+        )
+    return (shlex.join(located),)
+
+
+def _owner(path: str, adapters: Sequence[LanguageAdapter]) -> LanguageAdapter | None:
+    """The first adapter claiming ``path``, or ``None`` if no language owns it."""
+    return next((a for a in adapters if a.owns(path)), None)
 
 
 def _indexed(index: Index, path: str) -> bool:

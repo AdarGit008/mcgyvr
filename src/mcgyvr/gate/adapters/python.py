@@ -151,9 +151,17 @@ class PythonAdapter(LanguageAdapter):
         ``files``/``exclude`` and checks what the repository said to check;
         adding a path here would substitute mcgyvr's idea of the scope for the
         one the project wrote down, which is the same error as adding a flag.
-        A repository whose ``[tool.mypy]`` sets no ``files`` gets a command that
-        needs a target, and supplying it is the decomposer's job, since only it
-        knows what the change touched.
+
+        This once said that a repository whose ``[tool.mypy]`` sets no ``files``
+        would have its target supplied by the decomposer, since only it knows
+        what the change touched. **#142 decided otherwise and nothing appends a
+        target anywhere**: mypy's ``exclude`` is not applied to a file named on
+        the command line, so appending one would check a file the repository
+        said to skip. The case that motivated the idea — bare ``mypy`` exiting 2
+        with "Missing target module, package, files, or command" — is caught by
+        :meth:`~mcgyvr.gate.acceptance.Acceptance.precondition` against the
+        unchanged tree, before an attempt is spent and without charging a
+        worker. See :func:`mcgyvr.orchestrator.decompose._acceptance_for`.
 
         Detection reads the files each checker itself reads, rather than only
         ``pyproject.toml``: a project with ``mypy.ini`` has declared mypy every
