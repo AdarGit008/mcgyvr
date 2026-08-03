@@ -5,6 +5,40 @@ a credential the environment does not hold is unusable, and that is knowable
 without touching the network. This module answers the other half, which is #22's:
 a source that is declared, credentialled and simply **down**.
 
+**Two kinds of source, and they fail in different ways.** A source is an endpoint
+and a wire protocol, so the same code reaches both — but reading the results
+without keeping them apart is how a classification here goes wrong:
+
+* A **local backend** is a server on hardware the user controls — Ollama,
+  llama-server, vLLM, LM Studio, TGI. Typically keyless, on ``localhost`` or a
+  LAN address. Its characteristic failures are *the process is not running*
+  (connection refused, which returns instantly) and *the machine is off or
+  asleep* (no route or no SYN-ACK, which costs the whole timeout). It is also the
+  kind that produces the awkward **404**: a small server may implement
+  ``/v1/chat/completions`` and never implement ``/v1/models``.
+* A **hosted provider** is somebody else's API behind a key. Its characteristic
+  failures are *the key is wrong, expired or revoked* (401/403), *the provider is
+  having an outage* (5xx), and *this machine has no working internet*
+  (timeout). It essentially never 404s at the model listing, because publishing
+  one is table stakes for a commercial API.
+
+The distinction is descriptive, not a type: nothing here branches on it, because
+nothing reliably tells them apart — a local server can require a key, and a
+self-hosted vLLM can sit behind a public hostname. What it does is explain why
+the classification below is asymmetric. **The 401 arm is there for hosted
+providers and the 404 arm is there for local backends**, and each would look
+like an over-reaction if only the other kind existed.
+
+It is also why :attr:`~mcgyvr.pool.Endpoint.credential_env` is reported rather
+than assumed: the reason text names the variable when there is one and says that
+none is configured when there is not, so the message is actionable for whichever
+kind it turns out to be.
+
+Distinct from :mod:`mcgyvr.detect`, which is install-time and local-only: it
+sweeps *candidate* default ports (11434, 8080, 8000, 1234, 3000) to find out what
+this machine happens to be running. This module probes the sources a config
+actually *declares*, local or hosted, and does it per run.
+
 The shape of the problem is a cost problem, not a detection problem. Finding out
 that a host is not answering is easy; finding it out once is the work. A ladder
 escalates — a task that fails on the cheap rung is retried on the next — so a
@@ -41,19 +75,25 @@ dispatch would work.** That distinction decides the whole classification, and it
 is why this is not simply "2xx is up":
 
 * **Transport failure** — refused, DNS failure, timeout — is down. Nothing is
-  listening, or nothing is listening fast enough to be worth a dispatch.
-* **401 and 403 are down**, and this is the case worth stating: the source *is*
-  answering, so a naive reachability check would call it live and hand every rung
-  on it to a dispatch that will fail identically. The credential named in the
-  config is not accepted, and no number of attempts changes that.
-* **5xx is down.** The server is there and is telling us it cannot serve.
-* **404 and 405 are LIVE**, which is the classification most likely to look like
-  a bug and is the one that matters most. The model-list path is optional: an
-  OpenAI-compatible server may serve ``/v1/chat/completions`` perfectly well and
-  answer 404 at ``/v1/models``. Reading that as down would skip a *working*
-  source — a false negative that silently shortens the ladder, which is strictly
-  worse than the wasted attempt it would be trying to save. Anything that
-  answered HTTP without refusing us on credentials is treated as reachable.
+  listening, or nothing is listening fast enough to be worth a dispatch. Both
+  kinds land here; only the wall clock differs, since a refused connection to a
+  local port is instant where an unreachable host costs the whole budget.
+* **401 and 403 are down.** *Chiefly the hosted-provider case*, and the one worth
+  stating: the source *is* answering, so a naive reachability check would call it
+  live and hand every rung on it to a dispatch that fails identically. A key that
+  is wrong, expired or revoked does not improve with retries. Note this is a
+  different fault from the one :func:`mcgyvr.pool.source_map` already catches
+  structurally — there the variable is *unset*, here it is set and rejected.
+* **5xx is down.** The server is there and is telling us it cannot serve. A
+  provider outage, most often.
+* **404 and 405 are LIVE**, the classification most likely to look like a bug and
+  the one that matters most. *Chiefly the local-backend case*: the model-list
+  path is optional, and a small OpenAI-compatible server may serve
+  ``/v1/chat/completions`` perfectly well while never implementing
+  ``/v1/models``. Reading that as down would skip a *working* source — a false
+  negative that silently shortens the ladder, which is strictly worse than the
+  wasted attempt it would be trying to save. Anything that answered HTTP without
+  refusing us on credentials is treated as reachable.
 
 **What this does not do.** It does not retry: one probe, one verdict, and a
 source that was down when the run started stays down for that run. It does not

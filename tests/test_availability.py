@@ -274,12 +274,22 @@ def test_http_status_is_read_as_liveness(
     assert str(status) in verdict.how
 
 
-def test_a_404_carries_the_argument_for_reading_it_as_live(
+# The two asymmetric arms of the classification exist for different kinds of
+# source, and each looks like an over-reaction if you only picture the other
+# kind. These two tests are deliberately written as a pair: the 404 arm is there
+# for a LOCAL backend, and the 401 arm is there for a HOSTED provider. Nothing in
+# the implementation branches on which kind a source is — a local server can
+# require a key and a self-hosted vLLM can sit behind a public hostname — so the
+# distinction lives here, in what each case is *for*.
+
+
+def test_a_local_backend_that_does_not_serve_a_model_list_stays_live(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The classification most likely to look like a bug states its own case.
+    """404 at ``/v1/models`` is the small-local-server case, and it is not down.
 
-    Reading a 404 at the model-list path as *down* would skip a source that
+    A minimal OpenAI-compatible server may implement ``/v1/chat/completions`` and
+    never implement ``/v1/models``. Reading that as down would skip a source that
     serves generations perfectly well — a false negative that silently shortens
     the ladder, which is worse than the wasted attempt it saves.
     """
@@ -297,9 +307,16 @@ def test_a_404_carries_the_argument_for_reading_it_as_live(
     assert "optional" in verdict.how
 
 
-def test_a_credential_refusal_names_the_variable(
+def test_a_hosted_provider_refusing_the_key_is_down_and_names_the_variable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """401 is the hosted-provider case: answering, and useless to every rung.
+
+    Distinct from the fault ``source_map`` already catches structurally — there
+    the variable is *unset*, here it is set and rejected, which no amount of
+    retrying improves.
+    """
+
     def behaviour(_request: urllib.request.Request, _timeout: float) -> _Response:
         raise urllib.error.HTTPError(
             "https://api.example.com/v1/models", 401, "", email.message.Message(), None
@@ -320,6 +337,29 @@ def test_a_credential_refusal_names_the_variable(
     assert verdict.live is False
     assert "$EXAMPLE_KEY" in verdict.reason
     assert "sk-not-a-real-key" not in verdict.reason  # never quote the value
+
+
+def test_a_keyless_source_refusing_says_so_rather_than_naming_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The same arm, reached by a local backend that wants a key nobody configured.
+
+    A local server behind a reverse proxy can 401 with no ``api_key_env`` in the
+    config at all. The reason has to stay actionable there too — pointing at an
+    unset variable would be worse than useless, because there is no variable.
+    """
+
+    def behaviour(_request: urllib.request.Request, _timeout: float) -> _Response:
+        raise urllib.error.HTTPError(
+            "http://localhost:8000/v1/models", 401, "", email.message.Message(), None
+        )
+
+    _stub_urlopen(monkeypatch, behaviour)
+    verdict = probe_endpoint(endpoint())  # keyless
+
+    assert verdict.live is False
+    assert "no credential is configured" in verdict.reason
+    assert "$None" not in verdict.reason
 
 
 def test_transport_failure_is_down_and_never_raises(

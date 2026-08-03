@@ -287,7 +287,18 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   down because the source is answering and would refuse every rung on it
   identically; and **404 and 405 are live**, because the model-list path is
   optional and reading it as down would silently shorten the ladder by skipping
-  a source that serves generations perfectly well. Probing is opt-in —
+  a source that serves generations perfectly well. That asymmetry tracks the two
+  kinds of source mcgyvr talks to, which fail differently: a **local backend**
+  (Ollama, llama-server, vLLM, LM Studio, TGI, on hardware the user controls)
+  characteristically fails by not running, or by not implementing the model
+  listing at all — which is what the 404 arm is for; a **hosted provider** fails
+  by rejecting a key that is wrong, expired or revoked — which is what the 401
+  arm is for, and which is a different fault from the unset variable
+  `source_map` already catches without a network. Nothing branches on the
+  distinction, since nothing reliably separates them — a local server can want a
+  key and a self-hosted vLLM can sit on a public hostname — so the reason text
+  names the credential variable when there is one and says none is configured
+  when there is not. Probing is opt-in —
   `source_map(config)` still touches no network, and reachability enters through
   `SourceProbe`, a two-method structural type that hands endpoints down and gets
   back source-name-to-reason, so `pool.py` still knows nothing of HTTP, timeouts
