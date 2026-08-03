@@ -4,8 +4,8 @@ Every token the orchestrator spends is justified by *not* having a model read
 the whole repository. That only holds if a cheap, model-free pass can shortlist
 what matters first. This is that pass: it enumerates the repository's files
 (respecting the same ignore rules git does), holds their text for fast search,
-and extracts a shallow symbol table — definitions, references, exports — for
-the languages the gate already invested grammars in. No model is called
+and extracts a shallow symbol table — definitions, references, exports, imports —
+for the languages the gate already invested grammars in. No model is called
 anywhere in this module, by construction: there is nothing here but git, the
 standard library, and tree-sitter.
 
@@ -134,6 +134,10 @@ class SymbolTable:
     Built once from a flat symbol list; every query is a dict hit. This is what
     turns "where is ``fetch`` defined" and "who references it" into answers a
     resolver (#48) can rank without reading a file.
+
+    A kind it does not know is held in :meth:`all` and bucketed nowhere: adding
+    one is then a question of what it should answer, rather than a silent
+    reclassification of it as something else.
     """
 
     def __init__(self, symbols: tuple[Symbol, ...]) -> None:
@@ -141,6 +145,7 @@ class SymbolTable:
         self._by_definition: dict[str, list[Symbol]] = defaultdict(list)
         self._by_reference: dict[str, list[Symbol]] = defaultdict(list)
         self._exports: list[Symbol] = []
+        self._imports: list[Symbol] = []
         for symbol in symbols:
             if symbol.kind is SymbolKind.DEFINITION:
                 self._by_definition[symbol.name].append(symbol)
@@ -148,6 +153,8 @@ class SymbolTable:
                 self._by_reference[symbol.name].append(symbol)
             elif symbol.kind is SymbolKind.EXPORT:
                 self._exports.append(symbol)
+            elif symbol.kind is SymbolKind.IMPORT:
+                self._imports.append(symbol)
 
     def __len__(self) -> int:
         return len(self._all)
@@ -166,6 +173,17 @@ class SymbolTable:
     def exports(self) -> tuple[Symbol, ...]:
         """Every exported name across the repository, in discovery order."""
         return tuple(self._exports)
+
+    def imports(self, path: str | None = None) -> tuple[Symbol, ...]:
+        """Imported names — the whole repository's, or one file's.
+
+        Narrowing by ``path`` is what makes this answer "what does this file
+        depend on", which is the question a decomposer asks of a target before
+        it names the dependencies a contract carries (ADR-0007).
+        """
+        if path is None:
+            return tuple(self._imports)
+        return tuple(symbol for symbol in self._imports if symbol.path == path)
 
 
 @dataclass(frozen=True)

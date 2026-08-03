@@ -162,6 +162,30 @@ Format: [Keep a Changelog](https://keepachangelog.com).
 - `mcgyvr read --hint PATH` and `--holds PATH` — name a path you believe is
   relevant, or one whose current content you already hold; rejected hints are
   printed rather than silently dropped.
+- Signature slice and an `IMPORT` kind on the symbol index
+  (`src/mcgyvr/orchestrator/symbols.py`) — the deterministic half of ADR-0007
+  (#115, E7). `Symbol` carries the declaration without its body, so the text a
+  contract will ship as `deps[].signature` comes from the parser rather than
+  from a model: the decomposer names which symbols a contract depends on, the
+  index states what they look like. A signature is therefore reproducible from
+  a checkout — two extractions over unchanged bytes produce the same text, and
+  a reviewer can diff a contract's `deps` against the index instead of trusting
+  it. Python signatures are unparsed from the `ast` node the collector already
+  visits, keeping decorators (`@property` is interface, not implementation) and
+  the docstring, with the body replaced rather than trimmed; JS/TS signatures
+  are the node's own text with the body field sliced off, which is verbatim and
+  so diffable. Both come out of the passes that already run, so neither costs a
+  second parse and no third parse site is introduced — `context_prune.py` stays
+  closed as won't-do. `SymbolKind.IMPORT` makes a file's dependencies readable
+  from the index rather than re-derived, in both languages: the name is the one
+  depended upon rather than the one locally bound, `detail` is the module it
+  comes from (relative imports keep their dots), and the whole statement is on
+  the signature, which is where an alias survives. A star import is recorded
+  under `*` rather than dropped. A re-export is not an import — it is already
+  an export, and ADR-0007 leaves the barrel file in the "the index cannot name
+  this" bucket. `SymbolTable.imports(path)` narrows to one file, which is the
+  question a decomposer asks of a target. Sizing the context budget from this
+  is #50's; enforcing it remains `check_prompt_fits`.
 - Task contract schema, loader and validation (`src/mcgyvr/contract.py`) —
   the boundary between the calling agent and mcgyvr (#14, E2). In delegated
   mode a contract is an internal artifact the orchestrator produces; in direct
@@ -306,6 +330,16 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   supplied`) alongside its real estimated cost, and an exploration reports what
   supplied context saved it (`Exploration.saved`). A free read stays visible and
   costed rather than disappearing from the account.
+- The index cache format is version 2: an entry's symbols carry a signature, so
+  a version 1 cache is discarded and rebuilt rather than served without one.
+- The resolver and the read planner name the symbol kinds they act on rather
+  than excluding references. A reference and an import are both occurrences of
+  a name declared elsewhere, so neither makes a file a candidate for that name
+  or anchors a window in it — stated positively, adding a kind is a decision
+  about what it should mean rather than a silent reclassification.
+- `mcgyvr index --symbol NAME` prints each definition's signature under it, so
+  the text a contract would carry as a dep is checkable against the file
+  without loading the index.
 - `pyyaml` is now a runtime dependency. The config file is YAML because it
   carries policy that needs comments to stay hand-editable (ADR-0001).
 - Worker bindings are named `<role>_<locality>_<model>` (for example
