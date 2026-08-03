@@ -187,6 +187,31 @@ class JavaScriptAdapter(LanguageAdapter):
                 )
         return findings
 
+    def locate_type_check_command(self, repo: Path) -> list[str] | None:
+        """``tsc --noEmit`` when the repository carries a ``tsconfig.json``.
+
+        The presence of the file *is* the declaration: a repository with a
+        ``tsconfig.json`` has said how its TypeScript should be checked, and
+        every option that shapes the check — ``strict``, ``lib``, ``target``,
+        ``paths`` — is read from it by ``tsc`` itself. Nothing is added here.
+
+        ``--noEmit`` is the one argument, and it is not a strictness flag: it
+        says *check without writing output*, which is the difference between
+        running a check and running a build. A repository whose config already
+        sets ``noEmit`` is unaffected, and one that emits to an ``outDir`` is
+        spared having a gate step scatter build artefacts through its tree.
+
+        Deliberately not read: ``package.json`` scripts. A repository that
+        declares its own ``typecheck`` script has declared an acceptance
+        command, and that belongs in the contract, which outranks this. Measured
+        while sizing #133: ``immerjs/immer`` carries a ``tsconfig.json`` and
+        pins ``typescript`` at all 27 commits of the pinned corpus while
+        declaring **no** type-check script at any of them, which is why script
+        detection alone would find nothing on a repository written entirely in
+        TypeScript.
+        """
+        return ["tsc", "--noEmit"] if (repo / "tsconfig.json").is_file() else None
+
     def locate_test_command(self, repo: Path) -> list[str] | None:
         package = repo / "package.json"
         if not package.is_file():

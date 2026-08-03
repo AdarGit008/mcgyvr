@@ -11,8 +11,10 @@ worker-added lines so a file's pre-existing style can never fail the change.
 from __future__ import annotations
 
 import ast
+import configparser
 import json
 import subprocess
+import tomllib
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -142,6 +144,30 @@ class PythonAdapter(LanguageAdapter):
             return ["pytest"]
         return None
 
+    def locate_type_check_command(self, repo: Path) -> list[str] | None:
+        """Whichever checker this repository configured, invoked bare.
+
+        Bare on purpose. ``mypy`` with no arguments reads the repository's own
+        ``files``/``exclude`` and checks what the repository said to check;
+        adding a path here would substitute mcgyvr's idea of the scope for the
+        one the project wrote down, which is the same error as adding a flag.
+        A repository whose ``[tool.mypy]`` sets no ``files`` gets a command that
+        needs a target, and supplying it is the decomposer's job, since only it
+        knows what the change touched.
+
+        Detection reads the files each checker itself reads, rather than only
+        ``pyproject.toml``: a project with ``mypy.ini`` has declared mypy every
+        bit as much as one with ``[tool.mypy]``, and ADR-0006 turns on what the
+        repository declared, not on where it chose to write it down.
+        """
+        for command, declared in (
+            (["mypy"], _declares_mypy(repo)),
+            (["pyright"], _declares_pyright(repo)),
+        ):
+            if declared:
+                return command
+        return None
+
 
 class _HazardVisitor(ast.NodeVisitor):
     """Collects language hazards, keeping only worker-added occurrences.
@@ -226,6 +252,70 @@ def _read(path: Path) -> str | None:
 
 def _read_or_empty(path: Path) -> str:
     return _read(path) or ""
+
+
+# --- type-checker declarations (#114) --------------------------------------
+#
+# Each checker is looked for in the files it reads its own configuration from,
+# so "declared" means what it means to the tool. The order mypy appears in
+# before pyright is ARBITRARY and must stay that way: ADR-0004 found the
+# benchmark #97 used to rank them traced to a single self-contradicting blog
+# post, and ADR-0006 concluded that the choice "leaves this project". A
+# repository configuring both is telling us it runs both; this returns one, and
+# a repository that cares which declares the command in its contract, which
+# always wins over a sniff.
+
+
+def _declares_mypy(repo: Path) -> bool:
+    """Whether mypy is configured here, in any of the four places it looks."""
+    if _has_toml_table(repo / "pyproject.toml", "mypy"):
+        return True
+    if (repo / "mypy.ini").is_file() or (repo / ".mypy.ini").is_file():
+        return True
+    # setup.cfg is INI, and a bare substring would match a comment or a
+    # `[mypy-somepackage.*]` per-module override in a file that never
+    # configures mypy itself. The section header is the declaration.
+    return _has_ini_section(repo / "setup.cfg", "mypy")
+
+
+def _declares_pyright(repo: Path) -> bool:
+    if (repo / "pyrightconfig.json").is_file():
+        return True
+    return _has_toml_table(repo / "pyproject.toml", "pyright")
+
+
+def _has_toml_table(path: Path, name: str) -> bool:
+    """Whether ``[tool.<name>]`` is really present — parsed, not grepped.
+
+    A substring test would fire on a comment, on a dependency pin naming the
+    tool, or on ``[tool.ruff.lint.mypy-init-return]``. Getting this wrong
+    fabricates a type-check command for a repository that runs none, which
+    under ADR-0006 is precisely the thing not to do.
+    """
+    if not path.is_file():
+        return False
+    try:
+        with path.open("rb") as handle:
+            document = tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError):
+        # An unparseable manifest is not a declaration. Nothing here raises:
+        # a malformed file is the target's business, and the honest answer to
+        # "does it declare a checker" is no.
+        return False
+    tool = document.get("tool")
+    return isinstance(tool, dict) and isinstance(tool.get(name), dict)
+
+
+def _has_ini_section(path: Path, name: str) -> bool:
+    """Whether an INI file carries a ``[name]`` section, parsed as INI."""
+    if not path.is_file():
+        return False
+    parser = configparser.ConfigParser()
+    try:
+        parser.read_string(_read_or_empty(path))
+    except configparser.Error:
+        return False
+    return parser.has_section(name)
 
 
 def _paths(changes: Sequence[FileChange]) -> list[str]:
