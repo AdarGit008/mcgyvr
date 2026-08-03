@@ -1,0 +1,45 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0010",
+  "statement": "For JavaScript/TypeScript there is no lightweight standalone analogue of ghostcall: the capability 'does this name resolve?' is not available outside a type checker. Of the candidates surveyed for #133, the two research artifacts implement other languages (Hallucination Inspector is Android/Java; WM-SEMERU's deterministic-AST framework is evaluated on Python and builds its knowledge base by runtime introspection, which TypeScript source cannot supply until it is built); eslint-plugin-import's import/named checks import and export specifiers only, never member access, returns early on type-only imports, and is disabled by the plugin's own typescript config; tsd judges assertions the author writes rather than arbitrary changed code; and oxlint's type-aware mode is a TypeScript compiler with a faster front-end, requiring by its own documentation TypeScript 7.0+, a tsconfig.json, installed dependencies and built .d.ts files. The candidate measured is therefore the TypeScript compiler itself, driven through ts.createProgram and getSemanticDiagnostics with the verdict read from the diagnostic code. Over the immer frame of the pinned reach corpus — 27 accepted changes, 1675 added source lines — it produced ZERO existence verdicts on added lines in every one of three environment arms, against 338 call expressions, 360 property accesses and 2576 identifiers on those lines; the whole-file figures are also zero, against 2952 / 3110 / 22724. The zero is not a silent instrument: a positive-control file of deliberately non-existent references provokes 2304, 2305, 2339 and 2551 in all three arms at the same commit through the same driver, while a correct call in the same file is not flagged. What the arms do separate is cost. With the frame's own node_modules installed and the frame's own typescript 5.0.2, the resolver reports nothing at all in src/. Substituting a staged typescript 5.9.3 — the environment still the target's, the checker ours — produces 153 semantic diagnostics at 36 distinct sites on code that shipped, all of them type-compatibility errors (2416, 2322) rather than existence verdicts. Removing node_modules entirely produces 146 flags at 21 distinct sites, every one of them 2580 'Cannot find name process' on correctly-guarded code. Neither of those lands on an added line in this corpus, which is a property of which lines these 27 changes happened to touch and not a property of the resolver.",
+  "type": "empirical",
+  "build_state": "designed-unshipped",
+  "blast_radius": "recoverable",
+  "confidence": "medium",
+  "citations": [
+    {
+      "url": "records/measurements/reach-jsts-2026-08-03/count3-jsts-falsepos.jsonl",
+      "supports_because": "One row per change per arm — 81 rows — carrying the three denominators, the class breakdown, the environment the row was produced against, and every diagnostic in the frame's source written out with its path, line, code and message. The difference between the arms lives in those diagnostics, so a total with none behind it could not show it."
+    },
+    {
+      "url": "records/measurements/reach-jsts-2026-08-03/positive-control.json",
+      "supports_because": "The evidence that the zero is a property of the code and not of the rig. It records the probe file, the four existence codes each arm was expected to produce and did, and the correct call in the same file that none of them flagged. Without this, a resolver that had silently failed to build a program would report exactly the same headline."
+    },
+    {
+      "url": "records/measurements/reach-jsts-2026-08-03/diagnostic-codes.json",
+      "supports_because": "The existence/environment split the count turns on, with each code's message template extracted by the driver from lib/typescript.js of the resolver that produced the verdicts — so the classification and the measurement come from the same bytes rather than from documentation about them. It also records which half of the table is TypeScript's and which is this repository's assignment."
+    },
+    {
+      "url": "tools/reach/count3_jsts.py",
+      "supports_because": "The counting rules, which is where this claim could most easily go wrong: it restricts to added lines because the rung judges added lines, filters to the frame's own source because a diagnostic inside node_modules is not a verdict about the change, keeps environment outcomes out of the existence count for the reason count3.py keeps module_missing out of hallucinated, and records three denominators rather than picking one after the numerator is known."
+    },
+    {
+      "url": "records/measurements/reach-jsts-2026-08-03/README.md",
+      "supports_because": "The survey with each rejection's grounds, the pinning of the staged resolver by tarball sha512, and the statement of what this does not establish — in particular that immer is TypeScript, so no rate here is a rate for JavaScript."
+    },
+    {
+      "url": "records/claims/CLM-0009.json",
+      "supports_because": "The Python half, and the reason this claim refuses a comparison with it. CLM-0009's denominator is resolved call chains because ghostcall resolves calls; a TypeScript diagnostic lands anywhere an expression does, and immer's changes are heavily type-level, so the two zeros are not the same measurement and must not be pooled."
+    },
+    {
+      "url": "https://oxc.rs/docs/guide/usage/linter/type-aware",
+      "supports_because": "The load-bearing half of the survey's structural finding, from the fastest production alternative's own documentation: its type-aware rules run in tsgolint, which 'Builds TypeScript programs using typescript-go', and it requires TypeScript 7.0+, a tsconfig.json, resolved type information and installed dependencies. The lighter tool is the same tool."
+    },
+    {
+      "url": "https://raw.githubusercontent.com/import-js/eslint-plugin-import/01c9eb04331d2efa8d63f2d7f4bfec3bc44c94f3/src/rules/named.js",
+      "supports_because": "The one lightweight static candidate, read at a pinned commit rather than from its README: it visits ImportDeclaration, ExportNamedDeclaration and VariableDeclarator and nothing else, and returns early when importKind is 'type'. That is the whole of its reach, and it is why it cannot answer the question for member access."
+    }
+  ],
+  "_confidence_note": "Medium, and the limits are the sample's rather than the instrument's. One frame, 27 changes, one repository, all of it TypeScript — immer is not evidence about plain JavaScript, where allowJs and inference stand in for declarations and the resolver's behaviour is unmeasured. Zero of 338 call expressions is an upper bound, not a demonstration of zero: by the rule of three the true existence-false-positive rate is under roughly 0.9% at 95% confidence against the call denominator and under roughly 0.12% against the identifier denominator. The shipped-code proxy is load-bearing here as in CLM-0009 — 'this passed a human-gated check, so a flag on it is wrong' — and mcgyvr's own acceptance rung has never run on any of these changes.",
+  "_measurement_note": "Run in a container, for ADR-0005 and ADR-0010's reason and for one more: provisioning the frame runs its own install scripts. Counts of flags are sums over changes and double-count a site in a file touched by more than one change, which is why the deduplicated site count is reported beside them (the bare arm's 146 flags are 21 distinct sites; the staged-ts arm's 153 are 36). The program is built over the tsconfig's own file set UNION the change's files: immer's tsconfig names four files entries and reaches the rest by import, so a changed file is not guaranteed to be in it, and a file outside the program has its lines unjudged rather than judged clean — that divergence from `tsc -p .` is deliberate and rows record any file that was still missing. Separately established and not in the statement above because it is about the repository rather than the resolver: immer declares NO type-check command in package.json at any of the 27 commits, while pinning typescript ^5.0.2 at all of them — so a rung that delegated to the target's declared type-checker under ADR-0006 would have had nothing to run on this frame, even though the repository ships both a compiler and a tsconfig."
+}

@@ -1,0 +1,125 @@
+{
+  "_note": "The zero this measurement reports is a property of the code measured, not of a silent instrument: given references that do not exist, on the same frame at the same commit through the same driver, the resolver flags every one of them in every arm. The probe file is written, measured and deleted; it is never committed and is not part of any counted change.",
+  "frame": "immerjs/immer",
+  "commit": "a3be9df762c1dbe9959a011ddbab0ce838cbc468",
+  "probe": "// Written by count3_jsts.py --control, then deleted. Never committed.\nimport {produce} from \"./immer\"\nimport {nonExistentExport133} from \"./immer\"\n\nexport function probe(s: string) {\n    nonExistentGlobalFunction133()      // expect 2304: Cannot find name\n    s.nonExistentStringMethod133()      // expect 2339: Property does not exist\n    s.lenght                            // expect 2551: ... Did you mean 'length'?\n    nonExistentExport133()              // expect 2305: no exported member\n    return produce({a: 1}, (d: any) => {d.a = 2})   // correct: must NOT be flagged\n}\n",
+  "arms": {
+    "target-ts": {
+      "resolver_version": "5.0.2",
+      "expected_codes": [
+        2304,
+        2305,
+        2339,
+        2551
+      ],
+      "codes_seen": [
+        2304,
+        2305,
+        2339,
+        2551
+      ],
+      "missing": [],
+      "fires": true,
+      "diagnostics": [
+        {
+          "line": 3,
+          "code": 2305,
+          "message": "Module '\"./immer\"' has no exported member 'nonExistentExport133'."
+        },
+        {
+          "line": 6,
+          "code": 2304,
+          "message": "Cannot find name 'nonExistentGlobalFunction133'."
+        },
+        {
+          "line": 7,
+          "code": 2339,
+          "message": "Property 'nonExistentStringMethod133' does not exist on type 'string'."
+        },
+        {
+          "line": 8,
+          "code": 2551,
+          "message": "Property 'lenght' does not exist on type 'string'. Did you mean 'length'?"
+        }
+      ]
+    },
+    "staged-ts": {
+      "resolver_version": "5.9.3",
+      "expected_codes": [
+        2304,
+        2305,
+        2339,
+        2551
+      ],
+      "codes_seen": [
+        2304,
+        2305,
+        2339,
+        2551
+      ],
+      "missing": [],
+      "fires": true,
+      "diagnostics": [
+        {
+          "line": 3,
+          "code": 2305,
+          "message": "Module '\"./immer\"' has no exported member 'nonExistentExport133'."
+        },
+        {
+          "line": 6,
+          "code": 2304,
+          "message": "Cannot find name 'nonExistentGlobalFunction133'."
+        },
+        {
+          "line": 7,
+          "code": 2339,
+          "message": "Property 'nonExistentStringMethod133' does not exist on type 'string'."
+        },
+        {
+          "line": 8,
+          "code": 2551,
+          "message": "Property 'lenght' does not exist on type 'string'. Did you mean 'length'?"
+        }
+      ]
+    },
+    "bare": {
+      "resolver_version": "5.9.3",
+      "expected_codes": [
+        2304,
+        2305,
+        2339,
+        2551
+      ],
+      "codes_seen": [
+        2304,
+        2305,
+        2339,
+        2551
+      ],
+      "missing": [],
+      "fires": true,
+      "diagnostics": [
+        {
+          "line": 3,
+          "code": 2305,
+          "message": "Module '\"./immer\"' has no exported member 'nonExistentExport133'."
+        },
+        {
+          "line": 6,
+          "code": 2304,
+          "message": "Cannot find name 'nonExistentGlobalFunction133'."
+        },
+        {
+          "line": 7,
+          "code": 2339,
+          "message": "Property 'nonExistentStringMethod133' does not exist on type 'string'."
+        },
+        {
+          "line": 8,
+          "code": 2551,
+          "message": "Property 'lenght' does not exist on type 'string'. Did you mean 'length'?"
+        }
+      ]
+    }
+  }
+}
