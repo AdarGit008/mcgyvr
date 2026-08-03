@@ -105,6 +105,35 @@ class LanguageAdapter(ABC):
         contract always wins when it does.
         """
 
+    @abstractmethod
+    def locate_type_check_command(self, repo: Path) -> list[str] | None:
+        """The type checker **this repository declares**, or ``None`` (#114).
+
+        Sibling of :meth:`locate_test_command` and a fallback in exactly the
+        same sense: the contract always wins when it declares its own commands,
+        so a sniff can never overrule a caller who has said what to run.
+
+        ADR-0006 is the whole of the policy, and it is a policy about restraint:
+        mcgyvr never chooses a type checker and never synthesises its flags. It
+        finds what the repository already configured and returns that
+        invocation. **Strictness is whatever the repository set** — imposing
+        ``--strict`` on a repository that carries no annotations is not a
+        stricter version of this check, it is a different check that always
+        fails, and one no rung can clear because clearing it means annotating
+        files outside the contract's scope.
+
+        ``None`` is an ordinary answer meaning *this repository runs no type
+        checker*, and it is load-bearing rather than a shrug: where it is
+        returned, a ``type_annotation`` contract is not emitted for that
+        repository, because its guarantee needs evidence only a command can
+        produce.
+
+        Implementations must not import, execute or otherwise evaluate the
+        target's code to answer — reading configuration is the whole of the
+        permitted method. Running anything at all belongs in the sandbox
+        (ADR-0005), and this is called on the host.
+        """
+
     def owned(self, changes: Sequence[FileChange]) -> list[FileChange]:
         """The subset of ``changes`` this adapter owns and can scan.
 
