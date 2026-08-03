@@ -1,0 +1,35 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0011",
+  "statement": "The token estimator mcgyvr enforces context budgets with — four characters per token, `orchestrator.read.estimate_tokens` — under-counts more often than it over-counts, and the size of the error depends on which model's vocabulary is on the other end. Over 2,387 units of the text production actually asks it to count (2,267 read regions captured through the injectable `estimate` seam of the real region planner, plus 120 worker-view documents, over the pinned reach-2026-08-02 frames: pallets/click, AdarGit008/mcgyvr, immerjs/immer), signed error (estimated minus real, over real) is: Qwen2.5-Coder median -0.8%, p05 -17.6%, p95 +16.3%, under-counting 51.4% of units; DeepSeek-Coder-V2 median -17.9%, p05 -31.1%, p95 +0.0%, under-counting 94.9%; gpt-oss median -0.5%, p05 -16.9%, p95 +16.4%, under-counting 51.1%. Three vocabularies, not four: Qwen3-Coder-30B-A3B ships Qwen2.5-Coder's 151,643-token vocabulary and produced identical counts on all 2,387 units, computed from the counts rather than read off a model card. The band is language-dependent — on Qwen, JS/TS is median -7.9% against Python's +2.2% — and worker-view documents are under-counted on 100% of units on every vocabulary, which is the text a prompt budget is actually enforced against. The extreme unit is -73.3% (an ASCII JS region at about 1.07 characters per token; dense structured literals, not non-ASCII text, which was checked and ruled out). Consequently `check_prompt_fits` reserves 32% against a proxy count — the worst vocabulary's p05, rounded up — and reserves nothing against a real tokenizer's count, reporting which of the two it enforced with. The reserve leaves a measured residual of about 5% of units still under-reserved, which is stated rather than unquantified.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "medium",
+  "citations": [
+    {
+      "url": "records/measurements/tokens-2026-08-03/summary.json",
+      "supports_because": "The bands themselves, computed per vocabulary, per language, per kind and per frame from units.jsonl, including the identical_vocabularies group that establishes Qwen3-Coder and Qwen2.5-Coder share one vocabulary."
+    },
+    {
+      "url": "records/measurements/tokens-2026-08-03/units.jsonl",
+      "supports_because": "One row per measured unit — frame, language, kind, characters, the estimate, each vocabulary's real count and the signed error, plus non_ascii_share — so every percentage above can be recomputed rather than taken on trust."
+    },
+    {
+      "url": "records/measurements/tokens-2026-08-03/README.md",
+      "supports_because": "States what the corpus is and what it is not: there are no actual worker prompts to measure because prompt assembly (#25) is unbuilt, so the band covers prompt content and not a finished prompt. Also records the non-ASCII hypothesis and its refutation."
+    },
+    {
+      "url": "tools/tokens/measure.py",
+      "supports_because": "The measurement, re-runnable from a checkout without any model call: it captures through the real explore()'s estimate seam rather than reconstructing regions, derives queries from each frame's own exports, and fetches tokenizer vocabularies from the models' own repositories."
+    },
+    {
+      "url": "records/corpora/reach-2026-08-02/corpus.json",
+      "supports_because": "The pinned frames the measurement runs over, enumerated and justified for #125 and reused here rather than re-pinned, so the denominator is fixed independently of this claim."
+    },
+    {
+      "url": "src/mcgyvr/gate/preflight.py",
+      "supports_because": "Where the band is fed back: ESTIMATE_RESERVE is 0.32 with the measurement named in its comment, and check_prompt_fits reports whether it enforced with the proxy or with an exact count so a rejection is attributable to one or the other."
+    }
+  ]
+}

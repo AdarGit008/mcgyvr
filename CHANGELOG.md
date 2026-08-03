@@ -215,6 +215,38 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   prompt may be built from, so what is measured is what will be sent — floored
   at the schema default and with no margin added, the error band being #117's to
   measure rather than this module's to invent.
+- The token estimator's error band, measured and fed back (#117, E13).
+  `estimate_tokens` is four characters per token and says so; nothing knew what
+  that cost. `tools/tokens/measure.py` measures it against the real tokenizers
+  of the models the capability table ships, and CLM-0011 registers the result
+  over 2,387 units (`records/measurements/tokens-2026-08-03/`). The corpus is
+  *captured, not constructed*: a recording `estimate` is passed to the real
+  `explore()` through the seam it already has, so every string measured is one
+  production actually asked the estimator to count. Queries are each frame's own
+  exported names, sorted and capped at 40 per frame with the cap reported. The
+  headline is that the proxy **under-counts more often than it over-counts**,
+  and by how much depends on the vocabulary: Qwen2.5-Coder median −0.8% (p05
+  −17.6%), gpt-oss −0.5%, but DeepSeek-Coder-V2 −17.9% and under-counting 94.9%
+  of units, because a 100,000-token vocabulary splits the same text into more
+  tokens than a 151,643-token one. The band is language-dependent (JS/TS −7.9%
+  against Python +2.2% on Qwen), and worker-view documents are under-counted on
+  **100% of units on every vocabulary** — which is exactly the text a prompt
+  budget is enforced against. Three vocabularies, not four: Qwen3-Coder ships
+  Qwen2.5-Coder's vocabulary and produced identical counts on all 2,387 units,
+  established from the counts rather than from a model card.
+- `check_prompt_fits` reserves the measured band and says which count it
+  enforced with. `TokenCount.ESTIMATE` is charged `ESTIMATE_RESERVE` (0.32 —
+  the worst vocabulary's p05, rounded up) on top of itself; `TokenCount.
+  TOKENIZER` is exact and reserves nothing. Only the under-counting tail is
+  reserved against, because the directions are not interchangeable:
+  over-estimation costs context, under-estimation ships a prompt the backend
+  then refuses. A rejection now names which of the two it was, so it can be
+  attributed to the proxy rather than to the prompt. The reserve leaves a
+  measured ~5% residual — stated, where before it was unquantified.
+- A `measure` dependency group, deliberately not `dev` and not a default group,
+  so `make setup` and CI never install a tokenizer. The measurement uses one;
+  the product must not, since a tokenizer in `dependencies` would defeat the
+  point of a model-free proxy. Runtime dependencies are unchanged.
 - `Proposer` — the judgment seam, with no default binding. A caller supplies
   one; `RecordedProposer` returns a fixed list, which is what makes "the same
   prompt and repository yield the same shape" an assertion about the decomposer
