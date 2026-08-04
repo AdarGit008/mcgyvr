@@ -41,6 +41,14 @@ orchestration error — the same class of thing as a dirty tree — and prefligh
 existing shape already says so. Raising would also deny a caller the assembled
 prompt it needs in order to report *what* did not fit.
 
+**A retry says what failed and nothing else.** When an attempt follows a
+rejected one, the prompt carries that attempt's failing checks —
+:class:`~mcgyvr.escalate.RetryNotes`, whose contents are #43's rule and not
+this module's: passing checks, observations the gate did not reject on, and a
+tool that was not installed are all excluded there, and rendering is all that
+happens here. The section goes last, after the output instruction, because it
+is the most specific thing in the prompt and the least useful to read first.
+
 **The estimate is injectable, and the count says which kind it was.** CLM-0011
 measured the model-free proxy under-counting by up to 17.9% at the median
 depending on the vocabulary, so ``check_prompt_fits`` charges a proxy count a
@@ -59,6 +67,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from mcgyvr.contract import Contract
+from mcgyvr.escalate import RetryNotes
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.preflight import PreflightIssue, TokenCount, check_prompt_fits
 from mcgyvr.orchestrator.read import estimate_tokens
@@ -126,12 +135,14 @@ def _render_deps(deps: Sequence[dict[str, Any]]) -> list[str]:
     return lines
 
 
-def render_user_message(view: dict[str, Any]) -> str:
+def render_user_message(view: dict[str, Any], retry: RetryNotes | None = None) -> str:
     """Render the worker-facing half of a contract as the user message.
 
     Takes the *view* rather than the contract so that the boundary is visible
     in the signature: this function is incapable of reading a field
-    ``worker_view()`` did not hand it.
+    ``worker_view()`` did not hand it. ``retry`` is not a contract field and
+    does not reach around that — it is what the *last* attempt was told it got
+    wrong, which no contract can know.
     """
     sections: list[str] = [f"TASK ({view['task_type']}): {view['task']}"]
     sections.append(f"TARGET: {view['target']}")
@@ -155,6 +166,11 @@ def render_user_message(view: dict[str, Any]) -> str:
     instruction = _REPLY_INSTRUCTIONS.get(view["output_schema"])
     if instruction is not None:
         sections.append("OUTPUT: " + instruction.format(target=view["target"]))
+    if retry is not None:
+        sections.append(
+            f"YOUR PREVIOUS ATTEMPT WAS REJECTED. Fix exactly these and change "
+            f"nothing else — every other check passed:\n{retry.text}"
+        )
     return "\n\n".join(sections) + "\n"
 
 
@@ -164,6 +180,7 @@ def build_prompt(
     adapters: Sequence[LanguageAdapter] | None = None,
     estimate: Callable[[str], int] = estimate_tokens,
     counted_by: TokenCount = TokenCount.ESTIMATE,
+    retry: RetryNotes | None = None,
 ) -> WorkerPrompt:
     """Assemble the two messages a worker is sent, and check they fit.
 
@@ -171,10 +188,15 @@ def build_prompt(
     project is spent against; a caller with a real tokenizer passes it here and
     sets ``counted_by=TOKENIZER`` so the fit check stops charging a reserve it
     no longer needs.
+
+    ``retry`` makes this a second attempt on the same contract. It is measured
+    with the rest of the prompt rather than appended after the fit check: a
+    retry that no longer fits its own contract's ceiling is exactly the case
+    where saying so at zero cost is worth most.
     """
     bundle = bundle_for(contract.target, adapters)
     system = bundle.text if bundle is not None else ""
-    user = render_user_message(contract.worker_view())
+    user = render_user_message(contract.worker_view(), retry)
     tokens = estimate(system + "\n" + user)
     issue = check_prompt_fits(
         tokens,

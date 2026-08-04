@@ -462,6 +462,69 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   Both are decided before anything is spent, and a routing decision nobody can
   read is one nobody can check.
 
+- Escalation policy and its ceiling (`src/mcgyvr/escalate.py`) — which family a
+  task climbs to next, what stops it, and what an acceptance actually rests on
+  (#43, E6). `ascent()` answers the whole climb before anything is dispatched:
+  the families from the contract's floor upward, each family's rungs, the
+  attempts each is allowed, and the two ceilings — with no network and no
+  model, so routing is diffable rather than merely deterministic. **Ascent is
+  monotonic structurally**: the plans are the catalog's rank-ordered families
+  filtered once, so a family appears exactly once and ranks only increase.
+  Ping-pong between a local rung and an API rung is not prevented by a check
+  that could be forgotten; there is nowhere in the shape for it to happen. A
+  floor works the same way — families below it are absent rather than skipped.
+  `escalate()` walks that ascent against a caller-supplied attempt function and
+  ends in one of six machine-readable `Outcome` members, because a caller
+  responds differently to a ladder genuinely spent, each of the two ceilings, an
+  install with nothing to run, and a ladder that **declined throughout** — the
+  last of which says nothing at all about what the ladder can do and must not
+  be reported as though it did.
+- `budgets.max_attempts` — a hard ceiling on what one task may spend across
+  every rung and every family. **Unset is not unbounded**: the bound is then the
+  ladder's own budget, which `mcgyvr pool` now prints. Leaving the unset case
+  meaning "the ladder bounds it" rather than a number keeps a default this
+  project has no measurement behind out of the schema, and keeps two knobs from
+  fighting — an operator who raises `max_escalations` does not want a ceiling
+  they never set cutting the climb back. `budgets.max_escalations` gains its
+  first consumer at the same seam: it bounds *moves*, not tries, because the
+  cost an escalation carries is the attempts already spent below it. **Neither
+  ceiling charges a decline** (#81's rule reaching the task level): a rung that
+  stepped aside spent nothing, so a ladder of rungs that all decline is walked
+  in full at no cost.
+- A verification policy is **upgraded the moment work leaves the deterministic
+  family**, whatever the contract declared. `verification.policy: gate_only`
+  describes a tool's output through the gate; leaving it in force once a model
+  is doing the work would accept a model's output on a warrant that was never
+  about a model. What the install can then do about it is a capability question,
+  and `Assurance` is where the difference is recorded: `VERIFIED` is reachable
+  only by a verifier that ran and agreed, and a keyless install reaches
+  `UNVERIFIED` — accepted on the gate, labelled as exactly that, which is E6's
+  third first-class configuration and where #44 attaches. Asserted by driving
+  the whole policy × family × verifier matrix rather than a list of cases.
+- The gate runs before any verifier, structurally: `judge()` returns on a
+  rejected gate before the verifier is so much as named, so a deterministically
+  rejected change costs zero verifier spend. #32 stated that ordering; nothing
+  held it until now, and it is asserted with a verifier that raises if it is
+  ever called — a counter checked for zero would pass against one called and
+  ignored, which is the spend the rule exists to prevent.
+- A retry prompt carries the **failing checks only** (`RetryNotes`, rendered by
+  `build_prompt(retry=...)`). Re-reading the passing checks is spend that
+  carries no information. Three exclusions, each for its own reason: checks that
+  produced no finding did not fail; observations are findings the gate
+  deliberately did not reject on, so quoting them would ask for changes never
+  required; and an environment issue is a tool that was not installed, which is
+  not something the worker did or can fix.
+- `climb(permit=...)` (`src/mcgyvr/route.py`) — a caller-supplied budget
+  predicate, asked before each attempt is funded, reported as the new
+  `Exhaustion.WITHHELD`. A task-wide ceiling spans families so it cannot be
+  computed from one plan, and it may not live in `route.py` either; a predicate
+  keeps both true, exactly as the attempt function does. `WITHHELD` is distinct
+  because a family that was not allowed to finish must not read like one that
+  was tried and could not.
+- `mcgyvr pool` prints the ceilings that bound a task, and where an unset one
+  comes from. A ladder printed without them reads as though every rung will be
+  tried, and by default most of them will not.
+
 - Decomposition catalog (`data/task-catalog.json`, `src/mcgyvr/catalog.py`) —
   the vocabulary of what mcgyvr can be asked to do (#15, E2). Each entry states
   what accepting it promises, which family of the ladder it may start on, and

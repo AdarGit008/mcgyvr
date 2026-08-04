@@ -526,6 +526,66 @@ def test_a_retry_on_one_rung_is_numbered_and_stops_at_the_budget() -> None:
     assert result.attempts_spent == 3
 
 
+def test_a_withheld_attempt_ends_the_climb_without_blaming_the_family(
+    key: None,
+) -> None:
+    """A caller's ceiling stopped it, so the family says nothing about itself.
+
+    ``WITHHELD`` is distinct from ``RUNGS_SPENT`` for that reason: a family that
+    was not allowed to finish must not read like one that was tried and could
+    not, or every task cut short by a budget would look like a ladder that is
+    not up to the work.
+    """
+    config, pool = mapped(MIXED)
+    attempts = Recorder(Verdict.FAILED)
+
+    result = exhausted(
+        climb(
+            plan(config, pool, contract()),
+            attempts,
+            permit=lambda step, number: step.rung.name == "local_qwen-7b",
+        )
+    )
+
+    assert result.reason is Exhaustion.WITHHELD
+    assert attempts.rungs == ["local_qwen-7b"]
+    assert "local_qwen-14b" in result.detail
+    assert result.attempts_spent == 1
+
+
+def test_a_permit_that_funds_everything_changes_nothing(key: None) -> None:
+    """The parameter is a question, not a policy: answering yes is the default."""
+    config, pool = mapped(MIXED)
+
+    without = exhausted(
+        climb(plan(config, pool, contract()), Recorder(Verdict.FAILED, Verdict.FAILED))
+    )
+    with_permit = exhausted(
+        climb(
+            plan(config, pool, contract()),
+            Recorder(Verdict.FAILED, Verdict.FAILED),
+            permit=lambda step, number: True,
+        )
+    )
+
+    assert without.reason is with_permit.reason is Exhaustion.RUNGS_SPENT
+    assert [a.rung for a in without.history] == [a.rung for a in with_permit.history]
+
+
+def test_a_permit_is_asked_before_the_attempt_is_made_not_after(key: None) -> None:
+    """A guard consulted afterwards is a guard that has already spent."""
+    config, pool = mapped(KEYLESS)
+    attempts = Recorder()  # any call at all is an unscripted attempt
+
+    result = exhausted(
+        climb(plan(config, pool, contract()), attempts, permit=lambda step, n: False)
+    )
+
+    assert result.reason is Exhaustion.WITHHELD
+    assert attempts.seen == []
+    assert result.history == ()
+
+
 def test_an_attempt_that_raises_is_not_swallowed_into_an_exhaustion() -> None:
     """A verdict is a judgement; an exception is the absence of one."""
     config, pool = mapped(KEYLESS)
