@@ -30,6 +30,7 @@ from mcgyvr.orchestrator.decompose import (
 )
 from mcgyvr.orchestrator.index import Index, build_index
 from mcgyvr.orchestrator.read import estimate_tokens
+from mcgyvr.worker.prompt import build_prompt
 
 
 def git(repo: Path, *args: str) -> None:
@@ -357,6 +358,191 @@ def test_a_contract_whose_worker_view_exceeds_the_default_is_sized_up(
     assert built.max_input_tokens >= estimate_tokens(built.deps[0].signature)
     # Still a contract the public API accepts.
     assert contract_module.loads(contract_module.dumps(built)) == built
+
+
+# --- filling the target's content (#155; #150 built the slot) ---------------
+#
+# #150 gave the contract somewhere to put the file a worker is about to rewrite
+# and filled it only where contracts are authored by hand. These hold the other
+# half: the delegated path fills it too, from the index, up to a ceiling that
+# exists so that sizing the budget off the content cannot make the fit check
+# ask whether a number exceeds itself.
+
+
+def test_an_emitted_contract_carries_its_targets_current_content(repo: Index) -> None:
+    """Acceptance: a bug_fix on an existing target reaches the worker seeing it."""
+    (built,) = decompose(
+        repo, "fix the listing pager", propose=RecordedProposer((a_fix(),))
+    ).contracts
+
+    assert built.target_content == (repo.root / "listing.py").read_text()
+
+
+def test_the_content_is_what_the_index_holds_not_a_fresh_read(repo: Index) -> None:
+    """One decomposition, one revision — the whole reason it is not re-read.
+
+    Two contracts emitted from one run must not be able to disagree about one
+    file, so the bytes come from the state resolution and exploration already
+    judged from. Editing the tree after the index was built is how that becomes
+    visible: a fresh read at emit time would pick the new content up.
+    """
+    (repo.root / "listing.py").write_text("# rewritten after the index was built\n")
+
+    (built,) = decompose(
+        repo, "fix the listing pager", propose=RecordedProposer((a_fix(),))
+    ).contracts
+
+    assert built.target_content.startswith("from pagination import paginate")
+    assert "rewritten after the index" not in built.target_content
+
+
+def test_the_content_round_trips_through_the_public_loader(repo: Index) -> None:
+    """Direct mode accepts what the orchestrator emits — content included."""
+    result = decompose(repo, "fix", propose=RecordedProposer((a_fix(),)))
+
+    (built,) = result.contracts
+    (document,) = result.documents
+    assert contract_module.loads(document) == built
+    assert contract_module.loads(contract_module.dumps(built)) == built
+    assert contract_module.loads(document).target_content == built.target_content
+
+
+def test_the_worker_is_shown_the_file_it_is_asked_to_change(repo: Index) -> None:
+    """The end #155 exists for, asserted where a worker would see it."""
+    (built,) = decompose(repo, "fix", propose=RecordedProposer((a_fix(),))).contracts
+
+    prompt = build_prompt(built)
+    assert "CURRENT CONTENT OF listing.py (this is the file to change):" in prompt.user
+    assert "def listing(items):" in prompt.user
+
+
+@pytest.mark.parametrize("task_type", ["docstring", "format"])
+def test_content_is_filled_for_every_type_not_a_chosen_list(
+    repo: Index, task_type: str
+) -> None:
+    """No task-type branch: the slot is filled from the target, whatever the work.
+
+    ``format`` is the case that matters, and it is the one the issue expected to
+    be excluded — the deterministic tier reads the file itself, so a tool has no
+    use for the content. But it is not the tier that decides whether a tool runs
+    it. Ascent (#43) climbs from a contract's floor family upward and the
+    deterministic family binds no rung at all until #81
+    (``route._why_empty``), so a ``format`` contract reaches a model rung today
+    exactly like a ``bug_fix`` does. Content a tool ignores costs it nothing,
+    because that tier builds no prompt to carry it; content a model needed and
+    lacks is #150's whole subject.
+    """
+    proposal = Proposal(
+        task_type=task_type,
+        task="tidy listing()",
+        target="listing.py",
+        stop_conditions=("the function's behaviour is ambiguous",),
+    )
+
+    (built,) = decompose(
+        repo, "tidy it", propose=RecordedProposer((proposal,))
+    ).contracts
+
+    assert built.task_type == task_type
+    assert built.target_content == (repo.root / "listing.py").read_text()
+
+
+def test_a_target_the_index_does_not_hold_never_reaches_the_content_question(
+    repo: Index,
+) -> None:
+    """ "No content" is not an error here because it is not reachable here.
+
+    A target the index does not hold is refused before content is considered
+    (`_indexed`), so the delegated path cannot emit a contract for a file that
+    does not exist yet — which direct mode can, and which is why the schema
+    calls an empty slot "the target does not exist yet, or its content is not
+    needed". Held as a test so the asymmetry is recorded rather than assumed.
+    """
+    result = decompose(
+        repo, "fix", propose=RecordedProposer((a_fix(target="new_module.py"),))
+    )
+
+    assert result.contracts == ()
+    (refusal,) = result.refusals
+    assert "no such file in the index" in refusal.reason
+
+
+def test_content_that_outgrows_the_default_budget_sizes_it_up_and_survives(
+    tmp_path: Path,
+) -> None:
+    """The budget follows the content — and the rebuild that resizes keeps it.
+
+    ``_resize`` re-emits the document to write the new ceiling, and the content
+    has to be carried through that rebuild explicitly. A rebuild that dropped it
+    would leave a contract whose budget was sized for a file it no longer holds.
+    """
+    root = tmp_path / "wide"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    body = "\n".join(
+        f"    value_{i} = {i} * 2  # a line of real content" for i in range(400)
+    )
+    (root / "wide.py").write_text(f"def wide() -> int:\n{body}\n    return value_0\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "seed")
+    index = build_index(root)
+
+    proposal = a_fix(target="wide.py", deps=())
+    (built,) = decompose(index, "fix", propose=RecordedProposer((proposal,))).contracts
+
+    assert built.max_input_tokens > 4096
+    assert built.target_content == (root / "wide.py").read_text()
+    assert built.max_input_tokens >= estimate_tokens(built.target_content)
+    assert contract_module.loads(contract_module.dumps(built)) == built
+
+
+def test_a_target_too_large_to_send_is_refused_not_budgeted_around(
+    repo: Index,
+) -> None:
+    """The ceiling is a stop, not a starting point the sizing negotiates past."""
+    result = decompose(
+        repo, "fix", propose=RecordedProposer((a_fix(),)), max_input_tokens=20
+    )
+
+    assert result.contracts == ()
+    (refusal,) = result.refusals
+    assert refusal.subject == "listing.py"
+    assert "against a ceiling of 20" in refusal.reason
+    assert "the target's own content" in refusal.reason
+    assert "#126" in refusal.reason
+
+
+def test_the_ceiling_is_the_callers_to_raise(repo: Index) -> None:
+    """It is policy with no measurement behind it, so it is an argument."""
+    proposals = RecordedProposer((a_fix(),))
+
+    refused = decompose(repo, "fix", propose=proposals, max_input_tokens=20)
+    emitted = decompose(repo, "fix", propose=proposals, max_input_tokens=100_000)
+
+    assert refused.contracts == ()
+    assert len(emitted.contracts) == 1
+
+
+def test_a_target_larger_than_the_default_ceiling_is_refused(tmp_path: Path) -> None:
+    """The shipped default is a real bound, not only the argument's placeholder."""
+    root = tmp_path / "huge"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    lines = "\n".join(
+        f"    entry_{i} = 'a fairly long literal value here'" for i in range(4000)
+    )
+    (root / "huge.py").write_text(f"def huge() -> None:\n{lines}\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "seed")
+    index = build_index(root)
+
+    result = decompose(
+        index, "fix", propose=RecordedProposer((a_fix(target="huge.py", deps=()),))
+    )
+
+    assert result.contracts == ()
+    (refusal,) = result.refusals
+    assert "against a ceiling of 32768" in refusal.reason
 
 
 # --- the located type checker reaches the contract (#142, ADR-0006) ---------

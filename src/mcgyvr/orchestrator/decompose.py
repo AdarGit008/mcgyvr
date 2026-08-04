@@ -22,6 +22,14 @@ Five properties are structural rather than remembered:
   API accepts" is a property of the code path rather than a claim a test has to
   chase. A document the loader rejects becomes a refusal carrying the loader's
   own message, which already names the field and states the fix.
+* **The target's current content is a fact, so it is read rather than proposed.**
+  #150 gave the contract a slot for it and #155 fills it here. There is no
+  ``Proposal`` field for it and there will not be one: a proposer that could
+  state a file's content could state one the repository does not hold, which is
+  the exact failure ADR-0007 draws the seam to prevent. The bytes come from the
+  index — the same read that resolution and exploration already judged from —
+  so two contracts emitted from one decomposition cannot disagree about one
+  file. See :func:`_content_of`.
 * **A dependency the index cannot name is refused, never described.** ADR-0007
   gives up any dependency the parser cannot state — a dynamically constructed
   attribute, a re-export through a barrel file — and the asymmetry is the
@@ -30,6 +38,12 @@ Five properties are structural rather than remembered:
 * **A request that cannot be decomposed produces an explanation.** There is no
   fallback that wraps an unparsed prompt in one big contract. A degenerate
   single contract is worse than a refusal, because it looks like a plan.
+* **Nothing is emitted whose worker view will not fit under a stated ceiling.**
+  :func:`_resize` sizes ``context.max_input_tokens`` to what the worker will
+  actually be sent, and a budget derived from the content can never be exceeded
+  by the content — so without a stop, inlining a large file would raise the
+  ceiling to swallow it and the fit check would become a tautology. The ceiling
+  is the stop, and exceeding it is a refusal (#155).
 * **Nothing is emitted that no configured ladder can serve.** The check is the
   catalog's own :meth:`~mcgyvr.catalog.Catalog.servable`, against a real config —
   a keyless install genuinely cannot run a type that must start on ``api``, and
@@ -77,6 +91,17 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # decomposition do not collide by accident — and a collision is refused rather
 # than silently resolved, so this is a readability choice, not a safety one.
 _ID_DIGEST_BYTES = 5
+
+# The ceiling `context.max_input_tokens` may be sized up to, in estimated
+# tokens. **Policy, not measurement.** Nothing mcgyvr reads declares a rung's
+# context window — not `baseline.config.json`, not the capability table, whose
+# entries carry quality, throughput and VRAM and no window at all — so there is
+# nothing here to derive the number from and it is chosen rather than computed.
+# It is a default, and a caller that knows its ladder should say so instead:
+# `decompose(..., max_input_tokens=...)`. #158 is where a declared per-rung
+# window would replace it, at which point this becomes a fallback for the
+# unconfigured case rather than the operative bound.
+_DEFAULT_MAX_INPUT_TOKENS = 32768
 
 # The one evidence kind a locator can supply the command for, named as the
 # catalog names it. Keying on the string is the coupling that belongs here: the
@@ -211,6 +236,7 @@ def decompose(
     config: Config | None = None,
     budget: int | None = None,
     adapters: Sequence[LanguageAdapter] | None = None,
+    max_input_tokens: int = _DEFAULT_MAX_INPUT_TOKENS,
 ) -> Decomposition:
     """Turn ``prompt`` and an indexed repository into validated contracts.
 
@@ -231,6 +257,12 @@ def decompose(
     default is the gate's own set, so a decomposition and the gate that later
     judges it agree on which language owns a file by construction rather than by
     two lists being kept in step.
+
+    ``max_input_tokens`` is the ceiling a contract's own budget may be sized up
+    to (:func:`_resize`), and therefore what decides whether a target is small
+    enough to send. It is a policy number this project has no measurement for —
+    see :data:`_DEFAULT_MAX_INPUT_TOKENS` — so a caller that knows what its
+    ladder can actually accept should pass its own.
 
     Never raises for an undecomposable request: a prompt nothing can be made of
     returns a :class:`Decomposition` whose ``contracts`` is empty and whose
@@ -273,7 +305,7 @@ def decompose(
     refusals: list[Refusal] = []
     seen: dict[str, str] = {}
     for proposal in proposals:
-        emitted = _emit(proposal, index, vocabulary, seen, owners)
+        emitted = _emit(proposal, index, vocabulary, seen, owners, max_input_tokens)
         if isinstance(emitted, Refusal):
             refusals.append(emitted)
             continue
@@ -315,6 +347,7 @@ def _emit(
     vocabulary: tuple[TaskType, ...],
     seen: dict[str, str],
     adapters: Sequence[LanguageAdapter],
+    ceiling: int,
 ) -> tuple[Contract, str] | Refusal:
     """One proposal as a validated contract, or the reason it is not one.
 
@@ -362,7 +395,12 @@ def _emit(
             {"path": ref.path, "signature": signature, "note": ref.note}
         )
 
-    document = _document(proposal, dependencies, contract_id=_identify(proposal))
+    document = _document(
+        proposal,
+        dependencies,
+        contract_id=_identify(proposal),
+        target_content=_content_of(index, proposal.target),
+    )
     if document["id"] in seen:
         return Refusal(
             proposal.target,
@@ -373,7 +411,10 @@ def _emit(
     built = _load(document)
     if isinstance(built, Refusal):
         return Refusal(proposal.target, built.reason)
-    return _resize(built, document)
+    resized = _resize(built, document, ceiling)
+    if isinstance(resized, Refusal):
+        return Refusal(proposal.target, resized.reason)
+    return resized
 
 
 def _unservable_reason(task_type: str, servable: set[str]) -> str:
@@ -507,6 +548,32 @@ def _indexed(index: Index, path: str) -> bool:
     return any(file.path == path for file in index.files)
 
 
+def _content_of(index: Index, target: str) -> str:
+    """The target's current content as the index holds it, or ``""``.
+
+    **From the index, not from a fresh read.** The index is the state resolution
+    and exploration already judged from, so taking the bytes from anywhere else
+    would let one decomposition emit two contracts that disagree about one file
+    — and would put a second, unbounded read inside a step whose whole cost
+    model is "the index was built once". The reconstruction is exact rather than
+    approximate: :func:`~mcgyvr.orchestrator.index.index_source` builds
+    ``lines`` as ``text.split("\\n")`` over a ``surrogateescape`` decode, and
+    joining on the same separator inverts it byte for byte.
+
+    Absence is not an error, and it has three causes that the empty string does
+    not distinguish between, because nothing downstream needs it to: the file
+    does not exist, the index skipped it (binary, or past its size cap), or the
+    target is a pattern and there is no one file it could be the content of. The
+    contract loader states the same rule from the other side — content against a
+    pattern target is rejected — so an empty result here is the only one that
+    could load anyway.
+    """
+    for file in index.files:
+        if file.path == target:
+            return "\n".join(file.lines)
+    return ""
+
+
 def _signature_for(index: Index, ref: DepRef) -> str | None:
     """The signature the index holds for ``ref``, or ``None`` if it holds none.
 
@@ -545,6 +612,7 @@ def _document(
     dependencies: list[dict[str, str]],
     *,
     contract_id: str,
+    target_content: str = "",
     max_input_tokens: int | None = None,
 ) -> dict[str, Any]:
     """The contract as plain data, before the loader has agreed to it.
@@ -553,6 +621,10 @@ def _document(
     else is left out so the schema's own defaults apply — writing them here
     would copy the schema into this module, and the copy would be the thing that
     drifts.
+
+    ``target_content`` is passed rather than read off the proposal for the
+    reason the module docstring gives: it is a fact about the repository, and
+    :class:`Proposal` has no field a judgement could state it in.
     """
     document: dict[str, Any] = {
         "id": contract_id,
@@ -561,6 +633,8 @@ def _document(
         "target": proposal.target,
         "scope": {"allow": list(proposal.allow or (proposal.target,))},
     }
+    if target_content:
+        document["target_content"] = target_content
     if proposal.forbid:
         document["scope"]["forbid"] = list(proposal.forbid)
     if proposal.interface:
@@ -591,7 +665,9 @@ def _load(document: dict[str, Any]) -> Contract | Refusal:
         return Refusal("", f"the emitted contract does not validate — {exc}")
 
 
-def _resize(built: Contract, document: dict[str, Any]) -> tuple[Contract, str]:
+def _resize(
+    built: Contract, document: dict[str, Any], ceiling: int
+) -> tuple[Contract, str] | Refusal:
     """Size ``context.max_input_tokens`` to what the worker will actually be sent.
 
     The budget is declared on the contract so that a prompt which will not fit
@@ -606,8 +682,22 @@ def _resize(built: Contract, document: dict[str, Any]) -> tuple[Contract, str]:
     margin is added on top: the estimator's error band is #117's to measure, and
     a margin invented here would be exactly the unsourceable constant ADR-0007
     rejected.
+
+    ``ceiling`` is where the sizing stops, and #155 is why it has to exist at
+    all. Once the target's own content is part of the view, a budget derived
+    from the view is a budget the view can never exceed: inline a 4 000-line
+    file and ``max_input_tokens`` simply grows to fit it, so
+    :func:`~mcgyvr.gate.preflight.check_prompt_fits` would be asking whether a
+    number exceeds itself. Refusing at the ceiling is what keeps that check
+    answerable — and refusing rather than emitting a blind contract is the
+    honest reading of the output protocol, not merely the strict one: with
+    ``output_schema: whole_file`` the worker's reply *is* the file's complete
+    new content, so a target too large to send is a target too large to receive
+    back. The contract would be undispatchable in both directions.
     """
     needed = estimate_tokens(json.dumps(built.worker_view(), sort_keys=True))
+    if needed > ceiling:
+        return Refusal("", _too_large_reason(built, needed, ceiling))
     if needed <= built.max_input_tokens:
         return built, contract_module.dumps(built)
     carried = [
@@ -617,12 +707,35 @@ def _resize(built: Contract, document: dict[str, Any]) -> tuple[Contract, str]:
         _proposal_of(built),
         carried,
         contract_id=built.id,
+        target_content=built.target_content,
         max_input_tokens=needed,
     )
     reloaded = _load(resized)
     if isinstance(reloaded, Refusal):  # pragma: no cover - the first load passed
         return built, contract_module.dumps(built)
     return reloaded, contract_module.dumps(reloaded)
+
+
+def _too_large_reason(built: Contract, needed: int, ceiling: int) -> str:
+    """Why a contract will not be emitted, in the terms that make it actionable.
+
+    The target's own share is named separately when it has one, because the two
+    cases have different fixes: a view dominated by the file says narrow the
+    target, and a view that is large without it says the contract is carrying
+    too much else.
+    """
+    share = (
+        f", {estimate_tokens(built.target_content)} of it the target's own content"
+        if built.target_content
+        else ""
+    )
+    return (
+        f"the worker view is {needed} estimated tokens against a ceiling of "
+        f"{ceiling}{share}. With a whole-file reply the worker must return every "
+        f"one of those tokens too, so this target is too large to send and too "
+        f"large to receive — narrow the target (#126), or raise the ceiling to "
+        f"what this ladder's rungs can actually accept"
+    )
 
 
 def _proposal_of(built: Contract) -> Proposal:
