@@ -94,7 +94,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-from mcgyvr.contract import Contract, load
+from mcgyvr.contract import Contract, dumps, load
 from mcgyvr.pool import Endpoint, Protocol
 from mcgyvr.runner import Request, RunnerError, runner_for
 from mcgyvr.worker.bundle import bundle_for
@@ -432,6 +432,26 @@ def condition_digests() -> dict[str, str]:
     }
 
 
+def task_digests() -> dict[str, str]:
+    """A hash per task, over the contract's emitted form.
+
+    The conditions are hashed because a reworded bundle is a different
+    experiment; a rewritten contract is the same thing on the other axis, and
+    until #150 moved the starting code out of the ``task`` field and into
+    ``target_content`` nothing here noticed a task set being edited between two
+    halves of one sweep. Hashed as :func:`~mcgyvr.contract.dumps` emits it, not
+    as the file reads: a re-indented YAML block or a comment changes the bytes
+    on disk and not one character of what a worker is sent.
+
+    Every task in the tree, never the ``--tasks`` subset — a digest that
+    depended on which subset ran could not be compared across two resumes.
+    """
+    return {
+        task.id: hashlib.sha256(dumps(task.contract).encode("utf-8")).hexdigest()
+        for task in load_tasks()
+    }
+
+
 def rig_revision() -> str:
     """The commit the rig ran at, or ``"unknown"`` rather than a guess.
 
@@ -469,6 +489,7 @@ def record_run(out: Path, worker: Worker, invocation: dict[str, object]) -> None
         "protocol": worker.protocol.value,
         "model": worker.model,
         "conditions_sha256": condition_digests(),
+        "tasks_sha256": task_digests(),
     }
     if path.is_file():
         previous = json.loads(path.read_text(encoding="utf-8"))
@@ -476,9 +497,9 @@ def record_run(out: Path, worker: Worker, invocation: dict[str, object]) -> None
         if drift:
             raise MeasureError(
                 f"{path} records a different run: {', '.join(drift)} changed. "
-                "Rows already here were measured on another worker or another "
-                "ladder; resuming would average two measurements into one "
-                "table. Use a fresh --out directory."
+                "Rows already here were measured on another worker, another "
+                "ladder or another task set; resuming would average two "
+                "measurements into one table. Use a fresh --out directory."
             )
         previous["invocations"].append(invocation)
         path.write_text(json.dumps(previous, indent=2) + "\n", encoding="utf-8")

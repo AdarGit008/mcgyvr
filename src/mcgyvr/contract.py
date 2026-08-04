@@ -32,11 +32,11 @@ discovered later:
    gets accepted on the gate alone, which is worse.
 
 The field layout follows the split #94 arrived at from small-model research:
-worker-facing fields (``task``, ``target``, ``deps``, ``interface``,
-``stop_conditions``, ``output_schema``, ``context``) are separated from
-orchestrator-only ones (``risk``, ``verification``, ``attempts``,
-``acceptance``), and :meth:`Contract.worker_view` is the only way to reach the
-former. Building the flat shape first and splitting it later was the rework
+worker-facing fields (``task``, ``target``, ``target_content``, ``deps``,
+``interface``, ``stop_conditions``, ``output_schema``, ``context``) are
+separated from orchestrator-only ones (``risk``, ``verification``,
+``attempts``, ``acceptance``), and :meth:`Contract.worker_view` is the only way
+to reach the former. Building the flat shape first and splitting it later was the rework
 #94 exists to describe, so the split is here from the start.
 
 ``SCHEMA`` below is declarative data, not hand-written checks — the same
@@ -159,7 +159,10 @@ class Field:
     ``doc`` has no default: a key that cannot be explained does not belong in
     a surface an agent is asked to author against. ``worker_facing`` marks the
     keys :meth:`Contract.worker_view` may expose — the split is declared on the
-    schema so it cannot drift from the prompt builder that honours it.
+    schema so it cannot drift from the prompt builder that honours it. "May be
+    exposed" is not "is rendered": ``id`` and ``context.max_input_tokens`` are
+    both in the view and neither is spent on the worker, because a join key and
+    an input ceiling are things the orchestrator acts on and a model cannot.
 
     ``choices_from`` is for an enum whose valid set is owned elsewhere — today
     only ``task_type``, whose vocabulary lives in the catalog. Resolving it per
@@ -297,6 +300,7 @@ SCHEMA: tuple[Field, ...] = (
         "branch names. Letters, digits, dot, dash and underscore, up to 64 "
         "characters.",
         required=True,
+        worker_facing=True,
         hint="e.g. fetch-helper-retry",
     ),
     Field(
@@ -328,6 +332,21 @@ SCHEMA: tuple[Field, ...] = (
         required=True,
         worker_facing=True,
         hint="e.g. src/pkg/fetch.py",
+    ),
+    Field(
+        "target_content",
+        "str",
+        "The current content of `target`, verbatim, when the file already "
+        "exists. Carried on the contract rather than read from the tree at "
+        "dispatch so that a contract is self-contained and exactly "
+        "reproducible: `parse(dumps(c))` round-trips the bytes a worker was "
+        "actually sent. Empty means the target does not exist yet, or its "
+        "content is not needed — a distinction the deterministic tier never "
+        "asks about, because a tool reads the file itself. Deriving "
+        "`limits.max_output_tokens` from this is #17; the schema only gives it "
+        "somewhere to read from.",
+        default="",
+        worker_facing=True,
     ),
     Field(
         "interface",
@@ -460,6 +479,7 @@ class Contract:
     target: str
     scope: Scope
     version: int = SCHEMA_VERSION
+    target_content: str = ""
     interface: str = ""
     deps: tuple[Dependency, ...] = ()
     stop_conditions: tuple[str, ...] = ()
@@ -496,6 +516,7 @@ class Contract:
             "task_type": self.task_type,
             "task": self.task,
             "target": self.target,
+            "target_content": self.target_content,
             "interface": self.interface,
             "deps": [
                 {"path": d.path, "signature": d.signature, "note": d.note}
@@ -519,6 +540,7 @@ class Contract:
             "task_type": self.task_type,
             "task": self.task,
             "target": self.target,
+            "target_content": self.target_content,
             "interface": self.interface,
             "deps": [
                 {"path": d.path, "signature": d.signature, "note": d.note}
@@ -626,6 +648,7 @@ def _build(data: Mapping[str, Any]) -> Contract:
         target=data["target"],
         scope=Scope.of(data["scope"]["allow"], data["scope"]["forbid"]),
         version=data["version"],
+        target_content=data["target_content"],
         interface=data["interface"],
         deps=tuple(
             Dependency(path=d["path"], signature=d["signature"], note=d["note"])
@@ -827,6 +850,14 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             f"destination. Name a single literal path, or use a task type the "
             f"deterministic tier executes "
             f"({', '.join(t.name for t in task_types() if t.deterministic)})."
+        )
+
+    if _GLOB_META.search(target) and data["target_content"]:
+        raise ContractSchemaError(
+            f"target_content: is set, but target {target!r} is a pattern — "
+            f"there is no one file whose content this could be. Name a single "
+            f"literal path, or drop target_content: a pattern target runs on "
+            f"the deterministic tier, whose tools read each file themselves."
         )
 
     overlap = sorted(set(allow) & set(forbid))

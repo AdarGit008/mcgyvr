@@ -28,6 +28,7 @@ rig's ``--selftest``, run before any sweep.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -37,6 +38,7 @@ from pathlib import Path
 
 import pytest
 
+from mcgyvr import contract as contract_module
 from mcgyvr.contract import Contract, load
 from mcgyvr.pool import Protocol
 from mcgyvr.runner import Completion, Request, StopReason
@@ -386,6 +388,7 @@ def test_the_run_manifest_records_what_was_reached(tmp_path: Path) -> None:
     assert manifest["model"] == "m"
     assert manifest["protocol"] == "openai"
     assert set(manifest["conditions_sha256"]) == set(measure.LADDER)
+    assert set(manifest["tasks_sha256"]) == {t.id for t in measure.load_tasks()}
     # Credentials embedded in a URL are not written down.
     assert manifest["endpoint"] == "https://box/v1"
     assert "secret" not in json.dumps(manifest)
@@ -412,6 +415,38 @@ def test_resuming_onto_a_different_worker_is_refused(tmp_path: Path) -> None:
     measure.record_run(tmp_path, first, {})
     with pytest.raises(measure.MeasureError, match="model"):
         measure.record_run(tmp_path, second, {})
+
+
+def test_resuming_onto_an_edited_task_set_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other axis of the same failure: same worker, different contracts.
+
+    #150 rewrote 12 of the 20 contracts. A sweep interrupted before that and
+    resumed after it would have blended two prompt shapes into one denominator
+    with nothing objecting — the conditions were hashed and the task set was not.
+    """
+    measure = _measure()
+    worker = measure.resolve_worker({"endpoint": "http://box", "model": "m"}, {})
+    measure.record_run(tmp_path, worker, {})
+
+    edited = dict(measure.task_digests())
+    edited["t09"] = "0" * 64
+    monkeypatch.setattr(measure, "task_digests", lambda: edited)
+
+    with pytest.raises(measure.MeasureError, match="tasks_sha256"):
+        measure.record_run(tmp_path, worker, {})
+
+
+def test_the_task_digest_is_of_the_contract_not_of_the_file(tmp_path: Path) -> None:
+    """Hashed as the contract is emitted, so re-indenting YAML is not a new run."""
+    measure = _measure()
+    task = next(t for t in measure.load_tasks() if t.id == "t09")
+    expected = hashlib.sha256(
+        contract_module.dumps(task.contract).encode("utf-8")
+    ).hexdigest()
+
+    assert measure.task_digests()["t09"] == expected
 
 
 # --- the sweep, against a stub worker ------------------------------------

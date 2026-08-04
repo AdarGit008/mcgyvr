@@ -6,10 +6,8 @@ task: |
   number modulo 1000000007, counting from fibMod(0) === 0 and
   fibMod(1) === 1, and must handle n up to 200000. Throw an Error unless
   n is a non-negative integer. Return the complete rewritten file.
-
-  Current content of solution.ts:
-
-  ```ts
+target: solution.ts
+target_content: |
   const MODULUS = 1000000007;
 
   /** The nth Fibonacci number, modulo 1000000007. */
@@ -19,8 +17,6 @@ task: |
     }
     return (fibMod(n - 1) + fibMod(n - 2)) % MODULUS;
   }
-  ```
-target: solution.ts
 interface: "export function fibMod(n: number): number"
 stop_conditions:
   - Whether the modulus may change is not stated.
