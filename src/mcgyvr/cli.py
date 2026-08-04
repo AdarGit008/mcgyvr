@@ -322,10 +322,12 @@ def _detect(args: argparse.Namespace) -> int:
                 print(f"  {host}:")
             for backend in (b for b in found.backends if b.host == host):
                 indent = "    " if hosts else "  "
-                print(
-                    f"{indent}{backend.name:<20} {backend.base_url:<30} "
-                    f"api={backend.api}"
+                protocol = (
+                    f"asked={backend.api} bind={backend.binds_as}"
+                    if backend.bound_on_another_protocol
+                    else f"api={backend.api}"
                 )
+                print(f"{indent}{backend.name:<20} {backend.base_url:<30} {protocol}")
                 if backend.models:
                     for model in backend.models:
                         print(f"{indent}    already pulled: {model}")

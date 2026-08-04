@@ -813,6 +813,40 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   `quality_safe=False` while `api: openai` on the same port and model is not
   (#164).
 
+- Ollama is asked one way and dispatched to another (#164). `detect` recorded a
+  single `api` per backend and `init` wrote it straight into the config, so the
+  most common local install there is came out bound to Ollama's native
+  `/api/generate` — the path CAV-01 is a record of, which scored
+  `qwen2.5-coder:7b` at 32.3% against a true 84.1%. Every rung of a default
+  install was therefore `quality_safe=False`, and a `quality_sensitive` request
+  was refused outright, so **an `init`-written config could not serve a
+  measurement at all**. The uncaveated path was one word away in a file the tool
+  had just written itself.
+
+  Asking and dispatching are now separate facts. `PORT_CONVENTIONS` carries
+  both, and for every backend but one they are the same answer. Ollama is the
+  exception because each of its protocols is better at a different thing: the
+  native `/api/tags` is the only listing that enumerates models *pulled but not
+  loaded*, which is exactly the inventory a proposal needs, while the
+  OpenAI-compatible shape on the same port dispatches with the same model ids
+  and no caveat. So detection still asks natively and the config binds
+  compatibly — not a compromise between the two, but each used for what it is
+  actually better at.
+
+  The rule lives in `binds_as_for()` reading the one convention table, so a
+  `Backend` built by hand — in a test, or by some future caller that is not
+  `probe` — cannot silently take the caveated default. A test caught exactly
+  that during the work.
+
+  `init` explains the switch among its decisions rather than leaving it to look
+  like a bug: a config saying `api: openai` for a source `detect` called Ollama
+  needs its reason attached, and the reason is CAV-01 with the numbers.
+
+  Verified against a live Ollama on two rigs: a `quality_sensitive` request,
+  which the previous configuration refused outright with `QualityCaveatError`,
+  now dispatches and returns `quality_safe=True`. This is what unblocks #144,
+  which cannot take a measurement on a caveated path.
+
 ### Changed
 - A bundle's leading provenance marker is stripped at load
   (`worker.bundle.strip_provenance`) and no longer reaches the worker or the

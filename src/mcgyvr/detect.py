@@ -24,14 +24,21 @@ unchanged, but the deployment this project exists for — an agent on a
 laptop, offloading to rigs elsewhere — is expressible rather than invisible.
 The hardware half of detection stays local by definition: ``nvidia-smi``
 here describes this machine, and a remote rig's card is not something this
-module can see. What it *can* see of a remote rig is better than a VRAM
-estimate anyway — a backend that reports serving a model is proof that model
-runs there, which is the fact the proposal actually needs.
+module can see. What it *can* see of a remote rig — the models that rig
+reports holding — is the evidence the proposal uses instead, and unlike a
+VRAM estimate it cannot be wrong about which machine it describes.
 
 A probed host is identified by name in every backend it yields, because with
 more than one host in play "ollama answered" no longer identifies anything.
 Names stay bare for a single-host sweep so the ordinary install reads the way
 it always did.
+
+**Asking and dispatching are two different questions (#164).** A backend is
+probed on whichever protocol enumerates what it holds, and bound on whichever
+protocol work should later be sent over. For every backend here but one those
+are the same answer. Ollama is the exception and the reason the fields are
+separate: its native listing is the only one that includes models pulled but
+not loaded, while its native *generation* path is the one CAV-01 invalidates.
 
 Probes run concurrently against a short timeout, so an endpoint that
 accepts a connection and then hangs costs the timeout once rather than
@@ -86,9 +93,10 @@ class ProbeTarget:
 
     name: str
     base_url: str
-    api: str  # "ollama" or "openai"
+    api: str  # how to ASK: "ollama" or "openai"
     host: str = DEFAULT_HOST
     kind: str = ""  # the backend convention: "ollama", "vllm", ... (default: name)
+    binds_as: str = ""  # how to DISPATCH later; defaults to `api`
 
     def __post_init__(self) -> None:
         # `kind` is what the server IS; `name` is what it will be called. They
@@ -98,19 +106,49 @@ class ProbeTarget:
         # `ollama` or `srv2_ollama`.
         if not self.kind:
             object.__setattr__(self, "kind", self.name)
+        if not self.binds_as:
+            object.__setattr__(self, "binds_as", binds_as_for(self.kind, self.api))
 
 
-# Default ports each backend ships with. Identification is by port
-# convention, which is a guess about identity but not about capability:
-# what matters downstream is the wire protocol and the model list, and
-# both are read from the answer rather than assumed.
-PORT_CONVENTIONS: tuple[tuple[str, int, str], ...] = (
-    ("ollama", 11434, "ollama"),
-    ("llama-server", 8080, "openai"),
-    ("vllm", 8000, "openai"),
-    ("lmstudio", 1234, "openai"),
-    ("tgi", 3000, "openai"),
+# Default ports each backend ships with, and for each: how to ASK it what it
+# holds, then how to DISPATCH to it. Identification is by port convention,
+# which is a guess about identity but not about capability: what matters
+# downstream is the wire protocol and the model list, and both are read from
+# the answer rather than assumed.
+#
+# **Ollama is asked one way and bound another, and that is the point (#164).**
+# Its native `/api/tags` is the only endpoint that enumerates models that are
+# *pulled but not loaded*, which is exactly the inventory a proposal needs. Its
+# native `/api/generate`, though, is the path CAV-01 is a record of — it scored
+# `qwen2.5-coder:7b` at 32.3% against a true 84.1%, so every completion from it
+# is marked `quality_safe=False` and a quality-sensitive request is refused
+# outright. The same port also serves the OpenAI-compatible shape, with the same
+# model ids and no caveat. Asking natively and dispatching compatibly is not a
+# compromise between the two; it is each protocol used for the thing it is
+# actually better at.
+PORT_CONVENTIONS: tuple[tuple[str, int, str, str], ...] = (
+    ("ollama", 11434, "ollama", "openai"),
+    ("llama-server", 8080, "openai", "openai"),
+    ("vllm", 8000, "openai", "openai"),
+    ("lmstudio", 1234, "openai", "openai"),
+    ("tgi", 3000, "openai", "openai"),
 )
+
+
+def binds_as_for(kind: str, api: str) -> str:
+    """The protocol to dispatch to ``kind`` on, given how it was asked.
+
+    Reads the one convention table, so every construction path agrees. That
+    matters more than it looks: the difference between asking Ollama natively
+    and dispatching to it natively is a measured 32.3% against 84.1%, and a
+    :class:`Backend` built by hand — in a test, or by a future caller that is
+    not :func:`probe` — silently taking the caveated path would be a trap
+    rather than a default.
+    """
+    for name, _, _, binds in PORT_CONVENTIONS:
+        if name == kind:
+            return binds
+    return api
 
 
 def _host_token(host: str) -> str:
@@ -130,7 +168,7 @@ def _host_token(host: str) -> str:
 
 def targets_for(
     hosts: Sequence[str] = (DEFAULT_HOST,),
-    conventions: Sequence[tuple[str, int, str]] = PORT_CONVENTIONS,
+    conventions: Sequence[tuple[str, int, str, str]] = PORT_CONVENTIONS,
 ) -> tuple[ProbeTarget, ...]:
     """Expand hosts into the candidate endpoints to sweep on each.
 
@@ -149,7 +187,7 @@ def targets_for(
     qualify = len(unique) > 1
     targets: list[ProbeTarget] = []
     for host in unique:
-        for name, port, api in conventions:
+        for name, port, api, binds_as in conventions:
             targets.append(
                 ProbeTarget(
                     name=f"{_host_token(host)}_{name}" if qualify else name,
@@ -157,6 +195,7 @@ def targets_for(
                     api=api,
                     host=host,
                     kind=name,
+                    binds_as=binds_as,
                 )
             )
     return tuple(targets)
@@ -183,10 +222,23 @@ class Backend:
     how: str
     host: str = DEFAULT_HOST
     kind: str = ""  # the backend convention; see ProbeTarget.kind
+    binds_as: str = ""  # the protocol a config should dispatch on; see #164
 
     def __post_init__(self) -> None:
         if not self.kind:
             object.__setattr__(self, "kind", self.name)
+        if not self.binds_as:
+            object.__setattr__(self, "binds_as", binds_as_for(self.kind, self.api))
+
+    @property
+    def bound_on_another_protocol(self) -> bool:
+        """Whether this will be dispatched to differently from how it answered.
+
+        True for Ollama and nothing else today. Surfaced rather than left
+        implicit because a config saying ``api: openai`` for a source that
+        `detect` called Ollama looks like a mistake until the reason is given.
+        """
+        return self.binds_as != self.api
 
     @property
     def is_local(self) -> bool:
@@ -321,6 +373,7 @@ def probe(target: ProbeTarget, timeout: float = PROBE_TIMEOUT_S) -> Backend | No
         how=f"answered GET {path} at {target.base_url} within {timeout:g}s",
         host=target.host,
         kind=target.kind,
+        binds_as=target.binds_as,
     )
 
 

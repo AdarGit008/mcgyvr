@@ -241,7 +241,11 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
     sources = {
         backend.name: {
             "base_url": backend.base_url,
-            "api": backend.api,
+            # How work will be DISPATCHED, which is not always how the backend
+            # was ASKED what it holds. For Ollama they differ on purpose: the
+            # native path enumerates pulled models but is the one CAV-01
+            # measured at 32.3% against a true 84.1% (#164).
+            "api": backend.binds_as,
             "max_parallel": 1,
         }
         for backend in detection.backends
@@ -303,8 +307,19 @@ def _decisions(detection: Detection, proposal: Proposal) -> tuple[str, ...]:
         where = "here" if backend.is_local else f"on {backend.host}"
         decisions.append(
             f"Source '{backend.name}' {where} at {backend.base_url} speaking "
-            f"{backend.api}; {len(backend.models)} model(s) already pulled."
+            f"{backend.binds_as}; {len(backend.models)} model(s) already pulled."
         )
+        if backend.bound_on_another_protocol:
+            decisions.append(
+                f"  '{backend.name}' answered as {backend.api} but is bound as "
+                f"{backend.binds_as}: the same port serves both, with the same "
+                f"model ids. CAV-01 measured the native path scoring "
+                f"qwen2.5-coder:7b at 32.3% against a true 84.1%, so work "
+                f"dispatched on it carries a quality caveat and cannot serve a "
+                f"measurement at all. Detection still asks natively, because "
+                f"that is the only listing that includes models pulled but not "
+                f"loaded."
+            )
     for rung in proposal.rungs:
         presence = (
             "already pulled"
