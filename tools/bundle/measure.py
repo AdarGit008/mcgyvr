@@ -246,6 +246,44 @@ def run_acceptance(task: Task, content: str, workdir: Path) -> Acceptance:
     return Acceptance(True, "")
 
 
+def node_runs_typescript() -> bool:
+    """Whether the Node on PATH executes TypeScript directly.
+
+    Presence is the wrong predicate, and assuming it is the failure this
+    function exists to prevent: ``accept.mjs`` imports ``./solution.ts``, so a
+    Node without type stripping fails every task for a reason that is about the
+    runner rather than about the code — twenty red rows misattributed to a
+    model, or to a bundle. Stripping is unflagged from Node 23.6 and 22.18, so
+    this runs the capability rather than parsing a version out of
+    ``--version``.
+    """
+    if shutil.which("node") is None:
+        return False
+    with tempfile.TemporaryDirectory(prefix="mcgyvr-bundle-probe-") as tmp:
+        probe = Path(tmp) / "probe.ts"
+        probe.write_text("const n: number = 1;\n", encoding="utf-8")
+        try:
+            proc = subprocess.run(
+                ["node", str(probe)],
+                capture_output=True,
+                timeout=ACCEPTANCE_TIMEOUT_S,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        return proc.returncode == 0
+
+
+def node_capability_error() -> str | None:
+    """Why acceptance cannot run here, or ``None`` if it can."""
+    if node_runs_typescript():
+        return None
+    return (
+        "acceptance needs a Node that runs TypeScript directly — `node "
+        "accept.mjs` imports ./solution.ts. Type stripping is unflagged from "
+        "Node 23.6; the task set was built on 24."
+    )
+
+
 def selftest(tasks: Iterable[Task]) -> int:
     """Run every reference solution against its own acceptance script.
 
@@ -495,6 +533,15 @@ def main() -> int:
     except MeasureError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+
+    # Every path that runs a task needs a Node that strips types; summarising
+    # rows already on disk does not. Refused here rather than discovered as a
+    # uniform failure twenty tasks in.
+    if not args.summarise_only:
+        problem = node_capability_error()
+        if problem is not None:
+            print(f"error: {problem}", file=sys.stderr)
+            return 2
 
     if args.selftest:
         return selftest(tasks)

@@ -114,6 +114,14 @@ compiler, no install and no network, and acceptance stays isolated and
 stdlib-only per CLM-0004's design. The rig writes the worker's file into a fresh
 temp directory beside a copy of the acceptance script and runs it there.
 
+That is a **requirement, and it is checked before anything runs.** Stripping is
+unflagged from Node 23.6 and 22.18; on anything older every task fails
+identically, and the failure looks exactly like a model that cannot write
+TypeScript. `node_runs_typescript()` probes the capability — it runs a `.ts`
+file rather than reading `--version` — and both `--selftest` and a sweep refuse
+with the reason instead of producing twenty red rows. The tests that run
+acceptance skip on the same predicate.
+
 `--selftest` runs every reference against its own acceptance and is a
 precondition, not a convenience: the experiment is invalid unless it is 100%
 green. It needs no worker, which is why it is the part of this that has actually

@@ -480,7 +480,12 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   through `parse_reply` with the backend's real stop reason, so a reply this
   project would refuse is scored as a failure by its refusal code rather than
   quietly run. Acceptance needs no toolchain: Node 24 executes TypeScript by
-  stripping types.
+  stripping types — a requirement the rig now probes rather than assumes.
+  `node_runs_typescript()` runs a `.ts` file instead of reading `--version`, so
+  `--selftest` and a sweep refuse on a Node that cannot strip types, and the
+  tests that run acceptance skip on the same predicate. Presence was the wrong
+  question: on an older Node every task fails identically and the symptom is
+  indistinguishable from a model that cannot write TypeScript.
 
 ### Changed
 - A bundle's leading provenance marker is stripped at load

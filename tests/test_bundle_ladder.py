@@ -18,16 +18,17 @@ that would silently spoil a run actually live:
   because a task whose contract mcgyvr rejects or whose target selects no bundle
   is not measuring the shipped path.
 
-The one test that needs Node is marked and skips without it: CI's test job
-installs no JavaScript toolchain, and a test that silently required one would be
-a test that guards nothing. The full reference-vs-acceptance selftest is the
+The tests that run acceptance are marked and skip where it cannot run, and the
+predicate is the rig's own ``node_runs_typescript()`` rather than "is Node
+installed". Acceptance imports ``solution.ts``, so a Node without type
+stripping is not a Node these tests can use — a presence check let them fail on
+the runner instead of skipping. The full reference-vs-acceptance selftest is the
 rig's ``--selftest``, run before any sweep.
 """
 
 from __future__ import annotations
 
 import importlib.util
-import shutil
 import subprocess
 import sys
 import types
@@ -258,13 +259,37 @@ def _fenced(path: Path) -> str:
     return f"```ts\n{path.read_text(encoding='utf-8')}```\n"
 
 
-requires_node = pytest.mark.skipif(
-    shutil.which("node") is None,
-    reason="acceptance runs on Node; CI's test job installs no JS toolchain",
+# Not `which("node")`: acceptance imports `solution.ts`, so the predicate is
+# whether this Node strips types, not whether one is installed. CI's baseline
+# job pins Node 20 for the gate's own runtime, and a presence check skipped
+# nothing there — every acceptance-running test failed on the runner rather
+# than on anything about the repository. The probe is the rig's own, so the
+# tests and the sweep agree on what a usable Node is.
+requires_typescript_node = pytest.mark.skipif(
+    not _measure().node_runs_typescript(),
+    reason="this Node does not run TypeScript directly (unflagged from 23.6)",
 )
 
 
-@requires_node
+def test_a_node_that_cannot_run_typescript_is_refused_with_its_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Said once, up front — not discovered as twenty identical red rows.
+
+    A run on an unusable Node is not a weak result; it is no result, and it
+    would read as one. The refusal has to name the cause, because the symptom
+    is indistinguishable from a model that cannot write TypeScript.
+    """
+    measure = _measure()
+    monkeypatch.setattr(measure.shutil, "which", lambda _name: None)
+
+    assert measure.node_runs_typescript() is False
+    problem = measure.node_capability_error()
+    assert problem is not None
+    assert "solution.ts" in problem
+
+
+@requires_typescript_node
 def test_a_good_reply_is_scored_as_a_first_pass(tmp_path: Path) -> None:
     measure = _measure()
     task = measure.load_tasks(["t01"])[0]
@@ -313,7 +338,7 @@ def test_a_truncated_reply_is_refused_rather_than_run(tmp_path: Path) -> None:
     assert len(runner.requests) == 1
 
 
-@requires_node
+@requires_typescript_node
 def test_a_failing_reply_spends_one_remediation_round(tmp_path: Path) -> None:
     measure = _measure()
     task = measure.load_tasks(["t01"])[0]
@@ -338,7 +363,7 @@ def test_a_failing_reply_spends_one_remediation_round(tmp_path: Path) -> None:
     assert "failed its acceptance check" in runner.requests[1].prompt
 
 
-@requires_node
+@requires_typescript_node
 def test_no_remediate_stops_after_the_first_attempt(tmp_path: Path) -> None:
     measure = _measure()
     task = measure.load_tasks(["t01"])[0]
@@ -417,7 +442,7 @@ def test_resume_skips_the_cells_already_recorded(tmp_path: Path) -> None:
 # --- the precondition ----------------------------------------------------
 
 
-@requires_node
+@requires_typescript_node
 def test_every_reference_passes_its_own_acceptance() -> None:
     """The rig's ``--selftest``, run as a test. Red here invalidates a sweep.
 
