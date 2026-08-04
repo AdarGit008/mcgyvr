@@ -166,6 +166,21 @@ TIER_FIELDS: tuple[Field, ...] = (
         required=True,
     ),
     Field("model", "str", "Model identifier as the source names it.", required=True),
+    Field(
+        "attempts",
+        "int",
+        "How many times this rung may be tried before escalation moves on. "
+        "The default of 1 is escalate-rather-than-retry: a second attempt "
+        "re-runs the same model on the same input, and the figure inherited "
+        "from local-ai and not re-verified here (#152) — worker-tier "
+        "remediation rescued 2 of 35 failures — says that is usually spend "
+        "without a result. Raising it is most "
+        "defensible on the dearest rung, which has nowhere to escalate to. A "
+        "contract's `limits.attempts` caps this per task; the lower of the "
+        "two applies.",
+        default=1,
+        min_value=1,
+    ),
 )
 
 LADDER_FIELDS: tuple[Field, ...] = (
@@ -383,11 +398,18 @@ class Source:
 
 @dataclass(frozen=True)
 class Tier:
-    """One rung of the ladder, bound to a source and a model."""
+    """One rung of the ladder, bound to a source and a model.
+
+    ``attempts`` is routing policy rather than a property of the binding: it is
+    how many times this rung is tried before escalation leaves it, and it lives
+    here because policy references a rung by name (ADR-0008). It defaults to 1
+    so that the configured behaviour is to escalate rather than retry.
+    """
 
     name: str
     source: str
     model: str
+    attempts: int = 1
 
 
 @dataclass(frozen=True)
@@ -804,7 +826,12 @@ def parse(text: str, path: Path | None = None) -> Config:
     }
     ladder = Ladder(
         tiers=tuple(
-            Tier(name=t["name"], source=t["source"], model=t["model"])
+            Tier(
+                name=t["name"],
+                source=t["source"],
+                model=t["model"],
+                attempts=t["attempts"],
+            )
             for t in data["ladder"]["tiers"]
         )
     )

@@ -82,6 +82,7 @@ def _config(args: argparse.Namespace) -> int:
 
 def _pool(args: argparse.Namespace) -> int:
     from mcgyvr.pool import SourceUnavailableError, source_map
+    from mcgyvr.route import family_of
 
     path = Path(args.path) if args.path else resolve_config_path()
     try:
@@ -100,9 +101,18 @@ def _pool(args: argparse.Namespace) -> int:
     # The ladder, not the endpoints: this command answers "what can run", and
     # where each rung runs is the seam's business (#20). A rung that cannot run
     # names its source in the reason, which is when that fact starts to matter.
+    #
+    # The family and the attempt budget are shown because they are the routing
+    # decision (#24), and a decision nobody can read is one nobody can check.
+    # A family is a cost class rather than a location, so printing it says how
+    # dear a rung is to ask without saying which machine answers.
     print(f"{config.path}: {len(pool)} usable rung(s), cheapest first:\n")
     for rung in pool.rungs:
-        print(f"  {rung.name:<20} {rung.model}")
+        tier = config.ladder.get(rung.name)
+        budget = tier.attempts if tier is not None else 1
+        tries = "1 attempt" if budget == 1 else f"{budget} attempts"
+        family = family_of(config, rung.name)
+        print(f"  {rung.name:<20} {family.name:<14} {tries:<11} {rung.model}")
     if not pool.rungs:
         print("  (none — every rung's source is unusable)")
 

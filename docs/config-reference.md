@@ -81,6 +81,7 @@ An ordered list. Each entry takes these keys:
 | `name` | text | **yes** | — | How this rung is referred to elsewhere — risk floors, routing policy, telemetry. Conventionally `<locality>_<model>`, e.g. `local_qwen2.5-coder-7b`, which says what the rung is rather than where it sits: a positional name silently changes meaning when a rung is inserted above it. There is no role in the name because a binding's role is already given by where it sits — this is the ladder, so it is a worker. |
 | `source` | text | **yes** | — | Which declared source executes this rung. Resolution happens at the execution seam only — nothing above it knows where work ran. |
 | `model` | text | **yes** | — | Model identifier as the source names it. |
+| `attempts` | number (min 1) | no | `1` | How many times this rung may be tried before escalation moves on. The default of 1 is escalate-rather-than-retry: a second attempt re-runs the same model on the same input, and the figure inherited from local-ai and not re-verified here (#152) — worker-tier remediation rescued 2 of 35 failures — says that is usually spend without a result. Raising it is most defensible on the dearest rung, which has nowhere to escalate to. A contract's `limits.attempts` caps this per task; the lower of the two applies. |
 
 ## `orchestrator`
 
