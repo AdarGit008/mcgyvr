@@ -6,10 +6,8 @@ task: |
   does now. The rewritten file must contain no `for` keyword and must not
   call `.push` - the acceptance script reads the file and checks for both.
   Return the complete rewritten file.
-
-  Current content of solution.ts:
-
-  ```ts
+target: solution.ts
+target_content: |
   export interface User {
     email: string;
     active: boolean;
@@ -25,8 +23,6 @@ task: |
     }
     return out;
   }
-  ```
-target: solution.ts
 interface: "export function activeEmails(users: readonly User[]): string[]"
 stop_conditions:
   - Whether an absent `active` property counts as active is not stated.

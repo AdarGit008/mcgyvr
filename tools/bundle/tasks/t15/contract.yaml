@@ -7,10 +7,8 @@ task: |
   behaviour must stay exactly as they are. The acceptance script reads the
   file and requires the phrase "must be a finite number" to appear exactly
   once. Return the complete rewritten file.
-
-  Current content of solution.ts:
-
-  ```ts
+target: solution.ts
+target_content: |
   /** The temperature in degrees Fahrenheit. */
   export function celsiusToFahrenheit(celsius: number): number {
     if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
@@ -32,8 +30,6 @@ task: |
     }
     return celsius + 273.15;
   }
-  ```
-target: solution.ts
 interface: "export function celsiusToFahrenheit(celsius: number): number; export function celsiusToKelvin(celsius: number): number"
 stop_conditions:
   - Whether the helper should be exported for testing is not stated.

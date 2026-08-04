@@ -4,16 +4,12 @@ task: |
   sortAscending orders numbers as text, so [10, 9, 100] comes back as
   [10, 100, 9]. Fix it to order numerically, ascending, without mutating
   the argument. Return the complete fixed file.
-
-  Current content of solution.ts:
-
-  ```ts
+target: solution.ts
+target_content: |
   /** The numbers, ascending. */
   export function sortAscending(values: readonly number[]): number[] {
     return [...values].sort();
   }
-  ```
-target: solution.ts
 interface: "export function sortAscending(values: readonly number[]): number[]"
 stop_conditions:
   - Where NaN should be ordered is not stated.

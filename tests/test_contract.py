@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.contract import (
+    SCHEMA,
     SCHEMA_VERSION,
     Contract,
     ContractFileError,
@@ -55,6 +56,9 @@ id: fetch-retry
 task_type: function_implementation
 task: Add retry with backoff to the fetch helper.
 target: src/pkg/fetch.py
+target_content: |
+  def fetch(url: str) -> Response:
+      return _client.get(url)
 interface: "def fetch(url: str, *, retries: int = 3) -> Response"
 deps:
   - path: src/pkg/backoff.py
@@ -111,6 +115,9 @@ def test_round_trip_preserves_every_field() -> None:
     assert contract.id == "fetch-retry"
     assert contract.task_type == "function_implementation"
     assert contract.interface.startswith("def fetch(")
+    assert contract.target_content == (
+        "def fetch(url: str) -> Response:\n    return _client.get(url)\n"
+    )
     assert [d.path for d in contract.deps] == ["src/pkg/backoff.py"]
     assert contract.deps[0].signature == "def delay(attempt: int) -> float"
     assert contract.deps[0].note == "Use this for the wait between attempts."
@@ -134,6 +141,7 @@ def test_defaults_are_applied() -> None:
     contract = loads(MINIMAL)
     assert contract.version == SCHEMA_VERSION
     assert contract.interface == ""
+    assert contract.target_content == ""
     assert contract.deps == ()
     assert contract.output_schema == "whole_file"
     assert contract.max_input_tokens == 4096
@@ -174,6 +182,63 @@ def test_glob_target_is_allowed_for_a_deterministic_task_type() -> None:
 
 def test_literal_target_is_allowed_for_a_model_task_type() -> None:
     assert loads(MINIMAL).target == "src/pkg/fetch.py"
+
+
+# --- acceptance: the target's current content has a slot of its own (#150) --
+
+
+def test_a_bug_fix_states_its_file_without_putting_it_in_the_task() -> None:
+    """The workaround #150 exists to retire: bytes inside a prose field.
+
+    `task` is documented as "what to do, in words". Once the slot exists the
+    instruction and the material are separable, and this asserts they separate:
+    the content is reachable as itself, and `task` is only the words.
+    """
+    contract = loads(
+        MINIMAL.replace(
+            "task: Add retry with backoff to the fetch helper.",
+            "task: The helper never retries. Fix it.\n"
+            "target_content: |\n"
+            "  def fetch(url: str) -> Response:\n"
+            "      return _client.get(url)\n",
+        )
+    )
+    assert contract.task == "The helper never retries. Fix it."
+    assert contract.target_content.startswith("def fetch(url: str) -> Response:")
+
+
+def test_absent_content_is_empty_and_means_the_target_may_not_exist_yet() -> None:
+    """Absence has one documented meaning, not a sentinel and not an error.
+
+    A `function_implementation` writing a new file and one rewriting an existing
+    file are the same contract shape; what separates them is whether there was
+    content to state. Neither is rejected, because the loader cannot know which
+    the caller meant and guessing would reject half the legitimate cases.
+    """
+    assert loads(MINIMAL).target_content == ""
+    field = next(f for f in SCHEMA if f.name == "target_content")
+    assert "does not exist yet" in field.doc
+
+
+def test_content_on_a_pattern_target_is_rejected() -> None:
+    """Whose content? A pattern names a set, so the slot has no referent."""
+    with pytest.raises(ContractSchemaError) as exc:
+        loads(
+            DETERMINISTIC.replace(
+                "target: src/pkg/fetch.py",
+                'target: "src/**"\ntarget_content: "x = 1\\n"',
+            )
+        )
+    message = str(exc.value)
+    assert message.startswith("target_content:")
+    assert "there is no one file" in message
+
+
+def test_a_pattern_target_without_content_is_still_fine() -> None:
+    """The rejection is the contradiction, not the pattern — #150 adds no
+    restriction to the deterministic tier, whose tools read files themselves."""
+    pattern = DETERMINISTIC.replace("target: src/pkg/fetch.py", 'target: "src/**"')
+    assert loads(pattern).target_content == ""
 
 
 # --- acceptance: every rejection names the field and the fix ----------------
@@ -363,10 +428,23 @@ def test_worker_view_excludes_every_orchestrator_only_field() -> None:
         assert key not in view, f"{key} must not reach the worker prompt"
 
 
+def test_the_worker_view_is_exactly_the_worker_facing_schema() -> None:
+    """The split is declared on the schema, so the view must be derivable from it.
+
+    Asserted as an equality rather than as a list of keys somebody remembered to
+    update: a field added as ``worker_facing`` and never rendered, or reached
+    around ``worker_view()`` and never declared, fails here. That is what keeps
+    #94's guarantee structural as the schema grows (#150 was the first growth).
+    """
+    declared = {field.name for field in SCHEMA if field.worker_facing}
+    assert set(loads(FULL).worker_view()) == declared
+
+
 def test_worker_view_carries_what_the_worker_needs() -> None:
     view = loads(FULL).worker_view()
     assert view["task"].startswith("Add retry")
     assert view["target"] == "src/pkg/fetch.py"
+    assert view["target_content"].startswith("def fetch(url: str) -> Response:")
     assert view["interface"].startswith("def fetch(")
     assert view["deps"][0]["signature"] == "def delay(attempt: int) -> float"
     assert len(view["stop_conditions"]) == 2

@@ -4,10 +4,8 @@ task: |
   factorial recurses forever on 0 because its base case only stops at 1.
   Fix the base case so factorial(0) is 1, and throw an Error for a
   negative or non-integer argument. Return the complete fixed file.
-
-  Current content of solution.ts:
-
-  ```ts
+target: solution.ts
+target_content: |
   /** The factorial of n. */
   export function factorial(n: number): number {
     if (n === 1) {
@@ -15,8 +13,6 @@ task: |
     }
     return n * factorial(n - 1);
   }
-  ```
-target: solution.ts
 interface: "export function factorial(n: number): number"
 stop_conditions:
   - The largest n that must be supported is not stated.

@@ -199,10 +199,120 @@ def test_the_input_budget_is_spent_not_shown() -> None:
     assert "max_input_tokens" not in render_user_message(view)
 
 
+def test_the_contracts_identity_is_carried_but_not_rendered() -> None:
+    """`id` is in the view — it says which contract the view is of — and is a
+    join key for records and telemetry, which is not something a model can act
+    on. Being in the view and being in the prompt are different claims."""
+    view = contract(PY_CONTRACT).worker_view()
+    assert view["id"] == "fetch-retry"
+    assert "fetch-retry" not in render_user_message(view)
+
+
 def test_optional_sections_are_omitted_when_empty() -> None:
     built = build_prompt(contract(JS_CONTRACT))
     assert "INTERFACE" not in built.user
     assert "DEPENDENCIES" not in built.user
+
+
+# --- the target's current content (#150) -----------------------------------
+
+FIXABLE = """
+id: factorial-base-case
+task_type: bug_fix
+task: The base case only stops at 1, so factorial(0) never terminates.
+target: solution.ts
+target_content: |
+  export function factorial(n: number): number {
+    if (n === 1) {
+      return 1;
+    }
+    return n * factorial(n - 1);
+  }
+stop_conditions:
+  - The largest n that must be supported is not stated.
+acceptance: ["node accept.mjs"]
+scope:
+  allow: ["solution.ts"]
+"""
+
+
+def test_the_content_section_names_the_file_and_says_it_is_the_one_to_change() -> None:
+    """A worker shown a file and told to return "the complete new content of
+    solution.ts" must not have to infer the two are the same file."""
+    built = build_prompt(contract(FIXABLE))
+    header = "CURRENT CONTENT OF solution.ts (this is the file to change):"
+    assert header in built.user
+    assert "solution.ts" in built.user.split("OUTPUT:")[1]
+
+
+def test_the_content_reaches_the_prompt_verbatim() -> None:
+    built = build_prompt(contract(FIXABLE))
+    assert "return n * factorial(n - 1);" in built.user
+    assert contract(FIXABLE).target_content in built.user
+
+
+def test_the_content_is_absent_from_the_prompt_when_the_contract_states_none() -> None:
+    """Nothing renders an empty section, and nothing invents a placeholder: a
+    contract for a file that does not exist yet says nothing about its content."""
+    built = build_prompt(contract(JS_CONTRACT))
+    assert "CURRENT CONTENT" not in built.user
+
+
+def test_the_content_reaches_the_prompt_only_through_the_worker_view() -> None:
+    """#94's property has to survive a field being added to the split.
+
+    Rendering off ``contract.target_content`` would work and would cost the
+    guarantee, so this drives the renderer with a view the content was removed
+    from — the only way it could still appear is a second accessor.
+    """
+    view = contract(FIXABLE).worker_view()
+    view["target_content"] = ""
+    assert "factorial(n - 1)" not in render_user_message(view)
+
+
+def test_a_fence_inside_the_content_does_not_end_the_block() -> None:
+    """CommonMark closes a fence on the first line of at least as many
+    backticks. A file containing one — a docstring, a markdown template — would
+    otherwise end its own block and hand the worker a truncated target."""
+    fenced = FIXABLE.replace(
+        "target_content: |\n",
+        'target_content: "const readme = `x`;\\n```\\nnested\\n```\\n"\n',
+    ).replace(
+        """  export function factorial(n: number): number {
+    if (n === 1) {
+      return 1;
+    }
+    return n * factorial(n - 1);
+  }
+""",
+        "",
+    )
+    built = build_prompt(contract(fenced))
+    body = built.user.split("CURRENT CONTENT OF solution.ts")[1]
+    opening = body.split("\n")[1]
+    assert opening.startswith("````")  # wider than the ``` inside
+    assert "nested" in built.user
+    assert built.user.count(opening) == 2  # opened and closed, exactly once each
+
+
+def test_content_that_busts_the_ceiling_is_a_preflight_issue() -> None:
+    """The content is charged against `max_input_tokens` like everything else,
+    so a target too large to send fails at the contract level rather than being
+    truncated into a dispatch."""
+    small = contract(FIXABLE + "context:\n  max_input_tokens: 4096\n")
+    assert build_prompt(small).fits
+
+    huge = contract(
+        FIXABLE.replace(
+            "  export function factorial",
+            "  // " + "padding " * 4000 + "\n  export function factorial",
+        )
+    )
+    built = build_prompt(huge)
+    assert not built.fits
+    assert built.fit_issue is not None
+    assert built.fit_issue.reason == "prompt-too-large"
+    assert "padding" in built.user  # assembled, so the caller can say what did not fit
 
 
 def test_the_reply_instruction_names_the_target_and_the_shape() -> None:

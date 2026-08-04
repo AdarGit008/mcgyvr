@@ -5,10 +5,8 @@ task: |
   walking, so the index moves past the element that shifted into the gap.
   Fix it to remove every negative number. The argument must not be
   mutated - return a new array. Return the complete fixed file.
-
-  Current content of solution.ts:
-
-  ```ts
+target: solution.ts
+target_content: |
   /** The values with every negative number removed. */
   export function removeNegatives(values: number[]): number[] {
     values.forEach((value, index) => {
@@ -18,8 +16,6 @@ task: |
     });
     return values;
   }
-  ```
-target: solution.ts
 interface: "export function removeNegatives(values: readonly number[]): number[]"
 stop_conditions:
   - Whether negative zero counts as negative is not stated.

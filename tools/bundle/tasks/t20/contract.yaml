@@ -8,10 +8,8 @@ task: |
   an empty key. A key must never reach the prototype of the returned
   object: parsing "__proto__=x" must produce a plain data key, leaving
   Object.prototype untouched. Return the complete fixed file.
-
-  Current content of solution.ts:
-
-  ```ts
+target: solution.ts
+target_content: |
   /** The KEY=VALUE pairs of a config file. */
   export function parseConfig(text: string): Record<string, string> {
     const config: Record<string, string> = {};
@@ -21,8 +19,6 @@ task: |
     }
     return config;
   }
-  ```
-target: solution.ts
 interface: "export function parseConfig(text: string): Record<string, string>"
 stop_conditions:
   - Whether a repeated key should win or throw is not stated.

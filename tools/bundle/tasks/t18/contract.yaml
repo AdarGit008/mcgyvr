@@ -10,10 +10,8 @@ task: |
   Node's type stripping, so use erasable syntax only: no enum, no
   namespace, no constructor parameter properties. Return the complete
   annotated file.
-
-  Current content of solution.ts:
-
-  ```ts
+target: solution.ts
+target_content: |
   /** An append-only log of timestamped events. */
   export class EventLog {
     #events = [];
@@ -28,8 +26,6 @@ task: |
       return this.#events.filter((event) => event.timestamp >= timestamp);
     }
   }
-  ```
-target: solution.ts
 interface: "export interface Event { name: string; timestamp: number } export class EventLog { record(event: Event): void; since(timestamp: number): Event[] }"
 stop_conditions:
   - Whether `since` should return copies of the events is not stated.

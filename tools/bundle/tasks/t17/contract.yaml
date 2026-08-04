@@ -9,10 +9,8 @@ task: |
   Node's type stripping, so use erasable syntax only: no enum, no
   namespace, no constructor parameter properties. Return the complete
   annotated file.
-
-  Current content of solution.ts:
-
-  ```ts
+target: solution.ts
+target_content: |
   /** The words grouped by their length, in first-seen order. */
   export function groupByLength(words) {
     const groups = new Map();
@@ -26,8 +24,6 @@ task: |
     }
     return groups;
   }
-  ```
-target: solution.ts
 interface: "export function groupByLength(words: readonly string[]): Map<number, string[]>"
 stop_conditions:
   - Whether the returned arrays should be read-only is not stated.

@@ -294,16 +294,20 @@ New here, and none of them inherited:
   about the code. The two type tasks say so in their contracts; the other 18 do
   not, because the construct is unlikely to appear there — but a failure of this
   kind would be misattributed to the bundle.
-- **The buggy code travels in the `task` field.** #25's worker prompt has no
-  slot for the target file's current content — `worker_view()` exposes `task`,
-  `target`, `interface`, `deps`, `stop_conditions`, `output_schema` and
-  `context.max_input_tokens`, and none of them is "the file as it stands". So
-  the 7 `bug_fix` tasks and the 2 `type_annotation` tasks carry their current
-  content inside the task description, which is the only slot available today.
-  It is legal and it is what a decomposer would have to do right now, but it
-  makes those user messages longer and differently shaped than they would be
-  once a content slot exists, and the bundle's effect is measured against that
-  shape.
+- **The starting code now travels in `target_content` — and no sweep has been
+  run under either shape.** Authoring this task set is what raised #150: the
+  worker prompt had no slot for the target file's current content, so the 12
+  tasks that start from existing code carried it inside the task description,
+  fenced. That was legal and it was the only slot available, but it made those
+  user messages longer and differently shaped than the ones production will
+  send. #150 has since landed: `target_content` is a worker-facing field of its
+  own, rendered as its own section, and the 12 contracts state their code there
+  instead. Nothing was measured under the old shape, so no comparison is
+  stranded — but this is the shape any figure quoted from here will describe,
+  and a re-run against a contract set edited after the fact would not be
+  comparing like with like. `run.json` now records a digest per task alongside
+  the per-condition ones, so resuming into a directory measured against a
+  different task set is refused rather than averaged.
 - **The composition mapping is a judgement.** Calling a refactor a
   `function_implementation` is the closest honest fit, not an equivalence. A
   per-type rate from this run and a per-category rate from the Python run are

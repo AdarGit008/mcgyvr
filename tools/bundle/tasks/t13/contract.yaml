@@ -6,10 +6,8 @@ task: |
   unchanged; a longer one is cut to exactly limit characters with the last
   three replaced by "...". Throw an Error unless limit is an integer of at
   least 3. Return the complete fixed file.
-
-  Current content of solution.ts:
-
-  ```ts
+target: solution.ts
+target_content: |
   /** The text, cut to limit characters with an ellipsis when it is longer. */
   export function truncate(text: string, limit: number): string {
     if (text.length < limit) {
@@ -17,8 +15,6 @@ task: |
     }
     return text.slice(0, limit - 4) + "...";
   }
-  ```
-target: solution.ts
 interface: "export function truncate(text: string, limit: number): string"
 stop_conditions:
   - Whether the ellipsis counts toward the limit is stated; whether astral characters count as one is not.
