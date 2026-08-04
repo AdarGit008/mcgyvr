@@ -81,6 +81,7 @@ def _config(args: argparse.Namespace) -> int:
 
 
 def _pool(args: argparse.Namespace) -> int:
+    from mcgyvr.escalate import Ceiling
     from mcgyvr.pool import SourceUnavailableError, source_map
     from mcgyvr.route import family_of
 
@@ -107,14 +108,34 @@ def _pool(args: argparse.Namespace) -> int:
     # A family is a cost class rather than a location, so printing it says how
     # dear a rung is to ask without saying which machine answers.
     print(f"{config.path}: {len(pool)} usable rung(s), cheapest first:\n")
+    ladder_budget = 0
     for rung in pool.rungs:
         tier = config.ladder.get(rung.name)
         budget = tier.attempts if tier is not None else 1
+        ladder_budget += budget
         tries = "1 attempt" if budget == 1 else f"{budget} attempts"
         family = family_of(config, rung.name)
         print(f"  {rung.name:<20} {family.name:<14} {tries:<11} {rung.model}")
     if not pool.rungs:
         print("  (none — every rung's source is unusable)")
+    else:
+        # The escalation policy (#43). A ladder printed without its ceilings
+        # reads as though every rung will be tried, and the default is that
+        # most of them will not: what bounds the climb is as much the routing
+        # decision as the rungs are, and it is decided from this file alone.
+        ceiling = Ceiling.of(config)
+        cap = min(ladder_budget, ceiling.attempts or ladder_budget)
+        source = (
+            "budgets.max_attempts"
+            if ceiling.attempts is not None
+            else "the ladder's own budget"
+        )
+        print(
+            f"\n  Ceiling: at most {ceiling.escalations} escalation(s) — "
+            f"{min(len(pool.rungs), ceiling.escalations + 1)} of these "
+            f"{len(pool.rungs)} rung(s) — and at most {cap} attempt(s) "
+            f"per task ({source})."
+        )
 
     if pool.skipped:
         print(f"\nSkipped {len(pool.skipped)} rung(s):")
