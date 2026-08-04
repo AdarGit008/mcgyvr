@@ -26,6 +26,7 @@ from typing import Any, ClassVar
 import pytest
 
 from mcgyvr import runner as runner_module
+from mcgyvr.capacity import Capacity
 from mcgyvr.config import parse
 from mcgyvr.pool import Endpoint, Protocol, SourceUnavailableError, UnknownRungError
 from mcgyvr.pool import source_map as build_source_map
@@ -831,6 +832,117 @@ def test_dispatch_role_runs_a_role_and_returns_none_when_there_is_not_one(
     assert verified is not None
     assert verified.model == "qwen2.5-coder:14b"
     assert dispatch_role(ladder, "orchestrator", ASK) is None
+
+
+# --- the capacity bound is held across the request, not around it (#23) -----
+
+
+def held_during_post(
+    monkeypatch: pytest.MonkeyPatch,
+    capacity: Capacity,
+    source: str,
+    answer: dict[str, Any],
+) -> list[int]:
+    """Record how many of ``source``'s slots were held *while* the request ran.
+
+    Checking afterwards would pass on a capacity that acquired and released
+    before dispatching, which is the one arrangement that would satisfy every
+    other assertion and bound nothing. So the observation is made from inside
+    the transport, at the only moment the answer matters.
+    """
+    seen: list[int] = []
+
+    def fake_post(
+        url: str,
+        payload: dict[str, Any],
+        headers: dict[str, str],
+        timeout: float,
+    ) -> dict[str, Any]:
+        seen.append(capacity.in_use(source))
+        return answer
+
+    monkeypatch.setattr(runner_module, "_post_json", fake_post, raising=True)
+    return seen
+
+
+def test_dispatch_holds_its_sources_slot_for_the_length_of_the_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
+    ladder = build_source_map(parse(cfg(LADDER)))
+    capacity = Capacity.of(parse(cfg(LADDER)))
+    seen = held_during_post(monkeypatch, capacity, "local", ollama_answer())
+
+    dispatch(ladder, "cheap", ASK, capacity=capacity)
+
+    assert seen == [1], "the slot must be held while the backend is answering"
+    assert capacity.in_use("local") == 0, "and given back when it has answered"
+    assert capacity.usage()[0].acquisitions == 1
+
+
+def test_a_role_is_bounded_by_the_same_capacity_as_a_rung(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A verifier sharing a card with the ladder competes with it for slots."""
+    monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
+    ladder = build_source_map(parse(cfg(LADDER)))
+    capacity = Capacity.of(parse(cfg(LADDER)))
+    seen = held_during_post(monkeypatch, capacity, "fast", openai_answer())
+
+    dispatch_role(ladder, "verifier", ASK, capacity=capacity)
+
+    assert seen == [1]
+    assert {u.source: u.acquisitions for u in capacity.usage()}["fast"] == 1
+
+
+def test_escalating_to_another_source_has_already_released_the_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#23's second acceptance bullet, at the seam where it is actually decided.
+
+    A task that fails on `cheap` and retries on `strong` moves between two
+    machines. If the slot belonged to the task rather than to the dispatch, the
+    local source would still be occupied while the work is on `fast` — a leak
+    that shrinks the source for the rest of the run and that nothing would
+    report. So the second dispatch is observed from inside the transport, and
+    what it must see is `local` already back to zero.
+    """
+    monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
+    ladder = build_source_map(parse(cfg(LADDER)))
+    capacity = Capacity.of(parse(cfg(LADDER)))
+    seen: list[tuple[int, int]] = []
+
+    def fake_post(
+        url: str,
+        payload: dict[str, Any],
+        headers: dict[str, str],
+        timeout: float,
+    ) -> dict[str, Any]:
+        seen.append((capacity.in_use("local"), capacity.in_use("fast")))
+        return ollama_answer() if url.endswith("/api/generate") else openai_answer()
+
+    monkeypatch.setattr(runner_module, "_post_json", fake_post, raising=True)
+
+    dispatch(ladder, "cheap", ASK, capacity=capacity)
+    dispatch(ladder, "strong", ASK, capacity=capacity)
+
+    assert seen == [(1, 0), (0, 1)], "each dispatch holds its own source and only it"
+    usage = {u.source: u.acquisitions for u in capacity.usage()}
+    assert usage["local"] == usage["fast"] == 1, "one slot each, not one per task"
+
+
+def test_dispatch_without_a_capacity_is_unbounded_and_says_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The default is the single-request case; a batch supplies one (#23)."""
+    monkeypatch.delenv("MCGYVR_TEST_KEY", raising=False)
+    ladder = build_source_map(parse(cfg(LADDER)))
+    capacity = Capacity.of(parse(cfg(LADDER)))
+    stub_post(monkeypatch, ollama_answer())
+
+    dispatch(ladder, "cheap", ASK)
+
+    assert all(u.acquisitions == 0 for u in capacity.usage())
 
 
 # --- against a real socket -----------------------------------------------
