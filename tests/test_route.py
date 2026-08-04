@@ -1,0 +1,622 @@
+"""#24's acceptance is three statements, and two of them are about what routing
+refuses to do.
+
+*Family exhaustion is distinguishable from every other failure* is held by
+:class:`~mcgyvr.route.Exhausted` being its own type carrying an
+:class:`~mcgyvr.route.Exhaustion` reason, and by the three reasons being reached
+independently — a family whose attempts were spent, one whose rungs all declined
+without spending any, and one with no rung at all are three different facts
+about an install and are asserted as three.
+
+*No path crosses families inside this component* is the one a test can only hold
+negatively, so it is held twice: once behaviourally, by climbing a ladder that
+has rungs in a dearer family and asserting they are never tried however the
+climb ends, and once structurally, by asserting a plan's steps are all of the
+plan's own family for every family the catalog declares.
+
+*Attempt budgets are policy in config, not constants in code* is held by driving
+one contract against two configs that differ only in a rung's ``attempts`` and
+asserting the number of attempts changes with it — a test that asserted the
+default of 1 alone would pass just as well against a hard-coded 1.
+
+Nothing here dispatches. The attempt function is a recorder, which is the whole
+reason :func:`~mcgyvr.route.climb` takes one: every rule in the module is about
+sequencing and budgets, and a test that needed a model to check a budget would
+be testing the model.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
+
+from mcgyvr.capacity import Capacity
+from mcgyvr.catalog import catalog
+from mcgyvr.cli import main
+from mcgyvr.config import CONFIG_PATH_ENV, Config, parse
+from mcgyvr.contract import Contract
+from mcgyvr.contract import loads as load_contract
+from mcgyvr.pool import Endpoint, Rung, SourceMap, source_map
+from mcgyvr.route import (
+    Accepted,
+    Attempted,
+    Exhausted,
+    Exhaustion,
+    Plan,
+    Result,
+    RouteError,
+    Step,
+    Try,
+    Verdict,
+    attempts_for,
+    by_family,
+    climb,
+    family_of,
+    plan,
+)
+
+MIXED = """
+version: 1
+sources:
+  workstation:
+    base_url: http://localhost:11434
+    api: ollama
+    max_parallel: 2
+  spare:
+    base_url: http://192.168.1.20:8000
+    api: openai
+    max_parallel: 1
+  vendor:
+    base_url: https://api.example.com/v1
+    api: openai
+    max_parallel: 4
+    api_key_env: EXAMPLE_API_KEY
+ladder:
+  tiers:
+    - name: local_qwen-7b
+      source: workstation
+      model: qwen2.5-coder:7b
+    - name: local_qwen-14b
+      source: spare
+      model: qwen2.5-coder:14b
+    - name: api_big
+      source: vendor
+      model: vendor-large
+"""
+
+KEYLESS = """
+version: 1
+sources:
+  workstation:
+    base_url: http://localhost:11434
+    api: ollama
+    max_parallel: 2
+ladder:
+  tiers:
+    - name: local_qwen-7b
+      source: workstation
+      model: qwen2.5-coder:7b
+"""
+
+CONTRACT = """
+id: fetch-retry
+task_type: function_implementation
+task: Add retry with backoff to the fetch helper.
+target: src/pkg/fetch.py
+stop_conditions:
+  - The retry policy is not stated anywhere in the repo.
+acceptance: ["pytest -q"]
+scope:
+  allow: ["src/**/*.py"]
+limits:
+  attempts: 5
+"""
+
+DETERMINISTIC_CONTRACT = """
+id: tidy
+task_type: format
+task: Reformat the package.
+target: src/pkg/fetch.py
+scope:
+  allow: ["src/**"]
+"""
+
+LOCAL = catalog().family("local")
+API = catalog().family("api")
+DETERMINISTIC = catalog().family("deterministic")
+
+
+@pytest.fixture
+def key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A credential for the api source, assembled rather than written literally."""
+    monkeypatch.setenv("EXAMPLE_API_KEY", "sk-" + "0" * 12)
+
+
+def mapped(text: str) -> tuple[Config, SourceMap]:
+    config = parse(text)
+    return config, source_map(config)
+
+
+def with_attempts(text: str, rung: str, attempts: int) -> str:
+    """The same config with one rung's attempts policy set."""
+    lines: list[str] = []
+    for line in text.splitlines():
+        lines.append(line)
+        if line.strip() == f"- name: {rung}":
+            lines.append(f"      attempts: {attempts}")
+    return "\n".join(lines)
+
+
+def contract(text: str = CONTRACT) -> Contract:
+    return load_contract(text)
+
+
+class Recorder:
+    """An attempt function that answers from a script and records what it saw.
+
+    The script is consumed one verdict per call, and running past its end is
+    itself a failure: a climb that tried more rungs than the test scripted has
+    broken the budget the test is about, and a silent default would hide it.
+    """
+
+    def __init__(self, *verdicts: Verdict) -> None:
+        self._verdicts = list(verdicts)
+        self.seen: list[Try] = []
+
+    def __call__(self, attempt: Try) -> Result[str]:
+        self.seen.append(attempt)
+        if not self._verdicts:
+            raise AssertionError(
+                f"climb made an unscripted attempt on {attempt.rung.name!r}"
+            )
+        verdict = self._verdicts.pop(0)
+        if verdict is Verdict.PASSED:
+            return Result.passed(f"{attempt.rung.name}#{attempt.attempt}")
+        if verdict is Verdict.DECLINED:
+            return Result.declined("not work this rung does")
+        return Result.failed("the gate rejected it")
+
+    @property
+    def rungs(self) -> list[str]:
+        return [t.rung.name for t in self.seen]
+
+
+class DownProbe:
+    """A :class:`~mcgyvr.pool.SourceProbe` that says the named sources are down.
+
+    The structural type is the whole of #22's surface as the pool sees it, so a
+    test can supply one without a network — which is what lets "skipped because
+    unreachable" be told apart from "skipped because unconfigured" here.
+    """
+
+    def __init__(self, down: set[str]) -> None:
+        self._down = down
+
+    def unavailable(self, endpoints: Sequence[Endpoint]) -> Mapping[str, str]:
+        return {
+            e.source: f"{e.source} did not answer"
+            for e in endpoints
+            if e.source in self._down
+        }
+
+
+def accepted(result: Accepted[str] | Exhausted) -> Accepted[str]:
+    assert isinstance(result, Accepted), f"expected an accepted climb, got {result}"
+    return result
+
+
+def exhausted(result: Accepted[str] | Exhausted) -> Exhausted:
+    assert isinstance(result, Exhausted), f"expected an exhausted family, got {result}"
+    return result
+
+
+# --- the family view of a ladder ------------------------------------------
+
+
+def test_a_rung_is_api_exactly_when_its_source_needs_a_credential() -> None:
+    config, _ = mapped(MIXED)
+
+    assert family_of(config, "local_qwen-7b") == LOCAL
+    assert family_of(config, "local_qwen-14b") == LOCAL
+    assert family_of(config, "api_big") == API
+
+
+def test_the_family_rule_is_the_catalogs_and_is_not_restated_here() -> None:
+    """The rule lives in one place; this asserts routing asks rather than knows.
+
+    A second copy of "api when it declares a key" would be the kind of drift
+    that only shows up when one of the two is edited, so the check is that the
+    catalog's own answer and routing's agree for every rung of a config.
+    """
+    config, _ = mapped(MIXED)
+    known = catalog()
+
+    for tier in config.ladder.tiers:
+        assert family_of(config, tier.name) == known.family_of(
+            config.sources[tier.source]
+        )
+
+
+def test_an_unknown_rung_is_a_bug_and_says_what_the_ladder_offers() -> None:
+    config, _ = mapped(KEYLESS)
+
+    with pytest.raises(RouteError) as excinfo:
+        family_of(config, "local_qwen-70b")
+
+    assert "local_qwen-7b" in str(excinfo.value)
+
+
+def test_every_declared_family_is_a_key_even_with_no_rungs(key: None) -> None:
+    """An empty family is an answer, not an absence."""
+    config, pool = mapped(MIXED)
+
+    grouped = by_family(config, pool)
+
+    assert [f.name for f in grouped] == ["deterministic", "local", "api"]
+    assert grouped[DETERMINISTIC] == ()
+    assert [r.name for r in grouped[LOCAL]] == ["local_qwen-7b", "local_qwen-14b"]
+    assert [r.name for r in grouped[API]] == ["api_big"]
+
+
+def test_a_keyless_install_has_an_empty_api_family() -> None:
+    config, pool = mapped(KEYLESS)
+
+    grouped = by_family(config, pool)
+
+    assert grouped[API] == ()
+    assert len(grouped[LOCAL]) == 1
+
+
+def test_a_rung_whose_source_is_unusable_is_not_routed_to() -> None:
+    """The api rung is configured here, but $EXAMPLE_API_KEY is unset.
+
+    The pool has already decided it cannot be offered and recorded why. Routing
+    must not reach for it anyway: the reason it was skipped is exactly the
+    reason a dispatch to it would fail.
+    """
+    config, pool = mapped(MIXED)
+
+    assert [s.name for s in pool.skipped] == ["api_big"]
+    assert by_family(config, pool)[API] == ()
+
+
+# --- budgets are policy ----------------------------------------------------
+
+
+def test_the_rungs_configured_attempts_is_what_gets_spent() -> None:
+    """Two configs differing only in one number produce two different climbs."""
+    once, once_pool = mapped(KEYLESS)
+    twice, twice_pool = mapped(with_attempts(KEYLESS, "local_qwen-7b", 2))
+
+    one = exhausted(climb(plan(once, once_pool, contract()), Recorder(Verdict.FAILED)))
+    two = exhausted(
+        climb(
+            plan(twice, twice_pool, contract()),
+            Recorder(Verdict.FAILED, Verdict.FAILED),
+        )
+    )
+
+    assert one.attempts_spent == 1
+    assert two.attempts_spent == 2
+
+
+def test_the_default_is_to_escalate_rather_than_retry(key: None) -> None:
+    """Unset, a rung gets one attempt — the whole of the escalate-not-retry rule."""
+    config, pool = mapped(MIXED)
+
+    steps = plan(config, pool, contract()).steps
+
+    assert [step.attempts for step in steps] == [1, 1]
+
+
+def test_a_contract_may_lower_a_rungs_budget_and_so_may_the_config() -> None:
+    """The lower of the two applies, whichever one it is."""
+    generous, generous_pool = mapped(with_attempts(KEYLESS, "local_qwen-7b", 4))
+    strict, strict_pool = mapped(KEYLESS)
+
+    capped = contract(CONTRACT.replace("attempts: 5", "attempts: 2"))
+    uncapped = contract()
+
+    assert plan(generous, generous_pool, capped).steps[0].attempts == 2
+    assert plan(generous, generous_pool, uncapped).steps[0].attempts == 4
+    assert plan(strict, strict_pool, uncapped).steps[0].attempts == 1
+
+
+def test_the_deterministic_family_gets_exactly_one_attempt_whatever_is_asked() -> None:
+    """A tool fails identically on retry, so no policy may buy a second go."""
+    generous = contract(CONTRACT.replace("attempts: 5", "attempts: 9"))
+
+    assert attempts_for(DETERMINISTIC, 7, generous) == 1
+    assert attempts_for(LOCAL, 7, generous) == 7
+    assert attempts_for(API, 7, generous) == 7
+
+
+# --- planning --------------------------------------------------------------
+
+
+def test_a_plan_is_the_contracts_floor_family_cheapest_rung_first(key: None) -> None:
+    config, pool = mapped(MIXED)
+
+    made = plan(config, pool, contract())
+
+    assert made.family == LOCAL  # function_implementation starts on local
+    assert made.rungs == ("local_qwen-7b", "local_qwen-14b")
+    assert made.budget == 2
+
+
+def test_a_plan_never_contains_a_rung_of_another_family(key: None) -> None:
+    """The structural half of "no path crosses families", over every family."""
+    config, pool = mapped(MIXED)
+
+    for family in catalog().families:
+        made = plan(config, pool, contract(), family=family)
+        assert made.family == family
+        for step in made.steps:
+            assert family_of(config, step.rung.name) == family
+
+
+def test_the_deterministic_family_plans_nothing_and_says_why_structurally() -> None:
+    """It is empty for a reason no config edit changes, and the words say so."""
+    config, pool = mapped(KEYLESS)
+
+    made = plan(config, pool, contract(DETERMINISTIC_CONTRACT))
+
+    assert made.family == DETERMINISTIC
+    assert not made
+    assert "#81" in made.reason
+    assert "tools, not a model on a source" in made.reason
+
+
+def test_an_empty_family_with_skipped_rungs_points_at_the_skip() -> None:
+    """A missing credential is a different problem from an unbound family."""
+    config, pool = mapped(MIXED)  # $EXAMPLE_API_KEY is unset in this env
+
+    made = plan(config, pool, contract(), family=API)
+
+    assert not made
+    assert "api_big" in made.reason
+    assert "EXAMPLE_API_KEY" in made.reason
+
+
+def test_an_empty_family_quotes_its_own_skipped_rungs_and_not_anothers() -> None:
+    """Another family's broken source is not why this family is empty.
+
+    Both families are empty here for unrelated reasons: the local sources are
+    unreachable and the api source has no credential. An explanation that
+    offered the wrong one would send someone to fix a source that was never in
+    the family they asked about.
+    """
+    config = parse(MIXED)  # $EXAMPLE_API_KEY is unset, so api_big is skipped
+    pool = source_map(config, probe=DownProbe({"workstation", "spare"}))
+
+    local = plan(config, pool, contract(), family=LOCAL)
+    api = plan(config, pool, contract(), family=API)
+
+    assert "did not answer" in local.reason
+    assert "EXAMPLE_API_KEY" not in local.reason
+    assert "EXAMPLE_API_KEY" in api.reason
+    assert "did not answer" not in api.reason
+
+
+def test_an_unbound_family_names_what_binding_one_would_take() -> None:
+    config, pool = mapped(KEYLESS)
+
+    made = plan(config, pool, contract(), family=API)
+
+    assert "api_key_env" in made.reason
+
+
+def test_a_family_from_another_catalog_is_refused_rather_than_planned() -> None:
+    config, pool = mapped(KEYLESS)
+    invented = replace(LOCAL, name="gpu_cluster")
+
+    with pytest.raises(RouteError):
+        plan(config, pool, contract(), family=invented)
+
+
+# --- climbing --------------------------------------------------------------
+
+
+def test_a_passing_rung_ends_the_climb_and_the_dearer_rung_is_never_tried(
+    key: None,
+) -> None:
+    config, pool = mapped(MIXED)
+    attempts = Recorder(Verdict.PASSED)
+
+    result = accepted(climb(plan(config, pool, contract()), attempts))
+
+    assert result.rung == "local_qwen-7b"
+    assert result.value == "local_qwen-7b#1"
+    assert attempts.rungs == ["local_qwen-7b"]
+
+
+def test_a_failed_rung_escalates_to_the_next_rung_of_the_same_family(
+    key: None,
+) -> None:
+    config, pool = mapped(MIXED)
+    attempts = Recorder(Verdict.FAILED, Verdict.PASSED)
+
+    result = accepted(climb(plan(config, pool, contract()), attempts))
+
+    assert result.rung == "local_qwen-14b"
+    assert attempts.rungs == ["local_qwen-7b", "local_qwen-14b"]
+
+
+def test_a_spent_family_is_named_exhausted_and_lists_what_it_tried(key: None) -> None:
+    config, pool = mapped(MIXED)
+    attempts = Recorder(Verdict.FAILED, Verdict.FAILED)
+
+    result = exhausted(climb(plan(config, pool, contract()), attempts))
+
+    assert result.reason is Exhaustion.RUNGS_SPENT
+    assert result.family == LOCAL
+    assert result.attempts_spent == 2
+    assert [a.rung for a in result.history] == ["local_qwen-7b", "local_qwen-14b"]
+    assert "local_qwen-14b" in result.detail
+
+
+def test_exhaustion_never_reaches_for_the_dearer_family(key: None) -> None:
+    """The behavioural half of "no path crosses families".
+
+    The ladder has a usable api rung, the local family is spent, and the climb
+    ends anyway — because deciding to spend an API token is #43's decision, made
+    with rules this module cannot see.
+    """
+    config, pool = mapped(MIXED)
+    assert "api_big" in [r.name for r in pool.rungs]
+    attempts = Recorder(Verdict.FAILED, Verdict.FAILED)
+
+    result = exhausted(climb(plan(config, pool, contract()), attempts))
+
+    assert "api_big" not in attempts.rungs
+    assert all(a.rung != "api_big" for a in result.history)
+
+
+def test_a_decline_moves_on_without_spending_an_attempt() -> None:
+    """#81's rule: a rung that steps aside is not a rung that failed."""
+    config, pool = mapped(with_attempts(KEYLESS, "local_qwen-7b", 3))
+    attempts = Recorder(Verdict.DECLINED)
+
+    result = exhausted(climb(plan(config, pool, contract()), attempts))
+
+    assert result.reason is Exhaustion.ALL_DECLINED
+    assert result.attempts_spent == 0
+    # Budgeted three, asked once: the decline answered for the whole rung.
+    assert attempts.rungs == ["local_qwen-7b"]
+    assert "no attempt was spent" in result.detail
+
+
+def test_a_decline_beside_a_failure_is_a_spent_family_not_a_declined_one(
+    key: None,
+) -> None:
+    config, pool = mapped(MIXED)
+    attempts = Recorder(Verdict.DECLINED, Verdict.FAILED)
+
+    result = exhausted(climb(plan(config, pool, contract()), attempts))
+
+    assert result.reason is Exhaustion.RUNGS_SPENT
+    assert result.attempts_spent == 1
+    assert [a.verdict for a in result.history] == [Verdict.DECLINED, Verdict.FAILED]
+
+
+def test_an_empty_plan_is_exhausted_with_no_rung_and_carries_the_reason() -> None:
+    config, pool = mapped(KEYLESS)
+    made = plan(config, pool, contract(DETERMINISTIC_CONTRACT))
+    attempts = Recorder()
+
+    result = exhausted(climb(made, attempts))
+
+    assert result.reason is Exhaustion.NO_RUNG
+    assert result.history == ()
+    assert result.detail == made.reason
+    assert attempts.seen == []
+
+
+def test_a_retry_on_one_rung_is_numbered_and_stops_at_the_budget() -> None:
+    config, pool = mapped(with_attempts(KEYLESS, "local_qwen-7b", 3))
+    attempts = Recorder(Verdict.FAILED, Verdict.FAILED, Verdict.FAILED)
+
+    result = exhausted(climb(plan(config, pool, contract()), attempts))
+
+    assert [t.attempt for t in attempts.seen] == [1, 2, 3]
+    assert {t.of for t in attempts.seen} == {3}
+    assert result.attempts_spent == 3
+
+
+def test_an_attempt_that_raises_is_not_swallowed_into_an_exhaustion() -> None:
+    """A verdict is a judgement; an exception is the absence of one."""
+    config, pool = mapped(KEYLESS)
+
+    def explode(attempt: Try) -> Result[str]:
+        raise RuntimeError("the socket died")
+
+    with pytest.raises(RuntimeError):
+        climb(plan(config, pool, contract()), explode)
+
+
+# --- capacity threads all the way through ----------------------------------
+
+
+def test_every_rung_tried_is_handed_the_capacity_to_dispatch_under(key: None) -> None:
+    """The gap #23 left: ``dispatch`` is unbounded by default, so a walk that
+    bounded only its first rung would be enforcing a source's limit on some of
+    its own dispatches, which is the same as not enforcing it."""
+    config, pool = mapped(MIXED)
+    capacity = Capacity.of(config)
+    attempts = Recorder(Verdict.FAILED, Verdict.FAILED)
+
+    climb(plan(config, pool, contract()), attempts, capacity=capacity)
+
+    assert len(attempts.seen) == 2
+    assert all(t.capacity is capacity for t in attempts.seen)
+
+
+def test_a_climb_with_no_capacity_says_so_rather_than_inventing_one() -> None:
+    config, pool = mapped(KEYLESS)
+    attempts = Recorder(Verdict.PASSED)
+
+    climb(plan(config, pool, contract()), attempts)
+
+    assert attempts.seen[0].capacity is None
+
+
+# --- the shapes callers depend on -----------------------------------------
+
+
+def test_a_plan_reports_its_budget_before_anything_is_spent() -> None:
+    rung = Rung(name="local_qwen-7b", model="qwen2.5-coder:7b")
+
+    made = Plan(family=LOCAL, steps=(Step(rung, 2), Step(rung, 3)))
+
+    assert made.budget == 5
+    assert len(made) == 2
+    assert bool(made) is True
+
+
+def test_a_result_is_built_through_a_named_verdict() -> None:
+    assert Result.passed("x").verdict is Verdict.PASSED
+    assert Result.passed("x").value == "x"
+    assert Result.failed("why").verdict is Verdict.FAILED
+    assert Result.declined("why").detail == "why"
+
+
+def test_a_declined_history_entry_is_kept_rather_than_dropped() -> None:
+    """A family that was never tried must not read like one that was."""
+    entry = Attempted(rung="r", attempt=1, verdict=Verdict.DECLINED)
+
+    assert entry.verdict is Verdict.DECLINED
+
+
+# --- the decision is readable without running anything ---------------------
+
+
+def test_the_pool_command_shows_the_family_and_budget_of_every_rung(
+    tmp_path: Path,
+    key: None,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Routing that cannot be read cannot be checked.
+
+    ``mcgyvr pool`` already answered "what can run"; a rung's family is how dear
+    it is to ask and its budget is how many times it will be asked, and both are
+    decided before anything is spent. Printing them keeps the two numbers a
+    reader can act on next to the ladder they belong to — and a family is a cost
+    class, not a location, so this says nothing about which machine answers.
+    """
+    path = tmp_path / "mcgyvr.yaml"
+    path.write_text(with_attempts(MIXED, "local_qwen-14b", 3), encoding="utf-8")
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(path))
+
+    assert main(["pool"]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert any(
+        "local_qwen-7b" in line and "local" in line and "1 attempt" in line
+        for line in lines
+    )
+    assert any("local_qwen-14b" in line and "3 attempts" in line for line in lines)
+    assert any("api_big" in line and "api" in line for line in lines)

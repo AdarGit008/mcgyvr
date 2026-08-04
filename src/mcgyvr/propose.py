@@ -444,4 +444,31 @@ def propose(
         missing = ", ".join(f"{r.model} (~{r.weights_gb:g} GB)" for r in to_pull)
         total = round(sum(r.weights_gb for r in to_pull), 2)
         notes.append(f"Needs pulling before first use: {missing}. Total ~{total:g} GB.")
+    notes.append(_concurrency_note(rungs))
     return Proposal(rungs=tuple(rungs), rejected=tuple(rejected), notes=tuple(notes))
+
+
+def _concurrency_note(rungs: Sequence[Rung]) -> str:
+    """What raising ``max_parallel`` does and does not buy (CON-02).
+
+    Stated in the proposal because this is the moment an operator decides what
+    the machine is for, and because the failure it warns about is invisible
+    afterwards: a single-slot server handed four concurrent requests **serializes
+    them rather than refusing them**, so an over-declared capacity looks exactly
+    like a source that is merely slow. The config schema already carries CON-01's
+    good news — distinct models really do run concurrently on one card — and the
+    good news is the half that gets remembered.
+    """
+    sources = sorted({rung.source for rung in rungs})
+    named = ", ".join(sources)
+    return (
+        f"Concurrency is written twice and only one of them is here. `init` "
+        f"writes max_parallel: 1 for {named}, which is always honest; raising it "
+        f"only helps if that backend was started with its parallel-slot setting "
+        f"enabled. CON-02 measured same-model concurrency at 1.6-3.1x with "
+        f"server-side parallelism on, and recorded that a single-slot server "
+        f"serializes the requests instead of refusing them — so an over-declared "
+        f"capacity is not an error you will see, it is a queue you will not. "
+        f"Distinct models are a different question and already answered: CON-01 "
+        f"ran three on one card in 23.6 s against ~44 s serial."
+    )

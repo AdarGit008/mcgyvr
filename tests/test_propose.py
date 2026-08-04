@@ -246,6 +246,31 @@ def test_what_must_be_pulled_is_named_with_its_size(table) -> None:  # type: ign
         assert rung.model in notes
 
 
+def test_the_proposal_warns_a_number_does_not_make_a_server_parallel(table) -> None:  # type: ignore[no-untyped-def]
+    """#23's third scope bullet: CON-02, stated where the operator will read it.
+
+    The failure it warns about is the invisible kind — a single-slot server
+    handed four concurrent requests serializes them rather than refusing them,
+    so an over-declared capacity is a queue rather than an error. Worth stating
+    because the config schema already carries CON-01's good news about distinct
+    models, and good news is the half that gets remembered.
+    """
+    proposal = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA])
+    notes = " ".join(proposal.notes)
+
+    assert "CON-02" in notes
+    assert "parallel-slot setting" in notes
+    assert "serializes" in notes
+    # It names the source whose backend the operator would have to change.
+    assert "local" in notes
+
+
+def test_a_machine_with_no_ladder_gets_no_concurrency_advice(table) -> None:  # type: ignore[no-untyped-def]
+    """Nothing to run concurrently on: the note would be advice about nothing."""
+    proposal = propose(table, vram_gb=None)
+    assert not any("CON-02" in note for note in proposal.notes)
+
+
 def test_presence_breaks_ties_without_overriding_the_gradient(table) -> None:  # type: ignore[no-untyped-def]
     """A download is a one-time cost; a weaker rung is a permanent one."""
     bare = propose(table, vram_gb=BIG_CARD, sources=[OLLAMA])

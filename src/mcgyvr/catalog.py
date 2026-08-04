@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from mcgyvr.config import Config
+    from mcgyvr.config import Config, Source
 
 CATALOG_FILENAME = "task-catalog.json"
 SCHEMA_VERSION = 1
@@ -157,6 +157,22 @@ class Catalog:
             raise CatalogError(f"{name!r} is not a known family. Valid: {valid}")
         return found
 
+    def family_of(self, source: Source) -> Family:
+        """Which family a rung served by ``source`` belongs to.
+
+        The one definition of the rule, so that nothing else has to restate it:
+        a rung is ``api`` exactly when its source declares a credential, and
+        ``local`` when it does not. It is deliberately a property of the
+        *source* rather than of the model — a 30B model on a keyless local box
+        and a 30B model behind a hosted API differ in what they cost to ask,
+        which is what the families order.
+
+        Note what this cannot return. ``deterministic`` is not a rung on any
+        ladder — it is tools, and it binds no source — so no configuration can
+        produce it here. :mod:`mcgyvr.route` says what follows from that.
+        """
+        return self.family("api" if source.requires_credential else "local")
+
     # --- resolving against a configured ladder ----------------------------
 
     def unservable(self, config: Config) -> tuple[TaskType, ...]:
@@ -191,9 +207,7 @@ def _families_present(catalog: Catalog, config: Config) -> frozenset[str]:
     """
     present = {catalog.families[0].name}
     bound = {
-        catalog.family(
-            "api" if config.sources[tier.source].requires_credential else "local"
-        ).rank
+        catalog.family_of(config.sources[tier.source]).rank
         for tier in config.ladder.tiers
         if tier.source in config.sources
     }

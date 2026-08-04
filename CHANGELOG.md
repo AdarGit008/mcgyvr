@@ -361,10 +361,106 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   in any arm's output, and nothing in the locator or its helpers calls a
   subprocess, an import or an eval, asserted by parsing their ASTs rather than
   by inspection.
+- The decomposer emits the located type-check command into a contract's
+  `acceptance` (#142, E7). ADR-0006 ended by naming the gap — "what is missing
+  is not a step; it is whoever fills the list in" — and this is that: a
+  `type_annotation` proposal that declares no acceptance command of its own gets
+  the checker the target's language adapter located, and a repository declaring
+  none yields a refusal saying so rather than a contract that cannot load. A
+  proposal carrying its own commands is neither overruled nor appended to; only
+  `type_check` is filled in, because `locate_test_command` guesses a runner
+  rather than reading a declaration and `failing_test_first` needs a specific
+  test no locator can name. **The command is emitted exactly as located** — the
+  target is never appended, which settles the question #114 left for this layer.
+  Measured, not assumed: `tsc --noEmit file.ts` discards `tsconfig.json`
+  entirely, so on a `strict: true` project the project-wide run reports `TS7006`
+  and exits 2 while the per-file run over the same file exits 0 — appending
+  would silently replace the check with a weaker one that passes. mypy's
+  `exclude` likewise does not apply to a file named on the command line. The
+  case that motivated appending — bare `mypy` exiting 2 with "Missing target
+  module, package, files, or command" on a repository that configures no
+  `files` — is caught by `Acceptance.precondition` against the unchanged tree,
+  before an attempt is spent and without charging a worker, as is the larger
+  version of the same problem: a repository carrying a backlog of pre-existing
+  type errors.
 - `mcgyvr pool --probe` — additionally ask each source whether it is answering,
   drop the rungs of any that is not, and report every source that was asked with
   how long it took and how the verdict was reached. `--probe-timeout` sets the
   budget.
+- Capacity semaphore and concurrent dispatch (`src/mcgyvr/capacity.py`) — the
+  bound `max_parallel` had been declaring since E1 and nothing was enforcing
+  (#23, E3). `Capacity.of(config)` holds one semaphore per **source**, because a
+  ladder of four rungs on one machine is four names for one card, and
+  `runner.dispatch(..., capacity=)` holds a slot for exactly the length of one
+  request. That placement is the whole of the escalation guarantee: a task moving
+  from a local rung to an API one occupies each source only while it is talking
+  to it, so "escalation does not leak or double-count" follows from where the
+  acquisition sits rather than from a per-task ledger that could be got wrong —
+  a task never owns a slot. A slot is returned however the dispatch leaves, so a
+  backend that times out does not cost the source capacity for the rest of the
+  run. `run_batch` runs a batch of jobs under that bound, defaulting to as many
+  threads as there are slots in total and returning one outcome per job **in
+  input order**, since ordering by completion would make a batch reproducible
+  only on a quiet machine; a job that raises becomes a named failure beside its
+  neighbours' results rather than sinking the batch. `Usage` reports per source
+  the acquisitions, the peak concurrency actually reached, and the time callers
+  spent *waiting* — the last being the one number that says a declared capacity
+  is the ceiling. A nested dispatch to a source the calling thread already holds
+  is refused by name rather than deadlocking silently against itself, which at
+  the default `max_parallel: 1` is what it would otherwise do. Measured on the
+  executor: 12 jobs of 50 ms across sources of capacity 3 and 2 took 0.205 s
+  against 0.604 s serial (2.94x, floor 0.15 s set by the two-slot source).
+- The binding proposal states what a capacity number does not buy (CON-02). A
+  single-slot server handed concurrent requests **serializes them rather than
+  refusing them**, so an over-declared `max_parallel` is not an error anyone will
+  see — it is a queue nobody will. The config schema already carried CON-01's
+  good news that distinct models genuinely run concurrently on one card, and the
+  good news is the half that gets remembered.
+
+- Tier ladder and within-family escalation (`src/mcgyvr/route.py`) — which rung
+  a contract is tried on, and the named moment a family is spent (#24, E3). The
+  ladder is ordered cheapest-to-dearest in two nested ways, and this module
+  walks only the inner one: `plan()` returns the rungs of **one** family in
+  config order with the attempts each is allowed, and `climb()` runs that plan
+  against an attempt function the caller supplies. Crossing from local to API is
+  a spend decision with its own rules (monotonic ascent, a global ceiling, the
+  verification upgrade) and stays #43's, so an exhausted family here ends the
+  climb rather than quietly reaching for a dearer rung — asserted both
+  behaviourally, against a ladder whose API rung is usable and never touched,
+  and structurally, over every family the catalog declares. `Exhausted` is its
+  own type carrying an `Exhaustion` reason, because *rungs spent*, *every rung
+  declined* and *no rung at all* are three different facts about an install and
+  want three different responses. A **decline** — a rung answering that this is
+  not work it can do (#81's rule) — advances without spending an attempt and
+  without being recorded as a failure, since a deterministic tool emitting a
+  plausible-but-wrong edit costs far more than one that steps aside. Every rung
+  tried is handed the capacity to dispatch under, closing the gap #23 left:
+  `dispatch` is unbounded by default, so a walk that bounded only its first rung
+  would enforce a source's limit on some of its own dispatches. Nothing here
+  assembles a prompt, applies a diff or runs a gate, which is what lets every
+  rule be asserted without a model, a backend or a sandbox.
+- `ladder.tiers[].attempts` (default **1**) — how many times a rung is tried
+  before escalation moves on, making attempt budgets policy in config rather
+  than a constant in code. The default is escalate-rather-than-retry: a second
+  attempt re-runs the same model on the same input, and the figure this rule was
+  inherited with (worker-tier remediation rescued 2 of 35 failures) says that is
+  usually spend without a result — a figure carried from local-ai and **not
+  re-verified here**, which is why it argues for a default rather than being
+  quoted as a measurement (#152). Raising it is most defensible on the dearest
+  rung, which has nowhere to escalate to. A contract's `limits.attempts` caps it
+  per task and the lower of the two applies, so neither an operator nor a
+  contract author can raise the other's ceiling. The deterministic family gets
+  exactly one attempt whatever either says, because a tool fails identically on
+  retry.
+- `Catalog.family_of(source)` — the one definition of "a rung is `api` exactly
+  when its source declares a credential", lifted out of the catalog's internals
+  so routing asks for it rather than restating it. A family is a **cost class,
+  not a location**: re-pointing a rung between two local machines does not change
+  it, and local-to-hosted does, which is what makes it the right thing to route
+  on.
+- `mcgyvr pool` shows each rung's family and attempt budget beside its model.
+  Both are decided before anything is spent, and a routing decision nobody can
+  read is one nobody can check.
 
 - Decomposition catalog (`data/task-catalog.json`, `src/mcgyvr/catalog.py`) —
   the vocabulary of what mcgyvr can be asked to do (#15, E2). Each entry states
