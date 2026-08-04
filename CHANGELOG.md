@@ -847,7 +847,50 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   now dispatches and returns `quality_safe=True`. This is what unblocks #144,
   which cannot take a measurement on a caveated path.
 
+- The JS/TS bundle sweep ran, and it found no effect (#144, CLM-0012, the
+  measurement in `records/measurements/jsts-bundle-2026-08-04/`). Two full
+  80-cell sweeps of the four-condition ladder on `qwen2.5-coder:3b` at Q4_K_M,
+  one per rig, measured first-pass acceptance of 45% (`c0`, no bundle), 55%
+  (`c1`), 50% (`c2`, the shipped `prompts/javascript.md` byte for byte) and 45%
+  (`c3`). No rung separates from having no bundle at all: net deltas against
+  `c0` are +2, +1 and 0 tasks against a `±1`-task noise floor the design set in
+  advance, built from flips in both directions, McNemar exact `p` of 0.50, 1.00
+  and 1.00. CLM-0004's Python effect was +5 tasks.
+
+  The two rigs are what put the noise floor on the record instead of assuming
+  it. `temperature=0` is not bit-reproducible across different cards: 19 of 80
+  cells returned different completion-token counts and 4 flipped verdict — yet
+  every condition total was identical, because the flips paired within their
+  condition. So a re-roll moves about one task per condition, which is the size
+  of the largest delta observed.
+
+  **The mechanism is the transferable half.** CLM-0004's gain came from output
+  rules cutting completion tokens 403 → ~124, and completion tokens dominate
+  wall time. This run measured them flat at 166.8/167.3/169.4/176.6, latency
+  flat to match. The 3b was not rambling on this task set, so the device the
+  bundle works through had nothing to act on — which predicts where a bundle
+  pays by a property that can be checked before running a ladder (does `c0`
+  over-produce?) rather than by language.
+
 ### Changed
+- `prompts/javascript.md` states a measured null result instead of an
+  `UNMEASURED` marker, and `Bundle` grew `BundleStanding` because a boolean
+  could no longer carry the answer. Both shipped bundles are now the artifact a
+  sweep was taken on, so `measured` reads `True` for both and has stopped being
+  the interesting question; it is demoted to a derived property meaning
+  provenance only. The outcome moved into the type: `MEASURED_BENEFIT` for
+  Python, `MEASURED_NO_EFFECT` for JS/TS, `UNMEASURED` for anything unswept.
+  "Measured" is a word a reader takes as endorsement, and one of these two
+  bundles has not earned it. Rewriting the marker did not forfeit the
+  measurement, because `check_c2_is_the_shipped_bundle` compares the *stripped*
+  body — the property the stripping change below was for.
+
+- `MAX_BUNDLE_BYTES` stays one constant, now for a stated reason rather than
+  for want of evidence. #144 asked whether the ceiling should become
+  per-language; a per-language ceiling needs a language whose curve has a peak,
+  and JS/TS measured flat, so there is no JS/TS peak to place one at. That is
+  not the same as JS/TS agreeing that 2 KB is right, and the comment says so.
+
 - A bundle's leading provenance marker is stripped at load
   (`worker.bundle.strip_provenance`) and no longer reaches the worker or the
   ceiling. #25 put the "UNMEASURED" marker in `javascript.md` so the caveat

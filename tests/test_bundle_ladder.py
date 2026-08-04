@@ -34,6 +34,7 @@ import json
 import subprocess
 import sys
 import types
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -42,7 +43,12 @@ from mcgyvr import contract as contract_module
 from mcgyvr.contract import Contract, load
 from mcgyvr.pool import Protocol
 from mcgyvr.runner import Completion, Request, StopReason
-from mcgyvr.worker.bundle import MAX_BUNDLE_BYTES, bundle_for, strip_provenance
+from mcgyvr.worker.bundle import (
+    MAX_BUNDLE_BYTES,
+    BundleStanding,
+    bundle_for,
+    strip_provenance,
+)
 
 REPO = Path(__file__).resolve().parent.parent
 BUNDLE_TOOLS = REPO / "tools" / "bundle"
@@ -209,21 +215,47 @@ def test_c0_is_the_absence_of_a_system_prompt() -> None:
     assert not (CONDITIONS / "c0.md").exists()
 
 
-def test_the_shipped_bundle_still_declares_itself_unmeasured() -> None:
-    """Until a sweep has run, the marker is the claim — and it names this issue.
+def test_the_shipped_bundle_declares_the_null_result_it_measured() -> None:
+    """The marker is the claim, and after #144 the claim is a null one.
 
-    ``Bundle.measured`` must stay False for ``js/ts`` for the same reason: the
-    acceptance for #144 is that it flips only when the shipped file is the
-    artifact a measurement was taken on.
+    ``measured`` flipped to True because the sweep was taken on *this* file —
+    that is all it ever asserted. What stops that being read as an endorsement
+    is ``standing``: the artifact is measured and the measurement found nothing,
+    which is a third state and not either boolean.
     """
     text = SHIPPED.read_text(encoding="utf-8")
     assert text.startswith("<!--")
-    assert "UNMEASURED" in text
+    assert "NO EFFECT" in text
+    assert "CLM-0012" in text
     assert "#144" in text
+    # The superseded standing must not linger in the file that now disproves it.
+    assert "UNMEASURED" not in text
 
     shipped = bundle_for("solution.ts")
     assert shipped is not None
-    assert shipped.measured is False
+    assert shipped.standing is BundleStanding.MEASURED_NO_EFFECT
+    assert shipped.measured is True
+
+
+def test_a_measured_bundle_does_not_imply_a_bundle_that_helped() -> None:
+    """The distinction the boolean could not carry, held where it can fail.
+
+    Both shipped bundles are measured; only one of them measured a benefit. If
+    these ever collapse to the same value, every reader of ``measured`` starts
+    citing CLM-0012 as if it said what CLM-0004 said.
+    """
+    js = bundle_for("solution.ts")
+    python = bundle_for("solution.py")
+    assert js is not None and python is not None
+
+    assert js.measured is python.measured is True
+    assert js.standing is not python.standing
+    assert python.standing is BundleStanding.MEASURED_BENEFIT
+
+    # And the derivation still bottoms out: only never-swept reads as unmeasured,
+    # so a null result cannot be mistaken for an absent one.
+    never_swept = replace(js, standing=BundleStanding.UNMEASURED)
+    assert never_swept.measured is False
 
 
 # --- which worker a sweep reaches ----------------------------------------
