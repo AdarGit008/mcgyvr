@@ -49,14 +49,27 @@ run against its own acceptance script; the experiment is invalid unless that is
 endpoint, so the task set can be verified on a machine that cannot run the
 sweep — which is the machine this was written on.
 
+**The worker is configuration, not part of the experiment.** Which endpoint
+serves the model is a fact about somebody's machine — a hostname, a tunnel port,
+the name of a variable holding a key — so it lives in a git-ignored
+``worker.local.json`` beside this script rather than in a command line that has
+to be retyped correctly every time. Flags beat the file. What *is* part of the
+experiment is that the reader can tell which worker produced a number, so a
+sweep writes ``run.json`` next to its rows and refuses to resume into a
+directory measured on a different one.
+
 Usage::
 
     # verify the task set (no worker needed)
     uv run --no-sync python tools/bundle/measure.py --selftest
 
-    # the sweep, against a served qwen2.5-coder:3b
+    # the sweep, with the worker in worker.local.json
     uv run --no-sync python tools/bundle/measure.py \\
-        --endpoint http://localhost:11434 --protocol ollama \\
+        --out records/measurements/jsts-bundle-YYYY-MM-DD
+
+    # the same, spelled out
+    uv run --no-sync python tools/bundle/measure.py \\
+        --endpoint http://localhost:11434 --protocol openai \\
         --model qwen2.5-coder:3b \\
         --out records/measurements/jsts-bundle-YYYY-MM-DD
 
@@ -67,15 +80,19 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from mcgyvr.contract import Contract, load
 from mcgyvr.pool import Endpoint, Protocol
@@ -109,6 +126,27 @@ ACCEPTANCE_TIMEOUT_S = 30.0
 # names it as its target, so the JS/TS adapter owns it and the c2 condition is
 # the bundle production would have selected.
 SOLUTION = "solution.ts"
+
+
+# Where the machine-specific half of a sweep lives, git-ignored. An endpoint is
+# a fact about somebody's infrastructure and not about the experiment: a
+# hostname, a port a tunnel happens to land on, the name of the variable holding
+# a key. None of it belongs in the repository, and all of it has to be somewhere
+# other than a shell history if the sweep is to be re-runnable.
+WORKER_FILE = HERE / "worker.local.json"
+
+# The only keys that file may set. Anything else is a typo that would otherwise
+# be silently ignored, and a silently ignored `mdoel` is a sweep against the
+# wrong worker.
+WORKER_KEYS = frozenset({"endpoint", "protocol", "model", "api_key_env", "note"})
+
+# Keys whose presence means a key value was written into the file instead of the
+# name of the variable holding it. Refused rather than ignored: git-ignored is
+# not encrypted, and the whole project's credential rule is that the config
+# records the NAME.
+SECRET_KEYS = frozenset(
+    {"api_key", "apikey", "key", "token", "secret", "password", "authorization"}
+)
 
 
 class MeasureError(Exception):
@@ -244,6 +282,211 @@ def run_acceptance(task: Task, content: str, workdir: Path) -> Acceptance:
                 False, f"{command}: {(proc.stderr or proc.stdout).strip()}"
             )
     return Acceptance(True, "")
+
+
+@dataclass(frozen=True)
+class Worker:
+    """The resolved answer to "which worker is this sweep measuring?"."""
+
+    endpoint: str
+    protocol: Protocol
+    model: str
+    api_key_env: str | None
+
+    def as_endpoint(self) -> Endpoint:
+        """The pool's own endpoint, so dispatch runs the shipped path."""
+        return Endpoint(
+            source="measure",
+            base_url=self.endpoint,
+            protocol=self.protocol,
+            max_parallel=1,
+            credential_env=self.api_key_env,
+        )
+
+
+def load_worker_file(path: Path) -> dict[str, str]:
+    """Read the git-ignored worker file, or return nothing if there is none.
+
+    Absent is the ordinary case and not an error — the flags alone are a
+    complete way to run a sweep. What is an error is a file that is present and
+    wrong, because every failure mode there is silent: an unknown key does
+    nothing, and a key value in a file is a leak that git-ignoring does not
+    undo.
+    """
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise MeasureError(f"{path}: not valid JSON — {exc}") from exc
+    if not isinstance(data, dict):
+        raise MeasureError(f"{path}: expected a JSON object")
+
+    values = {k: v for k, v in data.items() if not k.startswith("_")}
+    leaked = sorted(SECRET_KEYS & {k.lower() for k in values})
+    if leaked:
+        raise MeasureError(
+            f"{path}: {', '.join(leaked)} looks like a credential value. This "
+            "file holds `api_key_env` — the NAME of the variable holding the "
+            "key — never the key itself. Git-ignored is not encrypted, and the "
+            "value belongs in your environment or a .env you source."
+        )
+    unknown = sorted(set(values) - WORKER_KEYS)
+    if unknown:
+        raise MeasureError(
+            f"{path}: unknown key(s) {', '.join(unknown)}. "
+            f"Known: {', '.join(sorted(WORKER_KEYS))}. Keys starting with `_` "
+            "are comments and are ignored."
+        )
+    for key, value in values.items():
+        if not isinstance(value, str):
+            raise MeasureError(f"{path}: {key} must be a string")
+    return values
+
+
+def resolve_worker(explicit: dict[str, str | None], defaults: dict[str, str]) -> Worker:
+    """Settle which worker to dispatch to, flags beating the file.
+
+    Kept separate from argument parsing because precedence is the part worth
+    testing: a file that could override a flag would make a command line a
+    suggestion, and the flag is what ends up quoted in a record as how the
+    sweep was run.
+    """
+    chosen = {
+        key: explicit.get(key) or defaults.get(key)
+        for key in ("endpoint", "protocol", "model", "api_key_env")
+    }
+    missing = [k for k in ("endpoint", "model") if not chosen[k]]
+    if missing:
+        raise MeasureError(
+            f"a sweep needs {' and '.join('--' + m for m in missing)} — pass "
+            f"them, or put them in {WORKER_FILE.name} beside this script "
+            "(copy worker.example.json). --selftest verifies the task set "
+            "without a worker."
+        )
+
+    protocol_name = chosen["protocol"] or Protocol.OLLAMA.value
+    try:
+        protocol = Protocol(protocol_name)
+    except ValueError:
+        raise MeasureError(
+            f"unknown protocol {protocol_name!r}. "
+            f"Known: {', '.join(p.value for p in Protocol)}"
+        ) from None
+
+    key_env = chosen["api_key_env"]
+    if key_env and not os.environ.get(key_env):
+        raise MeasureError(
+            f"${key_env} is not set, and the worker is declared as needing it. "
+            "Export it or source your .env; the sweep refuses rather than "
+            "sending twenty unauthenticated requests."
+        )
+
+    endpoint = chosen["endpoint"]
+    model = chosen["model"]
+    assert endpoint is not None and model is not None  # settled by `missing`
+    return Worker(endpoint, protocol, model, key_env)
+
+
+def check_protocol_can_carry_a_measurement(worker: Worker) -> None:
+    """Refuse a wire protocol this project will not let a measurement run on.
+
+    Every request the rig sends is ``quality_sensitive=True``, because its
+    output *is* a measurement of the model. ``runner.generate`` refuses such a
+    request on a caveated path before sending it, so a sweep against Ollama's
+    native ``/api/generate`` produces eighty dispatch errors and no
+    measurement — the failure arriving one request at a time, an hour into a
+    run, phrased as a transport problem.
+
+    CAV-01 is why the path is caveated: it scored a model at 32.3% against a
+    true 84.1%. The fix is not a different endpoint but a different protocol on
+    the same one — Ollama serves ``/v1/chat/completions`` on the same port.
+    """
+    if runner_for(worker.as_endpoint()).quality_safe:
+        return
+    raise MeasureError(
+        f"the {worker.protocol.value} protocol cannot carry this measurement. "
+        "Every request here is quality-sensitive, and mcgyvr refuses those on "
+        "that path under CAV-01, which measured it scoring a model at 32.3% "
+        f"against a true 84.1%. Use --protocol {Protocol.OPENAI.value}: Ollama "
+        "serves /v1/chat/completions on the same port, as do vLLM, "
+        "llama-server, LM Studio and TGI."
+    )
+
+
+def redact(url: str) -> str:
+    """A URL with any embedded credentials removed, for writing down."""
+    parts = urlsplit(url)
+    if not (parts.username or parts.password):
+        return url
+    host = parts.hostname or ""
+    netloc = f"{host}:{parts.port}" if parts.port else host
+    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+
+
+def condition_digests() -> dict[str, str]:
+    """A hash per condition, so a table can be tied to the bytes it measured."""
+    return {
+        name: hashlib.sha256(condition_text(name).encode("utf-8")).hexdigest()
+        for name in LADDER
+    }
+
+
+def rig_revision() -> str:
+    """The commit the rig ran at, or ``"unknown"`` rather than a guess.
+
+    Recorded because the ladder, the task set and the parser are all under
+    version control and all affect the number. "unknown" is an honest answer
+    for a checkout that is not a repository; a wrong hash would not be.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(HERE), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=ACCEPTANCE_TIMEOUT_S,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+    return proc.stdout.strip() if proc.returncode == 0 else "unknown"
+
+
+def record_run(out: Path, worker: Worker, invocation: dict[str, object]) -> None:
+    """Write, or extend, the provenance beside the rows.
+
+    A rate without its backend is not quotable — CAV-02 is precisely that a
+    figure from another backend describes different weights, and now that the
+    worker can be anything anyone can reach, the rows no longer imply it.
+
+    Resuming into a directory measured on a *different* worker is refused. The
+    resume path exists so an interrupted sweep can be finished, and blending two
+    backends into one denominator would produce a table that looks like one
+    measurement and is not.
+    """
+    path = out / "run.json"
+    identity = {
+        "endpoint": redact(worker.endpoint),
+        "protocol": worker.protocol.value,
+        "model": worker.model,
+        "conditions_sha256": condition_digests(),
+    }
+    if path.is_file():
+        previous = json.loads(path.read_text(encoding="utf-8"))
+        drift = sorted(k for k, v in identity.items() if previous.get(k) != v)
+        if drift:
+            raise MeasureError(
+                f"{path} records a different run: {', '.join(drift)} changed. "
+                "Rows already here were measured on another worker or another "
+                "ladder; resuming would average two measurements into one "
+                "table. Use a fresh --out directory."
+            )
+        previous["invocations"].append(invocation)
+        path.write_text(json.dumps(previous, indent=2) + "\n", encoding="utf-8")
+        return
+    path.write_text(
+        json.dumps({**identity, "invocations": [invocation]}, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def node_runs_typescript() -> bool:
@@ -499,8 +742,22 @@ def main() -> int:
     parser.add_argument(
         "--protocol",
         choices=[p.value for p in Protocol],
-        default=Protocol.OLLAMA.value,
-        help="wire protocol the endpoint speaks",
+        default=None,
+        help=f"wire protocol the endpoint speaks (default: {Protocol.OLLAMA.value})",
+    )
+    parser.add_argument(
+        "--api-key-env",
+        help="NAME of the environment variable holding the endpoint's key, "
+        "never the key. Omit for a keyless endpoint, which is the ordinary "
+        "case for a local or tunnelled backend.",
+    )
+    parser.add_argument(
+        "--worker-file",
+        type=Path,
+        default=WORKER_FILE,
+        help=f"git-ignored defaults for --endpoint/--protocol/--model/"
+        f"--api-key-env (default: {WORKER_FILE.name} beside this script). "
+        "Flags win over the file.",
     )
     parser.add_argument(
         "--conditions",
@@ -553,18 +810,12 @@ def main() -> int:
         print(summarise(args.out / "results.jsonl"))
         return 0
 
-    if not (args.out and args.endpoint and args.model):
+    if args.out is None:
         print(
-            "error: a sweep needs --out, --endpoint and --model.\n"
+            "error: a sweep needs --out, a directory for its rows.\n"
             "       --selftest verifies the task set without a worker.",
             file=sys.stderr,
         )
-        return 2
-
-    try:
-        check_c2_is_the_shipped_bundle()
-    except MeasureError as exc:
-        print(f"error: {exc}", file=sys.stderr)
         return 2
 
     conditions = [c for c in args.conditions.split(",") if c]
@@ -573,20 +824,51 @@ def main() -> int:
         print(f"error: unknown condition(s): {', '.join(unknown)}", file=sys.stderr)
         return 2
 
-    endpoint = Endpoint(
-        source="measure",
-        base_url=args.endpoint,
-        protocol=Protocol(args.protocol),
-        max_parallel=1,
-        credential_env=None,
-    )
-    runner = runner_for(endpoint)
+    try:
+        check_c2_is_the_shipped_bundle()
+        worker = resolve_worker(
+            {
+                "endpoint": args.endpoint,
+                "protocol": args.protocol,
+                "model": args.model,
+                "api_key_env": args.api_key_env,
+            },
+            load_worker_file(args.worker_file),
+        )
+        check_protocol_can_carry_a_measurement(worker)
+    except MeasureError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    runner = runner_for(worker.as_endpoint())
 
     args.out.mkdir(parents=True, exist_ok=True)
     rows_path = args.out / "results.jsonl"
     already = done_keys(rows_path)
     if already:
         print(f"resuming: {len(already)} cells already recorded", file=sys.stderr)
+
+    try:
+        record_run(
+            args.out,
+            worker,
+            {
+                "started": datetime.now(UTC).isoformat(timespec="seconds"),
+                "conditions": conditions,
+                "tasks": [task.id for task in tasks],
+                "remediate": not args.no_remediate,
+                "rig_revision": rig_revision(),
+            },
+        )
+    except MeasureError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    print(
+        f"measuring {worker.model} at {redact(worker.endpoint)} "
+        f"({worker.protocol.value})",
+        file=sys.stderr,
+    )
 
     with (
         tempfile.TemporaryDirectory(prefix="mcgyvr-bundle-") as tmp,
@@ -601,7 +883,7 @@ def main() -> int:
                     task,
                     condition,
                     runner,
-                    args.model,
+                    worker.model,
                     workdir,
                     remediate=not args.no_remediate,
                 )

@@ -1,0 +1,17 @@
+{
+  "_": "Copy to worker.local.json, which is git-ignored, and fill in. Keys starting with `_` are comments and are ignored by the loader; unknown keys are refused rather than skipped, so a typo cannot silently point the sweep at the wrong worker. Flags always beat this file.",
+
+  "_endpoint": "Base URL of a served model. Anything reachable over HTTP: a box on your network, a tunnel (`ssh -N -L 11434:localhost:11434 gpubox`, then use localhost here), or a hosted provider's OpenAI-compatible URL. Never put a key in the URL — see api_key_env.",
+  "endpoint": "http://localhost:11434",
+
+  "_protocol": "Use `openai` — the OpenAI-compatible chat-completions shape, which Ollama, vLLM, llama-server, LM Studio, TGI and the hosted providers all speak. `ollama` here means Ollama's NATIVE /api/generate, which a sweep refuses: CAV-01 measured that path scoring a model at 32.3% against a true 84.1%, so mcgyvr will not carry a measurement on it. Same port either way.",
+  "protocol": "openai",
+
+  "_model": "The model as that backend names it. #144 is defined on qwen2.5-coder:3b; anything else measures a different question and the run record has to say so.",
+  "model": "qwen2.5-coder:3b",
+
+  "_api_key_env": "The NAME of the environment variable holding the key — never the key. Omit it entirely for a keyless endpoint, which is the ordinary case for a local or tunnelled backend. Put the value in your shell or in the git-ignored .env at the repo root and source it.",
+  "_api_key_env_example": "\"api_key_env\": \"MEASURE_API_KEY\"",
+
+  "_note": "Free text, carried nowhere. Somewhere to write down which machine this is and how to wake it."
+}

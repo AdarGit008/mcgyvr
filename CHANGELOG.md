@@ -487,6 +487,31 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   question: on an older Node every task fails identically and the symptom is
   indistinguishable from a model that cannot write TypeScript.
 
+  The worker a sweep dispatches to is now configuration rather than a command
+  line: a git-ignored `tools/bundle/worker.local.json` supplies the endpoint,
+  protocol, model and — new — the *name* of the variable holding a key, so a
+  model served anywhere reachable can run the experiment while the acceptance
+  side stays local and needs nothing but Node. Flags beat the file; unknown
+  keys and key *values* are refused rather than ignored; a declared key that is
+  not in the environment stops the run instead of sending twenty
+  unauthenticated requests. `tools/bundle/worker.example.json` is the committed
+  shape.
+
+  **The rig refuses Ollama's native `/api/generate` before dispatching.** Every
+  request it sends is `quality_sensitive`, and `runner.generate` refuses those
+  on a caveated path under CAV-01 — which measured that path scoring a model at
+  32.3% against a true 84.1%. The command this repository had been documenting
+  since the instrument was built (`--protocol ollama`) could therefore only have
+  produced eighty dispatch errors and no measurement, one request at a time.
+  `--protocol openai` is the same port on the same server.
+
+  A sweep now writes `run.json` beside its rows — endpoint with any embedded
+  credentials stripped, protocol, model, a SHA-256 per condition, the rig's
+  revision, and one entry per invocation. Resuming into a directory whose
+  manifest names a different worker or ladder is refused: a rate is not quotable
+  without the backend that produced it (CAV-02), and blending two into one
+  denominator yields a table that looks like a single measurement.
+
 ### Changed
 - A bundle's leading provenance marker is stripped at load
   (`worker.bundle.strip_provenance`) and no longer reaches the worker or the

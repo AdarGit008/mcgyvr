@@ -1,5 +1,9 @@
 .env
 .env.local
+# Where a sweep is told which worker to reach. Machine-specific by nature —
+# hostnames, tunnel ports, the name of the variable holding a key. The shape is
+# committed as tools/bundle/worker.example.json.
+tools/bundle/worker.local.json
 *.log
 __pycache__/
 *.pyc

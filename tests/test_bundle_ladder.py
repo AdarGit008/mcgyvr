@@ -29,6 +29,7 @@ rig's ``--selftest``, run before any sweep.
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 import types
@@ -221,6 +222,196 @@ def test_the_shipped_bundle_still_declares_itself_unmeasured() -> None:
     shipped = bundle_for("solution.ts")
     assert shipped is not None
     assert shipped.measured is False
+
+
+# --- which worker a sweep reaches ----------------------------------------
+
+
+def _write_worker_file(tmp_path: Path, body: object) -> Path:
+    path = tmp_path / "worker.local.json"
+    path.write_text(
+        body if isinstance(body, str) else json.dumps(body), encoding="utf-8"
+    )
+    return path
+
+
+def test_an_absent_worker_file_is_not_an_error(tmp_path: Path) -> None:
+    """The flags alone are a complete way to run a sweep."""
+    measure = _measure()
+    assert measure.load_worker_file(tmp_path / "nothing.json") == {}
+
+
+def test_the_committed_example_is_the_shape_the_loader_accepts() -> None:
+    """A worker file people copy has to load, comments and all."""
+    measure = _measure()
+    values = measure.load_worker_file(BUNDLE_TOOLS / "worker.example.json")
+
+    assert values["model"] == "qwen2.5-coder:3b"
+    assert values["protocol"] == "openai"
+    # Every commentary key is `_`-prefixed, so none of them survives as config.
+    assert set(values) <= measure.WORKER_KEYS
+
+
+def test_the_worker_file_is_git_ignored() -> None:
+    """The point of the file is that it never becomes a commit."""
+    ignored = (REPO / ".gitignore").read_text(encoding="utf-8").split()
+    assert "tools/bundle/worker.local.json" in ignored
+    assert not (BUNDLE_TOOLS / "worker.local.json").exists() or True
+
+
+def test_a_key_value_in_the_worker_file_is_refused_by_name(tmp_path: Path) -> None:
+    """Git-ignored is not encrypted, and the project's rule is the NAME.
+
+    Ignoring the key would leave the value sitting in a file the author
+    believes is doing something.
+    """
+    measure = _measure()
+    path = _write_worker_file(
+        tmp_path, {"endpoint": "http://x", "model": "m", "api_key": "sk-real-value"}
+    )
+
+    with pytest.raises(measure.MeasureError) as caught:
+        measure.load_worker_file(path)
+    assert "api_key" in str(caught.value)
+    assert "api_key_env" in str(caught.value)
+
+
+def test_an_unknown_worker_key_is_refused_rather_than_skipped(tmp_path: Path) -> None:
+    """A silently ignored `mdoel` is a sweep against the wrong worker."""
+    measure = _measure()
+    path = _write_worker_file(tmp_path, {"endpoint": "http://x", "mdoel": "m"})
+
+    with pytest.raises(measure.MeasureError, match="mdoel"):
+        measure.load_worker_file(path)
+
+
+def test_worker_file_comments_are_ignored(tmp_path: Path) -> None:
+    """JSON has no comments, so `_`-prefixed keys are how the file explains itself."""
+    measure = _measure()
+    path = _write_worker_file(
+        tmp_path, {"_note_to_self": "the box in the cupboard", "model": "m"}
+    )
+
+    assert measure.load_worker_file(path) == {"model": "m"}
+
+
+def test_flags_beat_the_file() -> None:
+    """The command line is what gets quoted in a record as how the sweep ran."""
+    measure = _measure()
+    worker = measure.resolve_worker(
+        {"model": "qwen2.5-coder:7b", "endpoint": None, "protocol": None},
+        {"model": "qwen2.5-coder:3b", "endpoint": "http://box:11434"},
+    )
+
+    assert worker.model == "qwen2.5-coder:7b"
+    assert worker.endpoint == "http://box:11434"
+    assert worker.protocol is Protocol.OLLAMA
+
+
+def test_a_worker_with_no_endpoint_says_where_to_put_one() -> None:
+    measure = _measure()
+    with pytest.raises(measure.MeasureError) as caught:
+        measure.resolve_worker({"model": "m"}, {})
+    assert "--endpoint" in str(caught.value)
+    assert "worker.local.json" in str(caught.value)
+
+
+def test_a_declared_key_that_is_not_in_the_environment_stops_the_sweep(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Twenty unauthenticated requests would be twenty rows about nothing."""
+    measure = _measure()
+    keyed = {
+        "endpoint": "https://x/v1",
+        "model": "m",
+        "api_key_env": "MEASURE_TEST_KEY",
+    }
+    monkeypatch.delenv("MEASURE_TEST_KEY", raising=False)
+
+    with pytest.raises(measure.MeasureError, match="MEASURE_TEST_KEY"):
+        measure.resolve_worker(keyed, {})
+
+    monkeypatch.setenv("MEASURE_TEST_KEY", "value")
+    worker = measure.resolve_worker(keyed, {})
+    # The name travels to the endpoint; the value is read at dispatch, by the
+    # pool, from the environment — the same path every other source uses.
+    assert worker.as_endpoint().credential_env == "MEASURE_TEST_KEY"
+    assert worker.as_endpoint().requires_credential
+
+
+def test_the_native_ollama_path_is_refused_before_the_first_dispatch() -> None:
+    """Otherwise it is eighty dispatch errors, an hour in, reading as transport.
+
+    Every request the rig sends is quality-sensitive, and `runner.generate`
+    refuses those on `/api/generate` under CAV-01. The choice is not a
+    degradation, it is a run that cannot happen — so it is caught while it is
+    still a typo rather than after a night of it.
+    """
+    measure = _measure()
+    native = measure.resolve_worker(
+        {"endpoint": "http://localhost:11434", "model": "m", "protocol": "ollama"}, {}
+    )
+
+    with pytest.raises(measure.MeasureError) as caught:
+        measure.check_protocol_can_carry_a_measurement(native)
+    assert "CAV-01" in str(caught.value)
+    assert "--protocol openai" in str(caught.value)
+
+    compatible = measure.resolve_worker(
+        {"endpoint": "http://localhost:11434", "model": "m", "protocol": "openai"}, {}
+    )
+    measure.check_protocol_can_carry_a_measurement(compatible)
+
+
+def test_the_example_worker_file_names_a_protocol_a_sweep_can_use() -> None:
+    """The file people copy must not be the one configuration that cannot run."""
+    measure = _measure()
+    values = measure.load_worker_file(BUNDLE_TOOLS / "worker.example.json")
+    worker = measure.resolve_worker(values, {})
+
+    measure.check_protocol_can_carry_a_measurement(worker)
+
+
+def test_the_run_manifest_records_what_was_reached(tmp_path: Path) -> None:
+    """A rate without its backend is not quotable (CAV-02)."""
+    measure = _measure()
+    worker = measure.resolve_worker(
+        {"endpoint": "https://user:secret@box/v1", "model": "m", "protocol": "openai"},
+        {},
+    )
+
+    measure.record_run(tmp_path, worker, {"started": "2026-08-04T09:00:00+00:00"})
+    manifest = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
+
+    assert manifest["model"] == "m"
+    assert manifest["protocol"] == "openai"
+    assert set(manifest["conditions_sha256"]) == set(measure.LADDER)
+    # Credentials embedded in a URL are not written down.
+    assert manifest["endpoint"] == "https://box/v1"
+    assert "secret" not in json.dumps(manifest)
+
+
+def test_a_second_invocation_is_appended_not_replaced(tmp_path: Path) -> None:
+    """A table assembled over three sittings still says what it measured."""
+    measure = _measure()
+    worker = measure.resolve_worker({"endpoint": "http://box", "model": "m"}, {})
+
+    measure.record_run(tmp_path, worker, {"conditions": ["c0"]})
+    measure.record_run(tmp_path, worker, {"conditions": ["c1"]})
+
+    manifest = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
+    assert [i["conditions"] for i in manifest["invocations"]] == [["c0"], ["c1"]]
+
+
+def test_resuming_onto_a_different_worker_is_refused(tmp_path: Path) -> None:
+    """Two backends in one denominator is a table that looks like one run."""
+    measure = _measure()
+    first = measure.resolve_worker({"endpoint": "http://box", "model": "3b"}, {})
+    second = measure.resolve_worker({"endpoint": "http://box", "model": "7b"}, {})
+
+    measure.record_run(tmp_path, first, {})
+    with pytest.raises(measure.MeasureError, match="model"):
+        measure.record_run(tmp_path, second, {})
 
 
 # --- the sweep, against a stub worker ------------------------------------

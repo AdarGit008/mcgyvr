@@ -145,19 +145,93 @@ change the model *and* the serving stack at once; under CAV-02 a figure from
 another backend describes different weights, so it would answer a different
 question while looking like an answer to this one.
 
-So the ladder is built and the run is deferred. The command, once a worker
-exists:
+So the ladder is built and the run is deferred.
+
+## Running it against a worker you can reach
+
+The rig needs one thing from you: an HTTP endpoint serving a model. It does not
+care where that is. The acceptance side needs nothing but Node — no GPU, no
+network — so the ordinary arrangement is **the rig here, the model elsewhere**.
+
+Everything machine-specific goes in `worker.local.json`, which is git-ignored.
+Copy the committed shape and fill it in:
+
+```
+cp tools/bundle/worker.example.json tools/bundle/worker.local.json
+```
+
+```json
+{
+  "endpoint": "http://localhost:11434",
+  "protocol": "openai",
+  "model": "qwen2.5-coder:3b"
+}
+```
+
+**`openai` even against Ollama, and this is not a preference.** Every request a
+sweep sends is `quality_sensitive`, and `runner.generate` refuses those on
+Ollama's native `/api/generate` under CAV-01 — which measured that path scoring
+a model at 32.3% against a true 84.1%. Choosing `ollama` here does not degrade
+the run; it produces eighty dispatch errors and no measurement. The rig now
+refuses it up front rather than one request at a time, an hour in. Ollama serves
+`/v1/chat/completions` on the same port.
+
+Then the sweep is just:
 
 ```
 uv run --no-sync python tools/bundle/measure.py \
-    --endpoint http://localhost:11434 --protocol ollama \
-    --model qwen2.5-coder:3b \
     --out records/measurements/jsts-bundle-YYYY-MM-DD
+```
+
+Flags beat the file, so a one-off against a second worker needs no edit:
+`--model qwen2.5-coder:7b --out .../7b-YYYY-MM-DD`.
+
+**A machine you reach over SSH is a local endpoint.** Forward the port and the
+rest is unchanged — this is the arrangement to prefer, because it leaves the
+model's serving stack exactly as its owner configured it:
+
+```
+ssh -N -L 11434:localhost:11434 gpubox     # in another shell, or -f to background
+```
+
+**A keyed endpoint** — a hosted provider, or your own box behind a gateway —
+sets `protocol` to `openai` and names the *variable* holding the key, never the
+key:
+
+```json
+{
+  "endpoint": "https://api.example.com/v1",
+  "protocol": "openai",
+  "model": "qwen2.5-coder-3b-instruct",
+  "api_key_env": "MEASURE_API_KEY"
+}
+```
+
+`export MEASURE_API_KEY=…` in your shell, or put it in the git-ignored `.env` at
+the repo root and source it (`set -a; . .env; set +a`). The rig refuses to start
+if the named variable is unset, rather than sending twenty unauthenticated
+requests. A key value written into `worker.local.json` under any of the obvious
+names is refused too: git-ignored is not encrypted.
+
+Before a real sweep, one dispatch is worth more than any amount of config
+reading:
+
+```
+uv run --no-sync python tools/bundle/measure.py \
+    --tasks t01 --conditions c2 --out /tmp/smoke
 ```
 
 Rows are append-only and resume-safe — an interrupted sweep skips the cells it
 already recorded. `--summarise-only` prints the table from rows already
-collected.
+collected. Resuming into a directory measured on a *different* worker is
+refused; see `run.json` below.
+
+**What a remote worker does not change.** #144 is defined on `qwen2.5-coder:3b`,
+and CAV-02 says a figure from another backend describes different weights. A
+sweep against a different model, or the same model on a different serving stack,
+is a valid measurement of *that* — it just does not settle #144 as written, and
+the claim record has to say which one it is. `run.json` records what was
+actually reached so that this cannot be lost.
 
 ## What the rig records, and why
 
@@ -186,6 +260,16 @@ Three things are recorded that the Python run did not have to record:
 
 No VRAM column: there is no GPU here to sample, and a column of nulls reads like
 a measurement that was taken.
+
+**`run.json` carries what the rows cannot.** A rate is not quotable without the
+worker that produced it, and now that the worker can be anything anyone can
+reach, the rows no longer imply one. The manifest records the endpoint (with any
+embedded credentials stripped), the protocol, the model, a SHA-256 per condition
+and the rig's own revision, plus one entry per invocation — so a table assembled
+over three sittings still says what it measured. It is also what makes resume
+safe: a sweep resumed into a directory whose manifest names a different worker or
+a different ladder is refused, because blending two backends into one denominator
+produces a table that looks like one measurement and is not.
 
 ## Threats to validity
 
