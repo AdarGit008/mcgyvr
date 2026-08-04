@@ -302,7 +302,7 @@ def test_the_default_sweep_is_localhost_and_unchanged() -> None:
     assert all(t.host == "localhost" for t in DEFAULT_PROBE_TARGETS)
     assert all("localhost" in t.base_url for t in DEFAULT_PROBE_TARGETS)
     assert [t.name for t in DEFAULT_PROBE_TARGETS] == [
-        name for name, _, _ in PORT_CONVENTIONS
+        name for name, *_ in PORT_CONVENTIONS
     ], "bare names, as before — nothing is qualified on a one-host sweep"
 
 
@@ -317,7 +317,7 @@ def test_a_named_host_is_swept_on_every_port_convention() -> None:
 def test_a_single_named_host_still_gets_bare_names() -> None:
     """One machine is unambiguous, whichever machine it is."""
     assert [t.name for t in targets_for(["srv1"])] == [
-        name for name, _, _ in PORT_CONVENTIONS
+        name for name, *_ in PORT_CONVENTIONS
     ]
 
 
@@ -342,7 +342,7 @@ def test_qualifying_a_name_never_changes_what_the_backend_is() -> None:
     backend-pinned model the moment a second host was named.
     """
     for target in targets_for(["srv1", "srv2"]):
-        assert target.kind in {name for name, _, _ in PORT_CONVENTIONS}
+        assert target.kind in {name for name, *_ in PORT_CONVENTIONS}
         assert target.name.endswith(target.kind)
 
 
@@ -355,7 +355,7 @@ def test_an_address_survives_becoming_a_config_key() -> None:
 def test_naming_one_host_twice_probes_it_once() -> None:
     assert len(targets_for(["srv1", "srv1"])) == len(PORT_CONVENTIONS)
     assert [t.name for t in targets_for(["srv1", "srv1"])] == [
-        name for name, _, _ in PORT_CONVENTIONS
+        name for name, *_ in PORT_CONVENTIONS
     ], "a duplicate must not be read as two hosts and trigger qualification"
 
 
@@ -395,3 +395,51 @@ def test_nothing_answering_anywhere_names_the_flag_that_widens_the_sweep(
     joined = " ".join(found.notes)
     assert "--host" in joined
     assert "http://srv1:11434" in joined, "and says exactly what was tried"
+
+
+# --- asked one way, dispatched another (#164) ----------------------------
+
+
+def test_ollama_is_asked_natively_and_bound_compatibly() -> None:
+    """The two protocols are used for the thing each is better at.
+
+    `/api/tags` is the only listing that includes models pulled but not
+    loaded, which is the inventory a proposal needs. `/api/generate` is the
+    path CAV-01 measured at 32.3% against a true 84.1%.
+    """
+    ollama = next(t for t in targets_for() if t.kind == "ollama")
+    assert ollama.api == "ollama", "detection still asks natively"
+    assert ollama.binds_as == "openai", "dispatch does not"
+
+
+def test_every_other_backend_is_bound_as_it_is_asked() -> None:
+    """Only Ollama has two doors. A split everywhere would be noise."""
+    for target in targets_for():
+        if target.kind == "ollama":
+            continue
+        assert target.binds_as == target.api
+
+
+def test_a_probed_ollama_reports_both_protocols(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub_run(monkeypatch, {})
+    stub_http(monkeypatch, {"http://localhost:11434/api/tags": OLLAMA_TAGS})
+    found = detect()
+    backend = found.backend("ollama")
+    assert backend is not None
+    assert backend.models, "the native listing is what enumerates pulled models"
+    assert backend.bound_on_another_protocol
+    assert backend.binds_as == "openai"
+
+
+def test_a_backend_bound_as_it_answered_is_not_flagged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The flag exists to explain a surprise; firing always would explain nothing."""
+    stub_run(monkeypatch, {})
+    stub_http(monkeypatch, {"http://localhost:8000/v1/models": OPENAI_MODELS})
+    found = detect()
+    backend = found.backend("vllm")
+    assert backend is not None
+    assert not backend.bound_on_another_protocol

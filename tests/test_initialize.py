@@ -426,3 +426,62 @@ def test_hosts_are_ignored_when_a_detection_is_supplied(  # type: ignore[no-unty
         tmp_path / "c.yaml", detection=REMOTE_ONLY, table=table, hosts=("nope.invalid",)
     )
     assert set(load_config(result.path).sources) == {"srv1_ollama", "srv2_ollama"}
+
+
+# --- a written config dispatches on the uncaveated path (#164) ------------
+
+
+def test_a_written_config_binds_ollama_on_the_uncaveated_protocol(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """`detect` calls it Ollama; the config dispatches to it as OpenAI."""
+    path = tmp_path / "mcgyvr.yaml"
+    initialize(path, detection=KEYLESS_RIG, table=table)
+    config = load_config(path)
+    assert config.sources["ollama"].api == "openai"
+
+
+def test_no_rung_of_a_written_config_carries_the_quality_caveat(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """The property that matters, asserted where it is actually decided.
+
+    Binding `api: openai` is only the mechanism; the claim is that a config
+    init wrote can serve a measurement. That is `Runner.quality_safe`, so the
+    assertion goes through the runner rather than through the string.
+    """
+    from mcgyvr.pool import source_map
+    from mcgyvr.runner import runner_for
+
+    path = tmp_path / "mcgyvr.yaml"
+    initialize(path, detection=KEYLESS_RIG, table=table)
+    pool = source_map(load_config(path))
+    assert pool.rungs, "this fixture is only interesting with rungs on it"
+    for rung in pool.rungs:
+        runner = runner_for(pool.bind(rung.name))
+        assert runner.quality_safe, (
+            f"{rung.name} dispatches on a path CAV-01 invalidates, so this "
+            f"install cannot serve a measurement"
+        )
+
+
+def test_the_protocol_switch_is_explained_rather_than_silent(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """A config saying `openai` for a source called `ollama` reads as a bug."""
+    result = initialize(tmp_path / "c.yaml", detection=KEYLESS_RIG, table=table)
+    joined = " ".join(result.decisions)
+    assert "CAV-01" in joined
+    assert "32.3%" in joined
+
+
+def test_detection_still_reads_the_native_model_listing(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """Binding compatibly must not cost the inventory that made it possible.
+
+    `/v1/models` on Ollama reports loaded models; `/api/tags` reports pulled
+    ones. Proposing against the former would hide every model on disk.
+    """
+    result = initialize(tmp_path / "c.yaml", detection=KEYLESS_RIG, table=table)
+    assert any("already pulled" in d for d in result.decisions)
