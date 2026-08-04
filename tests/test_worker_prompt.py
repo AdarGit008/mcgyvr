@@ -21,6 +21,7 @@ from mcgyvr.gate.preflight import ESTIMATE_RESERVE, TokenCount
 from mcgyvr.worker.bundle import (
     MAX_BUNDLE_BYTES,
     BundleMissingError,
+    BundleStanding,
     BundleTooLargeError,
     bundle_for,
     load_bundle,
@@ -83,22 +84,32 @@ def test_shipped_python_bundle_is_byte_identical_to_the_measured_one() -> None:
     assert shipped.text.encode("utf-8") == MEASURED_C2.read_bytes()
 
 
-def test_the_python_bundle_is_marked_measured_and_the_js_one_is_not() -> None:
-    """CLM-0004 covers one language; the flag is how a caller can tell."""
+def test_both_bundles_are_measured_and_only_one_of_them_helped() -> None:
+    """Two sweeps now, two different answers, and one flag cannot say both.
+
+    CLM-0004 covered one language and CLM-0012 covered the other, so ``measured``
+    is True either way and has stopped being the interesting question.
+    ``standing`` is what separates the bundle that beat its absence from the one
+    that did not.
+    """
     assert load_bundle("python").measured is True
-    assert load_bundle("js/ts").measured is False
+    assert load_bundle("js/ts").measured is True
+
+    assert load_bundle("python").standing is BundleStanding.MEASURED_BENEFIT
+    assert load_bundle("js/ts").standing is BundleStanding.MEASURED_NO_EFFECT
 
 
-def test_the_js_bundle_says_it_is_unmeasured_in_the_file_but_not_in_the_prompt() -> (
+def test_the_js_bundle_states_its_null_result_in_the_file_but_not_in_the_prompt() -> (
     None
 ):
-    """The caveat travels with the file; it is not spent on the worker.
+    """The standing travels with the file; it is not spent on the worker.
 
     #25 put the marker in the bundle's text so the caveat could not be lost by
     reading the file alone. #144 found what that cost: the loader was sending
     those 162 bytes to the model as the opening of its system prompt, and
-    charging them against the ceiling. The caveat still has to be in the file —
-    that half was right — but it is provenance, so it stops at the loader.
+    charging them against the ceiling. The marker still has to be in the file —
+    that half was right — but it is provenance, so it stops at the loader. What
+    it says changed when the sweep ran; where it stops did not.
     """
     raw = (
         Path(__file__).resolve().parent.parent
@@ -107,8 +118,10 @@ def test_the_js_bundle_says_it_is_unmeasured_in_the_file_but_not_in_the_prompt()
         / "prompts"
         / "javascript.md"
     ).read_text(encoding="utf-8")
-    assert "UNMEASURED" in raw
-    assert "UNMEASURED" not in load_bundle("js/ts").text
+    assert "NO EFFECT" in raw
+    assert "CLM-0012" in raw
+    assert "NO EFFECT" not in load_bundle("js/ts").text
+    assert "CLM-0012" not in load_bundle("js/ts").text
 
 
 # --- the ceiling is enforced, not documented -------------------------------

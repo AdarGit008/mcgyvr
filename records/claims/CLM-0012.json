@@ -1,0 +1,39 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0012",
+  "statement": "The skill-bundle effect CLM-0004 measured in Python does not reproduce in the JS/TS configuration mcgyvr ships: on the same model and quant (qwen2.5-coder:3b, Q4_K_M), the same four-condition context ladder over a 20-task JS/TS set with runnable acceptance measured first-pass acceptance of 45% (c0, no bundle), 55% (c1, 369 B), 50% (c2, 1877 B — the shipped prompts/javascript.md byte for byte) and 45% (c3, 8883 B). No rung separates from no-bundle-at-all: against c0 the net deltas are +2, +1 and 0 tasks against a noise floor of +/-1 task declared in the design in advance, they are built from flips in both directions (c2: 3 gains, 2 losses; c3: 2 gains, 2 losses), and McNemar exact on the discordant pairs gives p=0.50, 1.00 and 1.00. For scale, CLM-0004's Python effect was +5 tasks. Two full 80-cell sweeps on different hardware (srv1 GTX 1660 SUPER, srv2 RTX 3060) reproduced all four condition totals exactly while differing on 19 of 80 cells by completion-token count and 4 of 80 by verdict — the 4 flips paired within their condition — which puts the noise floor on the record as measured rather than assumed: a re-roll moves about 4 cells in 80, i.e. about one task per condition, the size of the largest delta observed. The mechanism explains the null and is the transferable half: CLM-0004's gain came from output rules cutting completion tokens from 403 at c0 to about 124 at c2, and completion tokens dominate wall time, whereas this run measured them flat at 166.8/167.3/169.4/176.6 with latency flat to match — the 3b was not rambling on this task set, so the device the bundle works through had nothing to act on. This licenses no citation of a JS/TS bundle gain, and it is not a finding of harm: the same run cannot separate c2 from c0 in either direction, so prompts/javascript.md continues to ship with standing measured-no-effect rather than being withdrawn. Limits, none of them concealed by the totals: n=20 with 13 tasks condition-insensitive (6 always pass, 7 never), so only 7 tasks sit in the band where a bundle could show anything and a small true effect of 1-2 tasks is not excluded, though a Python-sized +5 would have been visible; two rigs bound hardware and serving-stack sensitivity but are not two samples, since temperature 0 is the design and sampling variance is not sampled; one model only; and the serving stack diverges from CLM-0004, which drove the same Q4_K_M blob through bare llama-server where these runs drive it through Ollama on the OpenAI-compatible path required by CAV-01. One positive control was available and one was not, and the gap between them bounds what may be concluded. The available one rules out a null produced by undelivered conditions: prompt tokens scale exactly as the ladder specifies (222/281/608/2180 on t01) and the outputs move with them, 17, 18 and 20 of 20 tasks returning a different completion-token count under c1, c2 and c3 than under c0, so the system prompt is reaching the model and changing generation while not changing acceptance. The unavailable one is the decisive one: re-running CLM-0004's own Python ladder on this serving stack would distinguish 'the effect does not transfer to JS/TS' from 'the effect does not reproduce on Ollama and these rigs', and it cannot be run here because the Python conditions are vendored but the Python task set is not, only its per-task results. Until that control exists, language-versus-serving-stack is a live alternative reading of this null and the claim is scoped to the configuration measured rather than to JavaScript/TypeScript as such.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "medium",
+  "citations": [
+    {
+      "url": "records/measurements/jsts-bundle-2026-08-04/README.md",
+      "supports_because": "States the method, both runs' condition tables, the paired-flip analysis and the McNemar figures, and the limits — including that 13 of 20 tasks are condition-insensitive, which is the fact most capable of making a null look stronger than it is."
+    },
+    {
+      "url": "records/measurements/jsts-bundle-2026-08-04/results.jsonl",
+      "supports_because": "The 80 raw srv1 cells the percentages are computed from — one row per task per condition with pass1, pass_final, remediation_used, latency, prompt and completion tokens, stop reason and bundle bytes — so every rate above can be recomputed rather than trusted."
+    },
+    {
+      "url": "records/measurements/jsts-bundle-2026-08-04/replication-srv2/results.jsonl",
+      "supports_because": "The 80 raw srv2 cells. Compared row by row against the srv1 run these are what establish the empirical noise floor: 19 cells differ in completion tokens and 4 in verdict, yet all four condition totals are identical, so the flips are demonstrably noise and not hardware-specific behaviour."
+    },
+    {
+      "url": "records/measurements/jsts-bundle-2026-08-04/run.json",
+      "supports_because": "The manifest recorded before the first dispatch: endpoint, protocol, model, a SHA-256 per condition and per task, and the rig's revision — so the table cannot later be blended with a run against a different worker or an edited task set, which is the failure mode that would make a null meaningless."
+    },
+    {
+      "url": "tools/bundle/measure.py",
+      "supports_because": "The instrument, re-runnable against any reachable endpoint. It dispatches through mcgyvr's own Request/runner_for/parse_reply rather than a private HTTP client, holds CLM-0004's temperature and 768-token cap fixed, and refuses to run unless c2 is the shipped bundle byte for byte — which is what makes the result about prompts/javascript.md rather than about a file resembling it."
+    },
+    {
+      "url": "records/claims/CLM-0004.json",
+      "supports_because": "The Python result this re-measures, and the source of the confidence note that barred generalising its percentages to another language until re-measured. This claim is the discharge of that note for JS/TS, and supplies the +5-task scale the JS/TS deltas are judged against."
+    },
+    {
+      "url": "src/mcgyvr/worker/bundle.py",
+      "supports_because": "Where the finding is fed back: BundleStanding.MEASURED_NO_EFFECT replaces a bare measured boolean that would have read identically for a bundle measured at +25 pp and one measured at nothing, and the MAX_BUNDLE_BYTES comment records that JS/TS supplies no peak at which a per-language ceiling could be placed."
+    }
+  ]
+}

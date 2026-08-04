@@ -20,15 +20,30 @@ test holds the two files equal. Rewording it — even improving it — would mea
 the numbers above describe a file that is no longer the one being shipped. If
 the bundle should change, the change has to be measured first.
 
-**The JS/TS bundle is not measured, and says so in a marker the worker never
-sees.** CLM-0004's confidence note bars generalising its percentages to another
-language until re-measured, so ``prompts/javascript.md`` is an idiom port
-carrying no evidentiary weight. It is shipped because a worker on a JS/TS
-contract with no bundle at all is the c0 condition, which measured worst of the
-four — but "probably better than nothing" is a prediction, and it is recorded
-as one. The marker stating that is stripped by :func:`strip_provenance`, which
-is what keeps a file's standing sayable in the file without spending the
-worker's prompt on it; ``tools/bundle/`` is the instrument that would settle it.
+**The JS/TS bundle has now been measured, and it found nothing.** CLM-0004's
+confidence note barred generalising its percentages to another language until
+re-measured, and #144 re-measured: the same four-condition ladder over a JS/TS
+task set, same model, same quant, produced 45/55/50/45% first-pass acceptance
+across c0-c3. Every delta is inside the ±1-task noise floor the design declared
+in advance, and the deltas are built from flips in both directions rather than
+from a consistent gain. So ``prompts/javascript.md`` ships with
+:data:`BundleStanding.MEASURED_NO_EFFECT` — the prediction it shipped on in #25
+was not confirmed.
+
+**Why the Python effect did not transfer is legible in the token column, and it
+is the more useful half of the result.** CLM-0004's speed-up came from output
+rules stopping a small model rambling: 403 completion tokens at c0 against ~124
+at c2. The JS/TS run measured 167/167/169/177 — flat. The 3b was never rambling
+on this task set, so the mechanism the bundle works through had nothing to act
+on. That predicts where a bundle *will* pay: workers that over-produce without
+one, not languages as such.
+
+The file still ships. Measuring no benefit is not measuring harm, and c0 is not
+a better-evidenced choice than c2 — the run cannot separate them either. What
+changed is that "probably better than nothing" is no longer available as a
+reason. The marker stating all this is stripped by :func:`strip_provenance`,
+which is what keeps a file's standing sayable in the file without spending the
+worker's prompt on it; ``tools/bundle/`` is the instrument that settled it.
 
 One bundle per language adapter, selected by asking the gate's adapters which
 one owns the contract's target. That reuses the ownership rules the gate
@@ -40,6 +55,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from importlib import resources
 
 from mcgyvr.gate.adapter import LanguageAdapter
@@ -50,6 +66,12 @@ from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 # c2 on the small worker while buying nothing on the large one. So this is not
 # a budget guess — it is the point past which the evidence says quality falls.
 # Raising it is a claim about quality and needs a measurement, not an edit.
+#
+# It stays ONE constant across languages, and #144 is why that is now a finding
+# rather than a gap. The same ladder was run on a JS/TS task set (CLM-0012) and
+# no rung separated from c0 — so there is no JS/TS peak to place a different
+# ceiling at. A per-language ceiling would need a language whose curve has a
+# peak; JS/TS measured flat, which is not the same as measuring 2 KB.
 MAX_BUNDLE_BYTES = 2048
 
 # Which bundle serves which adapter, keyed by `LanguageAdapter.name`. A language
@@ -61,8 +83,41 @@ _BUNDLE_FILES: dict[str, str] = {
     "js/ts": "javascript.md",
 }
 
-# The one language whose bundle is the artifact a measurement was taken on.
-_MEASURED: frozenset[str] = frozenset({"python"})
+
+class BundleStanding(StrEnum):
+    """What a measurement says about a bundle — not merely whether one ran.
+
+    A bare "measured" boolean stopped being enough the moment #144 reported.
+    Both shipped bundles are now the artifact a sweep was taken on, so a
+    boolean would read the same for a bundle measured at +25 pp and one
+    measured at nothing — and "measured" is a word a reader takes as
+    endorsement. The outcome is the part worth carrying, so it is the part
+    the type names.
+    """
+
+    UNMEASURED = "unmeasured"
+    """No sweep has been run on this artifact. The standing python.md had
+    before CLM-0004 and javascript.md had before CLM-0012."""
+
+    MEASURED_BENEFIT = "measured-benefit"
+    """A sweep ran and the bundle beat its absence. `python.md`: 45% to 70%
+    first-pass acceptance at ~2.5x the speed (CLM-0004)."""
+
+    MEASURED_NO_EFFECT = "measured-no-effect"
+    """A sweep ran and no rung separated from no-bundle-at-all. `javascript.md`:
+    45/55/50/45% across c0-c3, every delta inside the stated ±1-task noise floor
+    (CLM-0012). The file still ships because measuring no benefit is not
+    measuring harm — but nothing here licenses citing a gain."""
+
+
+# What each shipped bundle's own measurement found. A language absent from this
+# table has had no sweep; `js/ts` is here with a null result rather than absent,
+# because "measured, and it did nothing" is a different fact from "unmeasured"
+# and only one of them is settled.
+_STANDING: dict[str, BundleStanding] = {
+    "python": BundleStanding.MEASURED_BENEFIT,
+    "js/ts": BundleStanding.MEASURED_NO_EFFECT,
+}
 
 _DEFAULT_ADAPTERS: tuple[LanguageAdapter, ...] = (PythonAdapter(), JavaScriptAdapter())
 
@@ -100,13 +155,25 @@ class Bundle:
     language: str
     text: str
     size_bytes: int
-    measured: bool
-    """Whether *this* bundle is the artifact a measurement was taken on.
+    standing: BundleStanding
+    """What *this* artifact's own sweep found.
 
-    False is not a defect to be fixed by asserting otherwise — it is the
-    difference between CLM-0004 covering the file and CLM-0004 covering a file
-    that inspired it. Anything reporting on a run should carry this through.
+    Not "was one run" — what it said. A bundle whose sweep found nothing and a
+    bundle that has never been swept are both un-citable as a gain, and they are
+    un-citable for different reasons; collapsing them loses the one that is
+    settled. Anything reporting on a run should carry this through.
     """
+
+    @property
+    def measured(self) -> bool:
+        """Whether this bundle is the artifact a measurement was taken on.
+
+        Provenance only, and deliberately says nothing about the outcome — read
+        :attr:`standing` for that. True here means CLM-0004 or CLM-0012 covers
+        *this file* rather than a file that inspired it, which is the property
+        #144 asked to be able to assert.
+        """
+        return self.standing is not BundleStanding.UNMEASURED
 
 
 def _read(filename: str) -> str | None:
@@ -174,7 +241,7 @@ def load_bundle(language: str) -> Bundle:
         language=language,
         text=text,
         size_bytes=size,
-        measured=language in _MEASURED,
+        standing=_STANDING.get(language, BundleStanding.UNMEASURED),
     )
 
 
