@@ -281,6 +281,22 @@ BUDGET_FIELDS: tuple[Field, ...] = (
         min_value=0,
     ),
     Field(
+        "max_attempts",
+        "int",
+        "Hard ceiling on how many attempts one task may spend in total, "
+        "across every rung and every family it climbs. Unset means the "
+        "ladder's own budget bounds it — the sum of each reachable rung's "
+        "`attempts`, which `mcgyvr pool` prints — so leaving it unset is not "
+        "unbounded. Set it when you have raised a rung's `attempts` or "
+        "`max_escalations` and want one number that still holds. A decline "
+        "costs nothing against it: a rung that stepped aside spent no attempt.",
+        min_value=1,
+        bind_hint=(
+            "set a whole number of attempts, or leave it unset to be bounded "
+            "by the ladder's own budget (`mcgyvr pool` prints that number)"
+        ),
+    ),
+    Field(
         "task_timeout_s",
         "int",
         "Wall-clock ceiling for one task, including acceptance commands.",

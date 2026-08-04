@@ -15,7 +15,11 @@ leaves the deterministic family. Splitting those two rules across two modules
 would mean neither module could be read on its own, so the boundary here is
 hard: nothing in this file ever looks at a family other than the one it was
 asked about, and :func:`plan` returns an empty plan naming its reason rather
-than quietly reaching for a dearer rung.
+than quietly reaching for a dearer rung. #43's task-wide ceiling reaches in as
+a *predicate* (:func:`climb`'s ``permit``) for the same reason the attempt
+function is one — a budget that spans families cannot be computed here, and a
+module that took the number instead of the question would be holding half of a
+rule it cannot see the other half of.
 
 **A plan is inspectable before anything is spent.** :func:`plan` answers "which
 rungs, in what order, with how many attempts each" without dispatching, which is
@@ -108,15 +112,22 @@ class Exhaustion(StrEnum):
     """Why a family ended without an accepted result.
 
     Machine-readable because #24 requires family exhaustion to be
-    distinguishable from every other failure, and because the three cases want
+    distinguishable from every other failure, and because the cases want
     different responses: spent attempts are a real signal that this family is
     not up to the work, universal declines say nothing about the family's
     ability at all, and no rung at all is a configuration fact.
+
+    ``WITHHELD`` is the fourth and is not about the family: a caller's budget
+    guard refused to fund the next attempt, so the family says nothing about
+    itself because it was not allowed to finish. It is kept distinct for the
+    same reason the other three are — a family stopped by someone else's
+    ceiling must not read like one that was tried and could not.
     """
 
     RUNGS_SPENT = "rungs_spent"
     ALL_DECLINED = "all_declined"
     NO_RUNG = "no_rung"
+    WITHHELD = "withheld"
 
 
 @dataclass(frozen=True)
@@ -398,6 +409,7 @@ def climb[T](
     attempt: Callable[[Try], Result[T]],
     *,
     capacity: Capacity | None = None,
+    permit: Callable[[Step, int], bool] | None = None,
 ) -> Accepted[T] | Exhausted:
     """Try each rung of ``plan`` in turn until one passes or the family is spent.
 
@@ -406,6 +418,17 @@ def climb[T](
     parameter is what lets every rule in this module be asserted without a
     model, a backend or a sandbox, and it is the same move
     :func:`~mcgyvr.capacity.run_batch` makes with a job.
+
+    ``permit`` is the caller's too, and for the same reason. It is asked before
+    each attempt is funded and ends the climb when it answers no. A task-wide
+    ceiling spans families, so it cannot be computed from a plan — but neither
+    may it live here, because #24's boundary is that nothing in this module
+    looks past the family it was asked about. A predicate keeps both true: the
+    caller knows what its budget means and this module never does, exactly as
+    it never knows what an attempt does. The refusal is reported as
+    :attr:`Exhaustion.WITHHELD`, which says the family did not finish rather
+    than that it failed; naming *whose* ceiling stopped it is the caller's, and
+    :mod:`mcgyvr.escalate` is where that happens.
 
     An attempt that raises is not caught. A verdict is a judgement the attempt
     function made; an exception is one it could not make, and swallowing it into
@@ -425,6 +448,16 @@ def climb[T](
 
     for step in plan.steps:
         for number in range(1, step.attempts + 1):
+            if permit is not None and not permit(step, number):
+                return Exhausted(
+                    family=plan.family,
+                    reason=Exhaustion.WITHHELD,
+                    history=tuple(history),
+                    detail=(
+                        f"the climb stopped at {step.rung.name!r} attempt "
+                        f"{number}: the caller's budget did not fund it."
+                    ),
+                )
             result = attempt(
                 Try(
                     rung=step.rung,
