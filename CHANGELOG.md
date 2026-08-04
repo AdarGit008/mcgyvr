@@ -608,6 +608,41 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   without the backend that produced it (CAV-02), and blending two into one
   denominator yields a table that looks like a single measurement.
 
+- `target_content` on the contract schema (#150) — the current content of the
+  target file, verbatim, as a worker-facing field of its own. A worker asked to
+  fix a bug was told to reply with the complete new content of a file it had
+  never been shown: `worker_view()` exposed nine keys and none of them was the
+  file as it stands, so the only slot available was `task`, which is documented
+  as "what to do, in words". #144's task set is what surfaced it, having put
+  fenced source into that field in 12 of its 20 contracts.
+
+  Carried on the contract rather than read from the tree at dispatch, on the
+  round-trip property: direct mode publishes the schema as public API, so
+  `parse(dumps(c))` round-trips the bytes a worker was actually sent and
+  `build_prompt` stays pure. Empty means the target does not exist yet or its
+  content is not needed — the documented meaning, not a forgotten field — and
+  content declared against a *pattern* target is rejected at load, since there
+  is no one file it could be the content of. The prompt renders it as its own
+  section under a header naming the target and saying it is the file to change,
+  fenced wider than any backtick run inside it (a file containing fences would
+  otherwise end its own block, the rule `worker.reply` already parses under).
+  No fit-check change was needed: an assembled prompt too large for
+  `context.max_input_tokens` was already a preflight issue rather than a
+  truncated dispatch.
+
+  The worker/orchestrator split (#94) is now asserted as an equality between
+  the view's keys and the schema's `worker_facing` fields, rather than as a list
+  of keys someone remembers to update — which immediately exposed drift: `id`
+  was in the view and undeclared. It is declared now. Being *in the view* and
+  being *rendered* stay different claims; neither `id` nor
+  `context.max_input_tokens` is spent on the worker.
+
+  #144's 12 contracts now state their starting code in the slot. Because a
+  rewritten contract changes the prompt a sweep measures exactly as a reworded
+  bundle does, `run.json` gained a SHA-256 per task alongside the per-condition
+  ones, and resuming into a directory measured against a different task set is
+  refused rather than averaged.
+
 ### Changed
 - A bundle's leading provenance marker is stripped at load
   (`worker.bundle.strip_provenance`) and no longer reaches the worker or the
