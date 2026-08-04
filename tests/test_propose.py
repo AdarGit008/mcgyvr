@@ -341,3 +341,101 @@ def test_headroom_is_respected_on_every_rung(table) -> None:  # type: ignore[no-
     proposal = propose(table, vram_gb=SMALL_CARD, sources=[OLLAMA, LLAMA_SERVER])
     for rung in proposal.rungs:
         assert rung.vram_gb + 2.0 <= SMALL_CARD
+
+
+# --- a rig on another machine is not sized against this one's card (#161) ---
+
+REMOTE_BIG = AvailableSource(
+    "srv2_ollama",
+    "ollama",
+    frozenset({"qwen2.5-coder:7b", "qwen2.5-coder:3b"}),
+    host="srv2",
+)
+REMOTE_SMALL = AvailableSource(
+    "srv1_ollama",
+    "ollama",
+    frozenset({"qwen2.5-coder:3b", "qwen2.5-coder:1.5b"}),
+    host="srv1",
+)
+
+
+def test_a_remote_rig_yields_a_ladder_with_no_gpu_here(table) -> None:  # type: ignore[no-untyped-def]
+    """The deployment mcgyvr is for: a laptop with no card, rigs elsewhere.
+
+    Before #161 this returned an empty proposal, because the only ground for
+    admitting a model was fitting a card this process could see.
+    """
+    proposal = propose(table, vram_gb=None, sources=[REMOTE_BIG])
+    assert proposal.rungs, "a reachable rig is a bindable rig"
+    assert {r.model for r in proposal.rungs} <= REMOTE_BIG.models_present
+    assert all(r.host == "srv2" for r in proposal.rungs)
+
+
+def test_a_remote_rig_admits_only_what_it_reports_holding(table) -> None:  # type: ignore[no-untyped-def]
+    """The rig's listing is the evidence, so it is also the limit."""
+    proposal = propose(table, vram_gb=None, sources=[REMOTE_SMALL])
+    assert {r.model for r in proposal.rungs} <= REMOTE_SMALL.models_present
+    assert "qwen2.5-coder:7b" not in {r.model for r in proposal.rungs}
+
+
+def test_an_unmeasured_model_is_not_admitted_by_being_served(table) -> None:  # type: ignore[no-untyped-def]
+    """Otherwise a rig's model list is a back door around the table."""
+    unmeasured = [m.id for m in table.models if not m.is_measured]
+    if not unmeasured:
+        pytest.skip("the shipped table currently measures every model")
+    rig = AvailableSource("srv1_ollama", "ollama", frozenset(unmeasured), host="srv1")
+    proposal = propose(table, vram_gb=None, sources=[rig])
+    assert all(r.model not in unmeasured for r in proposal.rungs)
+
+
+def test_no_gpu_and_only_local_backends_still_proposes_nothing(table) -> None:  # type: ignore[no-untyped-def]
+    """#161 adds a ground for REMOTE rigs and changes nothing for local ones.
+
+    A local backend's model list is not evidence about a card this build
+    cannot see — that card is right here, and failing to see it is the
+    problem. The note has to keep saying so.
+    """
+    local = AvailableSource("ollama", "ollama", frozenset({"qwen2.5-coder:7b"}))
+    proposal = propose(table, vram_gb=None, sources=[local])
+    assert proposal.is_local_empty
+    assert any("No GPU is visible here" in n for n in proposal.notes)
+
+
+def test_a_ladder_spanning_machines_says_it_may_be_inverted(table) -> None:  # type: ignore[no-untyped-def]
+    """Quality orders the rungs; throughput belongs to the card (#162)."""
+    proposal = propose(table, vram_gb=None, sources=[REMOTE_SMALL, REMOTE_BIG])
+    hosts = {r.host for r in proposal.rungs}
+    assert len(hosts) > 1, "this fixture is only interesting if it spans rigs"
+    notes = " ".join(proposal.notes)
+    assert "spans 2 machines" in notes
+    assert "#162" in notes
+
+
+def test_one_machine_gets_no_inversion_warning(table) -> None:  # type: ignore[no-untyped-def]
+    """A warning that always fires is a warning nobody reads."""
+    proposal = propose(table, vram_gb=None, sources=[REMOTE_BIG])
+    assert not any("spans" in n and "machines" in n for n in proposal.notes)
+
+
+def test_an_arbitrary_placement_says_it_was_arbitrary(table) -> None:  # type: ignore[no-untyped-def]
+    """Two rigs hold 3b; the winner is list order, which is not a measurement."""
+    proposal = propose(table, vram_gb=None, sources=[REMOTE_SMALL, REMOTE_BIG])
+    shared = next(r for r in proposal.rungs if r.model == "qwen2.5-coder:3b")
+    joined = " ".join(shared.reasons)
+    assert "placement:" in joined
+    assert "first host named" in joined
+    assert shared.host == "srv1", "first named wins, and the reason admits it"
+
+
+def test_a_sole_holder_is_not_reported_as_a_coin_toss(table) -> None:  # type: ignore[no-untyped-def]
+    proposal = propose(table, vram_gb=None, sources=[REMOTE_SMALL, REMOTE_BIG])
+    sole = next(r for r in proposal.rungs if r.model == "qwen2.5-coder:7b")
+    assert not any("placement:" in reason for reason in sole.reasons)
+
+
+def test_a_remote_fit_never_cites_this_machines_card(table) -> None:  # type: ignore[no-untyped-def]
+    """Citing the local card for a remote rung describes the wrong machine."""
+    proposal = propose(table, vram_gb=SMALL_CARD, sources=[REMOTE_BIG])
+    for rung in proposal.rungs:
+        fit = next(r for r in rung.reasons if r.startswith("fit:"))
+        assert f"{SMALL_CARD:g} GB card" not in fit

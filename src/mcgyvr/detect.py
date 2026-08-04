@@ -1,8 +1,8 @@
-"""What this machine can actually run, detected without benchmarking it.
+"""What can actually run the work, detected without benchmarking it.
 
 ``mcgyvr init`` proposes worker bindings from the shipped capability table
 (``data/capability-table.json``); this module supplies the other half of
-that decision — what hardware and which backends are actually here. It
+that decision — what hardware and which backends are actually reachable. It
 measures nothing: benchmarking would turn a 30-second install into an hour,
 which is the whole reason the table is shipped pre-measured.
 
@@ -17,10 +17,27 @@ Two rules shape everything below:
    What could *not* be determined is recorded too, in ``notes`` — silence
    about a failed probe reads as "absent" when it may mean "unknown".
 
+**The host is an input, not a literal (#161).** The port conventions below
+are what a backend ships with; the machine they are asked of is supplied by
+the caller. ``localhost`` is the default, so a single-machine install is
+unchanged, but the deployment this project exists for — an agent on a
+laptop, offloading to rigs elsewhere — is expressible rather than invisible.
+The hardware half of detection stays local by definition: ``nvidia-smi``
+here describes this machine, and a remote rig's card is not something this
+module can see. What it *can* see of a remote rig is better than a VRAM
+estimate anyway — a backend that reports serving a model is proof that model
+runs there, which is the fact the proposal actually needs.
+
+A probed host is identified by name in every backend it yields, because with
+more than one host in play "ollama answered" no longer identifies anything.
+Names stay bare for a single-host sweep so the ordinary install reads the way
+it always did.
+
 Probes run concurrently against a short timeout, so an endpoint that
 accepts a connection and then hangs costs the timeout once rather than
-serially. This module only observes. Turning observations into a proposed
-ladder is a separate concern and does not live here.
+serially — and a sweep of two hosts costs the same wall clock as one. This
+module only observes. Turning observations into a proposed ladder is a
+separate concern and does not live here.
 """
 
 from __future__ import annotations
@@ -28,6 +45,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import urllib.error
@@ -44,6 +62,11 @@ COMMAND_TIMEOUT_S = 5.0
 
 MIB_PER_GB = 1024.0
 
+# The machine a sweep asks about when the caller names none. Keeping the
+# single-machine install on exactly the path it has always taken is an
+# acceptance criterion of #161, not a courtesy.
+DEFAULT_HOST = "localhost"
+
 
 @dataclass(frozen=True)
 class ProbeTarget:
@@ -53,24 +76,93 @@ class ProbeTarget:
     until :func:`probe` gets an answer. Distinct from
     :class:`mcgyvr.pool.Endpoint`, which is somewhere a rung is configured to
     run and exists only once there is a config to resolve.
+
+    ``host`` is carried alongside ``base_url`` rather than parsed back out of
+    it, because it is what the user named and what every downstream report
+    identifies the machine by. ``name`` is what a source will be called; it
+    is qualified with the host only when a sweep covers more than one, so an
+    ordinary install keeps the bare names it has always had.
     """
 
     name: str
     base_url: str
     api: str  # "ollama" or "openai"
+    host: str = DEFAULT_HOST
+    kind: str = ""  # the backend convention: "ollama", "vllm", ... (default: name)
+
+    def __post_init__(self) -> None:
+        # `kind` is what the server IS; `name` is what it will be called. They
+        # part company the moment a sweep covers two hosts, and the capability
+        # table's `requires_backend` matches on the former — a model measured
+        # on Ollama is measured on Ollama whether the source is called
+        # `ollama` or `srv2_ollama`.
+        if not self.kind:
+            object.__setattr__(self, "kind", self.name)
 
 
 # Default ports each backend ships with. Identification is by port
 # convention, which is a guess about identity but not about capability:
 # what matters downstream is the wire protocol and the model list, and
 # both are read from the answer rather than assumed.
-DEFAULT_PROBE_TARGETS: tuple[ProbeTarget, ...] = (
-    ProbeTarget("ollama", "http://localhost:11434", "ollama"),
-    ProbeTarget("llama-server", "http://localhost:8080", "openai"),
-    ProbeTarget("vllm", "http://localhost:8000", "openai"),
-    ProbeTarget("lmstudio", "http://localhost:1234", "openai"),
-    ProbeTarget("tgi", "http://localhost:3000", "openai"),
+PORT_CONVENTIONS: tuple[tuple[str, int, str], ...] = (
+    ("ollama", 11434, "ollama"),
+    ("llama-server", 8080, "openai"),
+    ("vllm", 8000, "openai"),
+    ("lmstudio", 1234, "openai"),
+    ("tgi", 3000, "openai"),
 )
+
+
+def _host_token(host: str) -> str:
+    """A host as a name segment: safe in a YAML key and in a tier name.
+
+    A tailnet address (``100.69.72.51``) and a DNS name
+    (``srv1.tailbaf744.ts.net``) both have to survive becoming a config key
+    someone edits by hand, so the separators become underscores and the
+    leading character is guaranteed non-numeric. The result identifies the
+    host to a reader; it is not required to be reversible.
+    """
+    token = re.sub(r"[^A-Za-z0-9]+", "_", host).strip("_").lower()
+    if not token:
+        return "host"
+    return token if token[0].isalpha() else f"h{token}"
+
+
+def targets_for(
+    hosts: Sequence[str] = (DEFAULT_HOST,),
+    conventions: Sequence[tuple[str, int, str]] = PORT_CONVENTIONS,
+) -> tuple[ProbeTarget, ...]:
+    """Expand hosts into the candidate endpoints to sweep on each.
+
+    The cross product of hosts and port conventions, which is the whole of
+    what #161 changed: the ports were already a table, and the host was the
+    literal. A host is a bare name or address — ``srv1``,
+    ``100.69.72.51`` — and never a port, because identification here is *by*
+    port convention and a port nobody conventionally uses carries no claim
+    about which protocol answers on it. An endpoint on a non-standard port is
+    bound by hand, the same as it is today.
+
+    Duplicate hosts collapse, so naming the same rig twice does not probe it
+    twice or mint two sources for it.
+    """
+    unique = tuple(dict.fromkeys(h.strip() for h in hosts if h.strip()))
+    qualify = len(unique) > 1
+    targets: list[ProbeTarget] = []
+    for host in unique:
+        for name, port, api in conventions:
+            targets.append(
+                ProbeTarget(
+                    name=f"{_host_token(host)}_{name}" if qualify else name,
+                    base_url=f"http://{host}:{port}",
+                    api=api,
+                    host=host,
+                    kind=name,
+                )
+            )
+    return tuple(targets)
+
+
+DEFAULT_PROBE_TARGETS: tuple[ProbeTarget, ...] = targets_for()
 
 
 @dataclass(frozen=True)
@@ -89,6 +181,23 @@ class Backend:
     api: str
     models: tuple[str, ...]
     how: str
+    host: str = DEFAULT_HOST
+    kind: str = ""  # the backend convention; see ProbeTarget.kind
+
+    def __post_init__(self) -> None:
+        if not self.kind:
+            object.__setattr__(self, "kind", self.name)
+
+    @property
+    def is_local(self) -> bool:
+        """Whether this backend is on the machine mcgyvr is running on.
+
+        Decided by the name the user gave, not by resolving the address: a
+        rig reachable as ``localhost`` through an SSH tunnel really is being
+        treated as local by everything else here, and one named by its
+        tailnet address is not, whatever it resolves to.
+        """
+        return self.host in (DEFAULT_HOST, "127.0.0.1", "::1", "[::1]")
 
     def has_model(self, model_id: str) -> bool:
         """Whether this backend already holds a model, by exact id or by tag.
@@ -134,6 +243,21 @@ class Detection:
     def models_present(self) -> frozenset[str]:
         """Every model id any reachable backend reports holding."""
         return frozenset(m for b in self.backends for m in b.models)
+
+    @property
+    def hosts_answering(self) -> tuple[str, ...]:
+        """Every host that answered on at least one endpoint, in probe order."""
+        return tuple(dict.fromkeys(b.host for b in self.backends))
+
+    @property
+    def has_remote_backend(self) -> bool:
+        """Whether any reachable backend is on another machine.
+
+        The fact that decides whether this machine's own GPU is the right
+        thing to size a proposal against: with work being served elsewhere,
+        the local card is not a constraint on it.
+        """
+        return any(not b.is_local for b in self.backends)
 
 
 def _run(command: Sequence[str]) -> str | None:
@@ -195,6 +319,8 @@ def probe(target: ProbeTarget, timeout: float = PROBE_TIMEOUT_S) -> Backend | No
         api=target.api,
         models=_models_from(payload, target.api),
         how=f"answered GET {path} at {target.base_url} within {timeout:g}s",
+        host=target.host,
+        kind=target.kind,
     )
 
 
@@ -300,10 +426,17 @@ def detect(
     notes = list(gpu_notes)
     if not backends:
         tried = ", ".join(t.base_url for t in targets)
+        hosts = tuple(dict.fromkeys(t.host for t in targets))
+        where = (
+            "No backend answered on any host swept"
+            if hosts and hosts != (DEFAULT_HOST,)
+            else "No local backend answered"
+        )
         notes.append(
-            f"No local backend answered. Tried: {tried or '(none)'}. This is "
+            f"{where}. Tried: {tried or '(none)'}. This is "
             f"a supported install — the ladder degrades to whatever is bound "
-            f"by hand — but nothing local can be proposed from it."
+            f"by hand — but nothing can be proposed from it. A rig elsewhere "
+            f"is swept only when it is named: `mcgyvr detect --host <name>`."
         )
     if not docker:
         notes.append(

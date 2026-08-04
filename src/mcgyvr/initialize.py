@@ -39,7 +39,7 @@ from mcgyvr.capability import load as load_table
 from mcgyvr.config import SCHEMA, SCHEMA_VERSION, Config, ConfigError, Field
 from mcgyvr.config import load as load_config
 from mcgyvr.config import parse as parse_config
-from mcgyvr.detect import Detection, detect
+from mcgyvr.detect import DEFAULT_PROBE_TARGETS, Detection, detect, targets_for
 from mcgyvr.propose import AvailableSource, Proposal, propose
 
 COMMENT_WIDTH = 78
@@ -67,7 +67,8 @@ def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
         found = ", ".join(f"{b.name} at {b.base_url}" for b in detection.backends)
         situation = (
             f"Reachable backends: {found} — but nothing in the capability "
-            f"table can be bound to them on this machine."
+            f"table can be bound to them, and none of them reports holding a "
+            f"measured model."
         )
     else:
         situation = "No local backend answered on any default endpoint."
@@ -85,6 +86,8 @@ def _nothing_to_bind(detection: Detection, why: ConfigError) -> str:
         f"Fix one of these, then re-run:\n"
         f"  - start a local backend (ollama, llama-server, vLLM, LM Studio, "
         f"TGI) and re-run, or\n"
+        f"  - name the rig that serves your models, if it is not this one\n"
+        f"    (`mcgyvr init --host srv1 --host srv2`), or\n"
         f"  - write the file by hand and bind an API source:\n\n"
         f"      version: 1\n"
         f"      sources:\n"
@@ -264,11 +267,21 @@ def build(detection: Detection, proposal: Proposal) -> dict[str, Any]:
 
 
 def _sources_for(detection: Detection) -> list[AvailableSource]:
+    """Detected backends as proposal inputs.
+
+    ``backend`` is the kind of server (``ollama``, ``vllm``) and drives the
+    table's ``requires_backend`` check; ``name`` is what the source will be
+    called in the config, which for a multi-host sweep is qualified with the
+    machine. They are the same string on a single-host sweep and must not be
+    conflated: qualifying a name is a config concern, and matching a backend
+    requirement is a capability one.
+    """
     return [
         AvailableSource(
             name=backend.name,
-            backend=backend.name,
+            backend=backend.kind,
             models_present=frozenset(backend.models),
+            host=backend.host,
         )
         for backend in detection.backends
     ]
@@ -278,10 +291,18 @@ def _decisions(detection: Detection, proposal: Proposal) -> tuple[str, ...]:
     decisions: list[str] = []
     if detection.gpus:
         gpu = detection.gpus[0]
-        decisions.append(f"GPU {gpu.name} with {gpu.vram_gb:g} GB, via {gpu.how}.")
-    for backend in detection.backends:
+        scope = (
+            " — this machine's card, which is not what the remote rungs below run on"
+            if detection.has_remote_backend
+            else ""
+        )
         decisions.append(
-            f"Source '{backend.name}' at {backend.base_url} speaking "
+            f"GPU {gpu.name} with {gpu.vram_gb:g} GB, via {gpu.how}{scope}."
+        )
+    for backend in detection.backends:
+        where = "here" if backend.is_local else f"on {backend.host}"
+        decisions.append(
+            f"Source '{backend.name}' {where} at {backend.base_url} speaking "
             f"{backend.api}; {len(backend.models)} model(s) already pulled."
         )
     for rung in proposal.rungs:
@@ -290,8 +311,9 @@ def _decisions(detection: Detection, proposal: Proposal) -> tuple[str, ...]:
             if rung.already_present
             else f"needs a ~{rung.weights_gb:g} GB pull"
         )
+        machine = f" on {rung.host}" if rung.host else ""
         decisions.append(
-            f"{rung.name} -> {rung.model} on {rung.source}: "
+            f"{rung.name} -> {rung.model} on {rung.source}{machine}: "
             f"{rung.quality:.1%} HumanEval+ pass@1, {rung.vram_gb:g} GB, "
             f"{presence}."
         )
@@ -354,13 +376,24 @@ def initialize(
     force: bool = False,
     detection: Detection | None = None,
     table: CapabilityTable | None = None,
+    hosts: Sequence[str] = (),
 ) -> InitResult:
-    """Write a config for this machine, or report what a rewrite would change.
+    """Write a config for this install, or report what a rewrite would change.
 
     ``detection`` and ``table`` are injectable so the whole command can be
     exercised against machines nobody here owns.
+
+    ``hosts`` names the machines to sweep for backends; empty means this one.
+    It is ignored when ``detection`` is supplied, because the caller has then
+    already decided what was found — honouring both would be two answers to
+    one question, and the network one would win a test that meant to stay
+    offline.
     """
-    found = detection if detection is not None else detect()
+    found = (
+        detection
+        if detection is not None
+        else detect(targets_for(hosts) if hosts else DEFAULT_PROBE_TARGETS)
+    )
     capability = table if table is not None else load_table()
     proposal = propose(
         capability,

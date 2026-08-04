@@ -17,7 +17,7 @@ from mcgyvr.capability import CapabilityTableError, load
 from mcgyvr.config import CONFIG_FILENAME, CONFIG_PATH_ENV, ConfigError
 from mcgyvr.config import config_path as resolve_config_path
 from mcgyvr.config import load as load_config
-from mcgyvr.detect import detect
+from mcgyvr.detect import DEFAULT_PROBE_TARGETS, detect, targets_for
 from mcgyvr.initialize import InitError, initialize
 
 
@@ -293,12 +293,15 @@ def _contract(args: argparse.Namespace) -> int:
 
 
 def _detect(args: argparse.Namespace) -> int:
-    found = detect()
+    hosts = tuple(args.host or ())
+    found = detect(targets_for(hosts) if hosts else DEFAULT_PROBE_TARGETS)
 
     if found.gpus:
         print("GPU:")
         for gpu in found.gpus:
             print(f"  {gpu.name} — {gpu.vram_gb:g} GB  ({gpu.how})")
+        if found.has_remote_backend:
+            print("  (this machine's card — the remote backends below have their own)")
     else:
         print("GPU: none detected")
 
@@ -314,14 +317,21 @@ def _detect(args: argparse.Namespace) -> int:
 
     if found.backends:
         print("\nBackends reachable:")
-        for backend in found.backends:
-            print(f"  {backend.name:<14} {backend.base_url:<26} api={backend.api}")
-            if backend.models:
-                for model in backend.models:
-                    print(f"      already pulled: {model}")
-            else:
-                print("      (reachable, but reports no models)")
-            print(f"      {backend.how}")
+        for host in found.hosts_answering:
+            if hosts:
+                print(f"  {host}:")
+            for backend in (b for b in found.backends if b.host == host):
+                indent = "    " if hosts else "  "
+                print(
+                    f"{indent}{backend.name:<20} {backend.base_url:<30} "
+                    f"api={backend.api}"
+                )
+                if backend.models:
+                    for model in backend.models:
+                        print(f"{indent}    already pulled: {model}")
+                else:
+                    print(f"{indent}    (reachable, but reports no models)")
+                print(f"{indent}    {backend.how}")
     else:
         print("\nBackends reachable: none")
 
@@ -407,7 +417,7 @@ def _mib(size_bytes: int) -> str:
 def _init(args: argparse.Namespace) -> int:
     path = Path(args.path) if args.path else resolve_config_path()
     try:
-        result = initialize(path, force=args.force)
+        result = initialize(path, force=args.force, hosts=tuple(args.host or ()))
     except InitError as exc:
         # Loud on purpose: nothing was written, and the message says why.
         print(f"error: {exc}", file=sys.stderr)
@@ -768,7 +778,18 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     det = sub.add_parser(
         "detect",
-        help="show what this machine can run, and how each fact was detected",
+        help="show what can run the work, and how each fact was detected",
+    )
+    det.add_argument(
+        "--host",
+        action="append",
+        default=[],
+        metavar="HOST",
+        help=(
+            "also sweep this machine for backends, by name or address "
+            "(repeatable; default: localhost only). Hardware detection stays "
+            "local — a remote rig is described by what it serves"
+        ),
     )
     det.set_defaults(func=_detect)
 
@@ -796,7 +817,17 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     ini = sub.add_parser(
         "init",
-        help="detect this machine and write a config bound to what it has",
+        help="detect what is reachable and write a config bound to it",
+    )
+    ini.add_argument(
+        "--host",
+        action="append",
+        default=[],
+        metavar="HOST",
+        help=(
+            "bind backends on this machine too, by name or address "
+            "(repeatable; default: localhost only)"
+        ),
     )
     ini.add_argument(
         "path",

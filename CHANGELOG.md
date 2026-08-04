@@ -756,6 +756,63 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   direct mode only. Filed as #159 and held by a test, so the asymmetry is
   recorded rather than assumed.
 
+- A worker on another machine can be detected and bound (#161). `detect` swept a
+  hardcoded `localhost` on five ports and `propose` sized rungs against this
+  machine's `nvidia-smi`, so the deployment mcgyvr exists for — an agent on a
+  laptop, offloading to rigs elsewhere — reported "Backends reachable: none" and
+  `init` refused to write anything. `mcgyvr detect --host <name>` and
+  `mcgyvr init --host <name>` (both repeatable) sweep named machines; the
+  default is still `localhost` alone, so a single-machine install takes exactly
+  the path it always took.
+
+  **The ports were already a table and the host was the literal**, so the change
+  is the cross product: `targets_for()` expands hosts over `PORT_CONVENTIONS`. A
+  host is a bare name or address and never a port, because identification here
+  is *by* port convention and a port nobody conventionally uses carries no claim
+  about which protocol answers on it.
+
+  **A source name and a backend kind stopped being the same string.** Two rigs
+  both run Ollama on 11434, and `sources` is a mapping, so an unqualified name
+  is one rig silently overwriting the other in the config. Names are qualified
+  with the host (`srv1_ollama`) exactly when a sweep covers more than one — and
+  qualification is keyed on hosts *probed* rather than hosts that *answered*, so
+  a source does not get renamed when a box is down. `Backend.kind` carries the
+  convention (`ollama`) separately, because the capability table's
+  `requires_backend` matches on what the server *is*: a model measured on Ollama
+  is measured on Ollama whether the source is called `ollama` or `srv2_ollama`.
+
+  **Fit evidence is now chosen by where the backend is, not by which claim is
+  stronger.** A VRAM test is a statement about this machine's card, so it
+  governs local backends and no others — applying it to a remote rig rejects a
+  7B on a 12 GB machine because the laptop asking has none. For a rig elsewhere
+  the evidence is its own model listing. That is deliberately the weaker claim
+  and is labelled as such: vLLM lists what it has loaded, Ollama lists what has
+  been pulled, so it establishes the rig is *provisioned* for the model, not
+  that the model is resident. Unlike a VRAM estimate it cannot be wrong about
+  which machine it describes. A local install is untouched by this — its model
+  listing is still not evidence about a card that is right here and unreadable.
+  Only measured models are admitted, so a rig's model list is not a back door
+  around the table.
+
+  **Two things the proposal now refuses to be silent about**, both because the
+  measured evidence says they are wrong and neither is fixable here. A ladder
+  spanning machines says so and names #162: rungs are ordered by measured
+  quality, which belongs to the weights, while throughput belongs to the card
+  and is not in the table per host — so a cheaper rung on a slower machine can
+  cost more wall-clock than the rung above it. And when more than one rig holds
+  the same weights, `_serving_source` takes the first host *named*, which is a
+  fact about the command line; the rung's reasons now say so rather than letting
+  list order read as a decision.
+
+  Verified against two real rigs over a tailnet: `init` on a GPU-less laptop
+  binds four sources across two machines, `pool --probe` reports them live, and
+  `runner.dispatch` returns completions through the config `init` wrote.
+
+  Found and filed rather than fixed: `init` binds Ollama as `api: ollama`, the
+  protocol CAV-01 exists to warn about, so every rung of a default install is
+  `quality_safe=False` while `api: openai` on the same port and model is not
+  (#164).
+
 ### Changed
 - A bundle's leading provenance marker is stripped at load
   (`worker.bundle.strip_provenance`) and no longer reaches the worker or the
