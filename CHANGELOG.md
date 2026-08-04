@@ -417,6 +417,51 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   good news that distinct models genuinely run concurrently on one card, and the
   good news is the half that gets remembered.
 
+- Tier ladder and within-family escalation (`src/mcgyvr/route.py`) — which rung
+  a contract is tried on, and the named moment a family is spent (#24, E3). The
+  ladder is ordered cheapest-to-dearest in two nested ways, and this module
+  walks only the inner one: `plan()` returns the rungs of **one** family in
+  config order with the attempts each is allowed, and `climb()` runs that plan
+  against an attempt function the caller supplies. Crossing from local to API is
+  a spend decision with its own rules (monotonic ascent, a global ceiling, the
+  verification upgrade) and stays #43's, so an exhausted family here ends the
+  climb rather than quietly reaching for a dearer rung — asserted both
+  behaviourally, against a ladder whose API rung is usable and never touched,
+  and structurally, over every family the catalog declares. `Exhausted` is its
+  own type carrying an `Exhaustion` reason, because *rungs spent*, *every rung
+  declined* and *no rung at all* are three different facts about an install and
+  want three different responses. A **decline** — a rung answering that this is
+  not work it can do (#81's rule) — advances without spending an attempt and
+  without being recorded as a failure, since a deterministic tool emitting a
+  plausible-but-wrong edit costs far more than one that steps aside. Every rung
+  tried is handed the capacity to dispatch under, closing the gap #23 left:
+  `dispatch` is unbounded by default, so a walk that bounded only its first rung
+  would enforce a source's limit on some of its own dispatches. Nothing here
+  assembles a prompt, applies a diff or runs a gate, which is what lets every
+  rule be asserted without a model, a backend or a sandbox.
+- `ladder.tiers[].attempts` (default **1**) — how many times a rung is tried
+  before escalation moves on, making attempt budgets policy in config rather
+  than a constant in code. The default is escalate-rather-than-retry: a second
+  attempt re-runs the same model on the same input, and the figure this rule was
+  inherited with (worker-tier remediation rescued 2 of 35 failures) says that is
+  usually spend without a result — a figure carried from local-ai and **not
+  re-verified here**, which is why it argues for a default rather than being
+  quoted as a measurement (#152). Raising it is most defensible on the dearest
+  rung, which has nowhere to escalate to. A contract's `limits.attempts` caps it
+  per task and the lower of the two applies, so neither an operator nor a
+  contract author can raise the other's ceiling. The deterministic family gets
+  exactly one attempt whatever either says, because a tool fails identically on
+  retry.
+- `Catalog.family_of(source)` — the one definition of "a rung is `api` exactly
+  when its source declares a credential", lifted out of the catalog's internals
+  so routing asks for it rather than restating it. A family is a **cost class,
+  not a location**: re-pointing a rung between two local machines does not change
+  it, and local-to-hosted does, which is what makes it the right thing to route
+  on.
+- `mcgyvr pool` shows each rung's family and attempt budget beside its model.
+  Both are decided before anything is spent, and a routing decision nobody can
+  read is one nobody can check.
+
 - Decomposition catalog (`data/task-catalog.json`, `src/mcgyvr/catalog.py`) —
   the vocabulary of what mcgyvr can be asked to do (#15, E2). Each entry states
   what accepting it promises, which family of the ladder it may start on, and
