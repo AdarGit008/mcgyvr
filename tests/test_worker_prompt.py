@@ -89,9 +89,26 @@ def test_the_python_bundle_is_marked_measured_and_the_js_one_is_not() -> None:
     assert load_bundle("js/ts").measured is False
 
 
-def test_the_js_bundle_says_it_is_unmeasured_in_its_own_text() -> None:
-    """The caveat has to travel with the file, not only with the loader."""
-    assert "UNMEASURED" in load_bundle("js/ts").text
+def test_the_js_bundle_says_it_is_unmeasured_in_the_file_but_not_in_the_prompt() -> (
+    None
+):
+    """The caveat travels with the file; it is not spent on the worker.
+
+    #25 put the marker in the bundle's text so the caveat could not be lost by
+    reading the file alone. #144 found what that cost: the loader was sending
+    those 162 bytes to the model as the opening of its system prompt, and
+    charging them against the ceiling. The caveat still has to be in the file —
+    that half was right — but it is provenance, so it stops at the loader.
+    """
+    raw = (
+        Path(__file__).resolve().parent.parent
+        / "src"
+        / "mcgyvr"
+        / "prompts"
+        / "javascript.md"
+    ).read_text(encoding="utf-8")
+    assert "UNMEASURED" in raw
+    assert "UNMEASURED" not in load_bundle("js/ts").text
 
 
 # --- the ceiling is enforced, not documented -------------------------------

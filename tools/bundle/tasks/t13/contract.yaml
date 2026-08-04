@@ -1,0 +1,28 @@
+id: t13-truncate-off-by-one
+task_type: bug_fix
+task: |
+  truncate returns one character too few: truncate("hello", 5) should be
+  "hello" but gives "hell". A string no longer than limit is returned
+  unchanged; a longer one is cut to exactly limit characters with the last
+  three replaced by "...". Throw an Error unless limit is an integer of at
+  least 3. Return the complete fixed file.
+
+  Current content of solution.ts:
+
+  ```ts
+  /** The text, cut to limit characters with an ellipsis when it is longer. */
+  export function truncate(text: string, limit: number): string {
+    if (text.length < limit) {
+      return text;
+    }
+    return text.slice(0, limit - 4) + "...";
+  }
+  ```
+target: solution.ts
+interface: "export function truncate(text: string, limit: number): string"
+stop_conditions:
+  - Whether the ellipsis counts toward the limit is stated; whether astral characters count as one is not.
+acceptance: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

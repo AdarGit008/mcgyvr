@@ -1,0 +1,32 @@
+id: t20-parse-config
+task_type: bug_fix
+task: |
+  parseConfig mishandles real config files. Harden it: ignore blank lines
+  and lines whose first non-space character is #, trim whitespace around
+  the key and the value, and split on the FIRST = only so a value may
+  contain one. Throw an Error naming the line for a line with no = and for
+  an empty key. A key must never reach the prototype of the returned
+  object: parsing "__proto__=x" must produce a plain data key, leaving
+  Object.prototype untouched. Return the complete fixed file.
+
+  Current content of solution.ts:
+
+  ```ts
+  /** The KEY=VALUE pairs of a config file. */
+  export function parseConfig(text: string): Record<string, string> {
+    const config: Record<string, string> = {};
+    for (const line of text.split("\n")) {
+      const [key, value] = line.split("=");
+      config[key] = value;
+    }
+    return config;
+  }
+  ```
+target: solution.ts
+interface: "export function parseConfig(text: string): Record<string, string>"
+stop_conditions:
+  - Whether a repeated key should win or throw is not stated.
+acceptance: ["node accept.mjs"]
+risk: high
+scope:
+  allow: ["solution.ts"]

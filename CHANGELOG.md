@@ -561,7 +561,67 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   tokenizer opts out of CLM-0011's 32% reserve — and the assembled prompt is
   now a thing that exists to re-measure the band over.
 
+- The JS/TS bundle-size experiment (`tools/bundle/`, #144) — the instrument
+  that would settle whether `prompts/javascript.md` earns its place, built and
+  verified as far as it can be without a worker. **No sweep has been run and
+  there is no JS/TS claim record**; `tools/bundle/README.md` states why in the
+  file rather than leaving it to an absence. The condition ladder repeats
+  CLM-0004's: c0 none, c1 369 bytes, c2 1 877, c3 8 883, nested so size is the
+  only variable, with c2 held byte-identical to the shipped bundle by both the
+  rig and a test. The task set is 20 JS/TS contracts, each with a reference
+  solution and a runnable acceptance script, all validated by the real contract
+  loader; `--selftest` runs every reference against its own acceptance and is
+  green 20/20, which CLM-0004's design makes a precondition rather than a
+  nicety. Dispatch goes through mcgyvr's own `Request`/`runner_for` and replies
+  through `parse_reply` with the backend's real stop reason, so a reply this
+  project would refuse is scored as a failure by its refusal code rather than
+  quietly run. Acceptance needs no toolchain: Node 24 executes TypeScript by
+  stripping types — a requirement the rig now probes rather than assumes.
+  `node_runs_typescript()` runs a `.ts` file instead of reading `--version`, so
+  `--selftest` and a sweep refuse on a Node that cannot strip types, and the
+  tests that run acceptance skip on the same predicate. Presence was the wrong
+  question: on an older Node every task fails identically and the symptom is
+  indistinguishable from a model that cannot write TypeScript.
+
+  The worker a sweep dispatches to is now configuration rather than a command
+  line: a git-ignored `tools/bundle/worker.local.json` supplies the endpoint,
+  protocol, model and — new — the *name* of the variable holding a key, so a
+  model served anywhere reachable can run the experiment while the acceptance
+  side stays local and needs nothing but Node. Flags beat the file; unknown
+  keys and key *values* are refused rather than ignored; a declared key that is
+  not in the environment stops the run instead of sending twenty
+  unauthenticated requests. `tools/bundle/worker.example.json` is the committed
+  shape.
+
+  **The rig refuses Ollama's native `/api/generate` before dispatching.** Every
+  request it sends is `quality_sensitive`, and `runner.generate` refuses those
+  on a caveated path under CAV-01 — which measured that path scoring a model at
+  32.3% against a true 84.1%. The command this repository had been documenting
+  since the instrument was built (`--protocol ollama`) could therefore only have
+  produced eighty dispatch errors and no measurement, one request at a time.
+  `--protocol openai` is the same port on the same server.
+
+  A sweep now writes `run.json` beside its rows — endpoint with any embedded
+  credentials stripped, protocol, model, a SHA-256 per condition, the rig's
+  revision, and one entry per invocation. Resuming into a directory whose
+  manifest names a different worker or ladder is refused: a rate is not quotable
+  without the backend that produced it (CAV-02), and blending two into one
+  denominator yields a table that looks like a single measurement.
+
 ### Changed
+- A bundle's leading provenance marker is stripped at load
+  (`worker.bundle.strip_provenance`) and no longer reaches the worker or the
+  ceiling. #25 put the "UNMEASURED" marker in `javascript.md` so the caveat
+  could not be lost by reading the file alone; #144 found the cost — those 162
+  bytes were 8% of what the loader handed a worker, they opened its system
+  prompt by telling it its own instructions were an unmeasured port whose
+  figures should not be cited, and they were charged against the 2 KB limit
+  `MAX_BUNDLE_BYTES` exists to enforce. The marker stays in the file, which was
+  the right half of #25's decision. Stripping it is also what lets #144's two
+  acceptance conditions hold at once: without it, a bundle cannot both carry an
+  UNMEASURED marker and be byte-identical to the condition a sweep measured,
+  because the marker is in the bytes.
+
 - `README.md` and `data/README.md` no longer describe `AdarGit008/local-ai` as
   archived; it is not. ADR-0001 is left as written — a decision record states
   what was decided, and is not edited to track a fact that changed after it.

@@ -1,0 +1,16 @@
+id: t07-flatten
+task_type: function_implementation
+task: >-
+  Implement flatten. Return a new array with nested arrays flattened up to
+  depth levels, defaulting to every level. A string is a value, never
+  something to iterate into, no matter how deep it appears. A depth of 0
+  returns a copy of the input unchanged. The input must not be mutated.
+  Throw an Error unless depth is a non-negative integer or Infinity.
+target: solution.ts
+interface: "export function flatten(items: readonly unknown[], depth?: number): unknown[]"
+stop_conditions:
+  - Whether a Set or a Map should be treated as nested is not stated.
+acceptance: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

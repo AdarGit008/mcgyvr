@@ -1,0 +1,17 @@
+id: t08-topological-sort
+task_type: function_implementation
+task: >-
+  Implement topologicalSort. Given node names and [from, to] edges meaning
+  from must come before to, return an ordering satisfying every edge. When
+  several orderings are valid, pick the one that keeps nodes in their input
+  order - among the nodes currently free of unmet dependencies, always take
+  the earliest in nodes. Throw an Error naming a cycle when no ordering
+  exists, and an Error for an edge naming a node not in nodes.
+target: solution.ts
+interface: "export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[]"
+stop_conditions:
+  - Whether a duplicate edge is an error or is ignored is not stated.
+acceptance: ["node accept.mjs"]
+risk: high
+scope:
+  allow: ["solution.ts"]

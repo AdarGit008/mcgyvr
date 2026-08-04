@@ -1,0 +1,37 @@
+id: t17-annotate-group-by-length
+task_type: type_annotation
+task: |
+  Add explicit TypeScript types to groupByLength. The parameter is a
+  read-only array of strings and the return is a Map from length to the
+  words of that length. Use the modern array form - `string[]`, never
+  `Array<string>`; the acceptance script reads the file and rejects the
+  generic form. Change nothing about the behaviour. The file is run by
+  Node's type stripping, so use erasable syntax only: no enum, no
+  namespace, no constructor parameter properties. Return the complete
+  annotated file.
+
+  Current content of solution.ts:
+
+  ```ts
+  /** The words grouped by their length, in first-seen order. */
+  export function groupByLength(words) {
+    const groups = new Map();
+    for (const word of words) {
+      const bucket = groups.get(word.length);
+      if (bucket === undefined) {
+        groups.set(word.length, [word]);
+      } else {
+        bucket.push(word);
+      }
+    }
+    return groups;
+  }
+  ```
+target: solution.ts
+interface: "export function groupByLength(words: readonly string[]): Map<number, string[]>"
+stop_conditions:
+  - Whether the returned arrays should be read-only is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

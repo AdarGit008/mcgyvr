@@ -1,0 +1,26 @@
+id: t09-factorial-base-case
+task_type: bug_fix
+task: |
+  factorial recurses forever on 0 because its base case only stops at 1.
+  Fix the base case so factorial(0) is 1, and throw an Error for a
+  negative or non-integer argument. Return the complete fixed file.
+
+  Current content of solution.ts:
+
+  ```ts
+  /** The factorial of n. */
+  export function factorial(n: number): number {
+    if (n === 1) {
+      return 1;
+    }
+    return n * factorial(n - 1);
+  }
+  ```
+target: solution.ts
+interface: "export function factorial(n: number): number"
+stop_conditions:
+  - The largest n that must be supported is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
