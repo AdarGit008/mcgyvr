@@ -706,6 +706,56 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   ones, and resuming into a directory measured against a different task set is
   refused rather than averaged.
 
+- The decomposer fills `target_content`, so delegated mode stops sending blind
+  (#155). #150 built the slot and filled it only where contracts are authored by
+  hand; `decompose()` now puts the target's current content on every contract it
+  emits. Three questions #150 had no standing to settle, settled here.
+
+  **Which contracts get it: all of them**, with no list and no catalog key. The
+  premise that the deterministic tier never needs content — a tool reads the
+  file itself — is false in the running system: `escalate.ascent` climbs from a
+  contract's floor family upward and the deterministic family binds no rung at
+  all until #81 (`route._why_empty`), so a `format` contract reaches a model rung
+  today exactly as a `bug_fix` does. Content a tool ignores costs it nothing,
+  because that tier builds no prompt to carry it. So the rule is the schema's
+  own, from the other side: fill the slot when there is exactly one file it could
+  be the content of.
+
+  **The bytes come from the index, not a fresh read at emit time.** The index is
+  the state resolution and exploration already judged from, so two contracts
+  emitted from one decomposition cannot disagree about one file, and no second
+  unbounded read appears inside a step whose whole cost model is that the index
+  was built once. The reconstruction is exact rather than approximate:
+  `index_source` splits a `surrogateescape` decode on `\n`, and joining on the
+  same separator inverts it byte for byte. `Proposal` gains no field — a
+  proposer that could state a file's content could state one the repository does
+  not hold, which is what ADR-0007's seam exists to prevent.
+
+  **A target too large to send is refused.** `_resize` sizes
+  `context.max_input_tokens` off `worker_view()`, so with the content inside that
+  view a budget derived from it can never be exceeded by it: inlining a
+  4 000-line file would simply raise the ceiling to swallow it, leaving
+  `check_prompt_fits` asking whether a number exceeds itself. `max_input_tokens`
+  is now an argument to `decompose()` and the sizing stops there. Refusing rather
+  than emitting a blind contract follows from the output protocol rather than
+  from strictness — with `whole_file` the reply *is* the file's complete new
+  content, so a target too large to send is too large to receive back — and the
+  refusal names the measured size, the target's own share of it, and #126 as the
+  fix.
+
+  The default ceiling is 32 768 estimated tokens and it is **policy, not
+  measurement**: nothing mcgyvr reads declares a rung's context window, not the
+  config and not the capability table, whose entries carry quality, throughput
+  and VRAM and no window at all. The number says so in the source and is an
+  argument precisely because a caller that knows its ladder should overrule it.
+  #158 is where a declared window would replace it.
+
+  Recorded rather than fixed: `_indexed` refuses a target the index does not
+  hold, so the delegated path cannot emit a contract that *creates* a file, and
+  the schema's "empty means the target does not exist yet" is reachable from
+  direct mode only. Filed as #159 and held by a test, so the asymmetry is
+  recorded rather than assumed.
+
 ### Changed
 - A bundle's leading provenance marker is stripped at load
   (`worker.bundle.strip_provenance`) and no longer reaches the worker or the

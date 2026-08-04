@@ -416,28 +416,34 @@ def test_the_worker_is_shown_the_file_it_is_asked_to_change(repo: Index) -> None
     assert "def listing(items):" in prompt.user
 
 
-def test_content_is_filled_for_every_type_not_a_chosen_list(repo: Index) -> None:
+@pytest.mark.parametrize("task_type", ["docstring", "format"])
+def test_content_is_filled_for_every_type_not_a_chosen_list(
+    repo: Index, task_type: str
+) -> None:
     """No task-type branch: the slot is filled from the target, whatever the work.
 
-    The deterministic tier never reads it — a tool opens the file itself — but
-    it is not the tier that decides. Ascent (#43) climbs from a contract's floor
-    family upward, and the deterministic family binds no rung at all until #81,
-    so a contract of any type can end up in front of a model. Content it does
-    not need costs a tool nothing; content it needed and lacks is #150's whole
-    subject.
+    ``format`` is the case that matters, and it is the one the issue expected to
+    be excluded — the deterministic tier reads the file itself, so a tool has no
+    use for the content. But it is not the tier that decides whether a tool runs
+    it. Ascent (#43) climbs from a contract's floor family upward and the
+    deterministic family binds no rung at all until #81
+    (``route._why_empty``), so a ``format`` contract reaches a model rung today
+    exactly like a ``bug_fix`` does. Content a tool ignores costs it nothing,
+    because that tier builds no prompt to carry it; content a model needed and
+    lacks is #150's whole subject.
     """
-    documenting = Proposal(
-        task_type="docstring",
-        task="document listing()",
+    proposal = Proposal(
+        task_type=task_type,
+        task="tidy listing()",
         target="listing.py",
         stop_conditions=("the function's behaviour is ambiguous",),
     )
 
     (built,) = decompose(
-        repo, "document it", propose=RecordedProposer((documenting,))
+        repo, "tidy it", propose=RecordedProposer((proposal,))
     ).contracts
 
-    assert built.task_type == "docstring"
+    assert built.task_type == task_type
     assert built.target_content == (repo.root / "listing.py").read_text()
 
 
