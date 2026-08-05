@@ -1,6 +1,6 @@
 # Prior art — the nearest ten repositories (#175)
 
-Status: in progress — 4 of 10 reviewed. 1 issue filed (#183); findings recorded on #179 and #183.
+Status: in progress — 5 of 10 reviewed. 2 issues filed (#183, #184); findings recorded on #179 and #183.
 Started: 2026-08-06. Lane: `lane/175`.
 
 ## Why this document lives in `docs/` and not `records/`
@@ -380,10 +380,15 @@ readable in code and testable without believing anything about a leaderboard.
 - **Criteria:** 3/5 — deterministic verification the model did not author,
   isolation (docker), multi-provider dispatch. No PR delivery, no decomposition
   into contracts.
-- **Tests: 64 files. `tests/testing` RUN — 45 passed.** The repo-wide run did
-  not complete inside the time allowed here and several modules error at import
-  for optional dependencies, so **no repo-wide number is claimed**. The module
-  that matters to this review ran clean.
+- **Tests: 64 files, RUN.** `tests/testing` — **45 passed**, clean. Repo-wide —
+  **180 passed, 28 failed, 37 collection errors, 143s**. The collection errors
+  are optional dependencies absent from the subset installed here. **All 28
+  failures are in one module**, `tests/codeblocks/test_python_parser.py`, which
+  is their tree-sitter code-block parser; a failure set concentrated in a single
+  grammar-dependent module is consistent with a version mismatch in this
+  environment rather than a defect in the repository, and **the cause was not
+  established here** — recorded that way rather than reported as "their suite is
+  28 red". The module this review depends on is not among them.
 
 ## Code / features — the thing they built that we parked
 
@@ -446,3 +451,88 @@ ADR-0006's family of decisions says the gate reads the target's own tools and
 their exit codes rather than parsing their output. This repository shows what
 the other branch costs at the scale of eighteen repositories, and mcgyvr's
 universe is not eighteen repositories.
+
+---
+
+# 5. BuilderIO/micro-agent
+
+- **Pinned:** `f33523ce9f9c52a698d13a2883eb2ba7fb4fb462`
+- **Last push:** 2024-11-14 — **21 months before this review**, the oldest entry
+  in the ten. Not archived.
+- **Stars:** 4.3k. **Criteria:** 3/5 — a deterministic gate the model did not
+  author (the test suite), multi-provider dispatch including local models, and a
+  declared iteration bound. No decomposition into scoped units, no per-task
+  isolation.
+- **Tests: RUN — 51 passed, 2 skipped, 8 files** (`vitest run --exclude
+  src/tests/integration`). Clean.
+
+**The purest form of the thing our acceptance gate does**: `run()` loops
+`runOne` until `testResult.type === 'success'`. The test suite is the whole
+acceptance bar, and nothing else votes.
+
+## Code / features — #146's question, answered the way we have not
+
+`src/helpers/get-test-command.ts` obtains the acceptance command by **asking a
+model**. It reads the dependency file, sends it with a prompt — "I want to run a
+single command to execute the tests… should not run in watch mode… should filter
+and run the specific test file" — and executes whatever single line comes back,
+falling back to a hardcoded `npm test -- <name>` if there is no dependency file
+or no answer.
+
+That is #146 — *who supplies the acceptance command for the types whose evidence
+needs one* — answered by inference from a manifest. mcgyvr has deliberately not
+done this: ADR-0006 locates the target's own type checker, and `decompose.py:465`
+refuses to emit `tests_pass` contracts precisely because `locate_test_command`
+returning `pytest` for any repository with a `tests/` directory "is a guess about
+the runner, not a reading of a declaration".
+
+**Note what the prompt has to carry to work at all**: worked examples for Jest,
+Vitest, minitest, rspec, pytest and unittest, plus an explicit no-watch-mode
+instruction. That is the same output-shape variation moatless-tools met and
+solved with per-project parsers — met here and solved with few-shot examples.
+**Two repositories, one wall, two answers**, and both answers are maintenance
+surfaces that grow with the number of ecosystems.
+
+Under ADR-0013 this is decomposition-adjacent judgment rather than execution, so
+if mcgyvr ever does infer a command, the tier rule applies to whoever infers it.
+
+## Tests / verification — the record/replay that #184 came from
+
+`src/helpers/mock-llm.ts` captures real completions to a JSON record file
+(`captureLlmRecord`) for later replay. Roughly fifty lines, and it is how a
+non-deterministic component gets a deterministic test.
+
+**This, with moatless-tools' 24 captured logs, is what produced #184**: mcgyvr's
+JS/TS sweep generated 160 real worker replies, parsed every one, kept the error
+codes and discarded the text — while `test_worker_reply.py` asserts against
+hand-authored shapes and #174 is the shape that was missed. Two repositories in
+this survey keep the artefact at the moment it is free. We do not.
+
+## Insights / wisdom — how to end a bounded loop
+
+`run.ts:102` declares `maxRuns = 20`. On exhaustion it does three things: says
+`Max runs of 20 reached`, **writes the prompt to a file**, and **prints the exact
+command to resume**.
+
+Set that beside plandex, which walks a fallback chain and then dispatches to a
+model its own comment admits cannot hold the input. Same structural situation —
+a bounded search that did not converge — and opposite handling. **Declared cap,
+named exhaustion, recoverable state** is the shape #177's second rider asks for,
+and this is the survey's positive example of it against plandex's negative one.
+
+**Who checks the checker — three repositories, three answers.** The demonstrating
+test is the instrument every one of these systems depends on, and none of them
+trusts it by default:
+
+- **Agentless** runs it against the *unpatched* code and keeps it only if it
+  reproduces — machine-verified.
+- **auto-code-rover** has a second model judge the test separately from the
+  patch, with "both the test and the patch may be wrong" in the prompt —
+  model-verified.
+- **micro-agent** shows the test to the *human* and iterates on their feedback
+  (`iterate-on-test.ts`) — human-verified.
+
+mcgyvr has no answer yet, which is #183 from one side and #179's eighth question
+from the other. The useful observation is not which answer is best; it is that
+**three independent systems all concluded the instrument needs its own check**,
+and none of them left it implicit.
