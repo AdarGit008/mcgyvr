@@ -756,7 +756,141 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   direct mode only. Filed as #159 and held by a test, so the asymmetry is
   recorded rather than assumed.
 
+- A worker on another machine can be detected and bound (#161). `detect` swept a
+  hardcoded `localhost` on five ports and `propose` sized rungs against this
+  machine's `nvidia-smi`, so the deployment mcgyvr exists for — an agent on a
+  laptop, offloading to rigs elsewhere — reported "Backends reachable: none" and
+  `init` refused to write anything. `mcgyvr detect --host <name>` and
+  `mcgyvr init --host <name>` (both repeatable) sweep named machines; the
+  default is still `localhost` alone, so a single-machine install takes exactly
+  the path it always took.
+
+  **The ports were already a table and the host was the literal**, so the change
+  is the cross product: `targets_for()` expands hosts over `PORT_CONVENTIONS`. A
+  host is a bare name or address and never a port, because identification here
+  is *by* port convention and a port nobody conventionally uses carries no claim
+  about which protocol answers on it.
+
+  **A source name and a backend kind stopped being the same string.** Two rigs
+  both run Ollama on 11434, and `sources` is a mapping, so an unqualified name
+  is one rig silently overwriting the other in the config. Names are qualified
+  with the host (`srv1_ollama`) exactly when a sweep covers more than one — and
+  qualification is keyed on hosts *probed* rather than hosts that *answered*, so
+  a source does not get renamed when a box is down. `Backend.kind` carries the
+  convention (`ollama`) separately, because the capability table's
+  `requires_backend` matches on what the server *is*: a model measured on Ollama
+  is measured on Ollama whether the source is called `ollama` or `srv2_ollama`.
+
+  **Fit evidence is now chosen by where the backend is, not by which claim is
+  stronger.** A VRAM test is a statement about this machine's card, so it
+  governs local backends and no others — applying it to a remote rig rejects a
+  7B on a 12 GB machine because the laptop asking has none. For a rig elsewhere
+  the evidence is its own model listing. That is deliberately the weaker claim
+  and is labelled as such: vLLM lists what it has loaded, Ollama lists what has
+  been pulled, so it establishes the rig is *provisioned* for the model, not
+  that the model is resident. Unlike a VRAM estimate it cannot be wrong about
+  which machine it describes. A local install is untouched by this — its model
+  listing is still not evidence about a card that is right here and unreadable.
+  Only measured models are admitted, so a rig's model list is not a back door
+  around the table.
+
+  **Two things the proposal now refuses to be silent about**, both because the
+  measured evidence says they are wrong and neither is fixable here. A ladder
+  spanning machines says so and names #162: rungs are ordered by measured
+  quality, which belongs to the weights, while throughput belongs to the card
+  and is not in the table per host — so a cheaper rung on a slower machine can
+  cost more wall-clock than the rung above it. And when more than one rig holds
+  the same weights, `_serving_source` takes the first host *named*, which is a
+  fact about the command line; the rung's reasons now say so rather than letting
+  list order read as a decision.
+
+  Verified against two real rigs over a tailnet: `init` on a GPU-less laptop
+  binds four sources across two machines, `pool --probe` reports them live, and
+  `runner.dispatch` returns completions through the config `init` wrote.
+
+  Found and filed rather than fixed: `init` binds Ollama as `api: ollama`, the
+  protocol CAV-01 exists to warn about, so every rung of a default install is
+  `quality_safe=False` while `api: openai` on the same port and model is not
+  (#164).
+
+- Ollama is asked one way and dispatched to another (#164). `detect` recorded a
+  single `api` per backend and `init` wrote it straight into the config, so the
+  most common local install there is came out bound to Ollama's native
+  `/api/generate` — the path CAV-01 is a record of, which scored
+  `qwen2.5-coder:7b` at 32.3% against a true 84.1%. Every rung of a default
+  install was therefore `quality_safe=False`, and a `quality_sensitive` request
+  was refused outright, so **an `init`-written config could not serve a
+  measurement at all**. The uncaveated path was one word away in a file the tool
+  had just written itself.
+
+  Asking and dispatching are now separate facts. `PORT_CONVENTIONS` carries
+  both, and for every backend but one they are the same answer. Ollama is the
+  exception because each of its protocols is better at a different thing: the
+  native `/api/tags` is the only listing that enumerates models *pulled but not
+  loaded*, which is exactly the inventory a proposal needs, while the
+  OpenAI-compatible shape on the same port dispatches with the same model ids
+  and no caveat. So detection still asks natively and the config binds
+  compatibly — not a compromise between the two, but each used for what it is
+  actually better at.
+
+  The rule lives in `binds_as_for()` reading the one convention table, so a
+  `Backend` built by hand — in a test, or by some future caller that is not
+  `probe` — cannot silently take the caveated default. A test caught exactly
+  that during the work.
+
+  `init` explains the switch among its decisions rather than leaving it to look
+  like a bug: a config saying `api: openai` for a source `detect` called Ollama
+  needs its reason attached, and the reason is CAV-01 with the numbers.
+
+  Verified against a live Ollama on two rigs: a `quality_sensitive` request,
+  which the previous configuration refused outright with `QualityCaveatError`,
+  now dispatches and returns `quality_safe=True`. This is what unblocks #144,
+  which cannot take a measurement on a caveated path.
+
+- The JS/TS bundle sweep ran, and it found no effect (#144, CLM-0012, the
+  measurement in `records/measurements/jsts-bundle-2026-08-04/`). Two full
+  80-cell sweeps of the four-condition ladder on `qwen2.5-coder:3b` at Q4_K_M,
+  one per rig, measured first-pass acceptance of 45% (`c0`, no bundle), 55%
+  (`c1`), 50% (`c2`, the shipped `prompts/javascript.md` byte for byte) and 45%
+  (`c3`). No rung separates from having no bundle at all: net deltas against
+  `c0` are +2, +1 and 0 tasks against a `±1`-task noise floor the design set in
+  advance, built from flips in both directions, McNemar exact `p` of 0.50, 1.00
+  and 1.00. CLM-0004's Python effect was +5 tasks.
+
+  The two rigs are what put the noise floor on the record instead of assuming
+  it. `temperature=0` is not bit-reproducible across different cards: 19 of 80
+  cells returned different completion-token counts and 4 flipped verdict — yet
+  every condition total was identical, because the flips paired within their
+  condition. So a re-roll moves about one task per condition, which is the size
+  of the largest delta observed.
+
+  **The mechanism is the transferable half.** CLM-0004's gain came from output
+  rules cutting completion tokens 403 → ~124, and completion tokens dominate
+  wall time. This run measured them flat at 166.8/167.3/169.4/176.6, latency
+  flat to match. The 3b was not rambling on this task set, so the device the
+  bundle works through had nothing to act on — which predicts where a bundle
+  pays by a property that can be checked before running a ladder (does `c0`
+  over-produce?) rather than by language.
+
 ### Changed
+- `prompts/javascript.md` states a measured null result instead of an
+  `UNMEASURED` marker, and `Bundle` grew `BundleStanding` because a boolean
+  could no longer carry the answer. Both shipped bundles are now the artifact a
+  sweep was taken on, so `measured` reads `True` for both and has stopped being
+  the interesting question; it is demoted to a derived property meaning
+  provenance only. The outcome moved into the type: `MEASURED_BENEFIT` for
+  Python, `MEASURED_NO_EFFECT` for JS/TS, `UNMEASURED` for anything unswept.
+  "Measured" is a word a reader takes as endorsement, and one of these two
+  bundles has not earned it. Rewriting the marker did not forfeit the
+  measurement, because `check_c2_is_the_shipped_bundle` compares the *stripped*
+  body — the property the stripping change below was for.
+
+- `MAX_BUNDLE_BYTES` stays one constant, now for a stated reason rather than
+  for want of evidence. #144 asked whether the ceiling should become
+  per-language; a per-language ceiling needs a language whose curve has a peak,
+  and JS/TS measured flat, so there is no JS/TS peak to place one at. That is
+  not the same as JS/TS agreeing that 2 KB is right, and the comment says so.
+
 - A bundle's leading provenance marker is stripped at load
   (`worker.bundle.strip_provenance`) and no longer reaches the worker or the
   ceiling. #25 put the "UNMEASURED" marker in `javascript.md` so the caveat

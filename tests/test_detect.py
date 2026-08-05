@@ -9,6 +9,7 @@ suite asserts on the code's handling rather than on the runner's hardware.
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 from typing import Any
 
@@ -17,12 +18,14 @@ import pytest
 from mcgyvr import detect as detect_module
 from mcgyvr.detect import (
     DEFAULT_PROBE_TARGETS,
+    PORT_CONVENTIONS,
     ProbeTarget,
     detect,
     detect_docker,
     detect_gpus,
     probe,
     probe_all,
+    targets_for,
 )
 
 NVIDIA_SMI = "NVIDIA GeForce RTX 3060, 12288\n"
@@ -288,3 +291,155 @@ def test_every_transport_failure_reads_as_nothing_listening(
     ):
         monkeypatch.setattr("mcgyvr.detect.urllib.request.urlopen", raiser(failure))
         assert detect_module._get_json("http://localhost:1/x", 0.01) is None
+
+
+# --- the host is an input, not a literal (#161) ---------------------------
+
+
+def test_the_default_sweep_is_localhost_and_unchanged() -> None:
+    """A single-machine install must take exactly the path it always took."""
+    assert targets_for() == DEFAULT_PROBE_TARGETS
+    assert all(t.host == "localhost" for t in DEFAULT_PROBE_TARGETS)
+    assert all("localhost" in t.base_url for t in DEFAULT_PROBE_TARGETS)
+    assert [t.name for t in DEFAULT_PROBE_TARGETS] == [
+        name for name, *_ in PORT_CONVENTIONS
+    ], "bare names, as before — nothing is qualified on a one-host sweep"
+
+
+def test_a_named_host_is_swept_on_every_port_convention() -> None:
+    targets = targets_for(["srv1"])
+    assert len(targets) == len(PORT_CONVENTIONS)
+    assert {t.host for t in targets} == {"srv1"}
+    assert "http://srv1:11434" in {t.base_url for t in targets}
+    assert "http://srv1:8000" in {t.base_url for t in targets}
+
+
+def test_a_single_named_host_still_gets_bare_names() -> None:
+    """One machine is unambiguous, whichever machine it is."""
+    assert [t.name for t in targets_for(["srv1"])] == [
+        name for name, *_ in PORT_CONVENTIONS
+    ]
+
+
+def test_two_hosts_qualify_names_so_sources_cannot_collide() -> None:
+    """Both rigs run ollama on 11434. Unqualified, one would overwrite the other.
+
+    The config maps sources by name, so a collision here is not a cosmetic
+    problem: it is one rig silently disappearing from the ladder.
+    """
+    targets = targets_for(["srv1", "srv2"])
+    names = [t.name for t in targets]
+    assert len(names) == len(set(names)), "every candidate source is distinctly named"
+    assert "srv1_ollama" in names
+    assert "srv2_ollama" in names
+
+
+def test_qualifying_a_name_never_changes_what_the_backend_is() -> None:
+    """`requires_backend` in the table matches the kind, not the config name.
+
+    A model measured on ollama is measured on ollama whether the source is
+    called `ollama` or `srv2_ollama`. Conflating the two would withhold every
+    backend-pinned model the moment a second host was named.
+    """
+    for target in targets_for(["srv1", "srv2"]):
+        assert target.kind in {name for name, *_ in PORT_CONVENTIONS}
+        assert target.name.endswith(target.kind)
+
+
+def test_an_address_survives_becoming_a_config_key() -> None:
+    """A tailnet address is a name someone edits by hand in YAML."""
+    names = [t.name for t in targets_for(["100.69.72.51", "srv1"])]
+    assert all(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.\-]*", n) for n in names), names
+
+
+def test_naming_one_host_twice_probes_it_once() -> None:
+    assert len(targets_for(["srv1", "srv1"])) == len(PORT_CONVENTIONS)
+    assert [t.name for t in targets_for(["srv1", "srv1"])] == [
+        name for name, *_ in PORT_CONVENTIONS
+    ], "a duplicate must not be read as two hosts and trigger qualification"
+
+
+def test_a_remote_backend_is_not_reported_as_local(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub_run(monkeypatch, {})
+    stub_http(monkeypatch, {"http://srv2:11434/api/tags": OLLAMA_TAGS})
+    found = detect(targets_for(["srv2"]))
+    assert found.backends
+    assert found.has_remote_backend
+    assert found.hosts_answering == ("srv2",)
+    assert all(not b.is_local for b in found.backends)
+
+
+def test_a_tunnelled_rig_named_localhost_is_treated_as_local(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Locality is the name the user gave, not what it resolves to.
+
+    An SSH tunnel makes a remote rig answer on localhost, and everything else
+    here is already treating it as local. Claiming otherwise would be a
+    distinction nothing acts on.
+    """
+    stub_run(monkeypatch, {})
+    stub_http(monkeypatch, {"http://localhost:11434/api/tags": OLLAMA_TAGS})
+    found = detect(targets_for(["localhost"]))
+    assert not found.has_remote_backend
+
+
+def test_nothing_answering_anywhere_names_the_flag_that_widens_the_sweep(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub_run(monkeypatch, {})
+    stub_http(monkeypatch, {})
+    found = detect(targets_for(["srv1", "srv2"]))
+    joined = " ".join(found.notes)
+    assert "--host" in joined
+    assert "http://srv1:11434" in joined, "and says exactly what was tried"
+
+
+# --- asked one way, dispatched another (#164) ----------------------------
+
+
+def test_ollama_is_asked_natively_and_bound_compatibly() -> None:
+    """The two protocols are used for the thing each is better at.
+
+    `/api/tags` is the only listing that includes models pulled but not
+    loaded, which is the inventory a proposal needs. `/api/generate` is the
+    path CAV-01 measured at 32.3% against a true 84.1%.
+    """
+    ollama = next(t for t in targets_for() if t.kind == "ollama")
+    assert ollama.api == "ollama", "detection still asks natively"
+    assert ollama.binds_as == "openai", "dispatch does not"
+
+
+def test_every_other_backend_is_bound_as_it_is_asked() -> None:
+    """Only Ollama has two doors. A split everywhere would be noise."""
+    for target in targets_for():
+        if target.kind == "ollama":
+            continue
+        assert target.binds_as == target.api
+
+
+def test_a_probed_ollama_reports_both_protocols(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub_run(monkeypatch, {})
+    stub_http(monkeypatch, {"http://localhost:11434/api/tags": OLLAMA_TAGS})
+    found = detect()
+    backend = found.backend("ollama")
+    assert backend is not None
+    assert backend.models, "the native listing is what enumerates pulled models"
+    assert backend.bound_on_another_protocol
+    assert backend.binds_as == "openai"
+
+
+def test_a_backend_bound_as_it_answered_is_not_flagged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The flag exists to explain a surprise; firing always would explain nothing."""
+    stub_run(monkeypatch, {})
+    stub_http(monkeypatch, {"http://localhost:8000/v1/models": OPENAI_MODELS})
+    found = detect()
+    backend = found.backend("vllm")
+    assert backend is not None
+    assert not backend.bound_on_another_protocol

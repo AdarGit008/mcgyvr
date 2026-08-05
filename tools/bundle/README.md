@@ -6,11 +6,12 @@ Instrument: `measure.py`. Conditions: `conditions/`. Task set: `tasks/`.
 Prior run this repeats: [CLM-0004](../../records/claims/CLM-0004.json), designed
 in [`context_size_experiment_2026-07-28.md`](../../records/evidence/local-ai-2026-08-02/research/context_size_experiment_2026-07-28.md).
 
-**No sweep has been run. There are no results in this directory and no claim
-record for JavaScript/TypeScript.** What exists is the instrument, verified as
-far as it can be verified without a worker. The reason is stated under
-[What blocked the run](#what-blocked-the-run) rather than left to be inferred
-from an absence.
+**The sweep has run, twice, and it found nothing.** `c0`/`c1`/`c2`/`c3` measured
+45/55/50/45% first-pass acceptance on `qwen2.5-coder:3b` — no rung separates
+from having no bundle at all. The result, both runs and the limits are in
+[`records/measurements/jsts-bundle-2026-08-04/`](../../records/measurements/jsts-bundle-2026-08-04/README.md);
+the claim is [CLM-0012](../../records/claims/CLM-0012.json). This document is
+the instrument and its design — read the measurement record for what came out.
 
 ## What is under test
 
@@ -124,28 +125,31 @@ acceptance skip on the same predicate.
 
 `--selftest` runs every reference against its own acceptance and is a
 precondition, not a convenience: the experiment is invalid unless it is 100%
-green. It needs no worker, which is why it is the part of this that has actually
-been run. **20/20 green.**
+green. It needs no worker, so it was verifiable long before one was reachable.
+**20/20 green.**
 
-## What blocked the run
+## What blocked the run, and what unblocked it
 
-The experiment is defined on `qwen2.5-coder:3b` at Q4_K_M through
-`llama-server`. On the machine this was built on, `mcgyvr detect` reports:
+For three sessions the answer was: nothing reachable served the model. The
+experiment is defined on `qwen2.5-coder:3b` at Q4_K_M, and `mcgyvr detect`
+reported `GPU: none detected` / `Backends reachable: none` on the machine the
+rig was built on. Substituting a hosted model would have changed the model *and*
+the serving stack at once — under CAV-02 a figure from another backend describes
+different weights — so it would have answered a different question while looking
+like an answer to this one.
 
-```
-GPU: none detected
-Backends reachable: none
-  Tried: http://localhost:11434, :8080, :8000, :1234, :3000
-```
+Two things landed on 2026-08-04 and between them the block was gone:
 
-No local backend, and nothing reachable serves `qwen2.5-coder` in any size —
-the configured Alibaba key is rejected, Cerebras carries only large models, and
-NVIDIA NIM has small coder models but no Qwen. Substituting one of those would
-change the model *and* the serving stack at once; under CAV-02 a figure from
-another backend describes different weights, so it would answer a different
-question while looking like an answer to this one.
+- **#161** made the host an input rather than a hardcoded `localhost`, so rigs
+  reachable over a tailnet are addressable at all.
+- **#164** separated *asking* a backend what it serves from *dispatching* to it.
+  Ollama is probed natively and bound on the OpenAI-compatible shape. Before it,
+  every rung an init-written config produced was `quality_safe=False`, and this
+  rig marks every request `quality_sensitive=True` — so the sweep would have
+  been refused outright, one dispatch at a time, under CAV-01.
 
-So the ladder is built and the run is deferred.
+Both rigs turned out to hold `qwen2.5-coder:3b` at the exact quant the
+experiment is defined on, so no substitution was needed.
 
 ## Running it against a worker you can reach
 
@@ -294,8 +298,8 @@ New here, and none of them inherited:
   about the code. The two type tasks say so in their contracts; the other 18 do
   not, because the construct is unlikely to appear there — but a failure of this
   kind would be misattributed to the bundle.
-- **The starting code now travels in `target_content` — and no sweep has been
-  run under either shape.** Authoring this task set is what raised #150: the
+- **The starting code travels in `target_content`, and that is the shape
+  CLM-0012 measured.** Authoring this task set is what raised #150: the
   worker prompt had no slot for the target file's current content, so the 12
   tasks that start from existing code carried it inside the task description,
   fenced. That was legal and it was the only slot available, but it made those
@@ -313,13 +317,25 @@ New here, and none of them inherited:
   per-type rate from this run and a per-category rate from the Python run are
   not the same instrument.
 
-## What a result would license
+## What the result licensed
 
-A sweep would produce a claim record for the JS/TS result, or an explicit
-finding that no bundle effect was measurable. Either way `Bundle.measured`
-becomes `True` for `js/ts` **only** if the shipped file is the artifact the
-measurement was taken on — which is what `check_c2_is_the_shipped_bundle` and
-its test are for.
+The second arm: an explicit finding that no bundle effect was measurable
+(CLM-0012). What followed from it:
 
-If the peak is not at `c2`, `MAX_BUNDLE_BYTES` stops being one constant and
-becomes per-language. Nothing here presumes which way that goes.
+- **`Bundle.measured` is `True` for `js/ts`** — the sweep was taken on the
+  shipped file, which is what `check_c2_is_the_shipped_bundle` exists to
+  guarantee. Because the marker is stripped before that comparison, rewriting it
+  to state the null result did not forfeit the equality.
+- **A boolean stopped being enough.** Both bundles are now measured and only one
+  of them helped, so `measured` was demoted to derived provenance and
+  `BundleStanding` carries the outcome: `MEASURED_BENEFIT` for Python,
+  `MEASURED_NO_EFFECT` for JS/TS. "Measured" is a word readers take as
+  endorsement; the type no longer lets them.
+- **`MAX_BUNDLE_BYTES` stays one constant**, and now for a stated reason rather
+  than for want of evidence. A per-language ceiling needs a language whose curve
+  has a peak. JS/TS measured flat, so there is no JS/TS peak to place one at —
+  which is not the same as JS/TS agreeing that 2 KB is right.
+- **`prompts/javascript.md` still ships.** No benefit measured is not harm
+  measured, and the same run cannot separate `c2` from `c0` in either direction.
+  What it lost is the reason it shipped on in #25 — "probably better than
+  nothing" is no longer available.

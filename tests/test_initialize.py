@@ -21,7 +21,8 @@ from mcgyvr.capability import load as load_table
 from mcgyvr.config import load as load_config
 from mcgyvr.config import parse as parse_config
 from mcgyvr.detect import Backend, Detection, Gpu
-from mcgyvr.initialize import InitError, build, initialize, render
+from mcgyvr.initialize import InitError, _sources_for, build, initialize, render
+from mcgyvr.propose import propose
 
 BARE = Detection(
     gpus=(),
@@ -313,3 +314,174 @@ def test_values_that_need_quoting_get_it(tmp_path: Path, table) -> None:  # type
     text = path.read_text(encoding="utf-8")
     assert '"http://localhost:11434"' in text
     assert '"qwen2.5-coder:7b"' in text
+
+
+# --- a rig on another machine is bindable (#161) --------------------------
+
+REMOTE_ONLY = Detection(
+    gpus=(),
+    cpu_count=8,
+    ram_gb=23.5,
+    backends=(
+        Backend(
+            "srv1_ollama",
+            "http://srv1:11434",
+            "ollama",
+            ("qwen2.5-coder:3b", "qwen2.5-coder:1.5b"),
+            "probe",
+            host="srv1",
+            kind="ollama",
+        ),
+        Backend(
+            "srv2_ollama",
+            "http://srv2:11434",
+            "ollama",
+            ("qwen2.5-coder:7b", "qwen2.5-coder:3b"),
+            "probe",
+            host="srv2",
+            kind="ollama",
+        ),
+    ),
+    docker=True,
+    provenance={"docker": "docker info reported server 29.1.3"},
+    notes=("GPU: not determined — nvidia-smi is absent or failed.",),
+)
+
+
+def test_a_laptop_with_no_gpu_binds_the_rigs_it_can_reach(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """The deployment mcgyvr exists for, and the one init used to refuse.
+
+    Before #161 this took `_nothing_to_bind`: no GPU here meant no rung, even
+    with two rigs answering.
+    """
+    path = tmp_path / "mcgyvr.yaml"
+    result = initialize(path, detection=REMOTE_ONLY, table=table)
+
+    assert result.created and path.exists()
+    config = load_config(path)
+    assert config.ladder.tiers, "a reachable rig is a bindable rig"
+    assert set(config.sources) == {"srv1_ollama", "srv2_ollama"}
+    assert config.is_local_only, "no key is needed to reach your own machines"
+
+
+def test_two_rigs_running_the_same_backend_both_survive(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """Sources are a mapping, so an unqualified name would drop a whole rig."""
+    proposal = propose(
+        table,
+        vram_gb=REMOTE_ONLY.largest_vram_gb,
+        sources=_sources_for(REMOTE_ONLY),
+    )
+    data = build(REMOTE_ONLY, proposal)
+    assert len(data["sources"]) == 2
+    assert {s["base_url"] for s in data["sources"].values()} == {
+        "http://srv1:11434",
+        "http://srv2:11434",
+    }
+
+
+def test_every_rung_says_which_machine_it_runs_on(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """With one machine this was implicit. With two it is the whole question."""
+    result = initialize(tmp_path / "c.yaml", detection=REMOTE_ONLY, table=table)
+    rung_decisions = [d for d in result.decisions if " -> " in d]
+    assert rung_decisions
+    for decision in rung_decisions:
+        assert " on srv1" in decision or " on srv2" in decision
+
+
+def test_a_ladder_across_machines_is_flagged_as_possibly_inverted(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """Ordering across heterogeneous hardware is #162; silence is not an option."""
+    result = initialize(tmp_path / "c.yaml", detection=REMOTE_ONLY, table=table)
+    joined = " ".join(result.limits)
+    assert "spans 2 machines" in joined
+    assert "#162" in joined
+
+
+def test_the_refusal_points_at_the_flag_that_would_have_worked(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """A bare laptop's problem may be that nobody told init where the rigs are."""
+    with pytest.raises(InitError) as exc:
+        initialize(tmp_path / "c.yaml", detection=BARE, table=table)
+    assert "--host" in str(exc.value)
+
+
+def test_hosts_are_ignored_when_a_detection_is_supplied(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """Two answers to one question. The caller's own detection wins, silently.
+
+    Asserted because the alternative — sweeping the network during a test
+    that supplied its own machine — is the kind of thing that passes locally
+    and hangs in CI.
+    """
+    result = initialize(
+        tmp_path / "c.yaml", detection=REMOTE_ONLY, table=table, hosts=("nope.invalid",)
+    )
+    assert set(load_config(result.path).sources) == {"srv1_ollama", "srv2_ollama"}
+
+
+# --- a written config dispatches on the uncaveated path (#164) ------------
+
+
+def test_a_written_config_binds_ollama_on_the_uncaveated_protocol(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """`detect` calls it Ollama; the config dispatches to it as OpenAI."""
+    path = tmp_path / "mcgyvr.yaml"
+    initialize(path, detection=KEYLESS_RIG, table=table)
+    config = load_config(path)
+    assert config.sources["ollama"].api == "openai"
+
+
+def test_no_rung_of_a_written_config_carries_the_quality_caveat(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """The property that matters, asserted where it is actually decided.
+
+    Binding `api: openai` is only the mechanism; the claim is that a config
+    init wrote can serve a measurement. That is `Runner.quality_safe`, so the
+    assertion goes through the runner rather than through the string.
+    """
+    from mcgyvr.pool import source_map
+    from mcgyvr.runner import runner_for
+
+    path = tmp_path / "mcgyvr.yaml"
+    initialize(path, detection=KEYLESS_RIG, table=table)
+    pool = source_map(load_config(path))
+    assert pool.rungs, "this fixture is only interesting with rungs on it"
+    for rung in pool.rungs:
+        runner = runner_for(pool.bind(rung.name))
+        assert runner.quality_safe, (
+            f"{rung.name} dispatches on a path CAV-01 invalidates, so this "
+            f"install cannot serve a measurement"
+        )
+
+
+def test_the_protocol_switch_is_explained_rather_than_silent(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """A config saying `openai` for a source called `ollama` reads as a bug."""
+    result = initialize(tmp_path / "c.yaml", detection=KEYLESS_RIG, table=table)
+    joined = " ".join(result.decisions)
+    assert "CAV-01" in joined
+    assert "32.3%" in joined
+
+
+def test_detection_still_reads_the_native_model_listing(  # type: ignore[no-untyped-def]
+    tmp_path: Path, table
+) -> None:
+    """Binding compatibly must not cost the inventory that made it possible.
+
+    `/v1/models` on Ollama reports loaded models; `/api/tags` reports pulled
+    ones. Proposing against the former would hide every model on disk.
+    """
+    result = initialize(tmp_path / "c.yaml", detection=KEYLESS_RIG, table=table)
+    assert any("already pulled" in d for d in result.decisions)

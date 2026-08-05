@@ -86,9 +86,21 @@ class AvailableSource:
     name: str
     backend: str
     models_present: frozenset[str] = frozenset()
+    host: str = ""
 
     def has(self, model_id: str) -> bool:
         return model_id in self.models_present
+
+    @property
+    def is_local(self) -> bool:
+        """Whether this source runs on the machine doing the proposing.
+
+        An unnamed host means local, which keeps every caller that predates
+        multi-host sweeps saying what it always said. It matters because the
+        VRAM figure a proposal is handed describes *this* machine's card, and
+        so is evidence about local sources and about no others.
+        """
+        return self.host in ("", "localhost", "127.0.0.1", "::1", "[::1]")
 
 
 @dataclass(frozen=True)
@@ -103,6 +115,7 @@ class Rung:
     weights_gb: float
     already_present: bool
     reasons: tuple[str, ...]
+    host: str = ""
 
 
 @dataclass(frozen=True)
@@ -259,20 +272,95 @@ def _dominated_by(model: Model, others: Sequence[Model]) -> Model | None:
     return dominators[0]
 
 
+def _fit_reason(
+    model: Model,
+    source: AvailableSource,
+    vram_gb: float | None,
+    headroom_gb: float,
+) -> str:
+    """Why this model is believed to run where it is being bound.
+
+    Two different grounds, and they are not the same strength of claim. A
+    VRAM arithmetic fit is a *prediction* from the table's working figure
+    against a card this process can see. A backend reporting the model in its
+    own listing is an *observation* that it is loaded there — which is the
+    stronger fact, and the only one available for a rig on another machine
+    whose card ``nvidia-smi`` here cannot describe (#161).
+    """
+    if source.has(model.id):
+        return (
+            f"fit: {source.name} reports holding {model.id}, so the rig is "
+            f"provisioned for it — asserted by the machine that will run it, "
+            f"not estimated from a card elsewhere"
+        )
+    if not source.is_local:
+        return (
+            f"fit: not established on {source.host} — its card is not visible "
+            f"from here and it does not report holding {model.id}. The "
+            f"table's {model.vram_gb_working:g} GB working figure is what "
+            f"this rests on; check it against that machine."
+        )
+    if vram_gb is None:
+        return (
+            f"fit: not established — no GPU is visible here to size "
+            f"{model.vram_gb_working:g} GB against. Bound on the table's "
+            f"figure alone."
+        )
+    return (
+        f"fit: {model.vram_gb_working:g} GB working + {headroom_gb:g} GB "
+        f"reserved headroom fits a {vram_gb:g} GB card"
+    )
+
+
+def _placement_reason(
+    model: Model,
+    source: AvailableSource,
+    sources: Sequence[AvailableSource],
+) -> str | None:
+    """Say when a rung's machine was a coin-toss, and on what.
+
+    With one rig this never fires. With several, more than one can hold the
+    same weights, and :func:`_serving_source` takes the first that does —
+    first in the order the hosts were named, which is a fact about the
+    command line and not about the machines. Silence would let arbitrary read
+    as considered.
+
+    The cost of getting it wrong is not hypothetical: measured, one 7B runs
+    at 30 tok/s on a 6 GB card and 58 on a 12 GB one, so the same rung is
+    twice the wall clock depending on a choice made here by list order. What
+    would decide it properly is a throughput figure per (model, host), which
+    nothing in this project records yet — #162.
+    """
+    holders = [s for s in sources if s.has(model.id) and s.host]
+    if len(holders) < 2:
+        return None
+    others = ", ".join(s.host for s in holders if s.host != source.host)
+    return (
+        f"placement: {source.host} was taken because it is the first host "
+        f"named that holds {model.id} — {others} also has it. That is list "
+        f"order, not a measurement: the same weights can run at half the "
+        f"speed on a smaller card. Reorder the hosts, or pin the source by "
+        f"hand, if this is the wrong machine (#162)."
+    )
+
+
 def _reasons(
     model: Model,
     source: AvailableSource,
-    vram_gb: float,
+    vram_gb: float | None,
     headroom_gb: float,
     below: Model | None,
+    sources: Sequence[AvailableSource] = (),
 ) -> tuple[str, ...]:
     quality = model.best_quality or 0.0
     reasons = [
-        f"fit: {model.vram_gb_working:g} GB working + {headroom_gb:g} GB "
-        f"reserved headroom fits a {vram_gb:g} GB card",
+        _fit_reason(model, source, vram_gb, headroom_gb),
         f"quality: HumanEval+ pass@1 {quality:.1%} measured on "
         f"{model.quant or 'the shipped quant'}",
     ]
+    placement = _placement_reason(model, source, sources)
+    if placement is not None:
+        reasons.append(placement)
     if below is not None:
         gap = quality - (below.best_quality or 0.0)
         reasons.append(
@@ -289,6 +377,53 @@ def _reasons(
     return tuple(reasons)
 
 
+def _candidates(
+    table: CapabilityTable,
+    vram_gb: float | None,
+    sources: Sequence[AvailableSource],
+    headroom_gb: float,
+) -> tuple[Model, ...]:
+    """The models worth considering, admitted on whichever ground applies.
+
+    Two grounds, and which one applies is decided by *where the backend is*
+    rather than by which is the stronger evidence:
+
+    * **It fits the card this process can see.** The original rule. It is a
+      claim about this machine's GPU, so it governs exactly the backends
+      running on this machine.
+    * **A backend on another machine reports holding it.** #161's rule. The
+      local card is not weaker evidence about a remote rig — it is evidence
+      about the wrong machine, and applying it would reject a 7B on a 12 GB
+      rig because the laptop asking has no GPU. The rig's own model listing
+      is the only fact available, so it is the one used.
+
+    The second ground is deliberately the weaker claim and is labelled as
+    such wherever it is reported (:func:`_fit_reason`). A model listing means
+    different things to different backends — vLLM lists what it has loaded,
+    Ollama lists what has been pulled to disk — so it establishes that the
+    rig is *provisioned* for the model, not that the model is resident. That
+    is still strictly more than this machine can otherwise know about a card
+    it cannot see, and unlike a VRAM estimate it cannot be wrong about which
+    machine it describes.
+
+    Only measured models are admitted by the second rule. A backend will
+    happily hold something the table has no score for, and binding it would
+    put an unmeasured model on the ladder through the back door — which is
+    the one thing ``CapabilityTable.fitting`` exists to prevent.
+    """
+    admitted: dict[str, Model] = {}
+    if vram_gb is not None:
+        for model in table.fitting(vram_gb, headroom_gb):
+            admitted[model.id] = model
+    remote = [s for s in sources if not s.is_local]
+    for model in table.models:
+        if model.id in admitted or not model.is_measured:
+            continue
+        if any(source.has(model.id) for source in remote):
+            admitted[model.id] = model
+    return tuple(admitted.values())
+
+
 def propose(
     table: CapabilityTable,
     *,
@@ -299,6 +434,12 @@ def propose(
 ) -> Proposal:
     """Propose a local ladder for a card of ``vram_gb`` served by ``sources``.
 
+    ``vram_gb`` is what the *local* card holds, and may be ``None`` — either
+    because there is no GPU or because there is one this build cannot see.
+    That is no longer the end of the proposal: a source that reports serving
+    a measured model supplies the fit evidence the card would have (#161),
+    so a laptop with no GPU can still bind the rigs it can reach.
+
     Never raises. A machine with no GPU, no backend, or nothing that fits
     gets an empty local ladder and notes explaining what is missing — that
     is a coherent API-only install, not a failure.
@@ -306,16 +447,8 @@ def propose(
     rejected: list[Rejection] = []
     notes: list[str] = []
 
-    if vram_gb is None:
-        notes.append(
-            "No GPU was detected, so no local rung can be proposed. This is a "
-            "supported install: bind an API source, or bind a local model by "
-            "hand if the machine has a GPU this build could not see."
-        )
-        return Proposal(notes=tuple(notes))
-
-    fitting = table.fitting(vram_gb, headroom_gb)
-    fits = {m.id for m in fitting}
+    candidates = _candidates(table, vram_gb, sources, headroom_gb)
+    fits = {m.id for m in candidates}
     for model in table.models:
         if model.id in fits:
             continue
@@ -326,6 +459,16 @@ def propose(
                     "never proposed: no valid quality measurement survives the "
                     "table's harness caveats, and an unmeasured model must not "
                     "be bound on the assumption that it is fine",
+                )
+            )
+        elif vram_gb is None:
+            rejected.append(
+                Rejection(
+                    model.id,
+                    "not proposed: no reachable backend reports serving it, and "
+                    "there is no GPU here to size its "
+                    f"{model.vram_gb_working:g} GB against. Pull it on a rig "
+                    "that is being swept and it becomes bindable.",
                 )
             )
         else:
@@ -341,7 +484,7 @@ def propose(
     # Eligibility is per machine: a model whose backend is not here cannot be
     # bound, and must not be allowed to dominate one that can.
     eligible: list[tuple[Model, AvailableSource]] = []
-    for model in fitting:
+    for model in candidates:
         source = _serving_source(model, sources)
         if source is None:
             rejected.append(Rejection(model.id, _ineligible_reason(model, sources)))
@@ -352,7 +495,17 @@ def propose(
         if not sources:
             notes.append(
                 "No local backend is reachable, so the local ladder is empty. "
-                "Bind an API source, or start a backend and re-run."
+                "Bind an API source, start a backend and re-run, or name the "
+                "rig that serves your models — `mcgyvr init --host <name>`."
+            )
+        elif vram_gb is None:
+            notes.append(
+                "No GPU is visible here, and no backend on another machine "
+                "reports holding a measured model, so no local rung can be "
+                "proposed. This is a supported install: bind an API source, "
+                "bind a local model by hand if this machine has a GPU the "
+                "build could not see, or name the rig that serves your "
+                "models — `mcgyvr init --host <name>`."
             )
         else:
             notes.append(
@@ -435,7 +588,8 @@ def propose(
                 vram_gb=model.vram_gb_working,
                 weights_gb=model.weights_gb,
                 already_present=source.has(model.id),
-                reasons=_reasons(model, source, vram_gb, headroom_gb, below),
+                reasons=_reasons(model, source, vram_gb, headroom_gb, below, sources),
+                host=source.host,
             )
         )
 
@@ -444,8 +598,41 @@ def propose(
         missing = ", ".join(f"{r.model} (~{r.weights_gb:g} GB)" for r in to_pull)
         total = round(sum(r.weights_gb for r in to_pull), 2)
         notes.append(f"Needs pulling before first use: {missing}. Total ~{total:g} GB.")
+    spread = _spread_note(rungs)
+    if spread is not None:
+        notes.append(spread)
     notes.append(_concurrency_note(rungs))
     return Proposal(rungs=tuple(rungs), rejected=tuple(rejected), notes=tuple(notes))
+
+
+def _spread_note(rungs: Sequence[Rung]) -> str | None:
+    """Say so when the proposed ladder crosses machines (#162).
+
+    The gradient rules above order rungs by measured quality, and quality is
+    a property of the weights. Throughput is not: the same model measures
+    2.4x apart on two different cards, and a 7B that thrives on a 12 GB card
+    thrashes on a 6 GB one. So a ladder whose rungs sit on different machines
+    can be correctly ordered by quality and still be slower at the bottom
+    than at the top — which is the inversion escalation exists to avoid.
+
+    Nothing here reorders it. Ordering across machines is #162's question,
+    and this proposal has no throughput figure per (model, host) to answer it
+    with. What it can do is refuse to be silent about it.
+    """
+    hosts = tuple(dict.fromkeys(r.host for r in rungs if r.host))
+    if len(hosts) < 2:
+        return None
+    placed = ", ".join(f"{r.name} on {r.host}" for r in rungs)
+    return (
+        f"This ladder spans {len(hosts)} machines ({', '.join(hosts)}): "
+        f"{placed}. Rungs are ordered by measured quality, which belongs to "
+        f"the weights — throughput belongs to the card, and is not in the "
+        f"table per host. A cheaper rung on a slower machine can therefore "
+        f"cost more wall-clock than the rung above it, which makes escalating "
+        f"through it worse than starting higher. Check the order against your "
+        f"own machines before trusting it; #162 is where this stops being the "
+        f"operator's problem."
+    )
 
 
 def _concurrency_note(rungs: Sequence[Rung]) -> str:
