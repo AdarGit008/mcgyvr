@@ -1,6 +1,6 @@
 # Prior art — the nearest ten repositories (#175)
 
-Status: in progress — 2 of 10 reviewed. 1 issue filed (#183).
+Status: in progress — 3 of 10 reviewed. 1 issue filed (#183), findings recorded on #179.
 Started: 2026-08-06. Lane: `lane/175`.
 
 ## Why this document lives in `docs/` and not `records/`
