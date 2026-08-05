@@ -14,6 +14,20 @@ written belongs in `docs/`. Anything here that hardens into a claim moves to
 `records/claims/` through ADR-0004's re-measurement, not by being filed in a
 different directory.
 
+#172's audit reached the same answer independently, landing at
+`docs/local-ai-review-2026-08-05.md` (PR #176) hours before this was written.
+The filename here matches that precedent rather than the subdirectory this
+started in.
+
+## Its overlap with the local-ai audit, stated up front
+
+`docs/local-ai-review-2026-08-05.md` reviewed one repository under the same
+filter, and three of its seven findings touch the same open issues this survey
+does. That is fortunate rather than redundant: the two reviews read *different*
+codebases, so where they agree the agreement is independent, and where they
+disagree the disagreement is the finding. Both cases are marked inline below
+rather than left for a reader to notice.
+
 ## The filter, restated
 
 Take only what a reader who does not trust this review can re-derive: code at a
@@ -70,6 +84,17 @@ declares its context window, so the decomposer's ceiling is a chosen number.
 Plandex declares the window per model and *routes on it* — the ceiling is derived
 rather than picked, and input and output are separate chains because they fail
 differently. Whatever #158 builds, this is the shape to argue against.
+
+**And it is where the two reviews disagree, which makes it the more useful
+finding.** `docs/local-ai-review-2026-08-05.md` item 2 concluded that an
+operator-declared context window "is not just missing — it is dangerous". Plandex
+declares one per model and makes it the routing key. Both systems shipped; they
+made opposite bets on the same fact. The reconciliation available from the code
+is that plandex's declaration is **vendor-published metadata attached to a model
+id**, not an operator's guess about a rig — which is a different quantity from
+the one local-ai found dangerous, and suggests #158's answer is about *who
+declares it* rather than *whether it is declared*. Recorded as a reading of two
+codebases, not as a resolution: nothing here measures which bet pays.
 
 ## Tests / verification
 
@@ -129,6 +154,16 @@ percentage works, and nothing in the repository measures whether it does.** A
 second system making the same modelling choice is a reason to check the
 reasoning, not a reason to adopt or to dismiss it.
 
+**Where the two reviews agree, and the agreement is independent.**
+`docs/local-ai-review-2026-08-05.md` item 1 — "a token estimate has an additive
+floor that a multiplicative reserve cannot cover" — is the same axis, reached
+from a different codebase, and that one had a measurement behind it. So #173 now
+has a measured argument on one side and, on the other, two independent systems
+that both reached for a percentage anyway. The useful reading is not that
+plandex is wrong; it is that **the multiplicative form is the one people reach
+for by default**, which is what makes an additive floor worth stating explicitly
+rather than assuming a implementer will derive it.
+
 **Decomposition is parsed out of markdown with a string split and a regex.**
 `app/server/model/parse/subtasks.go:10` splits the model's reply on `### Tasks`,
 falls back to `### Task`, and returns `nil` — logging, not erroring — when
@@ -141,6 +176,13 @@ public contract loader as its only exit, so a malformed proposal becomes a
 refusal carrying the loader's own message. **#174 — a fenced refusal parsing as
 file content — is this same family of bug in our own codebase**, and this is
 what the mature version of that mistake looks like at 15.6k stars.
+
+The local-ai audit found the third instance (item 3: a well-formed refusal
+defeats a syntax gate *and* silently stops escalation). **Three codebases, three
+occurrences, one shape: model output is recovered by pattern match, and the
+absence of the pattern is indistinguishable from an empty result.** That is the
+strongest generalisation this survey has produced so far, and it is worth more
+than any single repository's version of it.
 
 ## What has no home
 
