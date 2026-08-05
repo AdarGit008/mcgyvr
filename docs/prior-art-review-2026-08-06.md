@@ -1,6 +1,6 @@
 # Prior art — the nearest ten repositories (#175)
 
-Status: in progress — 1 of 10 reviewed.
+Status: in progress — 2 of 10 reviewed. 1 issue filed (#183).
 Started: 2026-08-06. Lane: `lane/175`.
 
 ## Why this document lives in `docs/` and not `records/`
@@ -191,3 +191,91 @@ issue either. Every transferable item landed as corroboration for a decision
 mcgyvr had already made (#178, #177) or as an argument-shaped input to one that is
 open (#158, #173). **A first repository that files zero new issues is a
 legitimate outcome**, and per #175 it is stated rather than padded.
+
+---
+
+# 2. OpenAutoCoder/Agentless
+
+- **Pinned:** `5ce5888b9f149beaace393957a55ea8ee46c9f71`
+- **Last push:** 2024-12-22 — **20 months before this review**, the oldest entry
+  in the ten. Not archived. Every finding below is dated accordingly: this
+  describes a 2024 pipeline against 2024 models.
+- **Stars:** 2.1k. **Criteria:** 3/5 — decomposes into fixed phases, runs
+  deterministic validation the model did not author, and selects among candidate
+  patches. No worker-class ladder, no per-task isolation of its own.
+- **Tests:** **none.** `agentless/test/` is not a suite for Agentless; it is the
+  apparatus that runs the *target repository's* tests. There is no unit test in
+  the repository. Stated plainly because the fit-first selection was justified on
+  extraction 2, and here extraction 2 comes from the verification apparatus
+  rather than from a suite.
+
+## Code / features — one finding, and it is the survey's first new issue
+
+**A demonstrating test is verified by a separate run with the opposite expected
+outcome.** `agentless/test/run_reproduction_tests.py:36-64` runs the generated
+reproduction test against the *unpatched* repository — `patch: ""`,
+`apply_model_patch=False` — and writes it out with `verified: True` only if it
+reproduces there. A generated test that passes on broken code is discarded; it
+demonstrates nothing.
+
+The regression set is derived the same way and kept separate
+(`run_regression_tests.py:33`, `save_passing_tests`): run the suite on the base,
+keep the tests that **passed**, judge the patch only against those. Its own
+comment carries a refinement worth the whole read — XFAIL tests are excluded
+from the passing set *"because they are expected to fail"*.
+
+**Reading that against our own code found a live collision.** The catalog
+defines `failing_test_first` as a command that "must fail before the change and
+pass after" (`data/task-catalog.json:60`). `Acceptance.precondition()` runs every
+acceptance command on the unchanged tree and refuses the run if any fails
+(`gate/acceptance.py:116`, `acceptance-baseline-failing`). `contract.py:409`
+makes `acceptance` a flat `str_list` with no per-command evidence tag, so nothing
+can distinguish the two. `bug_fix` is therefore unreachable in both directions —
+include the demonstrating command and the preflight refuses the run; omit it and
+rule 5 is satisfied by the regression command alone, leaving the type's own
+warrant resting on a guarantee nothing enforces.
+
+**Filed as #183.** It is latent rather than live — `Acceptance(...)` is
+constructed nowhere in `src/` yet and the decomposer never emits `bug_fix` — and
+that is exactly why it is worth filing now: the run loop is about to be wired,
+and wired against the current shape it would encode the collision instead of
+revealing it.
+
+## Tests / verification
+
+Covered above — the apparatus *is* the finding. One further item, weaker and
+recorded with its objection attached:
+
+**A model is asked which tests to exclude before the patch exists.**
+`select_regression_tests.py:17` prompts: "identify the tests that should not be
+run after applying the patch … as the original functionality may change". The
+model sees the issue text and the test list, but **not** the patch.
+
+This is a model authoring the scope of its own gate, which is the line mcgyvr
+draws and does not cross. What it buys is fewer false regressions on tests that
+legitimately change behaviour; what it costs is that the same model that writes
+the fix can silence the test that would catch it. **Recorded as a boundary
+observation, not a candidate.** It is also the cleanest illustration of why the
+gate/verifier ordering in `escalate.py` is worth having: a check the model can
+edit is not a check.
+
+## Insights / wisdom
+
+**`MAX_CONTEXT_LENGTH = 128000`, hardcoded** (`select_regression_tests.py:13`).
+The third instance in this survey of a ceiling chosen as a literal — #158's
+shape again, now in a third codebase.
+
+**The output parser is one line and fails soft.**
+`_parse_model_return_lines` is `content.strip().split("\n")` guarded by
+`if content:`, returning `None` implicitly otherwise. Fourth instance of the
+pattern-match shape recorded above: the absence of the pattern is
+indistinguishable from an empty result, and here an empty result means "exclude
+no tests", which fails safe by luck rather than by design.
+
+**What Agentless is remembered for is not what it is useful for.** Its public
+claim was that a fixed three-phase pipeline beat agent loops on SWE-bench. That
+number is self-reported, from 2024, on a benchmark whose contamination
+discussion post-dates it — **rejected by the filter, and named here because it is
+the thing most likely to be re-proposed from this repository.** What survived the
+filter instead is the plumbing nobody cites: two runs, two expected outcomes, two
+sets.
