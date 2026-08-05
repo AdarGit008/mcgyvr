@@ -44,6 +44,37 @@ longer fence, is a single unambiguous block and parses. Nesting at equal widths
 has nothing to distinguish an inner fence from a closing one, reads as two
 blocks, and refuses like any other ambiguity.
 
+**A block that carries no code is a refusal, not a file.** #174's finding: a
+model that declines inside the fence satisfies every structural rule above. One
+comment (``# I cannot complete this task.``) or one status object
+(``{"status": "blocked"}``) is exactly one unambiguous block, is valid Python,
+and passes syntax and lint — so it is written to the file and the task is
+recorded as done. That is worse than a wrong answer, because escalation fires on
+failure: a rung that declines silently looks identical to a rung that succeeded,
+and the cascade never climbs. So this is a *named* outcome
+(``ReplyError("refusal", ...)``) distinct from a failed check, since the routing
+consequence differs — a refusal means this rung will not do this task, so
+escalate now rather than retrying the same rung with notes.
+
+This is the same kind of judgement the ``empty-block`` rule already makes
+("empty is not a file"), carried one step: a body of nothing but comments is
+empty of *code*, and a bare data blob written to a source file is not source.
+
+**It is judged only against a known target, and never guessed.** ``# I cannot``
+is a comment in Python and a *heading* in Markdown; ``{"status": "blocked"}`` is
+a refusal in a ``.py`` file and a perfectly good ``.json`` one. Nothing in the
+reply says which, so the check needs ``target`` and applies only to the
+languages the gate itself owns (#35/#36 — Python and JS/TS). Any other target,
+or no target at all, is left alone: an unrecognised language is not judged
+rather than judged badly, which is this module's rule everywhere else.
+
+**Stubs are deliberately ruled out of it.** A body of ``raise
+NotImplementedError``, ``pass`` or ``...`` reads like a dodge and is legitimate
+output for some contract types, so it parses. What refuses a stub is an
+acceptance command (#146), not a pattern match here — and #132 is the measure of
+how often no such command is declared, which is the condition under which this
+whole class goes unnoticed.
+
 Line endings are normalised to ``\\n`` on entry — a stated transformation, so a
 CRLF reply parses identically to an LF one instead of failing on a fence line
 that carries a stray carriage return.
@@ -51,6 +82,7 @@ that carries a stray carriage return.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -66,6 +98,67 @@ WHOLE_FILE = "whole_file"
 # reply that did not follow the protocol, and saying that is more useful than
 # quietly accepting a second syntax.
 _FENCE_OPEN = re.compile(r"^ {0,3}(`{3,})[ \t]*([A-Za-z0-9_+.#-]*)[ \t]*$")
+
+
+# The languages this parser will judge for content, and how each one spells a
+# comment. Deliberately the same set the gate's adapters own (#35 Python, #36
+# JS/TS) rather than a table invented here: a language the gate cannot check is
+# one this module has no business forming an opinion about either. Adding a
+# language means adding it in both places, which is the honest cost of the
+# coupling — the alternative, importing the adapters, would make the parser
+# depend on the gate for a question about text.
+_PY_EXTENSIONS = (".py", ".pyi")
+_JS_EXTENSIONS = (".ts", ".mts", ".cts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+_LINE_COMMENTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    (_PY_EXTENSIONS, ("#",)),
+    (_JS_EXTENSIONS, ("//",)),
+)
+
+# A ``/* ... */`` comment occupying whole lines. Anchored at line start so that
+# a ``/*`` inside a string literal cannot swallow the rest of a real file.
+_BLOCK_COMMENT = re.compile(r"(?m)^[ \t]*/\*.*?\*/[ \t]*$", re.DOTALL)
+
+
+def _leaders(target: str) -> tuple[str, ...] | None:
+    """How ``target``'s language spells a line comment, or ``None`` if unknown."""
+    for extensions, leaders in _LINE_COMMENTS:
+        if target.endswith(extensions):
+            return leaders
+    return None
+
+
+def _carries_no_code(body: str, target: str) -> bool:
+    """Whether ``body`` is a source file in name only — comments, or a data blob.
+
+    Answers ``False`` for anything it cannot judge, including every target whose
+    language is not in :data:`_LINE_COMMENTS`. A parser that guessed here would
+    refuse real files, which is the more expensive mistake: a missed refusal
+    costs one task, a wrongly refused file costs every task of that shape.
+    """
+    leaders = _leaders(target)
+    if leaders is None:
+        return False
+
+    # A whole reply that is one data literal. Valid Python as an expression
+    # statement and valid JS as an object literal, but source in neither — and
+    # it is the shape a model reaches for when it declines structurally
+    # (``{"status": "blocked", "reason": ...}``). Scalars and bare strings are
+    # excluded: a module whose whole body is a docstring is a real file.
+    try:
+        blob = json.loads(body)
+    except ValueError:
+        blob = None
+    if isinstance(blob, dict | list):
+        return True
+
+    stripped = _BLOCK_COMMENT.sub("", body)
+    for line in stripped.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        if not line.startswith(leaders):
+            return False
+    return True
 
 
 def _is_close(line: str, width: int) -> bool:
@@ -108,6 +201,7 @@ def parse_reply(
     *,
     output_schema: str = WHOLE_FILE,
     stop_reason: StopReason = StopReason.COMPLETE,
+    target: str | None = None,
 ) -> ParsedFile | ReplyError:
     """Extract one file's content from a worker's reply, or refuse by name.
 
@@ -115,6 +209,11 @@ def parse_reply(
     strings, but a caller holding a real
     :class:`~mcgyvr.runner.Completion` must pass its actual reason — that is
     the only evidence that the text is all of the text.
+
+    ``target`` is the path the content is destined for, and the refusal check
+    (#174) runs only when it is given: the same bytes are a refusal in one file
+    and a legitimate file in another, and nothing in the reply says which. A
+    caller that omits it gets the structural rules alone.
     """
     if output_schema != WHOLE_FILE:
         return ReplyError(
@@ -170,9 +269,17 @@ def parse_reply(
         )
 
     info, body = blocks[0]
-    if not "\n".join(body).strip():
+    content = "\n".join(body)
+    if not content.strip():
         return ReplyError(
             "empty-block",
             "the reply's fenced block is empty, which is not a file",
         )
-    return ParsedFile(content="\n".join(body) + "\n", info_string=info)
+    if target is not None and _carries_no_code(content, target):
+        return ReplyError(
+            "refusal",
+            f"the reply's fenced block carries no code — it is a refusal "
+            f"dressed as {target!r}, and writing it would record this rung as "
+            f"having done the task; escalate rather than retrying this rung",
+        )
+    return ParsedFile(content=content + "\n", info_string=info)
