@@ -279,3 +279,92 @@ discussion post-dates it — **rejected by the filter, and named here because it
 the thing most likely to be re-proposed from this repository.** What survived the
 filter instead is the plumbing nobody cites: two runs, two expected outcomes, two
 sets.
+
+---
+
+# 3. AutoCodeRoverSG/auto-code-rover
+
+- **Pinned:** `585d3e639aeda58ef0b6a151dd1cc2721a94d267`
+- **Last push:** 2025-04-24 (15 months before this review). Not archived.
+- **Stars:** 3.1k. **Criteria:** 4/5 — phase decomposition, container per task
+  (SWE-bench-docker), deterministic patch validation, model-agnostic dispatch
+  across seven providers. No branch/PR delivery.
+- **Tests: 36 files, and they were RUN.** `test/app/agents/test_agent_reviewer.py`
+  passes 7/7; repo-wide `179 passed` with **16 modules erroring at import** for
+  dependencies outside the subset installed here (the project expects a conda
+  environment). The 179 is therefore a real number for the modules that
+  collected and not a claim about the whole suite.
+
+**The first repository in this survey whose tests ran.** That was the argument
+for the fit-first rebalance, and this is where it pays.
+
+## Code / features
+
+**A reviewer agent that is given the empirical before/after, not asked to
+predict it.** `app/agents/agent_reviewer.py:126-153` builds a thread carrying
+five things: the original issue statement, the generated test, the patch, and
+the stdout/stderr of running that test on **the unpatched program** and on **the
+patched program**. The model is not asked whether the patch will work. It is
+shown what happened and asked whether that means what it appears to mean.
+
+For #179's Q2 — *fresh context relative to what?* — this is a fourth option
+beyond the three that issue lists, and the one making the smallest demand on the
+model's judgment. **Recorded on #179 directly** rather than only here.
+
+**The verdict is two decisions, not one.** `Review` carries `patch_decision` and
+`test_decision` separately, and the system prompt says outright: *"NOTE: both
+the test and the patch may be wrong."* With #183 open — where the demonstrating
+command is exactly the instrument that might be wrong — the question of whether
+a verifier may blame the instrument rather than the work is one mcgyvr has not
+asked. Raised on #179 as an eighth question.
+
+**A rejection must carry advice.** `extract_review_result` (`:63`) rejects a
+`no` verdict whose advice field is empty, and the retry loop treats that as no
+verdict at all — up to five attempts, then `InvalidLLMResponse` (`:107`).
+Fail-closed and bounded, which is #179's Q5 answered in a shipped system.
+
+## Tests / verification — the finding is a test that ratifies a defect
+
+Their advice rule does not do what their prompt asks:
+
+```python
+if ((patch_decision == NO) and not patch_advice) and ((test_decision == NO) and not test_advice):
+    return None
+```
+
+The prompt asks for advice **per field**; the guard is a conjunction **across**
+both. Probed by execution rather than by reading — the standard this review set
+for itself:
+
+| input | result |
+| --- | --- |
+| `patch=no` with empty advice, `test=yes` | **accepted as a verdict** |
+| both `no`, both advices empty | rejected (`None`) |
+
+So a rejection carrying nothing actionable passes whenever the other field is
+`yes`, which is the ordinary case. And `test_extract_review_result_empty_advice`
+**passes while pinning the weaker behaviour**: it exercises only the both-`no`
+path, so the test documents the defect instead of catching it.
+
+**This is the most transferable item in the survey so far, and it is not their
+bug.** It is that a rule which reads as obviously correct — "a rejection must
+come with advice" — is easy to implement one field short, and that *a test
+written from the implementation rather than from the rule will ratify the
+shortfall and go green forever*. mcgyvr's suite is written the way this project's
+was; the defence is writing the test from the stated rule, including the mixed
+case, before the implementation exists.
+
+## Insights / wisdom
+
+**No independence between writer and reviewer.** The reviewer calls
+`common.SELECTED_MODEL` (`:185`) — the same model that wrote the patch. Their
+system judges that a model reviewing its own output is worth having anyway.
+Recorded without endorsement: it is the cheapest possible answer to #179's Q4
+and the weakest one available, and it is what a system converges on when nothing
+forces the question.
+
+**What survived and what did not.** Its published SWE-bench figures are
+self-reported and unreplicated — rejected by the filter, and named here because
+they are the thing most likely to be re-proposed from this repository. What
+survived is the reviewer's *inputs* and its *verdict shape*, both of which are
+readable in code and testable without believing anything about a leaderboard.
