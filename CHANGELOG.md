@@ -872,6 +872,19 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   pays by a property that can be checked before running a ladder (does `c0`
   over-produce?) rather than by language.
 
+- Decision `0012-re-entry-is-refused-by-what-the-caller-holds` (#177) — nothing
+  re-enters mcgyvr while holding a pool slot or running inside a sandbox, and
+  the rule is about possession at the moment of the call rather than about the
+  caller's role, because a rung bound to an agent harness is a worker by
+  function and an orchestrator by shape. v1 permits no nested run at all, kept
+  as a separate scope statement so the rule survives the scope changing.
+  Re-decomposition mid-run is named as *not* re-entry — it is a loop in one
+  instance, and its budget stays with #155/#158. The record corrects the
+  argument it was filed on: the hold-and-wait deadlock is already absent by
+  construction, since `capacity.py` acquires around the dispatch and a task
+  never owns a slot, so the rule rests on the credential-free sandbox and on
+  value per token instead.
+
 ### Changed
 - `prompts/javascript.md` states a measured null result instead of an
   `UNMEASURED` marker, and `Bundle` grew `BundleStanding` because a boolean
