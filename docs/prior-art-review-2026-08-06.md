@@ -1,6 +1,6 @@
 # Prior art — the nearest ten repositories (#175)
 
-Status: in progress — 3 of 10 reviewed. 1 issue filed (#183), findings recorded on #179.
+Status: in progress — 4 of 10 reviewed. 1 issue filed (#183); findings recorded on #179 and #183.
 Started: 2026-08-06. Lane: `lane/175`.
 
 ## Why this document lives in `docs/` and not `records/`
@@ -368,3 +368,81 @@ self-reported and unreplicated — rejected by the filter, and named here becaus
 they are the thing most likely to be re-proposed from this repository. What
 survived is the reviewer's *inputs* and its *verdict shape*, both of which are
 readable in code and testable without believing anything about a leaderboard.
+
+---
+
+# 4. aorwall/moatless-tools
+
+- **Pinned:** `011ead57a5c81664e9c45e07e1f50b17e695cc63`
+- **Last push:** 2025-09-01 (11 months before this review). Not archived.
+- **Stars:** 642 — the smallest repository in the ten, selected on fit rather
+  than reach, which is what the rebalance was for.
+- **Criteria:** 3/5 — deterministic verification the model did not author,
+  isolation (docker), multi-provider dispatch. No PR delivery, no decomposition
+  into contracts.
+- **Tests: 64 files. `tests/testing` RUN — 45 passed.** The repo-wide run did
+  not complete inside the time allowed here and several modules error at import
+  for optional dependencies, so **no repo-wide number is claimed**. The module
+  that matters to this review ran clean.
+
+## Code / features — the thing they built that we parked
+
+`moatless/testing/` turns raw test output into structured per-test results.
+`TestResult` (`schema.py:25`) carries `status` — PASSED / FAILED / SKIPPED /
+ERROR / **UNKNOWN** — plus `name`, `file_path`, `method`, `failure_output`, a
+parsed `stacktrace` of `TraceItem`s, and a separate `timed_out` flag.
+
+That is precisely the shape an exit code cannot express, and it is what lets a
+run distinguish *"three failed, two of which were already failing"* from *"the
+suite is red"*. #183 named per-test granularity and scoped it out; this is the
+same idea built, so its price is now observable rather than guessed.
+**Recorded on #183** rather than opened as a competing issue.
+
+## Tests / verification — 24 captured real logs, asserted down to stack frames
+
+`tests/testing/python/data/` holds 24 real test-output logs captured from the
+projects they target — django, pytest, matplotlib, seaborn, sphinx, sympy. The
+assertions are not "it parsed"; `test_django_error` checks the extracted
+`TraceItem` list frame by frame — file, method, line number, and the source
+line's text — and then checks `failure_output` against the trace with the
+container mount prefix stripped.
+
+**This is the best extraction-2 artefact in the survey so far.** A parser tested
+against invented output proves the parser can read the author's imagination.
+These fixtures are captures, so they encode the shapes real suites actually
+emit, and the diff between what a fixture contains and what a naive parser
+expects *is* the knowledge.
+
+One detail worth keeping regardless of whether we ever parse:
+`stacktrace.replace("/testbed/", "")` — a path in sandboxed test output is
+container-absolute and has to be normalised before it means anything to the
+host. Checked against our code and **not currently a problem**: `acceptance.py`
+attributes a failure to the *command* (`path=_label(command)`) and never
+extracts a path from output, so there is nothing to normalise. The cost lands
+elsewhere instead — a failure names a command, not a test — which is a
+consequence of a deliberate choice rather than an oversight.
+
+## Insights / wisdom — the mechanism does not generalise, and that is the finding
+
+`moatless/testing/python/parser_registry.py:14` is a hardcoded
+`Dict[str, Type[TestOutputParser]]` mapping **GitHub repository name** to parser
+class. Eighteen entries — the SWE-bench project list — with `PyTestParser` as
+the fallback for anything else. The parser is selected by *repo identity*, not
+by detected framework.
+
+Four Python parsers, 1,073 lines, for eighteen known repositories. Two of those
+projects needed bespoke parsers because they print results in a house format.
+
+**So the requirement is evidenced and the mechanism is unavailable to us.**
+mcgyvr targets arbitrary repositories, so a repo→parser table cannot exist here;
+anything equivalent would have to infer the shape from the output, which is
+strictly harder than what they did. Their four-parsers-per-eighteen-repos ratio
+is the best available estimate of how much shape variation is out there, and it
+is the number to weigh against #183's parked item — not the elegance of the
+result.
+
+**A fork we deliberately did not take, confirmed rather than reconsidered.**
+ADR-0006's family of decisions says the gate reads the target's own tools and
+their exit codes rather than parsing their output. This repository shows what
+the other branch costs at the scale of eighteen repositories, and mcgyvr's
+universe is not eighteen repositories.
