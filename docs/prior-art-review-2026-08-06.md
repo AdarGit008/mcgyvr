@@ -327,7 +327,12 @@ Fail-closed and bounded, which is #179's Q5 answered in a shipped system.
 
 Their advice rule does not do what their prompt asks:
 
-```python
+<!-- Fenced as `text`, not `python`, on purpose: this is their source quoted verbatim at
+     the pinned sha, and the line is 101 chars, so `ruff format` rewraps it across three
+     lines and the quote stops matching what is upstream. Same reason `records/evidence`
+     is excluded from the linter in pyproject.toml — do not restore the `python` tag. -->
+
+```text
 if ((patch_decision == NO) and not patch_advice) and ((test_decision == NO) and not test_advice):
     return None
 ```
