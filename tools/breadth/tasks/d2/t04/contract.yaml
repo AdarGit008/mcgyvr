@@ -1,0 +1,22 @@
+id: d2-04-shell-tokenizer
+task_type: function_implementation
+task: >-
+  Implement tokenize. Split a string into tokens separated by runs of spaces
+  and tabs. A double quote (") toggles quoted mode; while quoted, spaces and
+  tabs are ordinary characters. The quote characters themselves never appear
+  in the output, and a quoted section glues onto adjacent unquoted text, so
+  'a"b c"d' is the single token 'ab cd'. A backslash makes the very next
+  character literal (including a quote, a space, or another backslash) both
+  inside and outside quotes, and the backslash itself is dropped. A standalone
+  pair of quotes ("") produces an empty-string token. Leading and trailing
+  separators produce no tokens; the empty string produces an empty array.
+  Throw an Error on an unterminated quote and on a trailing backslash with
+  nothing after it.
+target: solution.ts
+interface: "export function tokenize(input: string): string[]"
+stop_conditions:
+  - How a quoted section adjacent to unquoted text combines into tokens is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

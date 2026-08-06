@@ -1,0 +1,67 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  // Create a set of valid nodes for quick lookup
+  const nodeSet = new Set(nodes);
+  
+  // Create adjacency list and in-degree count
+  const adjacency: Map<string, string[]> = new Map();
+  const inDegree: Map<string, number> = new Map();
+
+  // Initialize adjacency list and in-degree for all nodes
+  for (const node of nodes) {
+    adjacency.set(node, []);
+    inDegree.set(node, 0);
+  }
+
+  // Process edges
+  for (const [from, to] of edges) {
+    if (!nodeSet.has(from)) {
+      throw new Error(`Node "${from}" in edge is not in the nodes list`);
+    }
+    if (!nodeSet.has(to)) {
+      throw new Error(`Node "${to}" in edge is not in the nodes list`);
+    }
+
+    adjacency.get(from)!.push(to);
+    inDegree.set(to, (inDegree.get(to) ?? 0) + 1);
+  }
+
+  // Initialize queue with nodes having zero in-degree, maintaining input order
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if (inDegree.get(node) === 0) {
+      queue.push(node);
+    }
+  }
+
+  const result: string[] = [];
+
+  // Process nodes in topological order
+  while (queue.length > 0) {
+    // Take the first available node (maintains input order due to initial sort)
+    const current = queue.shift()!;
+    result.push(current);
+
+    // Reduce in-degree for neighbors
+    const neighbors = adjacency.get(current) || [];
+    for (const neighbor of neighbors) {
+      const newInDegree = (inDegree.get(neighbor) ?? 0) - 1;
+      inDegree.set(neighbor, newInDegree);
+      
+      if (newInDegree === 0) {
+        queue.push(neighbor);
+      }
+    }
+
+    // Sort queue to maintain input order among available nodes
+    queue.sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b));
+  }
+
+  // If result doesn't contain all nodes, there's a cycle
+  if (result.length !== nodes.length) {
+    throw new Error("Cycle detected in the graph");
+  }
+
+  return result;
+}
+```

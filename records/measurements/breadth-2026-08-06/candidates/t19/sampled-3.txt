@@ -1,0 +1,16 @@
+```ts
+/** Safe division that validates inputs and throws on invalid operations. */
+export function safeDivide(a: number, b: number): number {
+  // Validate both arguments are finite numbers (reject booleans, NaN, Infinity, non-numbers)
+  if (typeof a !== 'number' || !Number.isFinite(a) || typeof b !== 'number' || !Number.isFinite(b)) {
+    throw new Error('Both arguments must be finite numbers');
+  }
+
+  // Check for zero divisor (including -0)
+  if (b === 0 || Object.is(b, -0)) {
+    throw new Error('Division by zero is not allowed');
+  }
+
+  return a / b;
+}
+```

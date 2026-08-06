@@ -1,0 +1,19 @@
+id: d2-01-merge-intervals
+task_type: function_implementation
+task: >-
+  Implement mergeIntervals. The argument is an array of [start, end] pairs of
+  finite numbers with start <= end, in no particular order. Return a new array
+  of merged intervals sorted by start, where any two intervals that overlap OR
+  merely touch are combined: [1, 2] and [2, 3] merge into [1, 3]. An interval
+  fully contained in another disappears into it. The input array and its pairs
+  must not be mutated. An empty array returns an empty array. Throw an Error
+  if any element is not a two-number pair of finite numbers, or if its start
+  is greater than its end.
+target: solution.ts
+interface: "export function mergeIntervals(intervals: [number, number][]): [number, number][]"
+stop_conditions:
+  - Whether touching intervals such as [1, 2] and [2, 3] merge is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

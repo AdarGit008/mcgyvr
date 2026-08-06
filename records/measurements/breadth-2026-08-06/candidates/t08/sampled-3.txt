@@ -1,0 +1,77 @@
+```ts
+/**
+ * Performs a topological sort on a directed graph defined by nodes and edges.
+ * Returns an ordering where for every edge [from, to], 'from' comes before 'to'.
+ * Ties are broken by maintaining the original input order of nodes.
+ * Throws an error if a cycle exists or if an edge references a node not in nodes.
+ * 
+ * @param nodes - List of node names
+ * @param edges - List of [from, to] edges indicating from must come before to
+ * @returns A topologically sorted array of node names
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  // Validate all edges reference existing nodes
+  const nodeSet = new Set(nodes);
+  for (const [from, to] of edges) {
+    if (!nodeSet.has(from)) {
+      throw new Error(`Node "${from}" in edge is not in the list of nodes`);
+    }
+    if (!nodeSet.has(to)) {
+      throw new Error(`Node "${to}" in edge is not in the list of nodes`);
+    }
+  }
+
+  // Build adjacency list and in-degree count
+  const adjList = new Map<string, string[]>();
+  const inDegree = new Map<string, number>();
+
+  for (const node of nodes) {
+    adjList.set(node, []);
+    inDegree.set(node, 0);
+  }
+
+  for (const [from, to] of edges) {
+    adjList.get(from)?.push(to);
+    inDegree.set(to, (inDegree.get(to) ?? 0) + 1);
+  }
+
+  // Kahn's algorithm with priority given to earliest node in original order
+  const result: string[] = [];
+  const availableNodes: string[] = []; // nodes with in-degree 0
+
+  // Initialize with all nodes having in-degree 0, maintaining original order
+  for (const node of nodes) {
+    if (inDegree.get(node) === 0) {
+      availableNodes.push(node);
+    }
+  }
+
+  // Process nodes in order
+  while (availableNodes.length > 0) {
+    // Pick the first node (since we maintain input order)
+    const current = availableNodes.shift()!;
+    result.push(current);
+
+    // Update neighbors
+    for (const neighbor of adjList.get(current) ?? []) {
+      const newDegree = (inDegree.get(neighbor) ?? 0) - 1;
+      inDegree.set(neighbor, newDegree);
+      
+      if (newDegree === 0) {
+        availableNodes.push(neighbor);
+      }
+    }
+
+    // Re-sort to maintain input order among available nodes
+    // Since we want the earliest node from original input order at each step
+    availableNodes.sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b));
+  }
+
+  // Check for cycle
+  if (result.length !== nodes.length) {
+    throw new Error("Cycle detected in graph");
+  }
+
+  return result;
+}
+```

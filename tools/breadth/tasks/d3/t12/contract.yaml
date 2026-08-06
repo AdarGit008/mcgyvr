@@ -1,0 +1,24 @@
+id: d3-12-cooldown-schedule
+task_type: function_implementation
+task: >-
+  Implement schedule, a task scheduler with cooldown that returns the
+  exact tick-by-tick sequence. tasks is a list of labels, one entry per
+  unit of work; equal labels belong to the same task. A label that runs
+  at tick t may run again no earlier than tick t + cooldown + 1.
+  Simulate ticks starting at 0: at each tick, consider every label that
+  still has work remaining and whose cooldown has elapsed, and run the
+  one with the most remaining units, breaking ties by the
+  lexicographically smallest label; if work remains but no label is
+  ready, the tick produces "idle". Stop as soon as no work remains, so
+  the returned array never ends with "idle". Return the array of labels
+  and "idle" entries in tick order. An empty task list yields an empty
+  array. cooldown is a non-negative integer; cooldown 0 means a label
+  may run on consecutive ticks.
+target: solution.ts
+interface: "export function schedule(tasks: string[], cooldown: number): string[]"
+stop_conditions:
+  - The expected behaviour for a negative cooldown is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

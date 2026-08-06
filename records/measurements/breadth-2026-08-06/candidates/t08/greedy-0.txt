@@ -1,0 +1,71 @@
+```ts
+/**
+ * Performs a topological sort on the given nodes and edges.
+ * Returns an ordering where for every edge [from, to], 'from' comes before 'to'.
+ * Among nodes with no remaining dependencies, selects the one appearing earliest in the input 'nodes' array.
+ * Throws an error if a cycle exists or if an edge references a node not in 'nodes'.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const nodeSet = new Set(nodes);
+  
+  // Validate all edges reference existing nodes
+  for (const [from, to] of edges) {
+    if (!nodeSet.has(from)) {
+      throw new Error(`Node "${from}" in edge is not in the nodes list`);
+    }
+    if (!nodeSet.has(to)) {
+      throw new Error(`Node "${to}" in edge is not in the nodes list`);
+    }
+  }
+
+  // Build adjacency list and in-degree count
+  const adjacency: Map<string, string[]> = new Map();
+  const inDegree: Map<string, number> = new Map();
+
+  for (const node of nodes) {
+    adjacency.set(node, []);
+    inDegree.set(node, 0);
+  }
+
+  for (const [from, to] of edges) {
+    adjacency.get(from)!.push(to);
+    inDegree.set(to, inDegree.get(to)! + 1);
+  }
+
+  // Initialize queue with nodes having zero in-degree, maintaining input order
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if (inDegree.get(node) === 0) {
+      queue.push(node);
+    }
+  }
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    // Take the first node (maintains input order among available nodes)
+    const current = queue.shift()!;
+    result.push(current);
+
+    // Reduce in-degree of neighbors
+    for (const neighbor of adjacency.get(current)!) {
+      const newDegree = inDegree.get(neighbor)! - 1;
+      inDegree.set(neighbor, newDegree);
+
+      if (newDegree === 0) {
+        queue.push(neighbor);
+      }
+    }
+
+    // Re-sort queue to maintain input order among available nodes
+    queue.sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b));
+  }
+
+  // Check for cycle
+  if (result.length !== nodes.length) {
+    throw new Error("Cycle detected in the graph");
+  }
+
+  return result;
+}
+```

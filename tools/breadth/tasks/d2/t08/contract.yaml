@@ -1,0 +1,22 @@
+id: d2-08-csv-line-parser
+task_type: function_implementation
+task: >-
+  Implement parseCsvLine. Parse one CSV line (no newlines) into its fields.
+  Fields are separated by commas. A field that starts with a double quote is
+  quoted: it runs to the matching closing quote and may contain commas; a
+  doubled quote ("") inside it is one literal quote character. Immediately
+  after the closing quote the line must end or a comma must follow — anything
+  else is an error. A quote appearing inside an UNQUOTED field is an error.
+  Fields can be empty: the empty line parses to one empty field [""], "a,,b"
+  has an empty middle field, and a trailing comma means the last field is
+  empty. Spaces are kept exactly as written, never trimmed. Throw an Error
+  for a non-string argument, an unterminated quoted field, a character other
+  than a comma after a closing quote, or a quote inside an unquoted field.
+target: solution.ts
+interface: "export function parseCsvLine(line: string): string[]"
+stop_conditions:
+  - How a doubled quote inside a quoted field is decoded is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

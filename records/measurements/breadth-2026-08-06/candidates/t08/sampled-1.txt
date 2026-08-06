@@ -1,0 +1,68 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  // Validate nodes array for duplicates
+  const nodeSet = new Set<string>();
+  for (const node of nodes) {
+    if (nodeSet.has(node)) {
+      throw new Error(`Duplicate node "${node}" found`);
+    }
+    nodeSet.add(node);
+  }
+
+  // Build adjacency list and in-degree count
+  const adjacency: Record<string, string[]> = {};
+  const inDegree: Record<string, number> = {};
+  
+  for (const node of nodes) {
+    adjacency[node] = [];
+    inDegree[node] = 0;
+  }
+
+  // Process edges
+  for (const [from, to] of edges) {
+    if (!nodeSet.has(from)) {
+      throw new Error(`Edge references unknown node "${from}"`);
+    }
+    if (!nodeSet.has(to)) {
+      throw new Error(`Edge references unknown node "${to}"`);
+    }
+
+    adjacency[from].push(to);
+    inDegree[to]++;
+  }
+
+  // Kahn's algorithm with priority given to original node order
+  const result: string[] = [];
+  const available: string[] = [];
+
+  // Initialize available nodes with in-degree 0, maintaining original order
+  for (const node of nodes) {
+    if (inDegree[node] === 0) {
+      available.push(node);
+    }
+  }
+
+  while (available.length > 0) {
+    // Sort available nodes by their position in the original nodes array
+    available.sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b));
+    
+    const current = available.shift()!;
+    result.push(current);
+
+    // Reduce in-degree of neighbors
+    for (const neighbor of adjacency[current]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        available.push(neighbor);
+      }
+    }
+  }
+
+  // Check if all nodes are included in the result
+  if (result.length !== nodes.length) {
+    throw new Error('Cycle detected in the graph');
+  }
+
+  return result;
+}
+```

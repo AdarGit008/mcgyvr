@@ -1,0 +1,21 @@
+id: d2-07-first-unbalanced
+task_type: function_implementation
+task: >-
+  Implement firstUnbalanced. Scan a string for bracket balance over three
+  kinds of pairs: (), [], {}. Every other character is ignored and never
+  affects balance. Return -1 if the brackets are balanced. Otherwise return
+  the index of the first offending character, defined precisely as follows.
+  While scanning left to right, a closing bracket that does not match the
+  most recent unclosed opener (or arrives when no opener is unclosed) is
+  offending — return its index. If the scan completes with openers still
+  unclosed, return the index of the EARLIEST opener that was never closed.
+  For example "([)]" returns 2, ")" returns 0, "(([]" returns 0, and
+  "ab(c)d" returns -1.
+target: solution.ts
+interface: "export function firstUnbalanced(input: string): number"
+stop_conditions:
+  - Which index to report when several brackets are unmatched is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

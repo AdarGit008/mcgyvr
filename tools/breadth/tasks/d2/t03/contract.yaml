@@ -1,0 +1,20 @@
+id: d2-03-topo-sort-lex
+task_type: function_implementation
+task: >-
+  Implement topoSort. Given n nodes numbered 0 to n-1 and a list of directed
+  edges [u, v] meaning u must come before v, return a topological order as an
+  array of all n node numbers. Among all valid orders return the
+  lexicographically smallest one: at every step emit the smallest-numbered
+  node whose remaining prerequisites are all satisfied. Duplicate edges are
+  allowed and change nothing. Nodes with no edges at all still appear in the
+  output. Throw an Error if the graph contains a cycle (a self-loop [u, u] is
+  a cycle), and throw an Error if any edge endpoint is not an integer in
+  [0, n). n = 0 with no edges returns an empty array.
+target: solution.ts
+interface: "export function topoSort(n: number, edges: [number, number][]): number[]"
+stop_conditions:
+  - Which of several valid topological orders must be returned is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

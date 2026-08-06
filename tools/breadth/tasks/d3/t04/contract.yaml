@@ -1,0 +1,22 @@
+id: d3-04-lcs-reconstruct
+task_type: function_implementation
+task: >-
+  Implement lcs. Return a longest common subsequence of the strings a
+  and b, as a string. When more than one common subsequence has the
+  maximal length, return the lexicographically smallest of them,
+  comparing strings by UTF-16 code units the way the < operator does:
+  for a = "ba" and b = "ab" both "a" and "b" are longest common
+  subsequences, so the answer is "a". Return the empty string when the
+  inputs share no characters or either input is empty. Inputs are at
+  most 200 characters long, so an O(n * m) table with a careful
+  reconstruction is fast enough, but the reconstruction must never
+  sacrifice length for smaller characters: length wins first, then
+  lexicographic order.
+target: solution.ts
+interface: "export function lcs(a: string, b: string): string"
+stop_conditions:
+  - The expected result when either input exceeds the stated 200-character bound is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,22 @@
+id: d3-05-skyline
+task_type: function_implementation
+task: >-
+  Implement skyline. Each building is [left, right, height] with integer
+  coordinates, left < right and height >= 1; buildings may overlap,
+  nest, touch or duplicate one another. Return the merged silhouette's
+  key points as [x, height] pairs sorted by x. A key point marks every x
+  where the silhouette's height changes, carrying the new height that
+  holds to its right, and the final key point has height 0 where the
+  silhouette returns to the ground. No two output points may share an x,
+  and no two consecutive points may carry the same height — in
+  particular, two touching buildings of equal height form one unbroken
+  outline with no point at the seam. An empty input yields an empty
+  array.
+target: solution.ts
+interface: "export function skyline(buildings: [number, number, number][]): [number, number][]"
+stop_conditions:
+  - The expected output for a building with height 0 is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

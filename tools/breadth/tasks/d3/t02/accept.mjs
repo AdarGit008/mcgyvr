@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import { match } from "./solution.ts";
+
+assert.equal(match("a*a", "aaaa"), true, "star then the same literal");
+assert.equal(match("a*aa", "aa"), true, "star must be able to take zero");
+assert.equal(match("^a*ab$", "aaab"), true, "greedy star must backtrack");
+assert.equal(match("^ab*c$", "abbbc"), true, "anchored star run");
+assert.equal(match("^ab*c$", "abbbcd"), false, "end anchor rejects trailing text");
+assert.equal(match("ab*c", "adc"), false, "star repeats only its own element");
+assert.equal(match("c*a*b", "aab"), true, "leading starred element may be absent");
+assert.equal(match("", "abc"), true, "empty pattern matches the empty substring");
+assert.equal(match(".*", ""), true, "dot-star on empty text");
+assert.equal(match("^.$", "ab"), false, "both anchors force a full one-char match");
+assert.equal(match("a.c", "xxabcx"), true, "unanchored pattern matches inside");
+assert.equal(match("^ab", "cab"), false, "start anchor pins the position");
+assert.equal(match("ab", "cab"), true, "the same pattern unanchored succeeds");
+assert.equal(match("x$", "xy"), false, "end anchor pins the position");
+assert.equal(match("x$", "yx"), true, "end anchor at the true end");
+assert.equal(match("a$b", "xa$bz"), true, "inner dollar is a literal");
+assert.equal(match("^mis*is*ip*i$", "mississippi"), true, "classic full match");
+assert.equal(match("^mis*is*p*$", "mississippi"), false, "classic full-match failure");
+assert.throws(() => match("*a", "x"), Error, "leading star throws");
+assert.throws(() => match("a**", "x"), Error, "star after star throws");
+assert.throws(() => match("^*", "x"), Error, "star right after the start anchor throws");
