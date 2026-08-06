@@ -1,0 +1,50 @@
+```ts
+/**
+ * Merges overlapping intervals into non-overlapping ones.
+ * Intervals that merely touch (end === next start) are merged.
+ * Returns a new array of intervals sorted by start, without mutating input.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals)) {
+    throw new Error('intervals must be an array');
+  }
+
+  // Validate and create a deep copy to avoid mutation
+  const cloned: number[][] = [];
+  for (const interval of intervals) {
+    if (!Array.isArray(interval) || interval.length !== 2) {
+      throw new Error('Each interval must be an array of two numbers');
+    }
+    const [start, end] = interval;
+    if (typeof start !== 'number' || typeof end !== 'number') {
+      throw new Error('Interval bounds must be numbers');
+    }
+    if (start > end) {
+      throw new Error('Start cannot be greater than end');
+    }
+    cloned.push([start, end]);
+  }
+
+  // Sort by start ascending
+  cloned.sort((a, b) => a[0] - b[0]);
+
+  const merged: number[][] = [];
+  for (const interval of cloned) {
+    if (merged.length === 0) {
+      merged.push([...interval]);
+    } else {
+      const last = merged[merged.length - 1];
+      // Check if current interval overlaps or touches the last merged interval
+      if (interval[0] <= last[1]) {
+        // Merge by updating end to the maximum of both ends
+        last[1] = Math.max(last[1], interval[1]);
+      } else {
+        // No overlap, add new interval
+        merged.push([...interval]);
+      }
+    }
+  }
+
+  return merged;
+}
+```

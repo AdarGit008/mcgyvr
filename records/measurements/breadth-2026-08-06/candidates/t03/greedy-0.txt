@@ -1,0 +1,60 @@
+```ts
+/**
+ * Parses a semantic version string into its components.
+ * @param version The semantic version string to parse.
+ * @returns An object containing major, minor, patch numbers and optional prerelease and build strings.
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    if (typeof version !== 'string' || version.length === 0) {
+        throw new Error(`Invalid semver: "${version}"`);
+    }
+
+    // Remove leading 'v' if present
+    let cleanVersion = version;
+    if (cleanVersion.startsWith('v')) {
+        cleanVersion = cleanVersion.slice(1);
+    }
+
+    // Extract build metadata (+build)
+    let build: string | null = null;
+    const plusIndex = cleanVersion.indexOf('+');
+    if (plusIndex !== -1) {
+        build = cleanVersion.slice(plusIndex + 1);
+        cleanVersion = cleanVersion.slice(0, plusIndex);
+    }
+
+    // Extract prerelease (-prerelease)
+    let prerelease: string | null = null;
+    const hyphenIndex = cleanVersion.indexOf('-');
+    if (hyphenIndex !== -1) {
+        prerelease = cleanVersion.slice(hyphenIndex + 1);
+        cleanVersion = cleanVersion.slice(0, hyphenIndex);
+    }
+
+    // Split version into parts
+    const parts = cleanVersion.split('.');
+    if (parts.length !== 3) {
+        throw new Error(`Invalid semver: "${version}"`);
+    }
+
+    const [majorStr, minorStr, patchStr] = parts;
+
+    // Validate each part is a valid number (digits only, no leading zeros except for "0")
+    const isValidNumber = (str: string): boolean => {
+        if (str.length === 0) return false;
+        if (!/^\d+$/.test(str)) return false;
+        if (str.length > 1 && str[0] === '0') return false;
+        return true;
+    };
+
+    if (!isValidNumber(majorStr) || !isValidNumber(minorStr) || !isValidNumber(patchStr)) {
+        throw new Error(`Invalid semver: "${version}"`);
+    }
+
+    const major = parseInt(majorStr, 10);
+    const minor = parseInt(minorStr, 10);
+    const patch = parseInt(patchStr, 10);
+
+    return { major, minor, patch, prerelease, build };
+}
+```

@@ -1,0 +1,24 @@
+id: d3-02-regex-match
+task_type: function_implementation
+task: >-
+  Implement match, a matcher for a small regex dialect with substring
+  semantics. In the pattern, '.' matches any single character and 'x*'
+  matches zero or more repetitions of the element x, where x is a
+  literal character or '.'. '^' as the first character of the pattern
+  anchors the match to the start of the text; anywhere else it is a
+  literal. '$' as the last character anchors the match to the end of the
+  text; anywhere else it is a literal. There is no escape syntax. An
+  unanchored pattern matches if it matches any substring of the text,
+  including the empty substring, so the empty pattern matches every
+  text. Matching must backtrack: "a*ab" matches "aaab" even though a
+  greedy star would consume every 'a'. Throw an Error if '*' is the
+  first pattern element (after an optional leading '^') or immediately
+  follows another '*'. Both arguments are guaranteed to be strings.
+target: solution.ts
+interface: "export function match(pattern: string, text: string): boolean"
+stop_conditions:
+  - The expected behaviour of an escape sequence such as a backslash is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

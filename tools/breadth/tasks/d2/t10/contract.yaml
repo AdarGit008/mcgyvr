@@ -1,0 +1,19 @@
+id: d2-10-add-decimal-strings
+task_type: function_implementation
+task: >-
+  Implement addDecimalStrings. Add two nonnegative integers given as decimal
+  strings of arbitrary length — far beyond Number precision, so converting
+  either whole operand with Number or parseInt is a wrong approach; BigInt is
+  also off the table: perform digit-by-digit addition with a carry. Inputs
+  may carry leading zeros ("007" is 7), but the result must be canonical: no
+  leading zeros, and zero is exactly "0". Throw an Error if either argument
+  is not a string, is empty, or contains any character other than the digits
+  0-9 (a leading + or - sign, spaces, and decimal points are all invalid).
+target: solution.ts
+interface: "export function addDecimalStrings(a: string, b: string): string"
+stop_conditions:
+  - Whether inputs with leading zeros are accepted and how the result is normalized is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,43 @@
+```ts
+/**
+ * Parses a semantic version string (MAJOR.MINOR.PATCH[-prerelease][+build]).
+ * @param version The semantic version string to parse.
+ * @returns An object containing major, minor, patch numbers and optional prerelease/build strings.
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    if (typeof version !== 'string' || version.length === 0) {
+        throw new Error(`Invalid semver input: ${version}`);
+    }
+
+    const regex = /^v?(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9-.]+))?(?:\+([a-zA-Z0-9-.]+))?$/;
+    const match = version.match(regex);
+
+    if (!match) {
+        throw new Error(`Invalid semver input: ${version}`);
+    }
+
+    const majorStr = match[1];
+    const minorStr = match[2];
+    const patchStr = match[3];
+    const prerelease = match[4] || null;
+    const build = match[5] || null;
+
+    // Validate no leading zeros (except for "0" itself)
+    const validateNumber = (str: string, name: string): number => {
+        if (str.length > 1 && str[0] === '0') {
+            throw new Error(`Invalid semver input: ${name} version part has leading zero in "${version}"`);
+        }
+        const num = parseInt(str, 10);
+        if (isNaN(num) || num < 0) {
+            throw new Error(`Invalid semver input: ${name} version part is invalid in "${version}"`);
+        }
+        return num;
+    };
+
+    const major = validateNumber(majorStr, 'major');
+    const minor = validateNumber(minorStr, 'minor');
+    const patch = validateNumber(patchStr, 'patch');
+
+    return { major, minor, patch, prerelease, build };
+}
+```

@@ -1,0 +1,23 @@
+id: d3-03-weighted-intervals
+task_type: function_implementation
+task: >-
+  Implement schedule for weighted interval scheduling. Each interval has
+  integer start and end with start < end, and a positive integer weight.
+  Intervals are half-open: two intervals are compatible when one's end
+  is less than or equal to the other's start, so touching intervals are
+  compatible. Choose a set of pairwise compatible intervals that
+  maximizes the sum of their weights. Return { total, chosen } where
+  total is that maximum sum and chosen lists the original array indices
+  of the selected intervals in increasing index order. Every input this
+  function must handle is guaranteed to have exactly one maximum-weight
+  set, so no tie-breaking rule is needed. The input array is in no
+  particular order and must not be mutated. An empty input yields
+  { total: 0, chosen: [] }.
+target: solution.ts
+interface: "export function schedule(intervals: { start: number; end: number; weight: number }[]): { total: number; chosen: number[] }"
+stop_conditions:
+  - The expected tie-break between two equal-weight optimal sets is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

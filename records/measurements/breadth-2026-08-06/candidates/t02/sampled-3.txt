@@ -1,0 +1,52 @@
+```ts
+/**
+ * Merges overlapping intervals into non-overlapping ones.
+ * Intervals that merely touch (end === next start) are merged.
+ * Returns a new list of sorted, non-overlapping intervals.
+ * Throws an error if any interval has start > end.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals)) {
+    throw new Error("intervals must be an array");
+  }
+
+  // Validate intervals and create a deep copy to avoid mutation
+  const validatedIntervals = intervals.map((interval, index) => {
+    if (!Array.isArray(interval) || interval.length !== 2) {
+      throw new Error(`Interval at index ${index} must be a pair of numbers`);
+    }
+    const [start, end] = interval;
+    if (typeof start !== 'number' || typeof end !== 'number') {
+      throw new Error(`Interval at index ${index} must contain numbers`);
+    }
+    if (start > end) {
+      throw new Error(`Interval at index ${index} has start > end`);
+    }
+    return [start, end] as [number, number];
+  });
+
+  // Sort by start value
+  validatedIntervals.sort((a, b) => a[0] - b[0]);
+
+  const merged: number[][] = [];
+
+  for (const interval of validatedIntervals) {
+    const [start, end] = interval;
+
+    if (merged.length === 0) {
+      merged.push([start, end]);
+    } else {
+      const lastMerged = merged[merged.length - 1];
+      // Intervals touch or overlap when current start <= last end
+      if (start <= lastMerged[1]) {
+        // Merge by updating the end to the maximum of both ends
+        lastMerged[1] = Math.max(lastMerged[1], end);
+      } else {
+        merged.push([start, end]);
+      }
+    }
+  }
+
+  return merged;
+}
+```

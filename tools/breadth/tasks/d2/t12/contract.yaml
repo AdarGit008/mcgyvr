@@ -1,0 +1,21 @@
+id: d2-12-edit-distance
+task_type: function_implementation
+task: >-
+  Implement editDistance, the Levenshtein distance between two strings: the
+  minimum number of single-character insertions, deletions, and substitutions
+  (each costing 1) that turns the first string into the second. The distance
+  from any string to itself is 0; the distance from the empty string to a
+  string is that string's length. Transposition is NOT a single edit: "ab" to
+  "ba" costs 2. Comparison is by exact character, so case matters ("a" vs
+  "A" costs 1). The implementation must handle strings up to 1000 characters
+  each, so plain exponential recursion without memoization is a wrong
+  approach — use dynamic programming. Throw an Error if either argument is
+  not a string.
+target: solution.ts
+interface: "export function editDistance(a: string, b: string): number"
+stop_conditions:
+  - Whether a transposition counts as one edit or two is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

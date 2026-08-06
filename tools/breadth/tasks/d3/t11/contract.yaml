@@ -1,0 +1,28 @@
+id: d3-11-unified-diff
+task_type: function_implementation
+task: >-
+  Implement diff, a unified diff with zero context lines between two
+  arrays of text lines. Derive the edit script from a longest common
+  subsequence of lines, resolved backward from the ends of both arrays:
+  while lines remain, if both arrays' current last lines are equal they
+  are matched and kept; otherwise, if dropping the last line of b leaves
+  the LCS length of the remaining prefixes unchanged, that line of b is
+  an insertion; otherwise the last line of a is a deletion. Read
+  forward, the script is a sequence of keeps, deletions and insertions;
+  a hunk is a maximal run of consecutive non-keep operations. For each
+  hunk in order, emit a header line "@@ -S,C +T,D @@" followed by one
+  line per deletion, prefixed "-", in a's order, then one line per
+  insertion, prefixed "+", in b's order. C counts the hunk's deleted
+  lines and S is the 1-based line number in a of the first of them; when
+  C is 0, S is instead the line number in a immediately before the hunk,
+  0 when the hunk precedes every line. T and D mirror this for the
+  insertions against b. Counts are always written, even when they are 1.
+  Equal inputs yield an empty array.
+target: solution.ts
+interface: "export function diff(a: string[], b: string[]): string[]"
+stop_conditions:
+  - The expected output format for a context line count other than zero is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

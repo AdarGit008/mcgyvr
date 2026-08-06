@@ -1,0 +1,20 @@
+id: d3-06-min-window
+task_type: function_implementation
+task: >-
+  Implement minWindow. Return the shortest contiguous substring of s
+  that contains every character of t counted with multiplicity: if t
+  contains the character 'a' twice, a valid window holds at least two
+  'a'. Characters are compared case-sensitively. If several windows tie
+  for the shortest length, return the leftmost one. Return the empty
+  string when no valid window exists, and also when t is the empty
+  string. s and t are guaranteed to be strings of characters from the
+  Basic Multilingual Plane, so single UTF-16 code units may be treated
+  as characters.
+target: solution.ts
+interface: "export function minWindow(s: string, t: string): string"
+stop_conditions:
+  - The expected handling of surrogate pairs as single characters is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

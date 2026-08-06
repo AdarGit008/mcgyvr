@@ -1,0 +1,21 @@
+id: d2-11-sliding-window-max
+task_type: function_implementation
+task: >-
+  Implement maxSlidingWindow. Given an array of numbers and a window size k,
+  return an array of the maximum of every contiguous window of k elements,
+  left to right: for nums of length n the result has n - k + 1 entries.
+  k equal to nums.length yields one entry; k = 1 yields a copy of the array.
+  Duplicate maxima and negative numbers must be handled correctly. The
+  function must run in O(n) time overall — the accepted solution keeps a
+  deque of candidate indices; recomputing max over each window is O(n*k) and
+  will time out on the large case. Throw an Error if k is not an integer or
+  is less than 1 or greater than nums.length (an empty nums therefore always
+  throws).
+target: solution.ts
+interface: "export function maxSlidingWindow(nums: number[], k: number): number[]"
+stop_conditions:
+  - The required behavior when k exceeds the array length is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

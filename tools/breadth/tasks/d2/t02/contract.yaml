@@ -1,0 +1,20 @@
+id: d2-02-lru-cache
+task_type: function_implementation
+task: >-
+  Implement createLruCache. It takes a capacity and returns an object with
+  three methods over string keys and number values. get(key) returns the
+  stored value, or undefined if the key is absent; a successful get makes the
+  key the most recently used. put(key, value) stores the value; if the key
+  already exists its value is replaced and it becomes the most recently used;
+  if the key is new and the cache is at capacity, the least recently used key
+  is evicted first. size() returns the current number of stored keys. The
+  stored value 0 is a real value: get must return 0 for it, not undefined.
+  Throw an Error from createLruCache if capacity is not a positive integer.
+target: solution.ts
+interface: "export function createLruCache(capacity: number): { get: (key: string) => number | undefined; put: (key: string, value: number) => void; size: () => number }"
+stop_conditions:
+  - Whether a put on an existing key refreshes its recency is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

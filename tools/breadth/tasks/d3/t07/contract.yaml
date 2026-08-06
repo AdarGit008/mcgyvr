@@ -1,0 +1,21 @@
+id: d3-07-kmp-find-all
+task_type: function_implementation
+task: >-
+  Implement findAll. Return the start index of every occurrence of
+  pattern in text, in ascending order, counting overlapping occurrences:
+  "aa" occurs in "aaaa" at 0, 1 and 2, and "abab" occurs in "ababab" at
+  0 and 2. Comparison is by exact characters and case-sensitive. Return
+  an empty array when there is no occurrence, including when text is
+  empty or shorter than pattern. Throw an Error when pattern is the
+  empty string. Text may be long, so an approach that continues a
+  partial match after each hit (rather than restarting from scratch at
+  every position) is expected; correctness on overlapping and repeated
+  patterns is what is tested.
+target: solution.ts
+interface: "export function findAll(text: string, pattern: string): number[]"
+stop_conditions:
+  - The expected behaviour for non-string arguments is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,20 @@
+id: d2-06-run-length-decode
+task_type: function_implementation
+task: >-
+  Implement runLengthDecode, the inverse of run-length encoding. The input is
+  a sequence of units, each a single non-digit character followed by its
+  count written in decimal with one or more digits: "a12b3" decodes to twelve
+  a's then three b's. Counts can be any positive number of digits ("a120" is
+  valid), but a count must not start with the digit 0, so "a0" and "a01" are
+  both invalid. The empty string decodes to the empty string. Throw an Error
+  if the input is not a string, if the input starts with a digit, if any
+  character has no count after it (as in "ab2" or trailing "c"), or if any
+  count starts with 0.
+target: solution.ts
+interface: "export function runLengthDecode(input: string): string"
+stop_conditions:
+  - Whether a multi-digit count or a zero count is valid is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

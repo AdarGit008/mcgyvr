@@ -1,0 +1,22 @@
+id: d3-09-lex-topo-order
+task_type: function_implementation
+task: >-
+  Implement topoOrder for a directed graph on the nodes 0 through n-1,
+  given as a list of edges [u, v], each meaning u must appear before v.
+  Return the lexicographically smallest topological order as an array of
+  node numbers: whenever several nodes could legally come next, the
+  smallest-numbered one does — note this is not the same as processing
+  nodes in the order they become available. The edge list may contain
+  duplicates; a repeated [u, v] is the same single constraint and must
+  not change the result. Throw an Error if the graph contains a cycle; a
+  self-loop [u, u] is a cycle. Nodes with no edges still appear in the
+  order. n may be 0, yielding an empty array. Edge endpoints are
+  guaranteed to be integers in the range 0 to n-1.
+target: solution.ts
+interface: "export function topoOrder(n: number, edges: [number, number][]): number[]"
+stop_conditions:
+  - The expected behaviour for an edge endpoint outside the range 0 to n-1 is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
