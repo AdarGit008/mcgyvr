@@ -64,10 +64,11 @@ def repo(tmp_path: Path) -> Index:
 def a_fix(**overrides: object) -> Proposal:
     """A well-formed proposal: a bug fix on listing.py depending on paginate.
 
-    Carries stop conditions and acceptance commands because ``bug_fix`` is a
-    type a model executes, and the schema requires both of a contract nobody
-    could otherwise judge. The decomposer does not invent either — which is why
-    they are here and not in the module.
+    Carries stop conditions, acceptance commands and a demonstrating command
+    because ``bug_fix`` is a type a model executes and its evidence needs all
+    three of a contract nobody could otherwise judge (#183). The decomposer
+    does not invent any of them — which is why they are here and not in the
+    module.
     """
     base = {
         "task_type": "bug_fix",
@@ -77,6 +78,7 @@ def a_fix(**overrides: object) -> Proposal:
         "deps": (DepRef("pagination.py", "paginate", "page the items with this"),),
         "stop_conditions": ("the pager's contract is ambiguous",),
         "acceptance": ("pytest -q",),
+        "demonstration": ("pytest -q tests/test_listing.py::test_page_size",),
     }
     return Proposal(**{**base, **overrides})  # type: ignore[arg-type]
 
@@ -191,14 +193,14 @@ def test_a_contract_the_schema_rejects_becomes_a_refusal_with_its_message(
 ) -> None:
     """bug_fix requires evidence only a command can produce, so this cannot load."""
     result = decompose(
-        repo, "fix it", propose=RecordedProposer((a_fix(acceptance=()),))
+        repo, "fix it", propose=RecordedProposer((a_fix(demonstration=()),))
     )
 
     assert result.contracts == ()
     reason = result.refusals[0].reason
     assert "does not validate" in reason
     # The loader's own message, which already names the field and states the fix.
-    assert "acceptance" in reason
+    assert "demonstration" in reason
 
 
 def test_the_decomposer_invents_neither_stop_conditions_nor_acceptance(
@@ -715,12 +717,14 @@ def test_a_target_no_language_owns_cannot_be_type_checked(tmp_path: Path) -> Non
 
 
 def test_a_test_command_is_not_located_for_a_type_that_needs_one(repo: Index) -> None:
-    """Only `type_check` is filled in — `tests_pass` still fails at the loader.
+    """Only `type_check` is filled in — the demonstration still fails at the loader.
 
     `locate_test_command` answers `pytest` for any repository with a `tests/`
     directory, which is a guess about the runner rather than a reading of a
     declaration; and `failing_test_first` needs a *specific* test that fails
-    before the change, which no locator can name. Both stay the proposer's.
+    before the change, which no locator can name. Both stay the proposer's:
+    even with a `tests/` directory sitting right there, a bug_fix proposal
+    with no demonstrating command is refused, not completed.
     """
     (repo.root / "tests").mkdir()
     (repo.root / "tests" / "test_listing.py").write_text(
@@ -729,7 +733,9 @@ def test_a_test_command_is_not_located_for_a_type_that_needs_one(repo: Index) ->
     git(repo.root, "add", "-A")
     git(repo.root, "commit", "-q", "-m", "add tests")
     result = decompose(
-        build_index(repo.root), "fix", propose=RecordedProposer((a_fix(acceptance=()),))
+        build_index(repo.root),
+        "fix",
+        propose=RecordedProposer((a_fix(acceptance=(), demonstration=()),)),
     )
 
     assert result.contracts == ()

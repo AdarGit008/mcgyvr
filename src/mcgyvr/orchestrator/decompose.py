@@ -152,6 +152,11 @@ class Proposal:
     forbid: tuple[str, ...] = ()
     stop_conditions: tuple[str, ...] = ()
     acceptance: tuple[str, ...] = ()
+    demonstration: tuple[str, ...] = ()
+    """Commands that must fail at baseline and pass after — `failing_test_first`
+    (#183). Only a proposer can name one (#146: no locator can, in principle),
+    which is why the slot exists here: without it a `bug_fix` proposal could
+    never survive the loader."""
     risk: str = ""
     """Empty means "let the schema's default stand" rather than a fourth level."""
 
@@ -645,6 +650,8 @@ def _document(
         document["stop_conditions"] = list(proposal.stop_conditions)
     if proposal.acceptance:
         document["acceptance"] = list(proposal.acceptance)
+    if proposal.demonstration:
+        document["demonstration"] = list(proposal.demonstration)
     if proposal.risk:
         document["risk"] = proposal.risk
     if max_input_tokens is not None:
@@ -749,6 +756,7 @@ def _proposal_of(built: Contract) -> Proposal:
         forbid=built.scope.forbid,
         stop_conditions=built.stop_conditions,
         acceptance=built.acceptance,
+        demonstration=built.demonstration,
         risk=built.risk,
     )
 

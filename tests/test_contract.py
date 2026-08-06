@@ -75,6 +75,8 @@ scope:
   forbid: ["src/pkg/generated/**"]
 acceptance:
   - pytest -q
+demonstration:
+  - pytest -q tests/test_fetch.py::test_retries_on_timeout
 risk: high
 verification:
   policy: model
@@ -126,6 +128,9 @@ def test_round_trip_preserves_every_field() -> None:
     assert contract.scope.allow == ("src/**/*.py",)
     assert contract.scope.forbid == ("src/pkg/generated/**",)
     assert contract.acceptance == ("pytest -q",)
+    assert contract.demonstration == (
+        "pytest -q tests/test_fetch.py::test_retries_on_timeout",
+    )
     assert contract.risk == "high"
     assert contract.verification.policy == "model"
     assert contract.limits.max_output_tokens == 2048
@@ -145,6 +150,7 @@ def test_defaults_are_applied() -> None:
     assert contract.deps == ()
     assert contract.output_schema == "whole_file"
     assert contract.max_input_tokens == 4096
+    assert contract.demonstration == ()
     assert contract.risk == "medium"
     assert contract.verification.policy == "gate_only"
     assert contract.limits.max_output_tokens == 1024
@@ -405,6 +411,87 @@ def test_a_duplicated_dependency_is_rejected() -> None:
     assert str(exc.value).startswith("deps.1.path:")
 
 
+BUG_FIX = """
+id: fix-pager
+task_type: bug_fix
+task: The pager drops the last line of every file. Fix it.
+target: src/pkg/pager.py
+stop_conditions:
+  - The defect cannot be reproduced from the demonstrating command.
+acceptance: ["pytest -q"]
+demonstration: ["pytest -q tests/test_pager.py::test_last_line"]
+scope:
+  allow: ["src/**/*.py"]
+"""
+
+
+def test_a_bug_fix_carrying_both_slots_loads() -> None:
+    """The shape #183 exists to make expressible: demonstration and regression
+    commands side by side, distinguishable by slot rather than by guesswork."""
+    contract = loads(BUG_FIX)
+    assert contract.acceptance == ("pytest -q",)
+    assert contract.demonstration == ("pytest -q tests/test_pager.py::test_last_line",)
+
+
+def test_a_bug_fix_without_a_demonstration_is_rejected() -> None:
+    """Before #183 this loaded — rule 5 was satisfied by the tests_pass command
+    alone, and `failing_test_first` was decorative. Now each command-needing
+    evidence kind is checked against the slot that can satisfy it."""
+    demo_line = 'demonstration: ["pytest -q tests/test_pager.py::test_last_line"]\n'
+    with pytest.raises(ContractSchemaError) as exc:
+        loads(BUG_FIX.replace(demo_line, ""))
+    message = str(exc.value)
+    assert message.startswith("demonstration:")
+    assert "failing_test_first" in message
+    assert "fails before the change and passes after" in message
+
+
+def test_a_demonstration_does_not_satisfy_the_regression_requirement() -> None:
+    """The check is per-kind, not \"some command exists\": a type whose evidence
+    is tests_pass has nothing backing it in a demonstration-only contract."""
+    demonstration_only = (
+        'acceptance: []\ndemonstration: ["pytest -q tests/test_fetch.py::test_retries"]'
+    )
+    with pytest.raises(ContractSchemaError) as exc:
+        loads(MINIMAL.replace('acceptance: ["pytest -q"]', demonstration_only))
+    message = str(exc.value)
+    assert message.startswith("acceptance:")
+    assert "tests_pass" in message
+
+
+def test_a_bug_fix_needs_no_separate_regression_suite() -> None:
+    """The catalog decision #183 settled: bug_fix's guarantee promises the
+    demonstration and nothing else, so a demonstration-only contract loads —
+    requiring more would manufacture a decorative command where no suite
+    exists. A declared suite (BUG_FIX above) is still welcome and still held
+    green at preflight."""
+    contract = loads(BUG_FIX.replace('acceptance: ["pytest -q"]', "acceptance: []"))
+    assert contract.acceptance == ()
+    assert contract.demonstration == ("pytest -q tests/test_pager.py::test_last_line",)
+
+
+def test_a_command_in_both_lists_is_rejected() -> None:
+    """One command cannot both pass and fail on the unchanged tree."""
+    duplicated = 'acceptance: ["pytest -q tests/test_pager.py::test_last_line"]'
+    with pytest.raises(ContractSchemaError) as exc:
+        loads(BUG_FIX.replace('acceptance: ["pytest -q"]', duplicated))
+    message = str(exc.value)
+    assert message.startswith("demonstration:")
+    assert "both pass and fail" in message
+
+
+def test_a_demonstration_is_permitted_where_not_required() -> None:
+    """A type that does not require `failing_test_first` may still carry a
+    demonstration — extra evidence with a defined meaning, not a contradiction.
+    The preflight will hold it to the same fail-then-pass pair."""
+    with_demo = (
+        'acceptance: ["pytest -q"]\n'
+        'demonstration: ["pytest -q tests/test_fetch.py::test_retries"]'
+    )
+    contract = loads(MINIMAL.replace('acceptance: ["pytest -q"]', with_demo))
+    assert contract.demonstration == ("pytest -q tests/test_fetch.py::test_retries",)
+
+
 def test_an_output_cap_larger_than_the_prompt_budget_is_rejected() -> None:
     with pytest.raises(ContractSchemaError) as exc:
         loads(
@@ -419,7 +506,14 @@ def test_an_output_cap_larger_than_the_prompt_budget_is_rejected() -> None:
 
 # --- the worker / orchestrator split (#94) ---------------------------------
 
-ORCHESTRATOR_ONLY = ("risk", "verification", "acceptance", "limits", "scope")
+ORCHESTRATOR_ONLY = (
+    "risk",
+    "verification",
+    "acceptance",
+    "demonstration",
+    "limits",
+    "scope",
+)
 
 
 def test_worker_view_excludes_every_orchestrator_only_field() -> None:
@@ -458,6 +552,7 @@ def test_no_orchestrator_value_leaks_into_the_serialized_worker_view() -> None:
 
     rendered = json.dumps(loads(FULL).worker_view())
     assert "pytest -q" not in rendered  # acceptance command
+    assert "test_retries_on_timeout" not in rendered  # demonstration command
     assert "high" not in rendered  # risk
     assert "generated" not in rendered  # a forbid pattern
     assert "2048" not in rendered  # the output cap
@@ -479,9 +574,15 @@ def test_scope_is_the_canonical_matcher() -> None:
 
 def test_every_declared_task_type_loads() -> None:
     for kind in task_types():
-        # A type whose evidence needs a command must carry one; that is the
-        # catalog's rule, so the fixture obeys it rather than working around it.
+        # A type whose evidence needs a command must carry one — in the slot
+        # that can satisfy it; that is the catalog's rule, so the fixture obeys
+        # it rather than working around it.
         acceptance = '["pytest -q"]' if kind.needs_acceptance_commands else "[]"
+        demonstration = (
+            '["pytest -q tests/test_defect.py"]'
+            if kind.needs_demonstration_commands
+            else "[]"
+        )
         document = f"""
 id: t
 task_type: {kind.name}
@@ -489,6 +590,7 @@ task: Do the thing.
 target: src/pkg/fetch.py
 stop_conditions: ["An unknown."]
 acceptance: {acceptance}
+demonstration: {demonstration}
 scope:
   allow: ["src/**"]
 """
