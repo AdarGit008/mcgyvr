@@ -1,0 +1,39 @@
+```typescript
+/**
+ * Compresses every maximal run of one repeated character in a string with its length.
+ *
+ * @param input - The string to be encoded.
+ * @returns A new string where every maximal run of one repeated character is replaced with that character followed by its count.
+ */
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') {
+        throw new Error('Input must be a string.');
+    }
+
+    const result = [];
+    let currentChar = '';
+    let charCount = 0;
+
+    for (let i = 0; i < input.length; i++) {
+        const char = input[i];
+
+        if (char !== currentChar) {
+            if (currentChar === '') {
+                continue;
+            }
+
+            result.push(currentChar);
+            result.push(charCount.toString());
+            currentChar = char;
+            charCount = 1;
+        } else {
+            charCount++;
+        }
+    }
+
+    result.push(currentChar);
+    result.push(charCount.toString());
+
+    return result.join('');
+}
+```

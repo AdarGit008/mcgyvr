@@ -1,0 +1,31 @@
+```typescript
+/**
+ * Returns the run-length encoded version of the input string.
+ *
+ * @param input The input string to encode.
+ * @throws {Error} If the input is not a string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const result = [];
+  let i = 0;
+
+  while (i < input.length) {
+    const count = 1;
+    while (i + 1 < input.length && input[i] === input[i + 1]) {
+      i += 1;
+      count++;
+    }
+    if (count > 9) {
+      throw new Error('Run length exceeds maximum of 9');
+    }
+    result.push(input.slice(i, i + 1), String(count));
+    i += 1;
+  }
+
+  return result.join('');
+}
+```

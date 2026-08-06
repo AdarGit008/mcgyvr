@@ -1,0 +1,52 @@
+```typescript
+/**
+ * Parses a semantic version string of the form MAJOR.MINOR.PATCH with an optional -prerelease and an optional +build,
+ * returning the three numbers plus the prerelease and build strings, each null when absent.
+ *
+ * Throws an Error if the input does not match.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  // Check for "v" prefix and remove it
+  const rawVersion = version.startsWith("v") ? version.slice(1) : version;
+
+  // Split into parts
+  const [major, minorPatch] = rawVersion.split(".");
+  if (major === "") return { major: 0, minor: 0, patch: 0, prerelease: null, build: null };
+
+  const [minor, patch] = minorPatch.split(".");
+
+  // Check for valid numeric values
+  const majorNum = parseInt(major, 10);
+  if (isNaN(majorNum) || majorNum === 0 || (major.includes(".") && majorNum !== 0)) {
+    throw new Error(`Invalid MAJOR value: ${major}`);
+  }
+  const minorNum = parseInt(minor, 10);
+  if (isNaN(minorNum) || minorNum < 0) {
+    throw new Error(`Invalid MINOR value: ${minor}`);
+  }
+  const patchNum = parseInt(patch, 10);
+  if (isNaN(patchNum)) return { major: majorNum, minor: minorNum, patch: 0, prerelease: null, build: null };
+  if (patchNum < 0) {
+    throw new Error(`Invalid PATCH value: ${patch}`);
+  }
+
+  // Check for valid range
+  const maxPatch = 999;
+  if (patchNum > maxPatch) {
+    throw new Error(`PATCH value exceeds maximum allowed value: ${patch}`);
+  }
+
+  // Extract prerelease and build strings, or null if not present
+  let prerelease: string | null = rawVersion.includes("-") ? rawVersion.slice(rawVersion.indexOf("-") + 1).split("[")[0].trim() : null;
+  const build = rawVersion.includes("+") ? rawVersion.slice(rawVersion.indexOf("+") + 1) : null;
+
+  // Return parsed values
+  return { major: majorNum, minor: minorNum, patch: patchNum, prerelease, build };
+}
+```

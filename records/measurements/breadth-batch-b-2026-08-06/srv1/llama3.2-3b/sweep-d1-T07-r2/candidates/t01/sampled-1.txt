@@ -1,0 +1,30 @@
+```typescript
+/**
+ * Compresses a string by replacing every maximal run of one repeated character with that character followed by the run length.
+ *
+ * @param input The string to be compressed.
+ */
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') {
+        throw new Error('Input must be a string.');
+    }
+
+    const result = [];
+    let currentChar = input[0];
+    let currentCount = 1;
+
+    for (let i = 1; i < input.length; i++) {
+        if (input[i] === currentChar) {
+            currentCount++;
+        } else {
+            result.push(currentChar + currentCount.toString());
+            currentChar = input[i];
+            currentCount = 1;
+        }
+    }
+
+    result.push(currentChar + currentCount.toString());
+
+    return result.join('');
+}
+```

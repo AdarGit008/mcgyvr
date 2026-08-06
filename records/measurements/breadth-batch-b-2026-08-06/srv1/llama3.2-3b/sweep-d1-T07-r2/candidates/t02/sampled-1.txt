@@ -1,0 +1,31 @@
+```typescript
+export function mergeIntervals(intervals: number[][]): number[][] {
+    /**
+     * Merge overlapping intervals in ascending order of start time.
+     *
+     * @param intervals - list of [start, end] pairs
+     * @returns smallest list of non-overlapping pairs covering the same points
+     */
+
+    // Check for invalid input
+    if (intervals.some(([start, end]) => start > end)) {
+        throw new Error('Invalid interval: start must be less than or equal to end');
+    }
+
+    // Sort intervals by start time
+    const sortedIntervals = [...intervals].sort((a, b) => a[0] - b[0]);
+
+    const result: number[][] = [sortedIntervals[0]];
+    for (const current of sortedIntervals.slice(1)) {
+        if (current[0] <= result[result.length - 1][1]) {
+            // Merge with the last interval in the result
+            result[result.length - 1][1] = Math.max(result[result.length - 1][1], current[1]);
+        } else {
+            // Add a new interval to the result
+            result.push(current);
+        }
+    }
+
+    return result;
+}
+```
