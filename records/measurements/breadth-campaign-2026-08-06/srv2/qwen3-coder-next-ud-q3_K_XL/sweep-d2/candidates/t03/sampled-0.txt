@@ -1,0 +1,74 @@
+```ts
+export function topoSort(n: number, edges: [number, number][]): number[] {
+  if (n < 0) {
+    throw new Error("n must be non-negative");
+  }
+
+  // Validate edges and build adjacency list and in-degree count
+  const adjList: number[][] = Array.from({ length: n }, () => []);
+  const inDegree: number[] = new Array(n).fill(0);
+
+  for (const [u, v] of edges) {
+    // Validate edge endpoints
+    if (!Number.isInteger(u) || !Number.isInteger(v)) {
+      throw new Error("Edge endpoints must be integers");
+    }
+    if (u < 0 || u >= n || v < 0 || v >= n) {
+      throw new Error(`Edge endpoints must be in [0, ${n})`);
+    }
+
+    // Add edge and update in-degree
+    adjList[u].push(v);
+    inDegree[v]++;
+  }
+
+  // Kahn's algorithm with lexicographically smallest ordering using a min-heap
+  // Since we need the smallest-numbered node at each step, use a priority queue.
+  // In TypeScript without external libraries, simulate with a sorted array or use a heap.
+
+  // Build initial set of nodes with in-degree 0
+  const zeroInDegree: number[] = [];
+  for (let i = 0; i < n; i++) {
+    if (inDegree[i] === 0) {
+      zeroInDegree.push(i);
+    }
+  }
+
+  // Sort initially to maintain heap property (ascending order ensures smallest first)
+  zeroInDegree.sort((a, b) => a - b);
+
+  const result: number[] = [];
+
+  while (zeroInDegree.length > 0) {
+    // Extract smallest node with in-degree 0
+    const u = zeroInDegree.shift()!;
+    result.push(u);
+
+    // Reduce in-degree of neighbors
+    for (const v of adjList[u]) {
+      inDegree[v]--;
+      if (inDegree[v] === 0) {
+        // Insert v into zeroInDegree while maintaining sorted order
+        let inserted = false;
+        for (let i = 0; i < zeroInDegree.length; i++) {
+          if (v < zeroInDegree[i]) {
+            zeroInDegree.splice(i, 0, v);
+            inserted = true;
+            break;
+          }
+        }
+        if (!inserted) {
+          zeroInDegree.push(v);
+        }
+      }
+    }
+  }
+
+  // If result doesn't contain all nodes, there's a cycle
+  if (result.length !== n) {
+    throw new Error("Cycle detected in the graph");
+  }
+
+  return result;
+}
+```

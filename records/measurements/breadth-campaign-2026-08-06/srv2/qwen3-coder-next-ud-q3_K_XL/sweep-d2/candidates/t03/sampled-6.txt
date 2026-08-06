@@ -1,0 +1,65 @@
+```ts
+/**
+ * Computes a topological ordering of n nodes (0 to n-1) given directed edges,
+ * returning the lexicographically smallest valid order.
+ * Throws an Error if the graph contains a cycle or invalid edge endpoints.
+ */
+export function topoSort(n: number, edges: [number, number][]): number[] {
+  if (n < 0) {
+    throw new Error("n must be non-negative");
+  }
+
+  if (n === 0) {
+    return [];
+  }
+
+  const inDegree = new Array(n).fill(0);
+  const adjacencyList: number[][] = Array.from({ length: n }, () => []);
+
+  for (const [u, v] of edges) {
+    if (!Number.isInteger(u) || !Number.isInteger(v)) {
+      throw new Error("Edge endpoints must be integers");
+    }
+    if (u < 0 || u >= n || v < 0 || v >= n) {
+      throw new Error(`Edge endpoint out of range: [${u}, ${v}]`);
+    }
+    if (u === v) {
+      throw new Error("Self-loop detected: cycle exists");
+    }
+    adjacencyList[u].push(v);
+    inDegree[v]++;
+  }
+
+  const result: number[] = [];
+  const minHeap: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    if (inDegree[i] === 0) {
+      minHeap.push(i);
+    }
+  }
+
+  // Sort initially to ensure lexicographically smallest
+  minHeap.sort((a, b) => a - b);
+
+  while (minHeap.length > 0) {
+    const node = minHeap.shift()!;
+    result.push(node);
+
+    for (const neighbor of adjacencyList[node]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        minHeap.push(neighbor);
+        // Maintain heap property by sorting
+        minHeap.sort((a, b) => a - b);
+      }
+    }
+  }
+
+  if (result.length !== n) {
+    throw new Error("Cycle detected: cannot compute topological order");
+  }
+
+  return result;
+}
+```

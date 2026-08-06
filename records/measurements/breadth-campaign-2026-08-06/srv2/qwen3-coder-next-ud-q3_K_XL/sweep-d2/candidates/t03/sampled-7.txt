@@ -1,0 +1,63 @@
+```ts
+export function topoSort(n: number, edges: [number, number][]): number[] {
+  if (n < 0) {
+    throw new Error("n must be non-negative");
+  }
+
+  // Validate edge endpoints and build adjacency list and in-degree count
+  const adjList: number[][] = Array.from({ length: n }, () => []);
+  const inDegree: number[] = new Array(n).fill(0);
+
+  for (const [u, v] of edges) {
+    if (!Number.isInteger(u) || !Number.isInteger(v)) {
+      throw new Error("Edge endpoints must be integers");
+    }
+    if (u < 0 || u >= n || v < 0 || v >= n) {
+      throw new Error(`Edge endpoint out of range: [${u}, ${v}]`);
+    }
+    adjList[u].push(v);
+    inDegree[v]++;
+  }
+
+  // Use a min-heap-like approach with a sorted array to get lexicographically smallest order
+  // For efficiency, we can use a priority queue, but since n is presumably small or to avoid dependencies,
+  // we'll use an array that we keep sorted or use a simple selection method.
+  // Given the requirement for lexicographical smallest at each step, we pick the smallest available node with in-degree 0.
+
+  const result: number[] = [];
+  const queue: number[] = [];
+
+  // Initialize with all nodes that have in-degree 0
+  for (let i = 0; i < n; i++) {
+    if (inDegree[i] === 0) {
+      queue.push(i);
+    }
+  }
+
+  // Sort the initial queue to ensure we always pick the smallest node first
+  queue.sort((a, b) => a - b);
+
+  while (queue.length > 0) {
+    // Pick the smallest node with in-degree 0
+    const node = queue.shift() as number;
+    result.push(node);
+
+    // Reduce in-degree of its neighbors
+    for (const neighbor of adjList[node]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    }
+
+    // Keep the queue sorted to maintain lexicographical order
+    queue.sort((a, b) => a - b);
+  }
+
+  if (result.length !== n) {
+    throw new Error("Graph contains a cycle");
+  }
+
+  return result;
+}
+```

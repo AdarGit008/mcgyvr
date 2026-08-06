@@ -1,0 +1,61 @@
+```ts
+/**
+ * Adds two nonnegative decimal strings of arbitrary length using digit-by-digit addition with carry.
+ * @param a - First nonnegative decimal string (may have leading zeros).
+ * @param b - Second nonnegative decimal string (may have leading zeros).
+ * @returns The sum as a canonical decimal string without leading zeros (except for "0").
+ */
+export function addDecimalStrings(a: string, b: string): string {
+    // Validate inputs
+    if (typeof a !== 'string' || typeof b !== 'string') {
+        throw new Error('Both arguments must be strings');
+    }
+    
+    if (a.length === 0 || b.length === 0) {
+        throw new Error('Arguments must not be empty');
+    }
+    
+    // Check for invalid characters
+    const isValidDigit = (c: string): boolean => c >= '0' && c <= '9';
+    
+    if (!Array.from(a).every(isValidDigit) || !Array.from(b).every(isValidDigit)) {
+        throw new Error('Arguments must contain only digits 0-9');
+    }
+    
+    // Remove leading zeros for processing, but handle the case where the number is zero
+    const normalize = (s: string): string => {
+        let i = 0;
+        while (i < s.length - 1 && s[i] === '0') {
+            i++;
+        }
+        return s.slice(i);
+    };
+    
+    const aNormalized = normalize(a);
+    const bNormalized = normalize(b);
+    
+    // Perform digit-by-digit addition from right to left
+    let i = aNormalized.length - 1;
+    let j = bNormalized.length - 1;
+    let carry = 0;
+    let result: string[] = [];
+    
+    while (i >= 0 || j >= 0 || carry > 0) {
+        const digitA = i >= 0 ? parseInt(aNormalized[i], 10) : 0;
+        const digitB = j >= 0 ? parseInt(bNormalized[j], 10) : 0;
+        
+        const sum = digitA + digitB + carry;
+        result.push((sum % 10).toString());
+        carry = Math.floor(sum / 10);
+        
+        i--;
+        j--;
+    }
+    
+    // Reverse the result to get the correct order
+    const finalResult = result.reverse().join('');
+    
+    // Handle the case where the result is "0"
+    return finalResult === '0' ? '0' : finalResult;
+}
+```

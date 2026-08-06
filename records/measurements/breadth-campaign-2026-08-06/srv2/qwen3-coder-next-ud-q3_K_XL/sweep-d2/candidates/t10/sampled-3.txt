@@ -1,0 +1,51 @@
+```ts
+/**
+ * Adds two nonnegative decimal strings representing arbitrarily large integers.
+ * @param a - First nonnegative decimal string operand (may have leading zeros).
+ * @param b - Second nonnegative decimal string operand (may have leading zeros).
+ * @returns The canonical sum as a decimal string without leading zeros (except for "0").
+ * @throws Error if inputs are invalid (non-string, empty, or contain non-digit characters).
+ */
+export function addDecimalStrings(a: string, b: string): string {
+  // Validate inputs
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Inputs must be strings');
+  }
+  if (a.length === 0 || b.length === 0) {
+    throw new Error('Inputs cannot be empty');
+  }
+  if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) {
+    throw new Error('Inputs must contain only digits');
+  }
+
+  // Normalize inputs by removing leading zeros, but handle "0" case
+  const normalize = (s: string): string => s.replace(/^0+/, '') || '0';
+  const normalizedA = normalize(a);
+  const normalizedB = normalize(b);
+
+  // Edge case: both are zero
+  if (normalizedA === '0' && normalizedB === '0') {
+    return '0';
+  }
+
+  // Reverse strings for digit-by-digit addition from least significant digit
+  const digitsA = normalizedA.split('').reverse();
+  const digitsB = normalizedB.split('').reverse();
+
+  let carry = 0;
+  const result: string[] = [];
+  const maxLength = Math.max(digitsA.length, digitsB.length);
+
+  for (let i = 0; i < maxLength || carry > 0; i++) {
+    const digitA = i < digitsA.length ? parseInt(digitsA[i], 10) : 0;
+    const digitB = i < digitsB.length ? parseInt(digitsB[i], 10) : 0;
+
+    const sum = digitA + digitB + carry;
+    result.push((sum % 10).toString());
+    carry = Math.floor(sum / 10);
+  }
+
+  // Reverse back to most significant digit first
+  return result.reverse().join('');
+}
+```

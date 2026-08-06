@@ -1,0 +1,74 @@
+```ts
+/**
+ * Performs topological sort on a directed acyclic graph (DAG) with n nodes (0 to n-1)
+ * and returns the lexicographically smallest valid ordering.
+ * @param n Number of nodes in the graph
+ * @param edges List of directed edges [u, v] meaning u must come before v
+ * @returns Topological order as an array of node numbers
+ * @throws Error if the graph contains a cycle or invalid edge endpoints
+ */
+export function topoSort(n: number, edges: [number, number][]): number[] {
+  // Validate n
+  if (n < 0) {
+    throw new Error("Number of nodes cannot be negative");
+  }
+
+  // Validate edges and build adjacency list and in-degree count
+  const inDegree = new Array(n).fill(0);
+  const adjList: number[][] = Array.from({ length: n }, () => []);
+
+  for (const [u, v] of edges) {
+    // Validate edge endpoints
+    if (!Number.isInteger(u) || !Number.isInteger(v)) {
+      throw new Error("Edge endpoints must be integers");
+    }
+    if (u < 0 || u >= n || v < 0 || v >= n) {
+      throw new Error(`Edge endpoint out of range: [${u}, ${v}]`);
+    }
+
+    // Check for self-loop
+    if (u === v) {
+      throw new Error("Self-loop detected");
+    }
+
+    adjList[u].push(v);
+    inDegree[v]++;
+  }
+
+  // Initialize priority queue (min-heap simulation using sorted array)
+  const queue: number[] = [];
+  for (let i = 0; i < n; i++) {
+    if (inDegree[i] === 0) {
+      queue.push(i);
+    }
+  }
+  
+  // Sort queue to maintain lexicographical order
+  queue.sort((a, b) => a - b);
+
+  const result: number[] = [];
+
+  while (queue.length > 0) {
+    // Take the smallest node with in-degree 0
+    const node = queue.shift()!;
+    result.push(node);
+
+    // Reduce in-degree of neighbors
+    for (const neighbor of adjList[node]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+        // Maintain sorted order
+        queue.sort((a, b) => a - b);
+      }
+    }
+  }
+
+  // Check if all nodes were processed (no cycle)
+  if (result.length !== n) {
+    throw new Error("Graph contains a cycle");
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,103 @@
+```ts
+/**
+ * Performs a topological sort on a directed acyclic graph (DAG) with n nodes
+ * numbered 0 to n-1 and given directed edges. Returns the lexicographically
+ * smallest valid topological order using Kahn's algorithm with a min-heap.
+ *
+ * @param n - Number of nodes in the graph.
+ * @param edges - List of directed edges [u, v] where u must come before v.
+ * @returns An array representing the topological order of nodes.
+ * @throws Error if the graph contains a cycle or invalid edge endpoints.
+ */
+export function topoSort(n: number, edges: [number, number][]): number[] {
+  // Validate n
+  if (n < 0) {
+    throw new Error("n must be non-negative");
+  }
+
+  // Initialize in-degree array and adjacency list
+  const inDegree = new Array(n).fill(0);
+  const adjList: number[][] = Array.from({ length: n }, () => []);
+
+  // Process edges and validate endpoints
+  for (const [u, v] of edges) {
+    if (!Number.isInteger(u) || !Number.isInteger(v)) {
+      throw new Error("Edge endpoints must be integers");
+    }
+    if (u < 0 || u >= n || v < 0 || v >= n) {
+      throw new Error(`Edge endpoint out of range: [${u}, ${v}]`);
+    }
+    
+    // Add edge to adjacency list and update in-degree
+    adjList[u].push(v);
+    inDegree[v]++;
+  }
+
+  // Initialize min-heap (priority queue) with nodes having in-degree 0
+  const heap: number[] = [];
+  for (let i = 0; i < n; i++) {
+    if (inDegree[i] === 0) {
+      heap.push(i);
+    }
+  }
+
+  // Build heap for min-heap behavior (smallest first)
+  const heapify = () => {
+    for (let i = Math.floor(heap.length / 2) - 1; i >= 0; i--) {
+      siftDown(i);
+    }
+  };
+
+  const siftDown = (index: number) => {
+    while (true) {
+      let smallest = index;
+      const left = 2 * index + 1;
+      const right = 2 * index + 2;
+
+      if (left < heap.length && heap[left] < heap[smallest]) {
+        smallest = left;
+      }
+      if (right < heap.length && heap[right] < heap[smallest]) {
+        smallest = right;
+      }
+
+      if (smallest !== index) {
+        [heap[index], heap[smallest]] = [heap[smallest], heap[index]];
+        index = smallest;
+      } else {
+        break;
+      }
+    }
+  };
+
+  const extractMin = () => {
+    if (heap.length === 0) return undefined;
+    const min = heap[0];
+    heap[0] = heap[heap.length - 1];
+    heap.pop();
+    siftDown(0);
+    return min;
+  };
+
+  // Build initial heap
+  heapify();
+
+  const result: number[] = [];
+
+  // Process nodes using Kahn's algorithm
+  while (heap.length > 0) {
+    const node = extractMin()!;
+    result.push(node);
+
+    for (const neighbor of adjList[node]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        heap.push(neighbor);
+      }
+    }
+
+    // Re-heapify after adding new nodes
+    heapify();
+  }
+
+  // Check if all nodes were processed

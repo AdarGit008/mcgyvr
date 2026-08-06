@@ -1,0 +1,37 @@
+```ts
+/**
+ * Creates an LRU cache with a given capacity.
+ * @param capacity The maximum number of entries the cache can hold.
+ * @returns An object with get, put, and size methods.
+ */
+export function createLruCache(capacity: number): { get: (key: string) => number | undefined; put: (key: string, value: number) => void; size: () => number } {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+        throw new Error('Capacity must be a positive integer');
+    }
+
+    const map = new Map<string, number>();
+    const get = (key: string): number | undefined => {
+        if (!map.has(key)) {
+            return undefined;
+        }
+        const value = map.get(key)!;
+        map.delete(key);
+        map.set(key, value);
+        return value;
+    };
+
+    const put = (key: string, value: number): void => {
+        if (map.has(key)) {
+            map.delete(key);
+        } else if (map.size >= capacity) {
+            const oldestKey = map.keys().next().value;
+            map.delete(oldestKey);
+        }
+        map.set(key, value);
+    };
+
+    const size = (): number => map.size;
+
+    return { get, put, size };
+}
+```

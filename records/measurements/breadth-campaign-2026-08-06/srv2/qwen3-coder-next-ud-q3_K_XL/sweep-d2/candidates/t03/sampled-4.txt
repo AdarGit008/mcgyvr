@@ -1,0 +1,85 @@
+```ts
+/**
+ * Performs topological sorting on a directed acyclic graph (DAG).
+ * Returns the lexicographically smallest valid topological order.
+ * Throws an error if the graph contains a cycle or invalid edges.
+ * 
+ * @param n - Number of nodes, numbered 0 to n-1
+ * @param edges - List of directed edges [u, v] meaning u must come before v
+ * @returns An array representing the topological order of nodes
+ */
+export function topoSort(n: number, edges: [number, number][]): number[] {
+    // Validate n
+    if (n < 0) {
+        throw new Error("n must be non-negative");
+    }
+    
+    // Handle edge case where n = 0
+    if (n === 0) {
+        return [];
+    }
+    
+    // Validate edges and build adjacency list and in-degree array
+    const inDegree: number[] = new Array(n).fill(0);
+    const adjList: number[][] = new Array(n).fill(0).map(() => []);
+    
+    for (const [u, v] of edges) {
+        // Validate edge endpoints
+        if (!Number.isInteger(u) || !Number.isInteger(v)) {
+            throw new Error("Edge endpoints must be integers");
+        }
+        if (u < 0 || u >= n || v < 0 || v >= n) {
+            throw new Error(`Edge endpoint out of range: [${u}, ${v}]`);
+        }
+        
+        // Check for self-loop
+        if (u === v) {
+            throw new Error("Graph contains a cycle (self-loop)");
+        }
+        
+        adjList[u].push(v);
+        inDegree[v]++;
+    }
+    
+    // Use a min-heap simulation with a priority queue approach
+    // Since we need lexicographically smallest order, always pick the smallest available node
+    // We'll use a simple array and sort it each time or use a more efficient approach
+    
+    const result: number[] = [];
+    const queue: number[] = [];
+    
+    // Initialize queue with all nodes having in-degree 0
+    for (let i = 0; i < n; i++) {
+        if (inDegree[i] === 0) {
+            queue.push(i);
+        }
+    }
+    
+    // Sort queue initially to get lexicographically smallest order
+    queue.sort((a, b) => a - b);
+    
+    while (queue.length > 0) {
+        // Take the smallest node from queue
+        const node = queue.shift()!;
+        result.push(node);
+        
+        // Reduce in-degree of neighbors
+        for (const neighbor of adjList[node]) {
+            inDegree[neighbor]--;
+            if (inDegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+        
+        // Re-sort the queue to maintain lexicographical order
+        queue.sort((a, b) => a - b);
+    }
+    
+    // Check if all nodes are included (no cycle)
+    if (result.length !== n) {
+        throw new Error("Graph contains a cycle");
+    }
+    
+    return result;
+}
+```

@@ -1,0 +1,95 @@
+```ts
+/**
+ * Parses a semantic version string into its components.
+ * @param version The semantic version string to parse.
+ * @returns An object containing major, minor, patch numbers and optional prerelease and build strings.
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (typeof version !== 'string') {
+    throw new Error('Invalid input: version must be a string');
+  }
+
+  // Remove leading/trailing whitespace
+  const trimmedVersion = version.trim();
+  
+  // Check for empty string
+  if (trimmedVersion === '') {
+    throw new Error(`Invalid semver string: "${version}"`);
+  }
+
+  // Extract build metadata first (after +)
+  let build: string | null = null;
+  let mainPart = trimmedVersion;
+  const plusIndex = trimmedVersion.indexOf('+');
+  if (plusIndex !== -1) {
+    build = trimmedVersion.substring(plusIndex + 1);
+    mainPart = trimmedVersion.substring(0, plusIndex);
+  }
+
+  // Extract prerelease version (after -)
+  let prerelease: string | null = null;
+  const dashIndex = mainPart.indexOf('-');
+  if (dashIndex !== -1) {
+    prerelease = mainPart.substring(dashIndex + 1);
+    mainPart = mainPart.substring(0, dashIndex);
+  }
+
+  // Split the main version part into MAJOR.MINOR.PATCH
+  const parts = mainPart.split('.');
+  
+  if (parts.length !== 3) {
+    throw new Error(`Invalid semver string: "${version}"`);
+  }
+
+  // Validate each part is a valid number (digits only, no leading zeros except for "0")
+  const validateNumber = (part: string, name: string): number => {
+    if (part === '') {
+      throw new Error(`Invalid semver string: "${version}"`);
+    }
+    
+    // Check if it contains only digits
+    if (!/^\d+$/.test(part)) {
+      throw new Error(`Invalid semver string: "${version}"`);
+    }
+    
+    // Check for leading zeros (except "0" itself)
+    if (part.length > 1 && part[0] === '0') {
+      throw new Error(`Invalid semver string: "${version}"`);
+    }
+    
+    return parseInt(part, 10);
+  };
+
+  const major = validateNumber(parts[0], 'major');
+  const minor = validateNumber(parts[1], 'minor');
+  const patch = validateNumber(parts[2], 'patch');
+
+  // Validate prerelease and build identifiers if present
+  // According to semver spec, identifiers must be non-empty and consist of ASCII alphanumerics and hyphens
+  const isValidIdentifier = (identifier: string): boolean => {
+    if (identifier === '') return false;
+    // Must consist of ASCII alphanumerics and hyphens only
+    return /^[a-zA-Z0-9-]+$/.test(identifier);
+  };
+
+  if (prerelease !== null) {
+    const identifiers = prerelease.split('.');
+    for (const identifier of identifiers) {
+      if (!isValidIdentifier(identifier)) {
+        throw new Error(`Invalid semver string: "${version}"`);
+      }
+    }
+  }
+
+  if (build !== null) {
+    const identifiers = build.split('.');
+    for (const identifier of identifiers) {
+      if (!isValidIdentifier(identifier)) {
+        throw new Error(`Invalid semver string: "${version}"`);
+      }
+    }
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

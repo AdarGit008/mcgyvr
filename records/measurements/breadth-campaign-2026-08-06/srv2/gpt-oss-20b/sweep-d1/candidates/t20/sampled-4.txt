@@ -1,0 +1,19 @@
+```ts
+/**
+ * Parses a configuration file into an object.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config = Object.create(null) as Record<string, string>;
+  text.split("\n").forEach((line, index) => {
+    const trimmedStart = line.trimStart();
+    if (trimmedStart === "" || trimmedStart.startsWith("#")) return;
+    const equalIndex = line.indexOf("=");
+    if (equalIndex === -1)
+      throw new Error(`Line ${index + 1}: missing '='`);
+    const rawKey = line.slice(0, equalIndex).trim();
+    if (rawKey === "")
+      throw new Error(`Line ${index + 1}: empty key`);
+    const value = line.slice(equalIndex + 1).trim();
+    config[rawKey] = value;
+  });
+ 

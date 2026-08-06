@@ -1,0 +1,64 @@
+```ts
+/**
+ * Merges overlapping or touching intervals.
+ * @param intervals An array of [start, end] pairs with start <= end.
+ * @returns A new array of merged intervals sorted by start.
+ * @throws Error if any interval is invalid (not a two-number pair, or start > end).
+ */
+export function mergeIntervals(intervals: [number, number][]): [number, number][] {
+  if (!Array.isArray(intervals)) {
+    throw new Error('intervals must be an array');
+  }
+
+  // Validate input intervals
+  for (let i = 0; i < intervals.length; i++) {
+    const interval = intervals[i];
+    if (!Array.isArray(interval) || interval.length !== 2) {
+      throw new Error(`Interval at index ${i} is not a two-number pair`);
+    }
+    const [start, end] = interval;
+    if (typeof start !== 'number' || typeof end !== 'number') {
+      throw new Error(`Interval at index ${i} contains non-number values`);
+    }
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+      throw new Error(`Interval at index ${i} contains non-finite numbers`);
+    }
+    if (start > end) {
+      throw new Error(`Interval at index ${i} has start > end`);
+    }
+  }
+
+  // Handle empty input
+  if (intervals.length === 0) {
+    return [];
+  }
+
+  // Create a copy and sort by start
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+  
+  const merged: [number, number][] = [];
+  
+  for (const interval of sorted) {
+    if (merged.length === 0) {
+      merged.push([...interval] as [number, number]);
+      continue;
+    }
+    
+    const lastMerged = merged[merged.length - 1];
+    const [lastStart, lastEnd] = lastMerged;
+    const [start, end] = interval;
+    
+    // Check if intervals overlap or touch (touching means end >= start)
+    if (lastEnd >= start) {
+      // Merge by updating the end if necessary
+      const newEnd = Math.max(lastEnd, end);
+      merged[merged.length - 1] = [lastStart, newEnd];
+    } else {
+      // No overlap; add new interval
+      merged.push([...interval] as [number, number]);
+    }
+  }
+  
+  return merged;
+}
+```

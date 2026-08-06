@@ -1,0 +1,45 @@
+```ts
+export function runLengthDecode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  if (input === '') {
+    return '';
+  }
+
+  if (/\d/.test(input[0])) {
+    throw new Error('Input cannot start with a digit');
+  }
+
+  let result = '';
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+    if (!/[^\d]/.test(char)) {
+      throw new Error('Invalid input: expected non-digit character');
+    }
+
+    i++;
+
+    let countStr = '';
+    while (i < input.length && /\d/.test(input[i])) {
+      if (countStr === '' && input[i] === '0') {
+        throw new Error('Count cannot start with 0');
+      }
+      countStr += input[i];
+      i++;
+    }
+
+    if (countStr === '') {
+      throw new Error('Each character must have a count');
+    }
+
+    const count = parseInt(countStr, 10);
+    result += char.repeat(count);
+  }
+
+  return result;
+}
+```

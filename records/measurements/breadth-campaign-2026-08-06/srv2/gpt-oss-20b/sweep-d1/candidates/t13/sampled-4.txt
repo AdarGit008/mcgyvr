@@ -1,0 +1,13 @@
+```ts
+/** Truncate a string to the specified limit with ellipsis if necessary. */
+export function truncate(text: string, limit: number): string {
+  if (!Number.isInteger(limit) || limit < 3) {
+    throw new Error('limit must be an integer of at least 3');
+  }
+  if (text.length <= limit) {
+    return text;
+  }
+  const cut = text.slice(0, limit - 3);
+  return `${cut}...`;
+}
+```

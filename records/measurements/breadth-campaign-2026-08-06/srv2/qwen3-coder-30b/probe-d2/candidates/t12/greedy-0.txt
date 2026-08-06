@@ -1,0 +1,40 @@
+```ts
+export function editDistance(a: string, b: string): number {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+
+  const m = a.length;
+  const n = b.length;
+
+  // Create a DP table
+  const dp: number[][] = Array(m + 1)
+    .fill(0)
+    .map(() => Array(n + 1).fill(0));
+
+  // Initialize base cases
+  for (let i = 0; i <= m; i++) {
+    dp[i][0] = i;
+  }
+  for (let j = 0; j <= n; j++) {
+    dp[0][j] = j;
+  }
+
+  // Fill the DP table
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1]; // No operation needed
+      } else {
+        dp[i][j] = 1 + Math.min(
+          dp[i - 1][j],     // Deletion
+          dp[i][j - 1],     // Insertion
+          dp[i - 1][j - 1]  // Substitution
+        );
+      }
+    }
+  }
+
+  return dp[m][n];
+}
+```

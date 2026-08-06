@@ -1,0 +1,65 @@
+```ts
+export function tokenize(input: string): string[] {
+  const tokens: string[] = [];
+  let currentToken = '';
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+
+    if (char === '\\') {
+      // Backslash: escape next character
+      if (i + 1 >= input.length) {
+        throw new Error('trailing backslash');
+      }
+      currentToken += input[i + 1];
+      i += 2;
+      continue;
+    }
+
+    if (char === '"') {
+      // Toggle quoted mode
+      inQuotes = !inQuotes;
+      i++;
+      continue;
+    }
+
+    if (char === ' ' || char === '\t') {
+      if (!inQuotes) {
+        // End of token (if any)
+        if (currentToken.length > 0) {
+          tokens.push(currentToken);
+          currentToken = '';
+        }
+        i++;
+        // Skip all consecutive separators
+        while (i < input.length && (input[i] === ' ' || input[i] === '\t')) {
+          i++;
+        }
+        continue;
+      } else {
+        // Inside quotes: space/tab is just another character
+        currentToken += char;
+        i++;
+        continue;
+      }
+    }
+
+    // Regular character
+    currentToken += char;
+    i++;
+  }
+
+  if (inQuotes) {
+    throw new Error('unterminated quote');
+  }
+
+  // Add final token if exists
+  if (currentToken.length > 0) {
+    tokens.push(currentToken);
+  }
+
+  return tokens;
+}
+```

@@ -1,0 +1,19 @@
+```ts
+/**
+ * Truncate the given text to exactly `limit` characters, replacing the last three
+ * with an ellipsis if the text exceeds the limit.
+ */
+export function truncate(text: string, limit: number): string {
+  // Validate limit: must be integer ≥ 3
+  if (!Number.isInteger(limit) || limit < 3) {
+    throw new Error('limit must be an integer of at least 3');
+  }
+
+  // Return unchanged if within limit
+  if (text.length <= limit) return text;
+
+  // Cut to limit characters, last three replaced by ellipsis
+  const numChars = limit - 3;
+  return text.slice(0, numChars) + '...';
+}
+```

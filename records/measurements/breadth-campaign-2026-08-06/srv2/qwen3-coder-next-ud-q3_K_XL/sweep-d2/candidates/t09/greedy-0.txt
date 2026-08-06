@@ -1,0 +1,72 @@
+```ts
+/**
+ * Converts a Roman numeral string to its integer value with strict canonical validation.
+ * Throws an error for invalid inputs or non-canonical representations.
+ */
+export function romanToInt(input: string): number {
+  if (typeof input !== 'string' || input.length === 0) {
+    throw new Error('Input must be a non-empty string');
+  }
+
+  const romanValues: Record<string, number> = {
+    I: 1,
+    V: 5,
+    X: 10,
+    L: 50,
+    C: 100,
+    D: 500,
+    M: 1000
+  };
+
+  // Validate characters
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    if (!(char in romanValues)) {
+      throw new Error(`Invalid character '${char}' in Roman numeral`);
+    }
+  }
+
+  // Parse the Roman numeral to get its numeric value
+  let total = 0;
+  for (let i = 0; i < input.length; i++) {
+    const currentVal = romanValues[input[i]];
+    const nextVal = i + 1 < input.length ? romanValues[input[i + 1]] : 0;
+
+    if (currentVal < nextVal) {
+      total -= currentVal;
+    } else {
+      total += currentVal;
+    }
+  }
+
+  // Validate range
+  if (total < 1 || total > 3999) {
+    throw new Error('Roman numeral value must be between 1 and 3999');
+  }
+
+  // Convert back to canonical Roman numeral and compare with input
+  function intToRoman(num: number): string {
+    const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+    const symbols = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
+
+    let result = '';
+    let remaining = num;
+
+    for (let i = 0; i < values.length; i++) {
+      while (remaining >= values[i]) {
+        result += symbols[i];
+        remaining -= values[i];
+      }
+    }
+
+    return result;
+  }
+
+  const canonicalForm = intToRoman(total);
+  if (canonicalForm !== input) {
+    throw new Error('Input is not in canonical Roman numeral form');
+  }
+
+  return total;
+}
+```

@@ -1,0 +1,71 @@
+```ts
+/**
+ * Parses a single CSV line into its fields according to RFC 4180 rules.
+ * @param line A string representing one CSV line (without newlines).
+ * @returns An array of strings representing the parsed fields.
+ * @throws Error for invalid input or malformed CSV.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('line must be a string');
+  }
+
+  const fields: string[] = [];
+  let i = 0;
+  const n = line.length;
+
+  while (i <= n) {
+    // End of line: add empty field if at start or last field is non-empty
+    if (i === n) {
+      fields.push('');
+      break;
+    }
+
+    // Check if field is quoted
+    if (line[i] === '"') {
+      i++; // Skip opening quote
+      let field = '';
+      while (i < n) {
+        if (line[i] === '"') {
+          // Check for doubled quote
+          if (i + 1 < n && line[i + 1] === '"') {
+            field += '"';
+            i += 2;
+          } else {
+            // End of quoted field
+            i++; // Skip closing quote
+            // After closing quote, must be end of line or comma
+            if (i < n && line[i] !== ',') {
+              throw new Error('Invalid character after closing quote');
+            }
+            fields.push(field);
+            if (i < n) i++; // Skip comma if present
+            break;
+          }
+        } else {
+          field += line[i];
+          i++;
+        }
+      }
+      // Unterminated quoted field
+      if (i === n && line[n - 1] !== '"') {
+        throw new Error('Unterminated quoted field');
+      }
+    } else {
+      // Unquoted field
+      let field = '';
+      while (i < n && line[i] !== ',') {
+        if (line[i] === '"') {
+          throw new Error('Quote inside unquoted field');
+        }
+        field += line[i];
+        i++;
+      }
+      fields.push(field);
+      if (i < n) i++; // Skip comma
+    }
+  }
+
+  return fields;
+}
+```

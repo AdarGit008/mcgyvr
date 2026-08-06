@@ -1,0 +1,17 @@
+```ts
+/**
+ * Flattens an array up to a specified depth.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  const finalDepth = depth === undefined ? Infinity : depth;
+
+  if (typeof finalDepth !== 'number' || !Number.isFinite(finalDepth))
+    throw new Error('depth must be a non-negative integer or Infinity');
+
+  if (!Number.isInteger(finalDepth) || finalDepth < 0)
+    throw new Error('depth must be a non-negative integer or Infinity');
+
+  const result: unknown[] = [];
+
+  function recurse(currentItems: readonly unknown[], currentDepth: number): void {
+    for (
