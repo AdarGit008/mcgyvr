@@ -1,0 +1,41 @@
+```ts
+type Graph = Map<string, Set<string>>;
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Graph = new Map();
+  for (const node of nodes) 
+    graph.set(node, new Set());
+  
+  // Add edges to the graph
+  for (const edge of edges) {
+    if (!graph.has(edge[0]) || !graph.has(edge[1]))
+      throw new Error(`Edge refers to a node not in nodes`);
+    graph.get(edge[0])?.add(edge[1]);
+  }
+
+  // Keep track of visited and visiting status for each node to detect cycles
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  let order: string[] = [];
+
+  function dfs(node: string) {
+    visiting.add(node);
+
+    for (const neighbor of graph.get(node)!) {
+      if (visited.has(neighbor)) continue;
+      if (visiting.has(neighbor)) throw new Error(`Cycle detected`); 
+      dfs(neighbor);
+    }
+  
+    visiting.delete(node);
+    visited.add(node);
+    order = [node, ...order];
+  }
+
+  // Run DFS on every node to get topological order
+  for (const node of nodes) {
+    if (!visited.has(node)) dfs(node);
+  }
+
+  return order;
+}
+```

@@ -1,0 +1,33 @@
+```typescript
+/**
+ * The KEY=VALUE pairs of a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const lines = text.split("\n");
+  const validLines: [string, string][] = [];
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue;
+    }
+    const keyValue = trimmedLine.split("=", 2);
+    if (keyValue.length !== 2) {
+      throw Error(`Invalid line: ${line}\nKey must be followed by a value`);
+    }
+    const [key, value] = keyValue.map(part => part.trim());
+    if (!key || !value) {
+      throw Error(`Invalid line: ${line}\nKey and value cannot be empty`);
+    }
+    validLines.push([key, value]);
+  }
+
+  const config: Record<string, string> = {};
+  for (const [key, value] of validLines) {
+    if (config[key]) {
+      throw Error(`Duplicate key: ${key}`);
+    }
+    config[key] = value;
+  }
+  return config;
+}
+```

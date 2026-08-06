@@ -1,0 +1,25 @@
+Here is the function implementation for flatten:
+
+```ts
+/** Flattens arrays up to depth levels */
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] { 
+  if (depth < 0) throw new Error('Depth must be a non-negative integer or Infinity');
+  if (!Number.isInteger(depth)) throw new Error('Depth must be an integer');
+  
+  const result: unknown[] = [];
+  items.forEach((item: unknown) => {
+    if (Array.isArray(item) && depth > 0) {
+      result.push(...flatten(item, depth - 1));
+    } else if (typeof item === 'string' || typeof item === 'number'){
+        result.push(item);
+    } else if (typeof item === "object" && item !== null){
+      throw new Error('Input contains nested arrays or objects');
+    }
+  });
+  return result;
+}
+```
+
+This function will flatten an array up to the specified depth. It checks whether each item is an array and if it should continue flattening based on the remaining depth. If the item is not an array, but a string or number it simply adds that value to the resulting array. If the item is null or an object, it throws an error because those types aren't expected in the implementation of this function according to the task contract. It will throw an error if the depth isn't an integer or negative.
+
+Please note: As per the task contract, objects and maps are not iterable and they must be treated as single values which cannot be flattened. So don't confuse them with nested arrays that can be flattened to a certain level according to the depth parameter.

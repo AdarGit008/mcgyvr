@@ -1,0 +1,49 @@
+```ts
+export class LruCache<K, V> {
+  private readonly capacity: number;
+  private cache: Map<K, V> = new Map();
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+
+    this.capacity = capacity;
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      // If the key exists, first delete it so that it can be re-inserted at the end
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.capacity) {
+      // If the cache is full, evict the least recently used item
+      const oldestKey = this.cache.keys().next().value;
+      this.cache.delete(oldestKey);
+    }
+
+    // Insert or update the key/value at the end of the order
+    this.cache.set(key, value);
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) {
+      return undefined;
+    }
+
+    // If the key exists, first delete it so that it can be re-inserted at the end
+    const value = this.cache.get(key);
+    this.cache.delete(key);
+
+    // Re-insert at the end of the order
+    if (value !== undefined) {
+      this.set(key, value);
+    }
+
+    return value;
+  }
+}
+```

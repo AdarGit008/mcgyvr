@@ -1,0 +1,81 @@
+ ```ts
+class LruCache<K, V> {
+  private cache: Map<K, V>;
+  private capacity: number;
+  private useCount: Map<K, number>;
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.cache = new Map<K, V>();
+    this.capacity = capacity;
+    this.useCount = new Map<K, number>();
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) return undefined;
+
+    const useCount = this.useCount.get(key) || 0;
+    this.useCount.set(key, useCount + 1);
+
+    this.reorder(key);
+    return this.cache.get(key)!; // Ensure the key exists to avoid 'undefined'
+  }
+
+  set(key: K, value: V): void {
+    if (!this.cache.has(key)) {
+      this.cache.set(key, value);
+      this.useCount.set(key, 1);
+
+      if (this.cache.size > this.capacity) {
+        const leastUsedKey = this.findLeastUsed();
+        this.cache.delete(leastUsedKey);
+        this.useCount.delete(leastUsedKey);
+      }
+    } else {
+      this.cache.set(key, value);
+      this.reorder(key);
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private reorder(key: K): void {
+    const useCount = this.useCount.get(key)! + 1;
+    if (!this.useCount.has(key)) throw new Error("Key not found in cache");
+    this.useCount.set(key, useCount);
+
+    // Reorder the keys to keep the most recently used at the end
+    const sortedKeys = Array.from(this.cache.keys()).sort((a, b) => {
+      const countA = this.useCount.get(a)!;
+      const countB = this.useCount.get(b)!;
+      return countB - countA; // Reverse order for descending use count
+    });
+
+    let currentIndex = 0;
+    for (const key of sortedKeys) {
+      if (this.cache.get(key) === undefined) throw new Error("Key not found in cache");
+      this.cache.delete(key);
+      this.cache.set(key, sortedKeys[currentIndex++]);
+    }
+  }
+
+  private findLeastUsed(): K | null {
+    let leastUsedKey = null;
+    let minUseCount = Infinity;
+
+    for (const key of this.useCount.keys()) {
+      const useCount = this.useCount.get(key)!;
+      if (useCount < minUseCount) {
+        minUseCount = useCount;
+        leastUsedKey = key;
+      }
+    }
+
+    return leastUsedKey;
+  }
+}
+```

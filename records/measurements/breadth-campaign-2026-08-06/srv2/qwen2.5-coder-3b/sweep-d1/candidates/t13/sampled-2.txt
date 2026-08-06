@@ -1,0 +1,15 @@
+```ts
+function truncate(text: string, limit: number): string {
+  if (typeof limit !== 'number' || limit < 3) {
+    throw new Error('limit must be an integer of at least 3');
+  }
+  if (text.length <= limit) {
+    return text;
+  }
+  const truncatedText = text.slice(0, limit - 4) + "...";
+  if (truncatedText.length !== limit) {
+    throw new Error('Truncated string length does not match limit');
+  }
+  return truncatedText;
+}
+```

@@ -1,0 +1,30 @@
+```ts
+export function runLengthEncode(input: string): string {
+    /**
+     * Replaces every maximal run of one repeated character in the input string with 
+     * that character followed by the run length in order.
+     *
+     * @param input The input string to encode.
+     */
+    if (typeof input !== 'string') {
+        throw new Error('Input must be a non-empty string');
+    }
+
+    let result = '';
+    let currentChar = input[0];
+    let charCount = 1;
+
+    for (let i = 1; i <= input.length; i++) {
+        const char = input[i];
+        if (char === currentChar) {
+            charCount++;
+        } else {
+            result += currentChar + (charCount > 1 ? String(charCount) : '');
+            currentChar = char;
+            charCount = 1;
+        }
+    }
+
+    return result;
+}
+```

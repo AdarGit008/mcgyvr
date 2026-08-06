@@ -1,0 +1,18 @@
+```ts
+/** a divided by b. */
+export function safeDivide(a: number, b: number): number {
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Both arguments must be numbers');
+  }
+  
+  if (!isFinite(a) || !isFinite(b)) {
+    throw new Error('Both arguments must be finite numbers');
+  }
+  
+  // The divisor should not be zero (-0 is also considered as zero in JavaScript).
+  if (b === 0) {
+    throw new Error('Divisor cannot be zero');
+  }
+  return a / b;
+}
+```

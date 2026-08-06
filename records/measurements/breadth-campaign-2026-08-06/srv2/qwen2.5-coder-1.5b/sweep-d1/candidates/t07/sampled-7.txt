@@ -1,0 +1,20 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) {
+    return [...items];
+  }
+
+  let result: unknown[] = [];
+
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      const flattenedSubArray = flatten(item, depth - 1);
+      result.push(...flattenedSubArray);
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+```

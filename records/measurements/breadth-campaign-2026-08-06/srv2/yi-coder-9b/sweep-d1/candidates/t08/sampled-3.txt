@@ -1,0 +1,42 @@
+Here is the implementation for topologicalSort.
+
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjList = new Map<string, Set<string>>();  // Adjacency list representation of our graph
+    const inDegree = new Map<string, number>();      // Stores the indegree of each node
+
+    for (let node of nodes) {                        
+        adjList.set(node, new Set());               
+        inDegree.set(node, 0);                       
+    }
+  
+    edges.forEach(([from, to]) => {             // Add edge and update in-degree count
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Node not found: ${from} or ${to}`);
+        }                           
+       adjList.get(from)?.add(to);               
+        inDegree.set(to, inDegree.get(to)! + 1);  
+    });
+
+    const queue = [...nodes].filter((node) => inDegree.get(node) === 0); // Add nodes with no unmet dependencies to the queue
+    const result: string[] = [];                   // Ordering of the graph nodes satisfying all edges
+
+    while (queue.length > 0) {               
+        let from = queue.shift()!;            
+        result.push(from);                     
+      
+        for (let to of adjList.get(from) ?? []){   // Iterate over all nodes 'to' which 'from' node has an edge directed towards it
+          inDegree.set(to, inDegree.get(to)! -1);  
+            if (inDegree.get(to) === 0){           
+                queue.push(to);                     
+            }                              
+        }    
+    }   
+      
+    // If there is a cycle, inDegree will contain at least one non-zero value after the above loop.
+    if (result.length < nodes.length) { 
+       throw new Error("Cycle detected in graph.");  
+    }                              
+    return result;           
+};
+```

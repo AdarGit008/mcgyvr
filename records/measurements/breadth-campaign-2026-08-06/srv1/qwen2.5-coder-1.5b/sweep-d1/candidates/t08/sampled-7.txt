@@ -1,0 +1,48 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.length === 0 || !edges.length) {
+    return nodes.filter((node) => !edges.some(([from, to]) => from === node || to === node)));
+  }
+
+  const inDegrees = new Map<string, number>();
+  const adjacencyList = new Map<string, Set<string>>();
+
+  for (const edge of edges) {
+    if (!inDegrees.has(edge[0])) {
+      inDegrees.set(edge[0], 0);
+    }
+    if (!inDegrees.has(edge[1])) {
+      inDegrees.set(edge[1], 0);
+    }
+
+    adjacencyList.set(edge[0], adjacencyList.get(edge[0]) || new Set());
+    adjacencyList.get(edge[0]).add(edge[1]);
+
+    inDegrees.set(edge[1], inDegrees.get(edge[1])! + 1);
+  }
+
+  const sortedNodes: string[] = [];
+  const freeNodes: string[] = Array.from(nodes);
+
+  while (freeNodes.length > 0) {
+    for (const node of freeNodes) {
+      if (!inDegrees.has(node)) continue;
+
+      inDegrees.set(node, inDegrees.get(node)! - 1);
+      if (inDegrees.get(node)! === 0) {
+        sortedNodes.push(node);
+        freeNodes.splice(freeNodes.indexOf(node), 1);
+        adjacencyList.delete(node);
+      }
+    }
+
+    if (sortedNodes.length === nodes.length) break; // Cycle detected
+  }
+
+  if (freeNodes.length > 0) {
+    throw new Error('Cycle detected');
+  }
+
+  return sortedNodes;
+}
+```

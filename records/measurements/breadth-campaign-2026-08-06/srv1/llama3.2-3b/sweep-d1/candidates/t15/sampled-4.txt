@@ -1,0 +1,31 @@
+```ts
+// Checks if a number is finite.
+function isFiniteNumber(n: number): n is number {
+  return typeof n === "number" && !isNaN(n);
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  checkTemperatureTypeAndValue(celsius, "celsius", -273.15);
+  return celsius * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  checkTemperatureTypeAndValue(celsius, "celsius", 0);
+  return celsius + 273.15;
+}
+
+function checkTemperatureTypeAndValue<T extends number>(
+  value: T,
+  unitName: string,
+  minAbsoluteZero: T
+): never {
+  if (!isFiniteNumber(value)) {
+    throw new Error(`${unitName} must be a finite number`);
+  }
+  if (value < minAbsoluteZero) {
+    throw new Error(` ${unitName} must be at or above absolute zero`);
+  }
+}
+```

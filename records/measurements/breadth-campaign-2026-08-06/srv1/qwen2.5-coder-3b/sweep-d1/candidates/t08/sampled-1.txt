@@ -1,0 +1,46 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  // Create adjacency list
+  const graph: Record<string, Set<string>> = {};
+  for (const [from, to] of edges) {
+    if (!graph[from]) graph[from] = new Set();
+    graph[from].add(to);
+  }
+
+  // Initialize indegree array and free nodes queue
+  const indegree: number[] = Array(nodes.length).fill(0);
+  const freeNodes: string[] = [];
+  for (const [from, toSet] of Object.entries(graph)) {
+    const node = from;
+    for (const neighbor of toSet) {
+      indegree[nodes.indexOf(neighbor)]++;
+    }
+  }
+
+  // Initialize stack with nodes that have no dependencies
+  for (let i = 0; i < nodes.length; i++) {
+    if (indegree[i] === 0) freeNodes.push(nodes[i]);
+  }
+
+  const result: string[] = [];
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    result.push(node);
+
+    // Decrease indegree of neighbors
+    for (const neighbor in graph[node]) {
+      indegree[nodes.indexOf(neighbor)]--;
+      if (indegree[nodes.indexOf(neighbor)] === 0) {
+        freeNodes.push(nodes[nodes.indexOf(neighbor)]);
+      }
+    }
+  }
+
+  // Check for cycles
+  if (result.length !== nodes.length) {
+    throw new Error("Cycle detected in the graph");
+  }
+
+  return result;
+}
+```

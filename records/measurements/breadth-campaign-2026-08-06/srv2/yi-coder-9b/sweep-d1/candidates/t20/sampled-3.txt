@@ -1,0 +1,19 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (line.trim() === "" || line.trim().startsWith("#")) continue;
+    const [key, ...value] = line.split(/=(.*)/);
+    if (!key || value.length === 0) throw new Error(`Invalid config line: ${line}`);
+    if (key.trim() === "__proto__") {
+      throw new Error("Illegal key name: __proto__");
+    } else if (/^([A-Z_]+)$/.test(key)) {
+      config[key.trim()] = value[0].trim();
+    } else {
+      throw new Error(`Invalid config line: ${line}`)
+    }
+  }
+  return config;
+}
+```

@@ -1,0 +1,38 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (line === "") return [];
+
+  let result: string[] = [];
+  let quoteDepth = 0;
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (!inQuotes) {
+        inQuotes = true;
+        quoteDepth++;
+      } else if (quoteDepth > 1) {
+        // Nested quotes, keep going
+      } else {
+        result.pop();
+        inQuotes = false;
+      }
+    } else if (inQuotes) {
+      // Inside a quoted field, continue
+    } else if (char === "," && !inQuotes) {
+      // End of a field, push to result and reset quote depth
+      result.push(line.slice(i));
+      i += line.slice(i).indexOf(",") - 1; // Adjust index for commas inside quotes
+    }
+
+    // Handle edge cases like empty lines
+    if (line.trim() === "" && result.length > 0) {
+      break;
+    }
+  }
+
+  return result;
+}
+```

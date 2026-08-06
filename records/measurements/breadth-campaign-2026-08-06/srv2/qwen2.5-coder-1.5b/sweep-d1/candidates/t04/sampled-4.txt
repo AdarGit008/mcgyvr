@@ -1,0 +1,43 @@
+```ts
+class LruCache<K, V> {
+    private storage: [K, V][] = [];
+    private capacity: number;
+
+    constructor(capacity: number) {
+        if (capacity <= 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+        this.capacity = capacity;
+    }
+
+    get(key: K): V | undefined {
+        const idx = this.storage.findIndex(([k]) => k === key);
+        if (idx !== -1) {
+            this.storage.splice(idx, 1); // Move to the end
+            this.storage.push([key, this.storage[idx][1]]);
+            return this.storage[0][1];
+        }
+        return undefined;
+    }
+
+    set(key: K, value: V): void {
+        const idx = this.storage.findIndex(([k]) => k === key);
+        if (idx !== -1) {
+            // Update the existing entry
+            this.storage[idx] = [key, value];
+        } else if (this.storage.length >= this.capacity) {
+            // Evict the least recently used entry
+            const oldestEntry = this.storage.shift();
+            if (oldestEntry) {
+                delete oldestEntry[1]; // Clear the value to free up memory
+            }
+        }
+        // Insert the new entry at the end
+        this.storage.push([key, value]);
+    }
+
+    get size(): number {
+        return this.storage.length;
+    }
+}
+```

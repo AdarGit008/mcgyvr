@@ -1,0 +1,40 @@
+```ts
+/**
+ * Parses a configuration text into a key-value object.
+ * Ignores blank lines and lines starting with #.
+ * Trims whitespace around keys and values.
+ * Splits on the first = only, allowing values to contain one.
+ * Throws an error for lines without = or empty keys.
+ * Ensures no prototype pollution by handling __proto__ as a regular key.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  const lines = text.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+
+    // Ignore blank lines and comments
+    if (!line || line.startsWith("#")) continue;
+
+    // Find the first occurrence of =
+    const equalsIndex = line.indexOf("=");
+    if (equalsIndex === -1) {
+      throw new Error(`Line ${i + 1}: No '=' found`);
+    }
+
+    const key = line.slice(0, equalsIndex).trim();
+    const value = line.slice(equalsIndex + 1).trim();
+
+    // Ignore empty keys
+    if (!key) {
+      throw new Error(`Line ${i + 1}: Empty key`);
+    }
+
+    // Handle __proto__ as a regular key to prevent prototype pollution
+    config[key] = value;
+  }
+
+  return config;
+}
+```

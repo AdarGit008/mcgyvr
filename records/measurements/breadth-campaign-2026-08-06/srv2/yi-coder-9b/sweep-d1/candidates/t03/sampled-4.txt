@@ -1,0 +1,18 @@
+Here is the solution according to the given task using TypeScript:
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null }{
+    const semverRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$/;
+    const match = semverRegex.exec(version);
+    if (!match) {
+        throw new Error('Invalid Semantic Version: ' + version);
+    }
+    return { 
+        major: parseInt(match[1]),
+        minor: parseInt(match[2]),
+        patch: parseInt(match[3]),
+        prerelease: match[5] || null,
+        build: match[7] || null,
+    };
+}
+```
+The function `parseSemver` takes a version string as input and returns an object with the fields major, minor, patch, prerelease, and build. It uses a regular expression to validate the format of the Semantic Versioning string and extracts each part accordingly. If the string does not match the expected format, it throws an error naming the input.

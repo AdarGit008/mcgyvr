@@ -1,0 +1,21 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (!Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error(`depth must be a non-negative integer or Infinity`);
+  }
+
+  const defaultDepth = depth === undefined ? Infinity : depth;
+
+  return items.flatMap((item, index) => {
+    if (Array.isArray(item)) {
+      if (defaultDepth > 1) {
+        const nestedFlattened = flatten(item, defaultDepth - 1);
+        // Avoid adding empty arrays or single-element arrays
+        return nestedFlattened.length ? nestedFlattened : undefined;
+      }
+      return item; // Convert flat array to regular elements
+    }
+    return item; // Non-array items are treated as values
+  }).filter((item): item is unknown => item !== undefined);
+}
+```

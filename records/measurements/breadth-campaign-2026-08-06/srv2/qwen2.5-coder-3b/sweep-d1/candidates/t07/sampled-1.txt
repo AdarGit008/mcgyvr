@@ -1,0 +1,16 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (!Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error("depth must be a non-negative integer or Infinity");
+  }
+
+  return items.flatMap((item, index, array) => {
+    const currentDepth = (depth === undefined || depth === 0) ? 0 : depth - 1;
+    if (Array.isArray(item)) {
+      if (currentDepth < 0) throw new Error("Max recursion depth exceeded");
+      return [...flatten(item as unknown[], currentDepth)];
+    }
+    return item;
+  });
+}
+```

@@ -1,0 +1,57 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes.length) return [];
+
+  const adjacencyList = new Map<string, Set<string>>();
+  const indegree = new Map<string, number>();
+  
+  // Build the adjacency list and indegree map
+  for (const [from, to] of edges) {
+    if (!adjacencyList.has(from)) adjacencyList.set(from, new Set());
+    adjacencyList.get(from)?.add(to);
+    
+    if (!indegree.has(from)) indegree.set(from, 0);
+    if (!indegree.has(to)) indegree.set(to, 0);
+    
+    indegree.set(to, indegree.get(to)! + 1);
+  }
+
+  // Collect nodes with no dependencies
+  const queue: string[] = [];
+  for (const [node] of nodes) {
+    if (!indegree.has(node)) queue.push(node);
+  }
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+
+    // Decrease the indegree of all neighbors
+    for (const neighbor of adjacencyList.get(node) || []) {
+      indegree.set(neighbor, indegree.get(neighbor)! - 1);
+      if (!indegree.get(neighbor)) queue.push(neighbor);
+    }
+  }
+
+  // Check for cycles
+  const visited = new Set<string>();
+  function dfs(node: string): boolean {
+    if (visited.has(node)) return false;
+    visited.add(node);
+
+    for (const neighbor of adjacencyList.get(node) || []) {
+      if (!dfs(neighbor)) return false;
+    }
+
+    return true;
+  }
+
+  for (const [node] of nodes) {
+    if (!dfs(node)) throw new Error("Cycle detected");
+  }
+
+  return result;
+}
+```

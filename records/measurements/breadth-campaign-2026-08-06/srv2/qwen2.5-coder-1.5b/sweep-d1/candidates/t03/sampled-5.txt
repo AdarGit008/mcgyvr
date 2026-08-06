@@ -1,0 +1,19 @@
+```typescript
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const regex = /^v?(\d+)\.(\d+)\.(\d+)(?:-(\w+))?(?:\+(\w+))?$/;
+
+    if (!regex.test(version)) {
+        throw new Error(`Invalid version string: ${version}`);
+    }
+
+    const [_, major, minor, patch, prerelease = null, build = null] = regex.exec(version)! as RegExpExecArray;
+
+    return {
+        major: parseInt(major, 10),
+        minor: parseInt(minor, 10),
+        patch: parseInt(patch, 10),
+        prerelease,
+        build
+    };
+}
+```

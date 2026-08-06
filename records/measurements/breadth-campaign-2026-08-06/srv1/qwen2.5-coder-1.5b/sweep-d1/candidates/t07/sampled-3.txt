@@ -1,0 +1,14 @@
+```ts
+function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (typeof depth !== 'number' || !Number.isInteger(depth) || depth < 0) {
+    throw Error('depth must be a non-negative integer or Infinity');
+  }
+
+  return items.flatMap((item, index) => {
+    if (Array.isArray(item) && depth > 0) {
+      return flatten(item as unknown[], depth - 1);
+    }
+    return item;
+  });
+}
+```

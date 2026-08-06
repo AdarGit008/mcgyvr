@@ -1,0 +1,46 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList: { [key: string]: string[] } = {};
+  const inDegree: { [key: string]: number } = {};
+
+  nodes.forEach(node => {
+    adjacencyList[node] = [];
+    inDegree[node] = 0;
+  });
+
+  edges.forEach(([from, to]) => {
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw new Error(`Invalid edge: nodes not found.`);
+    }
+    adjacencyList[from].push(to);
+    inDegree[to]++;
+  });
+
+  const queue: string[] = [];
+  Object.keys(inDegree).forEach(node => {
+    if (inDegree[node] === 0) {
+      queue.push(node);
+    }
+  });
+
+  let result: string[] = [];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+
+    adjacencyList[node].forEach(neighbor => {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    });
+  }
+
+  if (result.length !== nodes.length) {
+    throw new Error(`Cycle detected.`);
+  }
+
+  return result;
+}
+```

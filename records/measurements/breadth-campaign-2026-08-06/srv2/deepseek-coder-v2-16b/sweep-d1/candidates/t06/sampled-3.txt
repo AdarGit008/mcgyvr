@@ -1,0 +1,42 @@
+ ```ts
+export function parseCsvLine(line: string): string[] {
+    if (typeof line !== 'string' || line.trim().length === 0) {
+        throw new Error('Invalid input');
+    }
+
+    const fields: string[] = [];
+    let currentField = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+            if (inQuotes) {
+                // Check if the quote is escaped or not
+                if (i > 0 && line[i - 1] !== '\\') {
+                    inQuotes = false;
+                } else {
+                    currentField += char;
+                }
+            } else {
+                inQuotes = true;
+            }
+        } else if (char === ',' && !inQuotes) {
+            fields.push(currentField.trim());
+            currentField = '';
+        } else {
+            currentField += char;
+        }
+    }
+
+    // Add the last field after the loop, in case it's not empty and there are no trailing commas
+    if (inQuotes) {
+        throw new Error('Unclosed quote');
+    }
+
+    fields.push(currentField.trim());
+
+    return fields;
+}
+```

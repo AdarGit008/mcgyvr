@@ -1,0 +1,52 @@
+```ts
+export class LruCache<K, V> {
+  private items: Map<K, { value: V; lastUsed: number }> = new Map();
+  private capacity: number;
+  private size: number;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.size = 0;
+  }
+
+  get(key: K): V | undefined {
+    const item = this.items.get(key);
+    if (item) {
+      item.lastUsed = Date.now();
+      return item.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    const currentSize = this.size;
+
+    // Check if we need to evict the least recently used entry
+    if (currentSize >= this.capacity) {
+      let minLastUsed = Infinity;
+      let keyToRemove: K | undefined;
+      for (const [k, item] of this.items.entries()) {
+        if (item.lastUsed < minLastUsed) {
+          minLastUsed = item.lastUsed;
+          keyToRemove = k;
+        }
+      }
+      if (keyToRemove !== undefined) {
+        this.items.delete(keyToRemove);
+        this.size--;
+      }
+    }
+
+    // Add the new entry
+    this.items.set(key, { value: value, lastUsed: Date.now() });
+    this.size++;
+  }
+
+  get size(): number {
+    return this.size;
+  }
+}
+```

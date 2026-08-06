@@ -1,0 +1,49 @@
+ ```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!Array.isArray(nodes) || !Array.isArray(edges)) {
+        throw new Error("Invalid input");
+    }
+
+    const nodeIndex = new Map<string, number>();
+    for (let i = 0; i < nodes.length; i++) {
+        nodeIndex.set(nodes[i], i);
+    }
+
+    if (edges.some(([from, to]) => !nodeIndex.has(from) || !nodeIndex.has(to))) {
+        throw new Error("Invalid edge detected");
+    }
+
+    const inDegree = Array(nodes.length).fill(0);
+    const graph = Array.from({ length: nodes.length }, () => [] as string[]);
+
+    for (const [from, to] of edges) {
+        graph[nodeIndex.get(from)!].push(to);
+        inDegree[nodeIndex.get(to)!]++;
+    }
+
+    const queue: number[] = [];
+    for (let i = 0; i < nodes.length; i++) {
+        if (inDegree[i] === 0) {
+            queue.push(i);
+        }
+    }
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const nodeIndex = queue.shift()!;
+        result.push(nodes[nodeIndex]);
+
+        for (const neighbor of graph[nodeIndex]) {
+            if (--inDegree[nodeIndex] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    if (result.length !== nodes.length) {
+        throw new Error("Cycle detected");
+    }
+
+    return result;
+}
+```

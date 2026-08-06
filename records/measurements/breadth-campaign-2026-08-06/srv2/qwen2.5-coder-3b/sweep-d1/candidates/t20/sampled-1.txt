@@ -1,0 +1,21 @@
+```typescript
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim()) continue; // Skip blank lines
+
+    const [key, value] = line.match(/^(\S+)=(.*)$/)?.map((part) => part.trim()) ?? [];
+    
+    if (!key || !value) {
+      throw new Error(`Invalid line: ${line}`);
+    }
+    
+    if (key === "__proto__") {
+      throw new Error('Key "__proto__" is not allowed because it would overwrite Object.prototype.');
+    }
+
+    config[key] = value;
+  }
+  return config;
+}
+```

@@ -1,0 +1,79 @@
+```typescript
+/**
+ * Parse a semantic version string into its major, minor, patch parts, 
+ * along with optional prerelease and build strings.
+ */
+export function parseSemver(version: string): {
+  /**
+   * The semver major number (integer).
+   */
+  major: number;
+  /**
+   * The semver minor number (integer).
+   */
+  minor: number;
+  /**
+   * The semver patch number (integer).
+   */
+  patch: number;
+  /**
+   * The optional prerelease string.
+   */
+  prerelease: string | null;
+  /**
+   * The optional build string.
+   */
+  build: string | null;
+} {
+  // Check if the version starts with "v"
+  if (version.startsWith("v")) {
+    version = version.slice(1);
+  }
+
+  const parts = version.split(".");
+  
+  // Check for required numeric parts
+  if (parts.length !== 3) {
+    throw new Error(`Invalid semver format: ${version}`);
+  }
+  
+  let major, minor, patch;
+  
+  try {
+    [major, minor, patch] = parts.map((p) => parseInt(p));
+  } catch (e) {
+    throw new Error(`Invalid semver format: ${version}`, { cause: e });
+  }
+
+  // Check for valid numbers
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+    throw new Error(`Invalid semver format: ${version}`);
+  }
+  
+  if (major < 0 || minor < 0 || patch < 0) {
+    throw new Error(`Invalid semver format: ${version}`);
+  }
+  
+  // Check for leading zeros
+  if ([major, minor, patch].some((p) => p === 0)) {
+    throw new Error(`Invalid semver format: ${version}`);
+  }
+
+  let prerelease = null;
+  let build = null;
+
+  if (version.includes("-")) {
+    [prerelease] = version.slice(version.indexOf("-") + 1).split("-");
+  } else if (version.startsWith("-")) {
+    throw new Error(`Invalid semver format: ${version}`);
+  }
+
+  if (version.includes("+")) {
+    [build] = version.slice(version.lastIndexOf("+")).split("+");
+  } else if (version.endsWith("+")) {
+    build = version.slice(version.lastIndexOf("+") + 1);
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

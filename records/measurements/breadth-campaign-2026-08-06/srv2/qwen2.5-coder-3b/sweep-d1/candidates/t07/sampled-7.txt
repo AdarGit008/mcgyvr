@@ -1,0 +1,21 @@
+```typescript
+// solution.ts
+
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (typeof depth !== 'number' || !Number.isInteger(depth) && depth !== Infinity) {
+        throw new Error('Depth must be a non-negative integer or Infinity.');
+    }
+
+    return items.reduce((flattened: unknown[], item, index) => {
+        if (Array.isArray(item)) {
+            const currentDepth = Math.max(0, depth - 1);
+            return flattened.concat(
+                Array.isArray(item[0]) && currentDepth > 0
+                    ? flatten(item, currentDepth)
+                    : item.slice()
+            );
+        }
+        return [...flattened, item];
+    }, []);
+}
+```

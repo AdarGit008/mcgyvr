@@ -1,0 +1,38 @@
+```ts
+/**
+ * Merge overlapping or touching numeric intervals into the minimal set of non-overlapping intervals.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    // Validate input and clone to avoid mutation
+    const cloned = intervals.map((interval, idx) => {
+        if (!Array.isArray(interval) || interval.length !== 2) {
+            throw new Error(`Interval at index ${idx} is not a [start, end] pair`);
+        }
+        const [start, end] = interval;
+        if (typeof start !== 'number' || typeof end !== 'number') {
+            throw new Error(`Start or end of interval at index ${idx} is not a number`);
+        }
+        if (start > end) {
+            throw new Error(`Interval start (${start}) greater than end (${end}) at index ${idx}`);
+        }
+        return [start, end];
+    });
+
+    // Sort by start ascending
+    const sorted = cloned.sort((a, b) => a[0] - b[0]);
+
+    const result: number[][] = [];
+    if (sorted.length === 0) {
+        return result;
+    }
+
+    let currentStart = sorted[0][0];
+    let currentEnd = sorted[0][1];
+
+    for (let i = 1; i < sorted.length; i++) {
+        const [nextStart, nextEnd] = sorted[i];
+        if (nextStart <= currentEnd) { // overlap or touch
+            if (nextEnd > currentEnd) {
+                currentEnd = nextEnd;
+            }
+       

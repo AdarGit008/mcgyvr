@@ -1,0 +1,24 @@
+```typescript
+// solution.ts
+
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (typeof depth !== 'number' || depth < 0) {
+        throw new Error('Depth must be a non-negative integer or Infinity');
+    }
+
+    if (depth === 0 || items.length === 0) {
+        return [...items];
+    }
+
+    return items.flatMap(item => {
+        if (Array.isArray(item)) {
+            if (depth > 1) {
+                return flatten(item, depth - 1);
+            } else {
+                return item;
+            }
+        }
+        return [item];
+    });
+}
+```

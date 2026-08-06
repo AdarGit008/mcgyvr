@@ -1,0 +1,23 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const parts = version.split('-').map(part => part.replace(/\+/g, ''));
+
+  if (parts.length < 3) {
+    throw new Error('version must contain at least three parts');
+  }
+
+  const [major, minor, patch] = parts[0].split('.').map(Number);
+  let prerelease: string | null = null;
+  let build: string | null = null;
+
+  if (parts.length > 1) {
+    prerelease = parts[1];
+  }
+
+  if (parts.length > 2) {
+    build = parts[2];
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

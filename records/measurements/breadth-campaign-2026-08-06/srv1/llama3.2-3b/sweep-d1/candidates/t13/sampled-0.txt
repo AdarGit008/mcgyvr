@@ -1,0 +1,16 @@
+```typescript
+/**
+ * Truncates the text to limit characters with an ellipsis when it is longer.
+ * A string no longer than limit is returned unchanged; a longer one is cut
+ * to exactly limit characters with the last three replaced by "...".
+ */
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== "number" || limit < 3) {
+    throw new Error("Limit must be an integer of at least 3");
+  }
+  if (text.length <= limit) {
+    return text;
+  }
+  return text.slice(0, limit - 2) + "...";
+}
+```

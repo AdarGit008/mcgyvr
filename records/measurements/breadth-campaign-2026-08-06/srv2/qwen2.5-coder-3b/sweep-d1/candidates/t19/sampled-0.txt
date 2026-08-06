@@ -1,0 +1,12 @@
+```ts
+/** Safe division function to handle errors for zero divisor and non-finite numbers. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+  if (b === 0 || (b !== 0 && isNaN(b))) {
+    throw new Error("Divisor cannot be zero or NaN.");
+  }
+  return a / b;
+}
+```

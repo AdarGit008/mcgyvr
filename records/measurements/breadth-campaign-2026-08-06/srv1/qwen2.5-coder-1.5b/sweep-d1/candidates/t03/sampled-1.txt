@@ -1,0 +1,19 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  // Validate input
+  if (typeof version !== 'string') throw new Error('version must be a string');
+  const parsed = /^v?(?<major>\d+)(?:\.(?<minor>\d+))?(?:\.(?<patch>\d+))?(-(?<prerelease>.*?))?(\+(?<build>.*)?)$/g.exec(version);
+  if (!parsed) throw new Error(`Invalid version string: ${version}`);
+
+  // Extract components
+  const major = parseInt(parsed.groups.major, 10);
+  const minor = parsed.groups.minor ? parseInt(parsed.groups.minor, 10) : null;
+  const patch = parsed.groups.patch ? parseInt(parsed.groups.patch, 10) : null;
+
+  // Extract prerelease and build
+  let prerelease: string | null = parsed.groups.prerelease ? parsed.groups.prerelease : null;
+  let build: string | null = parsed.groups.build ? parsed.groups.build : null;
+
+  return { major, minor, patch, prerelease, build };
+}
+```

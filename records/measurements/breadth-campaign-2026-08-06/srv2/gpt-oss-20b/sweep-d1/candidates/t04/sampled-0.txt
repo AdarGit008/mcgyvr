@@ -1,0 +1,43 @@
+```ts
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+  private readonly capacity: number;
+  private readonly map = new Map<K, V>();
+
+  /**
+   * Creates an LRU cache with the given positive integer capacity.
+   * @throws Error if capacity is not a positive integer.
+   */
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+  }
+
+  /**
+   * Retrieves the value associated with the key, or undefined if not present.
+   * Access counts as usage; updates key order for LRU eviction policy.
+   */
+  get(key: K): V | undefined {
+    const exists = this.map.has(key);
+    if (!exists) return undefined;
+    const value = this.map.get(key)!;
+    // Update usage by moving key to the end
+    this.map.delete(key);
+    this.map.set(key, value);
+    return value;
+  }
+
+  /**
+   * Inserts or updates a key-value pair in the cache.
+   * Insertion/update counts as usage. If capacity is exceeded,
+   * evicts the least recently used entry first.
+   */
+  set(key: K, value: V): void {
+    const exists = this.map.has(key);
+    if (exists) {
+      // Update and move to end
+      this.map.delete

@@ -1,0 +1,6 @@
+```ts
+// BLOCKED: Ambiguous handling of Set and Map in flatten function.
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    throw new Error('Implementation not provided due to ambiguous requirements.');
+}
+```

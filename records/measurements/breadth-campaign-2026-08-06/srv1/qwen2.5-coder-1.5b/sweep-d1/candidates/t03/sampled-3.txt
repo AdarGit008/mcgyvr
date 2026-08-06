@@ -1,0 +1,24 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version || typeof version !== 'string') throw new Error('version');
+
+  const [major, minor, patch] = version.match(/^(?<major>\d+)\.?(?<minor>\d+)\.?(?<patch>\d+)$/)?.groups ?? [null, null, null];
+
+  if (major === undefined || minor === undefined || patch === undefined) throw new Error('version');
+
+  if (!/^\d+$/.test(major)) throw new Error('major');
+  if (!/^\d+$/.test(minor)) throw new Error('minor');
+  if (!/^\d+$/.test(patch)) throw new Error('patch');
+
+  const prerelease = version.match(/-(?<prerelease>[\w-]+)/)?.groups?.prerelease;
+  const build = version.match(/\+(?<build>[\w-]+)/)?.groups?.build;
+
+  return {
+    major: parseInt(major, 10),
+    minor: parseInt(minor, 10),
+    patch: parseInt(patch, 10),
+    prerelease: prerelease ? prerelease : null,
+    build: build ? build : null
+  };
+}
+```

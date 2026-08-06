@@ -1,0 +1,26 @@
+```ts
+const MODULUS = 1000000007;
+
+/**
+ * The nth Fibonacci number, modulo 1000000007.
+ */
+export function fibMod(n: number): number {
+  if (typeof n !== 'number' || n < 0) {
+    throw new Error('n must be a non-negative integer');
+  }
+
+  if (n === 0) {
+    return 0;
+  }
+  
+  const prev = (n - 1 + MODULUS) % MODULUS;
+  const curr = (n - 2 + MODULUS) % MODULUS;
+  
+  for (let i = 2; i <= n; i++) {
+    prev = curr;
+    curr = (prev + curr) % MODULUS;
+  }
+  
+  return curr;
+}
+```

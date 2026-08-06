@@ -1,0 +1,48 @@
+Here is an implementation in TypeScript:
+
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList = new Map<string, string[]>();
+  const indegreeCounts = new Map<string, number>();
+
+  for (const node of nodes) {
+    adjacencyList.set(node, []);
+    indegreeCounts.set(node, 0);
+  }
+
+  // Build the graph and count indegrees
+  for (const [fromNode, toNode] of edges) {
+    if (!nodes.includes(toNode) || !nodes.includes(fromNode)) {
+      throw new Error(`An edge names a node not in nodes`);
+    }
+    adjacencyList.get(fromNode)?.push(toNode);
+    const currentCount = indegreeCounts.get(toNode);
+    if (currentCount !== undefined) {
+      indegreeCounts.set(toNode, currentCount + 1);
+    }
+  }
+
+  // Find nodes with no dependencies and add them to the queue
+  const queue = [...nodes].filter((node: string) => indegreeCounts.get(node) === 0);
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    // Remove a node from the queue and add it to the result
+    const currentNode = queue.shift();
+    if (currentNode !== undefined) {
+      result.push(currentNode);
+      for (const neighbor of adjacencyList.get(currentNode)) {
+        const currentCount = indegreeCounts.get(neighbor);
+        if (currentCount !== undefined && currentCount - 1 === 0) {
+          queue.push(neighbor);
+        }
+        indegreeCounts.set(neighbor, currentCount! - 1);
+      }
+    }
+  }
+  if (result.length < nodes.length) {
+    throw new Error(`A cycle exists in the graph`);
+  }
+  return result;
+}
+```

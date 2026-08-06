@@ -1,0 +1,51 @@
+```ts
+/**
+ * Parse a semantic version string into its three numeric parts and optional
+ * prerelease and build strings.
+ *
+ * @param version The semantic version string to parse.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease?: string | null;
+  build?: string | null;
+} {
+  const parts = version.split(/[-+]/);
+  
+  // Check if the format is valid
+  if (parts.length !== 3 && parts[0] === 'v') {
+    throw new Error('Invalid semantic version format');
+  }
+  
+  let [major, minor, patch] = parts;
+  
+  const numericCheck = (value: string) => {
+    if (isNaN(Number(value)) || value === '0' || value.startsWith('0')) {
+      return false;
+    }
+    return true;
+  };
+  
+  // Validate the numeric parts
+  if (!numericCheck(major) || !numericCheck(minor) || !numericCheck(patch)) {
+    throw new Error('Invalid version format: non-numeric part');
+  }
+  
+  const prereleaseIndex = major.indexOf('-');
+  const buildIndex = major.indexOf('+');
+  
+  // Extract the optional prerelease and build strings
+  const prerelease = prereleaseIndex !== -1 ? major.slice(prereleaseIndex + 1) : null;
+  const build = buildIndex !== -1 ? major.slice(buildIndex + 1) : null;
+  
+  return {
+    major: Number(major),
+    minor: Number(minor),
+    patch: Number(patch),
+    prerelease,
+    build,
+  };
+}
+```

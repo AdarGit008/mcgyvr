@@ -1,0 +1,16 @@
+```typescript
+/**
+ * Safe division function that throws an error if the divisor is zero or
+ * either argument is not finite.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(b) || !isFinite(b)) {
+    throw new Error("Invalid divisor. Please provide a finite number.");
+  }
+  if (a === null || a === undefined) {
+    throw new Error("Invalid dividend. Please provide a valid number.");
+  }
+  
+  return a / b;
+}
+```

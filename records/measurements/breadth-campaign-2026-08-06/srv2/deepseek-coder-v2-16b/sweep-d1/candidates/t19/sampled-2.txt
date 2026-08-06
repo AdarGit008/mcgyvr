@@ -1,0 +1,12 @@
+ ```ts
+/** Divides two numbers safely, throwing an Error if the divisor is zero or either argument is infinite or NaN. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error("Both arguments must be finite numbers");
+  }
+  if (b === 0 || isNaN(b)) {
+    throw new Error("Divisor cannot be zero or NaN");
+  }
+  return a / b;
+}
+```

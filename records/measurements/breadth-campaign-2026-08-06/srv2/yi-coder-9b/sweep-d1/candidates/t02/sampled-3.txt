@@ -1,0 +1,23 @@
+```TS
+/** Merges overlapping intervals into smallest set of non-overlapping ones */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals)) throw new Error('Input must be an array');
+
+  // Sort by start time
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]); 
+
+  let merged: number[][] = [];
+  for (let i of sorted) {
+    if (i[0] > i[1]) throw new Error('Start time cannot be greater than end time');
+
+    // If this interval starts after the last one ends, append it to result.
+    // Else, grow the last interval in results by extending its end.
+    if (!merged.length || merged[merged.length - 1][1] < i[0]) {
+      merged.push([...i]);  // new array to avoid mutation of original intervals
+    } else if (merged[merged.length - 1][1] < i[1]) {
+      merged[merged.length - 1][1] = i[1]; // extend the previous interval
+    }
+  }
+  return merged;
+}
+```

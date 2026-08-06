@@ -1,0 +1,26 @@
+Here is a possible implementation: 
+
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (!Array.isArray(intervals) || intervals.some((interval) => !Array.isArray(interval) || interval.length !== 2)) {  // validation for input format
+        throw Error('Invalid argument');
+    }
+
+    const sortedIntervals = [...intervals].sort((a, b) => a[0] - b[0]); // sort intervals by start; do not mutate the original array
+    if (sortedIntervals.some(interval => interval[0] > interval[1])) {  // validation for each interval format
+        throw Error('Invalid argument');
+    }
+
+    const mergedIntervals: number[][] = [];
+    for (let currentInterval of sortedIntervals) {
+        if (mergedIntervals.length === 0 || mergedIntervals[mergedIntervals.length - 1][1] < currentInterval[0]) { // if the list is empty or current does not overlap with previous, append it
+            mergedIntervals.push([...currentInterval]);
+        } else {  // otherwise merge the current interval with the previous one
+            mergedIntervals[mergedIntervals.length - 1][1] = Math.max(mergedIntervals[mergedIntervals.length - 1][1], currentInterval[1]);
+        }
+    }
+    return mergedIntervals;
+}
+```
+
+This function starts by validating the input format and throwing an error if it is invalid. Then it sorts intervals by start in a non-destructive way (to avoid possible mutation). After that, it iterates over sorted intervals: each time it finds current interval does not overlap with previous one, appends it to mergedIntervals; otherwise, it merges the current interval with the previous one. All operations ensure returning new arrays and not mutating input data.

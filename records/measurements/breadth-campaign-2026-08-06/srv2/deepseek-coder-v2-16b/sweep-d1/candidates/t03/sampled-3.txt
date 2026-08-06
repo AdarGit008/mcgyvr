@@ -1,0 +1,25 @@
+ ```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const parts = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-([^-]+))?(?:\+(.+))?$/);
+    if (!parts) {
+        throw new Error(`Invalid semver format: ${version}`);
+    }
+    const [, major, minor, prerelease, build] = parts;
+    if (major.startsWith('0') && major !== '0') {
+        throw new Error(`Invalid semver format: ${version}`);
+    }
+    if (minor.startsWith('0') && minor !== '0') {
+        throw new Error(`Invalid semver format: ${version}`);
+    }
+    if (patch.startsWith('0') && patch !== '0') {
+        throw new Error(`Invalid semver format: ${version}`);
+    }
+    return {
+        major: parseInt(major, 10),
+        minor: parseInt(minor, 10),
+        patch: parseInt(patch, 10),
+        prerelease: prerelease || null,
+        build: build || null
+    };
+}
+```

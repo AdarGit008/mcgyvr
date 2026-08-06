@@ -1,0 +1,41 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges) throw new Error("Invalid input");
+    const inDegree = new Map<string, number>();
+    for (const node of nodes) inDegree.set(node, 0);
+
+    for (const [from, to] of edges) {
+        if (!inDegree.has(from)) throw new Error(`Edge ${from} not found`);
+        if (!inDegree.has(to)) throw new Error(`Edge ${to} not found`);
+        inDegree.set(to, inDegree.get(to)! + 1);
+    }
+
+    const sortedNodes: string[] = [];
+    const queue: string[] = [];
+
+    for (const node of nodes) {
+        if (inDegree.get(node)! === 0) queue.push(node);
+    }
+
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        sortedNodes.push(current);
+
+        for (const [from, to] of edges) {
+            if (to === current) {
+                inDegree.set(from, inDegree.get(from)! - 1);
+                if (inDegree.get(from)! === 0) queue.push(from);
+            }
+        }
+    }
+
+    const remainingNodes = new Set(nodes);
+    for (const node of sortedNodes) {
+        remainingNodes.delete(node);
+    }
+
+    if (remainingNodes.size > 0) throw new Error(`Cycle detected: ${Array.from(remainingNodes).join(', ')}`);
+
+    return sortedNodes;
+}
+```

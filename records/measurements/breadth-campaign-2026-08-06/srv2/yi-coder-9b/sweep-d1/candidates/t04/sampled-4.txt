@@ -1,0 +1,66 @@
+Here is how you could implement this:
+```ts
+interface Node<K, V> {
+  key: K;
+  value: V;
+  prev?: Node<K, V>;
+  next?: Node<K, V>;
+}
+
+export class LruCache<K, V> {
+  private readonly map = new Map<K, Node<K, V>>();
+  private head?: Node<K, V>;
+  private tail?: Node<K, V>;
+
+  constructor(private capacity: number) {
+    if (capacity <= 0 || Number.isNaN(capacity)) throw new Error('Capacity must be a positive integer');
+  }
+
+  get(key: K): V | undefined {
+    const node = this.map.get(key);
+    if (node === undefined) return; // or could be considered as not found error, if the contract explicitly mentions it
+    this.deleteNode(node);
+    this.insertAtHead(node);
+    return node.value;
+  }
+
+  set(key: K, value: V): void {
+    const node = this.map.get(key);
+    if (node !== undefined) {
+      node.value = value;
+      this.deleteNode(node);
+    } else if (this.map.size === this.capacity) {
+      this.map.delete(this.tail?.key as K); // TypeScript's type inference is too weak here to ensure tail is defined, hence the assertion
+      this.removeTail();
+    }
+    const newNode: Node<K, V> = { key, value };
+    this.map.set(key, newNode);
+    this.insertAtHead(newNode);
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+
+  private deleteNode(node: Node<K, V>): void {
+    if (node.prev !== undefined) node.prev.next = node.next;
+    else this.head = node.next; // node is the head
+    if (node.next !== undefined) node.next.prev = node.prev;
+    else this.tail = node.prev; // node is the tail
+  }
+
+  private insertAtHead(node: Node<K, V>): void {
+    node.next = this.head;
+    node.prev = undefined;
+    if (this.head !== undefined) this.head.prev = node;
+    else this.tail = node; // the list was empty
+    this.head = node;
+  }
+
+  private removeTail(): void {
+    this.tail = this.tail?.prev;
+    if (this.tail !== undefined) this.tail.next = undefined;
+    else this.head = undefined; // the list is now empty
+  }
+}
+```

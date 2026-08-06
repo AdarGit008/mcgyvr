@@ -1,0 +1,18 @@
+```ts
+/**
+ * A divided by b, rounded if necessary.
+ *
+ * @param a The number to divide.
+ * @param b The number to divide by.
+ * @throws Error if the divisor is zero (including -0) or not a finite number.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (typeof b !== 'number' || !Number.isFinite(b)) {
+    throw new Error('The divisor must be a finite number.');
+  }
+  if (b === 0) {
+    throw new Error('The divisor cannot be zero.');
+  }
+  return Math.round(a / b);
+}
+```

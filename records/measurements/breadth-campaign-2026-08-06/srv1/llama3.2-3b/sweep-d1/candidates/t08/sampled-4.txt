@@ -1,0 +1,54 @@
+```ts
+/**
+ * Returns a topological ordering of nodes that satisfies every edge in the graph.
+ *
+ * When several orderings are valid, picks the one that keeps nodes in their input order.
+ * Among nodes currently free of unmet dependencies, always takes the earliest node.
+ *
+ * Throws an Error naming a cycle when no ordering exists, or for an edge naming a node not in nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+  const graph = new Map<string, readonly string[]>();
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) {
+      throw new Error(`Edge from ${from} not in nodes`);
+    }
+    if (!graph.has(to) || !graph.get(to)?.includes(from)) {
+      throw new Error(`Edge from ${from} -> ${to} naming a node not in nodes`);
+    }
+    graph.get(from) ??= [];
+    graph.get(from)!.push(to);
+  }
+
+  const visited = new Set<string>();
+  const currentPath = new Set<string>();
+  const result: string[] = [];
+
+  function dfs(node: string): void {
+    if (currentPath.has(node)) {
+      throw new Error(`Cycle detected in node ${node}`);
+    }
+    if (visited.has(node)) {
+      return;
+    }
+    visited.add(node);
+    currentPath.add(node);
+
+    for (const neighbor of graph.get(node) || []) {
+      dfs(neighbor);
+    }
+
+    currentPath.delete(node);
+    result.push(node);
+  }
+
+  const sortedNodes = nodes.sort((a, b) => a.localeCompare(b));
+  for (const node of sortedNodes) {
+    if (!visited.has(node)) {
+      dfs(node);
+    }
+  }
+
+  return result.reverse();
+}
+```

@@ -1,0 +1,30 @@
+```ts
+/**
+ * Flattens an array up to the specified depth level, defaulting to every level.
+ * A string is a value, never something to iterate into. Null and undefined are treated as values.
+ * @param items The array to flatten.
+ * @param depth The depth level to flatten up to. Default is Infinity.
+ * @returns A new flattened array.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) {
+    return [...items];
+  }
+
+  const result: unknown[] = [];
+
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      if (depth > 0) {
+        result.push(...flatten(item, depth - 1));
+      } else {
+        result.push(...item);
+      }
+    } else if (item !== null && item !== undefined) {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+```

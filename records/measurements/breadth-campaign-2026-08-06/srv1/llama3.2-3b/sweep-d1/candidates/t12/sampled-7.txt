@@ -1,0 +1,12 @@
+```typescript
+/**
+ * The values with every negative number removed.
+ *
+ * @param values - An array of numbers from which all negatives are to be removed.
+ * @returns A new array with all negative numbers removed.
+ */
+export function removeNegatives(values: readonly number[]): number[] {
+  const result = [...values];
+  return result.filter((value) => value >= 0);
+}
+```

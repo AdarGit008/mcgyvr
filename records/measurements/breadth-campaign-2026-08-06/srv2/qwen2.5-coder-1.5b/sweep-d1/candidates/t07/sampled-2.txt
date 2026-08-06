@@ -1,0 +1,21 @@
+```ts
+function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth === 0) return [...items];
+
+  const result: unknown[] = [];
+
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      if (depth - 1 > 0) {
+        result.push(...flatten(item, depth - 1));
+      } else {
+        result.push(...item);
+      }
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,25 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const parts = version.match(/^v?(\d+)\.(\d+)\.(\d+)(?:-(.+))?(?:\+(.+))?$/);
+    if (!parts) {
+        throw new Error("Invalid input");
+    }
+
+    const major = parseInt(parts[1], 10);
+    const minor = parseInt(parts[2], 10);
+    const patch = parseInt(parts[3], 10);
+
+    let prerelease: string | null = null;
+    let build: string | null = null;
+
+    if (parts[4]) {
+        prerelease = parts[4].replace(/-/g, "");
+    }
+
+    if (parts[5]) {
+        build = parts[5].replace(/-/g, "");
+    }
+
+    return { major, minor, patch, prerelease, build };
+}
+```

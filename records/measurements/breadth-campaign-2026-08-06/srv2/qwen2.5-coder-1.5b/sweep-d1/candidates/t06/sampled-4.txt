@@ -1,0 +1,31 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  const parts = line.split(',');
+  return parts.map(part => {
+    if (part.trim() === '') return part;
+    
+    let result = '';
+    let inQuotes = false;
+    let escaped = false;
+
+    for (const char of part) {
+      if (!escaped && char === '"') {
+        inQuotes = !inQuotes;
+        continue;
+      }
+
+      if (!inQuotes && char === ',') return `Error: Unmatched quote at position ${part.indexOf(char)}.`;
+
+      if (!escaped) {
+        result += char;
+      } else {
+        escaped = false;
+      }
+    }
+
+    if (inQuotes) throw new Error('Unmatched quote in part at the end.');
+
+    return result.trim();
+  });
+}
+```

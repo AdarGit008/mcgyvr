@@ -1,0 +1,12 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  // Create a copy of the input array to avoid mutating it
+  const sortedValues = [...values];
+  
+  // Sort the copied array using the native sort method
+  sortedValues.sort((a, b) => a - b);
+  
+  return sortedValues;
+}
+```

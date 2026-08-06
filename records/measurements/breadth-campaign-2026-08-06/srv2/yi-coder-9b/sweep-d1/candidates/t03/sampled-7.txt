@@ -1,0 +1,17 @@
+Here's how you can solve this problem:
+
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const semverRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$/;
+    if (!semverRegex.test(version)) {
+        throw new Error('Invalid input');
+    }
+
+    const [major, minor, patch, prerelease = null, build = null] = version.split(/[-+]/g).map((part, index) => {
+        if (index === 0) return part.split(".").map(Number);
+        return part;
+    });
+
+    return { major, minor, patch, prerelease, build };
+}
+```

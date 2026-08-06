@@ -1,0 +1,34 @@
+```typescript
+import { strict as assert } from 'assert';
+
+/**
+ * Splits an array into consecutive groups of at most size elements, preserving order.
+ *
+ * @param items - The array to be chunked.
+ * @param size - The maximum number of elements per group.
+ * @returns An array of arrays containing chunks of the input array.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (size <= 0) {
+    throw new Error('Size must be a positive integer.');
+  }
+
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+}
+
+// Test cases to verify the correctness of the chunk function
+function testChunk() {
+  assert.deepEqual(chunk([], 1), []);
+  assert.deepEqual(chunk([1, 2, 3], 0), []);
+  assert.deepEqual(chunk([1, 2, 3], -1), []);
+  assert.deepEqual(chunk([1, 2, 3], 4), [[1, 2, 3]]);
+  assert.deepEqual(chunk([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+  assert.deepEqual(chunk(['a', 'b', 'c', 'd', 'e'], 3), [['a', 'b', 'c'], ['d', 'e']]);
+}
+
+testChunk();
+```

@@ -1,0 +1,50 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Record<string, Set<string>> = {};
+  const inDegree: Record<string, number> = {};
+
+  // Initialize the graph and in-degree map
+  for (const node of nodes) {
+    graph[node] = new Set();
+    inDegree[node] = 0;
+  }
+
+  // Build the graph and calculate in-degrees
+  for (const [from, to] of edges) {
+    if (!graph[from] || !graph[to]) {
+      throw new Error(`Edge references a node not in nodes: ${from} -> ${to}`);
+    }
+    graph[from].add(to);
+    inDegree[to]++;
+  }
+
+  // Initialize the queue with nodes having no dependencies
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if (inDegree[node] === 0) {
+      queue.push(node);
+    }
+  }
+
+  const sortedNodes: string[] = [];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    sortedNodes.push(node);
+
+    for (const neighbor of graph[node]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check for cycles
+  if (sortedNodes.length !== nodes.length) {
+    throw new Error('Graph contains a cycle');
+  }
+
+  return sortedNodes;
+}
+```

@@ -1,0 +1,84 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { key: K; value: V }>;
+  private head: { next?: CacheNode, prev?: CacheNode } | null = null;
+
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.cache = new Map<K, { key: K; value: V }>();
+  }
+
+  get(key: K): V | undefined {
+    const node = this.cache.get(key);
+    if (!node) return;
+
+    // Move the accessed node to the front of the list
+    this.moveToFront(node);
+
+    return node.value;
+  }
+
+  set(key: K, value: V): void {
+    const node = this.cache.get(key);
+    if (node) {
+      // Update the existing node with the new value
+      node.value = value;
+      this.moveToFront(node);
+    } else {
+      // Add a new node to the front of the list
+      const newNode = { key, value };
+      this.cache.set(key, newNode);
+      this.addToFront(newNode);
+
+      // If capacity is exceeded, remove the least recently used node from the back
+      if (this.cache.size > this.capacity) {
+        this.removeFromEnd();
+      }
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private moveToFront(node: { key: K; value: V }) {
+    // Remove the node from its current position
+    if (node.prev) node.prev.next = node.next;
+    if (node.next) node.next.prev = node.prev;
+
+    // Move the node to the front of the list
+    node.next = this.head;
+    node.prev = null;
+
+    if (this.head) this.head.prev = node;
+    this.head = node;
+  }
+
+  private addToFront(node: { key: K; value: V }) {
+    if (!this.head) {
+      this.head = node;
+    } else {
+      const oldHead = this.head;
+      this.head = node;
+      oldHead.prev = node;
+      node.next = oldHead;
+    }
+  }
+
+  private removeFromEnd() {
+    const lastNode = this.cache.get(this.cache.keys().next().value);
+    if (lastNode) {
+      // Remove the last node from the list
+      if (lastNode.prev) lastNode.prev.next = null;
+      if (lastNode.next) lastNode.next.prev = null;
+
+      // Also remove it from the cache
+      this.cache.delete(lastNode.key);
+    }
+  }
+}
+```

@@ -1,0 +1,33 @@
+```ts
+/**
+ * Run-length encodes the input string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const length = input.length;
+  if (length === 0) return '';
+
+  let result: string[] = [];
+  let currentChar = input[0];
+  let count = 1;
+
+  for (let i = 1; i < length; i++) {
+    const char = input[i];
+    if (char === currentChar) {
+      count++;
+    } else {
+      result.push(currentChar + count.toString());
+      currentChar = char;
+      count = 1;
+    }
+  }
+
+  // push the last run
+  result.push(currentChar + count.toString());
+
+  return result.join('');
+}
+```

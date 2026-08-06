@@ -1,0 +1,20 @@
+Here is the implementation in TypeScript:
+
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const regex = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9a-zA-Z-]+))?(?:\+([0-9a-zA-Z-]+))?$/;
+    const match = version.match(regex);
+    if (!match) {
+        throw new Error('Invalid input: ' + version);
+    }
+  
+    return { 
+       major: parseInt(match[1]),
+       minor: parseInt(match[2]),
+       patch: parseInt(match[3]),
+       prerelease: match[4] || null,
+       build: match[5] || null,
+   };
+}
+```
+This function uses a regular expression to validate and break up the version string. If there is no match, it throws an error naming the input. Otherwise, it returns an object containing the three numbers plus the prerelease and build strings, each set to null when absent.

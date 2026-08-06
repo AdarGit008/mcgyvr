@@ -1,0 +1,7 @@
+```typescript
+export function removeNegatives(values: readonly number[]): number[] {
+  return values.filter(value => value >= 0);
+}
+```
+
+This implementation uses `Array.prototype.filter` to create a new array containing only non-negative numbers, thus avoiding mutating the original array.

@@ -1,0 +1,53 @@
+```typescript
+/**
+ * Returns an ordering satisfying every edge in the given edges among nodes.
+ * When several orderings are valid, picks the one that keeps nodes in their input order,
+ * among the nodes currently free of unmet dependencies, always take the earliest in nodes.
+ *
+ * @param nodes Names of all nodes.
+ * @param edges Edges meaning from must come before to
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    const nodeToEdges = {}
+    for (const edge of edges) {
+        if (!nodeToEdges[edge[0]]) {
+            nodeToEdges[edge[0]] = []
+        }
+        if (!nodeToEdges[edge[1]]) {
+            nodeToEdges[edge[1]] = []
+        }
+        nodeToEdges[edge[0]].push(edge[1])
+    }
+
+    const visited: Set<string> = new Set()
+    const stack: string[] = []
+
+    function hasCycle(node: string): boolean {
+        if (visited.has(node)) {
+            return true
+        }
+        if (!nodeToEdges[node]) {
+            return false
+        }
+        for (const neighbor of nodeToEdges[node]) {
+            if (hasCycle(neighbor)) {
+                throw new Error('Cycle detected')
+            }
+        }
+        visited.add(node)
+        stack.push(node)
+        return false
+    }
+
+    const result: string[] = []
+    for (let i = 0; i < nodes.length; i++) {
+        if (!visited.has(nodes[i])) {
+            hasCycle(nodes[i])
+                ? throw new Error('Cycle detected')
+                : result.push(...stack.splice(stack.indexOf(nodes[i]), 1))
+        }
+    }
+
+    return result
+}
+```

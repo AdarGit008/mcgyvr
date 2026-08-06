@@ -1,0 +1,36 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') throw Error('Expected a string');
+
+  let prevChar = '';
+  let charCount = 0;
+  let result = '';
+
+  for (let i = 0; i < input.length; i++) {
+    const currentChar = input[i];
+    if (currentChar === prevChar) {
+      charCount++;
+    } else {
+      if (charCount > 1 && charCount <= 9) {
+        result += `${prevChar}${charCount}`;
+      } else if (charCount === 1) {
+        result += prevChar;
+      } else {
+        throw Error('Expected a run length between 2 and 9 characters');
+      }
+      prevChar = currentChar;
+      charCount = 1;
+    }
+  }
+
+  if (charCount > 1 && charCount <= 9) {
+    result += `${prevChar}${charCount}`;
+  } else if (charCount === 1) {
+    result += prevChar;
+  } else {
+    throw Error('Expected a run length between 2 and 9 characters');
+  }
+
+  return result;
+}
+```

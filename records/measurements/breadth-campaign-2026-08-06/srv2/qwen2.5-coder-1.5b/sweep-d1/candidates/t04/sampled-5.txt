@@ -1,0 +1,66 @@
+```ts
+import { strict as assert } from 'assert';
+
+export class LruCache<K, V> {
+  private capacity: number;
+  private map: Map<K, [V, number]> = new Map();
+  private oldestKey?: K;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.map.get(key);
+    if (entry) {
+      // Update the age of the key
+      entry[1]++;
+      return entry[0];
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    const currentEntry = this.map.get(key);
+    if (currentEntry) {
+      // Update the value and the age of the key
+      currentEntry[0] = value;
+      currentEntry[1]++;
+    } else {
+      // Check if the cache is full
+      if (this.map.size === this.capacity) {
+        // Evict the least recently used entry
+        const oldestEntry = Array.from(this.map.entries()).sort((a, b) => a[1] - b[1])[0];
+        this.map.delete(oldestEntry[0]);
+        this.oldestKey = undefined;
+      }
+      // Add the new entry
+      this.map.set(key, [value, 1]);
+      this.oldestKey = key;
+    }
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+}
+
+// Check function to verify the correctness of the solution
+function checkLruCache() {
+  const cache = new LruCache(3);
+  assert.strictEqual(cache.get('a'), undefined, 'get on a missing key should return undefined');
+  cache.set('a', 1);
+  assert.strictEqual(cache.get('a'), 1, 'set should update the value and count as a use');
+  cache.set('b', 2);
+  cache.set('c', 3);
+  cache.set('d', 4);
+  assert.strictEqual(cache.get('d'), 4, 'get should return the updated value');
+  assert.strictEqual(cache.get('a'), undefined, 'get on an expired key should return undefined');
+  assert.strictEqual(cache.size(), 3, 'size should report the current entry count');
+}
+
+checkLruCache();
+```

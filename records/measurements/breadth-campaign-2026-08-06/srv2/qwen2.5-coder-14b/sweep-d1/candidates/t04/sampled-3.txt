@@ -1,0 +1,50 @@
+```ts
+export class LruCache<K, V> {
+  private readonly capacity: number;
+  private readonly cache: Map<K, V>;
+  private readonly order: K[];
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+    this.order = [];
+  }
+
+  get(key: K): V | undefined {
+    if (this.cache.has(key)) {
+      const value = this.cache.get(key);
+      this.updateOrder(key);
+      return value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.updateOrder(key);
+    } else if (this.size >= this.capacity) {
+      const lruKey = this.order.shift();
+      if (lruKey !== undefined) {
+        this.cache.delete(lruKey);
+      }
+    }
+    this.cache.set(key, value);
+    this.order.push(key);
+  }
+
+  private updateOrder(key: K): void {
+    const index = this.order.indexOf(key);
+    if (index !== -1) {
+      this.order.splice(index, 1);
+    }
+    this.order.push(key);
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```

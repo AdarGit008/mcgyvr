@@ -1,0 +1,55 @@
+```ts
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+    private capacity: number;
+    private cache: Map<K, { value: V; time: number }> = new Map();
+    private time: number = 0;
+
+    /**
+     * Creates a new LruCache.
+     *
+     * @param capacity The maximum number of entries in the cache.
+     */
+    constructor(capacity: number) {
+        if (typeof capacity !== 'number' || capacity <= 0) {
+            throw new Error('Capacity must be a positive integer.');
+        }
+        this.capacity = capacity;
+    }
+
+    /**
+     * Retrieves the value associated with the given key, or undefined
+     * if no such entry exists.
+     */
+    get(key: K): V | undefined {
+        if (this.cache.has(key)) {
+            const { value, time } = this.cache.get(key)!!
+            this.cache.set(key, { value, time: ++time });
+            return value;
+        }
+        return undefined;
+    }
+
+    /**
+     * Inserts or updates the given key-value pair.
+     */
+    set(key: K, value: V): void {
+        if (this.cache.has(key)) {
+            this.cache.delete(key);
+        } else if (this.cache.size >= this.capacity) {
+            const [_, { value }] = Array.from(this.cache.entries()).slice(-1);
+            this.cache.delete(_);
+        }
+        this.cache.set(key, { value, time: ++this.time });
+    }
+
+    /**
+     * Returns the number of entries currently in the cache.
+     */
+    get size(): number {
+        return this.cache.size;
+    }
+}
+```

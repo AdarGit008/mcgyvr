@@ -1,0 +1,30 @@
+```typescript
+/**
+ * Flattens an array up to a specified depth level.
+ * A string is considered a value and does not trigger recursion.
+ * @param items - The array to be flattened.
+ * @param depth - The maximum depth level. Defaults to Infinity.
+ * @returns A new flattened array.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  const result: unknown[] = [];
+
+  function recursiveFlatten(item: unknown, currentDepth = 0): void {
+    if (!Array.isArray(item)) {
+      return result.push(item);
+    }
+
+    for (const element of item) {
+      recursiveFlatten(element, currentDepth + 1);
+    }
+  }
+
+  recursiveFlatten(items);
+
+  return result;
+}
+```

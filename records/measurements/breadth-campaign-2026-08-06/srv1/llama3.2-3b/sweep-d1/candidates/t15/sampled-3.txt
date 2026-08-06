@@ -1,0 +1,30 @@
+```ts
+/** Validates and converts temperature to Fahrenheit or Kelvin */
+export function validateAndConvert(celsius: number): [number, boolean] {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return [celsius * 1.8 + 32, true], [celsius + 273.15, false];
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  const [, isKelvin] = validateAndConvert(celsius);
+  if (isKelvin) {
+    throw new Error("celsiusToFahrenheit cannot be used for Kelvin");
+  }
+  return celsius * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  const [, isFahrenheit] = validateAndConvert(celsius);
+  if (isFahrenheit) {
+    throw new Error("celsiusToKelvin cannot be used for Fahrenheit");
+  }
+  return celsius + 273.15;
+}
+```

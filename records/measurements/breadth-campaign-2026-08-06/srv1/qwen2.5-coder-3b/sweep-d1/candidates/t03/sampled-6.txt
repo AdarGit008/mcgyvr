@@ -1,0 +1,26 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  // Trim whitespace from the input
+  version = version.trim();
+
+  // Regular expression to match a semver string of the form MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
+  const semverRegex = /^(\d+)\.(\d+)\.(\d+)(?:-(\w+))?(?:\+(.+))?$/;
+
+  const match = version.match(semverRegex);
+
+  if (!match) {
+    throw new Error(`Invalid semantic version string: ${version}`);
+  }
+
+  // Parse the matched groups into numbers and strings
+  const [_, major, minor, patch, prerelease, build] = match;
+
+  return {
+    major: parseInt(major, 10),
+    minor: parseInt(minor, 10),
+    patch: parseInt(patch, 10),
+    prerelease: prerelease ? prerelease : null,
+    build: build ? build : null,
+  };
+}
+```

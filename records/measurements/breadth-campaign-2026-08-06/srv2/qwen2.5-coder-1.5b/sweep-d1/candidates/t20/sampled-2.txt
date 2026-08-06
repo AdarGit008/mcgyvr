@@ -1,0 +1,42 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * The KEY=VALUE pairs of a config file. Ignore blank lines and lines whose first non-space character is #,
+ * trim whitespace around the key and the value, and split on the FIRST = only so a value may contain one.
+ * Throw an Error naming the line for a line with no = and for an empty key. A key must never reach the prototype of
+ * the returned object: parsing "__proto__=x" must produce a plain data key, leaving Object.prototype untouched.
+ * Return the complete fixed file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+
+  for (const line of text.split("\n")) {
+    line = line.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    const parts = line.split('=');
+    const key = parts[0].trim();
+    const value = parts[1].trim();
+
+    if (!key) throw new Error(`Line ${line} has a blank key`);
+    if (config[key]) throw new Error(`Duplicate key: ${key}`);
+
+    config[key] = value;
+  }
+
+  return Object.freeze(config);
+}
+
+// Check function to verify the correctness of the solution
+function check() {
+  assert.deepStrictEqual(parseConfig('key1=value1'), { key1: 'value1' });
+  assert.deepStrictEqual(parseConfig('  key2   =   value2  '), { key2: 'value2' });
+  assert.deepStrictEqual(parseConfig('# comment\nkey3=value3'), { key3: 'value3' });
+  assert.throws(() => parseConfig('no equals'), 'No = found on line');
+  assert.throws(() => parseConfig('key4=   '), 'Empty key found on line');
+  assert.deepStrictEqual(parseConfig('__proto__=x'), { '__proto__': 'x' });
+}
+
+check();
+```

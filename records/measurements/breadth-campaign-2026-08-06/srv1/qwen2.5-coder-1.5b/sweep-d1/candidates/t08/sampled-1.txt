@@ -1,0 +1,36 @@
+```ts
+import { Graph } from 'graphology';
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes.length) return [];
+
+  const graph = new Graph();
+  nodes.forEach(node => graph.addNode(node));
+  edges.forEach(([from, to]) => graph.addEdge(from, to));
+
+  let order: string[] = [];
+  let visited = new Set<string>();
+
+  function dfs(node: string): void {
+    if (visited.has(node)) return;
+    visited.add(node);
+    const neighbors = graph.neighbors(node).filter(neighbor => !visited.has(neighbor));
+    for (const neighbor of neighbors) {
+      dfs(neighbor);
+    }
+    order.push(node);
+  }
+
+  for (const node of nodes) {
+    if (!visited.has(node)) {
+      dfs(node);
+    }
+  }
+
+  if (order.length < nodes.length) {
+    throw new Error('Cycle detected');
+  }
+
+  return order;
+}
+```

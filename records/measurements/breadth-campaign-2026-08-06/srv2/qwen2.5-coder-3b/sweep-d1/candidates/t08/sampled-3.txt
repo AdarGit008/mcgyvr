@@ -1,0 +1,52 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Map<string, Set<string>> = new Map();
+  const indegreeMap: Map<string, number> = new Map();
+
+  // Build the adjacency list and indegree map
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) {
+      graph.set(from, new Set());
+    }
+    if (!graph.has(to)) {
+      graph.set(to, new Set());
+    }
+
+    graph.get(from)?.add(to);
+    indegreeMap.set(to, (indegreeMap.get(to) || 0) + 1);
+  }
+
+  // Find all nodes with no dependencies
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if (!graph.has(node)) {
+      throw new Error(`Node "${node}" not found in nodes`);
+    }
+    if (indegreeMap.get(node) === undefined || indegreeMap.get(node) === 0) {
+      queue.push(node);
+    }
+  }
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+
+    for (const neighbor of graph.get(node)!) {
+      indegreeMap.set(neighbor, indegreeMap.get(neighbor)! - 1);
+      if (indegreeMap.get(neighbor)! === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check if all nodes were processed
+  const remainingNodes = Array.from(indegreeMap.keys()).filter(node => indegreeMap.get(node)! !== 0);
+  if (remainingNodes.length > 0) {
+    throw new Error(`Cycle detected: ${remainingNodes.join(', ')}`);
+  }
+
+  return result;
+}
+```

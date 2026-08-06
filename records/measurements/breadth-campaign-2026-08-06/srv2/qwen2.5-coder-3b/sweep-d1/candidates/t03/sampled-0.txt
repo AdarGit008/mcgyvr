@@ -1,0 +1,20 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const parts = version.split('-');
+    const [versionPart, prerelease] = [...parts];
+
+    if (!/^(\d+)\.(\d+)\.(\d+)(?:-([\w.-]+))?$/.test(versionPart)) {
+        throw new Error(`Invalid semver format: ${version}`);
+    }
+
+    const [major, minor, patch] = versionPart.split('.').map(Number);
+
+    return {
+        major,
+        minor,
+        patch,
+        prerelease,
+        build: parts.length > 1 ? prerelease : null
+    };
+}
+```

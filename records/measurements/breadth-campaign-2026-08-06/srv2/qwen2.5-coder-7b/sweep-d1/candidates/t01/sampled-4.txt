@@ -1,0 +1,23 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  if (input.length === 0) {
+    return '';
+  }
+
+  const encodedParts = Array.from(input).reduce((acc, char, index) => {
+    const lastPart = acc[acc.length - 1];
+    if (lastPart && lastPart.charAt(0) === char) {
+      acc[acc.length - 1] = char + (parseInt(lastPart.slice(1)) + 1);
+    } else {
+      acc.push(char + '1');
+    }
+    return acc;
+  }, [] as string[]);
+
+  return encodedParts.join('');
+}
+```

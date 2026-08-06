@@ -1,0 +1,18 @@
+Here is a TypeScript implementation that follows your specifications:
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0 || !Number.isInteger(depth)) throw new Error('Depth must be a non-negative integer or Infinity');
+  const flattenedItems: unknown[] = [];
+  for (let i = 0; i < items.length; ++i) {
+    if (Array.isArray(items[i]) && depth > 0) {
+      flattenedItems.push(...flatten(items[i] as unknown[], depth - 1)); // recursive flatten on nested arrays
+    } else {
+      flattenedItems.push(items[i]);
+    }
+  }
+  return flattenedItems;
+}
+```
+This function maintains a `flattenedItems` array which is used to store the already flattened elements. It iterates over every item in the input, and if it's an array and we are allowed to iterate (depth > 0), it calls itself on this nested array recursively decreasing depth by one. Otherwise, the item just gets added to `flattenedItems`.
+
+This implementation respects all constraints specified in your prompt — including the requirement not to mutate the input — and follows the "pure function" pattern.

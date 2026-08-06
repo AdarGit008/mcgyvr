@@ -1,0 +1,99 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { value: V, timestamp: number }>;
+  private head: { key: K; next?: LinkedNode<K, V> } | null = null;
+  private tail: { key: K; prev?: LinkedNode<K, V> } | null = null;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (!entry) return;
+
+    // Update the use timestamp
+    entry.timestamp = Date.now();
+
+    // Move the key to the front of the list
+    this.moveToFront(entry);
+
+    return entry.value;
+  }
+
+  set(key: K, value: V): void {
+    const existingEntry = this.cache.get(key);
+    if (existingEntry) {
+      // Update the use timestamp and move to the front
+      existingEntry.timestamp = Date.now();
+      existingEntry.value = value;
+      this.moveToFront(existingEntry);
+    } else {
+      // Add a new entry
+      const newNode: LinkedNode<K, V> = { key, value, timestamp: Date.now() };
+      if (this.cache.size >= this.capacity) {
+        // Evict the least recently used entry
+        const lruNode = this.tail!;
+        this.cache.delete(lruNode.key);
+        this.removeNode(lruNode);
+      }
+      this.cache.set(key, newNode);
+      this.moveToFront(newNode);
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private moveToFront(node: { key: K; value: V; timestamp: number }): void {
+    if (this.head === node) return;
+
+    // Remove the node from its current position
+    if (node.prev) {
+      node.prev.next = node.next;
+    } else {
+      this.head = node.next;
+    }
+    if (node.next) {
+      node.next.prev = node.prev;
+    } else {
+      this.tail = node.prev;
+    }
+
+    // Add the node to the front
+    node.next = this.head;
+    node.prev = null;
+    if (this.head) {
+      this.head.prev = node;
+    }
+    this.head = node;
+  }
+
+  private removeNode(node: { key: K; value: V; timestamp: number }): void {
+    if (node.prev) {
+      node.prev.next = node.next;
+    } else {
+      this.head = node.next;
+    }
+    if (node.next) {
+      node.next.prev = node.prev;
+    } else {
+      this.tail = node.prev;
+    }
+  }
+}
+
+interface LinkedNode<K, V> {
+  key: K;
+  value: V;
+  timestamp: number;
+  next?: LinkedNode<K, V>;
+  prev?: LinkedNode<K, V>;
+}
+```

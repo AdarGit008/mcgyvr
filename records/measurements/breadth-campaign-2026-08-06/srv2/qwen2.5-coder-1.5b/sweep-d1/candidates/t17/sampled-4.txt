@@ -1,0 +1,4 @@
+```ts
+/** The words grouped by their length, in first-seen order. */
+export function groupByLength(words: readonly string[]): Map<number, string[]>;
+```

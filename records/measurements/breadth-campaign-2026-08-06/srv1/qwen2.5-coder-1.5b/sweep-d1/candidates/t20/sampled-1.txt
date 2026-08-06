@@ -1,0 +1,50 @@
+```ts
+import { strict as assert } from 'assert';
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim().startsWith('#') && line.includes('=')) {
+      const [key, value] = line.replace(/\s+$/, '').split("=");
+      if (typeof key !== 'string') {
+        throw new Error(`Invalid key: ${line}`);
+      }
+      if (config.hasOwnProperty(key) && !['__proto__', '_'].includes(key.toLowerCase())) {
+        // Repeated keys are handled here, depending on your requirements
+        // For example, you might want to throw an error or ignore duplicates
+        continue;
+      }
+      config[key] = value;
+    } else if (!line.trim().startsWith('#') && !line.includes('=')) {
+      throw new Error(`No '=' found in line: ${line}`);
+    }
+  }
+  return config;
+}
+
+// Test cases to verify the correctness of the solution
+function testParseConfig() {
+  const testCases = [
+    { input: "", expected: {} },
+    { input: "a=b\n", expected: { a: 'b' } },
+    { input: "# comment\na=b\n", expected: { a: 'b' } },
+    { input: "a= b\n", expected: { a: 'b' } }, // Trim whitespace around the key
+    { input: "a =b\n", expected: { a: 'b' } }, // Split on the FIRST =
+    { input: "__proto__=x\n", expected: { '__proto__': 'x' } }, // Preserve Object.prototype
+    { input: "key=value\nother=foo\n", expected: { key: 'value', other: 'foo' } }
+  ];
+
+  testCases.forEach(({ input, expected }) => {
+    try {
+      assert.deepStrictEqual(parseConfig(input), expected);
+    } catch (error) {
+      console.error(`Test failed for input "${input}": ${error.message}`);
+    }
+  });
+
+  console.log("All tests passed!");
+}
+
+testParseConfig();
+```

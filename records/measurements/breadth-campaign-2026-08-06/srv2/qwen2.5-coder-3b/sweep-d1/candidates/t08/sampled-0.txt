@@ -1,0 +1,47 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map<string, Set<string>>();
+    const indegrees = new Map<string, number>();
+
+    // Build the graph and calculate indegree for each node
+    nodes.forEach(node => graph.set(node, new Set()));
+    edges.forEach(([from, to]) => {
+        if (!graph.has(from) || !graph.has(to)) {
+            throw new Error("Node not found");
+        }
+        graph.get(from)?.add(to);
+        indegrees.set(to, (indegrees.get(to) ?? 0) + 1);
+    });
+
+    // Initialize the queue with nodes that have no dependencies
+    const queue: string[] = [];
+    nodes.forEach(node => {
+        if (!indegrees.has(node)) {
+            queue.push(node);
+        }
+    });
+
+    const result: string[] = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        // Decrease the indegree of neighbors
+        graph.get(node)?.forEach(neighbor => {
+            indegrees.set(neighbor, (indegrees.get(neighbor)! - 1));
+            if (indegrees.get(neighbor)! === 0) {
+                queue.push(neighbor);
+            }
+        });
+    }
+
+    // Check for cycles
+    const allNodesVisited = nodes.every(node => result.includes(node));
+    if (!allNodesVisited) {
+        throw new Error("Cycle detected");
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,28 @@
+```ts
+/**
+ * Parses a semantic version string.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?(?:\+(.+))?$/);
+  
+  if (match === null) {
+    throw new Error(`Invalid semver: ${version}`);
+  }
+  
+  const [, major, minor, patch, prerelease, build] = match;
+  
+  return {
+    major: parseInt(major),
+    minor: parseInt(minor),
+    patch: parseInt(patch),
+    prerelease,
+    build,
+  };
+}
+```

@@ -1,0 +1,16 @@
+```ts
+/**
+ * Flatten nested arrays up to the specified depth.
+ *
+ * @param items - The input array of unknown values.
+ * @param depth - Optional non-negative integer or Infinity indicating how deep to flatten; defaults to all levels.
+ * @returns A new array with nested arrays flattened accordingly.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  // Validate depth
+  const maxDepth = depth === undefined ? Infinity : depth;
+  if (
+    typeof maxDepth !== 'number' ||
+    !Number.isFinite(maxDepth) && maxDepth !== Infinity ||
+    maxDepth < 0 ||
+    (maxDepth

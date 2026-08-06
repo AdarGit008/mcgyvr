@@ -1,0 +1,54 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges) {
+        throw new Error('Input cannot be empty');
+    }
+
+    const nodeSet = new Set(nodes);
+    const adjList = new Map<string, string[]>(nodeSet);
+
+    for (const edge of edges) {
+        if (!nodeSet.has(edge[0]) || !nodeSet.has(edge[1])) {
+            throw new Error(`Edge contains a node not in nodes: ${edge}`);
+        }
+
+        const from = edge[0];
+        const to = edge[1];
+        adjList.set(from, adjList.get(from) ?? []);
+        adjList.get(from)?.push(to);
+    }
+
+    if (!adjList.has(nodes[0])) {
+        throw new Error('Graph has no root node');
+    }
+
+    const visited = new Set<string>();
+    const result: string[] = [];
+
+    function dfs(node: string): void {
+        if (visited.has(node)) return;
+
+        visited.add(node);
+        for (const neighbor of adjList.get(node) ?? []) {
+            dfs(neighbor);
+        }
+        result.push(node);
+    }
+
+    let hasCycle = false;
+    for (const node of nodes) {
+        if (!visited.has(node)) {
+            dfs(node);
+
+            // If the last node added to result is not the same as the first node in adjList, it forms a cycle
+            if (result[result.length - 1] !== adjList.get(nodes[0])?.[0]) {
+                hasCycle = true;
+            }
+        }
+    }
+
+    if (hasCycle) throw new Error('Graph contains a cycle');
+
+    return result;
+}
+```

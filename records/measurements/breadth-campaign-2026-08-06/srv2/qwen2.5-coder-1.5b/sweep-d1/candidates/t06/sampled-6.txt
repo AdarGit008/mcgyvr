@@ -1,0 +1,52 @@
+```ts
+/**
+ * Splits one line of CSV into its fields on commas, respecting quoted fields.
+ *
+ * @param line - The line to split into fields.
+ * @returns An array of field values.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (!line || line.trim() === '') return [];
+
+  const result: string[] = [];
+  let inQuotes = false;
+  let currentField = '';
+  let quoteCount = 0;
+
+  for (const char of line) {
+    if (inQuotes) {
+      if (char === '"') {
+        if (quoteCount % 2 === 1) {
+          // End of quoted field
+          inQuotes = false;
+          result.push(currentField.trim());
+          currentField = '';
+        } else {
+          // Inside quoted field
+          quoteCount++;
+          currentField += char;
+        }
+      } else {
+        currentField += char;
+      }
+    } else {
+      if (char === ',') {
+        // End of field
+        result.push(currentField.trim());
+        currentField = '';
+      } else if (char === '"') {
+        inQuotes = true;
+        quoteCount++;
+        currentField += char;
+      } else {
+        currentField += char;
+      }
+    }
+  }
+
+  // Add the last field if it exists
+  if (currentField) result.push(currentField.trim());
+
+  return result;
+}
+```

@@ -1,0 +1,68 @@
+```typescript
+type CacheEntry<K, V> = { key: K; value: V };
+
+class LruCache<K, V> {
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+    this.capacity = capacity;
+    this.cache = new Map<K, CacheEntry<K, V>>();
+    this.head = null;
+    this.tail = null;
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
+
+    // Move the accessed entry to the front
+    this.moveToFront(entry);
+
+    return entry.value;
+  }
+
+  set(key: K, value: V): void {
+    let entry = this.cache.get(key);
+    if (entry) {
+      // Update existing entry
+      entry.value = value;
+      this.moveToFront(entry);
+    } else {
+      // Add new entry to the front
+      const newEntry: CacheEntry<K, V> = { key, value };
+      this.cache.set(key, newEntry);
+      if (this.size === this.capacity) {
+        // Remove the least recently used entry from the tail
+        delete this.cache[this.tail.key];
+        this.tail = this.tail.prev;
+        if (this.tail !== null) this.tail.next = null;
+      } else {
+        // Add to the front
+        newEntry.prev = null;
+        newEntry.next = this.head;
+        if (this.head !== null) this.head.prev = newEntry;
+        this.head = newEntry;
+      }
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private moveToFront(entry: CacheEntry<K, V>): void {
+    if (entry === this.head) return;
+
+    // Update the previous and next entries
+    if (entry.prev !== null) entry.prev.next = entry.next;
+    if (entry.next !== null) entry.next.prev = entry.prev;
+
+    // Move the entry to the front
+    entry.prev = null;
+    entry.next = this.head;
+    if (this.head !== null) this.head.prev = entry;
+    this.head = entry;
+  }
+}
+```

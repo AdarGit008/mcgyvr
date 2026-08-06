@@ -1,0 +1,27 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+    /**
+     * Split one line of CSV into its fields on commas, handling quoted and unquoted fields,
+     * including nested quotes and surrounding spaces. An empty line is one empty field.
+     */
+    const result = [];
+    let currentField = '';
+    let inQuote = false;
+    for (const char of line) {
+        if (char === '"') {
+            inQuote = !inQuote;
+            currentField += char;
+        } else if (!inQuote && char === ',') {
+            if (currentField) result.push(currentField);
+            currentField = '';
+        } else {
+            currentField += char;
+        }
+    }
+    if (currentField) result.push(currentField);
+    if (result.some(field => field !== '' && !field.includes('"'))) {
+        throw new Error('Unbalanced quotes in CSV line');
+    }
+    return result;
+}
+```

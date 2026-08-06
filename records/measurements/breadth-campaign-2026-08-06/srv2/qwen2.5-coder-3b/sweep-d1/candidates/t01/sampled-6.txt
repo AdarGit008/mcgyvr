@@ -1,0 +1,21 @@
+```typescript
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const encoded = input.split('').reduce((acc, char, index) => {
+    const prevChar = acc[acc.length - 1];
+    if (
+      prevChar === undefined ||
+      prevChar.char !== char || 
+      (prevChar.count + 1) >= 9
+    ) {
+      return [...acc, { char, count: 1 }];
+    }
+    return [{ ...prevChar, count: prevChar.count + 1 }];
+  }, [] as { char: string, count: number }[]);
+
+  return encoded.map(item => item.char + item.count.toString()).join('');
+}
+```

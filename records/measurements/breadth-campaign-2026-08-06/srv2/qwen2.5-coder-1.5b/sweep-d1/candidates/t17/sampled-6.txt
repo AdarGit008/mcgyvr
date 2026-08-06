@@ -1,0 +1,20 @@
+```ts
+/**
+ * The words grouped by their length, in first-seen order.
+ *
+ * @param {readonly string[]} words - Input array of strings to group.
+ * @returns {Map<number, string[]>} A map where keys are lengths and values are arrays of strings of that length.
+ */
+export function groupByLength(words: readonly string[]): Map<number, string[]> {
+  const groups = new Map<number, string[]>();
+  for (const word of words) {
+    const bucket = groups.get(word.length);
+    if (bucket === undefined) {
+      groups.set(word.length, [word]);
+    } else {
+      bucket.push(word);
+    }
+  }
+  return groups;
+}
+```

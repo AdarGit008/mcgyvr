@@ -1,0 +1,44 @@
+Here is the implementation of the topologicalSort function following the provided task contract:
+
+```ts
+export interface Node {
+  value: string;
+  dependencies: Set<Node>;
+  dependants: Set<Node>;
+}
+
+function createGraph(nodes: readonly string[], edges: readonly (readonly [string, string])[]): Map<string, Node> {
+  const graph = new Map<string, Node>(nodes.map(value => [value, { value, dependencies: new Set(), dependants: new Set() }]));
+  for (let edge of edges) {
+    if (!graph.has(edge[0]) || !graph.has(edge[1])) throw Error('Edge naming a node not in nodes');
+    const from = graph.get(edge[0]) as Node;
+    const to = graph.get(edge[1]) as Node;
+    if (from.dependants.has(to) || to.dependencies.has(from)) throw Error('Cycle detected');
+    from.dependants.add(to);
+    to.dependencies.add(from);
+  }
+  return graph;
+}
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = createGraph(nodes, edges);
+  const result: string[] = [];
+  while (graph.size > 0) {
+    let currentNode: Node | undefined = undefined;
+    for (let node of graph.values()) {
+      if (node.dependencies.size === 0 && (currentNode === undefined || node.value < currentNode.value)) {
+        currentNode = node;
+      }
+    }
+    if (currentNode === undefined) throw Error('Cycle detected');
+    result.push(currentNode.value);
+    for (let dependant of [...currentNode.dependants]) {
+      dependant.dependencies.delete(currentNode);
+    }
+    graph.delete(currentNode.value);
+  }
+  return result;
+}
+```
+
+This function first creates a graph structure from the input data, and throws an error if there are any invalid edges (edges that mention nodes not in the node list or cycles). Then it repeatedly finds a node with no dependencies, adds this to the output, removes it from the graph and its dependants' dependency lists. If it can't find such a node at any point, there must be a cycle and an error is thrown.

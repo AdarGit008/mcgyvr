@@ -1,0 +1,58 @@
+```ts
+/**
+ * Performs topological sorting on a directed acyclic graph (DAG) given nodes and edges.
+ * @param nodes - An array of node names.
+ * @param edges - An array of [from, to] tuples representing the dependencies.
+ * @returns An array of nodes ordered such that for each edge [from, to], from comes before to.
+ * @throws Error if a cycle is detected or an edge references a non-existent node.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Record<string, Set<string>> = {};
+  const inDegree: Record<string, number> = {};
+
+  // Initialize the graph and in-degree map
+  for (const node of nodes) {
+    graph[node] = new Set();
+    inDegree[node] = 0;
+  }
+
+  // Build the graph and compute in-degrees
+  for (const [from, to] of edges) {
+    if (!graph[from] || !graph[to]) {
+      throw new Error(`Edge references a non-existent node: ${from} -> ${to}`);
+    }
+    graph[from].add(to);
+    inDegree[to]++;
+  }
+
+  // Initialize the queue with nodes having no incoming edges
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if (inDegree[node] === 0) {
+      queue.push(node);
+    }
+  }
+
+  const sortedOrder: string[] = [];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    sortedOrder.push(node);
+
+    // Decrease the in-degree of adjacent nodes
+    for (const neighbor of graph[node]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // If the topological sort includes all nodes, return it
+  if (sortedOrder.length === nodes.length) {
+    return sortedOrder;
+  } else {
+    throw new Error('Cycle detected in the graph');
+  }
+}
+```

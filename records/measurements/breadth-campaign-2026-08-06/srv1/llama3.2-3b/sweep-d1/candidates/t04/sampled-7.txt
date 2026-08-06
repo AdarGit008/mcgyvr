@@ -1,0 +1,68 @@
+```ts
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+    private capacity: number;
+    private cache: Map<K, [V, number]>;
+    private index: Map<number, K>;
+
+    /**
+     * Creates a new instance of the LruCache class.
+     *
+     * @param {number} capacity - The maximum number of entries in the cache.
+     */
+    constructor(capacity: number) {
+        if (typeof capacity !== 'number' || capacity <= 0 || capacity % 1 !== 0) {
+            throw new Error('Capacity must be a positive integer.');
+        }
+
+        this.capacity = capacity;
+        this.cache = new Map();
+        this.index = new Map();
+    }
+
+    /**
+     * Returns the value for the given key if it exists in the cache, otherwise undefined.
+     *
+     * @returns {V | undefined} The cached value or undefined if not found.
+     */
+    get(key: K): V | undefined {
+        const [value, index] = this.cache.get(key);
+        if (value === undefined) return undefined;
+        this.index.delete(index);
+        this.index.set(this.size(), key);
+        this.cache.set(key, [value, this.size()]);
+        return value;
+    }
+
+    /**
+     * Inserts or updates the given key-value pair in the cache.
+     *
+     * @param {K} key - The key to insert or update.
+     * @param {V} value - The value associated with the key.
+     */
+    set(key: K, value: V): void {
+        if (this.cache.has(key)) {
+            this.get(key);
+        } else {
+            if (this.size() >= this.capacity) {
+                const [oldestKey] = [...this.index.keys()].sort((a, b) => a - b).slice(0, 1)[0];
+                this.cache.delete(oldestKey);
+                this.index.delete(this.size());
+            }
+        }
+        this.index.set(this.size(), key);
+        this.cache.set(key, [value, this.size()]);
+    }
+
+    /**
+     * Returns the number of entries in the cache.
+     *
+     * @returns {number} The current entry count.
+     */
+    get size(): number {
+        return this.cache.size;
+    }
+}
+```

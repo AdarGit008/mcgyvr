@@ -1,0 +1,21 @@
+Here is the implementation for runLengthEncode function:
+
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') throw Error('Input must be a string');
+  let result = '';
+  let currentChar = input[0];
+  let count = 1;
+  for (let i = 1; i < input.length; i++) {    
+    if (input[i] === currentChar) {
+      count++;
+    } else {
+      result += `${currentChar}${count}`;
+      currentChar = input[i];
+      count = 1;
+    }
+  }
+  result += `${currentChar}${count}`;   // handle the last run
+  return result;
+}
+```

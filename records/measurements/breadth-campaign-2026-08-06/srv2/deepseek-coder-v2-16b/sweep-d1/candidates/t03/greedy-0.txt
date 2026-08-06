@@ -1,0 +1,22 @@
+ ```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const parts = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/);
+    if (!parts) {
+        throw new Error(`Invalid semver string: ${version}`);
+    }
+
+    const [, major, minor, prerelease, build] = parts;
+
+    if (major === undefined || minor === undefined || patch === undefined) {
+        throw new Error(`Invalid semver string: ${version}`);
+    }
+
+    return {
+        major: parseInt(major, 10),
+        minor: parseInt(minor, 10),
+        patch: parseInt(patch, 10),
+        prerelease: prerelease || null,
+        build: build || null,
+    };
+}
+```

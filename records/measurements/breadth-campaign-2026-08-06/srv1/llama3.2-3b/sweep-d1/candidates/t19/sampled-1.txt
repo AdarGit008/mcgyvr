@@ -1,0 +1,19 @@
+```typescript
+/**
+ * Divides `a` by `b`, throwing if `b` is zero or both are non-finite numbers,
+ * or if either `a` or `b` is a boolean.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Both arguments must be numbers');
+  }
+  if (a === false || b === false) { // boolean values don't count as finite
+    throw new Error('Cannot divide by zero or false');
+  }
+  const result = a / b;
+  if (isNaN(result)) {
+    throw new Error('Division by zero is undefined.');
+  }
+  return result;
+}
+```

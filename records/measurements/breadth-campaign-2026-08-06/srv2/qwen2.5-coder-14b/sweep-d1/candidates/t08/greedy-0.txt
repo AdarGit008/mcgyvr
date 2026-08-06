@@ -1,0 +1,54 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const nodeIndex = new Map<string, number>();
+  nodes.forEach((node, index) => {
+    if (nodeIndex.has(node)) {
+      throw new Error(`Duplicate node: ${node}`);
+    }
+    nodeIndex.set(node, index);
+  });
+
+  const adjacencyList: number[][] = Array.from({ length: nodes.length }, () => []);
+  edges.forEach(([from, to]) => {
+    const fromIndex = nodeIndex.get(from);
+    const toIndex = nodeIndex.get(to);
+    if (fromIndex === undefined || toIndex === undefined) {
+      throw new Error(`Edge references unknown node: [${from}, ${to}]`);
+    }
+    adjacencyList[fromIndex].push(toIndex);
+  });
+
+  const inDegree = Array(nodes.length).fill(0);
+  edges.forEach(([_, to]) => {
+    const toIndex = nodeIndex.get(to)!;
+    inDegree[toIndex]++;
+  });
+
+  const result: string[] = [];
+  const queue: number[] = [];
+
+  nodes.forEach((node, index) => {
+    if (inDegree[index] === 0) {
+      queue.push(index);
+    }
+  });
+
+  while (queue.length > 0) {
+    const currentIndex = queue.shift()!;
+    result.push(nodes[currentIndex]);
+
+    adjacencyList[currentIndex].forEach(neighbor => {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    });
+  }
+
+  if (result.length !== nodes.length) {
+    throw new Error('Cycle detected');
+  }
+
+  return result;
+}
+```

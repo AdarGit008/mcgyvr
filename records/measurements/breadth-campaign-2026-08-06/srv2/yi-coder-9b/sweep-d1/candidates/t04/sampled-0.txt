@@ -1,0 +1,34 @@
+Here is an implementation for LruCache:
+
+```ts
+export class LruCache<K, V> {
+  private cache: Map<K, V>;
+  constructor(private capacity: number) {
+    if (capacity <= 0 || Number.isNaN(capacity)) throw Error('Capacity must be a positive integer');
+    this.cache = new Map();
+  }
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    // Removes and re-inserts the entry if it exists, thus updating its position in LRU order.
+    if (value !== undefined) {
+      this.cache.delete(key);
+      this.cache.set(key, value);
+    }
+    return value;
+  }
+  set(key: K, value: V): void {
+    // Removes the entry if it already exists.
+    if (this.cache.has(key)) this.cache.delete(key);
+    else if (this.cache.size === this.capacity) { // If at capacity, removes least recent used item.
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+    // Inserts the new entry.
+    this.cache.set(key, value);  
+  }
+  get size(): number { 
+    return this.cache.size;
+  }
+}
+```
+This implementation uses Map to keep track of entries, ensuring that order is preserved in both insertion and access operations, which makes it optimal for LRU cache purposes. The constructor checks if the capacity is a positive integer. If not, an error is thrown. For each get or set operation on existing key, the corresponding entry is removed from the Map and reinserted to keep the least recently used items at the start of the Map. When the number of entries reaches the capacity, the oldest (i.e., the first inserted) item gets evicted when a new item is added.

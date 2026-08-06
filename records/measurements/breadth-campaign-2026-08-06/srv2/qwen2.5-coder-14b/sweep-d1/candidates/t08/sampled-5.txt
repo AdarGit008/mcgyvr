@@ -1,0 +1,46 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const nodeIndex = new Map<string, number>();
+    nodes.forEach((node, index) => nodeIndex.set(node, index));
+
+    const adjacencyList: number[][] = Array.from({ length: nodes.length }, () => []);
+    const inDegree = new Array<number>(nodes.length).fill(0);
+
+    for (const [from, to] of edges) {
+        if (!nodeIndex.has(from)) throw new Error(`Edge specifies unknown node: ${from}`);
+        if (!nodeIndex.has(to)) throw new Error(`Edge specifies unknown node: ${to}`);
+
+        const fromIdx = nodeIndex.get(from)!;
+        const toIdx = nodeIndex.get(to)!;
+
+        adjacencyList[fromIdx].push(toIdx);
+        inDegree[toIdx]++;
+    }
+
+    const queue: number[] = [];
+    for (let i = 0; i < nodes.length; i++) {
+        if (inDegree[i] === 0) {
+            queue.push(i);
+        }
+    }
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const currentIndex = queue.shift()!;
+        result.push(nodes[currentIndex]);
+
+        for (const neighbor of adjacencyList[currentIndex]) {
+            inDegree[neighbor]--;
+            if (inDegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    if (result.length !== nodes.length) {
+        throw new Error("Graph contains a cycle");
+    }
+
+    return result;
+}
+```

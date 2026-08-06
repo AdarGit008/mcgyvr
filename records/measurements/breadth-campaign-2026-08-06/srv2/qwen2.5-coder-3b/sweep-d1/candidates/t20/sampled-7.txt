@@ -1,0 +1,16 @@
+```typescript
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim()) continue; // Skip blank lines
+
+    const [key, value] = line.match(/^(.*?)=(.*)$/)?.slice(1) ?? [];
+    if (!key || !value) {
+      throw new Error(`Line ${lineNumber} has no key or value`);
+    }
+
+    config[key.trim()] = value.trim();
+  }
+  return config;
+}
+```

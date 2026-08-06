@@ -1,0 +1,41 @@
+Here is a TypeScript implementation for the LruCache according to the given task:
+
+```ts
+export class LruCache<K, V> {
+  private cache: Map<K, V>; 
+  private capacity: number;
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.cache = new Map();
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    let val = this.cache.get(key); 
+    if (val) {
+      // The get method counts as a use, so move the accessed item to the end
+      this.cache.delete(key);
+      this.cache.set(key, val);
+    }
+    return val;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) this.cache.delete(key); 
+    else if (this.cache.size === this.capacity) {
+      // If the cache is full, remove the least recently used item
+      let oldestKey = this.cache.keys().next().value;
+      this.cache.delete(oldestKey);
+    } 
+    this.cache.set(key, value);
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```
+This class uses a Map to store the key-value pairs. The set method first checks if an item with the given key already exists in the cache and deletes it if so, as map operations do not affect order. If the cache is full (i.e. at its capacity), delete the oldest entry (the one at the beginning of the Map) before adding a new entry. The get method first retrieves and then reinserts an item into the cache to update it's position in the order.

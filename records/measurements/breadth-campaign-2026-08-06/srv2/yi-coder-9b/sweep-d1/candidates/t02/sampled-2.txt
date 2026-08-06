@@ -1,0 +1,27 @@
+Here is a TypeScript function which implements mergeIntervals:
+
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (!Array.isArray(intervals) || intervals[0]?.length !== 2) {
+        throw new Error('Invalid argument');
+    }
+
+    const sorted = [...intervals];
+    sorted.sort((a, b) => a[0] - b[0]);  // sort by start time
+
+    let merged: number[][] = [];
+    for (const current of sorted) {
+        if (current[0] > current[1]) {
+            throw new Error('Invalid interval');
+        }
+
+        if (!merged.length || merged[merged.length - 1][1] < current[0]) {  // if no overlap, add a fresh copy of the interval
+            merged.push([...current]);
+        } else {
+            merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], current[1]);  // merge intervals
+        }
+    }
+
+    return merged;
+};
+```

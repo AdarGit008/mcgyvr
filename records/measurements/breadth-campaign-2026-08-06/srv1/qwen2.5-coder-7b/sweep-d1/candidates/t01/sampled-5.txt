@@ -1,0 +1,12 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  return input.split('').reduce((acc, char, index) => {
+    const count = input.split('').filter(c => c === char).length;
+    return acc + char + count;
+  }, '');
+}
+```

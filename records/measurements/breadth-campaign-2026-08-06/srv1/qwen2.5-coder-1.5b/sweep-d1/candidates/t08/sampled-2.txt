@@ -1,0 +1,59 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.length === 0 || nodes.length > 1000) {
+    throw new Error("Invalid input: too many or too few nodes");
+  }
+
+  const inDegree = new Map<string, number>();
+  for (const node of nodes) {
+    inDegree.set(node, 0);
+  }
+
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw new Error("Invalid input: edge contains a node not in nodes");
+    }
+    inDegree.set(to, (inDegree.get(to) || 0) + 1);
+  }
+
+  const sortedNodes: string[] = [];
+  const queue: string[] = [];
+
+  for (const node of nodes) {
+    if (inDegree.get(node) === 0) {
+      queue.push(node);
+    }
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    sortedNodes.push(current);
+
+    for (const [from, to] of edges) {
+      if (to === current) {
+        inDegree.set(from, inDegree.get(from)! - 1);
+        if (inDegree.get(from) === 0) {
+          queue.push(from);
+        }
+      }
+    }
+  }
+
+  if (sortedNodes.length !== nodes.length) {
+    let hasCycle = false;
+    for (const node of nodes) {
+      if (inDegree.get(node) > 0) {
+        hasCycle = true;
+        break;
+      }
+    }
+    if (hasCycle) {
+      throw new Error("Invalid input: cycle detected");
+    } else {
+      throw new Error("Invalid input: no valid ordering found");
+    }
+  }
+
+  return sortedNodes;
+}
+```

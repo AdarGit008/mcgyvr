@@ -1,0 +1,56 @@
+```ts
+import { reduce } from "lodash";
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes.every(node => typeof node === 'string')) throw new Error("All nodes must be strings");
+  if (!edges.every(([from, to]) => typeof from === 'string' && typeof to === 'string')) throw new Error("All edges must have two string nodes");
+
+  const graph = buildGraph(nodes, edges);
+  const indegreeMap = calculateIndegreeMap(graph);
+
+  const queue: [string, number][] = Object.entries(indegreeMap).filter(([node]) => indegreeMap[node] === 0).map(([node]) => [node, 0]);
+
+  const result: string[] = [];
+  while (queue.length > 0) {
+    const [currentNode, _indegree] = queue.shift()!;
+    result.push(currentNode);
+
+    for (const neighbor of Object.keys(graph[currentNode])) {
+      indegreeMap[neighbor]--;
+      if (indegreeMap[neighbor] === 0) {
+        queue.push([neighbor, 0]);
+      }
+    }
+  }
+
+  return nodes.filter(node => !graph[node]); // Ensure all nodes are in the result
+}
+
+function buildGraph(nodes: string[], edges: [string, string][]): Record<string, Set<string>> {
+  const graph: Record<string, Set<string>> = Object.fromEntries(
+    nodes.map(node => [[node, new Set()]]),
+  );
+
+  for (const [from, to] of edges) {
+    if (!graph[from]) throw new Error(`Node ${from} is not in nodes`);
+    if (!graph[to]) throw new Error(`Node ${to} is not in nodes`);
+    graph[from].add(to);
+  }
+
+  return graph;
+}
+
+function calculateIndegreeMap(graph: Record<string, Set<string>>): Record<string, number> {
+  const indegreeMap: Record<string, number> = Object.fromEntries(
+    nodes.map(node => [[node, 0]]),
+  );
+
+  for (const [from, neighbors] of Object.entries(graph)) {
+    for (const neighbor of neighbors) {
+      indegreeMap[neighbor]++;
+    }
+  }
+
+  return indegreeMap;
+}
+```

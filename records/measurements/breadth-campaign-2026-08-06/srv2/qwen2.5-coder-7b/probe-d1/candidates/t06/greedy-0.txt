@@ -1,0 +1,42 @@
+```ts
+/**
+ * Parses a single line of CSV into its fields on commas.
+ * Handles quoted fields that may contain commas and doubled quotes inside.
+ * Throws an Error for a quoted field that is never closed.
+ *
+ * @param line - The line of CSV to parse.
+ * @returns An array of string fields.
+ */
+export function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') {
+      if (inQuotes) {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          field += '"';
+          i++; // Skip the next double quote
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        inQuotes = true;
+      }
+    } else if (line[i] === ',' && !inQuotes) {
+      result.push(field.trim());
+      field = '';
+    } else {
+      field += line[i];
+    }
+  }
+
+  if (inQuotes) {
+    throw new Error('Unquoted double quote found');
+  }
+
+  result.push(field.trim());
+  return result;
+}
+```

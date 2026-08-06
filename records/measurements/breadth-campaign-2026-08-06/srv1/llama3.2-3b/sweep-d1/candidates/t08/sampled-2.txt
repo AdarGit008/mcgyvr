@@ -1,0 +1,59 @@
+```typescript
+/**
+ * Returns an ordering satisfying every edge in the given edges for the nodes,
+ * while maintaining their original order when possible.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+  const adjacencyList = new Map<string, Set<string>>();
+  for (const node of nodes) {
+    adjacencyList.set(node, new Set());
+  }
+
+  for (const [from, to] of edges) {
+    if (!adjacencyList.has(from)) {
+      throw new Error(`Node "${from}" not in nodes`);
+    }
+    if (!adjacencyList.has(to)) {
+      throw new Error(`Node "${to}" not in nodes`);
+    }
+    adjacencyList.get(from)!?.add(to);
+  }
+
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const order: string[] = [];
+
+  for (const node of nodes) {
+    if (!visited.has(node)) {
+      visitNode(node, adjacencyList, visited, visiting, order);
+    }
+  }
+
+  return order;
+}
+
+function visitNode(
+  node: string,
+  adjacencyList: Map<string, Set<string>>,
+  visited: Set<string>,
+  visiting: Set<string>,
+  order: string[]
+): void {
+  if (visiting.has(node)) {
+    throw new Error(`Cycle detected in edges for nodes ${Array.from(order).join(', ')}`);
+  }
+
+  if (!adjacencyList.has(node)) {
+    return;
+  }
+  visiting.add(node);
+
+  for (const neighbor of adjacencyList.get(node)!.values()) {
+    visitNode(neighbor, adjacencyList, visited, visiting, order);
+  }
+
+  visiting.delete(node);
+  visited.add(node);
+  order.push(node);
+}
+```

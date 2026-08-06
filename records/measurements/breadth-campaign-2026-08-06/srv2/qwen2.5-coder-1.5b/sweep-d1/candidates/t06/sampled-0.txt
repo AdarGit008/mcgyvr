@@ -1,0 +1,19 @@
+```ts
+
+export function parseCsvLine(line: string): string[] {
+  if (!line.trim()) return [];
+
+  const fields = line.split(/,(?=(?:[^"]*"[^"]*")*(?!["]))/g);
+  let i = 0;
+
+  for (i; i < fields.length; i++) {
+    const field = fields[i].trim();
+    if (field.startsWith('"') && field.endsWith('"')) {
+      // Unquoted field with quotes inside, handle quoted fields
+      fields[i] = field.slice(1, -1).replace(/""/g, '"');
+    }
+  }
+
+  return fields;
+}
+```

@@ -1,0 +1,20 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth !== undefined && typeof depth !== 'number' || !Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error("Depth must be a non-negative integer or Infinity.");
+  }
+
+  const limit = depth === undefined ? Infinity : depth;
+
+  return items.flatMap((item, index) => {
+    if (Array.isArray(item)) {
+      if (index < limit) {
+        return flatten(item, depth - 1);
+      }
+      // If we've reached the max depth, treat it as a value
+      return item;
+    }
+    return item;
+  });
+}
+```

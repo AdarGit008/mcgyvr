@@ -1,0 +1,29 @@
+ ```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Ignore blank lines and comments
+    if (!line.trim() || line.trim().startsWith("#")) continue;
+    
+    // Split on the first '=' only
+    const parts = line.split("=", 1);
+    let key = parts[0].trim();
+    let value = parts.length > 1 ? parts[1].trim() : "";
+
+    // Throw an error for a line with no '=' and for an empty key
+    if (key === "") {
+      throw new Error(`Invalid config line: ${line}`);
+    }
+
+    // Remove any prototype pollution
+    if (/^__proto__/.test(key)) {
+      key = key.replace(/^(.*?)=/, "");
+    }
+
+    // Assign the parsed parts to the config object
+    config[key] = value;
+  }
+  return config;
+}
+```

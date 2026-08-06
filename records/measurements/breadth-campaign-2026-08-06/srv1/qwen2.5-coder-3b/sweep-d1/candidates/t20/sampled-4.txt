@@ -1,0 +1,27 @@
+```ts
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  
+  for (const line of text.split("\n")) {
+    if (!line || line.trim().startsWith("#")) continue; // Skip blank lines and comments
+
+    const [key, value] = line.split("=", 2).map(s => s.trim());
+
+    if (!key) throw new Error(`Line ${lineNumber} has no key`);
+    if (config[key]) throw new Error(`Line ${lineNumber} redefines the key "${key}"`);
+
+    config[key] = value;
+  }
+
+  return config;
+}
+
+// Helper to get the line number of a parsed line
+function lineNumber(line: string): number {
+  let count = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "\n") count++;
+  }
+  return count + 1;
+}
+```

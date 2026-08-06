@@ -1,0 +1,68 @@
+```ts
+/**
+ * Split one line of CSV into its fields on commas.
+ * A field wrapped in double quotes may contain commas, and a doubled quote inside such a field means one literal quote character; the surrounding quotes are not part of the value.
+ * Fields that are not quoted are taken literally, including any surrounding spaces. An empty line is one empty field.
+ * Throw an Error for a quoted field that is never closed.
+ *
+ * @param line The input string to be parsed.
+ * @returns An array of strings representing the fields in the CSV line.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (line.trim() === '') return [];
+
+  let result: string[] = [];
+  let inQuotes = false;
+  let currentField = '';
+  let quotingState = 'none';
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    switch (char) {
+      case ',': {
+        if (!inQuotes && quotingState === 'fieldStart') {
+          result.push(currentField.trim());
+          currentField = '';
+        } else if (quotingState !== 'none') {
+          throw new Error(`Unmatched quote in field: ${currentField}`);
+        }
+        break;
+      }
+      case '"': {
+        if (!inQuotes) {
+          quotingState = 'fieldStart';
+          inQuotes = true;
+        } else if (quotingState === 'fieldStart') {
+          quotingState = 'singleQuote';
+        } else if (quotingState === 'singleQuote') {
+          if (line[i + 1] === '"') {
+            currentField += '"';
+            i++;
+          } else {
+            inQuotes = false;
+            quotingState = 'none';
+          }
+        }
+        break;
+      }
+      default: {
+        if (!inQuotes) {
+          currentField += char;
+        }
+        if (quotingState !== 'none') {
+          throw new Error(`Unmatched quote in field: ${currentField}`);
+        }
+        break;
+      }
+    }
+  }
+
+  if (!inQuotes && quotingState === 'fieldStart') {
+    result.push(currentField.trim());
+  } else if (quotingState !== 'none') {
+    throw new Error(`Unmatched quote in field: ${currentField}`);
+  }
+
+  return result;
+}
+```

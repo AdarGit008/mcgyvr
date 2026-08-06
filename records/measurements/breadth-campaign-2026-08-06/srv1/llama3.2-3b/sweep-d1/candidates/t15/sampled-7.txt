@@ -1,0 +1,31 @@
+```typescript
+class TemperatureConverter {
+
+  private static isValidFiniteNumber(value: number): boolean {
+    if (typeof value !== "number" || isNaN(value)) return false;
+    return Number.isFinite(value);
+  }
+
+  public static celsiusToFahrenheit(celsius: number): number {
+    if (!TemperatureConverter.isValidFiniteNumber(celsius)) {
+      throw new Error("celsius must be a finite number");
+    }
+    if (celsius < -273.15) {
+      throw new Error("celsius must be at or above absolute zero");
+    }
+    return celsius * 1.8 + 32;
+  }
+
+  public static celsiusToKelvin(celsius: number): number {
+    if (!TemperatureConverter.isValidFiniteNumber(celsius)) {
+      throw new Error("celsius must be a finite number");
+    }
+    if (celsius < -273.15) {
+      throw new Error("celsius must be at or above absolute zero");
+    }
+    return celsius + 273.15;
+  }
+}
+
+export { TemperatureConverter.celsiusToFahrenheit, TemperatureConverter.celsiusToKelvin };
+```

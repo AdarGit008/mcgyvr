@@ -1,0 +1,39 @@
+```ts
+/**
+ * Parses a single CSV line into an array of fields.
+ */
+export function parseCsvLine(line: string): string[] {
+    if (line === '') return [''];
+    const result: string[] = [];
+    let fieldBuffer: string[] = [];
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (!inQuotes) {
+            if (ch === ',') {
+                result.push(fieldBuffer.join(''));
+                fieldBuffer = [];
+            } else if (ch === '"') {
+                inQuotes = true;
+            } else {
+                fieldBuffer.push(ch);
+            }
+        } else {
+            if (ch === '"') {
+                const nextCh = line[i + 1];
+                if (nextCh === '"') {
+                    fieldBuffer.push('"');
+                    i++; // skip escaped quote
+                } else {
+                    inQuotes = false;
+                }
+            } else {
+                fieldBuffer.push(ch);
+            }
+        }
+    }
+    if (inQuotes) throw new Error('Unclosed quoted field.');
+    result.push(fieldBuffer.join(''));
+    return result;
+}
+```

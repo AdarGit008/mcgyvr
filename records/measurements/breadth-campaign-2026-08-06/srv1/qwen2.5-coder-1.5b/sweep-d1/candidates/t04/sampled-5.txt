@@ -1,0 +1,72 @@
+```ts
+import { strict as assert } from 'assert';
+
+export class LruCache<K, V> {
+  private cache: Map<K, V>;
+  private capacity: number;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.cache = new Map();
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      this.cache.delete(key);
+      this.cache.set(key, value);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+    this.cache.set(key, value);
+    if (this.cache.size > this.capacity) {
+      const oldestKey = Array.from(this.cache.keys()).reduce((a, b) => a < b ? a : b);
+      this.cache.delete(oldestKey);
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+
+// Test cases to verify the correctness of the implementation
+function testLruCache() {
+  const cache = new LruCache<number, string>(3);
+
+  // Test get without key
+  assert.equal(cache.get(1), undefined);
+
+  // Test set and retrieve
+  cache.set(1, 'one');
+  cache.set(2, 'two');
+  cache.set(3, 'three');
+  assert.deepEqual(cache.get(1), 'one');
+  assert.deepEqual(cache.get(2), 'two');
+  assert.deepEqual(cache.get(3), 'three');
+
+  // Test get with missing key
+  assert.equal(cache.get(4), undefined);
+
+  // Test size after set and retrieve
+  assert.equal(cache.size, 3);
+
+  // Test eviction when capacity is exceeded
+  cache.set(4, 'four');
+  assert.deepEqual(cache.get(1), 'one');
+  assert.deepEqual(cache.get(2), 'two');
+  assert.equal(cache.get(4), 'four');
+
+  console.log('All tests passed!');
+}
+
+testLruCache();
+```

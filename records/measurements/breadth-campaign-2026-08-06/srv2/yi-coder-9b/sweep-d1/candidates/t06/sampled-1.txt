@@ -1,0 +1,23 @@
+Here is the implementation of parseCsvLine function:
+
+```ts
+/** Parse one line of CSV into its fields on commas. */
+export function parseCsvLine(line: string): string[] {
+    const result = [];
+    let field = "";
+    let inQuotes = false;
+    for (let i=0; i<line.length; ++i) {
+        if (inQuotes && line[i] == '"') {
+            inQuotes = !inQuotes;  // toggle on double quote
+            continue;
+        }
+        else if (line[i] == '"') inQuotes = !inQuotes; // start/end quotes
+        else if (inQuotes && line[i] == '\\') { field += line[++i]; continue; }  // escape next character
+        else if (!inQuotes && line[i] == ',') {}      // split fields on commas
+        else if (line[i]) field += line[i];          // add to current field
+    }
+    if (inQuotes) throw Error("Unterminated quoted string.");
+    result.push(field.trim());                       // add the last field
+    return result;
+}
+```

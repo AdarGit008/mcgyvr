@@ -1,0 +1,59 @@
+```ts
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, V>;
+  private order: K[];
+
+  /**
+   * Initializes a new LRU Cache with the specified capacity.
+   * @param {number} capacity - The maximum number of entries the cache can hold.
+   */
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.cache = new Map<K, V>();
+    this.order = [];
+  }
+
+  /**
+   * Retrieves the value associated with the given key.
+   * @param {K} key - The key to retrieve the value for.
+   * @returns {V | undefined} - The value if found, otherwise undefined.
+   */
+  get(key: K): V | undefined {
+    if (this.cache.has(key)) {
+      this.order.splice(this.order.indexOf(key), 1);
+      this.order.push(key);
+      return this.cache.get(key);
+    }
+    return undefined;
+  }
+
+  /**
+   * Sets the value for a given key, evicting the least recently used item if necessary.
+   * @param {K} key - The key to set the value for.
+   * @param {V} value - The value to set.
+   */
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.order.splice(this.order.indexOf(key), 1);
+    } else if (this.cache.size >= this.capacity) {
+      const lruKey = this.order.shift();
+      if (lruKey !== undefined) {
+        this.cache.delete(lruKey);
+      }
+    }
+    this.cache.set(key, value);
+    this.order.push(key);
+  }
+
+  /**
+   * Gets the current number of entries in the cache.
+   */
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```

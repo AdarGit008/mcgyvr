@@ -1,0 +1,82 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { key: K; value: V }>;
+  private head: { next?: Node | null, prev?: Node | null } = {};
+  private tail: { next?: Node | null, prev?: Node | null } = {};
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private getNode(key: K): Node | undefined {
+    if (!this.cache.has(key)) return undefined;
+
+    const node = this.cache.get(key)!;
+    this.moveToHead(node);
+    return node;
+  }
+
+  private moveToHead(node: Node): void {
+    const prevNode = node.prev;
+    if (prevNode) {
+      prevNode.next = node.next;
+    } else {
+      this.head = node.next!;
+    }
+
+    const nextNode = node.next;
+    if (nextNode) {
+      nextNode.prev = node.prev;
+    } else {
+      this.tail = node.prev!;
+    }
+
+    node.next = this.head;
+    this.head!.prev = node;
+    this.head = node;
+  }
+
+  private removeTail(): void {
+    const tailNode = this.tail;
+    if (tailNode) {
+      delete this.cache[tailNode.key];
+      this.tail = tailNode.prev;
+      if (this.tail) {
+        this.tail.next = null;
+      } else {
+        this.head = null;
+      }
+    }
+  }
+
+  set(key: K, value: V): void {
+    const node = this.getNode(key);
+    if (node) {
+      node.value = value;
+      this.moveToHead(node);
+    } else if (this.size >= this.capacity) {
+      this.removeTail();
+    }
+    this.cache.set(key, { key, value });
+  }
+
+  get(key: K): V | undefined {
+    const node = this.getNode(key);
+    return node ? node.value : undefined;
+  }
+}
+
+interface Node {
+  key: K;
+  value: V;
+}
+```

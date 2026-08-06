@@ -1,0 +1,27 @@
+```ts
+// solution.ts
+
+/**
+ * Splits an array into consecutive groups of at most `size` elements,
+ * preserving order. The final group is shorter when the length does not divide evenly.
+ * An empty array yields an empty array. The input array must not be mutated.
+ * @param items - The array to split, must be a readonly array.
+ * @param size - The maximum number of elements in each chunk, must be a positive integer.
+ * @returns An array of chunks, where each chunk is a subarray of the original array.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+    if (size <= 0) {
+        throw new Error('Size must be a positive integer');
+    }
+
+    return items.reduce((acc, item, index) => {
+        const nextIndex = acc.length + 1;
+        if (nextIndex <= size || index === items.length - 1) {
+            acc.push([item]);
+        } else {
+            acc[acc.length - 1].push(item);
+        }
+        return acc;
+    }, []);
+}
+```

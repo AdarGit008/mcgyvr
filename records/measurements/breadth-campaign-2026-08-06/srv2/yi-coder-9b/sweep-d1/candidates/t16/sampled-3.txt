@@ -1,0 +1,23 @@
+Here is how you can solve this problem by using iteration instead of recursion:
+```ts
+const MODULUS = 1000000007;
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error('Input must be a non-negative integer');
+  }
+
+  // Handle base cases explicitly to avoid initializing array with n+1 elements
+  if (n === 0) return 0;
+  if (n === 1) return 1;
+
+  let prevPrev = 0, prev = 1, result: number;
+  for(let i=2; i<=n; i++) {
+    result = (prevPrev + prev) % MODULUS;
+    prevPrev = prev;
+    prev = result;
+  }
+  return result!;
+}
+```

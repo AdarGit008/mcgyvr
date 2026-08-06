@@ -1,0 +1,20 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (intervals.length === 0) return [];
+    
+    const sortedIntervals = intervals.slice().sort((a, b) => a[0] - b[0]);
+    const mergedIntervals: number[][] = [sortedIntervals[0]];
+    
+    for (const interval of sortedIntervals.slice(1)) {
+        const lastMergedInterval = mergedIntervals[mergedIntervals.length - 1];
+        
+        if (interval[0] > lastMergedInterval[1]) {
+            mergedIntervals.push(interval);
+        } else if (interval[1] > lastMergedInterval[1]) {
+            mergedIntervals[mergedIntervals.length - 1] = [lastMergedInterval[0], interval[1]];
+        }
+    }
+    
+    return mergedIntervals;
+}
+```

@@ -1,0 +1,63 @@
+```ts
+export class LruCache<K, V> {
+  private readonly capacity: number;
+  private readonly cache: Map<K, V>;
+  private readonly usageOrder: K[];
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+    this.usageOrder = [];
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      // Move the key to the end of usageOrder to mark it as recently used
+      this.updateUsageOrder(key);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      // Update the existing value and mark it as recently used
+      this.cache.set(key, value);
+      this.updateUsageOrder(key);
+    } else {
+      // Add new key-value pair and check for capacity overflow
+      if (this.size >= this.capacity) {
+        this.evictLeastRecentlyUsed();
+      }
+      this.cache.set(key, value);
+      this.usageOrder.push(key);
+    }
+  }
+
+  private updateUsageOrder(key: K): void {
+    const index = this.usageOrder.indexOf(key);
+    if (index !== -1) {
+      // Remove the key from its current position
+      this.usageOrder.splice(index, 1);
+    }
+    // Add the key to the end of usageOrder to mark it as recently used
+    this.usageOrder.push(key);
+  }
+
+  private evictLeastRecentlyUsed(): void {
+    if (this.usageOrder.length > 0) {
+      const leastRecentlyUsedKey = this.usageOrder.shift();
+      if (leastRecentlyUsedKey !== undefined) {
+        this.cache.delete(leastRecentlyUsedKey);
+      }
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```

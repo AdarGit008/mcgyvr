@@ -1,0 +1,200 @@
+{
+  "endpoint": "http://srv1:11434",
+  "tiers": [
+    "d1",
+    "d2",
+    "d3"
+  ],
+  "ease": 0.9,
+  "draws": 8,
+  "models": [
+    {
+      "model": "qwen2.5-coder:1.5b",
+      "probes": {
+        "d1": {
+          "pass": 7,
+          "logic": 13,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.35
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 64,
+        "logic": 116,
+        "parse": 0,
+        "truncated": 0,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": null,
+          "t02": null,
+          "t03": null,
+          "t04": null,
+          "t05": 0,
+          "t06": null,
+          "t07": null,
+          "t08": null,
+          "t09": 0,
+          "t10": 0,
+          "t11": 1,
+          "t12": 0,
+          "t13": null,
+          "t14": 1,
+          "t15": 0,
+          "t16": null,
+          "t17": 0,
+          "t18": 2,
+          "t19": 1,
+          "t20": null
+        }
+      }
+    },
+    {
+      "model": "qwen2.5-coder:3b",
+      "probes": {
+        "d1": {
+          "pass": 10,
+          "logic": 9,
+          "parse": 0,
+          "truncated": 1,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.5
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 88,
+        "logic": 91,
+        "parse": 0,
+        "truncated": 1,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": 1,
+          "t02": null,
+          "t03": null,
+          "t04": 7,
+          "t05": 0,
+          "t06": null,
+          "t07": null,
+          "t08": 2,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0,
+          "t13": 2,
+          "t14": 0,
+          "t15": 0,
+          "t16": 0,
+          "t17": 1,
+          "t18": 0,
+          "t19": 0,
+          "t20": null
+        }
+      }
+    },
+    {
+      "model": "llama3.2:3b",
+      "probes": {
+        "d1": {
+          "pass": 7,
+          "logic": 13,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.35
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 57,
+        "logic": 123,
+        "parse": 0,
+        "truncated": 0,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": 0,
+          "t02": null,
+          "t03": null,
+          "t04": null,
+          "t05": 7,
+          "t06": null,
+          "t07": null,
+          "t08": null,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0,
+          "t13": null,
+          "t14": 0,
+          "t15": 3,
+          "t16": null,
+          "t17": 1,
+          "t18": 2,
+          "t19": null,
+          "t20": null
+        }
+      }
+    },
+    {
+      "model": "qwen2.5-coder:7b",
+      "probes": {
+        "d1": {
+          "pass": 14,
+          "logic": 6,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.7
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 121,
+        "logic": 59,
+        "parse": 0,
+        "truncated": 0,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": 1,
+          "t02": 4,
+          "t03": 0,
+          "t04": 3,
+          "t05": 0,
+          "t06": null,
+          "t07": null,
+          "t08": 0,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0,
+          "t13": 3,
+          "t14": 0,
+          "t15": 0,
+          "t16": 0,
+          "t17": 0,
+          "t18": 0,
+          "t19": 0,
+          "t20": null
+        }
+      }
+    }
+  ]
+}

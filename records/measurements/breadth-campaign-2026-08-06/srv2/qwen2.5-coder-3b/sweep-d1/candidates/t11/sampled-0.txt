@@ -1,0 +1,9 @@
+```typescript
+export function sortAscending(values: readonly number[]): number[] {
+  if (!Array.isArray(values) || values.some(x => typeof x !== 'number')) {
+    throw new Error('Input must be an array of numbers.');
+  }
+  
+  return [...values].sort((a, b) => a - b);
+}
+```

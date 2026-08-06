@@ -1,0 +1,17 @@
+```ts
+function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0) {
+    throw new Error('Depth must be non-negative');
+  }
+
+  return items.reduce((acc, item) => {
+    if (Array.isArray(item)) {
+      const flattenedItem = flatten(item as readonly unknown[], depth - 1);
+      acc.push(...flattenedItem);
+    } else if (item !== undefined && item !== null) {
+      acc.push(item);
+    }
+    return acc;
+  }, [] as unknown[]);
+}
+```

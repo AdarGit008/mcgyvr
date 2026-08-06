@@ -1,0 +1,27 @@
+TASK (function_implementation): Implement runLengthEncode. Replace every maximal run of one repeated character with that character followed by the run length, in order: "aaabbc" encodes to "a3b2c1". A run of length one still carries its count, so "abc" encodes to "a1b1c1". The empty string encodes to the empty string. Throw an Error if the argument is not a string.
+
+In this task we need to implement a function that performs Run Length Encoding on a given string.
+Here's how it can be done in TypeScript:
+
+```ts
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') throw new Error('Input must be a string');
+
+    let result = '';
+    let currentChar = input[0];
+    let count = 1;
+
+    for (let i = 1; i < input.length; i++) {
+        if (input[i] === currentChar) {
+            count++;
+        } else {
+            result += currentChar + count.toString();
+            currentChar = input[i];
+            count = 1;
+        }
+    }
+
+    result += currentChar + count.toString(); // add the last run
+    return result;
+}
+```
