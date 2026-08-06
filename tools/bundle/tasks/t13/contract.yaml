@@ -18,7 +18,7 @@ target_content: |
 interface: "export function truncate(text: string, limit: number): string"
 stop_conditions:
   - Whether the ellipsis counts toward the limit is stated; whether astral characters count as one is not.
-acceptance: ["node accept.mjs"]
+demonstration: ["node accept.mjs"]
 risk: medium
 scope:
   allow: ["solution.ts"]

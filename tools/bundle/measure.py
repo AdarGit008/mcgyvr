@@ -256,18 +256,20 @@ def build_messages(task: Task, condition: str) -> tuple[str, str]:
 
 
 def run_acceptance(task: Task, content: str, workdir: Path) -> Acceptance:
-    """Write the worker's file into a fresh tree and run the contract's command.
+    """Write the worker's file into a fresh tree and run the contract's commands.
 
-    The commands come from ``contract.acceptance`` and are run with the task
-    directory as the working directory's ancestor only by copying — nothing
-    reaches back into the repository, so a worker that writes a path traversal
-    into its file still only touches a temp directory that is about to be
-    deleted.
+    The commands come from ``contract.demonstration`` and ``contract.acceptance``
+    — after the change both lists must pass, which is the gate's own rule, and
+    the bug-fix tasks carry their one command in ``demonstration`` because it
+    fails on the task's base by design (#183). They run with the task directory
+    as the working directory's ancestor only by copying — nothing reaches back
+    into the repository, so a worker that writes a path traversal into its file
+    still only touches a temp directory that is about to be deleted.
     """
     workdir.mkdir(parents=True, exist_ok=True)
     (workdir / SOLUTION).write_text(content, encoding="utf-8")
     shutil.copy(task.accept, workdir / task.accept.name)
-    for command in task.contract.acceptance:
+    for command in (*task.contract.demonstration, *task.contract.acceptance):
         try:
             proc = subprocess.run(
                 command.split(),

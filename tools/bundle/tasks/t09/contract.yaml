@@ -16,7 +16,7 @@ target_content: |
 interface: "export function factorial(n: number): number"
 stop_conditions:
   - The largest n that must be supported is not stated.
-acceptance: ["node accept.mjs"]
+demonstration: ["node accept.mjs"]
 risk: low
 scope:
   allow: ["solution.ts"]

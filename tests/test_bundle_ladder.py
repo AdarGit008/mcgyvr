@@ -122,10 +122,19 @@ def test_every_task_selects_the_jsts_bundle() -> None:
 
 
 def test_every_task_declares_a_runnable_acceptance_command() -> None:
-    """Acceptance is the contract's, executed — so it has to be there to run."""
+    """Acceptance is the contract's, executed — so it has to be there to run.
+
+    Since #183 the bug-fix tasks carry their command in ``demonstration`` (it
+    fails on the task's base by design); every other task carries it in
+    ``acceptance``. The runner executes both lists, so the property that
+    matters is the union being non-empty and runnable.
+    """
     for contract in _contracts():
-        assert contract.acceptance, contract.id
-        assert all(command.startswith("node ") for command in contract.acceptance)
+        commands = (*contract.demonstration, *contract.acceptance)
+        assert commands, contract.id
+        assert all(command.startswith("node ") for command in commands)
+        expects_baseline_failure = contract.type.needs_demonstration_commands
+        assert bool(contract.demonstration) == expects_baseline_failure, contract.id
 
 
 def test_the_composition_is_the_one_the_rates_will_be_averaged_over() -> None:
