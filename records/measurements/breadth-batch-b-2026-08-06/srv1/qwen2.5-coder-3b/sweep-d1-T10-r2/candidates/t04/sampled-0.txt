@@ -1,0 +1,68 @@
+```ts
+interface LRUCache<K, V> {
+  capacity: number;
+  valuesMap: Map<K, { value: V, time: number }>;
+  keysQueue: K[];
+}
+
+export class LruCache<K, V> implements LRUCache<K, V> {
+  constructor(capacity: number) {
+    this.capacity = capacity;
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.valuesMap = new Map();
+    this.keysQueue = [];
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.valuesMap.get(key);
+    if (entry) {
+      // Move the accessed key to the end of the queue
+      this.keysQueue.removeByKey(entry.value.time, key);
+      this.keysQueue.push(key);
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    const entry = { value, time: Date.now() };
+    if (this.valuesMap.has(key)) {
+      // Update existing key
+      const index = this.keysQueue.indexOf(key);
+      this.valuesMap.set(key, entry);
+      this.keysQueue[index] = key;
+    } else {
+      // Insert new key, evict the least recently used item if needed
+      if (this.keysQueue.length >= this.capacity) {
+        const oldestKey = this.keysQueue.shift();
+        if (oldestKey !== undefined) {
+          this.valuesMap.delete(oldestKey);
+        }
+      }
+      this.valuesMap.set(key, entry);
+      this keysQueue.push(key);
+    }
+  }
+
+  get size(): number {
+    return this.valuesMap.size;
+  }
+}
+
+class Queue<K> {
+  items: K[] = [];
+
+  removeByKey(time: number, key: K): void {
+    const index = this.items.findIndex(itemEntry => itemEntry.value.time === time && itemEntry.key === key);
+    if (index !== -1) {
+      this.items.splice(index, 1);
+    }
+  }
+
+  push(key: K): void {
+    this.items.push({ key, value: Date.now() });
+  }
+}
+```

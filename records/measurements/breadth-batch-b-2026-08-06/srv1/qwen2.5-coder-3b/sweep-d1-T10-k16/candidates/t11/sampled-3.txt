@@ -1,0 +1,13 @@
+```typescript
+export function sortAscending(values: readonly number[]): number[] {
+  if (values.length === 0) return [];
+  let isNegative = false;
+  values.forEach((val) => {
+    if (isNaN(val)) isNegative = true;
+  });
+  const sortedValues = [...values].sort((a, b) =>
+    isNegative ? b - a : a - b
+  );
+  return sortedValues;
+}
+```

@@ -1,0 +1,31 @@
+```typescript
+
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const prerelease = version.indexOf('-') !== -1 ? version.split('-')[1] : null;
+  const build = version.indexOf('+') !== -1 && !prerelease ? version.split('+')[1] : null;
+
+  if (!version.startsWith('v')) {
+    throw new Error("Unsupported prefix");
+  }
+
+  const parts = version.slice(1).split('.');
+  if (parts.length !== 3) {
+    throw new Error("Incorrect number of version components");
+  }
+
+  for (const part of parts) {
+    if (! /^\d+$/.test(part)) {
+      throw new Error("Digit expected but found: " + part);
+    }
+  }
+
+  return { major: parseInt(parts[0], 10), minor: parseInt(parts[1], 10), patch: parseInt(parts[2], 10), prerelease, build };
+}
+
+// Test cases
+console.log(parseSemver("v1.2.3")); // { major: 1, minor: 2, patch: 3, prerelease: null, build: null }
+console.log(parseSemver("v0.1.0")); // { major: 0, minor: 1, patch: 0, prerelease: null, build: null }
+console.log(parseSemver("1.2.3-prerelease-123-build456")); // { major: 1, minor: 2, patch: 3, prerelease: "prerelease-123", build: "build456" }
+// Should throw an Error
+console.log(parseSemver("-invalid-version"));
+```

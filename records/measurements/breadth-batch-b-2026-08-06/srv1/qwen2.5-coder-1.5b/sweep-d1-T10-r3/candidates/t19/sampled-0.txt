@@ -1,0 +1,19 @@
+```ts
+/**
+ * Calculates `a / b` safely. If either argument is zero (including -0), or if both
+ * arguments are non-finite numbers, throws an Error. Returns the complete fixed file.
+ *
+ * @param a The numerator in the division.
+ * @param b The denominator in the division.
+ * @returns The result of `a / b`.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (b === 0 || a === 0 && b !== -0) {
+    throw new Error('Division by zero is not allowed.');
+  }
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error('Non-finite numbers are not allowed as arguments.');
+  }
+  return a / b;
+}
+```

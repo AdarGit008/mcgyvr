@@ -1,0 +1,61 @@
+```ts
+import { Set } from 'typescript-collections';
+
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes) throw new Error('No nodes provided');
+  if (!edges || edges.length === 0) return nodes.slice(); // Empty or single-element input
+
+  const adjList = new Map<string, Set<string>>();
+  const inEdges = new Map<string, number>();
+
+  for (const edge of edges) {
+    if (!adjList.has(edge[0])) adjList.set(edge[0], new Set());
+    adjList.get(edge[0])?.add(edge[1]);
+    if(!inEdges.has(edge[1])) inEdges.set(edge[1], 0);
+    inEdges.set(edge[1]!, inEdges.get(edge[1]!)! + 1);
+  }
+
+  for (const node of nodes) {
+    if (!inEdges!.has(node)) adjList.set(node, new Set());
+  }
+
+  const freeNodes = new PriorityQueue<string>((a, b) => a.localeCompare(b));
+
+  for (const key of inEdges.keys()) freeNodes.enqueue(key);
+
+  const result: string[] = [];
+
+  while (!freeNodes.isEmpty()) {
+    const node = freeNodes.dequeue()!;
+    if (!adjList.has(node)) continue; // Node no longer has dependencies
+
+    result.push(node);
+    adjList.delete(node!); // Remove node from adjacency list.
+
+    for (const neighbour of adjList.get(node)!) {
+      inEdges.set(neighbour, inEdges!.get(neighbour)! - 1);
+
+      if (!inEdges!.has(neighbour)) {
+        freeNodes.enqueue(neighbour);
+      }
+    }
+  }
+
+  const nonFreeNode = Array.from(adjList.keys()).find((node) => {
+    return adjList.get(node) !== undefined && inEdges!.has(node!);
+  });
+
+  if (nonFreeNode !== undefined) throw new Error(`Cycle detected: ${nonFreeNode}`);
+
+  return result;
+}
+
+class PriorityQueue<T> extends Array<T> {
+  enqueue(item: T): void {
+    const index = this.findIndex((value) => value.localeCompare(item) > 0);
+
+    if (index === -1) this.push(item);
+    else this.splice(index, 0, item);
+  }
+}
+```

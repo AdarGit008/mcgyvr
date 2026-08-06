@@ -1,0 +1,44 @@
+```ts
+/**
+ * Splits a CSV line into its fields based on commas, handling quoted fields with escaped double quotes.
+ */
+export function parseCsvLine(line: string): string[] {
+    const stack: string[] = [];
+    let field = '';
+    for (const char of line) {
+        if (char === '"') {
+            if (stack.length > 0 && stack[stack.length - 1] === '\\') {
+                // Inner quoted quote
+                continue;
+            }
+            if (field !== '') {
+                stack.push(field);
+                field = '';
+            }
+        } else if (char === ',') {
+            if (field !== '') {
+                stack.push(field);
+                field = '';
+            } else {
+                return []; // Empty line or trailing comma without a quoted field
+            }
+        } else {
+            // No separator, just add the character to the current field
+            const charEscaped = char === '\\' ? true : false;
+            if (charEscaped || char !== ' ') {
+                field += char;
+            }
+        }
+    }
+
+    // Last field remains after iterating to the end of the line
+    stack.push(field);
+
+    // Check unescaped quoted lines ending with a quote without a matching double quote earlier.
+    if (!stack.every((val) => val === "'" || val === '"')) {
+        throw new Error('Unbalanced quotes in CSV line');
+    }
+
+    return stack.filter(Boolean);
+}
+```

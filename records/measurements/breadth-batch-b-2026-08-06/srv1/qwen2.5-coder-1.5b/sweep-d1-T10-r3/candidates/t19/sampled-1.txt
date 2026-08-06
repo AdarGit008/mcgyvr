@@ -1,0 +1,26 @@
+```ts
+/**
+ * Safe division of two numbers: throws Error if divisor is zero (including -0),
+ * or if either argument is NaN/Infinity.
+ *
+ * @param a The dividend.
+ * @param b The divisor.
+ * @returns The result of the division.
+ */
+export function safeDivide(a: number, b: number): number {
+  // Validate arguments
+  if (!isFinite(a) || !isFinite(b)) {
+    throw new Error("Both inputs must be finite numbers.");
+  }
+  if (b === 0) {
+    throw new Error("Division by zero is not allowed.");
+  }
+
+  return a / b;
+}
+
+// Helper function to check if a value is finite
+function isFinite(val: any): boolean {
+  return typeof val === 'number' && !isNaN(val) && !Number.isNaN(val);
+}
+```

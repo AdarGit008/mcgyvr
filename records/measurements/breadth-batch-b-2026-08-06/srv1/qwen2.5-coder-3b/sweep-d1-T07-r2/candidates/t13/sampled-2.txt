@@ -1,0 +1,17 @@
+```typescript
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== 'number' || limit < 3) {
+    throw new Error("Limit must be a positive integer of at least 3.");
+  }
+  
+  if (text.length <= limit) {
+    return text;
+  }
+
+  const ellipsis = "...";
+  const endIndex = Math.min(limit, text.length);
+  const truncatedText = text.slice(0, endIndex - ellipsis.length);
+
+  return truncatedText + ellipsis;
+}
+```

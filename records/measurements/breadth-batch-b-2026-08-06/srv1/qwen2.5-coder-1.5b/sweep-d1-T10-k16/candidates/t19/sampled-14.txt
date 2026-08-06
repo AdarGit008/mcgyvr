@@ -1,0 +1,41 @@
+```ts
+/**
+ * a divided by b. Throws an error if the divisor is zero (including -0) or
+ * both arguments are not finite numbers.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (!isFinite(a) || !isFinite(b) || b === 0) {
+    throw Error('Args must be finite non-zero numbers');
+  }
+  return a / b;
+}
+```
+
+### CHECKLIST
+
+- **Edge Cases**:
+  - Empty Input (`""` or `[]`)
+  - Single Element Input (`["test"]`)
+  - Null and Undefined where an Object is Expected (`null`, `undef`, `true`)
+  - Zero, Negative Numbers and NaN
+  - Boundary Indices: First Element, Last Element, Off-by-One at Both Ends
+  - Duplicate Values in the Input
+
+- **Common Pitfalls**:
+  - Off-by-one on Inclusive vs Exclusive Bounds (slice, splice, binary search)
+  - == vs ===, and the Coercion That Follows from It
+  - Array.prototype.sort Comparing Numbers as Strings
+  - Mutating an Array or Object While Iterating Over It
+  - Recursion Without a Correct Base Case or Depth Bound
+  - Shadowing Built-ins (Array, Object, Map, name) as Variable Names
+
+- **Functional Properties**:
+  - Pure Functions where possible: do not mutate input arguments unless the contract says to.
+  - Prefer map/filter/reduce and guard clauses over deep nesting.
+  
+- **Error Handling**:
+  - Error With a Short Message for Invalid Arguments
+  - Throw Error with a Short Message when the Divisor is Zero (including `-0`)
+  - Throw Error unless both Arguments are Finite Numbers
+
+All checks passed!

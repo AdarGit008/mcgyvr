@@ -1,0 +1,27 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (!Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error("depth must be a non-negative integer or Infinity");
+  }
+
+  const defaultDepth = depth === undefined ? Infinity : depth;
+
+  // Helper function to recursively flatten an item
+  function _flatten(item: unknown, currentDepth: number): unknown[] {
+    if (Array.isArray(item)) {
+      return item.flatMap((subitem) =>
+        subitem !== null && typeof subitem === "object" &&
+          !isNaN(depth)
+            ? _flatten(subitem, Math.max(0, currentDepth - 1))
+            : [subitem]
+      );
+    } else if (typeof item === "string") {
+      return item;
+    }
+    return [];
+  }
+
+  // Ensure that the array is not mutated
+  return _flatten([...items], defaultDepth);
+}
+```

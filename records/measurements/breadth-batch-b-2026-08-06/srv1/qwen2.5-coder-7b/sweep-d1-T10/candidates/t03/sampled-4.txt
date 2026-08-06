@@ -1,0 +1,18 @@
+```ts
+/** Parse a semantic version string into components. */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const regex = /^(\d{1,2})\.(\d{1,2})\.(\d{1,2})(?:-(.+?))?(?:\+(.+?))?$/;
+    const match = version.match(regex);
+    if (match) {
+        return {
+            major: parseInt(match[1], 10),
+            minor: parseInt(match[2], 10),
+            patch: parseInt(match[3], 10),
+            prerelease: match[4] || null,
+            build: match[5] || null
+        };
+    } else {
+        throw new Error(`Invalid semantic version: ${version}`);
+    }
+}
+```

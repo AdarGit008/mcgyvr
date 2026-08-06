@@ -1,0 +1,16 @@
+```ts
+/**
+ * The factorial of n.
+ */
+export function factorial(n: number): number {
+  if (n === -1 || !Number.isInteger(n)) {
+    throw new Error('factorial() only supports non-negative integers.');
+  }
+  if (n === 0) return 1;
+  let result = 1;
+  for (let i = n; i > 0; --i) {
+    result *= i;
+  }
+  return result;
+}
+```

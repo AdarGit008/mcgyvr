@@ -1,0 +1,28 @@
+```typescript
+/**
+ * Flattens a nested array up to a specified depth level, defaulting to every level.
+ * A string is considered a value that cannot be iterated into.
+ * A depth of 0 returns a copy of the input unchanged.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (typeof depth !== 'number' || depth < 0) {
+        throw new Error('Invalid depth');
+    }
+
+    const result = [];
+
+    for (const item of items) {
+        if (Array.isArray(item)) {
+            if (depth > 0) {
+                result.push(...flatten(item, depth - 1));
+            } else {
+                result.push(item);
+            }
+        } else {
+            result.push(item);
+        }
+    }
+
+    return result;
+}
+```

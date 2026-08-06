@@ -1,0 +1,66 @@
+```ts
+export class LruCache<K, V> {
+    private capacity: number;
+    private cache: {[key: K]: V};
+    private usedKeys: Set<K>;
+
+    constructor(capacity: number) {
+        if (capacity <= 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+
+        this.capacity = capacity;
+        this.cache = {};
+        this.usedKeys = new Set();
+    }
+
+    get(key: K): V | undefined {
+        const value = this.cache[key];
+        if (value !== undefined) {
+            // Count as use
+            this.clearCacheItem(key);
+        }
+        return value;
+    }
+
+    set(key: K, value: V): void {
+        // Clear the cache item to remove it from the last use position
+        if (this.usedKeys.has(key)) {
+            this.clearCacheItem(key);
+        }
+
+        // Update or add the new key/value pair
+        this.cache[key] = value;
+        this.usedKeys.add(key);
+
+        // Ensure capacity is not exceeded
+        if (this.size() > this.capacity) {
+            const earliestUsedKey = Array.from(this.usedKeys).reduce((a, b) => this.getUsedAt(b) < this.getUsedAt(a) ? a : b);
+            delete this.cache[earliestUsedKey];
+            this.usedKeys.delete(earliestUsedKey);
+        }
+    }
+
+    get size(): number {
+        return Object.keys(this.cache).length;
+    }
+
+    private clearCacheItem(key: K): void {
+        if (this.cache[key] !== undefined) {
+            delete this.cache[key];
+            this.usedKeys.delete(key);
+        }
+    }
+
+    private getUsedAt(key: K): number {
+        let index = 0;
+        for (const k of Array.from(this.usedKeys)) {
+            if (k === key) {
+                return index;
+            }
+            index++;
+        }
+        throw new Error('Key not found');
+    }
+}
+```

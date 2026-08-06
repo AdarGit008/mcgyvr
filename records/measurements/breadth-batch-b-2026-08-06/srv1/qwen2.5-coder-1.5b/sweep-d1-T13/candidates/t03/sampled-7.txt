@@ -1,0 +1,56 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const re = /^\s*(?:(\d+)-(v?))?\D*(.*)$/i;
+    const match = version.match(re);
+
+    if (!match) {
+        throw new Error(`Not a valid semantic version format! Version=${version}`);
+    }
+
+    const [_, majorStr, prerelease, build] = match.map(str => str || null);
+    if ([majorStr!, prerelease!, build!] === [null, null, null]) {
+        throw new Error('Empty input (or at least one missing component!').name;
+    }
+
+    for (let number of [majorStr, '', preRelease || '', build || '']) {
+        const match2 = /^\d+(?!0)/.test(number);
+        if (!match2) {
+            throw new Error(`Not a valid version part! Component=${number}`);
+        }
+    }
+
+    let maxDigits;
+    const maxPartsMatch1 = /^(\d*)(\D*)$/.exec(prerelease || '');
+    if (maxPartsMatch1 && maxPartsMatch1[2]) {
+        maxDigits = parseInt(maxPartsMatch1[1], 10);
+    } else if (!isAlpha(regexpFromParts(prerelease))) {
+        match1 = /^\.\d+\D+(\D*)(\D+)/.exec(prerelease || '');
+        maxDigits = parseFloat(regexGroups2(match1 ? [match1, match2] : [[!maxPartsMatch1 && prerelease !,,,],[prerelease,undefined]])));
+    }
+
+    const versionNums = version.split('-');
+
+    const parseRe = !maxDigits
+        ? /^[^_]*$/
+        : regExpPartsToParse(version).map(part => isAlpha(part) ? `[^_${parseRe}]` : `[a-fA-F0-9]`).join(``);
+
+    versions.forEach(versionNum => {
+        if (!versionNum.match(new RegExp(parseRe))) {
+            throw new Error(
+                `${prelease || build!} has '${preRelease || build!}' part ${versionNum}, but it contains invalid characters in one part`,
+                version,
+            ).name;
+        }
+    });
+}
+
+const regexpFromParts = parts => parts.slice().map(part => isAlpha(part) ? '([^_]' + (part !== '/' ? `_` : '') + ')') : `[a-fA-F0-9]`).join('');
+
+const regexGroups2 = (pairs) => {
+    const maxes = pairs.sort(([p1], [p2]) => p2[0].length -p1[0].length)[0];
+    for(let partIdx=0;partIdx<maxes.length&&pairs.length==0;) pairs.push(pairs.pop());
+    return [...pairs.map(([part, preRelease]) => ([`${preRelease || 'n'}.${isAlpha(part)?'':''}${part}`])),
+    partIdx >= maxes.join('').slice(-1).indexOf(part.slice(-1)) - 1 && pairs.length === 0 ? pairs[~~(Array.isArray(pairs[pairs.length-1][0]).valueOf())/2] : []];
+};
+const isAlpha = str => /^[a-z]|^[A-Z])/.test(str);
+```

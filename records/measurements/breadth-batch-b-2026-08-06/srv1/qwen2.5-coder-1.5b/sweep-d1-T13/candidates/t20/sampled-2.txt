@@ -1,0 +1,26 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (line.trim() === "" || line.startsWith("#")) continue;
+    const parts = line.split(/\s*=\s*/);
+    if (parts.length !== 2) throw new Error(`Incorrent 'equal sign' location in ${line}`);
+    // trim both sides of the key name to handle white space.
+    const key: string = parts[0].trim();
+    let value: string = parts[1];
+  
+    // remove surrounding spaces around the value for the purpose
+    // of splitting from inside, like the following:  config['x    '] = '1';  
+    while ( /^\s+/u.test(value )).value = value.slice(1);
+    while ( /\s+$/u.test(value)) value = value.slice(0, -1);
+    
+    if (Object.hasOwnProperty(key) || key === "__proto__") {
+      throw new Error(`${line}: Unexpected duplicate or root property.`);
+    }
+
+    config[key] = value;
+  }
+  return config;
+}
+```

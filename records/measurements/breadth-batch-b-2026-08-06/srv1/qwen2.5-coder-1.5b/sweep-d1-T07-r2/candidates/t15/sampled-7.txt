@@ -1,0 +1,24 @@
+```ts
+/** The temperature in degrees Fahrenheit or Kelvin. */
+export function celsiusTo(value: number, to: "Fahrenheit" | "Kelvin"): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (value < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+
+  const conversionFactor = to === "Fahrenheit" ? 9 / 5 : 5 / 9;
+  return value * conversionFactor + (to === "Kelvin" ? 273.15 : 0);
+}
+
+// Helper function with shared validation
+function validateCelsius(value: number): void {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (value < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+}
+```

@@ -1,0 +1,30 @@
+```ts
+import { isNil } from 'lodash';
+
+export type ComparableNumber = string | number;
+
+/**
+ * Sorts numbers in ascending order, treating strings and numbers equally.
+ */
+export function sortAscending(values: readonly ComparableNumber[]): ComparableNumber[] {
+  if (values.length < 2) {
+    return [...values];
+  }
+
+  const compareNumbers = (a: ComparableNumber, b: ComparableNumber): number => {
+    const numA = isNil(a) ? Number.MIN_SAFE_INTEGER : a;
+    const numB = isNil(b) ? Number.MIN_SAFE_INTEGER : b;
+
+    if (typeof numA === 'string' && typeof numB === 'number') {
+      return typeof numB === 'undefined' ? -1 : parseFloat(numA) - numB;
+    }
+    if (typeof numB === 'string' && typeof numA === 'number') {
+      return typeof numA === 'undefined' ? 1 : numA - parseFloat(numB);
+    }
+
+    return numA < numB ? -1 : numA > numB ? 1 : 0;
+  };
+
+  return [...values].sort(compareNumbers);
+}
+```

@@ -1,0 +1,27 @@
+```ts
+
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const re = /^(v?)?(\d+)\.(\d+)\.(\d+)(-(.+)?(\+[.+])?)$/;
+
+  if (!re.test(version)) {
+    throw new Error('Invalid semantic version format');
+  }
+
+  const [, hasV, major, minor, patch, prereleasePart, buildPart] = re.exec(version) || [];
+
+  const preReleasesByDelimiter = {
+    semver: `-`,
+    build: `+`
+  };
+
+  const [prerelease, build] = prereleasePart.split(preReleasesByDelimiter);
+
+  return {
+    major: parseInt(major),
+    minor: parseInt(minor),
+    patch: parseInt(patch),
+    prerelease: prerelease ? prerelease.trim() : null,
+    build: build ? build.trim() : null
+  };
+}
+```

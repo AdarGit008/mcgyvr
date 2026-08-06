@@ -1,0 +1,94 @@
+```ts
+export class LruCache<K, V> {
+  private readonly capacity: number;
+  private map: Map<K, [V, Date];
+  private head: K | null;
+  private tail: K | null;
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("'capacity' must be a positive integer.");
+    }
+
+    this.capacity = capacity;
+    this.map = new Map();
+    this.head = null;
+    this.tail = null;
+  }
+
+  get(key: K): V | undefined {
+    if (!this.map.has(key)) return undefined;
+
+    const [value, date] = this.map.get(key);
+    if (date) // Check for cache expiration
+      console.log(`${key} is expired...`);
+
+    // Update the latest use
+    date ??= new Date();
+    const newDate = new Date(date.getTime() + 1209600000); // 1 year in miliseconds
+
+    this.map.set(key, [value, newDate]);
+
+    // Reorder the list to keep track of the most recent use
+    if (key === this.head) {
+      // If we're at the head, just update the header date
+      this.head = key;
+    } else if (key === this.tail) {
+      // If we're at the tail, update the tail date
+      this.tail = key;
+    } else {
+      // Otherwise, delete from the old position and insert at the new list end
+      const prevNode = this.map.get(key - 1)!; // Assuming a decrementing node index for easier calculations
+      const nextNode = prevNode.next;
+      const tempNext = prevNode.prev;
+
+      if (this.head === key) {
+        this.head = nextNode!;
+      } else if (this.tail === key) {
+        this.tail = previousNode!;
+      }
+
+      prevNode.next = newDate;
+      newDate.prev = prevNode;
+      prevNode.previous = tempNext;
+    }
+
+    return value as V;
+  }
+
+  set(key: K, value: V): void {
+    let date = this.map.get(key);
+
+    if (date) {
+      // If the key exists, update the value and check its use
+      if (key !== this.head) {
+        const prevNode = this.map.get(key - 1)!; // Assuming a decrementing node index for easier calculations
+        console.log(`${prevNode.key} is moving.`);
+        prevNode?.next ??= date;
+        date.prev ??= prevNode;
+        prevNode.next = new Date(date.getTime() + 1209600000); // 1 year in miliseconds
+
+        const newNodeToTail = this.tail!;
+        newNodeToTail.next = this.map.get(key)!;
+        this.map.delete(prevNode.key);
+      }
+
+      date ??= new Date();
+    } else {
+      // If the key does not exist, add a new item
+      if (this.map.size + 1 > this.capacity) {
+        const tailValue = this.map.delete(this.tail!)[0] as [V, Date];
+        tailValue[0] = value;
+        tailValue[1] = new Date();
+        
+
+        // Remove the least recently used entry from the list
+        if (this.head === this.tail) {
+          this.head = null;
+          this.tail = null;
+        } else {
+          const prevNode = this.map.get(this.head - 1)!; // Assuming a decrementing node index for easier calculations
+          prevNode!.next = !prevNode!.next ? null : prevNode.next!;
+        }
+
+        //

@@ -1,0 +1,29 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    if (!/.^v?(\d+)\.(\d+)\.(\d+)(?:-(pre\s*([^\.-]*)))(?:\+(build\s*([-.\w*]+)))?$/.test(version)) {
+        throw new Error("Invalid input format");
+    }
+
+    const matches = version.match(/^(v?)(\d+)\.(\d+)\.(\d+)(?:-(precr(\s*([^-\x00-\uD7FF\uE000-\uFFFF])))|\+(build\s*((-.\w*)+)))?$/);
+    if (!matches) throw new Error("Invalid input format");
+
+    const major = parseInt(matches[2], 10);
+    const minor = parseInt(matches[3], 10);
+    const patch = parseInt(matches[4], 10);
+
+    // If prerelease or build is not present, add null
+    if (!matches[5]) {
+        return { major, minor, patch, prerelease: null, build: null };
+    }
+    if (!matches[6]) {
+        return { major, minor, patch, prerelease: matches[5], build: null };
+    }
+
+    // If prerelease is present, parse it as a list
+    const parsedPrerelease = matches[5].split(/[\.-]/).slice(1).map(item => Number(item));
+    if (!parsedPrerelease.every(item => typeof item === 'number' && !isNaN(item))) {
+        throw new Error("Invalid prerelease");
+    }
+    return { major, minor, patch, prerelease: parsedPrerelease, build: matches[6] };
+}
+```

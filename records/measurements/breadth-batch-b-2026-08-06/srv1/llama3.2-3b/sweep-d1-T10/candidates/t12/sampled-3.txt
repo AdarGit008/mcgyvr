@@ -1,0 +1,14 @@
+```typescript
+/**
+ * The values with every negative number removed.
+ */
+export function removeNegatives(values: readonly number[]): number[] {
+  const result = [...values];
+  for (let i = result.length - 1; i >= 0; i--) {
+    if (result[i] < 0) {
+      result.splice(i, 1);
+    }
+  }
+  return result;
+}
+```

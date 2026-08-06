@@ -1,0 +1,32 @@
+```ts
+function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.length === 0) return [];
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const result: number[][] = [];
+  let currentStart = intervals[0][0];
+  let currentEnd = intervals[0][1];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const interval = intervals[i];
+
+    if (interval[0] <= currentEnd) {
+      // Extend the current interval
+      currentEnd = Math.max(currentEnd, interval[1]);
+    } else {
+      // Add the previous interval to the result
+      result.push([currentStart, currentEnd]);
+
+      // Start a new interval
+      currentStart = interval[0];
+      currentEnd = interval[1];
+    }
+  }
+
+  // Add the last interval to the result
+  result.push([currentStart, currentEnd]);
+
+  return result;
+}
+```

@@ -1,0 +1,42 @@
+```ts
+function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  return items.reduce((acc, current) => {
+    switch (typeof current) {
+      case 'object':
+        if (Array.isArray(current)) {
+          acc.push(...flatten(current, depth - 1));
+          break;
+        } else if (current instanceof Map || current instanceof Set) {
+          let entries = [];
+          for (const [key, value] of current) {
+            entries.push(flatten([value], depth - 1)];
+          }
+          acc.push([...entries]);
+          break;
+        } else {
+          acc.push(...flatten(Array.from(current), depth - 1));
+          break;
+        }
+      case 'string':
+        if (depth > 0) { // Only flatten arrays beyond this level
+          return [...acc, currentItem];
+        } else {
+          acc.push(currentItem);
+          break;
+        }
+      default:
+        acc.push(current);
+        break;
+    }
+    return acc;
+  }, []);
+}
+
+// Example usage:
+console.log(flatten([1, [2, [3]], 'a'])); // Output: [1, 2, 3, 'a']
+console.log(flatten([[1], [[2, [[3]]]]])); // Output: [[1], 2, [3]]
+```

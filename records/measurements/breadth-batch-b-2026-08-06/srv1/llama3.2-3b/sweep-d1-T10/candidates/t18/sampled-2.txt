@@ -1,0 +1,29 @@
+```typescript
+/** An append-only log of timestamped events. */
+export interface Event {
+  /* A string representing the event name. */
+  name: string;
+  /* A number representing the Unix timestamp for when the event happened. */
+  timestamp: number;
+}
+
+ /** An append-only log of timestamped events. */
+export class EventLog {
+  private #events = [];
+
+  /** Append one event to the log, replacing any duplicate by a newer one with the same name. */
+ readonly record(event: Event): void {
+    const existingEventIndex = this.#events.findIndex((ev) => ev.name === event.name);
+    if (existingEventIndex !== -1) {
+      this.#events[existingEventIndex].timestamp = Math.max(this.#events[existingEventIndex].timestamp, event.timestamp);
+    } else {
+      this.#events.push(event);
+    }
+  }
+
+  /** Every event at or after the given timestamp, in insertion order. */
+ readonly since(timestamp: number): Event[] {
+    return [...this.#events.filter((event) => event.timestamp >= timestamp)];
+  }
+}
+```

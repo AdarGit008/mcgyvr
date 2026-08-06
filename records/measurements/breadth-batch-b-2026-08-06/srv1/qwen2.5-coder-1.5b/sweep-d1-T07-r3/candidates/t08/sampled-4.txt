@@ -1,0 +1,47 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges) throw new Error("Invalid input");
+    if (nodes.some(node => nodes.indexOf(node) === -1)) throw new Error("Node not in nodes");
+
+    const graph = edges.reduce((acc, edge) => {
+        acc[edge[0]] ||= [];
+        acc[edge[0]].push(edge[1]);
+        return acc;
+    }, {} as Record<string, string[]>);
+
+    const indegreeMap: Record<string, number> = {};
+    nodes.forEach(node => {
+        indegreeMap[node] = 0;
+    });
+
+    edges.forEach(edge => {
+        indegreeMap[edge[1]]++;
+    });
+
+    const queue: string[] = [];
+    nodes.forEach(node => {
+        if (indegreeMap[node] === 0) queue.push(node);
+    });
+
+    const result: string[] = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift() as string;
+        result.push(node);
+
+        graph[node]?.forEach(neighbor => {
+            indegreeMap[neighbor]--;
+            if (indegreeMap[neighbor] === 0) queue.push(neighbor);
+        });
+    }
+
+    const sortedNodes = result.join('');
+    const visitedNodes = new Set<string>(nodes.filter(node => !result.includes(node)));
+
+    for (const node of nodes) {
+        if (!visitedNodes.has(node)) throw new Error(`Cycle detected: ${node} is not in the topological order`);
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,44 @@
+```ts
+/** The index of target in the sorted array, or -1. */
+export function binarySearch(items: readonly number[], target: number): number {
+  if (items.length === 1) {
+    return items[0] === target ? 0 : -1;
+  }
+
+  let low = 0;
+  let high = items.length - 1;
+  
+  // Check duplicate value at the highest end when mid == high:
+  while (high > 0 && items[high - 1] === target) {
+    low++;
+    high--;
+  }
+  
+  console.assert(low <= high); 
+
+  // No need to adjust when high is out of bounds and low >= high because
+  // we've checked above whether there could be duplicates.
+ 
+  while (low <= low && high >= high) {
+    const mid = Math.floor((low + high)/2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    switch(target.compareTo(items[mid])) {
+    case 'equal': 
+        return mid;    
+    case 'less-than':
+      high--;
+      continue;
+    case 'greater-than' :
+        low++;
+        continue;
+      default:
+        throw new Error("unexpected result from compareTo method");
+    } // switch
+  }
+  
+  return -1;
+
+}
+```

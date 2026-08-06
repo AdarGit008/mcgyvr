@@ -1,0 +1,53 @@
+```ts
+class LruCache<K, V> {
+  private cache: Map<K, V>;
+  private capacity: number;
+  private size: number;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.cache = new Map();
+    this.capacity = capacity;
+    this.size = 0;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      this.updateLastUsed(key);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.size === this.capacity) {
+      const leastRecentlyUsedKey = Array.from(this.cache.keys()).reduce((a, b) => this.getLastUsed(b) < this.getLastUsed(a) ? a : b);
+      this.cache.delete(leastRecentlyUsedKey);
+    }
+    this.cache.set(key, value);
+    this.updateLastUsed(key);
+    this.size++;
+  }
+
+  size(): number {
+    return this.size;
+  }
+
+  private getLastUsed(key: K): number {
+    // Assume the cache stores a tuple of [value, lastUsedTime]
+    const [_, lastUsed] = this.cache.get(key) || [];
+    return lastUsed;
+  }
+
+  private updateLastUsed(key: K): void {
+    // Update the lastUsed timestamp for the key
+    // This implementation assumes that the cache stores a tuple of [value, lastUsedTime]
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      this.cache.set(key, [value, new Date().getTime()]);
+    }
+  }
+}
+```

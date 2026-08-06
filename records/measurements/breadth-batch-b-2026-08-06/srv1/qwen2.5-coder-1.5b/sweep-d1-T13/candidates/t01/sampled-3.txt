@@ -1,0 +1,12 @@
+```ts
+/**
+ * Encodes runs of identical characters in `inputstr` into a form: `aaabcc` becomes `a3b2c1`.
+ **/
+export function runLengthEncode(inputstr: string): string {
+  if (typeof inputstr !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  return inputstr.match(/(\d+[A-Za-z])+/g) || [];
+}
+```

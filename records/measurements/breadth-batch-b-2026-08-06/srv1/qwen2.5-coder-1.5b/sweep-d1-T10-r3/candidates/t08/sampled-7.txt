@@ -1,0 +1,52 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges || nodes.length === 0) {
+    throw new Error('Input must not be empty');
+  }
+
+  const graph = new Map();
+  for (const node of nodes) {
+    graph.set(node, []);
+  }
+
+  edges.forEach(([from, to]) => {
+    if (!graph.has(from) || !graph.has(to)) {
+      throw new Error(`Edge contains non-existent nodes: ${from} -> ${to}`);
+    }
+    graph.get(from)?.push(to);
+  });
+
+  const inDegree = new Map<string, number>();
+  for (const node of graph.keys()) {
+    inDegree.set(node, 0);
+  }
+
+  edges.forEach(([from, to]) => {
+    inDegree.set(to, inDegree.get(to)! + 1);
+  });
+
+  const topologicalOrder: string[] = [];
+  const nodesWithZeroInDegree = nodes.filter(node => inDegree.get(node) === 0);
+
+  while (nodesWithZeroInDegree.length > 0) {
+    const node = nodesWithZeroInDegree.shift()!;
+    if (!graph.has(node)) {
+      continue; // skip duplicates or undefined nodes
+    }
+    for (const child of graph.get(node)!) {
+      inDegree.set(child!, inDegree.get(child)! - 1);
+      if (inDegree.get(child) === 0 && !nodesWithZeroInDegree.includes(child)) {
+        nodesWithZeroInDegree.push(child);
+      }
+    }
+    topologicalOrder.push(node);
+  }
+
+  const remainingEdges = edges.filter(edge => graph.has(edge[0]) && inDegree.get(edge[0]) > 0);
+  if (remainingEdges.length > 0) {
+    throw new Error('Cyclic dependency detected');
+  }
+
+  return topologicalOrder;
+}
+```

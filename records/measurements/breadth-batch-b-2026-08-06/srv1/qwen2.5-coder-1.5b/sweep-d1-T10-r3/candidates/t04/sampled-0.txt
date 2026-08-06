@@ -1,0 +1,71 @@
+```ts
+export class LruCache<K, V> {
+    private readonly capacity: number;
+    private usedCount: number = 0;
+    private map: Map<K, V>;
+    private queue: K[];
+
+    constructor(capacity: number) {
+        if (capacity <= 0) {
+            throw new Error("Capacity must be a positive integer");
+        }
+        this.capacity = capacity;
+        this.map = new Map<K, V>();
+        this.queue = [];
+    }
+
+    get(key: K): V | undefined {
+        if (!this.map.has(key)) {
+            return undefined;
+        }
+        const value = this.map.get(key);
+        this.markAsUsed(key);
+        this.requeueKey(key);
+        return value;
+    }
+
+    set(key: K, value: V) {
+        this.markAsUsed(key);
+        this.removeLeastRecent();
+        this.map.set(key, value);
+        this.enqueueKey(key);
+    }
+
+    size(): number {
+        return this.usedCount;
+    }
+
+    private markAsUsed(key: K): void {
+        const index = this.queue.indexOf(key);
+        if (index !== -1) {
+            this.queue.splice(index, 1);
+        }
+        this.queue.push(key);
+    }
+
+    private removeLeastRecent(): void {
+        if (this.usedCount < this.capacity) return;
+        const keys = Array.from(this.map.keys());
+        for (let index = keys.length - 1; index >= 0; index--) {
+            const key = keys[index];
+            const value = this.map.get(key)!; // guaranteed to exist because we marked it as used
+            if (!this.hasCapacityFor(key, value)) return;
+            this.queue.splice(index + 1, 1); // Evict from queue at the front of the list
+            this.map.delete(key);
+            break; // The first key found is enough to evict because we already counted its use in markAsUsed
+        }
+    }
+
+    private enqueueKey(key: K): void {
+        if (this.queue.length === 0 || !this.hasCapacityFor(key)) {
+            return;
+        }
+        this.map.delete(this.queue[0]);
+        this.queue.splice(0, 1);
+    }
+
+    private hasCapacityFor(key: K, value: V): boolean {
+        return this.usedCount + 1 <= this.capacity && value !== this.map.get(key);
+    }
+}
+```

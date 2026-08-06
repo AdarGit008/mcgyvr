@@ -1,0 +1,40 @@
+```ts
+import { strict as assert } from 'assert';
+
+interface User {
+  email: string;
+  active?: boolean; // Optional property to handle missing "active" field
+}
+
+interface ActiveUserEmails {
+  out: string[];
+}
+
+/**
+ * The lowercased addresses of the active users, in order. It behaves exactly as previously.
+ */
+export function activeEmails(users: readonly User[]): ActiveUserEmails {
+  return {
+    out: users.filter(user => user.active)
+                 .map(user => user.email.toLowerCase())
+                 .sort()
+  };
+}
+
+// Example usage and test
+function checkActiveEmails() {
+  const users = [
+    { email: 'Alice@example.com', active: true },
+    { email: 'Bob@example.com', active: false },
+    { email: 'Charlie@example.com', active: true }
+  ];
+
+  const expectedOutput = ['alice@example.com', 'charlie@example.com'];
+  assert.deepStrictEqual(activeEmails(users).out, expectedOutput);
+
+  console.log('All tests passed!');
+}
+
+// Run the test
+checkActiveEmails();
+```

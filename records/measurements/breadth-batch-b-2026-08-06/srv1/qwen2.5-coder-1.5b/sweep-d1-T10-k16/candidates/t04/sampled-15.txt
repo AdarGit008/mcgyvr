@@ -1,0 +1,47 @@
+```ts
+export default class LruCache<K, V> {
+  private _capacity: number;
+  private _size: number = 0;
+  private lastUseTimeMap: { [key in K]: number } = {};
+  private entries: Map<K, V> = new Map();
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this._capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.entries.get(key);
+    if (value !== undefined && !this.lastUseTimeMap[key]) {
+      throw new Error(`Key ${key} not present in cache`);
+    }
+    if (value !== undefined) {
+      this.lastUseTimeMap[key] = Date.now();
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    const timeNow = Date.now();
+    for (const _key of this.entries.keys()) {
+      if (_key !== key && this.lastUseTimeMap[_key]) {
+        delete this.lastUseTimeMap[_key];
+      }
+    }
+    this.size++;
+    this.entries.set(key, value);
+    this.lastUseTimeMap[key] = timeNow;
+    if (this.size > this._capacity) {
+      const worstUsedKey = this.entries.keys().next().value!;
+      delete this.lastUseTimeMap[worstUsedKey];
+      this.entries.delete(worstUsedKey)!;
+    }
+  }
+
+  get size(): number {
+    return this.size;
+  }
+}
+```

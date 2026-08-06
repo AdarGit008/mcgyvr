@@ -1,0 +1,20 @@
+```ts
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (size < 1) {
+    throw new Error('Size must be greater than zero');
+  }
+
+  const result: T[][] = [];
+  let currentGroup: T[] = [];
+
+  for (const item of items) {
+    currentGroup.push(item);
+    if (currentGroup.length === size || items.indexOf(item) === items.length - 1) {
+      result.push(currentGroup);
+      currentGroup = [];
+    }
+  }
+
+  return result;
+}
+```

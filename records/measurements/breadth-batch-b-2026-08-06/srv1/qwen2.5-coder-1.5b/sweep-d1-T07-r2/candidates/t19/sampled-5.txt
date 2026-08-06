@@ -1,0 +1,9 @@
+```ts
+/** a divided by b. */
+export function safeDivide(a: number, b: number): number {
+  if (b === 0 || !Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error("divisor must be non-zero and both arguments must be finite numbers");
+  }
+  return a / b;
+}
+```

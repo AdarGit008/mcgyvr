@@ -1,0 +1,41 @@
+```ts
+/* Helper function to validate that the temperature is finite */
+function isValidCelsius(celsius: number): boolean {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  return true;
+}
+
+/** Convert temperature from Celsius to Fahrenheit. Must be a finite number above Absolute Zero */
+export function celsiusToFahrenheit(celsius: number): number {
+  if (!isValidCelsius(celsius)) {
+    return NaN;
+  }
+  const fahrenheit = celsius * 1.8 + 32;
+  if (fahrenheit < -459.67) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return fahrenheit;
+}
+// Helper function to validate that the temperature is finite */
+function isValidCelsius(celsius: number): boolean {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return true;
+}
+export function celsiusToKelvin(celsius: number): number {
+  if (!isValidCelsius(celsius)) {
+    return NaN;
+  }
+  const kelvin = celsius + 273.15;
+  if (kelvin < -459.67) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return kelvin;
+}
+```

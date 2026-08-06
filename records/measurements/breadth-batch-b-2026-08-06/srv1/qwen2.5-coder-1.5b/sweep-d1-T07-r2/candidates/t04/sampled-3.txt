@@ -1,0 +1,42 @@
+ ```ts
+import { assert } from 'assert';
+
+export class LruCache<K, V> {
+  private cache: Map<K, V>;
+  private capacity: number;
+  private size: number;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.cache = new Map();
+    this.capacity = capacity;
+    this.size = 0;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      this.cache.delete(key);
+      this.cache.set(key, value);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (!this.cache.has(key)) {
+      this.size++;
+    }
+    this.cache.set(key, value);
+    if (this.size > this.capacity) {
+      const leastRecentKey = Array.from(this.cache.keys()).reduce((a, b) => a < b ? a : b);
+      this.cache.delete(leastRecentKey);
+    }
+  }
+
+  get size(): number {
+    return this.size;
+  }
+}
+```

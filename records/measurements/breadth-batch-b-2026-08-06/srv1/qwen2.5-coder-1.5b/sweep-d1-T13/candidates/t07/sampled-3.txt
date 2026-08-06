@@ -1,0 +1,12 @@
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  let newItems: unknown[] = [...items ];
+  for (let i = 0; i < depth && newItems.length > 1; ++i) {
+    newItems = newItems.flatMap(item =>
+      Array.isArray(item)
+        ? item
+        : Object.values(item).filter(Boolean).flat(Infinity)));
+  }
+  return newItems;
+}
+```

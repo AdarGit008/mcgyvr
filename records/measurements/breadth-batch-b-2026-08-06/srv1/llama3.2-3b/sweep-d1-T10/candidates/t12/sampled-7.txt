@@ -1,0 +1,6 @@
+```ts
+/** Returns a new array with every negative number removed. */
+export function removeNegatives(values: readonly number[]): number[] {
+  return values.filter((value) => typeof value === 'number' && value >= 0);
+}
+```

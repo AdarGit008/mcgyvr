@@ -1,0 +1,20 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const pattern = /^(v)?(\d+)\.(\d+)\.(\d+)(?:-(\d+\.\d+(\.\d+)?))?(?:\+(\d+(\.\d+)?)?)$/;
+  const matches = version.match(pattern);
+
+  if (!matches) {
+    throw new Error(`Invalid input: '${version}'`);
+  }
+
+  const [, , major, minor, patch, prereleasePart1, prereleasePart2, prereleasePart3, buildPart] = matches;
+
+  return {
+    major: parseInt(major, 10),
+    minor: parseInt(minor, 10),
+    patch: parseInt(patch, 10),
+    prerelease: prereleasePart1 ? `${prereleasePart1}.${prereleasePart2 || '0'}.${prereleasePart3 || '0'}` : null,
+    build: buildPart ? `${buildPart},${parseInt(buildPart.replace(/^/g, ''))}`.split(',') : null
+  };
+}
+```

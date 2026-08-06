@@ -1,0 +1,37 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (!line) return [];
+
+  const fields = [];
+  let start = 0;
+  let foundQuote = false;
+
+  for (let i = 0; i < line.length; i++) {
+    switch (line[i]) {
+      case '"':
+        start = i; // Start of a field
+        foundQuote = true;
+        break;
+      case ',': // End of the current quote block, if any
+        if (!foundQuote) fields.push(line.slice(start));
+        start = i + 1;
+        foundQuote = false;
+        break;
+    }
+  }
+
+  // Handle potential trailing commas on the last field
+  if (start < line.length && !foundQuote) {
+    fields.push(line.slice(start));
+  }
+
+  // Check for unclosed quotes
+  for (; start < line.length; start++) {
+    if (!foundQuote) continue;
+    if (line[start] === '"') foundQuote = false;
+    else throw new Error('Unclosed quote in CSV field at index ' + start);
+  }
+
+  return fields;
+}
+```

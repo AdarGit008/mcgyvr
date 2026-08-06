@@ -1,0 +1,105 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+  /**
+   * Create a new LRU Cache, throwing an Error unless capacity is a positive integer.
+   *
+   * @template K (key type)
+   * @template V (value type)
+   * @param {number} [capacity=0] - The initial cache size. Defaults to 0.
+   */
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this._cache = new Map();
+    this.capacity = capacity;
+  }
+
+  /**
+   * Get the value associated with the given key, returning undefined if no such
+   * entry exists.
+   *
+   * @template K (key type) - The type of the cache keys.
+   * @param {K} [key] - The key for which to retrieve a value. If not provided,
+   *                   an empty string is used instead (which is never actually
+   *                   fetched).
+   * @returns {V | undefined} The cached value or undefined if it does not exist.
+   *
+   * @throws {Error} Thrown if the result cannot be serialized (meaning that a
+   *         JSON-serializable key and value are required, but the combination of
+   *         key and value would otherwise produce an ambiguous JavaScript object).
+   */
+  get(key?: K): V | undefined {
+    // Get cache to verify size
+    const cache = this._cache;
+
+    if (key === '') {
+      key = undefined;
+    }
+
+    const mappedKey = key as keyof Map<K, V>;
+
+    if (!cache.has(mappedKey)) return undefined;
+
+    this._moveToFront(cache.get(mappedKey)!);
+
+    return cache.get(mappedKey)!.value;
+  }
+
+  /**
+   * Set the value associated with the given key for the first time (or
+   * update it if already present).
+   *
+   * @template K (key type) - The type of the cache keys.
+   * @param {K} [key] - The key at which to set a new value. If not provided,
+   *                    an empty string is used instead (which is never actually
+   *                    set on disk).
+   * @param {V} value - The value to store with the key.
+   */
+  set(key?: K, value: V): void {
+    // Get cache to verify size
+    const cache = this._cache;
+
+    if (key === '') {
+      key = undefined;
+    }
+
+    const mappedKey = key as keyof Map<K, V>;
+
+    if (!cache.has(mappedKey)) {
+
+      if (this.capacity === 0) {
+        return;
+      } else if (cache.size >= this.capacity) {
+        this._deleteOldestEntry(cache);
+      }
+
+      cache.set(mappedKey, { value });
+    } else {
+
+      const mappedEntry = cache.get(mappedKey)!;
+
+      // update to overwrite entry
+      cache.delete(mappedKey);
+
+      cache.set(mappedKey, { value });
+    }
+  }
+
+  /**
+   * Report whether the cache currently contains entries.
+   *
+   * @returns {number} The number of entries in this cache.
+   */
+  get size(): number {
+    return this._cache.size;
+  }
+
+  private _moveToFront(value: V): void {
+    if (this.capacity === 0) return;
+
+    const cachedKey = Array.from(this._cache.keys())[Array.from(this._cache.values()).indexOf(value)][0];
+    const oldestEntry = this._cache.get(Array.from(this._cache.keys

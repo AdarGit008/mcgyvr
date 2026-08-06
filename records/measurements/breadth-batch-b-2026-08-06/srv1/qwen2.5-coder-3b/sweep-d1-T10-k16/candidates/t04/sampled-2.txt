@@ -1,0 +1,118 @@
+```typescript
+interface LruNode<K, V> {
+  key: K;
+  value: V;
+  next?: LruNode<K, V>;
+  prev?: LruNode<K, V>;
+}
+
+export class LruCache<K, V> {
+  constructor(private capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+    this.size = 0;
+    this.head = null;
+    this.tail = null;
+  }
+
+  private head?: LruNode<K, V>;
+  private tail?: LruNode<K, V>;
+  private size: number;
+
+  get(key: K): V | undefined {
+    const node = this.getNodeByKey(key);
+    if (!node) return undefined;
+
+    // Move the accessed node to the front
+    this.moveToFront(node);
+
+    return node.value;
+  }
+
+  set(key: K, value: V): void {
+    let newNode: LruNode<K, V>;
+
+    if (this.getNodeByKey(key)) {
+      newNode = new LruNode({ key, value });
+      this.updateValue(newNode);
+    } else {
+      newNode = new LruNode({ key, value });
+      this.addNodeAtFront(newNode);
+      this.size++;
+    }
+
+    // If the cache exceeds capacity, evict the least recently used node
+    if (this.size > this.capacity) {
+      const lruNode: LruNode<K, V> | undefined = this.popBack();
+      if (!lruNode) return;
+      this.removeNode(lruNode);
+    }
+  }
+
+  size(): number {
+    return this.size;
+  }
+
+  private getNodeByKey(key: K): LruNode<K, V> | undefined {
+    let current = this.head;
+    while (current && current.key !== key) {
+      current = current.next;
+    }
+    return current;
+  }
+
+  private updateValue(node: LruNode<K, V>): void {
+    // Remove node and add it at the front
+    if (!node.prev) {
+      this.head = node.next;
+    } else {
+      node.prev.next = node.next;
+    }
+    if (node.next) {
+      node.next.prev = node.prev;
+    }
+
+    this.moveToFront(node);
+  }
+
+  private addNodeAtFront(newNode: LruNode<K, V>): void {
+    newNode.next = this.head;
+    if (this.head) this.head.prev = newNode;
+
+    this.head = newNode;
+    this.tail = this.head;
+  }
+
+  private moveToFront(node: LruNode<K, V>): void {
+    if (node === this.head) return;
+
+    if (node.prev) node.prev.next = node.next;
+    if (node.next) node.next.prev = node.prev;
+
+    node.next = this.head;
+    node.prev = null;
+    this.head = node;
+  }
+
+  private popBack(): LruNode<K, V> | undefined {
+    if (!this.tail) return undefined;
+
+    const lruNode: LruNode<K, V> = this.tail!;
+    this.removeNode(lruNode);
+    return lruNode;
+  }
+
+  private removeNode(node: LruNode<K, V>): void {
+    if (node === this.head && node === this.tail) {
+      this.head = null;
+      this.tail = null;
+    } else if (node === this.head) {
+      this.head = node.next!;
+      this.head.prev = null;
+    } else if (node === this.tail) {
+      this.tail = node.prev!;
+      this.tail.next = null;
+    } else {
+      node.prev?.next = node.next;
+     

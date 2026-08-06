@@ -1,0 +1,15 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    if (!/^[0-9][a-zA-Z0-9+]?(?:-.*)?(\++[0-9]+)?$/.test(version)) {
+        throw new Error('Invalid argument');
+    }
+
+    const parts = version.match(/^(?<major>[0-9])(?<minor>\.[0-9])?(?<patch>\.[0-9])?(?:-(?<prerelease>.-*))?((\+)(?=\d|\.)[\-\w\.]+)/)?.map(Number);
+
+    if (parts.length < 3) {
+        throw new Error('Invalid argument');
+    }
+
+    return { major: parts[0], minor: parts[1], patch: parts[2], prerelease: parts.has('prerelease') ? parts.get('prerelease') : null, build: parts.has('+') ? parts.get('+') : null };
+}
+```

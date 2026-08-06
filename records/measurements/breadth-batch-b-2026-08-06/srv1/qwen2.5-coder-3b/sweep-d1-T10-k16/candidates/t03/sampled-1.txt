@@ -1,0 +1,28 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    // Validate the input format using a regular expression
+    const semverRegex = /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z-]+))?(?:\+([a-zA-Z-]+))?$/;
+    const match = version.match(semverRegex);
+
+    if (!match) {
+        throw new Error(`Invalid semantic version format: "${version}"`);
+    }
+
+    // Parse the extracted groups into numbers and strings
+    const major = parseInt(match[1], 10);
+    const minor = parseInt(match[2], 10);
+    const patch = parseInt(match[3], 10);
+    const prerelease = match[4] || null;
+    const build = match[5] || null;
+
+    // Check for required number parts and leading zeros
+    if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+        throw new Error(`Invalid numeric part in version: "${version}"`);
+    }
+    if (major < 0 || minor < 0 || patch < 0) {
+        throw new Error(`Negative numbers not allowed in version: "${version}"`);
+    }
+
+    return { major, minor, patch, prerelease, build };
+}
+```

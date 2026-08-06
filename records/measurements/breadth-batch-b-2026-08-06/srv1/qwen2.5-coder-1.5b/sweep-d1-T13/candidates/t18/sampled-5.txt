@@ -1,0 +1,18 @@
+```ts
+/** An append-only log of timestamped events. */
+export class EventLog<T extends Event> {
+  private #events: T[] = [];
+
+  /** Append one event. */
+  public record(event: NonNullable<Omit<T, 'name'>> & T): void {
+    this.#events.push({ ...event, name });
+  }
+
+  /** Every event at or after the given timestamp. */
+  public since(timestamp: T['timestamp']): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+
+export interface Event { name: string; timestamp: number }
+```

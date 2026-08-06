@@ -1,0 +1,73 @@
+```
+/**
+ * Splits a CSV line into its fields on commas, handling quoted fields that may contain commas.
+ *
+ * @param {string} line - The CSV line to parse
+ * @returns {string[]} An array of field values
+ */
+export function parseCsvLine(line: string): string[] {
+  const tokens = [];
+  let state = 'initial';
+  const quotedToken = {};
+
+  for (let i = 0; i < line.length; i++) {
+    const charCode = line.charCodeAt(i);
+
+    switch (state) {
+      case 'initial':
+        if (charCode === '"') {
+          state = 'quoted';
+          quotedToken.start = i;
+          quotedToken.end = null;
+        } else if (charCode === ',') {
+          tokens.push('');
+          state = 'field';
+        } else if (/\s/.test(line[i])) {
+          break;
+        } else {
+          state = 'quotedField';
+        }
+        break;
+
+      case 'quoted':
+        quotedToken.end = i;
+        break;
+
+      case 'quotedField':
+        if (charCode === '"') {
+          tokens.push(quotedToken.toString());
+          quotesAndEscape = false;
+          const start = i + 1;
+          while (quotesAndEscape && i < line.length) {
+            ++i;
+            switch (line.charCodeAt(i)) {
+              case '\\':
+                quotesAndEscape = false;
+                break;
+              case '"':
+                quotesAndEscape = true;
+                break;
+            }
+          }
+
+          tokens.push(line.substring(start, i));
+          state = 'initial';
+        } else {
+          // Skip unquoted fields
+          if (charCode !== ',') {
+            while (i < line.length && /\s/.test(line[i])) ++i;
+          }
+        }
+        break;
+
+      default:
+        throw new Error(`Internal error`);
+    }
+  }
+
+  // Finish quoted token
+  tokens.push(quotedToken.toString());
+
+  return tokens.filter(Boolean);
+}
+```

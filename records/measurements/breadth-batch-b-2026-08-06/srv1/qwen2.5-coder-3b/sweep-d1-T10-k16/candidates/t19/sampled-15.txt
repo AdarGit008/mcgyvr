@@ -1,0 +1,11 @@
+```typescript
+
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a)) throw new Error("Invalid input: numerator is not a finite number.");
+  if (!Number.isFinite(b)) throw new Error("Invalid input: denominator is not a finite number.");
+  
+  if (b === 0 || Number.isNaN(b)) throw new Error("Division by zero or NaN.");
+
+  return a / b;
+}
+```

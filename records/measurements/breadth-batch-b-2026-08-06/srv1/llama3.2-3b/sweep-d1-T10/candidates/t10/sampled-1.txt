@@ -1,0 +1,30 @@
+```typescript
+/** The index of target in a sorted array, or -1. */
+export function binarySearch(items: readonly number[], target: number) {
+  /**
+   * Perform binary search on a sorted array of numbers to find the index of a target value, if exists.
+   * Returns the index of the target value, or -1 if not found in the presence of duplicate values.
+   */
+
+  // Ensure items is sorted and stable within its bounds
+  let low = 0;
+  let exclusiveHigh = items.length;
+  
+  while (low < exclusiveHigh) {
+    const mid = Math.floor((low + exclusiveHigh) / 2);
+    
+    if (items[mid] === target) {
+      return mid;
+    }
+    
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      exclusiveHigh = mid;
+    }
+  }
+  
+  // In the presence of duplicate values, we can't always find the first occurrence
+  return Array.prototype.indexOf.call(items, target) !== -1 ? low : -1;
+}
+```

@@ -1,0 +1,94 @@
+```ts
+type LruCacheNode<K, V> = {
+  key: K;
+  value: V;
+  next?: LruCacheNode<K, V>;
+};
+
+export class LruCache<K, V> {
+  private head: LruCacheNode<K, V> | null = null;
+  private tail: LruCacheNode<K, V> | null = null;
+  private cache: Map<K, LruCacheNode<K, V>> = new Map();
+  private capacity: number;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private touchNode(node: LruCacheNode<K, V>): void {
+    // Remove node from current position and append to tail
+    if (node !== this.tail) {
+      const prevNode = node.prev;
+      const nextNode = node.next;
+
+      if (prevNode) {
+        this.cache.set(prevNode.key, nextNode!);
+      }
+
+      if (nextNode) {
+        this.cache.set(nextNode.key, prevNode!);
+      } else {
+        this.head = prevNode!;
+      }
+
+      node.prev = this.tail;
+      if (this.tail) {
+        this.tail.next = node;
+      }
+      this.tail = node;
+    }
+  }
+
+  get(key: K): V | undefined {
+    const node = this.cache.get(key);
+    if (!node) return undefined;
+
+    this.touchNode(node);
+
+    return node.value;
+  }
+
+  set(key: K, value: V): void {
+    const existingNode = this.cache.get(key);
+
+    if (existingNode) {
+      existingNode.value = value;
+      this.touchNode(existingNode);
+    } else {
+      const newNode: LruCacheNode<K, V> = { key, value };
+
+      if (this.cache.size === this.capacity) {
+        // Evict the least recently used (head)
+        const headNode = this.head!;
+        this.cache.delete(headNode.key);
+        if (headNode.next) {
+          this.cache.set(headNode.next!.key, null);
+        }
+        this.head = this.head!.next;
+
+        // Remove from cache
+        delete this.cache[headNode.key as K];
+      }
+
+      // Add to tail
+      if (this.tail) {
+        this.tail.next = newNode;
+        newNode.prev = this.tail;
+      } else {
+        this.head = newNode;
+      }
+      this.tail = newNode;
+
+      // Add to cache
+      this.cache.set(key, newNode);
+    }
+  }
+}
+```

@@ -1,0 +1,25 @@
+```ts
+import { Error } from 'assert';
+
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (!intervals.length || intervals.some(pair => pair[0] > pair[1])) {
+        throw new Error('Input must be a non-empty array of correctly formatted start-end pairs');
+    }
+
+    intervals.sort(([startA, endA], [startB, endB]) => startB - startA); // Sort by end time, ascending
+
+    let result: number[][] = [];
+    for (const interval of intervals) {
+        const [{start, end}] = interval;
+        if (!result.length || start > result[result.length - 1][1]) {
+            result.push(interval);
+            continue;
+        }
+
+        // The current interval touches or overlaps with the previous one.
+        result[result.length - 1][1] = Math.max(end, result[result.length - 1][1]);
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,15 @@
+```ts
+function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) depth = Infinity;
+  if (!Number.isInteger(depth)) throw new Error('Depth must be a non-negative integer or Infinity');
+  return items.reduce((acc, item) => {
+    if (Array.isArray(item)) {
+      const nestedItems = flatten(item as readonly unknown[], depth - 1);
+      acc.push(...nestedItems);
+    } else {
+      acc.push(item);
+    }
+    return acc;
+  }, []);
+}
+```

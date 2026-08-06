@@ -1,0 +1,46 @@
+```ts
+export class LruCache<K, V> {
+  private capacity: number;
+  private size: number;
+  private cache: Map<K, V>;
+  private history: K[];
+
+  constructor(capacity: number) {
+    if (capacity <= 0) throw new Error('Capacity must be a positive integer');
+    this.capacity = capacity;
+    this.size = 0;
+    this.cache = new Map();
+    this.history = [];
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      this.history.push(key);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    const existingValue = this.cache.get(key);
+    // If the key already exists, update its value and remove it from history
+    if (existingValue !== undefined) {
+      this.history.splice(this.history.indexOf(key), 1);
+    }
+    this.cache.set(key, value);
+    this.history.push(key);
+
+    // Remove the oldest entry if the cache exceeds capacity
+    if (this.size > this.capacity) {
+      const oldestKey = this.history.shift()!;
+      this.cache.delete(oldestKey);
+    }
+
+    this.size++;
+  }
+
+  get size(): number {
+    return this.size;
+  }
+}
+```

@@ -1,0 +1,76 @@
+```typescript
+/**
+ * Performs topological sorting on nodes and edges.
+ *
+ * @param nodes Name of each node in order they appear in this list.
+ * @param edges Edges that connect two nodes. From must come before to.
+ *                If no valid ordering exists, throws Error.
+ * @returns A valid ordering satisfying every edge.
+ *          When several valid orderings exist, picks the earliest unmet
+ *          dependency from nodes currently free of unmet dependencies in their current order.
+ *
+ *          Throws Error naming a cycle or for an invalid node.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+  const graph: { [key: string]: Set<string> } = {};
+  for (const node of nodes) {
+    graph[node] = new Set();
+  }
+  for (const edge of edges) {
+    if (!graph[edge[0]] || !graph[edge[1]]) {
+      throw new Error(`Invalid edge: ${edge.join('-')}`);
+    }
+    graph[edge[0]].add(edge[1]);
+  }
+
+  const freeNodes: { [key: string]: Set<string> } = {};
+  for (const node in graph) {
+    if (!freeNodes[node]) {
+      const visitedSet = new Set();
+      visit(node, visitedSet);
+    } else if (visitedSet.has(node)) {
+      throw new Error(`Cycle detected: ${node}`);
+    }
+  }
+
+  const result: string[] = [];
+  for (const node of nodes) {
+    const missingDepencies = getMissingDependencies(node, graph);
+    while (!missingDepencies.size) {
+      result.push(node);
+      node = getNextUnmetDependency(node, freeNodes, graph);
+    }
+  }
+
+  return [...result];
+}
+
+function visit(node: string, visitedSet: Set<string>) {
+  if (visitedSet.has(node)) {
+    // already visiting
+  } else {
+    visitedSet.add(node);
+    for (const to of graph[node]) {
+      visit(to, visitedSet);
+    }
+  }
+}
+
+function getMissingDependencies(node: string, graph: { [key: string]: Set<string> }) {
+  const missingDepencies = new Set();
+  if (!graph[node]) return missingDepencies;
+  for (const dep of graph[node]) {
+    if (!missingDepencies.has(dep)) missingDepencies.add(nextNodeIfBefore(dep, node));
+  }
+  return missingDepencies;
+}
+
+function nextNodeIfBefore(to: string, from: string): string | null {
+  while (graph[from].has(to)) {
+    const n = graph[from].values().next().value;
+    if (n === to) throw new Error(`Cycle detected: ${from}-${to}-${n}`);
+    from = n;
+  }
+  return from || from === to ? null : to;
+}
+```

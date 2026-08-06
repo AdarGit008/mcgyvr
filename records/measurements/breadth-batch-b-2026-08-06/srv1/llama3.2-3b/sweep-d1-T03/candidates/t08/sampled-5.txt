@@ -1,0 +1,57 @@
+```typescript
+/**
+ * Returns an ordering satisfying every edge in the given edges, while keeping nodes
+ * in their input order when possible. Throws an Error if a cycle is detected or if an
+ * edge names a node not in nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    const adjacencyList: { [node: string]: readonly string[] } = {};
+    for (const node of nodes) {
+        adjacencyList[node] = [];
+    }
+
+    for (const [from, to] of edges) {
+        if (!adjacencyList[from]) {
+            throw new Error(`Edge from ${from} names a node not in nodes.`);
+        }
+        adjacencyList[from].push(to);
+    }
+
+    const visited: Set<string> = new Set();
+    const currentPath: Set<string> = new Set();
+
+    for (const node of nodes) {
+        if (!visited.has(node)) {
+            try {
+                topologicalSortHelper(node, adjacencyList, visited, currentPath);
+            } catch (error) {
+                throw error;
+            }
+        }
+    }
+
+    return nodes.sort((a, b) => adjacencyList[a].indexOf(b));
+}
+
+function topologicalSortHelper(
+    node: string,
+    adjacencyList: { [node: string]: readonly string[] },
+    visited: Set<string>,
+    currentPath: Set<string>
+): void {
+    if (currentPath.has(node)) {
+        throw new Error(`Cycle detected in the graph.`);
+    }
+
+    if (!visited.has(node)) {
+        visited.add(node);
+        currentPath.add(node);
+
+        for (const neighbor of adjacencyList[node]) {
+            topologicalSortHelper(neighbor, adjacencyList, visited, currentPath);
+        }
+
+        currentPath.delete(node);
+    }
+}
+```

@@ -1,0 +1,41 @@
+```
+import { isNaN } from "lodash";
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  let lineIndex = 0;
+
+  for (const rawLine of text.split("\n")) {
+    // Ignore empty lines
+    if (!rawLine.trim()) continue;
+    
+    // Split on the first '=' to handle values with spaces
+    const [key, ...valueParts] = rawLine.split("=", 2);
+    
+    lineIndex++;
+    
+    // Handle comments if present
+    if (key.startsWith("#")) {
+      throw new Error(`Commented line at ${lineIndex}: ${rawLine.trim()}`);
+    }
+    
+    // Trim whitespace around key and value
+    const cleanKey = key.trim();
+    if (!cleanKey) {
+      throw new Error(`Empty or invalid key at ${lineIndex}: ${rawLine}`);
+    }
+    
+    const cleanValue = valueParts.join("")?.trim()!;
+    
+    // Check for "__proto__" presence as a safeguard
+    if (cleanKey === "__proto__") {
+      throw new Error(`Invalid key "__proto__" at ${lineIndex}: ${rawKey}`);     
+    }
+
+    config[cleanKey] = cleanValue;
+  }
+
+  return config;
+}
+```

@@ -1,0 +1,53 @@
+```ts
+/**
+ * LruCache is similar to Map in that it stores key-value pairs, but with some unique behaviors:
+ * - When capacity is exceeded and there are remaining keys, least recently used items are discarded.
+ * - It maintains a count of each item's use frequency for this purpose.
+ */
+
+class LruCache<K, V> {
+  private cache: {[key in K]: { value: V; count: number }} = {};
+  private capacity: number;
+  private size: number;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || typeof capacity !== 'number') {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+    this.size = 0;
+  }
+
+  public get(key: K): V | undefined {
+    const item = this.cache[key];
+    if (!item) return undefined;
+
+    // Increment the use count
+    item.count++;
+    return item.value;
+  }
+
+  public set(key: K, value: V): void {
+    // Remove the key from current position to prevent duplication
+    if (this.size - 1 > 0 && this.cache[this.key] !== undefined) {
+      delete this.cache[key];
+      this.size--;
+    }
+
+    const newItem = { value, count: 1 };
+    this.cache[key] = newItem;
+    this.size++;
+
+    // If capacity reached, remove the least recently used item
+    if (this.size > this.capacity) {
+      const oldestItem = Object.entries(this.cache).sort((a, b) => b[1].count - a[1].count)[0][0];
+      delete this.cache[oldestItem];
+      this.size--;
+    }
+  }
+
+  public size(): number {
+    return this.size;
+  }
+}
+```

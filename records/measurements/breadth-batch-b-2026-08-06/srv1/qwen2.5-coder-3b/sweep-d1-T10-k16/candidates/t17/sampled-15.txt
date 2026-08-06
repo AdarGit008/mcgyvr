@@ -1,0 +1,14 @@
+```ts
+export function groupByLength(words: readonly string[]): Map<number, readonly string[]> {
+  const groups = new Map();
+  for (const word of words) {
+    const bucket = groups.get(word.length) || [];
+    if (word.length in groups) {
+      throw new Error(`Duplicate word length detected: ${word.length}`);
+    }
+    bucket.push(word);
+    groups.set(word.length, bucket);
+  }
+  return groups;
+}
+```

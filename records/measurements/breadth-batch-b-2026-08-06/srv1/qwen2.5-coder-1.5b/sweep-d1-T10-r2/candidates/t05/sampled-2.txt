@@ -1,0 +1,15 @@
+```ts
+function chunk<T>(items: readonly T[], size: number): T[][] {
+    if (!Number.isInteger(size) || size <= 0) throw new Error('Size must be a positive integer');
+
+    return items.reduce((acc, item, index) => {
+        acc.push([item]);
+        if (index + 1 < items.length && (index + 1) % size !== 0) return acc;
+        while (acc[acc.length - 1].length < size && index + 1 < items.length) {
+            acc[acc.length - 1].push(items[index + 1]);
+            index++;
+        }
+        return acc;
+    }, []);
+}
+```

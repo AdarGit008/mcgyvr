@@ -1,0 +1,65 @@
+```ts
+// solution.ts
+
+export function parseCsvLine(line: string): string[] {
+  if (!line) throw new Error("Empty line (no fields to parse)");
+
+  const result = [];
+  let currentField = "";
+  let hasQuotes = false;
+  let isQuotedField = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      hasQuotes = true;
+      if (!isQuotedField) {
+        // Start of a quoted field
+        isQuotedField = true;
+        currentField += char;
+      } else {
+        // End of a literal double quote or middle of an escaped literal quote
+        i += 1; // Skip the next character (second double quote)
+        if (i < line.length) {
+          const nextChar = line[i];
+          if (nextChar !== '"') {
+            currentField += '"';
+          }
+        } else {
+          throw new Error("Quoted field is never closed");
+        }
+      }
+    } else if (char === ",") {
+      if (!hasQuotes && !isQuotedField) {
+        // End of an unquoted field
+        result.push(currentField);
+        currentField = "";
+        hasQuotes = false;
+      } else {
+        // Comma inside a quoted or unquoted field as part of the value
+        currentField += ",";
+        hasQuotes = false; // Reset quotes tracking after comma in quoted field
+      }
+    } else if (char === " " && !isQuotedField) {
+      // Ignore leading whitespace between fields
+      continue;
+    } else {
+      // Append literal character to currentField or quotedField
+      currentField += char;
+      hasQuotes = false; // Reset quotes tracking after an unquoted character
+    }
+
+    if (i === line.length - 1 && !hasQuotes) {
+      // End of the string, but still inside a quoted or unquoted field
+      result.push(currentField);
+    }
+  }
+
+  if (result[result.length - 1] === "") {
+    result.pop(); // Remove trailing empty fields
+  }
+
+  return result;
+}
+```

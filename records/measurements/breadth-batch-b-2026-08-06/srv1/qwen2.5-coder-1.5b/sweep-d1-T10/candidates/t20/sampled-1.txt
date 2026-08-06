@@ -1,0 +1,33 @@
+```ts
+import process from 'process';
+
+/** The KEY=VALUE pairs of a config file with blank lines and comments ignored. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+
+  for (const line of text.split("\n")) {
+    if (!line.trim() || line.startsWith('#')) continue;
+
+    const [key, value] = line
+      .trim()
+      .split(/:/)
+      .map(item => item.trim())
+      .filter(item => item !== "");
+
+    if (!Object.keys(config).includes(key)) {
+      config[key] = value;
+    } else {
+      const keyProto = Object.getPrototypeOf(key);
+      if (keyProto === String || keyProto === Array) {
+        console.warn('key "' + key + '" is already a ' +
+          (typeof keyProto === "function" ? "constructor of" : keyProto.toString()) +
+          ', leaving it unchanged. If wanted, use an alias.');
+      } else {
+        throw new Error(`Duplicate entry for "${key}" on line ${process.pid}`);
+      }
+    }
+  }
+
+  return config;
+}
+```

@@ -1,0 +1,48 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList: Map<string, Set<string>> = new Map();
+  const indegreeMap: Map<string, number> = new Map();
+
+  // Build the graph and calculate incoming degrees
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw new Error("An edge names a node not in nodes");
+    }
+
+    adjacencyList.set(from, (adjacencyList.get(from) || new Set()).add(to));
+    indegreeMap.set(to, (indegreeMap.get(to) || 0) + 1);
+  }
+
+  // Queue of nodes with no incoming edges to process
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if (!indegreeMap.has(node)) {
+      queue.push(node);
+    }
+  }
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const currentNode = queue.shift()!;
+    result.push(currentNode);
+
+    // Decrement the indegree of all neighbors and enqueue if 0
+    for (const neighbor of adjacencyList.get(currentNode) || []) {
+      indegreeMap.set(neighbor, indegreeMap.get(neighbor)! - 1);
+      if (indegreeMap.get(neighbor)! === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check if there's a cycle
+  for (const [node] of indegreeMap.entries()) {
+    if (indegreeMap.get(node)! !== 0) {
+      throw new Error("Cycle detected in the graph");
+    }
+  }
+
+  return result;
+}
+```

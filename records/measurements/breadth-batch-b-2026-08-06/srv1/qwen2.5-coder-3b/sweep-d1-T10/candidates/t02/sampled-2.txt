@@ -1,0 +1,31 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!intervals) throw new Error("Input cannot be null or undefined");
+
+  return intervals
+    .filter(([, end]) => end >= 0)
+    .sort((a, b) => a[0] - b[0])
+    .reduce<
+      { result: number[]; merged: { start: number; end: number }; currentEnd: number }[]
+    >(
+      ([result, merged], [start, end]) => {
+        // If there's no previous merged interval or current interval is not touching the last merged, add it to result
+        if (
+          merged?.end < start ||
+          (merged && merged.end === start && end !== intervals[intervals.length - 1][1])
+        ) {
+          return [result.concat([start, end]), undefined, end];
+        }
+        // Merge current interval with the last merged
+        const nextMerged: { start: number; end: number } = {
+          start: Math.min(merged?.start ?? Infinity, start),
+          end: Math.max(merged?.end ?? -Infinity, end),
+        };
+        return [[...result], nextMerged, nextMerged.end];
+      },
+      []
+    )
+    .slice(0, -1) // Remove the last element to avoid duplicate entry
+    .map(([start, end]) => [...[start, end]]);
+}
+```

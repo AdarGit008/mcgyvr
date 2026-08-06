@@ -1,0 +1,20 @@
+ ```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const re = /^v?(?<major>[1-9]\d{0,}\.)?
+       (?<minor>[1-9]\d{0,}\.)? v?
+       (?<patch>[1-9]\d{0,}).* (\-\w+-\d+) *(\+\w+-\d+)?$/;
+
+  const match = version.match(re);
+  if (!match) {
+    throw new Error(`invalid format of input: ${version}`);
+  }
+
+  return {
+    major: parseInt(match.groups.major || '0', 10),
+    minor: parseInt(match.groups.minor || '0', 10),
+    patch: parseInt(match.groups.patch || '0', 10),
+    prerelease: match.groups.prerelease ? match.groups.prerelease : null,
+    build: match.groups.build ? match.groups.build : null
+  };
+}
+```

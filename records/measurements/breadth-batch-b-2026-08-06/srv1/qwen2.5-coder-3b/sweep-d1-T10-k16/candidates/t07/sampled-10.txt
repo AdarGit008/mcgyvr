@@ -1,0 +1,33 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof items !== 'object' || Array.isArray(items) === false) {
+    throw new Error('Input must be an array.');
+  }
+
+  if (
+    typeof depth !== 'undefined' &&
+    ((typeof depth !== 'number' || isNaN(depth)) || depth < 0)
+  ) {
+    throw new Error('If provided, depth must be a non-negative integer or Infinity.');
+  }
+
+  const flattenHelper = (item: unknown, currentDepth: number): unknown[] => {
+    if (typeof item === 'object' && Array.isArray(item) && currentDepth > 0) {
+      return item.flatMap((child, index) =>
+        flattenHelper(child, currentDepth - 1)
+      );
+    }
+    return [item];
+  };
+
+  const result = new Set([]);
+
+  items.forEach((item) => {
+    flattenHelper(item, depth || Infinity).forEach((value) => {
+      result.add(value);
+    });
+  });
+
+  return Array.from(result);
+}
+```

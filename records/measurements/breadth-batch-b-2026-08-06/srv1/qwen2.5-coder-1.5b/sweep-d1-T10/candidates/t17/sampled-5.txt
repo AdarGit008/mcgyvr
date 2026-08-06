@@ -1,0 +1,22 @@
+```ts
+import * as assert from 'assert';
+
+/** The words grouped by their length, in first-seen order. */
+export function groupByLength(words: readonly string[]): Map<number, string[]> {
+  const groups = new Map();
+  for (const word of words) {
+    const bucket = groups.get(word.length);
+    if (bucket === undefined) {
+      groups.set(word.length, [word]);
+    } else {
+      bucket.push(word);
+    }
+  }
+  return groups;
+}
+
+// Test cases to verify the correctness of the implementation
+assert.equal(groupByLength([]), new Map());
+assert.deepEqual(groupByLength([""]), new Map([[1, [""]]]));
+assert.deepEqual(groupByLength(["apple", "banana", "pear"]), new Map([[5, ["banana"]], [6, ["pear"]], [5, ["apple"]]]));
+```

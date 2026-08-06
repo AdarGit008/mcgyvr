@@ -1,0 +1,22 @@
+```ts
+
+export function flatten(items: ReadonlyArray<unknown>, depth?: number): unknown[] {
+  if (depth === undefined || typeof depth !== 'number' || Math.floor(depth) != parseInt(`${depth}`, 10)) {
+    throw new Error(
+`depth must be a non-negative integer or Infinity. Provided: ${depth ?? 'undefined'}`,
+);
+  }
+  const maxDepth = depth - 1;
+
+  function doFlatten(arrItems: ReadonlyArray<unknown>, currentDepth: number): unknown[] {
+    return arrItems.flatMap(item => {
+      if (item instanceof Array && currentDepth >= 0) {
+        return doFlatten(item, Math.max(currentDepth - 1, 0));
+      }
+      return item;
+    });
+  }
+
+  return doFlatten(items, maxDepth);
+}
+```

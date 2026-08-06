@@ -1,0 +1,5 @@
+```ts
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].map((numStr) => parseInt(numStr)).sort((a, b) => a - b);
+}
+```

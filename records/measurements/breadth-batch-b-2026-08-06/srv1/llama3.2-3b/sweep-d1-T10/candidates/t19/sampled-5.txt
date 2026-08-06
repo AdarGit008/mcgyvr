@@ -1,0 +1,20 @@
+```
+/**
+a / b
+*/
+export function safeDivide(
+  a: number,
+  b: number
+): { result: number | null; error: string } {
+  return (
+    (isNaN(b) || typeof b === 'number' && isFinite(b))
+      ? NaN
+      : typeof b !== 'number'
+        ? new Error(`b must be a finite number, but got ${b}`)
+        : isNaN(a) ||
+          isFinite(a)
+        ? a / b
+        : new Error('a and b cannot both not be finite')
+  );
+}
+```

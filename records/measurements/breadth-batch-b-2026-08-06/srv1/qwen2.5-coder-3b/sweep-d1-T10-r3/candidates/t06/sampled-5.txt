@@ -1,0 +1,72 @@
+```ts
+type QuotePair = { quote: string, field: string };
+
+function parseQuotes(input: string): [QuotePair?] | [string[]] {
+  const doubleQuoteIndex = input.indexOf('"');
+  
+  if (doubleQuoteIndex === -1) return [[input]];
+
+  const quotePair: QuotePair = {
+    quote: '"',
+    field: input.slice(doubleQuoteIndex + 1, -doubleQuoteIndex - 1)
+  };
+
+  // If the pair is empty it means there are no additional quotes
+  if (!quotePair.field.length) {
+    return [`${quotePair.quote}${input.slice(0, doubleQuoteIndex)}${quotePair.quote}`];
+  }
+
+  // Recursively parse the remaining part
+  const result = parseQuotes(quotePair.field);
+
+  // Combine results
+  quotePair.field = [];
+  for (let i = 0; i < result.length; i++) {
+    const [parsedField] = result[i].split(`"`);
+    quotePair.field.push(parsedField.trim());
+  }
+
+  return [quotePair];
+}
+
+function parseCsvLine(line: string): string[] {
+  if (!line.trim()) return [];
+
+  // Split line by commas, while handling quoted fields
+  const parts = [];
+  let fieldStartIndex = 0;
+  let currentQuote: QuotePair[] | undefined;
+
+  for (let i = 0; i < line.length; i++) {
+    switch (line[i]) {
+      case '"':
+        if (currentQuote && currentQuote[currentQuote.length - 1].field) {
+          throw new Error("Quoted field never closed");
+        }
+        const [quote] = parseQuotes(line.slice(i));
+        currentQuote = quote;
+        i += quote.join("").length - 1; // Move forward to the end of quote
+        break;
+      case ',':
+        if (currentQuote) {
+          parts.push(currentQuote[currentQuote.length - 1].fields);
+          currentQuote.pop();
+        } else {
+          const parsedField = line.slice(fieldStartIndex, i);
+          parts.push(parsedField.trim());
+          fieldStartIndex = i + 1;
+        }
+        break;
+    }
+  }
+
+  // Add the last part if there's any left
+  if (currentQuote) parts.push(currentQuote[currentQuote.length - 1].fields);
+  else {
+    const parsedField = line.slice(fieldStartIndex).trim();
+    parts.push(parsedField);
+  }
+
+  return parts.join(", ").split(", ");
+}
+```

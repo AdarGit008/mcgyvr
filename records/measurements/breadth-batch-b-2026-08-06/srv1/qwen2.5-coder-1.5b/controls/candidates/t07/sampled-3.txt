@@ -1,0 +1,29 @@
+```ts
+/**
+ * Flattens an array up to a specified depth level, where each level is another array of elements itself.
+ * A string is considered non-iterable and remains unchanged. Depth levels are zero-based,
+ * with depth 0 resulting in a copy of the input array.
+ *
+ * @param items - The array to flatten.
+ * @param depth - The maximum depth of nesting. Defaults toInfinity.
+ * @returns A new array with nested arrays flattened up to the specified depth.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) return [...items];
+
+  const flatItems = [];
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      if (depth > 0 && !isNaN(depth)) {
+        flatItems.push(...flatten(item, depth - 1));
+      } else {
+        flatItems.push(...item);
+      }
+    } else {
+      flatItems.push(item);
+    }
+  }
+
+  return flatItems;
+}
+```

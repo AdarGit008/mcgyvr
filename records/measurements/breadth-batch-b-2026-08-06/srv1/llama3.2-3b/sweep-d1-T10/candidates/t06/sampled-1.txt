@@ -1,0 +1,61 @@
+```typescript
+/**
+ * Splits one line of CSV into its fields on commas, handling quoted fields with escaping.
+ * 
+ * @param line One line of CSV to parse
+ * @returns An array of fields from the CSV line
+ */
+export function parseCsvLine(line: string): string[] {
+    const fields: string[] = [];
+    let currentValue: string | null = '';
+    let inQuote: boolean = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const charCode = line.charCodeAt(i);
+        
+        if ((charCode === 34 && !inQuote) || charCode === 13 || charCode === 10) { // \n, \r or "
+            if (currentValue !== null) {
+                fields.push(currentValue.trim());
+                currentValue = null;
+            }
+            if (i + 1 < line.length && line[i + 1] === quoteChar(line.charCodeAt(i))) {
+                inQuote = !inQuote;
+            } else if (charCode === 10 || charCode === 13) {
+                i++; // Skip the newline character
+            } else {
+                fields.push(line.substring(i).trim());
+                break;
+            }
+        } else if (charCode === 34) { // "
+            inQuote = !inQuote;
+            currentValue = (currentValue !== null ? currentValue : '') + line[i];
+        } else {
+            if (inQuote) {
+                currentValue += line[i]; // quoted field, escape special chars
+            } else {
+                currentValue = (currentValue !== null ? currentValue : '') + line[i] + ' ';
+            }
+        }
+    }
+    
+    if (currentValue && !inQuote) {
+        fields.push(currentValue.trim());
+    }
+    
+    if (fields.length === 0 || fields[fields.length - 1] === '') {
+        return [line];
+    }
+    
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i] && fields[i] !== undefined) {
+            throw new Error("Invalid line in CSV");
+        } else if (i > 0 && fields[fields.length - 1] === lines[i]) {
+            break;
+        }
+    }
+    
+    return fields;
+}
+
+const quoteChar = (charCode: number): string => charCode === 34 ? '"' : '';
+```

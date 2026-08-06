@@ -1,0 +1,118 @@
+```ts
+
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const inDegree = new Map<string, number>();
+    const graph = new Map<string, Set<string>>();
+
+    while (nodes.length > 0) {
+        for (let node of nodes) {
+            if (!inDegree.has(node)) {
+                inDegree.set(node, 0);
+            }
+            if (!graph.has(node)) {
+                graph.set(node, new Set());
+            }
+
+            const neighborList = map.get(node)!;
+
+            for (let NeighborNode of neighborList?.concat("")) {
+                graph!.get(node)!.add(nearneighborNode);
+                inDegree.set(nearneighborNode, inDegree get(nearneighborNode) + 1);
+            }
+        }
+    }
+
+    [...in Degree.entries()]
+            .sort((a, b) => a[1] - b[1]);
+        
+        let node = '';
+
+        do {
+            if(node === "") break;
+
+        const neighborsList = map!.get(node)!;
+
+            edgesToDelete.length = 0;
+            
+        
+            for (let neighborNode of neighborsList){
+
+                // The edge is in the same direction 
+                // or it violates topo-sort
+				// which is a cycle.
+
+                try {
+
+                    delete graph.get(neighborNode)!.delete(node);
+
+                    // if neighborlist is empty then add this newly visited node,
+	                //  remove edge from remaining edges list by filtering them if necessary
+					if (neighborList.length === 0){  
+                        edgesToDelete.push([node, neighborNode]);
+
+                        neighborsList = [];
+                        delete inDegree.get(node);
+                        
+					}
+                    break;
+
+                } catch {
+
+                    edgesToDelete!.push([node,_neighborNode]);
+
+
+                    
+                    continue;
+ 
+                }
+                
+                
+                
+            }
+
+
+            
+        } while(nodes.length > 0);
+
+        const edgesLeft = new Set(edges!.map(edg => edg.join(',')));
+        
+    
+
+    const sortedNodes = [];
+    
+    for(const key of inDegree.keys()){
+       
+
+        if (edgesLeft!.has(key + ',')){
+            node = key;
+            
+            
+
+            edgesToDelete!.forEach(x => edgesToDelete!.delete([x[0], x[1]].join(',')));
+
+            break;
+            
+        }
+        
+        
+           
+       
+      
+      if(edgesEmpty){
+
+          edgesLeft.removeAll(edgesRight);
+          
+         
+         if(edgesLeft.size === 0) return sortedNodes;
+
+       }
+    }
+
+
+        
+       // There is an edge that can't be visited so a cycle must exist
+    
+   throw new Error(nodes[sortedNodes.indexOf(Math.min(...sortedNodes))] + ' is cyclic');
+   
+}
+```

@@ -1,0 +1,27 @@
+```ts
+import { slice } from "lodash";
+
+export function runLengthEncode(input: string): string {
+  const checkType = (arg: any) => typeof arg !== 'string' && !Array.isArray(arg);
+
+  if (checkType(input)) {
+    throw new Error('Argument is not a string');
+  }
+
+  let encoded = '';
+  let count = 1;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    const nextChar = i + 1 < input.length ? input[i + 1] : undefined;
+    if (char === nextChar) {
+      count++;
+    } else {
+      encoded += `${char}${count}`;
+      count = 1;
+    }
+  }
+
+  return encoded;
+}
+```

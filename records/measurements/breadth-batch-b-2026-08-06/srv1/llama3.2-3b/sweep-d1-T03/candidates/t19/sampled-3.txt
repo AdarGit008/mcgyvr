@@ -1,0 +1,16 @@
+```typescript
+/**
+ * Returns the division of `a` by `b`, throwing if either argument is invalid.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(b)) {
+    throw new Error('Cannot divide by zero or NaN');
+  }
+  
+  if (!isFinite(b) || !isFinite(a)) {
+    throw new Error('Both arguments must be finite numbers');
+  }
+  
+  return a / b;
+}
+```

@@ -1,0 +1,13 @@
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+    if (typeof depth !== 'number' || depth < 0) {
+        throw new Error('Invalid depth; expected non-negative integer or infinity');
+    }
+
+    return items.reduce((acc, item) => {
+        return Array.isArray(item)
+            ? acc.concat(flatten(item as unknown[], depth - 1))
+            : acc.concat([item]);
+    }, [] as unknown[]);
+}
+```

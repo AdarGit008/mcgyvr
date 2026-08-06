@@ -1,0 +1,53 @@
+```ts
+
+// Given node names and [from, to] edges meaning from must come before to,
+// return an ordering satisfying every edge. When several orderings are valid,
+// pick the one that keeps nodes in their input order - among the nodes currently free of unmet dependencies,
+// always take the earliest in nodes. Throw an Error naming a cycle when no ordering exists,
+// and an Error for an edge naming a node not in nodes.
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: { [node: string]: string[] } = {};
+    const indegree: { [node: string]: number } = {};
+
+    // Initialize graph and indegree count
+    for (const node of nodes) {
+        graph[node] = [];
+        indegree[node] = 0;
+    }
+
+    // Build the graph and calculate in-degree counts
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Invalid edge: ${from} -> ${to}`);
+        }
+        graph[from].push(to);
+        indegree[to]++;
+    }
+
+    const queue: string[] = [];
+    for (const node of nodes) {
+        if (indegree[node] === 0) {
+            queue.push(node);
+        }
+    }
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        if (result.length !== nodes.length) {
+            throw new Error('Cycle detected');
+        }
+        const current = queue.shift()!;
+        result.push(current);
+
+        for (const neighbor of graph[current]) {
+            indegree[neighbor]--;
+            if (indegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    return result;
+}
+```

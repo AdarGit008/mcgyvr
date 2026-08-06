@@ -1,0 +1,45 @@
+```ts
+/**
+ * Runs length encodes every maximal run of a repeated character within the input string
+ */
+export function runLengthEncode(input: string): string {
+    
+    // Check if input is a valid string, throw Error if not
+    if (typeof input !== 'string') {
+        throw new Error('Input must be a non-empty string.');
+    }
+        
+    // Initialize result as empty array to store the encoded characters and lengths
+    const result: string[] = [];
+    
+    // If input is empty, return it immediately since there's nothing to encode
+    if (!input) {
+        return '';
+    }
+        
+    // Initialize current character and count with first character of input and a count 1
+    let currentChar = input[0];
+    let charCount = 1;
+
+    // Iterate through the rest of the string, checking each character
+    for (let i = 1; i <= input.length; i++) {
+        const char = input[i];
+        
+        // If we find a new character or reach the end of the string and it matches currentChar,
+        // then append either this character or its length, followed by the length of any previous characters, to result
+        if (i === input.length || char !== currentChar) {
+            result.push(char + (charCount > 1 ? charCount : 1));
+            currentChar = char;
+            charCount = 1;
+        }
+        // If i < input.length and the character is as expected (and we know it since it's not last), 
+        // then increment both currentChar's count and its index into our input, otherwise decrement it
+        else {
+            charCount++;
+        }
+    }
+        
+    // Return encoded result by mapping over the characters array with String method to create desired output
+    return [...result].join('');
+}
+```

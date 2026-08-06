@@ -1,0 +1,17 @@
+```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Trim whitespace around the key and value, split on the FIRST =
+    const cleanLine = line.trim();
+    if (!cleanLine || cleanLine.startsWith("#") || cleanLine.includes("__proto__=")) continue;
+    const parts = cleanLine.split("=");
+    if (parts.length !== 2) throw new Error(`Found no equals sign in ${line}`);
+    const key = parts.shift()?.trim()!;
+    const value = parts.join("=").trim();
+    config[key] = value;
+  }
+  return config;
+}
+```

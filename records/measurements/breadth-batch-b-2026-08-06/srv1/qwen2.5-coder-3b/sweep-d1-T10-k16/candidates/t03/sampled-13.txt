@@ -1,0 +1,46 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  // Check if input starts with a 'v' (optional)
+  if (version.startsWith('v')) version = version.slice(1);
+
+  const parts = version.split('.');
+  if (parts.length !== 3) throw new Error(`${version} is not a valid semantic version`);
+
+  const parsePart = (part: string, digitsOnly: boolean): number | null => {
+    if (!/\d+/.test(part)) return null;
+    const num = Number(part);
+    return digitsOnly ? num : parseInt(num.toString().replace(/^0/, ''), 10);
+  };
+
+  const [majorStr, minorStr, patchStr] = parts;
+  
+  const major = parsePart(majorStr, true);
+  if (major === null) throw new Error(`${version} is not a valid semantic version`);
+
+  const minor = parsePart(minorStr, true);
+  if (minor === null) throw new Error(`${version} is not a valid semantic version`);
+
+  const patch = parsePart(patchStr, true);
+  if (patch === null) throw new Error(`${version} is not a valid semantic version`);
+
+  let prerelease: string | null = null;
+  const preIndex = parts.indexOf('-prerelease');
+  if (preIndex !== -1) {
+    prerelease = parts.slice(preIndex + 1).join(''); // Join after '-prerelease' to get the full prerelease
+    // Check for any leading zeros in the prerelease part
+    if (/^0\d/.test(prerelease)) throw new Error(`${version} is not a valid semantic version`);
+  }
+
+  let build: string | null = null;
+  const buildIndex = parts.indexOf('+build');
+  if (buildIndex !== -1) {
+    build = parts.slice(buildIndex + 1).join('');
+
+    // Check for any leading zeros in the build part
+    if (/^0\d/.test(build)) throw new Error(`${version} is not a valid semantic version`);
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+
+```

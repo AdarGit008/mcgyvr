@@ -1,0 +1,31 @@
+```ts
+/**
+ * Encodes a string by run-length encoding every maximal run of repeated characters.
+ * "aaabbc" becomes "a3b2c1".
+ * An empty string remains unchanged.
+ * @param input The input string to encode.
+ * @returns The encoded string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let encoded = '';
+  let count = 1;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    const nextChar = i + 1 < input.length ? input[i + 1] : '';
+
+    if (char === nextChar) {
+      count++;
+    } else {
+      encoded += `${char}${count > 1 ? count : ''}`;
+      count = 1;
+    }
+  }
+
+  return encoded;
+}
+```

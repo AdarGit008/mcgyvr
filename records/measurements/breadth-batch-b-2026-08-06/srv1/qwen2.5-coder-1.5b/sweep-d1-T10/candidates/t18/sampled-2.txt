@@ -1,0 +1,35 @@
+```ts
+import { Event } from './index';
+
+/** An append-only log of timestamped events. */
+export class EventLog {
+  #events: Event[] = [];
+
+  /** Append one event. */
+  record(event) {
+    this.#events.push(event);
+  }
+
+  /** Every event at or after the given timestamp, in insertion order. */
+  since(timestamp: number): Event[] {
+    return this.#events.slice(this.findInsertionIndex(timestamp));
+  }
+
+  private findInsertionIndex(timestamp: number): number {
+    const index = this.binarySearch((e) => e.timestamp > timestamp, 0, this.#events.length);
+    return index < this.#events.length ? index : this.#events.length;
+  }
+
+  private binarySearch(compareFn: (event: Event, start: number, end: number) => boolean, start: number, end: number): number {
+    while (start < end) {
+      const mid = Math.floor((start + end) / 2);
+      if (compareFn(this.#events[mid], start, end)) {
+        start = mid + 1;
+      } else {
+        end = mid;
+      }
+    }
+    return start;
+  }
+}
+```

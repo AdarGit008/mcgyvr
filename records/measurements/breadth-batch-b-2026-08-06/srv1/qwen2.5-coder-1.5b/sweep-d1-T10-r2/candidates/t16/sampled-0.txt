@@ -1,0 +1,40 @@
+```ts
+const MODULUS = 1000000007;
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (typeof n !== 'number' || !Number.isInteger(n) || n < 0) {
+    throw new Error('n must be a non-negative integer');
+  }
+
+  /**
+   * Performs Fibonacci until either count exceeds the limit or the first two elements
+   * in the sequence match the target n. This technique ensures only necessary iterations
+   * are performed, improving efficiency.
+   *
+   * @param idx The index of the current element in the sequence.
+   * @param a The previous element in the sequence.
+   * @param b The current element in the sequence to compare with n.
+   */
+  function fibByCount(idx: number, a: number, b: number): number {
+    if (idx === count) return Math.min(a, b) % MODULUS;
+    const next = (a + b) % MODULUS; // Efficiently compute modulo
+    fibByCount(idx + 1, b, next);
+  }
+
+  let i = 0;
+  let count = 2;
+
+  while (Math.min(i, i + 1) < n || i === -1) {
+    if (i === n) return Math.min(Math.max(0, i), n); // Return the minimal value
+    fibByCount(i, 0, 1); // Start generating the sequence from the beginning
+    i++;
+    if (i > count) count++; // Count each step to detect duplicates
+  }
+}
+
+// Example usage:
+console.log(fibMod(5)); // Output: 3
+console.log(fibMod(6)); // Output: 8
+console.log(fibMod(7)); // Output: 19
+```

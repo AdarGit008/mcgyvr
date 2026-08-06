@@ -1,0 +1,26 @@
+```ts
+/**
+ * Validates if the provided temperature in Celsius is a finite number that is at or above absolute zero.
+ * @param {number} celsius - The temperature in Celsius to validate.
+ * @returns {boolean} True if the temperature is valid, false otherwise.
+ */
+function isValidCelsius(celsius: number): boolean {
+  return typeof celsius === "number" && !Number.isFinite(celsius) || celsius < -273.15;
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  if (!isValidCelsius(celsius)) {
+    throw new Error("celsius must be a finite number and at or above absolute zero");
+  }
+  return celsius * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  if (!isValidCelsius(celsius)) {
+    throw new Error("celsius must be a finite number and at or above absolute zero");
+  }
+  return celsius + 273.15;
+}
+```

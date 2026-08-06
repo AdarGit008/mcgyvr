@@ -1,0 +1,23 @@
+```typescript
+/** The factorial of n. */
+export function factorial(n: number): number {
+  /**
+   * Calculates the factorial of a given integer.
+   *
+   * @param n - The input number.
+   * @throws {Error} If n is not a non-negative integer.
+   * @returns {number} The factorial of n.
+   */
+  if (typeof n !== 'number' || n < 0) {
+    throw new Error('Input must be a non-negative integer.');
+  }
+  if (!Number.isInteger(n)) {
+    throw new Error('Input must be an integer.');
+  }
+  if (n === 0) {
+    return 1;
+  } else {
+    return n * factorial(n - 1);
+  }
+}
+```

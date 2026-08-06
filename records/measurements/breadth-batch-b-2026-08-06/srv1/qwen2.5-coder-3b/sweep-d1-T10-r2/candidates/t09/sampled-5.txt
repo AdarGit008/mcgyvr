@@ -1,0 +1,18 @@
+```typescript
+
+/**
+ * The factorial of n.
+ */
+export function factorial(n: number): number {
+  if (!Number.isInteger(n)) {
+    throw new TypeError('Argument must be an integer.');
+  }
+  if (n < 0) {
+    throw new Error('Factorial is not defined for negative numbers.');
+  }
+  if (n === 0) {
+    return 1;
+  }
+  return n * factorial(n - 1);
+}
+```

@@ -1,0 +1,14 @@
+```ts
+export function flatten<T>(items: readonly T[], depth = Infinity): T[] {
+  if (!Number.isInteger(depth) || depth < 0) {
+    throw new Error("Depth must be a non-negative integer or Infinity.");
+  }
+
+  return items.flatMap((item) => {
+    if (Array.isArray(item)) {
+      return depth === 1 ? item : flatten<T>(item, depth - 1);
+    }
+    return [item];
+  });
+}
+```

@@ -1,0 +1,25 @@
+```ts
+/**
+ * The KEY=VALUE pairs of a config file, ignoring blank lines and comments.
+ * Trims whitespace around keys and values, splits on the first = only,
+ * leaving Object.prototype untouched for "__proto__".
+ * Throws an Error for no equals sign or empty key.
+ * @param text - The string containing the config file content.
+ * @returns An object of parsed configuration pairs.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim().startsWith("#") && line.includes("=")) {
+      const [key, value] = line.split("=", 1);
+      key = key.trim();
+      value = value.trim().replace(/"([^"]*)"/g, '$1'); // Remove quotes around values
+      if (Object.prototype.toString.call(key) === '[object Object]') {
+        throw new Error(`Key "${key}" cannot be a prototype: ${line}`);
+      }
+      config[key] = value;
+    }
+  }
+  return config;
+}
+```

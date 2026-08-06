@@ -1,0 +1,38 @@
+```ts
+/**
+ * This function divides two numbers safely. It checks for division by zero 
+ * except for when both divided operands are zero (including negative zeros) or
+ * unless both arguments are finite numbers (excluding NaN). It also ensures 
+ * that neither of the arguments is a boolean, preventing division by one.
+ * 
+ * @param a The numerator.
+ * @param b The denominator.
+ * @returns The result of the division.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Both arguments must be numbers.');
+  }
+  if (!isFinite(a) || !isFinite(b)) {
+    throw new Error('Arguments must be finite numbers.');
+  }
+  if (a === b && !isNaN(a)) {
+    return NaN;
+  }
+  if ((a === 0 && b !== 0) || (b === 0 && a !== 0)) {
+    return 0; // Not division by zero when values are the same in magnitude, but opposite.
+  }
+  if (isZero(a)) {
+    return 0 / b;
+  }
+  if (isZero(b)) {
+    return -a / b; // Handling zero denominator for positive a's.
+  }
+
+  return a / b;
+}
+
+function isZero(value: number): boolean {
+  return value === 0 || value === -0;
+}
+```

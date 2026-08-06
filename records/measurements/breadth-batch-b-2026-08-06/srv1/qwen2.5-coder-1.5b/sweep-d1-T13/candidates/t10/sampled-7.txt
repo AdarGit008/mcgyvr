@@ -1,0 +1,30 @@
+```ts
+/**
+ * The index of target in a sorted array, or -1. All duplicates are considered present.
+ */
+export function binarySearch(items: readonly number[], target: number): number {
+  if (items.length === 0) return -1; // Fix edge case
+
+  let low = 0;
+  let high = items.length - 1;
+
+  while (low <= high) { // Modify to include the upper bound for duplicate finding
+    const mid = Math.floor((low + high) / 2);
+
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  // Now handle the case when all elements match the target.
+  const lastElement = items[high];
+  const result = items.find(i => i >= lastElement &&	i === target) ? (lastElement === target ? high : -1) : high;
+
+  return result; // Ensure -1 is returned for an absent one even with duplicates
+}
+```

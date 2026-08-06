@@ -1,0 +1,17 @@
+```typescript
+/**
+ * The KEY=VALUE pairs of a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n").filter(l => l.trim().length !== 0 && !l.trim().startsWith("#"))) {
+    const [key, value] = l.trim().split("=").map(e => e.trim());
+    if (!key) throw new Error(`Line ${lineIndex + 1}: Missing key`);
+    config[key] = value;
+  }
+  return config;
+
+  // Helper to update lineIndex when needed
+  let lineIndex = -1;
+}
+```

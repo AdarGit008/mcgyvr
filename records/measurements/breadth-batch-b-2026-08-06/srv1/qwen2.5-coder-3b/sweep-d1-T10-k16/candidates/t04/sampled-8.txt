@@ -1,0 +1,48 @@
+```typescript
+import { max, min } from 'lodash';
+
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache = new Map<K, [V, K]>();
+  private keysIndex = new Map<K, number>();
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+    this.capacity = capacity;
+  }
+
+  public get(key: K): V | undefined {
+    const [value, usageIndex] = this.cache.get(key) ?? [undefined, 0];
+    if (value !== undefined) {
+      // Move the accessed key to the front
+      this.keysIndex.delete(key);
+      this.keysIndex.set(key, min([...this.keysIndex.values()])! + 1);
+    }
+    return value;
+  }
+
+  public set(key: K, value: V): void {
+    if (this.cache.size >= this.capacity && !this.cache.has(key)) {
+      const leastRecentlyUsedKey = Array.from(this.keysIndex.entries()).sort((a, b) => a[1] - b[1])[0]?.[0];
+      if (leastRecentlyUsedKey !== undefined) {
+        delete this.cache.get(leastRecentlyUsedKey);
+        this.keysIndex.delete(leastRecentlyUsedKey);
+      }
+    }
+    // Remove any existing entry and add the new one
+    if (this.cache.has(key)) {
+      const currentUsageIndex = this.keysIndex.get(key)!;
+      this.keysIndex.set(key, min([...this.keysIndex.values()])! + 1);
+    } else {
+      this.keysIndex.set(key, 0);
+    }
+    this.cache.set(key, [value, this.keysIndex.get(key)!]);
+  }
+
+  public get size(): number {
+    return this.cache.size;
+  }
+}
+```

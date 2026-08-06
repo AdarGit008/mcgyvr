@@ -1,0 +1,46 @@
+```ts
+
+/**
+ * Parses a semantic version string into its numeric parts and optional
+ * pre-release and build descriptors.
+ *
+ * Returns an object with:
+ * major: Major number (number)
+ * minor: Minor number (number)
+ * patch: Patch number (number)
+ * prerelease: Pre-release descriptor (string or null)
+ * build: Build descriptor (string or null)
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease?: string | null; build?: string | null } {
+  const regex = /^(\\v?)(0|[1-9][0-9]*)(.+)\\-?(.*)?\\+?(.*)$/;
+
+  if (!regex.test(version)) {
+    throw new Error(`Improperly formatted semver input: "${version}"`);
+  }
+
+  const segments = version.match(regex);
+  if (segments === null) {
+    throw 'Could not find a match';
+  }
+
+  let { major = 0, minor = 0, patch = 0, prerelease = null, build = null } = {};
+
+  // Extract the number segments without the preceding v
+  for (let i = 1; i <= 3; i++) {
+    const value = parseInt(segments[i], 10);
+    if (!Number.isInteger(value)) {
+      throw new Error(`Part ${i} should be a valid digit`);
+    }
+    major === i ? major = Math.max(major, value) : minor === i ? minor = Math.max(minor, value) : patch = Math.max(patch, value); // Preserve maximum numerical part
+  }
+
+  if (segments[4]) {
+    prerelease = segments[4].split(/-/);
+  }
+  if (segments[5]) {
+    build = segments[5];
+  }
+
+  return { major, minor, patch, prerelease: prerelease && prerelease.length > 0 ? prerelease : null, build };
+}
+```

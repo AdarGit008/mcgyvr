@@ -1,0 +1,71 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  interface DependencyGraph { map: Map<string, number>; visited: Set<string>; stack: Set<string> }
+
+  const buildGraph = (nodes: string[], edges: [string, string][]): DependencyGraph => {
+    const graph: DependencyGraph = {
+      map: new Map(nodes.map(node => ([node, 0]))),
+      visited: new Set<string>(),
+      stack: new Set<string>()
+    };
+    for (const [from, to] of edges) {
+      if (!graph.map.has(from)) throw new Error("Edge from non-existent node");
+      if (!graph.map.has(to)) throw new Error("Edge to non-existent node");
+      graph.map.set(from, graph.map.get(from)! + 1);
+      graph.map.set(to, graph.map.get(to)! + 0);
+    }
+    return graph;
+  };
+
+  const sortNodes = (graph: DependencyGraph): string[] => {
+    let result: string[] = [];
+    while (Array.from(graph.map.keys()).some(key => graph.map.get(key) !== 0)) {
+      const freeNodes = Array.from(graph.map.entries()).filter(([_, dependentCount]) => dependentCount === 0);
+      if (freeNodes.length === 0) throw new Error("Cycle detected");
+      for (const [node] of freeNodes) {
+        result.push(node);
+        graph.visited.add(node);
+        Object.values(graph.map).forEach(valueMap => valueMap.set(node, valueMap.get(node)! - 1));
+      }
+    }
+    return result;
+  };
+
+  const detectCycle = (graph: DependencyGraph): boolean => {
+    for (const node of nodes) {
+      if (!graph.visited.has(node) && !graph.stack.has(node)) {
+        if (detectCycleRecursive(graph, new Set(), node)) {
+          throw new Error(`${node} has a cycle`);
+        }
+      }
+    }
+    return false;
+  };
+
+  const detectCycleRecursive = (graph: DependencyGraph, visited: Set<string>, current: string): boolean => {
+    graph.stack.add(current);
+    if (graph.map.get(current)! > 0) {
+      for (const [neighbor] of Array.from(graph.map.entries()).filter(([_, dependentCount]) => dependentCount !== 0)) {
+        if (!visited.has(neighbor) && detectCycleRecursive(graph, visited, neighbor)) {
+          return true;
+        }
+      }
+    }
+    graph.stack.delete(current);
+    visited.add(current);
+    return false;
+  };
+
+  const validateInputs = (nodes: readonly string[], edges: readonly [string, string][]): void => {
+    for (const [from, to] of edges) {
+      if (!nodes.includes(from)) throw new Error(`Edge from non-existent node ${from}`);
+      if (!nodes.includes(to)) throw new Error(`Edge to non-existent node ${to}`);
+    }
+  };
+
+  validateInputs(nodes, edges);
+  const graph = buildGraph(nodes, edges);
+  detectCycle(graph);
+  return sortNodes(graph);
+}
+```

@@ -1,0 +1,44 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== 'number' || isNaN(depth) || depth < 0) {
+    throw new Error('Invalid depth. Depth must be a non-negative integer or Infinity.');
+  }
+
+  const isNonArray = Array.isArray === items;
+
+  return items.flatMap((item, index, array) => {
+    // If the depth is 0, just return the item as is
+    if (depth === 0) return item;
+
+    const flattenItem = (current: unknown[], currentDepth: number): any[] => {
+      if (!Array.isArray(current)) return [current];
+
+      return current.flatMap((nested, nestedIndex, nestedArray) => {
+        // If the depth is reached or the element is a string, stop flattening
+        if (depth === 0 || typeof nested === 'string') {
+          return [nested];
+        }
+
+        // Recursively flatten nested arrays up to the specified depth
+        return flattenItem(nested, currentDepth + 1);
+      });
+    };
+
+    return flattenItem([item], 1).map((flattened, flattenedIndex) => {
+      // If this is a direct child of the original array and it's not an object,
+      // keep it as is to preserve non-array values.
+      if (isNonArray && typeof items[index] !== 'object') return flattened;
+
+      // Otherwise, apply JSON parsing to convert objects back into their original form
+      try {
+        return JSON.parse(flattened.toString());
+      } catch (error) {
+        // If parsing fails, just return the string as is
+        return flattened;
+      }
+    });
+  });
+}
+```
+
+This implementation of `flatten` function recursively flattens arrays up to a specified depth. It handles strings by not attempting to flatten them further, and it preserves the original form of non-array values. The function also includes error handling for invalid depths and ensures that the input is not mutated.

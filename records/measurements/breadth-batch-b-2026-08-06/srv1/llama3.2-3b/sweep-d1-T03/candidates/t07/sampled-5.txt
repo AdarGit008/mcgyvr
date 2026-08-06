@@ -1,0 +1,31 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  /**
+   * Flattens nested arrays up to specified depth levels, defaulting to every level.
+   */
+  
+  if (depth === undefined) {
+    return items;
+  }
+  
+  if (!Number.isInteger(depth) || depth < 0) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+  
+  const result: unknown[] = [];
+  
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      if (depth === 0) {
+        result.push(item);
+      } else if (depth > 1) {
+        result.push(...flatten(item, depth - 1));
+      }
+    } else {
+      result.push(item);
+    }
+  }
+  
+  return result;
+}
+```

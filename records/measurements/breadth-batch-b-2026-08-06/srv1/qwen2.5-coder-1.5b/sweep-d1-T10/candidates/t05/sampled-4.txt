@@ -1,0 +1,22 @@
+```ts
+/**
+ * Splits an array into consecutive groups of at most `size` elements,
+ * preserving order; the final group is shorter if length does not divide evenly.
+ *
+ * @param items The array to be chunked.
+ * @param size The maximum number of items per group.
+ * @returns An array of chunks, each a group of at most `size` items.
+ */
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error('Size must be a positive integer');
+  }
+
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    const chunk = items.slice(i, Math.min(i + size, items.length));
+    result.push(chunk);
+  }
+  return result;
+}
+```

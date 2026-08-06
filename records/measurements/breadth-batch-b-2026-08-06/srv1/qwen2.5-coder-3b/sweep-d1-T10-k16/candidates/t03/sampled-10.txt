@@ -1,0 +1,21 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    // Guard clause for valid format
+    if (!/^\d+\.\d+\.\d+(-[a-zA-Z0-9-]+)?(\+[a-zA-Z0-9-]+)?$/.test(version)) {
+        throw new Error(`Invalid semver format: ${version}`);
+    }
+
+    const [major, minor, patch, pre, build] = version
+        .replace(/^v/, '') // Remove 'v' prefix if present (though not stated)
+        .split('.')
+        .map((part) => parseInt(part, 10));
+
+    return {
+        major,
+        minor,
+        patch,
+        prerelease: pre ? pre.replace('-', '.') : null,
+        build: build !== undefined ? build.replace('+', '.') : null
+    };
+}
+```

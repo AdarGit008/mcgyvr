@@ -1,0 +1,10 @@
+```ts
+/** Divides two numbers safely. Returns NaN if either argument is NaN or b is zero. */
+export function safeDivide(a: number, b: number): number {
+  const areFinite = (n: number) => !isNaN(n) && isFinite(n);
+  if (!areFinite(a) || !areFinite(b) || b === 0) {
+    throw new Error('Invalid input: both arguments must be finite numbers and b cannot be zero');
+  }
+  return a / b;
+}
+```

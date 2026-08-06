@@ -1,0 +1,17 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth !== undefined && (!Number.isInteger(depth) || depth < 0)) {
+    throw new Error('Depth must be a non-negative integer or Infinity.');
+  }
+
+  return items.flatMap(
+    (item, index, array) =>
+      depth === 0 || typeof item !== 'object' || item == null
+        ? [item]
+        : item instanceof Array
+          ? flatten(item, depth - 1)
+          : [item],
+    (null as unknown) as readonly unknown[],
+  );
+}
+```

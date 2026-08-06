@@ -1,0 +1,105 @@
+```typescript
+import { strict as assert } from 'assert';
+
+/**
+ * Least Recently Used Cache implementation with fixed capacity.
+ */
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, [V, LinkedListNode]> = new Map();
+  private head?: LinkedListNode;
+  private tail?: LinkedListNode;
+
+  /**
+   * Constructs a new LruCache with the specified capacity.
+   * @param {number} capacity - The maximum number of items that can be stored in this cache.
+   */
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+  }
+
+  /**
+   * Returns the value associated with the given key, or undefined if not found.
+   * @param {K} key - The key to retrieve from the cache.
+   * @returns {V | undefined} The value corresponding to the key, or undefined if not found.
+   */
+  get(key: K): V | undefined {
+    const node = this.cache.get(key);
+    if (!node) return;
+    // Move the accessed node to the head of the queue
+    this.moveToHead(node);
+    return node.value[0];
+  }
+
+  /**
+   * Inserts or updates a value with the given key in the cache.
+   * @param {K} key - The key for the value being stored.
+   * @param {V} value - The value to be associated with the key.
+   */
+  set(key: K, value: V): void {
+    const node = this.cache.get(key);
+    if (node) {
+      node.value[0] = value;
+      this.moveToHead(node);
+    } else if (this.size >= this.capacity) {
+      // Evict the least recently used item
+      this.evict();
+      this.insertAtHead([value, new LinkedListNode()]);
+    } else {
+      this.insertAtHead([value, new LinkedListNode()]);
+    }
+  }
+
+  /**
+   * Returns the current number of items stored in the cache.
+   * @returns {number} The size of the cache.
+   */
+  get size(): number {
+    return this.cache.size;
+  }
+
+  // Helper methods for linked list operations
+  private moveToHead(node: LinkedListNode): void {
+    if (this.head !== node) {
+      const prev = node.prev!;
+      const next = node.next;
+      if (prev) {
+        prev.next = next;
+      }
+      if (next) {
+        next.prev = prev;
+      }
+      if (this.tail === node) this.tail = prev; // If last node, update tail
+      node.prev = null;
+      node.next = this.head;
+      if (this.head) this.head.prev = node;
+      this.head = node;
+    }
+  }
+
+  private evict(): void {
+    const node = this.tail!;
+    this.cache.delete(node.key);
+    if (node.prev) node.prev.next = null; // Update tail
+    if (this.head === this.tail) this.head = null;
+    node.prev = null;
+    node.next = null; // Ensure clean state for garbage collection
+  }
+
+  private insertAtHead(entry: [V, LinkedListNode]): void {
+    const newNode = entry[1];
+    newNode.key = entry[0];
+    if (!this.head) {
+      this.head = newNode;
+    } else {
+      newNode.next = this.head!;
+      this.head!.prev = newNode;
+    }
+    this.tail = newNode; // New nodes become tail
+    this.cache.set(entry[0], [entry[0], newNode]);
+  }
+
+  private static LinkedList

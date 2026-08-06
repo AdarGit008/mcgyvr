@@ -1,0 +1,24 @@
+```ts
+
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') throw new Error('Input must be a string.');
+
+  let decoded = [];
+  let count = 1;
+  for (let i = 0; i < input.length - 1; i++) {
+    if (input[i] === input[i + 1]) {
+      count++;
+    } else {
+      decoded.push(input[i]);
+     decoded.push(count);
+      count = 1;
+    }
+  }
+
+  // Add the last character and its count
+  decoded.push(input[input.length - 1]);
+  decoded.push(count);
+
+  return decoded.reduce((acc, cur) => acc + cur, '');
+}
+```

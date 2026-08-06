@@ -1,0 +1,35 @@
+```ts
+function parseConfig(text: string): Record<string, string> {
+  if (typeof text !== "string") {
+    throw new Error("Input must be a string");
+  }
+  
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const trimmedLine = line.trim();
+    
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue;
+    }
+    
+    const [key, value] = trimmedLine.split("=", 2).map((part) => part.trim());
+    
+    if (!key) {
+      throw new Error(`Invalid config line: no key at ${text?.split("\n").indexOf(trimmedLine) + 1}`);
+    }
+
+    // Prevent overwriting any existing property in Object.prototype
+    if (key.startsWith("__proto__")) {
+      throw new Error(`Invalid config line: key cannot start with "__proto__": ${line}`);
+    }
+    
+    if (config.hasOwnProperty(key)) {
+      delete config[key];
+    }
+    
+    config[key] = value || ""; // Handle lines without a value by using an empty string
+  }
+
+  return config;
+}
+```

@@ -1,0 +1,23 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const result: number[][] = [];
+  let currentInterval: number[] | undefined = undefined;
+  for (const interval of intervals) {
+    if (!currentInterval || currentInterval[1] < interval[0]) {
+      if (currentInterval)
+        result.push(currentInterval);
+      currentInterval = [...interval];
+    } else if (interval[1] === currentInterval[1]) {
+      // Touch, so overlap with currentInterval
+      currentInterval = [currentInterval[0], interval[1]];
+    }
+  }
+
+  if (currentInterval)
+    result.push(currentInterval);
+
+  return result;
+}
+```

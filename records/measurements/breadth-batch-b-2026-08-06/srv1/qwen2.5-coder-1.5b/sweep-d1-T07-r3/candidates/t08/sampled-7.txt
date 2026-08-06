@@ -1,0 +1,55 @@
+```ts
+import { Graph } from 'graphology';
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Graph();
+  nodes.forEach(node => graph.addNode(node));
+  edges.forEach(([from, to]) => graph.addEdge(from, to));
+
+  try {
+    const ordering = [];
+    const visited = new Set<string>();
+    const recStack = new Set<string>();
+
+    for (const node of nodes) {
+      if (!visited.has(node)) {
+        const path = topologicalSortHelper(graph, node, visited, recStack, ordering);
+        if (path.length > 0) {
+          throw new Error('Cycle detected');
+        }
+      }
+    }
+
+    return ordering;
+  } catch (error) {
+    console.error(error); // Log the error for debugging purposes
+    throw error;
+  }
+}
+
+function topologicalSortHelper(graph: Graph, node: string, visited: Set<string>, recStack: Set<string>, ordering: string[]): string[] {
+  if (recStack.has(node)) {
+    throw new Error('Cycle detected');
+  }
+
+  if (visited.has(node)) {
+    return [];
+  }
+
+  visited.add(node);
+  recStack.add(node);
+
+  const neighbors = graph.neighbors(node).map(n => n.toString());
+  for (const neighbor of neighbors) {
+    const path = topologicalSortHelper(graph, neighbor, visited, recStack, ordering);
+    if (path.length > 0) {
+      return [...path];
+    }
+  }
+
+  recStack.delete(node);
+  ordering.unshift(node);
+
+  return [];
+}
+```

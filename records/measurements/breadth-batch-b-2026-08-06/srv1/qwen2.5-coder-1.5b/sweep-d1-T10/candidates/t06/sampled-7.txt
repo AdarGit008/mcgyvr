@@ -1,0 +1,51 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  if (line.trim() === "") return [];
+
+  const fields = line.split(',');
+  const fieldIndexMap = new Map<string, number>();
+
+  for (let i = 0; i < fields.length; i++) {
+    let currentField = fields[i];
+    let nextField = undefined;
+
+    while (currentField.endsWith('"') && nextField !== "\"") {
+      if (nextField === undefined) nextField = fields[++i];
+
+      const doubleQuoteIndex = currentField.indexOf('"', 1);
+      if (doubleQuoteIndex === -1) throw new Error(`Quoted field at index ${i} is never closed.`);
+
+      // Remove the outer and inner quotes from the current field
+      currentField = currentField.slice(0, doubleQuoteIndex).concat(currentField.slice(doubleQuoteIndex + 2));
+    }
+
+    if (fieldIndexMap.has(currentField) || fieldIndexMap.has(`${currentField}"`)) {
+      throw new Error(`Quoted field at index ${i} is already defined.`);
+    }
+
+    if (!currentField.startsWith('"') && !currentField.endsWith('"')) {
+      // Remove leading and trailing spaces
+      currentField = currentField.trim();
+      if (currentField === "") continue;
+
+      fieldIndexMap.set(currentField, i);
+    }
+  }
+
+  const result: string[] = [];
+  for (const [field] of fieldIndexMap) {
+    result.push(field);
+  }
+
+  return result;
+}
+
+// Check function to verify the solution's correctness
+function check() {
+  console.log(parseCsvLine("\"hello, world!\", \"goodbye\", \"!")); // ['"hello, world!"', '"goodbye"', '!"']
+  console.log(parseCsvLine("a, b, c")); // ['a', 'b', 'c']
+  console.log(parseCsvLine(undefined)); // []
+}
+
+check();
+```

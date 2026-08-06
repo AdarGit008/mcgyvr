@@ -1,0 +1,23 @@
+```ts
+const validateCelsius = (celsius: number): void => {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+};
+
+export function celsiusToFahrenheit(celsius: number): number {
+  validateCelsius(celsius);
+  return celsius * 1.8 + 32;
+}
+
+export function celsiusToKelvin(celsius: number): number {
+  validateCelsius(celsius);
+  return celsius + 273.15;
+}
+```
+
+**Report**
+The changes have been made as per the task contract. The helper function `validateCelsius` has been introduced to handle shared validation, and it is called by both export functions. This ensures that the validation checks are written once and used consistently in both implementations. The code remains structurally unchanged except for the addition of the `validateCelsius` helper function, which does not interfere with the original functionality and is only used internally.

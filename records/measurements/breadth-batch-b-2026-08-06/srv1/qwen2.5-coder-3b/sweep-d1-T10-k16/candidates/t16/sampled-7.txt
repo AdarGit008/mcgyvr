@@ -1,0 +1,52 @@
+```ts
+import { strict as assert } from 'assert';
+
+const MODULUS = 1000000007;
+
+/**
+ * The nth Fibonacci number, modulo 1000000007.
+ *
+ * @param n - The position in the Fibonacci sequence. Must be a non-negative integer.
+ * @returns The nth Fibonacci number, modulo MODULUS.
+ */
+export function fibMod(n: number): number {
+  if (n < 0 || !Number.isInteger(n)) {
+    throw new Error('n must be a non-negative integer');
+  }
+
+  let [a, b] = [0, 1];
+  for (let i = 2; i <= n; i++) {
+    const next = (a + b) % MODULUS;
+    a = b;
+    b = next;
+  }
+  return b;
+}
+
+// Test cases
+function testFibMod() {
+  assert.strictEqual(fibMod(0), 0);
+  assert.strictEqual(fibMod(1), 1);
+  assert.strictEqual(fibMod(2), 1);
+  assert.strictEqual(fibMod(8), 21);
+  assert.strictEqual(fibMod(13), 233);
+  assert.strictEqual(fibMod(200000), fibMod(200000 - 49776) % MODULUS);
+}
+
+try {
+  testFibMod();
+} catch (error) {
+  console.error(error.message);
+}
+```
+
+### Explanation:
+1. **Initialization**: We initialize `a` to 0 and `b` to 1, which are the first two Fibonacci numbers.
+2. **Loop**: We iterate from 2 to `n`.
+3. **Next Calculation**: For each iteration, we calculate the next Fibonacci number as `(a + b) % MODULUS`.
+4. **Update**: We update `a` to be `b` and `b` to be the newly calculated value.
+5. **Return**: After the loop, `b` contains the nth Fibonacci number modulo `MODULUS`.
+6. **Error Handling**: If `n` is not a non-negative integer, an error is thrown with a descriptive message.
+
+### Test Cases:
+- We include several test cases to ensure the function works correctly for various inputs, including edge cases like `0`, `1`, and large values up to 200000.

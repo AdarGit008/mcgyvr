@@ -1,0 +1,11 @@
+```ts
+import { chunk } from './solution';
+
+// Test cases
+console.log(chunk(["alpha", "beta", "charlie"], 2)); // [["alpha", "beta"], ["charlie"]]
+console.log(chunk([1, 2, 3, 4], 3)); // [[1, 2, 3], [4]]
+console.log(chunk([1, 2, 3, 4, 5], 0)); // Throws error
+console.log(chunk([], 2)); // []
+console.log(chunk(["alpha"], 1)); // [["alpha"]]
+console.log(chunk([null, undefined, "beta"], 3)); // [[null, undefined, "beta"]]
+```

@@ -1,0 +1,39 @@
+```ts
+/**
+ * Returns the run-length encoded version of the given string.
+ *
+ * For example, "aaabbc" encodes to "a3b2c1" and "abc" encodes to "a1b1c1".
+ * The empty string still encodes to an empty string.
+ */
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') {
+        throw new Error('Input must be a non-empty string');
+    }
+
+    const result = [];
+    let currentChar = input[0];
+    let charCount = 1;
+
+    for (let i = 1; i < input.length; i++) {
+        const nextChar = input[i];
+
+        if (nextChar === currentChar) {
+            charCount++;
+        } else {
+            if (i !== input.length - 1 && charCount > 9) {
+                throw new Error('Run length cannot exceed 9');
+            }
+
+            result.push(currentChar + (charCount >= 10 ? charCount.toString() : charCount));
+            currentChar = nextChar;
+            charCount = 1;
+        }
+    }
+
+    if (currentChar !== undefined) {
+        result.push(currentChar + (charCount >= 10 ? charCount.toString() : charCount));
+    }
+
+    return result.join('');
+}
+```

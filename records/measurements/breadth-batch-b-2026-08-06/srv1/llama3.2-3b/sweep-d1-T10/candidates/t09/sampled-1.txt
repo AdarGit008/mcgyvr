@@ -1,0 +1,18 @@
+```ts
+/**
+ * The factorial of n.
+ *
+ * @param {number} n - The number to calculate the factorial of.
+ * @throws {{ type: 'Error', message: string }}
+ */
+export function factorial(n: number): number {
+  if (typeof n !== 'number' || !Number.isInteger(n) || n < 0) {
+    throw new Error('Invalid argument. Input must be a non-negative integer.');
+  }
+  let result = 1;
+  for (let i = 2; i <= n; i++) {
+    result *= i;
+  }
+  return result;
+}
+```

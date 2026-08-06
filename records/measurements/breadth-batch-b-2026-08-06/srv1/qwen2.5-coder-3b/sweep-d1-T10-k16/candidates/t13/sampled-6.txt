@@ -1,0 +1,19 @@
+```
+import { strict as assert } from 'assert';
+
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  if (limit < 3) {
+    throw new Error("Limit must be an integer of at least 3.");
+  }
+  
+  return text.length <= limit ? text : text.slice(0, limit - 4) + "...";
+}
+
+// Test cases
+assert.strictEqual(truncate("", 5), ""); // "" is less than or equal to the limit
+assert.strictEqual(truncate("hello", 5), "hell"); // Length of text is shorter than limit
+assert.strictEqual(truncate("world!", 10), "world!"); // Length of text is exactly the limit
+assert.strictEqual(truncate("a long string that needs truncation because it's too long", 17), // Truncates to specific length and adds ellipsis
+    "a long string th...");
+```

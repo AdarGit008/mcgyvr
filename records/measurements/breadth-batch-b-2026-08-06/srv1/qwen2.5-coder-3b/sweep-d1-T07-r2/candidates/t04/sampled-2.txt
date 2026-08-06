@@ -1,0 +1,73 @@
+```typescript
+class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { value: V; lastAccessed: number }>;
+  private head: { key: K | null } | null;
+  private tail: { key: K | null } | null;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map<K, { value: V; lastAccessed: number }>();
+    this.head = { key: null };
+    this.tail = { key: null };
+
+    this.head.next = this.tail;
+    this.tail.prev = this.head;
+  }
+
+  private moveToHead(node: { key: K | null }) {
+    if (node !== this.head) {
+      const prev = node.prev!;
+      const next = node.next!;
+
+      prev.next = next;
+      next.prev = prev;
+
+      node.next = this.head!.next;
+      node.prev = this.head;
+      this.head!.next!.prev = node;
+      this.head!.next = node;
+    }
+  }
+
+  private evictLeastRecentlyUsed() {
+    const leastRecentlyUsedNode = this.tail!.prev!;
+    this.cache.delete(leastRecentlyUsedNode.key!);
+    leastRecentlyUsedNode.prev!.next = leastRecentlyUsedNode.next;
+    leastRecentlyUsedNode.next!.prev = leastRecentlyUsedNode.prev;
+  }
+
+  public get(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (entry) {
+      entry.lastAccessed = Date.now();
+      this.moveToHead(entry);
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  public set(key: K, value: V) {
+    const existingEntry = this.cache.get(key);
+    if (existingEntry) {
+      existingEntry.value = value;
+      existingEntry.lastAccessed = Date.now();
+      this.moveToHead(existingEntry);
+    } else {
+      if (this.cache.size === this.capacity) {
+        this.evictLeastRecentlyUsed();
+      }
+      const node: { key: K | null } = { key };
+      this.cache.set(key, { value, lastAccessed: Date.now() });
+      this.moveToHead(node);
+    }
+  }
+
+  public get size(): number {
+    return this.cache.size;
+  }
+}
+```

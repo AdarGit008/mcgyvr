@@ -1,0 +1,84 @@
+```typescript
+import { Queue } from "tsqueue";
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: Record<string, Set<string>> = {};
+    nodes.forEach(node => graph[node] = new Set());
+    
+    for (const [from, to] of edges) {
+        if (!graph[from] || !graph[to]) {
+            throw new Error("Edge names are not in the list of nodes.");
+        }
+        graph[from].add(to);
+    }
+
+    const free: Set<string> = new Set(nodes);
+    const sorted: string[] = [];
+    const priorityQueue = new Queue<string>();
+
+    for (const node of nodes) {
+        if (!graph[node]) continue;
+        let freeCount = 0;
+
+        for (const dependent of graph[node]) {
+            if (!free.has(dependent)) {
+                freeCount++;
+            }
+        }
+
+        if (freeCount === 0) {
+            priorityQueue.enqueue(node);
+        } else {
+            free.delete(node);
+        }
+    }
+
+    while (!priorityQueue.isEmpty()) {
+        const node = priorityQueue.dequeue();
+        sorted.push(node);
+
+        for (const dependent of graph[node]) {
+            free.add(dependent);
+            let newFreeCount = 0;
+
+            for (const dependency of graph[dependent]) {
+                if (!free.has(dependency)) {
+                    newFreeCount++;
+                }
+            }
+
+            if (newFreeCount === 0) {
+                priorityQueue.enqueue(dependent);
+            }
+        }
+    }
+
+    // Check for cycles
+    const visited: number[] = Array(nodes.length).fill(0);
+    function dfs(node: string): boolean {
+        visited[nodes.indexOf(node)] = 1;
+
+        for (const neighbor of graph[node]) {
+            if (visited[nodes.indexOf(neighbor)] === 1) {
+                return true;
+            }
+            if (graph[neighbor]) {
+                if (dfs(neighbor)) {
+                    return true;
+                }
+            }
+        }
+
+        visited[nodes.indexOf(node)] = 2;
+        return false;
+    }
+
+    for (const node of nodes) {
+        if (!dfs(node)) {
+            throw new Error("Cycle detected in the graph.");
+        }
+    }
+
+    return sorted;
+}
+```

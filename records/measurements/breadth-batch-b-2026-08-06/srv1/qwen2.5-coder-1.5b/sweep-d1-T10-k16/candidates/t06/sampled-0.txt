@@ -1,0 +1,48 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  line = line.trim();
+  
+  if (line === '') return [];
+  
+  let result = [];
+  while (line.length > 0) {
+    const fieldStart = line.charAt(0);
+    if (fieldStart === '"' && line.endsWith('"')) {
+      // Quote containing fields
+      let quoted = '';
+      let charIndex = 1;
+      do {
+        char = line.charCodeAt(charIndex++);
+        if (charIndex >= line.length) throw new Error('Unterminated quote');
+        if (char === '"') {
+          quoted += quote === '"' ? '\\""' : '"';
+          quote = ' ';
+        } else {
+          quoted += String.fromCharCode(char);
+          
+          if (quote && char === '\"') {
+            result.push(quoted.replace(/\"/g, "'"));
+            break;
+          }
+        }
+      } while (true);
+      line = line.substr(fieldStart + quoted.length);
+    } else {
+      // Unquoted field
+      const endOfFieldPos = line.indexOf(',');
+      
+      if (endOfFieldPos < 0) {
+        result.push(line.trim());
+        line = '';
+      } else {
+        result.push(line.match(/[\s\S]*/)[0].trim());
+        line = line.slice(endOfFieldPos + 1);
+      }
+    }
+    
+    if (line === '') break;
+  }
+  
+  return result;
+}
+```

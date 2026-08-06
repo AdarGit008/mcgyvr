@@ -1,0 +1,24 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+    if (line.trim() === "") return [];
+
+    const fields = line.split(/,(?=(?:"[^"]*"[^"]*))|(?<!,)(?=,"/).)/);
+    const result: string[] = [];
+    let quoted = false;
+    let buffer = "";
+
+    for (let char of fields) {
+        if (char.trim() === "\"" && (!quoted || buffer.startsWith("\""))) return [""];
+        if (char !== "") {
+            if (!quoted) result.push(buffer.trim());
+            buffer = quoted ? "" : char;
+            quoted = !quoted;
+        }
+    }
+
+    // Check for unclosed quotes
+    if (quoted) throw new Error("Quoted field is never closed.");
+
+    return result;
+}
+```

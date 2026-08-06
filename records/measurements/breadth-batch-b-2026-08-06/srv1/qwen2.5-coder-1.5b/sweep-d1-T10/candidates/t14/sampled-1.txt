@@ -1,0 +1,15 @@
+```ts
+import { strict as assert } from 'assert';
+
+export interface User {
+  email: string;
+  active?: boolean; // Optional by default to accommodate no `active` property
+}
+
+/**
+ * The lowercased addresses of the active users, in order.
+ */
+export function activeEmails(users: readonly User[]): string[] {
+  return users.filter(user => user.active ?? true).map(user => user.email.toLowerCase());
+}
+```

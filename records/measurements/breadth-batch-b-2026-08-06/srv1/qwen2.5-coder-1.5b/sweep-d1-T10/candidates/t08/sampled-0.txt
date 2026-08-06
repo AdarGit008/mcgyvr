@@ -1,0 +1,45 @@
+```ts
+import { Graph } from 'graphlib';
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges) {
+    throw new Error('Invalid input: Node list and edges must be provided.');
+  }
+
+  const graph = new Graph();
+  const outNodes = new Set(nodes);
+  const cyclesDetected = false;
+
+  for (const [from, to] of edges) {
+    if (!outNodes.has(from)) {
+      throw new Error(`Node "${from}" is not defined in the node list.`);
+    }
+    if (!outNodes.has(to)) {
+      throw new Error(`Node "${to}" is not defined in the node list.`);
+    }
+
+    graph.setEdge(from, to);
+  }
+
+  for (const from in graph.nodes()) {
+    const topOrder = graph.topologicalSort();
+    if (topOrder && topOrder.includes(from) && graph.hasCycle(topOrder)) {
+      cyclesDetected = true;
+      break;
+    }
+  }
+
+  if (cyclesDetected) {
+    throw new Error('A cycle exists in the graph, and no valid ordering can be found.');
+  }
+
+  for (const [from, to] of edges) {
+    const topOrder = graph.topologicalSort();
+    if (!topOrder.includes(from) || !topOrder.includes(to)) {
+      throw new Error(`Edge between nodes "${from}" and "${to}" is not directed from "${from}".`);
+    }
+  }
+
+  return Array.from(graph.nodes()).filter(node => outNodes.has(node));
+}
+```

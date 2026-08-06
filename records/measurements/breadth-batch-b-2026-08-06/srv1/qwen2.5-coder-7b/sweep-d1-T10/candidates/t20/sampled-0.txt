@@ -1,0 +1,25 @@
+```ts
+/**
+ * The KEY=VALUE pairs of a config file, ignoring blanklines and comment lines.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Trim whitespace and ignore empty lines or comment lines
+    if (!line.trim() || line.startsWith("#")) continue;
+
+    const idx = line.indexOf("=");
+    if (idx === -1) throw new Error(`No '=' found in line: ${line}`);
+
+    // Split the key and value on the first '=' only
+    const key = line.substr(0, idx).trim();
+    const value = line.substr(idx + 1).trim();
+
+    // Prevent prototype pollution by rejecting any keys that could affect Object.prototype
+    if (key === "__proto__") throw new Error("Invalid key: '__proto__'");
+
+    config[key] = value;
+  }
+  return config;
+}
+```

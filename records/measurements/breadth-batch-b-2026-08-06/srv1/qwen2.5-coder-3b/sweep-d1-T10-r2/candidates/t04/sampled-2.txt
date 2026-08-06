@@ -1,0 +1,97 @@
+```typescript
+
+type Node<K, V> = {
+  key: K;
+  value: V;
+  next: Node<K, V> | null;
+  prev: Node<K, V> | null;
+};
+
+export class LruCache<K, V> {
+  private capacity: number;
+  private head: Node<K, V> | null = null;
+  private tail: Node<K, V> | null = null;
+  private size = 0;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const node = this.getNodeByKey(key);
+    if (node === null) return undefined;
+
+    // Move the accessed node to the front
+    this.moveToFront(node);
+
+    return node.value;
+  }
+
+  set(key: K, value: V): void {
+    let node = this.getNodeByKey(key);
+
+    if (node !== null) {
+      node.value = value;
+      this.moveToFront(node);
+      return;
+    }
+
+    // Create a new node
+    const newNode: Node<K, V> = { key, value, next: this.head, prev: null };
+
+    if (this.head !== null) {
+      this.head.prev = newNode;
+    }
+    this.head = newNode;
+
+    if (++this.size > this.capacity) {
+      const tailNode = this.tail!;
+      this.tail = tailNode.prev!;
+      this.tail.next = null;
+      this.size--;
+    }
+
+    if (this.size === 1) {
+      this.tail = newNode;
+    }
+  }
+
+  get size(): number {
+    return this.size;
+  }
+
+  private getNodeByKey(key: K): Node<K, V> | null {
+    for (let current = this.head; current !== null; current = current.next) {
+      if (current.key === key) return current;
+    }
+    return null;
+  }
+
+  private moveToFront(node: Node<K, V>): void {
+    if (node.prev === null && node.next === null) {
+      // Single node, make it the tail
+      this.tail = node;
+      return;
+    }
+
+    if (node.prev !== null) {
+      node.prev!.next = node.next;
+    }
+    if (node.next !== null) {
+      node.next!.prev = node.prev;
+    }
+
+    if (this.head === node) {
+      // Node was already at the front
+      return;
+    }
+
+    node.next = this.head;
+    this.head!.prev = node;
+    this.head = node;
+  }
+}
+```

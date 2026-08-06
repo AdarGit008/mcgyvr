@@ -1,0 +1,27 @@
+```ts
+// Given node names and [from, to] edges meaning from must come before to, return an ordering satisfying every edge.
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!Array.isArray(nodes) || !nodes.every(String)) throw Error('Invalid input for nodes. All elements must be strings.');
+  if (!Array.isArray(edges) || !edges.every(([from, to])) throw Error('Invalid input for edges. Every element must be an array with two strings.');
+
+  const graph = new Map(nodes.map((node, index) => [node, [...new Set(edges.filter(pair => pair[0] === node))]]));
+
+  let freeNodes: string[] = nodes.filter(node => graph.get(node)?.length === 0);
+  if (freeNodes.length === 0) throw Error('Graph has cycles.');
+
+  return freeNodes.reduce((order, currentNode) => {
+    order.push(currentNode);
+
+    const [parentNode, remainingChildren] = graph.get(currentNode)!;
+    for (const child of remainingChildren) {
+      if (graph.has(child)) graph.set(child, graph.get(child)?.filter(node => node !== currentNode));
+      if (!graph.get(child).some(child2 => freeNodes.includes(child2))) freeNodes.push(child);
+    }
+
+    graph.delete(currentNode);
+
+    return order;
+  }, []);
+}
+```

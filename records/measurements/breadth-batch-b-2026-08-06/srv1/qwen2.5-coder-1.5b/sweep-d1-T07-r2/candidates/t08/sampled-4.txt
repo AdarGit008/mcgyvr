@@ -1,0 +1,27 @@
+```ts
+import { Graph } from 'graphlib';
+
+/**
+ * Topologically sorts a list of nodes based on given dependencies.
+ * @param nodes An array of node names.
+ * @param edges An array of tuples representing directed edges (from, to).
+ * @returns A valid topological ordering of the nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Graph();
+  nodes.forEach(node => graph.setNode(node));
+
+  edges.forEach(([from, to]) => {
+    graph.setEdge(from, to);
+  });
+
+  try {
+    return graph.topologicalSort();
+  } catch (error) {
+    if (error instanceof Error && error.name === 'CycleError') {
+      throw new Error('Found a cycle in the dependency graph.');
+    }
+    throw new Error(`Node ${error.message} is not valid.`);
+  }
+}
+```

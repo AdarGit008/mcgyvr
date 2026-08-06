@@ -1,0 +1,23 @@
+```ts
+
+/**
+ * The KEY=VALUE pairs of a config file. Ignoring blank lines and lines with # at the start,
+ * trims whitespace around the key and value, and splits only on the first = sign to handle cases
+ * where keys contain values with one equal sign.Throws an Error for no equals signs or empty keys.
+ * A key will never reach prototype of the returned object to prevent altering Object.prototype.
+ *
+ * @param text - The input string representing the config file.
+ * @returns An Record<string, string> object with the parsed configurations.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.trim().split("\n")) {
+    if (!line || line.startsWith("#") || !(/^(\w+)=(.*)$/).test(line)) {
+      throw new Error(`Invalid line ${line}`);
+    }
+    const parts = regex.exec(line);
+    config[parts[1].trim()] = parts[2]?.trim() ?? undefined;
+  }
+  return config;
+}
+```

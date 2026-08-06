@@ -1,0 +1,47 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Map<string, Set<string>>();
+  const inDegree = new Map<string, number>();
+
+  // Build the graph and calculate in-degrees
+  for (const edge of edges) {
+    const [from, to] = edge;
+    if (!graph.has(from)) {
+      graph.set(from, new Set());
+    }
+    if (!graph.has(to)) {
+      graph.set(to, new Set());
+    }
+
+    graph.get(from)?.add(to);
+    inDegree.set(to, (inDegree.get(to) || 0) + 1);
+  }
+
+  // Find nodes with no incoming edges
+  const freeNodes = Array.from(nodes).filter(node => !inDegree.has(node));
+
+  if (freeNodes.length === 0) {
+    throw new Error('Cycle detected');
+  }
+
+  const sortedOrder: string[] = [];
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    sortedOrder.push(node);
+
+    for (const neighbor of graph.get(node) || []) {
+      inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+      if (inDegree.get(neighbor)! === 0) {
+        freeNodes.push(neighbor);
+      }
+    }
+  }
+
+  // Check if all nodes were processed
+  if (sortedOrder.length !== nodes.length) {
+    throw new Error('Invalid edge');
+  }
+
+  return sortedOrder;
+}
+```

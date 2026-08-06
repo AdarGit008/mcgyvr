@@ -1,0 +1,73 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  // Regular expression to match MAJOR.MINOR.PATCH, optional -prerelease, and optional +build
+  const semverRegex = /^(\d+)$/;
+
+  type VersionPart = [string, string | null];
+
+  function parseAndVerifyPart(part: string): number | '' {
+    const [value,] = part.match(semverRegex) || [];
+    if (!value) throw new Error(`Invalid version format for ${version}, expected a digit.`);
+    return parseInt(value, 10);
+  }
+
+  // Split the version into components based on common delimiters
+  const parts: VersionPart[] = [];
+
+  let i = 0;
+  const length = version.length;
+
+  while (i < length) {
+    if (/^[.-+]/.test(version[i])) {
+      const delimiter = ver[i];
+      ++i;
+
+      // Get the rest of the token before next separator or end of string
+      const matchStr = /\w+[^\W-._/][\S\s]*(?=[: -]|$|$[\.-+]+\/[^A-Za-z0-9])/.exec(version.substr(i));
+
+      if (!matchStr) {
+        throw new Error(`Invalid version format for ${version}, unexpected character.`);
+      }
+      const [token] = matchStr;
+
+      parts.push([delimiter === '-' ? 'prerelease' : '', token]);
+    } else {
+      // Try to extract digits from the version string
+      const digitsMatch = ver.match(/(\d+)/);
+      if (digitsMatch) {
+        const [fullValue,] = digitsMatch;
+        if (isNaN(parseInt(fullValue, 10))) throw new Error(`Invalid version format for ${version}, numeric value expected.`);
+
+        // Determine if this is the PATCH or minor version part
+        const nextChar = ver[i];
+        parts.push([nextChar === "." ? 'patch' : 'minor', fullValue]);
+
+        i += digitsMatch[1].length; // Move past the extracted digits
+      }
+    }
+  }
+
+  // Validate major, minor and patch are provided
+  if (parts.length < 3) throw new Error(`Invalid version format for ${version}, at least three parts required.`);
+
+  // Parse parsed parts
+  const [majorStr, minorStr] = parts.splice(0, 2).map(([_, value]) => parseAndVerifyPart(value));
+  const patchOrPrerelease = parts.find(([type]) => type === 'patch'); // Patch or prereleaase should be last or first minor release if it exists
+  let patchedVerStr = parts.map(([, part]) => part).join('.');
+  let build;
+
+  // Handle optional prerelease and build separately depending only on parts, no regex needed.
+  const prereleaseIndex = parts.findIndex(([type]) => type === 'prerelease');
+  const buildIndex = sections.map(([type]) => !parts || type.toLowerCase() !== prereleaseTypeLow).indexOf(true);
+  
+  if (prereleaseOrBuildIndex >= 0) {
+    [patch, build] = patchedVerStr.split('-'); // separate pre.release from final version
+    patchedVerStr = patch;
+  } else {
+    [prerelease, build] = ['', '']; // no prerelease or build found
+  }
+
+  return { major: majorStr ?? -1, build, minor:, patch_str: patchedVerStr ?? '' };
+}
+
+```

@@ -1,0 +1,46 @@
+```typescript
+/**
+ * Returns a topological ordering of the nodes given their edges. If no order is possible
+ * due to cycles in the graph, this function throws an Error.
+ */
+class TopologicalSort {
+    static compute(nodes: readonly string[], edges: readonly (readonly [string, string])[]): readonly string[] {
+
+        // Map of incoming edges for each node with their count
+        const incomingEdges = new Map();
+        for (const [from, to] of edges) {
+            if (!incomingEdges.has(from)) {
+                incomingEdges.set(from, []);
+            }
+            incomingEdges.get(from)!.push(to);
+        }
+
+        // List of nodes that have no incoming edges
+        const freeNodes: readonly string[] = [];
+        for (const node of nodes) {
+            if (!incomingEdges.has(node)) {
+                freeNodes.push(node);
+            }
+        }
+
+        // If we end up here, there must be a cycle in the graph and this function can not complete.
+        while (freeNodes.length > 0) {
+            const node = freeNodes.shift() as string;
+            for (const to of incomingEdges.get(node)!) {
+                if (--incomingEdges.get(to)!, incomingEdges.get(to) === undefined && !edges.find(([f, t]) => f === node && t === to)) {
+                    freeNodes.push(to);
+                }
+            }
+        }
+
+        // If there are still nodes with edges, the graph has a cycle and we can not complete.
+        if (Array.from(incomingEdges.values()).some(eds => eds.length > 0)) {
+            throw new Error("Graph contains cycles");
+        }
+
+        return freeNodes;
+    }
+}
+
+export { TopologicalSort };
+```

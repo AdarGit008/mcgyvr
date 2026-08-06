@@ -1,0 +1,56 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList = new Map<string, Set<string>>(nodes.map(node => [node, new Set()]));
+
+  // Validate the input and build adjacency list
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw new Error("Invalid edge: Node names not found in nodes array.");
+    }
+    adjacencyList.get(from)!.add(to);
+  }
+
+  const freeNodes = new Set(nodes);
+  const result: string[] = [];
+
+  while (freeNodes.size > 0) {
+    for (const node of [...freeNodes]) {
+      if (adjacencyList.get(node)!.size === 0) {
+        result.push(node);
+        freeNodes.delete(node);
+
+        // Remove the current node from dependencies
+        for (const [from, to] of edges) {
+          if (to === nodes.find(n => n === node)) {
+            adjacencyList.get(from)?.delete(node);
+          }
+        }
+
+        break;
+      }
+    }
+  }
+
+  // Check for cycles
+  const visited = new Set<string>();
+  function detectCycle(node: string): boolean {
+    if (visited.has(node)) return true;
+    visited.add(node);
+
+    for (const neighbor of adjacencyList.get(node) || []) {
+      if (detectCycle(neighbor)) return true;
+    }
+
+    visited.delete(node);
+    return false;
+  }
+
+  for (const [from, to] of edges) {
+   if (detectCycle(from) && detectCycle(to)) {
+      throw new Error("Cycle detected.");
+    }
+  }
+
+  return result;
+}
+```

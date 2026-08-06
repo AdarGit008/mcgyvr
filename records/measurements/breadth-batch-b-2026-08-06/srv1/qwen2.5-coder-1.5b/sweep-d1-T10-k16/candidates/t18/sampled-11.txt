@@ -1,0 +1,16 @@
+```
+/** An append-only log of timestamped events. */
+export class EventLog<T> {
+  #events: T[] = [];
+
+  /** Append one event. */
+  record(event: T) {
+    this.#events.push(event);
+  }
+
+  /** Every event at or after the given timestamp, in insertion order. */
+  since(timestamp: number): T[] {
+    return this.#events.filter((event) => <any>event.timestamp >= timestamp);
+  }
+}
+```

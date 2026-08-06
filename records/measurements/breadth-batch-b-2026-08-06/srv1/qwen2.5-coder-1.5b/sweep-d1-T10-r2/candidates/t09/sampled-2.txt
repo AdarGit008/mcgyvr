@@ -1,0 +1,17 @@
+```ts
+/**
+ * The factorial of n.
+ * @param {number} n - A non-negative integer.
+ * @throws {Error} If n is negative or not an integer.
+ * @returns {number}
+ */
+export function factorial(n: number): number {
+  if (n < 0 || !Number.isInteger(n)) {
+    throw new Error("Input must be a non-negative integer.");
+  }
+  if (n === 0) {
+    return 1;
+  }
+  return n * factorial(n - 1);
+}
+```

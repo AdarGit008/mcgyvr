@@ -1,0 +1,39 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+    if (typeof line !== 'string') throw new Error('Invalid input type, expected string');
+    
+    const fields: string[] = [];
+    let fieldAccumulator = '';
+    let inQuote = false;
+    let escapedChar = '';
+
+    for (const char of line) {
+        if (inQuote) {
+            if (char === '"' && !escapedChar) {
+                // Double quotes mean one literal quote
+                fieldAccumulator += '"';
+                escapedChar = '"'; // Reset escape char
+            } else if (char === '\\' && !escapedChar) {
+                // Backslash means the next character is an escape sequence
+                escapedChar = '\\';
+            } else {
+                fieldAccumulator += char; // Add unquoted or escaped characters to accumulator
+                escapedChar = ''; // Reset escape char
+            }
+        } else if (char === '"') {
+            if (!fieldAccumulator.length) throw new Error('Quoted field never closed');
+            inQuote = true;
+        } else if (char === ',' && !inQuote) {
+            fields.push(fieldAccumulator.trim());
+            fieldAccumulator = '';
+        } else {
+            fieldAccumulator += char; // Add unquoted characters to accumulator
+        }
+    }
+
+    // Flush the last field
+    if (fieldAccumulator.length > 0) fields.push(fieldAccumulator.trim());
+
+    return fields;
+}
+```

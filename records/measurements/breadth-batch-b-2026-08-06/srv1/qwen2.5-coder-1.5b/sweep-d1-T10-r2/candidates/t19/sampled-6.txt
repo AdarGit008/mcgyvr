@@ -1,0 +1,15 @@
+```ts
+type InputValues = [number, number]; // input values
+type OutputValues = number;         // output value
+
+export function safeDivide(a: number, b: number): OutputValues {
+  const isValid = (x: unknown) => typeof x === "number";
+  if (!isValid(a)) throw new Error(`Input #1, ${a}, is not a number`);
+  if (!isValid(b) || isFinite(b) && isNaN(b)) throw new Error(
+    `Input #2, ${b}, is not a finite number other than NaN`
+  );
+  if (isFinite(b) && b === 0) throw new Error(`Divisor cannot be zero`);
+
+  return a / b;
+}
+```

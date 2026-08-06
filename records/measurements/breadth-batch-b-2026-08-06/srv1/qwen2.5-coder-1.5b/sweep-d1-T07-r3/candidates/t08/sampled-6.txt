@@ -1,0 +1,39 @@
+```ts
+import { Map } from "typescript-collections";
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const nodeGraph = new Map<string, Set<string>>();
+
+    for (const edge of edges) {
+        if (!nodeGraph.has(edge[0])) {
+            nodeGraph.set(edge[0], new Set());
+        }
+        nodeGraph.get(edge[0]).add(edge[1]);
+    }
+
+    function dfs(node: string): void {
+        if (seen.has(node)) return;
+
+        seen.add(node);
+        for (const neighbor of nodeGraph.get(node) || []) {
+            dfs(neighbor);
+        }
+        order.push(node);
+    }
+
+    const seen = new Set<string>();
+    const order: string[] = [];
+    const freeNodes = [...nodes.filter(node => !nodeGraph.has(node))];
+
+    while (freeNodes.length > 0) {
+        const node = freeNodes.shift()!;
+        dfs(node);
+
+        if (!seen.has(node)) {
+            throw new Error(`Cycle detected with node ${node}`);
+        }
+    }
+
+    return order.reverse();
+}
+```

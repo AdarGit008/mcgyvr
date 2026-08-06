@@ -1,0 +1,53 @@
+```
+type Graph = Map<string, Set<string>>;
+
+const buildGraph = (nodes: readonly string[], edges: readonly (readonly [string, string])[]): Graph => {
+  const graph = new Map<string, Set<string>>();
+  nodes.forEach(node => graph.set(node, new Set()));
+  edges.forEach(([from, to]) => {
+    if (!graph.has(from) || !graph.has(to)) {
+      throw new Error(`Edge names refer to nodes not in the input`);
+    }
+    graph.get(from)?.add(to);
+  });
+  return graph;
+};
+
+const findRoots = (graph: Graph): string[] => {
+  return Array.from(graph.keys()).filter(node => graph.get(node)!.size === 0);
+};
+
+function hasCycle(graph: Graph, node: string, visited: Set<string>): boolean {
+  if (!visited.has(node)) {
+    visited.add(node);
+    for (const neighbor of graph.get(node)!) {
+      if (hasCycle(graph, neighbor, visited)) return true;
+    }
+    visited.delete(node);
+  }
+  return false;
+}
+
+const topologicalSort = (nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] => {
+  const graph = buildGraph(nodes, edges);
+  if (findRoots(graph).length === 0) {
+    throw new Error(`Cycle detected`);
+  }
+  for (const n of nodes) {
+    if (hasCycle(graph, n, new Set())) {
+      throw new Error(`Cycle detected`);
+    }
+  }
+  const sorted: string[] = [];
+  while (nodes.length > 0) {
+    const root = findRoots(graph)[0];
+    if (!root) break;
+    graph.delete(root);
+    nodes = nodes.filter(n => n !== root);
+    sorted.push(root);
+  }
+  return sorted;
+};
+
+export default topologicalSort;
+```

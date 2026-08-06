@@ -1,0 +1,17 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth !== undefined && typeof depth !== 'number' || !Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  const isNotArray = (item: unknown): item is unknown => Object.prototype.toString.call(item) !== '[object Array]';
+
+  if (!items.every(isNotArray)) {
+    throw new Error('Items must not contain any nested arrays');
+  }
+
+  return items.flatMap((item, index) =>
+    depth === 0 || typeof depth === 'number' && index === 0 ? item : Array.isArray(item) ? flatten(item as unknown[], depth - 1) : [item]
+  );
+}
+```

@@ -1,0 +1,33 @@
+```typescript
+export function runLengthEncode(input: string): string {
+    if (typeof input !== "string") {
+        throw new Error("Input must be a string");
+    }
+
+    // Early return for empty string or single-character strings
+    if (!input || input.length === 1) {
+        return input;
+    }
+
+    let encoded = "";
+    let count = 1;
+
+    for (let i = 1; i < input.length; i++) {
+        if (input[i] === input[i - 1]) {
+            count++;
+        } else {
+            const isSingleChar = count === 1;
+            const charWithCount = isSingleChar ? input[i - 1] : input[i - 1] + count.toString();
+            encoded += charWithCount;
+            count = 1;
+        }
+    }
+
+    // Add the last run to the result
+    const isSingleCharLast = count === 1;
+    const lastCharWithCount = isSingleCharLast ? input[input.length - 1] : input[input.length - 1] + count.toString();
+    encoded += lastCharWithCount;
+
+    return encoded;
+}
+```

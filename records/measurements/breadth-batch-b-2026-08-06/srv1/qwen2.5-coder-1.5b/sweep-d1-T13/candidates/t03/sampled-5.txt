@@ -1,0 +1,27 @@
+```ts
+import { parse } from 'semver';
+
+/**
+ * @param version - A semantic version string in the form XXX.YY.ZZ, or XXXYZZ. Either with optional pre-releases: vXXX.YY.ZZ-prerelease or XXXYZZ+build. Any other formats that semver doesn't strictly understand will throw an Error.
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version.startsWith('v')) {
+    throw new Error('String must start with "v"');
+  }
+
+  const [major, Minor, patch] = parseAllVersionSegments(version);
+
+  let rest = version.slice(2);
+  while (rest?.length > 0) {
+    [rest, prerelease = null, build = null] = parseRange(rest);
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```
+In this solution, we utilize the `parse` function from the `semver` package to extract the major, minor, and patch numerical components of the provided semantic version string. Then, we validate the semver syntax by checking if it starts with 'v' and then iteratively parses any trailing ranges using a separate helper function (`parseRange`). The extracted semver parts are included in the output object unless the parsed result indicates these parts (via `null`).
+
+**Edge-cases handled:**
+- "v" prefix is required for the parsing to start.
+- Any other formats that semver doesn't strictly understand will throw an error.
+- If there are trailing strings after the extracted components, they are assumed to be part of the build string.

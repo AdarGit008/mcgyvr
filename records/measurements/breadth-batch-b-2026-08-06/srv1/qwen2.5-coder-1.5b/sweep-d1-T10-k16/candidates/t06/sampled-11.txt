@@ -1,0 +1,32 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+    if (line === "") return [];
+
+    const fields = line.split(",");
+    for (let i = 0; i < fields.length; i++) {
+        let field = fields[i];
+        if (field.startsWith('"') && field.endsWith('"')) {
+            let value = "";
+            let start = i;
+            while (++i < fields.length) {
+                if (fields[i].startsWith('"') && fields[i].endsWith('"')) break;
+                else if (fields[i] === "") break;
+                value += fields[i] + ",";
+            }
+            fields[start] = value.slice(0, -1);
+            fields.splice(start + 1, i - start - 1);
+        } else {
+            let inQuotes = false;
+            for (let j = 0; j < field.length; j++) {
+                if (!inQuotes && field[j] === '"') inQuotes = true;
+                else if (inQuotes && field[j] !== '"') inQuotes = false;
+                else if (inQuotes && field[j] === '"' && fields[j + 1] === '"') value += "\"" + '"';
+                else value += field[j];
+            }
+            fields[start] = value;
+            fields.splice(start + 1, i - start);
+        }
+    }
+    return fields;
+}
+```

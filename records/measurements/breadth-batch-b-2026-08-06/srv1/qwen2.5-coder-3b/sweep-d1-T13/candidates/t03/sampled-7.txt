@@ -1,0 +1,50 @@
+```ts
+interface SemverParsed { major: number; minor: number; patch: number; prerelease?: string | null; build?: string | null; }
+
+export function parseSemver(version: string): SemverParsed {
+    try {
+        const [major, minor, patch, ...rest] = version.split('.').map(Number);
+        validateDigits(major, minor, patch);
+
+        const result: SemverParsed = {
+            major,
+            minor,
+            patch
+        };
+
+        if (rest.length > 0) {
+            const isPrereleaseToken = rest[0] === '-';
+            const isBuildToken = rest[rest.length - 1] === '+';
+
+            if (isPrereleaseToken && isBuildToken) {
+                result.prerelease = splitString(rest.slice(0, -1).join('.')).map(String);
+                result.build = splitString(rest.pop()!);
+            } else if (!isPrereleaseToken && !isBuildToken) {
+                return result;
+            } else if (isPrereleaseToken) {
+                result.prerelease = splitString(rest).map(String);
+            } else {
+                // Only one token, assumed build
+                result.build = splitString(rest.pop()!);
+            }
+        }
+
+        return result;
+    } catch (error: any) {
+        throw new Error(`Invalid semver format. Check input: ${version}`);
+    }
+}
+
+function validateDigits(...args: number[]): void {
+    for (const arg of args.filter(Number.isNaN)) {
+        throw new TypeError("Invalid numerical portion in version string");
+    }
+
+    if (args.some(num => (!Number.isInteger(num) || num < 0 || (num === 0 && !/^0+/.test(`${num}`)))))
+        throw new Error("All numeric parts must be unsigned integers with no leading zero.");
+}
+
+function splitString(input: string): string[] {
+    return input.replace(/\s+/g, '').split(',');
+}
+```

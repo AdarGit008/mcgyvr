@@ -1,0 +1,22 @@
+```typescript
+/**
+ * The KEY=VALUE pairs of a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim()) continue;
+    if (line.startsWith("#")) continue;
+    const trimmedLine = line.trim();
+    const [key, value] = trimmedLine.split("=", 2);
+    if (!key || !value) throw new Error(`Invalid config line: ${trimmedLine}`);
+    const trimmedKey = key.trim();
+    const trimmedValue = value.trim();
+    if (config[trimmedKey]) {
+      throw new Error(`Duplicate key: ${trimmedKey} in config line: ${trimmedLine}`);
+    }
+    config[trimmedKey] = trimmedValue;
+  }
+  return config;
+}
+```

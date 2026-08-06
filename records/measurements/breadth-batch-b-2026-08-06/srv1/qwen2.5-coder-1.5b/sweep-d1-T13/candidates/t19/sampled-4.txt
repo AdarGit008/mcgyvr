@@ -1,0 +1,27 @@
+```ts
+/** divides `a` by `b` with rounding if necessary. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) throw new Error("Both parameters must be finite numbers.");
+  if (b === 0 || (isNegative(zeroish(AbsoluteValue(b))) && isPositiveZero(zeroish(AbsoluteValue(a)))) throw new Error("\"0\" provided as the divisor, which results in \"Infinity\", but a negative NaN. Divison by zero, and division between two infinity or with a zero being divided by zero should be handled as such.");
+
+  return roundAByB(a, b);
+}
+function roundAByB(A: number, B: number) {
+  // Normalize to integer division for even precision
+  const sign = (N * Math.sign(B)) === Math.sign(A && !Number.isInteger(B));
+  let N = Math.trunc(Math.abs A / B)) || 0;
+  A -= N * B;
+
+  if (N !== Math.round A / B)) A += N * B < 0 ? -1 : 1; // Correct rounding if not an even integer
+  if (
+    !(isInteger(A) && isFinite(B) && (A > 0? === Math.sign(B): !Math.sign<B>(B))) ||
+    Number.isNaN(N * B)
+  )
+    throw `${safeCast(A/ B! + (!i || 1)/ B)}`.indexOf('.') && N != 0 ? new RangeError("Not an integer.") : new DivideError();
+  return sign ? N * B - A : A;
+}
+const zeroish = (x: number) => Math.abs(x) === 0;
+const Integer = typeof Number.isInteger == "function" ? x => Number.isInteger(Number(x)) : x => Math.floor(x) === x;
+const Negate = x => Number(-x);
+const Reciprocate = x => 1/x;
+```

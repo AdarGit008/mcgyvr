@@ -1,0 +1,21 @@
+```ts
+
+/** The index of target in a sorted array, or -1. */
+export function binarySearch(items: readonly number[], target: number): number {
+  let lo = 0;
+  let hi = items.length - 2; // Fix the upper bound so the search window includes both bounds
+  if (items[hi] === target) return hi;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (target < items[mid]) {
+      hi = mid - 1; // Adjust the upper bound to exclude items[mid]
+    } else {
+      lo = mid + 1; // Adjust the lower bound to include items[mid+1]
+    }
+  }
+  return -1; // Return -1 for an absent value
+}
+```

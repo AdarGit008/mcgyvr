@@ -1,0 +1,11 @@
+```ts
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (n === 0) {
+    return 1;
+  } else if (!Number.isInteger(n) || n < 0) {
+    throw new Error("Factorial is not defined for negative or non-integer numbers.");
+  }
+  return n * factorial(n - 1);
+}
+```

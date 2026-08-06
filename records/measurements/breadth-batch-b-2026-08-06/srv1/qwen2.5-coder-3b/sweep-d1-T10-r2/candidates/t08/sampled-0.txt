@@ -1,0 +1,49 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Map<string, Set<string>> = new Map();
+  const inDegreeMap: Map<string, number> = new Map();
+
+  // Build the graph and degree maps
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) graph.set(from, new Set());
+    if (!graph.has(to)) graph.set(to, new Set());
+
+    const fromSet = graph.get(from)!;
+    const toSet = graph.get(to)!;
+    fromSet.add(to);
+    inDegreeMap.set(to, (inDegreeMap.get(to) || 0) + 1);
+  }
+
+  // Collect all nodes with zero in-degree
+  const freeNodes: string[] = [];
+  for (const [node] of inDegreeMap) {
+    if (inDegreeMap.get(node) === 0) {
+      freeNodes.push(node);
+    }
+  }
+
+  if (freeNodes.length === 0 && graph.size > 0) {
+    throw new Error("Cycle detected");
+  }
+
+  const result: string[] = [];
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    result.push(node);
+
+    // Decrease in-degrees of nodes that depend on the removed node
+    for (const next of graph.get(node)!) {
+      const degree = inDegreeMap.get(next)!;
+      if (--degree === 0) {
+        freeNodes.push(next);
+      }
+    }
+  }
+
+  if (graph.size > 0 && result.length < Math.max(nodes.length, edges.length)) {
+    throw new Error("Cycle detected");
+  }
+
+  return result;
+}
+```

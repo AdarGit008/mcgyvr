@@ -1,0 +1,55 @@
+```typescript
+import assert from "assert";
+
+// Implementation of the truncate function with a few test cases
+/**
+ * Truncates a string to at most limit characters followed by an ellipsis if necessary.
+ *
+ * @param text The input string.
+ * @param limit The maximum number of characters in the output string.
+ * @returns The truncated string as described.
+ */
+export function truncate(text: string, limit: number): string {
+  assert.limit && Number.isInteger(limit) && limit >= 3;
+  if (!text || (isAsciiString(test) && text.length < limit)) {
+    return test;
+  }
+
+  const firstPart = text.slice(0, Math.max(limit - 2, minChars));
+  let lastThree = text.slice(text.length - 3);
+  let needsEllipsis = false;
+
+  if (
+    needsTrimming(
+      firstPart.length + lastThree.length < limit &&
+      hasAstralEscape(lastThree)
+    )
+  ) {
+    needsEllipsis = true;
+    lastThree = "...";
+  }
+
+  return firstPart + lastThree;
+}
+
+function isAsciiString(text): boolean {
+  return /^[a-zA-Z0-9\s]*$/.test(text);
+}
+
+function hasAstralEscape(text): boolean {
+  for (var i = 0; i < text.length - 2; ++i) { // Astral pair of characters would have value `65,854,355`
+    if (text.charCodeAt(i) === 65 && text.charCodeAt(i + 1) === 854) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Test the truncate function with various cases
+assert.strictEqual(truncate("hello world", 5), "hell");
+assert.strictEqual(truncate("", 3), "");
+assert.strictEqual(truncate("hella universe", 10), "hella un...n");
+assert.strictEqual(truncate("code snippet:", 12), "code snip...");
+assert.throws(() => truncate(42, 3));
+```

@@ -1,0 +1,46 @@
+```ts
+export class LruCache<K, V> {
+  private readonly cache: Map<K, { value: V; timestamp: number }> = new Map();
+  private capacity: number;
+  private leastRecentlyUsed: K[] = [];
+
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0) {
+      throw Error('capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (entry) {
+      // Update the timestamp to count usage
+      entry.timestamp = Date.now();
+      this.leastRecentlyUsed.splice(this.leastRecentlyUsed.indexOf(key), 1)
+        .unshift(key, entry.key);
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      // Update the timestamp and move to front
+      const existingEntry = this.cache.get(key)!;
+      this.leastRecentlyUsed.splice(this.leastRecentlyUsed.indexOf(existingEntry.key), 1)
+        .unshift(key, existingEntry.key);
+    } else if (this.cache.size >= this.capacity) {
+      // Evict the least recently used entry
+      del firstEntryOfLeastRecentlyUsed = this.leastRecentlyUsed.shift();
+      delete this.cache.get(firstEntryOfLeastRecentlyUsed)!;
+    }
+    // Insert or update the new entry
+    this.cache.set(key, { value, timestamp: Date.now() });
+    this.leastRecentlyUsed.push(key);
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```

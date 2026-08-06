@@ -1,0 +1,24 @@
+```typescript
+
+type NonZeroPositiveNumber = number & { _isPositiveNonZero: true };
+
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error("Size must be a positive integer.");
+  }
+
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+}
+
+// Utility type to prevent zero or negative numbers
+const _0_1 = (x: number): NonZeroPositiveNumber => {
+  if (!Number.isInteger(x) || x <= 0) {
+    throw new Error("Value must be a positive integer.");
+  }
+  return x as NonZeroPositiveNumber;
+};
+```

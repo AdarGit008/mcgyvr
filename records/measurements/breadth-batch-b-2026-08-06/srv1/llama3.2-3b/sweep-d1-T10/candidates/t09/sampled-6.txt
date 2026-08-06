@@ -1,0 +1,14 @@
+```typescript
+/**
+ * The factorial of n.
+ */
+export function factorial(n: number): number {
+  if (n === 0 || n < 1) {
+    throw new Error("n must be a non-negative integer.");
+  }
+  // Use const and recursion instead of loop for purity
+  return const k = Array.from({ length: n }, (_, i) => i).reduce((a, _, idx) =>
+    a * (idx + 1),
+    1);
+}
+```

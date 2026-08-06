@@ -1,0 +1,28 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const regex = /^(v?)?(\\d+)\\.(\\d+)\\.\\d+(-[^+]+)?([+-]\\d+)?>/;
+
+  if (!version || !regex.test(version)) {
+    throw new Error('Invalid input');
+  }
+
+  let match = version.match(regex);
+  if (!match) {
+    throw new Error('Invalid input');
+  }
+
+  const major = parseInt(match[2], 10);
+  const minor = parseInt(match[3], 10);
+  const patch = parseInt(match[4], 10);
+
+  // Remove any non-numeric part before +build
+  build = match[7].match(/([+-]\\d+)/)?.[1];
+  if (build && ! /^[+-]\\d+$/.test(build)) {
+    throw new Error('Invalid input');
+  }
+
+  prerelease = match[6] ? match[6].slice(1) : null;
+
+  return { major, minor, patch, prerelease, build };
+}
+```

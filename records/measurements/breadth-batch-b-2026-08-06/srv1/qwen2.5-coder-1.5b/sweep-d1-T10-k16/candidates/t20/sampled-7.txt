@@ -1,0 +1,33 @@
+```ts
+export interface FixedFileConfig {
+  config: Record<string, string>;
+}
+
+/** The KEY=VALUE pairs of a config file, ignoring blank lines and lines starting with #. Trims whitespace and splits on the first =. Throws for no = or empty key. Keys do not reach the prototype of the returned object. */
+export function parseConfig(text: string): FixedFileConfig {
+  const fixedText: FixedFileConfig = { config: {} };
+  text.split("\n").forEach((line, index) => {
+    if (line.trim() === "" || line[0] === "#") return;
+
+    const [key, value] = line.split("=", 1);
+    if (!key || !value) {
+      throw new Error(`Line ${index + 1} has no =`);
+    }
+
+    key = key.trim();
+    value = value.trim();
+
+    if (Object.prototype.hasOwnProperty.call(fixedText.config, key)) {
+      if (typeof fixedText.config[key] === "object") {
+        Object.assign(fixedText.config[key], { [value]: null });
+      } else {
+        throw new Error(`Duplicate key in line ${index + 1}`);
+      }
+    } else {
+      fixedText.config[key] = value;
+    }
+  });
+
+  return fixedText;
+}
+```

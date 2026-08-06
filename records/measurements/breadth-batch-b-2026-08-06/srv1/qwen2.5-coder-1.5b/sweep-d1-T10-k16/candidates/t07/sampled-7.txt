@@ -1,0 +1,7 @@
+```ts
+function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0) throw new Error("depth must be >= 0");
+
+  return items.flatMap((item) => Array.isArray(item) ? depth > 1 ? flatten(item, depth - 1) : item : item);
+}
+```

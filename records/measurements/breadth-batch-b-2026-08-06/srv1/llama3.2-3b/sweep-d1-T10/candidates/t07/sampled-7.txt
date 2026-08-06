@@ -1,0 +1,25 @@
+```typescript
+/**
+ * Flattens a nested array up to a specified depth level.
+ *
+ * If the input is already at maximum allowed depth or if there are no more arrays
+ * to flatten (i.e., we've removed all outer sequences and only deal with scalar values),
+ * this will return a copied copy of the flattened, non-iterable value(s).
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if ((depth === undefined) || typeof depth !== 'number' ||
+    Number.is Finite(depth) && depth < 0)
+    throw new Error('Invalid input for `depth', { cause: 'must be 0, Infinity or NaN' });
+
+  const flatItems = [];
+  function flattenItem(item: unknown): void {
+    if (typeof item !== 'object') return;
+    if ((typeof item === 'object') && Array.isArray(item)) {
+      if (--depth < 0) item.forEach(flattenItem);
+      else item.forEach(flatItems.push, flatItems);
+    }
+  }
+  items.slice().forEach(flattenItem);
+  return flatItems;
+}
+```

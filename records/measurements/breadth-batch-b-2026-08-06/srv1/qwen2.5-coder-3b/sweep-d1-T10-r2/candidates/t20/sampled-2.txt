@@ -1,0 +1,29 @@
+```ts
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  
+  for (const line of text.split("\n")) {
+    const trimmedLine = line.trim();
+    
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue;
+    }
+    
+    const [key, value] = trimmedLine.split("=", 2);
+    
+    if (typeof key !== "string" || typeof value !== "string") {
+      throw new Error(`Invalid config file: malformed line: "${line}"`);
+    }
+    
+    if (!(key in result)) {
+      result[key] = value;
+    } else {
+      console.warn(`Warning: duplicate key "${key}" encountered, ignoring value: "${value}"`);
+    }
+  }
+  
+  return result;
+}
+```

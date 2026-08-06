@@ -1,0 +1,30 @@
+```ts
+import { isArray } from "lodash";
+
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (isNaN(depth) || depth < 0) {
+    throw new Error("Depth must be a non-negative integer or Infinity");
+  }
+
+  const flattened: unknown[] = [];
+  const push = (elements: unknown[]) => flattened.push(...elements);
+
+  function flattenRecursively(nestedItems: unknown[], currDepth = 1) {
+    for (const item of nestedItems) {
+      if (isArray(item)) {
+        if (currDepth >= depth) {
+          flatten.push(...item);
+        } else {
+          flattenRecursively(item, currDepth + 1);
+        }
+      } else {
+        flattened.push(item);
+      }
+    }
+  }
+
+  flattenRecursively(items);
+
+  return flattened;
+}
+```

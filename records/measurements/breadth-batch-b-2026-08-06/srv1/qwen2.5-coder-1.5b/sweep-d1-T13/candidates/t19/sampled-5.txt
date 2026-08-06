@@ -1,0 +1,12 @@
+```ts
+export function safeDivide(a: number, b: number): number {
+  if (!isNumber(b) || !isFiniteNumber(b)) throw Error("Division by NaN or non-finite divisor");
+  return a / b // If we were to round here, it would not be conform with given contract.
+}
+function isNumber(val: any): val is number {
+  return typeof val === 'number';
+}
+function isFiniteNumber(val: number | Infinity /* ... all built-in types */): val is number /* + other build-ins if necessary */ {
+  return isFinite(val);
+}
+```

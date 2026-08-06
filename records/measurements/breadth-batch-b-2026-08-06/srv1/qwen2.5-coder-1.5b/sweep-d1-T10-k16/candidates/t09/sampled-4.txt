@@ -1,0 +1,11 @@
+```ts
+export function factorial(n: number): number {
+  if (n === 0) {
+    return 1;
+  }
+  if (typeof n !== 'number' || !Number.isInteger(n)) {
+    throw new Error('Input must be a non-negative integer');
+  }
+  return n * factorial(n - 1);
+}
+```

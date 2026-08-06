@@ -1,0 +1,6 @@
+```ts
+export function sortAscending(values: readonly number[]): number[] {
+  if (values == null || values === undefined) throw new Error('Input values must be provided');
+  return [...values].sort((a, b) => a - b);
+}
+```

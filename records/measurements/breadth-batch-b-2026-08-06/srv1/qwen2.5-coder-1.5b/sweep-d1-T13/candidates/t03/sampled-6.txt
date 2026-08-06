@@ -1,0 +1,59 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version || typeof version !== 'string') {
+    throw new Error('Invalid argument');
+  }
+
+  const parts = version.split(/[-+\]*/);
+
+  let major, minor, patch;
+  let prerelease = null;
+  let build = null;
+
+  for (let i = 0; i < parts.length; ++i) {
+    const part = parts[i];
+
+    switch (true) {
+      case /^\d+$/[0]:
+        (function () {
+          const numStr = part.replace(/^(\-\+)/, ''),
+              strPart = part.trimStart().replace(/\.+/g, '');
+          if (!numStr || !parseInt(strPart)) {
+            throw new Error(`Invalid argument ${version}`);
+          }
+
+          switch (i) {
+            case 0:
+              major = Number(numStr);
+              break;
+            case 1:
+              minor = Number(numStr);
+              break;
+            default:
+              patch = Number(numStr);
+          }
+        })();
+      case /^v\d+/.test(part):
+        (function () {
+          const strPart = part.trimStart().replace(/\.+/g, '');
+          if (!strPart || !parseInt(strPart)) {
+            throw new Error(`Invalid argument ${version}`);
+          }
+          version = strPart;
+        })();
+      case /^(.*:)/[0]:
+        prerelease = part ? part.replace(/:\d+$/, '') : null;
+        break;
+      case /^\+(\d+)/[0]:
+        build = part.replace(/^\++/, '');
+        break;
+    }
+  }
+
+  if (!major) {
+    throw new Error(`Invalid argument ${version}`);
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

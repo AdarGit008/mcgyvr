@@ -1,0 +1,56 @@
+```ts
+
+/**
+ * Topological sort algorithm to determine the order in which nodes must be processed.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjacencyList = new Map<string, Set<string>>();
+
+    // Build adjacency list
+    for (const [from, to] of edges) {
+        if (!adjacencyList.has(from)) {
+            adjacencyList.set(from, new Set());
+        }
+        adjacencyList.get(from)?.add(to);
+    }
+
+    // Initialize inDegree and free nodes array
+    const inDegree = new Map<string, number>();
+    const freeNodes = [];
+
+    for (const node of nodes) {
+        if (!adjacencyList.has(node)) {
+            inDegree.set(node, 0);
+        }
+        freeNodes.push(node);
+    }
+
+    // Sort the nodes alphabetically to maintain order
+    freeNodes.sort();
+
+    const sortedOrder: string[] = [];
+    while (freeNodes.length > 0) {
+        const currentNode = freeNodes.shift()!;
+        sortedOrder.push(currentNode);
+
+        if (!adjacencyList.has(currentNode)) continue;
+
+        for (const neighbor of adjacencyList.get(currentNode)!) {
+            inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+            if (inDegree.get(neighbor)! === 0) {
+                freeNodes.push(neighbor);
+            }
+        }
+    }
+
+    // Check for cycles
+    const allNodes = new Set([...nodes, ...adjacencyList.keys()]);
+    for (const node of allNodes) {
+        if (!sortedOrder.includes(node)) {
+            throw new Error(`Cycle detected: ${node}`);
+        }
+    }
+
+    return sortedOrder;
+}
+```

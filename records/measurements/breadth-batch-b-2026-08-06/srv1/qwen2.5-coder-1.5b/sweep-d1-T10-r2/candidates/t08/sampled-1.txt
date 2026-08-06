@@ -1,0 +1,46 @@
+```ts
+
+function topologicalSort(nodes: readonly string[], edges:readonly (readonly [string, string])[]): string[] {
+  const inDegree = new Map<string, number>();
+  const adjacencyList = new Map<string, Set<string>>();
+
+  // Initialize in-degree and adjacency list
+  for (const node of nodes) {
+    inDegree.set(node, 0);
+    adjacencyList.set(node, new Set());
+  }
+
+  // Build the adjacency list and determine in-degrees
+  for (const [from, to] of edges) {
+    if (!adjacencyList.has(from)) adjacencyList.set(from, new Set());
+    if (!adjacencyList.has(to)) adjacencyList.set(to, new Set());
+
+    adjacencyList.get(from)?.add(to);
+    inDegree.set(to, (inDegree.get(to) ?? 0) + 1);
+  }
+
+  const sorted_nodes: string[] = [];
+
+  while (nodes.length > 0) {
+    let foundNode = false;
+    for (const node of nodes) {
+      if (inDegree.get(node) === 0) {
+        sorted_nodes.push(node);
+        nodes.splice(nodes.indexOf(node), 1);
+
+        adjacencyList.forEach((neighbors, from) => {
+          neighbors.delete(node);
+          inDegree.set(from, inDegree.get(from)! - 1);
+          if (inDegree.get(from) === 0 && !adjacencyList.has(from)) foundNode = true;
+        });
+
+        break;
+      }
+    }
+
+    if (!foundNode) throw new Error('Cycle detected');
+  }
+
+  return sorted_nodes;
+}
+```

@@ -1,0 +1,58 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Record<string, Set<string>> = {};
+  const indegree: Record<string, number> = {};
+
+  // Build the graph and record incoming degrees
+  for (const [from, to] of edges) {
+    if (!graph[from]) graph[from] = new Set();
+    if (!graph[to]) graph[to] = new Set();
+
+    graph[from].add(to);
+    indegree[to] = (indegree[to] || 0) + 1;
+  }
+
+  // Initialize the queue with nodes that have no incoming edges
+  const freeNodes: string[] = [];
+  for (const node of nodes) {
+    if (!indegree[node]) freeNodes.push(node);
+  }
+
+  const result: string[] = [];
+
+  while (freeNodes.length > 0) {
+    const current = freeNodes.shift()!;
+    result.push(current);
+
+    // Decrease the indegree of adjacent nodes
+    for (const neighbor of graph[current]) {
+      if (--indegree[neighbor] === 0) {
+        freeNodes.push(neighbor);
+      }
+    }
+  }
+
+  // Check for cycles and unmet dependencies
+  const visited = new Set<string>();
+  for (const node of freeNodes) {
+    if (!hasCycle(graph, visited, node)) continue;
+
+    throw new Error("Cycle detected");
+  }
+
+  // If all nodes are processed without cycles, they form a valid topological order
+  return result;
+}
+
+function hasCycle(graph: Record<string, Set<string>>, visited: Set<string>, node: string): boolean {
+  if (visited.has(node)) return true; // Node is currently being visited (cycle detected)
+  visited.add(node);
+  
+  for (const neighbor of graph[node]) {
+    if (hasCycle(graph, visited, neighbor)) return true;
+  }
+  
+  visited.delete(node);
+  return false;
+}
+```

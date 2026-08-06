@@ -1,0 +1,107 @@
+```ts
+function areTopologicallyOrdered(edgeSet: Map<string, Set<string>>, visited: Set<string>, nodesVisited: number[]): boolean {
+    // TopologicalSort helper function. Determines if the list of nodes is topologically ordered.
+    
+    // Check against cycles first.
+    for (const fromNode in visitedList) {
+        const dependents = edgeSet.get(fromNode);
+        if (!dependents) {
+            continue;
+        }
+        
+        visited.add(fromNode);
+        for (const dependentNode of dependents) {
+            if (visited.has(dependentNode)) {
+                return false; // Cycle detected.
+            }
+        }
+    }
+    
+    visited.clear();
+    nodesVisited.push(0); // Reset nodesVisited with the first element (it might be undefined) moved up one.
+
+    visitedList.push(nodes[_nodesVisited.shift() as 0]);
+
+    for (const toNode of edgeSet.get(visitedList[visitiedList.length - 1])!) {
+        areTopologicallyOrdered(edgeSet, visited, nodesVisited);
+    }
+}
+
+
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    // Perform topological sorting.
+    
+    const adjacencyList = new Map<string, Set<string>>();
+
+    for (const edge of edges) {
+        if (adjacencyList.get(edge[0]) == null) {
+            adjacencyList.set(edge[0], new Set());
+        }
+        
+        adjacencyList.get(edge[0])!.add(edge[1]);
+    }
+
+    try {
+        let isValidOrdering;
+        do {
+            isValidOrdering = true;
+
+            for (const node of nodes!) {
+                if (!adjacencyList.has(node)) {
+                    continue; // Skip nodes not in the graph.
+                }
+                
+                const dependents = adjacencyList.get(node)!;
+                for (const dependentNode of dependents) {
+                    if (invalidDependent(node, dependent)) { 
+                        isValidOrdering = false;
+                        break;
+                    }
+                }
+
+                if (!isValidOrdering) {
+                    break;
+                }
+            }
+
+            if (isValidOrdering) continue; // Continue without updating nodesVisited further.
+        } while(!isValidOrdering);
+
+        return adjacencyList.size === dependencies.size ? [...visited] : undefined;
+            
+    } catch(error: any){
+        throw new Error("topologicalSort failed. " + error.message);
+        
+    }
+}
+
+
+function invalidDependent(nodeToInspect: string, visitingOrReferencing?: string) {
+    // Check for cycles between nodeToInspect and its dependents.
+    
+    for (const dependent of adjacencyList.get(nodeToInspect)!) {
+        if(!dependentRefersToSameNode(dependent!)) continue;
+
+        const referringNode = (visitingOrReferencing == null || visitedList.includes(visitingOrReferencing)) ? nodeToInspect : visitingOrReferencing; 
+        if(invalidDependent(dependent!, referringNode)) break;
+    }   
+    
+    return dependentRefersToSameSelf(nodeToInspect)!;
+}
+
+function dependentRefersToSameNode(dependents: string) {
+    // Check if a node (dependent) refers to the same thing (same self-identification).
+    
+    for(const adjacent of adjacencyList.get(dependent)!){ 
+        const oppositeAdjacent = Object.keys(adjacencyList).find(x=>adjacencyList[x].has(adjacent));
+       
+       if(oppositeAdjacent){
+            const otherNodeToInspect   = nodes !.includes(adjacent)? otherNodeToInspect   : adjacent;
+            
+            if(otherNodeToInspect  == dependent) return true;
+            
+        }
+    } 
+     
+    // Neither nodeRefersToSameSelf, nor any adjacent to adjacentRefersToSameSelf refers to self

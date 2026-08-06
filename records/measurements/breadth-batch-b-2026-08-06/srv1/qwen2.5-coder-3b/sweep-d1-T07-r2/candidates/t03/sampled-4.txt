@@ -1,0 +1,24 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const regex = /^(\d+)\.(\d+)\.(\d+)(?:-(\w+))?(?:\+(\w+))?$/;
+  const match = version.match(regex);
+
+  if (!match) {
+    throw new Error(`Invalid semver format: ${version}`);
+  }
+
+  const [_, major, minor, patch, prerelease, build] = match;
+
+  // Convert to numbers
+  const parsedMajor = parseInt(major, 10);
+  const parsedMinor = parseInt(minor, 10);
+  const parsedPatch = parseInt(patch, 10);
+
+  // Validate numeric parts
+  if (isNaN(parsedMajor) || isNaN(parsedMinor) || isNaN(parsedPatch)) {
+    throw new Error(`Invalid semver format: ${version}`);
+  }
+
+  return { major: parsedMajor, minor: parsedMinor, patch: parsedPatch, prerelease, build };
+}
+```

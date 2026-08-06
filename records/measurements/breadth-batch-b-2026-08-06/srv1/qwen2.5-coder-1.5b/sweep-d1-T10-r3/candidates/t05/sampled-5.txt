@@ -1,0 +1,25 @@
+```ts
+/**
+ * Splits an array into chunks.
+ * Each chunk contains at most `size` elements from the original array,
+ * preserving the order of elements within individual groups.
+ *
+ * @param items - The array to be split, containing any type of items.
+ * @param size - The maximum number of items per chunk. Must be a positive integer.
+ * @returns An array of arrays, where each subarray contains at most `size` items from the input array.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (typeof size !== 'number' || size <= 0) {
+    throw new Error('The size must be a positive integer.');
+  }
+
+  if (items.length === 0) return [];
+
+  const length = items.length;
+  let endIndex = Math.min(length, size);
+
+  return Array.from({ length: Math.ceil(length / size) }, (_, i) => {
+    return items.slice(i * size, endIndex);
+  });
+}
+```

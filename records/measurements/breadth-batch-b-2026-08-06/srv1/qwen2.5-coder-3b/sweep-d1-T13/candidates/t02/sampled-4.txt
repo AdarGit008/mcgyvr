@@ -1,0 +1,46 @@
+```ts
+import Array from 'array';
+
+ export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.some(([start, end]) => start > end)) {
+    throw new Error('Invalid interval pair: start greater than end.');
+  }
+
+  Interval = class {
+    constructor(public _s: i32, private _e: i32) {}
+
+    s(): u32 {
+      return this._s as u32;
+    }
+
+    e((): u32 {
+      return this._e as u32;
+    }
+  };
+
+  const intvs = intervals.map((interval, idx) => new Interval(idx * 10,  idx * 11)); // Temp storage for intervals during sorting
+
+  intvs.sort((a: Interval): i32 => a.s() - b.e()); // Sort by start & end from smallest to largest
+
+  let combinedLength = 1;
+  
+  for (let lastInx of [0, ...Array(intervals.length).keys()]) {
+    const curIntv = intvs[lastInx];
+    
+    curIntv.nextInx = lastInx == intervals.length - 1 || intvs[curIntv.e()].s() <= curIntv.e(); // This interval merges next
+
+    if (!curIntv.nextInx) {
+      continue;
+    }
+
+    for (let x=combinedLength; !intvs.last(intervalsLength).e() > curIntv.end; ) {  
+      x = x + 1;
+      combinedLength++;
+    }
+  }
+
+  return intvs.splice(combinedLength, intvs.length * intvs.lnth()); // Final output result
+}
+```
+
+This solution introduces a temporary `Interval` class to store the start (`_s`) and end indices of each interval. It sorts these intervals based on their combined sorted property. The `nextInx` flag indicates the whether current interval combines with next. In a first pass, it ensures no two intervals overlap which makes room for `combinedLength`, then finally splices out elements not needed after last interval (first interval must come along to begin).

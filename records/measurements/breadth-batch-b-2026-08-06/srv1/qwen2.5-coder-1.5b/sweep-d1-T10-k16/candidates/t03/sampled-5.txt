@@ -1,0 +1,54 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  // Remove "v" prefix if present
+  version = version.startsWith("v") ? version.slice(1) : version;
+
+  const parts = version.split(".");
+  const prerelease = "";
+  let build = "";
+
+  if (parts.length < 3) {
+    throw new Error(`invalidSemVer: invalid version string ${version}`);
+  }
+
+  for (let i = 0; i < 3; i++) {
+    const part = parts[i];
+    if (!/^\d+$/.test(part)) {
+      throw new Error(`invalidSemVer: invalid part ${part} in version string ${version}`);
+    }
+    if (i < 2 && parseInt(part) === 0) {
+      throw new Error(`invalidSemVer: zero value for patch in version string ${version}`);
+    }
+    switch (i) {
+      case 0:
+        major = parseInt(part);
+        break;
+      case 1:
+        minor = parseInt(part);
+        break;
+      case 2:
+        patch = parseInt(part);
+        break;
+    }
+  }
+
+  if (parts.length < 5 || parts.length > 6) {
+    throw new Error(`invalidSemVer: invalid version string ${version}`);
+  }
+
+  const hasPrereleaseAndBuild = parts.length === 6;
+
+  for (let i = 3; i < 6; i++) {
+    switch (i) {
+      case 3:
+        prerelease = parts[i] || "";
+        break;
+      case 4:
+        build = parts[i] || "";
+        break;
+    }
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

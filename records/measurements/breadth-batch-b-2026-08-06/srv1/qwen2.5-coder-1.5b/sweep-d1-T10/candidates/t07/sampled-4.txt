@@ -1,0 +1,44 @@
+```ts
+/**
+ * Flattens a nested array up to a specified depth.
+ * A string is treated as a value, no matter how deeply it appears.
+ * @param items The array to flatten.
+ * @param depth How many levels deep to flatten. Default is 0 to return unchanged.
+ * @throws Error If depth is not a non-negative integer or Infinity.
+ */
+export function flatten(items: readonly unknown[], depth = 0): unknown[] {
+  if (typeof depth !== 'number' || Number.isNaN(depth) || depth < 0) {
+    throw new Error('Depth must be a non-negative integer or Infinity.');
+  }
+
+  let flatArray: unknown[] = [];
+
+  const iterate = (arr: readonly unknown[], currentDepth: number): void => {
+    arr.forEach(item => {
+      if (!(item instanceof Array)) {
+        flatArray.push(item);
+      } else {
+        if (currentDepth < depth) {
+          iterate(item, currentDepth + 1);
+        } else {
+          flatArray = flatArray.concat(...item as unknown[]);
+        }
+      }
+    });
+  };
+
+  iterate(items, 0);
+
+  return flatArray;
+}
+
+// Check function to verify the correctness of the solution
+function checkFlatten() {
+  console.assert(JSON.stringify(flatten([])) === JSON.stringify([]), 'Empty array should be unchanged');
+  console.assert(JSON.stringify(flatten([1, 2, [3, 4]])) === JSON.stringify([1, 2, 3, 4]), 'Nested array [1, 2, [3, [4]]] should be flattened to [1, 2, 3, 4]');
+  console.assert(JSON.stringify(flatten([], 2)) === JSON.stringify([]), 'Depth 2 should not change the empty array');
+  console.assert(JSON.stringify(flatten([1, 2, [3, [4]], 5])) === JSON.stringify([1, 2, 3, 4, 5]), 'Mixed depth with nested arrays should be flattened');
+}
+
+checkFlatten();
+```

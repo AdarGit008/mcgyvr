@@ -1,0 +1,39 @@
+```ts
+/**
+ * Flattens each array in `items` up to depth levels. Strings are treated as values,
+ * and a default depth of 1 flattens each array. The input must not be mutated.
+ *
+ * @param items The original array or an iterable containing arrays to flatten.
+ * @param depth The maximum depth to flatten nested arrays (default: 1, Infinity for every level).
+ * @returns A new flattened array with the specified depth levels.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    // Check for invalid arguments
+    if (!(depth === undefined || (typeof depth === 'number' && Number.isInteger(depth)))) {
+        throw Error("Invalid argument. Depth must be a non-negative integer or Infinity.");
+    }
+
+    // Clone and transform the input depending on depth
+    return Array.isArray(items) ? flatArray(items, depth) : items;
+}
+
+// Helper function to recursively flatten arrays up to the specified depth
+function flatArray(arr: readonly unknown[], depth: number): unknown[] {
+    let flattened = [];
+    for (const item of arr) {
+        if (Array.isArray(item)) {
+            // If depth is a finite number, only flatten as far as specified levels
+            if (typeof depth === 'number' && !isNaN(depth) && depth >= 0) {
+                flattened.push(...flatArray(item.slice(0, Math.min(depth - 1, item.length)), depth - 1));
+            } else {
+                flattened.push(...flatArray(item, Infinity));
+            }
+        } else if (typeof item === 'string') {
+            continue; // Strings are treated as values, no flattening needed
+        } else {
+            flattened.push(item);
+        }
+    }
+    return flattened;
+}
+```

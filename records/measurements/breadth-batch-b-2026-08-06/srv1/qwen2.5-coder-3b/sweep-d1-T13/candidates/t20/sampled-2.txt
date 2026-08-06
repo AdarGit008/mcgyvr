@@ -1,0 +1,37 @@
+```
+// The KEY=VALUE pairs of a config file and additional logic to handle malformed input.
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+
+  // Split the text by lines first.
+  for (const line of text.split("\n")) {
+    // Skip empty lines or comments starting with '#'.
+    if (line.length > 0 && !line.trim().startsWith("#")) {
+      // Trim whitespace around key and value, and split on the FIRST =.
+      const [key, value] = line.trim().split("=", 2).map((part) =>
+        part.trim()
+      );
+
+      // Validate that the formatted input contains an equal sign at first character position
+      if (value == null || (!~value.search(/^ /))) {
+        throw new Error(
+          `Line in incorrect format: ${key}${value != null ? "=" + value : ""}. ` +
+            'Missing or extra space after "=."'
+        );
+      }
+
+      // Check for invalid keys. A key starting with '__proto__' should not reach the prototype.
+      if (key.startsWith("__proto__")) {
+        throw new Error(`Key in __proto__: ${line}`);
+      }
+      
+      config[key] = value;
+    } else {
+      // Warn about potentially problematic line or skip if it's either all empty whitespace or start with '#'.
+      console.warn(`Ignored: "${line}`.trim());
+    }
+  }
+
+  return config;
+}
+```

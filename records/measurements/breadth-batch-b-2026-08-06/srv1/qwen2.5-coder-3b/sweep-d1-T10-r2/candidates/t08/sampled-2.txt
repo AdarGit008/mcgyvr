@@ -1,0 +1,56 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: Map<string, Set<string>> = new Map();
+
+    // Build the graph from edges
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from)) {
+            throw new Error(`Edge names not in nodes`);
+        }
+        if (!nodes.includes(to)) {
+            throw new Error(`Edge names not in nodes`);
+        }
+
+        const neighbors = graph.get(from);
+        if (!neighbors) {
+            graph.set(from, new Set([to]));
+        } else {
+            neighbors.add(to);
+        }
+    }
+
+    // Count dependencies for each node
+    const dependenciesCount: Map<string, number> = new Map();
+    for (const [from] of edges) {
+        dependenciesCount.set(from, (dependenciesCount.get(from) || 0) + 1);
+    }
+
+    // Initialize the queue with nodes that have no dependencies
+    const initialNodes = Array.from(nodes).filter(node => !dependenciesCount.has(node));
+    let queue: string[] = [...initialNodes];
+
+    // Perform topological sort
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        const neighbors = graph.get(node)!;
+        for (const neighbor of neighbors) {
+            dependenciesCount.set(neighbor, dependenciesCount.get(neighbor)! - 1);
+            if (dependenciesCount.get(neighbor)! === 0) {
+                queue.unshift(neighbor);
+            }
+        }
+    }
+
+    // Check for cycles
+    for (const [node, count] of dependenciesCount.entries()) {
+        if (count > 0) {
+            throw new Error(`Cycle detected in the graph`);
+        }
+    }
+
+    return result;
+}
+```

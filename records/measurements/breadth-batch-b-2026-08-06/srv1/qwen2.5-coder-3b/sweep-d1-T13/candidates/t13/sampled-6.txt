@@ -1,0 +1,26 @@
+```
+export function truncate(text: string = "", limit: number): string {
+  const minLimit = 3;
+  
+  if (!Number.isInteger(limit)) {
+    throw new Error("Limit must be an integer.");
+  }
+  if (limit < minLimit) {
+    throw new Error(`Minimum limit is ${minLimit}.`);
+  }
+
+  if (text.length <= limit) {
+    return text;
+  }
+
+  let truncatedText = text.slice(0, limit - 3);
+  truncatedText += "…";
+  
+  // Ensure the ellipsis does not increase the total character count
+  if (truncatedText.length > limit) {
+    truncatedText = truncatedText.substr(limit - minLimit, minLimit);
+  }
+
+  return truncatedText;
+}
+```

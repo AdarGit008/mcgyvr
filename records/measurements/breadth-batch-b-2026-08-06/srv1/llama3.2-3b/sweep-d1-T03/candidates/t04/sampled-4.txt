@@ -1,0 +1,93 @@
+```typescript
+/**
+ * LruCache implementation.
+ */
+export class LruCache<K, V> {
+    private capacity: number;
+    private cache: Map<K, [V, number]>;
+    private index: Map<V, number>;
+
+    /**
+     * Creates a new instance of the LruCache.
+     *
+     * @param capacity The maximum number of entries in the cache.
+     */
+    constructor(capacity: number) {
+        if (capacity <= 0) {
+            throw new Error('Capacity must be a positive integer.');
+        }
+
+        this.capacity = capacity;
+        this.cache = new Map();
+        this.index = new Map();
+    }
+
+    /**
+     * Returns the value associated with the given key, or undefined if no such entry exists.
+     *
+     * @param key The key to retrieve the value for.
+     */
+    get(key: K): V | undefined {
+        const [value, index] = this.cache.get(key) ?? [undefined, 0];
+
+        if (value !== undefined) {
+            this.index.set(value, index);
+            return value;
+        }
+
+        // If the key is not in the cache and there's no entry to evict, we can simply add it.
+        if (this.cache.size < this.capacity) {
+            this.cache.set(key, [undefined, 0]);
+            this.index.set(undefined, 0);
+            return undefined;
+        } else {
+            // If the key is not in the cache and there's an entry to evict, we need to find the LRU entry.
+            const lruEntry = Array.from(this.index.entries()).sort((a, b) => a[1] - b[1])[0];
+            this.cache.delete(lruEntry[0]);
+            this.index.delete(lruEntry[0]);
+
+            // Add the new key-value pair to the cache and update the index.
+            const newIndex = this.index.size;
+            this.cache.set(key, [value, newIndex]);
+            this.index.set(value, newIndex);
+
+            return undefined;
+        }
+    }
+
+    /**
+     * Inserts or updates the value associated with the given key in the cache.
+     *
+     * @param key The key to insert or update the value for.
+     * @param value The new value to associate with the key.
+     */
+    set(key: K, value: V): void {
+        const [existingValue, index] = this.cache.get(key) ?? [undefined, 0];
+
+        if (existingValue !== undefined) {
+            // If the key already exists in the cache and we're updating its value, update the LRU entry.
+            this.index.set(existingValue, index);
+        }
+
+        // Add or update the new key-value pair to the cache and update the index.
+        const newIndex = Array.from(this.index.entries()).sort((a, b) => a[1] - b[1])[0][1];
+        if (newIndex < this.capacity) {
+            this.cache.set(key, [value, newIndex]);
+            this.index.set(value, newIndex);
+        } else {
+            // If the cache is full and we're inserting a new key-value pair, remove the LRU entry.
+            const lruEntry = Array.from(this.index.entries()).sort((a, b) => a[1] - b[1])[0];
+            this.cache.delete(lruEntry[0]);
+            this.index.delete(lruEntry[0]);
+
+            // Add the new key-value pair to the cache and update the index.
+            const newIndex = this.index.size;
+            this.cache.set(key, [value, newIndex]);
+            this.index.set(value, newIndex);
+        }
+    }
+
+    /**
+     * Returns the number of entries currently in the cache.
+     *
+     * @returns The current

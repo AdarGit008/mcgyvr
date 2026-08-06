@@ -1,0 +1,34 @@
+```typescript
+/**
+ * Performs a topological sort on a directed acyclic graph (DAG) given its nodes and edges.
+ *
+ * @param nodes - The names of nodes in the graph.
+ * @param edges - Edges between nodes, where each edge is named [from, to].
+ * @returns - An ordering satisfying every edge in chronological order of the nodes' input order
+ *           (if possible) or an error if a cycle exists.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [readonly string, string][]): string[] {
+  const graph: { [key: string]: string[] } = {};
+  for (const u of nodes) graph[u] = [];
+  for (const [u, v] of edges) if (!nodes.includes(v)) throw new Error(`Node ${v} not in nodes`);
+  for (const [u, ...ps] of edges) {
+    if (graph[u]) for (const v of ps) graph[u].push(v);
+  }
+
+  const visited: Set<string> = new Set();
+  try {
+    return dfs(graph) || [];
+  } catch (e) { throw e; }
+}
+
+function* dfs(g: { [key: string]: string[] }, path: readonly string[] = []) {
+  while (true) {
+    for (const u of Object.keys(g)) if (!path.includes(u)) {
+      const v = g[u].pop()!;
+      path.push(u);
+      yield* dfs(g, [...path]);
+    }
+    if (!(path.length < Object.keys(g).length)) throw new Error('Cycle');
+    return [];
+  }
+}

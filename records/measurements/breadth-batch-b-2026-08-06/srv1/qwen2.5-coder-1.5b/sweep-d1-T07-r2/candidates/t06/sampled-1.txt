@@ -1,0 +1,42 @@
+```ts
+function parseCsvLine(line: string): string[] {
+  // Edge case: empty input
+  if (!line.trim()) return [];
+
+  const fields = [];
+  let inQuotes = false;
+  let escaped = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      // Start of a quoted field
+      inQuotes = true;
+      escaped = false;
+    } else if (inQuotes) {
+      if (char === '"' && !escaped) {
+        // End of the quoted field
+        inQuotes = false;
+      } else if (!escaped) {
+        // Inside a quoted field, keep the double quote character as part of the value
+        fields.push('"');
+      }
+    } else if (char === ',' && !inQuotes) {
+      // Separator without quotes, push the current field to the result array
+      fields.push(line.slice(0, i));
+      line = line.slice(i + 1);
+      i = -1; // Reset i for the next iteration
+    }
+  }
+
+  // Add the last field if it's not empty or a quoted field that is never closed
+  if (line.trim() || !inQuotes) {
+    fields.push(line);
+  }
+
+  return fields;
+}
+
+// Example usage:
+console.log(parseCsvLine('"Hello, "World!"')); // Output: ['"Hello, "World!"']
+```

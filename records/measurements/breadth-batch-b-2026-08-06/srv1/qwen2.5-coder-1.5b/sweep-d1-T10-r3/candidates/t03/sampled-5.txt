@@ -1,0 +1,25 @@
+```ts
+
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version) {
+    throw new Error('Version cannot be empty');
+  }
+
+  if (version.startsWith('v')) {
+    version = version.slice(1);
+  }
+
+  const parts = version.split('.');
+  const major = parseInt(parts[0], 10);
+  const minor = parseInt(parts[1] || '0', 10);
+  const patch = parseInt(parts[2] || '0', 10);
+
+  if (!Number.isNaN(major) && !Number.isNaN(minor) && !Number.isNaN(patch)) {
+    return { major, minor, patch, prerelease: null, build: null };
+  }
+
+  throw new Error('Version part must be a digit');
+}
+
+// STOP AND REPORT BLOCKS IF REACHED
+```

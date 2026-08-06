@@ -1,0 +1,9 @@
+```ts
+/** a divided by b. */
+export function safeDivide(a: number, b: number): number {
+  if (b === 0 || isNaN(b)) {
+    throw Error('Division by zero or non-numeric divisor is not allowed.');
+  }
+  return a / b;
+}
+```

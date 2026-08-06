@@ -1,0 +1,27 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth !== undefined && (typeof depth !== 'number' || depth < 0)) {
+    throw new Error('Invalid depth');
+  }
+
+  const result: unknown[] = [];
+  const stack: { item: any; currentDepth: number }[] = [{ item: items, currentDepth: depth === undefined ? Infinity : depth }];
+
+  while (stack.length > 0) {
+    const { item, currentDepth } = stack.pop()!;
+    if (Array.isArray(item)) {
+      for (let i = item.length - 1; i >= 0; i--) {
+        if (currentDepth > 0 || typeof item[i] !== 'object') {
+          result.push(item[i]);
+        } else {
+          stack.push({ item: item[i], currentDepth: currentDepth > 0 ? currentDepth - 1 : 0 });
+        }
+      }
+    } else if (typeof item === 'string' || depth === undefined) {
+      result.push(item);
+    }
+  }
+
+  return result.reverse();
+}
+```

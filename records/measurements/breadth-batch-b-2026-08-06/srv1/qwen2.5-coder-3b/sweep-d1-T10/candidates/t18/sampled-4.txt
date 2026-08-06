@@ -1,0 +1,18 @@
+```ts
+export type Event = { name: string; timestamp: number };
+
+export class EventLog {
+  #events: Event[] = [];
+
+  record(event: Event): void {
+    if (typeof event.name !== 'string' || typeof event.timestamp !== 'number') {
+      throw new Error('Invalid event data');
+    }
+    this.#events.push(event);
+  }
+
+  since(timestamp: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

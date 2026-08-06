@@ -1,0 +1,8 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  return values.sort((a, b) => a - b);
+}
+```
+
+This solution uses `sort((a, b) => a - b)` which returns a negative value if `a` should come before `b`, zero if they the same, and a positive value if `a` should come after `b`. It sorts the numbers numerically in ascending order without mutating the input array.

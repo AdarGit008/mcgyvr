@@ -1,0 +1,41 @@
+```ts
+export class LruCache<K, V> {
+    private cache: {[key: K]: V} = {};
+    private queue: K[] = [];
+    private capacity: number;
+
+    constructor(capacity: number) {
+        if (capacity < 1) {
+            throw new Error("Capacity must be a positive integer");
+        }
+        this.capacity = capacity;
+    }
+
+    public get(key: K): V | undefined {
+        const item = this.cache[key];
+        if (typeof item === "undefined") {
+            return undefined;
+        }
+        if (item !== this.queue.pop()) { // Remove key from queue first to simulate its usage
+            console.log(`Re-inserted ${key} after use`);
+        } this.queue.push(key);
+        return item;
+    }
+
+    public set(key: K, value: V): void {
+        if (typeof value === "undefined") {
+            throw new Error("Value must be provided");
+        }
+        const item = this.cache[key];
+        let itemAtIndex = -1;
+        if (item !== undefined) { // Cache item needs update
+            const index = this.queue.indexOf(key);
+            itemAtIndex = index!;
+            if (index === -1) throw new Error("Cache miss when updating");
+        }
+        this.cache[key] = value;
+
+        // Item already exists, delete the old one and insert at top
+        if (item !== undefined && key === item) {
+            // Re-insert in queue to maintain recent access order
+```

@@ -1,0 +1,26 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjList = new Map<string, Set<string>>();
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from)) throw new Error(`Edge mentions node ${from} not in nodes`);
+    if (!nodes.includes(to)) throw new Error(`Edge mentions node ${to} not in nodes`);
+    adjList.set(from, (adjList.get(from) || new Set()).add(to));
+  }
+
+  const free = [...nodes].sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b)); // Sort by input order
+  const ordering: string[] = [];
+  while (free.length > 0) {
+    const node = free.shift()!;
+    ordering.push(node);
+    for (const dependent of adjList.get(node) || new Set()) {
+      adjList.set(dependent, (adjList.get(dependent) || new Set()).delete(node));
+      if (adjList.get(dependent)!.size === 0) {
+        free.push(...free.filter(n => n > dependent)); // Keep order for remaining nodes
+      }
+    }
+  }
+
+  if (ordering.length !== nodes.length) throw new Error("Cycle detected");
+  return ordering;
+}
+```

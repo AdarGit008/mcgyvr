@@ -1,0 +1,35 @@
+```
+import { abs } from "mathjs"; // Assuming mathjs is imported for abs function
+
+const MODULUS = 1000000007;
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (isValidInput(n) === false) {
+    throw new Error("n must be a non-negative integer.");
+  }
+
+  let a = 0;
+  let b = 1;
+  
+  for (let i = 2; i <= n; i++) {
+    const temp = (a + b) % MODULUS;
+    a = b;
+    b = temp;
+  }
+
+  return b;
+}
+
+function isValidInput(n: number): boolean {
+  if (!Number.isInteger(n)) {
+    return false;
+  }
+  if (abs(n) !== n) { // Check for negative numbers which is not valid for this context
+    return false;
+  }
+  return true;
+}
+```
+
+This solution iteratively calculates the Fibonacci number by keeping track of the last two computed values, updating them in each iteration. This approach avoids the recursion stack overflow that occurs with a recursive Fibonacci implementation. The `isValidInput` function ensures that `n` is a non-negative integer.

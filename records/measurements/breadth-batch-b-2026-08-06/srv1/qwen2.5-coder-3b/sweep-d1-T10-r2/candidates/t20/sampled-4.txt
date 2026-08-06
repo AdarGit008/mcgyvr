@@ -1,0 +1,20 @@
+```typescript
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line || line.trim().startsWith("#")) continue;
+    const [key, value] = line.split("=").map(s => s.trim());
+    if (!key) throw new Error(`Missing key at line ${lineNum}`);
+    config[key] = value;
+  }
+  return config;
+
+  function lineNum(line: string): number {
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i] === line) return i + 1;
+    }
+    return -1;
+  }
+}
+```

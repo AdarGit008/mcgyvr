@@ -1,0 +1,59 @@
+```ts
+export class LruCache<K, V> {
+  private capacity: number;
+  private cacheMap: Map<K, { value: V; usedAt: Date }>;
+  private orderList: K[];
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cacheMap = new Map();
+    this.orderList = [];
+  }
+
+  private evictLeastRecentlyUsed() {
+    if (this.size >= this.capacity) {
+      const firstKey = this.orderList.shift();
+      if (firstKey !== undefined) {
+        this.cacheMap.delete(firstKey);
+      }
+    }
+  }
+
+  get(key: K): V | undefined {
+    let entry = this.cacheMap.get(key);
+    if (entry) {
+      entry.usedAt = new Date(); // Mark as used
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    const existingEntry = this.cacheMap.get(key);
+
+    if (existingEntry) {
+      existingEntry.usedAt = new Date(); // Update usage time if key exists
+    } else {
+      this.evictLeastRecentlyUsed();
+    }
+
+    this.orderList.push(key);
+    this.cacheMap.set(key, { value, usedAt: new Date() });
+
+    // Maintain order list size within capacity
+    while (this.orderList.length > this.capacity) {
+      const lastKey = this.orderList.pop();
+      if (lastKey !== undefined) {
+        this.cacheMap.delete(lastKey);
+      }
+    }
+  }
+
+  get size(): number {
+    return this.cacheMap.size;
+  }
+}
+```

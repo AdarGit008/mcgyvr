@@ -1,0 +1,34 @@
+```ts
+import { Record } from 'typescript';
+
+export interface EventLog {
+  record(event: Event): void;
+  since(timestamp: number): Event[];
+}
+
+/** An append-only log of timestamped events. */
+export class EventLog {
+  private readonly #events: Record<string, Event> = {};
+
+  /** Append one event at a specified name and timestamp. Returns the Event object for convenience. */
+  record(event: Event & { name: string }): Event {
+    this.#events[event.name] = event;
+    return event;
+  }
+
+  /** Every event at or after the given timestamp, in insertion order as an array of events referenced by their names. */
+  since(timestamp: number): Event[] {
+    if (this.#events.length === 0) return [];
+    let result: Event[] = [];
+    for (const [name, event] of Object.entries(this.#events)) {
+      if (event.timestamp >= timestamp) result.push(event);
+    }
+    return result;
+  }
+}
+
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+```

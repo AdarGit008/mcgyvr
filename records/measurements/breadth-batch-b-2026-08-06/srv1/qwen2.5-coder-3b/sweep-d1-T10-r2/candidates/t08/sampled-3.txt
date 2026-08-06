@@ -1,0 +1,40 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.length === 0) return [];
+  const graph = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    const [from, to] = edge;
+    if (!graph.has(from)) graph.set(from, new Set());
+    if (!graph.has(to)) graph.set(to, new Set());
+    if (to === from) throw new Error("Edge cannot name same node");
+    graph.get(from)?.add(to);
+  }
+
+  const free: string[] = [];
+  const visited: Map<string, boolean> = new Map();
+
+  for (const node of nodes) {
+    visited.set(node, false);
+    if (!graph.has(node)) throw new Error(`Node ${node} not present in input`);
+  }
+
+  for (const node of nodes) {
+    if (!visited.get(node)) dfs(node);
+
+    function dfs(start: string): void {
+      visited.set(start, true);
+      const neighbors = graph.get(start)?.values() ?? [];
+      const sortedNeighbors = Array.from(neighbors).sort((a, b) =>
+        visited.get(a)! ? (visited.get(b)! ? 0 : -1) : (visited.get(b) ? 1 : 0)
+      );
+      for (const neighbor of sortedNeighbors) {
+        if (!free.includes(neighbor)) free.push(neighbor);
+        dfs(neighbor);
+      }
+    }
+  }
+
+  if (free.length !== nodes.length) throw new Error("Cycle detected in graph");
+  return free;
+}
+```

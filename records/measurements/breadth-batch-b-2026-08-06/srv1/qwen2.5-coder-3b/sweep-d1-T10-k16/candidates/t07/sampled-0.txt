@@ -1,0 +1,21 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (!Number.isFinite(depth) || depth < 0) {
+    throw new Error("Depth must be a non-negative integer or Infinity");
+  }
+
+  const recurse = (arr: unknown[]): unknown[] =>
+    arr.flatMap((item, index, array) => {
+      if (item && Array.isArray(item)) {
+        return depth === 0
+          ? [...item] // Copy the array at depth 0 to prevent mutation
+          : item.map((next, nextIndex) =>
+              recurse([next], nextIndex === 0 ? depth - 1 : depth)
+            );
+      }
+      return [item];
+    });
+
+  return recurse(items);
+}
+```

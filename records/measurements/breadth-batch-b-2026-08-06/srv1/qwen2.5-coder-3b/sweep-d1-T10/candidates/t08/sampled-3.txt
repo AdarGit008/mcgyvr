@@ -1,0 +1,35 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: Readonly<Array<Readonly<[string, string]>>>): string[] {
+    const adjacencyList = new Map<string, string[]>();
+    nodes.forEach(node => adjacencyList.set(node, []));
+
+    for (const [from, to] of edges) {
+        if (!adjacencyList.has(from)) throw new Error(`Invalid edge from '${from}'`);
+        if (!adjacencyList.has(to)) throw new Error(`Invalid edge to '${to}'`);
+
+        adjacencyList.get(from)?.push(to);
+    }
+
+    const visited = new Set<string>();
+    const result: string[] = [];
+
+    function dfs(node: string) {
+        if (visited.has(node)) return;
+
+        const neighbors = adjacencyList.get(node);
+        if (neighbors && neighbors.length > 0) {
+            for (const neighbor of neighbors) {
+                dfs(neighbor); // Recursively visit all neighbors
+            }
+        }
+
+        result.push(node); // Process the node after all dependencies are fulfilled
+    }
+
+    nodes.forEach(node => {
+        if (!visited.has(node)) dfs(node);
+    });
+
+    return result.reverse();
+}
+```

@@ -1,0 +1,107 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+    private capacity: number;
+    private map: Map<K, { value: V; index: number }>;
+    private head: { key: K; value: V; index: number } | null;
+
+    /**
+     * Creates a new LruCache.
+     *
+     * @param capacity The maximum number of entries in the cache.
+     */
+    constructor(capacity: number) {
+        if (!Number.isInteger(capacity) || capacity <= 0) {
+            throw new Error('Capacity must be a positive integer.');
+        }
+        this.capacity = capacity;
+        this.map = new Map();
+        this.head = null;
+    }
+
+    /**
+     * Returns the value associated with the given key, or undefined if no such entry exists.
+     *
+     * @param key The key to look up in the cache.
+     */
+    get(key: K): V | undefined {
+        const entry = this.map.get(key);
+        if (entry) {
+            this._update(entry);
+            return entry.value;
+        }
+        return undefined;
+    }
+
+    /**
+     * Inserts or updates a value associated with the given key in the cache.
+     *
+     * @param key The key to insert or update in the cache.
+     * @param value The value to associate with the given key.
+     */
+    set(key: K, value: V): void {
+        const entry = this.map.get(key);
+        if (entry) {
+            this._update(entry, value);
+        } else {
+            this._add(key, value);
+        }
+    }
+
+    /**
+     * Returns the number of entries currently in the cache.
+     *
+     * @returns The current size of the cache.
+     */
+    get size(): number {
+        return this.map.size;
+    }
+
+    private _update(entry: { value: V; index: number }, value?: V): void {
+        if (value !== undefined) {
+            entry.value = value;
+        }
+        const currentIndex = this._getEntryIndex(entry);
+        this._remove(entry);
+        this._add(entry, currentIndex);
+    }
+
+    private _add(entry: { key: K; value: V; index: number }, index: number): void {
+        if (this.head) {
+            entry.index = index;
+            const newHead = { ...entry };
+            newHead.next = this.head;
+            this.head = newHead;
+        } else {
+            entry.index = 0;
+            this.head = entry;
+        }
+    }
+
+    private _remove(entry: { key: K; value: V; index: number }): void {
+        if (this.head === entry) {
+            this.head = entry.next;
+        } else {
+            const prevEntry = this._getPrevEntry(entry);
+            prevEntry.next = entry.next;
+        }
+    }
+
+    private _updateIndex(entry: { key: K; value: V; index: number }): void {
+        if (entry.index === 0) {
+            return;
+        }
+        let prevEntry = this.head;
+        for (let i = 1; i <= entry.index; i++) {
+            const nextEntry = prevEntry.next;
+            prevEntry = { key: nextEntry.key, value: nextEntry.value, index: i };
+        }
+    }
+
+    private _getPrevEntry(entry: { key: K; value: V; index: number }): { key: K; value: V; index: number } | null {
+        let prevEntry = this.head;
+        for (let i = 1; i < entry.index; i++) {
+            if (!prevEntry.next) {
+                return null;

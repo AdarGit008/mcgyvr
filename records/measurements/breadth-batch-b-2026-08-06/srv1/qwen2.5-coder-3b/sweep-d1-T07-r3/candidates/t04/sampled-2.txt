@@ -1,0 +1,41 @@
+```ts
+
+export class LruCache<K, V> {
+  private cache: Map<K, { value: V, useCount: number }> = new Map();
+  private capacity: number;
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (entry) {
+      entry.useCount++;
+    }
+    return entry ? entry.value : undefined;
+  }
+
+  set(key: K, value: V): void {
+    if (this.size() >= this.capacity) {
+      this.evictLeastRecentlyUsed();
+    }
+    this.cache.set(key, { value, useCount: 1 });
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+
+  private evictLeastRecentlyUsed(): void {
+    const entries = Array.from(this.cache.entries());
+    const leastRecentlyUsedEntry = entries.reduce((prev, curr) =>
+      prev.useCount < curr[1].useCount ? prev : curr
+    );
+    this.cache.delete(leastRecentlyUsedEntry[0]);
+  }
+}
+```

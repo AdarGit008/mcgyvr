@@ -1,0 +1,20 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') 
+    throw new Error('Argument must be a string');
+
+  let result = '';
+
+  for (let i = 0; i < input.length; i++) {
+    let count = 1;
+    // Count consecutive characters
+    while (i + 1 < input.length && input.charAt(i) === input.charAt(i + 1)) {
+      i++;
+      count++;
+    }
+    result += `${input[i]}${count}`;
+  }
+
+  return result;
+}
+```

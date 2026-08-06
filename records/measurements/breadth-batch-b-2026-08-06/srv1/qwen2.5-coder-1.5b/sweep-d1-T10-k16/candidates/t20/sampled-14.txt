@@ -1,0 +1,49 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * The KEY=VALUE pairs of a config file with added validation,
+ * ignoring blank lines and lines starting with #.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Ignore blank lines and lines that start with #
+    if (line.trim() === "" || line.charAt(0) === "#") continue;
+
+    // Trim whitespace around key and value and split on the first =
+    const [key, value] = line.replace(/^\s+/, "").split("=");
+    if (key === "") {
+      throw new Error(`Invalid config line: ${line}`);
+    }
+
+    // Ensure the key does not reach the prototype of the returned object
+    if (!Object.isExtensible(config)) {
+      throw new Error(`Internal error: cannot extend config object for parsing.`);
+    }
+    config[key] = value;
+  }
+
+  return config;
+}
+
+// Example check function to verify the correctness of parseConfig
+function checkParseConfig() {
+  const input0 = "";
+  assert.deepEqual(parseConfig(input0), {});
+
+  const input1 = "key=value";
+  assert.deepEqual(parseConfig(input1), { key: "value" });
+
+  const input2 = "\n# Comment\nkey = value\n anotherKey = \"some value\"";
+  assert.deepEqual(parseConfig(input2), { key: "value", anotherKey: `"some value"` });
+
+  const input3 = "__proto__=x";
+  assert.deepEqual(parseConfig(input3), { __proto__: "x" });
+
+  console.log("All tests passed!");
+}
+
+// Run the check function
+checkParseConfig();
+```

@@ -1,0 +1,30 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.length === 0) return [];
+
+  const merged = [intervals[0]];
+  
+  for (let i = 1; i < intervals.length; i++) {
+    const currentInterval = intervals[i];
+    
+    // Check for overlap or touch
+    let overlapFound = false;
+    for (const mergedInterval of merged) {
+      if (
+        !(currentInterval[0] > mergedInterval[1] || currentInterval[1] < mergedInterval[0])
+      ) {
+        overlapFound = true;
+        // Merged the intervals and stop exploring for this pair
+        break;
+      }
+    }
+    
+    // If no overlap, add the interval to the merged list
+    if (!overlapFound) {
+      merged.push(currentInterval);
+    }
+  }
+
+  return merged.sort(([aStart, aEnd], [bStart, bEnd]) => aStart - bStart);
+}
+```

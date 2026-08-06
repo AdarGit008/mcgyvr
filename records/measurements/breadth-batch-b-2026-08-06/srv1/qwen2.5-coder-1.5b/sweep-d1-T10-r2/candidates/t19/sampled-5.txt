@@ -1,0 +1,13 @@
+```ts
+/** a divided by b, rounding the result to 2 decimal places. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error('Both arguments must be finite numbers');
+  }
+  if (b === 0) {
+    throw new Error(' divisor of zero is not allowed');
+  }
+
+  return Math.round((a / b) * 100) / 100;
+}
+```

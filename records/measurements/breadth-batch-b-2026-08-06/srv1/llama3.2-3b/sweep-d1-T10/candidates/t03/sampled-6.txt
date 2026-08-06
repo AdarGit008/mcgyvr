@@ -1,0 +1,33 @@
+```ts
+/**
+ * Parses a semantic version string into its components.
+ *
+ * @param version - The semantic version string (e.g. '1.2.3', '1.2.3-dev')
+ * @returns A parsed Semver object with major, minor, patch numbers and optional prerelease and build strings
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const pattern = /^(\d+)\.\n?0*\d*(?:\.\n?0*\d+)*(?:-(?:pre|prerelease)\/[a-zA-Z-]+)?(?:+\S@)?$/;
+
+  if (!version.match(pattern)) {
+    throw new Error('Invalid Semver string');
+  }
+
+  const [, major, ...minorAndPatch] = version.match(/(\d+)\./)[1].split('.');
+  const prerelease = minorAndPatch.find((s) => s.startsWith('-'))?.slice(0, -1);
+  const build = minorAndPatch.pop();
+
+  return {
+    major: parseInt(major),
+    minor: parseInt(minor[0]),
+    patch: parseInt(patch[0]),
+    prerelease,
+    build,
+  };
+}
+```

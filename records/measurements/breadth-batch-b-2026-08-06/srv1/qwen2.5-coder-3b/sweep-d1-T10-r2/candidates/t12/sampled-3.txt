@@ -1,0 +1,5 @@
+```ts
+export function removeNegatives(values: readonly number[]): number[] {
+  return values.map(value => value >= 0 ? value : undefined).filter(v => v !== undefined);
+}
+```

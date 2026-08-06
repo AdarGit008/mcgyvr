@@ -1,0 +1,21 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (line === "") return [];
+
+  const fields = line.split(",");
+  for (let i = 0; i < fields.length; i++) {
+    let field = fields[i];
+    while (field.startsWith('"')) {
+      field = field.slice(1);
+      let endQuoteIndex = field.indexOf('"');
+      if (endQuoteIndex === -1) {
+        throw new Error("Unmatched double quote in CSV line");
+      }
+      field = field.slice(0, endQuoteIndex + 1);
+    }
+    fields[i] = field.replace(/"/g, "");
+  }
+
+  return fields;
+}
+```

@@ -1,0 +1,18 @@
+```typescript
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+export default class EventLog {
+  #events: Event[] = [];
+
+  record(this: any, event: Event) {
+    this.#events.push(event);
+  }
+
+  since<this>(this: any, timestamp: number): Event[] {
+    return this.#events.slice().filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

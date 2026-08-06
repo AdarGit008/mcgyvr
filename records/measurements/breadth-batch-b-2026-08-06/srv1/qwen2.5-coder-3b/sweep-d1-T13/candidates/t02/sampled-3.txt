@@ -1,0 +1,36 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (intervals.length === 0) return intervals;
+
+    const result = [];
+    intervals.sort((a, b) => a[0] - b[0]);
+
+    let currentStart = intervals[0][0];
+    let currentEnd = intervals[0][1];
+
+    for (let i = 1; i < intervals.length; i++) {
+        if (intervals[i][0] <= currentEnd) {
+            currentEnd = Math.max(currentEnd, intervals[i][1]);
+        } else {
+            result.push([currentStart, currentEnd]);
+            currentStart = intervals[i][0];
+            currentEnd = intervals[i][1];
+        }
+    }
+
+    result.push([currentStart, currentEnd]);
+
+    return result;
+}
+```
+
+**Explanation, reasoning, explanation**: 
+
+- The solution is first sorted to handle easier merging.
+- It starts iterating with the first interval and two variables `currentStart` and `currentEnd`.
+- For each subsequent interval:
+  - If it is fully within the current interval `[currentStart, currentEnd]`, we update `currentEnd` because we need to merge.
+  - If not, meaning there's a gap or a new point to place, a new intervals array entry `[currentStart, currentEnd]` is pushed,
+   and values for `currentStart` and `currentEnd` are updated from the next interval since previous ones cannot be merged anymore by definition. 
+- This ensures all non-overlapping pairs covered together by merging all pairs without overlapping in our output is built.
+- Finally, a last entry `[currentStart, currentEnd]` in case of the very last item in the array will not be pushed. That entry needs to make the output array contain every interval from start to end sorted properly.

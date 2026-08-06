@@ -1,0 +1,17 @@
+```ts
+// THE FACTORIAL OF Zero SHOULD BE ONE AND FACTORIAL OF A NEGATIVE NUMBER OR NON-INTEGER SHOULD THROW AN ERROR
+
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (typeof n !== 'number' || !Number.isInteger(n)) throw Error('Argument must be an integer');
+  if (n < 0) throw Error('Invalid argument: negative numbers or non-integers are not allowed');
+
+  if (n === 1) return 1;
+  
+  let result = 1;
+  for (let i = 2; i <= n; ++i) {
+    result *= i;
+  }
+  return result;
+}
+```

@@ -1,0 +1,11 @@
+```ts
+import sortBy from 'lodash/sortBy';
+
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+ if (!Array.isArray(values) || values.some(isNaN)) {
+   throw new Error('Input must be a non-empty array of numeric strings');
+ }
+ return sortBy([...values]);
+}
+```

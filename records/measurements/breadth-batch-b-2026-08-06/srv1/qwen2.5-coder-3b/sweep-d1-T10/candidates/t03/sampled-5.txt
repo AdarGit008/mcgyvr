@@ -1,0 +1,21 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!/^\d+\.\d+\.\d+(\-(?:[a-zA-Z0-9-]+))?(?:\+(?:[a-zA-Z0-9-]+))?$/g.exec(version)) {
+    throw new Error("Invalid semver format");
+  }
+
+  const parts = version.split('-');
+  let major, minor, patch;
+
+  [major, minor, patch] = parts[0].split('.').map(Number);
+
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+    throw new Error("Numeric parts must be valid numbers");
+  }
+
+  const releaseIndex = parts.length - 1;
+  const prerelease = releaseIndex > 0 ? parts[releaseIndex] : null;
+
+  return { major, minor, patch, prerelease, build: releaseIndex === parts.length ? null : parts[parts.length - 1] };
+}
+```

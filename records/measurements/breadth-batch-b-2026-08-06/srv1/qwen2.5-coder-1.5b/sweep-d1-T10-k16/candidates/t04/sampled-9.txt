@@ -1,0 +1,54 @@
+```ts
+class LruCache<K, V> {
+    private storage: Record<K, V>;
+    private capacity: number;
+    private oldest = 0;
+
+    constructor(capacity: number) {
+        if (capacity <= 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+        this.storage = {};
+        this.capacity = capacity;
+    }
+
+    get(key: K): V | undefined {
+        if (!(key in this.storage)) {
+            return undefined;
+        }
+        const value = this.storage[key];
+        this.shiftKey(key);
+        return value;
+    }
+
+    set(key: K, value: V): void {
+        if (key in this.storage) {
+            this.remove(key);
+        } else if (Object.keys(this.storage).length >= this.capacity) {
+            while (this.oldest !== 0 && Object.keys(this.storage).length > this.capacity - 1) {
+                const deletedKey = Object.keys(this.storage)[this.oldest];
+                delete this.storage[deletedKey];
+                this.shiftKey(deletedKey);
+            }
+        }
+        this.storage[key] = value;
+        this.shiftKey(key);
+    }
+
+    get size(): number {
+        return Object.keys(this.storage).length;
+    }
+
+    private shiftKey(key: K): void {
+        delete this.storage[key];
+        if (this.oldest <= key) {
+            ++this.oldest;
+        }
+        for (const k in this.storage) {
+            if (+k > key) {
+                break;
+            }
+        }
+    }
+}
+```

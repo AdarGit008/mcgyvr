@@ -1,0 +1,10 @@
+```typescript
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (values == null) {
+    throw new Error("Input cannot be undefined or null");
+  }
+
+  return values.slice().sort((a, b) => a - b);
+}
+```

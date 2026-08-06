@@ -1,0 +1,59 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') throw new Error('Input must be a string');
+
+  const result: string[] = [];
+  let fieldStarted = false;
+  let currentField = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (!inQuotes) {
+      if (char === '"') {
+        // Start a quoted field
+        inQuotes = true;
+        continue;
+      }
+      if (char === ',') {
+        // End the current unquoted field and add it to the result
+        if (fieldStarted) {
+          result.push(currentField.trim());
+          fieldStarted = false;
+          currentField = '';
+        }
+        continue;
+      }
+    }
+
+    if (inQuotes) {
+      if (char === '"') {
+        // Escape a quote character inside a quoted field
+        currentField += '"';
+        continue;
+      }
+      if (char === ',') {
+        // End the current quoted field and add it to the result
+        if (fieldStarted) {
+          result.push(currentField.trim());
+          fieldStarted = false;
+          currentField = '';
+        }
+        continue;
+      }
+    }
+
+    // Accumulate characters in the current unquoted field
+    fieldStarted = true;
+    currentField += char;
+  }
+
+  // Add the last unquoted field if it exists
+  if (fieldStarted) {
+    result.push(currentField.trim());
+  }
+
+  return result;
+}
+```

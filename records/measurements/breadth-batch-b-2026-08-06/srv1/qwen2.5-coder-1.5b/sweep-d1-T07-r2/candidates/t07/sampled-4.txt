@@ -1,0 +1,51 @@
+```ts
+
+function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (typeof items !== 'object' || items === null) {
+    throw new Error('Input must be a non-null object');
+  }
+
+  if (typeof depth !== 'number') {
+    throw new Error('Depth must be a number or Infinity');
+  }
+
+  if (depth < 0) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  const stack: unknown[] = [...items];
+  const result: unknown[] = [];
+
+  while (stack.length > 0) {
+    const item = stack.pop()!;
+    if (Array.isArray(item)) {
+      if (depth > 1) {
+        item.forEach((subItem, index) => {
+          stack.push(subItem);
+        });
+      } else {
+        result.push(...item);
+      }
+    } else if (typeof item === 'object' && item !== null) {
+      if (Array.isArray(item)) {
+        if (depth > 1) {
+          item.forEach((subItem, index) => {
+            stack.push(subItem);
+          });
+        } else {
+          result.push(...item);
+        }
+      } else {
+        Object.keys(item).forEach(key => {
+          const value = item[key];
+          stack.push([key, value]);
+        });
+      }
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+```

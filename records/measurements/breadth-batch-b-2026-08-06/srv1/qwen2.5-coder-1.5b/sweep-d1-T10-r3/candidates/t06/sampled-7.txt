@@ -1,0 +1,51 @@
+```ts
+/**
+ * Parses a single line of CSV data into an array of fields,
+ * considering fields within quoted strings and skipping empty lines.
+ * 
+ * @param {string} line - The input CSV data line to parse.
+ * @returns {string[]} An array containing the parsed fields.
+ */
+export function parseCsvLine(line: string): string[] {
+    if (line === '') return [];
+
+    const segments = line.replace(/\\/g, '\\\\').split('\\n');
+    const parsed: string[] = [];
+
+    for (const segment of segments) {
+        const items = segment.split('"');
+        let field = '';
+
+        for (const item of items) {
+            // Remove leading/trailing whitespace from the item
+            item = item.trim();
+            if (item === '') continue;
+
+            if (/^"/.test(item)) {
+                // Double-quoted item, remove leading and trailing quotes, and handle escaped quotes within it
+                const escapedQuotesInItem = item.slice(1, -1).split('""');
+                field += escapedQuotesInItem.join('"");
+            } else {
+                // Single-quoted or literal item, use the provided value or default to an empty string
+                field += item;
+            }
+        }
+
+        if (field !== '') parsed.push(field);
+    }
+
+    return parsed;
+}
+
+/**
+ * Example usage:
+ */
+const testData1 = '"apple","banana", "cherry"';
+const testData2 = '"hello, world",\"hi there\"';
+const testData3 = '';
+const testData4 = ',';
+
+console.log(parseCsvLine(testData1)); // ["apple", "banana", "cherry"]
+console.log(parseCsvLine(testData2)); // ["hello,world", "hi there"]
+console.log(parseCsvLine(testData3)); // []
+console.log(parseCsvLine(testData4)); // [""]

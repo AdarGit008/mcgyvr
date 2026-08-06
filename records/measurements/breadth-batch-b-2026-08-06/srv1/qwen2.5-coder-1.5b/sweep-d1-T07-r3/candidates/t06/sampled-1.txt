@@ -1,0 +1,54 @@
+```ts
+function parseCsvLine(line: string): string[] {
+    if (line === "") return [];
+
+    const result: string[] = [];
+    let isQuoting = false;
+    let currentField = "";
+    let quoteCount = 0;
+
+    for (let char of line) {
+        if (!isQuoting) {
+            switch (char) {
+                case ",":
+                    if (currentField !== "") {
+                        result.push(currentField);
+                        currentField = "";
+                    }
+                    break;
+                case '"':
+                    quoteCount++;
+                    isQuoting = true;
+                    currentField += char;
+                    break;
+                default:
+                    if (!isQuoting) {
+                        currentField += char;
+                    } else {
+                        currentField += ` ${char}`;
+                    }
+            }
+        } else {
+            switch (char) {
+                case '"':
+                    quoteCount--;
+                    isQuoting = false;
+                    currentField += char;
+                    break;
+                default:
+                    if (quoteCount === 0 && !isQuoting) {
+                        result.push(currentField);
+                        currentField = "";
+                    }
+                    currentField += char;
+            }
+        }
+    }
+
+    if (currentField !== "") {
+        result.push(currentField);
+    }
+
+    return result;
+}
+```

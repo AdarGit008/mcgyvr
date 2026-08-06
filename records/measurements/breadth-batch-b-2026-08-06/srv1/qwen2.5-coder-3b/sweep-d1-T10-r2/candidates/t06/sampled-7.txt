@@ -1,0 +1,51 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  if (!line) return [];
+
+  const result: string[] = [];
+  let fieldStart = true;
+  let inQuotes = false;
+  let currentField = '';
+
+  for (let i = 0; i <= line.length; i++) {
+    const char = line[i];
+
+    if (i === line.length || char !== ',') {
+      if (inQuotes) {
+        if (char === '"') {
+          if (line[i + 1] === '"') {
+            currentField += '"';
+            i++;
+          } else {
+            inQuotes = false;
+            fieldStart = true;
+          }
+        } else {
+          currentField += char;
+        }
+      } else {
+        if (char.trim()) {
+          if (!fieldStart) result.push(currentField);
+          currentField = '';
+          fieldStart = true;
+        }
+      }
+    } else if (!inQuotes && currentField.length > 0) {
+      result.push(currentField);
+      currentField = '';
+    } else if (inQuotes && char === '"') {
+      throw new Error('Unmatched closing quote in quoted field');
+    }
+
+    if (i < line.length - 1 && !fieldStart && char === ',') {
+      result.push('');
+    }
+  }
+
+  if (!inQuotes) {
+    return result;
+  } else {
+    throw new Error('Unterminated quoted field at end of line');
+  }
+}
+```

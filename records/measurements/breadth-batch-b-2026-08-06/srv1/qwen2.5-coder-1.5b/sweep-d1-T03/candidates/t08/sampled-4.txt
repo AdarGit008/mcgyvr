@@ -1,0 +1,54 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const inDegree = new Map<string, number>();
+  const graph = new Map<string, Set<string>>();
+
+  // Initialize in-degree and graph
+  for (const node of nodes) {
+    inDegree.set(node, 0);
+    graph.set(node, new Set());
+  }
+
+  // Build the graph and calculate in-degrees
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) {
+      graph.set(from, new Set());
+    }
+    graph.get(from)?.add(to);
+    inDegree.set(to, (inDegree.get(to) ?? 0) + 1);
+  }
+
+  // Topological sort using Kahn's algorithm
+  const sortedNodes: string[] = [];
+  const queue: string[] = [];
+
+  // Add all nodes with zero in-degree to the queue
+  for (const node of nodes) {
+    if (inDegree.get(node)! === 0) {
+      queue.push(node);
+    }
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    sortedNodes.push(current);
+
+    // Decrease in-degree of neighbors and add to queue if zero
+    for (const neighbor of graph.get(current)!) {
+      inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+      if (inDegree.get(neighbor)! === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check if all nodes were sorted and no cycles
+  for (const node of nodes) {
+    if (inDegree.get(node)! > 0) {
+      throw new Error(`Cycle detected: ${node}`);
+    }
+  }
+
+  return sortedNodes;
+}
+```

@@ -1,0 +1,47 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes.length) return [];
+    const graph = new Map<string, { dependencies: Set<string>; children: Set<string> }>();
+
+    nodes.forEach(node => {
+        graph.set(node, { dependencies: new Set(), children: new Set() });
+    });
+
+    edges.forEach(([from, to]) => {
+        if (!graph.has(from) || !graph.has(to)) throw `Error: Node ${to} does not exist.`;
+
+        const fromNode = graph.get(from)!;
+        const toNode = graph.get(to)!;
+
+        fromNode.dependencies.add(to);
+        toNode.children.add(from);
+    });
+
+    const freeNodes = nodes.filter(node => graph.get(node)?.dependencies.size === 0);
+
+    if (freeNodes.length === 0) throw new Error("Error: No topological ordering exists.");
+
+    return sortFreeNodes([...freeNodes], graph);
+}
+
+function sortFreeNodes(freeNodes: string[], graph: Map<string, { dependencies: Set<string>; children: Set<string> }>): string[] {
+    if (!freeNodes.length) return [];
+
+    const nodeWithDependencies = graph.filter(node => node.dependencies.size > 0);
+
+    let nextFreeNode: string | undefined;
+    for (const node of nodeWithDependencies) {
+        const child = [...node.value.children].find(childNode => freeNodes.includes(childNode));
+        if (!child) continue;
+
+        freeNodes.push(child);
+        delete graph.get(node.key)?.children[child];
+
+        return [nextFreeNode, ...sortFreeNodes([...freeNodes], graph)];
+    }
+
+    nextFreeNode = freeNodes.shift()!;
+    delete graph.get(nextFreeNode)?.dependencies;
+    return [...sortFreeNodes([...freeNodes], graph), nextFreeNode];
+}
+```

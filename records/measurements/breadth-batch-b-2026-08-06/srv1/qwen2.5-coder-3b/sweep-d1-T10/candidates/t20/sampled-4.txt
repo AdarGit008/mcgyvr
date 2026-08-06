@@ -1,0 +1,35 @@
+```
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  
+  for (const line of text.split("\n")) {
+    const trimmedLine = line.trim();
+    
+    // Ignore blank lines
+    if (!trimmedLine) continue;
+    
+    // Ignore comments starting with #
+    if (trimmedLine.startsWith("#")) continue;
+    
+    // Split line by the first = only
+    const parts = trimmedLine.split("=", 2);
+    const key = parts[0].trim();
+    let value = parts.length > 1 ? parts[1].trim() : "";
+    
+    // Validate key and value
+    if (!key) {
+      throw new Error(`Line ${text.indexOf(line) + 1} does not have a valid key`);
+    }
+    
+    if (key === "__proto__") {
+      throw new Error(`Line ${text.indexOf(line) + 1} contains the reserved key "__proto__"`);
+    }
+    
+    // Set config entry
+    config[key] = value;
+  }
+  
+  return config;
+}
+```

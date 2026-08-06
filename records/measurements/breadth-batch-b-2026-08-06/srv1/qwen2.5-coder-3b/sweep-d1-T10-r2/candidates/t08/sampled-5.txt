@@ -1,0 +1,37 @@
+```ts
+type NodeMap = Record<string, number[]>;
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!edges.every(([from, to]) => nodes.includes(from) && nodes.includes(to))) {
+    throw new Error("Invalid edge: some node is not in the nodes list");
+  }
+
+  const graph: NodeMap = {};
+  const indegree: number[] = Array(nodes.length).fill(0);
+
+  for (const [from, to] of edges) {
+    if (!graph[from]) graph[from] = [];
+    graph[from].push(to);
+    indegree[nodes.indexOf(to)]++;
+  }
+
+  const q: string[] = nodes.filter(node => indegree[nodes.indexOf(node)] === 0);
+  const ordering: string[] = [];
+
+  while (q.length > 0) {
+    if (q.length !== edges.length + 1) throw new Error("Cycle detected");
+
+    const node = q.shift()!;
+    ordering.push(node);
+
+    if (!graph[node]) continue;
+
+    for (const next of graph[node]) {
+      indegree[nodes.indexOf(next)]--;
+      if (indegree[nodes.indexOf(next)] === 0) q.push(next);
+    }
+  }
+
+  return ordering.length === nodes.length ? ordering : [];
+}
+```

@@ -1,0 +1,72 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') throw new Error('Input must be a string');
+
+  const fields: string[] = [];
+  let currentField: string[] = [];
+  let inQuotes = false;
+  let doubleQuoteCount = 0;
+
+  for (let char of line) {
+    switch (char) {
+      case '"':
+        if (!inQuotes) {
+          // Start of a quoted field
+          inQuotes = true;
+          break;
+        } else if (doubleQuoteCount > 0 && currentField[currentField.length - 1] === '\\') {
+          // Escaped double quote inside a quoted field
+          currentField[currentField.length - 1] = '"';
+          doubleQuoteCount -= 2;
+          break;
+        } else if (doubleQuoteCount % 2 !== 0) {
+          // Unterminated quoted field
+          throw new Error('Unterminated quoted field');
+        } else {
+          // End of a quoted field
+          inQuotes = false;
+          currentField.push(char);
+          fields.push(currentField.join(''));
+          currentField = [];
+          doubleQuoteCount -= 1;
+          break;
+        }
+      case ',':
+        if (!inQuotes) {
+          // Comma outside quotes indicates end of the current field
+          if (currentField.length > 0) {
+            fields.push(currentField.join(''));
+            currentField = [];
+          }
+        } else {
+          // Comma inside quotes is part of the field value
+          currentField.push(char);
+        }
+        break;
+      default:
+        if (inQuotes) {
+          // Characters within quoted fields are added to the current field value
+          if (char === '\\') {
+            doubleQuoteCount += 1;
+          } else {
+            currentField.push(char);
+          }
+        } else {
+          // Characters outside quotes are added to the current field value
+          if (char.trim() !== '') {
+            currentField.push(char);
+          }
+        }
+    }
+  }
+
+  if (inQuotes) {
+    // Unterminated quoted field at the end of the line
+    throw new Error('Unterminated quoted field');
+  } else if (currentField.length > 0) {
+    fields.push(currentField.join(''));
+  }
+
+  return fields;
+}
+```

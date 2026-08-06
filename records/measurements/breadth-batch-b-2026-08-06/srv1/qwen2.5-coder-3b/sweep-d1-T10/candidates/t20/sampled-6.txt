@@ -1,0 +1,53 @@
+```ts
+import { keys } from "lodash";
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  
+  for (const line of text.split(/\r?\n/).filter(line => !(/^[#\s]*$/).test(line))) {
+    const [key, value] = line.trim().split("=", 2);
+    
+    if (!keys(config).includes(key)) {
+      config[key] = trimValue(value);
+    }
+  }
+
+  return config;
+}
+
+/**
+ * Strips any quotes from the start and end of a string.
+ * @arg str - The string to trim.
+ * @returns A string without its outermost " or ' characters, if present.
+ */
+function trimQuotes(str: string): string {
+  const quoteChars = ["'", '"'];
+  for (const char of quoteChars) {
+    if (str.startsWith(char) && str.endsWith(char)) {
+      return str.slice(1, -1);
+    }
+  }
+  return str;
+}
+
+/**
+ * Strips any unnecessary whitespace from the start and end of a string.
+ * @param str - The string to trim.
+ * @returns A string with leading and trailing spaces removed.
+ */
+function trimValue(str: string): string {
+  let left = 0;
+  let right = str.length;
+
+  while (left < right && /\s/.test(str[left])) {
+    left++;
+  }
+
+  while (right > left && /\s/.test(str[right - 1])) {
+    right--;
+  }
+
+  return str.slice(left, right);
+}
+```

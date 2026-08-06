@@ -1,0 +1,85 @@
+```ts
+/**
+ * Flattens a given array to a specified depth level, making arrays into single elements or keeping them entire if the depth is zero.
+ * @param items The array to flatten.
+ * @param depth The depth to which nesting should be flattened. Defaults to infinity.
+ */
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  try {
+    // Check if input is an array
+    if (!Array.isArray(items)) {
+      throw new Error('Input must be an array');
+    }
+
+    // Base case: return unchanged for depth zero or when no more nested arrays are present
+    if (depth === 0 || items.every(item => !Array.isArray(item))) {
+      return [...items];
+    }
+
+    // Flatten arrays recursively to the specified depth
+    let flattened = flatRecursively(items, depth);
+
+    // Deep clone objects and nested arrays to avoid mutating the original input
+    flattened = flattened.map(item => isObjectOrArray(item) ? Array.isArray(item) ? item.slice() : deepClone(item) : item);
+    return flattened;
+  } catch (error) {
+    throw new Error(`Flat function caught an error: ${error.message}`);
+  }
+}
+
+/**
+ * Recursively flattens an array to the specified depth level.
+ * @param arr The array to flatten.
+ * @param currentDepth The current depth being processed.
+ */
+function flatRecursively(arr: readonly unknown[], currentDepth: number): unknown[] {
+  try {
+    return arr.reduce((acc, item) => {
+      if (Array.isArray(item)) {
+        if (currentDepth > 0) {
+          acc.push(...flatRecursively(item, currentDepth - 1));
+        } else {
+          acc.push(item as unknown[]);
+        }
+      } else {
+        acc.push(item);
+      }
+      return acc;
+    }, []);
+  } catch (error) {
+    throw new Error(`Flat recursion function caught an error: ${error.message}`);
+  }
+}
+
+/**
+ * Deep Clones an object or array to avoid mutating the original input.
+ * @param obj The item to clone.
+ */
+function deepClone(obj: any): any {
+  try {
+    if (obj === null) {
+      return null;
+    } else if (Array.isArray(obj)) {
+      return [...obj].map(item => deepClone(item));
+    } else if (typeof obj === 'object') {
+      const cloned = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          cloned[key] = deepClone(obj[key]);
+        }
+      }
+      return cloned;
+    }
+  } catch (error) {
+    throw new Error(`Deep clone function caught an error: ${error.message}`);
+  }
+}
+
+/**
+ * Helper function to check if a value is an object or an array.
+ * @param item The value to check.
+ */
+function isObjectOrArray(item: any): boolean {
+  return typeof item === 'object' && item !== null;
+}
+```

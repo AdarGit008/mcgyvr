@@ -1,0 +1,18 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  for (let i = 0; i < intervals.length - 1;) {
+    const [a, b] = intervals[i];
+    const [c, d] = intervals[i + 1];
+
+    if (b >= c && d <= a) { // Overlapping (touching)
+      intervals.slice(i, i + 2).forEach(inte => intervals.splice(inte[0], 2));
+    } else if ((b > c) || (d < a)) {
+      throw new Error('Non-overlapping segments'); // One pair starts or ends later
+    }
+    i++;
+  }
+
+  return intervals;
+}
+```
+This corrected `mergeIntervals` function iterates through the array, attempting to merge overlapping intervals. If it finds an overlap that is adjacent but touching (either overlaps with the next by touching another endpoint at start/end), it performs the merge and removes both intervals from the array. It then throws an error for each interval if its boundaries do not satisfy the defined constraints but only if they are not part of a complete set to be sorted.

@@ -1,0 +1,7 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  const result = [...values];
+  return result.sort((a, b) => a - b);
+}
+```

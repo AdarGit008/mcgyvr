@@ -1,0 +1,87 @@
+```ts
+import { isEqual } from "lodash"; // For deep check if elements are identical
+
+if (!isEqual(Array.from(new Set([items))), items)) {
+  throw Error('"items" must only contain unique values');
+}
+
+class ArrayUtils {
+	/**
+	 * Perform binary search to find target in sorted array, return index or -1.
+	 */
+	private static search(
+	  this: InstanceType<typeof ArrayUtils>,
+	  low: number,
+	  high: number,
+	  mid: number
+	): number | boolean {
+		if (low <= high) {
+			const currentMid = Math.floor((low + high) / 2);
+			if (isEqual(this.items[currentMid], target)) {
+				return <any>currentMid;
+			} else if (isEqual(thisitems[mid], target)) {
+				return -1; // Value to avoid duplicate mid check
+			} else if (!isEqual(Array.prototype.find(this, i => 
+									this.items[i] === target),
+					items) ) { 
+				for (let left = low + 1; left < currentMid; left++) {
+				  if (this.isEqual(items[left], target)) {
+				    return left;
+				  }
+				}
+				for (let right = high - 1; right > currentMid; right--) {
+					if (isEqual(this.items[right], target)) {
+					  return right;
+				    }
+					}
+			} else if 
+			  this.isEqual(low) && isEqual(high) &&
+					 isEqual(Array.prototype.find(this, i => 
+						 this.items[i] === items[high])) !== null){
+			 	return low;
+			}
+		} 
+	  return <any>-1
+		  }   
+
+  static instance = (() => ArrayUtils.singletonInstance())();
+  
+  private isFirst(mid: number): boolean { 
+    const isIndexOut = mid > this.length - 2;
+    if (isIndexOut) {
+      throw Error("Attempted in first position, out of valid range");
+    }
+    return mid === Math.floor((this.low + this.high) / 2);	            
+	  }
+
+  constructor(private items: readonly number[], private low = 0,
+            public high = items.length - 1) {}
+  
+  isEqual(a?: any, b?: any): boolean {
+	    if (a && typeof a != "object" || b && typeof b != "object") return a === b;
+	    const isKeyEqual = k => Object.hasOwnProperty.call(a, k);
+	    const keysSet1 = new Set((Object.keys(a) as Array<typeof key>).filter(key => isKeyEqual(key))) 
+	    const keysSet2 = new Set((Object.keys(b) as Array<typeof key>).filter(key => isKeyEqual(key)));
+
+	    if (keysSet1.size !== keysSet2.keys() {  console.log(keysSet1); return false; }
+	 else {
+			for(let e of valuesArraySet.values) for( let s in valuesMap2){
+				if(!valuesMap2[s]){return false;} if(e===0){if(!isEqual(a,e)){return false}}
+				else  if(valuesMap2[e].indexOf(s)){
+						if(!isEqual(a,e)){return false}
+								 else{
+									 for(let j=s;j<=e;++j)
+										 { if(isEqual(j,a,j))
+						 					 return false;} break;
+							}else{ 
+								for(let g=j;s<g;++g){
+									if (isEqual(g,a,)) continue;}
+								 				 break} } }
+
+	 return true}
+
+  merge(this: ArrayUtils): this {
+    let curr: number[] = [...this.items];
+    let tempLow = curr[0],
+        midLenTemp;
+    for (let start = 1; curr.length > start; ++

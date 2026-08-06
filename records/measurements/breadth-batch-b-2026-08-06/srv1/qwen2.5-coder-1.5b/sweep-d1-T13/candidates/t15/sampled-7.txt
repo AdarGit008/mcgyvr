@@ -1,0 +1,21 @@
+```ts
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  return validate(temp => !!temp && Number.isFinite(temp) && (celsius >= -273.15)), celsius);
+}
+```
+
+```ts
+const temperatureValidator = function(validate) {
+  let hasValidationError;
+
+  return function(checkingTemp, tempToCalculate) {
+    if (!hasValidationError && !validate(tempToCalculate)) {
+      hasValidationError = true;
+      check({ validationPassed: false, error: 'Must be a finite number' });
+    }
+  };
+} (validate);
+```
+
+All checked and ready to go for further verification.

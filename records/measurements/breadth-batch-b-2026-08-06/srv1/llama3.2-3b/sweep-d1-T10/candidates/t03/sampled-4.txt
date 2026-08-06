@@ -1,0 +1,37 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    /**
+     * Parse a semantic version string and return its components as an object
+     * with numeric values and optional prerelease and build strings.
+     */
+    
+    // Extract the major, minor and patch numbers using regular expressions
+    const [, major, minor, patch] = version.match(/^(\d+)\.(\d+)\.(\d+)(?-PRERELEASE|[-.+]?(\d+(?:\.\d+)*) |-)?(?:
+      BUILD|$)([A-Z]/)?$/i) || throw new Error('Invalid semver format');
+    
+    // Remove the optional prerelease and build strings using regular expressions
+    const trimmedVersion = version.replace(/PRERELEASE:[^ ]|-([A-Z]/)+/, '$1$2');
+    const [, buildString] = trimmedVersion.match(/+(BULK|M|([A-Z]\.+))$/i);
+    
+    const { prerelease, build } = buildString ? {
+        prerelease: trim(buildString, '+-'),
+        build: buildTrimmed
+    } : { prerelease: null, build: null };
+    
+    return { major: parseInt(major), minor: parseInt(minor), patch: parseInt(patch), prerelease, build };
+}
+
+function trim(s: string): string;
+function trim(s: string | null): undefined;
+function trim<T extends string | null>(s: T): never {
+    if (s === null) throw new Error("Cannot trim null");
+    return s.replace(/^+|\+$/gu,'');
+}
+
+function buildTrimmed(s?: string): string;
+function buildTrimmed(): boolean;
+function buildTrimmed<string|(string|boolean)=null>(s?: string): string | boolean {
+    if (typeof s !== "string") throw new Error("Value must be a string");
+    return s.replace(/^[+ ]/gu,'').orUndefined;
+}
+```

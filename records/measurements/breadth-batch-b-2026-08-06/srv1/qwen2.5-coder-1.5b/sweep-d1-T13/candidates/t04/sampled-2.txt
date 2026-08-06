@@ -1,0 +1,83 @@
+```ts
+export class LruCache<K, V> {
+  private size: number;
+  priv cache: Map<K, V | undefined>;
+
+  constructor(public capacity: number) {
+    if (capacity !== Math.floor(capacity)) {
+      throw new Error('Invalid Capacity');
+    }
+    this.size = 0;
+    this.cache = new Map();
+  }
+
+  /** gets the value or `undefined` */
+  public get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value === undefined) {
+      return null; // or explicitly return undefined
+    }
+    this._removeFromCache(key);
+    this.size++;
+    this._addToCache(key, value, true); // consider it as a new use
+    if (this.size > this.capacity) {
+      const leastUsedKey = this._getLeastUsed();
+      this._removeFromCache(leastUsedKey);
+    }
+    return value;
+  }
+
+  /** inserts or updates */
+  public set(key: K, value: V): void {
+    this._addToCache(key, value, false}; // consider it as a new use
+    if (this.size > this.capacity) {
+      const leastUsedKey = this._getLeastUsed();
+      this._removeFromCache(leastUsedKey);
+    }
+  }
+
+  /** size reports current entry count */
+  public get size(): number {
+    return this.cache.size;
+  }
+
+  private __getKeyIndex(key: K): number | undefined {
+    return this.cache?.has(key) ? this.cache!.keys().indexOf(key) : undefined;
+  }
+
+  private _setKeyIndex(key: K, value: V): number | undefined {
+    if (!this.cache.get(key)) {
+      this.size++;
+    }
+    const oldPosIdx: number = this.__getKeyIndex(key);
+    return this.cache?.put(key, { ...value, use_count: value.use_count + 1 })._moveItemToLast(value, oldPosIdx);
+  }
+
+  private _addToCache(key: K. value: V, fromStart?: boolean): {
+    is_new_entry: boolean,
+    pos_idx: number | undefined }
+  {
+    const {pos_idx } = this._setKeyIndex(key, { value, use_count: 1 });
+    if (undefined === oldPosIdx || posIdx !== fromStart) {
+      if (fromStart && this.cache.size > this.capacity) {
+        for (let i = 0; i < this.cache.size - this.capacity && hasItem(posIdx === undefined ? [] : [...this.cache.keys()], `key-${i}`); i++) {
+          const currKey = posIdx === undefined ? undefined : [...this.cache.keys()][i];
+          if (!hasItem(currEntry.pos_idx !== undefined ? [...]currEntry.items() : [], key)) continue;
+          this._removeFromCache(currKey);
+        }
+      } 
+      if (!posIdx) return this._addToHead(pos_idx, key, value);
+    }  
+    while (this.cache!.size > this.capacity && hasItem(this.cache.size-this.capacity === 0 ? [] : [...this.cache.keys()], `removed-${key}`)) {
+      const currKey = posIdx === undefined ? undefined : [...this.cache.keys()][i];
+      this._removeFromCache(currKey);
+    }
+    return { is_new_entry: posIdx === -1, pos_idx };
+  }
+
+  private _addToHead(pos_idx: number | undefined, key: K, value?: V): {
+    item: CacheItem<{key: K; value: V; use_count: number };
+    pos_idx: number 
+  } {
+    const newKey = this._getNewIdKey();
+    if (

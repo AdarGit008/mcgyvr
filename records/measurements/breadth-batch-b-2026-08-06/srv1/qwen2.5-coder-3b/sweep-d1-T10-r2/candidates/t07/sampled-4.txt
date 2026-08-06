@@ -1,0 +1,22 @@
+```
+type RecursiveFlattened<T> = T extends (infer U)[] ? RecursiveFlattened<U>[] : T;
+type Flattened<T, D extends number> = T extends (infer U)[] ? 
+  D extends 0 ? T : DepthD<T, D - 1>
+  : T;
+
+function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (!Number.isSafeInteger(depth)) throw new Error("Depth must be a non-negative integer or Infinity");
+
+    const flattened = items.flatMap((item, index) => {
+        if (Array.isArray(item)) return item.length > 0 ? DepthD(item, Math.min(depth!, item.length - 1)) : [];
+        return depth === 0 || depth < 0 ? [item] : [];
+    });
+
+    return flattened;
+}
+
+type DepthD<T extends unknown[], D extends number> = 
+  T extends (infer U)[] ? 
+    D extends 0 ? T : U[] | RecursiveFlattened<DepthD<U, D - 1>>
+  : T[];
+```

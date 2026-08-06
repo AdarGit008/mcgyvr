@@ -1,0 +1,37 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  /**
+   * Parse a single line of CSV into its fields.
+   *
+   * Fields that are enclosed in double quotes may contain commas, and any comma within such a field will be treated as a literal character,
+   * not as a separator. The surrounding quotes are not part of the value. Fields that are not quoted are taken literally,
+   * including any surrounding spaces. Empty lines are considered to consist of a single empty field.
+   *
+   * @param line A line from a CSV file
+   * @returns An array of fields from the CSV line
+   */
+  const result: string[] = [];
+  let currentField = '';
+  let inQuote = false;
+  for (const char of line) {
+    if (char === '"') {
+      inQuote = !inQuote;
+    } else if (!inQuote && char === ',') {
+      if (currentField) {
+        result.push(currentField);
+        currentField = '';
+      }
+    } else {
+      currentField += char;
+    }
+  }
+  // Any remaining field
+  if (currentField) {
+    result.push(currentField);
+  }
+  if (!inQuote && result.length === 0) {
+    throw new Error('Empty CSV line');
+  }
+  return result;
+}
+```

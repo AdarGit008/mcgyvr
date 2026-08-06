@@ -1,0 +1,40 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: { [node: string]: string[] } = {};
+    const inDegree: { [node: string]: number } = {};
+
+    // Initialize graph and in-degree count
+    nodes.forEach(node => {
+        graph[node] = [];
+        inDegree[node] = 0;
+    });
+
+    // Build the graph and in-degree counts
+    edges.forEach(([from, to]) => {
+        if (!graph[from] || !graph[to]) throw new Error(`Node not found: ${from} or ${to}`);
+        graph[from].push(to);
+        inDegree[to]++;
+    });
+
+    const queue: string[] = [];
+    nodes.forEach(node => {
+        if (inDegree[node] === 0) queue.push(node);
+    });
+
+    const result: string[] = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        graph[node].forEach(neighbor => {
+            inDegree[neighbor]--;
+            if (inDegree[neighbor] === 0) queue.push(neighbor);
+        });
+    }
+
+    if (result.length !== nodes.length) throw new Error('Cycle detected');
+
+    return result;
+}
+```

@@ -1,0 +1,33 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const parts = version.split('-');
+    if (parts.length > 2) throw new Error(`Version ${version} must have at most one hyphen`);
+
+    const [versionPart, prerelease] = parts;
+
+    if (!/^(\d+)\.(\d+)\.(\d+)$/.test(versionPart))
+        throw new Error(`Invalid version format in ${version}`);
+
+    const [majorStr, minorStr, patchStr] = versionPart.split('.');
+
+    const major = parseInt(majorStr, 10);
+    if (isNaN(major) || major < 0 || majorStr.includes('-'))
+        throw new Error(`Major number must be a non-negative digit in ${version}`);
+
+    const minor = parseInt(minorStr, 10);
+    if (isNaN(minor) || minor < 0)
+        throw new Error(`Minor number must be a non-negative digit in ${version}`);
+
+    const patch = parseInt(patchStr, 10);
+    if (isNaN(patch) || patch < 0)
+        throw new Error(`Patch number must be a non-negative digit in ${version}`);
+
+    return {
+        major,
+        minor,
+        patch,
+        prerelease: prerelease ? prerelease : null,
+        build: parts[1] ? parts[1].split('+')[0] : null
+    };
+}
+```

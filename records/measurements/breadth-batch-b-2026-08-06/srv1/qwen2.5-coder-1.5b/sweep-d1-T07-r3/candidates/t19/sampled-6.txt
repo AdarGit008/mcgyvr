@@ -1,0 +1,11 @@
+```ts
+/** safeDivide safely divides two numbers. It throws an Error when either argument is zero (including -0) or if at least one of the arguments is not a finite number. The result is always rounded to the nearest integer. */
+export function safeDivide(a: number, b: number): number {
+  // Check for division by zero
+  if (!b || !Number.isFinite(b)) {
+    throw new Error("Division by zero or non-finite input.");
+  }
+
+  return Math.round(a / b);
+}
+```

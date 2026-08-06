@@ -1,0 +1,17 @@
+```ts
+/**
+ * Performs a safe division between two numbers.
+ * Throws an error if the divisor is zero or less than the smallest positive finite number (-0).
+ * If both arguments are finite positive numbers, returns the result of dividing `a` by `b`.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (b <= -Number.EPSILON || b === Infinity) {
+    throw new Error("'b' must be a positive finite number");
+  }
+  const result = a / b;
+  if (!isFinite(result)) {
+    throw new Error("Result is not finite");
+  }
+  return result;
+}
+```

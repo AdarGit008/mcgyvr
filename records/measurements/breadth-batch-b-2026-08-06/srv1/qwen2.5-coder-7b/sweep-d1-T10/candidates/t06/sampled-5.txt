@@ -1,0 +1,42 @@
+```ts
+/**
+ * Parses a line of CSV into its fields on commas.
+ * Handles quoted fields with nested quotes and surrounding spaces.
+ *
+ * @param line - The CSV line to parse.
+ * @returns An array of strings representing the fields in the CSV line.
+ */
+export function parseCsvLine(line: string): string[] {
+    const result: string[] = [];
+    let field = '';
+    let quoteCount = 0;
+    let inQuote = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+            if (!inQuote) {
+                if (quoteCount > 0) field += char; // Handle doubled quote inside a field
+            } else {
+                // Ensure every opening double-quote has a matching closing one
+                throw new Error('Unmatched double-quote found');
+            }
+            inQuote = !inQuote;
+        } else if (char === ',' && !inQuote) {
+            result.push(field.trim());
+            field = '';
+        } else {
+            field += char;
+        }
+
+        quoteCount += char === '"' ? 1 : 0;
+    }
+
+    // Handle the last field
+    if (quoteCount > 0) throw new Error('Unmatched double-quote found');
+    result.push(field.trim());
+
+    return result;
+}
+```

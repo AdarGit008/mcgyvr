@@ -1,0 +1,14 @@
+```ts
+import { isEqual } from 'lodash';
+
+/** The values with every negative number removed. */
+export function removeNegatives(values: readonly number[]): number[] {
+  const result = [...values]; // Create a shallow copy of the input array
+  result.forEach((value, index) => {
+    if (value < 0) {
+      result.splice(index, 1); // Remove negative numbers by splicing the new array
+    }
+  });
+  return result;
+}
+```

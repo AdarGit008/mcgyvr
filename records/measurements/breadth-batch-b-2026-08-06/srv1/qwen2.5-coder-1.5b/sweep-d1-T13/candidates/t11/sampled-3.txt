@@ -1,0 +1,20 @@
+```ts
+
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (
+    isNaN(values[0]) ||
+    isNaN(values[1]) ||
+   isNaN(values[2])
+  ) {
+      throw Error("Numbers must be valid at least for sorting.");
+  }
+
+  return [...values].sort((a, b) => {
+    if (typeof a === "string" && !isNaN(b)) return -1;
+    if (!isNaN(a) && typeof b === "string") return 1;
+
+    return Math.abs(a) - Math.abs(b);
+  });
+}
+```

@@ -1,0 +1,12 @@
+```typescript
+/* a divided by b, hardened to handle zero divisor,
+ * non-finite numbers, and booleans (non-numbers). */
+export function safeDivide(a: number, b: number): number {
+  if (!isFinite(a)) throw new Error("first argument is NaN or Infinity");
+  if (!isFinite(b) || isNaN(b) || typeof b !== "number") 
+    throw new Error("second argument must be a finite number");
+  if (b === 0 && b === -0) throw new Error("division by zero not allowed");
+  
+  return a / b;
+}
+```

@@ -1,0 +1,46 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  // Remove any leading/trailing whitespace
+  line = line.trim();
+
+  // Edge case: empty line
+  if (line === '') return [];
+
+  const fields: string[] = [];
+  let isQuoted = false;
+  let currentField = '';
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    // Start of a quoted field
+    if (!isQuoted && char === '"') {
+      isQuoted = true;
+      currentField += char;
+      continue;
+    }
+
+    // End of the quote
+    if (isQuoted && char === '"') {
+      isQuoted = false;
+      fields.push(currentField);
+      currentField = '';
+      continue;
+    }
+
+    // If not in a quoted field, append to current field if characters are separated by commas or at the end of the line
+    if (!isQuoted || (i === line.length - 1 && char !== ',')) {
+      currentField += char;
+
+      // Check for comma and handle it as the separator or last field
+      const index = field.indexOf(',');
+      if (index !== -1) {
+        fields.push(field.substring(0, index));
+        currentField = field.substring(index + 1);
+      }
+    }
+  }
+
+  return fields;
+}
+```

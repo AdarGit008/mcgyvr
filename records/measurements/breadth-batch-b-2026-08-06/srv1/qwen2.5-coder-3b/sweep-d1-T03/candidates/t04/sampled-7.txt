@@ -1,0 +1,79 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { value: V; timestamp: number }>;
+  private head: { key: K | null; next: { key: K | null; prev: { key: K | null; next: { key: K | null; prev: null; }; }; }; };
+  private tail: { key: K | null; prev: { key: K | null; next: { key: K | null; prev: { key: K | null; next: null; }; }; }; };
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+    this.head = { key: null, next: tail };
+    this.tail = { key: null, prev: head };
+  }
+
+  get(key: K): V | undefined {
+    const node = this.cache.get(key);
+    if (node) {
+      this.moveToFront(node);
+      return node.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    let node = this.cache.get(key);
+    if (!node) {
+      node = { key, value, timestamp: Date.now() };
+      this.cache.set(key, node);
+      this.addNode(node);
+      if (this.cache.size > this.capacity) {
+        const leastRecentlyUsedNode = this.removeLeastRecentlyUsed();
+        this.cache.delete(leastRecentlyUsedNode.key);
+      }
+    } else {
+      node.value = value;
+      node.timestamp = Date.now();
+      this.moveToFront(node);
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private addNode(node: { key: K; value: V; timestamp: number }) {
+    const prev = this.tail.prev!;
+    const next = this.tail;
+    prev.next = node;
+    next.prev = node;
+    node.prev = prev;
+    node.next = next;
+  }
+
+  private removeLeastRecentlyUsed(): { key: K; value: V; timestamp: number } {
+    let leastRecentlyUsedNode = this.head!.next!;
+    while (leastRecentlyUsedNode !== this.tail) {
+      if (leastRecentlyUsedNode.timestamp < leastRecentlyUsedNode.prev!.timestamp) {
+        leastRecentlyUsedNode = leastRecentlyUsedNode.prev!;
+      }
+    }
+    return leastRecentlyUsedNode;
+  }
+
+  private moveToFront(node: { key: K; value: V; timestamp: number }) {
+    const prev = node.prev!;
+    const next = node.next!;
+    prev.next = next;
+    next.prev = prev;
+
+    const headNext = this.head!.next!;
+    node.next = headNext;
+    headNext.prev = node;
+    this.head!.next = node;
+  }
+}
+```

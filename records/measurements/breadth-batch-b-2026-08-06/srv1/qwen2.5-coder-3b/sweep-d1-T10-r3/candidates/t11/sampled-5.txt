@@ -1,0 +1,8 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (!Array.isArray(values)) throw new Error("Input must be an array.");
+
+  return [...values].sort((a, b) => a - b);
+}
+```

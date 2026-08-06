@@ -1,0 +1,40 @@
+```ts
+ export class LruCache<K, V> {
+  private cache: Map<K, { value: V; timestamp: number }>;
+  private capacity: number;
+  private size = 0;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) throw new Error("Capacity must be a positive integer.");
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (entry) {
+      entry.timestamp = Date.now(); // Update last access time
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    const entry = this.cache.get(key);
+    if (entry) {
+      entry.timestamp = Date.now(); // Update last access time
+      entry.value = value;
+    } else {
+      if (this.size === this.capacity) {
+        this.cache.delete(this.cache.keys()[0]); // Evict the least recently used entry
+      }
+      this.cache.set(key, { value, timestamp: Date.now() });
+    }
+    this.size++;
+  }
+
+  get size(): number {
+    return this.size;
+  }
+}
+```

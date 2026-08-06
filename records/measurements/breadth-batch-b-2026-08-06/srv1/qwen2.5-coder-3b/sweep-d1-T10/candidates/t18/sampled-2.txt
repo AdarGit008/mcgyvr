@@ -1,0 +1,9 @@
+```
+export interface Event { name: string; timestamp: number }
+export class EventLog {
+  #events: Event[] = [];
+
+  record(event: Event): void;
+  since(timestamp: number): Event[];
+} ;
+```

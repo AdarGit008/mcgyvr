@@ -1,0 +1,44 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  // Check if the line is empty or starts with a quote
+  if (!line || !line.trim() || line.startsWith('"')) {
+    return [''];
+  }
+
+  const result: string[] = [];
+  let currentField = '';
+  let quoted = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (quoted) {
+      // If the quote is escaped, just add it to the field
+      if (char === '"') {
+        currentField += '"';
+      } else {
+        quoted = false;
+      }
+    } else if (char === ',') {
+      // End of a quoted or unquoted field
+      result.push(currentField.trim());
+      currentField = '';
+    } else if (char === '"') {
+      // Start of a quoted field
+      if (i > 0 && line[i - 1] !== '"') {
+        throw new Error("Unmatched quote in the CSV line");
+      }
+      quoted = true;
+    } else {
+      currentField += char;
+    }
+  }
+
+  // Add the last field
+  result.push(currentField.trim());
+
+  return result;
+}
+```
+
+This code handles CSV parsing, including quoted fields with embedded quotes, and validates that all quoted fields are closed. It throws an error for unmatched quotes and returns an empty line as a single-element array.

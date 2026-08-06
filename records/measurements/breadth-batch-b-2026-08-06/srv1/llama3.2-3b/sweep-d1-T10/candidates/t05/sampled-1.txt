@@ -1,0 +1,26 @@
+```ts
+export function chunk<T extends any[]>(
+  items?: readonly T[],
+  size?: (number | null)
+): T[][] {
+  if (
+    typeof size !== 'number' ||
+    isNaN(size) ||
+    size < 1
+  )
+    throw new Error('Size must be a positive integer');
+
+  if (items === undefined || items.length === 0)
+    return [];
+
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size as number) {
+    const chunkSize =
+      size !== null
+        ? Math.min(size, items.length - i)
+        : items.length - i;
+    result.push(items.slice(i, i + chunkSize));
+  }
+  return result;
+}
+```

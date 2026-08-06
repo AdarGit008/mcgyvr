@@ -1,0 +1,31 @@
+```typescript
+/**
+ * Encodes a string by replacing every maximal run of one repeated character with that character followed by its count.
+ *
+ * @param input The string to be encoded.
+ * @returns The encoded string.
+ */
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') {
+        throw new Error('Input must be a string.');
+    }
+
+    let result = '';
+    let currentChar = input[0];
+    let currentCount = 1;
+
+    for (let i = 1; i <= input.length; i++) {
+        const char = input[i];
+
+        if (char === currentChar) {
+            currentCount++;
+        } else {
+            result += currentChar + currentCount;
+            currentChar = char;
+            currentCount = 1;
+        }
+    }
+
+    return result;
+}
+```

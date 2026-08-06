@@ -1,0 +1,63 @@
+```ts
+/**
+ * Returns a topological sorting of nodes based on given edges.
+ * 
+ * @param nodes - An array of node names.
+ * @param edges - An array of edges where each edge is an array of two node names.
+ * @returns A sorted array of node names satisfying all edges.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjacencyList = new Map<string, Set<string>>();
+    for (const node of nodes) {
+        adjacencyList.set(node, new Set());
+    }
+
+    for (const edge of edges) {
+        if (!adjacencyList.has(edge[0])) {
+            throw new Error(`Node ${edge[0]} is not in the list of nodes.`);
+        }
+        if (!adjacencyList.has(edge[1])) {
+            throw new Error(`Node ${edge[1]} is not in the list of nodes.`);
+        }
+
+        adjacencyList.get(edge[0]).add(edge[1]);
+    }
+
+    const visited = new Set<string>();
+    const currentPath = new Set<string>();
+
+    function visit(node: string): boolean {
+        if (currentPath.has(node)) {
+            return false;
+        }
+        if (!adjacencyList.has(node)) {
+            return true;
+        }
+        if (visited.has(node)) {
+            return true;
+        }
+
+        visited.add(node);
+        currentPath.add(node);
+
+        for (const neighbor of adjacencyList.get(node)!) {
+            if (!visit(neighbor)) {
+                return false;
+            }
+        }
+
+        currentPath.delete(node);
+        return true;
+    }
+
+    const sortedNodes = [];
+    for (const node of nodes) {
+        if (!visited.has(node) && !visit(node)) {
+            throw new Error("A cycle is detected in the edges.");
+        }
+        sortedNodes.push(node);
+    }
+
+    return sortedNodes.reverse();
+}
+```

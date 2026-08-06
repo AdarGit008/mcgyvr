@@ -1,0 +1,12 @@
+```ts
+/** Returns the division of `a` by `b`, throwing if either is invalid. */
+export function safeDivide(a: number, b: number): number {
+  /**
+   * @throws {Error} If `b` is zero or not a finite number.
+   */
+  if (typeof b !== 'number' || isNaN(b) || b === -0) {
+    throw new Error('Cannot divide by zero or non-numeric value.');
+  }
+  return a / b;
+}
+```

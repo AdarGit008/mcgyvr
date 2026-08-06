@@ -1,0 +1,30 @@
+```ts
+function sortIndices(nodes: readonly string[]): number[] {
+  const indexMap = {};
+  for (let i = 0; i < nodes.length; i++) {
+    indexMap[nodes[i]] = i;
+  }
+  return sort((a, b) => indexMap[a] - indexMap[b]);
+}
+
+function topoSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+  if (edges.includes([nodes[0], nodes[1]]) || edges.includes([nodes[1], nodes[0]])) throw new Error("cycle");
+  if (!nodes.length) return [];
+  const inDegrees = Array.from({ length: nodes.length }, (_, i) => 0);
+  for (const [from, to] of edges) {
+    inDegrees[indexMap[from]]++;
+  }
+  const freeNodes = nodes.filter(node => inDegrees[indexMap[node]] === 0);
+  if (!freeNodes.length) throw new Error("no valid ordering");
+  const ordered: string[] = [];
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    if (!nodes.includes(node)) continue; // to avoid shadowing
+    ordered.push(node);
+    for (const [from, to] of edges) {
+      if (from === node) inDegrees[indexMap[to]]--;
+    }
+  }
+  return ordered.length === nodes.length ? ordered : [];
+}
+```

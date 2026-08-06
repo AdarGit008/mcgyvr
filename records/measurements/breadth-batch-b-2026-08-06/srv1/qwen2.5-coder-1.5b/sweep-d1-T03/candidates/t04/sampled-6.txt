@@ -1,0 +1,57 @@
+```ts
+export class LruCache<K, V> {
+  private cache: Map<K, V>;
+  private capacity: number;
+  private useCount: Map<K, number>;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.cache = new Map();
+    this.capacity = capacity;
+    this.useCount = new Map();
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      this.updateUseCount(key);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.updateUseCount(key);
+    } else {
+      this.useCount.set(key, 1);
+    }
+    this.cache.set(key, value);
+
+    if (this.cache.size > this.capacity) {
+      const leastUsedKey = this.getLeastUsedKey();
+      this.cache.delete(leastUsedKey);
+      this.useCount.delete(leastUsedKey);
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private updateUseCount(key: K): void {
+    let count = this.useCount.get(key) || 0;
+    count++;
+    this.useCount.set(key, count);
+  }
+
+  private getLeastUsedKey(): K {
+    if (this.useCount.size === 0) {
+      throw new Error("Cache is empty");
+    }
+    const leastUsedKeys = Array.from(this.useCount.entries()).sort((a, b) => a[1] - b[1]);
+    return leastUsedKeys[0][0];
+  }
+}
+```

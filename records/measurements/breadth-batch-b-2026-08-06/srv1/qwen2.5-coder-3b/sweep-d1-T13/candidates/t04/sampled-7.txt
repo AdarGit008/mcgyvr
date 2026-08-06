@@ -1,0 +1,122 @@
+```ts
+import { maxBy } from 'lodash.maxby';
+
+type CacheNodeKey = string | number; // Simplified Key for demonstration;
+
+export class LruCache<K extends CacheNodeKey, V> {
+  constructor(private capacity: number) {
+    if (Number.isNaN(capacity) || capacity <= 0) {
+      throw new Error('capacity must be a positive integer');
+    }
+  }
+
+  private map = new Map<K, CacheNode>;
+
+  private head?: CacheNode;
+  private tail?: CacheNode;
+
+  public get size() {
+    return this.map.size;
+  }
+
+  private setHead(node: CacheNode) {
+    if (node !== this.head) {
+      if (this.head === node.tail) {
+        this.tail = null;
+      } else {
+        node.prev!.next = node.next!;
+        node.next!.prev = node.prev!;
+      }
+      node.next = this.head;
+      node.prev = null;
+      if (this.head) {
+        this.head.prev = node;
+      } else {
+        this.tail = node;
+      }
+      this.head = node;
+    }
+  }
+
+  public getKey(key: K): V | undefined {
+    const node = this.map.get(key);
+    if (!node) return;
+
+    this.setHead(node); // Marking as accessed, brings to the head.
+    return node.val;
+  }
+
+  private getLeastRecentlyUsed() {
+    return maxBy([...this.map.values()], n => n.lastAccessed!)!;
+  }
+
+  public set(key: K, value: V): void {
+    const exists = this.map.has(key);
+
+    const newNode: CacheNode = {};
+    newNode.key = key;
+    newNode.val = value;
+    newNode.next = null;
+    newNode.prev = null;
+    newNode.lastAccessed = Date.now();
+
+    if (exists) this.evictRecentlyUsed(); // Clear the eviction flag
+    else this.mapCacheLimit(limit => limit + 1);
+
+    this.putNew(newValue, newNode);
+  }
+
+  private evictRecentlyUsed() {
+    const lastUsedNode = this.getLeastRecentlyUsed();
+    if (!lastUsedNode) return;
+
+    this.head = lastUsedNode.next;
+    this.map.delete(lastUsedNode.key);
+
+    // Remove the node from the map;
+    delete this.map.get(key)!;
+  }
+
+  private putNew(val: V, newNode: CacheNode) {
+    this.mapCacheLimit(limit => limit + 1);
+    this.map.set(newNode.key, newNode); // Adding to head
+
+    if (this.head === undefined || this.tail === undefined)return; 
+
+    if (this.size > 0 && this.map.size !== this.capacity) return;
+
+    do {
+      const leastReusedKey = maxBy(Array.from(this.map.keys()), key => this.map.get(key)?.lastAccessed!)!;
+      
+      console.log(leastReusedKey);
+      if (!leastReusedKey || !this.head!.key?.isEqual(leastReusedKey)) 
+        continue;
+
+      if (this.tail && this.tail !== newNode) {
+        this.removeItem(this.tail); 
+      } else if (newNode === this.tail.next! ) currentNode = this.head;
+    }
+
+  }
+
+  private mapCacheLimit(fn: (capaciity => capacity - 1): void) {
+    const sizeNow = this.map.size;
+
+    if (sizeNow > this.capacity - 1) {
+      while (this.map?.size > capacity) { 
+        // Eviction; remove the least recently used
+      }
+    }
+    else fn(capacity);
+  }
+
+}
+
+class CacheNode {
+  key: K;
+  val: V;
+
+  next?: CacheNode;
+  prev?: CacheNode;
+
+  lastAccessed?: number

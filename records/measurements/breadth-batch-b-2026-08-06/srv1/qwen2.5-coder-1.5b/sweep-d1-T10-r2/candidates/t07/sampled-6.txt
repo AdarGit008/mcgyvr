@@ -1,0 +1,28 @@
+```ts
+// Flatten any array up to a specified depth level. Strings are values, not iterables.
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== 'number' || isNaN(depth) || depth < 0 && !Number.isFinite(depth)) {
+    throw new Error('Depth must be a non-negative integer or Infinity.');
+  }
+
+  const result = [...items];
+  let currentDepth = 1;
+
+  while (currentDepth <= depth && result.some(item => Array.isArray(item))) {
+    const newArray = [];
+
+    for (const item of result) {
+      if (Array.isArray(item)) {
+        newArray.push(...item.map(subItem => flatten([subItem], currentDepth - 1)[0]));
+      } else {
+        newArray.push(item);
+      }
+    }
+
+    result = newArray;
+    currentDepth++;
+  }
+
+  return result;
+}
+```

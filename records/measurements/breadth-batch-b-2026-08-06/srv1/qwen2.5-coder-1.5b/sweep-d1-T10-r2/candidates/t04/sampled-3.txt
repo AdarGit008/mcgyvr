@@ -1,0 +1,58 @@
+```ts
+import { Map } from 'core-js';
+
+export class LruCache<K, V> {
+  private entries: Map<K, V>;
+  private capacity: number;
+  private recentlyUsedKeys: K[];
+
+  constructor(capacity) {
+    if (!capacity || typeof capacity !== 'number' || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.entries = new Map();
+    this.capacity = capacity;
+    this.recentlyUsedKeys = [];
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.entries.get(key);
+    if (entry !== undefined) {
+      // Move the key to the end of recentlyUsedKeys
+      const index = this.recentlyUsedKeys.indexOf(key);
+      if (index !== -1) {
+        this.recentlyUsedKeys.splice(index, 1);
+        this.recentlyUsedKeys.push(key);
+      }
+    }
+    return entry;
+  }
+
+  set(key: K, value: V): void {
+    const existingEntry = this.entries.get(key);
+    if (existingEntry !== undefined) {
+      // Update the key's value and move it to the end of recentlyUsedKeys
+      this.entries.set(key, value);
+      const index = this.recentlyUsedKeys.indexOf(key);
+      if (index !== -1) {
+        this.recentlyUsedKeys.splice(index, 1);
+        this.recentlyUsedKeys.push(key);
+      }
+    } else {
+      // Insert a new entry with key
+      if (this.size === this.capacity) {
+        // Remove the least recently used key
+        const oldestKey = this.recentlyUsedKeys.shift();
+        this.entries.delete(oldestKey);
+      }
+      this.entries.set(key, value);
+      // Add to the end of recentlyUsedKeys
+      this.recentlyUsedKeys.push(key);
+    }
+  }
+
+  get size(): number {
+    return this.entries.size;
+  }
+}
+```

@@ -1,0 +1,36 @@
+```ts
+/** Validate if the given temperature is finite, valid, and between absolute zero (inclusive). */
+function checkTemperature(temperature: number|string): void {
+  if (typeof temperature !== "number" && typeof temperature !== "string") return throw new Error("temperature must be a number or a string");
+  const parsed = Number.parseFloat(temperature.toString());
+  if (!Number.isFinite(parsed)) return throw new Error("temperature must be a finite value");
+  let celcius;
+  if (typeof parsed === "number") {
+    celcius = parsed;
+  } else if (parsed.includes(".")) {
+    // Convert string with decimal part to number
+    ;([celcius] = parseFloat(parsed)).toString(); 
+  } else {
+    // For integer temperatures (non-decimal parts)
+    celcius = parseFloat(parseInt(parsed.toString()).toFixed(0));
+  }
+  if (celcius < -273.15) return throw new Error("temperature must be at or above absolute zero");
+}
+
+function checkFinite(val: any): boolean {
+  const validValue = /^\d+(\.\d+)?$/.test(val.toString());
+  return !isNaN(parseFloat(val)) && isValidValue;
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number|string): number {
+  checkTemperature(celsius);
+  return celsius * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number|string): number {
+  checkTemperature(celsius);
+  return celsius + 273.15;
+}
+```

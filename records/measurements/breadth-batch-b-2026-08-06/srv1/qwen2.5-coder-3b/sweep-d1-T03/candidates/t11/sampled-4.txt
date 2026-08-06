@@ -1,0 +1,9 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (!Array.isArray(values)) {
+    throw new Error("Input must be a non-empty array of numbers.");
+  }
+  return [...values].sort((a, b) => a - b);
+}
+```

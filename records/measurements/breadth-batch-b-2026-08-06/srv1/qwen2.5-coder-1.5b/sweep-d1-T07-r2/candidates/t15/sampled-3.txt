@@ -1,0 +1,27 @@
+```ts
+interface TemperatureConverter {
+  celsiusToFahrenheit(celsius: number): number;
+  celsiusToKelvin(celsius: number): number;
+}
+
+function validateTemperature(value: number): boolean {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("value must be a finite number");
+  }
+  if (value < -273.15) {
+    throw new Error("value must be at or above absolute zero");
+  }
+  return true;
+}
+
+export const temperatureConverter: TemperatureConverter = {
+  celsiusToFahrenheit(celsius: number): number {
+    validateTemperature(celsius);
+    return celsius * 1.8 + 32;
+  },
+  celsiusToKelvin(celsius: number): number {
+    validateTemperature(celsius);
+    return celsius + 273.15;
+  }
+};
+```

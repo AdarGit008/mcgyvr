@@ -1,0 +1,34 @@
+```ts
+// solution.ts
+
+/**
+ * Parses a single CSV line into its fields.
+ * A field wrapped in double quotes may contain commas,
+ * and a doubled quote inside such a field means one literal quote character.
+ * Fields that are not quoted are taken literally, including any surrounding spaces.
+ * An empty line is one empty field.
+ *
+ * @param line The input CSV line to parse.
+ * @returns An array of string fields parsed from the CSV line.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (!line) return [];
+
+  const regex = /(?:[^",]+|"(?:[^"]|"")*")+/g;
+  let match;
+  const result: string[] = [];
+
+  while ((match = regex.exec(line)) !== null) {
+    if (match[0].startsWith('"') && match[0].endsWith('"')) {
+      // Field is quoted with both quotes, skip the first and last quotes
+      result.push(match[0].substring(1, -1));
+    } else {
+      // Non-quoted field, split based on commas
+      const parts = match[0].split(',');
+      result.push(...parts);
+    }
+  }
+
+  return result;
+}
+```

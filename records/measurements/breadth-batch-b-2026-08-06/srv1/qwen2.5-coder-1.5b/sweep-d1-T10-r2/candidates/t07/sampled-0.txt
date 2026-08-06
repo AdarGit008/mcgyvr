@@ -1,0 +1,41 @@
+```ts
+function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0 || typeof depth !== 'number') {
+    throw Error('Invalid depth');
+  }
+
+  const stack: any[][] = [items];
+
+  while (stack.length) {
+    const items = stack.pop()!;
+
+    for (let i = 0; i < items.length; i++) {
+      if (Array.isArray(items[i])) {
+        stack.push(Array.isArray(items[i]) ? [...items[i], ...stack[stack.length - 1]] : items.slice(...[0, i], ...[i + 1]));
+      } else {
+        result.push(items[i]);
+      }
+    }
+  }
+
+  return result.slice();
+}
+
+const exampleArray = [1, [2, [3, 4]], 5];
+console.log(flatten(exampleArray)); // Should output: [1, 2, 3, 4, 5]
+
+const singleElementArray = [6];
+console.log(flatten(singleElementArray)); // Should output: [6]
+
+const flatString = ["hello", "world"];
+console.log(flatten(flatString)); // Should output: ["hello", "world"]
+
+const emptyArray = [];
+console.log(flatten(emptyArray)); // Should output: []
+
+const negativeDepth = flatten([1], -1);
+console.error(negativeDepth); // Expected Error
+
+const stringArrayWithArrayAsSingleElement = [["world"]];
+console.log(flatten(stringArrayWithArrayAsSingleElement)); // Should output: ["world"]
+```

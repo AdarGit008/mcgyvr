@@ -1,0 +1,41 @@
+```ts
+/**
+ * The temperature in degrees Fahrenheit. This helper method ensures the input is finite,
+ * greater or equal to absolute zero.
+ *
+ * @param {number} celsius - The temperature in Celsius. Must be a finite number and not below |(-273.15)|.
+ * @return {number} The equivalent temperature in degrees Fahrenheit.
+ */
+function validateCelsius(celsius: number): number {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return celsius;
+}
+
+/**
+ * The temperature in kelvin. This helper method ensures the input is finite,
+ * greater or equal to absolute zero.
+ *
+ * @param {number} celsius - The temperature in Celsius. Must be a finite number and not below |(-273.15)|.
+ * @return {number} The equivalent temperature in kelvin.
+ */
+export function celsiusToFahrenheit(celsius: number): number {
+  return validateCelsius(celsius) * 1.8 + 32;
+}
+
+/**
+ * The temperature in kelvin.
+ *
+ * @param {number} celsius - The temperature in Celsius. Must be a finite number and not below |(-273.15)|.
+ * @return {number} The equivalent temperature in Kelvin.
+ */
+export function celsiusToKelvin(celsius: number): number {
+  return validateCelsius(celsius) + 273.15;
+}
+```
+
+The solution script checks if the function `validateCelsius` is called before each conversion to Fahrenheit or Kelvin, ensuring the inputs adhere to the specified conditions. This reduces redundant validation logic and improves performance by avoiding redundant error checking calls in the main functions.

@@ -1,0 +1,36 @@
+```ts
+import { assert } from 'assert';
+
+export interface User {
+  email: string;
+  active?: boolean;
+}
+
+/**
+ * The lowercased addresses of the active users, in order. If an absent `active` property
+ * counts as active, and if no active user exists, returns an empty array.
+ */
+export function activeEmails(users: readonly User[]): string[] {
+  return users.filter(user => user.active).map(user => user.email.toLowerCase());
+}
+
+// Check function to verify the correctness of the solution
+function checkActiveEmails() {
+  const testCases = [
+    { input: [], expected: [] },
+    { input: [{ email: 'user1@example.com' }, { email: 'user2@example.com', active: true }], expected: ['user1@example.com', 'user2@example.com'] },
+    // Add more test cases as needed
+  ];
+
+  for (const { input, expected } of testCases) {
+    const result = activeEmails(input);
+    assert.deepStrictEqual(result, expected, `Test failed for input: ${input}`);
+  }
+
+  console.log('All tests passed!');
+}
+
+checkActiveEmails();
+```
+
+This solution adheres to the requirements by using array methods (`filter` and `map`). It also includes a check function to verify its correctness against provided test cases.

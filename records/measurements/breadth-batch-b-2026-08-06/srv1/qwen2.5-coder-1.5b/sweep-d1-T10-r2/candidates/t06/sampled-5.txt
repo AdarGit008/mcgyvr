@@ -1,0 +1,56 @@
+```ts
+function parseCsvLine(line: string): string[] {
+  const lineParts = [];
+  let inQuote = false;
+  let currentField = '';
+  let startIndex = -1;
+
+  for (let i = 0; i < line.length; i++) {
+    switch (line[i]) {
+      case '"':
+        if (!inQuote) {
+          inQuote = true;
+          startIndex = i + 1; // Skip the opening quote
+        } else {
+          currentField += `"`; // Escaped double quote
+          inQuote = false;
+        }
+        break;
+      case ',':
+        if (inQuote) {
+          currentField += ','; // Keep escaping commas inside quotes
+        } else {
+          lineParts.push(currentField);
+          currentField = ''; // Reset for the next field
+        }
+        startIndex = -1; // Start new field
+        break;
+      default:
+        if (!inQuote || !(i === line.length - 1)) {
+          currentField += line[i];
+          // Avoid adding empty fields after commas
+          if (lineParts.length > (startIndex + 1) && i > startIndex) {
+            lineParts.push('');
+          }
+        } else {
+          // Add trailing comma for the last field unless it's an empty one
+          if (!currentField || (currentField !== '' ? ',' : '').length === 0) {
+            currentField = '';
+          } else {
+            lineParts.push(currentField);
+            break;
+          }
+        }
+    }
+  }
+
+  lineParts.push(currentField); // Add the last field
+
+  // Check for unclosed quotes
+  if (inQuote) {
+    throw new Error('Unclosed quote');
+  }
+
+  return lineParts;
+}
+```

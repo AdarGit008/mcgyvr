@@ -1,0 +1,28 @@
+```
+import { strict as assert } from "assert";
+function binarySearch(items: readonly number[], target: number): number {
+  let low = 0;
+  let high = items.length - 1;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return -1;
+}
+
+// Test cases
+assert.strictEqual(binarySearch([1, 2, 3, 4, 5], 1), 0);
+assert.strictEqual(binarySearch([1, 2, 3, 4, 5], 5), 4);
+assert.strictEqual(binarySearch([1, 2, 3, 4, 5], -1), -1);
+assert.strictEqual(binarySearch([1, 2, 2, 2, 3], 2), 1);
+assert.strictEqual(binarySearch([1], 1), 0);
+
+console.log("All test cases passed!");
+```

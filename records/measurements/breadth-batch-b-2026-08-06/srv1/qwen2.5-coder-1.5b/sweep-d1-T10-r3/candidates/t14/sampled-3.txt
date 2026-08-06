@@ -1,0 +1,21 @@
+```ts
+export interface User {
+  email: string;
+  active: boolean;
+}
+
+/**
+ * The lowercased addresses of the active users, in order.
+ */
+export function activeEmails(users: readonly User[]): string[] {
+  return users.filter(user => user.active).map(user => user.email.toLowerCase());
+}
+```
+
+This script implements `activeEmails` using array methods—`.filter()` for selection and `.map()` for transformation. It leverages TypeScript's duck typing to ensure the function behaves exactly as required without explicit checks for the presence of keys in object literals.
+
+**Checklist Verification:**
+
+- The function uses `.filter()` to select only active users.
+  - This is a valid implementation when `active` properties do not count as active, which aligns with the problem constraints.
+  - No deep nesting or complex conditional logic is required by the interface.

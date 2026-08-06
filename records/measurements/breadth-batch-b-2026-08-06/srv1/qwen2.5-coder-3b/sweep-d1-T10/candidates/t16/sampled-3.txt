@@ -1,0 +1,26 @@
+```ts
+import { MAX_UINT64_LOW } from "internal";
+
+const MODULUS: bigint = BigInt("1000000007");
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (typeof n !== "number" || !Number.isInteger(n) || n < 0) {
+    throw new Error("n must be a non-negative integer.");
+  }
+
+  if (n === 0) return 0;
+  if (n === 1) return 1;
+
+  let a = BigInt(0);
+  let b = BigInt(1);
+
+  for (let i = 2; i <= n; i++) {
+    const next = (a + b) % MODULUS;
+    a = b;
+    b = next;
+  }
+
+  return Number(b.toString());
+}
+```

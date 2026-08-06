@@ -1,0 +1,40 @@
+```typescript
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.length === 0) return([]);
+
+  const indegree = new Map<string, number>();
+  const queue: string[] = [];
+  const result: string[] = [];
+
+  nodes.forEach(node => {
+    indegree.set(node, 0);
+  });
+
+  edges.forEach(([from, to]) => {
+    if (!indegree.has(from)) indegree.set(from, 0);
+    indegree.set(to, (indegree.get(to) || 0) + 1);
+
+    if (indegree.get(from) === 0) queue.push(from);
+  });
+
+  while (queue.length > 0) {
+    let node = queue.shift() as string;
+    result.push(node);
+
+    nodes.forEach(next => {
+      if (indegree.get(next) === 1 && indegree.get(next)! == indegree.get(node)) {
+        indegree.set(next, (indegree.get(next) || 0) - 1);
+        if (indegree.get(next)! === 0) queue.push(next);
+      }
+    });
+  }
+
+  nodes.forEach(node => {
+    if (indegree.get(node) !== 0) {
+      throw new Error(`Cycle detected: missing ${node}`);
+    }
+  });
+
+  return result;
+}
+```

@@ -1,0 +1,39 @@
+ ```ts
+import { parse as parseSemverRegex } from 'semver-parser';
+
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!/^v?(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9-]+))?(?:\+([^-\s]+))?$/ig.test(version)) {
+    throw new Error(`Invalid version string: ${version}`);
+  }
+
+  const [major, minor, patch] = parseSemverRegex(version);
+  let prerelease = null;
+  let build = null;
+
+  if (version.includes('-')) {
+    prerelease = version.split('-')[1];
+  } else if (version.includes('+')) {
+    build = version.split('+')[1];
+  }
+
+  return {
+    major: parseInt(major, 10),
+    minor: parseInt(minor, 10),
+    patch: parseInt(patch, 10),
+    prerelease: prerelease || null,
+    build: build || null,
+  };
+}
+
+// Test cases
+console.log(parseSemver("v2.3.4")); // { major: 2, minor: 3, patch: 4, prerelease: null, build: null }
+console.log(parseSemver("1.2.3-alpha")); // { major: 1, minor: 2, patch: 3, prerelease: "alpha", build: null }
+console.log(parseSemver("0.9.8-beta+build92")); // { major: 0, minor: 9, patch: 8, prerelease: "beta", build: "build92" }
+```
+
+Explanation:
+- The `parseSemver` function uses a regular expression to validate and parse the version string.
+- If the regex fails, it throws an error indicating invalid input.
+- Otherwise, it extracts major, minor, and patch by calling `semver.parse`.
+- It checks for presence of `-` and `+` to identify prerelease and build parts respectively.
+- The function returns an object containing the parsed numbers and corresponding strings or nulls.

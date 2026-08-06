@@ -1,0 +1,9 @@
+```
+export function removeNegatives(values: readonly number[]): number[] {
+  if (Array.isArray(values) === false || values.length === 0) {
+    throw Error("Input must be a non-empty array.");
+  }
+
+  return values.filter(value => value >= 0);
+}
+```

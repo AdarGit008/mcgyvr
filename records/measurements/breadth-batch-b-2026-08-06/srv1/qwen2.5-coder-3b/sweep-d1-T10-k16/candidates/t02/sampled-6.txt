@@ -1,0 +1,32 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.length === 0) return [];
+
+  // Create a sorted copy of intervals by start time
+  const sortedIntervals = [...intervals].sort((a, b) => a[0] - b[0]);
+
+  let mergedIntervals: number[][][] = [sortedIntervals];
+
+  for (let i = 1; i < sortedIntervals.length; i++) {
+    const currentInterval = sortedIntervals[i];
+    const previousMergedInterval = mergedIntervals[mergedIntervals.length - 1][0];
+
+    // Merge if the current interval starts before or at the end of the last merged interval
+    if (currentInterval[0] <= previousMergedInterval[1]) {
+      // Find the merged range, taking the maximum start and minimum end
+      const newMergedInterval = [
+        Math.min(previousMergedInterval[0], currentInterval[0]),
+        Math.max(previousMergedInterval[1], currentInterval[1]),
+      ];
+      // Replace the last merged interval in the array with the new merged interval
+      mergedIntervals[mergedIntervals.length - 1] = [newMergedInterval];
+    } else {
+      // If not merging, add a fresh new merged interval
+      mergedIntervals.push([currentInterval]);
+    }
+  }
+
+  // Flatten the list of arrays and filter out empty intervals if needed
+  return mergedIntervals.flatMap((merged) => (merged[0] ? merged : []));
+}
+```

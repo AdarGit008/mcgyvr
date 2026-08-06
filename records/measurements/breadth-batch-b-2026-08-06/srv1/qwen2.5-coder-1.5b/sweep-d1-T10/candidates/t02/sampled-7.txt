@@ -1,0 +1,29 @@
+```ts
+function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.some(([start]) => start > end)) {
+    throw new Error('Invalid interval');
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const result: number[][] = [];
+  let currentStart = intervals[0][0];
+  let currentEnd = intervals[0][1];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const nextStart = intervals[i][0];
+    const nextEnd = intervals[i][1];
+
+    if (nextStart > currentEnd) {
+      result.push([currentStart, currentEnd]);
+      [currentStart, currentEnd] = [nextStart, nextEnd];
+    } else if (nextEnd > currentEnd) {
+      currentEnd = nextEnd;
+    }
+  }
+
+  result.push([currentStart, currentEnd]);
+
+  return result;
+}
+```

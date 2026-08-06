@@ -1,0 +1,10 @@
+```ts
+/** The numbers are sorted in ascending order. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (values === null || values === undefined) throw new Error("Invalid input argument. Please provide an array of numbers.");
+  
+  return [...Array.isArray(values) ? values : [values]]
+           .filter(item => typeof item === 'number') // Filter non-number items
+           .sort((a, b) => a - b); // Sort by value
+}
+```

@@ -1,0 +1,24 @@
+```ts
+import { assertEquals } from "assert";
+
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (size < 1) {
+    throw new Error("Chunk size must be a positive integer");
+  }
+
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, Math.min(i + size, items.length)));
+  }
+  return result;
+}
+
+function testChunk() {
+  // Test cases
+  assertEquals(chunk([], 1), []);
+  assertEquals(chunk([1], 2), [[1]]);
+  assertEquals(chunk([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+}
+
+testChunk();
+```

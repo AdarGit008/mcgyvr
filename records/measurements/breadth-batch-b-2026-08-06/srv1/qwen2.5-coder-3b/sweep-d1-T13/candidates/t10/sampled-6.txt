@@ -1,0 +1,24 @@
+```ts
+
+
+function binarySearch(items: readonly number[], target: number): number {
+  let low = 0;
+  let high = items.length - 1;
+
+  while (low <= high) { // Ensure we have at least one-element to compare in the loop
+    const mid = Math.floor((high + low) / 2);
+
+    if (items[mid] === target) {
+      return mid;
+    }
+
+    if (items[mid] < target) {
+      low = mid + 1; // Move the lower bound up to search the right half
+    } else {
+      high = mid - 1; // Move the upper bound down to search the left half
+    }
+  }
+
+  return -1; // Target not found if the loop exits without finding it
+}
+```

@@ -1,0 +1,61 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { value: V; accessTime: number }>;
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  private updateAccessTime(key: K): void {
+    if (this.cache.has(key)) {
+      const entry = this.cache.get(key)!;
+      entry.accessTime = Date.now();
+      this.cache.set(key, entry);
+    }
+  }
+
+  get(key: K): V | undefined {
+    try {
+      if (!this.cache.has(key)) return undefined;
+
+      const entry = this.cache.get(key)!";
+      this.updateAccessTime(key);
+
+      const value = entry.value;
+      this.cache.set(key, entry); // Update access time as we are using it
+      return value;
+    } catch (err) {
+      throw new Error(`Error accessing key ${key}: ${err.message}`);
+    }
+  }
+
+  set(key: K, value: V): void {
+    try {
+      if (!this.cache.has(key)) {
+        // If adding a new item and the cache is at capacity, remove the least recently used
+        if (this.cache.size >= this.capacity) {
+          const entries = [...this.cache.entries()].sort((a, b) => a[1].accessTime - b[1].accessTime);
+          const [evictedKey] = entries.shift()!;
+          this.cache.delete(evictedKey);
+          console.log(`Evicted cache entry for key: ${evictedKey}`);
+        }
+      } else {
+        // If updating an existing item, update the access time
+        this.updateAccessTime(key);
+      }
+
+      this.cache.set(key, { value, accessTime: Date.now() });
+    } catch (err) {
+      throw new Error(`Error setting key ${key}: ${err.message}`);
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```

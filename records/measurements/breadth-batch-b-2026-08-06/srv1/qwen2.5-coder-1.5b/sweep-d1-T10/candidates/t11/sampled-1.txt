@@ -1,0 +1,8 @@
+```ts
+
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (values.some(v => isNaN(v))) throw Error('Invalid number detected');
+  return [...values].sort((a, b) => a - b);
+}
+```

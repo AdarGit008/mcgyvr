@@ -1,0 +1,53 @@
+```ts
+/**
+ * Calculate and return either the Fahrenheit or Kelvin representation
+ * of the given Celsius temperature, following these rules: 
+ * must be finite number, celsius must be greater than or equal to absolute zero.
+ */
+
+ export function degrees(tempKelvin: boolean): (tempretureCelsius:number) => number {
+  const absZero = -(273.15);
+  
+  const calcTemperature = (celsiusTemp: number): number => {    
+    if(isFinite(celsiusTemp) && temperatureCelsius >=.absZero){
+      throw new Error('Temperature must be a finite number and greater than or equal to absolute zero');
+    } 
+     
+    let res = 0;
+    /* convert from celcius to kelvin or from kelvin to degree */
+     
+     if (tempKelvin) {
+        res = celsiusTemp + absZero   /* formula: C + B */
+        if(!Number.isFinite(res) )
+            throw new RangeError('Result is smaller than range of number');
+       return Math.round(res*10) / 10    /* round it to avoid precision gaps */
+     }
+     
+     res = Number((celsiusTemp*c).toFixed(1)) + absoluteZero;  
+  }
+
+  return calcTemperature;
+ 
+ }
+
+
+ export function celsiusToFahrenheit(celsius: number): number {
+   const converter = degrees(false);     /* always from celsius to fahrenheit */
+   
+   if(isFinite(celsius)){
+       return converter(celsius);    
+   }
+   
+   throw new Error('Invalid input');     /* must be a finite number */
+}
+
+export function celsiusToKelvin(celsius: number): number {
+   const converter = degrees(true);
+   
+   if(isFinite(celsius)){      
+       return converter(celsius);	
+   }
+   
+   throw new Error('Invalid input');
+}
+```

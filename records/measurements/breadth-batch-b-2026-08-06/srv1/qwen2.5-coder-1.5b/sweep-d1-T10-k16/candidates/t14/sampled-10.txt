@@ -1,0 +1,7 @@
+```ts
+import { User } from './User'; // Assuming this is a separate file defining the User interface
+
+export function activeEmails(users: readonly User[]): string[] {
+  return users.filter(user => user.active && typeof user.email === 'string').map(user => user.email.toLowerCase());
+}
+```

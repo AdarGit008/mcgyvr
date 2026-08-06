@@ -1,0 +1,37 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    throw new Error("intervals must be non-empty");
+}
+
+/**
+ * Merge a list of intervals into a smaller list of non-overlapping intervals covering the same points.
+ *
+ * @param interval - A list of [start, end] pairs representing the ranges to merge.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (intervals.some(interval => interval[0] > interval[1])) {
+        throw new Error("all intervals must be valid");
+    }
+
+    if (intervals.length === 0) {
+        return [];
+    }
+
+    intervals.sort((a, b) => a[0] - b[0]);
+
+    const merged: number[][] = [intervals[0]];
+
+    for (const currentInterval of intervals.slice(1)) {
+        const lastMergedInterval = merged[merged.length - 1];
+        if (currentInterval[0] <= lastMergedInterval[1]) {
+            // Merge the current interval into the last one
+            merged[merged.length - 1][1] = Math.max(lastMergedInterval[1], currentInterval[1]);
+        } else {
+            // Append the current interval to the list of merged intervals
+            merged.push(currentInterval);
+        }
+    }
+
+    return merged;
+}
+```

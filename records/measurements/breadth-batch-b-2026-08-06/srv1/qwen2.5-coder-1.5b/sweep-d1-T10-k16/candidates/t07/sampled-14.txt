@@ -1,0 +1,24 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error('depth must be a non-negative integer or Infinity');
+  }
+
+  return items.reduce((result, item) => {
+    const itemType = typeof item;
+
+    if (itemType !== 'object' && itemType !== 'string') {
+      result.push(item);
+      return result;
+    }
+
+    const flattenedItems = Array.isArray(item)
+      ? flatten(item as readonly unknown[], depth - 1) as unknown[]
+      : item.map(i => flatten([i], depth).flat());
+
+    result.push(...flattenedItems);
+    return result;
+  }, [] as unknown[]);
+}
+```
+The function `flatten` iterates over the input array using recursion. If the current element is an object, it recursively flattens that object's deeply nested properties into a flat array. If the element is a string (and it is not a value we want to iterate into), it directly appends it to the result. This ensures that only items that are arrays or primitives without substructures are added to the final result list. The function returns an immutable array using spread syntax on the `result` variable, thus adhering to the constraints of not mutating the input.

@@ -1,0 +1,13 @@
+```ts
+/** The factorial of n, throwing an Error for negative or non-integer arguments. */
+
+export function factorial(n: number): number {
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error(\'Only valid integer\' + \'s non-negative integers; got \'{n}\'.\');
+  }
+  if (n === 0) {
+    return 1;
+  }
+  return n * factorial(n - 1);
+}
+```

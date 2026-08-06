@@ -1,0 +1,8 @@
+```
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].sort((a, b) => a - b);
+}
+
+// JSDoc comments are redundant as types are present and descriptions are clear through naming
+```

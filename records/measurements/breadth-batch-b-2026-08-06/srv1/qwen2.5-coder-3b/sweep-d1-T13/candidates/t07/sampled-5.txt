@@ -1,0 +1,57 @@
+```typescript
+type DeepKeyof<T> = {
+  [K in keyof T]: (
+    {} extends Pick<typeof T & { [P in K]+?: never }, never> ? never : []
+  ) | (DeepKeysOf<T[K]>);
+}[keyof typeof T];
+
+function flatArray(
+  arr: unknown[],
+  depth?: number,
+  currentIndexes = [],
+): unknown[] {
+  if (!Number.isInteger(depth) && depth !== Infinity)
+    throw new Error("depth must be a non-negative integer or Infinity");
+
+  return currentIndexes.reduce(whileFlattenArr, [], (acc, current, index) => {
+    const nested = arr[current.index];
+    let newArrIndex = acc[index][current.key] ?? 0;
+    if (!Array.isArray(nested)) newArr = [nested];
+    while(newArr[newArrIndex]?.length < acc[index].maxLength
+        && newArray[newArrIndex][index].key > current.baseKey) {
+      if (depth > maxDepthByPath(item, 0)){...}
+    }
+    break;
+  }, [], depth ?? Infinity);
+}
+
+export function flatten<T extends Record<string, unknown>>(
+  items: readonly unknown[],
+  depth?: number,
+): DeepObjectValues<T> | DeepArray<T> {
+  const maxChildIndex = getMaxPathLength(items, depth) - 1;
+  return flatArr(items.flat(depth!), depth!, {
+    0: new Array(Math.pow(2, maxChildIndex)).fill({ key: "pathToChild", maxValue: Infinity })
+      .reduce((acc, curr, i) => ({ ...acc, [Math.floor(i / 2)]": acc[Math.floor(i / 2)].key + (i % 2 == 0 ? "1" : "") })),
+    // maxDepthByPath(item) is how we would calculate what maxChildIndex will be for this object.
+  });
+}
+
+type IsIterable<T> = T extends Iterable<unknown?> | T[] ? true : false;
+
+function concat(
+  acc: unknown[],
+  ...els: IsIterable<unknown>[] as unknown[]
+): any;
+function concat<T>(this: string[], ...els: number[]): ISliceable<number>;
+function concat<TValue extends number[]>(acc: TValue, ...els: TValue[]): number[];
+function flattenArray(
+  arr: IsIterable<unknown>,
+  depth?: number,
+): readonly unknown[];
+
+function isDeepArray<
+  T extends DeepObjectValues<T> | DeepArray<T>,
+>(obj: unknown): obj is DeepArray<T>;
+// rest of the code follows...
+```

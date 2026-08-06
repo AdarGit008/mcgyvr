@@ -1,0 +1,69 @@
+```typescript
+export class LruCache<K, V> {
+    private size: number;
+    private capacity: number;
+    private cache: Map<K, { value: V; index: number }>;
+    private orderedIndex: Map<V, K>;
+
+    public constructor(capacity: number) {
+        if (typeof capacity !== 'number' || capacity <= 0) {
+            throw new Error('capacity must be a positive integer');
+        }
+
+        this.size = 0;
+        this.capacity = capacity;
+        this.cache = new Map();
+        this.orderedIndex = new Map();
+    }
+
+    /**
+     * Returns the value for the given key if it exists, otherwise undefined.
+     */
+    public get(key: K): V | undefined {
+        const mappedKey = Array.from(this.cache.keys()).indexOf(key);
+        if (mappedKey === -1) return undefined;
+        
+        this.orderedIndex.set(this.cache.get(mappedKey)!['value'], key);
+
+        const entry = this.cache.get(mappedKey)?;
+        this.cache.delete(mappedKey);
+        this.cache.set(key, { value: entry.value, index: mappedKey });
+        
+        return entry.value;
+    }
+
+    /**
+     * Inserts or updates the given key with the given value.
+     */
+    public set(key: K, value: V): void {
+        const mappedKey = Array.from(this.cache.keys()).indexOf(key);
+        if (mappedKey !== -1) {
+            this.orderedIndex.set(value, key);
+            this.cache.get(mappedKey)?.index = mappedKey;
+            delete this.cache.get(mappedKey)!['value'];
+            return;
+        }
+
+        if (this.size === this.capacity) {
+            const lruEntryKey = Array.from(this.cache.keys()).pop() as K;
+            this.orderedIndex.delete(this.cache.get(lruEntryKey)['value']);
+            this.cache.delete(lruEntryKey);
+            this.size--;
+        }
+        
+        this.cache.set(key, { value, index: Array.from(this.cache.keys()).length });
+        if (!this.orderedIndex.has(value)) {
+            this.orderedIndex.set(value, key);
+        }
+
+        this.size++;
+    }
+
+    /**
+     * Returns the number of elements currently in the cache.
+     */
+    public get size(): number {
+        return this.size;
+    }
+}
+```

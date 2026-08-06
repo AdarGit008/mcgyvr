@@ -1,0 +1,11 @@
+```typescript
+/**
+ * Returns the input array sorted in ascending order, preserving numerics.
+ */
+export function sortAscending(values: readonly (number | null)[]): number[] {
+  return [
+    ...(values.filter((v) => typeof v === "number") as (number | null)[],
+      ...values.filter((v) => v === null)
+    ].sort((a, b) => a - b),
+}
+```

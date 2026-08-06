@@ -1,0 +1,29 @@
+```ts
+// TypeScript interface for the EventLog class
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+export class EventLog {
+  #events: Array<Event>;
+
+  constructor() {
+    this.#events = [];
+  }
+
+  record(event: Event): void {
+    if (!event || typeof event.name !== 'string' || !Number.isFinite(event.timestamp)) {
+      throw new Error('Invalid event format');
+    }
+    this.#events.push(event);
+  }
+
+  since(timestamp: number): Array<Event> {
+    if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
+      throw new Error('Invalid timing timestamp');
+    }
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

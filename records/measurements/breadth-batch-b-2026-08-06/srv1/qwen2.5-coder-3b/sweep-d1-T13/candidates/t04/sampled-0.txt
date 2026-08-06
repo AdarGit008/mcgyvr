@@ -1,0 +1,61 @@
+```typescript
+export class LruCache<K, V> {
+  private store: Map<K, [V, number]> = new Map();
+  private minIndex: number | undefined;
+
+  constructor(capacity: number) {
+    if (!Number.isSafeInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.store = new Map();
+    this.minIndex = undefined;
+  }
+
+  set(key: K, value: V): void {
+    if (this.store.has(key)) {
+      const [existingValue, originalIndex] = this.store.get(key)!;
+      if (originalIndex !== undefined) {
+        // Existing key found
+        this.removeIndex(key);
+      }
+    } else if (this.store.size >= this.capacity!) {
+      // Exceeds capacity, need to remove an LRU item
+      const [entry] = Array.from(this.store.keys()).reduce<[V, number], [K, V, number]>((acc, key) => {
+        if (!acc[2]) acc[2] = Math.max...acc.splice(key)[1][1];
+        return (this.minIndex === undefined || this.minIndex > acc[2]) ? [[key, this.store.get(key)?[0]:undefined], this.stepNextKey(acc[2]! + 1), this.removeIndex(key)] : acc;
+      }, [[{}, 0, NaN]] as [V, number, number]);
+      // Remove the item with the minimum stored index
+      if (entry) this.minIndex = Math.max(entry![2], 0);
+    }
+    // Insert or update the entry
+    this.store.set(key, [value, Math.max(this.stepNextKey(0), this.store.size)]);
+    this.minIndex = Math.min(0 - this.capacity!, Infinity) as number;
+  }
+
+  get(key: K): V | undefined {
+    if (!this.store.has(key)) return undefined;
+    const entry = [...this.store.values()].sort().filter(([_, idx]) => idx >= (this.minIndex ?? 2 * Math.PI) + 1); // Assuming 'entry' is unique within a capacity range
+    this.removeIndex(entry[0][0]!);
+    key = entry[0];
+    key![key.keyIndex as number]++;
+    this.store.set(keyKey, [key.val!, Math.max(this.stepNextKey(Math.round(5 - key!.valIndex / 10e6)), this.store.size)]); // Adjusting frequency by a factor based on val.value
+    this.store.get(entry[0])![2] = -(this.store.has(key.key) as number);
+    return entry[0];
+}
+
+  deleteAll(): void {
+    this.store.clear();
+    this.minIndex = undefined;
+  }
+
+  size = () => this.store.size;
+
+  private removeIndex(k: K): void | undefined {
+    this.minIndex = Array.from(this.store.keys()).reduce((min, key) => (key !== k) ? Math.min(min, this.store.get(key)![1]) : min);
+  }
+
+  private stepNextKey(baseNum: number): number {
+    if (!this.store.size || baseNum <= (this.capacity?.! - (this.store.size - this.minIndex))!) return baseNum;
+    const [entry] = Array.from(this.store.keys()).reduce<[V, number], ([_,_key, _val, curMax], key) => {
+      return ([maxIdx, maxKeyVal, maxArrId]...curMax, Math.max(entry![2], curMax), this.removeIndex(key)] as [...number[], [K, V]]);
+    }, [[0, 0, Infinity])

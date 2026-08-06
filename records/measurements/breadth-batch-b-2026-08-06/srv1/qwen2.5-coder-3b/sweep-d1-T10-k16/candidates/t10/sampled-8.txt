@@ -1,0 +1,24 @@
+```
+export function binarySearch(items: readonly number[], target: number): number {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error("Input array must be non-empty");
+  }
+
+  let low = 0;
+  let high = items.length - 1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid; // Return index of the first occurrence
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return -1;
+}
+```

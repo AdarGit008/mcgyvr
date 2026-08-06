@@ -1,0 +1,102 @@
+```ts
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { value: V, timestamp: number }>;
+  private head: { key: K, next: { key: K, prev: any } | null } | null = null;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  get(key: K): V | undefined {
+    const node = this.cache.get(key);
+    if (!node) return undefined;
+
+    // Update the usage timestamp
+    this.renew(key, node.timestamp);
+
+    return node.value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.capacity === 0) return; // No capacity for new entries
+
+    const node = this.cache.get(key);
+    if (node) {
+      // Update the usage timestamp and value
+      node.value = value;
+      this.renew(key, node.timestamp);
+    } else {
+      // Add a new entry or update an existing one
+      const newNode = { key, value };
+      this.cache.set(key, newNode);
+
+      // If the cache is full, evict the least recently used entry
+      if (this.cache.size > this.capacity) {
+        const lruKey = this.head!.key;
+        this.remove(lruKey);
+      }
+
+      // Update the head to point to the new node
+      this.updateHead(newNode);
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private renew(key: K, timestamp: number): void {
+    const node = this.cache.get(key)!;
+    node.timestamp = timestamp;
+
+    // Update the linked list to maintain order
+    if (this.head === null) {
+      this.head = { key, next: null };
+    } else if (this.head.key !== key) {
+      const existingNext = this.head.next!;
+      this.head.next = { key, prev: this.head, next: existingNext };
+    }
+  }
+
+  private updateHead(node: { key: K, value: V }): void {
+    if (this.head === null || node.timestamp > this.head.timestamp) {
+      this.head = node;
+    } else {
+      let current = this.head;
+      while (current.next && current.next.timestamp >= node.timestamp) {
+        current = current.next;
+      }
+      const nextNode = current.next;
+      current.next = node;
+      node.prev = current;
+      if (nextNode !== null) {
+        nextNode.prev = node;
+      } else {
+        this.head!.next = null; // Update tail if necessary
+      }
+    }
+  }
+
+  private remove(key: K): void {
+    const node = this.cache.get(key)!;
+    this.cache.delete(key);
+
+    // Update the linked list
+    if (node === this.head) {
+      this.head = node.next;
+      if (this.head !== null) {
+        this.head.prev = null;
+      }
+    } else if (node.next !== null) {
+      const prevNode = node.prev!;
+      prevNode.next = node.next;
+      node.next!.prev = prevNode;
+    }
+  }
+}
+```

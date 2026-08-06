@@ -1,0 +1,29 @@
+```ts
+export interface Event { name: string; timestamp: number }
+
+/**
+ * An append-only log of timestamped events.
+ */
+export class EventLog {
+  #events = [];
+
+  /** Append one event. */
+  record(event: Event): void {
+    this.#events.push(event);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   * @param timestamp The timestamp from which to start searching for events.
+   * @returns A new instance of EventLog containing only the events that occurred
+   * after the specified timestamp. If there are no events after this timestamp,
+   * an empty EventLog is returned. This method does not mutate the original
+   * EventLog instance.
+   */
+  since(timestamp: number): EventLog {
+    // Filter out events that occur before the given timestamp, return a new EventLog with only those events,
+    const filteredEvents = this.#events.filter((event) => event.timestamp >= timestamp);
+    return new EventLog(filteredEvents);
+  }
+}
+```

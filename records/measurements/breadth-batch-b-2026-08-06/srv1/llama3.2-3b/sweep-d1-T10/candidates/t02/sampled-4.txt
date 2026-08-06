@@ -1,0 +1,97 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    // Throws Error if any interval pair has invalid values
+    for (const [start, end] of intervals) {
+        if (isValidIntervalPair(start, end)) { // defined in a separate module due to language restriction
+            throw new Error("invalid pair given.");
+        }
+    }
+
+    return mergeAndSortIntervals(intervals);
+}
+
+// Function to check the validity of an interval pair
+function isValidIntervalPair(start: number, end: number): boolean {
+    if (isFinite(start) && isFinite(end)) { // since you said: "NaN"
+        return start <= end;
+    }
+    throw new Error("Invalid infinite number given.");
+}
+
+// Merge the intervals and sort them by start value
+function mergeAndSortIntervals(intervals: number[][]): number[][] {
+    const merged: number[][][] = [];
+
+    let currentInterval: number[][] | null = null;
+
+    for (const [start, end] of intervals) {
+
+        if (!currentInterval || isAfterBoundary(start, end)) { // defined in a separate module due to language restriction
+            currentInterval = [[start, end]];
+            continue;
+        }
+
+        const lastElement = currentInterval!.pop()!;
+        lastElement[1] = Math.max(lastElement[1], end);
+
+        if (isAfterBoundary(leftmostNumber(lastElement[0]), rightmostNumber(lastElement[1]))) { // defined in a separate module due to language restriction
+            currentInterval![currentInterval.length - 1] = [leftmostNumber(lastElement[0]), rightmostNumber(lastElement[1])];
+        }
+        else {
+            currentInterval!.push([start, end]);
+        }
+
+    }
+
+    return mergeAndSortArray(currentInterval!);
+}
+
+// Merge overlapping adjacent intervals in the array into a single interval
+function isAfterBoundary(a: number | boolean | null, b: number | boolean | null): (a | false) & boolean {
+    if (isFinite(a) && isFinite(b)) {
+        return (b < Infinity || !isFinite(b)) && !(a >= 0.0001) || a === undefined;
+    }
+}
+
+// Helper methods for working with numbers.
+function leftmostNumber(number: number): number | null {
+    if (!isNaN(number)) {
+        return isNaN(number) ? -Infinity : Math.min(...(Array.isArray(number) ? number : [number]));
+    }
+
+    throw new Error();
+}
+
+function rightmostNumber(number: number): number | null {
+    if (!isNaN(number)) {
+        return isNaN(number) ? Infinity : Math.max(...(Array.isArray(number) ? number : [number]));
+    }
+
+    throw new Error();
+}
+
+// Merge overlapping adjacent intervals in the array into a single interval
+function mergeAndSortArray(array: (number[][] | false)[]): number[][] {
+    if (!array.length) { // throw is already handled by the outer function, but it's still good to return null explicitly, so that some languages handle errors correctly
+        return [];
+    }
+
+    const copyOfSourceArray = [...(Array.isArray(array[0]) ? array : [array]), false];
+
+    array.sort((a1: number[][] | null, a2: number[][] | null) => {
+        if (!a1) {
+            return -1;
+        }
+        else if (a2) {
+
+            return JSON.stringify(a1).localeCompare(JSON.stringify(a2));
+        }
+        else {
+            return 0;
+        }
+    });
+ 
+    while (copyOfSourceArray.length > 1) {
+       
+       const lastElement = copyOfSourceArray.pop()!;
+       const lastLastElement = copyOfSourceArray[copy

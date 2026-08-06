@@ -1,0 +1,51 @@
+```ts
+/**
+ * Returns an ordering satisfying every edge in the given edges, while keeping nodes in their input order.
+ * When several orderings are valid, always takes the earliest node among those currently free of unmet dependencies.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+  const adjacencyList = new Map<string, Set<string>>();
+  for (const [from, to] of edges) {
+    if (!adjacencyList.has(from)) {
+      throw new Error(`Node '${from}' not found in nodes`);
+    }
+    if (!adjacencyList.has(to)) {
+      throw new Error(`Node '${to}' not found in nodes`);
+    }
+    adjacencyList.get(from)?.add(to);
+  }
+
+  const visited = new Set<string>();
+  const currentPath = new Set<string>();
+
+  function visit(node: string): boolean {
+    if (currentPath.has(node)) {
+      return false;
+    }
+    if (visited.has(node)) {
+      return true;
+    }
+    currentPath.add(node);
+    for (const neighbor of adjacencyList.get(node) || []) {
+      if (!visit(neighbor)) {
+        return false;
+      }
+    }
+    visited.add(node);
+    currentPath.delete(node);
+    return true;
+  }
+
+  const order: string[] = [];
+  for (const node of nodes) {
+    if (!visited.has(node)) {
+      if (!visit(node)) {
+        throw new Error('Cycle detected');
+      }
+    }
+    order.push(node);
+  }
+
+  return order;
+}
+```

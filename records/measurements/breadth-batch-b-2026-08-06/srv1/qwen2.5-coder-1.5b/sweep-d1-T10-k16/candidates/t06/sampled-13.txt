@@ -1,0 +1,16 @@
+```tsx
+export function parseCsvLine(line: string): string[] {
+  if (!line) return [];
+  const elements = line.match(/[^",]+|"(?:\\.|[^"])*"/g) || [];
+
+  for (let i = 0; i < elements.length; ++i) {
+    let elem = elements[i];
+    while (/"/.test(elem)) {
+      if (!elem.endsWith('"')) throw new Error('Unmatched quote');
+      elem = elem.slice(1, -1);
+    }
+  }
+
+  return elements.map((elem) => elem.trim()); // Remove surrounding spaces
+}
+```

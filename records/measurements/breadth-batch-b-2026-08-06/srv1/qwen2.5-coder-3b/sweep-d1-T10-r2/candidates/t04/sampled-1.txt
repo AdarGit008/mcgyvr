@@ -1,0 +1,54 @@
+```ts
+export class LruCache<K, V> {
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || !Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.cache = [];
+  }
+
+  private getIndexByKey(key: K): number {
+    const index = this.cache.findIndex(entry => entry.key === key);
+    return index !== -1 ? index : undefined;
+  }
+
+  get(key: K): V | undefined {
+    const index = this.getIndexByKey(key);
+    if (index !== undefined) {
+      this.addToUsed(index);
+      return this.cache[index].value;
+    }
+    return undefined;
+  }
+
+  private addToUsed(index: number) {
+    const [entry] = this.cache.splice(index, 1);
+    this.cache.push(entry);
+  }
+
+  set(key: K, value: V): void {
+    const index = this.getIndexByKey(key);
+    if (index !== undefined) {
+      this.removeFromCache(index);
+    }
+    this.cache.unshift({ key, value });
+    while (this.cache.length > this.capacity) {
+      this.removeFromCache(this.cache.length - 1);
+    }
+  }
+
+  private removeFromCache(index: number) {
+    this.cache.splice(index, 1);
+  }
+
+  get size(): number {
+    return this.cache.length;
+  }
+}
+
+interface LruCacheEntry<K, V> {
+  key: K;
+  value: V;
+}
+```

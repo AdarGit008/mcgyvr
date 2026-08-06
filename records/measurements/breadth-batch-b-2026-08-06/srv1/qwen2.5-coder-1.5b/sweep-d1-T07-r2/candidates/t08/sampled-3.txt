@@ -1,0 +1,62 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges) throw new Error('Input cannot be null or undefined');
+
+  const graph = new Map<string, Set<string>>(nodes.map(node => ([node, new Set<string>()])));
+
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) throw new Error(`Node '${from}' not found`);
+    if (!graph.has(to)) throw new Error(`Node '${to}' not found`);
+
+    graph.get(from)?.add(to);
+  }
+
+  const order: string[] = [];
+
+  function visit(node: string): void {
+    if (order.includes(node)) return;
+    if (graph.has(node) && graph.get(node).size > 0) {
+      for (const neighbor of graph.get(node)) {
+        visit(neighbor);
+      }
+    }
+    order.push(node);
+  }
+
+  const freeNodes = nodes.filter(node => !edges.some(edge => edge.includes(node)));
+
+  for (const node of freeNodes) {
+    visit(node);
+  }
+
+  if (order.length !== nodes.length) throw new Error('Cycle detected');
+
+  return order;
+}
+
+// Test cases to verify the correctness of the implementation
+assert.deepEqual(topologicalSort([], []), []);
+assert.deepEqual(topologicalSort(['a', 'b', 'c'], [['b', 'c']]), ['b', 'c', 'a']);
+assert.deepEqual(topologicalSort(['a', 'b', 'c'], [['b', 'a']]), ['a', 'b', 'c']);
+assert.deepEqual(topologicalSort(['a', 'b', 'c'], [['b', 'd'], ['c', 'd']]), ['b', 'c', 'd', 'a']);
+
+try {
+  topologicalSort([], [[1, 2]]);
+} catch (error) {
+  assert(error instanceof Error);
+}
+
+try {
+  topologicalSort(['a', 'b', 'c'], [['b', 'c'], ['a', 'b']]);
+} catch (error) {
+  assert(error instanceof Error);
+}
+
+try {
+  topologicalSort(['a', 'b', 'c'], [['a', 'd'], ['d', 'e']]);
+} catch (error) {
+  assert(error instanceof Error);
+}
+```

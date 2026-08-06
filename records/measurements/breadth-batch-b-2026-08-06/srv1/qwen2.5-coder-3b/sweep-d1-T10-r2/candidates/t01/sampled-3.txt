@@ -1,0 +1,28 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error("Input must be a string.");
+  }
+
+  // Helper function to encode a single character's run
+  const encodeRun = (char: string): string => {
+    let count = 1;
+    while (i < input.length && input[i] === char) {
+      count++;
+      i++;
+    }
+    return `${char}${count}`;
+  };
+
+  let result: string[] = [];
+  for (let i = 0; i < input.length; i++) {
+    // If it's the start of a new run
+    if (!(i > 0 && input[i] === input[i - 1])) {
+      const encodedRun = encodeRun(input[i]);
+      result.push(...encodedRun);
+    }
+  }
+
+  return result.join('');
+}
+```

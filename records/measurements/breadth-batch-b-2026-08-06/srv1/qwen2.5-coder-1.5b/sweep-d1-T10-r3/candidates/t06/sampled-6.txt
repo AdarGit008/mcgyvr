@@ -1,0 +1,45 @@
+```ts
+function parseCsvLine(line: string): string[] {
+  const lines = line.split('\n');
+  let currentIndex = 0;
+
+  return lines.reduce((acc: string[], line) => {
+    if (currentIndex >= lines.length) break;
+    const fields = [];
+    let currentField StartsAt = -1;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      switch (char) {
+        case '"':
+          startsAt = line.indexOf('"', i + 1);
+          if (startsAt === -1) throw new Error('Quote was never closed');
+          let innerField;
+          for (let j = i + 2; true; j++) {
+            if (j === line.length || line[j] !== '"') break;
+            if (j === endsAt) {
+              endField = lines[currentIndex];
+              break;
+            }
+            innerField += ',';
+            i++;
+          }
+          fields.push(innerField);
+          currentIndex++;
+          breaks
+        case ',':
+          if (startsAt === -1) fields.push(line.substring(currentIndex, i));
+         currentIndex = i + 1;
+          break;
+        default:
+          continue;
+      }
+    }
+
+    acc.push(fields.join(','));
+    currentIndex++;
+
+    return acc;
+  }, []);
+}
+```

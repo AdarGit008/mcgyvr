@@ -1,0 +1,44 @@
+```ts
+// topologicalSort.ts
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.length === 0) return [];
+
+  const inDegree = new Map<string, number>();
+  const graph = new Map<string, Set<string>>();
+
+  for (const node of nodes) {
+    inDegree.set(node, 0);
+    graph.set(node, new Set());
+  }
+
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) throw new Error(`Node ${from} not found`);
+    if (!graph.has(to)) throw new Error(`Node ${to} not found`);
+
+    graph.get(from)?.add(to);
+    inDegree.set(to, inDegree.get(to)! + 1);
+  }
+
+  const freeNodes = nodes.filter(node => inDegree.get(node) === 0);
+
+  for (const node of freeNodes) {
+    dfs(node);
+  }
+
+  if (freeNodes.length !== nodes.length) throw new Error("Cycle detected");
+
+  return result;
+
+  function dfs(current: string): void {
+    result.push(current);
+    const neighbors = graph.get(current)!;
+    neighbors.forEach(neighbor => {
+      inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+      if (inDegree.get(neighbor) === 0) dfs(neighbor);
+    });
+  }
+
+  let result: string[] = [];
+}
+```

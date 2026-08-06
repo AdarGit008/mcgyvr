@@ -1,0 +1,28 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== "string") {
+    throw new Error("Argument must be a string");
+  }
+
+  if (input.length === 0) return ""; // Handle empty string
+
+  let encoded = "";
+  let count = 1;
+  for (let i = 1; i <= input.length; i++) {
+    const currentChar = input[i];
+    const previousChar = input[i - 1];
+
+    if (currentChar !== previousChar || i === input.length) {
+      if (count > 9) { // Edge case: handle runs longer than nine characters
+        throw new Error("Expected encoding of a run longer than nine characters is not stated.");
+      }
+      encoded += previousChar + count.toString();
+      count = 1;
+    } else {
+      count++;
+    }
+  }
+
+  return encoded;
+}
+```

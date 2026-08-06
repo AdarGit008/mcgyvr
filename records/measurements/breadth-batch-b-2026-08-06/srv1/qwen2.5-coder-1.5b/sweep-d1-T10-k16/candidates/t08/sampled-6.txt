@@ -1,0 +1,40 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes === null || nodes.some(node => typeof node !== 'string')) throw new Error('Nodes must be strings');
+  if (edges === null || edges.some(edge => !Array.isArray(edge) || edge.length !== 2)) throw new Error('Edges must be arrays of two elements');
+  const graph = new Map<string, string[]>();
+
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) graph.set(from, []);
+    graph.get(from)!.push(to);
+  }
+
+  const order: string[] = [];
+  const freeNodes: string[] = [];
+
+  for (const node of nodes) {
+    if (!graph.has(node)) freeNodes.push(node);
+  }
+
+  function dfs(node: string): void {
+    if (freeNodes.includes(node)) freeNodes.splice(freeNodes.indexOf(node), 1);
+
+    if (!Graph.has(node)) return;
+
+    const neighbors = graph.get(node)!;
+    for (const neighbor of neighbors) {
+      if (!freeNodes.includes(neighbor)) dfs(neighbor);
+    }
+
+    order.push(node);
+  }
+
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    dfs(node);
+  }
+
+  if (order.length !== nodes.length) throw new Error('Cycle detected');
+  return order;
+}
+```

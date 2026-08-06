@@ -1,0 +1,13 @@
+```ts
+import { clamp } from "lodash";
+
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  const validLimit = Math.abs(clamp(limit, 3));
+  if (text.length <= validLimit) return text;
+
+  return `${text.slice(0, validLimit - 4)}...`;
+}
+```
+
+Note: This solution uses `lodash` for clamping the limit and handle potential negative input values. The ellipsis is counted towards the specified length.

@@ -1,0 +1,27 @@
+```typescript
+
+interface ChunkParameters<T> {
+  items: readonly T[];
+  size: number;
+}
+
+function chunk<T>(params: ChunkParameters<T>): T[][] {
+  const { items, size } = params;
+
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error("size must be a positive integer");
+  }
+
+  return items.reduce((chunks, item) => {
+    const lastChunkIndex = chunks.length - 1;
+    if (!chunks[lastChunkIndex] || chunks[lastChunkIndex].length < size) {
+      chunks.push([item]);
+    } else {
+      chunks[lastChunkIndex].push(item);
+    }
+    return chunks;
+  }, [] as T[][]);
+}
+
+export default chunk;
+```

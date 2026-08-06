@@ -311,3 +311,44 @@ def test_variant_tiers_are_not_rungs_of_the_ladder() -> None:
     assert "d1r" not in breadth.TIERS
     assert "d1r" in breadth.VARIANT_TIERS
     assert breadth.load_tier_tasks("d1r")[0].id == "t20"
+
+
+def _selectivity() -> types.ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "breadth_selectivity", REPO / "tools" / "breadth" / "selectivity.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_thinning_drops_assertions_and_never_the_setup() -> None:
+    """A thin checker must still be a runnable file, or it measures nothing.
+
+    Dropping a fixture along with the assertions would make the weak arm fail
+    for a reason that has nothing to do with how much the checker can see.
+    """
+    selectivity = _selectivity()
+    for task in breadth.bundle.load_tasks():
+        source = task.accept.read_text(encoding="utf-8")
+        total = selectivity.count_assertions(source)
+        assert total > 0, f"{task.id} declares no assertion to thin"
+        assert selectivity.thin(source, total) == source
+        for keep in (1, max(1, total // 2), total):
+            thinned = selectivity.thin(source, keep)
+            assert selectivity.count_assertions(thinned) == keep
+            assert "import assert" in thinned
+            assert f'from "./{breadth.bundle.SOLUTION}"' in thinned
+            assert thinned.count("\n") <= source.count("\n")
+
+
+def test_thinning_keeps_the_authors_order() -> None:
+    """Strength s keeps the FIRST s assertions: early cases, not a sample."""
+    selectivity = _selectivity()
+    task = breadth.bundle.load_tasks(["t20"])[0]
+    source = task.accept.read_text(encoding="utf-8")
+    one = selectivity.thin(source, 1)
+    assert "first pair" in one
+    assert "__proto__ must be stored" not in one

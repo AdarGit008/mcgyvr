@@ -1,0 +1,35 @@
+```ts
+
+
+export type Result = string | number[];
+
+export function factorial(n: number): Result {
+  let result = 1;
+  if (n <= 1) { // Fixed base case so factorial(0) is 1
+    return result === 0 ? 'invalid' : result; // Return 'invalid' if n is zero or non-integer
+  }
+  
+  for (let i = 2; i <= n; i++) {
+    try {
+      const resultToAdd: number = sumOfNaturalNumbers(i); // Recursive call to calculate the sum of natural numbers
+      result += resultToAdd;
+    } catch (error) {
+      throw new Error('Invalid input'); // Throw an error on non-integer argument
+    }
+  }
+
+  return result; // Result is the product of all natural numbers up to and including n
+}
+
+// Helper function to calculate the sum of natural numbers
+function sumOfNaturalNumbers(n: number): number {
+  let sum = 0;
+  for (let i = 1; i <= n; i++) {
+    if (i % 2 !== 0) { // Check if the number is odd, as only odd numbers contribute to the sum
+      sum += i;
+    }
+  }
+
+  return sum;
+}
+```

@@ -1,0 +1,54 @@
+```ts
+import { uniq } from 'lodash';
+
+function topologicalSort(nodes: readonly string[], edges:readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges) throw new Error('Input cannot be empty');
+  if (nodes.length !== edges.length + 1) throw new Error(`Exactly one more node required for each edge`);
+  if (new Set(nodes).size < nodes.length) throw new Error('Each node name must be unique');
+
+  const in Degrees = {} as { [key: string]: number };
+  const queue = [] as string[];
+
+  for (const node of edges.flat(1)) {
+    if (!inDegrees[node]) {
+      inDegrees[node] = 0;
+    }
+    inDegrees[edges.flatMap(x => x.includes(node) ? x : [])?.reduce((a, v) => a + v, 0)!]++;
+  }
+
+  for (const node of nodes) {
+    if (!inDegrees[node]) {
+      queue.push(node);
+    }
+  }
+
+  const sorted = [] as string[];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    sorted.push(current);
+
+    edges.forEach(([from, to]) => {
+      inDegrees[to]--;
+      if (!inDegrees[to] && !sorted.includes(to)) {
+        queue.push(to);
+      }
+    });
+  }
+
+  if (edges.some(edge => inDegrees[edge[0]] || inDegrees[edge[1]])) {
+    for (const node of nodes) {
+      const hasDependents = edges.filter(e => e.every(x => x === node)).length > 1;
+      if (hasDependents) {
+        throw new Error(`Cycle detected: ${sorted.join(', ')}`);
+      }
+    }
+  }
+
+  return sorted;
+}
+
+// EXAMPLE TEST
+console.log(topologicalSort(["A", "B", "C", "D"], [["B", "A"], ["C", "B"], ["D", "C"]]));
+// OUTPUT: ['A', 'B', 'C', 'D']
+```

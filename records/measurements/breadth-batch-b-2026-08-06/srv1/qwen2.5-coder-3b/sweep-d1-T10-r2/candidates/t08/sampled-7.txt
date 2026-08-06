@@ -1,0 +1,40 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = buildGraph(nodes, edges);
+  const visited = new Set<string>();
+  const result: string[] = [];
+  
+  for (const node of nodes) {
+    if (!visited.has(node)) {
+      dfs(graph, node, visited, result);
+    }
+  }
+
+  return result;
+}
+
+function buildGraph(nodes: readonly string[], edges: readonly (readonly [string, string])[]): {[key: string]: string[]} {
+  const graph: {[key: string]: string[]} = {};
+  for (const node of nodes) {
+    graph[node] = [];
+  }
+  for (const [from, to] of edges) {
+    if (!graph[from].includes(to)) {
+      graph[from].push(to);
+    } else {
+      throw new Error(`Duplicate edge from ${from} to ${to}`);
+    }
+  }
+  return graph;
+}
+
+function dfs(graph: {[key: string]: string[]}, node: string, visited: Set<string>, result: string[]): void {
+  if (!visited.has(node)) {
+    visited.add(node);
+    for (const neighbor of graph[node]) {
+      dfs(graph, neighbor, visited, result);
+    }
+    result.push(node);
+  }
+}
+```

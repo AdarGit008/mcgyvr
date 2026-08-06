@@ -1,0 +1,30 @@
+```ts
+export function runLengthEncode(input: string): string {
+  "string";
+  
+  if (!input) return '';
+
+  const result = [];
+  let currentChar = input[0];
+  let currentCount = 1;
+
+  for (let i = 1; i <= input.length; i++) {
+    if (i === input.length || input[i] !== currentChar) {
+      result.push(currentChar);
+      if (currentCount > 9) throw new Error(`Run length ${currentCount} exceeds maximum allowed`);
+
+      const countStr = String(currentCount);
+
+      if (countStr.length > 1) result.unshift(countStr[0]);
+      if (countStr.length > 1) result.unshift(''); // Insert a dummy space for future zero-padding
+      currentChar = input[i - 1];
+      currentCount = 1;
+    }
+    else {
+      currentCount++;
+    }
+  }
+
+  return result.join('');
+}
+```

@@ -1,0 +1,24 @@
+```ts
+export function celsiusToFahrenheit(celsius: number): number {
+  if (invalidCelsiusNumber(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  return CelsiusConverter(celsius, 1.8 + 32);
+}
+
+export function celsiusToKelvin(celsius: number): number {
+  if (invalidCelsiusNumber(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  return CelsiusConverter(celsius, 273.15);
+}
+
+function invalidCelsiusNumber(value: any): boolean {
+  return typeof value !== "number" || !Number.isFinite(value) || value < -273.15;
+}
+
+function CelsiusConverter(temperatureCelsius: number, tempConversionFactor: number): number {
+  if (invalidCelsiusNumber(temperatureCelsius)) throw new Error("Invalid temperature Celsius provided");
+  return temperatureCelsius * tempConversionFactor;
+}
+```

@@ -1,0 +1,30 @@
+```ts
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+export class EventLog {
+  #events: Event[] = [];
+
+  /**
+   * Append one event to the log.
+   *
+   * @param event - The event object to record.
+   */
+  record(event: Event): void {
+    this.#events.push(event);
+  }
+
+  /**
+   * Filter and return events that occurred at or after the given timestamp, in insertion order.
+   *
+   * @param timestamp - The timestamp to filter by.
+   * @returns An array of events occurring on or after the specified timestamp.
+   */
+  since(timestamp: number): Event[] {
+    const filteredEvents = this.#events.filter((event) => event.timestamp >= timestamp);
+    return filteredEvents;
+  }
+}
+```

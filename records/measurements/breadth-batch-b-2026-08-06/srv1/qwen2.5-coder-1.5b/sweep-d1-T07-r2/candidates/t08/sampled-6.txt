@@ -1,0 +1,40 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (edges.some(([from, to]) => nodes.indexOf(from) === -1 || nodes.indexOf(to) === -1)) {
+        throw new Error(`Attempted to use a node not in the set of nodes.`);
+    }
+
+    const indegree = new Map(nodes.map(node => [node, 0]));
+    edges.forEach(([from, to]) => {
+        indegree.set(to, indegree.get(to)! + 1);
+    });
+
+    const sorted: string[] = [];
+    const queue: string[] = [];
+
+    nodes.forEach(node => {
+        if (indegree.get(node) === 0) {
+            queue.push(node);
+        }
+    });
+
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        sorted.push(current);
+
+        edges.filter(edge => edge[1] === current)
+              .forEach(edge => {
+                  indegree.set(edge[0], indegree.get(edge[0])! - 1);
+                  if (indegree.get(edge[0]) === 0) {
+                      queue.push(edge[0]);
+                  }
+              });
+    }
+
+    if (sorted.length !== nodes.length) {
+        throw new Error(`Cycle detected in the graph.`);
+    }
+
+    return sorted;
+}
+```

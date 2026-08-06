@@ -1,0 +1,29 @@
+```ts
+/**
+ * Returns a new array with nested arrays flattened up to depth levels,
+ * defaulting to every level. A string is a value, never something to iterate into,
+ * no matter how deep it appears. A depth of 0 returns a copy of the input unchanged.
+ * The input must not be mutated. Throws an Error unless depth is a non-negative integer or Infinity.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (typeof depth !== 'number' || depth < 0) {
+        throw new Error('Depth must be a non-negative integer or Infinity');
+    }
+
+    const result = [];
+
+    for (const item of items) {
+        if (Array.isArray(item)) {
+            if (depth > 1) {
+                result.push(...flatten(item, depth - 1));
+            } else {
+                result.push(item);
+            }
+        } else {
+            result.push(item);
+        }
+    }
+
+    return result;
+}
+```

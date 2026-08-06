@@ -1,0 +1,52 @@
+```typescript
+/**
+ * Returns a topological ordering of nodes satisfying all edges.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    const graph = new Map<string, Set<string>>();
+    for (const node of nodes) {
+        graph.set(node, new Set());
+    }
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) {
+            throw new Error(`Node '${from}' is not in the input set.`);
+        }
+        if (!graph.has(to)) {
+            throw new Error(`Node '${to}' is not in the input set.`);
+        }
+        graph.get(from)!.add(to);
+    }
+
+    const visited = new Set<string>();
+    const ordering: string[] = [];
+    for (const node of nodes) {
+        if (!visited.has(node)) {
+            visit(graph, node, visited, ordering, new Set());
+        }
+    }
+
+    return ordering;
+}
+
+function visit(
+    graph: Map<string, Set<string>>,
+    node: string,
+    visited: Set<string>,
+    ordering: string[],
+    currentPath: Set<string>
+) {
+    if (currentPath.has(node)) {
+        throw new Error(`Cycle detected in the input edges.`);
+    }
+    if (visited.has(node)) {
+        return;
+    }
+
+    visited.add(node);
+    for (const neighbor of graph.get(node)!.values()) {
+        visit(graph, neighbor, visited, ordering, currentPath);
+    }
+    currentPath.add(node);
+    ordering.push(node);
+}
+```

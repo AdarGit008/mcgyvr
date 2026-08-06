@@ -1,0 +1,37 @@
+```ts
+export function parseSemver(version: string): Record<string, number | null> {
+  console.log(`Parsing version: ${version}`);
+
+  // Handle "v" prefix
+  if (version.charAt(0) === 'v') {
+    version = version.slice(1);
+  }
+
+  const patterns = [
+    /^(?:([+-])([a-z]+(?:[0-9]+(?:_[abcABCDE]?)?))?)(?:-(...)\+([\dA-z_-]\S*)|(?:\.+)?$/,
+    /^(?:(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(_? prerelease [0-9a-z]+[_zABCDE]?))?((_?: presubprerelease [0-1e-9]+\(? [\d+]?\))?([\+\-.])+(\d[\w\.\_\.-]*)?$/,
+    /^(?:(?(?:^v)[a-z0-9]+_\S*?))|(?:(([+-])([a-z]\d*+[_-][abcABCDE]?))+(_? prerelease [0-9a-z]+[_zABCDE]?))?((_?: presubprerelease [0-1e-9]+\ (? [\d+]?\))-?$/,
+    /^(?<major>\d+)\.(?<minor>\d+)(_?(presub)([a-z])\d*)(_:? prerelease [0-9a-z]+[_zABCDE]?))/,
+    /^(?:[a-z][\w\.]*-.*?-[\+\.]+|\[.\]))(?:-(.+|\[[a-z\(\)\+\.]*,\[[\w\d_~!@#$%^&*()-]?,]+\]\))+(\+\+([\d]+|v[\d._]|(\+.+\d|[^\+0-9])\+?\.)[^+1aA-z])/$/
+  ];
+
+  for (const pattern of patterns) {
+    const re exec = version.match(pattern);
+    if (exec !== null && !Array.isArray(exec)) {
+      try {
+        // Use the regex groups to destructure them
+        return exec.reduce((data: Record<string, number | null>, param) => {
+          if (!param.value) data[param.groups[param.name]] = null;
+          else data[param.name] = parseInt(param.value);
+          return data;
+        }, {});
+      } catch (e) {
+        console.error(e.message || 'Error while parsing version');
+      }
+    }
+  }
+
+  // If no patterns match, throw an error for invalid inputs
+ 	throw new Error('Invalid version number: ' + version);
+}
+```

@@ -1,0 +1,6 @@
+```ts
+
+function removeNegatives(values: readonly number[]): number[] {
+  return values.filter(val => val >= 0);
+}
+```

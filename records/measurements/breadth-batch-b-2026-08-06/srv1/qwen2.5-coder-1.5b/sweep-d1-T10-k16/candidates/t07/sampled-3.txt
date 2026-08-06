@@ -1,0 +1,23 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (typeof depth !== 'number' || depth < 0) {
+        throw Error("Depth must be a non-negative integer or Infinity.");
+    }
+
+    const result: unknown[] = [];
+
+    for (const item of items) {
+        if (Array.isArray(item)) {
+            if (depth === 1) {
+                result.push(...item);
+            } else {
+                result.push(...flatten(item, depth - 1));
+            }
+        } else {
+            result.push(item);
+        }
+    }
+
+    return result;
+}
+```

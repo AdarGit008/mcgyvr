@@ -1,0 +1,55 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges) throw new Error("Input cannot be null or undefined");
+
+  const adjacencyList = new Map<string, Set<string>>();
+  const inDegreeMap = new Map<string, number>();
+
+  // Build the adjacency list and calculate in-degrees
+  for (const edge of edges) {
+    if (!nodes.includes(edge[0]) || !nodes.includes(edge[1])) {
+      throw new Error(`Edge ${edge} refers to a node not in nodes`);
+    }
+
+    const from = edge[0];
+    const to = edge[1];
+
+    adjacencyList.set(from, (adjacencyList.get(from) || new Set<string>()).add(to));
+    inDegreeMap.set(to, (inDegreeMap.get(to) || 0) + 1);
+  }
+
+  // Find all nodes with zero in-degree
+  const freeNodes: string[] = [];
+  for (const [node] of adjacencyList.entries()) {
+    if (!inDegreeMap.has(node)) {
+      freeNodes.push(node);
+    }
+  }
+
+  const result: string[] = [];
+
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    result.push(node);
+
+    // Decrease the in-degree of all neighbors
+    if (adjacencyList.has(node)) {
+      for (const neighbor of adjacencyList.get(node) || new Set<string>()) {
+        inDegreeMap.set(neighbor, inDegreeMap.get(neighbor)! - 1);
+        if (inDegreeMap.get(neighbor)! === 0) {
+          freeNodes.push(neighbor);
+        }
+      }
+    } else {
+      throw new Error("Cycle detected in the graph");
+    }
+  }
+
+  // Check if all nodes were processed
+  if (result.length !== nodes.length) {
+    throw new Error("Cycle detected in the graph");
+  }
+
+  return result;
+}
+```

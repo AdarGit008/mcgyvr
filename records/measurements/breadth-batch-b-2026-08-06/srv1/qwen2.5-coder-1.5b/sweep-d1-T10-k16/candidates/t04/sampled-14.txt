@@ -1,0 +1,69 @@
+```ts
+import { assertEquals } from 'assert';
+
+export interface LruCache<K, V> {
+    constructor(capacity: number): void;
+    get(key: K): V | undefined;
+    set(key: K, value: V): void;
+    size(): number;
+}
+
+export class LruCache<K, V> implements LruCache<K, V> {
+    private cache: Map<K, V> = new Map();
+    private capacity: number;
+    private useCount: Record<K, number> = {};
+
+    constructor(capacity: number) {
+        if (!Number.isInteger(capacity) || capacity <= 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+        this.capacity = capacity;
+        this.useCount = {};
+    }
+
+    get(key: K): V | undefined {
+        let value = this.cache.get(key);
+        if (value === undefined) return;
+
+        if (this.useCount[key] >= 0) {
+            delete this.useCount[key];
+        } else {
+            throw new Error('Key has been evicted');
+        }
+
+        this.useCount[key] = this.useCount[key] >= this.capacity ? this.capacity - 1 : 0;
+        return value;
+    }
+
+    set(key: K, value: V): void {
+        if (this.cache.has(key)) {
+            delete this.useCount[key];
+        }
+
+        if (this.useCount[key] !== undefined) {
+            delete this.useCount[key];
+        } else {
+            throw new Error('Key has been evicted');
+        }
+
+        if (this.cache.size === this.capacity) {
+            const oldestKey = [...this.cache.keys()][0];
+            this.cache.delete(oldestkey);
+            delete this.useCount[oldestKey];
+        }
+
+        this.cache.set(key, value);
+        this.useCount[key] = 0;
+    }
+
+    size(): number {
+        return this.cache.size;
+    }
+}
+
+// Test cases
+console.log(new LruCache(3).size()); // Output: 0
+
+new LruCache(3) as LruCache<'key', string>;
+new LruCache(-1); // Throws Error
+```

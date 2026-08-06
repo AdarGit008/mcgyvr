@@ -1,0 +1,14 @@
+```ts
+/**
+ * A divided by b. Throws an Error if the divisor is zero (including -0) or if either argument is not a finite number.
+ * @param {number} a The numerator.
+ * @param {number} b The denominator.
+ * @returns {number} The result of the division, rounded to 2 decimal places.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (b === 0 || !Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error('Invalid input: both arguments must be finite numbers and non-zero.');
+  }
+  return parseFloat((a / b).toFixed(2));
+}
+```

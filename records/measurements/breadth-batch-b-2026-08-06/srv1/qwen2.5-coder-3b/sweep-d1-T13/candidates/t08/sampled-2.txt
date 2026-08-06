@@ -1,0 +1,80 @@
+```ts
+import _ from 'lodash'; // assuming lodash for memoization
+
+type Graph = Set<string>[]; // Array of Sets where each set contains nodes depending on the current node
+
+class TopologicalSorter {
+    private graph: Graph;
+    private nodesQueue: string[];
+    private visiting: number[];
+
+    constructor() {
+        this.graph = [];
+        this.nodesQueue = [];
+        this.visiting = [];
+    }
+
+    private dfsWithMemo(node: string): number | null {
+        // Memoization to prevent stack overflow for cycles
+        if (this.visiting.indexOf(this.graph.indexOf(node)) !== -1) {
+            return null; // detect cycle
+        }
+        if (this.nodesQueue.indexOf(node) !== -1) {
+            this.visiting.push(node); // node already in queue due to different path
+            const memo = _.memoize((n: string): number => this.dfsWithMemo(n));
+            const index = memo(node);
+            memo.purgeCache(); // Clear cache for subsequent dfs
+            return index;
+        }
+        this.graph[this.graph.length].add(node); // Add node at the end for first use
+
+        try {
+            _.sortBy(this.graph[this.graph.indexOf(node)]);
+        } catch (error) {
+            throw new Error('Attempted to add nodes in the wrong order');
+        }
+
+        const lastDependency = _.last(node?.split('.').join('').substring(0, -2)) ?? null; // assuming multi-level dependencies
+        const dep = last_dependency ? this.dfsWithMemo(lastDependency) : 0;
+
+        // Push dependency as soon as node has resolved all its immediate dependencies
+        deps && deps.length > 0
+            ? _.forEach(deps, childDeps =>
+                this.getSortedDeps().push(this.graph[this.graph.indexOf(childDeps)])
+            )
+            : _.sortBy(this.nodesQueue.push(node) - 1);
+
+        return dep || node.charCodeAt(0); // Return char code for ordering nodes as input.
+    }
+
+    private getSortedDeps() {
+        const map = this.graph.map((n, i) => [this.graph.map(() => n).indexOf(n), n]);
+       (_.sortBy(map)[0][0] instanceof Number) && this.nodesQueue.push(...map);
+
+        return map.map(f => f[1]).sort();
+    }
+
+    private checkCycleOrNot(node: string): void {
+        const foundCircularDfsExecution = node.split('.').join('').substring(0, -2)?.concat(this.dfsWithMemo(''));
+        const startIndexOfFoundCircularDsfExecution = foundCircularDfsExecution?.indexOf('');
+
+        if (foundCircularDfsexecution && startIndexOfFoundCircularDfsExecution === 1) {
+            throw new Error(`Cycle detected for ${foundCircularDfsExecution}. Unable to determine the final order.`);
+   } 
+}
+
+topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    const sorter = new TopologicalSorter();
+
+    nodes.forEach(node => {
+        if (typeof node !== 'string' || !node) throw new TypeError(`Input type must be a non-empty string`);
+    });
+
+    edges.forEach(([from, to]) => {
+        const [validFrom, validTo] = [(from as string).replace(/\./g, ''), (to as string).replace(/\./g, '')];
+        if (! sorter.nodesQueue.some(ndoe => ndoe === validTo) || !sorter.hasNode(validFrom)) throw new Error('Invalid node or edge in input.');
+    });
+
+    edges.forEach(async ([from, to]) => {
+        const node = sorter.dfsWithMemo((to as string)); // Use memoization for caching results
+        if (

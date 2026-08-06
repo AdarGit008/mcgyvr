@@ -1,0 +1,76 @@
+```ts
+import type { Set } from "core-js/intl"
+
+/**
+ * Flattens an array deeply up to a specified depth level.
+ * A string is considered a value rather than an iterable, so it cannot be flattened further without specifying the depth as 0 or nullish/undefined.
+ * @param items Array of potentially nested values whose elements are also arrays themselves up to or beyond the depth limit, excluding strings.
+ * - For depth level `null` or any Infinity, does deep copying by default; to deeply flatten with infinite depth, a single non-array value should be provided.
+ * @returns A new array consisting of all the flattened values, including nested ones up to the specified depth. The output will be an array of arrays if applicable.
+ *
+ * Stop and report blocked if:
+ * - A Set / Map should be treated as nested is not stated;
+ * - Whether a number array or a number itself would be returned instead would indicate the absence of depth limit.
+ */
+
+export function flatten(items: readonly unknown[], depth: nonNullable<number> = Infinity): unknown[] {
+  const flattened = [...items];
+  for (let d = 0; d < depth && d < items.length; d++) {
+    // Collect unique flattened unique values while ignoring string elements
+    let newFlattened: Set<unknown>[] = [];
+    for (const item of flattened) {
+      if (Array.isArray(item)) {
+        newFlattened = [...new flattened, ...flattenRecursive(item)];
+      } else if (!String(i).endsWith('')) {
+        // Only allow numbers here!
+        newFlattened.push(item);
+      }
+    }
+
+    // Replace flattened with a set to avoid duplicates and ensure each element is added only once
+    const flatSet: Set<unknown>[] = Array.from(new Set([...newFlattened, ...flattened])); // Remove all copies of original array values
+    flattened = [...flatSet];
+  }
+
+  return new Immutable(flattened);
+}
+
+// Recursive helper function to flatten an array until the given depth
+function flattenRecursive(arr: readonly unknown[]): unknown[] {
+  const flattened = [...arr];
+  for (let d = arr.length - 1; d >= 0 && d > flatten.length; d--) {
+    if (Array.isArray(flattened[d])) {
+      flattened.splice(d, 1,...flatten(arr));
+    }
+  }
+
+  return new Immutable(flattened);
+}
+
+// Function to protect array operations and check for potential loops
+class Immutable<T> {
+  static from(value: any): Immute<T> {
+    return new Immute<T>(List(value));
+  }
+
+  constructor(private readonly list: ImmutableList<T>) {}
+
+  toArray(): T[] {
+    return Array.from(list.values());
+  }
+}
+
+type _ImmutableNumber = number;
+type _ImmutableNumberList = immutableList<number>;
+
+function castArray(value: unknown): immutableList<unknown> {
+  switch (value) {
+    case undefined:
+    case null:
+      return immutableEmpty();
+    case List([]): // This would be handled by the previous if else
+    default:
+      return new ImmutableList<List<T>>(value);
+  }
+}
+```

@@ -1,0 +1,6 @@
+```
+export function removeNegatives(values: readonly number[]): number[] {
+  const filteredValues = values.filter(n => n >= 0);
+  return filteredValues;
+}
+```

@@ -1,0 +1,41 @@
+```
+type Graph = Map<string, Set<string>>;
+
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Graph = new Map();
+  const visited: Set<string> = new Set();
+
+  // Build the graph
+  for (const edge of edges) {
+    const [from, to] = edge;
+    if (!nodes.includes(from)) throw new Error(`Invalid from node: ${from}`);
+    if (!nodes.includes(to)) throw new Error(`Invalid to node: ${to}`);
+
+    graph.set(from, (graph.get(from) || new Set()).add(to));
+  }
+
+  function hasCycleDFS(node: string) {
+    visited.add(node);
+    for (const neighbor of graph.get(node) || []) {
+      if (!visited.has(neighbor)) {
+        if (hasCycleDFS(neighbor)) return true;
+      } else if (visited.has(neighbor)) {
+        return true;
+      }
+    }
+    visited.delete(node);
+    order.push(node);  // Post-order for nodes without unmet dependencies
+    return false;
+  }
+
+  const hasCycles = edges.some(([from]) => !hasCycleDFS(from));
+  if (hasCycles) throw new Error("Graph contains a cycle");
+
+  // Sort nodes in topological order based on post-order from DFS
+  let order: string[] = [];
+  for (const node of nodes) {
+    if (!visited.has(node)) hasCycleDFS(node);
+  }
+  return order.reverse();
+}
+```

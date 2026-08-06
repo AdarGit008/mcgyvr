@@ -1,0 +1,26 @@
+```
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  if (typeof text !== "string") throw new Error("Input must be a string");
+
+  const lines = text.split("\n").filter(line => !line.match(/^\s*#|\s*$/));
+
+  const config: Record<string, string> = {};
+
+  for (const line of lines) {
+    const index = line.indexOf("=");
+    if (index === -1) throw new Error(`Line ${lines.indexOf(line) + 1} has no '='`);
+    
+    const key = line.slice(0, index).trim();
+    const value = line.slice(index + 1).trim();
+
+    if (!key || /^[a-zA-Z_]\w*$/.test(key)) {
+      config[key] = value;
+    } else {
+      throw new Error(`Line ${lines.indexOf(line) + 1} has invalid key: "${key}"`);
+    }
+  }
+
+  return config;
+}
+```

@@ -1,0 +1,111 @@
+```typescript
+/**
+ * Fixed-capacity LRU Cache implementation.
+ */
+export class LruCache<K extends Record<string, any>, V> {
+    #capacity: number;
+    #keys: Map<K, number>;
+    #values: Map<K, V>;
+
+    /**
+     * Creates an instance of LruCache.
+     *
+     * @param capacity - Maximum size of the cache
+     */
+    constructor(capacity: number) {
+        if (typeof capacity !== 'number' || capacity <= 0 || capacity % 1 !== 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+
+        this.#capacity = capacity;
+        this.#keys = new Map();
+        this.#values = new Map();
+    }
+
+    /**
+     * Retrieves the value associated with the specified key.
+     *
+     * @param key - The key to retrieve
+     * @returns The cached value, or undefined if not found
+     */
+    get(key: K | null): V | undefined {
+        const cacheKey = Object.keys(key)[0];
+        if (!this.#keys.has(cacheKey)) return;
+
+        this.#values.delete(cacheKey);
+        delete this.#keys.get(cacheKey);
+
+        // Move to the end of the map to mark as recently used
+        this.moveToFront(this.#keys, key);
+        this.#keys.set(cacheKey, 1);
+
+        const value = this.#values.get(key) as V;
+        return value;
+    }
+
+    /**
+     * Inserts or updates the specified value in the cache.
+     *
+     * @param key - The key to insert
+     * @param value - The cached value to set
+     */
+    set(key: K, value: V) {
+        if (this.#keys.has(Object.keys(key)[0])) {
+            const oldKey = Object.keys(key)[0];
+            this.#values.delete(oldKey);
+            delete this.#keys.get(oldKey);
+
+            // Move to the end of the map to mark as recently used
+            this.moveToFront(this.#keys, key);
+        } else if (this.#capacity === 0) {
+            return;
+        }
+
+        const newCount = this.#keys.size + 1;
+
+        // If at capacity, remove the oldest element
+        if (newCount > this.#capacity) {
+            const entry = this.#values.keys().next().value;
+            this.#values.delete(entry);
+
+            this.#keys.delete(entry);
+        }
+
+        this.#values.set(key, value);
+        this.#keys.set(key, 1);
+
+        // Ensure capacity is not exceeded
+        if (this.#keys.size > this.#capacity) {
+            const removedKey = Array.from(this.#keys.keys())[0];
+            delete this.#keys.get(removedKey);
+            this.#values.delete(removedKey);
+        }
+    }
+
+    /**
+     * Returns the current size of the cache.
+     *
+     * @returns The number of cached entries
+     */
+    get size(): number {
+        return this.#keys.size;
+    }
+
+    /**
+     * Moves a key to the front of the map, marking it as recently used.
+     *
+     * @param keys - The Map of keys
+     * @param valueKey - The value to move to the front
+     */
+    private moveToFront(keys: Map<any, number>, valueKey: any): void {
+        const currentIndex = keys.get(valueKey);
+        if (currentIndex === undefined) return;
+
+        // Get all entries
+        const entries = Array.from(keys.entries());
+
+        // Move forward to the newly added key
+        while (0 <entries.length && entries[0][1] > 1) {
+            // Remove and decrement
+            keys.delete(entries[0][0]);
+            (entries

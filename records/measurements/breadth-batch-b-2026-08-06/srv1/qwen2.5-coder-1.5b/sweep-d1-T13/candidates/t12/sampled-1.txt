@@ -1,0 +1,14 @@
+```ts
+/**
+ * The values without every negative number removed.
+ *
+ * @param values A readonly array to remove negatives from.
+ * @returns A new array with all negative numbers removed.
+ */
+export function removeNegatives(values: readonly number[]): number[] {
+  // Use filter to create a new array without matching elements.
+  // We don't need 'map' or other destructuring here because the
+  // filter method is pure and does not produce any side effects.
+  return values.filter(value => value >= 0);
+}
+```

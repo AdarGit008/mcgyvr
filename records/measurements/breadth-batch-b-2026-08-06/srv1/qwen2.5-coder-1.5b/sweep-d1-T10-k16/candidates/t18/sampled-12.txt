@@ -1,0 +1,23 @@
+```ts
+/** An append-only log of timestamped events. */
+export class EventLog {
+  #events: Event[] = [];
+
+  /**
+   * Append one event.
+   * @param event The event to record.
+   */
+  public record(event: Event): void {
+    this.#events.push(event);
+  }
+
+  /**
+   * Returns an array of all events at or after the given timestamp in insertion order.
+   * @param timestamp The timestamp to filter events by.
+   * @returns An array of events, sorted by timestamp.
+   */
+  public since(timestamp: number): Event[] {
+    return this.#events.filter(event => event.timestamp >= timestamp).sort((a, b) => a.timestamp - b.timestamp);
+  }
+}
+```

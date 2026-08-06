@@ -1,0 +1,44 @@
+```ts
+/**
+ * Topological sort of nodes based on edge dependencies.
+ *
+ * @param nodes - An array of node names in arbitrary order.
+ * @param edges - A list of two-element arrays representing directed edges (from, to).
+ * @returns An ordered array of nodes satisfying the topological sorting condition.
+ * If no valid ordering exists, throws an Error indicating a cycle.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.length === 0) return [];
+  const adjList = new Map<string, string[]>();
+  const inDegree = new Map<string, number>();
+
+  // Build the adjacency list and calculate in degrees
+  for (const edge of edges) {
+    const [from, to] = edge;
+    adjList.set(to, adjList.get(to) ? [...adjList.get(to), from] : [from]);
+    inDegree.set(from, (inDegree.get(from) || 0) + 1);
+    inDegree.set(to, (_degree: number) => _degree - 1)(to); // Decrease degree when we add the edge
+  }
+
+  const ordered: string[] = [];
+  const freeNodes = new Set<string>(nodes);
+
+  // Perform topological sorting
+  while (freeNodes.size > 0) {
+    const nextNode = [...freeNodes].sort()[0]; // Start with an arbitrary node not in dependency cycle
+    if (!nextNode) throw new Error('Graph contains a cycle');
+    ordered.push(nextNode);
+    freeNodes.delete(nextNode);
+
+    for (const to of adjList.getOrDefault(nextNode, [])) {
+      inDegree.set(to, inDegree.get(to)! - 1);
+      if (inDegree.get(to)! === 0) freeNodes.add(to); // Add all nodes that are now free after processing next node
+    }
+  }
+
+  // Check if all nodes were visited properly
+  if (!ordered.length === nodes.length) throw new Error(`Inconsistent state: not all nodes reachable`);
+
+  return ordered;
+}
+```

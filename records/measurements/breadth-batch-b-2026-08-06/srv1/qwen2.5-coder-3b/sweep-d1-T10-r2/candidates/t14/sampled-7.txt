@@ -1,0 +1,13 @@
+```ts
+export interface User {
+  email: string;
+  active?: boolean; // Added optional property for completeness
+}
+
+/** The lowercased addresses of the active users, in order. */
+export function activeEmails(users: readonly User[]): string[] {
+  return users
+    .filter(user => user.active !== false) // Ensure active is true or omit
+    .map(user => user.email.toLowerCase());
+}
+```

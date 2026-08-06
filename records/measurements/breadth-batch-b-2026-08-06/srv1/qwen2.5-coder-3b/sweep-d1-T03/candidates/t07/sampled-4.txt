@@ -1,0 +1,22 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) depth = Infinity;
+  if (!Number.isInteger(depth) || depth < 0) throw new Error("Depth must be a non-negative integer or Infinity.");
+
+  const result: unknown[] = [];
+  const stack: [unknown, number][] = items.map((item, index) => [item, depth]);
+
+  while (stack.length > 0) {
+    const [currentItem, currentDepth] = stack.pop()!;
+    if (Array.isArray(currentItem)) {
+      for (let i = currentItem.length - 1; i >= 0; i--) {
+        stack.push([currentItem[i], Math.max(0, currentDepth - 1)]);
+      }
+    } else {
+      result.push(currentItem);
+    }
+  }
+
+  return result;
+}
+```

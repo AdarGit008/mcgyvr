@@ -1,0 +1,16 @@
+```
+/** Safe division function that throws errors for division by zero and non-number inputs. */
+export function safeDivide(a: number, b: number): number {
+  if (!isFinite(a)) {
+    throw new Error(" dividend must be finite");
+  }
+  if (!isFinite(b) || isNaN(b)) {
+    throw new Error(" divisor must be a finite number");
+  }
+  return a / b;
+}
+
+function isFinite(x: number): boolean {
+  return Object.isFinite(x);
+}
+```

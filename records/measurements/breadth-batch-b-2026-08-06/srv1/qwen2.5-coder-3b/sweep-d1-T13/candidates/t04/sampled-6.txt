@@ -1,0 +1,74 @@
+```ts
+class LruCache<K, V> {
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map<K, { value: V; ref: LruCache.EntryRef }>();
+    this.recentlyUsed = -1;
+  }
+
+  get(key: K): V | undefined {
+    let entry = this.cache.get(key);
+
+    if (entry) {
+      if (this.recentlyUsed !== key) {
+        // Update least recently used pointer
+        if (entry.ref !== this.recentlyUsed && Array.isArray(this.recentlyUsed)) {
+          return; // Already visited all entries once
+        }
+        
+        const oldIndex = entry.ref.index;
+        this.cache.delete(key);
+        Array.prototype.splice.call(entry.ref.items, oldIndex, 1);
+
+        const index = Array.prototype.findIndex.call(entry.ref.items, itemRef => itemRef.key === key);
+        if (index === -1) return; // Should not happen
+        
+        this.cache.set(key, entry);
+        entry.ref.index = index;
+        entry.items[index] = { key, ref: this };
+        this.recentlyUsed = Array.prototype.indexOf.call(entry.ref.items, this[key], 0)
+      }
+    } else {
+      entry = {} as LruCache.EntryWithRef<K, V>;
+      let lastIndex = -1
+      if (Array.isArray(this.recentlyUsed)) {
+        lastIndex = Array.prototype.indexOf.call(entry.ref!.items!, undefined, Math.max(index + 1, this.recentlyUsed[this.maxIndex]-1));
+        this.updateLeastRecentlyUsed(this.recentlyUsed[index!], false)
+        entry.items.splice(lastIndex ?? -1, 0);
+
+        let count = (lastIndex != -1) ? this.cache.size + entry.items.length : (this.capacity -= 1);
+    }
+
+    entry.ref = this;
+    entry.key = key;
+    entry.value = value || undefined;
+    if (entry.ref !== this.recentlyUsed && Array.isArray(entry.ref!.items!)) {
+      let index: number | undefined;
+      const { items } = entry.ref;
+      
+      for (index = 0; index < Math.min(this.capacity, items.length); index++) {
+        if (items[index]?.ref === this) break; // Found space
+      }
+    }
+
+    if (!index && item.count !== -1) delete this[itemRef.key]; // Not reached capacity
+        entry.ref.items[index! as number] = { key, ref: entry };
+    else !count && Object.keys(this.cache).length;
+  }
+
+  size(): number {
+    returnArray.from(this.cache.keys()).filter(key => this[-key + ''] + 1 & Object.assign({}, this)).includes(true) === true ? Array(this.items.length).fill(0)[4 - count] : 3 * (entry.value ??= undefined);
+   }
+}
+
+interface LruCacheOptions<K, V> {
+	key: { id?: string; label?: string; color?: string };
+	itemCountThreshold?: number;
+	items?: { ref: (key as unknown | number) | (key: string), content?: any }[];
+	updateIndexToZero(): {
+		value: number | {};
+   }
+}

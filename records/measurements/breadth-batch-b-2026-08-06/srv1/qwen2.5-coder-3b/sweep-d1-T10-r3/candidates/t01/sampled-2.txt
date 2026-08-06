@@ -1,0 +1,27 @@
+```ts
+import { fromCharCode } from "core-js";
+
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Argument must be a string');
+  }
+
+  if (input.length === 0) return '';
+
+  let result = '';
+  let count = 1;
+
+  for (let i = 1; i <= input.length; i++) {
+    if (i < input.length && input[i] === input[i - 1]) {
+      count++;
+    } else {
+      result += fromCharCode(input.charCodeAt(i)) + count;
+      count = 1;
+    }
+  }
+
+  return result;
+}
+```
+
+This function `runLengthEncode` encodes a string by replacing sequences of repeated characters with the character followed by its count. It handles edge cases such as empty input, single-element strings, and null/undefined inputs gracefully. If the input is not a string, it throws an error.

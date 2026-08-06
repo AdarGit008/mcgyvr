@@ -1,0 +1,18 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== "string") {
+    throw new Error("Argument must be a string");
+  }
+
+  const encoded = input.split('').map((char, index) => {
+    let count = 1;
+    while (index + 1 < input.length && char === input[index + 1]) {
+      count++;
+      index++;
+    }
+    return `${char}${count}`;
+  });
+
+  return encoded.join('');
+}
+```

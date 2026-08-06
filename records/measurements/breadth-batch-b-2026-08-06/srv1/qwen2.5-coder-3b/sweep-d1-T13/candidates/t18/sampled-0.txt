@@ -1,0 +1,40 @@
+```
+
+/** An append-only log of timestamped events. */
+export class EventLog {
+  // Define the typed private field to hold all events
+  #events: Event[] = [];
+
+  /** Append one event. */
+  record(event: Event): void {
+    if (!event.name) throw new Error("Event must have a name");
+    if (typeof event.timestamp !== 'number' || isNaN(Number(event.timestamp))) {
+      throw new Error("Invalid timestamp"); // Consider including timestamps outside valid number range -1e+37, +1e+37 also
+    }
+    this.#events.push({ ...event });
+  }
+
+  /** Every event at or after the given timestamp, in insertion order. */
+  since(timestamp: number): Event[] {
+    const startIdx = binarySearchUpwards(this.#events, timestamp);
+    return this.#events.slice(startIdx, this.#events.length);
+  }
+}
+
+/**
+ * Binary searches up to and including an item's first occurrence.
+ * @return - First index where `item` equals an element of `items`.
+ *     For no match throws an error saying "Value too high".
+ */
+function binarySearchUpwards(items: Event[], item: number): number {
+  let left = 0, right = items.length - 1;
+
+  while (left <= right) {
+    const mid = Math.floor((left + right) / 2);
+    if (items[mid].timestamp <= item) left = mid + 1;
+    else right = mid - 1;
+  }
+
+  throw new Error("Value too high"); // Return value is never reached since it throws an error
+}
+```

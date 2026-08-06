@@ -1,0 +1,34 @@
+```ts
+import { from } from "lodash";
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  // Create a graph represented as an adjacency list
+  const graph = buildGraph(nodes, edges);
+
+  // Extract nodes without dependencies to act as starting points
+  const ready = extractReadyNodes(graph, nodes);
+
+  if (!ready.length) {
+    throw new Error("Dependency cycle detected.");
+  }
+
+  // Sort the nodes topologically using Kahn's Algorithm
+  return sortTopologically(vertices => vertices.size > 0 and ((k: Node): boolean => graph[k].length === 0)(vertices));
+}
+
+interface Graph {
+  [key: string]: Set<string>;
+}
+
+type Node = { name: string };
+
+function buildGraph(nodes: readonly string[], edges: (readonly [string, string])[]): Graph {
+  return from<ReadonlyArray<[string, string]>, Graph>(edges).reduce((acc, [from, to]) => acc.set(to, acc.get(from) ?? new Set<string>()).add(to), Object.keys(nodes).reduce((acc2, k) => (acc2[k] = new Set<string>(), acc2), {} as Graph));
+}
+
+function extractReadyNodes(graph: Graph, nodes: string[]): Node[] {
+  return Object.keys(node)
+    .map(n => Node({ name: n }))
+    .filter(n => graph[n]?.size === 0);
+}
+```

@@ -1,0 +1,90 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  const fields = [];
+  let inQuotes = false;
+  let escaped = false;
+
+  for (let i = 0; i < line.length; i++) {
+    if (!inQuotes && line[i] === ',') {
+      if (escaped) {
+        fields.push('"');
+        escaped = false;
+      } else {
+        fields.push('');
+      }
+    } else if (!escaped && line[i] === '"') {
+      inQuotes = !inQuotes;
+    } else if (inQuotes && !escaped && line[i] === '"') {
+      // Close a nested quote
+      if (fields.length > 0 && fields[fields.length - 1].match(/[^"]+/g) !== null) {
+        fields.push('');
+      }
+      inQuotes = false;
+    } else if (!inQuotes && escaped) {
+      fields[fields.length - 1] += line[i];
+      escaped = false;
+    } else if (line[i] === '\\') {
+      escaped = true;
+    } else {
+      let currentField = '';
+      while (i < line.length && !escaped && !(line[i] === ',' || i === line.length)) {
+        currentField += line[i];
+        i++;
+      }
+      fields.push(currentField);
+      if (currentField.match(/[^",]+/g) !== null) {
+        fields.push('');
+      }
+    }
+  }
+
+  const finalParsedData = parseCsvFields(fields.filter(Boolean).join(',') + ',');
+
+  throwIfInvalidCsv(finalParsedData, line);
+  return finalParsedData.split(',');
+}
+
+function parseCsvFields(data: string): string[] {
+  data = data.replace(/(^,)|(,$)/g, '');
+  const fields = data.split(',');
+  for (let i = 0; i < fields.length; i++) {
+    fields[i] = fields[i].trim();
+    let start = 0;
+    let end = fields[i].length - 1;
+    let isEscaped = false;
+
+    while (start <= end && !isEscaped) {
+      if (!/[^"]+/.test(String.fromCodePoint(fields[i][start].codePointAt(0)))) {
+        isEscaped = true;
+      }
+      if (/^"/.test(String.fromCodePoint(fields[i][start].codePointAt(0)))) {
+        isEscaped = true;
+      }
+      start++;
+    }
+
+    if (isEscaped && /^".+[^"]*"$/g.test(String.fromCodePoint(fields[i][start].codePointAt(0)))) {
+      fields[i] = '"' + fields[i].substring(1, fields[i].length - 2) + '"';
+    } else {
+      while (!/"/.test(String.fromCodePoint(fields[i][end].codePointAt(0)))) {
+        end--;
+      }
+      if (fields[i][end] === '"') {
+        fields[i] = '"' + fields[i].substring(1, end) + '"';
+      } else {
+        fields[i] = fields[i].slice(0, start);
+      }
+    }
+
+    if (start !== 0 && !/"/.test(String.fromCodePoint(fields[i][start].codePointAt(0)))) {
+      throw Error(`Unmatched quote when parsing field: ${fields[i]}`);
+    }
+  }
+
+  return fields;
+}
+
+function throwIfInvalidCsv(fields: string[], line: string) {
+  const hasDoubleQuotedNonClosingField = fields.some(field => field.startsWith('"') && !field.endsWith('"') && field.indexOf(',') !== -1);
+  if (hasDoubleQuotedNonClosingField) {
+    throw Error(`Unmatched quote

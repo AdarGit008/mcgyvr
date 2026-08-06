@@ -1,0 +1,33 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  // Base case for recursion
+  if (intervals.length <= 1) {
+    return intervals;
+  }
+
+  // Initial pair to be merged with the next one
+  let newInterval = intervals[0];
+  let result: number[][] = [];
+
+  // Iterate through the intervals starting from the second one
+  for (let i = 1; i < intervals.length; i++) {
+    const currentInterval = intervals[i];
+
+    // Check if the current interval starts before the new interval ends
+    if (!currentInterval[0] || currentInterval[0] <= newInterval[1]) {
+      if (currentInterval[1] > newInterval[1]) {
+        newInterval[1] = currentInterval[1];
+      }
+    } else {
+      // If the new interval ends after the current interval starts, add it to the result and start a new newInterval
+      result.push([...newInterval]);
+      newInterval = currentInterval;
+    }
+  }
+
+  // Add the last merged interval if there's anything left
+  result.push([...newInterval]);
+
+  return result;
+}
+```

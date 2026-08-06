@@ -1,0 +1,30 @@
+```typescript
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals) || !intervals.every(interval => Array.isArray(interval) && interval.length === 2)) {
+    throw new Error("Input must be an array of non-empty arrays with two numeric elements.");
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const merged: number[][] = [];
+  let currentInterval = intervals[0];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const nextInterval = intervals[i];
+
+    if (currentInterval[1] >= nextInterval[0]) {
+      // Intervals overlap or touch, merge them
+      currentInterval[1] = Math.max(currentInterval[1], nextInterval[1]);
+    } else {
+      // No merge possible, add the current interval and update it to the next one
+      merged.push(currentInterval);
+      currentInterval = nextInterval;
+    }
+  }
+
+  // Add the last interval in the merged list
+  merged.push(currentInterval);
+
+  return merged;
+}
+```

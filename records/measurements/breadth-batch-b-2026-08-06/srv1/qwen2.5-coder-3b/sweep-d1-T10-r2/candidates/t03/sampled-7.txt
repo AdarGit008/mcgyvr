@@ -1,0 +1,36 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const parts = version.split('.');
+
+  if (parts.length !== 3) {
+    throw new Error(`Invalid semver format: ${version}. Expected MAJOR.MINOR.PATCH`);
+  }
+
+  const [major, minor, patch] = parts.map(Number);
+
+  // Validate numbers
+  if (
+    major < 0 || minor < 0 || patch < 0 ||
+    (major !== Math.floor(major) || minor !== Math.floor(minor) || patch !== Math.floor(patch))
+  ) {
+    throw new Error(`Invalid semver format: ${version}. Numeric parts must be integers.`);
+  }
+
+  // Check for valid prerelease and build
+  const [prerelease, build] = version.slice(3).split('+');
+
+  if (prerelease && prerelease !== '') {
+    if (!prerelease.match(/^[a-z0-9.-]+$/)) {
+      throw new Error(`Invalid prerelease string: ${prerelease}.`);
+    }
+  }
+
+  if (build && build !== '') {
+    if (!build.match(/^[a-z0-9.-]+$/)) {
+      throw new Error(`Invalid build string: ${build}.`);
+    }
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

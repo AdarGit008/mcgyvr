@@ -1,0 +1,11 @@
+```typescript
+/**
+ * The numbers, ascending.
+ */
+export function sortAscending(values: readonly number[]): number[] {
+  if (!Array.isArray(values) || values.some(num => typeof num !== 'number')) {
+    throw new Error('Input must be a non-empty array of numbers.');
+  }
+  return [...values].sort((a, b) => a - b);
+}
+```

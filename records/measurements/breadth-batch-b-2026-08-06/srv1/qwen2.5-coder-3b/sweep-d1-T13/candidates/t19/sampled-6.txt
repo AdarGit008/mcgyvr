@@ -1,0 +1,11 @@
+```ts
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(a) || isNaN(b)) {
+    throw new Error("Input values must be finite numbers");
+  }
+  if (b === 0 || b === -0) {
+    throw new Error("Cannot divide by zero");
+  }
+  return a / b;
+}
+```

@@ -1,0 +1,38 @@
+```ts
+import { parseInt } from "https://deno.land/x/Deno/std/integer/mod.ts";
+
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const regex = /^(v)?(\d+)\.(\d+)\.(\d+)(-([0-9]+))?(+([0-9]+))?$/;
+    const match = version.match(regex);
+
+    if (!match) {
+        throw new Error("invalid semver format");
+    }
+
+    const [_, vPrefix, major, minor, patch, prereleasePart, buildPart] = match;
+
+    let majorNum = parseInt(major, 10);
+    let minorNum = parseInt(minor, 10);
+    let patchNum = parseInt(patch, 10);
+
+    if (prereleasePart && /[a-zA-Z]/.test(prereleasePart)) {
+        prereleasePart = prereleasePart.toLowerCase();
+    } else {
+        prereleasePart = null;
+    }
+
+    if (buildPart && /[a-zA-Z]/.test(buildPart)) {
+        buildPart = buildPart.toLowerCase();
+    } else {
+        buildPart = null;
+    }
+
+    return {
+        major: majorNum,
+        minor: minorNum,
+        patch: patchNum,
+        prerelease: prereleasePart || "",
+        build: buildPart || ""
+    };
+}
+```

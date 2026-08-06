@@ -1,0 +1,57 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+    if (line === "") return [];
+
+    const fields: string[] = [];
+    let currentField = "";
+    let isQuoted = false;
+    let doubleQuotePending = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+            if (doubleQuotePending) {
+                // Escaped quote
+                currentField += '"';
+                doubleQuotePending = false;
+            } else if (!isQuoted) {
+                // Start of a quoted field
+                isQuoted = true;
+            } else {
+                // End of a quoted field
+                isQuoted = false;
+            }
+        } else if (char === ",") {
+            if (isQuoted) {
+                // Comma inside a quoted field, treat as literal
+                currentField += ",";
+            } else {
+                // End of the current field
+                fields.push(currentField.trim());
+                currentField = "";
+            }
+        } else {
+            // Add character to the current field
+            if (doubleQuotePending) {
+                // Escaped quote was pending
+                currentField += '"';
+                doubleQuotePending = false;
+            }
+            currentField += char;
+        }
+
+        // Check for unterminated quoted field at the end of the line
+        if (isQuoted && i === line.length - 1) {
+            throw new Error("Unterminated quoted field at the end of the line");
+        }
+    }
+
+    // Add the last field if not empty
+    if (currentField.trim() !== "") {
+        fields.push(currentField);
+    }
+
+    return fields;
+}
+```

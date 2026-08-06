@@ -1,0 +1,75 @@
+```ts
+
+type KeyOf<T> = keyof T;
+type Dictionary<V> = Record<KeyOf<T>, V>;
+
+export class LruCache<K, V> {
+  private capacity: number;
+  private cacheMap: Dictionary<V> = {};
+  private frontKeys: Set<KeyOf<T>> = new Set();
+  private backKeys: Set<KeyOf<T>> = new Set();
+
+  constructor(capacity: number) {
+    if (this.isNotPositiveInteger(capacity)) {
+      throw new Error("'capacity' must be a positive integer.");
+    }
+    this.capacity = capacity;
+  }
+
+  get size(): number {
+    return Object.keys(this.cacheMap).length;
+  }
+
+  private moveToBack(key: KeyOf<T>) {
+    const cacheValue = this.cacheMap[key];
+    if (cacheValue !== undefined) {
+      // Remove key from frontKeys, add to backKeys
+      this.frontKeys.delete(key);
+      this.backKeys.add(key);
+    }
+  }
+
+  private evictMostLRU() {
+    let mostLRUKey: KeyOf<T> | undefined;
+
+    if (this.size > 0 && this.frontKeys.has('0')) {
+      // '0' is the least recently used key at current position
+      const keys = Object.keys(this.cacheMap);
+      mostLRUKey = ((keys as unknown) as string[]).sort((k1, k2) => {
+        return Number.parseInt(k1, 10) - Number.parseInt(k2, 10); // sort by number to get '0'
+      })[0];
+    }
+
+    if (mostLRUKey) {
+      delete this.cacheMap[mostLRUKey];
+    }
+    const evictionsCount = this.size > this.capacity ? this.size - this.capacity : 0;
+    mostLRUKey && this.backKeys.delete(mostLRUKey);
+    return mostLRUKey && "Evicted: " + evictionsCount || "No eviction";
+  }
+
+  private isNotPositiveInteger(value: number): boolean {
+    const n = Number(value)
+    return isNaN(n) || n <= 0
+  }
+
+  get(key: K): V | undefined {
+    this.moveToBack(key as KeyOf<T>)
+    return this.cacheMap[key as KeyOf<T>] ?? undefined;
+  }
+
+  set(key: K, value: V): void {
+    if (this.backKeys.has(key as KeyOf<T>) && this.cacheMap[key as KeyOf<T>]) {
+      // key already present
+      this.frontKeys.delete(key as KeyOf<T>);
+    } else if (this.size >= this.capacity) {
+      this.evictMostLRU();
+    }
+    this.cacheMap[key as keyof T] = value;
+    this.frontKeys.add('0');
+    while ((key as keyof T).toString().length === this.backKeys.size + 1 && this.backKeys.delete(++mostLRUKey));
+    if (this.backKeys.size) this.backKeys.add(('' as keyof T)++);
+    return undefined; // Just for the sake of the interface as per task definition
+  }
+}
+```

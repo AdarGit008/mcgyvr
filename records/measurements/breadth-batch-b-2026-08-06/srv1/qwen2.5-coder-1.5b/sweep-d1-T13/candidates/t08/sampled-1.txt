@@ -1,0 +1,51 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges) {
+    throw new Error(' Inputs cannot be empty');
+  }
+  
+  const adjacentList = new { [node]: [] for (const node of nodes) };
+  
+  // Build the graph
+  for (const [from, to] of edges) {
+    adjacentList[from].push(to);
+  }
+  
+  type TopologicalNode<T> = {
+    id: T;
+    status: 'free' | 'pending' | 'visited';
+ };
+  
+  const nodesMap = new { [id: string]: TopologicalNode<string> for (const node of nodes) };
+  
+  // Initialize status for each nodeto free
+  for (const node in nodesMap) {
+    nodesMap[node].status = 'free';
+  }
+  
+  // Perform BFS to topologically sort the graph
+  const result: string[] = [];
+  visit(nodes.map(node => ({...nodesMap[node], id: node })));
+  
+  for (const { status, id } of nodes_map.keys()) {
+    if (status === 'pending') {
+      throw new Error(`Cycle detected in nodes order`);
+    } else if (status !== 'free') {
+      result.push(id);
+    }
+  }
+  
+  return result;
+}
+
+function visit(node: TopologicalNode<string>): TopologicalNode<string> {
+  node.status = 'pending';
+  
+  for (const next of adjacentList[node.id]) {
+    visit(nexts);
+  }
+  
+  node.status = 'visited';
+	return node
+}
+```

@@ -1,0 +1,21 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  
+  if (typeof depth !== 'number' || !Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error('Depth must be a non-negative integer or Infinity.');
+  }
+
+  const result: unknown[] = [];
+  const visit = (item: any, currentDepth: number): void => {
+    if (!Array.isArray(item)) {
+      result.push(item);
+    } else if (currentDepth < depth) {
+      item.forEach(subItem => visit(subItem, currentDepth + 1));
+    }
+  };
+
+  items.forEach(item => visit(item, depth === undefined ? 0 : depth));
+
+  return result;
+}
+```

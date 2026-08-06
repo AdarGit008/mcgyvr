@@ -1,0 +1,59 @@
+```typescript
+/**
+ * Parses a CSV line into its fields on commas.
+ * A field wrapped in double quotes may contain commas,
+ * and a doubled quote inside such a field means one literal quote character;
+ * the surrounding quotes are not part of the value.
+ * Fields that are not quoted are taken literally, including any surrounding spaces.
+ * An empty line is one empty field.
+ * Throws an Error for a quoted field that is never closed.
+ */
+export function parseCsvLine(line: string): string[] {
+  // Initialize the result array
+  const result = [];
+
+  // Initialize the current field and whether we're inside a quoted field
+  let currentField = '';
+  let inQuote = false;
+
+  // Iterate over each character in the line
+  for (const char of line) {
+    // If we're not in a quoted field, process the character as is
+    if (!inQuote) {
+      if (char === ',') {
+        // If this is the last character and there's no next comma,
+        // add the current field to the result array and reset it
+        if (result.length !== 0 && char === line[line.indexOf(char)]) {
+          result.push(currentField.trim());
+          currentField = '';
+        } else {
+          result.push(currentField);
+          currentField = '';
+        }
+      } else if (char === '"') {
+        // If this is the start or end of a quoted field,
+        inQuote = !inQuote;
+      } else {
+        currentField += char;
+      }
+    }
+
+    // If we're in a quoted field, process the character as is
+    else {
+      if (char === '"') {
+        // If we hit an unescaped quote, it's invalid
+        throw new Error('Invalid CSV: unmatched quotes');
+      } else {
+        currentField += char;
+      }
+    }
+  }
+
+  // Add any remaining field to the result array
+  if (currentField.trim() !== '') {
+    result.push(currentField.trim());
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,8 @@
+```
+export function removeNegatives(values: number[]): number[] {
+  // Make sure not to mutate the input array
+  const filteredValues = values.filter(value => value >= 0);
+  
+  return filteredValues;
+}
+```

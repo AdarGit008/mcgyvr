@@ -1,0 +1,12 @@
+```typescript
+/**
+ * The values with every negative number removed, keeping them in their original position.
+ * The argument must not be mutated - return a new array using built-in `filter()` method.
+ */
+
+export function removeNegatives(values: readonly number[]): number[] {
+  // Use Array.prototype.filter() instead of manual looping for filtering
+  const cleanedArray = values.filter(value => value >= 0);
+  return cleanedArray;
+}
+```

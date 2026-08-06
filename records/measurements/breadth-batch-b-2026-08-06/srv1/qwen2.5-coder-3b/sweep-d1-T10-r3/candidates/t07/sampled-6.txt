@@ -1,0 +1,40 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (depth === undefined || !Number.isInteger(depth) && depth !== Infinity) {
+        throw new Error("Depth must be a non-negative integer or Infinity.");
+    }
+
+    const getFlatArray = (item: unknown, currentDepth: number, result: unknown[]): void => {
+        if (currentDepth === 0 || typeof item !== 'object' || Array.isArray(item)) {
+            result.push(item);
+        } else if (
+            item instanceof Map ||
+            (typeof Map.prototype.forEach === 'function' && Map.prototype.forEach.call(item, (_, key) => true))
+        ) {
+            for (const [key] of item.entries()) {
+                const next = { ...item };
+                delete next[key];
+                getFlatArray(next, currentDepth - 1, result);
+            }
+        } else if (
+            item instanceof Set ||
+            (typeof Set.prototype.forEach === 'function' && Set.prototype.forEach.call(item, (_, value) => true))
+        ) {
+            for (const value of item.values()) {
+                const next = new Set(item);
+                next.delete(value);
+                getFlatArray(next, currentDepth - 1, result);
+            }
+        } else if (item instanceof Date || typeof Date === 'function') {
+            result.push(item.toISOString());
+        }
+    };
+
+    const flatItems: unknown[] = [];
+    items.forEach((item, index) => {
+        getFlatArray(item, depth > 0 ? depth - 1 : 0, flatItems);
+    });
+
+    return flatItems;
+}
+```

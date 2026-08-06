@@ -1,0 +1,48 @@
+```ts
+import { PriorityQueue } from 'typescript-collections';
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges) {
+        throw new Error('Invalid input, expected nodes and edges');
+    }
+
+    const incoming = new Map<string, number[]>(node => []), outgoing = new Map<string, string[]>(node => []);
+    const indegrees = new Array(nodes.length).fill(0);
+
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Edge error: '${from}' and '${to}' must both be nodes`);
+        }
+        incoming.get(from)?.push(to);
+        outgoing.set(to, [from]);
+        indegrees[to]++;
+    }
+
+    let result: string[] = [];
+    const queue = new PriorityQueue<string>((a, b) => indegrees[a] - indegrees[b]);
+
+    for (const node of nodes) {
+        if (!indegrees[node]) {
+            queue.enqueue(node);
+        }
+    }
+
+    while (!queue.isEmpty()) {
+        const current = queue.dequeue();
+        result.push(current);
+
+        for (const next of outgoing.getOrDefault(current, [])) {
+            indegrees[next]--;
+            if (!indegrees[next]) {
+                queue.enqueue(next);
+            }
+        }
+    }
+
+    if (result.length !== nodes.length) {
+        throw new Error('Cycle detected in the graph');
+    }
+
+    return result;
+}
+```

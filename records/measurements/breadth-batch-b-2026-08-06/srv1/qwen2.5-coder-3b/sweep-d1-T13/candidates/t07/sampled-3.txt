@@ -1,0 +1,113 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== 'number') { throw new Error('Error: "depth" must be a numeric value.'); }
+  const parsedDepth = parseFloat(depth.toString());
+  if (!Number.isSafeInteger(parsedDepth) && !['Infinity', '-Infinity'].includes(depth)) { throw new Error('Error: "depth" must be a non-negative integer or Infinity.'); }
+  
+  
+  let currentDepth = isFinite(Number.parseFloat(typeof depth === 'string' ? depth : ' ')) ? Number.parseFloat(typeof depth === 'number' || typeof items.length < -0 : '-')?infinity) : 0;
+  
+  return Array.isArray(items) ? 
+    (currentDepth === 0 || !Array.isArray(items[0])) ?
+      [...items] :
+      (
+        !isFinite(currentDepth) && [...items]) ||
+        flatten(items.flatMap(item => 
+          Array.isArray(item)? flattener: depth > 1 ? flatten([item], currentDepth -1): depth >0 ? [item]: []
+          ), currentDepth-1))
+      ) : (depth === 0 || typeof items !== 'string')? [...items]:(typeof items == "object")?
+            {...objects}{items.length<=maxObjCount }?[Object.values(item)].flat(Infinity):[items];
+  
+}
+
+function ObjectValuesAndFlatten(obj, depth) {
+  try{
+    newObj={...obj};
+    const entries=Object.entries(newObj).map(([key , value]) => {
+      return flattenEntriesByDepth(value,depth);
+    });
+    entries.fill(undefined, items.length);
+
+// Flatten array entries within the object
+function flatInnerArray(obj: any[]): any[] {
+  if (obj === null || Object.prototype.toString.call(obj) !== "[object Array]") 
+   { console.log(item,"not array");}
+   
+  return obj.reduce(
+    (innerFlatArray, currVal)=>{
+      innerFlatArray = [...innerFlatArray, ...(typeof currVal != 'undefined') ? (flatten(arr) : [currVal]);
+     
+      
+      
+     }
+    ,[]
+  );
+ }
+
+
+/// Helper function to create a new object by flattening nested arrays.
+function flattenNestedArrays(inputValue) {
+  
+  // Define properties and their corresponding data for flattening.
+  const arr = inputValue;
+      
+  let currentDepth = inputValue.length;  // Get the depth as the length of input array.
+
+    
+    if (depth === 0) 
+        return inputValue;
+
+
+   return filter(arr, value => typeof value !== 'object');
+ }
+
+
+function flattenEntriesByDepth(value, maxObjectCount){
+    switch (type) {
+   
+      case 'array':
+            flatInnerArray(inputValue);
+        break;
+      
+    
+    }
+  });
+
+  
+  if(Array.isArray(newObj.values()))  newObj= {...newObj,
+         items:(Array.keys(Object.assign({},...obj.items())).length<=0 || obj.items.length%numberOfProps<=2 ? true: items)}}
+
+  newItem[Object.keys(newItem)[(items)-1]['items']].toString() != null && 
+    return [this.values(...newObj)].filter(item => item)
+     .reduce(
+      (result,obj)=> result.concat(flattenEntriesByDepth(obj.values , depth)),
+    []);
+    
+  
+}
+  
+      
+  
+
+function* flatten(data, maxDepth:any) {
+        if(this.isArray(data)){
+            
+            let flatArray;
+              this.maxDepth = maxDepth;
+                for(let i=0;i<data.length;++i){//Iterating through data array
+                  
+                    yield*(this.flattenEntriesByDepth([data[i]]);
+               
+           
+         
+   }
+     
+     else{
+           yield* (this.flattenItems(data,maxObjCount));
+       }
+  
+}
+
+
+
+        if(this.isArray(data

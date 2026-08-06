@@ -1,0 +1,40 @@
+```ts
+/** The temperature in degrees Fahrenheit or kelvin. */
+ export function celsiusToKelvinOrFahrenheit(celsius: number, targetUnit: "C" | "F"): number {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  for (const unit of ["C", "F"]) {
+    if (targetUnit !== unit) continue;
+    if (unit === "C") return celsius_to_kelvin(celsius);
+    if (unit === "F") return celsius_to_fahrenheit(celsius);
+    throw new Error("Invalid target unit");
+  }
+}
+
+const _validateCelsius = (celsius: number): void => {
+  for (const unit of ["C", "F"]) {
+    const validateFunc = `__${unit}_to_${targetUnit}`;
+    if (typeof window[`${targetUnit}_to_${unit}`] === "function") {
+      continue;
+    }
+    if (!window[`__${unit}_to_${unit}`]) {
+      throw new Error("Invalid target unit");
+    }
+  }
+
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+};
+
+const celsius_to_kelvin = (_cel: number): number => {
+  _validateCelsius(_cel);
+  return _cel + 273.15;
+};
+
+const celsius_to_fahrenheit = (_cel: number): number => {
+  _validateCelsius(_cel);
+  return _cel * 1.8 + 32;
+};
+```

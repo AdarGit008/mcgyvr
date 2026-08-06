@@ -1,0 +1,50 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string' || !line) {
+    throw new Error("Invalid empty input");
+  }
+  
+  const result: string[] = [];
+  let quoted = false;
+  let tokenStart = 0;
+  let tempField = '';
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (!quoted) {
+        quoted = true;
+      } else {
+        throw new Error("Never closing quote for a quoted field.");
+      }
+      tempField += char;
+      continue;
+    }
+
+    if (char === ',') {
+      if (!quoted) {
+        result.push(tempField.trim());
+        tokenStart = i + 1;
+        tempField = '';
+        continue;
+      } else {
+        tempField += char;
+      }
+    }
+
+    if (i === line.length - 1) {
+      // Add last field if there is not trailing comma
+      result.push(quoted ? tempField.trim() : tempField);
+    }
+
+    if (!quoted && char === ' ') {
+      continue; // Skip spaces inside unquoted fields
+    } else if (quoted && char !== ' ') {
+      tempField += char;
+    }
+  }
+
+  return result;
+}
+```

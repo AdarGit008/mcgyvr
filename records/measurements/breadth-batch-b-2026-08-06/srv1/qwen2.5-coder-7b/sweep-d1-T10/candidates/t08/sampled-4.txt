@@ -1,0 +1,49 @@
+```ts
+/**
+ * Perform a topological sort on the given nodes using the provided edges.
+ * @param nodes - Array of node names.
+ * @param edges - Array of [from, to] edge tuples indicating dependencies.
+ * @returns An array representing a valid topological order of nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjList = new Map<string, string[]>(nodes.map(node => [node, []]));
+    const indegree = new Map<string, number>(nodes.map(node => [node, 0]));
+
+    for (const [from, to] of edges) {
+        if (!adjList.has(from) || !adjList.has(to)) {
+            throw new Error(`Edge references a node not in nodes: ${from} -> ${to}`);
+        }
+        adjList.get(from)!.push(to);
+        indegree.set(to, (indegree.get(to)! + 1));
+    }
+
+    const queue: string[] = [];
+    for (const [node, count] of indegree.entries()) {
+        if (count === 0) {
+            queue.push(node);
+        }
+    }
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        if (queue.length > 1) {
+            // Ensure nodes are taken in their input order among the earliest free of unmet dependencies
+            queue.sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b));
+        }
+        const node = queue.shift()!;
+        result.push(node);
+        for (const neighbor of adjList.get(node)!) {
+            indegree.set(neighbor, indegree.get(neighbor)! - 1);
+            if (indegree.get(neighbor)! === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    if (result.length !== nodes.length) {
+        throw new Error('Cycle detected: no valid topological order exists');
+    }
+
+    return result;
+}
+```

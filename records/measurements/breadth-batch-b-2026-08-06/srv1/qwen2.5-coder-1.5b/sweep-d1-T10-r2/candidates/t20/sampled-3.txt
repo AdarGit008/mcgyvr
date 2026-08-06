@@ -1,0 +1,68 @@
+```ts
+import { isArray } from "lodash";
+
+/**
+ * The KEY=VALUE pairs of a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+
+  for (const line of text.split("\n")) {
+    if (line.trim().length === 0 || line.startsWith('#')) continue;
+
+    let [key, value] = line.trim().split(/(?=\s*=)[^ =]+/);
+    value = trimValue(value);
+
+    config[key] = value;
+  }
+
+  fixProtoWarning(config);
+
+  return config;
+}
+
+function trimValue(value: string): string {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) throw new Error(`Cannot parse config file. Line ${inputLineIndex + 1}: empty key`);
+
+  return trimmedValue;
+}
+
+function fixProtoWarning(config: Record<string, string>): void {
+  let hasProtoKey = false;
+
+  for (const key in config) {
+    if (key === '__proto__') {
+      hasProtoKey = true;
+      break;
+    }
+  }
+
+  if (!hasProtoKey) return;
+
+  const newConfig: Record<string, any> = {};
+
+  for (const key in config) {
+    newConfig[key] = Reflect.get(config, key);
+  }
+
+  for (const symbol of Object.getOwnPropertySymbols(config)) {
+    newConfig[symbol.toString()] = Reflect.getOwnPropertyDescriptor(config, symbol).value;
+  }
+
+  config = newConfig;
+}
+
+let inputLineIndex = -1;
+
+// Simulate `process.stdin` to allow input
+process.stdin.on('data', function (input) {
+  // Increase the input line index for error messages
+  inputLineIndex++;
+
+  const lines = input.toString();
+  const parsedConfig = parseConfig(lines);
+
+  console.log(JSON.stringify(parsedConfig, null, 2));
+});
+```

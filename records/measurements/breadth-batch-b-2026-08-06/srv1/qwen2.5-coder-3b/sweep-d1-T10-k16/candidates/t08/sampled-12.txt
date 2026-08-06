@@ -1,0 +1,56 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  // Map to keep track of incoming edges for each node
+  const inDegree = new Map<string, number>();
+  
+  // Build the graph from edges
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw new Error(`Edge names must be nodes`);
+    }
+    
+    // Update the incoming degree of `to`
+    inDegree.set(to, (inDegree.get(to) || 0) + 1);
+    
+    // Create an adjacency list for `from` if it doesn't exist
+    const neighbors = nodeGraph.get(from) || new Set<string>();
+    neighbors.add(to);
+    nodeGraph.set(from, neighbors);
+  }
+
+  // Initialize queue with nodes that have no incoming edges
+  const queue: string[] = [];
+  for (const [node] of inDegree) {
+    if (inDegree.get(node)! === 0) {
+      queue.push(node);
+    }
+  }
+
+  // Result array to store the topological order
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const currentNode = queue.shift()!;
+    result.push(currentNode);
+
+    // Decrease the incoming degree of neighbors and add them to the queue if their degree reaches zero
+    for (const neighbor of (nodeGraph.get(currentNode) || [])) {
+      inDegree.set(neighbor, (inDegree.get(neighbor)! - 1));
+      if (inDegree.get(neighbor)! === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check if there is a cycle
+  const allNodesVisited = nodeGraph.size === result.length;
+  if (!allNodesVisited) {
+    throw new Error('Cycle found');
+  }
+
+  return result;
+}
+
+// Memoization for the graph adjacency list
+const nodeGraph = new Map<string, Set<string>>();
+```

@@ -1,0 +1,17 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (version === "" || version === null || version === undefined) {
+    throw new Error("Invalid input");
+  }
+
+  const [major, minor, patch] = /^v?(\d+)\.(\d+)\.(\d+)([-\w]+)?(?:\+([\w-]+))?$/.exec(version)?.slice(1, -2);
+  if (!major || !minor || !patch) {
+    throw new Error("Invalid input");
+  }
+
+  const prerelease = version.includes("-") ? version.slice(-4).replace(/-/g, "") : null;
+  const build = version.includes("+") ? version.slice(-3).replace(/\+/g, "") : null;
+
+  return { major: parseInt(major, 10), minor: parseInt(minor, 10), patch: parseInt(patch, 10), prerelease, build };
+}
+```

@@ -1,0 +1,30 @@
+```ts
+function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+
+  for (const line of text.split("\n")) {
+    // Skip blank lines and lines starting with '#'
+    if (line.trim() === "" || line.trimStart().startsWith("#")) {
+      continue;
+    }
+
+    let [key, value] = line.split("=", 2);
+    key = key?.trim();
+    value = value?.trim();
+
+    if (!key) {
+      throw new Error(`Invalid config line: empty key at line ${lineNumber}`);
+    }
+
+    // Ensure a plain data key
+    const dotProtoIndex = key.indexOf('__proto__');
+    if (dotProtoIndex === 0 || dotProtoIndex > -1 && dotProtoIndex !== key.length - 9) {
+      throw new Error(`Invalid config line: "__proto__" cannot be used as a key at line ${lineNumber}`);
+    }
+
+    config[key] = value ?? ""; // Ensure a default empty string for no value
+  }
+
+  return config;
+}
+```

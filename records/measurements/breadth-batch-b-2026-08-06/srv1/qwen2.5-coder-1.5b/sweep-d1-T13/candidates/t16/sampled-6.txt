@@ -1,0 +1,31 @@
+```ts
+const MODULUS = 1000000007;
+
+// Using array to simulate recursion, pushing last and second elements first,
+// because pushing (current, next) would cause circular dependency in typescript.
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error('Argument must be a non-negative integer');
+  }
+
+  const numbers = [0, 1];
+  let lastIdx = 1;
+
+  for (let i = 2; i <= n; i++) {
+    for (let nextNum of numbers) {
+      // Shift array right (like pop(), then push(next to fill empty space)
+      const next = numbers[j + 1] ?? 0;
+      numbers[j] = nextNum;
+      if (++j >= lastIdx) {
+        break;
+      }
+    }
+    const next = (lastNumbers[idx - 1] + lastNumbers[idx]) % MODULUS;
+    lastNumbers[lastIdx++] = next;
+  }
+
+  return nums.pop() ?? 0;
+}
+```

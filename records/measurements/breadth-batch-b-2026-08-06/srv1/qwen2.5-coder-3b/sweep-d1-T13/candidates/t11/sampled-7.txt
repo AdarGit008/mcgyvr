@@ -1,0 +1,9 @@
+```typescript
+/** Sorts numbers in ascending order, preserving the original array structure. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (values === undefined || values === null) {
+    throw new Error("Invalid input: value must be a non-null read-only array.");
+  }
+  return [...values].map(Number).sort((a, b) => a - b);
+}
+```

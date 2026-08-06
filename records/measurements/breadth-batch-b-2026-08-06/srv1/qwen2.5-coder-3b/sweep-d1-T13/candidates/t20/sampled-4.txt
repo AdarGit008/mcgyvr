@@ -1,0 +1,42 @@
+```ts
+
+import { isNaN } from 'core';
+
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  const lines = text.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    if (!line || line.startsWith('#')) continue;
+
+    try {
+      const [key, value] = line.split('=').map(str => str.trim());
+
+      // Check if the key is "__proto__" and handle it appropriately
+      if (normalizeKey('__proto__', key)) {
+        config[key] = value; // Continue with the loop as "__proto__" should not override Object.prototype
+      } else {
+        const realKey = normalizeKey(key);
+        if (config[realKey]) throw new Error(`Line ${i + 1}: Duplicate key '${key}'`);
+
+        config[realKey] = value;
+      }
+    } catch {
+      console.error(`Failed to parse line ${i + 1}: ${line}`);
+    }
+  }
+
+  return config;
+}
+
+function normalizeKey(key: string, original?: string): string | boolean {
+  if (key === '__proto__' && !original) throw new Error('Line 1: Invalid config file structure: "__proto=__" should not exist.');
+  let res = `${key}__$`;
+  while (/^[a-zA-Z0-9]*/.test(key)) key = key.slice(res.length);
+  return [res + key, isNaN(Number(key.trim()))].includes(true) || original ? false : true;
+}
+
+
+```

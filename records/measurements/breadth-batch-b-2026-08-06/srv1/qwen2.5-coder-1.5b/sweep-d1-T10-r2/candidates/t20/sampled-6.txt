@@ -1,0 +1,31 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  if (typeof text !== "string") {
+    throw new Error("Invalid input: Input must be a string.");
+  }
+
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Skip blank lines and lines starting with #.
+    if (!line.trim().startsWith("#")) {
+      const parts = line.split(/(?<=\S)=/);
+      if (parts.length !== 2) {
+        throw new Error(`Invalid line format at: ${line}`);
+      }
+
+      const key = parts[0].trim();
+      const value = parts[1].trim();
+
+      // Ensure the key is not on the prototype of the returned object.
+      if ({}.toString.call(key).includes("[object")) {
+        throw new Error(`Key contains a proxy. Please convert it to an object.`);
+      }
+
+      config[key] = value;
+    }
+  }
+
+  return config;
+}
+```

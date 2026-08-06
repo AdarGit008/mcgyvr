@@ -1,0 +1,60 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  // Check if all nodes are present in the edges
+  const nodeSet = new Set(nodes);
+  for (const edge of edges) {
+    if (!nodeSet.has(edge[0]) || !nodeSet.has(edge[1])) {
+      throw Error(`Node ${edge[0]} or ${edge[1]} not found.`);
+    }
+  }
+
+  // Create an adjacency list representation of the graph
+  const adjList: Record<string, string[]> = {};
+  for (const edge of edges) {
+    if (!adjList[edge[0]]) {
+      adjList[edge[0]] = [];
+    }
+    adjList[edge[0]].push(edge[1]);
+  }
+
+  // Initialize the in-degrees for each node
+  const inDegrees: Record<string, number> = {};
+  for (const node of nodes) {
+    inDegrees[node] = 0;
+  }
+
+  // Calculate the in-degree of each node by counting incoming edges
+  for (const edge of edges) {
+    inDegrees[edge[1]]++;
+  }
+
+  // Create a queue to store nodes with zero in-degree
+  const q: string[] = [];
+  for (const node of nodes) {
+    if (inDegrees[node] === 0) {
+      q.push(node);
+    }
+  }
+
+  // Perform topological sorting
+  const order: string[] = [];
+  while (q.length > 0) {
+    const current = q.shift()!;
+    order.push(current);
+
+    for (const neighbor of adjList[current]) {
+      inDegrees[neighbor]--;
+      if (inDegrees[neighbor] === 0) {
+        q.push(neighbor);
+      }
+    }
+  }
+
+  // Check if all nodes are processed
+  if (order.length !== nodes.length) {
+    throw Error('Cycle detected.');
+  }
+
+  return order;
+}
+```

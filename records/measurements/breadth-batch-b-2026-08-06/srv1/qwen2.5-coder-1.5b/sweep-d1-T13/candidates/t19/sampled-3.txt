@@ -1,0 +1,12 @@
+```ts
+/**
+ * Divide two numbers safely, handling division by zero and non-numeric inputs.
+ */
+export function safeDivide(a: number, b: number): number {
+  // Early exit for divisor zero or non-number input:
+  if (b === 0 || isNaN(b) || typeof a !== 'number' || Array.isArray(a)) {
+    throw new Error('Invalid arguments');
+  }
+  return a / b;
+}
+```

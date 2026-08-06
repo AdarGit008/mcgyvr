@@ -1,0 +1,34 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth !== undefined && !Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error("Depth must be a non-negative integer or Infinity");
+  }
+
+  return items.flatMap((item, index) => {
+    const currentDepth = depth === undefined ? Number.MAX_SAFE_INTEGER : depth;
+    if (currentDepth <= 0 || typeof item !== "object" || item === null) {
+      return item;
+    }
+    if (Array.isArray(item)) {
+      return item.map((subItem, subIndex) =>
+        flatten([subItem], currentDepth - 1).find(subSubItem => !Array.isArray(subSubItem))
+      );
+    } else if (typeof item === "object") {
+      const keys = Object.keys(item);
+      if (!keys.length) {
+        return Object.fromEntries(
+          keys.flatMap(key => [
+            key,
+            flatten([item[key]], currentDepth - 1).find(subSubItem =>
+              !Array.isArray(subSubItem)
+            )
+          ])
+        );
+      }
+    }
+
+    // This should never happen due to the guard clauses above, but it's included for exhaustiveness.
+    throw new Error("Unreachable code");
+  });
+}
+```

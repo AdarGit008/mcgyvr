@@ -1,0 +1,28 @@
+```ts
+/**
+ * The words grouped by their length, in first-seen order.
+ */
+export function groupByLength(words: readonly string[]): Map<number, string[]> {
+  // Ensure input is read-only and not empty. Throw Error if invalid.
+  if (!words || words.length === 0) {
+    throw new Error("The input array is empty.");
+  }
+
+  const groups = new Map<number, string[]>();
+  
+  for (const word of words) {
+    // Use slice instead of spread operator to create a copy that doesn't mutate the original.
+    const bucket = groups.get(word.length);
+    
+    if (bucket === undefined) {
+      // Add an array literal inside `map`, not using arrow function because it won't return the same reference.
+      groups.set(word.length, [word]);
+    } else {
+      // Use push on a copy instead of modifying directly to avoid mutating the original array.
+      bucket.push(word);
+    }
+  }
+
+  return groups;
+}
+```

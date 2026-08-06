@@ -1,0 +1,32 @@
+```
+const MAX_ITERATION = 2001;
+const MODULUS = 1000000007;
+
+function fibModIterative(n: number): number {
+  if (n < 0) {
+    throw new Error("n must be a non-negative integer");
+  }
+
+  const result: number[] = [0, 1];
+
+  for (let i = 2; i <= n; i++) {
+    const nextValue = (result[i - 1] + result[i - 2]) % MODULUS;
+    result.push(nextValue);
+  }
+
+  return result[n];
+}
+
+export function fibMod(n: number): number {
+  if (!Number.isInteger(n) || n < 0 ) {
+    throw new Error("n must be a non-negative integer");
+  }
+  if (n >= MAX_ITERATION) {
+    throw new Error("n must be at most " + MAX_ITERATION - 1);
+  }
+
+  return fibModIterative(n);
+}
+```
+
+Note: The added `MAX_ITERATION` constant is necessary to avoid the stack overflow issue in a naive recursive approach. This implementation uses an iterative approach, which allows handling larger values of `n`.

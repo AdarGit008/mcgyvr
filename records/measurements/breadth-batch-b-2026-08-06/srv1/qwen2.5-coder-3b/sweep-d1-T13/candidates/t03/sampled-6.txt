@@ -1,0 +1,32 @@
+```typescript
+type Semver = { major: number; minor: number; patch: number; prerelease: string | null; build: string | null };
+
+export function parseSemver(version: string): Semver {
+  // Check for the format MAJOR.MINOR.PATCH [-prerelease] [+build]
+  const regex = /^(\d+)(\.\d+)(\.\d+)(?:-([a-z0-9.-]+))?(?:\+(.+))?$/.exec(version);
+
+  if (!regex) {
+    throw new Error("Invalid semantic version");
+  }
+
+  const [_, major, minorStr, patchStr] = regex.slice(1);
+
+  if (
+    !/^\d+$/.test(major) ||
+    +major > 999_999 ||
+    +major >= 7 || // Major releases are supposed to be <7 for historical reasons
+    !/^(\d)+$/.test(minorStr) ||
+    !/^(\d)+$/.test(patchStr)
+  ) {
+    throw new Error(`${version} is not a valid major.minor.patch format`);
+  }
+
+  return {
+    major: parseInt(major, 10),
+    minor: parseInt(minorStr, 10),
+    patch: parseInt(patchStr, 10),
+    prerelease: regex[4] || null,
+    build: regex[5] || null
+  };
+}
+```

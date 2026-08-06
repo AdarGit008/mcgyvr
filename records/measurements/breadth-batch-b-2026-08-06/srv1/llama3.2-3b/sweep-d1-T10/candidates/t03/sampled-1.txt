@@ -1,0 +1,31 @@
+```ts
+/**
+ * Parses a semantic version string.
+ *
+ * @param {string} version The version string to parse.
+ * @returns {{ major: number; minor: number; patch: number; prerelease: string | null; build: string | null }}
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const cleanVersion = /^v?(\d+)\.(\d+)?(?:\.(0|\d+)\.?
+   (\d+))?(-([a-z0-9_-.]+))?(?:\+([a-z0-9_-.]+))?$/i;
+
+  if (!cleanVersion.test(version))
+    throw new Error(`Invalid version string: ${version}`);
+
+  const match = cleanVersion.exec(version);
+
+  return {
+    major: parseInt(match[1], 10),
+    minor: parseInt(match[2], 10),
+    patch: parseInt(match[3], 10),
+    prerelease: match[4] ? match[4].slice(0, 28) : null,
+    build: match[6] ? match[6].slice(0, 16) : null,
+  };
+}
+```

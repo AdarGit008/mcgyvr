@@ -1,0 +1,25 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (items === undefined || items === null) {
+    throw new Error("Input must be a non-null object");
+  }
+  let currentDepth = depth !== undefined ? depth : Infinity;
+
+  const result: unknown[] = [];
+
+  function walk(item, currDepth) {
+    if (currDepth > currentDepth) return;
+    if (Array.isArray(item)) {
+      for (const element of item).walk(element, currDepth + 1);
+    } else if (!item) {
+      // Strings and null/undefined are considered values
+    } else {
+      result.push(item);
+    }
+  }
+
+  items.walk(walk, 0);
+
+  return result;
+}
+```

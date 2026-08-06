@@ -1,0 +1,91 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { key: K; value: V }>;
+  private head?: { key: K; value: V };
+  private tail?: { key: K; value: V };
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map<K, { key: K; value: V }>();
+  }
+
+  get(key: K): V | undefined {
+    const node = this.cache.get(key);
+    if (!node) return;
+
+    // Move node to the front
+    this.moveToHead(node);
+
+    return node.value;
+  }
+
+  set(key: K, value: V): void {
+    let newNode: { key: K; value: V };
+
+    if (this.cache.has(key)) {
+      const existingNode = this.cache.get(key)!;
+      existingNode.key = key;
+      existingNode.value = value;
+      this.moveToHead(existingNode);
+      return;
+    }
+
+    newNode = { key, value };
+    this.cache.set(key, newNode);
+
+    // Add to head
+    if (!this.head) {
+      this.head = newNode;
+      this.tail = newNode;
+    } else {
+      const newHead: { key: K; value: V } = { key, value };
+      newHead.next = this.head;
+      this.head.prev = newHead;
+      this.head = newHead;
+    }
+
+    // Evict if capacity is exceeded
+    if (this.cache.size > this.capacity) {
+      const tailNode = this.tail!;
+      this.cache.delete(tailNode.key);
+      let currTail = tailNode.prev;
+      if (currTail) {
+        currTail.next = null;
+        this.tail = currTail;
+      }
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private moveToHead(node: { key: K; value: V }): void {
+    if (node === this.head) return;
+
+    // Remove from current position
+    if (node.prev) {
+      node.prev.next = node.next;
+    } else {
+      this.head = node.next;
+    }
+    if (node.next) {
+      node.next.prev = node.prev;
+    } else {
+      this.tail = node.prev;
+    }
+
+    // Add to head
+    const newHead: { key: K; value: V } = { key: node.key, value: node.value };
+    newHead.next = this.head;
+    if (this.head) {
+      this.head.prev = newHead;
+    }
+    this.head = newHead;
+  }
+}
+```

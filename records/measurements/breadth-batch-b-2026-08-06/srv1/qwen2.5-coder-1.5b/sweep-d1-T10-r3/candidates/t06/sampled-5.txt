@@ -1,0 +1,47 @@
+```ts
+/**
+ * Splits the given CSV line into its fields.
+ * 
+ * @param line - The CSV line to be split.
+ * @returns An array of field strings.
+ */
+export function parseCsvLine(line: string): string[] {
+  const lines = line.split(/\r?\n/);
+  return lines.map(function processLine(content, i) {
+    let processedContent = content.trim();
+    
+    // Skip empty lines
+    if (processedContent === '') return [];
+    
+    // Skip comment lines starting with #
+    if (processedContent.startsWith('#')) return [];
+    
+    const fields = []; 
+    
+    for (let index = 0; index < processedContent.length; index++) {
+      let currentChar = processedContent[index];
+      let escaped = false;
+
+      while ((index < processedContent.length) && currentChar === '"') {
+        escaped = !escaped;
+        currentChar = processedContent[++index];
+      }      
+                              
+      const nextChar = index < processedContent.length ? processedContent[index] : null; 
+
+      if (!currentChar || currentChar === ',') {        
+        let value = processedContent.slice(0, index).trim();
+
+        // Remove the enclosing quotes
+        if (escaped) value = value.substring(1, value.length - 1);
+
+        fields.push(value);  
+        
+        processedContent = '';
+      }
+    }
+
+    return fields;
+  });
+}
+```

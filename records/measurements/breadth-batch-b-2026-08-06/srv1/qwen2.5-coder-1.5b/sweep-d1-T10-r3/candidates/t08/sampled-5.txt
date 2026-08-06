@@ -1,0 +1,49 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.length === 0 || edges.length === 0) return [];
+
+  const graph = new Map<string, Set<string>>([(e[0], e.slice(1)) for (const e of edges)];
+  const inDegree = nodes.reduce((memo, node) => memo.set(node, 0), new Map());
+  
+  // Build in-degree map
+  for (const [from, to] of edges) {
+    graph.get(from)?.add(to);
+    inDegree.set(to, (inDegree.get(to) || 0) + 1);
+  }
+
+  let freeNodes = new Set(nodes);
+
+  return nodes.reduce((ordering, node, index) => {
+    if (!freeNodes.has(node)) throw new Error(`Node ${node} not in nodes`);
+    
+    ordering[index] = node;
+    freeNodes.delete(node);
+    
+    for (const successor of graph.get(node) || []) {
+      inDegree.set(successor, inDegree.get(successor)! - 1);
+
+      if (inDegree.get(...successor)) {
+        // We found a cycle starting from Node node
+        freeNodes.add(node); // Put 'node' back into the list with other candidates
+        
+        for (const otherNode of freeNodes) {
+          // If any other node has no remaining dependencies, then that node can be safely added to the ordering as if it were 'node'
+          const inDegreeRemaining = Array.from(inDegree.values()).reduce((a, b) => a + b, 0);
+          if (inDegreeRemaining === 0) {
+            throw new Error(`Cycle detected starting at Node ${otherNode}`);
+          }
+        }
+        
+        // Remove the node from 'freeNodes' even though it's part of the order. If we were to add it now,
+        // it would violate the original contract that nodes be in their input order.
+        freeNodes.delete(node);
+      } else {
+        // If a successor has no remaining dependencies, then that successor is ready for adding to 'ordering'.
+        ordering[index + 1] = Successor;
+      }
+    }
+
+    return ordering;
+  }, []);
+}
+```

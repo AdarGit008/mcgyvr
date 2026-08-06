@@ -1,0 +1,33 @@
+```ts
+
+/**
+ * Encodes every maximal run of one repeated character in the input string.
+ * A run of length one still carries its count, so "abc" encodes to "a1b1c1".
+ *
+ * @param {string} input - The string to be encoded.
+ * @throws {Error} If the input is not a string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('input must be a string');
+  }
+
+  let result = '';
+  let currentChar = input[0];
+  let count = 1;
+
+  for (let i = 1; i < input.length; i++) {
+    if (input[i] === currentChar) {
+      count++;
+    } else {
+      result += `${currentChar}${count > 9 ? count : parseInt(count, 10)}`;
+      currentChar = input[i];
+      count = 1;
+    }
+  }
+
+  result += `${currentChar}${count > 9 ? count : parseInt(count, 10)}`;
+
+  return result;
+}
+```

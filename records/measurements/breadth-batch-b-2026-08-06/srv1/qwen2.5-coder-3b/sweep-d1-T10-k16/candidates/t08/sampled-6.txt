@@ -1,0 +1,44 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    // Utility variables for keeping track of graph structure and dependencies
+    const dependencyMap = new Map<string, Set<string>>();
+    const freeNodes = [...nodes];
+
+    // Create the dependency map
+    for (const [from, to] of edges) {
+        if (!dependencyMap.has(from)) {
+            dependencyMap.set(from, new Set());
+        }
+        dependencyMap.get(from)?.add(to);
+    }
+
+    const sortedOrder: string[] = [];
+
+    while (freeNodes.length > 0) {
+        // Find the next free node
+        let currentNodeIndex = 0;
+        for (; currentNodeIndex < freeNodes.length; currentNodeIndex++) {
+            if (!dependencyMap.has(freeNodes[currentNodeIndex])) {
+                break;
+            }
+        }
+
+        // If no free node is found, there's a cycle
+        if (currentNodeIndex >= freeNodes.length) {
+            throw new Error('Cycle detected in the graph');
+        }
+
+        // Add it to the sorted order
+        const currentNode = freeNodes[currentNodeIndex];
+        sortedOrder.push(currentNode);
+
+        // Remove it from the free nodes list and update dependencies
+        freeNodes.splice(currentNodeIndex, 1);
+        dependencyMap.forEach((dependencies) => {
+            dependencies.delete(currentNode);
+        });
+    }
+
+    return sortedOrder;
+}
+```

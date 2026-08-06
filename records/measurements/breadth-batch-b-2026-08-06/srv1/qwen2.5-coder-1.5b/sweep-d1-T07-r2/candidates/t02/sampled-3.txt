@@ -1,0 +1,30 @@
+```ts
+/**
+ * Merge overlapping intervals in ascending order by start.
+ *
+ * @param intervals An array of [start, end] pairs.
+ * @returns A new array of merged intervals.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.length === 0) return [];
+
+  // Sort intervals based on the start value
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  let result: number[][] = [];
+  let currentInterval: number[] | null = null;
+
+  for (const [start, end] of intervals) {
+    if (!currentInterval || start > currentInterval[1]) {
+      // Start a new interval or merge with the current one
+      currentInterval = [start, end];
+      result.push(currentInterval);
+    } else {
+      // Extend the current interval to cover the new range
+      currentInterval[1] = Math.max(end, currentInterval[1]);
+    }
+  }
+
+  return result;
+}
+```

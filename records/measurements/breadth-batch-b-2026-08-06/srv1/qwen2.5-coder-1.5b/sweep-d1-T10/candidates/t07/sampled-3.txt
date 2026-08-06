@@ -1,0 +1,32 @@
+```ts
+function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) depth = Infinity;
+  if (typeof depth !== 'number' || depth < 0) throw new Error('depth must be a non-negative integer or Infinity');
+  
+  let flatItems: unknown[] = [];
+  
+  function mergeArrays(list1: readonly unknown[], list2: readonly unknown[]) {
+    for (const item of list1) flatItems.push(item);
+    for (const item of list2) flatItems.push(item);
+  }
+  
+  function processItems(items: readonly unknown[], currentDepth: number): void {
+    if (Array.isArray(items)) {
+      if (currentDepth === depth && !Object(isNaN(items, ''))) {
+        mergeArrays(items as unknown[], flatItems);
+      } else {
+        for (const item of items) processItems(item as readonly unknown[], currentDepth + 1);
+      }
+    } else if (typeof items === 'string') {
+      // Strings are not considered to be arrays and should not be expanded
+      continue;
+    }
+    
+    flatItems.push(items);
+  }
+  
+  for (const item of items) processItems(item as readonly unknown[], 0);
+  
+  return flatItems;
+}
+```

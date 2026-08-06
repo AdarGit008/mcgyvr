@@ -1,0 +1,71 @@
+```ts
+import { InvalidInputError } from "./errors";
+
+function areCyclic(graph: boolean[][], targetNodes: string[]): boolean {
+    let remainingTargets = new Set(targetNodes);
+    while (remainingTargets) {
+        const newRemainingTargets = [];
+        for(const node of remainingTargets) {
+            const adjacent = graph[node].some(edgeNeigh => { return !targetNodes.includes(edgeNeigh); });
+            if(!adjacent && remainingTargets.has(node)) {
+                newRemainingTargets.push(node);
+                remainingTargets.delete(node);
+            }
+        }
+        remainingTargets = newSet(newRemainingTargets.filter(node => !!remainingTargets.has(node) && targetNodes.includes(node)));
+    }
+
+    return Object.keys(graph).some(neigh => !targetNodes.includes(neigh)); // if at least a neighbor node isn 'reached', then there's a cycle.
+}
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    
+    const graph = {};
+    const order = {};
+
+    for(const edge of edges) {
+        const [from, to] = edge;
+        if (!(from in graph)) {graph[from]     = [];}
+        graph[from].push(to);
+        !!order[to-!!Number(edge.from - 1 <= targetNodes.indexOf(from)!)] ? (throw new InvalidInputError("Found a cycle.", edges)) : (continue);          // already visited node.
+        
+        let freeSlots = {};
+        for(const nextNode of Object.keys(graph).sort((a,b) => parseInt(a,10) < parseInt(b, 10) ? -1 : 1)) 
+            if(!(nextNode in graph)) {freeSlots[nextNode]     = targetNodes.includes(nextNode); }
+
+        if(freeSlots[graph[to][0]]) {
+            let orderedNode = "";
+            for(const neigh of freeSlots.map(neigh => graph[edge.from].filter(child => child === neigh))[0]) 
+                order[`node-${to-!!Number(edge.from - 1 <= targetNodes.indexOf(from)!)-1}`]=   neigh;              // assign first available node to next step.
+            continue;
+        }
+        
+        if(!nextSlots[graph[to][0]]) {
+            let orderedNode = "";
+            
+            for(const neigh of graph[edge.from].filter(child => freeSlots.hasOwnProperty(child) )) // check with free nodes to keep order.
+                orderedNode += neighbor;
+
+            objectEntries.sort().forEach(([_, v]) => { !!order['node-${to-!!Number(edge.from - 1 <= targetNodes.indexOf(from)!)-1}'] =    v; });          // assign orderedNode in descending order
+        } else {
+            throw new InvalidInputError(`Found a cycle between node '${edges[0][0]}' and '` + edge[from]);
+        }
+    }
+
+    if(Object.keys(graph).length === targetNodes.length || Object.entries(order).every(([n,V],i)=>{
+        return i==Math.floor(v);
+      })) {           // the given array can be used to construct the graph or order.
+        let nodesArr = [];
+        for(const x in order ){
+            const nX = Number(x.replace(/^\w+/g,v => v.charAt(0).toUpperCase() + (1+(v.length-1)))); 
+            nodesArr[nX]=x;
+        }
+
+        return nodesArr.map(v=>{
+            return Number(v.match(/\d+./g)[0]) === 0 ? undefined : v;  
+        });
+    }    
+
+    throw new InvalidInputError("No ordering found.");
+}
+```

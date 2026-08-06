@@ -1,0 +1,50 @@
+```ts
+function parseCsvLine(line: string): string[] {
+    if (line === "") {
+        return [];
+    }
+
+    const quoteCount = countQuotesInsideQuotedField(line);
+    switch (quoteCount) {
+        case 0:
+            // No closed quotes, split without enclosing quotes.
+            return line.split(",").map(trimWhitespace);
+        case 1:
+            // Open ended quoted field. Return without splitting but handle closingQuotes first.
+            if (!line.endsWith('"')) {
+                throw new Error(`Missing quote at the end of ${quoteString}`);
+            }
+            const [part, fullQuoteString] = line.slice(0, -1).split(/(?<!')\K\"/, 2);
+            return part === "" ? [] : [trimWhitespace(part)];
+
+        default:
+            // Multiple unclosed quotes are unexpected.
+            throw new Error(`Unclosed quotations in: ${line}`);
+    }
+}
+
+function countQuotesInsideQuotedField(line: string): number {
+    let quoteCount = 0;
+    const stack = [];
+
+    for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') {
+            switch (stack.pop()) {
+                case '"': {
+                    throw new Error(`Nested quotation in: ${line}`);
+                }
+                defualt:
+                case undefined:
+                }
+            }
+            stack.push('"');
+        }
+    }
+
+    return quoteCount + stack.length;
+}
+
+function trimWhitespace(str: string): string {
+    return str.trim();
+}
+```

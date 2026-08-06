@@ -1,0 +1,58 @@
+```typescript
+
+
+
+export function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let i = 0;
+  let inQuote = false;
+
+  while (i < line.length) {
+    if (line[i] === '"') {
+      if (inQuote) {
+        // Closing quote
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          result.push('"'); // Add one literal quote
+          i += 2; // Skip the next character which is another double quote
+        } else if (i > 0) {
+          // Unterminated quoted field or invalid input
+          throw new Error("Unterminated quoted field");
+        } else {
+          inQuote = false;
+        }
+      } else {
+        // Opening quote
+        inQuote = true;
+      }
+    } else if (!inQuote && line[i] === ',') {
+      // End of literal string field
+      result.push(line.substring(0, i));
+      i++;
+    } else if (!inQuote) {
+      // Ignore leading whitespace
+      if (line[i] !== ' ') continue;
+
+      i += 1;
+ while (i < line.length && line[i] === ' ') {
+        i++; // Skip trailing whitespace
+        }
+    }
+
+    i++;
+  }
+
+  // Add the last field, unless the line is empty or finished by a closing quote
+ result.push(inQuote ? '"' : line);
+
+  if (!inQuote) {
+    // Verify all quoted fields were terminated properly
+     for (const field of result) {
+       if (field.startsWith(',') || field.endsWith(',') || !field.trim()) {
+         throw new Error('Malformed quoted field detected');
+       }
+     }
+  }
+
+  return result;
+}
+```

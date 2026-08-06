@@ -1,0 +1,21 @@
+```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Ignore blank lines and lines with comment symbols at the beginning
+    if (line.trim().startsWith("#") || line === "") continue;
+
+    // Trim whitespace around key and value, split on the FIRST "=" only
+    const [key, value] = /^\s*(\S+)\s*=(.*)/.exec(line)?.slice(1) ?? [ "", "" ];
+    
+    // Validate key and remove from prototype if it's a reserved key
+    if (Object.hasOwnProperty(key)) {
+      throw new Error(`Key "${key}" reaches the prototype of the returned object.`);
+    }
+    
+    config[key] = value;
+  }
+  return config;
+}
+```

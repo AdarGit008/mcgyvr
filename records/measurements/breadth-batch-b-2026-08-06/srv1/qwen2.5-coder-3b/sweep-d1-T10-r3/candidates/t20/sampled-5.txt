@@ -1,0 +1,18 @@
+```
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+
+  for (const line of text.split("\n")) {
+    if (!line || /\s*#/i.test(line)) continue;
+
+    const [key, value] = line.trim().split("=", 2);
+
+    if (!key) throw new Error(`Line "${line}" has no key`);
+    if (!value) throw new Error(`Line "${line}" is missing a value`);
+
+    config[key] = (value || "").trim();
+  }
+
+  return config;
+}
+```

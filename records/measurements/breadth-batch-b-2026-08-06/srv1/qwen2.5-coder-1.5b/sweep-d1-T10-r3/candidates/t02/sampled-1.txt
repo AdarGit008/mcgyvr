@@ -1,0 +1,25 @@
+```typescript
+/**
+ * Merge non-overlapping integer intervals.
+ * 
+ * @param {number[][]} intervals - An array of [start, end] pairs.
+ * @returns {number[][]} - A sorted array of non-overlapping intervals.
+ */
+function mergeIntervals(intervals: number[][]): number[][] {
+  // Sort intervals by start
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+
+  let merged: number[][] = [];
+  for (const interval of sorted) {
+    if (!merged.length || merged[merged.length - 1][1] < interval[0]) {
+      // If no existing overlap or the current start is greater than the end of last item
+      merged.push(interval);
+    } else {
+      // Merge overlapping intervals
+      merged[merged.length - 1][1] = Math.max(merged.pop()[1], interval[1]);
+    }
+  }
+
+  return merged;
+}
+```

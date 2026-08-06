@@ -1,0 +1,23 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth !== undefined && !(Number.isInteger(depth) && depth >= 0)) {
+    throw new Error('Invalid depth. Must be a non-negative integer or Infinity.');
+  }
+
+  const result: unknown[] = [];
+  const stack: [unknown[], number][] = [[items, depth ?? Infinity]];
+
+  while (stack.length > 0) {
+    const [currentItems, currentDepth] = stack.pop()!;
+    for (const item of currentItems) {
+      if (Array.isArray(item) && currentDepth > 0) {
+        stack.push([item, currentDepth - 1]);
+      } else if (typeof item !== 'string') {
+        result.push(item);
+      }
+    }
+  }
+
+  return result;
+}
+```

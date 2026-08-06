@@ -1,0 +1,47 @@
+```ts
+export class LruCache<K, V> {
+  private cache: { [key: K]: V } = {};
+  private oldestKey?: K;
+  private capacity: number;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache[key];
+    if (value !== undefined) {
+      this.updateOldest(key);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    this.cache[key] = value;
+    if (this.size + 1 > this.capacity) {
+      const oldestKey = this.oldestKey!;
+      delete this.cache[oldestKey];
+      this.leastRecentlyUsed();
+    }
+    this.updateOldest(key);
+  }
+
+  get size(): number {
+    return Object.keys(this.cache).length;
+  }
+
+  private updateOldest(key: K): void {
+    this.oldestKey = key;
+  }
+
+  private leastRecentlyUsed(): void {
+    if (this.oldestKey !== undefined) {
+      delete this.cache[this.oldestKey];
+      this.updateOldest();
+    }
+  }
+}
+```

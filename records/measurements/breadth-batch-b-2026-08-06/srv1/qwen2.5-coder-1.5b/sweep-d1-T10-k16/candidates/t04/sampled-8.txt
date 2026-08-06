@@ -1,0 +1,62 @@
+```typescript
+export class LruCache<K, V> {
+  private cache: Map<K, V>;
+  private capacity: number;
+  private size: number;
+
+  constructor(capacity: number) {
+    // Validate capacity to be a positive integer
+    if (capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+
+    this.cache = new Map();
+    this.capacity = capacity;
+    this.size = 0;
+  }
+
+  private deleteLeastUsed(): void {
+    const keys = Array.from(this.cache.keys());
+    // Delete the last one in case size is not adjusted
+    if (keys.length > 1) {
+      this.cache.delete(keys[1]);
+    }
+  }
+
+  public get(key: K): V | undefined {
+    if (!this.cache.has(key)) {
+      return;
+    }
+    // Increment size and move to front
+    const value = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    this.size += 1;
+    if (this.size > this.capacity) {
+      this.deleteLeastUsed();
+    }
+    return value;
+  }
+
+  public set(key: K, value: V): void {
+    // Increment size
+    this.size += 1;
+
+    if (!this.cache.has(key)) {
+      if (this.size > this.capacity) {
+        // Evict the least recently used item
+        this.deleteLeastUsed();
+      }
+      this.cache.set(key, value);
+    } else {
+      // Update existing item by moving it to the front and setting its value
+      this.cache.delete(key);
+      this.cache.set(key, value);
+    }
+  }
+
+  public get size(): number {
+    return this.size;
+  }
+}
+```

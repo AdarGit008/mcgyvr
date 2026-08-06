@@ -1,0 +1,31 @@
+```ts
+// solution.ts
+
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (typeof items !== 'object' || items === null) {
+    throw new Error('Input must be an array');
+  }
+  if (!Number.isInteger(size)) {
+    throw new Error('Size must be a positive integer');
+  }
+
+  const chunked: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunked.push(items.slice(i, i + size));
+  }
+
+  return chunked;
+}
+
+// edge-case checklist verification:
+// 1.Empty input: Returns []
+// 2.Single element input: If size is 1, returns [[items[0]]]
+// 3.Null/undefined where an array is expected: Throws error
+// 4.Zero/Negative numbers/NaN: Throws error for negative number; valid for zero if size > 0
+// 5.Boundary indices:
+//   a. first element[i=0, i+1, ...] returns [[items[0]]
+//   b. last element[j-1, ..., n], j=length returns [items[n]];
+//   c. [j] or off-by-one with negative index returns []
+// 6.Duplicate values: Does not affect behavior
+// 7.Already in desired state: Returns array immediately in chunked form or unchanged
+```

@@ -1,0 +1,29 @@
+```typescript
+/**
+ * Flattens a nested array up to a specified depth level, defaulting to every level.
+ * A string is a value, never something to iterate into, no matter how deep it appears.
+ * A depth of 0 returns a copy of the input unchanged. The input must not be mutated.
+ * Throws an Error unless depth is a non-negative integer or Infinity.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (depth === undefined) return items;
+
+    const result = [];
+    for (const item of items) {
+        if (typeof item !== 'string') {
+            if (Array.isArray(item)) {
+                result.push(...flatten(item, Math.min(depth - 1, Infinity)));
+            } else if (item instanceof Set || item instanceof Map) {
+                // Treat Sets and Maps as nested
+                for (const [key, value] of item) {
+                    result.push(flatten([value], depth));
+                }
+            } else {
+                result.push(item);
+            }
+        }
+    }
+
+    return result;
+}
+```

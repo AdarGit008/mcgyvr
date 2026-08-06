@@ -1,0 +1,118 @@
+```ts
+export class LruCache<K, V> {
+  private capacity: number;
+  private items: Map<K, { value: V; timestamp: number }>;
+  private head?: { next: { prev: null | { key: K }; value: V; timestamp: number }; prev: null };
+  private tail?: { next: null; prev: { key: K; value: V; timestamp: number }; value: V; timestamp: number };
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+    this.items = new Map();
+    this.head = undefined;
+    this.tail = undefined;
+  }
+
+  private evict() {
+    const toEvict = this.tail;
+    if (toEvict) {
+      if (this.head === this.tail) {
+        this.head = undefined;
+        this.tail = undefined;
+      } else {
+        this.tail = toEvict.prev;
+        toEvict.prev!.next = undefined;
+      }
+      this.items.delete(toEvict.key!);
+    }
+  }
+
+  get(key: K): V | undefined {
+    const item = this.items.get(key);
+    if (item) {
+      // Move the accessed item to the head of the list
+      if (this.head !== item.prev) {
+        const prev = item.prev;
+        const next = item.next;
+
+        if (prev) {
+          prev.next = next;
+        }
+        if (next) {
+          next.prev = prev;
+        }
+
+        item.prev = this.head;
+        if (!this.head) {
+          this.tail = item;
+        } else {
+          this.head!.next = item;
+        }
+        this.head = item;
+        item.timestamp = Date.now();
+      }
+      return item.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    const item = this.items.get(key);
+    if (item) {
+      // Update the existing item
+      item.value = value;
+      item.timestamp = Date.now();
+
+      // Move the accessed item to the head of the list
+      if (this.head !== item.prev) {
+        const prev = item.prev;
+        const next = item.next;
+
+        if (prev) {
+          prev.next = next;
+        }
+        if (next) {
+          next.prev = prev;
+        }
+
+        item.prev = this.head;
+        if (!this.head) {
+          this.tail = item;
+        } else {
+          this.head!.next = item;
+        }
+        this.head = item;
+      }
+    } else {
+      // Insert a new item
+      const newItem: { value: V; timestamp: number } = { value, timestamp: Date.now() };
+      this.items.set(key, newItem);
+
+      if (this.capacity === 0) {
+        return;
+      }
+
+      if (!this.head || !this.tail) {
+        this.head = newItem;
+        this.tail = newItem;
+      } else {
+        const prevHead = this.head!;
+        newItem.prev = prevHead;
+        prevHead.next = newItem;
+        this.head = newItem;
+
+        // Evict the tail if capacity is exceeded
+        if (this.items.size > this.capacity) {
+          this.evict();
+        }
+      }
+    }
+  }
+
+  get size(): number {
+    return this.items.size;
+  }
+}
+```

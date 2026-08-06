@@ -1,0 +1,19 @@
+```ts
+// The number.isFinite function checks if the provided value is finite number.
+
+const safeDivide = (a: number, b: number): number => {
+  // If either a or b is non-finite, throw an Error stating they're not valid numbers.
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error('Both arguments must be finite numbers.');
+  }
+
+  // Check if b (the divisor) is zero. If it is, throw an error explaining this condition.
+  if (b === 0 || -b === 0) {
+    throw new Error('Division by zero is not allowed.');
+  }
+
+  // At this point, both arguments are finite numbers and not divisible by zero,
+  // so we can safely divide them here.
+  return a / b;
+};
+```

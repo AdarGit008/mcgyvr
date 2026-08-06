@@ -1,0 +1,7 @@
+```typescript
+export function removeNegatives(values: readonly number[]): number[] {
+  const result: number[] = [...values]; // Create a copy of the input array to avoid mutation
+  result.filter((value, index) => value >= 0); // Filter out negative numbers
+  return result;
+}
+```

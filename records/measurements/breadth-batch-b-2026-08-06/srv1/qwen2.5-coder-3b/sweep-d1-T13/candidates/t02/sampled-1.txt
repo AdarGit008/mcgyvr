@@ -1,0 +1,26 @@
+```typescript
+ export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!intervals.every(interval => interval.length === 2)) {
+    throw new Error("Invalid intervals array");
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const merged: number[][] = [intervals[0]];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const prevEnd = merged.at(-1)![1];
+    const currStart = intervals[i][0];
+
+    if (prevEnd >= currStart && intervals[i][1] <= intervals[merged.length - 1][1]) {
+      // Merge this interval into the last of the merged array
+      merged.at(-1)![1] = intervals[i][1];
+    } else if ( prevEnd < currStart && intervals[i][1] > prevEnd) {
+      // Create a new merged interval
+      merged.push([prevEnd, intervals[i][1]]);
+    }
+  }
+
+  return merged;
+}
+```

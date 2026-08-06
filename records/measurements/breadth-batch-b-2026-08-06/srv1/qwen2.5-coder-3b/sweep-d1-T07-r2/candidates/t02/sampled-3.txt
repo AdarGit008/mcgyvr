@@ -1,0 +1,33 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!intervals.every(([start, end]) => start <= end)) {
+    throw new Error(" intervals must have start <= end");
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const merged: number[][] = [];
+  let currentInterval: number[] | null = intervals[0];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const nextInterval = intervals[i];
+    if (
+      (!currentInterval || currentInterval[1] < nextInterval[0]) &&
+      (!nextInterval[0] || nextInterval[0] <= currentInterval![1])
+    ) {
+      // Overlapping or touching intervals
+      currentInterval = [
+        Math.min(currentInterval![0], nextInterval[0]),
+        Math.max(currentInterval![1], nextInterval[1]),
+      ];
+    } else if (currentInterval && currentInterval[1] !== nextInterval[0]) {
+      merged.push(currentInterval);
+      currentInterval = null;
+    }
+  }
+
+  return merged.length === 0 ? [intervals[intervals.length - 1]] : merged.concat(
+    currentInterval || []
+  );
+}
+```

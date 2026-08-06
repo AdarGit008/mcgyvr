@@ -1,0 +1,51 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Map<string, Set<string>>();
+  const indegree = new Map<string, number>();
+
+  // Build the graph and indegree map
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) {
+      graph.set(from, new Set());
+    }
+    if (!graph.has(to)) {
+      graph.set(to, new Set());
+    }
+    graph.get(from)?.add(to);
+    indegree.set(to, (indegree.get(to) || 0) + 1);
+  }
+
+  // Collect all nodes with no incoming edges
+  const sources = Array.from(indegree.keys()).filter(node => indegree.get(node) === 0);
+
+  const result: string[] = [];
+  
+  // Process sources until there are none left
+  while (sources.length > 0) {
+    const source = sources.shift()!;
+    if (!graph.has(source)) {
+      continue;
+    }
+
+    // Add the node to the result and remove it from indegree map
+    result.push(source);
+    graph.delete(source);
+
+    // Decrement the indegree of all adjacent nodes
+    for (const neighbor of graph.get(source) || []) {
+      const degree = indegree.get(neighbor)! - 1;
+      indegree.set(neighbor, degree);
+
+      // If an node has no more dependencies, add it to sources
+      if (degree === 0) {
+        sources.push(neighbor);
+      }
+    }
+  }
+
+  // Check for cycles by ensuring result includes all nodes and indegree is empty
+  return result.length === nodes.length && Array.from(indegree.keys()).every(node => indegree.get(node)! === 0)
+    ? result
+    : Error('Cycle detected in the graph.');
+}
+```

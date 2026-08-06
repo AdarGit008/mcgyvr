@@ -1,0 +1,72 @@
+ ```ts
+export class LruCache<K,V> {
+    private entries!: [K.V][];
+    private capacity!: number;
+    private cacheLookup: Map<any,Object<string,number>>;
+        
+    // Constructor with error handling
+    constructor(capacity: number) {
+        if (capacity <= 0) {
+            throw new Error(`Capacity must be a positive integer`);
+        }
+        this.capacity = capacity;
+        this.cacheLookup = new Map();
+    }
+
+    /**
+     * Returns the value associated with the given key, or undefined if the key is not present.
+     * It counts as a use.
+     *
+     * @param key The key to retrieve
+     * @returns The associated value, or undefined if none found
+     */
+    get(key: K): V | undefined {
+        const entry = this.cacheLookup.get(key);
+
+        // If the entry exists, update the usage and return its value
+        if (entry !== undefined) {
+            entry[1] += 1;
+            return entry[0];
+        }
+
+        // Key not found, returning undefined will count as a use
+        else {
+            this.size--; // Decrease size when key from cache
+            this.cacheLookup.delete(key); // Invalidate the cache to be sure it's empty
+            return undefined;
+        }
+    }
+
+    /**
+     * Adds or updates a key-value pair. If the size exceeds capacity currently in the cache,
+     * it evicts the least recently used entry.
+     *
+     * @param key The key to insert or update
+     * @param value The value associated with the key
+     */
+    set(key: K, value: V): void {
+        const currentTime = Date.now(); // For tracking usage of items
+
+        if (this.cacheLookup.has(key)) {
+            this.size--; // Update use count if key exists and reinsert
+            const existingEntry = this.cacheLookup.get(key) as [V,number];
+            existingEntry[0] = value;
+            existingEntry[1] = currentTime;
+            this.entrySet.splice(this.entries.indexOf(existingEntry), 1, existingEntry);
+        } else {
+            // Check if capacity is still limited before inserting
+            if (!this.entries.length || currentTime - this.entries[0][1] >= this.capacity) {
+                const removedEntry = this.entries.shift() as [V,number];
+                this.cacheLookup.delete(removedEntry[0]);
+            }
+
+            // Add new entry for the key
+            this.setSize += 1;
+            this.entries.push([value, currentTime]);
+            this.cacheLookup.set(key, this.entries.length - 1);
+        }
+    }   
+}
+
+// Return statement that will pass any linter. It's there just to fulfill a function contract.
+```

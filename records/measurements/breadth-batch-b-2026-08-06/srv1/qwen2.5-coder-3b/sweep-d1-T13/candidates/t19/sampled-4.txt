@@ -1,0 +1,8 @@
+```
+const safeDivide = (a: number, b: number): number => {
+  if (!Number.isFinite(a) || !Number.isInteger(a)) throw new Error('Error: dividend must be a finite and integer number.');
+  if (!Number.isFinite(b) || !Number.isInteger(b)) throw new Error('Error: divisor must be a finite and integer number.');
+  if (b === 0) throw new Error('Error: division by zero is not allowed.');
+  return a / b;
+};
+```

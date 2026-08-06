@@ -1,0 +1,14 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (!Array.isArray(values)) {
+    throw new Error("Input must be a non-nullable array.");
+  }
+  
+  // Deep clone the input to avoid mutating it
+  const clonedValues = [...values];
+  
+  // Sort the copiable values using a comparator that handles numbers correctly
+  return clonedValues.sort((a, b) => a - b);
+}
+```

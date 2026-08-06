@@ -1,0 +1,25 @@
+```ts
+/**
+ * Splits an array into consecutive groups of at most 'size' elements.
+ * The final group is shorter if the length does not divide evenly.
+ * An empty array yields an empty array. The input array must not be mutated.
+ * 
+ * @param items - The array to be chunked.
+ * @param size - The maximum number of elements per group.
+ * @returns A new array containing the chunked groups.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (size <= 0) {
+    throw new Error("Size must be a positive integer");
+  }
+
+  return items.reduce((acc, item, index) => {
+    const groupIndex = Math.floor(index / size);
+    if (groupIndex >= acc.length) {
+      acc.push([]);
+    }
+    acc[groupIndex].push(item);
+    return acc;
+  }, []);
+}
+```

@@ -1,0 +1,44 @@
+```ts
+
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (!Number.isInteger(depth) && depth !== Infinity) {
+        throw new Error("depth must be a non-negative integer or infinity");
+    }
+
+    const defaultDepth = 0;
+    depth = typeof depth === 'undefined' ? defaultDepth : depth;
+
+    return items.flatMap(item => {
+        if (typeof item !== "object" || item == null) {
+            return item as unknown[];
+        }
+        
+        // Flatten an array recursively up to the specified depth
+        if (depth > 0) {
+            return Array.isArray(item) ?
+                item.flatMap(flatten).filter(subItem => isNonStringValue(subItem)) : 
+                [item];
+        }
+
+        // If depth is 0, just create a copy of the object but not its contents nested arrays
+        return Array.isArray(item) ? [...item] : Object.assign({}, item);
+    }).reduce((acc, item) => {
+        // Ensure non-trivial and not-undefined values
+        if (!isNonStringValue(item)) {
+            acc.push(item);
+        }
+        return acc;
+    }, [] as unknown[]);
+}
+
+// Helper function to check if a value is undefined, null, string, number, boolean, symbol, or object (but not an empty one)
+function isNonStringValue(value: unknown): boolean {
+    return (
+        typeof value !== 'undefined' &&
+        value !== null &&
+        typeof value !== 'string' &&
+        typeof value !== Number.POSITIVE_INFINITY && 
+        typeof value !== Number.NEGATIVE_INFINITY
+    );
+}
+```

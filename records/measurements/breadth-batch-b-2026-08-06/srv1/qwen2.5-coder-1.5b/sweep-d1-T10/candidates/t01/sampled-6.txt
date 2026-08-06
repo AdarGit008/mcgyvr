@@ -1,0 +1,42 @@
+```ts
+
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string.');
+  }
+  
+  let result = '';
+  let count = 1;
+  
+  for (let i = 0; i < input.length; i++) {
+    const current = input[i];
+    const next = i < input.length - 1 ? input[i + 1] : undefined;
+    
+    if (current === next) {
+      count++;
+    } else {
+      result += (count > 1 ? `${current}${count}` : current);
+      count = 1; // Reset for the new run
+    }
+  }
+  
+  return result;
+}
+
+// Check function to verify the correctness of the runLengthEncode function.
+function checkRunLengthEncode() {
+  console.assert(runLengthEncode('abc') === 'a1b1c1', 'Test case 1 failed');
+  console.assert(runLengthEncode('aaa') === 'a3', 'Test case 2 failed');
+  console.assert(runLengthEncode('aab') === 'a2b1', 'Test case 3 failed');
+  console.assert(runLengthEncode('abcd') === 'abcd', 'Test case 4 failed');
+  console.assert(runLengthEncode('abcda') === 'a2bcd1', 'Test case 5 failed');
+  
+  try {
+    runLengthEncode(123);
+  } catch (error) {
+    console.log(`Error: ${error.message}`); // Expected Error: Input must be a string.
+  }
+}
+
+checkRunLengthEncode();
+```

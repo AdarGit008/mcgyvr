@@ -1,0 +1,60 @@
+```ts
+type DeepFreeze<T> = T extends Date | RegExp | Function ? T :
+  T extends Map<infer K, infer V> ? ReadonlyMap<K, DeepFreeze<V>> :
+  T extends Set<infer E> ? ReadonlySet<DeepFreeze<E>> :
+  T extends {} ? { [K in keyof T]: DeepFreeze<T[K]> } & {
+    readonly [Symbol.toStringTag]: 'Object'
+  } :
+  T;
+
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (!Number.isInteger(depth) && depth !== Infinity && !isNaN(depth)) {
+    throw new Error("Invalid depth. Depth must be a non-negative integer or Infinity.");
+  }
+
+  const result: unknown[] = [];
+
+  function isIterable(obj: unknown): obj is Iterable<unknown> {
+    return obj != null && typeof obj[Symbol.iterator] === 'function';
+  }
+
+  function _flatten(item: unknown, currentDepth = 0): void {
+    if (Array.isArray(item)) {
+      for (const nestedItem of item) {
+        _flatten(nestedItem, currentDepth + 1);
+      }
+    } else if (isIterable(item)) {
+      const iterator = item[Symbol.iterator]();
+      let next;
+      while ((next = iterator.next())) {
+        if (!next.done) {
+          _flatten(next.value, currentDepth + 1);
+        }
+      }
+    } else {
+      result.push(item);
+    }
+  }
+
+  function deepFreezeArray(arr: unknown[]): void {
+    for (let i = 0; i < arr.length; i++) {
+      if (Array.isArray(arr[i])) {
+        deepFreezeArray(arr[i]);
+      }
+      DeepFreeze(arr[i]);
+    }
+  }
+
+  _flatten(items);
+
+  // If depth is zero, make a shallow copy of the result
+  if (depth === 0) {
+    return [...result];
+  }
+
+  // Set all array properties to frozen to avoid mutations
+  deepFreezeArray(result);
+
+  return result;
+}
+```

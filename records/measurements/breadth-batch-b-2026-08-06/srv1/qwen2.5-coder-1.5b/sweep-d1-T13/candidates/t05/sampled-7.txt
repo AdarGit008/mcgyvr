@@ -1,0 +1,68 @@
+```ts
+/**
+ * Splits an array into consecutive groups of at most size elements, preserving order.
+ * @param items The input array to be chunked.
+ * @param size The size of each group (must be a positive integer).
+ * @returns A new array containing the individual chunks.
+ * */
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw Error('Size must be a positive integer');
+  }
+
+  const groups: T[][] = [];
+
+  for (let i = 0; i < items.length; i += size) {
+    const endIndex = Math.min(i + size, items.length);
+
+    if (.endIndex !== i + size) {
+      groups.push(items.subarray(i, endIndex));
+    } else {
+      groups.push([items[i]]);
+    }
+  }
+
+  return groups;
+}
+
+// Check function to verify the correctness of the implemented `chunk` function
+function runChunkTests() {
+  // Test Case: Empty array returns an empty array.
+  console.log(chalk.green('Running tests on chunking an empty array...'));
+  expect(chunk([], 2).toEqual([]));
+
+  // Test Case: One-element array remains unchanged.
+  console.log(chalk.green('Running tests on processing a single-item array...'));
+  const singleTestResult = chunk(['a'], 1);
+  expect(isArray(singleTestResult)).toBe(true);
+  expect(checkElements(singleTestResult, ['a'])).toBe(true);
+
+  // Test Case: One-group with non-identical elements.
+  console.log(chalk.green('Running tests on creating one group of mixed elements...'));
+  const mixedItems = ['apple', 'banana', 'cherry'];
+  const mixedGroup = chunk(mixedItems, 4);
+  expect(isArray(mixedGroup)).toBe(true);
+  expect(checkElements(mixedGroup[0], ['apple', 'banana']));
+}
+
+// Function to check if the expected function results match the output
+function checkResults(expected: any[], results: T[][]): boolean {
+  const match = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+  for (let i = 0; i < results.length; i++) {
+    if (!match(expected[i], results[i])) {
+      console.error(chalk.red(`Test failed for index ${i}. Expected:`, expected[i], 'Got:', results[i]));
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Main function to test the `chunk` function
+function main(): void {
+  runChunkTests();
+}
+
+main();
+```

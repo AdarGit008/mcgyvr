@@ -1,0 +1,40 @@
+```typescript
+/**
+ * Returns a new array with nested arrays flattened up to depth levels,
+ * defaulting to every level. If length of input is zero or one or two elements
+ * returns unchanged copy. For sets, only their key iterates.
+ *
+ * @param items - The array containing the elements
+ * @param depth - Optional parameter specifying depth level (default is Infinity)
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (!depth && typeof depth !== 'number') throw new Error('Invalid argument. depth must be a number.');
+    if ((typeof items[0] === 'object' || Array.isArray(items[0])) && items.length < 3) return items;
+    const MAX_DEPTH = Infinity;
+    if (depth) depth = Math.min(depth, MAX_DEPTH);
+
+    let flatArray: unknown[] = [];
+    for (const item of items) {
+        if ((typeof item !== 'object') || Array.isArray(item)) {
+            flatArray.push(item);
+        } else if (!isNaN(Number(deepCopyItem(item, depth)))) {
+            flatArray = flatArray.concat(flatten(Object.values(deepCopyItem(item, depth)), Infinity));
+        }
+    }
+
+    return flatArray;
+}
+
+/**
+ * Helper function to create deep copies of objects while also recursively
+ * copy nested array.
+ */
+function deepCopyItem(item: unknown, depth?: number): unique value {
+    if (typeof item !== 'object' || Array.isArray(item)) return item;
+    let copiedValues = new Array(Object.values(item).length);
+    for (let i = 0; i < Object.keys(item).length; ++i) {
+        copiedValues[i] = deepCopyItem(item[Object.keys(item)[i]], Infinity) as unknown;
+    }
+    return copiedValues;
+}
+```

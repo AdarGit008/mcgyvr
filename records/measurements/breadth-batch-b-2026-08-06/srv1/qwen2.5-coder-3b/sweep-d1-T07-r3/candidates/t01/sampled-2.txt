@@ -1,0 +1,30 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') throw new Error('Input must be a string');
+
+  let encoded = '';
+  let count = 1;
+
+  for (let i = 0; i < input.length - 1; i++) {
+    if (input[i] === input[i + 1]) {
+      count++;
+    } else {
+      encoded += input[i];
+      if (count > 9) {
+        throw new Error('Encoding of a run longer than nine characters is not stated');
+      }
+      encoded += count.toString();
+      count = 1;
+    }
+  }
+
+  // Add the last character and its count
+  encoded += input[input.length - 1];
+  if (count > 9) {
+    throw new Error('Encoding of a run longer than nine characters is not stated');
+  }
+  encoded += count.toString();
+
+  return encoded;
+}
+```

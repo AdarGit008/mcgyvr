@@ -1,0 +1,60 @@
+```ts
+type MapEntry<K, V> = { key: K; value: V; usedAt: number };
+
+export class LruCache<K, V> {
+  private readonly capacity: number;
+  private readonly cache: Map<K, V>;
+  private readonly timestamps: Map<K, number>;
+  private time: number;
+
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+    this.timestamps = new Map();
+    this.time = 0;
+  }
+
+  get(key: K): V | undefined {
+    if (this.cache.has(key)) {
+      this.updateTimestamp(key);
+      return this.cache.get(key);
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.size >= this.capacity) {
+      const lruKey = this.getMinTimestampKey();
+      this.cache.delete(lruKey!);
+      this.timestamps.delete(lruKey!);
+    }
+    this.updateTimestamp(key);
+    this.cache.set(key, value);
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private updateTimestamp(key: K) {
+    this.timestamps.set(key, ++this.time);
+  }
+
+  private getMinTimestampKey(): K | undefined {
+    let minTime: number | undefined = undefined;
+    let lruKey: K | undefined = undefined;
+
+    for (const [key, time] of this.timestamps.entries()) {
+      if (minTime === undefined || time < minTime) {
+        minTime = time;
+        lruKey = key;
+      }
+    }
+
+    return lruKey;
+  }
+}
+```

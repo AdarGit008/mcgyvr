@@ -1,0 +1,101 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+    private capacity: number;
+    private entries: Map<K, { value: V; index: number }>;
+    private size: number;
+
+    /**
+     * throws Error if capacity is not a positive integer
+     *
+     * @param capacity - maximum number of entries in the cache.
+     */
+    constructor(capacity: number) {
+        // Check if capacity is valid and throw Error otherwise
+        if (typeof capacity !== 'number' || capacity <= 0 || capacity % 1 !== 0) {
+            throw new Error('capacity must be a positive integer');
+        }
+
+        this.capacity = capacity;
+        this.entries = new Map();
+        this.size = 0;
+    }
+
+    /**
+     * Returns the value of key if present, undefined otherwise.
+     *
+     * @param key - key to look up in cache.
+     */
+    get(key: K) {
+        // Check if key is missing
+        const entry = this.entries.get(key);
+        if (!entry) return undefined;
+
+        // Move entry to end of list as it's now recently used
+        this._rotate(entry.index);
+
+        // Return value associated with key
+        return entry.value;
+    }
+
+    /**
+     * Inserts or updates a key-value pair in cache.
+     *
+     * @param key - key to add/modify.
+     * @param value - value to add/associate with key.
+     */
+    set(key: K, value: V) {
+        // Check for existing entry with same key
+        const entry = this.entries.get(key);
+        if (entry) {
+            // Update old value and move entry back towards start of list
+            const oldValue = entry.value;
+            _rotate(entry.index);
+            this.entries.set(key, { value, index: entry.index });
+            this._evictIfOverCapacity();
+        } else {
+            // New entry added without update; add to start of list
+            if (this.size >= this.capacity) {
+                this._evictMostRecentlyUsedEntry();
+            }
+            const newIndex = this.size;
+            this.entries.set(key, { value, index: newIndex });
+            this.size++;
+        }
+
+        return;
+    }
+
+    /**
+     * Reports the current number of key-value pairs in cache.
+     *
+     * @returns number of entries currently cached.
+     */
+    get size() {
+        return this.size;
+    }
+}
+
+// Helper function to ensure a value is moved past an index - no gaps or overlaps
+function _rotate(index: number) {
+    for (let i = index; ; i = Math.min(i + 1, this.entries.size - 1)) {
+        const nextIndex = i === this.entries.size - 1 ? 0 : (i + 1) % this.capacity;
+        const entryToShift = { ...this.entries.get(nextIndex!) };
+        this.entries.set(index, this.entries.delete(nextIndex!).value);
+        if (!entryToShift.value) delete this.entries[entryToShift.index];
+    }
+}
+
+// Helper function to remove the most recently used entry and possibly trigger eviction
+function _evictMostRecentlyUsedEntry() {
+    // Check if there's at least 1 key-value pair left in the cache
+    if (this.size === 0) return;
+    this.entries.delete(this._mostRecentlyUsedKey());
+}
+
+// Helper function to determine the most recently used entry based on its position; throws Error otherwise
+function _mostRecentlyUsedKey() {
+    for (let i = 1; ; [index, value] = this.entries.get(String(Math.floor(i / this.capacity)))!) {
+        if (!(value.index in

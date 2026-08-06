@@ -1,0 +1,9 @@
+```ts
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(a) || isNaN(b)) throw new Error("Both arguments must be finite numbers.");
+  const divisor = Math.abs(b);
+  if (divisor === 0 && a !== 0) throw new Error("The divisor cannot be zero.");
+
+  return a / divisor;
+}
+```

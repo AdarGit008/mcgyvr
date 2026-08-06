@@ -1,0 +1,60 @@
+```typescript
+class LruCache<K, V> {
+  private capacity: number;
+  private cache: { [key in K]: { value: V; timestamp: number } };
+
+  /**
+   * Initializes an LRU Cache with a specified capacity.
+   */
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+
+    this.capacity = capacity;
+    this.cache = {};
+  }
+
+  /**
+   * Retrieves the value associated with the given key from the cache.
+   */
+  get(key: K): V | undefined {
+    if (key in this.cache) {
+      const { value, timestamp } = this.cache[key];
+      delete this.cache[key];
+      this.cache[key] = { value, timestamp: Date.now() };
+      return value;
+    }
+
+    throw new Error(`Key not found: ${key}`);
+  }
+
+  /**
+   * Inserts or updates the value associated with the given key in the cache.
+   */
+  set(key: K, value: V) {
+    if (typeof key !== 'object' || Array.isArray(key)) {
+      throw new Error('Key must be an object.');
+    }
+
+    // If the key already exists
+    if (!(key in this.cache)) {
+      this.cache[key] = { value, timestamp: Date.now() };
+      if (Object.keys(this.cache).length > this.capacity) {
+        // Delete the least recently used item
+        delete this.cache[Math.round(Object.keys(this.cache).reduce((a, b) => a < b ? a : b))];
+      }
+    } else {
+      this.cache[key].value = value;
+      this.cache[key].timestamp = Date.now();
+    }
+  }
+
+  /**
+   * Returns the number of items currently stored in the cache.
+   */
+  get size(): number {
+    return Object.keys(this.cache).length;
+  }
+}
+```

@@ -1,0 +1,16 @@
+```ts
+function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const trimmedLine = line.trim();
+    if (trimmedLine.startsWith("#") || trimmedLine === "") continue;
+
+    const [key, value] = trimmedLine.match(/[^\s=]+=[^=\r\n]+/)?.slice(1) ?? ["", ""];
+    config[key] = value;
+  }
+
+  Object.freeze(config); // Ensure the returned object is immutable
+
+  return config;
+}
+```

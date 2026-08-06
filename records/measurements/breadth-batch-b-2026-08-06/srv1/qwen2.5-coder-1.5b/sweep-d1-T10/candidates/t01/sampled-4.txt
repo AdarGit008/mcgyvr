@@ -1,0 +1,39 @@
+```ts
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') throw new Error('Input must be a string');
+
+    let result = '';
+    let currentChar;
+    let count = 0;
+
+    for (let i = 0; i < input.length; i++) {
+        const char = input[i];
+
+        // Check if the current character is different from the previous one
+        if (char !== currentChar) {
+            // If there's a previous non-empty run, add it to the result
+            if (count > 1 && currentChar !== '') {
+                result += `${currentChar}${count}`;
+            } else if (currentChar !== '') {
+                result += currentChar;
+            }
+
+            // Reset count to start a new block of the current character
+            count = 1;
+            currentChar = char;
+        } else {
+            // Increment the count for consecutive occurrences of the same character
+            count++;
+        }
+    }
+
+    // Add the last run if it's not already included in the result
+    if (count > 1 && currentChar !== '') {
+        result += `${currentChar}${count}`;
+    } else if (currentChar !== '') {
+        result += currentChar;
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,35 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Map<string, Set<string>>();
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) {
+      graph.set(from, new Set());
+    }
+    graph.get(from)?.add(to);
+  }
+
+  const freeNodes: string[] = nodes.filter(node => !edges.some(([from]) => from === node));
+  if (freeNodes.length === 0) {
+    throw new Error('Cycle detected');
+  }
+
+  return freeNodes.map((firstNode, index) => {
+    const dependencies = graph.get(firstNode);
+    if (dependencies && dependencies.size > 0) {
+      for (const dependency of dependencies.values()) {
+        const depsIndex = nodes.indexOf(dependency);
+        while (depsIndex !== -1) {
+          const nextDep = nodes[(depsIndex + 1) % nodes.length];
+          if (graph.get(nextDep)?.has(firstNode)) {
+            depsIndex++; // Try the next node that needs the current one
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    return firstNode; // Always choose a free node in the order they show up in nodes
+  });
+}
+```

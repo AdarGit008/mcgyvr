@@ -1,0 +1,26 @@
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error(`Non-negative integer or Infinity required for depth`);
+  }
+
+  const visited = new Set<unknown>();
+  const flattenedStack: [readonly unknown[]>] = [[...items]];
+
+  while (flattenedStack.length > 0 && flattenedStack[flattenedStack.length - 1].length > 0) {
+    const currentLevel = flattenedStack.pop();
+    for (let item of currentLevel ) {
+      if (!visited.has(item)) {
+        visited.add(item);
+        const isArray = Array.isArray(item);
+       if ((isArray && depth-- > 0 )) { 
+          flattenedStack.splice(0, 0, ...item.length === 1 ? flatten([item[0] as unknown], depth) : flatten(item as unknown[], depth));
+      } else {
+        flattenedStack.splice(0, 0, item);
+      }
+    }
+  }
+
+  return ([...visited]).pop()!;
+}
+```

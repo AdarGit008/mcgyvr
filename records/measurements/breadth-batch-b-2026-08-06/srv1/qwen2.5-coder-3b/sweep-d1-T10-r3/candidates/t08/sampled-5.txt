@@ -1,0 +1,53 @@
+```ts
+export type Graph = Map<string, Set<string>>;
+
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: Graph = new Map();
+    const degreesMap: Map<string, number> = new Map();
+
+    // Build the directed graph and degree maps
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from)) throw new Error(`Node ${from} not in nodes`);
+        if (!nodes.includes(to)) throw new Error(`Node ${to} not in nodes`);
+
+        const fromSet = graph.get(from);
+        if (!fromSet) {
+            graph.set(from, (fromSet = new Set()));
+        }
+        fromSet.add(to);
+
+        degreesMap.set(to, (degreesMap.get(to) || 0) + 1);
+    }
+
+    // Queue all nodes with no incoming edges
+    const queue: string[] = [];
+    for (const node of nodes) {
+        if (!degreesMap.has(node)) {
+            queue.push(node);
+        }
+    }
+
+    const result: string[] = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        // Decrease the degrees of neighbors
+        for (const neighbor of graph.get(node) || []) {
+            const degree = degreesMap.get(neighbor)! - 1;
+            if (degree === 0) {
+                queue.push(neighbor);
+            }
+            degreesMap.set(neighbor, degree);
+        }
+
+        // Check for cycles
+        if (queue.length === nodes.length && result.length < nodes.length) {
+            throw new Error("Cycle detected");
+        }
+    }
+
+    return result;
+}
+```

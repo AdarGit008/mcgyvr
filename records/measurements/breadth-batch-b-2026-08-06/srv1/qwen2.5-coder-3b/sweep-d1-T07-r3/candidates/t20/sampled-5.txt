@@ -1,0 +1,31 @@
+```
+import { isNaN } from "core-js/library";
+import { strict as assert } from "assert";
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Trim leading and trailing whitespace
+    const trimmedLine = line.trim();
+    
+    // Skip empty lines or lines starting with #
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue;
+    }
+    
+    // Split the line on the first =
+    const [key, value] = trimmedLine.split("=", 2);
+    
+    // Check for no equals sign
+    if (key === "") {
+      throw new Error(`Empty key at line: ${trimmedLine}`);
+    }
+
+    // Trim whitespace around the key and value
+    config[key.trim()] = value?.trim();
+  }
+  
+  return config;
+}
+```

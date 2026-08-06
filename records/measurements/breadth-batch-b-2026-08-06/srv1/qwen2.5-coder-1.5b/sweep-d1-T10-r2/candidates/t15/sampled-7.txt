@@ -1,0 +1,33 @@
+```typescript
+/**
+ * The temperature in degrees Fahrenheit.
+ */
+export function celsiusToFahrenheit(celsius: number): number {
+  return ensureFiniteAndInclusive(celsius) * 1.8 + 32;
+}
+
+/**
+ * The temperature in kelvin.
+ */
+export function celsiusToKelvin(celsius: number): number {
+  return ensureFiniteAndInclusive(celsius) + 273.15;
+}
+
+function ensureFiniteAndInclusive(temp: number): number {
+  if (typeof temp !== "number" || !Number.isFinite(temp)) {
+    throw new Error("Temperature must be a finite number");
+  }
+  if (temp < -273.15) {
+    throw new Error("Temperature for Celsius to Fahrenheit conversion must be at or above absolute zero");
+  }
+  return temp;
+}
+
+// Helper function to validate numbers against finite values
+function ensureFinite(temp: number): number {
+  if (!Number.isFinite(temp)) {
+    throw new Error("Input must be a finite number");
+  }
+  return temp;
+}
+```

@@ -1,0 +1,20 @@
+```ts
+import * as mathjs from 'mathjs';
+
+/** a divided by b safely.
+  * Rejects non-finite numbers (`Infinity`, `-Infinity`, `NaN`) or zero (including -0).
+  * If both arguments are finite, returns the result rounded to two decimal places.
+  */
+export function safeDivide(a: number, b: number): number {
+  // Check if the divisor is zero (including -0).
+  if (!mathjs.isFinite(b) || b === 0) {
+    throw new Error("The divisor must be a non-zero finite number.");
+  }
+
+  // Calculate the result.
+  const result = mathjs.round(a / b, 2);
+
+  // Return the result.
+  return result;
+}
+```

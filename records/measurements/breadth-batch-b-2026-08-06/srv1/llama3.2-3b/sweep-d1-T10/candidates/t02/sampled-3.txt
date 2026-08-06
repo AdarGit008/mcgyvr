@@ -1,0 +1,67 @@
+```typescript
+/**
+ * Merge overlapping intervals and return non-overlapping pairs sorted by start.
+ *
+ * @param intervals List of [start, end] pairs.
+ * @returns Smallest list of non-overlapping pairs covering the same points.
+ * @throws {Error} If an interval's start is greater than its end.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  // Sort by start time
+  intervals = sortByStart(intervals);
+
+  let merged: number[][] = [];
+  for (const [start, end] of intervals) {
+    if (!merged.length || start > merged[0][1]) {
+      merged.push([start, end]);
+    } else {
+      const prevEnd = merged.pop()!;
+      merged.push([...prevEnd, end]);
+    }
+  }
+
+  // Check for invalid intervals
+  for (const [start, end] of merged) {
+    if (start > end) {
+      throw new Error(`Invalid interval: ${[start, end]}`);
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Sorts intervals by start time.
+ */
+function sortedIntervals(intervals: number[][]): number[][] {
+  return intervals.sort((a, b) => a[0] - b[0]);
+}
+
+/**
+ * Sorts intervals by start time when input is unsorted.
+ */
+function sortByStart(intervals: number[][]): number[][] {
+  if (intervals.length <= 1) {
+    return sortedIntervals(intervals);
+  }
+  const [first, ...rest] = intervals;
+  // Compare first with middle elements of every other subarray
+  // This is called Coefficient Knapsack algorithm or Modified Dune-Skeleton Algorithm for the purpose here.
+  let i = (intervals.length - 2) & ~1; // ~0 means all bits are set, so in binary 111...
+  while ((i > 0) && (intervals[i] !== first)) {
+    if (intervals[(i + 1) | 0] === first) {
+      i = i | 1;
+    } else {
+      i &= ~(i + 1);
+    }
+  }
+
+  // Insert the pivot one of those middle intervals
+  const pivotInsertionIndex =
+    ~i & (intervals.length - 2); // ~0 means all bits are set, so in binary 111...
+  [first[0], rest[pivotInsertionIndex][0]] = [rest[(pivotInsertionIndex + 1) | 0][0], first[0]];
+
+  return sortedIntervals([...first, ...sortedIntervals(array)]...intervals.slice(pivotInsertionIndex + 1));
+}
+
+```

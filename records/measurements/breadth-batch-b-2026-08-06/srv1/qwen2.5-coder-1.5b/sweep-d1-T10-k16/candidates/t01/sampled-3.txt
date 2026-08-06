@@ -1,0 +1,30 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error("The argument is not a string");
+  }
+
+  const result = '';
+  let currentChar = '';
+  let count = 1;
+
+  for (const char of input) {
+    // Handle the same character again
+    if (char === currentChar) {
+      count++;
+    } else {
+      // Encountered a new character, append the run and reset count
+      result += `${currentChar}${count}`;
+      count = 1;
+      currentChar = char;
+    }
+  }
+
+  // Append the last run if needed
+  result += `${currentChar}${count}`;
+
+  return result;
+}
+```
+
+This TypeScript function implements the required `runLengthEncode` according to the task contract.

@@ -1,0 +1,16 @@
+```typescript
+/**
+ * The factorial of n, stopping if n is 1 and returning 1.
+ * @param n An integer where n >= 0.
+ * @throws Error for negative or non-integer arguments.
+ */
+export function factorial(n: number): number {
+  if (n < 0 || !Number.isInteger(n)) {
+    throw new Error("Argument must be a non-negative integer.");
+  }
+  if (n === 1) {
+    return 1;
+  }
+  return n * factorial(n - 1);
+}
+```

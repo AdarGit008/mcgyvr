@@ -1,0 +1,20 @@
+```ts
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error('Argument must be a non-negative integer');
+  }
+  if (n === 0) {
+    return 1;
+  }
+  let result = 1;
+  for (let i = 2; i <= n; i++) {
+    // Guard against overflow for very large factorial results
+    result *= i;
+    if (result > Number.MAX_SAFE_INTEGER) {
+      throw new Error('Factorial calculation exceeds the safe range');
+    }
+  }
+  return result;
+}
+```

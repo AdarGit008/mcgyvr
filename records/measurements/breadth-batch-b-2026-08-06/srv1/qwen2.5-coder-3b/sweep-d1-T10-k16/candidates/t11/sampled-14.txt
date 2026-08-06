@@ -1,0 +1,17 @@
+```ts
+
+import { BinarySearch } from './BinarySearch';
+
+export function sortAscending(values: readonly number[]): number[] {
+  const sortedValues = [...values];
+  for (let i = 0; i < sortedValues.length; i++) {
+    for (let j = i + 1; j < sortedValues.length; j++) {
+      if (sortedValues[i] > sortedValues[j]) {
+        // Swap
+        [sortedValues[i], sortedValues[j]] = [sortedValues[j], sortedValues[i]];
+      }
+    }
+  }
+  return sortedValues;
+}
+```

@@ -1,0 +1,44 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    /**
+     * Merge overlapping intervals.
+     *
+     * This function takes in a list of intervals and returns a new list where all duplicate intervals have been merged together in ascending order. If two intervals overlap then they are allowed to be merged into one. Intervals with the same endpoint will "touch" but are still considered as separate intervals for this challenge.
+     *
+     * Args:
+     *      intervals (number[][]): A list of [start, end] pairs
+     *
+     * Returns:
+     *      number[][]: A smallest list of non-overlapping interval pairs covering the identical points, sorted ascending by start.
+     */
+
+    const pairs: [number, number][][] = [];
+
+    for (const interval of intervals) {
+        if (interval[0] > interval[1]) {
+            throw new Error("Interval must have a start time less than or equal to its end time");
+        }
+
+        pairs.push([interval]);
+    }
+
+    const merged = pairs.map(interval => [Math.min(...interval.map(pair => pair[0])), Math.max(...interval.map(pair => pair[1]))]);
+
+    let i = 0;
+    while (i < merged.length - 1) {
+        const minStartA = merged[i][0];
+        const maxEndB = merged[i + 1][1];
+
+        for (; i < merged.length - 1; i++) {
+            if (merged[i + 1][0] <= minStartA && minStartA <= maxEndB) {
+                merged[i] = [minStartA, maxEndB];
+                merged.splice(i + 1, 1);
+                break;
+            }
+        }
+    };
+
+    // Remove empty intervals from result
+    return merged.filter(interval => interval !== [null, null]);
+}
+```

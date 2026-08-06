@@ -1,0 +1,22 @@
+```typescript
+function mergeIntervals(intervals: number[][]): number[][] {
+    if (!intervals || intervals.length === 0) return [];
+
+    // Sort by start and end of intervals
+    const sortedIntervals = intervals.sort((a, b) => a[0] - b[0]);
+    const merged: number[][] = [];
+
+    for (const interval of sortedIntervals) {
+        if (!merged.length || interval[0] > merged[merged.length - 1][1]) {
+            // If the current non-overlapping interval starts before
+            // or is equal to the previous one ends, just add it.
+            merged.push(interval);
+        } else {
+            // Merge with the last interval in merged if necessary.
+            merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], interval[1]);
+        }
+    }
+
+    return merged;
+}
+```

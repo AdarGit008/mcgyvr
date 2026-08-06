@@ -1,0 +1,29 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.some(([start, end]) => start > end)) {
+    throw new Error("Invalid interval: start is greater than end.");
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const merged: number[][] = [];
+  let currentInterval = intervals[0];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const [nextStart, nextEnd] = intervals[i];
+    if (currentInterval[1] >= nextStart) {
+      // Merge the current interval with the next one
+      currentInterval[1] = Math.max(currentInterval[1], nextEnd);
+    } else {
+      // Add the current interval to the merged list and update currentInterval
+      merged.push([...currentInterval]);
+      currentInterval = intervals[i];
+    }
+  }
+
+  // Add the last interval to the merged list
+  merged.push([...currentInterval]);
+
+  return merged;
+}
+```

@@ -1,0 +1,44 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * Encodes repeated characters in the input string into consecutive count encoded strings.
+ * "aaabbc" encodes to "a3b2c1", "abc" encodes to "a1b1c1", "" encodes to "".
+ *
+ * @param input The string to be encoded.
+ * @returns The encoded string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string.');
+  }
+
+  let result = '';
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    let count = 1;
+
+    // Count consecutive occurrences of the same character
+    while (i + 1 < input.length && input[i] === input[i + 1]) {
+      i++;
+      count++;
+    }
+
+    result += char + String(count);
+  }
+
+  return result;
+}
+
+// Check function with provided data points
+function check() {
+  assert.equal(runLengthEncode(""), "");
+  assert.equal(runLengthEncode("aaabbc"), "a3b2c1");
+  assert.equal(runLengthEncode("abc"), "a1b1c1");
+  assert.equal(runLengthEncode("zzaaaaaaaa"), "z6");
+  assert.equal(runLengthEncode("111223"), "14203");
+}
+
+// Run the check function to verify correctness
+check();
+```

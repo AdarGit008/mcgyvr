@@ -1,0 +1,31 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Argument must be a string');
+  }
+
+  if (input.length === 0) return '';
+
+  let result = '';
+  let count = 1;
+
+  for (let i = 1; i < input.length; i++) {
+    if (input[i] === input[i - 1]) {
+      count++;
+    } else {
+      result += `${input[i - 1]}${count}`;
+      count = 1;
+    }
+
+    // If the result would exceed the maximum allowed 2 digits plus one for null count
+    if (result.length + Math.max(typeof count === 'number' && count.toString().length, 1) > 9) {
+      throw new Error('Max encoding length exceeded');
+    }
+  }
+
+  // Handle the last string and possibly the last run length pair
+  result += `${input[input.length - 1]}${count}`;
+
+  return result;
+}
+```

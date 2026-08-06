@@ -1,0 +1,8 @@
+```ts
+export function sortAscending<T extends number>(values: readonly T[]): T[] {
+  // Use a stable sorting algorithm to maintain order of numbers with ties
+  return [...values].sort((a, b) => a - b);
+}
+```
+
+This updated implementation sorts numbers numerically in ascending order while ensuring that the original array remains unaltered. The use of a stable sorting algorithm ensures that numbers with equal values retain their relative positions.

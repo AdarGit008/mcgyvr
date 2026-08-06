@@ -1,0 +1,82 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+    if (line.trim() === "") return [];
+
+    const lines = line.split(/\r?\n/);
+    for (let l of lines) {
+        let i = 0;
+        const result: [string | undefined, true | false][][] = [];
+        outer:
+        while (i < l.length && l[i] !== '') {
+            if (!result[i]) result[i] = ['', false];
+            let j = i;
+
+            let inQuote = false;
+
+            for (; i < l.length; i++) {
+                switch (l[i]) {
+                    case '"':
+                        if (inQuote) {
+                            break outer;
+                        } else {
+                            // If this is inside quotation marks and the rest of
+                            // the line is all double quotes, treat it as a quoted field
+                            // with an embedded blank.
+                            while (++i < l.length && l[i] === '"');
+                            if (l[j + 1] !== '') {
+                                result[i - 1][0] += ' ';
+                            } else if (l[j] == '"') {
+                                next;
+                            }
+                        }
+                    next:
+                        inQuote = !inQuote;            
+                    
+                    case ',' when !result[0][1]:
+                    case ',': j++;
+                }
+
+                let nextInField = false;
+
+				if (--i >= j) if (l[j] === '"' && (l[i] === ',' || i == lines.length - 1)) {
+                    inQuote = true;
+                    nextInField = true;                    
+				} else result[i][1] = true;
+
+                if ((!nextInField && inQuote && a.length > 0)) // End of a field without encountering quotation marks
+                    continue outer;
+                
+                let currentToken =
+                   result[i][0]
+                    .fill(' ', Math.max(0, Math.min(5, i - j + 2)))
+                    .join('')
+                     .slice(i - j)
+                                         || '';
+
+				
+				  // Handle quote inside a quoted field
+                  if (currentToken && inQuote)
+                       currentToken = '"' + decodeForHtml(currentToken.slice(1)) + '"'. 
+                    
+               result[i][0] += currentToken;
+
+            }
+
+            i++;
+        }
+
+       
+        lines[i--] = null;
+    }
+
+    const output: string[] = lines.filter(a => a !== null).map(a =>
+      `(${a[0].padStart(5, ' ')}, '${a[1]}')`
+    );
+
+    // Parse escaped quotes in each token
+    for (l of output) l = `{${l.replace(/\\'([^\\\\']+)\\'/g, "$1")}}`;
+
+   
+	return JSON.parse(output.join(',')).flatMap(token => token.split('/'));
+}
+```

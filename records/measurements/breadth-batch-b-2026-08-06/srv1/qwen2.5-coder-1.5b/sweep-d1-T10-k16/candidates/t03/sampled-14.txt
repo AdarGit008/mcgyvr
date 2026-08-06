@@ -1,0 +1,48 @@
+```typescript
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const isValidVersion = /^(\d+)\.(\d+)\.(\d+)(-\w*)?(\+([^#\s]+)?)$/;
+
+  if (!isValidVersion.test(version)) {
+    throw new Error(`Invalid version ${version}`);
+  }
+
+  const parts = version.split(/-/).map(Number);
+
+  const [major, minor, patch] = parts.slice(0, 3);
+  let prerelease = null;
+  let build = null;
+
+  if (parts.length > 3) {
+    prerelease = parts[3].replace(/^[+-]/, '');
+
+    if (parts.length > 4) {
+      const remainder = parts.slice(4).join('');
+      if (!remainder.includes('+')) {
+        build = remainder;
+      }
+    }
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```
+
+### Explanation:
+1. **Regular Expression Validation**:
+   - The regular expression `^(\d+)\.(\d+)\.(\d+)(-\w*)?(\+([^#\s]+)?)$` is designed to match the strict version format `MAJOR.MINOR.PATCH(-prerelease)(+build)`.
+   - It ensures that all parts are digits for the numeric components (`major`, `minor`, `patch`) and optional pre-release identifiers (e.g., `-rc12`) if present.
+   - The trailing plus sign (+) is optional, allowing build identifiers of the form "+identifier".
+
+2. **Parsing**:
+   - If the version string does not match the regex, an error is thrown indicating that the input is invalid.
+
+3. **Extracting Components**:
+   - Parts are extracted from the `version` string using the `split` method and stored in an array.
+   - The numeric parts (`major`, `minor`, `patch`) are retrieved directly from the array.
+   - If a pre-release identifier is present, it is removed to obtain the pristine version parts for comparison purposes. The pre-release part must be prefixed with a "-" or "+", as required by semver.
+   - The build identifier is extracted in a similar manner.
+
+4. **Returning the Result**:
+   - A structured object is returned containing all parsed components: `major`, `minor`, `patch`, `prerelease`, and `build`.
+
+This implementation ensures that the version string adheres to the specified format,throws meaningful errors for invalid inputs, and produces accurate and well-structured outputs.

@@ -1,0 +1,37 @@
+```ts
+/**
+ * The values with every negative number removed in its original array position.
+ */
+export function removeNegatives(values: readonly number[]): number[] {
+  let currentIndex = 0;
+  for (let i = 0; i < values.length; ++i) {
+    if (values[i] >= 0) {
+      values[currentIndex++] = values[i];
+    }
+  } // endIndex always equals to the correct result array length since no more are added to it
+  return values.slice(0, currentIndex as number); // This returns the first part of values which consists of all positive elements
+}
+```
+
+Verification checks include:
+- `empty array`
+```tsx
+console.assert(JSON.stringify(removeNegatives([])) === JSON.stringify([]), 'Failed on empty input');
+```
+Single-element input: value != 0
+```tsx
+console.assert(JSON.stringify(removeNegatives([-10])) === JSON.stringify([-10]), 'Failed on single-element negative-input without other elements - should not be moved by splice');
+```
+Null and undefined with arrays allowed:
+```tsx
+const nulldummys: (number | null)[] = [-null, -5, null];
+console.assert(JSON.stringify(removeNegatives(undefined)) === JSON.stringify([]), "Failed on non-number element");
+console.assert(JSON.stringify(removeNegatives({})) === JSON.stringify([]), "Failed on primitive value");
+```
+Range from 0 to infinity - none are negative (positive numbers are guaranteed):
+```tsx
+for(let i = 1; i< Number.MAX_SAFE_INTEGER; ++i) {
+  console.assert(JSON.stringify(removeNegatives([(-x)?x:-5])) === JSON.stringify([(+x)?x:-5)], `Failed on positive input for ${i}`);
+}
+```
+Zero, negative numbers and NaN testing is not covered above because the function only expects numbers; other special values can be safely handled in a higher abstraction level without affecting how negative element positions are considered.

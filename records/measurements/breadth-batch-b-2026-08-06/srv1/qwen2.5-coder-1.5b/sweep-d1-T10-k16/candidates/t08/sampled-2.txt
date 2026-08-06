@@ -1,0 +1,39 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const inDegree = new Map<string, number>();
+    const adjList = new Map<string, Set<string>>();
+
+    for (const node of nodes) {
+        inDegree.set(node, 0);
+        adjList.set(node, new Set());
+    }
+
+    for (const [from, to] of edges) {
+        if (!inDegree.has(from) || !inDegree.has(to)) {
+            throw new Error(`Edge contains unknown nodes: ${from}, ${to}`);
+        }
+        inDegree.set(to, (inDegree.get(to) ?? 0) + 1);
+        adjList.get(from)?.add(to);
+    }
+
+    const queue = Array.from(nodes).filter(node => inDegree.get(node)! === 0);
+
+    if (queue.length !== nodes.length) {
+        throw new Error('Cycle detected');
+    }
+
+    const sorted: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        sorted.push(node);
+        for (const to of adjList.get(node)) {
+            inDegree.set(to, inDegree.get(to)! - 1);
+            if (inDegree.get(to)! === 0) {
+                queue.push(to);
+            }
+        }
+    }
+
+    return sorted;
+}
+```

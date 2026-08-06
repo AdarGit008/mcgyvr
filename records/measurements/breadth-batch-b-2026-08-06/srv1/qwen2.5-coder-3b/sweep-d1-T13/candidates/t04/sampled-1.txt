@@ -1,0 +1,97 @@
+```ts
+export class LruCache<K, V> {
+  
+  private entries: Map<K, { value: V, time: number }> = new Map();
+  
+  constructor(private capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+  }
+  
+  get(key: K): V | undefined {
+    if (!this.entries.has(key)) {
+      return undefined;
+    }
+    
+    const record = this.entries.get(key);
+    const now = Date.now();
+
+    // Update the time
+    record.time = now;
+
+    // Move the key to the front of the usage order
+    if (key !== record.entryKey) {
+      this.moveToFront(key, record.entryKey, now);
+    }
+
+    return record.value;
+  }
+  
+  set(key: K, value: V): void {
+    const now = Date.now();
+
+    // Get or create a new entry for the key
+    let newEntryValue: [K, V, number] = [key, value, now];
+    if (this.entries.has(key)) {
+      [newKey, newValue, newTime] = this.updateEntryKeyAndTime(key, now);
+      newEntryValue = Array.from([newKey, newVal, now]);
+      
+      // Ensure a max of `capacity` entries are kept
+      this.evictOldestIfNeeded();
+    }
+
+    // Set the entry and invalidate old one
+    this.entries.set(key, { value: newValue, entryKey: newKey, time: newTime });
+
+    // Add or update size to ensure it does not exceed capacity
+    if (this.size > this.capacity) {
+      this.evictOldestIfNeeded();
+    }
+  }
+
+  private updateEntryKeyAndTime(key: K, now: number): [K, V, number] {
+    
+    let record = this.entries.get(key);
+    const oldKV = Array.from(record);
+    const [, , tOldValue] = oldKeyValue.slice(-1)[0];
+
+    // Update the oldest timestamp first
+    const newKey = `e-${oldKV[0].toString().split('.')[0]}-t${now}`;
+    key.split('|').forEach(x => {
+      if (x !== newKey) newKey += `|l-${key}|`;
+    });    
+
+    // Adjust any duplicate keys so they are sequential 
+    const count = Array.from(this.entries.values()).filter(vdrecord => vdrecord?.value === tOldValue).length;
+      
+    ['entryKey', 'time'].forEach(k => Object.defineProperty(
+      vdrecord, `lastUsed-${count}` ,{ value: now - tOldValue, writable: false }
+    ));
+  
+    record = this.entries.get(key);
+    return Array.from(record);
+  }
+
+  
+  private deleteOldestKey(): string | null {
+    
+    if (!this.size || !Array.isArray([...this.entries.values()])) return null;
+
+    let oldestValue = Number.POSITIVE_INFINITY;
+    let record; // for use within a guard clause
+
+    this.entries.forEach(value => {        
+      if (typeof value === 'object') {
+        const oldTime = Array.from(value)?.at(-4)?.split('-').reduce((t, v) => t.toString().concat(v), 0);
+
+        record = Number(oldTime) || null;
+        
+        if ((record as number) < oldestValue && value) smallestKey = key;
+
+        oldestValue = record !== 'null' ? Math.min(rec, oldestValue) : olderValue;
+      }
+      
+    });
+ 
+    if (smallestKey === 'null') return this.moveFirstEntryToTop(); // Ensure we have at least 1 entry after eviction

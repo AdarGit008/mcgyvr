@@ -1,0 +1,53 @@
+```typescript
+type Graph = Record<string, Set<string>>;
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Graph = {};
+
+  for (const [from, to] of edges) {
+    if (!graph[from]) graph[from] = new Set();
+    graph[from].add(to);
+  }
+
+  function hasCycle(node: string, visited: Set<string>, stack: Set<string>): boolean {
+    if (visited.has(node)) return true;
+    if (stack.has(node)) return false;
+
+    visited.add(node);
+    stack.add(node);
+
+    for (const next of graph[node] || []) {
+      if (hasCycle(next, visited, stack)) return true;
+    }
+
+    stack.delete(node);
+    return false;
+  }
+
+  function dfs(node: string, order: string[]): void {
+    const visited: Set<string> = new Set();
+
+    while (graph[node]) {
+      for (const next of graph[node] || []) {
+        if (!visited.has(next) && !hasCycle(next, visited, new Set())) {
+          visited.add(next);
+          dfs(next, order);
+        }
+      }
+
+      graph[node].clear();
+    }
+
+    order.push(node);
+  }
+
+  const result: string[] = [];
+  for (const node of nodes) {
+    if (!graph[node]) continue;
+    if (hasCycle(node, new Set(), new Set())) throw new Error(`Cycle detected in the graph`);
+    dfs(node, result);
+  }
+
+  return result;
+}
+```

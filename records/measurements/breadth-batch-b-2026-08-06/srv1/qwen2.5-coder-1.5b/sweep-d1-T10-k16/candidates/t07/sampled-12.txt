@@ -1,0 +1,33 @@
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (!Number.isInteger(depth) || depth < 0) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  const isPlainObject = (obj: unknown): obj is Record<string, unknown> => {
+    return !!obj && typeof obj === 'object' && !Array.isArray(obj);
+  };
+
+  const flattenArray = (arr: unknown[]): unknown[] => {
+    return arr.reduce((acc: unknown[], item: unknown) => {
+      if (Array.isArray(item)) {
+        acc.push(...flattenArray(item));
+      } else if (!isPlainObject(item)) {
+        acc.push(item);
+      }
+      return acc;
+    }, []);
+  };
+
+  const flattenedItems = [];
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      flattenedItems.push(...flattenArray(item));
+    } else if (!isPlainObject(item)) {
+      flattenedItems.push(item);
+    }
+  }
+
+  return depth === Infinity ? [...flattenedItems] : flattenedItems.slice(0, depth);
+}
+```

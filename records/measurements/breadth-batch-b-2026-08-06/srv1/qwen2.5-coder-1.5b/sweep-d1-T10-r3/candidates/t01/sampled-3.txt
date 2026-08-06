@@ -1,0 +1,26 @@
+```ts
+/**
+ * Encodes a string by running-length encoding repeated characters.
+ * 
+ * @param input - A string to be encoded.
+ * @returns The run-length encoded version of the input string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let result = '';
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    let count = 1;
+    while (i + 1 < input.length && input[i] === input[i + 1]) {
+      i++;
+      count++;
+    }
+    result += char + (count > 1 ? count : '');
+  }
+
+  return result;
+}
+```

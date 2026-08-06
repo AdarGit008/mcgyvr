@@ -1,0 +1,23 @@
+```ts
+export class Event { name: string; timestamp: number }
+
+declare abstract class EventLog {
+  #events: Event[];
+
+  abstract record(event: Event): void;
+
+  abstract since(timestamp: number): Event[];
+}
+
+export const EventLog = new class extends EventLog {
+  private #events: Event[] = [];
+
+  record(event: Event) {
+    this.#events.push(event);
+  }
+
+  since(timestamp: number) {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}();
+```

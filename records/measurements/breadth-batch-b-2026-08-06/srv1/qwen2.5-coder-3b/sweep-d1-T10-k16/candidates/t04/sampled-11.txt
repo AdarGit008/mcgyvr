@@ -1,0 +1,59 @@
+```ts
+export class LruCache<K, V> {
+  private cache: Map<K, { value: V, timestamp: number }>;
+  private maxCapacity: number;
+  private counter = 0;
+
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.cache = new Map();
+    this.maxCapacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (entry) {
+      entry.timestamp = ++this.counter; // Mark as used
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    if (typeof key !== 'object' && !Array.isArray(key)) {
+      throw new Error('Cache keys must be objects or arrays');
+    }
+
+    const entry = { value, timestamp: ++this.counter }; // Mark as used
+
+    if (this.cache.has(key)) {
+      this.cache.delete(key); // Remove old key
+    } else if (this.cache.size >= this.maxCapacity) {
+      const leastRecentlyUsedKey = this.getLeastRecentlyUsedKey();
+      this.cache.delete(leastRecentlyUsedKey);
+    }
+
+    this.cache.set(key, entry);
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private getLeastRecentlyUsedKey(): K {
+    let minTimestamp = Infinity as number;
+    let leastRecentlyUsedKey: K | null = null;
+
+    for (const [key, { timestamp }] of this.cache.entries()) {
+      if (timestamp < minTimestamp) {
+        minTimestamp = timestamp;
+        leastRecentlyUsedKey = key!;
+      }
+    }
+
+    return leastRecentlyUsedKey!;
+  }
+}
+```

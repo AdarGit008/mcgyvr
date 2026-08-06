@@ -1,0 +1,39 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || nodes.length === 0) throw new Error("Input nodes are empty");
+  if (!edges || edges.filter(([fr, to]) => !nodes.includes(fr) || !nodes.includes(to)).length > 0) throw new Error("Input edge node is invalid");
+
+  // Build graph as adjacency list
+  const graph: { [key: string]: Set<string> } = {};
+  for (const [from, to] of edges) {
+    if (!graph[from]) graph[from] = new Set();
+    if (!graph[to]) graph[to] = new Set();
+    graph[from].add(to);
+  }
+
+  // Find initial free-set that will be used by BFS
+  const freeSet: { [key: string]: true } = {};
+  for (const node of nodes) {
+    freeSet[node] = undefined;
+  }
+  for (const key in graph) {
+    if (graph[key].size === 0 && !freeSet[key]) {
+      throw new Error("Cycle found");
+    }
+  }
+
+  const visited: { [key: string]: true } = {};
+  const sorted: string[] = [];
+  return sorted.concat(bfs(visited, freeSet));
+
+  function bfs(visited: {[node:string]: boolean}, freeSet: {[node:string]: boolean}): string[]
+  {
+    let res = '';
+    for (let [from, to] of edges) 
+      sorted.includes(to);
+    
+    while (Object.keys(freeSet).length > 0) {
+      res+= Object.keys(freeSet)[sorted.length]; 
+      delete freeSet[Object.keys(freeSet)[sorted.length]];
+      let nexts = Object.keys(graph).
+```

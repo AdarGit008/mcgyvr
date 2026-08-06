@@ -1,0 +1,22 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges) throw new Error("Input cannot be null or undefined.");
+
+  const nodeMap = new Map<string, { children: Set<string>, dependencies: Set<string> }>();
+  for (const node of nodes) {
+    nodeMap.set(node, { children: new Set(), dependencies: new Set() });
+  }
+
+  for (const [from, to] of edges) {
+    if (!nodeMap.has(from) || !nodeMap.has(to)) throw new Error(`Node ${from} or ${to} not found.`);
+    nodeMap.get(from)?.children.add(to);
+    nodeMap.get(to)?.dependencies.add(from);
+  }
+
+  const freeNodes = nodes.filter(node => nodeMap.get(node).dependencies.size === 0);
+
+  if (freeNodes.length !== nodes.length) throw new Error("Cycle detected.");
+
+  return freeNodes.sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b));
+}
+```

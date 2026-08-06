@@ -1,0 +1,46 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Map<string, Set<string>>();
+  const indegreeMap = new Map<string, number>();
+
+  // Build the graph and in-degree maps
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw new Error("Edge names not in nodes");
+    }
+    graph.set(from, (graph.get(from) || new Set<string>()).add(to));
+    indegreeMap.set(to, (indegreeMap.get(to) || 0) + 1);
+  }
+
+  const queue: string[] = [];
+  // Initialize the queue with nodes that have no dependencies
+  for (const node of nodes) {
+    if (!indegreeMap.has(node)) {
+      queue.push(node);
+    }
+  }
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const currentNode = queue.shift()!;
+    result.push(currentNode);
+
+    // Decrement the in-degree of all neighbors
+    for (const neighbor of graph.get(currentNode) || []) {
+      indegreeMap.set(neighbor, indegreeMap.get(neighbor)! - 1);
+      if (indegreeMap.get(neighbor)! === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check if there are any nodes left with non-zero in-degree
+  const remainingNodes = Array.from(indegreeMap.keys()).filter(node => indegreeMap.get(node)! > 0);
+  if (remainingNodes.length > 0) {
+    throw new Error(`Cycle detected: ${remainingNodes.join(", ")}`);
+  }
+
+  return result;
+}
+```

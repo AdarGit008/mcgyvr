@@ -1,0 +1,30 @@
+```ts
+type NumberArray = readonly number[];
+
+export function sortAscending(values: NumberArray): NumberArray {
+  if (!Array.isArray(values) || values.length === 0) {
+    throw new Error("Input must be a non-empty array of numbers.");
+  }
+
+  // Create a shallow copy of the input array to avoid mutating it
+  const sortedValues = [...values];
+
+  // Use Array.prototype.sort with a custom comparator function
+  sortedValues.sort((a, b) => {
+    if (isNaN(a) && isNaN(b)) {
+      return 0; // Both NaN, so they are considered equal
+    }
+    if (isNaN(a)) {
+      return 1; // NaN is greater than any non-NaN number
+    }
+    if (isNaN(b)) {
+      return -1; // Non-NaN is less than NaN
+    }
+
+    // Sort numbers numerically
+    return a - b;
+  });
+
+  return sortedValues;
+}
+```

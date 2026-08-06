@@ -1,0 +1,55 @@
+```ts
+export class LruCache<K, V> {
+  private store: Map<K, { value: V; timestamp: number }> = new Map();
+  private capacity: number;
+
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0 || isNaN(capacity)) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.store.get(key);
+    if (!entry) return undefined;
+
+    // Update the timestamp for the recently used element
+    entry.timestamp = Date.now();
+
+    // Return the value
+    return entry.value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.capacity <= 0) throw new Error('Cache is full.');
+
+    const now = Date.now();
+    let evictedKey: K | null = null;
+
+    // Remove the oldest element if necessary to fit
+    for (const [_key, entry] of this.store.entries()) {
+      if (entry.timestamp === now - Infinity) {
+        if (!evictedKey) {
+          evictedKey = _key;
+        }
+        this.store.delete(_key);
+        break;
+      }
+    }
+
+    // Update or add the new key
+    if (evictedKey !== null && !this.store.has(key)) {
+      this.store.set(key, { value, timestamp: now });
+    } else if (this.store.has(key)) {
+      const existingEntry = this.store.get(key)!;
+      existingEntry.value = value;
+      existingEntry.timestamp = now;
+    }
+  }
+
+  get size(): number {
+    return this.store.size;
+  }
+}
+```

@@ -1,0 +1,24 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): sortedValues {
+  if (!values.every(Number.isFinite)) {
+    throw new Error('Sorted values must consist of finite numbers');
+  }
+  
+  return [...values].sort((a, b) => a - b);
+}
+
+class sortedValues implements readonly number[] {
+  private readonly values: readonly number[];
+
+  constructor(values: readonly number[]) {
+    this.values = values;
+  }
+
+  get value(): readonly number[] {
+    // To prevent modification of the original array and to match the interface
+    // The return statement is wrapped into a new class instance.
+    return [...this.values].sort((a, b) => a - b);
+  }
+}
+```

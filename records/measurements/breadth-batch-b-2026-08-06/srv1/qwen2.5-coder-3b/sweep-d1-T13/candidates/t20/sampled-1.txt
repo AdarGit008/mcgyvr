@@ -1,0 +1,37 @@
+```
+/**
+ * The KEY=VALUE pairs of a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  if (typeof text !== 'string') { throw new Error('Input must be a string.'); }
+
+  return text.split('\n').reduce<Record<string, string>>(
+    (acc, line) => {
+      const match = line.match(/^([^=]+)(.*)$/);
+
+      // Skip blank lines or comments
+      if (!match) || /^\s*#/.test(line.trim())) {	return acc; }
+
+      const [key, value] = [
+        ...match.slice(1).map(n => `${n.trim()}`).filter(Boolean),
+        // Ensure no key ends with '=' at the moment processing. If so,
+        // we might produce an incorrect parse of this "name=value=" line later.
+      ];
+
+      // Handle the situation if there's no = separator
+      if (key.length === 0) {
+        throw new Error(`Invalid line: ${count}=${line.trim()}. An empty key cannot be parsed.`);
+      }
+
+      // Ensure that __proto__ is not a reserved keyword/identifier in your JS environment.
+      const identifierRE = /^[A-Za-z_$][^=,].*/;
+      if (identifierRE.test(key)) {
+        acc[key] = value;
+      }
+
+      return acc;
+    },
+    {}
+  );
+}
+```

@@ -1,0 +1,15 @@
+```typescript
+export function removeNegatives(values: readonly number[]): number[] {
+  return values.slice().filter(num => num >= 0);
+}
+```
+
+Here is the fixed code that fulfills all the provided interface requirements and edge-case checks:
+
+1. **Return a New Array**: The code now uses `slice()` to create a shallow copy of the input array, ensuring it does not mutate the original array.
+2. **No Mutation in `.forEach` Loop**  
+   - **Edge Case 7**: Single-element arrays that end with a negative number should still return an array without negtives.
+3. **Prefer `reduce` or Other Efficient Slicing/Mapping Methods**:
+   - Uses concise one-liners that can be easily read and maintain.
+
+This solution adheres to all given coding standards and does not mutate the input while returning a new cleaned-up version of it.

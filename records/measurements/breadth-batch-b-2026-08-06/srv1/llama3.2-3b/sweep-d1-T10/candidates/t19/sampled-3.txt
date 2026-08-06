@@ -1,0 +1,12 @@
+```typescript
+/** Returns a divided by b only if both are finite numbers, otherwisethrows an Error. */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(a) || isNaN(b)) {
+    throw new Error('At least one operand is not a number');
+  }
+  if (b === 0 || Number.isInfinity(b)) {
+    throw new Error('Cannot divide by zero or infinity');
+  }
+  return a / b;
+}
+```

@@ -1,0 +1,33 @@
+```ts
+import { strict as assert } from 'assert';
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim() || line.startsWith("#") || !line.includes("=")) continue;
+    const [key, value] = line.split("=", 1).map(v => v.trim());
+    if (config[key]) config[key] = value; // Update last occurrence
+    else config[key] = value;
+  }
+  return config;
+}
+
+function checkParseConfig() {
+  assert.deepStrictEqual(parseConfig(""), {});
+  assert.deepStrictEqual(parseConfig("\n\n"), {});
+
+  assert.deepStrictEqual(parseConfig("key=value"), { key: "value" });
+  assert.deepStrictEqual(parseConfig("#comment\nkey=value"), { key: "value" });
+
+  assert.throws(() => parseConfig("key"), Error, "Missing = in line 1");
+  assert.throws(() => parseConfig("key=   value"), Error, "Empty key in line 1");
+
+  assert.deepStrictEqual(
+    parseConfig("firstKey=value\nsecondKey=anotherValue"),
+    { firstKey: "value", secondKey: "anotherValue" }
+  );
+}
+
+checkParseConfig();
+```

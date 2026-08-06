@@ -1,0 +1,24 @@
+```typescript
+function validateTemperature(input: number): string {
+  if (typeof input !== "number" || !Number.isFinite(input)) {
+    return "celsius must be a finite number";
+  }
+  if (input < -273.15) {
+    return "celsius must be at or above absolute zero";
+  }
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  return validateTemperature(celsius)
+    ? (celsius * 1.8 + 32)
+    : throw new Error(validateTemperature(celsius));
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  return validateTemperature(celsius)
+    ? (celsius + 273.15)
+    : throw new Error(validateTemperature(celsius));
+}
+```

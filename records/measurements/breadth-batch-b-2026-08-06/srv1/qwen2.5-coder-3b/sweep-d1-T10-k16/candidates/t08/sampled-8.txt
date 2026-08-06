@@ -1,0 +1,39 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes.length) return [];
+
+  const graph = new Map<string, Set<string>>();
+  for (const node of nodes) {
+    graph.set(node, new Set());
+  }
+
+  const inDegrees = new Map<string, number>();
+  for (const node of nodes) {
+    inDegrees.set(node, 0);
+  }
+
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) throw new Error(`Invalid edge: "${from}" not in nodes`);
+    if (!graph.has(to)) throw new Error(`Invalid edge: "${to}" not in nodes`);
+    graph.get(from)!.add(to);
+    inDegrees.set(to, inDegrees.get(to)! + 1);
+  }
+
+  const result: string[] = [];
+  const queue = [...nodes].filter(node => inDegrees.get(node)! === 0);
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+
+    for (const neighbor of graph.get(node)!) {
+      inDegrees.set(neighbor, inDegrees.get(neighbor)! - 1);
+      if (inDegrees.get(neighbor)! === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return nodes.length !== result.length ? [] : result;
+}
+```

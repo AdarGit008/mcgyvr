@@ -1,0 +1,76 @@
+```typescript
+class LruCache<K, V> {
+  private map: Map<K, [V, number]>;
+  private orderedSet: Set<[K, number]>;
+  private capacity: number;
+
+  /**
+   * Creates a new instance of LruCache with the given capacity.
+   *
+   * @param capacity - The maximum number of entries in the cache.
+   */
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+
+    this.capacity = capacity;
+    this.map = new Map<K, [V, number]>();
+    this.orderedSet = new Set();
+  }
+
+  /**
+   * Gets the value associated with the given key from the cache.
+   *
+   * @param key - The key to look up in the cache.
+   */
+  get(key: K): V | undefined {
+    const valueAndTime = this.map.get(key);
+    if (valueAndTime === undefined) {
+      return undefined;
+    }
+
+    // Update the time when the key was last accessed
+    valueAndTime[1] = Date.now();
+    this.orderedSet.add(valueAndTime);
+
+    return valueAndTime[0];
+  }
+
+  /**
+   * Inserts or updates a key-value pair in the cache.
+   *
+   * @param key - The key to store in the cache.
+   * @param value - The value associated with the key.
+   */
+  set(key: K, value: V) {
+    // Remove any keys that have already exceeded the capacity
+    this.orderedSet.forEach(([k]) => this.orderedSet.delete(k));
+    if (this.capacity === 0) return;
+
+    const existingValueAndTime = this.map.get(key);
+    if (existingValueAndTime !== undefined) {
+      // Update the time when the key was last accessed
+      existingValueAndTime[1] = Date.now();
+      const index = this.orderedSet.keys().toArray().indexOf(existingValueAndTime);
+      this.orderedSet.delete(existingValueAndTime);
+      this.orderedSet.add([key, Date.now()].sort());
+    } else {
+      // Add the new key-value pair to the cache
+      const latestIndex = this.orderedSet.keys().length - 1;
+      this.orderedSet.add([key, Date.now()].sort());
+      if (this.orderedSet.size > this.capacity) {
+        this.orderedSet.delete(this.orderedSet.keys().next().value);
+      }
+    }
+    this.map.set(key, [value, 0]);
+  }
+
+  /**
+   * Retrieves the current size of the cache.
+   */
+  get size(): number {
+    return this.map.size;
+  }
+}
+```

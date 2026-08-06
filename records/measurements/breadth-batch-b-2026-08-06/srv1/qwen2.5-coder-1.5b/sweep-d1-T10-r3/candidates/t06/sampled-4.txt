@@ -1,0 +1,39 @@
+```ts
+function parseCsvLine(line: string): string[] {
+  if (line.trim() === '') return [];
+
+  const fields: string[] = [];
+  let fieldIndex = 0;
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (!inQuotes) {
+      if (char === ',') {
+        fieldIndex++;
+      } else if (char === '"') {
+        inQuotes = !inQuotes;
+        fieldIndex++;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = !inQuotes;
+        i++; // Skip the next character to close the quote
+      } else if (i !== line.length - 1 && char === ',') {
+        throw new Error("Unmatched closing quote is required between fields");
+      }
+    }
+
+    if (!inQuotes && fieldIndex < fields.length) {
+      continue;
+    }
+
+    if (fieldIndex === fields.length) {
+      fields.push(line.substring(i));
+      break;
+    }
+  }
+
+  return fields;
+}
+```

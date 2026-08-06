@@ -1,0 +1,29 @@
+```ts
+
+function mergeIntervals(intervals: number[][]): number[][] {
+    intervals.forEach(interval => {
+        if (interval.length !== 2) {
+            throw Error("Interval must have exactly two elements");
+        }
+        if (interval[0] > interval[1]) {
+            throw Error("First element of interval may not be greater than its second");
+        }
+    });
+
+    intervals.sort((a, b) => a[0] - b[0]);
+
+    const merged: number[][] = [];
+    let currentInterval: number[] | null = null;
+
+    for (const interval of intervals) {
+        if (currentInterval === null || interval[0] > currentInterval[1]) {
+            currentInterval = interval;
+            merged.push(interval);
+        } else if (interval[1] >= currentInterval[1]) {
+            currentInterval[1] = interval[1];
+        }
+    }
+
+    return merged;
+}
+```

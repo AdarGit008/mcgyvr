@@ -1,0 +1,59 @@
+```typeScript
+export function parseCsvLine(line: string, openQuoted = false): string[] {
+    const fields: string[] = [];
+    let currentField = "";
+    let escapeNextChar = false;
+
+    for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') {
+            // If we're not parsing inside an open quote, we're in a potential field boundary
+            if (!openQuoted) {
+                if (currentField !== "") {
+                    fields.push(currentField);
+                    currentField = ""; // reset for the new content that may follow quotes
+                    startNewEntry = true;
+                } else if (escapeNextChar && fieldStart == i - 1) {
+                    escapeNextChar = false; // Unwrap the escaping quote from opening and closing a quote
+                    continue;
+                }
+            }
+
+            // Toggle openQuoted status
+            openQuoted = !openQuoted;
+
+            if (!openQuoted && currentField !== "") { // Check for dangling escaped quotes in closing the quote
+                throw new Error("Expected quoted field to close correctly");
+            }
+        } else {
+            if (line[i] === "," && !escapeNextChar) {
+                if (currentField.length > 0 || openQuoted) {
+                    fields.push(currentField);
+                    currentField = ""; // reset for the next field
+                }
+                continue;
+            }
+
+            // Otherwise, add it to the currentField or process escape chars before adding any more data
+            if (escapeNextChar) {
+                currentField += line[i];
+                escapeNextChar = false; // clear processing for this char that was flagged as an escape marker
+                continue;
+            }
+        }
+
+        // Flag whether field or quoting starts at index i later - use this in the next conditionals above when processing ","
+        const fieldStart = line.lastIndexOf('
+
+', i) + 1;
+
+        currentField += line[i];
+        if (line[i] === "\\") {
+            escapeNextChar = true; // Next character after \
+        }
+    }
+
+    fields.push(currentField); // Add any remaining content in case there was no extra comma after it
+
+    return openQuoted ? [] : fields;
+}
+```

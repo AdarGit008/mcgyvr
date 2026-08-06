@@ -1,0 +1,47 @@
+```typescript
+/**
+ * Merge overlapping intervals while maintaining sorted ascending order by start.
+ * Non-overlapping intervals are kept separate.
+ *
+ * @param {number[][]} intervals - List of [start, end] pairs, possibly overlapping or open-ended.
+ * @returns {number[][]} The smallest list of non-overlapping [start, end] pairs covering the same points, sorted ascending by start.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (intervals === null || intervals.length < 2) {
+        return intervals;
+    }
+
+    const merged = Array.from({ length: intervals.length }, (_, i) => new Int32Array([0, 0]));
+
+    for (const interval of [...intervals]) {
+        if (!isValidInterval(interval)) {
+            throw new Error(`Invalid interval: [${interval[0]}, ${interval[1]}]`);
+        }
+        merged[i][0] = Math.max(interval[0], merged[i][0]);
+        merged[i][1] = Math.min(interval[1], merged[i][1]);
+    }
+
+    const result: number[][] = [];
+    let preEnd = -1;
+
+    for (const interval of merged) {
+        if (interval[0] > preEnd) {
+            result.push([...interval]);
+        } else {
+            preEnd = Math.max(preEnd, interval[1]);
+        }
+    }
+
+    // Remove fully open-ended intervals in case they were not merged above
+    return result.filter((_, i) => interval => interval![0] !== interval![1]);
+}
+
+/**
+ * Check if an [start, end] pair is valid (i.e., start <= end).
+ *
+ * @param {number[]} interval - A [start, end] pair to check.
+ */
+function isValidInterval(interval: number[]): boolean {
+    return interval[0] <= interval[1];
+}
+```

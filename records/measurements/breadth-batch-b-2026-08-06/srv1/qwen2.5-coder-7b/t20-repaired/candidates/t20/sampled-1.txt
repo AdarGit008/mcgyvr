@@ -1,0 +1,25 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Ignore blank lines and comments
+    if (line.trim().startsWith("#") || line.trim() === "") continue;
+
+    // Split on the first "=" only
+    const index = line.indexOf("=");
+    if (index === -1) throw new Error(`No '=' found in line: ${line}`);
+
+    // Trim whitespace around key and value
+    const key = line.slice(0, index).trim();
+    const value = line.slice(index + 1).trim();
+
+    // Ensure the key is not "__proto__"
+    if (key === "__proto__") throw new Error('Key cannot be "__proto__"');
+
+    // Assign the key-value pair to the config object
+    config[key] = value;
+  }
+  return config;
+}
+```

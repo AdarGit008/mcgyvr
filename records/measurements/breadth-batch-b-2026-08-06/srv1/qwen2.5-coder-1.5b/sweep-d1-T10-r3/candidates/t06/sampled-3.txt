@@ -1,0 +1,27 @@
+```typescript
+import { strict as assert } from 'assert';
+
+/**
+ * Splits one line of CSV into its fields on commas, with special handling for quoted fields.
+ * @param line - The line to be parsed.
+ * @returns An array of the parsed fields.
+ */
+export function parseCsvLine(line: string): string[] {
+    return line.split(/(?<=")"|,)/g).filter(field => field.trim() !== '');
+}
+
+// Verification code
+function verifyParseCsvLine() {
+    assert.deepStrictEqual(parseCsvLine(""), []);
+    assert.deepStrictEqual(parseCsvLine("name,Age"), ["name", "Age"]);
+    assert.deepStrictEqual(parseCsvLine('"Hello, world!"'), ["Hello, world!"]);
+    assert.deepStrictEqual(parseCsvLine('"single"'), ["single"]);
+    try {
+        parseCsvLine('bad,data'); // Should throw Error
+    } catch (error) {
+        assert(error instanceof Error && error.message.startsWith('Invalid CSV line'));
+    }
+}
+
+verifyParseCsvLine();
+```

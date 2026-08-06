@@ -1,0 +1,37 @@
+```ts
+/**
+ * Parse a semantic version string.
+ *
+ * @param {string} version - A semantic version string of the form MAJOR.MINOR.PATCH with an optional -prerelease and an optional +build.
+ * @returns {{ major: number; minor: number; patch: number; prerelease: string | null; build: string | null }} An object containing the three numbers plus the prerelease and build strings, each null when absent.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const match = version.match(/^(\d+)(?:\.(\d+))(?:\.(\d+))?(?:-([a-zA-Z0-9.-]+))?(?:\+([a-zA-Z0-9.-]+))?$/);
+  
+  if (!match) {
+    throw new Error('Invalid version string');
+  }
+  
+  const major = parseInt(match[1], 10);
+  const minor = match[2] ? parseInt(match[2], 10) : NaN;
+  const patch = match[3] ? parseInt(match[3], 10) : NaN;
+  const prereleaseString = match[4];
+  const buildString = match[5];
+  
+  if (!Number.isInteger(major)) {
+    throw new Error('Major part of the version must be a digit with no leading zero (except "0" itself)');
+  }
+  
+  if ((isNaN(minor) || isNaN(patch)) && (minor !== NaN || patch !== NaN)) {
+    return { major, minor: NaN, patch: NaN, prerelease: '', build: '' };
+  }
+  
+  return { major, minor, patch, prerelease: prereleaseString, build: buildString };
+}
+```

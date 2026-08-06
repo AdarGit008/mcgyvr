@@ -1,0 +1,24 @@
+```ts
+
+export function flatten(items: readonly unknown[], depth: number = Number.POSITIVE_INFINITY): unknown[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error('depth must be a non-negative integer or Infinity');
+  }
+
+  return items.reduce((acc, item) => {
+    if (Array.isArray(item)) {
+      const nestedDepth = Math.min(depth - 1, item.length);
+      acc.push(...flatten(item.slice(), nestedDepth));
+    } else if (item !== null && item !== undefined && typeof item === 'object') {
+      try {
+        acc.push(......Object.entries(item).map(([key, value]) => flatten([value], depth)));
+      } catch {
+        acc.push(item);
+      }
+    } else {
+      acc.push(item);
+    }
+    return acc;
+  }, []);
+}
+```

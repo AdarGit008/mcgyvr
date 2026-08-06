@@ -1,0 +1,35 @@
+```ts
+/**
+ * Flattens an array up to a specified depth level. A string is a value,
+ * never something to iterate into, no matter how deep it appears.
+ * @param items The array to flatten.
+ * @param depth The maximum depth to flatten by. Defaults to infinity.
+ * @returns A new array with the nested elements flattened up to the specified depth.
+ */
+export function flatten<T>(items: readonly T[], depth?: number): T[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error("Depth must be a non-negative integer or Infinity.");
+  }
+
+  const flatArray: T[] = [];
+
+  function flattenRecursively(item: T, currentDepth = 0) {
+    if (typeof item !== 'array') {
+      flatArray.push(item);
+      return;
+    }
+
+    for (const element of item) {
+      if (currentDepth < depth!) {
+        flattenRecursively(element, currentDepth + 1);
+      } else {
+        flatArray.push(element);
+      }
+    }
+  }
+
+  items.forEach(flattenRecursively);
+
+  return flatArray;
+}
+```

@@ -1,0 +1,41 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (line === "") return [];
+
+  const escapedQuotes = '"';
+  let isInsideQuote = false;
+  let inEscapeSequence = false;
+
+  const result: string[] = [];
+  let currentToken = "";
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (inEscapeSequence) {
+      inEscapeSequence = false;
+      currentToken += char;
+    } else if (char === escapedQuotes && !inInsideQuote) {
+      isInsideQuote = true;
+    } else if (char === escapedQuotes && isInsideQuote) {
+      currentToken += char;
+      isInsideQuote = false;
+    } else if (char === "," && !isInsideQuote) {
+      result.push(currentToken.trim());
+      currentToken = "";
+    } else if (char === "\n" || char === "\r") {
+      throw new Error("Invalid CSV format: empty line");
+    } else {
+      currentToken += char;
+    }
+  }
+
+  if (currentToken.trim() !== "") {
+    result.push(currentToken.trim());
+  }
+
+  if (isInsideQuote) {
+    throw new Error("Invalid CSV format: unclosed quote");
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,37 @@
+```
+const isValidCelsius = validateTemperature(() => true);
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  const validatedCelsius = isValidCelsius(celsius);
+  return fahrenheit(validatedCelsius);
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  const validatedCelsius = isValidCelsius(celsius);
+  return kelvin(validatedCelsius);
+}
+
+function validateTemperature(conditionFn: () => boolean) {
+  if (!conditionFn()) {
+    throw new Error("celsius must be a finite number");
+  }
+  try {
+    if (Number.isNaN(Number(celsius)) || celsius < -273.15) {
+      throw new Error("celsius must be at or above absolute zero");
+    }
+  } catch {
+    throw new Error("celsius must be a finite number");
+  }
+  return Number(celsius);
+}
+
+function fahrenheit(celsius: number): number {
+  return celsius * 1.8 + 32;
+}
+
+function kelvin(celsius: number): number {
+  return celsius + 273.15;
+}
+```

@@ -1,0 +1,29 @@
+```ts
+/**
+ * An append-only log of timestamped events.
+ */
+export class EventLog {
+  #events: Event[] = [];
+
+  /** Append one event. */
+  record(event) {
+    if (event == null || typeof event !== "object") 
+      throw Error(`the 'record' method argument must be an object`);
+
+    const { name, timestamp } =.event;
+  
+    if (typeof name !== "string" || !timestamp)
+      throw Error("name is of type", typeof name, "and timestamp is a number");
+
+    this.#events.push({ ...event });
+  }
+
+  /** Every event at or after the given timestamp. */
+  since(timestamp): Event[] {
+    if (!isNaN(...(timestamp: any))) 
+      throw Error("since() expects a number argument for 'timestamp'");
+
+    return this.#events.filter((event) => event.timestamp >= parseFloat(String(timestamp)));
+  }
+}
+```

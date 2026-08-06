@@ -1,0 +1,16 @@
+```ts
+
+/**
+ * Calculates the safe division of two numbers.
+ *
+ * @param a The numerator.
+ * @param b The denominator.
+ * @returns The result of `a / b`.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (b === 0 || isNaN(b) || !Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error("Both arguments must be finite numbers and the divisor must not be zero.");
+  }
+  return a / b;
+}
+```

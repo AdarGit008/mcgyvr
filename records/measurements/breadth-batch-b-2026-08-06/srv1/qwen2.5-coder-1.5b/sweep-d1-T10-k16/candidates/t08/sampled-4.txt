@@ -1,0 +1,57 @@
+```tsx
+/* eslint-disable no-console */
+import { strictEqual } from "assert";
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const nodeDegree = new Map<string, number>(nodes.map(node => [node, 0]));
+    const adjacencyList = new Map<string, Set<string>>(edges.map(edge => [edge[0], new Set(edge[1]).add(edge[0])]));
+
+    let freeNodes: string[] = nodes.filter(node => nodeDegree.get(node) === 0);
+    const sortedOrder: string[] = [];
+
+    while (freeNodes.length > 0) {
+        // Pick the earliest free node in terms of its original input order
+        const currentNode = freeNodes.shift()!;
+        sortedOrder.push(currentNode);
+
+        if (!adjacencyList.has(currentNode)) continue;
+
+        adjacencyList.get(currentNode)!.forEach(nextNode => {
+            nodeDegree.set(nextNode, nodeDegree.get(nextNode)! - 1);
+            // If the degree becomes zero, add nextNode to the list of free nodes
+            if (nodeDegree.get(nextNode)! === 0) {
+                freeNodes.push(nextNode);
+            }
+        });
+    }
+
+    const checkedDegrees = new Set(freeNodes);
+
+    for (const node of sortedOrder) {
+        if (!checkedDegrees.has(node)) throw new Error(`Cycle detected involving node: ${node}`);
+    }
+
+    return sortedOrder;
+}
+
+// Check function to test the correctness of the topologicalSort function
+function checkTopologicalSort() {
+    assert.deepStrictEqual(topologicalSort([], []), []);
+    assert.deepStrictEqual(topologicalSort(['a', 'b', 'c'], [['a', 'b']]), ['a', 'b']);
+    assert.deepStrictEqual(topologicalSort(['a', 'b', 'c'], [['a', 'b'], ['b', 'c']]), ['a', 'b', 'c']);
+
+    try {
+        topologicalSort([], [[1, 2], [2, 1]]); // Expected to throw an error
+    } catch (error) {
+        assert.strictEqual(error.message, "Cycle detected involving node: 2");
+    }
+
+    try {
+        topologicalSort(['a', 'b', 'c'], [['a', 'c']]); // Expected to throw an error
+    } catch (error) {
+        assert.strictEqual(error.message, "Cycle detected involving node: c");
+    }
+}
+
+checkTopologicalSort();
+```

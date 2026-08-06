@@ -1,0 +1,29 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== 'number' || !Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error('Depth must be a non-negative integer or Infinity.');
+  }
+
+  const result: unknown[] = [];
+
+  function recursiveFlatten(item: unknown, currentDepth: number): void {
+    if (Array.isArray(item)) {
+      for (const element of item) {
+        if (currentDepth > 0) {
+          recursiveFlatten(element, currentDepth - 1);
+        } else {
+          result.push(element);
+        }
+      }
+    } else if (typeof item === 'object' && item !== null) {
+      throw new Error('Objects are not allowed to be nested.');
+    } else {
+      result.push(item);
+    }
+  }
+
+  recursiveFlatten(items, depth ?? Infinity);
+
+  return result;
+}
+```

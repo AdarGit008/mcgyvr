@@ -1,0 +1,51 @@
+```typescript
+export class LruCache<K, V> {
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.storage = new Map<K, { value: V; usageTime: number }>();
+    this.useTimestamps = new Map<K, number>();
+  }
+
+  get(key: K): V | undefined {
+    if (!this.storage.has(key)) {
+      return undefined;
+    }
+    const entry = this.storage.get(key)!;
+    entry.usageTime = Date.now(); // Update usage timestamp
+    this.moveToEndOfQueue(key); // Remove and move to end for LRU
+    return entry.value;
+  }
+
+  set(key: K, value: V): void {
+    if (!this.storage.has(key)) {
+      this.ensureCapacity();
+    }
+    this.storage.set(key, { value, usageTime: Date.now() });
+    this.moveToEndOfQueue(key); // Remove and move to end for LRU
+  }
+
+  get size(): number {
+    return this.storage.size;
+  }
+
+  private moveToEndOfQueue(key: K): void {
+    const queue = Array.from(this.storage.keys());
+    if (queue.length > 1) {
+      const index = queue.indexOf(key);
+      if (index !== -1) {
+        [queue[index], queue[queue.length - 1]] = [queue[queue.length - 1], queue[index]];
+      }
+    }
+  }
+
+  private ensureCapacity(): void {
+    while (this.storage.size > this.capacity) {
+      const entryToRemove = this.storage.keys().next().value!;
+      this.storage.delete(entryToRemove);
+    }
+  }
+}
+```

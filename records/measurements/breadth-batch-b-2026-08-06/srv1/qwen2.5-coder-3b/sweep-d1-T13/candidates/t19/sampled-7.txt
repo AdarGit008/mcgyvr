@@ -1,0 +1,12 @@
+```
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(a) || isNaN(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+  if (b === 0) {
+    throw new Error("Division by zero is not allowed except for -0.');
+  }
+  
+  return a / b;
+}
+```

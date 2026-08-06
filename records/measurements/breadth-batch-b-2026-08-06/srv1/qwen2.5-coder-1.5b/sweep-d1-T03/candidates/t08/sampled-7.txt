@@ -1,0 +1,33 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges) throw new Error("Input cannot be empty");
+  if (nodes.some(node => !edges.some(([from, to]) => from === node && to === node))) throw new Error("Nodes must not form cycles");
+
+  const inDegree = new Map<string, number>();
+  for (const [from, to] of edges) {
+    inDegree.set(to, (inDegree.get(to) || 0) + 1);
+  }
+
+  const queue: string[] = [];
+  nodes.forEach(node => {
+    if (!inDegree.has(node)) queue.push(node);
+  });
+
+  const sortedNodes: string[] = [];
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    sortedNodes.push(node);
+
+    for (const [from, to] of edges) {
+      if (to === node && inDegree.get(to)! === 0) {
+        queue.push(from);
+        inDegree.delete(from);
+      }
+    }
+  }
+
+  if (sortedNodes.length !== nodes.length) throw new Error("There is a cycle in the graph");
+
+  return sortedNodes;
+}
+```

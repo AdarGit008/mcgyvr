@@ -1,0 +1,31 @@
+```typescript
+/**
+ * Flattens an array of nested arrays up to a specified depth level.
+ *
+ * @param items The input array containing nested arrays.
+ * @param depth The maximum recursion depth. Defaults to Infinity, which means every level is flattened.
+ * @returns A new array with the elements from the input array, possibly flattened.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (depth === undefined) {
+        depth = Infinity;
+    }
+    if (!Number.isInteger(depth) || depth < 0) {
+        throw new Error('Depth must be a non-negative integer');
+    }
+
+    const result: unknown[] = [];
+
+    for (const item of items) {
+        if (typeof item !== 'string') {
+            if (Array.isArray(item)) {
+                result.push(...flatten(item, depth - 1));
+            }
+        } else {
+            result.push(item);
+        }
+    }
+
+    return result;
+}
+```

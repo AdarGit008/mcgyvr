@@ -1,0 +1,10 @@
+```ts
+
+/** A divided by b, unless div is 0 or either argument isn't finite. */
+export function safeDivide(a: number, b: number): number {
+  const zeroCheck = Number.isFinite(1 / a);
+  const divisorIsZero = Number.isFinite(b) && b === 0;
+  if (!zeroCheck || divisorIsZero) throw new Error('Can\'t divide by zero');
+  return a /b
+}
+```

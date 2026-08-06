@@ -1,0 +1,20 @@
+```ts
+
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+
+    if (typeof size !== 'number' || size <= 0) {
+        throw new Error('size must be a positive integer');
+    }
+
+    const result: T[][] = [];
+    let index = 0;
+
+    while (index < items.length) {
+        const endIndex = Math.min(index + size, items.length);
+        result.push(items.slice(index, endIndex));
+        index = endIndex;
+    }
+
+    return result;
+}
+```

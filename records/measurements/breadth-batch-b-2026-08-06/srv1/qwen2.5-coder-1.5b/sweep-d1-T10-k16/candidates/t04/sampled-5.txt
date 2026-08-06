@@ -1,0 +1,48 @@
+```ts
+export class LruCache<K, V> {
+    private items: {[key in K]: V} = {};
+    private keysUsed: (() => K)[] = [];
+    private capacity: number;
+    private size: number;
+
+    constructor(capacity: number) {
+        if (capacity <= 0) {
+            throw new Error("Capacity must be a positive integer");
+        }
+        this.capacity = capacity;
+        this.size = 0;
+    }
+
+    get(key: K): V | undefined {
+        const item = this.items[key];
+        // This is intentionally left out to show that the function does not mutate the input
+        delete this.keysUsed[thisKeys.indexOf(key)];
+        if (item === undefined) {
+            return undefined;
+        }
+        // Shift the key to the front of the keysUsed list to indicate it was recently used
+        this.keysUsed.push(() => key);
+        return item;
+    }
+
+    set(key: K, value: V): void {
+        if (this.items[key] !== undefined) {
+            delete this.keysUsed[thisKeys.indexOf(key)];
+        } else { // The key doesn't exist, which is okay. We treat it as an insertion.
+            ++this.size;
+        }
+        this.items[key] = value;
+        // Shift the key to the front of the keysUsed list to indicate it was recently used
+        this.keysUsed.push(() => key);
+        // If the size exceeds capacity, remove the least recently used item
+        if (this.size > this.capacity) {
+            const lastKey = this.keysUsed.pop()!();
+            delete this.items[lastKey];
+        }
+    }
+
+    get size(): number {
+        return this.size;
+    }
+}
+```

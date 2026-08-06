@@ -1,0 +1,20 @@
+```ts
+export function celsiusToKelvin(celsius: number): number {
+  return celsius + 273.15;
+}
+
+function validateCelsius(temp: number): void {
+  if (typeof temp !== "number" || !Number.isFinite(temp)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (temp < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  validateCelsius(celsius);
+  return celsius * 1.8 + 32;
+}
+```

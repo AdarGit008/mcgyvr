@@ -1,0 +1,101 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (line === "") return [];
+
+  const quotedFieldStart = line.indexOf('"');
+  if (quotedFieldStart > -1) {
+    const fieldBuilder = [];
+    let currentString = "";
+    for (; quotedFieldStart >= 0; quotedFieldStart--) {
+      if (quotedFieldStart === line.length - 1) throw new Error("Missing closing quote in CSV line.");
+      if (line[quotedFieldStart] === '"') break;
+      previousCharWasEscaped = true;
+      currentString += line[quotedFieldStart];
+    }
+
+    fieldBuilder.push(currentString.trim());
+    // Move past leading whitespace and any trailing quotes
+    let i = currentString.trimRight().length + 1;
+    while (i < line.length && line[i] === '"') {    
+        let quoteLength = 0
+
+        while(line[++i] === '"") {
+            ++quoteLength
+        }
+      
+        fieldBuilder.push(l.slice(i - quoteLength * 2))
+
+        currentString += line.slice(currentString.trim().length + i - 1)
+        previousCharWasEscaped = true;
+    }
+
+    // Handle spaces within quoted fields (should already be trimmed if not space-delimited):
+    let finalQuote = line.indexOf('"', fieldBuilder.length, line.length);
+    if(finalQuote > line.lastIndexOf(" ",finalQuote)) {
+        const temp = [];
+
+        for(let j = currentString.trimLeft().length; j <= finalQuote - 1; j++) {
+            if(line.charAt(temp.length) === " ") {
+                temp.push("")
+            }
+            temp.push(line.charAt(j))
+        }
+
+        fieldBuilder.push(temp.join(''))
+    }
+
+    let parsedFields = [];
+   
+    // Split fields from the rest of the line, using space as the delimiter:
+    for(let i = 0; ; i++) {
+     
+      // Handle multiple spaces between quoted and unquoted sections
+      while(i < trimmedLine.length && /\s/.test(trimmedLine[i])) {
+        parsedFields.push("")
+        i++
+      }
+
+      let lastMatchLength = 0;
+
+      const indexMatch = line.trim().indexOf(" ", i);
+      if(indexMatch !== -1) {
+
+        const stringToSplit= trimmedStr.substring(lastMatchLength);
+
+        while(stringToSplit.length > (indexEnd - i)){
+
+          let quotedIndexFirst = -1;
+          quotedFieldStartEnd = quotedQuotes.indexOf(line[quoteStart]+line[i-2]);
+
+          for(let j = indexEnd - i; quotedStart < indexMatch &&  j !== 1;  j--) {
+              if(quotedQuotes.includes(trimmedStr.slice(indexEnd - j + 0, indexEnd - indexStart + j))){
+                  // Find out what the char behind is to determine quoting.
+                  let tempFirst = line[indexEnd - 1 - (i-line.index(j))];
+                    if(tempFirst === "\"" ||tempFirst === "\\") {
+                        break;
+                    }
+
+              }
+            if(trimmedStr[i] !== ' ' && trimmedStr.slice(indexMatch+lastMatchLength, indexStart) !== ''){
+                parsedFields.push(stringToSplit.substring(lastMatchLength+j));
+                
+                lastMatchLength += j;
+
+              }    
+          }
+        }
+      
+        // Handle case where the entire line consists of spaces:
+        if(trimmedStr.match(/^\s*$/)) {
+             parsedFields.push("")
+     }
+
+        break
+      } else throw new Error("Quote characters were nested at end of CSV line.") 
+   
+    }
+
+    return [...fieldBuilder, ...parsedFields];      
+  /**
+   If you meant quoted elements should only include text between quote start then double
+   quote, then

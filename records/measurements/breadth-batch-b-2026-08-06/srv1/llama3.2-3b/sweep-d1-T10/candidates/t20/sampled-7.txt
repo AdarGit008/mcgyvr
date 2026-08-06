@@ -1,0 +1,20 @@
+```ts
+/**
+ * Parses a config file into a plain data object.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text) {
+    if (!line.trim() || /\s*#\s/.test(line)) { // ignore blank lines and comments
+      continue;
+    }
+    try {
+      const [key, value] = line.split(/=\s*/[sic], 2); // split on first = only
+      config[key.trim()] = value.trim(); // trim whitespace around key and value
+    } catch (error) {
+      throw new Error(`Invalid line: ${line} - missing '=', empty value, or object key`);
+    }
+  }
+  return Object.fromEntries(Object.entries(config).filter(([_, v]) => !!v)); // remove leading '.'s
+}
+```

@@ -1,0 +1,41 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let currentField = "";
+  let inQuotes = false;
+  let escapeQuote = false;
+
+  for (const char of line) {
+    if (char === '"') {
+      // If inside quotes, check if we're escaping
+      if (escapeQuote) {
+        currentField += char;
+        escapeQuote = false;
+      } else {
+        // If not escaped, toggle inQuotes
+        inQuotes = !inQuotes;
+      }
+    } else if (!inQuotes && char === ',') {
+      // Add the field to result and clear it for new one
+      result.push(currentField.trim());
+      currentField = "";
+    } else if (char !== '"') {
+      // Collect the characters until a comma is seen
+      currentField += char;
+      escapeQuote = false; // Ensure we don't accumulate escaped quotes in unquoted fields
+    }
+  }
+
+  // Add any remaining field
+  if (currentField.length) {
+    result.push(currentField.trim());
+  }
+
+  // Ensure that the last line does not have a trailing comma affecting parsing
+  if (line.endsWith(',') && result.length > 0 && !inQuotes) {
+    result.pop();
+  }
+
+  return result;
+}
+```

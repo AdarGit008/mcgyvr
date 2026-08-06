@@ -1,0 +1,28 @@
+```ts
+function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.length === 0) {
+    return [];
+  }
+
+  // Sort intervals to start by their lower bound, then sort pairs with equal bounds by ascending order of the higher bound.
+  intervals.sort([
+    ([s1, e1], [s2, e2]) => s1 - s2 || e1 - e2
+  ]);
+
+  // Merge non-overlapping segments together, creating new intervals if necessary.
+  const merged_intervals = [];
+  for (let i = 0; i < intervals.length; i++) {
+    // Handle the case where we encounter a point not already covered by a previous interval and do not go out of bounds
+    if (!merged_intervals.length || intervals[i][0] > merged_intervals[merged_intervals.length - 1][1]) continue;
+    // Merge if end of current interval lies within the start of next interval.
+    const [current_start, current_end] = intervals[i];
+    const next_start = intervals[i + 1]?.[0]
+
+    if (next_start === undefined || next_START <= current_end) {
+      merged_intervals.push([current_start, Math.max(current_end, next_end)]); // Update end for the same point if it's earlier.
+    } else break;
+  }
+
+  return merged_intervals;
+}
+```

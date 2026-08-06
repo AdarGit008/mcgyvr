@@ -1,0 +1,102 @@
+```ts
+interface CsvParserOptions {
+  allowEmptyValue: boolean;
+}
+
+export function parseCsvLine(line: string, options?: Partial<CsvParserOptions>): string[] {
+  const defaultOptions = {
+    allowEmptyValue: false,
+  };
+
+  const { allowEmptyValue } = { ...defaultOptions, ...options };
+  
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a String');
+  }
+
+  let result: string[] = [];
+  let index = 0;
+  let valueBuilder = '';
+  let inQuotedField = false;
+  let quotedCharCount = 0;
+
+  while (index < line.length) {
+    const char = line[index];
+
+    if (!quotedCharCount && inQuotedField) {
+      const innerEndQuoteIndex = line.indexOf('"', index + 1);
+      if (innerEndQuoteIndex !== -1) {
+        valueBuilder += line.substring(index + 1, innerEndQuoteIndex);
+        valueBuilder += '"';
+        index = innerEndQuoteIndex + 1;
+        quotedCharCount += 2; // Increase by two because of the quotes inside the field
+        continue;
+      } else {
+        // Quoted quote not found, append it to the value builder and set quotedCharCount to 2 to process the next one as quote count
+        valueBuilder.push('"');
+        index++;
+        for (let i = 0; i < 2; i++) {
+          valueBuilder.shift();
+          valueBuilder.push('"');
+        }
+        result.push('');
+        inQuotedField = false;
+      }
+    }
+
+    switch (char) {
+      case '"':
+        if (!quotedCharCount) {
+          // Start of quoted text
+          inQuotedField = true;
+
+          if (i >= line.length - 1) {
+            break; // Invalid data: unterminated quoted field at end of line
+          }
+        
+          valueBuilder++;
+          quotedCharCount++;
+        } else if (quotedCharCount % 2 === 0) {
+          // End of part we are accumulating, before processing the next quote count (it's an inner one because all other even index have quotes processed already)
+          while (--valueBuilder.length > 0 && valueBuilder[valueBuilder.length - 1] === '"') {
+            valueBuilder.pop();
+          }
+
+          if (!allowEmptyValue && result.length && !result[result.length - 1]) {
+            return ['Empty field in CSV line']; // If allowEmptyValue is false, throw error for empty fields
+          }    
+
+          if (index < line.length - 1 && line[index + 1] !== ',') {
+            if (!allowEmptyValue) {
+              return ['Field terminator unexpected at the end of CSV row!'];
+            }
+          }
+
+          result.push(valueBuilder.toString());
+          valueBuilder = '';
+        }
+        break; // Just append quote, it will be removed in further processing
+      case ',':
+        if (inQuotedField || quotedCharCount > 0 && quotedCharCount % 2 === 1) {
+          // Inside a quoted field, or partial quoted part from last ' inside another doubled quote
+          valueBuilder.push(',');
+          index++;
+          continue;
+        }
+        else if (index === line.length - 1) {
+          result.push(valueBuilder.toString());
+          return result; // Last element, stop processing 
+        }
+        const nextChar = line[index + 1];
+        if (/^[ A-Z]+$/.test(nextChar)) {
+        } else {
+          result.push(valueBuilder.toString());
+          if (valueBuilder.trim() !== '') {
+            valueBuilder = '';
+            continue;
+          }
+        }
+
+        break;
+      case '\r\n':
+        index++;

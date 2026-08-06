@@ -1,0 +1,19 @@
+```typescript
+const validateFiniteAndAboveZero = (x: number): boolean => {
+  if (typeof x !== "number" || !Number.isFinite(x)) return false;
+  return x >= -273.15;
+};
+
+export function celsiusToFahrenheit(celsius: number): number {
+  if (!validateFiniteAndAboveZero(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  return celsius * 1.8 + 32;
+}
+
+export function celsiusToKelvin(celsius: number): number {
+  const x = validateFiniteAndAboveZero(celsius);
+  if (x) return celsius + 273.15;
+  throw new Error("celsius must be a finite number");
+}
+```

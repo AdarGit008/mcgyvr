@@ -1,0 +1,27 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.length === 0) return [];
+
+  // Clone the intervals array to avoid mutating the original array
+  let sortedIntervals = [...intervals].sort((a, b) => a[0] - b[0]);
+
+  let result: number[][] = [];
+  for (let i = 0; i < sortedIntervals.length; i++) {
+    const [start, end] = sortedIntervals[i];
+
+    if (result.length === 0 || start > result[result.length - 1][1]) {
+      // If the result is empty or there's no overlap with the last interval, simply add the current one
+      result.push([start, end]);
+    } else {
+      // Merge the current interval with the last interval in the result
+      const[lastStart, lastEnd] = result[result.length - 1];
+      const newStart = Math.min(start, lastStart);
+      const newEnd = Math.max(end, lastEnd);
+      result.pop(); // Remove the last interval from the result because it was merged
+      result.push([newStart, newEnd]); // Add the merged interval to the result
+    }
+  }
+
+  return result;
+}
+```

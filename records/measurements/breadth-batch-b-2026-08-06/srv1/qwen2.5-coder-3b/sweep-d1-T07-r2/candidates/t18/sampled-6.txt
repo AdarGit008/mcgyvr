@@ -1,0 +1,21 @@
+```ts
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+export class EventLog {
+  #events: Event[] = [];
+
+  record(event: Event): void {
+    if (!event.name || typeof event.timestamp !== 'number') {
+      throw new Error('Invalid event data');
+    }
+    this.#events.push(event);
+  }
+
+  since(timestamp: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

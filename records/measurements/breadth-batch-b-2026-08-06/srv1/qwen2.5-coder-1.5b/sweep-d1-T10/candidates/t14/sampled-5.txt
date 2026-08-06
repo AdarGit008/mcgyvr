@@ -1,0 +1,21 @@
+```ts
+export interface User {
+  email: string;
+  active: boolean;
+}
+
+/**
+ * The lowercased addresses of the active users, in order.
+ */
+export function activeEmails(users: readonly User[]): string[] {
+  const out: string[] = []; // Use an array to store user emails and convert them to lowercase
+
+  for (const user of users) {
+    if (user.active) { 
+      out.push(user.email.toLowerCase()); // Push the email to the output array
+    }
+  }
+
+  return out; // Return the array containing all active users' emails in lowercase order
+}
+```

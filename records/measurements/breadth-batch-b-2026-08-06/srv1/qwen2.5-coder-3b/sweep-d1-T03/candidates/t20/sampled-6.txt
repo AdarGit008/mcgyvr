@@ -1,0 +1,28 @@
+```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Trim leading and trailing whitespace from the line
+    const trimmedLine = line.trim();
+    
+    // Skip empty lines or lines starting with a comment (#)
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue;
+    }
+    
+    // Split the line on the first '=' to separate key and value
+    const [key, value] = trimmedLine.split("=", 2);
+    
+    // Check for missing =
+    if (value === undefined) {
+      throw new Error(`Missing '=' in line: "${trimmedLine}"`);
+    }
+    
+    // Trim whitespace around the key and value
+    config[key.trim()] = value.trim();
+  }
+  
+  return config;
+}
+```

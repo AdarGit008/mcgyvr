@@ -1,0 +1,22 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (line.trim() === "" || line.startsWith("#")) continue;
+    
+    const [key, value] = line.split(/=+/);
+    key = key.trim();
+    value = value.trim();
+    
+    if (!key) throw new Error(`Invalid config line at: ${line}`);
+    if (config.hasOwnProperty(key)) {
+      throw new Error(`Duplicate key found in config file at: ${line}`);
+    }
+    // No need to check for prototype pollution, the method is safe.
+    const fixedKey = key === "__proto__" ? "data" : key;
+    config[fixedKey] = value;
+  }
+  return config;
+}
+```

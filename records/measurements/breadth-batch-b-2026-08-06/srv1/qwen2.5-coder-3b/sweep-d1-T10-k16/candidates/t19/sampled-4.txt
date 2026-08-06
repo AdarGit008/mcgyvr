@@ -1,0 +1,15 @@
+```typescript
+export function safeDivide(a: number, b: number): number {
+  if (!isFinite(a) || !isFinite(b)) {
+    throw new Error("Both a and b must be finite numbers.");
+  }
+  if (b === 0 && !isNaN(b)) {
+    throw new Error("Division by zero is not allowed.");
+  }
+  return a / b;
+}
+
+function isFinite(num: number): boolean {
+  return Number.isFinite(num);
+}
+```
