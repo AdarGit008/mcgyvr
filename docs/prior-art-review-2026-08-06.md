@@ -1,7 +1,12 @@
 # Prior art — the nearest ten repositories (#175)
 
-Status: complete — ten reviewed (one disqualified on reading and replaced), plus a
-four-repository annex. 2 issues filed (#183, #184); findings recorded on #179,
+Status: complete, and **independently re-read**. Ten reviewed (one disqualified on
+reading, replaced, then re-qualified by the second read), plus a four-repository
+annex. A second pass by six independent readers re-derived every section against
+the code: it **ran four suites the first pass reported as unrunnable**, corrected
+one disqualification, sharpened two findings and added one about mcgyvr's own
+`capacity.py`. Its results are in *§ Second read* and are cross-linked from each
+section they correct. 2 issues filed (#183, #184); findings recorded on #179,
 #183 and #184.
 Started: 2026-08-06. Lane: `lane/175`.
 
@@ -577,11 +582,18 @@ and none of them left it implicit.
 - **Stars:** 2.2k. **Criteria:** 3/5 — staged decomposition (research → plan →
   implement), multi-provider dispatch with local models, reactive model
   fallback. No gate the model did not author, no per-task isolation.
-- **Tests: 89 files. NOT RUN.** `uv pip install -e .` succeeds and then every
-  test module fails to import — 84 collection errors, `ModuleNotFoundError: No
-  module named 'langgraph.graph.graph'`. Pinning `langgraph<0.3` did not fix it.
-  **`pyproject.toml` constrains its dependencies with `>=` only and ships no
-  lockfile**, so the environment its suite needs cannot be reconstructed from
+- **Tests: 89 files. RUN — 764 passed, 6 skipped, 770 collected, 67.87s**
+  (`uv sync --frozen --extra dev`, then
+  `.venv/bin/python -m pytest -p no:cacheprovider -q --timeout=120`).
+  **Corrected by the second read; the paragraph below was wrong and is kept
+  with its correction rather than deleted.** `uv.lock` *is* present at this sha
+  (672 KB). What fails is `pip install -e '.[dev]'` — 84 collection errors,
+  `ModuleNotFoundError: No module named 'langgraph.graph.graph'`, which is their
+  own open issue #252 — because the `>=`-only floors in `pyproject.toml` resolve
+  to a current langgraph. The lockfile is the fix, not the obstacle, and the
+  first read stopped one command short. The finding that survives is narrower and
+  still real: **`pyproject.toml` constrains its dependencies with `>=` only**, so
+  the environment its suite needs cannot be reconstructed from
   what the repository declares, six months on.
 
 That last point is a finding rather than an excuse. mcgyvr's `Makefile` installs
@@ -645,9 +657,15 @@ work is a tool call rather than a contract. Noted, not transferable.
 - **Stars:** 20.0k. **Criteria:** 4/5 — issue → patch → PR, sandboxed execution
   (SWE-ReX, reviewed separately below), multi-provider dispatch, bounded spend.
   No decomposition into scoped units.
-- **Tests:** 21 files. Not run — the suite expects a live container runtime for
-  most modules and the yield did not justify standing one up here; **stated
-  rather than glossed**.
+- **Tests: 21 files. RUN by the second read.** Hermetic no-Docker subset:
+  **74 passed, 2 xfailed, 23.66s**. Repo-wide with Docker
+  (`-m "not slow and not ctf"`): **108 passed, 1 failed, 2 xfailed, 20
+  deselected** — the single real failure is `test_replay`, whose container has
+  no `swerex-remote` and no outbound DNS here. (Four further failures were the
+  reviewer's own: `PermissionError: 'sweagent'`, the console script absent from
+  `PATH` and resolving to the repo's own `sweagent/` directory. They pass with
+  `.venv/bin` on `PATH` and are not the repository's.) The first read's "not run
+  — needs a runtime" is superseded.
 
 ## Code / features — four ceilings, each a named exception
 
@@ -673,10 +691,15 @@ rather than any one repository's version of it.
 - **Stars:** 48.0k. **Criteria:** 3/5 — a deterministic lint/test loop the model
   did not author, multi-provider dispatch including local models, git commits as
   delivery. No decomposition into contracts, no isolation.
-- **Tests:** 36 files under `tests/`. Not run here — the suite spans browser and
-  scraping subsystems needing network and a display; **the modules relevant to
-  this review were read, not executed, and that is a real limit on what is
-  claimed below.**
+- **Tests: 36 files under `tests/`. RUN by the second read** —
+  `.venv/bin/python -m pytest tests/basic/ -q -p no:randomly` gives **471 passed,
+  5 failed, 1 skipped, 67 subtests, 136.92s**. All five failures are
+  `tests/basic/test_voice.py` raising `SoundDeviceError` from `aider/voice.py:72`
+  because this host has no audio input device; with that file ignored,
+  **468 passed, 1 skipped, clean**. The first read's "needs network and a
+  display" was wrong on both counts — no network access occurs, `pytest.ini` sets
+  `AIDER_ANALYTICS=false` and the model calls are mocked. `tests/browser`,
+  `tests/scrape` and `tests/help` were not run and no repo-wide claim is made.
 
 ## Code / features — the defaults are the finding
 
@@ -779,8 +802,18 @@ is behind us, and this is one.
 - **Stars:** 67.3k. **Criteria:** 3/5 — delegation to categorised subagents,
   model selection per category, plan-before-code staging. No gate the model did
   not author, no isolation. **In the ten for one mechanism.**
-- **Tests:** `bun` test suite. **Not run — no bun toolchain on the review host**,
-  the second environment limit in this review after Go.
+- **Tests: `bun` suite. RUN by the second read — 12,965 pass, 27 fail, 34 skip
+  across 13,026 tests in 1,663 files, 171.43s** (`bun test packages/`). No bun
+  and no `curl` on the host, so bun 1.3.14 was installed via `npm i -g bun` into
+  a scratch prefix — the "no bun toolchain" limit was real and removable in one
+  command. **The 27 failures are the reviewer's artefact, not the repository's**:
+  installing with `--ignore-scripts` skipped their postinstall build. Stated that
+  way rather than reported as "their suite is 27 red".
+- **Licence: the Sustainable Use License** — non-commercial and internal use
+  only. Not merely the `NOASSERTION` the metadata pass recorded: **copying from
+  this repository is forbidden outright**, which is the strictest licence in the
+  survey and the one place where #175's "findings move as decisions, not as
+  files" is a legal requirement rather than a preference.
 
 ## Code / features — #162's routing matrix, factored the way we would want it
 
@@ -823,7 +856,15 @@ inherit that vocabulary even if it inherits nothing else.
 
 ---
 
-# Disqualified on reading: OpenHands/OpenHands
+# Disqualified on reading: OpenHands/OpenHands — and re-qualified by the second read
+
+> **Superseded in its conclusion, not in its observations.** Every fact below is
+> confirmed at this sha. The inference drawn from them — that the agent is absent
+> — is wrong: it was **migrated**, ten days before the pin, and the second read
+> found it, read it and ran it. See *§ Second read* for
+> `OpenHands/software-agent-sdk`, which restores this entry to the ten and is the
+> survey's best single source on #158 and #179. This heading is left standing
+> because the miss and its correction are both part of the record.
 
 - **Pinned:** `56638693908b8ac83a2fa3bde6eb6c33aae37f4b`, last push 2026-08-05,
   83.2k stars.
@@ -936,15 +977,22 @@ three extractions would be about session state, not about gates.
 | 3 | auto-code-rover | 4/5 | **run**: 7/7, 179 repo-wide | four answers on #179 + an eighth question; a test that ratifies a defect |
 | 4 | moatless-tools | 3/5 | **run**: 45 clean; 180/28/37 repo-wide | prices #183's parked item; 24 captured logs |
 | 5 | micro-agent | 3/5 | **run**: 51 passed | **#184 filed**; #146's model-inferred answer; how to end a bounded loop |
-| 6 | RA.Aid | 3/5 | not run — no lockfile | third data point on #173; a stale vendored table |
-| 7 | SWE-agent | 4/5 | not run — needs a runtime | four ceilings, four names |
-| 8 | aider | 3/5 | not run — needs network/display | #146's conservative answer; the disclosure fork |
+| 6 | RA.Aid | 3/5 | **run**: 764 passed, 6 skipped | third data point on #173; a stale vendored table; **and a gate that has not executed since 2025-01-27** |
+| 7 | SWE-agent | 4/5 | **run**: 74 hermetic, 108 with Docker | four ceilings — but three exit statuses; #183's baseline rule already built |
+| 8 | aider | 3/5 | **run**: 468 passed (voice excluded) | #146's conservative answer; 17% of its routing table is measured |
 | 9 | SWE-ReX | 3/5 | not run — needs a runtime | liveness in the sandbox contract; where we are stronger |
-| 10 | oh-my-openagent | 3/5 | not run — no bun | **#162's shape**: routing as a pure function, seven steps, sentinel on cold cache |
-| — | OpenHands | **0/5 on code** | n/a | disqualified on reading; mutation testing and mock-LLM e2e survive |
+| 10 | oh-my-openagent | 3/5 | **run**: 12,965 pass | **#162's shape**: routing as a pure function, seven steps, sentinel on cold cache |
+| — | OpenHands (front end) | 1/5 on code | n/a | the agent was migrated out, not absent |
+| 7b | OpenHands SDK | 3/5 | **run**: 5,696 + 375 passed | the condenser trigger is 80 *events*; a verifier that raises votes `HIGH` |
 
-Four of eleven had their tests actually executed. Every not-run has its reason at
-the point it matters.
+**Nine of twelve had their tests actually executed** — four of them only on the
+second read, which ran every suite the first pass had recorded as unrunnable
+except SWE-ReX's. Every remaining not-run has its reason at the point it matters.
+The first pass's four not-runs were: one wrong (aider needed neither network nor
+display), one one command short (RA.Aid's lockfile), one a real limit that a
+single `npm i -g bun` removed, and one genuine (SWE-ReX needs a container
+runtime). **Three of four "cannot run" verdicts did not survive a second
+attempt**, which is the most transferable process finding in this document.
 
 ## Two issues filed, and why only two
 
@@ -1013,3 +1061,245 @@ whose cost is that a failure names a command rather than a test.
   were not. A second pass with different questions would find different things.
 - **The one selection error was caught by reading**, which means selection errors
   that survive reading are exactly the ones this method cannot report.
+
+---
+
+# Second read — independent verification, 2026-08-06
+
+Six readers re-derived sections 6–10 and the annex from the code, each given the
+filter and the mcgyvr issue list but **not** the first read's conclusions until
+after they had pinned their own sha. Where a first-read claim was named to them,
+it was named as a claim to test. This section records only what the second read
+**changed**; everything it silently confirmed stands as written above.
+
+The exercise was worth its cost, and the reason is narrow enough to state:
+**the first read's errors were all in the same direction.** Four suites reported
+as unrunnable, three of which ran. One repository reported as empty, whose code
+had moved. A cap structure reported as fully named, which loses a name on the way
+to the run record. Every correction made the prior art look *more* capable, not
+less — an under-reading bias, and the natural one for a survey working against a
+clock.
+
+## What was corrected
+
+| Section | First read | Second read |
+| --- | --- | --- |
+| 6 RA.Aid | not run — no lockfile | `uv.lock` present (672 KB); **764 passed, 6 skipped, 67.87s** |
+| 7 SWE-agent | not run — needs a runtime | **74 hermetic / 108 with Docker**; 1 real failure |
+| 8 aider | not run — needs network/display | needs neither; **468 passed** with voice excluded |
+| 10 oh-my-openagent | not run — no bun | bun installed in one command; **12,965 pass** |
+| 7 SWE-agent | "four ceilings, four names" | four names, **three exit statuses** |
+| — OpenHands | disqualified, 0/5 | **migrated, not absent** — re-qualified below |
+| 8 aider | "the disclosure fork" | **not located**; `grep -rin disclos` hits only the privacy policy |
+
+That last row matters more than its size. A finding no second reader could find
+is a finding that cannot be audited, and #175's whole method rests on a reader
+who does not trust the review being able to re-derive it. The nearest verifiable
+thing is a *consent* fork — 20 `confirm_ask` sites, four of them gating the edit
+loop itself (`architect_coder.py:17`, `base_coder.py:1604`, `:1620`, `:2207`) —
+which may be what was meant. Recorded as unresolved rather than quietly rewritten
+into the thing it probably was.
+
+## OpenHands was migrated, not emptied — and the migration is the finding
+
+Every observation in the disqualification holds: `package.json` really is
+`@openhands/agent-canvas` 1.10.0 and the tree really is 871 `.tsx` / 831 `.ts` /
+4 `.py`. What the first read could not see from the tree is *why*. Commit
+`cb9138caf` (2026-07-27, "clear repository for Agent Canvas migration") deleted
+**2,568 files and 486,115 lines with zero insertions**. The agent now lives at
+`OpenHands/software-agent-sdk` @ `b35c2fee8b4ca2e496bb912dafd08d9face59124`,
+1,232 Python files, and its suite **runs**: 5,696 passed in `tests/sdk`, 375 in
+`tests/cross`, 462 in the security subset, zero failures.
+
+So the correct entry is a **split**: caller (1/5) at one repository, agent (3/5)
+at another, system 4/5 across both.
+
+**OpenHands divided its repository along exactly the boundary this survey was
+built on** — the session-holding caller on one side, the thing below the contract
+on the other — and did it ten days before the pin. #175's amendment argued that
+boundary from a metadata sweep and was told it was a judgement call. The largest
+project in the set acted on the same distinction in production, which is the
+strongest external evidence the survey produced for its own selection rule.
+
+Restoring it also restores the survey's best #158 evidence. Their condenser's
+shipped trigger is **80 events**; `max_tokens` defaults to `None` while
+`effective_max_input_tokens` sits unused in the same process, and their own
+comment concedes it:
+
+```text
+Treat event-count pressure as soft because that threshold is only a
+history-management heuristic
+```
+
+That is mcgyvr's #158 defect — a ceiling chosen rather than measured — stated in
+the first person by an 83k-star project, and discovered in mcgyvr's exact
+deployment shape: benchmark runs against a fixed local-model context.
+
+## The findings the second read added
+
+**A gate that has not executed since 2025-01-27 (RA.Aid).** `--test-cmd`, their
+acceptance step, calls `run_shell_command(cmd, timeout=timeout)` on a langchain
+`@tool`, which raises `TypeError: BaseTool.__call__() got an unexpected keyword
+argument 'timeout'`. The enclosing `except Exception` sets `should_break=True` —
+**the same value a passing suite sets**. Run here against their own locked deps,
+a green suite, a red suite and an exhausted retry budget all return the identical
+signal. All six tests of the module pass, because each patches
+`run_shell_command` with a `Mock` that accepts any kwarg.
+
+This is the survey's "nobody trusts the instrument" theme in its negative form,
+and it is worse than a missing check: **the mock is what kept it green.** It is
+also the second repository whose gate reports two distinct outcomes through one
+channel. For mcgyvr the question is direct — whether `acceptance.py`'s subprocess
+boundary may be mocked in any test, and whether a boolean can carry *passed*,
+*failed* and *never ran*. It cannot.
+
+**#183's baseline rule is already built (SWE-agent).** Their edit tool runs
+flake8 before and after every edit and rejects only **new** errors, reverting via
+`undo_edit()`, with a select set chosen for brokenness rather than style
+(`F821,F822,F831,E111,E112,E113,E999,E902`) — and the line-number-shifting
+machinery that differencing a check across an edit actually needs. mcgyvr filed
+#183 as an open question; here is a shipped answer at edit granularity.
+
+**Four names, three verdicts (SWE-agent).** `InstanceCallLimitExceededError` —
+the step cap — subclasses `CostLimitExceededError`, so `agents.py:1182` records
+it as `exit_cost`. A run that exhausts its steps reports that it ran out of
+money. The first read drew the opposite lesson from the same four classes, and
+the sharpened version is the useful one: an exception hierarchy chosen for
+handling convenience silently collapsed two ceilings into one reported outcome.
+Worse, `forward_with_handling` loops on `n_format_fails < max_requeries`, but the
+two tool-driven requeries never increment the counter — so the declared cap is
+not the operative one, and only the cost limit ends it.
+
+**Trajectory fixtures decay; parser fixtures do not (OpenHands).** This is a real
+qualification of #184 rather than support for it. They captured six real Sonnet-4
+completions, committed them, and built the replay — then **overwrote it with
+hand-authored mocks six days later**, reason given: *"Real fixture data may have
+different tool call sequences than current agent"*. `test_hello_world_with_real_llm_data`
+still passes and reads none of it, eleven months on. So #184 should be written to
+capture what the **parser** consumes — reply shape, stable against our own
+changes — not what a **run** produced, which is coupled to the tool schema at
+capture time and dead within a release. aider's corpus is the model to copy:
+99,961 lines of real replies diffed whole against a golden file holding 577
+parsed blocks and **33 recorded parse failures**, kept as gold rather than
+excluded.
+
+**#179's eighth question has two shipped answers, and they agree.** May a
+verifier blame the instrument rather than the work? OpenHands:
+`EnsembleSecurityAnalyzer` fuses by max-severity and **a child that raises
+contributes `HIGH`**, with the stated reason "prevents a broken analyzer from
+silently degrading safety". SWE-agent: the reviewer samples five times, discards
+replies outside `score_range` as uninterpretable, subtracts
+`reduce_by_std × std`, and returns `accepts=[-100.0]` when nothing parses — the
+instrument is checked by resampling itself and is forbidden to abstain. **Both
+fail closed.** Neither lets an unreadable instrument excuse the work. That is a
+convergent answer from two independent systems, and it is the answer #179 should
+take.
+
+**17% of the most-measured routing table is measured (aider).** The
+model→edit-format binding is a 3,128-line hand-maintained YAML, 357 entries keyed
+on exact model-name string, plus a 21-branch substring cascade where ordering is
+load-bearing. Only **57 of 342 routed models** have a published run behind them,
+and **no code path reads the leaderboard** — `polyglot_leaderboard` appears in
+four `.py` files, all plotting scripts. The feedback edge from measurement to
+routing does not exist in the project that measures most.
+
+Their own data, on the exact model class srv1/srv2 run: Qwen2.5-Coder-32B scores
+**71.6% well-formed on `diff`** against **99.6% on `whole`**, and the shipped
+binding picks `diff` — verified by running their code. (The two runs used
+different endpoints, so the pass-rate doubling is confounded; the 28-point
+well-formedness gap is the defensible half.) The routable property this exposes
+is **reply well-formedness** — median 94.2% on diff, minimum 64.4%, 1,598
+unparseable replies across 69 runs. mcgyvr generates that signal on every
+dispatch and discards it, which is #184 and #162 meeting at a single number.
+
+**oh-my-openagent's sentinel is three-valued (verification, sharpened).** Every
+first-read specific holds — 274 lines against 167 of tests, genuinely pure with
+injected dependencies, terminating at `undefined`. The refinement: the cold-cache
+sentinel requires **four** conditions, distinguishing "cache empty" from "cache
+never populated". That is moatless's `UNKNOWN` — absence as an outcome rather
+than an error — arrived at independently at the routing layer. And the fuzzy
+matcher was *measured* rather than asserted: `qwen3` resolves to
+`openrouter/qwen3` over `local/qwen3-coder-30b`, so **locality is invisible to it
+and the remote wins on name length**, and `isModelAvailable("gpt-5")` returns
+true against only `gpt-5.6-sol`. That is #164's failure reproduced on demand.
+
+**The real #162 lesson is prompt portability, not the chain.** oh-my-openagent
+carries 12 model-specific prompts for one role and 6,455 lines across two, plus
+hooks blocking model pairings that are legal on capability. A routing matrix that
+selects a worker still owes an answer for the prompt that goes with it.
+
+## The annex finding is about mcgyvr
+
+`capacity.py:111` bounds dispatch with a `threading.BoundedSemaphore`, acquired
+at `:207` with no timeout. The module's docstring sets out four deliberate
+decisions and names nested acquisition "the worst failure this module could
+have" — and **the word "process" does not appear in the file.**
+
+The bound is per-process. srv1 and srv2 are host-wide and shared, and this
+repository's own workflow runs lanes as parallel worktrees. Two lanes each
+dispatch `max_parallel` at the same rig, and the declared capacity is silently
+doubled. The cross-process case is not merely unhandled; it is unstated, which is
+why nothing has flagged it.
+
+All three annex repositories are ahead of us here, in different ways:
+container-use takes a host-wide `flock` the kernel releases on death; orca
+derives occupancy from a query, so it survives a restart; multica claims by
+uniqueness key with no coordinator at all. **mcgyvr is the only design reviewed
+that blocks forever.**
+
+multica's artefact verifies in full, and the second read found a better one
+beside it. The claim is `ON CONFLICT ON CONSTRAINT uq_sys_cron_execution DO
+NOTHING` against `UNIQUE (job_name, scope_kind, scope_id, plan_time)` with
+`runner_id` a plain column — work-keyed, not worker-keyed, exactly as reported —
+and `MUL-3551` is cited **15 times** across a migration, a query and five tests,
+its section numbers partitioning the suite. The stronger test is
+`internal/scheduler/concurrent_claim_test.go:36`: eight goroutines on a start
+barrier asserting `wins==1, steals==0, conflicts==7`, plus a database-side proof.
+And the loser question is answered — it does not block, poll, back off or
+requeue. `manager.go:303` returns on `Conflicted` with "Silent no-op is the
+expected case", and nothing is lost because the claim precedes the work and the
+work item is regenerated on the next tick. **There is no queue because there is
+nothing to queue**, which is a cheaper answer than the one mcgyvr's pool is
+reaching for.
+
+Two smaller annex results: cline's folder-lock table has **no caller and no
+test**, and its reaper cannot fire after `SIGKILL`; orca's 121 tests ran clean
+here.
+
+## An eleventh repository, found while selecting the tenth
+
+`langchain-ai/open-swe` (MIT, 10.5k stars, pushed 2026-08-06) was read in depth
+before the tenth slot resolved. It scores 4–5/5 and **its full suite runs clean
+here: 1,672 passed, 30.74s**. It carries findings the ten do not:
+
+- `settle_review_check.py` answers #179's eighth question in production code —
+  *the review not completing is reviewer infrastructure failing, not the PR* —
+  and returns a conclusion of `neutral`. Set against OpenHands and SWE-agent,
+  which both fail closed, that makes **two answers, not one**, and the
+  distinction between them is what mcgyvr actually has to decide: whether the
+  instrument's failure is charged to the work or to neither party.
+- `names_failing_on_base` — baseline subtraction, which is #183's rule again.
+- A three-valued CI verdict distinguishing "could not tell" from "nothing
+  failing".
+- A sandbox circuit breaker that **refuses** auto-recovery, because a fresh
+  sandbox "would throw away anything not yet committed while still looking like a
+  recovery" — #141 with the reasoning attached.
+
+It is recorded here rather than promoted into the ten, because the ten were
+selected under a stated rule and renumbering them after the fact would make the
+selection unauditable. It is the first candidate for any next pass.
+
+## What the second read could not do
+
+- **SWE-ReX still has not been run.** It is the one first-pass not-run that
+  survived a second attempt; it genuinely needs a container runtime.
+- **No repository was read exhaustively on the second pass either**, and the
+  second readers were given mcgyvr's issue list, so they were steered toward the
+  same questions. Independence here means independent derivation, not independent
+  curiosity.
+- **`open-swe` has one reader, not two.** Everything in the list above is
+  first-read evidence by this document's own standard.
+- The five sections the second read did not cover — 1 through 5 — **have had no
+  independent verification at all.** Given that four of six second reads
+  materially corrected their target, the correct prior is that sections 1–5
+  contain errors of the same kind, in the same direction.
