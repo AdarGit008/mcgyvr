@@ -10,6 +10,23 @@ section they correct. 2 issues filed (#183, #184); findings recorded on #179,
 #183 and #184.
 Started: 2026-08-06. Lane: `lane/175`.
 
+## There is a plain-language summary, and it is not the record
+
+`docs/prior-art-summary-2026-08-06.pdf` — nine illustrated pages, written for the
+owner to read end to end. `docs/prior-art-summary-2026-08-06.tex` is its source,
+committed so the PDF can be regenerated rather than only replaced
+(`xelatex prior-art-summary-2026-08-06.tex`, needs TikZ and TeX Gyre Heros).
+
+**It is a derived artefact for a human reader, and nothing may be cited from
+it.** It rounds numbers, names five findings out of the dozens below, drops every
+pinned sha, and explains mechanisms by analogy where this document explains them
+by code. Those are the right choices for its job and the wrong ones for evidence.
+
+So: **where the summary and this document disagree, this document wins** — the
+same rule this review applies to a README against its code, turned on the
+review's own output. An agent reading for what mcgyvr should do next wants this
+file. The PDF is for the owner's eyes.
+
 ## Why this document lives in `docs/` and not `records/`
 
 `records/evidence/` is the precedent for vendored material and `records/` is
