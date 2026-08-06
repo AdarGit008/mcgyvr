@@ -1,0 +1,43 @@
+```typescript
+/**
+ * Flattens a given array of mixed values to a specified depth.
+ *
+ * @param items The input array containing nested arrays and/or strings.
+ * @param depth The maximum depth to flatten. If 0 or Infinity, returns the original array.
+ */
+export function flatten(
+  items: readonly unknown[],
+  depth?: number
+): unknown[] {
+  if (depth === undefined) {
+    return Array.from(items);
+  }
+
+  const maxDepth = depth as number | Infinity;
+  const isInteger = typeof depth === 'number' && Number.isInteger(depth);
+
+  if (!isInteger || depth < 0) {
+    throw new Error('Invalid depth. Depth must be a non-negative integer or Infinity.');
+  }
+
+  // Iterate over each item in the array
+  return Array.from(items).map((item) => {
+    if (Array.isArray(item)) {
+
+      // If the current depth is greater than 1, recursively flatten the sub-array
+      if (depth > 1) {
+        return flatten(item, depth - 1);
+      }
+
+      // If the current depth is 1, simply return each item in the sub-array
+      else {
+        return item;
+      }
+    } else {
+
+      // Strings are never flattened further; just return them as-is
+      return item;
+    }
+  });
+}
+```

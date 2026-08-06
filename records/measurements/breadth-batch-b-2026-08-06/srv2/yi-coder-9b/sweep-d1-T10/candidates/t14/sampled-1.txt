@@ -1,0 +1,12 @@
+The problem asked to rewrite function `activeEmails` in such way that it does not use 'for' keyword or calls `push()`. Here is how you can do this:
+```ts
+export interface User {
+  email: string;
+  active: boolean;
+}
+
+/** The lowercased addresses of the active users, in order. */
+export function activeEmails(users: readonly User[]): string[] {
+    return users.filter(user => user.active).map(user => user.email.toLowerCase());
+}
+```

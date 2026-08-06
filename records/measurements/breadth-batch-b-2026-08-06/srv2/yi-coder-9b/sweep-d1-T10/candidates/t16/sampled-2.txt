@@ -1,0 +1,22 @@
+```typescript
+const MODULUS = 1000000007;
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (typeof n !== "number" || Number.isNaN(n) || n < 0 || n !== Math.floor(n)) {
+    throw new Error('Invalid argument');
+  }
+
+  // Special cases to reduce the unnecessary computation for fibMod(0) and fibMod(1)
+  if (n === 0) return 0;
+  if (n === 1) return 1;
+
+  let a = 0, b = 1, c: number;
+  for (let i = 2; i <= n; i++) {
+    c = (a + b) % MODULUS;
+    a = b;
+    b = c;
+  }
+  return c!; // 'c' cannot be undefined here because we have handled the case for fibMod(0) and fibMod(1) above. So, n will never be less than 2 at this point. Hence, safe to assert it with "!".
+}
+```

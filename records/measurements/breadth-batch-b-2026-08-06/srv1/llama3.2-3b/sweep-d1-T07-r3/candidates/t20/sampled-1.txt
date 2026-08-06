@@ -1,0 +1,24 @@
+```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  /**
+   * Parse a config file text into an object with trimmed key-value pairs.
+   *
+   * Ignores blank lines and lines starting with '#'. Splits on the first '='
+   * to allow for values containing one '='. Throws an error if a line has no '='
+   * or if a key is empty. The resulting object will not have any keys referencing
+   * prototype properties.
+   */
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Ignore blank lines and lines starting with '#'
+    if (!line.trim().startsWith('#')) {
+      const [key, value] = line.trim().split(/=+/, 2);
+      // Trim whitespace around key and value
+      if (!key || !value) throw new Error(`Invalid config file: ${line}`);
+      config[key.trim()] = value.trim();
+    }
+  }
+  return config;
+}
+```

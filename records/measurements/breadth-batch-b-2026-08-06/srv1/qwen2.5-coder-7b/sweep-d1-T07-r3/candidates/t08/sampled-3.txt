@@ -1,0 +1,51 @@
+```ts
+/**
+ * Sorts nodes in topological order based on given edges.
+ * @param nodes - Array of node names.
+ * @param edges - Array of edges [from, to], where 'from' must come before 'to'.
+ * @returns An array of node names sorted topologically.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: { [node: string]: string[] } = {};
+    const inDegree: { [node: string]: number } = {};
+    const result: string[] = [];
+    const nodeSet = new Set(nodes);
+
+    // Initialize graph and in-degree
+    nodes.forEach(node => {
+        graph[node] = [];
+        inDegree[node] = 0;
+    });
+
+    // Build the graph and calculate in-degrees
+    edges.forEach(([from, to]) => {
+        if (!nodeSet.has(from) || !nodeSet.has(to)) {
+            throw new Error(`Edge contains a node not in nodes: ${from} -> ${to}`);
+        }
+        graph[from].push(to);
+        inDegree[to]++;
+        if (inDegree[from] === 0 && nodeSet.has(from) && !result.includes(from)) {
+            result.push(from);
+        }
+    });
+
+    // Kahn's algorithm for topological sort
+    let count = 0;
+    while (result.length > 0) {
+        const current = result.shift()!;
+        inDegree[current]--;
+        count++;
+        graph[current].forEach(neighbor => {
+            if (--inDegree[neighbor] === 0 && !result.includes(neighbor)) {
+                result.push(neighbor);
+            }
+        });
+    }
+
+    if (count !== nodes.length) {
+        throw new Error('Cycle detected');
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,72 @@
+```typescript
+/**
+ * Splits one line of CSV into its fields on commas.
+ * A field wrapped in double quotes may contain commas, and a doubled quote inside such a field means one literal quote character;
+ * The surrounding quotes are not part of the value. Fields that are not quoted are taken literally, including any surrounding spaces.
+ * An empty field represents an empty line.
+ * Throws an Error for a quoted field that is never closed.
+ */
+export function parseCsvLine(line: string): string[] {
+  const result = [];
+
+  let inQuote = false;
+  let currentValue: string | null = null;
+
+  for (const char of line) {
+    if (char === '"') {
+      if (inQuote) {
+        // End of quote, append the current value as is
+        result.push(currentValue || '');
+      }
+
+      inQuote = !inQuote;
+      currentValue = null; // Reset the value
+      continue;
+    }
+
+    if (!inQuote && char === ',') {
+      // Field not quoted, append the current value as is and reset it
+      result.push(currentValue || '')
+      currentValue = null
+      continue;
+    }
+
+    if (inQuote) {
+      // If we're inside a quote, just append the character to the current value
+      currentValue += char;
+    } else {
+      // If not in a quote, check for numbers and spaces before deciding what to do
+      const skipWhitespace = /\s/.test(char);
+      const skipComma = /\s*,\s*/.test(char);
+      
+      if (skipComma) continue;
+      if (char >= '0' && char <= '9') {
+        currentValue += char;
+      } else if (' -~'.indexOf(char) !== -1) { // Allow space, tab and newline to skip to the next field
+        result.push(currentValue || '')
+        currentValue = null;
+        continue;
+      } else if (skipWhitespace) {
+        continue;
+      } else {
+        throw new Error("Unescaped comma found");
+      }
+    }
+  }
+
+  if (inQuote && inQuoteFinal(line)) { // Check if quote is at the end of the line
+    throw new Error('Quote not closed');
+  }
+
+  if (!currentValue) result.push('');
+
+  return result;
+}
+
+// Checks if a character is at the end of a quoted field.
+function inQuoteFinal(line: string, char: string): boolean {
+  return (
+    (line.length === 1 && line[0] !== '"') ||
+    (line.length > 1 && line[line.length - 1] != '"' && char == '"' )
+  );
+}

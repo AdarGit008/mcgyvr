@@ -1,0 +1,9 @@
+```typescript
+/** Returns text truncated to at most limit characters with an ellipsis appended if longer; returns unchanged otherwise. */
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== 'number' || limit < 3) {
+    throw new Error(`Limit must be an integer greater than or equal to 3`);
+  }
+  return text.length <= limit ? text : text.slice(0, Math.max(limit - 3, 1)) + "...";
+}
+```

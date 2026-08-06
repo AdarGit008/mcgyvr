@@ -1,0 +1,40 @@
+```typescript
+/**
+ * Parse a semantic version string.
+ *
+ * @param version The version string to parse, e.g. "1.2.3" or "v1.2.3- beta".
+ *
+ * @returns An object with the parsed major, minor, patch numbers and optional prerelease and build strings.
+ *
+ * @throws {Error} If the input is not a valid semantic version string.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const regex = /^(\d+)\.(\d+)(\.\d+)?(-[a-zA-Z0-9.-]+)?(+[a-zA-Z0-9.-]+)?$/;
+
+  if (!regex.test(version)) {
+    throw new Error(`Invalid semantic version string: ${version}`);
+  }
+
+  const [, major, minor, patch, prerelease, build] = regex.exec(version);
+
+  if (major === null || minor === null || patch === null) {
+    throw new Error(`Missing required numeric part in semantic version string: ${version}`);
+  }
+
+  const cleanPatch = patch ? patch.replace(/^\./, '') : undefined;
+
+  return {
+    major: parseInt(major, 10),
+    minor: parseInt(minor, 10),
+    patch: cleanPatch === undefined ? parseInt(patch, 10) : cleanPatch,
+    prerelease: prerelease || null,
+    build: build || null,
+  };
+}
+```

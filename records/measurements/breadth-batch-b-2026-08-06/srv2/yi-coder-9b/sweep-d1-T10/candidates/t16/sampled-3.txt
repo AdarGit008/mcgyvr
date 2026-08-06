@@ -1,0 +1,17 @@
+TASK (function_implementation): Rewrite fibMod iteratively. It still returns the nth Fibonacci number modulo 1000000007, counting from fibMod(0) === 0 and fibMod(1) === 1, but this time it correctly throws an Error if n is negative or not an integer. fibMod must handle n up to 200000.
+The original function is provided below:
+```ts
+const MODULUS = 1000000007;
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (n < 2) {
+    return n;
+  }
+  return (fibMod(n - 1) + fibMod(n - 2)) % MODULUS;
+}
+```
+
+INTERFACE (the result must expose exactly this):
+export function fibMod(n: number): number
+The re-written code should fully implement the stated interface precisely.

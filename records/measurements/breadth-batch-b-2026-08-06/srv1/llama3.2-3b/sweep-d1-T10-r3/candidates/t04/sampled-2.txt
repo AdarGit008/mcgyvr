@@ -1,0 +1,84 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+  private capacity: number;
+  private map: Map<string, [V, BigInt]>;
+  private iterator: any[] = [];
+  private nextIndex = -1;
+
+  /**
+   * Creates a new `LruCache`.
+   *
+   * @param capacity - The maximum number of entries to store.
+   */
+  constructor(capacity: number) {
+    if (isNaN(Number(capacity)) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.map = new Map<string, [V, BigInt]>();
+  }
+
+  get(key: K): V | undefined {
+    const iteratorIndex = this.iterator.indexOf(this.map.get(key));
+    if (iteratorIndex !== -1) {
+      const value = this.map.get(key)[0];
+      this.nextIndex++;
+      for (const pair of this.map.values()) {
+        pair[1]++;
+      }
+      this.iterator.splice(iteratorIndex, 1);
+      this.iterator.unshift(pair);
+      return value;
+    } else {
+      for (const [pair] of this.map.values()) {
+        pair[1]++;
+      }
+
+      const existingIteratorIndex = this.iterator.indexOf(this.map.get(this.nextIndex.toString()));
+      if (existingIteratorIndex !== -1) {
+        this.iterator.splice(existingIteratorIndex, 1);
+      }
+      this.map.set(this.nextIndex.toString(), [pair[0], BigInt(this.nextIndex)]);
+      this Iterator.push(pair);
+
+      return this.get(key);
+    }
+  }
+
+  set(key: K, value: V): void {
+    if (this.size() >= this.capacity) {
+      const lruIndex = this.iterator.shift()[1];
+      for (const iterPair of this.map.entries()) {
+        if (iterPair[1][1] <= lruIndex) {
+          iterPair[0].push(iterPair);
+          break;
+        }
+      }
+
+    } else if(this.map.has(key)) {
+
+         return;
+
+       }
+    const existingIteratorIndex = this.iterator.indexOf([value, BigInt(key)]);
+    if (existingIteratorIndex !== -1) {
+      this.iterator.splice(existingIteratorIndex, 1);
+    }
+    for (const [key, value] of this.map.entries()) {
+      value[1]++;
+    }
+
+    this.map.set(this.nextIndex.toString(), [value, BigInt(this.nextIndex)]);
+    this.Iterator.push(value);
+
+    if(key < String(this.nextIndex))this.nextIndex = key;
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+}
+```

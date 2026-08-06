@@ -1,0 +1,24 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const regex = /^(\d+)\.(\d+)\.(\d+)(-(\w+))?(\+(\w+))?$/;
+    const match = version.match(regex);
+
+    if (!match) {
+        throw new Error("Invalid semantic version format.");
+    }
+
+    const [_, majorStr, minorStr, patchStr, prerelease, build] = match;
+
+    if (majorStr.startsWith('0') && majorStr !== '0' || 
+        minorStr.startsWith('0') && minorStr !== '0' || 
+        patchStr.startsWith('0') && patchStr !== '0') {
+        throw new Error("Numeric parts cannot have leading zeros.");
+    }
+
+    const major = parseInt(majorStr);
+    const minor = parseInt(minorStr);
+    const patch = parseInt(patchStr);
+
+    return { major, minor, patch, prerelease: prerelease || null, build: build || null };
+}
+```

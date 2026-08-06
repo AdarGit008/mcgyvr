@@ -1,0 +1,13 @@
+```typescript
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (n < 0) throw new Error('n must be a non-negative integer');
+  const M = 1000000007;
+  let a = 0, b = 1;
+  while (true) {
+    [a, b] = [b, (a + b) % M];
+    if ((n & 1) === 1) return a;
+    n >>= 1;
+  }
+}
+```

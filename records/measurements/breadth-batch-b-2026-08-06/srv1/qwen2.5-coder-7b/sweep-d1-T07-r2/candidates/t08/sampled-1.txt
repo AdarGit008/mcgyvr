@@ -1,0 +1,57 @@
+```ts
+/**
+ * Topologically sorts nodes based on given edges.
+ * @param nodes - Array of node names.
+ * @param edges - Array of tuples representing directed edges.
+ * @returns An array of node names sorted topologically.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: { [key: string]: string[] } = {};
+    const inDegree: { [key: string]: number } = {};
+
+    // Initialize the graph and in-degree count
+    nodes.forEach(node => {
+        graph[node] = [];
+        inDegree[node] = 0;
+    });
+
+    // Build the graph and calculate in-degrees
+    edges.forEach(([from, to]) => {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Unknown node in edge: ${from} -> ${to}`);
+        }
+        graph[from].push(to);
+        inDegree[to]++;
+    });
+
+    // Queue for nodes with zero in-degree
+    const queue: string[] = [];
+    nodes.forEach(node => {
+        if (inDegree[node] === 0) {
+            queue.push(node);
+        }
+    });
+
+    // Topological sort result
+    const sortedNodes: string[] = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        sortedNodes.push(node);
+
+        graph[node].forEach(neighbor => {
+            inDegree[neighbor]--;
+            if (inDegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        });
+    }
+
+    // Check for cycles
+    if (sortedNodes.length !== nodes.length) {
+        throw new Error('Cycle detected');
+    }
+
+    return sortedNodes;
+}
+```

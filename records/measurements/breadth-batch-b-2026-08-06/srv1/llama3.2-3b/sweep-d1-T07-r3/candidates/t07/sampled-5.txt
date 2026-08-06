@@ -1,0 +1,29 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  /**
+   * Flattens nested arrays up to given depth, or returns a copy of input if depth is 0.
+   *
+   * @param items - Input array containing strings and/or nested arrays.
+   * @param depth - Optional depth parameter (default: Infinity).
+   */
+  const _flatten = <T>(items: readonly T[], depth: number): unknown[] => {
+    if (depth === undefined) depth = Infinity;
+    if (depth <= 0) return [...items];
+
+    return items.reduce<unknown[]>((acc, item) => {
+      if (Array.isArray(item)) {
+        acc.push(..._flatten(item, depth - 1));
+      } else if (typeof item !== 'string') { // Avoid string coercion
+        throw new Error('Cannot iterate into non-array value');
+      }
+      return acc;
+    }, []);
+  };
+
+  if (!(depth >= 0 && typeof depth === 'number' && (depth === Infinity || !Number.isInteger(depth)))) {
+    throw new Error('Invalid depth: expected non-negative integer or Infinity');
+  }
+
+  return _flatten(items, depth);
+}
+```

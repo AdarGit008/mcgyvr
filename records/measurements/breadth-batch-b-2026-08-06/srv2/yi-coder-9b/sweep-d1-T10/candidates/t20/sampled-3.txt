@@ -1,0 +1,34 @@
+Here's how we can harden `parseConfig` to handle ignored blank lines, commented lines, trimmed whitespaces around key and value, split on first `=` only allowing for a value containing one, throw error when a line has no `=` sign or an empty key. Also, the function makes sure that "__proto__" can't reach the prototype of returned object:
+
+```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+
+  for (let line of text.split('\n')) {
+    line = line.trim(); // trim leading and trailing whitespaces
+
+    if (!line || line[0] === '#') 
+      continue; // ignore blank lines and comments
+
+    const equalSignIdx: number = line.indexOf('=');
+    
+    // throw error when a line has no '=' sign or an empty key
+    if (equalSignIdx < 1) {
+      throw new Error(line);
+    }   
+    
+    let key: string, value: string;  
+  
+    key = line.slice(0, equalSignIdx).trim(); // trim extra spaces around the key
+    value = line.slice(equalSignIdx + 1).trim(); // value is everything after '=', trimmed of extra spaces  
+     
+    if (!key || key === "__proto__") {
+      throw new Error(line); 
+    }   
+    
+    config[key] = value;
+  }
+  return config;
+}
+```

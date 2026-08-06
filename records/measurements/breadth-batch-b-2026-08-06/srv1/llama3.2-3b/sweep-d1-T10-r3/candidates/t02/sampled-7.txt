@@ -1,0 +1,35 @@
+```typescript
+/**
+ * Merges overlapping intervals into non-overlapping ones while preserving 
+ * ascending order by start time.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (!intervals || intervals.length === 0) return [];
+
+    const processedIntervals = intervals.slice();
+
+    processedIntervals.sort((a, b) => a[0] - b[0]);
+
+    // Add check for valid start/end pairs.
+    if (processedIntervals.some(interval => interval[0] > interval[1])) {
+        throw new Error('Start time cannot be greater than end time');
+    }
+
+    const mergedInterervals = [processedIntervals[0]];
+
+    for (let i = 1; i < processedIntervals.length; i++) {
+        if (mergedInterervals.at(-1)[1] === processedIntervals[i][0]) {
+            // Touching intervals, merge.
+            mergedInterivals[mergedIntervals.length - 1] = [mergedIntervals[mergedIntervals.length - 1][0], Math.max(mergedIntervals[mergedIntervals.length - 1][1], processedIntervals[i][1])]
+        } else if (processedIntervals[i][0] <= mergedIntervals.at(-1)[1]) {
+            // New interval is within existing one. Merge.
+            mergedInterervals[mergedIntervals.length - 1] = [mergedIntervals[mergedIntervals.length - 1][0], Math.max(mergedIntervals[mergedIntervals.length - 1][1], processedIntervals[i][1])]
+        } else {
+            // New interval does not overlap. Append.
+            mergedInterervals.push(processedIntervals[i]);
+        }
+    }
+
+    return mergedIntersections;
+}
+```

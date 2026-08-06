@@ -1,0 +1,100 @@
+```typescript
+export class LruCache<K, V> {
+    private capacity: number;
+    private cacheMap: Map<K, [V, Date]>;
+    private removedAt: Date;
+    private entryCount: number;
+
+    /**
+     * Construct a new Lru Cache with the given maximum storage.
+     *
+     * @param capacity The absolute maximum number of keys this will be able to hold.
+     */
+    constructor(capacity: number) {
+        if (capacity <= 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+
+        this.capacity = capacity;
+        this.cacheMap = new Map();
+        this.removedAt = new Date(-864000000000);
+        this.entryCount = 0;
+
+        for (let i = 0; i < capacity; ++i) {
+            this.cacheMap.set('Key' + i, [undefined, new Date()]);
+        }
+    }
+
+    /**
+     * Given a key, retrieve the corresponding value if it exists.
+     *
+     * @param key The key to look up in this cache.
+     */
+    get(key: K): V | undefined {
+        const obj = this.cacheMap.get(key);
+        if (obj) {
+            const val = obj[0];
+            this-cacheMap.set(key, [val, new Date()]);
+            ++this.entryCount;
+            return val;
+        } else {
+            --this.entryCount;
+            return this.removeOldest();
+        }
+    }
+
+    /**
+     * Given the key and value corresponding to that key store that key in place (add
+     * or reset) the entry at that location.
+     *
+     * @param key The Key of the entry you'd like to set,
+     * @param value The data for that particular key in this cache, as specified
+     *             by user usage, whether getting here.
+     */
+    set(key: K, value: V): void {
+        const obj = this.cacheMap.get(key);
+        if (obj) {
+            const val = obj[0];
+            --this.entryCount;
+            this.cacheMap.set(key, [value, new Date()]);
+            ++this.entryCount;
+
+        } else {
+            if (this.cacheMap.size < this.capacity) {
+                this.entryCount++;
+                const oldest = this.cacheMap.keys().next().value;
+                if (oldest == key) {
+                    // already there
+                } else {
+                    this.cacheMap.delete(oldest);
+                }
+                this.cacheMap.set(key, [value, new Date()]);
+                ++this.entryCount;
+
+            } else {
+                const val = this.removeOldest();
+                val[0] = value;
+            }
+        }
+    }
+
+    /**
+     * The number of items currently being held by the last cache entry.
+     */
+    get size(): number {
+        return this.entryCount;
+    }
+
+    private removeOldest(): V | undefined {
+        const first = this.cacheMap.keys().next().value;
+        if (first == this.removedAt) {
+            return undefined;
+        }
+        --this.entryCount;
+        this.cacheMap.delete(first);
+        ++this.entryCount;
+
+        return this.get(this.cacheMap.keys().next().value)[0];
+    }
+}
+```

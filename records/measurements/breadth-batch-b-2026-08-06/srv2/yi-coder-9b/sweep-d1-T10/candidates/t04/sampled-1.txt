@@ -1,0 +1,56 @@
+Here is how we can implement LruCache in TypeScript according to the task:
+
+```ts
+interface Node<K> {
+  key: K; value: any; 
+  prev?: Node<K>; next?: Node<K>;
+}
+export class LruCache<K, V> {
+  private readonly map: Map<K, Node<K>> = new Map();
+  private readonly head: Node<K> = { key: null!, value: null }; // dummy node
+  private readonly tail: Node<K> = { key: null!, value: null }; // dummy node
+ 
+  constructor(public readonly capacity: number) {
+    if (capacity <= 0 || Number.isNaN(capacity)) throw new Error('Invalid cache capacity');
+    this.head.next = this.tail;
+    this.tail.prev = this.head;
+  }
+  set(key: K, value: V): void {
+    let node = this.map.get(key);
+    if (node) {
+      node.value = value;
+      this.removeNode(node); // this also moves a used node to the end of the list
+    } else if (this.map.size === this.capacity) {
+      this.map.delete((this.head.next as Node<K>).key); 
+       // we know head.next is defined, hence non-null assertion '!' is used
+      this.removeNode(this.head.next as Node<K>); // removes the LRU item from the list
+    }
+    node = { key: key, value: value }; 
+    this.addTail(node); // adds a new node at end of the list or promotes a used one there
+    this.map.set(key, node); // stores/updates in map along with list reference
+  }
+  get(key: K): V | undefined {
+    const node = this.map.get(key); 
+    if (node) { 
+      // If key exists moves the accessed node to end of the list; then returns its value
+      this.removeNode(node);
+      this.addTail(node);
+      return node.value;  
+    } else return undefined; // Key doesn't exist in cache, hence returns undefined
+  } 
+  get size(): number { return this.map.size; } 
+  // helper methods:
+  private removeNode = (node: Node<K>): void => {
+    const nextNode = node.next as Node<K>; // we know it's defined, hence '!' is used
+    const prevNode = node.prev as Node<K>; 
+    nextNode.prev = prevNode;  // skips the removed node in both list directions
+    prevNode.next = nextNode;  
+    node.next = undefined; // for safety
+    node.prev = undefined; 
+  }
+  private addTail = (node: Node<K>): void => {
+    const prevNode = this.tail.prev as Node<K>;// we know it is defined, hence '!' is used
+    prevNode.next = node; // inserts the new or moved-to-use node at list end
+    node.prev = prevNode; 
+    this.tail.prev = node; // also, updates list end info
+    node.

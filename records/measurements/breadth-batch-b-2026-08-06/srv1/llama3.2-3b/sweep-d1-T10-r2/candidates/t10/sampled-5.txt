@@ -1,0 +1,19 @@
+```ts
+/** The index of target in a sorted array, or -1. */
+export function binarySearch(items: readonly number[], target: number): number {
+  let low = 0;
+  let high = items.length - 1; // changed from high = items.length - 1 to keep mid in bounds when target is an element
+  while (low <= high) { // changed from < to <= in case target is last element
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1; // changed to ensure we dont skip the first index of duplicate values 
+    } else {
+      high = mid - 1; // changed from mid-1 because the array is now sorted ascending
+    }
+  }
+  return items.includes(target) ? mid : -1; // return mid if target found
+}
+```

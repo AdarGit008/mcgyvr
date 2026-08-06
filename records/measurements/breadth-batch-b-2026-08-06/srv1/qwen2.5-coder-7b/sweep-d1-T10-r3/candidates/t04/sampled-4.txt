@@ -1,0 +1,63 @@
+```ts
+class LruCache<K, V> {
+  private cache = new Map<K, { value: V; historyIndex: number }>();
+  private history: K[] = [];
+  private capacity: number;
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (entry) {
+      this.updateHistory(entry.historyIndex, key);
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    let historyIndex: number;
+    if (this.cache.has(key)) {
+      const entry = this.cache.get(key)!;
+      entry.value = value;
+      historyIndex = entry.historyIndex;
+    } else {
+      historyIndex = this.history.push(key) - 1;
+    }
+
+    if (historyIndex >= this.capacity) {
+      this.evictLeastRecentlyUsed();
+    }
+
+    this.cache.set(key, { value, historyIndex });
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private evictLeastRecentlyUsed() {
+    const keyToEvict = this.history.shift()!;
+    if (keyToEvict) {
+      this.cache.delete(keyToEvict);
+    }
+  }
+
+  private updateHistory(index: number, key: K): void {
+    while (index < this.history.length - 1 && this.history[index + 1] !== key) {
+      this.history[index] = this.history[index + 1];
+      index++;
+    }
+    if (this.history[this.history.length - 1] !== key) {
+      throw new Error('Key not found in history during update');
+    }
+    this.history.pop();
+    this.history.push(key);
+  }
+}
+```

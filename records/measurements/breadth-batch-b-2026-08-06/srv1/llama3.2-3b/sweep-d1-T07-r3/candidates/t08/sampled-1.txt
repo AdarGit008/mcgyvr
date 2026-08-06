@@ -1,0 +1,68 @@
+```ts
+/**
+ * Performs a topological sort on a given set of nodes and edges.
+ *
+ * @param nodes - The names of the nodes in the graph.
+ * @param edges - The edges between the nodes, where each edge is a tuple of two node names.
+ * @returns An array of node names representing an ordering that satisfies every edge.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+  // Create a map to store the dependencies for each node
+  const graph = new Map<string, Set<string>>();
+  
+  // Initialize the dependencies for each node
+  nodes.forEach(node => graph.set(node, new Set()));
+  
+  // Populate the graph with the edges
+  edges.forEach(([from, to]) => {
+    if (!graph.has(from)) throw new Error(`Node ${from} not in nodes`);
+    if (!graph.has(to)) throw new Error(`Node ${to} not in nodes`);
+    
+    graph.get(from)!.add(to);
+  });
+  
+  // Create a set to store the visited nodes
+  const visited = new Set();
+  
+  // Create a list to store the sorted nodes
+  const sorted = [];
+  
+  // Perform a depth-first search on each node
+  nodes.forEach(node => {
+    if (!visited.has(node)) dfs(node, graph, visited, sorted);
+  });
+  
+  return sorted;
+}
+
+// Helper function to perform a depth-first search
+function dfs(node: string, graph: Map<string, Set<string>>, visited: Set<string>, sorted: string[]) {
+  // Mark the node as visited
+  visited.add(node);
+  
+  // Recursively visit all neighbors of the node
+  if (graph.has(node)) {
+    for (const neighbor of graph.get(node)!.values()) {
+      if (!visited.has(neighbor)) dfs(neighbor, graph, visited, sorted);
+    }
+  }
+  
+  // Add the node to the sorted list
+  sorted.push(node);
+}
+
+// Helper function to check for cycles
+function containsCycle(graph: Map<string, Set<string>>) {
+  const visited = new Set();
+  const stack = new Set();
+  
+  for (const [node] of graph) {
+    if (!visited.has(node)) return dfs(node, graph, visited, stack);
+  }
+  
+  return false;
+}
+
+// Check for cycles in the edges
+if (containsCycle(new Map(edges.map(([from, to]) => [from, new Set([to])])))) throw new Error('Graph contains a cycle');
+```

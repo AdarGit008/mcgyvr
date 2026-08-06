@@ -1,0 +1,77 @@
+```typescript
+/**
+ * Returns a topological ordering for the given nodes and edges (if such exists).
+ * For each edge [u, v] if u appears before v in the result, then must appear 
+ * first; otherwise it does not matter. When several orderings exist, we pick the one 
+ * that keeps the nodes appearing earliest in the input order.
+ * 
+ * @param nodes
+ * @param edges
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = Array.from(nodes).reduce((acc, node) => ({ ...acc, [node]: [] }), {});
+    for (const [from, to] of edges) {
+        if (!graph[from] || !graph[from].includes(to)) {
+            throw new Error(`Edge '${[from, to]}' invalid: cannot go from ${from} to ${to}`);
+        }
+        graph[from].push(to);
+    }
+
+    const visited = {}, order: any[] = [], indexMap: { [key: string]: number } = {};
+
+    function dfs(node) {
+        if (visited[node] === 'visiting') {
+            throw new Error(`cycle detected: node ${node} is currently being processed`);
+        }
+        if (!visited[node]) {
+            visited[node] = 'visiting';
+            for (const neighbor of graph[node]) {
+                const edgeId = `${indexMap[node]}-${indexMap[neighbor]}`;
+                indexMap[edgeId] = indexMap[node];
+                dfs(neighbor);
+                indexMap[edgeId]++;
+            }
+            delete visited[node];
+        }
+    }
+
+    function dfsWithOrder(node) {
+        if (visited[node]) {
+            return false;
+        }
+        visited[node] = 'visiting';
+        const result = dfsWithOrder(graph[node][0]);
+        if (result !== undefined) {
+            order.push(node);
+        }
+        indexMap[node + '-' + graph[node][1]] = 2;
+        for (const neighbor of graph[node]) {
+            if (!dfsWithOrder(neighbor)) {
+                return false;
+            }
+        }
+    }
+
+    let freeToVisit = nodes.length;
+
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        let edgeIndex = indexMap[node];
+        graph[node].forEach((_, j) => {
+            if (++indexMap(`${node}-${edgeIndex}`] === undefined) return;
+            freeToVisit--;
+        });
+
+        if (freeToVisit > 0 && dfsWithOrder(node)) {
+            break;
+        }
+    }
+
+    if (freeToVisit !== 0) {
+        throw new Error('node order does not allow a valid topological sort');
+    }
+
+    const reverseIndex = Array.from(nodes).reduce((acc, node, i) => ((acc[node] = i), acc), {});
+    return order.map((node, i) => (reverseIndex[node] = i));
+}
+```

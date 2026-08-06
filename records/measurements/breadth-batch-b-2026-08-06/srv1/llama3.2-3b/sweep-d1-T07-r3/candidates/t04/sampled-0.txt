@@ -1,0 +1,75 @@
+```typescript
+/**
+ * LruCache implementation.
+ */
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { value: V; index: number }>;
+  private index = new Map<K, number>();
+
+  /**
+   * Creates a new instance of the LruCache.
+   *
+   * @param capacity The maximum number of entries in the cache.
+   */
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  /**
+   * Gets the value associated with the given key.
+   *
+   * @param key The key to retrieve the value for.
+   * @returns The cached value, or undefined if no entry exists.
+   */
+  get(key: K): V | undefined {
+    const cacheEntry = this.cache.get(key);
+    if (cacheEntry) {
+      // Remove from current position and add back at end
+      this.index.set(key, this.index.size);
+      return cacheEntry.value;
+    } else {
+      throw new Error("Key not found in cache.");
+    }
+  }
+
+  /**
+   * Inserts or updates the value associated with the given key.
+   *
+   * @param key The key to insert or update.
+   * @param value The value to associate with the key.
+   */
+  set(key: K, value: V) {
+    if (this.cache.has(key)) {
+      // Remove from current position
+      const index = this.index.get(key);
+      this.cache.delete(key);
+      this.index.delete(key);
+      // Re-add at end
+      this.cache.set(key, { value, index: this.index.size });
+    } else {
+      // Add to cache and set new index
+      this.cache.set(key, { value, index: this.index.size });
+      if (this.cache.size > this.capacity) {
+        // Remove LRU entry with smallest index
+        const lruKey = Array.from(this.cache.keys()).sort((a, b) => this.index.get(a)[1] - this.index.get(b)[1])[0];
+        this.cache.delete(lruKey);
+        this.index.delete(lruKey);
+      }
+    }
+  }
+
+  /**
+   * Returns the number of entries in the cache.
+   *
+   * @returns The current size of the cache.
+   */
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```

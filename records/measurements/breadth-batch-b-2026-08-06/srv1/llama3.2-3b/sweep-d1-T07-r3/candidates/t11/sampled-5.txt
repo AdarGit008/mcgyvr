@@ -1,0 +1,11 @@
+```typescript
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].sort((a, b) => {
+    if (isNaN(a) || isNaN(b)) {
+      throw new Error("NaN cannot be used for sorting.");
+    }
+    return a - b;
+  });
+}
+```

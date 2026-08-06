@@ -1,0 +1,10 @@
+```ts
+/** The sorted numbers in ascending order. */
+export function sortAscending(values: readonly number[]): number[] {
+  try {
+    return [...values].sort((x, y) => x - y);
+  } catch (e) {
+    throw new Error('Invalid arguments provided');
+  }
+}
+```

@@ -1,0 +1,49 @@
+Here is the implementation for LruCache class:
+
+```typescript
+export class LruCache<K extends object | number | string, V> {
+    private cache: Map<K, V>;
+    constructor(capacity: number) {
+        if (!Number.isInteger(capacity) || capacity <= 0) {
+            throw new Error("Capacity must be a positive integer");
+        }
+
+        this.cache = new Map();
+    }
+
+    get size(): number {
+        return this.cache.size;
+    }
+
+    set(key: K, value: V): void {
+        if (this.cache.has(key)) {
+            // Key already exists in cache so remove it to re-add at end
+            this.cache.delete(key);
+        } else if (this.cache.size === this.capacity) {
+            // Reached maximum capacity, so evict the least recently used entry first
+            const oldestKey = this.cache.keys().next().value as K;
+            this.cache.delete(oldestKey);
+        } else if (this.cache.size > this.capacity) {
+            // Just in case some other bad logic causes more entries than capacity, clean up here
+            throw new Error('Internal error: Cache size exceeded its capacity'); 
+        }        
+
+        this.cache.set(key, value);
+    }
+
+    get(key: K): V | undefined {              
+        if (! this.cache.has(key)){               
+            return undefined;
+        }
+
+        const value = this.cache.get(key) as V;  // Key exists here so we know the get won't return `undefined`   
+        this.set(key, value);                    // Update the key to be the most recently used again 
+        return value;                           
+    }          
+    
+    private get capacity(): number {			               
+		return (this as any)['capacity'] || ((this as any)['capacity'] = this.cache.size);	  
+	}     
+};
+```
+This implementation relies on JavaScript's built-in Map data structure, which maintains the insertion order — an essential feature for implementing our LRU cache strategy.

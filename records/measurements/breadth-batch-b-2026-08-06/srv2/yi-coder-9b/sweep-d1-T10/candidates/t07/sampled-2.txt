@@ -1,0 +1,17 @@
+```ts
+/** Flattens nested arrays up to given depth recursively */
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] { 
+  if (depth < 0 || Number.isNaN(Number(depth)) || typeof depth === 'string') throw new Error('Depth must be a non-negative integer or Infinity');
+  let flattened: unknown[] = [];
+    items.forEach((item) => {
+        if (Array.isArray(item) && depth>0){
+            flattened = flattened.concat(flatten(item, depth - 1));
+        } else {
+             flattened.push(item);
+       }});  
+    return flattened;
+}
+```
+For more complex cases where other iterable objects should also be flattened besides arrays, this function could easily extended to handle those too by adding `Set` and `Map`: 
+
+Note that we're returning a new array. That way the original input isn't altered — a key consideration given the task’s request  for it may not be mutated, but rather, "return a new one". If instead you wanted to avoid creating extra arrays you could also use a different approach utilizing a stack or queuing, but it would be considerably more complex and harder to follow than what is here presented.

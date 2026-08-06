@@ -1,0 +1,17 @@
+```ts
+/**
+ * Divides a by b, throwing an Error if divisor is zero or both arguments are non-finite numbers.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(b) || !isFinite(b)) {
+    throw new Error("Cannot divide by NaN or Infinity");
+  }
+  if (!isFinite(a)) {
+    throw new Error("First argument must be a finite number");
+  }
+  if (b === -0 || b === 0) {
+    throw new Error("Cannot divide by zero");
+  }
+  return a / b;
+}
+```

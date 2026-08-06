@@ -1,0 +1,23 @@
+```ts
+/**
+ * Splits an array into consecutive groups of at most size elements,
+ * preserving order; the final group is shorter when the length does not divide evenly.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+    if (typeof size !== 'number') {
+        throw new Error('Size must be a number');
+    }
+    if (size <= 0) {
+        throw new Error('Size must be a positive integer');
+    }
+
+    const result: T[][] = [];
+    for (let i = 0, j = 0; j < items.length; i += size, j++) {
+        result.push(items.slice(i, j + 1));
+    }
+    if (j < items.length) {
+        result.push(items.slice(j));
+    }
+    return result;
+}
+```

@@ -1,0 +1,43 @@
+Here's how you could implement parseCsvLine:
+
+```ts
+export function parseCsvLine(line: string): string[] {
+  const fields = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; ++i) {
+    if (inQuotes) {
+      // Inside quotes, treat double quote as end of field, and anything else as part of the field.
+      if (line[i] === '"') {
+        if (line[i + 1] === '"') {
+          field += '"'; // Double quote inside quoted string means a literal quote; two are added to result.
+          ++i; // Skip next character, as it's the duplicate of current one.
+        } else if (fields.length > 0 && fields[fields.length - 1] === "") {
+          // Special case for end of quoted field at start of line: keep newline if no unquoted following text.
+          fields[fields.length - 1] = field; // Replace last field (empty due to quotes on both ends);
+        } else {
+          inQuotes = false; // Quoted string is over.
+        }
+      } else {
+        field += line[i]; // Any other character within quotes goes into the field.
+      }
+    } else if (line[i] === '"') {
+      inQuotes = true; // Start of quoted field.
+    } else if (line[i] === ",") {
+      fields.push(field);
+      if (fields.length > 1 && fields[fields.length - 2] === "") { 
+        // Special case for comma at start of line: keep newline if no unquoted prior text.
+          fields[fields.length - 2] = field; // Replace last but one, empty due to two quotes on ends;
+      }
+      field = "";
+    } else {
+       // Any other character outside quotes goes into the field.
+      field += line[i];
+    }
+  }
+  if (inQuotes) throw Error("Quoted string not closed."); // If last was a quote, there's an unclosed quoted string.
+  fields.push(field); 
+  return fields;
+}
+```
+This code effectively handles empty cells at the start or end of line by always ending and beginning new `field` instances with quotes. When closing quote is found that was not preceded by opening one, error gets throw. A cell in quoted pair of quotes will be treated as an empty field.

@@ -1,0 +1,24 @@
+```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const parsedLines = text.split("\n").filter(Boolean);
+  for (const line of parsedLines) {
+    if (!line.startsWith('#')) {
+      const trimmedLine = line.trim();
+      if (trimmedLine.includes('=')) {
+        const [key, value] = trimmedLine.split('=', 2);
+        key = key.trim();
+        value = value.trim();
+        if (!(key in parsedConfig)) {
+          parsedConfig[key] = value;
+        } else {
+          console.error(`Conflict: duplicate key ${key}`);
+        }
+      } else {
+        throw new Error(`Invalid format on line ${parsedLines.indexOf(line) + 1}: no '='`);
+      }
+    }
+  }
+  return parsedConfig;
+}
+```

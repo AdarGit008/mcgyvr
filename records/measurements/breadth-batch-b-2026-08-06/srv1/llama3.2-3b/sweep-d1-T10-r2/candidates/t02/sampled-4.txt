@@ -1,0 +1,44 @@
+```ts
+/**
+ * Merges overlapping intervals into a non-overlapping list while preserving their total count,
+ * ensuring that each interval still covers its endpoints. Returns the smallest possible merged
+ * interval list sorted ascending by start.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.length === 0) {
+    return intervals;
+  }
+
+  const [start, end] = intervals[0];
+
+  for (const [innerStart, innerEnd] of intervals) {
+    if (innerStart <= start && innerEnd >= end) {
+      continue; // No-op when already fully covered or just touching
+    }
+    if (innerStart > end) {
+      throw new Error("Invalid interval: started after ended interval");
+    }
+
+    [start, end] = mergeInterval([start, end], [innerStart, innerEnd]);
+  }
+
+  return [start, end];
+}
+
+function mergeInterval(interval1: number[], interval2: number[]): number[] {
+  const [start1, end1] = interval1;
+  const [start2, end2] = interval2;
+
+  const [mergedStart, mergedEnd] =
+    start1 <= start2 && end1 > end2
+      ? [start1, Math.max(end1, end2)]
+      : start2 <= end1 && end2 >= end1
+        ? [start2, Math.max(start2, end1)]
+        : [
+            Math.min(start1, start2),
+            Math.max(end1, end2),
+          ];
+
+  return mergedEnd < mergedStart ? [-Infinity, mergedStart] : [mergedStart, mergedEnd];
+}
+```

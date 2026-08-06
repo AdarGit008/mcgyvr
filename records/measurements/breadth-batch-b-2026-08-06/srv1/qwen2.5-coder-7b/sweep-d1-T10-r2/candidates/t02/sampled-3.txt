@@ -1,0 +1,27 @@
+```ts
+/**
+ * Merges overlapping intervals into minimal non-overlapping ones.
+ *
+ * @param intervals - An array of [start, end] pairs to merge.
+ * @returns A sorted array of non-overlapping [start, end] pairs.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals) || intervals.some(interval => !Array.isArray(interval) || interval.length !== 2)) {
+    throw new Error('Input must be an array of [start, end] pairs.');
+  }
+
+  return intervals
+    .sort((a, b) => a[0] - b[0])
+    .reduce((acc, curr) => {
+      const last = acc.length > 0 ? acc[acc.length - 1] : null;
+
+      if (last && curr[0] <= last[1]) {
+        acc[acc.length - 1] = [last[0], Math.max(last[1], curr[1])];
+      } else {
+        acc.push(curr);
+      }
+
+      return acc;
+    }, [] as number[][]);
+}
+```

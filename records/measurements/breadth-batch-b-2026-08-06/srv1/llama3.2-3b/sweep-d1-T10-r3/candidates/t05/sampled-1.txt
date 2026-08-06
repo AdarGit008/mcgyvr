@@ -1,0 +1,21 @@
+```ts
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+    if (typeof size !== 'number' || size <= 0) {
+        throw new Error('size must be a positive integer');
+    }
+
+    const result: T[][] = [];
+    let currentGroup: T[] = [];
+
+    for (const item of items) {
+        currentGroup.push(item);
+
+        if (currentGroup.length === size) {
+            result.push(currentGroup);
+            currentGroup = [];
+        }
+    }
+
+    return result.concat(currentGroup);
+}
+```

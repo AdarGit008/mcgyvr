@@ -1,0 +1,33 @@
+```ts
+export function firstUnbalanced(input: string): number {
+  const stack: { char: string; index: number }[] = [];
+  const bracketPairs = new Map<string, string>([
+    [')', '('],
+    [']', '['],
+    ['}', '{']
+  ]);
+  
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    
+    if (char === '(' || char === '[' || char === '{') {
+      stack.push({ char, index: i });
+    } else if (char === ')' || char === ']' || char === '}') {
+      if (stack.length === 0) {
+        return i;
+      }
+      
+      const lastBracket = stack.pop();
+      if (lastBracket?.char !== bracketPairs.get(char)) {
+        return i;
+      }
+    }
+  }
+  
+  if (stack.length > 0) {
+    return stack[0].index;
+  }
+  
+  return -1;
+}
+```

@@ -1,0 +1,23 @@
+```typescript
+/**
+ * Splits an array into consecutive groups of at most size elements.
+ *
+ * @param items - The input array to split.
+ * @param size - The maximum size of each chunk.
+ * @returns An array of chunks, where each chunk is an array of elements.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (size <= 0 || !Number.isInteger(size)) {
+    throw new Error("Size must be a positive integer");
+  }
+  if (items.length === 0) {
+    return [];
+  }
+
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+```

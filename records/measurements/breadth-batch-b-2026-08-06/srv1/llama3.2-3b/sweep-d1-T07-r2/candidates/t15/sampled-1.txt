@@ -1,0 +1,24 @@
+```ts
+/** Checks if the input value must be a finite number */
+export function isFiniteNumber(value: any): boolean {
+  return typeof value === "number" && !isNaN(Number(value));
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  isFiniteNumber(celsius);
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return celsius * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  isFiniteNumber(celsius);
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return celsius + 273.15;
+}
+```

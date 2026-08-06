@@ -1,0 +1,12 @@
+The current implementation omits last character correctly but adds "..." too late leaving a character short of limit which needs to be fixed.
+```ts
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  if (limit < 3 || Math.floor(limit) !== limit) throw new Error('Limit must be an integer of at least 3');
+  
+  if (text.length <= limit) {
+    return text;
+  }
+  return text.slice(0, limit - 3) + "..."; // Fix here, shift the start index by one when appending "..."
+}
+```

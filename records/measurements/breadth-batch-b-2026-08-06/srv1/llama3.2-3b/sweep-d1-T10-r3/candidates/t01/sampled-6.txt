@@ -1,0 +1,31 @@
+```typescript
+/**
+ * Returns the run-length encoding of the input string.
+ *
+ * Every maximal run of one repeated character is replaced with that character followed by the run length,
+ * in order. A run of length one still carries its count. The empty string encodes to the empty string.
+ */
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') {
+        throw new Error('Input must be a string');
+    }
+    
+    const result = new Array();
+    let currentChar = input[0];
+    let currentCount = 1;
+
+    for (let i = 1; i < input.length; i++) {
+        if (input[i] !== currentChar) {
+            result.push(`${currentChar}${currentCount}`);
+            currentChar = input[i];
+            currentCount = 1;
+        } else {
+            currentCount++;
+        }
+    }
+
+    result.push(`${currentChar}${currentCount}`);
+    
+    return result.join('');
+}
+```

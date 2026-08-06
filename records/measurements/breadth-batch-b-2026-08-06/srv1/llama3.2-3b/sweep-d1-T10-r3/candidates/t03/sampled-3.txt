@@ -1,0 +1,36 @@
+```ts
+/**
+ * Parses a semantic version string into its components.
+ *
+ * @param version - The semantic version string (e.g., "1.2.3", "v1.2.3", "v1.2.3-alfa")
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  // Remove leading "v" if present
+  let withoutVersion = version;
+  if (withoutVersion.startsWith('v')) {
+    withoutVersion = withoutVersion.slice(1);
+  }
+
+  try {
+    const parts = withoutVersion.split('-')[0].split('+').map(Boolean.filter);
+    const [major, minor, patch] = parts.map((part) => parseInt(part));
+    
+    // Check for valid numeric values
+    if (!Number.isInteger(major) || !Number.isInteger(minor) || !Number.isInteger(patch)) {
+      throw new Error('Invalid major, minor or patch versions');
+    }
+
+    const [preRelease, build] = withoutVersion.split('-')[1] ? WithoutVersion.split('-')[1].split('+').filter(Boolean) : [''];
+    
+    return { major, minor, patch, prerelease: preRelease[0], build: build[0] };
+  } catch (error) {
+    if (
+      typeof version === 'string' &&
+      /^[+-]\d+$/.test(version)
+    ) {
+      throw new Error('Invalid version string');
+    }
+    throw error;
+  }
+}
+```

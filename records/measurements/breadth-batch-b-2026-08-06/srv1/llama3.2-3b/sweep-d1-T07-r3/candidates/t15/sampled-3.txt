@@ -1,0 +1,22 @@
+```ts
+/** Returns temperature in Fahrenheit given temperature in Celsius */
+export function celsiusToFahrenheit(celsius: number): number {
+  validateTemperatureInput(celsius);
+  return celsius * 1.8 + 32;
+}
+
+/** Returns temperature in Kelvin given temperature in Celsius */
+export function celsiusToKelvin(celsius: number): number {
+  validateTemperatureInput(celsius);
+  return celsius + 273.15;
+}
+
+function validateTemperatureInput(celsius: number) {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+}
+```

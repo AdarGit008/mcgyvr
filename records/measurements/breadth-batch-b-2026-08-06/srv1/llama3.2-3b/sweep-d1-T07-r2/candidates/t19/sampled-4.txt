@@ -1,0 +1,9 @@
+```typescript
+/** Returns the result of dividing `a` by `b`. */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(b)) throw new Error('Cannot divide by zero.');
+  const bothFinite = isFinite(a) && isFinite(b);
+  if (!bothFinite) throw new Error('Both arguments must be finite numbers.');
+  return a / b;
+}
+```

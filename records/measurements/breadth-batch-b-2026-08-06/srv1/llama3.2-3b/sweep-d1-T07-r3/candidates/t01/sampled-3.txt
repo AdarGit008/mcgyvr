@@ -1,0 +1,64 @@
+```typescript
+/**
+ * Run-length encodes a string by replacing every maximal run of one repeated character
+ * with that character followed by its count in order.
+ *
+ * @param input The input string to be encoded.
+ */
+export function runLengthEncode(input: string): string {
+  // Check if the input is a string and throw an Error if it's not
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  // Initialize an empty array to store the result
+  const result: string[] = [];
+
+  // If the input string is empty, return an empty string
+  if (!input.length) {
+    return '';
+  }
+
+  // Initialize variables to keep track of the current character and its count
+  let currentChar: string | null = input[0];
+  let currentCount = 1;
+
+  // Iterate over the input string starting from the second character
+  for (let i = 1; i <= input.length; i++) {
+    const char = input[i];
+
+    // If the current character is different from the previous one, push the previous character and its count to the result array
+    if (char !== currentChar) {
+      // If this is not the first character, push the previous character and its count to the result array
+      if (currentChar !== null) {
+        result.push(currentChar);
+        if (currentCount > 1) {
+          result.push(currentCount.toString());
+        } else {
+          result.push('1');
+        }
+      }
+
+      // Update the current character and reset its count
+      currentChar = char;
+      currentCount = 1;
+    } else {
+      // If the current character is the same as the previous one, increment its count
+      currentCount++;
+    }
+  }
+
+  // Push the last character and its count to the result array
+  if (currentChar !== null) {
+    result.push(currentChar);
+    if (currentCount > 1) {
+      result.push(currentCount.toString());
+    } else {
+      result.push('1');
+    }
+  }
+
+  // Join the characters in the result array into a string and return it
+  return result.join('');
+}
+```

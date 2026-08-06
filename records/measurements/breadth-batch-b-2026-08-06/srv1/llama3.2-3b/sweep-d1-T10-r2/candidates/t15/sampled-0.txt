@@ -1,0 +1,22 @@
+```ts
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  validateCelsius(celsius);
+  return celsius * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  validateCelsius(celsius);
+  return celsius + 273.15;
+}
+
+function validateCelsius(celsius: number): void {
+  if (typeof celsius !== "number") {
+    throw new Error("celsius must be a finite number");
+  }
+  if (Number.isNaN(celsius)) {
+    // This should never happen, but for strict type checking...
+  }
+}
+```

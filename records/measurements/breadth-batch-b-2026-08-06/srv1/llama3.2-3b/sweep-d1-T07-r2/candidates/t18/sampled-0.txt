@@ -1,0 +1,26 @@
+```typescript
+/**
+ * An append-only log of timestamped events.
+ */
+export class EventLog {
+  #events: Event[] = [];
+
+  /** Append one event. */
+  record(event: Event): void {
+    this.#events.push(event);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   *
+   * @param timestamp The timestamp to filter by (inclusive).
+   * @throws {Error} If timestamp is not a number.
+   */
+  since(timestamp: number): Event[] {
+    if (typeof timestamp !== 'number') {
+      throw new Error('Invalid timestamp');
+    }
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

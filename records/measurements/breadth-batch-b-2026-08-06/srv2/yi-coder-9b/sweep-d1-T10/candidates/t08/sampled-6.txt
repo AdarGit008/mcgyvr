@@ -1,0 +1,58 @@
+```typescript
+interface Graph {
+    [node: string]: { outbound: string[] };
+}
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!Array.isArray(nodes) || !Array.isArray(edges)) {
+        throw new Error('invalid arguments');
+    }
+
+    // Build graph structure and calculate in-degrees
+    let graph: Graph = nodes.reduce((g, n) => ({ ...g, [n]: { outbound: [] } }), {});
+
+    for (const edge of edges) {
+        if (!Array.isArray(edge) || edge.length !== 2) {
+            throw new Error(`invalid edge ${JSON.stringify(edge)}`);
+        }
+        const [from, to] = edge;
+      
+        // Check if the nodes exists in the node list
+        if (!graph[to]) throw new Error(`node "${to}" not found`);
+        if (!graph[from]) throw new Error(`node "${from}" not found`);
+  
+        // Edge: from -> to
+        graph[to].outbound.push(from);
+    }
+
+    let indegrees = nodes.reduce((degrees, n) => ({ ...degrees, [n]: graph[n].outbound.length }), {});
+
+    // Collect all zero-indegree nodes and remove their edges from the graph.
+    const result: string[] = [];
+    let noIncomingEdgeNodes = nodes.filter(node => indegrees[node] === 0);
+
+   while (noIncomingEdgeNodes.length > 0) {
+        // Sort them in node input order
+       noIncomingEdgeNodes.sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b));
+
+        const noPrereqNode = noIncomingEdgeNodes[0];  
+        result.push (noPrereqNode); 
+        delete graph[noPrereqNode];
+
+       // Decrease indegree for the node's outbound neighbours
+         for (const neighbour of Object.keys(graph)) {
+           if (!graph[neighbour].outbound) continue;
+            const idx = graph[neighbour].outbound.indexOf(noPrereqNode); 
+             indegrees[neighbour] = indegrees[neighbour] -1 < 0 ?  0 : indegrees[neighbour] -1 ; // Prevent negative indegree nodes
+          graph[neighbour].outbound.splice(idx, 1);   // Remove the edge from the graph
+        }              
+       noIncomingEdgeNodes = Object.keys(indegrees).filter(node =>  indegrees[node] === 0 && !result.includes(node));    // Update no incoming edges nodes.
+     }           
+    ///If a node still has inbound edges, it is part of a cycle.
+    if (Object.keys(graph).length > 0) {
+        throw new Error('A cycle exists');   
+    }
+
+    return result;  // return the topologically sorted list of nodes.
+}
+```

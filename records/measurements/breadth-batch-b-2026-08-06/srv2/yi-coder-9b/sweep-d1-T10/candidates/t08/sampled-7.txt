@@ -1,0 +1,66 @@
+```ts
+// helper function to detect cycles in the graph
+function isCyclic(graph: Map<string, string[]>): boolean {
+    const visited = new Set<string>(), 
+          stack   = new Set<string>();
+  
+    function dfs(node: string): boolean {
+        visited.add(node);
+        stack.add(node);
+
+        for (let child of graph.get(node) || []) {      
+            if (!visited.has(child) && dfs(child)) 
+                return true;
+            else if (stack.has(child)) // cycle detected
+               return true;
+        }
+    
+        stack.delete(node);     // node processing done, remove from stack
+        return false;           // no cycle found for this node
+    }
+
+    for (let node of graph.keys()) 
+       if (!visited.has(node) && dfs(node)) // cycle detected in subgraph
+          throw new Error('Cycle detected');  
+
+    return false;             // no cycle detected in entire graph
+}
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] { 
+   const graph = new Map<string, string[]>(); // adjacency list representation of the graph
+  
+    for (let node of nodes)      // initialize each node's adjacency list
+        graph.set(node, []);
+  
+    for (let [from, to] of edges) {   // fill in the edges
+        if (!graph.has(from)) 
+            throw new Error(`Node ${from} not found`); // throw error for node not in nodes
+         else if (!graph.has(to))     
+          	throw new Error(`Node ${to} not found`);   // ditto
+        else  				  // push the 'to' node into the adjacency list of the 'from' node;
+            graph.get(from)?.push(to); // add an edge
+    }
+           
+      const sorted = [], 
+            noIncomingEdgeNodes: string[] = [...nodes];   // nodes with no incoming edges are free of dependencies  
+
+      while (noIncomingEdgeNodes.length) {        
+          let node = noIncomingEdgeNodes.shift() as string; // take the earliest available node 
+          sorted.push(node);                             // add it to the sorted list     
+               		
+          for (let child of graph.get(node) || []){  	    // for each child of this node,
+              graph.set(node, []); // remove parent-child relation (edge) from the graph 
+                             
+              if((graph.get(child)||[]).length === 0){   // if no more incoming edges to this child, add it for next round
+               noIncomingEdgeNodes.push(child);         // available for the earliest position in order
+               }       		      
+          }    	     				  
+      }               			  
+                             
+      isCyclic(graph);   		 // if there is still any edge left, graph has a cycle, throw error 
+
+      return sorted;              // return the topological sort of nodes (no detected cycles)       
+} 
+``` 
+
+This solution creates an adjacency list representation of a directed acyclic graph (

@@ -1,0 +1,65 @@
+```ts
+/**
+ * Returns a topological ordering of nodes such that for every edge [from, to],
+ * from comes before to in the ordering.
+ *
+ * If no such ordering exists (i.e., there's a cycle), throws an Error naming the cycle.
+ * Throws an Error if any edge names a node not in the input list of nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+  const adjacencyList: Map<string, Set<string>> = new Map();
+  for (const node of nodes) {
+    adjacencyList.set(node, new Set());
+  }
+
+  for (const [from, to] of edges) {
+    if (!adjacencyList.has(from)) {
+      throw new Error(`Edge ${[from, to].join(' -> ')} names a node not in the input list`);
+    }
+    if (!adjacencyList.has(to)) {
+      adjacencyList.set(to, new Set());
+    }
+    adjacencyList.get(from)!.add(to);
+  }
+
+  const visited: Set<string> = new Set();
+  const currentPath: Set<string> = new Set();
+  const result: string[] = [];
+
+  for (const node of nodes) {
+    if (!visited.has(node)) {
+      try {
+        topologicalSortNode(node, adjacencyList, visited, currentPath, result);
+      } catch (error) {
+        throw error;
+      }
+    }
+  }
+
+  return result;
+}
+
+function topologicalSortNode(
+  node: string,
+  adjacencyList: Map<string, Set<string>>,
+  visited: Set<string>,
+  currentPath: Set<string>,
+  result: string[]
+): void {
+  if (currentPath.has(node)) {
+    throw new Error(`Cycle detected in the graph starting at ${node} -> ${Array.from(currentPath).join(' -> ')} `);
+  }
+
+  if (!visited.has(node)) {
+    visited.add(node);
+    currentPath.add(node);
+
+    for (const neighbor of adjacencyList.get(node)!) {
+      topologicalSortNode(neighbor, adjacencyList, visited, currentPath, result);
+    }
+
+    currentPath.delete(node);
+    result.push(node);
+  }
+}
+```

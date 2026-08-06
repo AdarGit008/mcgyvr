@@ -1,0 +1,68 @@
+```typescript
+/**
+ * Splits one line of CSV into its fields on commas, handling quoted fields with comma-separated values and escaped quotes within them.
+ * 
+ * @param line The line from the CSV to be split
+ * @returns An array of strings, each representing a field in the original line, including empty fields for consecutive newlines
+ */
+export function parseCsvLine(line: string): string[] {
+    let result: string[] = [];
+    let currentField: string | null = null;
+    switch (line[0]) {
+        case '"':
+            currentField = '"';
+            break;
+        default:
+            for (let char of line) {
+                if (char === ',') {
+                    if (currentField === null) {
+                        result.push('');
+                    }
+                    else if (currentField !== QuotesEscapeSequence) {
+                        result.push(currentField);
+                        currentField = null;
+                    } 
+                    else {
+                        currentField += ',';
+                    }
+                    continue;
+                }
+                let quotesOpen = line.indexOf('"', line.indexOf(char) + 1);
+                let endQuotes = line.indexOf('"', line.lastIndexOf(char));
+                if (quotesOpen < 0 || (endQuotes !== line.length - 1 && endQuotes <= line.indexOf(char))) {
+                    throw new Error('Invalid CSV line: quoted field not closed');
+                }
+                currentField += char;
+                if ((char === '"' && quotesOpen > 0) ||
+                    (char !== '"' && (endQuotes < 0 || endQuotes <= line.indexOf(char)))) {
+                    switch (line.slice(quotesOpen + 1, endQuotes)) {
+                        case ',':
+                            if (currentField === null) {
+                                result.push('');
+                            }
+                            else if (currentField !== QuotesEscapeSequence) {
+                                result.push(currentField);
+                            } 
+                            currentField = '';
+                            break;
+                        default:
+                            currentField += ",";
+                    }
+                }
+            }
+            if (currentField !== null) {
+                result.push(currentField);
+            }
+            return result;
+    }
+
+    const _endIdx: number =  line.length;
+    switch (line[Object.keys(line).pop()]) {
+        case '"':
+            throw new Error('Unexpected quote at end of line');
+        default:
+    }
+
+}
+const QuotesEscapeSequence: string='#'  ;
+```

@@ -1,0 +1,35 @@
+```typescript
+/** An append-only log of timestamped events. */
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+export type EventLog = {
+  record(event: { name: string; timestamp: number }): void;
+  since(timestamp: number): Event[];
+};
+
+export class EventLog implements EventLog {
+  #events: Event[] = [];
+
+  /** Append one event. */
+  static record(event: { name: string; timestamp: number }): void {
+    throw new Error("Not implemented");
+  }
+
+  /** Every event at or after the given timestamp, in insertion order. */
+  static since(timestamp: number): Event[] {
+    return #events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+
+EventLog.record = (event: { name: string; timestamp: number }) => {
+  throw new Error("Not implemented");
+};
+
+EventLog.since = (timestamp: number) => {
+  const events = #events.filter((event) => event.timestamp >= timestamp);
+  return events;
+};
+```

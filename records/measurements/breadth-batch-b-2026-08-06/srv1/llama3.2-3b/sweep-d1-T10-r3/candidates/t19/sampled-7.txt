@@ -1,0 +1,16 @@
+```typescript
+/**
+ * Divides two numbers safely, throwing an Error if divisor is zero (including -0) or if either argument is non-finite.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (!(Number.isFinite(b) && Number.isFinite(a))) {
+    throw new Error('Both arguments must be finite numbers');
+  }
+  
+  if (b === 0 || (b < 0 && a > 0)) {
+    throw new Error('Cannot divide by zero or when dividing positive number by negative zero.');
+  }
+
+  return a / b;
+}
+```

@@ -1,0 +1,36 @@
+```ts
+/**
+ * Returns a parsed Semver object from an input string.
+ * 
+ * @param version - The Semver string to parse.
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    // Check if the input is a valid Semver string
+    const match = version.match(/^(\d+)\.(\d+)(\.(\d+))?(?:-(\w+(?:\.\w+)?)|(+\S+))?$/);
+    
+    if (!match) {
+        throw new Error('Invalid Semver input');
+    }
+
+    // Extract the numeric andOptional values
+    const [, major, minor, patch, prerelease, build] = match;
+    
+    // Validate the numbers
+    if (patch && parseInt(patch, 10) < 10) {
+        const nonZeroStrings = ['0'];
+        for (const c of patch) {
+            if (!nonZeroStrings.includes(c)) {
+                throw new Error('Invalid Patch version numeric value');
+            }
+        }
+    }
+
+    return {
+        major: parseInt(major, 10),
+        minor: parseInt(minor, 10),
+        patch: parseInt(patch, 10),
+        prerelease,
+        build,
+    };
+}
+```

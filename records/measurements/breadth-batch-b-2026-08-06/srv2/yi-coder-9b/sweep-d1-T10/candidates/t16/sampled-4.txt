@@ -1,0 +1,19 @@
+```typescript
+const MODULUS = 1000000007;
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (typeof n !== 'number' || n < 0 || Math.floor(n) !== n) {
+    throw new Error('Input must be a non-negative integer');
+  }
+
+  // Handling base cases explicitly for clarity and to avoid initial array allocations where unnecessary
+  if (n === 0) { return 0; }
+  else if(n === 1){return n;}
+  let fibArr: number[] = [0, 1]; // Initialise the first two numbers of Fibonacci series
+  for (let i = 2; i <= n; ++i) {
+    fibArr[i] = (fibArr[i - 1] + fibArr[i - 2]) % MODULUS;
+  }
+  return fibArr[n];
+}
+```

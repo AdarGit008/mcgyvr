@@ -1,0 +1,15 @@
+```ts
+/** Returns a divided by b. Throws if either argument is NaN or negative zero,
+   or both arguments are non-finite numbers. */
+export function safeDivide(a: number, b: number): number {
+  if (Number.isNaN(Number(a))) {
+    throw new Error('a must not be NaN');
+  }
+
+  if (Number.isNaN(Number(b))) {
+    throw new Error("can't divide by zero");
+  }
+
+  return a / b;
+}
+```

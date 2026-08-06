@@ -1,0 +1,11 @@
+```typescript
+/**
+ * Merges a list of overlapping [start, end] intervals into the smallest list of non-overlapping pairs,
+ * sorted ascending by start, and returns fresh pairs.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    throw new Error('function_implementation is not implemented yet');
+}
+
+// Rest of the implementation will go here...
+```

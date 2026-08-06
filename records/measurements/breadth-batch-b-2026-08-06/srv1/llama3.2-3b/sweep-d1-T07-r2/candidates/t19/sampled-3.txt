@@ -1,0 +1,22 @@
+```ts
+/**
+ * Divides a by b.
+ *
+ * @param {number} a - The dividend.
+ * @param {number} b - The divisor.
+ * @returns {number}
+ */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(b)) {
+    throw new Error('Cannot divide by zero or NaN');
+  }
+
+  const finite = !isNaN(b) && isFinite(a);
+
+  if (!finite) {
+    throw new Error('Both arguments must be finite numbers.');
+  }
+
+  return a / b;
+}
+```

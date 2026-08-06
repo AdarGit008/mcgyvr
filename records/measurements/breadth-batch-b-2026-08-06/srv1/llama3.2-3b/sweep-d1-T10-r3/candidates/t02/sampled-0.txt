@@ -1,0 +1,25 @@
+```ts
+/**
+ * Merge a list of non-overlapping pairs covering the same range, sorted ascending by start.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!intervals) {
+    throw new Error('Input intervals array is empty');
+  }
+
+  const union = [...intervals];
+  
+  for (let i = union.length - 1; i >= 0; i--) {
+    while (union.length > 1 && union[i][1] <= union[union.length - 1][0]) {
+      const j = union.pop() as number[];
+      union[j[0]] = [j[0], Math.min(j[1], union[union.length - 1][1])];
+    }
+  }
+  
+  if (union.length > 1 && union[0][1] <= union[union.length - 1][0]) {
+    throw new Error('Invalid intervals input');
+  }
+  
+  return union;
+}
+```

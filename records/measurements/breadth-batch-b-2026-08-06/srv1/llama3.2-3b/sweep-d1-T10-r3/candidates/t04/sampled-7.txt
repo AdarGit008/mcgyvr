@@ -1,0 +1,62 @@
+```typescript
+export class LruCache<K, V> {
+  private map: Map<K, [V, number]>;
+  private size: number;
+  private capacity: number;
+
+  /**
+   * Creates a new instance of LruCache.
+   *
+   * @param capacity The maximum number of entries in the cache.
+   */
+  constructor(capacity: number) {
+    if (capacity <= 0 || typeof capacity !== 'number') {
+      throw new Error('Capacity must be a positive integer.');
+    }
+    this.capacity = capacity;
+    this.map = new Map();
+    this.size = 0;
+  }
+
+  /**
+   * Retrieves the value for a given key.
+   *
+   * @param key The key to retrieve the value for.
+   */
+  get(key: K): V | undefined {
+    const [value, index] = this	map.get(key) || [undefined, -1];
+    if (value !== undefined) {
+      this.map.set(key, [value, ++index]);
+      return value;
+    }
+    throw new Error('Key not found.');
+  }
+
+  /**
+   * Sets or updates the value for a given key.
+   *
+   * @param key The key to set the value for.
+   * @param value The value to store with the key.
+   */
+  set(key: K, value: V): void {
+    const existing = this.map.get(key);
+    if (existing !== undefined) {
+      this.map.set(key, [value, --this.size]);
+      return;
+    }
+    if (this.size >= this.capacity) {
+      const lastPair = this.map.keys().next().value;
+      this.map.delete(lastPair);
+      this.size--;
+    }
+    this.map.set(key, [value, ++this.size]);
+  }
+
+  /**
+   * Returns the number of entries in the cache.
+   */
+  get size(): number {
+    return this.size;
+  }
+}
+```

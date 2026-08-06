@@ -1,0 +1,27 @@
+```typescript
+/**
+ * Parse KEY=VALUE pairs from a config file string into a Record<string, string>.
+ *
+ * Ignores blank lines and lines starting with '#'. Trims whitespace around key and value,
+ * splits on the FIRST '=' so values can contain one. Throws an Error naming the line for
+ * invalid input (empty key or no '='). A key must never reach the prototype of the returned
+ * object.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string>[] = [];
+  for (const line of text.split("\n")) {
+    if (!line || line.trimStart() === '#') continue;
+
+    const trimmedLine = line.trim();
+    const parts = trimmedLine.split('=');
+    if (parts.length !== 2) {
+      throw new Error(`Invalid input on line ${text.indexOf(trimmedLine) + 1}: '${trimmedLine}'`);
+    }
+    const key = parts[0].trim().replace(/^ #/, '');
+    const value = parts[1].trim();
+    config.push({ [key]: value });
+  }
+
+  return Object.fromEntries(config);
+}
+```

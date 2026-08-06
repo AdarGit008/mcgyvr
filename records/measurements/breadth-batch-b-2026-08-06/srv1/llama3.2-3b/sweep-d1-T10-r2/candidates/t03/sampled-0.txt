@@ -1,0 +1,25 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    /**
+     * Parse a semantic version string into its three numbers and optional prerelease or build strings.
+     */
+    
+    const match = /^(\d+)\.\d+\.\d+(-?(?:\.?\d+)*)?\+(?:\S+)?$/i.exec(version);
+    
+    if (match === null) {
+        throw new Error(`Invalid version string: "${version}"`);
+    }
+    
+    let major, minor, patch;
+    const prerelease = match[2] ? match[2].trim() : null;
+    const build = match[3] ? match[3].trim()[1:] : null;
+    
+    if (prerelease !== '' || !/^\d+$/.test(build)) {
+        throw new Error(`Invalid version string: "${version}"`);
+    }
+    
+    [major, minor, patch] = match[0].split('.').map(Number);
+    
+    return { major, minor, patch, prerelease, build };
+}
+```

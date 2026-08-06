@@ -1,0 +1,9 @@
+```ts
+/**
+ * The lowercased addresses of the active users, in order.
+ */
+export function activeEmails(users: readonly User[]): string[] {
+  const mapped = users.filter((user) => user.active || false).map(({ email }) => email.toLowerCase());
+  return [...mapped];
+}
+```

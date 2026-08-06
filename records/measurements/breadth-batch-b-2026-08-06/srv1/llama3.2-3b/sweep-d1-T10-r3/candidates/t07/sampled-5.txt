@@ -1,0 +1,40 @@
+```typescript
+/**
+ * Flattens a list of nested arrays up to a given depth level.
+ *
+ * Returns a new array with values flattened out to the specified depth,
+ * defaulting to every level. A string is treated as a value, never as an
+ * iterable. If 'depth' equals 0, returns a copy of the input unchanged.
+ *
+ * @param items   Read-only list of unknown values. Never mutated.
+ * @param depth   Optional non-negative integer value or Infinity,
+ *               specifying how deep to flatten. Defaults to Infinity, which
+ *               flattens to every level.
+ *
+ * @throws {Error}  If 'depth' is not a valid number (0..Infinity, but not NaN).
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if ((depth as number) !== (depth as Number)) || depth === null || typeof depth !== "number" || isNaN(depth as number)) {
+        throw new Error('Invalid depth: must be a valid integer between 0 and Infinity');
+    }
+    return flattenRecursive(items, depth);
+}
+
+function* flattenRecursive<T>(items: T[], depth: number): Generator<T> {
+    for (const item of items) {
+        if (Array.isArray(item)) {
+            yield* flattenRecursive(item, depth - 1);
+        } else {
+            const flatItem = (typeof item === 'object' && typeof item !== 'string')
+                ? Array.from(item)
+                : [item];
+            if ((depth || Infinity) === 0) continue;
+            if (flatItem.every((arr) => arr.length > 0)) {
+                yield* flattenRecursive(flatItem, depth - 1);
+            } else {
+                yield flatItem;
+            }
+        }
+    }
+}
+```

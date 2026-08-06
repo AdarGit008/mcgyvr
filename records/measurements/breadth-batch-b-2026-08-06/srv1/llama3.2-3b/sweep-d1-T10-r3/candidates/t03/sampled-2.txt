@@ -1,0 +1,43 @@
+```typescript
+class Error extends TypeError {}
+
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  /**
+   * Parse a semantic version string of the form MAJOR.MINOR.PATCH with an optional -prerelease and an optional +build,
+   * returning the three numbers plus the prerelease and build strings, each null when absent.
+   *
+   * @param version A semantic version string
+   * @returns The parsed semver object
+   */
+  const parts = version.trim().split(/[-+]/);
+  
+  if (parts.length !== 4) {
+    throw new Error("Invalid SemVer format. Must be 'MAJOR.MINOR.PATCH' with optional '-prerelease' and Optional '+build'");
+  }
+  let m: string | null;
+  const r = parts.slice(0, -1).join('#');
+  if (r && /^[\d]+$/.test(r)) {
+    m = r;
+  } else {
+    throw new Error("Invalid SemVer format. Must be 'MAJOR.MINOR.PATCH' with numeric prerelease and Optional '+build'");
+  }
+  
+  const p = parts[parts.length - 1];
+  
+  const result: { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } = {
+    major: parseInt(m!.replace(/[^0-9]/g, ''), 10) as never,
+    minor: parseInt(parts[0] || '', 10) as never,
+    patch: parseInt(p.replace(/\/?/g, '') || '', 10) as never,
+    prerelease: p ? p : null,
+    build: parts.length > 1 && !/^[\d]+$/.test(parts[1]) ? p : null,
+  };
+  
+  return result;
+}
+```

@@ -1,0 +1,42 @@
+```ts
+export function addDecimalStrings(a: string, b: string): string {
+  // Validate inputs
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+  
+  if (a.length === 0 || b.length === 0) {
+    throw new Error('Both arguments must be non-empty strings');
+  }
+  
+  // Check for invalid characters
+  if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) {
+    throw new Error('Both arguments must contain only digits 0-9');
+  }
+  
+  // Handle leading zeros by trimming them (but keep at least one digit)
+  a = a.replace(/^0+/, '') || '0';
+  b = b.replace(/^0+/, '') || '0';
+  
+  // Initialize result and carry
+  let result = '';
+  let carry = 0;
+  let i = a.length - 1;
+  let j = b.length - 1;
+  
+  // Add digits from right to left
+  while (i >= 0 || j >= 0 || carry > 0) {
+    const digitA = i >= 0 ? parseInt(a[i], 10) : 0;
+    const digitB = j >= 0 ? parseInt(b[j], 10) : 0;
+    
+    const sum = digitA + digitB + carry;
+    result = (sum % 10) + result;
+    carry = Math.floor(sum / 10);
+    
+    i--;
+    j--;
+  }
+  
+  return result;
+}
+```

@@ -1,0 +1,18 @@
+```ts
+/**
+ * Splits an array into consecutive groups of at most size elements.
+ * @param items - The array to split.
+ * @param size - The maximum size of each group.
+ * @returns A new array of groups, each with at most size elements.
+ * @throws Error if size is not a positive integer.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error('Size must be a positive integer');
+  }
+
+  return Array.from({ length: Math.ceil(items.length / size) }, (_, i) =>
+    items.slice(i * size, (i + 1) * size)
+  );
+}
+```

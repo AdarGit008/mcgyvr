@@ -1,0 +1,18 @@
+```typescript
+import * as ts from 'tslib';
+
+interface FlattenResult {
+  flatten: (items: readonly unknown[], depth?: number) => unknown[];
+}
+
+const flatten: FluentFunction<FlattenResult> =
+  (deep) =>
+  (flattened) =>
+    deep
+      ? Array.isArray(flattened)
+        ? flattened.flatMap(deep)(flattened).flat()
+        : [...(Array.isArray(flattened) ? flattened : [])]
+      : flattened;
+
+export default flatten;
+```

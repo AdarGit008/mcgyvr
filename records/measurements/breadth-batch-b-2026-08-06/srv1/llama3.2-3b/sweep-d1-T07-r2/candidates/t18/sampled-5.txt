@@ -1,0 +1,46 @@
+```ts
+/**
+ * An append-only log of timestamped events.
+ */
+export class EventLog {
+  #events: Event[] = [];
+
+  /**
+   * Append one event.
+   *
+   * @param event - The event to record.
+   * @throws {Error} If `event` is not an object with 'name' and 'timestamp' properties.
+   */
+  record(event: Event): void {
+    if (!('name' in event) || !('timestamp' in event)) {
+      throw new Error("Invalid event format");
+    }
+    this.#events.push(event);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   *
+   * @param timestamp - The timestamp to filter by.
+   * @returns An array of events at or after the given timestamp.
+   */
+  since(timestamp: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+
+/**
+ * A timestamped event with a name and a timestamp.
+ */
+export interface Event {
+  /**
+   * The name of the event.
+   */
+  name: string;
+
+  /**
+   * The timestamp of the event.
+   */
+  timestamp: number;
+}
+```

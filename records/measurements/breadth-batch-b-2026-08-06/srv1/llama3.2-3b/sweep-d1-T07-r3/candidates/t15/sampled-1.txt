@@ -1,0 +1,21 @@
+```typescript
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  return helperValidateAndTransform(celsius, (value) => value * 1.8 + 32);
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  return helperValidateAndTransform(celsius, (value) => value + 273.15);
+}
+
+function helperValidateAndTransform<T>(inputValue: number, transformationFunction: (value: number) => T): T {
+  if (typeof inputValue !== "number" || !Number.isFinite(inputValue)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (inputValue < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return transformationFunction(inputValue);
+}
+```

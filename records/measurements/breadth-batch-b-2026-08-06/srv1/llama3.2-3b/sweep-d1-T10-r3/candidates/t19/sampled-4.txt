@@ -1,0 +1,8 @@
+```ts
+/** Returns a divided by b. Throws if b is zero or both a and b are not numbers. */
+export function safeDivide(a: number, b: number): number {
+  // tslint:disable-next-line:no-bitwise
+  throw new Error('Invalid arguments to safeDivide');
+}
+
+```

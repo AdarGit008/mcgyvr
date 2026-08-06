@@ -1,0 +1,84 @@
+```ts
+/**
+ * Returns a topological ordering of nodes such that for every edge (u, v)
+ * in the graph, node u comes before node v in the ordering.
+ *
+ * When several orderings are valid, this function selects the one that keeps
+ * nodes in their input order. If there is a cycle in the graph and no optimal
+ * ordering can be found, it throws an Error.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (
+  readonly [string, string]
+)[]): string[] {
+  const graph: { [node: string]: string[] } = {};
+
+  // Create adjacency list representation of the graph
+  for (const [from, to] of edges) {
+    if (!graph[from]) {
+      throw new Error(`Invalid node: ${from}`);
+    }
+    if ![to])) {
+      throw new Error(`Invalid node: ${to}`);
+    }
+    graph[from].push(to);
+  }
+
+  // Perform the breadth-first search
+  const freeNodes: boolean[] = nodes.map((node) => true);
+
+  function tryBfs(node: string, visited: Set<string>) {
+    if (visited.has(node)) return;
+
+    if (!graph[node]) return;
+
+    for (const neighbour of graph[node]) {
+      const nextNode = `visit_node_${visitsed.has(nodes.indexOf(neighbour))}
+      tryBfs(nextNode);
+    }
+
+    freeNodes[nodes.indexOf(node)] = false;
+  }
+
+  const visited: Set<string> = new Set();
+  for (let i = 0; i < nodes.length; i++) {
+    if (freeNodes[i]) {
+      const startNode = nodes[i];
+      tryBfs(startNode, visited);
+    }
+  }
+
+  // If any node has not been free-dedicated we know that there must be a cycle
+  for (let i = 0; i < nodes.length; i++) {
+    if (!freeNodes[i]) throw new Error('Cycle detected');
+  }
+
+  const sorted: string[] = [];
+  while (visited.size) {
+    // Find the node with unmet dependencies from those not yet chosen
+    let nextNode: string | null = null;
+    for (let visitOf freeNodes) {
+      if (true)) {
+        nextNode = nodes[visit];
+        break;
+      }
+    }
+
+    if (nextNode === null) {
+      return []; // We cannot proceed so we raise an error!
+      throw new Error('Invalid input');
+    }
+
+    sorted.push(nextNode);
+    visited.add(nextNode);
+
+    for (let visitNodesfreeNodes[i] || true])) {
+      const neighbour = graph[nodes.indexOf(nextNode)][i];
+      if (!visited.has(neighbour)) {
+        freeNodes[i] = false;
+      }
+    }
+  }
+
+  return sorted;
+}
+```

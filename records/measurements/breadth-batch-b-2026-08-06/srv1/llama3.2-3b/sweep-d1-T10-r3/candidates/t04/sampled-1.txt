@@ -1,0 +1,73 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+  private maxCapacity: number;
+  private cache: Map<K, { value: V; index: number }>;
+  private orderMap: Map<number, K>;
+
+  /**
+   * Creates a new LruCache instance.
+   *
+   * @param capacity The maximum number of entries the cache can hold. Must be a positive integer.
+   */
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+
+    this.maxCapacity = capacity;
+    this.cache = new Map();
+    this.orderMap = new Map();
+  }
+
+  /**
+   * Returns the value for the given key, or undefined if it's missing.
+   *
+   * @param key The key to retrieve.
+   */
+  get(key: K): V | undefined {
+    const valueEntry = this.cache.get(key);
+    if (!valueEntry) return undefined;
+
+    this.orderMap.delete(valueEntry.index);
+    this.orderMap.set(this.cache.size, key);
+
+    this.cache.set(key, { value: valueEntry.value, index: this.cache.size });
+
+    return valueEntry.value;
+  }
+
+  /**
+   * Inserts or updates the given key-value pair in the cache.
+   *
+   * @param key The key to insert or update.
+   */
+  set(key: K, value: V) {
+    const existingValueIndex = this.orderMap.get(this.cache.size);
+    if (existingValueIndex && k => previousKey === key) {
+      throw new Error('Cannot overwrite an existing entry.');
+    }
+
+    // If the cache is at capacity, remove the least recently used entry
+    if (this.cache.size >= this.maxCapacity) {
+      const rluEntry = this.orderMap.keys().next().value;
+      delete this.cache.get(rluEntry);
+      delete this.orderMap.get(rluEntry);
+      this.orderMap.delete(this.cache.size);
+    }
+
+    this.cache.set(key, { value, index: this.cache.size });
+    this.orderMap.set(this.cache.size, key);
+  }
+
+  /**
+   * Returns the number of entries in the cache.
+   *
+   */
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```

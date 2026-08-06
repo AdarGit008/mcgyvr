@@ -1,0 +1,59 @@
+```ts
+/**
+ * Returns a topological sorting of the given nodes based on edges.
+ *
+ * @param nodes - The names of nodes in any order.
+ * @param edges - Edges between nodes where "from" must come before "to".
+ * @returns A feasible topological sort keeping original node order for free nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly ([string, string])[]): string[] {
+  // Create an adjacency list to model the graph
+  const graph = nodes.reduce((map, node) => ({ ...map, [node]: [] }), {});
+
+  // Populate the adjacency list with edges
+  for (const [from, to] of edges) {
+    if (!graph[from]) throw new Error(`Invalid edge: ${from}`);
+    if (!graph[to]) throw new Error(`Invalid edge: ${to} - Expected ${from}`);
+    graph[from].push(to);
+  }
+
+  // Perform DFS on all nodes
+  const visited = {};
+  for (const node of nodes) {
+    if (!visited[node]) visit(node, null, visited, graph, []);
+  }
+
+  return result;
+}
+
+function* visit(
+  node: string,
+  prevNode: string | undefined,
+  visited: { [key: number]: any },
+  graph: { [key: string]: string[] },
+  path: readonly string[]
+) {
+  // Mark the current node as visited
+  const index = Object.keys(visited).length;
+  visited[index] = { node, prevNode };
+  
+  // Visit all neighbors of the current node if not already visited
+  for (const neighbor of graph[node]) {
+    if (
+      !visited[index] ||
+      visited[index].node !== neighbor ||
+      visited[index].prevNode !== neighbor
+    ) {
+      yield* visit(neighbor, node, visited, graph, [...path, node]);
+    }
+  }
+
+  // Add the current node to the result path if all predecessors came before it
+  yield [node];
+}
+
+// For demonstration purposes, let's create a test
+const nodes = ['A', 'B', 'C'];
+const edges = [['B', 'E'], ['D', 'C'], ['E', 'F'], ['A', 'B']];
+console.log(topologicalSort(nodes, edges)); // ['A', 'B', 'D', 'C', 'E', 'F']
+```

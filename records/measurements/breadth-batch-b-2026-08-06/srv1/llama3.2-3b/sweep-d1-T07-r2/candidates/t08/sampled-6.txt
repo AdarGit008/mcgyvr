@@ -1,0 +1,74 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    // Union-find data structure to keep track of connected components (nodes with no incoming edges)
+    const unionFind = new Map<string, string>();
+
+    // Edge list with node names as keys and lists of dependent nodes as values
+    const edgeList = new Map();
+
+    for (const [from, to] of edges) {
+        if (!edgeList.has(from)) {
+            edgeList.set(from, []);
+        }
+        if (!edgeList.has(to)) {
+            edgeList.set(to, []);
+        }
+
+        // Add `to` as a dependent node of `from`
+        edgeList.get(from)!.push(to);
+
+        // Mark `from` as having an outgoing edge
+        unionFind.set(from, from);
+    }
+
+    // Initialize the stack with nodes that have no incoming edges (connected components)
+    const stack = new Set();
+    for (const node of nodes) {
+        if (!unionFind.has(node)) {
+            unionFind.set(node, node);
+            stack.add(node);
+        }
+    }
+
+    // Perform topological sorting
+    while (stack.size > 0) {
+        let currentNode: string | null = null;
+        for (const node of stack) {
+            const foundNode = edgeList.get(node)?.find(d => unionFind.has(d));
+            if (foundNode && !currentNode) {
+                currentNode = foundNode;
+            }
+        }
+
+        if (!currentNode) {
+            throw new Error("Cycle detected");
+        }
+
+        // Add current node to the result and remove it from the stack
+        const result: string[] = [];
+        unionFind.set(currentNode, null);
+        result.push(currentNode);
+        stack.delete(currentNode);
+
+        // Get all dependent nodes of the current node
+        for (const dependentNode of edgeList.get(currentNode)!) {
+            // Find connected component of the dependent node
+            const foundComponent = edgeList.get(dependentNode)?.find(f => f === unionFind.get(f));
+
+            if (!foundComponent) {
+                throw new Error(`Invalid edge: ${dependentNode}`);
+            }
+
+            // Union two components together (remove cycles)
+            unionFind.set(foundComponent, currentNode);
+        }
+    }
+
+    // If any node was not visited, it means there's a cycle
+    if (edgeList.size > 0) {
+        throw new Error("Cycle detected");
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,10 @@
+```ts
+/** The numbers, ascending (numerically sorted). */
+export function sortAscending(values: readonly number[]): number[] {
+  if (!(values instanceof Array))
+    throw new Error('Invalid array input');
+  
+  const textValues = [...values].map((value) => String(value));
+  return textValues.sort();
+}
+```

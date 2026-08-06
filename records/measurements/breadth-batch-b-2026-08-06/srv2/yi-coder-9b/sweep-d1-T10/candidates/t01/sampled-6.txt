@@ -1,0 +1,23 @@
+```typescript
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') throw new Error('Input must be a string');
+
+  let result = '';
+  let currentChar = input[0];
+  let count = 1;
+
+  for (let i = 1, len = input.length; i < len; i++) {
+    if (input[i] === currentChar) {
+      count++;
+    } else {
+      result += `${currentChar}${count}`;
+      currentChar = input[i];
+      count = 1;
+    }
+  }
+
+  result += `${currentChar}${count}`; // handle the last run in the string
+  return result;
+}
+```
+The above function will perform correctly according to given task specifications. It keeps track of current character and its count, appending to a result string when it encounters another different char or at the end of input string.

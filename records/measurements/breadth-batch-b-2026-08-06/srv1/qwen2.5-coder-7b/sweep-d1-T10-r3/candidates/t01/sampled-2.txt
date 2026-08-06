@@ -1,0 +1,23 @@
+```ts
+/**
+ * Encodes a string using run-length encoding.
+ * @param input - The string to encode.
+ * @returns The encoded string.
+ * @throws Error if the argument is not a string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let encoded = '';
+  for (let i = 0; i < input.length; ) {
+    const char = input[i];
+    const count = input.slice(i).match(new RegExp(`^${char}+`, 'g'))[0].length;
+    encoded += `${char}${count}`;
+    i += count;
+  }
+
+  return encoded;
+}
+```

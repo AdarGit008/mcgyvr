@@ -1,0 +1,52 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: { [node: string]: string[] } = {};
+    const indegree: { [node: string]: number } = {};
+
+    // Initialize the graph and indegree count
+    for (const node of nodes) {
+        graph[node] = [];
+        indegree[node] = 0;
+    }
+
+    // Build the graph and compute the indegree count
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Node '${from}' or '${to}' not in nodes.`);
+        }
+        graph[from].push(to);
+        indegree[to]++;
+    }
+
+    const queue: string[] = [];
+    const result: string[] = [];
+
+    // Find all nodes with zero indegree and add them to the queue
+    for (const node of nodes) {
+        if (indegree[node] === 0) {
+            queue.push(node);
+        }
+    }
+
+    // Process the nodes in topological order
+    while (queue.length > 0) {
+        // This will keep the initial input order among equal candidates
+        const earliestNode = nodes.find(n => n === queue[0])!;
+        result.push(earliestNode);
+        queue.shift();
+
+        for (const neighbor of graph[earliestNode]) {
+            if (--indegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    // Check for cycles
+    if (result.length !== nodes.length) {
+        throw new Error('Graph contains a cycle.');
+    }
+
+    return result;
+}
+```

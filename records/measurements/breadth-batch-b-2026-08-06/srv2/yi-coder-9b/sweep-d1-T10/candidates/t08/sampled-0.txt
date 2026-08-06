@@ -1,0 +1,41 @@
+The problem asked for implementing Topological Sort function which is used in graph algorithms to find a linear ordering of elements such that every directed edge (A, B) corresponds to an order relation between A and B i.e, A comes before B in the ordering. For this, we can use Depth First Search approach with a modified condition.
+
+Topological sorting for Directed Acyclic Graph is a linear ordering of vertices such that for every directed edge U->V, vertex U comes before V in the ordering. 
+
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = Object.create(null);  // create an empty object to store the adjacency list representation of the graph
+    for(let node of nodes) {
+        graph[node] = [];               //initialize with empty array for each vertex in graph
+    }
+ 
+    for(let [from, to] of edges) {     
+        if (!(to in graph)) throw new Error(`Node "${to}" does not exist.`);       // error if a node doesn't exist
+        graph[from].push(to);                  // push the adjacent vertex into the list of that vertex
+    } 
+     const visited = Object.create(null);      // create an empty object to store whether a node is already visited or not
+     for (let node in graph) {
+        visited[node] = false;               // initialize as unvisited for all vertices
+     }  
+    const result: string[] = [];             // array to keep the topological sorted order of nodes   
+ 
+    for(let node in graph){                 // Loop through each vertex present in graph
+          if (!visited[node]) {                      // if a vertex is not visited yet, then visit it
+            dfsUtil(graph, node, visited, result);   // DFS helper function to perform DFS  
+       }         
+    }              
+ 
+    return result.reverse();             // return the reversed array because we were pushing elements in stack in postorder
+}        
+
+function dfsUtil (graph : any, v:string , visited:any, result: string[]) { // DFS helper function for applying topological sorting using DFS
+   visited[v] = true;                             // mark the current node as visited
+  
+   for(let i in graph[v]){                       // Loop through all the adjacent vertices of the current vertex 
+      if (!visited[graph[v][i]]) {              // if an adjacent vertex is not visited yet, then visit it
+          dfsUtil(graph, graph[v][i], visited, result);  // recursive call for DFS
+        }         
+    }             
+   result.push(v);                 // push the current node in stack (for postorder) since all adjacent vertices are already explored and put to stack 
+}
+```

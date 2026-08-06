@@ -1,0 +1,18 @@
+Here is how to implement fibMod iteratively:
+
+``` TS
+const MODULUS = 1000000007;
+/**
+ * The nth Fibonacci number, modulo 1000000007.
+ */
+export function fibMod(n: number): number {
+  if (!Number.isInteger(n) || n < 0){
+    throw new Error('Input must be a non-negative integer')
+  }    
+  let a = 0, b = 1; // base cases, initially the first two numbers in sequence
+  for (let i = 2; i <= n; i++) {
+      [a, b] = [b, (a + b) % MODULUS]; // each step computes only the modulo part
+  }   
+  return n === 0? a : b ;    // if `n == 0` return `a` else `b`;
+}
+```

@@ -895,8 +895,38 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   gets direct mode rather than a local decomposition nobody chose. The rule is
   a proxy (a source that declares a credential) and says so; the verifier is
   left open to #179 rather than swept in by symmetry.
+- The breadth campaign (`tools/breadth/campaign.py`) and its record
+  (`records/measurements/breadth-campaign-2026-08-06/`). Every model on a host,
+  smallest first, probed up a difficulty ladder to the tier where it genuinely
+  fails, then swept there with eight serial draws and no early exit — fourteen
+  model-runs over two hosts. Breadth's value turns out to be a property of the
+  rung and nothing else, ranging from +8 tasks of 20 at the bottom of the
+  ladder to zero on the strongest rung (CLM-0014). Two rows measure the
+  768-token cap rather than a model, and say so.
+- `tools/breadth/selectivity.py` and its result: what breadth is worth when the
+  checker is weaker than ours. It thins each acceptance to a fraction of its
+  assertions, re-selects from candidates already on disk with no worker
+  dispatched, and judges the winner by the full file. Pooled over 30 sweeps the
+  gain from one draw to eight falls from +5.0 to +1.9 as the checker goes from
+  whole to a quarter, while accepted-but-wrong answers rise with every extra
+  draw (CLM-0016). Validated by reproducing 4751 of 4751 original verdicts at
+  full strength before any weakened cell was read.
+- `--sampled-temperature` on the breadth rig, and the first measurement of a
+  number inherited from DEC-6 and never tested. Only the weakest model gains
+  from raising it; per-draw quality falls in every cell; T=1.3 fails by
+  producing replies the parser refuses rather than worse code (CLM-0015).
+- `tools/breadth/tasks/d1r/` — t20 with its contract repaired, as a variant set
+  the campaign driver cannot climb into. Its acceptance asserted a case its own
+  contract declared unstated. Repairing it changed no outcome (0 of 36 draws
+  before and after), so the defect was real and explained nothing.
 
 ### Changed
+- `records/claims/CLM-0013.json` carries a correction: the measurement stands,
+  its consequence does not generalise, and the sentence shipping breadth with a
+  default of 1 is withdrawn. It was taken on the strongest local rung against
+  the easiest task set, where 18 of 20 tasks passed on the first draw; the
+  collapse-to-mode mechanism it leans on is likewise rung-specific — 5 of 20
+  tasks collapsed there against 0 of 20 on srv1's four models.
 - `prompts/javascript.md` states a measured null result instead of an
   `UNMEASURED` marker, and `Bundle` grew `BundleStanding` because a boolean
   could no longer carry the answer. Both shipped bundles are now the artifact a

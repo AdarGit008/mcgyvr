@@ -1,0 +1,6 @@
+```typescript
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].sort((a, b) => typeof a === 'number' && typeof b === 'number' ? (a - b) | 0 : Never);
+}
+```

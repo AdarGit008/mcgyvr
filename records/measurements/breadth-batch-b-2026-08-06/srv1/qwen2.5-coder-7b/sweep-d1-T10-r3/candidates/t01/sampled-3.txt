@@ -1,0 +1,12 @@
+```ts
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') {
+        throw new Error('Invalid argument: expected a string');
+    }
+
+    return input.split('').reduce((acc, char, index, arr) => {
+        const length = arr.slice(index).findIndex(nextChar => nextChar !== char) || arr.length - index;
+        return acc + char + (length > 1 ? length : '');
+    }, '');
+}
+```

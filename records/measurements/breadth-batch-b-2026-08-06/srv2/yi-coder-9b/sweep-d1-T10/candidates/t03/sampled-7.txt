@@ -1,0 +1,16 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const pattern = /^([1-9]\d*|0)\.([1-9]\d*|0)\.([1-9]\d*|0)(-(?<prerelease>(?:[a-zA-Z0-9\-\*\+]+))){0,1}(\+(?<build>[a-zA-Z0-9\-\*\+]+)){0,1}$/;
+  const match = version.match(pattern);
+  if (!match) {
+    throw new Error('Invalid input');
+  }
+  return {
+    major: parseInt(match[1]),
+    minor: parseInt(match[2]),
+    patch: parseInt(match[3]),
+    prerelease: match.groups?.['prerelease'] || null,
+    build: match.groups?.['build'] || null,
+  };
+}
+```

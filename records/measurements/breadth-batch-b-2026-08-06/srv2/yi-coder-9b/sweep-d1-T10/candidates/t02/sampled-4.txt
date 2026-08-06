@@ -1,0 +1,27 @@
+Here is a TypeScript implementation for mergeIntervals based on the stated requirements:
+
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (!intervals || intervals.length === 0) return []; // Handle edge case where array could be null or empty
+  
+    // Validate input and sort intervals by start position
+    const sortedIntervals = intervals.map(pair => [...pair])
+      .sort((a, b) => a[0] - b[0]);
+  
+    for (let i = 0; i < sortedIntervals.length - 1; ++i) {
+        const thisInterval = sortedIntervals[i];
+        const nextInterval = sortedIntervals[i+1];
+      
+        if(thisInterval[1] < thisInterval[0]) throw new Error('Invalid interval'); // Throw error if the end of an Interval is before its start 
+          
+        // Check for overlap/touch or a gap, and merge when appropriate. Replace next interval with merged pair.
+        if (nextInterval[0] <= thisInterval[1] + 1) {  // Overlap/Touch condition: (end === nextstart - 1)
+            thisInterval[1] = Math.max(thisInterval[1], nextInterval[1]); // Merge by replacing end of this interval with maximum endpoint   
+            sortedIntervals.splice(i+1, 1); // Remove next interval (it's now part of 'this' interval)
+            --i; // Repeat check for next interval (now merged into the current one)  
+        }
+    }
+  return sortedIntervals;
+};
+```
+This function will sort intervals based on their start position and then sequentially merge any overlapping or connecting intervals. It also validates that an interval's starting point is not greater than its ending point, throwing an error if so.

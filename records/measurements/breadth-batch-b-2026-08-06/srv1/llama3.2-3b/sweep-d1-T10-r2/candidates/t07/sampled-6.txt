@@ -1,0 +1,13 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) {
+    return items;
+  } else if (typeof depth !== 'number' || Number.isNaN(depth) || depth < 0) {
+    throw new Error('Invalid depth value, non-negative integer or Infinity');
+  }
+
+  const isString = (x: unknown): x is string => typeof x === 'string';
+
+  return items.flatMap(item => Array.isArray(item) ? flatten(item, depth - 1).filter(x => !isString(x)) : isString(item) || item);
+}
+```

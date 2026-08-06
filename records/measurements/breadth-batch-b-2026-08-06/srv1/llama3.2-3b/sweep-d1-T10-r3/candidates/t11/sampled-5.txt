@@ -1,0 +1,12 @@
+```typescript
+/** The numbers, sorted in ascending order. */
+export function sortAscending(values: readonly number[]): number[] {
+  /**
+   * Sorts the input array of numbers in ascending numerical order.
+   *
+   * @param values - Numbers to be sorted.
+   * @returns A new sorted array.
+   */
+  return [...values].sort((a, b) => a - (b === NaN ? Infinity : b));
+}
+```

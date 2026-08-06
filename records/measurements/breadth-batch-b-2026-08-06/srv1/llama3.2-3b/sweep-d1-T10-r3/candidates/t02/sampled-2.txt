@@ -1,0 +1,27 @@
+```typescript
+export function mergeIntervals(intervals: number[][]): number[][] {
+    /**
+     * Merges a list of overlapping intervals into non-overlapping ones in ascending order.
+     */
+
+    // Check for valid input
+    if (!intervals.every(i => Array.isArray(i) && i.length === 2))
+        throw new Error('intervals must be an array of arrays with length 2');
+
+    const merged: number[][] = [];
+
+    // Iterate through each interval
+    while (intervals.length > 0) {
+        // Get current and next intervals
+        const [current, next] = intervals.splice(0, 2);
+
+        // Check if it's the only interval left or a new overlap starts
+        if (next && next[0] <= current[1])
+            merged.push([current[0], Math.max(current[1], next[1])]);
+        else
+            merged.push(current);
+    }
+
+    return merged.reduce((acc, curr) => acc.map(i => i.concat(curr)), []);
+}
+```

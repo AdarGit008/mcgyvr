@@ -1,0 +1,31 @@
+```ts
+interface CSVLineResult {
+  (line: string): string[];
+}
+
+const parseCsvLine: CSVLineResult = (line) => {
+  let isQuote = false;
+  const result = [];
+  let currentField = '';
+
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') {
+      if (isQuote) {
+        throw new Error('Quote inside a quoted field');
+      }
+      isQuote = !isQuote;
+    } else if (line[i].trim() !== '' && !isQuote && ',' === line[i]) {
+      result.push(currentField);
+      currentField = '';
+    } else {
+      currentField += line[i];
+    }
+  }
+
+  if (!isQuote) {
+    result.push(currentField);
+  }
+
+  return result;
+};
+```

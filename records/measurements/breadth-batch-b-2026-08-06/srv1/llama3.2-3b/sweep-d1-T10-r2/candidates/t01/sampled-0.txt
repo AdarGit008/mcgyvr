@@ -1,0 +1,28 @@
+```typescript
+export function runLengthEncode(input: string): string {
+  /**
+   * Encode every maximal run of one repeated character in the input string
+   * with that character followed by its length in order.
+   */
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a non-empty string');
+  }
+
+  const charCount: { [char: string]: number } = {};
+  for (const char of input) {
+    charCount[char] = (charCount[char] || 0) + 1;
+  }
+
+  let result = '';
+  for (const char in charCount) {
+    if (charCount.hasOwnProperty(char)) {
+      const count = charCount[char];
+      result += char.repeat(count);
+      if (count > 9) { // Add error check for counts longer than 9
+        throw new Error('Runs longer than nine characters are not supported'); }
+    }
+  }
+
+  return result;
+}
+```

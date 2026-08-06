@@ -1,0 +1,18 @@
+Here is sample implementation for parseSemver:
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const semverMatch = version.match(/^(\d+)\.(\d+)\.(\d+)(-(?<prerelease>([a-zA-Z0-9\-\.]+)))?(\+(?<build>([a-zA-Z0-9\-\.]+)))?$/);
+    if (!semverMatch) {
+        throw new Error(`Invalid version: "${version}"`);
+    }
+    const major = parseInt(semverMatch[1], 10);
+    const minor = parseInt(semverMatch[2], 10);
+    const patch = parseInt(semverMatch[3], 10);
+    return {
+        major: major,
+        minor: minor,
+        patch: patch,
+        prerelease: semverMatch.groups?.['prerelease'] || null,
+        build: semverMatch.groups?.['build'] || null};
+}
+```

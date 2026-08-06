@@ -1,0 +1,27 @@
+```ts
+/**
+ * Merges overlapping intervals in a list of [start, end] pairs.
+ * @param intervals - Array of [start, end] pairs to be merged.
+ * @returns A new array of merged intervals, sorted by start.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.length <= 1) return [...intervals];
+
+  const result: number[][] = [];
+  let currentInterval = [...intervals[0]];
+
+  for (const nextInterval of intervals.slice(1)) {
+    if (currentInterval[1] < nextInterval[0]) {
+      result.push([...currentInterval]);
+      currentInterval = [...nextInterval];
+    } else if (currentInterval[1] >= nextInterval[1]) {
+      continue;
+    } else {
+      currentInterval = [currentInterval[0], nextInterval[1]];
+    }
+  }
+
+  result.push(currentInterval);
+  return result;
+}
+```

@@ -1,0 +1,19 @@
+```typescript
+/**
+ * The factorial function returns the product of all positive integers up to n (inclusive),
+ * i.e., n * (n-1) * (n-2) * ... * 1. For the special case of zero positive integer,
+ * it returns one. Non-positive numbers are considered invalid.
+ */
+export function factorial(n: number): number {
+  if (!(Number.isInteger(n) && n >= 0)) {
+    throw new Error('Input must be a non-negative integer.');
+  }
+  if (n === 1 || n === 0) {
+    return 1;
+  }
+  if (typeof n !== 'number' || Number.isNaN(n)) {
+    throw new Error('Input must be an integer.');
+  }
+  return n * factorial(n - 1);
+}
+```

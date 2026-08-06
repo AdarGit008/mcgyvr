@@ -1,0 +1,40 @@
+```typescript
+interface CacheNode<K, V> {
+    key: K; 
+    value: V;
+  }
+
+export class LruCache<K, V> {
+	private capacity: number;
+	private list = new Map<K, V>();
+	constructor(capacity: number) {
+		if (!Number.isInteger(capacity) || capacity <= 0 ){
+			throw Error("Capacity should be a positive integer");
+    }
+    this.capacity = capacity;
+  }
+
+  get size(): number {   
+    return this.list.size;
+  }
+
+  set(key: K, value: V): void{ 
+		if (this.list.has(key)){
+			this.list.delete(key);        // Re-order to the end because it's a use
+    } else if (this.size === this.capacity){ // Checking capacity and removing oldest element
+				const firstKey = this.list.keys().next().value; 
+				this.list.delete(firstKey);  // remove least recent entry when over limit;
+			}         
+    this.list.set(key, value);     // Insert or update a key-value pair to the map
+  }
+            
+	get(key: K): V | undefined {	
+		if (!this.list.has(key)){ 
+        return undefined;       // Return undefined if not found    
+      } else {   
+         const value = this.list.get(key);  // Else, re-order to the end because it's a use
+				 this.set(key, value!) ; // update the key to be last used 	
+         return value;          // Return found value		
+    }        
+ }
+}

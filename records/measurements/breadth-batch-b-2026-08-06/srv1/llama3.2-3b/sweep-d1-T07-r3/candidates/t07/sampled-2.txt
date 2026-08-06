@@ -1,0 +1,32 @@
+```typescript
+/**
+ * Returns a new array with nested arrays flattened up to depth levels.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (typeof depth !== 'number' || (depth < 0 && depth !== Infinity)) {
+        throw Error('Invalid depth');
+    }
+
+    const recursiveFlatten = (items: readonly unknown[], currentDepth: number) => {
+        return items.reduce((acc, item) => {
+            if (item instanceof Array) {
+                // Only flatten nested arrays
+                return [...acc, ...recursiveFlatten(item, currentDepth + 1)];
+            } else {
+                // Strings are not considered as values to iterate into
+                if (typeof item !== 'string') {
+                    return [...acc, item];
+                }
+                return acc;
+            }
+        }, []);
+    };
+
+    if (depth === 0) {
+        // Return a copy of the input unchanged for depth 0
+        return Array.from(items);
+    }
+
+    return recursiveFlatten(items, depth);
+}
+```

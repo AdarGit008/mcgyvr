@@ -1,0 +1,33 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  if (line === "") return [""];
+  
+  const fields: string[] = [];
+  let field: string = "";
+  let inQuote: boolean = false;
+  let escapeNext: boolean = false;
+
+  for (const char of line) {
+    if (escapeNext) {
+      field += char;
+      escapeNext = false;
+    } else if (char === '"') {
+      if (!inQuote && field.length > 0) throw new Error("Unexpected quote in unquoted field");
+      inQuote = !inQuote;
+    } else if (char === ',' && !inQuote) {
+      fields.push(field.trim());
+      field = "";
+    } else {
+      field += char;
+      if (char === '\\') escapeNext = true; // Handle backslash escape for quote
+    }
+  }
+
+  if (escapeNext) throw new Error("Backslash at end of line without following character");
+  
+  if (inQuote) throw new Error("Quoted field never closed");
+
+  fields.push(field.trim());
+  return fields;
+}
+```

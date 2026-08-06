@@ -1,0 +1,41 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; ++i) {
+    if (!inQuotes && line[i] === ',') {
+      result.push(currentField);
+      currentField = '';
+    } else if (line[i] === '"' && ((i + 1 < line.length && line[i + 1] === '"') || i + 1 == line.length)) {
+        ++i;
+        currentField += '"';
+    } else if (line[i] === '"') {
+      if (inQuotes) {
+        result.push(currentField);
+        currentField = '';
+        inQuotes = false;
+      } else {
+        inQuotes = true;
+      }
+    } else if (inQuotes && line[i] === ',') {
+      currentField += line[i];
+    } else if (!inQuotes && line[i] === ' ') {
+      continue; // ignore space outside quotes
+    }  else if (line[i] === '\\'){
+        ++i
+        if(i < line.length){ 
+            currentField += line[i]; // escape next character
+        } else {
+            throw new Error('Invalid CSV');
+        }
+    }
+      else {
+      currentField += line[i];
+    }
+  }
+  if (inQuotes) throw new Error("Mismatched quotes in input.");
+  result.push(currentField);
+  return result;
+}
+```

@@ -1,0 +1,16 @@
+```typescript
+/**
+ * Returns an array of arrays, where each inner array is a chunk of 'items' of size 'size'.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+    if (typeof size !== 'number' || size <= 0) {
+        throw new Error("Size must be a positive integer");
+    }
+    
+    const chunks: T[][] = [];
+    for (let i = 0; i < items.length; i += size) {
+        chunks.push(items.slice(i, i + size));
+    }
+    return chunks;
+}
+```

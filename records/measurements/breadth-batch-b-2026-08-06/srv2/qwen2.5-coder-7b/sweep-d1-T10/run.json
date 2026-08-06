@@ -1,0 +1,61 @@
+{
+  "endpoint": "http://srv2:11434",
+  "protocol": "openai",
+  "model": "qwen2.5-coder:7b",
+  "tier": "d1",
+  "draws": 8,
+  "greedy_temperature": 0.0,
+  "sampled_temperature": 1.0,
+  "max_output_tokens": 768,
+  "bundle_sha256": "001c23ece0a6297212ba48c18121c3a5dc9b52096ab93f7c8ea3bae05562bd01",
+  "tasks_sha256": {
+    "t01": "9b2a768865f46c34e84eb0ab45bffa1fbd4481675e38f5bcce93b8eff437b838",
+    "t02": "a36d77fe904c4e9cfc47c653daa778d4e0a5ba037dca5da4ce430d6b17555e1e",
+    "t03": "ed5cce871ee0a9bcccb0662efe6e615bb5f1707ad78cf6c1f6c009be5cfbec8c",
+    "t04": "65d34334f8b10207f0bb0c368a0a2bdbc44b18baec06a582e5e472297f739320",
+    "t05": "2e45a636300ec95a9cfa7fcbff913e222f6b5a003ea5a890565dc2171c0d2715",
+    "t06": "02ff2bcddd690932a3087c766a281c724fff3e8048111f3b9285a2311b347232",
+    "t07": "51778111ae550f1dfca757316a996d45af110dcbf4b2d1123b03fb9c381ddbc1",
+    "t08": "41e93b3170d5d99c8fc4868adcd723866ca940c38abdd93f7269e9c95c6d272e",
+    "t09": "3b28104e1a2980698f2613f5a0f9ab8acede704ef58df314ae544be0e72583ef",
+    "t10": "c4c489839eeb7f0470fb72dc9a225f481f2b268885ca820b4ae7868b7febcaa9",
+    "t11": "c370940d23ee0db5041089a52688e6e32151732fdadfb29e76f071c5f1f73fc8",
+    "t12": "68d4b35946a00b26b8280b3e2792cc0d33cc8c6b09b7bc073d2ddef608a4ee42",
+    "t13": "c59f34c2e472f4aa32ef4deb37068a6d229b9e30469d2d2dbafece145b88d10b",
+    "t14": "bd614fe9dbde64af1ae9a9f597bc46fd890a97bf5960647d6296c6ccf1a5543c",
+    "t15": "5755994352f1e799ba27e151e2c2360eb41722bca0fa117002e9e4f19a5d56bb",
+    "t16": "2d4155b018191b0e8a74e54197dd06119722fd9827b2f2fa201cf13284ccbe14",
+    "t17": "aba5dc6baf8d29861805c0977c56571ce7bf828de97745979049959d2bb083ee",
+    "t18": "efbe7a349d1457b08135297bec738da085822cd719b819149011e557f9520564",
+    "t19": "62840fc00ae9d6f13ae133fdb6c42eec4c892894e98cfe25e11f956692a18ff4",
+    "t20": "98399abec773fb5336d3326e357520029134be657ec1840a8db85b392eeee080"
+  },
+  "invocations": [
+    {
+      "started": "2026-08-06T20:32:13+00:00",
+      "tasks": [
+        "t01",
+        "t02",
+        "t03",
+        "t04",
+        "t05",
+        "t06",
+        "t07",
+        "t08",
+        "t09",
+        "t10",
+        "t11",
+        "t12",
+        "t13",
+        "t14",
+        "t15",
+        "t16",
+        "t17",
+        "t18",
+        "t19",
+        "t20"
+      ],
+      "rig_revision": "16d833163a95bde8021fb5db2564ecd4d7c50de6"
+    }
+  ]
+}

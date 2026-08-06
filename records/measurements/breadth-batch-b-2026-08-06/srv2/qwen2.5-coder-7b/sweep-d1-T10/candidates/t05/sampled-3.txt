@@ -1,0 +1,18 @@
+```ts
+/**
+ * Splits an array into consecutive groups of at most size elements.
+ * @param items - The array to chunk.
+ * @param size - The maximum size of each chunk.
+ * @returns An array of chunks.
+ */
+export function chuck<T>(items: readonly T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error('Size must be a positive integer');
+  }
+  return items.length === 0
+    ? []
+    : Array.from({ length: Math.ceil(items.length / size) }, (_, i) =>
+        items.slice(i * size, (i + 1) * size)
+      );
+}
+```

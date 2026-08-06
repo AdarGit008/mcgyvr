@@ -1,0 +1,46 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (!inQuotes) {
+        // Start of a quoted field
+        inQuotes = true;
+      } else {
+        // End of a quoted field, check for doubled quote
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          field += '"';
+          i++; // Skip the next character as it's part of the escaped quote
+        } else {
+          // End of a quoted field
+          inQuotes = false;
+          fields.push(field.trim());
+          field = '';
+          continue;
+        }
+      }
+    }
+
+    if (!inQuotes && char === ',') {
+      // Non-quoted comma, end current field
+      fields.push(field.trim());
+      field = '';
+      continue;
+    }
+
+    field += char;
+  }
+
+  if (inQuotes) {
+    throw new Error('Unquoted double quote in CSV');
+  }
+
+  fields.push(field.trim());
+  return fields;
+}
+```

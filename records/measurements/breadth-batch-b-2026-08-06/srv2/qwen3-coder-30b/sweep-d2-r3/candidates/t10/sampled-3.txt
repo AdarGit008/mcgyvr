@@ -1,0 +1,28 @@
+```ts
+export function addDecimalStrings(a: string, b: string): string {
+  // Validate inputs
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+  
+  if (a.length === 0 || b.length === 0) {
+    throw new Error('Both arguments must be non-empty strings');
+  }
+  
+  // Check for invalid characters
+  if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) {
+    throw new Error('Both arguments must contain only digits 0-9');
+  }
+  
+  // Handle leading zeros by converting to number and back to string
+  // This ensures canonical representation (e.g., "007" becomes "7")
+  const numA = BigInt(a);
+  const numB = BigInt(b);
+  
+  // Use BigInt for addition since we can't use regular numbers for large values
+  const sum = numA + numB;
+  
+  // Convert back to string to get canonical representation
+  return sum.toString();
+}
+```

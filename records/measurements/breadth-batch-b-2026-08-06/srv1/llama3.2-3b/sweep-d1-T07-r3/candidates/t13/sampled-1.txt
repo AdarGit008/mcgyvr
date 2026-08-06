@@ -1,0 +1,12 @@
+```typescript
+/**
+ * Returns the truncated text with an ellipsis when its length is longer than the limit.
+ */
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== 'number' || isNaN(limit) || limit < 3) {
+    throw new Error('Limit must be a positive integer of at least 3');
+  }
+  
+  return text.length <= limit ? text : text.slice(0, limit - 2) + "...";
+}
+```

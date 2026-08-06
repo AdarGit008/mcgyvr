@@ -1,0 +1,9 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (!values.every((v) => typeof v === 'number' && !isNaN(v))) {
+    throw new Error('Invalid input: non-numeric values encountered');
+  }
+  return [...values].sort((a, b) => a - b);
+}
+```

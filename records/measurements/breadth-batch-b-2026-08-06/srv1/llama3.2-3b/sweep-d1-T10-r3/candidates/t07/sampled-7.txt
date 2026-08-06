@@ -1,0 +1,16 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  return /**
+   * Flattens nested arrays up to `depth` levels, defaulting to every level. A string is a value,
+   * never something to iterate into, no matter how deep it appears. A `depth` of 0 returns a copy
+   * of the input unchanged without mutating it.
+   */
+  depth === undefined || (typeof depth !== 'number' ? throw new Error('Invalid depth') : Number.isFinite(depth))
+
+    .then((realDepth = +depth ?? Infinity)) => <unknown[]>(
+      Array.isArray(items) ?
+        items.reduce<unknown[]>((acc, curr) =>
+          [...(Array(realDepth >= 1 - (typeof curr === 'string' ? 1 : 0)).fill(0).concat([curr], accumulator)), ...flatten(curr.slice( realDepth > 1  ? curr.length - realDepth +1: 0), realDepth || Infinity)]),
+        [items] as const)
+    )
+}

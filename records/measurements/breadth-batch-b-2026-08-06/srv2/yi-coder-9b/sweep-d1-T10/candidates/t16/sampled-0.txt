@@ -1,0 +1,17 @@
+The implementation below implements the fibonacci sequence iteratively instead of recursively to avoid hitting stack overflow limits. The function calculates the next Fibonacci number by summing up the previous two numbers and uses a modulus operation at each step to keep the numbers within reasonable bounds, since `Number.MAX_SAFE_INTEGER` is reached quite quickly when calculating large index Fibonacci numbers. If input n is negative or non-integer or not an integer value it will throw an Error with the message 'n should be a non-negative integer'.
+
+```ts
+const MODULUS = 1000000007;
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (!Number.isInteger(n) || n < 0){
+    throw new Error('n should be a non-negative integer');
+  }
+  let a = 0, b = 1;
+  for (let i = 0; i < n; i++) {
+      [a, b] = [(a + b) % MODULUS, a];
+  }
+  return a;
+}
+```

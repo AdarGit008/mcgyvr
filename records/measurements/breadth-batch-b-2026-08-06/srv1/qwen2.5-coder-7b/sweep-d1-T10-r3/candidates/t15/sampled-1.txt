@@ -1,0 +1,42 @@
+```ts
+/** A temperature value in degrees Celsius that must be finite */
+type FiniteCelsius = never;
+
+/**
+ * Validates `celsius` is a finite number.
+ * Throws an error if validation fails.
+ *
+ * @param celsius - The value to validate
+ */
+function validateCelsius(celsius: number): asserts celsius is FiniteCelsius {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+}
+
+/**
+ * Converts degrees Celsius to degrees Fahrenheit.
+ *
+ * @param celsius - The temperature in degrees Celsius
+ */
+export function celsiusToFahrenheit(celsius: number): number {
+  validateCelsius(celsius);
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return celsius * 1.8 + 32;
+}
+
+/**
+ * Converts degrees Celsius to Kelvin.
+ *
+ * @param celsius - The temperature in degrees Celsius
+ */
+export function celsiusToKelvin(celsius: number): number {
+  validateCelsius(celsius);
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return celsius + 273.15;
+}
+```

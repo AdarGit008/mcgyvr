@@ -1,0 +1,20 @@
+```typescript
+/** 
+ * A config object parsed from a text string, ignoring blank lines and lines starting with '#', 
+ * trimming whitespace around keys and values, splitting on the first '=' for values containing one.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    let trimmedLine = line.trim();
+    if (trimmedLine.startsWith('#')) continue;
+    const [key, value] = trimmedLine.split("=", 2);
+    key = key.trim();
+    if (!key) throw new Error(`Invalid config line: ${line}`);
+    value = value.trim();
+    if (!value) throw new Error(`Invalid config line: ${line}`);
+    config[key] = value;
+  }
+  return config;
+}
+```

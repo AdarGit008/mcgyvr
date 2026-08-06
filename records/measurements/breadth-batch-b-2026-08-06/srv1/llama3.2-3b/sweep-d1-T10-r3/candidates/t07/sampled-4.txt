@@ -1,0 +1,49 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    /**
+     * Flattens nested arrays to up to specified depth level, defaulting to every level.
+     * 
+     * Returns a new array with the input values copied.
+     */
+
+    if (typeof depth !== 'number' || isNaN(depth) || depth < 0) {
+        throw Error('Depth must be a non-negative integer or Infinity');
+    }
+
+    if (items.every(item => typeof item === 'string')) {
+        return items.slice();
+    }
+
+    const result = [];
+
+    for (const item of items) {
+        if (Array.isArray(item)) {
+            let newResult = [];
+
+            if (depth === 0) {
+                newResult = result;
+            } else {
+                if (typeof depth === 'number' && depth < Infinity) { // Only Infinity can be greater than an array length
+                    newResult = result.slice(0, depth);
+
+                }
+            }
+
+            for (const nestedItem of item) {
+                newResult.push(flatten(nestedItem, depth - 1));
+            }
+
+            newResult = result.concat(newResult);
+        } else {
+            result.push(item);
+        }
+
+    }
+
+    if (!result.includes(undefined)) { // remove the undefined array
+        return result;
+    }
+
+    throw Error('The input contains non-iterable value');
+}
+```

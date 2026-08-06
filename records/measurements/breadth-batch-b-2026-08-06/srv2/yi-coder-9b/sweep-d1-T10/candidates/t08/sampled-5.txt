@@ -1,0 +1,52 @@
+Here is the implementation for `topologicalSort` function. The function will return a sorted list of nodes based on their dependencies or throw errors if found cycles and invalid edges:
+
+```ts
+// solution.ts
+export type Edge = readonly [string, string]; // represents an edge where fromNode must come before toNode
+
+interface NodeInfo { 
+  node: string;
+  incomingEdges: number;
+}
+
+export function topologicalSort(nodes: readonly string[], edges: readonly Edge[]): string[] {
+  // Map of nodes to their incoming edges count and node name
+  const nodeMap = new Map<string, NodeInfo>();
+  for (const node of nodes) 
+    nodeMap.set(node, { node, incomingEdges: 0 });
+
+  // For each edge, increment the incomingEdge for 'to' by one and if there is a node that doesn't exist in our map throw error.
+  for (const [fromNode, toNode] of edges) {
+    if (!nodes.includes(fromNode) || !nodes.includes(toNode)) 
+      throw new Error(`Invalid edge: "${[fromNode, toNode]}"`);
+    else if (nodeMap.has(toNode))
+      ++nodeMap.get(toNode).incomingEdges;
+  }
+
+  // List of all nodes with no incoming edges
+  const zeroInDegrees = [...nodeMap].filter(([_, info]) => info.incomingEdges === 0).map(([name]) => name);
+
+  // If there are no nodes with no incoming edges and our graph is not empty yet it means we have a cycle so throw error.
+  if (zeroInDegrees.length === 0 && nodeMap.size > 0)
+    throw new Error(`Cycle detected`);
+
+  const sorted: string[] = []; // Our final result nodes in topologically sorted order
+  while (zeroInDegrees.length > 0) {
+    // 'From' is a node with no incoming edges that we can use as start/next step.
+    const fromNode = zeroInDegrees.shift(); 
+    sorted.push(fromNode); // Add this step to our result list.
+
+    for (const [toNode] of edges.filter(([f]) => f === fromNode)) {  // Decrease the incomingEdges count for all 'to' nodes that were depending on us and if it becomes zero add them to our noIncomingEdge node list.
+      if (--nodeMap.get(toNode).incomingEdges === 0)
+        zeroInDegrees.push(toNode);
+    }     
+
+    edges = edges.filter(([f]) => f !== fromNode); // Remove all current steps edges as we will not consider them in the future.
+      
+  }
+
+  // Return the sorted list of nodes or if there are remaining nodes that means graph is not empty yet it means we have a cycle so throw error.
+  return nodeMap.size === 0 ? sorted : (() => {throw new Error(`Cycle detected`);})();
+    
+}
+```

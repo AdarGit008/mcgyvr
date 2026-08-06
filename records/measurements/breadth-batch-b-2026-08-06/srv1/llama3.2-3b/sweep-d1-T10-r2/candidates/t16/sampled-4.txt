@@ -1,0 +1,35 @@
+```typescript
+const MODULUS = 1000000007;
+
+/**
+ * The nth Fibonacci number, modulo 1000000007.
+ */
+export function fibMod(n: number): number {
+  if (n < 0) {
+    throw new Error('Input must be a non-negative integer.');
+  }
+  
+  const CACHED = 'cached':
+    const cached: { [key in number]: number } = {};
+    
+  return cached[n] === undefined
+      ? cached[n] = fibModHelper(n, 0, 1)
+      : cached[n];
+}
+
+function fibModHelper(n: number, a = 0, b = 1): number {
+  if (n <= 2) return b;
+  
+  let temp = a;
+  const result = (a + b) % MODULUS;
+  [a] = [b, temp];
+  
+  if (n - 1 in cached) {
+    thisThrow new Error('Fibonacci index too large.');
+  }
+  
+  cached[n] = fibModHelper(n - 1);
+  
+  return result;
+}
+```

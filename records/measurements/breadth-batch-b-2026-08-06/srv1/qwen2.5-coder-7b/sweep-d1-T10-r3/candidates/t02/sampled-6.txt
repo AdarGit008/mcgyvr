@@ -1,0 +1,30 @@
+```ts
+import { sortBy } from 'lodash';
+
+/**
+ * Merge overlapping intervals into the smallest list of non-overlapping pairs covering the same points.
+ * @param intervals - List of [start, end] pairs to merge.
+ * @returns Merged and sorted list of [start, end] pairs.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.some(interval => interval[0] > interval[1])) {
+    throw new Error('Invalid interval: start must be less than or equal to end.');
+  }
+
+  const sortedIntervals = sortBy(intervals, [interval => interval[0]]);
+  let merged: number[][] = [];
+
+  for (const interval of sortedIntervals) {
+    if (!merged.length || merged[merged.length - 1][1] < interval[0]) {
+      merged.push(interval);
+    } else {
+      merged[merged.length - 1] = [
+        merged[merged.length - 1][0],
+        Math.max(merged[merged.length - 1][1], interval[1]),
+      ];
+    }
+  }
+
+  return merged;
+}
+```

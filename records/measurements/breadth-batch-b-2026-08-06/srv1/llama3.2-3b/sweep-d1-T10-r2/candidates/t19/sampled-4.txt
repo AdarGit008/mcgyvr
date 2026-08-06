@@ -1,0 +1,22 @@
+```ts
+/** Returns the quotient of `a` divided by `b`. Throws if either argument is not a finite number or if `b` is zero. */
+export function safeDivide(a: number | string | boolean, b: number | string | boolean): number {
+  // check against non-finite values (NaN) and try to convert strings to numeric types
+  const aValue = typeof a === 'number' ? a : (typeof a === 'boolean' ? NaN : Number(a));
+  if (aValue !== aValue || isNaN(aValue)) throw new Error('safeDivide: first argument is not a finite number');
+  
+  const divisorValue = typeof b === 'number' ? b : Number(b);
+  let divisorValueSafe = divisorValue;
+  
+  // Convert boolean to the value it would be when divided into other numbers
+  if (typeof b === 'boolean') {
+    divisorValueSafe = b ? dividerValue : NaN;
+  }
+  
+    
+  // if divisor is zero, throw an error
+  if (!isFinite(divisorValueSafe)) throw new Error('safeDivide: divisor cannot be zero');
+  
+  return aValue / divisorValueSafe;
+}
+```

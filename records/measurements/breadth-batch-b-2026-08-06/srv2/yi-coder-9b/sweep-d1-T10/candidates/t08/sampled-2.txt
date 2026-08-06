@@ -1,0 +1,55 @@
+The code below implements the required topologicalSort function:
+```ts
+// An adjacency list representation of nodes and their dependencies
+interface Node {
+    name: string;
+    dependencies: Node[];
+}
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Record<string,Node> = Object.create(null); 
+
+  for(let node of nodes) {
+    if(graph[node] === undefined){
+        graph[node] = { name: node, dependencies: []};
+    } else{
+      throw new Error('Duplicate node name not allowed');
+    }
+  }
+
+  for(let [from, to] of edges) { 
+    const source = graph[from];    
+    const target = graph[to];
+
+    if (!source || !target){
+      throw new Error('Edge naming a node not in nodes');
+     }
+    source.dependencies.push(target);  
+  }
+
+  let sorted: string[] = [];
+  let visited: Record<string,boolean> = {};
+   
+  for (let nodeName of Object.keys(graph)){
+    if (!visited[nodeName]){
+          visit(graph[nodeName]);
+    } 
+  }
+      
+  return sorted;            
+
+  function visit(node: Node) {
+    if (visited[node.name] === undefined){ // not visited yet
+        visited[node.name] = true;                     
+                          
+       for (let dependency of node.dependencies){         
+           visit(dependency); 
+      }              
+
+      sorted.push(node.name);   // add after all dependencies are visited
+    } else if (visited[node.name]){ // already visited  
+        throw new Error('Cycle detected in the graph');     
+     }          
+ }         
+} 
+```

@@ -1,0 +1,16 @@
+```typescript
+/**
+ * Truncates a string to limit characters with an ellipsis when it is longer.
+ * Returns the complete input when no truncation occurs or the original input if truncation would remove all characters.
+ */
+export function truncate(text: string, limit: number): string {
+  if (limit < 3) {
+    throw new Error("Limit must be at least 3");
+  }
+  const truncated = text.slice(0, Math.max(limit - 2, 0));
+  if (!truncated) {
+    return text;
+  }
+  return text.substring(0, truncated.length + 2);
+}
+```

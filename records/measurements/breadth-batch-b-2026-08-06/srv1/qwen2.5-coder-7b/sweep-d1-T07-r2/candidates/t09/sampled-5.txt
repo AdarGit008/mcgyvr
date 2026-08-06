@@ -1,0 +1,9 @@
+```ts
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (!Number.isInteger(n)) throw new Error('Argument must be an integer.');
+  if (n < 0) throw new Error('Argument must not be negative.');
+  if (n === 0 || n === 1) return 1;
+  return n * factorial(n - 1);
+}
+```

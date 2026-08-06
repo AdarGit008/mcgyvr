@@ -1,0 +1,95 @@
+```typescript
+/**
+ * Topological sort implementation based on Kahn's algorithm
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map<string, string[] | null>();
+    for (const node of nodes) {
+        graph.set(node, []);
+    }
+
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) {
+            throw new Error(`Node '${from}' not found in the input.`);
+        }
+        if (!graph.has(to)) {
+            graph.set(to, null);
+        }
+        const existingEdges = graph.get(from);
+        if (existingEdges === null) {
+            graph.set(from, [to]);
+        } else if (!existingEdges.includes(to)) {
+            throw new Error(`Cycle detected in edge ${[from, to].join(' -> ')}.`);
+        }
+    }
+
+    const sorted = [];
+    let unfulfilledEdges = graph.entries();
+
+    while (unfulfilledEdges.size > 0) {
+        for ((const [node, unfulfilledTo]) of unfulfilledEdges) {
+            if (!unfulfilledTo) {
+                unfulfilledEdges.delete(node);
+                sorted.push(node);
+
+                let updated = false;
+                for (const to of graph.get(node)) {
+                    const index = sorted.indexOf(to);
+                    if (index > -1) {
+                        unfulfilledEdges.set(node, [...(unfulfilledTo || []), ...((graph.get(to) || []).filter((t) => t !== node))]);
+                        updated = true;
+                        break;
+                    }
+                }
+
+                if (!updated) {
+                    graph.set(node, null);
+                }
+            } else if (sorted.length > 0) {
+                unfulfilledEdges.set(node, [
+                    ...unfulfilledTo.filter((to) => sorted.includes(to)),
+                    ...(graph.get(node) || []),
+                ]);
+            } else {
+                throw new Error('Could not sort the edges.');
+            }
+        }
+
+        let nodeToRemove = null;
+        for ((const [node, unfulfilledTo]) of unfulfilledEdges) {
+            if (!unfulfilledTo && nodeToRemove === null && graph.get(node).length < graph.get(nodeToRemove)!.length ||
+                (nodeToRemove && nodeToRemove === node)) {
+                nodeToRemove = node;
+            }
+        }
+
+        if (nodeToRemove === null) {
+            throw new Error('Could not sort the edges.');
+        } else if (!sorted.includes(nodeToRemove)) {
+            const result =
+                Array.from(unfulfilledEdges.entries()).sort(([, unfulfilledTo]) => unfulfilledTo.length)
+                    .filter(([_, unfulfilledTo]) => sorted.includes(unfulfilledTo!.next()) || arrayEquals(sorted, unfulfilledTo.map(Boolean)))
+                    .map(([node, _]) => node);
+
+            return [...sorted, ...result];
+        } else {
+            throw new Error(`Node '${nodeToRemove}' in the cycle [${edges.filter(
+                (edge) => edge[0] === nodeToRemove || edge[1] === nodeToRemove
+            ).join('; ')]}.`);
+        }
+    }
+
+    if (!graph.has nodes)) {
+        if (
+            unfulfilledEdges.size > 0 ||
+            arrayEquals(sorted, Array.from(nodes))
+        ) {
+            const result = sorted;
+            return [ ...result, ...Array.from(graph.entries()).filter(([node]) => !sorted.includes(node)).map((_, index) => [...nodes, index.toString()].sort());
+
+            for (const _ of unfulfilledEdges) {
+                result.push(...nodes.filter(Boolean));
+            }
+        } else {
+
+            throw new Error('Could not sort the nodes.');

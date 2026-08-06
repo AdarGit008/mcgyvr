@@ -1,0 +1,28 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const semverRegex = /^(\d+)\.(\d+)\.(\d+)(?:-(\w+))?(?:\+(\w+))?$/;
+    const match = version.match(semverRegex);
+
+    if (!match) {
+        throw new Error(`Invalid semver version: ${version}`);
+    }
+
+    const [, majorStr, minorStr, patchStr, prerelease, build] = match;
+
+    const major = parseInt(majorStr, 10);
+    const minor = parseInt(minorStr, 10);
+    const patch = parseInt(patchStr, 10);
+
+    if (majorStr.length > 1 && majorStr.startsWith('0')) {
+        throw new Error(`Major version cannot have leading zero: ${version}`);
+    }
+    if (minorStr.length > 1 && minorStr.startsWith('0')) {
+        throw new Error(`Minor version cannot have leading zero: ${version}`);
+    }
+    if (patchStr.length > 1 && patchStr.startsWith('0') && patchStr !== '0') {
+        throw new Error(`Patch version cannot have leading zero unless it is "0": ${version}`);
+    }
+
+    return { major, minor, patch, prerelease, build };
+}
+```

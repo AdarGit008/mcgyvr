@@ -1,0 +1,45 @@
+```ts
+/**
+ * The KEY=VALUE pairs of a config file.
+ * @param text - The raw configuration content as a string.
+ * @returns A record mapping keys to values parsed from the config text.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  let lineNumber = 0;
+
+  for (const line of text.split("\n")) {
+    lineNumber++;
+    // Trim leading and trailing whitespace
+    const trimmedLine = line.trim();
+
+    // Ignore blank lines and comments
+    if (trimmedLine === "" || trimmedLine.startsWith("#")) {
+      continue;
+    }
+
+    // Split on the first occurrence of '='
+    const equalsIndex = trimmedLine.indexOf("=");
+    if (equalsIndex === -1) {
+      throw new Error(`Line ${lineNumber} has no '=' character`);
+    }
+
+    const key = trimmedLine.slice(0, equalsIndex).trim();
+    const value = trimmedLine.slice(equalsIndex + 1).trim();
+
+    // Ensure the key is not empty
+    if (key === "") {
+      throw new Error(`Line ${lineNumber} has an empty key`);
+    }
+
+    // Avoid setting __proto__ on the object
+    if (Object.prototype.hasOwnProperty.call(config, key)) {
+      throw new Error(`Duplicate key found: ${key}`);
+    }
+
+    config[key] = value;
+  }
+
+  return config;
+}
+```

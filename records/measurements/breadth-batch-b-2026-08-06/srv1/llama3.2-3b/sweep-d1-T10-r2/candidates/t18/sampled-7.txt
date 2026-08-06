@@ -1,0 +1,35 @@
+```typescript
+/**
+ * An append-only log of timestamped events.
+ */
+export class EventLog {
+  #events: Event[] = [];
+
+  /**
+   * Append one event to the log.
+   *
+   * @param {Event} event - The event to record.
+   */
+  record(event: Event): void {
+    this.#events.push(event);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   *
+   * @param {number} since - The timestamp to filter events from.
+   * @returns {Event[]} The events at or after the given timestamp.
+   */
+  since(since: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= since);
+  }
+}
+
+/**
+ * A single event recorded in the log.
+ */
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+```

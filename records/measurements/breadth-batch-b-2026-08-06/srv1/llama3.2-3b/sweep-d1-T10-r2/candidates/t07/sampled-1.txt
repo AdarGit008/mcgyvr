@@ -1,0 +1,59 @@
+```typescript
+/**
+ * Flattens a nested array structure up to a specified depth level,
+ * defaulting to every level if no limit is provided.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    // Check that depth is a non-negative integer or Infinity, and throw an error otherwise
+    if (!Number.isInteger(depth)) {
+        throw new Error('Depth must be an integer');
+    }
+    if (depth < 0) {
+        throw new Error('Depth must be a non-negative number');
+    }
+
+    // Initialize the result array; at depth 0 it will remain unchanged
+    const result = items.map(item => Array.from(new Set([item])));
+
+    // If no depth limit was provided, flatten to any level
+    if (depth === Infinity) {
+        for (const array of result) {
+            array.push(...flattenArray(array, depth));
+        }
+    } else {
+        // Otherwise, stop when the specified depth is reached without going below it
+        const flatArrayLimit = Math.min(depth, 10); // Don't recurse more than 10 times
+        for (let i = 0; i < flatArrayLimit; i++) {
+            result.forEach((array, index) => {
+                const newItems = flattenArray(array, depth - (i === 0 ? 1 : 0));
+                array.push(...newItems);
+            });
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Helper function to recursively flatten an array up to a specified level.
+ */
+function flattenArray(array: readonly unknown[], targetDepth: number): unknown[] {
+    const flatArray = [];
+
+    for (const item of array) {
+        if (Array.isArray(item)) {
+            // If the item is not already in the flat array, add it; otherwise skip
+            if (!flatArray.includes(item)) {
+                flatArray.push(...flattenArray(item, targetDepth));
+            }
+        } else {
+            // For strings, they remain unchanged, and we just push them into the flat array
+            // They never need to be flattened.
+            flatArray.push(item);
+        }
+    }
+
+    return flatArray;
+}
+
+```

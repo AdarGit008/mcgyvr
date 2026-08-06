@@ -1,0 +1,59 @@
+```ts
+/**
+ * Returns an ordering satisfying every edge in the given graph.
+ * When several orderings are valid, picks the one that keeps nodes in their input order.
+ */
+export function topologicalSort(
+  nodes: readonly string[],
+  edges: readonly [readonly [string, string]][]
+): string[] {
+  const adjacencyList: { [node: string]: Set<string> } = {};
+  for (const node of nodes) {
+    adjacencyList[node] = new Set();
+  }
+
+  for (const edge of edges) {
+    if (!adjacencyList[edge[0]].has(edge[1])) {
+      throw new Error(`Edge ${edge} names a node not in nodes`);
+    }
+    adjacencyList[edge[0]].add(edge[1]);
+  }
+
+  const visited: Set<string> = new Set();
+  const currentPath: Set<string> = new Set();
+  const ordering: string[] = [];
+
+  for (const node of nodes) {
+    if (!visited.has(node)) {
+      visitNode(node, adjacencyList, visited, currentPath, ordering);
+    }
+  }
+
+  return ordering;
+}
+
+function visitNode(
+  node: string,
+  adjacencyList: { [node: string]: Set<string> },
+  visited: Set<string>,
+  currentPath: Set<string>,
+  ordering: string[]
+): void {
+  if (currentPath.has(node)) {
+    throw new Error(`Cycle detected in the graph at node ${node}`);
+  }
+  if (visited.has(node)) {
+    return;
+  }
+
+  visited.add(node);
+  currentPath.add(node);
+
+  for (const neighbor of adjacencyList[node]) {
+    visitNode(neighbor, adjacencyList, visited, currentPath, ordering);
+  }
+
+  currentPath.delete(node);
+  ordering.push(node);
+}
+```

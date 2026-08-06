@@ -1,0 +1,46 @@
+```typescript
+import { Iterable } from 'iterable'; // No need for actual type import in this case
+
+/**
+ * Merge overlapping intervals into non-overlapping intervals.
+ *
+ * Given a list of [start, end] pairs, return the smallest list of non-overlapping pairs covering the same points,
+ * sorted ascending by start. Intervals that merely touch (end === next start) do merge.
+ *
+ * @param intervals - the input list of intervals
+ * @returns the merged list of intervals as arrays
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    // Check if every interval has valid bounds (start <= end)
+    for (const interval of intervals) {
+        if (interval[0] > interval[1]) {
+            throw new Error(`Invalid interval ${JSON.stringify(interval)}: start must be less than or equal to end`);
+        }
+    }
+
+    // Sort the intervals by their start points
+    const sortedIntervals = [...intervals].sort((a, b) => a[0] - b[0]);
+
+    // Apply merges (mop up any "touched" cases)
+    const mergedIntervals = [];
+    for (const interval of sortedIntervals) {
+        // If there are no elements yet but the current element could merge into an existing one...
+        if (!mergedIntervals.length || mergedIntervals[mergedIntervals.length - 1][1] < interval[0]) {
+            // ...just append it, don't try to merge
+            mergedIntervals.push(interval);
+        } else {
+            // Otherwise, we can merge with the last seen interval
+            const [lastStart, lastEnd] = [mergedIntervals.pop(), mergedIntervals[-1][1]];
+            if (interval[0] <= lastEnd) {
+                // Merge by adjusting the "end" of the last seen interval
+                mergedIntervals.push([lastStart, Math.max(lastEnd, interval[1])]);
+            } else {
+                // Otherwise, just append the current element back in as it can't be merged
+                mergedIntervals.push(interval);
+            }
+        }
+    }
+
+    return mergedIntervals;
+}
+```

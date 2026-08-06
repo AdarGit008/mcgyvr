@@ -1,0 +1,56 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: Map<string, Array<{ to: string, index: number }>> = new Map();
+    const inDegrees: Map<string, number> = new Map();
+
+    // Initialize the graph and in-degrees
+    for (const node of nodes) {
+        graph.set(node, []);
+        inDegrees.set(node, 0);
+    }
+
+    // Build the graph and compute in-degrees
+    edges.forEach(([from, to], index) => {
+        if (!graph.has(from)) throw new Error(`Edge points from unknown node: ${from}`);
+        if (!graph.has(to)) throw new Error(`Edge points to unknown node: ${to}`);
+        graph.get(from)!.push({ to, index });
+        inDegrees.set(to, (inDegrees.get(to)! + 1));
+    });
+
+    // Queue for nodes with zero in-degree
+    const queue: string[] = [];
+    for (const [node, degree] of inDegrees.entries()) {
+        if (degree === 0) queue.push(node);
+    }
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        // Always take the earliest node currently free of unmet dependencies
+        const currentNode = nodes.find(node => node === queue[0])!;
+        result.push(currentNode);
+
+        for (const { to, index } of graph.get(currentNode)! ) {
+            inDegrees.set(to, inDegrees.get(to)! - 1);
+            if (inDegrees.get(to) === 0) {
+                // Maintain the original order among same-in-degree nodes
+                const insertIndex = queue.findIndex(node => nodes.indexOf(node) > nodes.indexOf(currentNode));
+                if (insertIndex === -1) {
+                    queue.push(to);
+                } else {
+                    queue.splice(insertIndex, 0, to);
+                }
+            }
+        }
+
+        // Remove the node from the queue since all its dependencies are met
+        queue.shift();
+    }
+
+    // Check for cycles (if result does not contain all nodes)
+    if (result.length !== nodes.length) {
+        throw new Error('Cycle detected in the graph');
+    }
+
+    return result;
+}
+```

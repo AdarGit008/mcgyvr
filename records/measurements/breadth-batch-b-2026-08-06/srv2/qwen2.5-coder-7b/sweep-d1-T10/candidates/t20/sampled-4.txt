@@ -1,0 +1,36 @@
+```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+
+  for (const line of text.split("\n")) {
+    if (line.trim().startsWith("#") || line.trim() === "") continue;
+
+    let key = "", value = "";
+    const firstEqualIndex = line.indexOf("=");
+    if (firstEqualIndex !== -1) {
+      key = line.slice(0, firstEqualIndex).trim();
+      value = line.slice(firstEqualIndex + 1).trim();
+    } else {
+      throw new Error(`No "=" found in line: ${line}`);
+    }
+
+    if (key === "__proto__") {
+      throw new Error("__proto__ key is not allowed");
+    }
+
+    if (key === "") {
+      throw new Error("Empty key found");
+    }
+
+    Object.defineProperty(config, key, {
+      value,
+      writable: true,
+      enumerable: true,
+      configurable: true
+    });
+  }
+
+  return config;
+}
+```

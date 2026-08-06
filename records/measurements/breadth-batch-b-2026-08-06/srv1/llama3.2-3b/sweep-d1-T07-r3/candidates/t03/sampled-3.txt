@@ -1,0 +1,64 @@
+```ts
+/**
+ * Parse a semantic version string.
+ *
+ * @param {string} version The semantic version string to parse.
+ * @throws {Error} If the input does not match the expected format.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const parts = version.split(/[-+]/);
+  
+  if (parts.length !== 3) {
+    throw new Error(`Invalid version format: expected MAJOR.MINOR.PATCH [-prerelease (+build)]`);
+  }
+  
+  const [major, minorPatch] = minorPatchPrerelease(parts[0]);
+  const [minor, patchBuild] = minorPatchPrerelease(parts[1]);
+  
+  if (parts.length > 2) {
+    return {
+      major,
+      minor,
+      patch: parseInt(patchBuild, 10),
+      prerelease: parts[2],
+      build: null,
+    };
+  } else {
+    return {
+      major,
+      minor,
+      patch: parseInt(minorPatch, 10),
+      prerelease: null,
+      build: null,
+    };
+  }
+}
+
+/**
+ * Parse the version number part (MAJOR.MINOR.PATCH) and extract optional prerelease and build strings.
+ *
+ * @param {string} part The version number part to parse.
+ * @returns {[number, string | null]} The parsed major and minor patch parts, with the original part if no prerelease/build is present.
+ */
+function minorPatchPrerelease(part: string): [number, string] {
+  const match = /^(\d+)\.(\d+)(?:\.(\d+))(?:-(.+))?(?:\+(.+))?$/u.exec(part);
+  
+  if (!match) {
+    throw new Error(`Invalid version number format: expected MAJOR.MINOR.PATCH`);
+  }
+  
+  return [
+    parseInt(match[1], 10),
+    match[2],
+    match.length === 4 ? parseInt(match[3], 10) : null,
+    match.length >= 5 ? match[4] : null,
+    match.length >= 6 ? match[5] : null,
+  ];
+}
+```

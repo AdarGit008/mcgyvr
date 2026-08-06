@@ -1,0 +1,80 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+  private capacity: number;
+  private map: Map<K, [V, number]>;
+  private head: K | null;
+
+  /**
+   * Creates a new instance of the LruCache.
+   *
+   * @throws {Error} If the capacity is not a positive integer.
+   */
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+
+    this.capacity = capacity;
+    this.map = new Map();
+    this.head = null;
+  }
+
+  /**
+   * Returns the value associated with the given key, or undefined if no such entry exists.
+   *
+   * @param key The key to look up in the cache.
+   * @returns The value associated with the key, or undefined.
+   */
+  get(key: K): V | undefined {
+    const [value, index] = this.map.get(key);
+
+    if (value === undefined) return undefined;
+
+    if (this.head !== key) this.map.set(key, [value, index]);
+
+    // Move the accessed item to the head of the cache
+    this.map.delete(this.head);
+    this.map.set(this.head, value as [V, number]);
+    this.head = key;
+  }
+
+  /**
+   * Inserts or updates the given value in the cache.
+   *
+   * @param key The key to store the value for.
+   * @param value The value to store in the cache.
+   */
+  set(key: K, value: V): void {
+    if (this.map.has(key)) this.get(key);
+    else if (this.map.size >= this.capacity) {
+      const [_, index] = this.map.entries().next().value;
+      this.map.delete(this.head);
+      this.map.delete(index);
+    }
+
+    const index = this.map.size;
+
+    // Update the accessed item
+    this.map.set(key, [value, index]);
+
+    // Move the new item to the head of the cache if necessary
+    if (index > 0) {
+      this.map.delete(this.head);
+      this.map.set(this.head, value as [V, number]);
+      this.head = key;
+    }
+  }
+
+  /**
+   * Returns the current size of the cache.
+   *
+   * @returns The number of entries in the cache.
+   */
+  get size(): number {
+    return this.map.size;
+  }
+}
+```

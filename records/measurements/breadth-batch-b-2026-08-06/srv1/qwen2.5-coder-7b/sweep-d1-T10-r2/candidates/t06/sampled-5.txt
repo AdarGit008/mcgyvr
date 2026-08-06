@@ -1,0 +1,39 @@
+```typescript
+/**
+ * Splits a line of CSV into its fields on commas.
+ * Handles quoted fields with support for escaped quotes.
+ * Throws an Error for unclosed quoted fields.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (line === '') return [''];
+
+  const result: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+        field += char;
+        i++; // Skip the next quote
+      } else {
+        inQuotes = !inQuotes;
+        if (!inQuotes && field.trim() === '') {
+          throw new Error('Unclosed quoted field');
+        }
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(field);
+      field = '';
+    } else {
+      field += char;
+    }
+  }
+
+  if (inQuotes) throw new Error('Unclosed quoted field');
+
+  result.push(field.trim());
+  return result;
+}
+```

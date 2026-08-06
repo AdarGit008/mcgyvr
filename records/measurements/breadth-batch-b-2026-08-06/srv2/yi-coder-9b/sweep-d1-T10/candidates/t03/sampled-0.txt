@@ -1,0 +1,10 @@
+Here is the complete function implementation according to specified interface:
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const semverRegex = /^([1-9]\d*|0)\.([1-9]\d*|0)\.([1-9]\d*|0)(?:-((?:[1-9]\d*|0|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:[1-9]\d*|0|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+  const match = semverRegex.exec(version);
+  if (!match) { throw new Error('Invalid version'); }
+  return { major: parseInt(match[1]), minor: parseInt(match[2]), patch: parseInt(match[3]), prerelease: match[4] || null, build: match[5] || null}; 
+}
+```
+You may adjust the function according to your specific needs. The given version checks if the major.minor.patch parts are non-zero leading digits or "0" itself and optionally followed by a hyphen for prerelease string and an plus sign for build string. Note that this solution does not take care about any special rule you could have regarding leading zeros in the numeric parts or other kind of versioning requirements.

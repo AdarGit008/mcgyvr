@@ -1,0 +1,44 @@
+```ts
+export class LruCache<K, V> {
+  private readonly capacity: number;
+  private readonly cacheMap = new Map<K, { value: V; priority: number }>();
+  private currentPriority = 0;
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cacheMap.get(key);
+    if (entry) {
+      entry.priority = this.currentPriority++;
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cacheMap.has(key)) {
+      this.cacheMap.get(key)!.value = value;
+    } else {
+      if (this.cacheMap.size >= this.capacity) {
+        const leastUsedKey = Array.from(this.cacheMap.entries()).reduce(
+          (a, b) => (a[1].priority < b[1].priority ? a : b),
+          [undefined as K | undefined, { priority: Infinity }]
+        )[0];
+        if (leastUsedKey !== undefined) {
+          this.cacheMap.delete(leastUsedKey);
+        }
+      }
+      this.cacheMap.set(key, { value, priority: this.currentPriority++ });
+    }
+  }
+
+  get size(): number {
+    return this.cacheMap.size;
+  }
+}
+```

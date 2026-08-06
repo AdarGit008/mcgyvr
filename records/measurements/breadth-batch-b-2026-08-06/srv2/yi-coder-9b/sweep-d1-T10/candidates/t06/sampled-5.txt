@@ -1,0 +1,36 @@
+Here is an implementation for parseCsvLine function:
+
+```ts
+export function parseCsvLine(line: string): string[] {
+  // An array to keep track of CSV fields
+  const fields = [];
+
+  let fieldStartIndex = 0;
+  for (let endIndex=0; endIndex<line.length;) {
+    if (line[endIndex] === '"') {  
+        do{ // if the line starts with a quote, find its closing quote
+            ++endIndex;
+            var closeQuoteIndex = line.indexOf('"', endIndex); 
+
+            // Throw error for unclosed quoted field
+            if(closeQuoteIndex === -1) {
+                throw Error("Unclosed quotation at index " + endIndex);         
+            }           
+            endIndex = closeQuoteIndex;    
+        }while (line[endIndex+1] && line[endIndex+1] === '"')  // If quote is doubled up, treat it as a single character and continue searching the quote. 
+        fieldStartIndex++; endIndex += 2; // move past closing quote to next comma   
+    } else {                      
+        var commaIndex = line.indexOf(',', endIndex);  // Find the next comma which ends the current field, or -1 if no more commas
+        endIndex = (commaIndex === -1 ? line.length : commaIndex);     
+    }          
+       
+    fields.push(line.substring(fieldStartIndex, endIndex).trim()); // add this field to the list of fields   
+  // move pointer to start of next field   
+  endIndex++;      
+  if (commaIndex === -1) break; 
+  }
+    return fields;
+}
+```
+
+In the code: fields are collected between a pair of commas unless they're enclosed in double quotes. Quoted text may contain one or two consecutive quotes to escape an embedded quote character, in which case it's replaced by a single quote before being returned. If a quoted section is never closed (another quote is not found), the Error message 'Unclosed quotation at index' is thrown.

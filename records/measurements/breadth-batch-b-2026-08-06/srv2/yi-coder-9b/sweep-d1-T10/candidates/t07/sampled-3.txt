@@ -1,0 +1,25 @@
+Here's the complete implementation for `flatten` function in TypeScript: 
+
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+    if (depth < 0) {
+        throw Error('Depth cannot be negative');
+    } else if (depth === 0 || items.length == 0) {
+        return [...items];
+    }
+
+    const flattened: unknown[] = [];
+    for (let i=0, len=items.length; i<len; ++i){
+       const item = items[i];
+
+       // If the item is an array and we've not reached full depth yet then
+       if(Array.isArray(item) && --depth >= 0) {
+           flattened.push(...flatten(item, depth)); // recur
+       } else {
+           flattened.push(item);
+       }
+    }
+    return flattened;
+}
+```
+This implementation will flatten the array up to specified number of levels or until all nested arrays are flattened if `depth` is not provided, and an Error would be thrown when a negative depth value has been passed. No mutation happens with original input array in this process.

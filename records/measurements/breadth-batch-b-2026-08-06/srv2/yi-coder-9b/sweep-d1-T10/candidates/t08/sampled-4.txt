@@ -1,0 +1,40 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjList = new Map<string, Set<string>>(); // Adjacency list of directed graph
+  for (const node of nodes) {
+    adjList.set(node, new Set());
+  }
+  // Add edges to the graph
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw Error('An edge mentioned a node not in nodes');
+    }
+    adjList.get(from)?.add(to);
+  }
+  // Detect cycles and count incoming edges for each node
+  const counts = new Map<string, number>(); // Count of incoming edges to get the order right
+  for (const [node, neighs] of adjList.entries()) {
+    counts.set(node, neighs.size);
+    for (const neighbour of neighs) {
+      adjList.get(neighbour)?.add(node); // Reverse edge for each neighbour
+    }
+  }
+  // Topological sorted nodes order
+  const res: string[] = [];
+  while (counts.size > 0){
+    let freeNode = '';
+    for(const [node, count] of counts.entries()) {
+      if(count === 0) {
+        freeNode = node; break; // Found a node with no unmet dependencies
+      }
+    }
+    if (freeNode === '') throw Error('A cycle found in the graph');
+    res.push(freeNode);
+    counts.delete(freeNode);
+    for (const neighbour of adjList.get(freeNode) ?? []) { // Decrease counts for its neighbours
+      counts.set(neighbour, (counts.get(neighbour) ?? 0)-1);
+    }
+  }
+  return res;
+};
+```

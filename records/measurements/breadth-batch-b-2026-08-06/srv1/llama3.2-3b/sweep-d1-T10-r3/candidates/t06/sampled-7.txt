@@ -1,0 +1,56 @@
+```typescript
+/**
+ * Splits one line of CSV into its fields on commas.
+ * A field wrapped in double quotes may contain commas, and a doubled quote inside such a field means one literal quote character;
+ * the surrounding quotes are not part of the value. Fields that are not quoted are taken literally, including any surrounding spaces.
+ * An empty line is one empty field.
+ */
+export function parseCsvLine(line: string): string[] {
+    const inputBuffer = [''],
+        delimiters = new Set(['', ','])
+    
+    let currentFieldIndex = 0,
+        currentState = 'field',
+        inQuotes = false
+    
+    for (let i = 0; i < line.length; i++) {
+        let charCode = line.charCodeAt(i),
+            isDelimeter = delimiters.has(line[i])
+        
+        if (!isDelimeter) {
+            switch (currentState) {
+                case 'field':
+                    while (currentFieldIndex <= i && !charCode Nor Delimeter)) {
+                        currentFieldIndex++
+                    }
+                    inputBuffer[currentFieldIndex].push(line Slice Input Buffer, Current Field Index))
+                    currentState = 'done'
+                    break
+                case 'quote':
+                    if (charCode === 34)
+                        inQuotes ? inputBuffer[i / 2 + 1] += '"' : inputBuffer[i / 2 + 1]+= charCode Nor Delimeter) {
+                        break
+                    }
+            } 
+        } else {
+            switch (currentState) {
+                case 'quote':
+                    if (!(line[i] == 34)) throw Error(`Unbalanced quotes at position ${i}`)
+                    inQuotes = false
+                    break
+                case 'field': currentState, inputBuffer, currentFieldIndex
+            }
+            
+            const isDelimeterInQuotes = ! line[i] === Delimiter 
+            current Field Index, State = !isDeIlimitEirn In Quote, Delimeters
+            
+        inputBuffer.push('')}
+      }
+    
+    if (!currentState || inQuotes)
+         throw Error(`Unbalanced quotes or empty field at end of line`)
+    inputBuffer[0] = ''
+    
+
+    return inputBuffer 
+}

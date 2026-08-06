@@ -1,0 +1,16 @@
+```typescript
+/** The words grouped by their length, in first-seen order. */
+export function groupByLength(words: readonly string[]): Map<number, string[]> {
+  const groups = new Map();
+  for (const word of words) {
+    let bucket = groups.get(word.length);
+    if (bucket === undefined) {
+      bucket = [word];
+      groups.set(word.length, bucket);
+    } else {
+      bucket.push(word);
+    }
+  }
+  return groups;
+}
+```

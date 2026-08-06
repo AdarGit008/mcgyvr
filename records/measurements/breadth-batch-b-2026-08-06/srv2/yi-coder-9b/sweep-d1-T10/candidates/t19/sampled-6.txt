@@ -1,0 +1,14 @@
+Here's the fixed function. It checks if `a` and `b` are finite numbers, and throws an error otherwise. It also checks if `b` is zero or not. If all conditions pass, it performs the division:
+
+```ts
+/** a divided by b. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error('Both arguments must be finite numbers');
+  }
+  if (b === 0) {
+    throw new Error('Divisor cannot be zero');
+  }
+  return a / b;
+}
+```

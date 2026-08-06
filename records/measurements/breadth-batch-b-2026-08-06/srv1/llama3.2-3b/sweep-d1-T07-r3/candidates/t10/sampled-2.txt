@@ -1,0 +1,19 @@
+```typescript
+/** The index of target in a sorted array, or -1. */
+export function binarySearch(items: readonly number[], target: number): number {
+  let low = 0;
+  let high = items.length - 1; // adjusted the upper bound
+  while (low <= high) { // changed to loose inequality for inclusive bounds
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid - 1; // adjusted the lower bound
+    }
+  }
+  return -1; // added -1 for absent value, no need to check if it's present
+}
+```

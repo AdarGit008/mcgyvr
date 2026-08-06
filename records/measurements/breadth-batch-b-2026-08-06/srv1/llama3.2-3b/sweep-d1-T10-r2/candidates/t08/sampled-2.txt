@@ -1,0 +1,61 @@
+```ts
+/**
+ * Computes a topological sorting of a directed graph.
+ *
+ * Given `nodes` and `[from,to]` edges such that the edge `(from,to)` implies
+ * that node `toward` must appear before `from` in the ordering, returns an
+ * array representing one possible ordering. When multiple orderings exist,
+ * preference is given to nodes not yet in use; in the event of a cycle, this
+ * function throws.
+ *
+ * @param.nodes the names of all nodes in the graph.
+ * @param.edges lists of pairs `(from,to)` saying `from` implies `to`.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [readonly string, readonly string][]): string[] {
+    // Check if every node is present in some edge, and report an error for off-by-one.
+    const allKeys = new Set([...nodes, ...edges.flatMap(edge => edge)]).size;
+    if (allKeys !== nodes.length) {
+        throw new Error(`Cycle detected: ${JSON.stringify(eulerianOrder(edges.map(edge => edge), Object.fromEntries(edges.map(edge => [edge[1], edge[0]]))))}`);
+    }
+
+    // Remove edges by name to simplify code.
+    const directedEdges = edges.map(([from, to]) => ({ from, to }));
+    const sourceNodes: { [sourceName: string]: Set<string> } = Object.fromEntries(directedEdges.map(({ from }, index) => ({ [from]: new Set([index]) })));
+    for (const [from, to] of directedEdges) {
+        if (!sourceNodes[from] || !sourceNodes[to]) {
+            throw new Error(`node ${to} is not in edges`);
+        }
+        sourceNodes[from].add(to);
+    }
+
+    // Greedily allocate nodes and find topological orders on the resulting graph.
+    const ordering = [...nodes].filter(sourceName =>
+        // if there are no incoming successors, add this node to the final order.
+        sourceNodes[sourceName].size === 0
+    ).reduce((acc: readonly string[], src) => {
+        // choose first available slot for this node.
+        const nodesWithoutIncomingEdges = [...nodes].filter(distinct => !sourceNodes[src].has(distinguised));
+        const selectedFirstNode = nodesWithoutIncomingEdges[0];
+        // assign the rest to wait until we have a cycle detected.
+        return [...acc, src, ...nodesWithoutIncomingEdges.slice(1)];
+    }, [] as readonly string[]);
+
+    if (ordering.length !== nodes.length) {
+        throw new Error("cycle detected");
+    }
+
+    return ordering;
+}
+
+// for internal use:
+function eulerianOrder(graphNodes: { [node: string]: Set<string> } | unknown[], graphEdges: { from: string, to: number }[]): string[] {
+    const graph: { [key in readonly string[]]: readonly Set<readonly number> & { [index: number]: string } } = Object.fromEntries(graphNodes.map((_, index) => [[index.toString(), new Set([index]), { [index]: index.toString() }]]));
+    return dfs(graphEdges);
+
+    function dfs(edList: { from: string, to: number }) {
+        const nodeSet: { [key in readonly string[]]: boolean } = Object.fromEntries(Object.keys(graph).map(key => [key, graph[key][0]])).reduce((acc, key) => ({ ...acc, [key]: false }), {});
+        if (nodeSet[edList.from] || edList.to === -1) {
+            throw new Error("Cannot compute Eulerian circuit");
+        };
+        nodeSet[edList.from] = true;
+        const nextEdge

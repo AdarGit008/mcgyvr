@@ -1,0 +1,10 @@
+```typescript
+/** Returns numbers in ascending order without mutating the input. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (values.every(x => typeof x === 'number')) {
+    return [...values].sort((a, b) => a - b);
+  } else {
+    throw new Error('Input values must all be numbers.');
+  }
+}
+```

@@ -1,0 +1,73 @@
+```ts
+export class LruCache<K, V> {
+  private readonly capacity: number;
+  private readonly cache: Map<K, V>;
+  private readonly order: Array<K>;
+
+  /**
+   * Creates a new LRU Cache with the given capacity.
+   * @param capacity - The maximum number of items to store in the cache. Must be a positive integer.
+   */
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+    this.order = [];
+  }
+
+  /**
+   * Retrieves the value for the given key and marks it as recently used.
+   * @param key - The key to look up in the cache.
+   * @returns The value associated with the key, or undefined if the key is not found.
+   */
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      this.updateOrder(key);
+    }
+    return value;
+  }
+
+  /**
+   * Inserts a new key-value pair into the cache or updates an existing one, marking it as recently used.
+   * If the cache exceeds its capacity, the least recently used item is evicted.
+   * @param key - The key to insert or update in the cache.
+   * @param value - The value associated with the key.
+   */
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.updateOrder(key);
+    } else {
+      if (this.cache.size >= this.capacity) {
+        const leastUsedKey = this.order.shift();
+        if (leastUsedKey !== undefined) {
+          this.cache.delete(leastUsedKey);
+        }
+      }
+      this.order.push(key);
+    }
+    this.cache.set(key, value);
+  }
+
+  /**
+   * Updates the order of keys to mark a key as recently used.
+   * @param key - The key to update in the order.
+   */
+  private updateOrder(key: K): void {
+    const index = this.order.indexOf(key);
+    if (index !== -1) {
+      this.order.splice(index, 1);
+    }
+    this.order.push(key);
+  }
+
+  /**
+   * Gets the current number of items stored in the cache.
+   */
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```

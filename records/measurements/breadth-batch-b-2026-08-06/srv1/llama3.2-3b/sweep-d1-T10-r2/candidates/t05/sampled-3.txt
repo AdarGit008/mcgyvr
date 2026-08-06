@@ -1,0 +1,18 @@
+```typescript
+export function chunk<T(
+  readonly item extends T = readonly unknown[]
+)>(items: readonly item[], size: number):readonly (item extends unknown[] ? T[] : never)[]
+{
+  if (size <= 0)
+    throw new Error("Size must be a positive integer.");
+
+  const result:readonly (item extends unknown[] ? (T | null)[ ] : never)[] = [];
+
+  for (let index = 0; index < items.length; index += size)
+    result.push(
+      items.slice((index, Math.min(index + size, items.length)) as readonly number[])
+    );
+
+  return result;
+}
+```

@@ -1,0 +1,64 @@
+```typescript
+/**
+ * Splits a CSV line into its fields on commas.
+ *
+ * A field wrapped in double quotes may contain commas, and a doubled quote inside such a field means one literal quote character;
+ * the surrounding quotes are not part of the value. Fields that are not quoted are taken literally, including any surrounding spaces.
+ * An empty line is one empty field.
+ */
+export function parseCsvLine(line: string): string[] {
+    const result: string[] = [];
+    let currentField: string | null = null;
+    let inQuote: boolean = false;
+
+    for (const char of line) {
+        if (char === '"') {
+            inQuote = !inQuote;
+        } else if (!inQuote && char === ',') {
+            if (currentField !== null) {
+                result.push(currentField.trim());
+                currentField = null;
+            }
+        } else if (!inQuote) {
+            currentField += char;
+        } else {
+            currentField += char;
+        }
+    }
+
+    if (currentField !== null) {
+        result.push(currentField.trim());
+    }
+
+    const quotedFields: string[] = [];
+    for (const field of result) {
+        if (field.startsWith('"') && field.endsWith('"')) {
+            let index: number = 1;
+            let quoteCount: number = 0;
+            while (index < field.length) {
+                if (field[index] === '"') {
+                    if (quoteCount === 0) {
+                        throw new Error(`Unbalanced quotes in CSV field: "${field}"`);
+                    }
+                    quoteCount++;
+                } else {
+                    quoteCount--;
+                }
+                index++;
+            }
+            quotedFields.push(field.substring(1, field.length - 1));
+        } else {
+            quotedFields.push(field);
+        }
+    }
+
+    for (let i = 0; i < result.length; i++) {
+        if (result[i] === '') {
+            result.splice(i, 1);
+            i--;
+        }
+    }
+
+    return quotedFields;
+}
+```

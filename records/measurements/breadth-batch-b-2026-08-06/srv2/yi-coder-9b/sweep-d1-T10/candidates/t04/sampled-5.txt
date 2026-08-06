@@ -1,0 +1,29 @@
+```ts 
+export class LruCache<K, V> {
+  private store = new Map<K, V>()
+  constructor(public capacity: number) {
+    if (capacity <= 0 || Number.isNaN(capacity) || !Number.isInteger(capacity)) throw new Error('Capacity must be a positive integer')
+  }
+  get(key: K): V | undefined {
+    const hasKey = this.store.has(key)
+    if (hasKey) {
+      // move this key to top since it is recently used
+      const val = this.store.get(key) as V
+      this.set(key, val); return val 
+    } 
+  }
+  set(key: K, value: V): void {
+    if (this.store.has(key)) {
+        // update the existing key-value pair and move it to top since it is recently used      
+        this.store.delete(key)            
+    } 
+    else if (this.store.size >= this.capacity){
+      // remove oldest/least-recently used, add new on top  
+      const oldestKey = this.store.keys().next().value;
+      this.store.delete(oldestKey);       
+    } 
+    this.store.set(key, value);     
+  }   
+  get size(): number { return this.store.size }
+};
+```

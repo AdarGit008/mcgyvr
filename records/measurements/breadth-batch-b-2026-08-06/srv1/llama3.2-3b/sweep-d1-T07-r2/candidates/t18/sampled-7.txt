@@ -1,0 +1,16 @@
+```typescript
+/** An append-only log of timestamped events. */
+export class EventLog {
+  #events = [];
+
+  /** Append one event. */
+  record(event: { name: string; timestamp: number }): void;
+  record(event: Event): void {
+    throw new Error("Invalid argument type");
+  }
+
+  since(timestamp: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

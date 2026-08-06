@@ -1,0 +1,33 @@
+```ts
+/**
+ * a divided by b.
+ *
+ * Throws Error if either divisor is zero or if both are non-finite numbers,
+ * including booleans and NaNs.
+ */
+export function safeDivide(a: number, b: number): number {
+  // Explicitly check for division by zero
+  if (IsZero(b)) {
+    throw new Error('Cannot divide by zero');
+  }
+  
+  // Check if both arguments are finite numbers
+  if (!IsFinite(a) || !IsFinite(b)) {
+    return NaN;
+  }
+
+  // Safe division with no rounding
+  const r = a / b;
+  if (r % 1 !== 0) {
+    throw new Error('Not an integer result');
+  }
+  
+  // Return exact integer result if no rounding needed
+  return Math.trunc(r);
+}
+
+// Helper to check for zero
+function IsZero(x: number): x is non-zero number {
+  return isNaN(x) || (x == 0);
+}
+```

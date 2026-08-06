@@ -1,0 +1,31 @@
+```ts
+/**
+ * Parses config file into a key-value object.
+ *
+ * @param text - Multi-line string containing KEY=VALUE pairs.
+ * @returns Fixed key-value object with ignored blank and comment lines.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+
+  for (const line of text.split("\n")) {
+    // Ignore empty lines and comments
+    if (!line.trim() || line.startsWith("#")) continue;
+
+    // Split on the first '=' only to allow values with '='
+    const parts = line.split("=", 2);
+    if (parts.length !== 2) throw new Error(`Invalid format at line: ${line}`);
+
+    // Trim whitespace and sanitize key
+    const [key, value] = parts.map(part => part.trim());
+    if (!key) throw new Error('Empty key not allowed');
+
+    // Ignore potentially dangerous keys that could affect the prototype chain
+    if (key === "__proto__") continue;
+
+    config[key] = value;
+  }
+
+  return config;
+}
+```

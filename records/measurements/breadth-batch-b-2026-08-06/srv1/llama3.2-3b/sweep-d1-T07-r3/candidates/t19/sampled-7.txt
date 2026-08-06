@@ -1,0 +1,18 @@
+```typescript
+/**
+ * Divides a by b, throwing an error if the divisor is zero or if both arguments are booleans.
+ * Returns NaN if either argument is NaN and both are finite numbers.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (typeof b === 'boolean' || typeof a === 'boolean') {
+    throw new Error('Cannot divide by boolean');
+  }
+  
+  const denominator = Math.abs(b);
+  if (denominator === 0) {
+    throw new Error('Divisor is zero');
+  }
+  
+  return a / b;
+}
+```

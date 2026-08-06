@@ -1,0 +1,24 @@
+```typescript
+/**
+ * Returns an array of consecutive groups of size elements from the input array,
+ * preserving order; the final group is shorter when the length does not divide evenly.
+ *
+ * The input array must not be mutated. Throws an Error unless size is a positive integer.
+ */
+export function chunk<T extends readonly any[], U>(items: T, size: number): U[][] {
+    if (typeof size !== 'number' || size === 0 || size % 1 !== 0) {
+        throw new Error('Size must be a positive integer.');
+    }
+
+    const result: U[][] = [];
+    for (let i = 0; i < items.length; i += size) {
+        if (i + size <= items.length) {
+            result.push(items.slice(i, i + size));
+        } else {
+            result.push(items.slice(i));
+        }
+    }
+
+    return result;
+}
+```

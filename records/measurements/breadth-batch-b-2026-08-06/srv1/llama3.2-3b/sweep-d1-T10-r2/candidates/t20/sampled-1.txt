@@ -1,0 +1,39 @@
+```typescript
+/**
+ * Parses a configuration file into KEY=VALUE pairs.
+ * The function strips leading whitespace from keys and values,
+ * splits on the first space character following =, ignores blank lines and
+ * comments that start with #. Returns an object where each key is unique and
+ * cannot reach Object.prototype.
+ */
+export function parseConfig(text: string): Record<string, string> {
+    const config: Record<string, string>[] = [];
+    for (const line of text
+         .split("\n")
+         .map((l) => l.trim())
+         .filter((_, i, arr) => l => !l.startsWith('#'))) {
+
+        let [key, value] = line.split('=', 2);
+        key = key.trim();
+        if (!key) {
+            throw new Error(`Empty key on line ${line + '...'}: cannot set`);
+        }
+        if (!value) {
+            throw new Error(`Line ${line}: key '${key}' has no value`);
+        }
+
+        const trimmedValue = value
+            .split(' ')
+            .filter((_, i, arr) => !arr[i].startsWith('#'))
+            .map((s) => s.trim());
+        if (trimmedValue.length > 1) {
+            trimAndMap(trimmedValue.reduce((a, b) => `${a}=${b}`, ''));
+        }
+        config.push({ [key]: trimmedValue[0] || '' });
+    }
+
+    return Object.fromEntries(config);
+}
+
+function trimAndMap(s: string): void {}
+```

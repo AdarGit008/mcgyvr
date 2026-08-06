@@ -1,0 +1,30 @@
+```ts
+/**
+ * Encodes input string using run-length encoding.
+ * Throws Error if input is not a string.
+ *
+ * @param input - The string to encode.
+ * @returns The run-length encoded string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let result = '';
+  let count = 1;
+
+  for (let i = 0; i < input.length - 1; i++) {
+    if (input[i] === input[i + 1]) {
+      count++;
+    } else {
+      result += `${input[i]}${count}`;
+      count = 1;
+    }
+  }
+
+  result += `${input[input.length - 1]}${count}`;
+
+  return result;
+}
+```

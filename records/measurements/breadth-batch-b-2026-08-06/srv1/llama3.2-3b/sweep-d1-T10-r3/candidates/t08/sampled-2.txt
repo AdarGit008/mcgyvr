@@ -1,0 +1,59 @@
+```typescript
+/**
+ * Given a set of nodes and a set of edges where each edge is defined by two
+ * connected nodes with 'from' implying before 'to', returns a valid topological
+ * ordering of those nodes. The resulting ordering is deterministic in that it
+ * picks the node that comes first when there are multiple options.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [readonly string, readonly string][]): string[] {
+    // Create a map to store dependency relations between the nodes
+    const graph = new Map<string, Set<string>>(nodes.map(node => [node, new Set()]));
+
+    // Add directed edges from one node to another with an indicator that
+    // 'from' should go before 'to'
+    for (const [fromNode, toNode] of edges) {
+        if (!graph.has(fromNode)) throw new Error(`Edge source ${fromNode} must be in nodes`);
+        graph.get(fromNode)!.add(toNode);
+    }
+
+    const queue = Array.from(graph.keys()).filter(node => graph.get(node)?.size === 0);
+
+    // Apply Depth-First Search
+    const result: string[] = [];
+    for (const node of queue) {
+        if (!graph.has(node)) throw new Error(`Edge destination ${node} must be in nodes`);
+        dfs(node, null);
+    }
+
+    function* dfs(currentNode: string | null | undefined): Generator<string> {
+        yield currentNode;
+        for (const nextNode of graph.get(currentNode)!) yield* dfs(nextNode);
+
+        if (!queue.includes(currentNode)) throw new Error(`Cycle detected in the edges`);
+    }
+
+    return result;
+
+    // Function to detect a cycle
+    function findCycle(vertex: string | null): boolean {
+        const visited = new Set([vertex]);
+        while (true) {
+            const nextVertex = graph.get(vertex)?.values().next()?.value;
+            if (!nextVertex) return false;
+            if (visited.has(nextVertex)) return true;
+            visited.add(nextVertex);
+            vertex = nextVertex && verticesHaveNext.call(graph, nextVertex);
+            if (vertex == null) return false;
+        }
+    }
+
+    // Iterate over graph's values to generate the cycle sequence
+    function** verticesHaveNext(vertex: string): Generator<string | undefined> {
+        for (const otherVertexValue of Array.from(graph.get(vertex)!.values()))
+            yield undefined;
+        if (!vertex?.inboundLinks.size) return undefined;
+        if (!graph.has(vertex)) throw new Error(`Edge source ${vertex} must be in nodes`);
+        yield vertex;
+    }
+}
+```

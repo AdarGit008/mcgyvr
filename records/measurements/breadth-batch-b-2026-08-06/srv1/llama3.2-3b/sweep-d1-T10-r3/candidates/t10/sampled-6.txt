@@ -1,0 +1,22 @@
+```typescript
+ /** The index of target in a sorted array, or -1 (indicating not found if input is empty). */
+export function binarySearch(items: readonly number[], target: number): number {
+  let low = 0;
+  let high = items.length - 1; // Include both bounds
+  while (low <= high) { // Change the condition to include equal match
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (target < items[mid]) {
+      high = mid - 1; 
+    } else {
+      low = mid + 1;
+    }
+  }
+  if (high === low && items[low] !== target) { // Check for empty or no match when bounds equal
+    return -1;
+  }
+  return -1;
+}
+```

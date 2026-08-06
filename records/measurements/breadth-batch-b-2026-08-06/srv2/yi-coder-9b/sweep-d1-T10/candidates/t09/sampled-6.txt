@@ -1,0 +1,15 @@
+Here's how you could implement this function with TypeScript:
+
+```typescript
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (Number.isInteger(n) === false) {
+    throw Error('Input value must be an integer');
+  } else if (n < 0) {
+    throw Error('Input cannot be a negative number')
+  } else if (n === 0) {
+    return 1;
+  }
+  return n * factorial(n - 1);
+}
+```

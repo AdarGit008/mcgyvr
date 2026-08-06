@@ -1,0 +1,40 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+    if (line === '') return [''];
+
+    const result: string[] = [];
+    let field = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') {
+            if (!inQuotes && i > 0 && line[i - 1] !== '\\') {
+                inQuotes = true;
+                continue;
+            }
+            if (inQuotes && i < line.length - 1) {
+                if (line[i + 1] === '"') {
+                    field += '"';
+                    i++;
+                } else {
+                    inQuotes = false;
+                }
+            } else {
+                throw new Error('Quoted field not closed');
+            }
+        }
+
+        if (!inQuotes && line[i] === ',') {
+            result.push(field.trim());
+            field = '';
+            continue;
+        }
+
+        field += line[i];
+    }
+
+    result.push(field.trim());
+
+    return result;
+}
+```

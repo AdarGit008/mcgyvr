@@ -1,0 +1,14 @@
+```ts
+/**
+ * Divides `a` by `b`, throwing if either is not finite or if `b` is zero.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (!isFinite(a) || !isFinite(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+  if (isNaN(b)) { // includes -0
+    throw new Error("Cannot divide by zero.");
+  }
+  return a / b;
+}
+```

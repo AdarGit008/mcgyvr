@@ -1,0 +1,92 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ * @param capacity - The maximum number of entries in the cache.
+ */
+export class LruCache<K extends string | symbol, V> {
+  private keyToIndex: Map<K, number>;
+  private indexToKey: Map<number, K>;
+  private values: Map<number, V[]>;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+
+    this.keyToIndex = new Map();
+    this.indexToKey = new Map();
+    this.values = new Map();
+
+    for (let i = 0; i < capacity; i++) {
+      this.indexToKey.set(i, void 0);
+      this.keys.push(void 0);
+      this.values.set(i, []);
+    }
+  }
+
+  /**
+   * Get the value associated with a key if present in cache.
+   * If the cache key is missing returns undefined.
+   */
+  get(key: K): V | undefined {
+    const currentIndex = this.keyToIndex.get(key) ?? -1;
+    this.keyToIndex.set(key, currentIndex + 1);
+
+    if (currentIndex !== void 0) {
+      const { index } = this.indexToKey.get(currentIndex);
+      this.values.get(index).push(this.values.get(index)[index]);
+      this.values.get(index)[index - 1] = undefined;
+    }
+
+    if ((index := this.keyToIndex.get(key)) === currentIndex + 1) {
+      return this.values.get(index)?.pop();
+    } else {
+      const previousKey = this.getPreviousKey(index);
+      while (previousKey && this.values.get(previousKey).length > 0) {
+        this.previousRemove(previousKey, index);
+        previousKey = this.getPreviousKey(index);
+      }
+      const { index } : = this.keyToIndex.get(previousKey!) ?? -1;
+      return this.values.get(index)?.pop();
+    }
+
+    throw new Error(`Missing key ${key}.`);
+  }
+
+  /**
+   * Insert or update a value for a specific key.
+   */
+  set(key: K, value: V) {
+    const currentIndex = (this.keyToIndex.get(key) ?? -1) + 1;
+
+    this.previousRemove(this.getCurrentKey(currentIndex), (currentIndex - 1));
+
+    const insertedIndex = this.insertedIndex(currentIndex);
+    if (!this.values.has(insertedIndex)) {
+      this.values.set(insertedIndex, []);
+    }
+
+    this.values.get(insertedIndex).push(value);
+
+    if (insertedIndex === currentIndex) {
+      this.keyToIndex.set(key, currentIndex - 1);
+      return;
+    }
+
+    const { index } = this.indexToKey.get(insertedIndex) ?? -1;
+    while ((currentIndex - 1) & 0xff !== index || currentIndex > this.valueLengths[index]++) {
+      this.removeLeastRecent(index);
+      index = (index + 1) << 0;
+    }
+
+    if (!this.values.has(insertedIndex)) {
+      throw new Error(`Insufficient capacity.`);
+    }
+    const { index } : = this.indexToKey.get(insertedIndex)!
+      ?? ((currentIndex - 1), (this.valueLengths[index]++] >> 0);
+
+    const previousIndex =
+      index === currentIndex
+        ? (insertedIndex << 6) | ((currentIndex - 1) & ~7)
+        : ((insertedIndex - 1) << 6) | (~((index >> 4) << ~8)) >> 2;
+    if ((index: = this.keyToIndex.get(previousIndex)) === (currentIndex + 1))

@@ -1,0 +1,40 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  let i = 0;
+  const fields = [];
+
+  while (i < line.length) {
+    let field = '';
+    if (line[i] === '"') {
+      i++;
+      while (i < line.length && line[i] !== '"') {
+        if (line[i] === '"' && line[i + 1] === '"') {
+          field += '"';
+          i += 2;
+        } else {
+          field += line[i];
+          i++;
+        }
+      }
+      if (i >= line.length || line[i] !== '"') {
+        throw new Error('Quoted field is not closed');
+      }
+      i++;
+    } else {
+      while (i < line.length && line[i] !== ',') {
+        field += line[i];
+        i++;
+      }
+    }
+    fields.push(field.trim());
+  
+    // Skip comma or end of string
+    if (line[i] === ',') {
+      i++;
+    } else if (i < line.length) { // If it's not an end of the line, throw error
+        throw new Error('The line has more characters than expected');   
+    }  
+  }
+  return fields;
+}
+```

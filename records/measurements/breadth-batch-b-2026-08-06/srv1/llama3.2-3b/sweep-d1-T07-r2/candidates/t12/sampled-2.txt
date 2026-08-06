@@ -1,0 +1,10 @@
+```typescript
+/** Returns every negative number removed from the array */
+export function removeNegatives(values: readonly number[]): number[] {
+  /**
+   * Creates a new array with all negative numbers removed and returns it.
+   * Throws an Error if values is not an array or contains non-numeric values.
+   */
+  return values.filter((value) => typeof value !== 'number' || value >= 0);
+}
+```

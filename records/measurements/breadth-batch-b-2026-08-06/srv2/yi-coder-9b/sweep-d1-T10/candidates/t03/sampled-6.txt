@@ -1,0 +1,17 @@
+Here is the desired function parseSemver defined in TypeScript:
+
+````ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const versionParts = /^(\d+)\.(\d+)\.(\d+)(?:-([^+]+))?(?:\+([^\s]+))?$/.exec(version);
+  
+    if (!versionParts) throw new Error('Invalid version: ' + version);
+
+  return {
+        major: Number(versionParts[1]), 
+	minor:Number(versionParts[2]),
+	patch:Number(versionParts[3]),
+	prerelease:(versionParts[4] === undefined)? null : versionParts[4], 
+	build:(versionParts[5]===undefined)? null : versionParts[5]
+    };
+}
+````

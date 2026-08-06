@@ -1,0 +1,37 @@
+```ts
+/**
+ * Parses a single line of CSV into its fields.
+ * @param line The CSV line to parse.
+ * @returns An array of fields extracted from the line.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (line.trim() === '') return [''];
+
+  const result: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+
+  for (const char of line) {
+    if (char === '"') {
+      if (!inQuotes && currentField !== '') {
+        // Quotes without a corresponding open quote
+        throw new Error('Unmatched opening quote');
+      }
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(currentField.trim());
+      currentField = '';
+    } else {
+      currentField += char;
+    }
+  }
+
+  if (inQuotes) {
+    // Unmatched closing quote
+    throw new Error('Unmatched closing quote');
+  }
+
+  result.push(currentField.trim());
+  return result;
+}
+```

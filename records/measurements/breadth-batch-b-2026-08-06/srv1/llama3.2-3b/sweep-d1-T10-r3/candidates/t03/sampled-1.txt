@@ -1,0 +1,52 @@
+```ts
+/**
+ * Parses a semantic version string into its constituent parts.
+ *
+ * @param(version)
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const result = { major: undefined, minor: undefined, patch: undefined, prerelease: null, build: null };
+  if (version.startsWith('v')) version = version.substring(1);
+  
+  let parts = version.split('.');
+  if (parts.length !== 3) throw new Error(`Invalid MAJOR.MINOR.PATCH format. Expected exactly three digits.`);
+  
+  result.major = parseInt(parts[0], 10);
+  if (!Number.isInteger(result.major)) throw new Error('MAJOR must be a digit without leading zeros.');
+  parts.shift();
+  
+  result.minor = parseInt(parts[0], 10);
+  if (!Number.isInteger(result.minor) || (result.minor && result.minor > 9)) {
+    throw new Error(`MINOR ${parts[0]} is not a valid digit.`);
+  }
+  parts.shift();
+  
+  result.patch = parseInt(parts[0], 10);
+  if (!Number.isInteger(result.patch) || (result.patch && result.patch > 9)) 
+    throw new Error(`PATCH ${parts[0]} is not a valid digit.`);
+  
+  let buildIndex = -1;
+  let prereleaseIndex = -1;
+  if (version.includes('+')) {
+    buildIndex = version.indexOf('+');
+    const build = version.substring(buildIndex);
+    result.build = build;
+    version = version.substring(0, buildIndex);
+  }
+  
+  if (prereleaseIndex === -1 && version.includes('-')) {
+    prereleaseIndex = version.lastIndexOf('-');
+    const prerelease = version.substring(prereleaseIndex + 1);
+    result.prerelease = prerelease;
+    version = version.substring(0, prereleaseIndex);
+  }
+  
+  return result;
+}
+```

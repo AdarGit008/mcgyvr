@@ -1,0 +1,83 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+    private capacity: number;
+    private cache: Map<K, { value: V; index: number }>;
+    private currentIndex: number;
+
+    /**
+     * Constructs a new instance of the `LruCache` class.
+     *
+     * @param capacity The maximum number of entries in the cache.
+     */
+    constructor(capacity: number) {
+        if (typeof capacity !== 'number' || capacity <= 0) {
+            throw new Error('Capacity must be a positive integer.');
+        }
+        this.capacity = capacity;
+        this.cache = new Map<K, { value: V; index: number }>();
+        this.currentIndex = -1;
+    }
+
+    /**
+     * Returns the value associated with the given key if it exists in the cache.
+     *
+     * @param key The key to retrieve from the cache.
+     */
+    get(key: K): V | undefined {
+        const cacheIndex = this.cache.get(key)?.index ?? -1;
+
+        if (cacheIndex === -1) {
+            return undefined;
+        }
+
+        const value = this.cache.get(key).value;
+        this.currentIndex = Math.max(this.currentIndex, cacheIndex);
+        this.cache.delete(key);
+
+        if (this.cache.size >= this.capacity) {
+            const oldestKey = Array.from(this.cache.keys())[0];
+            this.cache.delete(oldestKey);
+            this.currentIndex -= 1;
+        }
+
+        this.cache.set(key, { value, index: this.currentIndex });
+        return value;
+    }
+
+    /**
+     * Inserts or updates the given key-value pair in the cache.
+     *
+     * @param key The key to insert or update in the cache.
+     * @param value The value associated with the given key.
+     */
+    set(key: K, value: V) {
+        const existingIndex = this.cache.get(key)?.index ?? -1;
+
+        if (existingIndex !== -1) {
+            this.currentIndex = Math.max(this.currentIndex, existingIndex);
+            this.cache.set(key, { value, index: this.currentIndex });
+            return;
+        }
+
+        if (this.cache.size >= this.capacity) {
+            const oldestKey = Array.from(this.cache.keys())[0];
+            this.cache.delete(oldestKey);
+            this.currentIndex -= 1;
+        }
+
+        this.cache.set(key, { value, index: this.currentIndex });
+    }
+
+    /**
+     * Returns the number of entries in the cache.
+     *
+     * @returns The current entry count.
+     */
+    get size(): number {
+        return this.cache.size;
+    }
+}
+```

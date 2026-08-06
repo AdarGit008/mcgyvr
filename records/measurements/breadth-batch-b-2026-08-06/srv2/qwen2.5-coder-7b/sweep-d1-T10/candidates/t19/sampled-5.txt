@@ -1,0 +1,12 @@
+```ts
+/** A number divided by another number, safely handling errors. */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(a) || isNaN(b)) {
+    throw new Error('Both arguments must be finite numbers.');
+  }
+  if (b === 0 || 1 / b === -Infinity) {
+    throw new Error('The divisor cannot be zero or -zero.');
+  }
+  return a / b;
+}
+```

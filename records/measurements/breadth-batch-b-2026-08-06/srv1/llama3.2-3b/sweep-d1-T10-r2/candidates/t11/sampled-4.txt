@@ -1,0 +1,10 @@
+```typescript
+export function sortAscending(values: readonly number[]): number[] {
+  // Throw Error for invalid arguments.
+  if (!values.every((n) => typeof n === 'number' && !isNaN(n))) {
+    throw new Error('Invalid input. At least one value is not a number or NaN.');
+  }
+
+  return [...values].sort((a, b) => a - b);
+}
+```

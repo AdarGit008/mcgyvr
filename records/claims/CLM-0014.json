@@ -1,0 +1,39 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0014",
+  "statement": "Breadth's value is a property of the rung, not of breadth, and it ranges from +8 tasks of 20 to nothing across one ladder — so CLM-0013's 'the default of 1 stands' holds only where it was measured and must not be read as a general default. Method: campaign.py walks every model on a host smallest-first up a difficulty ladder (d1 = the pinned 20-task JS/TS set; d2/d3 = harder 12-task sets), probing one greedy draw per task until the model stops passing with ease (< 90%), then sweeping at that failure tier with a greedy anchor plus eight serial sampled draws at T=0.7, no early exit, every candidate kept; fourteen model-runs across two Ollama hosts (srv1 4, srv2 10). Batch B then repeated the four srv1 cells three times each, because one run per cell had already produced one wrong conclusion. Result: coverage from one draw to eight rises by +4.0 (qwen2.5-coder:1.5b), +6.0 (3b), +4.7 (llama3.2:3b) and +3.3 (7b) tasks of 20 at T=0.7, means over three runs each; by +2 of 12 for qwen3-coder:30b swept at d2, identical in all three runs (9->11, 9->11, 8->10); and by nothing at all for qwen3-coder-next-ud:q3_K_XL, which reaches 11 of 12 on its first draw at d2 and 11 of 12 after eight. Gains plateau by about the fifth draw everywhere: a K=16 arm on the 1.5b added nothing between draw 6 and draw 16. Scope and limits: 'pass' is the contract's declared acceptance executed, the proxy CLM-0012 is quoted on, not the full Gate.run, and CLM-0016 measures what a weaker checker does to every figure above — at a quarter of each acceptance's assertions the pooled gain falls from +5.0 to +1.9 while wrong-but-accepted answers rise to 7.3, so these numbers are conditional on a selector as strong as the one used here. Run-to-run spread on the coverage figure is about +/-2 tasks, so differences smaller than that are not real, and the top-rung zero is a single run. Two srv2 rows measure the 768-token cap rather than any model: qwen3:30b-a3b truncated 172 of 180 draws with zero logic failures and gpt-oss:20b 56 with three, and neither belongs in an average over the table. Twelve of fourteen model-runs stopped at d1, so d2 is sampled by two models and d3 by none; one task-set family, two hosts, one serving stack. Consequence: #119 ships breadth as per-rung policy rather than one global number, defaulting above 1 for local rungs and citing this record; CLM-0013 stands as a measurement of its own rung and is corrected in place to say so.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "medium",
+  "citations": [
+    {
+      "url": "records/measurements/breadth-campaign-2026-08-06/README.md",
+      "supports_because": "States the campaign's construction — probe-to-failure then sweep there — the full fourteen-model table with per-tier probe rates and failure classification, and the two rows that measure the output cap rather than the model, which is the fact most capable of making the spread look larger than it is."
+    },
+    {
+      "url": "records/measurements/breadth-batch-b-2026-08-06/README.md",
+      "supports_because": "Carries the three-runs-per-cell srv1 figures the +3 to +8 range is taken from, as mean [min-max], including the cells where a single run had shown a gain that repeats dissolved."
+    },
+    {
+      "url": "records/measurements/breadth-campaign-2026-08-06/srv2/campaign.json",
+      "supports_because": "Every decision the driver made per model: probe pass rate per tier, the tier it stopped at, the failure classification and the per-task first-pass indices, so the escalation of the two 30B-class models and the flat distribution of the strongest are recomputable rather than trusted."
+    },
+    {
+      "url": "records/measurements/breadth-campaign-2026-08-06/srv2/qwen3-coder-next-ud-q3_K_XL/sweep-d2/results.jsonl",
+      "supports_because": "The 108 rows behind the one model that gained nothing from breadth on hard tasks — the single-run result this claim deliberately does not lean on, kept citable so a repeat can be compared against it draw by draw."
+    },
+    {
+      "url": "records/measurements/breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T10-k16/results.jsonl",
+      "supports_because": "The K=16 arm: 340 rows showing coverage flat from draw 6 through draw 16, which is what makes 'plateaus by about the fifth draw' an observation rather than an artifact of having stopped at eight."
+    },
+    {
+      "url": "tools/breadth/campaign.py",
+      "supports_because": "The instrument. It runs ordinary measure.py stages, so every probe and sweep carries its own manifest, resume and candidates; the no-early-exit property that makes the index distribution an observation is held by test in tests/test_breadth_rig.py."
+    },
+    {
+      "url": "records/claims/CLM-0013.json",
+      "supports_because": "The claim this one bounds: measured on the strongest local rung against the easiest task set, where 18 of 20 tasks passed on the first draw and breadth had almost nothing left to find."
+    }
+  ]
+}

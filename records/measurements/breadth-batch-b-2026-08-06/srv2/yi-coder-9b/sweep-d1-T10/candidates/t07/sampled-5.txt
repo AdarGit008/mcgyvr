@@ -1,0 +1,22 @@
+Here is the TypeScript implementation for the above function contract:
+
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0 || !Number.isFinite(depth)) throw new Error(`Invalid depth ${depth}`);
+  const result: unknown[] = [];
+  for (let i = 0; i < items.length; ++i) {
+    if (Array.isArray(items[i]) && depth > 0) {
+      result.push(...flatten(<unknown[]>items[i], depth - 1));
+    } else {
+      result.push(items[i]);
+    }
+  }
+  return result;
+}
+```
+In the code above:
+- We take a readonly unknown[] input to be flexible and generic enough.
+- By default `depth` is set as Infinity, which will iterate over all nested arrays it finds till no deeper nesting can be found. But if user provides depth then it will only flatten upto that level provided by the user.
+- We throw an Error right away if user inputs a negative number or anything except a non-negative finite number.
+- The function recursively checks for any nested array and pushes them into result[] with decreasing value of depth until the base case depth reaches 0.
+- If we encounter something that is not an Array - it's pushed to results[] directly as it is not going to be iterated further. After iteration, we return a combined array. We don’t modify the original input. Also, we make sure not to mutate any data which we are iterating over in our solution.

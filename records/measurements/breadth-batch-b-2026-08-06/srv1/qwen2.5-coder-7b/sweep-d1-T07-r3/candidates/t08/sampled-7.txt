@@ -1,0 +1,41 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Map<string, { inDegree: number; neighbors: Set<string> }> = new Map();
+  const result: string[] = [];
+
+  // Initialize graph with nodes and their dependencies
+  for (const node of nodes) {
+    graph.set(node, { inDegree: 0, neighbors: new Set() });
+  }
+
+  // Build the graph and calculate in-degrees
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) throw new Error(`Unknown node: ${from}`);
+    if (!graph.has(to)) throw new Error(`Unknown node: ${to}`);
+    graph.get(from)!.neighbors.add(to);
+    graph.get(to)!.inDegree++;
+  }
+
+  // Find nodes with zero in-degree
+  const queue: string[] = [];
+  for (const [node, { inDegree }] of graph) {
+    if (inDegree === 0) queue.push(node);
+  }
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+
+    for (const neighbor of graph.get(node)!.neighbors) {
+      const neighborInfo = graph.get(neighbor)!;
+      neighborInfo.inDegree--;
+      if (neighborInfo.inDegree === 0) queue.push(neighbor);
+    }
+  }
+
+  // Check for cycles
+  if (result.length !== nodes.length) throw new Error('Cycle detected');
+
+  return result;
+}
+```

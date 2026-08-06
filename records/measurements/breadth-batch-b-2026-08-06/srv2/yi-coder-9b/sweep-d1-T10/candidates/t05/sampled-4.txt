@@ -1,0 +1,6 @@
+```typescript
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (size < 1) throw Error('Size must be a positive integer');
+    return Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, i * size + size));
+}
+```

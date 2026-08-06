@@ -1,0 +1,86 @@
+```ts
+/**
+ * Determines if there's a cycle in the graph using DFS.
+ * @param {string} node - The current node being explored.
+ * @param {Set<string>} visiting - Nodes currently in the recursion stack.
+ * @param {Map<string, Set<string>>} adjList - Adjacency list representation of the graph.
+ * @returns {boolean} - True if a cycle is detected, false otherwise.
+ */
+function hasCycle(node: string, visiting: Set<string>, adjList: Map<string, Set<string>>) {
+    visiting.add(node);
+    for (const neighbor of adjList.get(node)!) {
+        if (visiting.has(neighbor)) {
+            return true;
+        }
+        if (hasCycle(neighbor, visiting, adjList)) {
+            return true;
+        }
+    }
+    visiting.delete(node);
+    return false;
+}
+
+/**
+ * Performs topological sort on a directed acyclic graph (DAG).
+ * @param {readonly string[]} nodes - Array of node names.
+ * @param {readonly (readonly [string, string])[]} edges - Array of edge definitions.
+ * @returns {string[]} Topologically sorted array of node names.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjList = new Map<string, Set<string>>();
+    for (const node of nodes) {
+        adjList.set(node, new Set());
+    }
+    
+    for (const [from, to] of edges) {
+        if (!adjList.has(from)) {
+            throw new Error(`Invalid edge: '${from}' not in nodes.`);
+        }
+        if (!adjList.has(to)) {
+            throw new Error(`Invalid edge: '${to}' not in nodes.`);
+        }
+        adjList.get(from)!
+            .add(to);
+    }
+
+    const visiting = new Set<string>();
+
+    // Check for cycles; return null if a cycle exists
+    if (nodes.some(node => hasCycle(node, visiting, adjList))) {
+        throw new Error('Cycle detected: no topological ordering possible.');
+    }
+
+    // Kahn's algorithm to perform topological sort
+    const inDegree = new Map<string, number>();
+    for (const node of nodes) {
+        inDegree.set(node, 0);
+    }
+    for (const to of adjList.values()) {
+        for (const neighbor of to) {
+            inDegree.set(neighbor, inDegree.get(neighbor)! + 1);
+        }
+    }
+
+    const queue: string[] = [];
+    for (const [node, degree] of inDegree.entries()) {
+        if (degree === 0) {
+            queue.push(node);
+        }
+    }
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        for (const neighbor of adjList.get(node)! || []) {
+            inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+            if (inDegree.get(neighbor)! === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,20 @@
+```typescript
+/** Checks that value meets all input constraints for temperature conversions. */
+function validateTemperatureValue(celsius: number | null): void {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("must be a finite number");
+  }
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  void validateTemperatureValue(celsius);
+  return (celsius as never) * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  void validateTemperatureValue(celsius);
+  return (celsius as never) + 273.15;
+}
+```

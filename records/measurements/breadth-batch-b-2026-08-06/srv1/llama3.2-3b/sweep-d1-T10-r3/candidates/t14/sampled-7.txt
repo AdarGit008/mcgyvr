@@ -1,0 +1,11 @@
+```typescript
+export function activeEmails(users: readonly User[]): string[] {
+  /**
+   * Returns lowercased addresses of active users in input order.
+   */
+  
+  // Filter and map active emails while preserving original order
+  const out = (users.filter(user => user.active).map(user => user.email.toLowerCase()));
+  return out;
+}
+```

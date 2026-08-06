@@ -1,0 +1,38 @@
+```ts
+/**
+ * Merge overlapping intervals in ascending order by start point.
+ *
+ * @param intervals - List of [start, end] pairs that may be open-ended.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (!Array.isArray(intervals)) {
+        throw new Error('Input must be an array');
+    }
+
+    const result: number[][] = [];
+
+    for (const interval of intervals) {
+        if (!Array.isArray(interval) || interval.length !== 2) {
+            throw new Error('Each pair must have two elements');
+        }
+
+        const [start, end] = interval;
+        if (typeof start !== 'number' || typeof end !== 'number') {
+            throw new Error('All pairs must be of type number[]');
+        }
+        if (start > end) {
+            throw new Error('Start must not be greater than end');
+        }
+
+        const existingMatch = result.find((existing) => (existing[1] >= start && existing[0] <= end));
+        if (existingMatch) {
+            existingMatch[0] = Math.min(existingMatch[0], start);
+            existingMatch[1] = Math.max(existingMatch[1], end);
+        } else {
+            result.push([start, end]);
+        }
+    }
+
+    return result;
+}
+```

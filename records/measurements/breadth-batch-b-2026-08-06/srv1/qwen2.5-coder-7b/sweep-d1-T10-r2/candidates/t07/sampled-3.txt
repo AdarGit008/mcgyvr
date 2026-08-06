@@ -1,0 +1,26 @@
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (typeof depth !== 'number' || (depth !== Math.floor(depth) && depth !== Infinity) || depth < 0) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  const result: unknown[] = [];
+
+  function _flatten(item: unknown, currentDepth: number): void {
+    if (currentDepth === 0 || typeof item !== 'object' || item instanceof String || item === null) {
+      result.push(item);
+      return;
+    }
+
+    for (const subItem of item as Iterable<unknown>) {
+      _flatten(subItem, currentDepth - 1);
+    }
+  }
+
+  for (const item of items) {
+    _flatten(item, depth);
+  }
+
+  return result;
+}
+```

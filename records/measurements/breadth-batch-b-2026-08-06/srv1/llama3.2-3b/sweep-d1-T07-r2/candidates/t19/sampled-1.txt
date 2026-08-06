@@ -1,0 +1,22 @@
+```ts
+/** Returns a divided by b. */
+export function safeDivide(a: number, b: number): number {
+  /**
+   * Divides a by b, throwing an Error if b is zero or if either a or b is not finite,
+   * or if both are booleans.
+   *
+   * @param a The dividend
+   * @param b The divisor
+   */
+  if (typeof a === 'boolean' || typeof b === 'boolean') {
+    throw new Error('Cannot divide by boolean');
+  }
+  if (!isFinite(a) || !isFinite(b)) {
+    throw new Error('Both arguments must be finite numbers');
+  }
+  if (b === 0) {
+    throw new Error('Cannot divide by zero');
+  }
+  return a / b;
+}
+```

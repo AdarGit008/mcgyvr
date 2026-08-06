@@ -1,0 +1,83 @@
+```ts
+import { Map } from 'map';
+
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+    private capacity: number;
+    private keyMap: Map<K, Entry<V>>;
+    private entryList: Entry<V>[];
+
+    constructor(capacity: number) {
+        if (typeof capacity !== 'number' || capacity <= 0) {
+            throw new Error('capacity must be a positive integer');
+        }
+
+        this.capacity = capacity;
+        this.keyMap = new Map();
+        this.entryList = [];
+    }
+
+    /**
+     * Returns the cached value for the given key or undefined if not present.
+     */
+    get(key: K): V | undefined {
+        const entry = this.keyMap.get(key);
+        if (!entry) {
+            return undefined;
+        }
+
+        // move to end of list
+        this.entryList.splice(this.entryList.indexOf(entry), 1);
+        if (this.entryList.length === this.capacity) {
+            this.entryList.shift();
+        }
+        this.keyMap.set(key, entry);
+
+        return entry.value;
+    }
+
+    /**
+     * Inserts or updates the value for the given key.
+     */
+    set(key: K, value: V): void {
+        const existingEntry = this.keyMap.get(key);
+        if (existingEntry) {
+            // update value
+            if (value === existingEntry.value) {
+                return;
+            }
+            this.entryList.splice(this.entryList.indexOf(existingEntry), 1);
+            this.keyMap.set(key, { key, value });
+            this.entryList.push({ key, value });
+        } else {
+            if (this.entryList.length >= this.capacity) {
+                const removed = this.entryList.shift();
+                this.keyMap.delete(removed.key);
+            }
+            this.keyMap.set(key, { key, value });
+            this.entryList.push({ key, value });
+        }
+    }
+
+    /**
+     * Returns the size of the cache in elements.
+     */
+    get size(): number {
+        return this.capacity;
+    }
+}
+
+/** A single entry in the LruCache. */
+export class Entry<K, V> {
+    key: K;
+    value: V;
+
+    constructor(key: K, value: V) {
+        this.key = key;
+        this.value = value;
+    }
+
+}
+```

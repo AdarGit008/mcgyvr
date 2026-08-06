@@ -1,0 +1,16 @@
+```typescript
+/**
+ * Returns a new array with all negative numbers removed.
+ */
+export function removeNegatives(values: readonly number[]): number[] {
+  const result = [...values]; // create a shallow copy
+  for (let index = 0; index < result.length; index++) {
+    if (result[index] < 0) {
+      result.splice(index, 1);
+      // decrement the loop counter to prevent skipping an element
+      --index;
+    }
+  }
+  return result;
+}
+```

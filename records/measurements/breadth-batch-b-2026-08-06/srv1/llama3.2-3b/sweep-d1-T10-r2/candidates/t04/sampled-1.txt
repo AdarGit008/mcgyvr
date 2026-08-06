@@ -1,0 +1,65 @@
+```ts
+/**
+ * A fixed-capacity least-recently-used cache implementation.
+ */
+export class LruCache<K, V> {
+  private container: Map<K, [V, number]>;
+  private capacity: number;
+
+  /**
+   * Creates an instance of LruCache. The capacity must be a positive integer.
+   *
+   * @param capacity The maximum number of entries in the cache.
+   */
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+
+    this.container = new Map();
+    this.capacity = capacity;
+  }
+
+  /**
+   * Retrieves a value from the cache by key. The call counts as a use.
+   *
+   * @param key The key of the value to retrieve.
+   */
+  get(key: K): V | undefined {
+    const [value, timestamp] = this.container.get(key) ?? [undefined, 0];
+
+    if (value !== undefined) {
+      this.container.set(key, [value, new Date().getTime()]);
+    }
+
+    return value;
+  }
+
+  /**
+   * Inserts or updates an entry in the cache. The call counts as a use.
+   *
+   * @param key The key of the value to insert or update.
+   * @param value The value to insert or update.
+   */
+  set(key: K, value: V): void {
+    if (this.container.has(key)) {
+      this.container.set(key, [value, new Date().getTime()]);
+    } else if (this.capacity === 0) {
+      throw new Error('Cache is empty.');
+    } else if (this.container.size >= this.capacity) {
+      const [leastRecentValue, leastRecentTimestamp] = this.container.entries()
+        .next()!
+        .value;
+
+      this.container.delete(LeastRecentValue);
+
+      this.counter = 0;
+    }
+
+    this.container.set(key, [value, new Date().getTime()]);
+  }
+  get size(): number {
+    return this.container.size;
+  }
+}
+```

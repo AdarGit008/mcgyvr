@@ -1,0 +1,27 @@
+```ts
+export function runLengthEncode(input: string): string {
+    /**
+     * Encodes every maximal run of one repeated character in the input string into that character followed by its run length.
+     */
+    if (typeof input !== 'string') {
+        throw new Error('Input must be a string');
+    }
+
+    const output = [];
+    let currentChar = input[0];
+    let charCount = 1;
+
+    for (let i = 1; i <= input.length; i++) {
+        if (i < input.length && input[i] !== currentChar) {
+            output.push(currentChar);
+            output.push(charCount.toString());
+            currentChar = input[i];
+            charCount = 1;
+        } else {
+            charCount++;
+        }
+    }
+
+    return output.join('');
+}
+```

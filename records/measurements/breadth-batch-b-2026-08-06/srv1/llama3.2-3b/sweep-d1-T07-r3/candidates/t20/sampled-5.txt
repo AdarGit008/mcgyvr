@@ -1,0 +1,32 @@
+```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+    /**
+     * Parse a string representing a configuration file.
+     *
+     * This function splits the input text into key-value pairs and returns
+     * them as a plain JavaScript object. The parsing process ignores blank lines,
+     * throws an Error for invalid key or value, trims whitespace around keys and values,
+     * and uses the first '=' character to split each pair.
+     */
+    const config: Record<string, string> = {};
+    for (const line of text.split("\n")) {
+        // Ignore blank lines
+        if (!line.trim()) continue;
+
+        // Check for invalid lines with no '=' character
+        const startIndex = line.indexOf('=');
+        if (startIndex === -1) throw new Error(`Invalid line: ${line}`);
+
+        // Extract key and value, trimming whitespace around them
+        const [key, value] = line.slice(0, startIndex).trim().split(/\s+/);
+        const trimmedValue = value.trim();
+
+        // Check for invalid values with no '=' character
+        if (!trimmedValue.includes('=')) throw new Error(`Invalid value: ${line}`);
+
+        config[key] = trimmedValue;
+    }
+    return config;
+}
+```

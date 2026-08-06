@@ -1,0 +1,9 @@
+```typescript
+/** The numbers, ascending. */
+export function sortAscending(values: readonly (number | null)[]): number[] {
+  if (values.length === 0) return [];
+
+  const numericValues = values.map(Number);
+  return numericValues.filter(value => !isNaN(value)).sort((a, b) => a - b);
+}
+```

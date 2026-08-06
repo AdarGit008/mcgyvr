@@ -1,0 +1,32 @@
+```typescript
+/** The index of target in a sorted array, or -1. */
+export function binarySearch(items: readonly number[], target: number): number {
+  // Special case for empty array
+  if (items.length === 0) { 
+    throw new Error('Array is empty'); 
+  }
+
+  // Special cases for single-element arrays and null/undefined edges
+  let low = 0;
+  let high = items.length - 1;
+
+  while (low <= high && target !== items[high]) {
+    const mid = Math.floor((low + high) / 2);
+    if (target < items[mid]) {
+      high = mid - 1;
+    } else { // must be target >= items[mid]
+      low = mid + 1;
+    }
+  }
+
+  if (low <= high && items[low] === target) {
+    return low;
+  }
+
+  if (low <= high && items[high] === target) {
+    return high; 
+  }
+
+  return -1;
+}
+```

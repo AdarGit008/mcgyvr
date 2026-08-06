@@ -1,0 +1,81 @@
+```ts
+/**
+ * Finds a topological sorting for the given nodes and edges using DFS and BFS.
+ * Returns an array of node names in a order where for every edge [from, to] from
+ * occurs before to. If no such order exists because of a cycle, throws an Error.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: { [node: string]: Set<string> } = {};
+  for (const node of nodes) {
+    graph[node] = new Set();
+  }
+  
+  const nodeEdges: { [edge: number]: readonly [number, number] } = [];
+  for (let i = 0; i < edges.length; i++) {
+    if (!graph[edges[i][0]]) {
+      throw new Error(`Node not found in nodes: ${edges[i][0]}`);
+    }
+    graph[edges[i][0]].add(edges[i][1]);
+    nodeEdges.push(i);
+  }
+
+  const inDegree = { [node: string]: 0 } as typeof edges;
+  for (const edgeIndex of nodeEdges) {
+    const [from, to] = edges[edgeIndex];
+    inDegree[to]++;
+  }
+
+  const result: readonly string[] = [] as readonly string[];
+  
+  function dfs(node: string, visited: boolean[]) {
+    if (visited[node]) {
+      return;
+    }
+    
+    visited[node] = true;
+    for (const neighbor of graph[node]) {
+      dfs(neighbor, visited);
+    }
+    result.push(node);
+  }
+
+  const freeNodes = new Set(nodes);
+  while (freeNodes.size > 0) {
+    const node = [...freeNodes].sort()[0];
+    const neighbors = graph[node];
+    if (!neighbors || graph.has(...neighbors)) {
+      dfs(node, Array.from(freeNodes).map(() => false));
+      result.push(node);
+      
+      for (const index of nodeEdges.map(edge => edgeindex)) {
+        const [from, to] = edges[index];
+        
+        if (result[result.length - 1] === from && !inDegree[to]) {
+          inDegree[to]++;
+          freeNodes.delete(to);
+        }
+        inDegree[from]--;
+        if (from === node && inDegree[to] === 0) {
+          freeNodes.add(to);
+          
+          const neighbors = graph[node];
+          for (const neighbor of neighbors) {
+            neighbors.add(neighbor);
+            graph[neighbor].add(node);
+          }
+        } else {
+          freeNodes.delete(from);
+        }
+      }
+    } else {
+      freeNodes.delete(node);
+    }
+  }
+
+  if (!result.length || result.some((node, i) => node === edges[i][1])) {
+    throw new Error('Cycle detected in the graph');
+  }
+  
+  return [...Array(result.length)].map(() => result.pop()!);
+}
+```

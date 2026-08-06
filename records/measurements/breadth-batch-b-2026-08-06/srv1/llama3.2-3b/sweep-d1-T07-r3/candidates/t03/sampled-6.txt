@@ -1,0 +1,30 @@
+```typescript
+/**
+ * Parse a semantic version string of the form MAJOR.MINOR.PATCH with an optional -prerelease and an optional +build,
+ * returning the three numbers plus the prerelease and build strings, each null when absent.
+ *
+ * @param version - The semantic version string to parse
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    // Check if the input is empty or not a string
+    if (typeof version !== 'string') {
+        throw new Error('Invalid semver string');
+    }
+
+    const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?(?:\+(.+))?$/);
+    if (!match) {
+        throw new Error(`Invalid semver string: ${version}`);
+    }
+
+    // Extract the numeric parts and prerelease/build strings
+    const [, major, minor, patch, prerelease, build] = match;
+    
+    // Check if any of the numeric parts are non-digit or have a leading zero (except for "0" itself)
+    if (!/^\d+$/.test(major) || !/^\d+$/.test(minor) || !/^\d+$/.test(patch)) {
+        throw new Error(`Invalid semver string: ${version}`);
+    }
+    
+    // Return the parsed version
+    return { major: parseInt(major, 10), minor: parseInt(minor, 10), patch: parseInt(patch, 10), prerelease, build };
+}
+```

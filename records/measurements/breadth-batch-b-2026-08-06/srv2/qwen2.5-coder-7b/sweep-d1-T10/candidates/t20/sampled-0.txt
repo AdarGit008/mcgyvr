@@ -1,0 +1,30 @@
+```ts
+/**
+ * Parses the KEY=VALUE pairs of a config file, ignoring blank lines,
+ * comments (lines starting with #), and trimming whitespace around keys
+ * and values. The first '=' in a line is used for separation. Throws an
+ * Error for lines with no '=' or empty keys.
+ * @param text - The config file text to parse.
+ * @returns A dictionary of parsed key-value pairs.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Ignore blank lines and comments
+    if (line.trim() === "" || line.startsWith("#")) continue;
+
+    // Trim whitespace and split on the first '='
+    const [key, ...valueParts] = line.trim().split("=", 2);
+    const value = valueParts.join("=").trim();
+
+    // Throw error for lines with no '=' or empty keys
+    if (!key) throw new Error(`Invalid line: "${line}" - Missing key`);
+
+    // Ignore special __proto__ key to prevent prototype pollution
+    if (key === "__proto__") continue;
+
+    config[key] = value;
+  }
+  return config;
+}
+```

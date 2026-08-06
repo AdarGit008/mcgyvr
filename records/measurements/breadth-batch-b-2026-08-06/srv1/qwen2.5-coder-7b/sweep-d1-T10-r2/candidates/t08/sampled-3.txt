@@ -1,0 +1,48 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: Map<string, { incoming: string[], outgoing: string[] }> = new Map();
+    for (const node of nodes) {
+        graph.set(node, { incoming: [], outgoing: [] });
+    }
+
+    for (const [from, to] of edges) {
+        if (!graph.has(from) || !graph.has(to)) {
+            throw new Error(`Invalid edge (${from}, ${to}): one or both nodes are not in the list.`);
+        }
+        graph.get(from)?.outgoing.push(to);
+        graph.get(to)?.incoming.push(from);
+    }
+
+    const inDegree = Array.from(graph.values()).map(node => node.incoming.length);
+    const queue: string[] = [];
+    for (const [node, degree] of zip(nodes, inDegree)) {
+        if (degree === 0) {
+            queue.push(node);
+        }
+    }
+
+    let sorted: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        sorted.push(node);
+
+        for (const neighbor of graph.get(node)?.outgoing || []) {
+            const neighborNode = graph.get(neighbor)!;
+            if (--neighborNode.incoming[neighborNode.incoming.indexOf(node)] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    if (sorted.length !== nodes.length) {
+        throw new Error('Cycle detected in the input graph.');
+    }
+
+    return sorted;
+}
+
+function zip<T1 extends readonly any[], T2 extends readonly any[]>(arr1: T1, arr2: T2): [T1[number], T2[number]][] {
+    const minLength = Math.min(arr1.length, arr2.length);
+    return Array.from({ length: minLength }, (_, i) => [arr1[i], arr2[i]]);
+}
+```

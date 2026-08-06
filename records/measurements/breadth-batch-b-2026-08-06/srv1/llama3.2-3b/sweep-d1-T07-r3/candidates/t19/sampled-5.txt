@@ -1,0 +1,25 @@
+```typescript
+/** Returns the division of `a` by `b`, throwing if `b` is zero or if either argument is a boolean. */
+export function safeDivide(a: number, b: number): number {
+  // Check for invalid inputs
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Both arguments must be numbers.');
+  }
+
+  // Check for division by zero
+  if (b === 0) {
+    throw new Error('Cannot divide by zero.');
+  }
+
+  // Check for NaN and Infinity
+  if (isNaN(a) || isNaN(b)) {
+    return 'nan';
+  }
+  if (!isFinite(a) || !isFinite(b)) {
+    throw new Error('Both arguments must be finite numbers.');
+  }
+
+  // Perform the division
+  return a / b;
+}
+```

@@ -1,0 +1,15 @@
+Here is the TypeScript code for the problem:
+
+```ts
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (size < 1 || Number.isNaN(size) || !Number.isInteger(size)) {
+    throw new Error('Invalid chunk size');
+  }
+  const results = [];
+  for (let i = 0; i < items.length; i += size) {
+    results.push(items.slice(i, i + size));
+  }
+  return results;
+}
+```
+This function splits an array `items` into chunks of a given `size` using Array slice method inside a for loop that uses the chunk size to navigate through the list and slicer the correct amount at each iteration.

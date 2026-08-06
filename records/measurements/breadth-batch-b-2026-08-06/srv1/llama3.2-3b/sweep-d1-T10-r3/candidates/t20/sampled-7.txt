@@ -1,0 +1,28 @@
+```ts
+/** A set of key-value pairs representing a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  /**
+   * Parse a config file string into a config object,
+   * ignoring blank lines and lines starting with '#', trimming
+   * whitespace around keys and values, and splitting on the first '='
+   *
+   * @param text The content of the config file.
+   */
+  const lines = text.split("\n")
+    .map((line) => line.trim())
+    .filter((line) => !line.startsWith('#'));
+  for (const line of lines) {
+    if (!line || line.split("=[").length < 2) {
+      throw new Error(`Invalid line: "${line}"`);
+    }
+    const [key, value] = line.split("=", 2);
+    key = key.trim();
+    let trimmedValue = value.trim();
+    if (trimmedValue.startsWith('"') && trimmedValue.endsWith('"')) {
+      trimmedValue = trimmedValue.slice(1, -1).trim().replace(/^["']|["']$/g, '');
+    }
+    config[key] = trimmedValue;
+  }
+  return config;
+}
+```

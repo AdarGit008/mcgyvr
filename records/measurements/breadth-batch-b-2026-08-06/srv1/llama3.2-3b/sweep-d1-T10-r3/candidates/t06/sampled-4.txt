@@ -1,0 +1,51 @@
+```typescript
+/**
+ * Unpacks a single line of CSV into its fields on commas, quoting fields that may contain commas.
+ */
+export function parseCsvLine(line: string): string[] {
+    let start = 0;
+    const result: string[] = [];
+    while (start < line.length) {
+        if (
+            !line[start] ||
+            (line[start] === '"' && (start + 1 >= line.length || line[start + 1] !== '"'))
+        ) {
+            // Unquoted field
+            let end = start;
+            while (end + 1 < line.length && line[end + 1] !== '"') {
+                ++end;
+            }
+            result.push(line.slice(start, end + 1).trim());
+            start = end + 1;
+        } else if (
+            line[start] === '"' &&
+            (start + 1 >= line.length || line[start + 1] === '"')
+        ) {
+            // Quote pair
+            let end = +line.indexOf('"', start + 1);
+            result.push(line.slice(start, end + 1).trim());
+            start = end + 1;
+        } else if (
+            line[start] === '"' &&
+            (start + 1 < line.length && line[start + 1] !== '"')
+        ) {
+            // Quote inside unquoted string
+            throw Error(
+                `Unbalanced quotes: '${line.slice(start, start + 2).trim()}'`
+            );
+        } else if (line[start] === ',') {
+            // Comma-only field
+            result.push(line.slice(start, start + 1).trim());
+            start += 1;
+        } else if (
+            line[start] !== ',' &&
+            line[start].match(/[^-]/) || line[start] === '"'
+        ) {
+            const whitespaceCount = line.indexOf(' ', start);
+            if (whitespaceCount === -1) {
+                result.push(line.slice(start, +line.indexOf('\n', start)));
+            } else {
+                result.push(line.slice(start, whitespaceCount));
+            }
+            throw new Error(`Unbalanced fields: "${line.slice(0, start).slice(-2)}'\n${line.slice(lineslice(white space count))}`);
+```

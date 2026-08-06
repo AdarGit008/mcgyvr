@@ -1,0 +1,55 @@
+```typescript
+/**
+ * The KEY=VALUE pairs of a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    let strippedLine = line.trim();
+    while (strippedLine.startsWith("#")) {
+      while (strippedLine.endsWith("\n")) {
+        strippedLine = strippedLine.slice(0, -1);
+      }
+      strippedLine = strippedLine.slice(1);
+    }
+
+    if (!strippedLine) {
+      continue;
+    }
+
+    const whitespaceKeyValueIndex = strippedLine.indexOf("=");
+    const keyValueStringStart = whitespaceKeyValueIndex === -1 ? undefined : whitespaceKeyValueIndex + 1;
+    const keyValueStringEnd = whitespaceKeyValueIndex !== -1 ? whitespaceKeyValueIndex + 1 : stripedLine.length;
+    let key, value;
+
+    if (whitespaceKeyValueIndex === -1) {
+      throw new Error(`Invalid line format: ${line}`);
+    }
+
+   [key] = strippedLine.slice(keyValueStringStart);
+    [value] = strippedLine.slice(keyValueStringEnd);
+
+    // Trim whitespace around the key and the value.
+    key = keyValueStringStart !== undefined
+      ? key.trim()
+      : stringtrim(0, key.length - 1); // Trim key to end of line without leading whitespace
+    value = keyValueStringStart !== undefined
+      ? value.trim()
+      : stringtrim(keyValueStringEnd, value.length);
+  }
+
+  return config;
+}
+
+function stringtrim(start: number, length: number): string {
+  if (start < 0 || length === 0) {
+    return "";
+  }
+  const source = stringToUtf8Buffer(line => line)[line.length - start] as Uint8Array;
+  const targetLength = length > source.length ? length : source.length;
+  const target = new Uint8Array(targetLength);
+  source.copy(target);
+  target.fill(0, targetLength - source.length);
+  return stringFromBuf(new TextEncoder().encode(source));
+}
+```

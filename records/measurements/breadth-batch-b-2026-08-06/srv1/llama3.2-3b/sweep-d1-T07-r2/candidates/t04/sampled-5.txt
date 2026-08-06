@@ -1,0 +1,58 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+    private capacity: number;
+    private map: Map<K, [V, number]>;
+    private indexMap: Map<number, K>;
+
+    constructor(capacity: number) {
+        if (!Number.isInteger(capacity) || capacity <= 0) {
+            throw new Error('Capacity must be a positive integer.');
+        }
+        this.capacity = capacity;
+        this.map = new Map();
+        this.indexMap = new Map();
+    }
+
+    /**
+     * Returns the value associated with the given key, or undefined if the key is not in the cache.
+     */
+    get(key: K): V | undefined {
+        const entry = this.map.get(key);
+        if (!entry) return undefined;
+        const [value, index] = entry;
+        this.indexMap.delete(index);
+        this.indexMap.set(this.map.size, key); // update the index for LRU eviction
+        return value;
+    }
+
+    /**
+     * Inserts or updates the given key with the given value in the cache.
+     */
+    set(key: K, value: V) {
+        const entry = this.map.get(key);
+        if (entry && entry[0] === value) return; // no-op for existing values
+        if (this.indexMap.has(this.map.size)) {
+            const [key, index] = this.indexMap.get(this.map.size)!;
+            this.map.delete(index);
+            this.indexMap.delete(this.map.size);
+        }
+        if (this.map.size >= this.capacity) {
+            const index = this.indexMap.keys().next().value;
+            this.map.delete(index);
+            this.indexMap.delete(index);
+        }
+        this.indexMap.set(this.map.size, key); // update the index for LRU eviction
+        this.map.set(key, [value, this.map.size]);
+    }
+
+    /**
+     * Returns the number of entries in the cache.
+     */
+    get size(): number {
+        return this.map.size;
+    }
+}
+```

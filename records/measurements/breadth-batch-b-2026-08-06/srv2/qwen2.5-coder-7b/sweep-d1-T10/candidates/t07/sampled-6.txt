@@ -1,0 +1,11 @@
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (typeof depth !== 'number' || depth < 0 && depth !== Infinity) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  return items.flatMap(item => 
+    Array.isArray(item) && depth > 0 ? flatten(item, depth - 1) : item
+  );
+}
+```

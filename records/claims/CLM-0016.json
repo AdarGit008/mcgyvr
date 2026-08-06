@@ -1,0 +1,31 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0016",
+  "statement": "Breadth's value is bounded by the checker that selects among the draws, and against a quarter-strength checker it very nearly vanishes while the wrong answers accepted rise with every extra draw. Method: selectivity.py thins each task's accept.mjs to a fraction of its assertions — splitting the file into top-level statements by bracket depth, keeping every non-assertion statement so the file still runs, and keeping the first s assertions in the author's order — then re-selects from candidates already on disk with no worker dispatched, taking production's rule that the first draw passing the weak checker wins (ADR-0008), and judges that winner by the unthinned file. Pooled over 30 srv1 sweeps spanning four models and four temperatures. Result: the mean gain from one draw to eight falls from +5.0 tasks at full strength to +3.5 at three quarters, +2.6 at half and +1.9 at a quarter, while the mean count of accepted-but-wrong answers rises from 0 at full strength to 3.4, 4.4 and 7.3 — and within every weakened strength it rises with the draw budget too (1.6 to 3.4 at three quarters, 2.5 to 4.4 at half, 4.4 to 7.3 at a quarter), which is the mechanism rather than an argument for it: taking more draws is searching harder for something the checker cannot distinguish from correct. Precision of the accepted answer at eight draws is 57% at a quarter strength, 70% at half, 77% at three quarters. The cliff sits between a quarter and a half rather than between complete and incomplete, so the requirement on a selector is 'covers most of what the contract asks', not perfection. Validity: at full strength the harness reproduced 4751 of 4751 of the sweeps' own recorded verdicts with zero disagreements before any weakened cell was read, so the weak cells describe the checker and not the harness. Scope and limits: thinning keeps the first assertions in the author's order, which are the obvious cases, so these weak checkers are thin in a tidier way than a real suite that is thorough about the wrong things; 'wrong' means the full accept.mjs rejects it, itself a proxy for correct, since a candidate the full file accepts could still be wrong in a way no assertion covers; one task-set family, one host, srv1's four models. Consequence: any shipped breadth default is conditional on the acceptance a contract declares, so #119's per-rung breadth policy should be read together with #132 — which is unanswered, its only measurement being 0 of 77 commits over a corpus CLM-0008 itself registers as selected on the answer — and a contract declaring no runnable check is refused at load today rather than served badly, which bounds the exposure but does not size it.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "medium",
+  "citations": [
+    {
+      "url": "records/measurements/breadth-batch-b-2026-08-06/README.md",
+      "supports_because": "The pooled table these figures are read from, together with the thinning rule, the selection rule and the limits — including that the weak checkers are thin in the author's order rather than in a realistic one."
+    },
+    {
+      "url": "records/measurements/breadth-batch-b-2026-08-06/srv1/selectivity-all/selectivity.json",
+      "supports_because": "The full result: per sweep, per checker strength and per draw budget, the count that won, the count the full checker also passes and the count it does not, plus the agree/disagree cross-check per sweep that makes the whole table readable."
+    },
+    {
+      "url": "tools/breadth/selectivity.py",
+      "supports_because": "The instrument, re-runnable over any sweep directory. It dispatches nothing — the sweep kept every candidate — so the experiment is repeatable at zero worker cost, and the thinning rule is held by tests in tests/test_breadth_rig.py which check that a thinned file keeps its imports and fixtures and drops only assertions."
+    },
+    {
+      "url": "docs/decisions/0008-sampling-breadth-is-policy-and-selection-is-the-first-gate-pass.md",
+      "supports_because": "Fixes selection as the first gate pass, which is the rule this experiment applies to the weakened checker — a stronger selector that compared all candidates would not degrade the same way, and that difference is what makes the gate's own strength load-bearing."
+    },
+    {
+      "url": "records/claims/CLM-0008.json",
+      "supports_because": "Registers that the only absence measurement — 0 of 77 commits declaring no runnable check — comes from a corpus selected for maturity and therefore for the answer, which is why this claim states the exposure as unsized rather than small."
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+```typescript
+/**
+ * Returns a topological ordering for the given graph. A node is considered "free of unmet dependencies" when there are no edges from nodes that have already been added to the result.
+
+ @param {readonly string[]} nodes   The set of distinct labels for which edges exist.
+ @param {readonly [string, string][]} edges  List of direct edges (a pair where the second element must come after the first one) satisfying the condition that each label must only point from what has already been assigned with an empty list.
+ * @throws {Error} If a cycle exists, or if both nodes and edge are `null`.
+ * @returns {string[]     A valid topological ordering for the given graph.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList = new Map<string, Set<string>>([...nodes].map(node => ({ node }, new Set())));
+
+  let errorNodes: Set<string> | undefined;
+  let cycleEdges: any[];
+
+  for (const edge of edges) {
+    if (!adjacencyList.has(edge[0])) {
+      throw new Error("Invalid edge:", edge);
+    }
+
+    const head = adjacencyList.get(edge[0]);
+    if (head === null || !head.has(edge[1])) {
+      errorNodes = new Set(errorNodes || []);
+      cycleEdges = [...cycleEdges || [], [edge]];
+    }
+    head.add(edge[1]);
+  }
+
+  let result: string[] | undefined;
+  while (true) {
+    for (const [node, nodeOrder] of Array.from(adjacencyList.entries()).filter(([n, free]) => free.size && !errorNodes.has(n))!) {
+      adjacencyList.delete(node);
+      nodes.splice(nodes.indexOf(node), 1);
+
+      const edges = [...adjacencyList.values()].map((nodes) => ([...nodes]))
+        .filter(([_, head]) => nodeOrder.has(head[0]));
+      const edges.sort((edge1, edge2) =>
+        (nodeOrder.get(edge1[0]) || Infinity) - (nodeOrder.get(edge2[0]) || Infinity)
+      );
+
+      result = [...((result ?? []) as string[])];
+
+      for (const tail of edges.map(([_, head]) => [head[1]])) {
+        const free = adjacencyList.get(tail)?.values() || [];
+
+        if (!free) {
+          errorNodes?.add(tail);
+          break;
+        }
+
+        nodes.splice(nodes.indexOf(free.next().value!), 1);
+
+        while (true) {
+          const edge = Array.from(adjacencyList.entries()).find(([_, free]) => free.has(result[result.length - 1]))?.[0];
+          if (!edge) {
+            result.push(tail);
+            break;
+          }
+          result.push(edge);
+        }
+      }
+
+      const nodeOrderCopy = [...nodeOrder].slice();
+      for (const next of adjacencyList.values()) {
+        head.remove(...head)
+        ;
+        nodes.splice(nodes.indexOf(head!.next().value!), 1);
+      }
+    } else if (!result) {
+      throw new Error("Cycle detected:", cycleEdges.join(", "));
+    }
+
+    if (errorNodes.size || !nodes.length) break;
+  }
+
+  return result ?? null;
+}
+```

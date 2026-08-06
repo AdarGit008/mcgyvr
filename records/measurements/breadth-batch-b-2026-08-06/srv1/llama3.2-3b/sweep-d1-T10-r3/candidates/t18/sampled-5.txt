@@ -1,0 +1,30 @@
+```typescript
+/** An append-only log of timestamped events. */
+export interface Event {
+  /** The name of the event */
+  name: string;
+  /** The point in time at which this event occurred (in seconds since the Unix epoch) */
+  timestamp: number;
+}
+
+/** An append-only log of timestamped events. */
+export class EventLog {
+  #events = [];
+
+  /**
+   * @throws {Error} If no argument is provided
+   */
+  record(event: Event): void {
+    this.#events.push(event);
+  }
+
+  /**
+   * @param timestamp - The point in time from or after which to look for events
+   * @returns An array of all EventLog's records with timestamps greater than or equal to the query time
+   * @throws {Error} If no argument is provided
+   */
+  since(timestamp: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

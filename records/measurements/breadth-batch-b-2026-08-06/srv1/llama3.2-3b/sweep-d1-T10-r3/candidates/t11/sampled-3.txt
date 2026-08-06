@@ -1,0 +1,11 @@
+```ts
+/** The sorted numbers in ascending order. */
+export function sortAscending(values: readonly number[]): number[] {
+  /**
+   * Sorts the input array of numbers in ascending numerical order without mutation.
+   *
+   * @param values The array to be sorted.
+   */
+  return [...values].map(value => Number.isNaN(value) ? Infinity : value).sort((a, b) => a - b);
+}
+```

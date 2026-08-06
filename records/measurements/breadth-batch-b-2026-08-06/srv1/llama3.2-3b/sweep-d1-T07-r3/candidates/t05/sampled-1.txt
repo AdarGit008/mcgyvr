@@ -1,0 +1,24 @@
+```ts
+/**
+ * Split an array into consecutive groups of at most size elements, preserving order.
+ * The final group is shorter when the length does not divide evenly.
+ * An empty array yields an empty array.
+ * The input array must not be mutated.
+ *
+ * @param items - The input array to chunk.
+ * @param size - The maximum number of elements per chunk.
+ * @returns A 2D array of chunks.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+    if (typeof size !== 'number' || !Number.isInteger(size) || size <= 0) {
+        throw new Error('Size must be a positive integer.');
+    }
+
+    const result: T[][] = [];
+    while (items.length > 0) {
+        result.push(items.slice(0, size));
+        items = items.slice(size);
+    }
+    return result;
+}
+```

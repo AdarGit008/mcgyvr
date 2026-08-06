@@ -1,0 +1,66 @@
+```ts
+/**
+ * Splits one line of CSV into its fields on commas.
+ *
+ * A field wrapped in double quotes may contain commas,
+ * and a doubled quote inside such a field means one literal quote character;
+ * the surrounding quotes are not part of the value.
+ * Fields that are not quoted are taken literally, including any surrounding spaces.
+ * An empty line is one empty field. Throws an Error for a quoted field that is never closed.
+ */
+function parseCsvLine(line: string): string[] {
+  if (!line) {
+    return [];
+  }
+
+  const inQuote = false;
+  let result: string[] = [];
+  let currentfield = '';
+  let state = 'line';
+
+  for (let i = 0; i < line.length; i++) {
+    switch (state) {
+      case 'line':
+        if (inQuote) {
+          currentfield += line[i];
+        } else if (line[i] === '"') {
+          inQuote = !inQuote;
+          currentfield += line[i];
+          state = 'quoted';
+        } else if (line[i] === ',') {
+          result.push(currentfield);
+          currentfield = '';
+          state = 'line';
+        } else {
+          currentfield += line[i];
+          state = 'field';
+        }
+        break;
+      case 'quoted':
+        if (line[i] === '"') {
+          if (!result.length) {
+            throw new Error("Unbalanced quote in CSV line");
+          }
+          result.push(currentfield);
+          currentfield = '';
+          inQuote = false;
+          state = 'line';
+        } else {
+          currentfield += line[i];
+        }
+        break;
+      case 'field':
+        if (line[i] !== ',') {
+          currentfield += line[i];
+        } else if ((state === 'quoted' && !inQuote) || !currentfield.length) {
+          throw new Error("Missing comma in CSV line");
+        }
+        state = 'line';
+        break;
+    }
+  }
+
+  result.push(currentfield);
+  return result;
+}
+```

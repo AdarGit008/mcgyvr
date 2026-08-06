@@ -1,0 +1,84 @@
+```ts
+export function romanToInt(input: string): number {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  
+  if (input.length === 0) {
+    throw new Error('Input cannot be empty');
+  }
+  
+  const romanValues = {
+    'I': 1,
+    'V': 5,
+    'X': 10,
+    'L': 50,
+    'C': 100,
+    'D': 500,
+    'M': 1000
+  };
+  
+  const validChars = new Set('IVXLCDM');
+  
+  for (const char of input) {
+    if (!validChars.has(char)) {
+      throw new Error('Invalid character in input');
+    }
+  }
+  
+  let value = 0;
+  let i = 0;
+  
+  while (i < input.length) {
+    const currentChar = input[i];
+    const nextChar = i + 1 < input.length ? input[i + 1] : '';
+    
+    if (currentChar === 'I' && (nextChar === 'V' || nextChar === 'X')) {
+      value += (nextChar === 'V' ? 4 : 9);
+      i += 2;
+    } else if (currentChar === 'X' && (nextChar === 'L' || nextChar === 'C')) {
+      value += (nextChar === 'L' ? 40 : 90);
+      i += 2;
+    } else if (currentChar === 'C' && (nextChar === 'D' || nextChar === 'M')) {
+      value += (nextChar === 'D' ? 400 : 900);
+      i += 2;
+    } else {
+      value += romanValues[currentChar];
+      i += 1;
+    }
+  }
+  
+  if (value < 1 || value > 3999) {
+    throw new Error('Value out of range');
+  }
+  
+  // Re-encode the value back to canonical form and verify match
+  const canonicalForm = numberToRoman(value);
+  
+  if (canonicalForm !== input) {
+    throw new Error('Input is not in canonical form');
+  }
+  
+  return value;
+}
+
+function numberToRoman(num: number): string {
+  if (num < 1 || num > 3999) {
+    throw new Error('Number out of range for Roman numerals');
+  }
+  
+  const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+  const numerals = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
+  
+  let result = '';
+  
+  for (let i = 0; i < values.length; i++) {
+    while (num >= values[i]) {
+      result += numerals[i];
+      num -= values[i];
+    }
+  }
+  
+  return result;
+}
+```

@@ -1,0 +1,17 @@
+```ts
+/**
+ * The KEY=VALUE pairs of a config file, ignoring blank lines and comments.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (line.trim() === "" || line.startsWith("#")) continue;
+    const idx = line.indexOf("=");
+    if (idx === -1) throw new Error(`Invalid line: ${line}`);
+    const key = line.slice(0, idx).trim();
+    if (key === "__proto__") throw new Error('Reserved key "__proto__"');
+    config[key] = line.slice(idx + 1).trim();
+  }
+  return config;
+}
+```

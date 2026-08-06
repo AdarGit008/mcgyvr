@@ -1,0 +1,38 @@
+```typescript
+/**
+ * An append-only log of timestamped events.
+ */
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+export class EventLog {
+  #events = [] as Event[];
+
+  /**
+   * Append one event.
+   *
+   * Throws:
+   *   Error if `event` is not an instance of `Event`.
+   */
+  record(event: Event): void {
+    if (!(event instanceof Event)) {
+      throw new Error('Expected an instance of Event');
+    }
+    this.#events.push(event);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   *
+   * Returns:
+   *   An array of events that are at or after the given timestamp. The returned
+   *   array does not contain any duplicate events and is sorted in ascending
+   *   order by timestamp.
+   */
+  since(timestamp: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

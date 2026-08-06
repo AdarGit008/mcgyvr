@@ -1,0 +1,59 @@
+```ts
+export function topoSort(n: number, edges: [number, number][]): number[] {
+  if (n < 0) {
+    throw new Error("n must be non-negative");
+  }
+  
+  // Build adjacency list and in-degree count
+  const graph: Set<number>[] = Array(n).fill(null).map(() => new Set());
+  const inDegree: number[] = Array(n).fill(0);
+  
+  for (const [u, v] of edges) {
+    if (u < 0 || u >= n || v < 0 || v >= n) {
+      throw new Error("Edge endpoints must be in range [0, n)");
+    }
+    if (u === v) {
+      throw new Error("Self-loop detected");
+    }
+    if (!graph[u].has(v)) {
+      graph[u].add(v);
+      inDegree[v]++;
+    }
+  }
+  
+  // Initialize queue with nodes having zero in-degree
+  const queue: number[] = [];
+  for (let i = 0; i < n; i++) {
+    if (inDegree[i] === 0) {
+      queue.push(i);
+    }
+  }
+  
+  // Sort queue to ensure lexicographical order
+  queue.sort((a, b) => a - b);
+  
+  const result: number[] = [];
+  
+  while (queue.length > 0) {
+    // Get the smallest node
+    const u = queue.shift()!;
+    result.push(u);
+    
+    // Process neighbors
+    for (const v of graph[u]) {
+      inDegree[v]--;
+      if (inDegree[v] === 0) {
+        queue.push(v);
+        queue.sort((a, b) => a - b); // Keep queue sorted
+      }
+    }
+  }
+  
+  // Check for cycles
+  if (result.length !== n) {
+    throw new Error("Cycle detected");
+  }
+  
+  return result;
+}
+```

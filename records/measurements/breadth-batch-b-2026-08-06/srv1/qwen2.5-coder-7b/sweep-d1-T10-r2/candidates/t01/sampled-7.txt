@@ -1,0 +1,20 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  return input.split('').reduce((acc, current, index) => {
+    const count = current === input[index - 1] ? acc[acc.length - 2] : 0;
+    const charBefore = current === input[index - 1] && isNaN(acc[acc.length - 2]) ? '' : acc.slice(-2)[0];
+    
+    if (charBefore !== current) {
+      acc.push(current, '1');
+    } else {
+      acc.splice(acc.indexOf(charBefore.toString()) + 1, 1, (count + 1).toString());
+    }
+    
+    return acc;
+  }, [] as string[]).join('');
+}
+```

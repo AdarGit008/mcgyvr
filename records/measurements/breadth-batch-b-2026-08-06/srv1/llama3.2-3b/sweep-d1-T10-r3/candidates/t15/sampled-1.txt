@@ -1,0 +1,52 @@
+```typescript
+/*:
+ * @author [Your Name]
+ * @description Temperature conversions from Celsius to Fahrenheit and Kelvin
+ */
+
+interface ConvertedTemperature {
+  (celsius: number): number;
+}
+
+const isFiniteNumber = (value: number): boolean => typeof value === 'number' && !isNaN(value);
+
+const validateTempInput = (input: number[]): void => {
+  if (!Array.isArray(input) || input.length === 0) {
+    throw new Error("input must be a non-empty array");
+  }
+  for (let i = 0; i < input.length; i++) {
+    const temp = input[i];
+    if (typeof temp !== "number" || !isFiniteNumber(temp)) {
+      throw new Error(`temp at index ${i} must be a finite number`);
+    } else if (temp < -273.15) {
+      throw new Error(`temp at index ${i} must be at or above absolute zero`);
+    }
+  }
+};
+
+const isAbsoluteZero = (input: number[]): boolean => input[0] >= -273.15;
+
+export function celsiusToFahrenheit(
+  validateTempInput as typeof validateTempInput,
+  celsius: (input: number[]): number
+): ConvertedTemperature {
+  validateTempInput([celsius]);
+  if (isAbsoluteZero(celsius)) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  const newCelsius = isAbsoluteZero(celsius) ? -Infinity : celsius;
+  return (x: number) => newCelsius * 1.8 + 32 /* convert(x) */;
+}
+
+export function celsiusToKelvin(
+  validateTempInput as typeof validateTempInput,
+  celsius: (input: number[]): number
+): ConvertedTemperature {
+  validateTempInput([celsius]);
+  if (isAbsoluteZero(celsius)) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  const newCelsius = isAbsoluteZero(celsius) ? -Infinity : celsius;
+  return (x: number) => newCelsius + 273.15 /* convert(x) */;
+}
+```

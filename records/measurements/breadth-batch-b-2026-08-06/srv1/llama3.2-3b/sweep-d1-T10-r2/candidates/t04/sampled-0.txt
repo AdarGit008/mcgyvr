@@ -1,0 +1,114 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, [V, number]>;
+  private index: Map<V, number>;
+  private nextEvictKey: K | null;
+
+  /**
+   * Create a new instance of the LRU Cache with the given `capacity`.
+   *
+   * @param capacity A positive integer.
+   */
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+
+    this.capacity = capacity;
+    this.cache = new Map();
+    this.index = new Map();
+    this.nextEvictKey = null;
+  }
+
+  /**
+   * Retrieve the value associated with the given `key`.
+   *
+   * @param key The cache association key.
+   */
+  get(key: K): V | undefined {
+    if (this.cache.has(key)) {
+      const [value, index] = this.cache.get(key)!;
+
+      // Update index for least-recently-used mapping
+      this.index.set(value, index + 1);
+      this.updateLruForKey(key);
+
+      return value;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Insert or update the value with key `key` to the cache and increment its use count.
+   */
+
+  set(
+    key: K,
+    value: V
+    // Add more parameters if needed (e.g. expiration time)
+  ): void {
+    if (this.cache.has(key)) {
+      this.updateLruForKey(key);
+    }
+
+    this._updateCache(key, value);
+  }
+
+  /**
+   * Retrieve size.
+   */
+
+  size(): number {
+    return this.cache.size;
+  }
+
+  private _updateCache(
+    key: K,
+    value: V
+  ): void {
+    if (this.cache.size >= this.capacity) {
+      this eviction();
+    }
+
+    // Insert or update entry to the cache
+    this.cache.set(key, [value, 0]);
+    this.index.clear(); // clear least-recently-used mapping
+  }
+
+  private eviction(): void {
+    const lruIndex = Math.min(...this.index.values());
+    if (lruIndex === -Infinity) return; // empty map
+
+    const evictKey =
+      Array.from(this.cache.entries()).find(([k, [{}}]) => this.index.get({}))?.[0] ?? null;
+
+    if (evictKey != null) {
+      this.nextEvictKey = evictKey;
+      this.removeLruForKey(evictKey);
+    }
+  }
+
+  private updateLruForKey(key: K): void {
+    const { value, index } = this.cache.get(key)!;
+
+    // Decrement the use count and add to least-recently-used mapping only if existing key is different
+    this.index.set(
+      value,
+      index === 0 ? -Infinity : index - 1
+    );
+  }
+
+  private removeLruForKey(key: K): void {
+    const [value, _] = this.cache.get(key)!;
+
+    // Decrement count.
+    this.cache.delete(key);
+    this.index.delete(value);
+    if (this.nextEvictKey === key) {
+      this.nextEvictKey = null;
+    }
+  }
+}
+```

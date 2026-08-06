@@ -1,0 +1,10 @@
+```ts
+/**
+ * a divided by b, throws Error if divisor is zero or arguments are not finite numbers.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(a) || isNaN(b)) throw new Error('Both arguments must be numbers.');
+  if (b === 0 || b === -0) throw new Error('Divisor cannot be zero.');
+  return a / b;
+}
+```

@@ -1,0 +1,20 @@
+The truncate function can be redefined to ensure that one character is subtracted from the limit rather than removed. The fixed `truncate` function is provided below:
+
+```ts
+/** The text, cut to exactly limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  if (limit < 3) {
+    throw new Error('Limit must be at least 3');
+  }
+  // return original text if its length isn't greater than the limit
+  if (text.length <= limit) {
+    return text;
+  }
+  // else truncate it and append "..."
+  else{
+      let truncatedText = text.slice(0, limit - 3); // subtract 3 for ellipsis characters
+      truncatedText += '...';
+     return truncatedText;   
+  }
+}
+```

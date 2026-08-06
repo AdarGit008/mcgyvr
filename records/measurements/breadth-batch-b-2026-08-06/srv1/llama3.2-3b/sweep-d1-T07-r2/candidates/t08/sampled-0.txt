@@ -1,0 +1,56 @@
+```typescript
+/**
+ * Returns a topological sorting of the given nodes and edges.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    if (edges.some(([u, v]) => !nodes.includes(u)) || edges.some(([u, v]) => !nodes.includes(v))) {
+        throw new Error("Edge naming a node not in nodes");
+    }
+
+    const adjacencyList: { [key: string]: readonly string[] } = {};
+    for (const edge of edges) {
+        if (!adjacencyList[edge[0]]) {
+            adjacencyList[edge[0]] = [];
+        }
+        if (!adjacencyList[edge[1]]) {
+            adjacencyList[edge[1]] = [];
+        }
+
+        const nodeIndex = nodes.indexOf(edge[0]);
+        const otherNodeIndex = nodes.indexOf(edge[1]);
+        if (nodeIndex < 0 || otherNodeIndex < 0) {
+            throw new Error("Edge naming a node not in nodes");
+        }
+        adjacencyList[edge[0]].push(otherNodeIndex);
+    }
+
+    const visited: Set<string> = new Set();
+    const currentPath: Set<string> = new Set();
+
+    const sortStack: string[] = [];
+    function visit(node: string) {
+        if (currentPath.has(node)) {
+            throw new Error("Cycle detected");
+        }
+        if (!visited.has(node)) {
+            visited.add(node);
+            currentPath.add(node);
+
+            for (const neighborIndex of adjacencyList[node]) {
+                visit(nodes[neighborIndex]);
+            }
+
+            currentPath.delete(node);
+            sortStack.push(node);
+        }
+    }
+
+    for (const node of nodes) {
+        if (!visited.has(node)) {
+            visit(node);
+        }
+    }
+
+    return sortStack.reverse();
+}
+```

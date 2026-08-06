@@ -1,0 +1,43 @@
+```typescript
+/**
+ * Parses a single line of CSV into its fields.
+ * @param line - The CSV line to parse.
+ * @returns An array of field values.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (line === '') return [''];
+
+  const result: string[] = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (quoted) {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          quoted = false;
+        }
+      } else {
+        quoted = true;
+      }
+    } else {
+      if (!quoted) {
+        if (char === ',') {
+          result.push(field.trim());
+          field = '';
+        } else {
+          field += char;
+        }
+      } else {
+        field += char;
+      }
+    }
+  }
+  if (quoted) throw new Error('Unterminated quoted field');
+  result.push(field.trim());
+  return result;
+}
+```

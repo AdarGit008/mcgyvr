@@ -1,0 +1,46 @@
+```ts
+/**
+ * Merges overlapping intervals and returns the smallest list of non-overlapping pairs.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals) || intervals.length === 0) {
+    return [];
+  }
+
+  // Validate intervals and sort them by start time
+  const sortedIntervals = intervals
+    .map(interval => {
+      if (
+        !Array.isArray(interval) ||
+        interval.length !== 2 ||
+        typeof interval[0] !== 'number' ||
+        typeof interval[1] !== 'number' ||
+        interval[0] > interval[1]
+      ) {
+        throw new Error('Invalid interval');
+      }
+      return [interval[0], interval[1]];
+    })
+    .sort((a, b) => a[0] - b[0]);
+
+  const mergedIntervals: number[][] = [];
+  let currentInterval = [...sortedIntervals[0]];
+
+  for (let i = 1; i < sortedIntervals.length; i++) {
+    const nextInterval = sortedIntervals[i];
+    if (currentInterval[1] >= nextInterval[0]) {
+      // Intervals overlap, merge them
+      currentInterval[1] = Math.max(currentInterval[1], nextInterval[1]);
+    } else {
+      // No overlap, add the current interval to the result and move to the next one
+      mergedIntervals.push([...currentInterval]);
+      currentInterval = [...nextInterval];
+    }
+  }
+
+  // Add the last interval to the result
+  mergedIntervals.push(currentInterval);
+
+  return mergedIntervals;
+}
+```

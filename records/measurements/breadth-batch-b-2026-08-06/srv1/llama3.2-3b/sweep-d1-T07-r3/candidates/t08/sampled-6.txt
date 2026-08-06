@@ -1,0 +1,56 @@
+```typescript
+/**
+ * Sorts nodes in topological order based on given edges.
+ *
+ * @param nodes - names of nodes (no duplicates)
+ * @param edges  - list of from-to edges (from always before to) 
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    // edge set for O(1) lookups
+    const edgeSet: Set<string> = new Set(edges.map(e => e.join(',')));
+
+    // adjacency list: { node -> neighbors }
+    const adjList: Map<string, string[]> = new Map();
+    nodes.forEach(node => adjList.set(node, []));
+    
+    // populate the edges in the adj list
+    for (const [from, to] of edges) {
+        if (!adjList.get(from)) {
+            throw new Error(`node '${from}' not found`);
+        }
+        adjList.get(from)!.push(to);
+    }
+
+    // all nodes free of unmet dependencies: keep them out front in the sort
+    const queue: readonly string[] = [] as readonly string[];
+    for (const node of nodes) {
+        if (!adjList.has(node)) { 
+            queue.push(node); 
+        }
+    }
+
+    // sort: always choose earliest available node
+    const sortedNodes: string[] = [];
+    while (queue.length > 0) {
+        const nextNode = queue.shift()!;
+        sortedNodes.push(nextNode);
+
+        for (const neighbor of adjList.get(nextNode)!) {
+            if (!edgeSet.has(`${nextNode},${neighbor}`)) {
+                throw new Error(`cycle detected (missing edge '${[nextNode, neighbor].join(',')}')`);
+            }
+            // Remove from unmet dependencies
+            adjList.get(neighbor)?.splice(adjList.get(neighbor)!.indexOf(nextNode), 1);
+            if (!adjList.has(neighbor) || adjList.get(neighbor)!.length === 0) { 
+                queue.push(neighbor); 
+            }
+        }
+    }
+
+    // return the sorted nodes
+    if (sortedNodes.length !== nodes.length) {
+        throw new Error("cycle detected");
+    }
+    return sortedNodes;
+}
+```

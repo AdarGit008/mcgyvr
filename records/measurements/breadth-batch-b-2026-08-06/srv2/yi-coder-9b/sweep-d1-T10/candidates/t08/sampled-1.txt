@@ -1,0 +1,43 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map(); // map to contain adjacency list representation of our graph as a map where each node has a set containing its neighbours.
+    for (let n of nodes) {
+        graph.set(n, new Set()); 
+    }
+  
+    // Add an edge between 'from' and 'to' vertices in the graph.
+    function addEdge([from, to]: readonly [string, string]) {
+      if (!graph.has(from)) throw new Error(`Node ${from} not found`); 
+      if (!graph.has(to))   throw new Error(`Node ${to} not found`);  
+      // Adding edge from 'from' to 'to', and checking if edge already exists in the graph. If yes then it will throw an error 'Cycle detected'.
+      const res = graph.get(from).add(to); 
+      if (res && Array.from(graph.get(from)).includes(to)) {
+        throw new Error('Cycle detected');  // If edge already exists in the graph, it means there is a cycle in our graph and we throw an error 'Cycle detected'.
+      }
+    } 
+  
+    for (let e of edges) addEdge(e); // Loop on each incoming edge adding them to our constructed graph.
+  
+    // Create visited array for all nodes set initially as false meaning no node is visited yet.
+    const visited = Array.from({length: nodes.length}, () => false); 
+    const order   = []; 
+
+    function dfs(vertex) { // Depth-First Search implementation - Helper function to visit each and every node in our graph. Starting with 'vertex' node.  
+        if (visited[nodes.indexOf(vertex)]) return; // If we have visited the vertex during DFS recursion then return from this iteration of loop.    
+      
+        // Else mark it as visited by setting array at its index to true and add it in order[] array.
+        visited[nodes.indexOf(vertex)] = true; 
+        order.push(vertex);  
+
+        for (let neighbour of graph.get(vertex)) { // Loop for each neighbouring vertex from our graph using get() function where we pass the vertex then it will return a set containing all its neighbours vertices.      
+            dfs(neighbour); // Use depth-first recursion on each neighbour in our graph from the starting node 'vertex' passed to dfs helper method and start visiting each of them till we reach end.   
+        }  
+    } 
+  
+    for (let n of nodes) { // Loop over all vertices in graph which are nodes and apply DFS on each one to visit every single vertex inside it as they may not be connected with each other.     
+      dfs(n); 
+    }   
+
+    return order; // Return the topological sort ordering that we constructed using depth first search method above, this will list all vertices/nodes in the graph arranged by starting from nodes having no incoming edges and going up to nodes which have outgoing edges only.
+}
+```

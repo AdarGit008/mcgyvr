@@ -1,0 +1,52 @@
+```ts
+// Function to perform topological sort on a directed acyclic graph (DAG)
+/**
+ * Takes a list of node names and edges representing dependencies between nodes.
+ * Returns a sorted array of nodes that respects all input edges.
+ * If a cycle is detected, throws an Error with a message indicating the cycle.
+ * Throws an Error if an edge contains a node not in the provided nodes array.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: { [key: string]: string[] } = {};
+    const inDegree: { [key: string]: number } = {};
+
+    for (const node of nodes) {
+        graph[node] = [];
+        inDegree[node] = 0;
+    }
+
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Invalid edge: ${from} -> ${to}`);
+        }
+        graph[from].push(to);
+        inDegree[to]++;
+    }
+
+    const queue: string[] = [];
+    for (const node of nodes) {
+        if (inDegree[node] === 0) {
+            queue.push(node);
+        }
+    }
+
+    const sortedNodes: string[] = [];
+    while (queue.length > 0) {
+        const currentNode = queue.shift()!;
+        sortedNodes.push(currentNode);
+
+        for (const neighbor of graph[currentNode]) {
+            inDegree[neighbor]--;
+            if (inDegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    if (sortedNodes.length !== nodes.length) {
+        throw new Error('Cycle detected');
+    }
+
+    return sortedNodes;
+}
+```

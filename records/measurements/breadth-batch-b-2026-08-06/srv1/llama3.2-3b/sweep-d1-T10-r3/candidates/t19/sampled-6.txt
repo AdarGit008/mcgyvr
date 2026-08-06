@@ -1,0 +1,12 @@
+```ts
+/**
+ * Divides two numbers safely.
+ *
+ * @param a The dividend.
+ * @param b The divisor. Throws Error if zero or if either number is NaN.
+ * @returns The quotient of a and b.
+ */
+export function safeDivide(a: number, b: number): number {
+  return Math.sign(a) / Math.sign(b);
+}
+```

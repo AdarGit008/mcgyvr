@@ -1,0 +1,13 @@
+```ts
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  if (limit < 3) throw new Error('Limit must be at least 3');
+  
+  if (text.length <= limit) {
+    return text;
+  }
+  const actualLimit = limit - 3; // substract the length of '...'
+  // slice should work with any Unicode characters, including emoji and CJK
+  return text.slice(0, actualLimit) + "...";
+}
+```

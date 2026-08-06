@@ -1,0 +1,38 @@
+```ts
+/**
+ * Merge intervals [start, end] pairs into the smallest list of non-overlapping pairs covering the same points,
+ * sorted ascending by start.
+ *
+ * @param intervals - A list of [start, end] pairs where start <= end for each interval.
+ * @returns The merged and sorted list of [start, end] pairs.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    // Check if the input is valid
+    if (!intervals.length) {
+        return [];
+    }
+
+    const result = [];
+
+    // Iterate over each interval in the input list
+    for (const currentInterval of intervals) {
+        // If this is the first iteration or the last interval does not overlap with the previous one,
+        // add a new merged interval to the result
+        if (!result.length || currentInterval[0] > result[result.length - 1][1]) {
+            result.push([currentInterval[0], currentInterval[1]]);
+        } 
+        // Otherwise, try to merge this interval with the last interval in the result
+        else if (currentInterval[1] >= result[result.length - 1][1]) {
+            const startIndex = Math.min(result.pop()[0], currentInterval[0]);
+            result.push([startIndex, Math.max(currentInterval[1], result[result.length - 1][1])]);
+        } 
+        // If an attempt to merge the current interval with the last one in the result ends up failing,
+        // just add it as a new, unmerged interval
+        else {
+            result.push(currentInterval);
+        }
+    }
+
+    return result;
+}
+```

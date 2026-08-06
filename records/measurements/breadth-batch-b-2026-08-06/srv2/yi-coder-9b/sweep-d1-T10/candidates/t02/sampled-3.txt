@@ -1,0 +1,33 @@
+Here's how you could implement mergeIntervals in TypeScript:
+
+```ts
+// Returns smallest list of non-overlapping intervals covering same points as input, sorted by start.
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals)) { 
+    throw new Error('Input is not an array');
+  } else if (intervals.some((interval) => interval[0] > interval[1])) {
+    throw new Error('Interval start cannot be greater than end');
+  }
+
+  // Guard clause when input is empty or contain only one element
+  if(!intervals || intervals.length <= 1) return [...intervals];
+
+  // Sort the array by starting point of interval
+  const sortedIntervals = [...intervals].sort((a,b) => a[0]-b[0])
+
+  let result: number[][] = [];
+  result.push([...sortedIntervals[0]]);
+
+  for(let i = 1; i < sortedIntervals.length; i++){
+    const lastInterval = result[result.length - 1];
+    // If current interval starts before or at the end of previous, merge them
+    if (sortedIntervals[i][0] <= lastInterval[1]) {
+      lastInterval[1] = Math.max(lastInterval[1], sortedIntervals[i][1]); 
+    } else {
+        // Else push new interval to result array
+        result.push([...sortedIntervals[i]]);  
+    }
+ }
+ return result;
+};
+```

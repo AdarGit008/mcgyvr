@@ -1,0 +1,28 @@
+```ts
+/**
+ * Splits an array into consecutive groups of at most `size` elements.
+ *
+ * @param items The input array to chunk.
+ * @param size The maximum number of elements in each group. Must be a positive integer.
+ */
+export function chunk<T>(items: readonly T[], size: number): ReadonlyArray<ReadonlyArray<T>> {
+    if (typeof size !== 'number' || size <= 0) throws new Error('Size must be a positive integer');
+
+    const result: readonly T[][] = [];
+    let lastIndex = -1;
+
+    for (let index = 0; index < items.length; index++) {
+        const item = items[index];
+
+        if (index - lastIndex === size || index === 0) {
+            result.push([item]);
+        } else {
+            result[result.length - 1].push(item);
+        }
+
+        lastIndex = index;
+    }
+
+    return result as const;
+}
+```

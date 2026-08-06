@@ -1,0 +1,20 @@
+```ts
+/**
+a divided by b.
+*/
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(b)) {
+    throw new Error(`b is not finite (${typeof b})`);
+  }
+  if ( typeof a !== 'number' || !a || isNaN(a)) {
+    throw new Error('a is not finite.');
+  }
+  if ( typeof b !== 'number' || +b === -0) {
+    throw new Error(`b cannot be zero.`);
+  }
+  
+  return Number.isSafeInteger(a / +b) 
+         ? a / +b 
+         : ((a / +b) | 0);
+}
+```

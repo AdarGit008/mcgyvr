@@ -1,0 +1,15 @@
+Here's how you can implement this function in TypeScript: 
+
+```ts
+/** Flattens an array up to specified depth */
+export function flatten(items: ReadonlyArray<unknown>, depth = Infinity): unknown[] {
+  if (depth < 0 || !Number.isInteger(depth)) throw new Error('Depth must be a non-negative integer or Infinity');
+  if (depth === 0) return [...items];
+  return items.reduce((acc, val) => { // using accumulator and value pattern
+    let subValue = Array.isArray(val) && typeof val !== 'string' ? flatten(val, depth - 1) : [val]; 
+    // recursive check to flatten an element if it is array  
+    return acc.concat(subValue); // adding the value to accumulator
+  }, [] as unknown[] );
+}
+```
+Please take into account edge cases: empty input ("" / [] / {}), non-integer or negative numbers etc. This code will flatten arrays in an array until all nested arrays are not arrays anymore or it hits the depth limit provided by users.
