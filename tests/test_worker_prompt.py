@@ -244,6 +244,7 @@ target_content: |
 stop_conditions:
   - The largest n that must be supported is not stated.
 acceptance: ["node accept.mjs"]
+demonstration: ["node accept.mjs --case factorial-of-zero"]
 scope:
   allow: ["solution.ts"]
 """

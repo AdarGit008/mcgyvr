@@ -14,7 +14,7 @@ target_content: |
 interface: "export function safeDivide(a: number, b: number): number"
 stop_conditions:
   - Whether the result should be rounded is not stated.
-acceptance: ["node accept.mjs"]
+demonstration: ["node accept.mjs"]
 risk: medium
 scope:
   allow: ["solution.ts"]

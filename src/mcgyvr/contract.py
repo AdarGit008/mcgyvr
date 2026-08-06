@@ -25,11 +25,16 @@ discovered later:
    literal destination. A glob-scoped target is legal only for task types the
    deterministic tier can execute outright, because only those can fan a
    change across files without a model guessing where its output goes.
-5. **A type's required evidence must be producible.** The catalog states what
-   evidence each task type needs to be judgeable at all; where that evidence
-   can only come from running something, a contract declaring no acceptance
-   commands is rejected. A `bug_fix` with nothing to run does not fail — it
-   gets accepted on the gate alone, which is worse.
+5. **A type's required evidence must be producible — each kind by the list
+   that can satisfy it.** The catalog states what evidence each task type
+   needs to be judgeable at all; where that evidence can only come from
+   running something, the contract must carry a command *in the right slot*:
+   evidence expecting a pass at baseline needs ``acceptance``, evidence
+   expecting a failure at baseline (``failing_test_first``) needs
+   ``demonstration``. A `bug_fix` with nothing to run does not fail — it gets
+   accepted on the gate alone, which is worse; a `bug_fix` whose demonstrating
+   command sat in ``acceptance`` was worse still, refused at preflight by the
+   very check that makes the suite trustworthy (#183).
 
 The field layout follows the split #94 arrived at from small-model research:
 worker-facing fields (``task``, ``target``, ``target_content``, ``deps``,
@@ -52,9 +57,10 @@ goes through :class:`mcgyvr.scope.Scope`, the one canonical matcher.
 The task-type vocabulary is **not defined here**. :mod:`mcgyvr.catalog` reads it
 from ``data/task-catalog.json`` (#15), and this module asks the catalog what a
 type guarantees rather than knowing any type by name — which is what keeps
-"adding a task type does not require a code change" true of this file too. Two
+"adding a task type does not require a code change" true of this file too. Three
 of the catalog's properties are load-bearing here: ``deterministic`` decides the
-glob rule above, and ``needs_acceptance_commands`` decides rule 5.
+glob rule above, and ``needs_acceptance_commands`` /
+``needs_demonstration_commands`` decide the two halves of rule 5.
 """
 
 from __future__ import annotations
@@ -408,8 +414,22 @@ SCHEMA: tuple[Field, ...] = (
         "acceptance",
         "str_list",
         "Shell commands that must pass for the change to be accepted — the "
-        "strongest signal the gate has. Arbitrary shell from a contract, so "
-        "they run inside the per-task sandbox, never on the host.",
+        "strongest signal the gate has. Each must also pass on the *unchanged* "
+        "tree (the preflight refuses a suite that is already red), which is "
+        "exactly why a command meant to demonstrate a defect cannot live here: "
+        "it goes in `demonstration`. Arbitrary shell from a contract, so they "
+        "run inside the per-task sandbox, never on the host.",
+        default=(),
+    ),
+    Field(
+        "demonstration",
+        "str_list",
+        "Shell commands that demonstrate the defect: each must FAIL on the "
+        "unchanged tree and pass after the change — the `failing_test_first` "
+        "evidence, as a slot of its own because its baseline expectation is "
+        "the opposite of `acceptance`'s (#183). Who authors it is #146's "
+        "question; the schema only gives the answer somewhere to go. Runs in "
+        "the same sandbox, under the same read-only rule.",
         default=(),
     ),
     Field(
@@ -486,6 +506,7 @@ class Contract:
     output_schema: str = "whole_file"
     max_input_tokens: int = 4096
     acceptance: tuple[str, ...] = ()
+    demonstration: tuple[str, ...] = ()
     risk: str = "medium"
     verification: Verification = Verification("gate_only")
     limits: Limits = Limits(1024, 2)
@@ -507,9 +528,9 @@ class Contract:
         fields never reach the worker prompt" (#94) is enforced by there being
         no other accessor rather than by reviewing every prompt builder. What
         is excluded is excluded on purpose: ``risk``, ``verification``,
-        ``acceptance`` and ``limits`` are how the *orchestrator* decides where
-        to run the work and whether to believe the result, and a worker that
-        could read them could argue with them.
+        ``acceptance``, ``demonstration`` and ``limits`` are how the
+        *orchestrator* decides where to run the work and whether to believe
+        the result, and a worker that could read them could argue with them.
         """
         return {
             "id": self.id,
@@ -554,6 +575,7 @@ class Contract:
                 "forbid": list(self.scope.forbid),
             },
             "acceptance": list(self.acceptance),
+            "demonstration": list(self.demonstration),
             "risk": self.risk,
             "verification": {"policy": self.verification.policy},
             "limits": {
@@ -658,6 +680,7 @@ def _build(data: Mapping[str, Any]) -> Contract:
         output_schema=data["output_schema"],
         max_input_tokens=data["context"]["max_input_tokens"],
         acceptance=tuple(data["acceptance"]),
+        demonstration=tuple(data["demonstration"]),
         risk=data["risk"],
         verification=Verification(policy=data["verification"]["policy"]),
         limits=Limits(
@@ -891,13 +914,42 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
         )
 
     if kind.needs_acceptance_commands and not data["acceptance"]:
-        needed = ", ".join(e.name for e in kind.required_evidence if e.needs_commands)
+        needed = ", ".join(
+            e.name
+            for e in kind.required_evidence
+            if e.needs_commands and e.baseline == "pass"
+        )
         raise ContractSchemaError(
             f"acceptance: is empty, but task type {kind.name!r} requires "
             f"evidence only a command can produce ({needed}). Its guarantee is "
             f'"{kind.guarantee}" — with nothing to run, a change would be '
             f"accepted on the gate alone and the guarantee would be unbacked. "
             f"Name at least one command that demonstrates it."
+        )
+
+    if kind.needs_demonstration_commands and not data["demonstration"]:
+        needed = ", ".join(
+            e.name
+            for e in kind.required_evidence
+            if e.needs_commands and e.baseline == "fail"
+        )
+        raise ContractSchemaError(
+            f"demonstration: is empty, but task type {kind.name!r} requires a "
+            f"command that demonstrates the defect ({needed}) — one that fails "
+            f"before the change and passes after. Without it a fix is "
+            f"indistinguishable from a plausible edit, and the type's "
+            f'guarantee ("{kind.guarantee}") would be unbacked. Name the '
+            f"command in `demonstration`, not `acceptance` — the preflight "
+            f"expects the two lists to do opposite things on the unchanged tree."
+        )
+
+    both = sorted(set(data["acceptance"]) & set(data["demonstration"]))
+    if both:
+        raise ContractSchemaError(
+            f"demonstration: {both[0]!r} is also in acceptance. One command "
+            f"cannot both pass and fail on the unchanged tree — put it in "
+            f"acceptance if it is a regression signal, demonstration if it "
+            f"shows the defect."
         )
 
     seen: set[str] = set()

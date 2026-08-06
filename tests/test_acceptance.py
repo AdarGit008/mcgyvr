@@ -186,6 +186,169 @@ def test_precondition_flags_a_tree_mutating_command(git_repo: Path) -> None:
     assert issue.reason == "acceptance-mutates-tree"
 
 
+# --- the demonstration list: the opposite baseline expectation (#183) ------
+
+
+def test_a_demonstration_that_fails_at_baseline_is_a_clean_precondition(
+    git_repo: Path,
+) -> None:
+    """Failing on the unchanged tree is what a demonstration is *for*."""
+    with TempDirSandbox(git_repo) as sandbox:
+        issue = Acceptance(
+            sandbox, (), demonstrations=(("sh", "-c", "exit 1"),)
+        ).precondition()
+    assert issue is None
+
+
+def test_a_demonstration_that_passes_at_baseline_is_refused(git_repo: Path) -> None:
+    """Acceptance criterion: a demonstration that does not demonstrate is
+    named as loudly as a regression suite that is already red."""
+    with TempDirSandbox(git_repo) as sandbox:
+        issue = Acceptance(
+            sandbox, (), demonstrations=(("sh", "-c", "exit 0"),)
+        ).precondition()
+    assert issue is not None
+    assert issue.reason == "demonstration-passes-at-baseline"
+
+
+def test_a_demonstration_is_checked_before_the_regression_suite(
+    git_repo: Path,
+) -> None:
+    """One command settling whether the defect is real runs before the whole
+    suite — so with both lists unusable, the demonstration's issue wins."""
+    with TempDirSandbox(git_repo) as sandbox:
+        issue = Acceptance(
+            sandbox,
+            (("sh", "-c", "exit 1"),),  # a red suite, reported second
+            demonstrations=(("sh", "-c", "exit 0"),),
+        ).precondition()
+    assert issue is not None
+    assert issue.reason == "demonstration-passes-at-baseline"
+
+
+def test_a_demonstration_that_cannot_run_is_an_environment_fault(
+    git_repo: Path,
+) -> None:
+    with TempDirSandbox(git_repo) as sandbox:
+        issue = Acceptance(
+            sandbox, (), demonstrations=(("no-such-tool-99",),)
+        ).precondition()
+    assert issue is not None
+    assert issue.reason == "acceptance-unavailable"
+
+
+def test_a_demonstration_that_times_out_at_baseline_has_not_demonstrated(
+    git_repo: Path,
+) -> None:
+    """A kill is not a verdict: a stopped command is not a failing one."""
+    with TempDirSandbox(git_repo) as sandbox:
+        issue = Acceptance(
+            sandbox, (), timeout=0.3, demonstrations=(("sh", "-c", "sleep 5"),)
+        ).precondition()
+    assert issue is not None
+    assert issue.reason == "acceptance-baseline-timeout"
+    assert "nothing" in issue.message and "demonstrated" in issue.message
+
+
+def test_a_tree_mutating_demonstration_is_refused_read_only_rule(
+    git_repo: Path,
+) -> None:
+    with TempDirSandbox(git_repo) as sandbox:
+        issue = Acceptance(
+            sandbox,
+            (),
+            demonstrations=(("sh", "-c", "echo x >> app.py; exit 1"),),
+        ).precondition()
+    assert issue is not None
+    assert issue.reason == "acceptance-mutates-tree"
+
+
+def test_a_demonstration_still_failing_after_the_change_is_its_own_finding(
+    git_repo: Path,
+) -> None:
+    """Acceptance criterion: run() requires the demonstrating command to pass
+    after the change — still failing means the named defect is not fixed."""
+    with TempDirSandbox(git_repo) as sandbox:
+        report = Acceptance(
+            sandbox, (), demonstrations=(("sh", "-c", "echo still-broken; exit 1"),)
+        ).run()
+    assert len(report.findings) == 1
+    finding = report.findings[0]
+    assert finding.code == "demonstration-failed"
+    assert "not fixed" in finding.message
+    assert "still-broken" in finding.message
+
+
+def test_a_demonstration_passing_after_the_change_is_a_clean_run(
+    git_repo: Path,
+) -> None:
+    with TempDirSandbox(git_repo) as sandbox:
+        report = Acceptance(
+            sandbox,
+            (("sh", "-c", "exit 0"),),
+            demonstrations=(("sh", "-c", "exit 0"),),
+        ).run()
+    assert report.findings == ()
+    assert report.environment_issues == ()
+
+
+def test_a_bug_fix_contract_end_to_end_through_both_halves(tmp_path: Path) -> None:
+    """The whole pair, driven from a loaded contract: the demonstration fails
+    at baseline (precondition clean), the fix is applied, and both lists pass
+    (run clean) — with the two negatives pinned on either side. This is the
+    case #183 notes the suite never had."""
+    from mcgyvr.contract import loads
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "lib.py").write_text("VALUE = 1\n", encoding="utf-8")  # the defect
+    _git(repo, "init", "-q")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "base")
+
+    contract = loads(
+        """
+id: fix-value
+task_type: bug_fix
+task: VALUE is 1 but every caller documents it as 2. Fix it.
+target: lib.py
+stop_conditions: ["The documented value is disputed."]
+acceptance: ["grep -q VALUE lib.py"]
+demonstration: ["grep -q 'VALUE = 2' lib.py"]
+scope:
+  allow: ["*.py"]
+"""
+    )
+
+    def as_argv(commands: tuple[str, ...]) -> tuple[tuple[str, ...], ...]:
+        return tuple(("sh", "-c", c) for c in commands)
+
+    with TempDirSandbox(repo) as sandbox:
+        acceptance = Acceptance(
+            sandbox,
+            as_argv(contract.acceptance),
+            demonstrations=as_argv(contract.demonstration),
+        )
+        # Baseline: the suite passes, the demonstration fails — usable signal.
+        assert acceptance.precondition() is None
+
+        # A worker attempt that does not fix the defect is visibly red.
+        report = acceptance.run()
+        assert [f.code for f in report.findings] == ["demonstration-failed"]
+
+        # The fix lands; now demonstration and suite both pass.
+        (sandbox.workspace / "lib.py").write_text("VALUE = 2\n", encoding="utf-8")
+        report = acceptance.run()
+        assert report.findings == ()
+        assert report.environment_issues == ()
+
+        # And on a tree already carrying the fix there is nothing to
+        # demonstrate: the same contract is refused before any attempt.
+        issue = acceptance.precondition()
+        assert issue is not None
+        assert issue.reason == "demonstration-passes-at-baseline"
+
+
 # --- wiring into the gate as the last rung -------------------------------
 
 
