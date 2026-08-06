@@ -1,6 +1,8 @@
 # Prior art — the nearest ten repositories (#175)
 
-Status: in progress — 5 of 10 reviewed. 2 issues filed (#183, #184); findings recorded on #179 and #183.
+Status: complete — ten reviewed (one disqualified on reading and replaced), plus a
+four-repository annex. 2 issues filed (#183, #184); findings recorded on #179,
+#183 and #184.
 Started: 2026-08-06. Lane: `lane/175`.
 
 ## Why this document lives in `docs/` and not `records/`
@@ -43,10 +45,24 @@ nobody has checked it is labelled unverified rather than quietly promoted.
 
 ## Environment constraint, stated once
 
-The review host has `node` and `python3` but **no Go toolchain**. Go repositories
-therefore have their tests read but not run, and every such case says so at the
-point it matters. This is a real limit on extraction 2 for those repositories and
-is not softened anywhere below.
+The review host has `node` and `python3` but **no Go toolchain and no bun**.
+Repositories in those ecosystems have their tests read but not run, and every
+such case says so at the point it matters. This is a real limit on extraction 2
+for those repositories and is not softened anywhere below. Two further suites
+could not be run for reasons belonging to the repositories rather than the host,
+and both are recorded where they occur (RA.Aid: no lockfile, dependencies
+unresolvable six months on; SWE-agent and SWE-ReX: a live container runtime).
+
+## Quoting third-party source: a convention
+
+Third-party code quoted at a pinned sha is fenced as `text`, never as the
+language it is written in. `ruff format` reflows a `python`-tagged block, and a
+reflowed quotation is no longer evidence of what the upstream source says — which
+matters most in exactly the sections where the line's *shape* is the finding.
+`pyproject.toml` already excludes `records/evidence` from the formatter for the
+same reason; this is that call applied to prose. Where the fence tag would
+otherwise be load-bearing for a reader, an HTML comment above the block says
+why.
 
 ---
 
@@ -174,8 +190,11 @@ The whole plan for a coding run is recovered from prose by heading match, with a
 silent empty result as the failure mode. mcgyvr's decomposer emits through the
 public contract loader as its only exit, so a malformed proposal becomes a
 refusal carrying the loader's own message. **#174 — a fenced refusal parsing as
-file content — is this same family of bug in our own codebase**, and this is
-what the mature version of that mistake looks like at 15.6k stars.
+file content — was this same family of bug in our own codebase**, and this is
+what the mature version of that mistake looks like at 15.6k stars. (#174 was
+fixed and merged at `bcf8e72` while this survey was being written: a block
+carrying no code is now a refusal, judged only against a known target and only
+for the languages the gate itself owns.)
 
 The local-ai audit found the third instance (item 3: a well-formed refusal
 defeats a syntax gate *and* silently stops escalation). **Three codebases, three
@@ -513,6 +532,13 @@ codes and discarded the text — while `test_worker_reply.py` asserts against
 hand-authored shapes and #174 is the shape that was missed. Two repositories in
 this survey keep the artefact at the moment it is free. We do not.
 
+**#174's fix landed at `bcf8e72` mid-survey, and it sharpens the point rather
+than settling it.** The fix is good and the reasoning is careful — a block
+carrying no code is a refusal, judged only against a known target. But it added
+ten more fixtures and **every one of them is constructed**. The next missed
+shape will be missed the same way this one was: by not being imagined. That is
+what #184 is about, and it is now about a file that just grew.
+
 ## Insights / wisdom — how to end a bounded loop
 
 `run.ts:102` declares `maxRuns = 20`. On exhaustion it does three things: says
@@ -541,3 +567,449 @@ mcgyvr has no answer yet, which is #183 from one side and #179's eighth question
 from the other. The useful observation is not which answer is best; it is that
 **three independent systems all concluded the instrument needs its own check**,
 and none of them left it implicit.
+
+---
+
+# 6. ai-christianson/RA.Aid
+
+- **Pinned:** `e71bb83dcfdf8796d41c746ad99bf4838d1d5914`
+- **Last push:** 2026-01-30 (6 months before this review). Not archived.
+- **Stars:** 2.2k. **Criteria:** 3/5 — staged decomposition (research → plan →
+  implement), multi-provider dispatch with local models, reactive model
+  fallback. No gate the model did not author, no per-task isolation.
+- **Tests: 89 files. NOT RUN.** `uv pip install -e .` succeeds and then every
+  test module fails to import — 84 collection errors, `ModuleNotFoundError: No
+  module named 'langgraph.graph.graph'`. Pinning `langgraph<0.3` did not fix it.
+  **`pyproject.toml` constrains its dependencies with `>=` only and ships no
+  lockfile**, so the environment its suite needs cannot be reconstructed from
+  what the repository declares, six months on.
+
+That last point is a finding rather than an excuse. mcgyvr's `Makefile` installs
+`--frozen` from `uv.lock` and BUILD-05 exists to keep a clean checkout
+installable; here is the counterexample, at a repository that was healthy in
+January.
+
+## Code / features
+
+**The token reserve is additive, and model-specific.**
+`ra_aid/anthropic_token_limiter.py:306`, `adjust_claude_37_token_limit`:
+
+```text
+effective_max_input_tokens = max_input_tokens - model.max_tokens
+```
+
+Reserved output is *subtracted* from the input window, per model, in a function
+named after the model family that needed it.
+
+**That makes three independent data points for #173**, which argues the
+prompt-fit reserve is multiplicative while backend overhead is additive:
+
+| system | shape | basis |
+| --- | --- | --- |
+| local-ai | additive floor | measured (`docs/local-ai-review-2026-08-05.md`, item 1) |
+| plandex | multiplicative, flat 10% | unmeasured |
+| RA.Aid | additive, per-model subtraction | unmeasured, and named after the model that forced it |
+
+Two of three subtract; the one that measured found a floor. That does not settle
+#173 — nothing here measures — but it moves the multiplicative form from
+"reasonable default" to "the one shape nobody who hit the problem kept".
+
+## Insights / wisdom
+
+**A vendored capability table sourced by citation rather than measurement.**
+`ra_aid/tool_leaderboard.py:3` is the Berkeley Gorilla leaderboard, pasted in
+under a comment reading `# Data extracted at 2/10/2025`, ordered by
+`overall_acc`, and used to pick fallback models for tool calling.
+
+The structure is mcgyvr's `data/capability-table.json` — a vendored table with
+provenance driving binding decisions. The sourcing is the opposite: ADR-0004
+requires inherited research to be re-verified before adoption, and this is
+adoption by citation. **Our table carries `vendored_from`, `measurement_rigs`,
+`harness_caveats` and per-measurement dates; theirs carries a URL and an
+extraction date that is now over a year old and still routing.** Recorded as a
+fork not taken, with the staleness as the visible cost.
+
+**Fallback keyed on the failed tool.** `FallbackHandler.handle_failure` /
+`attempt_fallback` swap in a different model *bound to the tool that failed*
+rather than escalating the whole task. That is a finer-grained reaction than
+mcgyvr's rung escalation, and it is only available to a system whose unit of
+work is a tool call rather than a contract. Noted, not transferable.
+
+---
+
+# 7. SWE-agent/SWE-agent
+
+- **Pinned:** `3ea751c087f32b16e039a2233dd6eefecef325d5`
+- **Last push:** 2026-07-16 — three weeks before this review, the most actively
+  maintained entry in the ten. Not archived.
+- **Stars:** 20.0k. **Criteria:** 4/5 — issue → patch → PR, sandboxed execution
+  (SWE-ReX, reviewed separately below), multi-provider dispatch, bounded spend.
+  No decomposition into scoped units.
+- **Tests:** 21 files. Not run — the suite expects a live container runtime for
+  most modules and the yield did not justify standing one up here; **stated
+  rather than glossed**.
+
+## Code / features — four ceilings, each a named exception
+
+`sweagent/exceptions.py:31-43` declares `CostLimitExceededError` and three
+subclasses: `InstanceCostLimitExceededError`, `TotalCostLimitExceededError`,
+`InstanceCallLimitExceededError`. Spend is bounded on **two axes** — money and
+call count — at **two scopes** — this instance and the whole run — and every
+exhaustion is a distinct named failure rather than a return value.
+
+mcgyvr has a `budgets` block and #59 (value-per-token rollup) open. The
+transferable part is the shape: **four ceilings, four names**, so a run that
+stops can always say which limit stopped it. This is the third instance in the
+survey of *declared cap, named exhaustion* (micro-agent's `maxRuns`, SWE-agent's
+four, against plandex's silent fallback), and by now the pattern is the finding
+rather than any one repository's version of it.
+
+---
+
+# 8. Aider-AI/aider
+
+- **Pinned:** `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`
+- **Last push:** 2026-05-22 (2 months before this review). Not archived.
+- **Stars:** 48.0k. **Criteria:** 3/5 — a deterministic lint/test loop the model
+  did not author, multi-provider dispatch including local models, git commits as
+  delivery. No decomposition into contracts, no isolation.
+- **Tests:** 36 files under `tests/`. Not run here — the suite spans browser and
+  scraping subsystems needing network and a display; **the modules relevant to
+  this review were read, not executed, and that is a real limit on what is
+  claimed below.**
+
+## Code / features — the defaults are the finding
+
+`aider/coders/base_coder.py:105-107`:
+
+```text
+auto_lint = True
+auto_test = False
+test_cmd = None
+```
+
+**Lint runs automatically; tests do not; and the test command is never
+inferred** — it is supplied by the user or absent. Set that against micro-agent,
+which asks a model to infer the command from the manifest, and against
+moatless/Agentless, which get it from benchmark metadata. **Three repositories,
+three sources for the same input**, which is #146 exactly: *who supplies the
+acceptance command*. The answers are user-supplied, model-inferred, and
+harness-supplied, and aider — the largest and longest-running of the three —
+takes the most conservative one.
+
+## Insights / wisdom — the worker is told what the gate will run
+
+`get_platform_info` (`base_coder.py:1148`) injects the lint and test commands
+into the system prompt, with the wording switching on whether they run
+automatically:
+
+- auto: *"The user's pre-commit runs these lint commands, don't suggest running
+  them"*
+- manual: *"The user prefers these lint commands"*
+
+**mcgyvr deliberately does the opposite.** `contract.py`'s field layout splits
+worker-facing fields (`task`, `target`, `deps`, `interface`,
+`stop_conditions`, …) from gate-facing ones, and `acceptance` is on the gate
+side — the worker is not told what will judge it.
+
+Both positions are defensible and the trade is legible: aider spends prompt
+tokens to stop the model proposing work the harness already does; mcgyvr
+withholds the acceptance command so a worker cannot aim at it. The second matters
+more when the acceptance command is the thing being satisfied — a worker that
+knows the exact test can write to the test. **A fork not taken, recorded with the
+reason rather than as an oversight**, and worth re-reading if #146 ever lands on
+model-inferred commands, because inference and disclosure interact.
+
+---
+
+# 9. SWE-agent/SWE-ReX — promoted into the ten
+
+**OpenHands was disqualified on reading, and this replaced it.** See the
+disqualification note below.
+
+- **Pinned:** `5c995c365dfb1fd5bc56fda688be5d8538f9931f`
+- **Last push:** 2026-03-02 (5 months before this review). Not archived.
+- **Stars:** 562. **Criteria:** 3/5 — per-task isolation as its entire subject
+  matter, backend-neutral execution, and a liveness contract. It is not an agent;
+  it is the layer under one.
+- **Tests:** 13 files. Not run — most require a container runtime.
+
+This is the closest analogue in the survey to a single mcgyvr *package* rather
+than to mcgyvr: `src/swerex/deployment/` is `src/mcgyvr/sandbox/`.
+
+## Code / features
+
+`AbstractDeployment` (`deployment/abstract.py:11`) declares four abstract
+members — `start`, `stop`, `runtime`, `add_hook` — plus **`is_alive(timeout)` as
+a first-class part of the interface**. Implementations: `docker`, `local`,
+`remote`, `modal`, `fargate`, `daytona`, `dummy`. mcgyvr has `docker` and
+`tempdir`.
+
+Two things worth carrying:
+
+- **Liveness is part of the sandbox contract, not an afterthought.** A
+  deployment can be asked whether it is still there, with a timeout, and
+  `_wait_until_alive` logs the container's own output when it does not come up.
+  mcgyvr's #141 is the same question one layer over — a verdict that expires
+  when a process outlives a run — and it is currently asked only of *sources*,
+  never of a sandbox.
+- **A `dummy` deployment ships as a first-class backend.** That is the seam that
+  makes the rest testable without a runtime, and it is why their abstraction is
+  worth more than the count of its implementations.
+
+## Insights / wisdom — where mcgyvr is stronger, checked rather than assumed
+
+`AbstractDeployment.__del__` (`abstract.py:44`) is used for cleanup. Python makes
+no guarantee that `__del__` runs — on interpreter shutdown, on a reference cycle,
+or under an exception during collection — so a deployment can outlive the process
+that made it.
+
+mcgyvr's `Sandbox` is a context manager whose docstring says "Use as a context
+manager", with teardown on the exit path and the workspace removed on success.
+**That is the stronger guarantee and it was verified here rather than assumed.**
+Recorded because the survey's job includes finding the places where the prior art
+is behind us, and this is one.
+
+---
+
+# 10. code-yeongyu/oh-my-openagent
+
+- **Pinned:** `4ca872b57e45281a9a81190bb73637729288ffc3`
+- **Last push:** 2026-08-05 — the day before this review. Not archived.
+- **Stars:** 67.3k. **Criteria:** 3/5 — delegation to categorised subagents,
+  model selection per category, plan-before-code staging. No gate the model did
+  not author, no isolation. **In the ten for one mechanism.**
+- **Tests:** `bun` test suite. **Not run — no bun toolchain on the review host**,
+  the second environment limit in this review after Go.
+
+## Code / features — #162's routing matrix, factored the way we would want it
+
+`packages/delegate-core/` is described by its own `AGENTS.md` as two
+"harness-neutral primitives … purely functional — zero state, zero IO, all deps
+injected". One of them resolves which model a delegation runs on.
+
+`model-selection.ts` is 274 lines with a 167-line test file beside it and nine
+cases. The resolution order, as its `AGENTS.md:19` states it:
+
+1. user model override (promote the first reachable one if unreachable)
+2. **skip sentinel if caches are cold** — `{skipped: true}` rather than a guess
+3. category default model (user-set taken as-is, else fuzzy-matched)
+4. user `fallback_models` array
+5. hardcoded per-entry `fallbackChain` (exact, then fuzzy)
+6. system default
+7. `undefined`
+
+Three things mcgyvr should take from that, and one it should not:
+
+- **Selection is a pure function with injected dependencies.** #162 is a design
+  task; this is the shape that makes a routing matrix testable without a rig, and
+  it is the single most reusable idea in this repository.
+- **Cold caches produce a sentinel, not a fallback.** Step 2 refuses to choose
+  when it cannot see the world, and says so in the return value. That is
+  mcgyvr's "absence is an outcome, not an error" written into a routing
+  function, arrived at independently.
+- **The chain ends at `undefined`**, not at "the last thing we looked at" — the
+  opposite of plandex's terminal behaviour, in the same kind of chain.
+- **Not to take: fuzzy matching of model names** (steps 3 and 5). A binding that
+  resolves by string similarity can silently bind a model nobody chose, which is
+  the failure #164 already cost us once.
+
+**They also separate proactive from reactive fallback** (`AGENTS.md:389`):
+`model-fallback` chooses before dispatch from hardcoded chains;
+`runtime-fallback` reacts to `session.error` and is configurable per category.
+mcgyvr currently has proactive binding (`propose.py`) and reactive escalation
+(`escalate.py`) but has never named them as two halves of one policy. #162 should
+inherit that vocabulary even if it inherits nothing else.
+
+---
+
+# Disqualified on reading: OpenHands/OpenHands
+
+- **Pinned:** `56638693908b8ac83a2fa3bde6eb6c33aae37f4b`, last push 2026-08-05,
+  83.2k stars.
+- **Selected at 4/5 from its README and metadata. It scores 0/5 on the code.**
+
+`package.json` names it `@openhands/agent-canvas` v1.10.0. The repository at this
+sha is a TypeScript/React/Electron front end — vite, tailwind, playwright,
+react-router — with **four Python files in the whole tree**, one of which is a
+canvas UI tool. There is no decomposition, no worker ladder, no gate, no sandbox
+here. The agent runtime the README describes is not in this repository.
+
+**This is the review's own selection rule failing, caught by the rule that was
+supposed to catch it**: *where the README and the code disagree, the code wins,
+and the disagreement is itself the finding.* The fit table in the amendment
+comment was built from descriptions and topics, and one entry in fifteen did not
+survive contact. Recorded rather than quietly swapped, because a survey that
+edits away its own misses cannot be audited.
+
+Two things in it are still worth having, and both are checkable config:
+
+- **`stryker.config.mjs`** — mutation testing wired to vitest, mutating
+  `src/**/*.{ts,tsx}` with generated files and fixtures excluded. **mcgyvr does
+  mutation testing by hand in every lane** — session records read "Eight
+  mutations, all caught" — which is the same practice without the tooling.
+- **Mock-LLM end-to-end configs** — `playwright.mock-llm.config.ts`,
+  `playwright.mock-llm-docker.config.ts`, `build:mock`, `dev:mock`. A third
+  independent instance of driving a non-deterministic dependency from recorded
+  or stubbed responses, after micro-agent's `mock-llm.ts` and moatless's captured
+  logs. #184 again, from a third direction.
+
+---
+
+# Annex — read for one question only
+
+Concurrency, isolation and queueing across parallel runs, per the owner's
+position that mcgyvr is promptable by human and agent and that multiple
+instances may run at once. These are **not part of the ten** and were not read
+for the three extractions.
+
+## multica-ai/multica — `854b6c17`, 44.2k stars
+
+The annex's payoff, and it is a test.
+
+`server/cmd/server/autopilot_schedule_job_test.go:339` —
+`TestAutopilotScheduleJobTwoRunnersSingleWinner`, whose comment cites a
+production incident by ticket: *"covers the multi-replica claim race from
+MUL-3551 §1. Two scheduler.Manager instances tick concurrently against the same
+trigger; exactly one should win the claim, the other no-ops via the
+sys_cron_executions uniqueness key."*
+
+Three transferable things:
+
+- **The claim is won by a uniqueness key, not by a lock.** Two runners race on an
+  insert; the loser no-ops. No coordinator, no lease, nothing to leak.
+- **The key is derived from the work, not from the worker** — `plan_time` plus
+  job name and scope. That is what makes "the same work" identifiable across
+  replicas, and it is the whole design.
+- **Crash-after-claim is a separate test** (`:212`): recovery must keep exactly
+  one run row, and a retry must *reuse* the original row rather than create a
+  second. Idempotency under crash, tested.
+
+The test's tolerance is also worth copying: it accepts `[1,2]` execution rows and
+explains why in the assertion — two ticks racing a minute boundary can produce
+two distinct plan_times — so the acceptable non-determinism is written down
+rather than tuned away.
+
+**mcgyvr already runs this exact mechanism one level up.** `baseline lane claim`
+is atomic branch creation at origin: two agents claiming one issue race on a
+refname and exactly one wins. The lane protocol *is* a uniqueness-key claim. If
+run-level claiming is ever needed for concurrent instances, the design question
+is already answered inside this repository — the open part is what the key is
+derived from.
+
+## stablyai/orca — `ff01fad4`, 38.1k stars
+
+Fan one prompt across N agents, each in its own git worktree, compare and merge
+the winner. Best-of-N by isolation rather than by sampling — the same idea
+ADR-0004 lists as "best-of-N execution consensus" (#99's neighbourhood), with the
+isolation making the comparison honest. Relevant if concurrency is ever used for
+redundancy rather than throughput; nothing in it needs to be built now.
+
+## dagger/container-use — `7461f71f`, 4.0k stars
+
+Environments are addressable by id and loaded with explicit state:
+`Load(ctx, dag, id, state, worktree)` (`environment/environment.go:89`), guarded
+by an `RWMutex`. The state is passed in rather than discovered, which is what
+makes an environment resumable by another process. mcgyvr's sandbox is
+context-manager-scoped and deliberately not resumable — a different bet, and the
+right one while nesting is refused (ADR-0012).
+
+## cline/cline — `543dd0d8`, 65.7k stars
+
+Coordinator splits subtasks and delegates to specialists with their own tools and
+context, team state persists across sessions, worktree support, Ollama/LM Studio
+bindings. Closest of the annex to being a callee, and the only one that would
+have been a genuine borderline call for the ten. Not read further: its
+decomposition is conversational rather than contractual, so its answers to the
+three extractions would be about session state, not about gates.
+
+---
+
+# What the survey produced
+
+## The ten, and what each was worth
+
+| # | repo | fit | tests | yield |
+| --- | --- | --- | --- | --- |
+| 1 | plandex | 5/5 | 6 files, not run (no Go) | corroborates #178; the shape #158 must argue against; #177's rider observed |
+| 2 | Agentless | 3/5 | none exist | **#183 filed** — two runs, opposite expected outcomes |
+| 3 | auto-code-rover | 4/5 | **run**: 7/7, 179 repo-wide | four answers on #179 + an eighth question; a test that ratifies a defect |
+| 4 | moatless-tools | 3/5 | **run**: 45 clean; 180/28/37 repo-wide | prices #183's parked item; 24 captured logs |
+| 5 | micro-agent | 3/5 | **run**: 51 passed | **#184 filed**; #146's model-inferred answer; how to end a bounded loop |
+| 6 | RA.Aid | 3/5 | not run — no lockfile | third data point on #173; a stale vendored table |
+| 7 | SWE-agent | 4/5 | not run — needs a runtime | four ceilings, four names |
+| 8 | aider | 3/5 | not run — needs network/display | #146's conservative answer; the disclosure fork |
+| 9 | SWE-ReX | 3/5 | not run — needs a runtime | liveness in the sandbox contract; where we are stronger |
+| 10 | oh-my-openagent | 3/5 | not run — no bun | **#162's shape**: routing as a pure function, seven steps, sentinel on cold cache |
+| — | OpenHands | **0/5 on code** | n/a | disqualified on reading; mutation testing and mock-LLM e2e survive |
+
+Four of eleven had their tests actually executed. Every not-run has its reason at
+the point it matters.
+
+## Two issues filed, and why only two
+
+**#183** — `failing_test_first` must fail at baseline and the acceptance
+preflight refuses any command that does. Latent today; the run loop is about to
+be written around the shape that hides it.
+
+**#184** — worker replies are parsed and discarded, so the parser's own corpus is
+thrown away where it is free. Three repositories keep theirs.
+
+Everything else landed on issues that already existed (#179, #183) or corroborated
+decisions already made (#177, #178). **That ratio is the expected one** and #175
+said so in advance: most of what looks liftable is already filed, and usually
+narrower than the obvious lift.
+
+## The findings that are about more than one repository
+
+**1. Declared cap, named exhaustion — and what its absence looks like.** Four
+repositories bound a search: micro-agent's `maxRuns = 20` (writes the prompt to a
+file and prints the resume command), SWE-agent's four named limit exceptions on
+two axes at two scopes, oh-my-openagent's chain that ends at `undefined`, and
+plandex's chain that ends by dispatching to a model its own comment admits cannot
+hold the input. Three do it well; the fourth is what ADR-0012's second rider was
+written against, and it is the largest of them.
+
+**2. Model output recovered by pattern match, where absence and empty are the
+same value.** plandex splits a reply on a `### Tasks` heading and returns `nil`
+when it is missing. Agentless's `_parse_model_return_lines` is
+`content.strip().split("\n")` behind an `if content:`. local-ai's well-formed
+refusal defeated a syntax gate. Ours was #174, fixed at `bcf8e72` mid-survey —
+with ten more constructed fixtures, which is what #184 is about.
+
+**3. Nobody trusts the instrument.** Every system that generates a demonstrating
+test checks it, and each chose a different checker: Agentless runs it against
+unpatched code (machine), auto-code-rover has a second model judge it separately
+from the patch (model), micro-agent shows it to the user (human). None left it
+implicit. mcgyvr has no answer — #183 from one side, #179's eighth question from
+the other.
+
+**4. Who supplies the acceptance command — three answers, no consensus.**
+User-supplied (aider, `auto_test = False`, `test_cmd = None`), model-inferred
+(micro-agent, few-shot over six frameworks), harness-supplied (moatless and
+Agentless, from benchmark metadata). That is #146, and the survey's contribution
+is that the largest and oldest of the three takes the most conservative option.
+
+**5. The reserve is additive twice and multiplicative once.** For #173: local-ai
+measured an additive floor, RA.Aid subtracts reserved output per model in a
+function named after the model that forced it, plandex multiplies by a flat 10%
+everywhere. Nothing here measures anything, so #173 is not settled — but the
+multiplicative form is now the one shape nobody who hit the problem kept.
+
+**6. Two ways to face the same wall, both expensive.** Test output shape varies
+by project. moatless answered with four parsers and a repo-name→parser table
+that only works because its universe is eighteen repositories; micro-agent
+answered with six worked examples in a prompt. Both are maintenance surfaces that
+grow per ecosystem, and mcgyvr's exit-code-only position is the third answer
+whose cost is that a failure names a command rather than a test.
+
+## What this survey could not do
+
+- **Four suites unrun**, two for host reasons (Go, bun) and two for runtime
+  reasons. Extraction 2 for plandex, RA.Aid, SWE-agent, SWE-ReX and
+  oh-my-openagent rests on reading.
+- **No repository was read exhaustively.** Each was read against mcgyvr's open
+  questions, which finds what we were already looking for and is blind to what we
+  were not. A second pass with different questions would find different things.
+- **The one selection error was caught by reading**, which means selection errors
+  that survive reading are exactly the ones this method cannot report.
