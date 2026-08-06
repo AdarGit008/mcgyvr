@@ -885,6 +885,17 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   never owns a slot, so the rule rests on the credential-free sandbox and on
   value per token instead.
 
+- Decision `0013-decomposition-is-api-tier-only` (#178) — the `orchestrator`
+  role may bind only to a source in the `api` family, refused at load rather
+  than labelled at runtime. The argument is asymmetry of consequence, not
+  quality: a worker's diff meets six checks built to catch it, while a
+  well-formed contract for the wrong work passes all of them and arrives as a
+  clean PR. Decomposition is therefore always api-tier — mcgyvr's binding in
+  delegated mode, the calling agent's in direct mode — so a keyless install
+  gets direct mode rather than a local decomposition nobody chose. The rule is
+  a proxy (a source that declares a credential) and says so; the verifier is
+  left open to #179 rather than swept in by symmetry.
+
 ### Changed
 - `prompts/javascript.md` states a measured null result instead of an
   `UNMEASURED` marker, and `Bundle` grew `BundleStanding` because a boolean
