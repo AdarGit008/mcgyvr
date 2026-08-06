@@ -1,0 +1,5 @@
+# Binary artefacts: never diffed, never merged textually.
+# docs/*.pdf are human-facing summaries derived from a Markdown source of truth
+# in the same directory. They are read, not parsed — see the "not the record"
+# note at the top of the document each one summarises.
+*.pdf binary -diff -merge
