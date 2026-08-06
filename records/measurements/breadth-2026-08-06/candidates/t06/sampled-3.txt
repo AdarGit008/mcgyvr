@@ -1,0 +1,61 @@
+```ts
+/**
+ * Parses a single CSV line into its fields.
+ * Handles quoted fields with embedded commas and escaped quotes.
+ * @param line A single line of CSV text.
+ * @returns An array of parsed field values.
+ */
+export function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < line.length) {
+    const char = line[i];
+
+    if (!inQuotes) {
+      if (char === '"') {
+        // Start of a quoted field
+        inQuotes = true;
+        i++;
+      } else if (char === ',') {
+        // Field separator
+        fields.push(currentField);
+        currentField = '';
+        i++;
+      } else {
+        currentField += char;
+        i++;
+      }
+    } else {
+      // Inside quotes
+      if (char === '"') {
+        // Check for escaped quote
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          // Escaped quote: "" -> "
+          currentField += '"';
+          i += 2;
+        } else {
+          // End of quoted field
+          inQuotes = false;
+          i++;
+        }
+      } else {
+        currentField += char;
+        i++;
+      }
+    }
+  }
+
+  // Push the last field
+  fields.push(currentField);
+
+  // Check for unclosed quotes
+  if (inQuotes) {
+    throw new Error('Unterminated quoted field');
+  }
+
+  return fields;
+}
+```

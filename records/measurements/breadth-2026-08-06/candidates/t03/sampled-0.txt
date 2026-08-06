@@ -1,0 +1,66 @@
+```ts
+/**
+ * Parses a semantic version string into its components.
+ * @param version The semantic version string to parse.
+ * @returns An object containing major, minor, patch numbers and optional prerelease and build strings.
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    if (typeof version !== 'string' || version === '') {
+        throw new Error(`Invalid semver string: "${version}"`);
+    }
+
+    // Remove leading/trailing whitespace
+    const trimmedVersion = version.trim();
+    
+    // Split on build metadata first to isolate it
+    let coreAndBuild = trimmedVersion;
+    let build: string | null = null;
+    
+    if (trimmedVersion.includes('+')) {
+        const parts = trimmedVersion.split('+');
+        if (parts.length > 2) {
+            throw new Error(`Invalid semver string: "${version}"`);
+        }
+        coreAndBuild = parts[0];
+        build = parts[1] || null;
+    }
+
+    // Split on prerelease to isolate it
+    let core = coreAndBuild;
+    let prerelease: string | null = null;
+    
+    if (coreAndBuild.includes('-')) {
+        const parts = coreAndBuild.split('-');
+        if (parts.length > 2) {
+            throw new Error(`Invalid semver string: "${version}"`);
+        }
+        core = parts[0];
+        prerelease = parts[1] || null;
+    }
+
+    // Parse the core version
+    const coreParts = core.split('.');
+    if (coreParts.length !== 3) {
+        throw new Error(`Invalid semver string: "${version}"`);
+    }
+
+    const [majorStr, minorStr, patchStr] = coreParts;
+
+    // Validate numeric parts
+    const validateNumericPart = (part: string, name: string): number => {
+        if (!/^\d+$/.test(part)) {
+            throw new Error(`Invalid semver string: "${version}": ${name} must be a number`);
+        }
+        if (part.length > 1 && part[0] === '0') {
+            throw new Error(`Invalid semver string: "${version}": ${name} has invalid leading zero`);
+        }
+        return parseInt(part, 10);
+    };
+
+    const major = validateNumericPart(majorStr, 'major');
+    const minor = validateNumericPart(minorStr, 'minor');
+    const patch = validateNumericPart(patchStr, 'patch');
+
+    return { major, minor, patch, prerelease, build };
+}
+```

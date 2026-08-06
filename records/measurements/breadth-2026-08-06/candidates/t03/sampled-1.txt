@@ -1,0 +1,65 @@
+```ts
+/**
+ * Parses a semantic version string into its components.
+ * @param version The semantic version string to parse (e.g., "1.2.3", "1.0.0-alpha+build.1").
+ * @returns An object containing major, minor, patch as numbers and prerelease/build as strings or null.
+ * @throws Error if the version string does not conform to semver specification.
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  // Validate input
+  if (typeof version !== 'string' || version.length === 0) {
+    throw new Error(`Invalid semver version: "${version}"`);
+  }
+
+  // Remove leading 'v' if present (common convention but not required by spec)
+  const cleanVersion = version.startsWith('v') ? version.slice(1) : version;
+
+  // Split build metadata first (everything after '+')
+  let coreAndBuild = cleanVersion.split('+');
+  let coreVersion = coreAndBuild[0];
+  let build: string | null = coreAndBuild.length > 1 ? coreAndBuild[1] || null : null;
+
+  // Split prerelease from core version (everything after '-')
+  let coreParts = coreVersion.split('-');
+  let core = coreParts[0];
+  let prerelease: string | null = coreParts.length > 1 ? coreParts.slice(1).join('-') || null : null;
+
+  // Parse MAJOR.MINOR.PATCH
+  const numbers = core.split('.');
+  if (numbers.length !== 3) {
+    throw new Error(`Invalid semver version: "${version}"`);
+  }
+
+  const [majorStr, minorStr, patchStr] = numbers;
+
+  // Validate each part: must be digits only, no leading zeros except for "0"
+  const validateNumberPart = (part: string, name: string): number => {
+    if (part.length === 0) {
+      throw new Error(`Invalid semver version: "${version}" - ${name} part is missing`);
+    }
+    if (part.length > 1 && part[0] === '0') {
+      throw new Error(`Invalid semver version: "${version}" - ${name} part has leading zero`);
+    }
+    if (!/^\d+$/.test(part)) {
+      throw new Error(`Invalid semver version: "${version}" - ${name} part is not a number`);
+    }
+    return parseInt(part, 10);
+  };
+
+  const major = validateNumberPart(majorStr, 'major');
+  const minor = validateNumberPart(minorStr, 'minor');
+  const patch = validateNumberPart(patchStr, 'patch');
+
+  // Validate prerelease and build metadata identifiers if present
+  // According to semver spec, identifiers must be [A-Za-z0-9-] and not start/end with hyphen
+  if (prerelease !== null && prerelease.length > 0) {
+    const identifiers = prerelease.split('.');
+    for (const id of identifiers) {
+      if (id.length === 0) {
+        throw new Error(`Invalid semver version: "${version}" - empty identifier in prerelease`);
+      }
+      if (!/^[A-Za-z0-9-]+$/.test(id)) {
+        throw new Error(`Invalid semver version: "${version}" - invalid character in prerelease identifier "${id}"`);
+      }
+      // Numeric identifiers must not have leading zeros (except "0")
+      if (/^\d+$/.test(id) && id.length > 1 && id[0] === '0') {

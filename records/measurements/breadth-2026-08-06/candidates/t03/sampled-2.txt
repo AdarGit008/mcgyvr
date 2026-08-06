@@ -1,0 +1,56 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (typeof version !== 'string' || version.trim() === '') {
+    throw new Error('Invalid semver: empty or non-string input');
+  }
+
+  const trimmed = version.trim();
+  
+  // Split off build metadata first (+)
+  let coreAndPrerelease = trimmed;
+  let build: string | null = null;
+  const plusIndex = trimmed.indexOf('+');
+  if (plusIndex !== -1) {
+    coreAndPrerelease = trimmed.substring(0, plusIndex);
+    build = trimmed.substring(plusIndex + 1);
+  }
+
+  // Split off prerelease (-)
+  let core = coreAndPrerelease;
+  let prerelease: string | null = null;
+  const dashIndex = coreAndPrerelease.indexOf('-');
+  if (dashIndex !== -1) {
+    core = coreAndPrerelease.substring(0, dashIndex);
+    prerelease = coreAndPrerelease.substring(dashIndex + 1);
+  }
+
+  // Parse MAJOR.MINOR.PATCH
+  const parts = core.split('.');
+  if (parts.length !== 3) {
+    throw new Error(`Invalid semver: ${version} - expected MAJOR.MINOR.PATCH format`);
+  }
+
+  const [majorStr, minorStr, patchStr] = parts;
+
+  // Validate each part is digits only and has no leading zero (except "0" itself)
+  const validateNumber = (str: string): number => {
+    if (!/^\d+$/.test(str)) {
+      throw new Error(`Invalid semver: ${version} - expected numeric components`);
+    }
+    if (str.length > 1 && str[0] === '0') {
+      throw new Error(`Invalid semver: ${version} - leading zeros not allowed in version numbers`);
+    }
+    const num = Number(str);
+    if (Number.isNaN(num) || num < 0 || num.toString() !== str) {
+      throw new Error(`Invalid semver: ${version} - invalid numeric value`);
+    }
+    return num;
+  };
+
+  const major = validateNumber(majorStr);
+  const minor = validateNumber(minorStr);
+  const patch = validateNumber(patchStr);
+
+  return { major, minor, patch, prerelease, build };
+}
+```
