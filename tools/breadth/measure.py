@@ -71,6 +71,7 @@ import sys
 import tempfile
 import time
 import types
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -108,13 +109,22 @@ GREEDY_TEMPERATURE = 0.0
 SAMPLED_TEMPERATURE = 0.7
 MAX_OUTPUT_TOKENS = 768
 
+# Difficulty tiers. d1 is the bundle rig's pinned 20-task set unchanged; d2/d3
+# are harder sets in this tool's own tree, same format, built because the top
+# rungs pass d1 at its ceiling and a distribution measured at a ceiling cannot
+# show where breadth starts paying (#121's first run demonstrated exactly
+# that). A tier is a directory of task dirs, each contract.yaml + reference.ts
+# + accept.mjs.
+TIERS = ("d1", "d2", "d3")
+TIER_ROOT = HERE / "tasks"
+
 # Where the machine-specific half lives, git-ignored — same contract as the
 # bundle rig's worker file, kept beside this script so the two experiments can
 # name different workers.
 WORKER_FILE = HERE / "worker.local.json"
 
 
-def draw_plan() -> list[tuple[str, int, float]]:
+def draw_plan(draws: int = DRAWS) -> list[tuple[str, int, float]]:
     """Every (arm, draw, temperature) one task runs, in order.
 
     One greedy draw first — the anchor a sampled arm is compared against —
@@ -122,8 +132,49 @@ def draw_plan() -> list[tuple[str, int, float]]:
     that resume, dispatch and the tests all agree on what "all draws" means.
     """
     plan: list[tuple[str, int, float]] = [("greedy", 0, GREEDY_TEMPERATURE)]
-    plan.extend(("sampled", i, SAMPLED_TEMPERATURE) for i in range(DRAWS))
+    plan.extend(("sampled", i, SAMPLED_TEMPERATURE) for i in range(draws))
     return plan
+
+
+def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
+    """The tier's tasks, contracts validated by the real loader.
+
+    d1 is the bundle rig's set, byte for byte — reusing it rather than copying
+    it keeps the two instruments' rows describing the same twenty contracts.
+    """
+    if tier == "d1":
+        return list(bundle.load_tasks(only))
+    root = TIER_ROOT / tier
+    if not root.is_dir():
+        raise bundle.MeasureError(
+            f"no such tier {tier!r}: {root} does not exist. Known: {TIERS}"
+        )
+    tasks = []
+    for directory in sorted(root.iterdir()):
+        if not directory.is_dir() or (only and directory.name not in only):
+            continue
+        tasks.append(
+            bundle.Task(
+                id=directory.name,
+                contract=bundle.load(directory / "contract.yaml"),
+                directory=directory,
+            )
+        )
+    if only:
+        missing = sorted(set(only) - {task.id for task in tasks})
+        if missing:
+            raise bundle.MeasureError(
+                f"no such task(s) in {tier}: {', '.join(missing)}"
+            )
+    return tasks
+
+
+def tier_digests(tier: str) -> dict[str, str]:
+    """A hash per task over the contract's emitted form, whole tier always."""
+    return {
+        task.id: hashlib.sha256(bundle.dumps(task.contract).encode("utf-8")).hexdigest()
+        for task in load_tier_tasks(tier)
+    }
 
 
 def measure_task(
@@ -133,6 +184,7 @@ def measure_task(
     workdir: Path,
     candidates: Path,
     already: set[tuple[str, str, int]],
+    plan: list[tuple[str, int, float]] | None = None,
 ) -> list[dict[str, object]]:
     """Every draw of one task, each a row — and never an early exit.
 
@@ -143,7 +195,7 @@ def measure_task(
     """
     prompt = build_prompt(task.contract)
     rows: list[dict[str, object]] = []
-    for arm, draw, temperature in draw_plan():
+    for arm, draw, temperature in plan if plan is not None else draw_plan():
         if (task.id, arm, draw) in already:
             continue
         row: dict[str, object] = {
@@ -226,7 +278,13 @@ def done_keys(rows_path: Path) -> set[tuple[str, str, int]]:
     return keys
 
 
-def record_run(out: Path, worker: Any, invocation: dict[str, object]) -> None:
+def record_run(
+    out: Path,
+    worker: Any,
+    invocation: dict[str, object],
+    tier: str = "d1",
+    draws: int = DRAWS,
+) -> None:
     """Write, or extend, the provenance beside the rows.
 
     The identity a resume must match includes the sampling parameters: rows
@@ -235,17 +293,18 @@ def record_run(out: Path, worker: Any, invocation: dict[str, object]) -> None:
     the task digests (the user message is a function of the contract) plus the
     bundle each ``.ts`` target selects, hashed here once.
     """
-    prompt = build_prompt(bundle.load_tasks()[0].contract)
+    prompt = build_prompt(load_tier_tasks(tier)[0].contract)
     identity = {
         "endpoint": bundle.redact(worker.endpoint),
         "protocol": worker.protocol.value,
         "model": worker.model,
-        "draws": DRAWS,
+        "tier": tier,
+        "draws": draws,
         "greedy_temperature": GREEDY_TEMPERATURE,
         "sampled_temperature": SAMPLED_TEMPERATURE,
         "max_output_tokens": MAX_OUTPUT_TOKENS,
         "bundle_sha256": hashlib.sha256(prompt.system.encode("utf-8")).hexdigest(),
-        "tasks_sha256": bundle.task_digests(),
+        "tasks_sha256": tier_digests(tier),
     }
     path = out / "run.json"
     if path.is_file():
@@ -267,7 +326,9 @@ def record_run(out: Path, worker: Any, invocation: dict[str, object]) -> None:
     )
 
 
-def first_pass_indices(rows: list[dict[str, Any]]) -> dict[str, int | None]:
+def first_pass_indices(
+    rows: list[dict[str, Any]], draws: int = DRAWS
+) -> dict[str, int | None]:
     """Per task: the sampled-arm draw index of the first pass, or None.
 
     A task appears only once all its sampled draws are recorded — a partial
@@ -280,18 +341,23 @@ def first_pass_indices(rows: list[dict[str, Any]]) -> dict[str, int | None]:
         if row["arm"] == "sampled":
             by_task.setdefault(row["task"], {})[row["draw"]] = row
     indices: dict[str, int | None] = {}
-    for task, draws in sorted(by_task.items()):
-        if set(draws) != set(range(DRAWS)):
+    for task, recorded in sorted(by_task.items()):
+        if set(recorded) != set(range(draws)):
             continue
-        if any(draws[i].get("dispatch_error") for i in range(DRAWS)):
+        if any(recorded[i].get("dispatch_error") for i in range(draws)):
             continue
-        passing = [i for i in range(DRAWS) if draws[i].get("passed")]
+        passing = [i for i in range(draws) if recorded[i].get("passed")]
         indices[task] = passing[0] if passing else None
     return indices
 
 
 def summarise(rows_path: Path) -> str:
-    """The distribution, its arms and its price, from the rows on disk."""
+    """The distribution, its arms and its price, from the rows on disk.
+
+    The intended draw count comes from ``run.json`` beside the rows when it
+    exists (a resume must judge completeness against what was *meant* to run),
+    falling back to the module default for rows produced without a manifest.
+    """
     rows = [
         json.loads(line)
         for line in rows_path.read_text(encoding="utf-8").splitlines()
@@ -299,6 +365,10 @@ def summarise(rows_path: Path) -> str:
     ]
     if not rows:
         return "no rows"
+    draws = DRAWS
+    manifest = rows_path.parent / "run.json"
+    if manifest.is_file():
+        draws = int(json.loads(manifest.read_text(encoding="utf-8"))["draws"])
 
     lines: list[str] = []
     greedy = [r for r in rows if r["arm"] == "greedy"]
@@ -314,13 +384,13 @@ def summarise(rows_path: Path) -> str:
             "pass — the price of moving off greedy"
         )
 
-    indices = first_pass_indices(rows)
+    indices = first_pass_indices(rows, draws)
     if indices:
         n = len(indices)
         covered = [i for i in indices.values() if i is not None]
         lines.append("")
         lines.append(
-            f"first-pass index over {n} tasks with all {DRAWS} sampled draws "
+            f"first-pass index over {n} tasks with all {draws} sampled draws "
             f"recorded ({len(covered)} with any pass, {n - len(covered)} with "
             "none):"
         )
@@ -328,7 +398,7 @@ def summarise(rows_path: Path) -> str:
         lines.append("| index | tasks | cumulative pass@≤k |")
         lines.append("|:-----:|:-----:|:------------------:|")
         cumulative = 0
-        for index in range(DRAWS):
+        for index in range(draws):
             at = sum(1 for i in covered if i == index)
             cumulative += at
             lines.append(f"| {index} | {at} | {cumulative}/{n} |")
@@ -389,6 +459,19 @@ def main() -> int:
         "--tasks", default="", help="comma-separated subset of task ids"
     )
     parser.add_argument(
+        "--tier",
+        choices=TIERS,
+        default="d1",
+        help="difficulty tier to run (default d1, the bundle rig's set)",
+    )
+    parser.add_argument(
+        "--draws",
+        type=int,
+        default=DRAWS,
+        help=f"sampled draws per task (default {DRAWS}); pass@<=k for every "
+        "k up to this falls out of one run",
+    )
+    parser.add_argument(
         "--selftest",
         action="store_true",
         help="run every reference against its own acceptance and stop; needs no worker",
@@ -401,7 +484,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        tasks = bundle.load_tasks([t for t in args.tasks.split(",") if t])
+        tasks = load_tier_tasks(args.tier, [t for t in args.tasks.split(",") if t])
     except bundle.MeasureError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -462,6 +545,8 @@ def main() -> int:
                 "tasks": [task.id for task in tasks],
                 "rig_revision": bundle.rig_revision(),
             },
+            tier=args.tier,
+            draws=args.draws,
         )
     except bundle.MeasureError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -469,10 +554,11 @@ def main() -> int:
 
     print(
         f"measuring {worker.model} at {bundle.redact(worker.endpoint)} "
-        f"({worker.protocol.value}), {DRAWS} sampled draws per task, "
-        "no early exit",
+        f"({worker.protocol.value}), tier {args.tier}, {args.draws} sampled "
+        "draws per task, no early exit",
         file=sys.stderr,
     )
+    plan = draw_plan(args.draws)
 
     with (
         tempfile.TemporaryDirectory(prefix="mcgyvr-breadth-") as tmp,
@@ -486,6 +572,7 @@ def main() -> int:
                 Path(tmp),
                 args.out / "candidates",
                 already,
+                plan=plan,
             )
             for row in rows:
                 handle.write(json.dumps(row) + "\n")

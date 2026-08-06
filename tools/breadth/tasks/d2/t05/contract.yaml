@@ -1,0 +1,18 @@
+id: d2-05-search-range
+task_type: function_implementation
+task: >-
+  Implement searchRange. Given an array of numbers sorted in non-decreasing
+  order (duplicates allowed) and a target, return [firstIndex, lastIndex],
+  the indices of the first and last occurrence of the target. If the target
+  does not occur, return [-1, -1] — including for an empty array. A single
+  occurrence returns the same index twice. Use binary search: the function
+  must run in O(log n) comparisons; a linear scan is a wrong answer even
+  though it returns the same values. The array must not be mutated.
+target: solution.ts
+interface: "export function searchRange(nums: number[], target: number): [number, number]"
+stop_conditions:
+  - The expected result when the target is absent from a non-empty array is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

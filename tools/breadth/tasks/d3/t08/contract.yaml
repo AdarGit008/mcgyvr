@@ -1,0 +1,24 @@
+id: d3-08-tree-codec
+task_type: function_implementation
+task: >-
+  Implement serialize and deserialize for binary trees of integer
+  values. A tree node is a plain object { value, left, right } where
+  left and right are each either a node or null. serialize emits the
+  preorder traversal, comma-separated with no spaces: each node
+  contributes its value in decimal (possibly negative), and each absent
+  child contributes the single character '#'. The empty tree (null)
+  serializes to "#". The tree with root 1, left child 2 and right child
+  3 serializes to "1,2,#,#,3,#,#"; a lone left child differs from a lone
+  right child ("1,2,#,#,#" versus "1,#,2,#,#"). deserialize parses that
+  exact format back into a structurally identical tree, and must throw
+  an Error on malformed input: a token that is neither a decimal integer
+  nor '#', input that ends before the tree is complete, or leftover
+  tokens after the tree is complete.
+target: solution.ts
+interface: "export type TreeNode = { value: number; left: TreeNode | null; right: TreeNode | null }; export function serialize(root: TreeNode | null): string; export function deserialize(text: string): TreeNode | null"
+stop_conditions:
+  - The expected serialization of non-integer node values is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

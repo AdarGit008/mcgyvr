@@ -1,0 +1,23 @@
+id: d3-01-expression-eval
+task_type: function_implementation
+task: >-
+  Implement evaluate, an arithmetic expression evaluator. The input is a
+  string made of decimal integer literals, the binary operators + - * /,
+  unary minus, parentheses, and optional space characters between any two
+  tokens. Binary + and - have the lowest precedence, * and / bind
+  tighter, and both levels are left-associative: "2-3-4" is -5 and
+  "8/4/2" is 1. Unary minus binds tighter than * and /, may be repeated
+  ("--5" is 5), and may precede a number or a parenthesized expression.
+  Division is ordinary real division, so "7/2" is 3.5. Throw an Error
+  for any malformed input: an unknown character, an unmatched
+  parenthesis, a missing operand, two numbers with no operator between
+  them, trailing garbage, or the empty string. Throw an Error on
+  division by zero.
+target: solution.ts
+interface: "export function evaluate(expr: string): number"
+stop_conditions:
+  - The required behaviour for an exponent or modulo operator is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

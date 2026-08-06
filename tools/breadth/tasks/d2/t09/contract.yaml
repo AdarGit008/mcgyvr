@@ -1,0 +1,22 @@
+id: d2-09-roman-strict
+task_type: function_implementation
+task: >-
+  Implement romanToInt with strict validation. Parse a canonical Roman
+  numeral (symbols I=1, V=5, X=10, L=50, C=100, D=500, M=1000; the only
+  subtractive pairs are IV, IX, XL, XC, CD, CM) and return its value, which
+  will lie in 1..3999. The input must be EXACTLY the canonical spelling of
+  its value: accept "XIV" but throw an Error for well-formed-looking strings
+  that are not canonical, such as "IIII" (use "IV"), "IC" (99 is "XCIX"),
+  "VX", "XXXX", or "MMMM" (4000 is out of range). Also throw an Error for an
+  empty string, a non-string argument, or any character outside IVXLCDM
+  (lowercase is invalid). A practical strategy: compute a candidate value
+  with the subtractive rule, re-encode it canonically, and require an exact
+  match with the input.
+target: solution.ts
+interface: "export function romanToInt(input: string): number"
+stop_conditions:
+  - Whether non-canonical but decodable numerals like IIII must be rejected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

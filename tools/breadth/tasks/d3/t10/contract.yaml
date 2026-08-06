@@ -1,0 +1,24 @@
+id: d3-10-stable-multisort
+task_type: function_implementation
+task: >-
+  Implement sortBy, a stable multi-key sorter. keys lists the sort keys
+  in priority order, each with dir "asc" or "desc". Under one key with
+  dir "asc", rows compare by row[key] as follows: every number precedes
+  every string; numbers compare numerically; strings compare by UTF-16
+  code units the way the < operator does, so "10" precedes "2" as a
+  string while 10 follows 2 as a number; a missing value (undefined)
+  follows all numbers and strings. dir "desc" is the exact reverse of
+  that entire ordering, so under "desc" a missing value comes first and
+  strings precede numbers. A later key applies only where every earlier
+  key ties. Rows that tie under every key keep their original relative
+  order, including when keys is empty. Return a new array; the input
+  array must not be mutated. Values are guaranteed to be numbers (never
+  NaN), strings, or absent.
+target: solution.ts
+interface: 'export function sortBy(rows: Record<string, unknown>[], keys: { key: string; dir: "asc" | "desc" }[]): Record<string, unknown>[]'
+stop_conditions:
+  - The expected ordering for boolean or object values is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

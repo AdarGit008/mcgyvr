@@ -1,0 +1,25 @@
+import assert from "node:assert/strict";
+import { evaluate } from "./solution.ts";
+
+assert.equal(evaluate("1+2*3"), 7, "multiplication binds tighter");
+assert.equal(evaluate("2-3-4"), -5, "minus is left-associative");
+assert.equal(evaluate("2-(3-4)"), 3, "parentheses override associativity");
+assert.equal(evaluate("8/4/2"), 1, "division is left-associative");
+assert.equal(evaluate("10-4+3"), 9, "plus and minus evaluate left to right");
+assert.equal(evaluate("7/2"), 3.5, "real division");
+assert.equal(evaluate("-(2+3)*-4"), 20, "unary minus on a group and a literal");
+assert.equal(evaluate("2*-3"), -6, "unary minus as right operand");
+assert.equal(evaluate("2--3"), 5, "binary minus followed by unary minus");
+assert.equal(evaluate("--5"), 5, "repeated unary minus");
+assert.equal(evaluate(" 12 + 3 * ( 4 - 2 ) "), 18, "spaces between tokens");
+assert.equal(evaluate("(((7)))"), 7, "nested parentheses");
+assert.equal(evaluate("1+2*3-4/2"), 5, "mixed precedence chain");
+assert.equal(evaluate("1000000*1000000"), 1000000000000, "large product");
+assert.throws(() => evaluate(""), Error, "empty input");
+assert.throws(() => evaluate("1+"), Error, "missing right operand");
+assert.throws(() => evaluate("(1+2"), Error, "unmatched parenthesis");
+assert.throws(() => evaluate("1 2"), Error, "two numbers with no operator");
+assert.throws(() => evaluate("a+1"), Error, "unknown character");
+assert.throws(() => evaluate("1//2"), Error, "operator with no operand");
+assert.throws(() => evaluate("1/0"), Error, "division by zero");
+assert.throws(() => evaluate("1/(3-3)"), Error, "division by computed zero");
