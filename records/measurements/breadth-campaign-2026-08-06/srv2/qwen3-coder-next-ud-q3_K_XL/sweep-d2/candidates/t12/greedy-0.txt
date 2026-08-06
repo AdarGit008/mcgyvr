@@ -1,0 +1,47 @@
+```ts
+/**
+ * Computes the Levenshtein (edit) distance between two strings.
+ * The distance is the minimum number of single-character insertions,
+ * deletions, and substitutions required to transform string `a` into string `b`.
+ *
+ * @param a - The source string.
+ * @param b - The target string.
+ * @returns The edit distance between `a` and `b`.
+ * @throws Error if either argument is not a string.
+ */
+export function editDistance(a: string, b: string): number {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+
+  const m = a.length;
+  const n = b.length;
+
+  // Create DP table with (m+1) rows and (n+1) columns
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+
+  // Initialize base cases: distance from empty string to other string
+  for (let i = 0; i <= m; i++) {
+    dp[i][0] = i; // i deletions needed to turn a[0..i-1] into empty string
+  }
+  for (let j = 0; j <= n; j++) {
+    dp[0][j] = j; // j insertions needed to turn empty string into b[0..j-1]
+  }
+
+  // Fill the DP table
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1]; // No operation needed
+      } else {
+        const insertCost = dp[i][j - 1] + 1;
+        const deleteCost = dp[i - 1][j] + 1;
+        const replaceCost = dp[i - 1][j - 1] + 1;
+        dp[i][j] = Math.min(insertCost, deleteCost, replaceCost);
+      }
+    }
+  }
+
+  return dp[m][n];
+}
+```

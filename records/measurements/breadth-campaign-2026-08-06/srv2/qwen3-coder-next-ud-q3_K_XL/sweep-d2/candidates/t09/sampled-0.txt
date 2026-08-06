@@ -1,0 +1,73 @@
+```ts
+/**
+ * Converts a canonical Roman numeral string to its integer value.
+ * Throws an error if the input is invalid or not in canonical form.
+ */
+export function romanToInt(input: string): number {
+  if (typeof input !== 'string' || input.length === 0) {
+    throw new Error('Input must be a non-empty string');
+  }
+
+  const romanMap: Record<string, number> = {
+    I: 1,
+    V: 5,
+    X: 10,
+    L: 50,
+    C: 100,
+    D: 500,
+    M: 1000
+  };
+
+  // Validate all characters are valid uppercase Roman numerals
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    if (!(char in romanMap)) {
+      throw new Error(`Invalid character: ${char}`);
+    }
+  }
+
+  // Parse the value using standard subtractive logic
+  let value = 0;
+  for (let i = 0; i < input.length; i++) {
+    const current = romanMap[input[i]];
+    const next = i + 1 < input.length ? romanMap[input[i + 1]] : 0;
+
+    if (current < next) {
+      value -= current;
+    } else {
+      value += current;
+    }
+  }
+
+  // Validate range
+  if (value < 1 || value > 3999) {
+    throw new Error('Value must be between 1 and 3999');
+  }
+
+  // Convert back to canonical Roman numeral and verify it matches input
+  function intToRoman(num: number): string {
+    const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+    const symbols = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
+
+    let result = '';
+    let remaining = num;
+
+    for (let i = 0; i < values.length; i++) {
+      const count = Math.floor(remaining / values[i]);
+      if (count > 0) {
+        result += symbols[i].repeat(count);
+        remaining -= values[i] * count;
+      }
+    }
+
+    return result;
+  }
+
+  const canonicalForm = intToRoman(value);
+  if (canonicalForm !== input) {
+    throw new Error('Input is not in canonical Roman numeral form');
+  }
+
+  return value;
+}
+```

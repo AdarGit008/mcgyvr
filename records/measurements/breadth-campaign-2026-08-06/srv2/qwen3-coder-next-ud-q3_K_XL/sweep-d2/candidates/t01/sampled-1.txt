@@ -1,0 +1,55 @@
+```ts
+/**
+ * Merges overlapping or touching intervals into non-overlapping intervals sorted by start.
+ * @param intervals An array of [start, end] pairs where start <= end.
+ * @returns A new array of merged intervals sorted by start.
+ * @throws Error if any interval is invalid (not a two-number pair, or start > end).
+ */
+export function mergeIntervals(intervals: [number, number][]): [number, number][] {
+  // Validate input
+  for (const interval of intervals) {
+    if (!Array.isArray(interval) || interval.length !== 2) {
+      throw new Error('Each interval must be a two-element array');
+    }
+    const [start, end] = interval;
+    if (typeof start !== 'number' || typeof end !== 'number') {
+      throw new Error('Interval values must be numbers');
+    }
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+      throw new Error('Interval values must be finite numbers');
+    }
+    if (start > end) {
+      throw new Error('Start must be less than or equal to end');
+    }
+  }
+
+  if (intervals.length === 0) {
+    return [];
+  }
+
+  // Create a deep copy to avoid mutating the original array
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+  const result: [number, number][] = [];
+
+  let currentStart = sorted[0][0];
+  let currentEnd = sorted[0][1];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const [start, end] = sorted[i];
+    if (start <= currentEnd) {
+      // Overlapping or touching intervals merge
+      currentEnd = Math.max(currentEnd, end);
+    } else {
+      // No overlap, push the current interval and start a new one
+      result.push([currentStart, currentEnd]);
+      currentStart = start;
+      currentEnd = end;
+    }
+  }
+
+  // Push the last interval
+  result.push([currentStart, currentEnd]);
+
+  return result;
+}
+```

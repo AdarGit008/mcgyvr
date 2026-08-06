@@ -1,0 +1,80 @@
+```ts
+/**
+ * Converts a Roman numeral string to its integer value with strict canonical validation.
+ * @param input The Roman numeral string to convert.
+ * @returns The integer value of the Roman numeral.
+ * @throws Error if the input is invalid or not in canonical form.
+ */
+export function romanToInt(input: string): number {
+  // Validate input type
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  // Validate non-empty
+  if (input.length === 0) {
+    throw new Error('Input cannot be empty');
+  }
+
+  // Validate all characters are valid Roman numerals (uppercase only)
+  const validChars = new Set(['I', 'V', 'X', 'L', 'C', 'D', 'M']);
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    if (!validChars.has(char)) {
+      throw new Error(`Invalid character: ${char}`);
+    }
+  }
+
+  // Map of Roman numeral values
+  const romanMap: Record<string, number> = {
+    'I': 1,
+    'V': 5,
+    'X': 10,
+    'L': 50,
+    'C': 100,
+    'D': 500,
+    'M': 1000
+  };
+
+  // Compute candidate value using subtractive rule
+  let value = 0;
+  for (let i = 0; i < input.length; i++) {
+    const current = romanMap[input[i]];
+    const next = i + 1 < input.length ? romanMap[input[i + 1]] : 0;
+
+    if (current < next) {
+      value -= current;
+    } else {
+      value += current;
+    }
+  }
+
+  // Validate range
+  if (value < 1 || value > 3999) {
+    throw new Error('Value must be between 1 and 3999');
+  }
+
+  // Convert back to canonical Roman numeral and compare with input
+  function intToRoman(num: number): string {
+    const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+    const symbols = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
+    
+    let result = '';
+    for (let i = 0; i < values.length; i++) {
+      while (num >= values[i]) {
+        num -= values[i];
+        result += symbols[i];
+      }
+    }
+    return result;
+  }
+
+  const canonicalForm = intToRoman(value);
+
+  if (canonicalForm !== input) {
+    throw new Error('Input is not in canonical Roman numeral form');
+  }
+
+  return value;
+}
+```

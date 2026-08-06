@@ -1,0 +1,84 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('line must be a string');
+  }
+
+  const fields: string[] = [];
+  let i = 0;
+  const n = line.length;
+
+  while (i <= n) {
+    // Skip leading comma for empty field
+    if (i === n || (i < n && line[i] === ',')) {
+      fields.push('');
+      i++;
+      continue;
+    }
+
+    // Start of a field
+    let field = '';
+    
+    if (line[i] === '"') {
+      // Quoted field
+      i++; // Skip opening quote
+      while (i < n) {
+        if (line[i] === '"') {
+          // Check for doubled quote
+          if (i + 1 < n && line[i + 1] === '"') {
+            field += '"';
+            i += 2;
+          } else {
+            // End of quoted field
+            i++; // Skip closing quote
+            // Must end line or be followed by comma
+            if (i < n && line[i] !== ',') {
+              throw new Error('Invalid character after closing quote');
+            }
+            break;
+          }
+        } else {
+          field += line[i];
+          i++;
+        }
+      }
+      
+      // Check for unterminated quoted field
+      if (i === n && (field.endsWith('"') || !line.slice(0, i).endsWith('"'))) {
+        // Actually check if we exited due to end of string while in quoted state
+        if (i === n && line[i - 1] !== '"') {
+          throw new Error('Unterminated quoted field');
+        }
+      }
+      
+      // If we didn't find closing quote properly
+      if (i === n && (i === 0 || line[i - 1] === '"')) {
+        // Check if we're still in quoted state
+        // We need to check if the last character we processed was an unmatched quote
+        // Since we incremented i after the closing quote, if i===n and we haven't found the closing quote,
+        // then it's unterminated. But our loop handles this by checking if we exited due to end of string.
+        if (i === n && line[i - 1] !== '"') {
+          throw new Error('Unterminated quoted field');
+        }
+      }
+      
+      // Check for unterminated quoted field
+      if (i === n && line[i - 1] === '"') {
+        // We need to detect if the last quote was not doubled and not followed by comma or end
+        // Actually, let's track state better
+        // If we're here and i===n, and the last char processed was a quote that wasn't followed by comma,
+        // then it's unterminated. But our loop ends when we find the closing quote + comma or end.
+        // So if we exit because i===n and haven't processed the closing quote properly
+        // This is handled in the inner loop - if we reach i===n inside quoted section without finding proper escape
+      }
+      
+      // If we exited because of end of string while still in quoted section (i===n and last char wasn't closing quote)
+      // Actually, let's simplify: if we started with quote and never found closing quote properly, throw error
+      if (i === n && line[i - 1] !== '"') {
+        throw new Error('Unterminated quoted field');
+      }
+      
+      fields.push(field);
+      
+      // Move past comma if present
+      if (i < n && line[i] === ',') {

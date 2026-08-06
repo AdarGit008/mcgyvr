@@ -1,0 +1,77 @@
+```ts
+/**
+ * Tokenizes a string by splitting on runs of spaces and tabs,
+ * respecting quoted sections (double quotes) and escape sequences (backslashes).
+ */
+export function tokenize(input: string): string[] {
+  if (input === '') {
+    return [];
+  }
+
+  const tokens: string[] = [];
+  let currentToken = '';
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+
+    // Handle escape sequences
+    if (char === '\\') {
+      i++;
+      if (i >= input.length) {
+        throw new Error('Trailing backslash');
+      }
+      currentToken += input[i];
+      i++;
+      continue;
+    }
+
+    // Handle quotes
+    if (char === '"') {
+      // Toggle quoted mode
+      inQuotes = !inQuotes;
+      i++;
+      continue;
+    }
+
+    // If in quotes, treat any character as literal (except escapes handled above)
+    if (inQuotes) {
+      currentToken += char;
+      i++;
+      continue;
+    }
+
+    // Handle whitespace separators when not in quotes
+    if (char === ' ' || char === '\t') {
+      // End current token if non-empty
+      if (currentToken.length > 0) {
+        tokens.push(currentToken);
+        currentToken = '';
+      }
+      i++;
+      // Skip all consecutive whitespace
+      while (i < input.length && (input[i] === ' ' || input[i] === '\t')) {
+        i++;
+      }
+      continue;
+    }
+
+    // Regular character outside quotes
+    currentToken += char;
+    i++;
+  }
+
+  // Handle unterminated quote at end of string
+  if (inQuotes) {
+    throw new Error('Unterminated quote');
+  }
+
+  // Add final token if any remains
+  if (currentToken.length > 0) {
+    tokens.push(currentToken);
+  }
+
+  return tokens;
+}
+```

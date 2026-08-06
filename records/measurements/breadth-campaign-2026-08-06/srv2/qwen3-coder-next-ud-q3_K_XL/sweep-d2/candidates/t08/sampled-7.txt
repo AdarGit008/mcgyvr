@@ -1,0 +1,70 @@
+```ts
+/**
+ * Parse one CSV line into its fields according to RFC 4180 rules.
+ * @param line - A single CSV line (no newlines) to parse.
+ * @returns An array of string fields parsed from the line.
+ * @throws Error for invalid inputs or malformed CSV data.
+ */
+export function parseCsvLine(line: string): string[] {
+    if (typeof line !== 'string') {
+        throw new Error('line must be a string');
+    }
+
+    const fields: string[] = [];
+    let field = '';
+    let inQuotes = false;
+    let i = 0;
+
+    while (i < line.length) {
+        const char = line[i];
+
+        if (!inQuotes) {
+            if (char === '"') {
+                // Start of a quoted field
+                if (field !== '') {
+                    throw new Error('quote inside unquoted field');
+                }
+                inQuotes = true;
+            } else if (char === ',') {
+                // End of an empty or non-empty unquoted field
+                fields.push(field);
+                field = '';
+            } else {
+                // Regular character in unquoted field
+                field += char;
+            }
+        } else {
+            // Inside a quoted field
+            if (char === '"') {
+                // Check for escaped quote ("")
+                if (i + 1 < line.length && line[i + 1] === '"') {
+                    // Escaped quote: add one quote and skip next
+                    field += '"';
+                    i++;
+                } else {
+                    // End of quoted field
+                    inQuotes = false;
+                    // Must be end-of-line or immediately followed by comma
+                    if (i + 1 < line.length && line[i + 1] !== ',') {
+                        throw new Error('invalid character after closing quote');
+                    }
+                }
+            } else {
+                field += char;
+            }
+        }
+
+        i++;
+    }
+
+    // If still in quotes at end of string, it's unterminated
+    if (inQuotes) {
+        throw new Error('unterminated quoted field');
+    }
+
+    // Push the last field
+    fields.push(field);
+
+    return fields;
+}
+```

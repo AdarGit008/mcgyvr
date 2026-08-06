@@ -1,0 +1,55 @@
+```ts
+/**
+ * Returns an array containing the maximum value of every contiguous window of size k.
+ * Uses a deque to maintain indices of potential maxima for O(n) time complexity.
+ * @param nums - Array of numbers to process
+ * @param k - Size of the sliding window
+ * @returns Array of maximum values for each window
+ * @throws Error if k is invalid (not integer, < 1, or > nums.length)
+ */
+export function maxSlidingWindow(nums: number[], k: number): number[] {
+    // Validate inputs
+    if (!Number.isInteger(k)) {
+        throw new Error("k must be an integer");
+    }
+    
+    if (k < 1) {
+        throw new Error("k must be at least 1");
+    }
+    
+    if (nums.length === 0) {
+        throw new Error("nums cannot be empty");
+    }
+    
+    if (k > nums.length) {
+        throw new Error("k cannot exceed the length of nums");
+    }
+    
+    // Deque stores indices of elements in decreasing order of their values
+    const deque: number[] = [];
+    const result: number[] = [];
+    
+    for (let i = 0; i < nums.length; i++) {
+        // Remove indices that are out of the current window
+        while (deque.length > 0 && deque[0] <= i - k) {
+            deque.shift();
+        }
+        
+        // Remove indices whose corresponding values are less than current value
+        // as they cannot be maxima in any future window containing the current element
+        while (deque.length > 0 && nums[deque[deque.length - 1]] <= nums[i]) {
+            deque.pop();
+        }
+        
+        // Add current index to the deque
+        deque.push(i);
+        
+        // If we have processed at least k elements, add the maximum for this window
+        if (i >= k - 1) {
+            result.push(nums[deque[0]]);
+        }
+    }
+    
+    return result;
+}
+```

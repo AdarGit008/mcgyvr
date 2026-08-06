@@ -1,0 +1,78 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Expected a string argument');
+  }
+
+  const fields: string[] = [];
+  let i = 0;
+  const n = line.length;
+
+  while (i <= n) {
+    // Skip to next field
+    if (i === n) {
+      fields.push('');
+      break;
+    }
+
+    if (line[i] === '"') {
+      // Quoted field
+      let j = i + 1;
+      let content = '';
+
+      while (j < n) {
+        if (line[j] === '"') {
+          // Check for doubled quote
+          if (j + 1 < n && line[j + 1] === '"') {
+            content += '"';
+            j += 2;
+          } else {
+            // End of quoted field
+            j++;
+            // After closing quote, must be end of line or comma
+            if (j < n && line[j] !== ',') {
+              throw new Error('Invalid character after closing quote');
+            }
+            fields.push(content);
+            i = j;
+            break;
+          }
+        } else {
+          content += line[j];
+          j++;
+        }
+      }
+
+      if (j >= n && line[j - 1] === '"') {
+        // Unterminated quoted field
+        throw new Error('Unterminated quoted field');
+      }
+
+      if (i < n && line[i] === '"') {
+        // We processed a quoted field, continue
+        continue;
+      } else if (i >= n) {
+        break;
+      }
+    } else {
+      // Unquoted field
+      let j = i;
+      while (j < n && line[j] !== ',') {
+        if (line[j] === '"') {
+          throw new Error('Quote inside unquoted field');
+        }
+        j++;
+      }
+      fields.push(line.substring(i, j));
+      i = j;
+    }
+
+    // Move past comma if present
+    if (i < n && line[i] === ',') {
+      i++;
+    }
+  }
+
+  return fields;
+}
+```

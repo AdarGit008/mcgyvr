@@ -1,0 +1,71 @@
+```ts
+/**
+ * Parses a single CSV line into its fields according to RFC 4180 rules.
+ * @param line A string representing one CSV line without newlines.
+ * @returns An array of string fields.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('line must be a string');
+  }
+
+  const fields: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < line.length) {
+    const char = line[i];
+
+    if (!inQuotes) {
+      // Not currently in a quoted field
+      if (char === '"') {
+        // Start of a quoted field
+        inQuotes = true;
+        i++;
+      } else if (char === ',') {
+        // End of current field, add it to fields and start new empty field
+        fields.push(currentField);
+        currentField = '';
+        i++;
+      } else {
+        // Regular character in unquoted field
+        currentField += char;
+        i++;
+      }
+    } else {
+      // Currently inside a quoted field
+      if (char === '"') {
+        // Check for doubled quote ("")
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          // Escaped quote: add single quote character and skip next quote
+          currentField += '"';
+          i += 2;
+        } else {
+          // End of quoted field
+          inQuotes = false;
+          i++;
+          // After closing quote, the line must end or a comma must follow
+          if (i < line.length && line[i] !== ',') {
+            throw new Error('Invalid character after closing quote');
+          }
+        }
+      } else {
+        // Regular character inside quoted field
+        currentField += char;
+        i++;
+      }
+    }
+  }
+
+  // If still in quotes at end of line, it's unterminated
+  if (inQuotes) {
+    throw new Error('Unterminated quoted field');
+  }
+
+  // Push the last field (even if empty)
+  fields.push(currentField);
+
+  return fields;
+}
+```

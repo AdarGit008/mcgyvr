@@ -1,0 +1,11 @@
+```ts
+/** Parses a configuration string into key/value pairs. */
+export function parseConfig(text: string): Record<string, string> {
+  const config = Object.create(null) as Record<string, string>;
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
+    if (trimmedLine === '' || trimmedLine.startsWith('#')) continue;
+    const eqIdx = line.indexOf('=');
+    if (eqIdx ===

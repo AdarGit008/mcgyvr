@@ -1,0 +1,58 @@
+```ts
+/**
+ * Adds two nonnegative decimal strings representing arbitrarily large integers.
+ * @param a - First nonnegative decimal string (may have leading zeros).
+ * @param b - Second nonnegative decimal string (may have leading zeros).
+ * @returns The sum as a canonical decimal string without leading zeros.
+ * @throws Error if inputs are invalid (non-string, empty, or contain non-digit characters).
+ */
+export function addDecimalStrings(a: string, b: string): string {
+  // Validate inputs
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Inputs must be strings');
+  }
+  
+  if (a.length === 0 || b.length === 0) {
+    throw new Error('Inputs must not be empty');
+  }
+  
+  // Check for invalid characters
+  const digitRegex = /^[0-9]+$/;
+  if (!digitRegex.test(a) || !digitRegex.test(b)) {
+    throw new Error('Inputs must contain only digits');
+  }
+
+  // Remove leading zeros for processing, but handle the case where number is "0"
+  const normalize = (s: string): string => {
+    let i = 0;
+    while (i < s.length - 1 && s[i] === '0') {
+      i++;
+    }
+    return s.slice(i);
+  };
+
+  const aNorm = normalize(a);
+  const bNorm = normalize(b);
+
+  // Perform digit-by-digit addition from right to left
+  let result: string[] = [];
+  let carry = 0;
+  let i = aNorm.length - 1;
+  let j = bNorm.length - 1;
+
+  while (i >= 0 || j >= 0 || carry > 0) {
+    const digitA = i >= 0 ? parseInt(aNorm[i], 10) : 0;
+    const digitB = j >= 0 ? parseInt(bNorm[j], 10) : 0;
+
+    const sum = digitA + digitB + carry;
+    result.push((sum % 10).toString());
+    carry = Math.floor(sum / 10);
+
+    i--;
+    j--;
+  }
+
+  // Reverse the result to get the correct order
+  return result.reverse().join('');
+}
+```

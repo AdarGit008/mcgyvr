@@ -1,0 +1,45 @@
+```ts
+/**
+ * Finds the first and last occurrence of the target in a sorted array using binary search.
+ * Returns [firstIndex, lastIndex] or [-1, -1] if target is not found.
+ */
+export function searchRange(nums: number[], target: number): [number, number] {
+    const findFirst = (): number => {
+        let left = 0;
+        let right = nums.length;
+        while (left < right) {
+            const mid = Math.floor((left + right) / 2);
+            if (nums[mid] < target) {
+                left = mid + 1;
+            } else {
+                right = mid;
+            }
+        }
+        return left;
+    };
+
+    const findLast = (): number => {
+        let left = 0;
+        let right = nums.length;
+        while (left < right) {
+            const mid = Math.floor((left + right) / 2);
+            if (nums[mid] <= target) {
+                left = mid + 1;
+            } else {
+                right = mid;
+            }
+        }
+        return left - 1;
+    };
+
+    const firstIndex = findFirst();
+    
+    // Check if target exists at the found position
+    if (firstIndex >= nums.length || nums[firstIndex] !== target) {
+        return [-1, -1];
+    }
+
+    const lastIndex = findLast();
+    return [firstIndex, lastIndex];
+}
+```

@@ -1,0 +1,37 @@
+```ts
+/**
+ * Encodes a string using run-length encoding.
+ * Replaces every maximal run of one repeated character with that character
+ * followed by the run length. A run of length one is encoded with its count.
+ * @param input The string to encode.
+ * @returns The run-length encoded string.
+ * @throws Error if input is not a string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  if (input.length === 0) {
+    return '';
+  }
+
+  let result = '';
+  let currentChar = input[0];
+  let count = 1;
+
+  for (let i = 1; i <= input.length; i++) {
+    if (i < input.length && input[i] === currentChar) {
+      count++;
+    } else {
+      result += currentChar + count;
+      if (i < input.length) {
+        currentChar = input[i];
+        count = 1;
+      }
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,46 @@
+```ts
+/**
+ * Computes the Levenshtein edit distance between two strings.
+ * @param a The source string.
+ * @param b The target string.
+ * @returns The minimum number of single-character insertions, deletions, and substitutions needed to transform a into b.
+ */
+export function editDistance(a: string, b: string): number {
+  if (typeof a !== 'string') {
+    throw new Error('First argument must be a string');
+  }
+  if (typeof b !== 'string') {
+    throw new Error('Second argument must be a string');
+  }
+
+  const m = a.length;
+  const n = b.length;
+
+  // Create DP table with dimensions (m+1) x (n+1)
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+
+  // Initialize base cases
+  for (let i = 0; i <= m; i++) {
+    dp[i][0] = i;
+  }
+  for (let j = 0; j <= n; j++) {
+    dp[0][j] = j;
+  }
+
+  // Fill the DP table
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        const insertCost = dp[i][j - 1] + 1;
+        const deleteCost = dp[i - 1][j] + 1;
+        const replaceCost = dp[i - 1][j - 1] + 1;
+        dp[i][j] = Math.min(insertCost, deleteCost, replaceCost);
+      }
+    }
+  }
+
+  return dp[m][n];
+}
+```

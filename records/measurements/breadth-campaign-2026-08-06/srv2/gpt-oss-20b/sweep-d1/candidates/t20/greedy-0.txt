@@ -1,0 +1,20 @@
+```ts
+/** Parses a configuration file string into key/value pairs. */
+export function parseConfig(text: string): Record<string, string> {
+  const config = Object.create(null) as Record<string, string>;
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const trimmedStart = rawLine.trimStart();
+    if (trimmedStart === "" || trimmedStart.startsWith("#")) continue;
+
+    const eqIndex = rawLine.indexOf("=");
+    if (eqIndex === -1) {
+      throw new Error(`Line ${i + 1} has no "=": "${rawLine}"`);
+    }
+
+    const key = rawLine.slice(0, eqIndex).trim();
+    if (key === "") {
+      throw new Error(`Empty key on line ${i + 1}`);
+    }
+    const value =

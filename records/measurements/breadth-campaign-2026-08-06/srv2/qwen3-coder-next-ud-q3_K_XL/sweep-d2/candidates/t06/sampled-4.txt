@@ -1,0 +1,52 @@
+```ts
+export function runLengthDecode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  if (input.length === 0) {
+    return '';
+  }
+
+  if (/[0-9]/.test(input[0])) {
+    throw new Error('Input cannot start with a digit');
+  }
+
+  let result = '';
+  let i = 0;
+  const n = input.length;
+
+  while (i < n) {
+    // Current character to repeat
+    const char = input[i];
+    
+    // Move past the character
+    i++;
+
+    // Collect digits for the count
+    let countStr = '';
+    while (i < n && /[0-9]/.test(input[i])) {
+      countStr += input[i];
+      i++;
+    }
+
+    // Validate count exists and doesn't start with 0
+    if (countStr.length === 0) {
+      throw new Error('Character must have a count');
+    }
+
+    if (countStr[0] === '0') {
+      throw new Error('Count cannot start with zero');
+    }
+
+    const count = parseInt(countStr, 10);
+    
+    // Append the character 'count' times
+    for (let j = 0; j < count; j++) {
+      result += char;
+    }
+  }
+
+  return result;
+}
+```

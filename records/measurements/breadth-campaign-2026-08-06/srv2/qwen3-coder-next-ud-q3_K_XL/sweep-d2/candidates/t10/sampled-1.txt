@@ -1,0 +1,59 @@
+```ts
+/**
+ * Adds two nonnegative decimal strings representing arbitrarily large integers.
+ * Performs digit-by-digit addition with carry, without converting to Number or BigInt.
+ * Throws an Error if inputs are invalid.
+ */
+export function addDecimalStrings(a: string, b: string): string {
+  // Input validation
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+  
+  if (a.length === 0 || b.length === 0) {
+    throw new Error('Arguments must not be empty');
+  }
+  
+  // Check for invalid characters
+  const digitRegex = /^[0-9]+$/;
+  if (!digitRegex.test(a) || !digitRegex.test(b)) {
+    throw new Error('Arguments must contain only digits 0-9');
+  }
+  
+  // Remove leading zeros for processing, but keep at least one digit
+  const normalize = (s: string): string => {
+    let normalized = s.replace(/^0+/, '');
+    return normalized === '' ? '0' : normalized;
+  };
+  
+  const aNormalized = normalize(a);
+  const bNormalized = normalize(b);
+  
+  // Handle zero cases
+  if (aNormalized === '0') return bNormalized;
+  if (bNormalized === '0') return aNormalized;
+  
+  // Reverse strings to process from least significant digit
+  const aDigits = aNormalized.split('').reverse();
+  const bDigits = bNormalized.split('').reverse();
+  
+  const result: string[] = [];
+  let carry = 0;
+  let i = 0;
+  
+  // Process each digit position
+  while (i < Math.max(aDigits.length, bDigits.length) || carry > 0) {
+    const aDigit = i < aDigits.length ? parseInt(aDigits[i], 10) : 0;
+    const bDigit = i < bDigits.length ? parseInt(bDigits[i], 10) : 0;
+    
+    const sum = aDigit + bDigit + carry;
+    result.push((sum % 10).toString());
+    carry = Math.floor(sum / 10);
+    
+    i++;
+  }
+  
+  // Reverse back to most significant digit first
+  return result.reverse().join('');
+}
+```

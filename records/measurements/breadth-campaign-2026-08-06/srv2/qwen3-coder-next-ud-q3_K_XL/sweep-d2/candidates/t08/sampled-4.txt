@@ -1,0 +1,72 @@
+```ts
+/**
+ * Parses one CSV line into its fields according to RFC 4180 rules.
+ * @param line - A single CSV line (no newlines).
+ * @returns An array of strings representing the parsed fields.
+ * @throws Error for invalid input or malformed CSV.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('line must be a string');
+  }
+
+  const fields: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < line.length) {
+    const char = line[i];
+
+    if (!inQuotes) {
+      if (char === '"') {
+        // Start of a quoted field
+        inQuotes = true;
+        i++;
+      } else if (char === ',') {
+        // End of current field
+        fields.push(currentField);
+        currentField = '';
+        i++;
+      } else if (char === '\0' || char === '\r' || char === '\n') {
+        throw new Error('Invalid character in unquoted field');
+      } else {
+        // Regular character
+        currentField += char;
+        i++;
+      }
+    } else {
+      // Inside quoted region
+      if (char === '"') {
+        // Check for doubled quote
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          // Escaped quote: ""
+          currentField += '"';
+          i += 2;
+        } else {
+          // End of quoted field
+          inQuotes = false;
+          i++;
+          // After closing quote, must be end of line or comma
+          if (i < line.length && line[i] !== ',') {
+            throw new Error('Invalid character after closing quote');
+          }
+        }
+      } else {
+        currentField += char;
+        i++;
+      }
+    }
+  }
+
+  // If still in quotes at end, unterminated field
+  if (inQuotes) {
+    throw new Error('Unterminated quoted field');
+  }
+
+  // Add the last field
+  fields.push(currentField);
+
+  return fields;
+}
+```

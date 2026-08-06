@@ -1,0 +1,66 @@
+```ts
+export function tokenize(input: string): string[] {
+  const tokens: string[] = [];
+  let currentToken = '';
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+
+    if (char === '\\') {
+      // Backslash escape
+      if (i + 1 >= input.length) {
+        throw new Error('Trailing backslash with nothing after it');
+      }
+      currentToken += input[i + 1];
+      i += 2;
+      continue;
+    }
+
+    if (char === '"') {
+      // Toggle quoted mode
+      inQuotes = !inQuotes;
+      i++;
+      continue;
+    }
+
+    if (inQuotes) {
+      // Inside quotes, all characters are literal (except backslash which we handled above)
+      currentToken += char;
+      i++;
+      continue;
+    }
+
+    // Outside quotes: check for whitespace separators
+    if (char === ' ' || char === '\t') {
+      // If we have a token, push it
+      if (currentToken.length > 0) {
+        tokens.push(currentToken);
+        currentToken = '';
+      }
+      // Skip all consecutive whitespace
+      while (i < input.length && (input[i] === ' ' || input[i] === '\t')) {
+        i++;
+      }
+      continue;
+    }
+
+    // Regular character outside quotes
+    currentToken += char;
+    i++;
+  }
+
+  // If we still have content and we're not in quotes, push the token
+  if (currentToken.length > 0) {
+    tokens.push(currentToken);
+  }
+
+  // Check for unterminated quote
+  if (inQuotes) {
+    throw new Error('Unterminated quote');
+  }
+
+  return tokens;
+}
+```

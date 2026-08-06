@@ -1,0 +1,59 @@
+```ts
+/**
+ * Decodes a run-length encoded string where each character is followed by its count.
+ * @param input - The run-length encoded string.
+ * @returns The decoded string.
+ * @throws Error if the input is invalid.
+ */
+export function runLengthDecode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  if (input.length === 0) {
+    return '';
+  }
+
+  if (/\d/.test(input[0])) {
+    throw new Error('Input cannot start with a digit');
+  }
+
+  let result = '';
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+    i++;
+
+    if (i >= input.length) {
+      throw new Error('Character has no count after it');
+    }
+
+    // Collect all digits for the count
+    let countStr = '';
+    while (i < input.length && /\d/.test(input[i])) {
+      countStr += input[i];
+      i++;
+    }
+
+    if (countStr.length === 0) {
+      throw new Error('Character has no count after it');
+    }
+
+    // Check for leading zero (invalid unless count is exactly "0", but count must be positive)
+    if (countStr[0] === '0') {
+      throw new Error('Count cannot start with 0');
+    }
+
+    const count = parseInt(countStr, 10);
+
+    if (count <= 0) {
+      throw new Error('Count must be a positive number');
+    }
+
+    result += char.repeat(count);
+  }
+
+  return result;
+}
+```

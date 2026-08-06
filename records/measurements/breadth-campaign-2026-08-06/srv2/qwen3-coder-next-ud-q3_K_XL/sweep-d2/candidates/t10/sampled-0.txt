@@ -1,0 +1,61 @@
+```ts
+/**
+ * Adds two nonnegative decimal strings representing arbitrarily large integers.
+ * Performs digit-by-digit addition with carry handling. Inputs may have leading zeros,
+ * but the result is normalized (no leading zeros, except for "0").
+ * Throws an Error if inputs are invalid.
+ * 
+ * @param a - First nonnegative decimal string
+ * @param b - Second nonnegative decimal string
+ * @returns The sum as a normalized decimal string
+ */
+export function addDecimalStrings(a: string, b: string): string {
+    // Validate inputs
+    if (typeof a !== 'string' || typeof b !== 'string') {
+        throw new Error('Inputs must be strings');
+    }
+    
+    if (a.length === 0 || b.length === 0) {
+        throw new Error('Inputs must not be empty');
+    }
+    
+    // Check for invalid characters
+    const digitRegex = /^[0-9]+$/;
+    if (!digitRegex.test(a) || !digitRegex.test(b)) {
+        throw new Error('Inputs must contain only digits 0-9');
+    }
+    
+    // Remove leading zeros for processing, but keep track of original values
+    let num1 = a.replace(/^0+/, '') || '0';
+    let num2 = b.replace(/^0+/, '') || '0';
+    
+    // Ensure num1 is the longer number for consistent processing
+    if (num1.length < num2.length) {
+        [num1, num2] = [num2, num1];
+    }
+    
+    const result: number[] = [];
+    let carry = 0;
+    
+    // Process digits from right to left
+    for (let i = num1.length - 1, j = num2.length - 1; i >= 0 || j >= 0; i--, j--) {
+        const digit1 = i >= 0 ? parseInt(num1[i], 10) : 0;
+        const digit2 = j >= 0 ? parseInt(num2[j], 10) : 0;
+        
+        const sum = digit1 + digit2 + carry;
+        result.push(sum % 10);
+        carry = Math.floor(sum / 10);
+    }
+    
+    // Add any remaining carry
+    if (carry > 0) {
+        result.push(carry);
+    }
+    
+    // Convert result array to string and reverse
+    let sumStr = result.reverse().join('');
+    
+    // Handle the case where result is "0"
+    return sumStr === '0' ? '0' : sumStr;
+}
+```
