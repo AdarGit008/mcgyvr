@@ -167,6 +167,106 @@ def test_an_unknown_schema_is_refused() -> None:
     assert refused(GOOD, output_schema="jsonl").code == "unsupported-schema"
 
 
+# --- refusals dressed as file content (#174) -------------------------------
+#
+# The four shapes the issue tabulates, plus the cases that show why the check
+# cannot run without knowing the target. Every one of these is structurally a
+# perfect reply: exactly one fence, closed, complete. Only the content betrays
+# them, and only against a target.
+
+
+def fenced(body: str, info: str = "python") -> str:
+    return f"```{info}\n{body}\n```\n"
+
+
+def test_a_comment_only_block_is_a_refusal_not_a_file() -> None:
+    """Shape 1: valid Python, passes syntax and lint, and is a decline."""
+    assert refused(fenced("# I cannot complete this task."), target="a.py").code == (
+        "refusal"
+    )
+
+
+def test_a_status_object_block_is_a_refusal_not_a_file() -> None:
+    """Shape 2: a bare expression statement — source in name only."""
+    body = '{"status": "blocked", "reason": "unsafe"}'
+    assert refused(fenced(body), target="a.py").code == "refusal"
+
+
+def test_a_stub_body_parses_because_acceptance_owns_it_not_this_parser() -> None:
+    """Shape 3: ruled out deliberately — a stub is legitimate for some types."""
+    file = parsed(fenced("def f(x):\n    raise NotImplementedError"), target="a.py")
+    assert "NotImplementedError" in file.content
+
+
+def test_an_unfenced_refusal_still_refuses_for_the_original_reason() -> None:
+    """Shape 4: already caught, and by the ambiguity rule rather than this one."""
+    error = refused("I am sorry, I cannot help with that.", target="a.py")
+    assert error.code == "no-fenced-block"
+
+
+def test_a_refusal_says_to_escalate_rather_than_retry_the_rung() -> None:
+    error = refused(fenced("# I cannot do this."), target="a.py")
+    assert "escalate" in error.message
+
+
+# --- the same bytes, judged only against a target --------------------------
+
+
+def test_without_a_target_a_refusal_shaped_block_parses() -> None:
+    """The parser never guesses: no target, no opinion about content."""
+    assert parsed(fenced("# I cannot complete this task.")).content.startswith("#")
+
+
+def test_a_heading_is_not_a_comment_when_the_target_is_markdown() -> None:
+    """The exact bytes of shape 1 are a legitimate Markdown file."""
+    file = parsed(fenced("# I cannot complete this task.", "md"), target="NOTES.md")
+    assert file.content.startswith("# I cannot")
+
+
+def test_a_status_object_is_a_real_file_when_the_target_is_json() -> None:
+    body = '{"status": "blocked", "reason": "unsafe"}'
+    assert parsed(fenced(body, "json"), target="state.json").content.startswith("{")
+
+
+def test_a_javascript_line_comment_refusal_is_caught() -> None:
+    assert refused(fenced("// I cannot do this.", "ts"), target="a.ts").code == (
+        "refusal"
+    )
+
+
+def test_a_javascript_block_comment_refusal_is_caught() -> None:
+    body = "/*\n I cannot complete this task.\n*/"
+    assert refused(fenced(body, "js"), target="a.js").code == "refusal"
+
+
+# --- what must keep parsing ------------------------------------------------
+
+
+def test_a_comment_above_real_code_parses() -> None:
+    body = "# Fetch the thing.\ndef fetch() -> bytes:\n    return b''"
+    assert "def fetch" in parsed(fenced(body), target="a.py").content
+
+
+def test_a_docstring_only_module_parses() -> None:
+    """A bare string is not a data blob — ``__init__.py`` is a real file."""
+    assert parsed(fenced('"""The package."""'), target="pkg/__init__.py").content
+
+
+def test_a_hash_inside_a_string_is_not_a_comment() -> None:
+    assert parsed(fenced('TAG = "# not a comment"'), target="a.py").content
+
+
+def test_a_list_literal_file_is_still_refused_but_a_number_is_not_judged() -> None:
+    """Scalars are excluded from the data-blob rule; containers are not."""
+    assert refused(fenced('["a", "b"]'), target="a.py").code == "refusal"
+    assert parsed(fenced("42"), target="a.py").content == "42\n"
+
+
+def test_an_unknown_language_is_left_alone_rather_than_judged_badly() -> None:
+    """The gate owns Python and JS/TS; nothing else gets an opinion here."""
+    assert parsed(fenced("# I cannot do this.", "rb"), target="a.rb").content
+
+
 # --- the error surface itself ----------------------------------------------
 
 
