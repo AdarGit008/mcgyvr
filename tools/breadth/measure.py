@@ -116,6 +116,15 @@ MAX_OUTPUT_TOKENS = 768
 # that). A tier is a directory of task dirs, each contract.yaml + reference.ts
 # + accept.mjs.
 TIERS = ("d1", "d2", "d3")
+
+# Variant sets: same format, but NOT rungs of the difficulty ladder, so the
+# campaign driver never climbs into one. d1r is d1's t20 with the defect
+# repaired — its contract declared repeated-key handling unstated while its
+# acceptance asserted last-wins, so every worker that stopped where the
+# contract told it to was scored as failing. d1 itself is left alone until the
+# in-flight campaign finishes: repairing it changes the tier digest, which
+# would refuse every existing run directory a resume.
+VARIANT_TIERS = ("d1r",)
 TIER_ROOT = HERE / "tasks"
 
 # Where the machine-specific half lives, git-ignored — same contract as the
@@ -124,15 +133,22 @@ TIER_ROOT = HERE / "tasks"
 WORKER_FILE = HERE / "worker.local.json"
 
 
-def draw_plan(draws: int = DRAWS) -> list[tuple[str, int, float]]:
+def draw_plan(
+    draws: int = DRAWS, sampled_temperature: float = SAMPLED_TEMPERATURE
+) -> list[tuple[str, int, float]]:
     """Every (arm, draw, temperature) one task runs, in order.
 
     One greedy draw first — the anchor a sampled arm is compared against —
     then the sampled draws. A single flat plan rather than nested loops so
     that resume, dispatch and the tests all agree on what "all draws" means.
+
+    ``sampled_temperature`` is a parameter rather than only the module constant
+    because 0.7 is DEC-6's inherited operating point and nothing has ever
+    measured it. It stays in ``run.json``'s identity, so a directory measured
+    at one temperature refuses to be resumed at another.
     """
     plan: list[tuple[str, int, float]] = [("greedy", 0, GREEDY_TEMPERATURE)]
-    plan.extend(("sampled", i, SAMPLED_TEMPERATURE) for i in range(draws))
+    plan.extend(("sampled", i, sampled_temperature) for i in range(draws))
     return plan
 
 
@@ -147,7 +163,8 @@ def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
     root = TIER_ROOT / tier
     if not root.is_dir():
         raise bundle.MeasureError(
-            f"no such tier {tier!r}: {root} does not exist. Known: {TIERS}"
+            f"no such tier {tier!r}: {root} does not exist. "
+            f"Known: {TIERS + VARIANT_TIERS}"
         )
     tasks = []
     for directory in sorted(root.iterdir()):
@@ -284,6 +301,7 @@ def record_run(
     invocation: dict[str, object],
     tier: str = "d1",
     draws: int = DRAWS,
+    sampled_temperature: float = SAMPLED_TEMPERATURE,
 ) -> None:
     """Write, or extend, the provenance beside the rows.
 
@@ -301,7 +319,7 @@ def record_run(
         "tier": tier,
         "draws": draws,
         "greedy_temperature": GREEDY_TEMPERATURE,
-        "sampled_temperature": SAMPLED_TEMPERATURE,
+        "sampled_temperature": sampled_temperature,
         "max_output_tokens": MAX_OUTPUT_TOKENS,
         "bundle_sha256": hashlib.sha256(prompt.system.encode("utf-8")).hexdigest(),
         "tasks_sha256": tier_digests(tier),
@@ -366,9 +384,14 @@ def summarise(rows_path: Path) -> str:
     if not rows:
         return "no rows"
     draws = DRAWS
+    sampled_temperature = SAMPLED_TEMPERATURE
     manifest = rows_path.parent / "run.json"
     if manifest.is_file():
-        draws = int(json.loads(manifest.read_text(encoding="utf-8"))["draws"])
+        recorded = json.loads(manifest.read_text(encoding="utf-8"))
+        draws = int(recorded["draws"])
+        sampled_temperature = float(
+            recorded.get("sampled_temperature", SAMPLED_TEMPERATURE)
+        )
 
     lines: list[str] = []
     greedy = [r for r in rows if r["arm"] == "greedy"]
@@ -380,8 +403,7 @@ def summarise(rows_path: Path) -> str:
     if draw0:
         passed = sum(1 for r in draw0 if r.get("passed"))
         lines.append(
-            f"sampled draw 0 (T={SAMPLED_TEMPERATURE}): {passed}/{len(draw0)} "
-            "pass — the price of moving off greedy"
+            f"sampled draw 0 (T={sampled_temperature}): {passed}/{len(draw0)} pass"
         )
 
     indices = first_pass_indices(rows, draws)
@@ -460,7 +482,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--tier",
-        choices=TIERS,
+        choices=TIERS + VARIANT_TIERS,
         default="d1",
         help="difficulty tier to run (default d1, the bundle rig's set)",
     )
@@ -470,6 +492,14 @@ def main() -> int:
         default=DRAWS,
         help=f"sampled draws per task (default {DRAWS}); pass@<=k for every "
         "k up to this falls out of one run",
+    )
+    parser.add_argument(
+        "--sampled-temperature",
+        type=float,
+        default=SAMPLED_TEMPERATURE,
+        help=f"temperature of the sampled arm (default {SAMPLED_TEMPERATURE}, "
+        "DEC-6's inherited operating point). Part of the run identity: a "
+        "directory measured at one temperature refuses another.",
     )
     parser.add_argument(
         "--selftest",
@@ -547,6 +577,7 @@ def main() -> int:
             },
             tier=args.tier,
             draws=args.draws,
+            sampled_temperature=args.sampled_temperature,
         )
     except bundle.MeasureError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -555,10 +586,10 @@ def main() -> int:
     print(
         f"measuring {worker.model} at {bundle.redact(worker.endpoint)} "
         f"({worker.protocol.value}), tier {args.tier}, {args.draws} sampled "
-        "draws per task, no early exit",
+        f"draws per task at T={args.sampled_temperature}, no early exit",
         file=sys.stderr,
     )
-    plan = draw_plan(args.draws)
+    plan = draw_plan(args.draws, args.sampled_temperature)
 
     with (
         tempfile.TemporaryDirectory(prefix="mcgyvr-breadth-") as tmp,

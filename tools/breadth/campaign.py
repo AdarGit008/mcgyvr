@@ -100,6 +100,7 @@ def run_stage(
     tier: str,
     plan: list[tuple[str, int, float]],
     draws: int,
+    sampled_temperature: float = measure.SAMPLED_TEMPERATURE,
 ) -> list[dict[str, Any]]:
     """One measure.py-shaped run (probe or sweep), resume-aware, rows returned.
 
@@ -120,6 +121,7 @@ def run_stage(
         },
         tier=tier,
         draws=draws,
+        sampled_temperature=sampled_temperature,
     )
     with (
         tempfile.TemporaryDirectory(prefix="mcgyvr-campaign-") as tmp,
@@ -158,6 +160,7 @@ def run_model(
     tiers: list[str],
     ease: float,
     draws: int,
+    sampled_temperature: float = measure.SAMPLED_TEMPERATURE,
 ) -> dict[str, Any]:
     """Walk one model up the ladder, then sweep it where it stopped."""
     runner = measure.runner_for(worker.as_endpoint())
@@ -170,7 +173,13 @@ def run_model(
     for tier in tiers:
         print(f"{worker.model}: probing {tier}", file=sys.stderr)
         rows = run_stage(
-            model_dir / f"probe-{tier}", worker, runner, tier, probe_plan, 0
+            model_dir / f"probe-{tier}",
+            worker,
+            runner,
+            tier,
+            probe_plan,
+            0,
+            sampled_temperature,
         )
         kinds = classify(rows)
         total = len(rows)
@@ -197,8 +206,9 @@ def run_model(
         worker,
         runner,
         stop_tier,
-        measure.draw_plan(draws),
+        measure.draw_plan(draws, sampled_temperature),
         draws,
+        sampled_temperature,
     )
     decision["sweep"] = classify(sweep_rows) | {
         "tier": stop_tier,
@@ -224,6 +234,9 @@ def main() -> int:
     parser.add_argument("--tiers", default=",".join(measure.TIERS))
     parser.add_argument("--ease", type=float, default=EASE_THRESHOLD)
     parser.add_argument("--draws", type=int, default=SWEEP_DRAWS)
+    parser.add_argument(
+        "--sampled-temperature", type=float, default=measure.SAMPLED_TEMPERATURE
+    )
     args = parser.parse_args()
 
     problem = bundle.node_capability_error()
@@ -247,6 +260,7 @@ def main() -> int:
             "tiers": tiers,
             "ease": args.ease,
             "draws": args.draws,
+            "sampled_temperature": args.sampled_temperature,
             "models": [],
         }
     )
@@ -260,7 +274,14 @@ def main() -> int:
         )
         try:
             bundle.check_protocol_can_carry_a_measurement(worker)
-            decision = run_model(args.out, worker, tiers, args.ease, args.draws)
+            decision = run_model(
+                args.out,
+                worker,
+                tiers,
+                args.ease,
+                args.draws,
+                args.sampled_temperature,
+            )
         except bundle.MeasureError as exc:
             decision = {"model": model, "error": str(exc)}
             print(f"error: {exc}", file=sys.stderr)

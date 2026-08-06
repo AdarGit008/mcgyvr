@@ -219,3 +219,95 @@ def test_summarise_reports_the_distribution(tmp_path: Path) -> None:
     assert "| 2 | 1 | 2/3 |" in text
     assert "| none | 1 | — |" in text
     assert "2.0s dispatch + 0.5s acceptance" in text
+
+
+def _worker(model: str = "test-model") -> Any:
+    """A worker that names an endpoint without reaching one."""
+    return breadth.bundle.Worker(
+        endpoint="http://test:11434",
+        protocol=breadth.bundle.Protocol.OPENAI,
+        model=model,
+        api_key_env=None,
+    )
+
+
+def test_a_chosen_sampled_temperature_reaches_every_sampled_draw() -> None:
+    """0.7 is inherited, not measured, so the arm's temperature is an input.
+
+    The greedy anchor stays at 0.0 whatever the sampled arm is set to: the two
+    arms answer different questions and only one of them is being varied.
+    """
+    plan = breadth.draw_plan(3, 0.3)
+    assert plan[0] == ("greedy", 0, breadth.GREEDY_TEMPERATURE)
+    assert [temperature for _, _, temperature in plan[1:]] == [0.3, 0.3, 0.3]
+    assert breadth.draw_plan(2)[1][2] == breadth.SAMPLED_TEMPERATURE
+
+
+def test_rows_drawn_at_another_temperature_refuse_to_join_the_run(
+    tmp_path: Path,
+) -> None:
+    """Temperature is identity, not a note: two arms are two experiments.
+
+    Without this a second sweep into the same directory would average draws
+    taken at 0.3 and at 0.7 into one distribution, and the manifest would
+    describe only whichever ran last.
+    """
+    invocation = {"started": "2026-08-06T00:00:00+00:00", "tasks": ["t01"]}
+    breadth.record_run(
+        tmp_path,
+        _worker(),
+        dict(invocation),
+        tier="d1",
+        draws=2,
+        sampled_temperature=0.7,
+    )
+    assert json.loads((tmp_path / "run.json").read_text())["sampled_temperature"] == 0.7
+
+    try:
+        breadth.record_run(
+            tmp_path,
+            _worker(),
+            dict(invocation),
+            tier="d1",
+            draws=2,
+            sampled_temperature=0.3,
+        )
+    except breadth.bundle.MeasureError as exc:
+        assert "sampled_temperature" in str(exc)
+    else:  # pragma: no cover - the guard is the point of the test
+        raise AssertionError("a temperature change was allowed to resume")
+
+
+def test_the_repaired_task_moves_the_contract_and_never_the_acceptance() -> None:
+    """d1r/t20 repairs a defect: the acceptance asserted a declared-unstated case.
+
+    d1's t20 says repeated-key handling "is not stated" and its accept.mjs
+    asserts last-wins, so a worker that stopped where the contract told it to
+    was scored as failing — t20 passed 0 of 144 draws across ten model-runs.
+    The repair states the rule the acceptance already demanded. The invariant
+    that keeps it a repair rather than a different task: the acceptance file is
+    untouched, byte for byte. Moving the test to meet the workers would be
+    lowering the bar; moving the contract to meet the test is telling the truth.
+    """
+    original = REPO / "tools" / "bundle" / "tasks" / "t20"
+    repaired = REPO / "tools" / "breadth" / "tasks" / "d1r" / "t20"
+    assert (repaired / "accept.mjs").read_bytes() == (
+        original / "accept.mjs"
+    ).read_bytes()
+    assert (repaired / "reference.ts").read_bytes() == (
+        original / "reference.ts"
+    ).read_bytes()
+
+    before = breadth.bundle.load_tasks(["t20"])[0].contract
+    after = breadth.load_tier_tasks("d1r", ["t20"])[0].contract
+    assert any("not stated" in c and "repeated" in c for c in before.stop_conditions)
+    assert not any("repeated" in c for c in after.stop_conditions)
+    assert after.stop_conditions, "a bug_fix contract still needs its residue"
+    assert "last occurrence" in after.task and "last occurrence" not in before.task
+
+
+def test_variant_tiers_are_not_rungs_of_the_ladder() -> None:
+    """The campaign climbs TIERS; a repaired variant must never be climbed into."""
+    assert "d1r" not in breadth.TIERS
+    assert "d1r" in breadth.VARIANT_TIERS
+    assert breadth.load_tier_tasks("d1r")[0].id == "t20"
