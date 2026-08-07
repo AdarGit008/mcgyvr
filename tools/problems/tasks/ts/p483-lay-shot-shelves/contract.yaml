@@ -1,0 +1,52 @@
+id: p483-lay-shot-shelves
+task_type: bug_fix
+task: >-
+  layShotShelves works out how tall a strip of prints will run once the shop
+  fits every frame to one cell width, and it gets the numbers wrong. Each shot
+  is a record with name (a non-empty string, no two shots answering to the same
+  one) and with across and down, whole numbers above nought for the frame's two
+  sides as shot. The strip record carries perRow (a whole number above nought,
+  how many frames stand side by side before the next row starts), cell (a whole
+  number above nought, the width every frame is fitted to) and lead (a whole
+  number of nought or more, the clear depth insisted on between one row and the
+  row beneath it). A frame fitted to the cell width runs down times cell divided
+  by across deep, and any remainder pushes that up to the next whole number. The
+  shots are taken in arrival order, perRow of them to a row, so only the final
+  row may be short. A row runs as deep as its deepest frame, and the strip runs
+  as deep as its rows together plus one lead for each join between two rows, so
+  a strip of one row carries no lead at all. Give back a record whose rows lists
+  one record per row in order, each carrying names, the frame names on that row
+  in order, and deep, that row's depth, and whose deep is the strip's own depth.
+  The code below divides without pushing the remainder up, reads a row's depth
+  off its first frame instead of its deepest, and adds a lead beneath the final
+  row as well. Repair all three, add the missing checks so that it throws an
+  error when shots is not a list or holds nothing, when a shot is not a record,
+  when a name is not a non-empty string, when two shots answer to one name, when
+  across or down is not a whole number above nought, when strip is not a record,
+  when perRow or cell is not a whole number above nought, and when lead is not a
+  whole number of nought or more, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** How deep a strip of fitted prints runs. */
+  export function layShotShelves(shots: any[], strip: any): any {
+    const rows: any[] = [];
+    for (let i = 0; i < shots.length; i += strip.perRow) {
+      const slice = shots.slice(i, i + strip.perRow);
+      rows.push({
+        names: slice.map((shot: any) => shot.name),
+        deep: Math.floor((slice[0].down * strip.cell) / slice[0].across),
+      });
+    }
+    let deep = 0;
+    for (const row of rows) {
+      deep += row.deep + strip.lead;
+    }
+    return { rows, deep };
+  }
+interface: "export function layShotShelves(shots: any[], strip: any): any"
+stop_conditions:
+  - Whether the lead also applies above the first row when the strip is mounted is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,28 @@
+id: p475-count-trim-sticks
+task_type: function_implementation
+task: >-
+  Implement count_trim_sticks, which works out how many sticks of trim a bench
+  run gets through. The first argument is the stick, the whole millimetre
+  length above nought of one fresh stick. The second is the calls, a list of
+  whole lengths above nought that the joiner calls out, cut in the order called
+  with no reshuffling. The third is the blade, a whole number of millimetres at
+  nought or above lost to sawdust at every cut. The bench starts with no stick
+  out. A call is cut from the stick already on the bench whenever that stick
+  still carries at least the called length, and the stick is then left carrying
+  what it had less the call less the blade, or nothing at all when that comes
+  out below nought. Otherwise a fresh stick is fetched from the store and the
+  call is cut from that instead; the stick it replaces is set aside as it
+  stands and never returned to. Give back a mapping whose sticks counts the
+  sticks fetched and whose tails lists what each of them was left carrying once
+  the run is done, in the order they were fetched. Raise an error for a stick
+  that is not whole or falls below one, a calls argument that is not a list, a
+  call that is not whole or falls below one, a call longer than a fresh stick,
+  and a blade that is not whole or falls below nought.
+target: solution.py
+interface: "def count_trim_sticks(stick: int, calls: list, blade: int) -> dict"
+stop_conditions:
+  - Whether a set-aside stick may be brought back for a later call is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

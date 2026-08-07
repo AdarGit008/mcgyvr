@@ -1,0 +1,29 @@
+id: p484-render-postal-lines
+task_type: function_implementation
+task: >-
+  Implement renderPostalLines. The mail houses of three invented regions each
+  insist on their own arrangement of an address, and an entry is a record whose
+  values are the strings who, house, street, ward, town and code. Before any of
+  it is used, a value is tidied: blanks are stripped from both ends and every
+  inner run of blanks is squeezed to a single blank. A value that tidies away to
+  nothing, or that is absent, or that is not a string at all, counts as missing.
+  Region vela writes three lines, who, then house and street, then code and
+  town. Region korrin writes four lines, who, then street and house, then town,
+  then code. Region mebis writes four lines, who, then ward, then street and
+  house, then town and code. Where a line names two values they are written in
+  the stated order with one blank between them. Each region also shouts some of
+  its values into capitals and leaves the rest exactly as tidied: vela shouts
+  town alone, korrin shouts who and code, and mebis shouts every value it
+  writes. A value a region never writes is ignored, present or not, and a
+  missing value a region does write is fatal. Give back the region's lines in
+  order. Raise an error when the entry is not a record, when the region is not
+  one of the three names, and when any value the region writes is missing,
+  naming that value.
+target: solution.ts
+interface: "export function renderPostalLines(entry: any, region: string): string[]"
+stop_conditions:
+  - Whether a tab counts as a blank for the tidying rule is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

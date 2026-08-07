@@ -1,0 +1,54 @@
+id: p496-settle-swap-requests
+task_type: function_implementation
+task: >-
+  Implement settleSwapRequests. A depot settles swap requests against its duty
+  board one after another, and a request that is granted changes the board the
+  next request is read against. The first argument is the board, a record holding
+  exactly the five keys duties, cleared, peak, cap and quota. duties is a list of
+  records each holding exactly day (a whole number above nought), post (a
+  non-empty string) and worker (a non-empty string); no two duties share one day
+  and post, and no worker opens on two posts of one day. cleared is a list of
+  records each holding exactly worker (a non-empty string, no two clearances
+  naming one worker) and posts (a list of non-empty post names with no repeats);
+  every worker standing on the board must have a clearance, though a clearance
+  may name a worker who stands nowhere. peak is a list of whole day numbers above
+  nought with no repeats. cap is a whole number at nought or above, the most
+  peak-day duties any one worker may end up carrying. quota is a whole number at
+  nought or above, the most granted swaps any one worker may take part in. The
+  second argument is the requests, a list of records each holding exactly left
+  and right, each of those a list of exactly two entries, a whole day above
+  nought and a non-empty post name. A request asks that the two named duties
+  change hands and is read against the board as it now stands, refusals being
+  tried in this order: unknown when either pair names no duty on the board; same
+  when both pairs name the one duty or the two duties already stand in one
+  worker's name; uncleared when either worker lacks a clearance for the post they
+  would move to; clash when the exchange would leave either worker on two posts
+  of one day; peak when the exchange would leave either worker carrying more
+  peak-day duties than the cap allows; and quota when either worker has already
+  taken part in as many granted swaps as the quota allows. A request surviving
+  all six reads taken, moves the two duties, and raises both workers' swap
+  tallies by one. Give back a record whose rulings hold one word for each request
+  in the order asked and whose roster holds every duty as it finally stands,
+  written as the day then a space then the post then a space then the worker,
+  sorted by day rising and, inside a day, by post rising. Raise an error when the
+  board is not a record, when its keys are not exactly those five, when the
+  duties are not a list, when a duty is not a record or its keys are wrong, when
+  a day is not whole or falls below one, when a post or a worker is not a
+  non-empty string, when two duties share one day and post, when a worker opens
+  on two posts of one day, when the cleared list is not a list, when a clearance
+  is not a record or its keys are wrong, when two clearances name one worker,
+  when a clearance's posts are not a list of non-empty names without repeats,
+  when a worker on duty has no clearance, when the peak days are not a list of
+  whole numbers above nought without repeats, when the cap or the quota is not
+  whole or falls below nought, when the requests are not a list, when a request
+  is not a record or its keys are not exactly left and right, and when a side is
+  not a list of exactly two entries carrying a whole day above nought and a
+  non-empty post.
+target: solution.ts
+interface: "export function settleSwapRequests(board: Record<string, unknown>, requests: Record<string, unknown>[]): Record<string, unknown>"
+stop_conditions:
+  - Whether a worker's swap tally counts a granted swap that later gets undone by a second grant is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

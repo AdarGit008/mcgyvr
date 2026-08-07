@@ -1,0 +1,169 @@
+id: p497-audit-swap-board
+task_type: bug_fix
+task: >-
+  auditSwapBoard walks a swap board's claims in the order posted and gets two of
+  its refusals wrong. The first argument is the board, a record holding exactly
+  the two keys shifts and claims. shifts is a list of records each holding
+  exactly code (a non-empty string, no two shifts carrying one), day (a whole
+  number from one through seven) and holder (a non-empty string naming whoever
+  holds it when the board opens). claims is a list of records each holding
+  exactly code and bidder, both non-empty strings, walked in the order given. The
+  second argument is the ceiling, a whole number above nought fixing how many
+  shifts one person may hold at once. A claim is refused for the first of these
+  that fits: unknown when no shift carries that code; gone when that shift has
+  already changed hands, a shift being allowed to move only once; self when the
+  bidder is the one holding it; busy when the bidder holds another shift falling
+  on the same day, counting anything picked up earlier in this walk; and full
+  when the bidder already holds as many shifts as the ceiling allows. A claim
+  escaping all five reads taken and the shift passes to the bidder there and
+  then. Give back a record whose verdicts hold one word for each claim in the
+  order posted and whose loads hold, in rising name order and leaving out anybody
+  holding nothing, each person's name then a space then how many shifts they
+  finish with. The code below lets somebody sitting exactly on the ceiling take
+  one more, and tests the same-day refusal against the holdings the board opened
+  with rather than the holdings as they now stand. Repair both, keep raising an
+  error for a board that is not a record, a board whose keys are not exactly
+  those two, shifts that are not a list, a shift that is not a record or whose
+  keys are wrong, a code or a holder that is not a non-empty string, two shifts
+  carrying one code, a day that is not whole or falls outside one through seven,
+  claims that are not a list, a claim that is not a record or whose keys are
+  wrong, a claimed code or a bidder that is not a non-empty string, and a ceiling
+  that is not whole or falls below one, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  function whole(value: unknown): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  function isRecord(value: unknown): boolean {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
+  function label(value: unknown): boolean {
+    return typeof value === "string" && value.length > 0;
+  }
+
+  export function auditSwapBoard(
+    board: Record<string, unknown>,
+    ceiling: number,
+  ): Record<string, unknown> {
+    if (!whole(ceiling) || ceiling < 1) {
+      throw new Error("the ceiling is not whole or falls below one");
+    }
+    if (!isRecord(board)) {
+      throw new Error("the board is not a record");
+    }
+    if (Object.keys(board).sort().join(",") !== "claims,shifts") {
+      throw new Error("the board's keys are not exactly shifts and claims");
+    }
+
+    const shifts = board["shifts"];
+    if (!Array.isArray(shifts)) {
+      throw new Error("the shifts are not a list");
+    }
+    const days = new Map<string, number>();
+    const holders = new Map<string, string>();
+    for (const shift of shifts) {
+      if (!isRecord(shift)) {
+        throw new Error("a shift is not a record");
+      }
+      if (Object.keys(shift).sort().join(",") !== "code,day,holder") {
+        throw new Error("a shift's keys are not exactly the three named");
+      }
+      if (!label(shift["code"])) {
+        throw new Error("a code is not a non-empty string");
+      }
+      if (holders.has(String(shift["code"]))) {
+        throw new Error("two shifts carry one code");
+      }
+      const day = shift["day"];
+      if (!whole(day) || Number(day) < 1 || Number(day) > 7) {
+        throw new Error("a day is not whole or falls outside one through seven");
+      }
+      if (!label(shift["holder"])) {
+        throw new Error("a holder is not a non-empty string");
+      }
+      days.set(String(shift["code"]), Number(day));
+      holders.set(String(shift["code"]), String(shift["holder"]));
+    }
+
+    const claims = board["claims"];
+    if (!Array.isArray(claims)) {
+      throw new Error("the claims are not a list");
+    }
+    for (const claim of claims) {
+      if (!isRecord(claim)) {
+        throw new Error("a claim is not a record");
+      }
+      if (Object.keys(claim).sort().join(",") !== "bidder,code") {
+        throw new Error("a claim's keys are not exactly code and bidder");
+      }
+      if (!label(claim["code"])) {
+        throw new Error("a claimed code is not a non-empty string");
+      }
+      if (!label(claim["bidder"])) {
+        throw new Error("a bidder is not a non-empty string");
+      }
+    }
+
+    const opening = new Map(holders);
+    const moved = new Set<string>();
+    const verdicts: string[] = [];
+
+    for (const claim of claims) {
+      const code = String(claim["code"]);
+      const bidder = String(claim["bidder"]);
+      if (!holders.has(code)) {
+        verdicts.push("unknown");
+        continue;
+      }
+      if (moved.has(code)) {
+        verdicts.push("gone");
+        continue;
+      }
+      if (holders.get(code) === bidder) {
+        verdicts.push("self");
+        continue;
+      }
+      let clash = false;
+      for (const [other, who] of opening) {
+        if (who === bidder && days.get(other) === days.get(code)) {
+          clash = true;
+        }
+      }
+      let load = 0;
+      for (const who of holders.values()) {
+        if (who === bidder) {
+          load++;
+        }
+      }
+      if (clash) {
+        verdicts.push("busy");
+        continue;
+      }
+      if (load > ceiling) {
+        verdicts.push("full");
+        continue;
+      }
+      holders.set(code, bidder);
+      moved.add(code);
+      verdicts.push("taken");
+    }
+
+    const counts = new Map<string, number>();
+    for (const who of holders.values()) {
+      counts.set(who, (counts.get(who) ?? 0) + 1);
+    }
+    const loads = [...counts.keys()]
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+      .map((who) => `${who} ${counts.get(who)}`);
+
+    return { verdicts, loads };
+  }
+interface: "export function auditSwapBoard(board: Record<string, unknown>, ceiling: number): Record<string, unknown>"
+stop_conditions:
+  - Whether a bidder may post two claims for one code in the same walk is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,124 @@
+id: p473-audit-tour-card
+task_type: bug_fix
+task: >-
+  auditTourCard checks a warden's route card against the floor plan and gets
+  the walking wrong. The first argument is the rooms, a list of mappings in
+  floor-plan order, each carrying exactly the four keys room (a non-empty
+  string, no two alike), hop (a whole number at nought or above, being the
+  minutes from the doorway before it, or from the foyer for the very first),
+  dwell (a whole number above nought) and merit (a whole number at nought or
+  above). The second argument is the card, a list of room names the warden has
+  written down. The third is the allowance, a whole number of minutes at nought
+  or above. A card can be read only when every name on it belongs to a room on
+  the floor, no name appears twice, and the names run in floor-plan order. The
+  minutes a card costs are the hop of every room from the first through the
+  last room named on the card, whether named or only walked past, plus the
+  dwell of each named room; an empty card costs nought minutes. Give back a
+  mapping whose minutes is that cost, whose merit adds up the merit of the
+  named rooms, whose spare is the allowance less the minutes and may fall below
+  nought, and whose ok says whether the minutes sit within the allowance, an
+  exact spend counting as within. The code below adds up the hop of every room
+  on the floor rather than stopping at the last room named on the card, and
+  calls an exact spend an overrun. Repair both, keep raising an error for a
+  rooms argument that is not a list, a room that is not a mapping, a room whose
+  keys are not exactly the four named, a room name that is not a non-empty
+  string or is repeated on the floor, a hop that is not whole or falls below
+  nought, a dwell that is not whole or falls below one, a merit that is not
+  whole or falls below nought, an allowance that is not whole or falls below
+  nought, a card that is not a list, a card entry that is not a string or names
+  no room, and a card whose names repeat or fall out of floor-plan order, and
+  return the complete fixed file.
+target: solution.ts
+target_content: |
+  type Room = { room: string; hop: number; dwell: number; merit: number };
+
+  function whole(value: unknown): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  export function auditTourCard(
+    rooms: Record<string, unknown>[],
+    card: string[],
+    allowance: number,
+  ): { minutes: number; merit: number; spare: number; ok: boolean } {
+    if (!Array.isArray(rooms)) {
+      throw new Error("auditTourCard expects a list of rooms");
+    }
+    if (!Array.isArray(card)) {
+      throw new Error("the card is not a list");
+    }
+    if (!whole(allowance) || allowance < 0) {
+      throw new Error("the allowance is not whole or falls below nought");
+    }
+
+    const floor: Room[] = [];
+    const where = new Map<string, number>();
+    for (const entry of rooms) {
+      if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+        throw new Error("a room is not a mapping");
+      }
+      if (Object.keys(entry).sort().join(",") !== "dwell,hop,merit,room") {
+        throw new Error("a room's keys are not exactly the four named");
+      }
+      const name = entry["room"];
+      if (typeof name !== "string" || name.length === 0) {
+        throw new Error("a room name is not a non-empty string");
+      }
+      if (where.has(name)) {
+        throw new Error("a room name is repeated on the floor");
+      }
+      const hop = entry["hop"];
+      if (!whole(hop) || (hop as number) < 0) {
+        throw new Error("a hop is not whole or falls below nought");
+      }
+      const dwell = entry["dwell"];
+      if (!whole(dwell) || (dwell as number) < 1) {
+        throw new Error("a dwell is not whole or falls below one");
+      }
+      const merit = entry["merit"];
+      if (!whole(merit) || (merit as number) < 0) {
+        throw new Error("a merit is not whole or falls below nought");
+      }
+      where.set(name, floor.length);
+      floor.push({
+        room: name,
+        hop: hop as number,
+        dwell: dwell as number,
+        merit: merit as number,
+      });
+    }
+
+    let last = -1;
+    let dwelt = 0;
+    let merit = 0;
+    for (const name of card) {
+      if (typeof name !== "string") {
+        throw new Error("a card entry is not a string");
+      }
+      const seat = where.get(name);
+      if (seat === undefined) {
+        throw new Error("a card entry names no room on the floor");
+      }
+      if (seat <= last) {
+        throw new Error("a card repeats a name or falls out of floor-plan order");
+      }
+      last = seat;
+      dwelt += floor[seat].dwell;
+      merit += floor[seat].merit;
+    }
+
+    let walked = 0;
+    for (const room of floor) {
+      walked += room.hop;
+    }
+
+    const minutes = walked + dwelt;
+    return { minutes, merit, spare: allowance - minutes, ok: minutes < allowance };
+  }
+interface: "export function auditTourCard(rooms: Record<string, unknown>[], card: string[], allowance: number): { minutes: number; merit: number; spare: number; ok: boolean }"
+stop_conditions:
+  - Whether the foyer itself may appear on the card is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

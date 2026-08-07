@@ -1,0 +1,42 @@
+id: p492-replay-agenda-boxes
+task_type: function_implementation
+task: >-
+  Implement replayAgendaBoxes. A chair replays a meeting whose items each ran to
+  a different length than the one booked for them. The first argument is the
+  items, a list of records worked through in the order given, each carrying
+  exactly the four keys title (a non-empty string, no two items sharing one),
+  planned (the minutes booked, a whole number above nought), actual (the minutes
+  truly spent, a whole number at nought or above) and rule, either the word
+  absorb or the word defer. The second argument is the slack, a whole number at
+  nought or above standing in a pool of spare minutes when the meeting opens.
+  The clock starts at minute nought and each item pushes it forward by however
+  many minutes that item runs. Every item has a box, which opens as its planned
+  minutes and may have been trimmed before the item is reached. An item running
+  fewer minutes than its box hands the difference back to the pool and reads
+  under; an item matching its box to the minute reads exact. An item outrunning
+  its box under the defer rule is halted dead on the box, so it runs only its box
+  minutes and reads cut, and the minutes it never received go on the carry sheet.
+  An item outrunning its box under the absorb rule runs to its full length and
+  reads over, and its overrun must be paid for: first out of the pool as far as
+  the pool reaches, then by trimming the boxes of the items still ahead, taken in
+  order and never trimming any box under one minute. Overrun that neither the
+  pool nor any trim can pay for counts as unfunded minutes. Give back a record
+  whose finish is the minute the meeting closed, whose spare is what the pool
+  still holds, whose unfunded totals the minutes nothing paid for, whose log
+  carries for every item in order its title then a space then the minute it
+  opened then a space then the minute it closed then a space then one of under,
+  exact, over and cut, and whose carry carries for every halted item its title
+  then a space then the minutes written off. Raise an error when the items are
+  not a list, when an item is not a record, when an item's keys are not exactly
+  those four, when a title is not a non-empty string, when two items share a
+  title, when planned is not a whole number above nought, when actual is not a
+  whole number at nought or above, when a rule is neither absorb nor defer, and
+  when the slack is not a whole number at nought or above.
+target: solution.ts
+interface: "export function replayAgendaBoxes(items: Record<string, unknown>[], slack: number): Record<string, unknown>"
+stop_conditions:
+  - Whether a halted item's written-off minutes may later be reclaimed from the pool is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

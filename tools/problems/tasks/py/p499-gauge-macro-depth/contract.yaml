@@ -1,0 +1,36 @@
+id: p499-gauge-macro-depth
+task_type: function_implementation
+task: >-
+  Implement gauge_macro_depth. The first argument is the macros, a list of
+  records each holding exactly the three keys name (lowercase letters and digits
+  opening with a letter, no two macros answering to one), arity (a whole number
+  from nought through nine, being how many arguments that macro takes) and calls
+  (the calls its body makes, in body order, each written as a list of exactly two
+  entries, the name being called and a whole number at nought or above saying how
+  many arguments the call hands over; one name may be called more than once). The
+  second argument is the bound, a whole number at nought or above. Every call
+  must name a declared macro and must hand over exactly as many arguments as that
+  macro takes. Reading a macro means reading every macro it calls, so a macro
+  calling nothing sits at depth nought and any other macro sits one deeper than
+  the deepest macro it calls. A macro whose reading can arrive back at a macro
+  already being read never settles at a depth at all, and neither does any macro
+  that can reach such a one. Give back one line for each declared macro, in
+  rising name order, being the name then a space then the word cyclic when it
+  never settles, or the word over when it settles deeper than the bound allows,
+  or otherwise the settled depth in plain digits. Raise an error when the macros
+  are not a list, when a macro is not a record, when its keys are not exactly
+  those three, when a name is malformed, when two macros answer to one name, when
+  an arity is not whole or falls outside nought through nine, when the calls are
+  not a list, when a call is not a list of exactly two entries, when a called
+  name is not a non-empty string, when a call names a macro that was never
+  declared, when a call's argument count is not whole or falls below nought, when
+  a call hands over a number of arguments the called macro does not take, and
+  when the bound is not whole or falls below nought.
+target: solution.py
+interface: "def gauge_macro_depth(macros: list, bound: int) -> list"
+stop_conditions:
+  - Whether a declared macro that nothing ever calls should be reported differently is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,30 @@
+id: p476-expand-shorthand
+task_type: function_implementation
+task: >-
+  Implement expand_shorthand, which writes a clerk's shorthand out in full. The
+  first argument is the text, a string. The second is the table, a mapping
+  whose every key is a shorthand written in lowercase letters and digits and
+  beginning with a letter, and whose every value is the non-empty string that
+  shorthand stands for. A word in the text is a longest unbroken run of letters
+  and digits; nothing shorter than a whole word is ever looked up, and a word
+  the table does not hold stays as it is. Lower a word to look it up, and where
+  it is held put the value in its place, cased to suit the word: a word written
+  wholly in lowercase takes the value exactly as the table writes it; a word
+  written wholly in uppercase takes the value with every letter raised; a word
+  whose opening character is a capital and whose remainder is lowercase takes
+  the value with its opening character raised and its remainder untouched; and
+  a word cased in any other way is left exactly where it stands. A word that is
+  at once wholly uppercase and capitalised, a lone capital letter for instance,
+  follows the uppercase rule. Whatever a value puts into the text is never
+  looked up again. Give back the rewritten text. Raise an error for a text that
+  is not a string, a table that is not a mapping, a key that is not a string of
+  lowercase letters and digits beginning with a letter, and a value that is not
+  a non-empty string.
+target: solution.py
+interface: "def expand_shorthand(text: str, table: dict) -> str"
+stop_conditions:
+  - Whether letters outside the plain a-to-z range count as letters is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

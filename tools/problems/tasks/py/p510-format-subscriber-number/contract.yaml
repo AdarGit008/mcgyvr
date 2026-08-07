@@ -1,0 +1,31 @@
+id: p510-format-subscriber-number
+task_type: function_implementation
+task: >-
+  Implement format_subscriber_number, which prints a bare run of digits the way
+  a given region writes its telephone numbers. Four regions are known and no
+  others. Region "kv" writes nine digits in three blocks of three and carries
+  the trunk stem "0". Region "mr" writes eight digits in two blocks of four
+  and carries the trunk stem "07". Region "ts" writes ten digits in blocks of
+  two, then four, then four, and carries the trunk stem "+31". Region "wd"
+  writes seven digits in a block of three and then a block of four and carries
+  no trunk stem at all. The first argument names the region and the second is
+  the run of digits, which holds nothing but digit characters and never any
+  space, dash or bracket. Cut the run into that region's blocks from the left
+  and join the blocks with one space each; when the region carries a trunk
+  stem, put the stem and one space in front of the joined blocks, and when it
+  carries none, the joined blocks stand alone. Nine digits in region "kv" thus
+  come out as the stem, a space, and three blocks of three parted by spaces,
+  while the same treatment in region "wd" yields two blocks and no stem. Raise
+  an error when the region is not a string or names none of the four, when the
+  digits are not a string, when the run holds any character that is not a
+  digit, when the run is not exactly as long as that region's blocks come to
+  added together, and when the run opens with a nought, since a subscriber
+  number never does.
+target: solution.py
+interface: "def format_subscriber_number(region: str, digits: str) -> str"
+stop_conditions:
+  - Whether a region may be named in capitals is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

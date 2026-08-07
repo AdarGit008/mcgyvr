@@ -1,0 +1,45 @@
+id: p490-check-load-manifest
+task_type: function_implementation
+task: >-
+  Implement check_load_manifest. A freight desk loads a hold against its stated
+  limits and reports the first limit that breaks. The plan is a record with
+  zones, a list of one or more records each carrying zone (a non-empty string,
+  no two zones answering to the same one), cap (a whole number above nought, the
+  greatest mass that zone will take) and arm (a whole number, which may be
+  negative or nought, that zone's lever from the datum); with gross, a whole
+  number above nought for the mass the hold is rated to carry altogether; and
+  with low and high, whole numbers where low is no greater than high, marking
+  the window the total moment must stay inside. Each item is a record with tag
+  (a non-empty string, no two items answering to the same one), zone (the name
+  of one of the plan's zones) and mass (a whole number above nought). Check the
+  whole manifest first and load nothing until it is sound. Then take the items
+  in the order given, and for each one work out what the running figures would
+  become with it aboard: its zone's mass grows by the item's mass, the hold's
+  mass grows by the same, and the total moment grows by the item's mass times
+  its zone's arm. Test three limits in this order and stop at the first that
+  breaks: cap, when that zone's mass would pass its cap; gross, when the hold's
+  mass would pass the rating; moment, when the total moment would fall outside
+  the window on either side of it. Sitting exactly on a limit is not a break.
+  The item that breaks a limit is left off, and the items behind it are never
+  tried. Give back a record whose loaded lists the tags aboard in the order they
+  went on, whose stopped names the item left off or is an empty string when none
+  was, whose limit carries that item's word from the three above or an empty
+  string, whose mass and moment are the figures the hold actually reached, and
+  whose zones lists one record per plan zone in the plan's own order, each with
+  zone and mass. Raise an error when items is not a list, when an item is not a
+  record, when a tag is not a non-empty string, when two items answer to one
+  tag, when a mass is not a whole number above nought, when an item's zone is
+  not a non-empty string or names no zone of the plan, when plan is not a
+  record, when zones is not a list or holds nothing, when a zone is not a
+  record, when a zone name is not a non-empty string, when two zones answer to
+  one name, when a cap is not a whole number above nought, when an arm is not a
+  whole number, when gross is not a whole number above nought, when low or high
+  is not a whole number, and when low is above high.
+target: solution.py
+interface: "def check_load_manifest(items: list, plan: dict) -> dict"
+stop_conditions:
+  - Whether an empty hold must itself sit inside the moment window is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

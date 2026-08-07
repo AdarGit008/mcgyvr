@@ -1,0 +1,82 @@
+id: p477-tighten-note-phrases
+task_type: bug_fix
+task: >-
+  tightenNotePhrases rewrites a note in a ward's own contractions and gets the
+  matching wrong. The first argument is the text, a string. The second is the
+  book, a mapping whose every key is a phrase of one or more lowercase words
+  parted by single spaces, and whose every value is the contraction to write in
+  that phrase's place, a non-empty string of lowercase letters and digits
+  beginning with a letter. Read the text from the left. At each character take
+  the longest phrase in the book that matches from there, comparing blind to
+  case, and only when the run it covers is bounded on both sides by something
+  other than a letter or a digit, the ends of the text counting as bounds;
+  write the contraction in that run's place and carry on from just past it.
+  Where the run opens with a capital letter the contraction is written with its
+  own opening character raised, and otherwise exactly as the book writes it. A
+  contraction once written is never read again. Give back the shortened text.
+  The code below tries the phrases in the order the book lists them rather than
+  longest first, and will match a phrase buried in the middle of a longer word
+  instead of only where letters and digits stop. Repair both, keep raising an
+  error for a text that is not a string, a book that is not a mapping, a key
+  that is not one or more lowercase words parted by single spaces, and a value
+  that is not a non-empty string of lowercase letters and digits beginning with
+  a letter, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function tightenNotePhrases(
+    text: string,
+    book: Record<string, string>,
+  ): string {
+    if (typeof text !== "string") {
+      throw new Error("tightenNotePhrases expects a string of text");
+    }
+    if (typeof book !== "object" || book === null || Array.isArray(book)) {
+      throw new Error("the book is not a mapping");
+    }
+
+    const shelf = new Map<string, string>();
+    for (const key of Object.keys(book)) {
+      if (!/^[a-z]+( [a-z]+)*$/.test(key)) {
+        throw new Error("a key is not lowercase words parted by single spaces");
+      }
+      const value = book[key];
+      if (typeof value !== "string" || !/^[a-z][a-z0-9]*$/.test(value)) {
+        throw new Error("a value is not a contraction of lowercase letters and digits");
+      }
+      shelf.set(key, value);
+    }
+
+    const phrases = Object.keys(book);
+    let out = "";
+    let at = 0;
+    while (at < text.length) {
+      let hit: string | null = null;
+      for (const phrase of phrases) {
+        const run = text.slice(at, at + phrase.length);
+        if (run.length === phrase.length && run.toLowerCase() === phrase) {
+          hit = run;
+          break;
+        }
+      }
+      if (hit === null) {
+        out += text.charAt(at);
+        at += 1;
+        continue;
+      }
+      const value = shelf.get(hit.toLowerCase()) as string;
+      const opener = hit.charAt(0);
+      out +=
+        opener !== opener.toLowerCase()
+          ? value.charAt(0).toUpperCase() + value.slice(1)
+          : value;
+      at += hit.length;
+    }
+    return out;
+  }
+interface: "export function tightenNotePhrases(text: string, book: Record<string, string>): string"
+stop_conditions:
+  - Whether a phrase may be split across a line break in the text is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

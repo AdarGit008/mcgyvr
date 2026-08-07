@@ -1,0 +1,113 @@
+id: p503-judge-vane-trick
+task_type: bug_fix
+task: >-
+  judgeVaneTrick settles one trick of Vane, a four-handed pastime made up for
+  this exercise and governed by nothing but the paragraph below. A card is a
+  heat from 2 to 9 written first and then a plume letter — k for kelp, n for
+  nettle, p for pith, t for thorn — so "5k" and "9t" are cards. The argument
+  is a mapping with "trump" (a plume letter or the word "bare"), "lead" (the
+  seat from 0 to 3 that laid the opening card), "holdings" (a list of exactly
+  four non-empty lists, holdings[s] being every card seat s was sitting on
+  before the trick, no card repeated within a holding and no card sitting in
+  two holdings at once) and "played" (a list of exactly four cards in laying
+  order, the card at place i having been laid by seat (lead + i) modulo 4, and
+  each of them found in the layer's own holding). The plume of the opening
+  card is the called plume. A seat past the opening one reneges when the card
+  it laid carries some other plume although its holding still contained a card
+  of the called plume; the opening seat can never renege. A card laid in
+  renege is set aside and can take nothing. Among the cards not set aside, if
+  trump is a plume and any of them carries it the hottest of those takes the
+  trick, and otherwise the hottest card of the called plume takes it. The
+  taker is worked out wrongly: the present code simply hands the trick to the
+  hottest of all four cards laid, paying no attention to the called plume, to
+  trump, or to the setting aside of reneged cards, so a hot card of an idle
+  plume steals tricks it cannot touch. Put the taker back on the rules
+  written above. Change nothing else: the "taker" and "revokes" keys of the
+  returned mapping, revokes listing in ascending seat order every seat that
+  reneged, and the errors raised for an argument that is not a mapping, a
+  trump that is neither a plume letter nor "bare", a lead outside 0 to 3,
+  holdings that are not four non-empty lists, a card that is not a heat from 2
+  to 9 with a plume letter, one card sitting in two holdings, played that is
+  not a list of exactly four cards, and a seat laying a card it never held.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Who took one Vane trick, and which seats reneged on the called plume. */
+  export function judgeVaneTrick(play: Record<string, unknown>): Record<string, unknown> {
+    if (play === null || typeof play !== "object" || Array.isArray(play)) {
+      throw new Error("the play must be a mapping");
+    }
+    const trump = play.trump;
+    if (typeof trump !== "string" || !["k", "n", "p", "t", "bare"].includes(trump)) {
+      throw new Error("trump must be a plume letter or the word bare");
+    }
+    const lead = play.lead;
+    if (typeof lead !== "number" || !Number.isInteger(lead) || lead < 0 || lead > 3) {
+      throw new Error("lead must be a seat from 0 to 3");
+    }
+    const holdings = play.holdings;
+    if (!Array.isArray(holdings) || holdings.length !== 4) {
+      throw new Error("holdings must be a list of exactly four holdings");
+    }
+    const seen = new Set<string>();
+    for (const holding of holdings) {
+      if (!Array.isArray(holding) || holding.length === 0) {
+        throw new Error("a holding must be a non-empty list of cards");
+      }
+      for (const card of holding) {
+        if (typeof card !== "string" || !/^[2-9][knpt]$/.test(card)) {
+          throw new Error("a card must be a heat from 2 to 9 and a plume letter");
+        }
+        if (seen.has(card)) {
+          throw new Error("one card sits in two holdings");
+        }
+        seen.add(card);
+      }
+    }
+    const played = play.played;
+    if (!Array.isArray(played) || played.length !== 4) {
+      throw new Error("played must be a list of exactly four cards");
+    }
+    const seats: number[] = [];
+    for (let place = 0; place < 4; place++) {
+      const card = played[place];
+      if (typeof card !== "string" || !/^[2-9][knpt]$/.test(card)) {
+        throw new Error("a card must be a heat from 2 to 9 and a plume letter");
+      }
+      const seat = (lead + place) % 4;
+      if (!(holdings[seat] as string[]).includes(card)) {
+        throw new Error("a seat laid a card it never held");
+      }
+      seats.push(seat);
+    }
+
+    const called = (played[0] as string).slice(1);
+    const revokes: number[] = [];
+    for (let place = 1; place < 4; place++) {
+      const card = played[place] as string;
+      if (card.slice(1) === called) continue;
+      if ((holdings[seats[place]] as string[]).some((held) => held.slice(1) === called)) {
+        revokes.push(seats[place]);
+      }
+    }
+    revokes.sort((a, b) => a - b);
+
+    let best = 0;
+    for (let place = 1; place < 4; place++) {
+      if (
+        Number((played[place] as string).slice(0, 1)) >
+        Number((played[best] as string).slice(0, 1))
+      ) {
+        best = place;
+      }
+    }
+
+    return { taker: seats[best], revokes };
+  }
+interface: "export function judgeVaneTrick(play: Record<string, unknown>): Record<string, unknown>"
+stop_conditions:
+  - Whether every seat's holding must hold the same number of cards is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

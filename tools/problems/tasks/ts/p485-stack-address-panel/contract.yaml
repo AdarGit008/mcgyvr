@@ -1,0 +1,28 @@
+id: p485-stack-address-panel
+task_type: function_implementation
+task: >-
+  Implement stackAddressPanel. A despatch desk builds an address panel out of a
+  bag of parts and a plan the caller hands over, so no arrangement is baked in.
+  The parts argument is a record tying a slot name to its text. The plan
+  argument is a list of steps, each a record with slots (a list of one or more
+  slot names), fold (one of the words keep, up and down) and must (a boolean). A
+  step makes one line: it takes the text of each slot it names, in the order
+  named, having stripped the blanks off both ends of that text, and it passes
+  over any slot whose text is absent, is not a string, or is nothing but blanks;
+  what survives is joined with one blank between neighbours. The word keep
+  leaves that line as it stands, up throws it into capitals, and down throws it
+  into small letters. A step whose must is true and which found not one usable
+  slot raises an error naming the first slot it asked for. A step whose must is
+  false and which found none is simply dropped and contributes no line at all.
+  Give back the surviving lines in plan order. Raise an error when parts is not
+  a record, when plan is not a list or holds nothing, when a step is not a
+  record, when slots is not a list of one or more non-empty strings, when fold
+  is not one of the three words, and when must is not a boolean.
+target: solution.ts
+interface: "export function stackAddressPanel(parts: any, plan: any[]): string[]"
+stop_conditions:
+  - Whether one slot may be named twice inside a single step is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

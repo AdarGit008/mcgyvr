@@ -1,0 +1,38 @@
+id: p507-assign-home-waves
+task_type: function_implementation
+task: >-
+  Implement assignHomeWaves. A goods floor runs several standing picking waves,
+  each anchored to one home aisle letter, and every arriving order is dropped
+  into whichever standing wave sits closest to the stock it wants. The first
+  argument is a non-empty list of standing waves in the sequence they are
+  released, each a mapping with "name" (a non-empty string no other wave
+  carries), "home" (one lowercase letter, and no two waves share a home) and
+  "cap" (a positive whole number, the most orders that wave will carry). The
+  second argument is a list of arriving orders, possibly empty, each a mapping
+  with "ref" (a non-empty string no other order carries) and "zones" (a
+  non-empty list of distinct lowercase letters, the aisles the order wants).
+  Take the orders one at a time in the sequence they arrived. A standing wave
+  suits an order when the wave's home letter is among the aisles that order
+  wants. Drop the order into the earliest-released suitable wave still carrying
+  fewer orders than its cap. When no wave suits the order at all, or when every
+  wave that suits it is already full, the order is not dropped anywhere and its
+  ref goes on the spill sheet; a full wave never turns a later order away in
+  favour of an earlier one, since each order is settled the moment it arrives.
+  Return a mapping with "loads", one entry per standing wave in release
+  sequence, each a mapping with "name" and "refs" (the refs it carries, in
+  arrival sequence, an empty list when it carries none); and "spill", the refs
+  on the spill sheet in arrival sequence. Raise an error when the waves are not
+  a non-empty list, when a wave is not a mapping, when a name is missing, empty
+  or shared, when a home is not one lowercase letter or is shared by two waves,
+  when a cap is not a positive whole number, when the orders are not a list,
+  when an order is not a mapping, when a ref is missing, empty or shared, when
+  the zones are not a non-empty list, when a zone is not one lowercase letter,
+  and when an order names the same aisle twice.
+target: solution.ts
+interface: "export function assignHomeWaves(waves: unknown, orders: unknown): Record<string, unknown>"
+stop_conditions:
+  - Whether an order may want an aisle no standing wave calls home is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

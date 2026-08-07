@@ -1,0 +1,34 @@
+id: p488-band-score-percentiles
+task_type: function_implementation
+task: >-
+  Implement band_score_percentiles. A marking desk turns raw marks into named
+  bands. Each sitter is a record with tag (a non-empty string, no two sitters
+  answering to the same one) and score (a whole number of nought or more). A
+  sitter's standing is the count of sitters scoring strictly below that sitter,
+  taken a hundred times over and then divided by how many sitters there are
+  altogether, the division rounded down, so sitters holding equal scores always
+  come out on one standing and no fraction is ever kept. The cuts are whole
+  numbers each from 1 to 99, listed in strictly rising order, and the names are
+  one more in number than the cuts, each a non-empty string and no two alike. A
+  sitter belongs to the name whose place is the count of cuts standing at or
+  below that sitter's standing, so a standing landing exactly on a cut belongs
+  to the band above that cut and not below it. Give back a record whose rows
+  carries one record per sitter in the order the sitters arrived, each with tag,
+  with stand, that sitter's standing, and with band, that sitter's name, and
+  whose tally carries one record per name in the order the names were listed,
+  each with band and count, counting the sitters that landed there and reporting
+  nought for a name nobody reached. Raise an error when sitters is not a list or
+  holds nothing, when a sitter is not a record, when a tag is not a non-empty
+  string, when two sitters answer to one tag, when a score is not a whole number
+  of nought or more, when cuts is not a list or holds nothing, when a cut is not
+  a whole number from 1 to 99, when the cuts do not strictly rise, when names is
+  not a list, when the names are not exactly one more in number than the cuts,
+  when a name is not a non-empty string, and when two names are alike.
+target: solution.py
+interface: "def band_score_percentiles(sitters: list, cuts: list, names: list) -> dict"
+stop_conditions:
+  - Whether a sitter whose score exceeds every other should be given a standing of 100 is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

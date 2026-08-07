@@ -1,0 +1,86 @@
+id: p501-fold-signature-map
+task_type: bug_fix
+task: >-
+  fold_signature_map says where a page falls in a perfect-bound book and gets two
+  of its sums wrong. The book is gathered into signatures, each signature a run
+  of leaves folded together and stitched within itself, and the signatures are
+  then bound side by side. The first argument is the pages, a whole number from
+  one through twenty thousand. The second is the signature size, a whole number
+  from four through four hundred that divides by four, being how many pages one
+  signature holds; the book is padded with unprinted pages until its count
+  divides by that figure, though no page ever asked about is a padded one. The
+  third argument is the wanted, a list of whole page numbers each from one
+  through the page count, which may repeat and are answered in the order given.
+  Signatures are numbered from one, and a page's place inside its own signature
+  is its page number less however many pages the signatures ahead of it hold.
+  Write P for that size and L for that place. Sheets inside a signature are
+  numbered from one, the first being the outermost. An odd L at or below half of
+  P sits on the front of sheet L plus one halved, on the right half. An even L at
+  or below half of P sits on the back of sheet L halved, on the left half. An odd
+  L above half of P sits on the back of sheet P plus one less L, halved, on the
+  right half. An even L above half of P sits on the front of sheet P plus two
+  less L, halved, on the left half. Give back one line for each wanted page in
+  order, being the page number then a space then its signature number then a
+  space then its sheet number then a space then front or back then a space then
+  left or right. The code below puts every even place at or below the half on the
+  front of its sheet rather than the back, and counts a page landing exactly on a
+  signature boundary into the following signature. Repair both, keep raising an
+  error for pages that are not whole or fall outside one through twenty thousand,
+  a signature size that is not whole, falls outside four through four hundred
+  or does not divide by four, wanted that is not a list, and a wanted page that is
+  not whole or falls outside one through the page count, and return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  def _whole(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def fold_signature_map(pages: int, per_signature: int, wanted: list) -> list:
+      if not _whole(pages) or pages < 1 or pages > 20000:
+          raise ValueError("the pages are not whole or fall outside one through twenty thousand")
+      if not _whole(per_signature) or per_signature < 4 or per_signature > 400:
+          raise ValueError(
+              "the per_signature is not whole or falls outside four through four hundred"
+          )
+      if per_signature % 4 != 0:
+          raise ValueError("the per_signature does not divide by four")
+      if not isinstance(wanted, list):
+          raise ValueError("the wanted pages are not a list")
+      for page in wanted:
+          if not _whole(page) or page < 1 or page > pages:
+              raise ValueError(
+                  "a wanted page is not whole or falls outside one through the page count"
+              )
+
+      half = per_signature // 2
+      lines = []
+      for page in wanted:
+          signature = page // per_signature + 1
+          place = page - (signature - 1) * per_signature
+          if place % 2 == 1:
+              if place <= half:
+                  sheet = (place + 1) // 2
+                  side = "front"
+                  edge = "right"
+              else:
+                  sheet = (per_signature + 1 - place) // 2
+                  side = "back"
+                  edge = "right"
+          elif place <= half:
+              sheet = place // 2
+              side = "front"
+              edge = "left"
+          else:
+              sheet = (per_signature + 2 - place) // 2
+              side = "front"
+              edge = "left"
+          lines.append(f"{page} {signature} {sheet} {side} {edge}")
+      return lines
+interface: "def fold_signature_map(pages: int, per_signature: int, wanted: list) -> list"
+stop_conditions:
+  - Whether the padded pages at the tail of the last signature are ever reportable is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

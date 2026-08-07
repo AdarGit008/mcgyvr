@@ -1,0 +1,95 @@
+id: p493-fold-session-overruns
+task_type: bug_fix
+task: >-
+  fold_session_overruns replays a conference session against a hard closing
+  minute and mislabels two of its edges. The first argument is the runsheet, a
+  list of records taken in the order printed, each holding exactly the four keys
+  speaker (a non-empty string, no two entries naming the same one), slot (the
+  minutes the programme gave that speaker, a whole number above nought), ran (the
+  minutes the speaker truly used, a whole number at nought or above) and pause
+  (the break printed after that speaker, a whole number at nought or above). The
+  second argument is the wall, a whole number above nought naming the minute the
+  hall must be handed back. The session opens at minute nought. A speaker whose
+  turn would begin at the wall or later never reaches the lectern: the name goes
+  on the spill list and the session moves on. Otherwise the speaker begins where
+  the previous turn left the clock and would end that many minutes later; a turn
+  reaching past the wall is guillotined there and reads cut, and any turn ending
+  at the wall or sooner reads full. After each turn the printed break is squeezed
+  by however many minutes the speaker went beyond the programme slot, but a break
+  never squeezes below nought, and the clock then moves on by whatever break
+  survives. Give back a record whose lines hold for every speaker who reached the
+  lectern, in order, the name then a space then the opening minute then a space
+  then the closing minute then a space then cut or full, whose spill holds in
+  order the names that never reached it, and whose finish is the closing minute
+  of the last turn that happened, or nought when none did. The code below lets a
+  squeezed break drop below nought and hands the lectern to a speaker whose turn
+  would begin exactly on the wall. Repair both, keep raising an error for a
+  runsheet that is not a list, an entry that is not a record, an entry whose keys
+  are not exactly those four, a speaker that is not a non-empty string, two
+  entries naming one speaker, a slot that is not whole or falls below one, a ran
+  or a pause that is not whole or falls below nought, and a wall that is not
+  whole or falls below one, and return the complete fixed file.
+target: solution.py
+target_content: |
+  def _whole(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def fold_session_overruns(runsheet: list, wall: int) -> dict:
+      if not _whole(wall) or wall < 1:
+          raise ValueError("the wall is not whole or falls below one")
+      if not isinstance(runsheet, list):
+          raise ValueError("fold_session_overruns expects a list of entries")
+
+      named = set()
+      for entry in runsheet:
+          if not isinstance(entry, dict):
+              raise ValueError("an entry is not a record")
+          if sorted(entry) != ["pause", "ran", "slot", "speaker"]:
+              raise ValueError("an entry's keys are not exactly the four named")
+          speaker = entry["speaker"]
+          if not isinstance(speaker, str) or not speaker:
+              raise ValueError("a speaker is not a non-empty string")
+          if speaker in named:
+              raise ValueError("two entries name one speaker")
+          named.add(speaker)
+          if not _whole(entry["slot"]) or entry["slot"] < 1:
+              raise ValueError("a slot is not whole or falls below one")
+          if not _whole(entry["ran"]) or entry["ran"] < 0:
+              raise ValueError("a ran is not whole or falls below nought")
+          if not _whole(entry["pause"]) or entry["pause"] < 0:
+              raise ValueError("a pause is not whole or falls below nought")
+
+      lines = []
+      spill = []
+      clock = 0
+      finish = 0
+
+      for entry in runsheet:
+          speaker = entry["speaker"]
+          ran = entry["ran"]
+          slot = entry["slot"]
+          pause = entry["pause"]
+
+          if clock > wall:
+              spill.append(speaker)
+              continue
+          start = clock
+          end = start + ran
+          mark = "full"
+          if end > wall:
+              end = wall
+              mark = "cut"
+          lines.append(f"{speaker} {start} {end} {mark}")
+          finish = end
+          beyond = ran - slot if ran > slot else 0
+          clock = end + (pause - beyond)
+
+      return {"lines": lines, "spill": spill, "finish": finish}
+interface: "def fold_session_overruns(runsheet: list, wall: int) -> dict"
+stop_conditions:
+  - Whether a guillotined turn's unheard minutes are reported anywhere is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,45 @@
+id: p487-expand-fold-string
+task_type: bug_fix
+task: >-
+  expand_fold_string unpacks a squeezed line back into the entries it stands
+  for, and it mangles anything carrying a nested bracket. A line is a series of
+  branches parted by bars. A branch is either a lone hyphen or a stem of one or
+  more small letters a to z, and a stem may be trailed by a bracket enclosing
+  another such series. Unpacking a hyphen yields the empty ending. Unpacking a
+  bare stem yields that stem. Unpacking a stem trailed by a bracket yields the
+  stem set in front of every unpacking of the series enclosed, kept in that
+  enclosed series' own order. The answer is every branch unpacked, left to
+  right, in the order the branches stand. A hyphen is lawful only when it stands
+  alone within a bracket. The code below cuts the line at every bar it can see,
+  brackets included, so a branch carrying a bracket is torn to pieces, and it
+  has no notion of what a hyphen means. Repair that and supply the checking it
+  lacks: throw an error when the line is not a string or is empty, when it holds
+  a character that is not a small letter, a bracket, a bar or a hyphen, when a
+  bracket is never closed or is closed with none open, when a branch is empty,
+  when a bracket is not trailed onto a stem, when a hyphen stands anywhere but
+  alone within a bracket, and when anything at all follows a closing bracket
+  inside one branch. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """The entries a squeezed line stands for."""
+
+
+  def expand_fold_string(line: str) -> list:
+      out = []
+      for branch in line.split("|"):
+          opened = branch.find("(")
+          if opened == -1:
+              out.append(branch)
+              continue
+          stem = branch[:opened]
+          inner = branch[opened + 1 : len(branch) - 1]
+          for tail in expand_fold_string(inner):
+              out.append(stem + tail)
+      return out
+interface: "def expand_fold_string(line: str) -> list"
+stop_conditions:
+  - Whether two branches of one line may unpack to the same entry is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

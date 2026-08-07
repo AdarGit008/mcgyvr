@@ -1,0 +1,35 @@
+id: p482-group-photo-rows
+task_type: function_implementation
+task: >-
+  Implement group_photo_rows. A contact sheet is filled with pictures printed at
+  one band height. Each picture is a record with tag (a non-empty string, no two
+  pictures answering to the same one) and with wide and high, whole numbers
+  above nought giving the two sides of the picture's shape. The sheet record
+  carries width (a whole number above nought, how far a band may run), band (a
+  whole number above nought, the height every picture is printed at) and gap (a
+  whole number of nought or more, the clear space demanded between two pictures
+  sharing a band). A picture printed at the band height measures wide times band
+  divided by high across, the division rounded down. Sort the pictures into
+  three shape families: upright when high is above wide, oblong when wide is
+  above high, and square when the two agree. Lay the families down in that
+  order, upright first, and never let two families share a band. Within a family
+  the pictures keep the order they arrived in, and each one joins the band being
+  built while the pictures already on it, their printed widths and the gaps
+  between them counted, still leave room for it; failing that it opens a fresh
+  band. Give back one record per band in the order the bands were built,
+  carrying family, the family's word, tags, the tags on that band in order, run,
+  the width the band actually uses with its gaps, and spare, the width left
+  over. Raise an error when photos is not a list or holds nothing, when a photo
+  is not a record, when a tag is not a non-empty string, when two photos answer
+  to one tag, when wide or high is not a whole number above nought, when sheet
+  is not a record, when width, band or gap breaks its rule above, when a
+  picture's printed width comes to nought, and when a picture is too wide to lie
+  on a band by itself.
+target: solution.py
+interface: "def group_photo_rows(photos: list, sheet: dict) -> list"
+stop_conditions:
+  - Whether a family holding no pictures should still report an empty band is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

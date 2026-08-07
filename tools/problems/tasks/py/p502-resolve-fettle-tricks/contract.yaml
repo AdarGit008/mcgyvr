@@ -1,0 +1,40 @@
+id: p502-resolve-fettle-tricks
+task_type: function_implementation
+task: >-
+  Implement resolve_fettle_tricks. Fettle is a trick-taking pastime invented
+  for this exercise; borrow nothing from any pastime you already know, because
+  its rules are only the ones written here. A card is a house letter — b for
+  bracken, c for cinder, f for frost, l for loam — written first, then a
+  strength from 1 to 13 carrying no padding zero, so "b7" and "l13" are cards
+  and "b07" is not. The argument is a mapping under two keys. "trump" is
+  either one house letter or the word "none". "tricks" is a non-empty ordered
+  list, each trick a list of exactly four cards in the order they were laid
+  down. Four seats numbered 0 to 3 sit round the table. Seat 0 lays the first
+  card of the opening trick; afterwards whoever took the previous trick lays
+  the first card of the next one. Inside a trick the card at place i, counting
+  from zero, was laid by seat (leader + i) modulo 4. The house of a trick's
+  first card is its called house. Strength 1 stands above strength 13 and
+  every other strength ranks by its plain number, so a 1 outranks everything
+  in its own house. When trump is a house and at least one card of the trick
+  carries it, the strongest trump card takes the trick; otherwise the
+  strongest card of the called house takes it; a card belonging to neither
+  house never takes anything. A trick is worth the sum of what its four cards
+  carry — a 10 carries 1, an 11 carries 2, a 12 carries 3, a 13 carries 4, a 1
+  carries 5, and every other strength carries nothing — and the last trick of
+  the list is worth a further 3 on top. Seats 0 and 2 are the even side, seats
+  1 and 3 the odd side, and each side banks what its seats take. Return a
+  mapping with "takers", the seat that took each trick in trick order;
+  "worths", what each trick was worth in trick order; and "even" and "odd",
+  the two sides' banked totals. Raise an error when the argument is not a
+  mapping, when trump is neither a house letter nor "none", when tricks is not
+  a non-empty list, when a trick is not a list of exactly four things, when a
+  card is not a string of the shape described, and when one card is laid twice
+  anywhere in the deal.
+target: solution.py
+interface: "def resolve_fettle_tricks(deal: dict) -> dict"
+stop_conditions:
+  - Whether a seat is obliged to lay a card of the called house when holding one is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

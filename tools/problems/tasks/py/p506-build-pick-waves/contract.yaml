@@ -1,0 +1,41 @@
+id: p506-build-pick-waves
+task_type: function_implementation
+task: >-
+  Implement build_pick_waves, which gathers a day's orders into the waves a
+  goods floor releases to its pickers. The first argument is a list of orders,
+  possibly empty, each a mapping with "ref" (a non-empty string no other order
+  carries), "lines" (a positive whole number, how many picking lines the order
+  costs) and "zones" (a non-empty list of distinct letters from a through f,
+  the parts of the floor the order touches). The second argument is a mapping
+  of three positive whole numbers: "lines", the most picking lines one wave
+  may cost; "orders", the most orders one wave may hold; and "zones", the most
+  distinct floor letters one wave may spread across. Go through the orders
+  once, in the order handed over, with at most one wave open at a time. An
+  order that breaks a limit all by itself — costing more lines than a wave may
+  cost, or touching more distinct letters than a wave may spread across — can
+  never be released at all: put its ref aside and leave the open wave exactly
+  as it stood, neither joined nor closed. Any other order joins the open wave
+  when all three of these hold: the wave's lines plus the order's lines come to
+  no more than the line limit, the wave so far holds fewer orders than the
+  order limit, and the distinct letters of the wave and the order taken
+  together number no more than the zone limit. Should any of the three fail,
+  close the open wave and open a fresh one holding this order alone. Waves are
+  named in the order they were opened: the letter w and then the count, so w1,
+  w2 and onward. Return a mapping with "waves", one entry per wave in the
+  order the waves were opened, each a mapping with "name", "refs" (the refs it
+  holds in joining order), "lines" (its lines added up) and "zones" (its
+  distinct letters in alphabetical order); and "refused", the refs put aside,
+  in the order they were handed over. Raise an error when the limits are not a
+  mapping, when any of the three limits is not a positive whole number, when
+  the orders are not a list, when an order is not a mapping, when a ref is
+  missing, empty or shared by two orders, when lines is not a positive whole
+  number, when the zones are not a non-empty list, when a zone is not one
+  letter from a through f, and when an order names the same zone twice.
+target: solution.py
+interface: "def build_pick_waves(orders, limits: dict) -> dict"
+stop_conditions:
+  - Whether a closed wave may be reopened when a later order would have fitted it is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

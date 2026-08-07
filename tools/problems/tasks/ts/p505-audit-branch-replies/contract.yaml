@@ -1,0 +1,100 @@
+id: p505-audit-branch-replies
+task_type: bug_fix
+task: >-
+  auditBranchReplies inspects a filled-in branching sheet and says which
+  entries were owed, which were written where nothing was owed, and which were
+  owed but left empty. The argument is a mapping with "items" (a non-empty
+  ordered list) and "given" (a mapping from tag to the answer written against
+  it). An item is a mapping with "tag" (a non-empty string no other item
+  carries) and optionally "when": absent or null when the item is owed
+  unconditionally, otherwise a mapping with "tag" (the tag of an item standing
+  earlier in the list) and "is" (a non-empty string). An item guarded by a
+  "when" is owed only when the item it leans on was itself owed and the answer
+  written against that earlier tag reads exactly the guard's "is" — a guard
+  standing under an entry that was never owed cannot come alive, however the
+  sheet happens to have been filled in. That chaining is what the present code
+  gets wrong: it decides a guarded item purely by comparing the earlier tag's
+  written answer with "is", never asking whether that earlier item was owed,
+  so an entry buried two levels under a branch nobody took is called owed
+  because somebody scribbled an answer above it. Make the guard chain the way
+  the rules describe. Change nothing else: the "due", "extra" and "gap" keys
+  of the returned mapping — due naming every owed tag in item order, extra
+  naming in item order every tag answered although nothing was owed, and gap
+  naming in item order every owed tag with no answer written against it — nor
+  the errors raised for an argument that is not a mapping, items that are not
+  a non-empty list, an item or a when that is not a mapping, a tag that is
+  missing, empty or shared by two items, a when leaning on a tag that does not
+  stand earlier, a when whose "is" is missing or empty, given that is not a
+  mapping, an answer naming no item of the sheet, and an answer that is not a
+  non-empty string. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Which entries on a branching sheet were owed, spurious or missing. */
+  export function auditBranchReplies(sheet: Record<string, unknown>): Record<string, unknown> {
+    const mapping = (value: unknown): boolean =>
+      value !== null && typeof value === "object" && !Array.isArray(value);
+    if (!mapping(sheet)) throw new Error("the sheet must be a mapping");
+    const items = sheet.items;
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error("the items must be a non-empty list");
+    }
+    const tags: string[] = [];
+    const guards: Array<{ tag: string; is: string } | null> = [];
+    for (const item of items) {
+      if (!mapping(item)) throw new Error("an item must be a mapping");
+      const tag = (item as Record<string, unknown>).tag;
+      if (typeof tag !== "string" || tag.length === 0) {
+        throw new Error("an item needs a non-empty tag");
+      }
+      if (tags.includes(tag)) throw new Error("two items carry the same tag");
+      const when = (item as Record<string, unknown>).when;
+      if (when === undefined || when === null) {
+        guards.push(null);
+      } else {
+        if (!mapping(when)) throw new Error("a when must be a mapping");
+        const on = (when as Record<string, unknown>).tag;
+        const is = (when as Record<string, unknown>).is;
+        if (typeof on !== "string" || !tags.includes(on)) {
+          throw new Error("a when must lean on an item standing earlier");
+        }
+        if (typeof is !== "string" || is.length === 0) {
+          throw new Error("a when needs a non-empty is");
+        }
+        guards.push({ tag: on, is });
+      }
+      tags.push(tag);
+    }
+    const given = sheet.given;
+    if (!mapping(given)) throw new Error("the given answers must be a mapping");
+    for (const [tag, answer] of Object.entries(given as Record<string, unknown>)) {
+      if (!tags.includes(tag)) throw new Error("an answer names no item of the sheet");
+      if (typeof answer !== "string" || answer.length === 0) {
+        throw new Error("an answer must be a non-empty string");
+      }
+    }
+
+    const answers = given as Record<string, string>;
+    const due: string[] = [];
+    const extra: string[] = [];
+    const gap: string[] = [];
+    for (let index = 0; index < tags.length; index++) {
+      const tag = tags[index];
+      const guard = guards[index];
+      const settled = guard === null ? true : answers[guard.tag] === guard.is;
+      const answered = Object.prototype.hasOwnProperty.call(answers, tag);
+      if (settled) {
+        due.push(tag);
+        if (!answered) gap.push(tag);
+      } else if (answered) {
+        extra.push(tag);
+      }
+    }
+    return { due, extra, gap };
+  }
+interface: "export function auditBranchReplies(sheet: Record<string, unknown>): Record<string, unknown>"
+stop_conditions:
+  - Whether two items may lean on the same earlier tag with different is values is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

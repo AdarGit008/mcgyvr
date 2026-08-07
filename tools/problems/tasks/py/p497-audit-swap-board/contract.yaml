@@ -1,0 +1,131 @@
+id: p497-audit-swap-board
+task_type: bug_fix
+task: >-
+  audit_swap_board walks a swap board's claims in the order posted and gets two
+  of its refusals wrong. The first argument is the board, a record holding
+  exactly the two keys shifts and claims. shifts is a list of records each
+  holding exactly code (a non-empty string, no two shifts carrying one), day (a
+  whole number from one through seven) and holder (a non-empty string naming
+  whoever holds it when the board opens). claims is a list of records each
+  holding exactly code and bidder, both non-empty strings, walked in the order
+  given. The second argument is the ceiling, a whole number above nought fixing
+  how many shifts one person may hold at once. A claim is refused for the first
+  of these that fits: unknown when no shift carries that code; gone when that
+  shift has already changed hands, a shift being allowed to move only once; self
+  when the bidder is the one holding it; busy when the bidder holds another shift
+  falling on the same day, counting anything picked up earlier in this walk; and
+  full when the bidder already holds as many shifts as the ceiling allows. A
+  claim escaping all five reads taken and the shift passes to the bidder there
+  and then. Give back a record whose verdicts hold one word for each claim in the
+  order posted and whose loads hold, in rising name order and leaving out anybody
+  holding nothing, each person's name then a space then how many shifts they
+  finish with. The code below lets somebody sitting exactly on the ceiling take
+  one more, and tests the same-day refusal against the holdings the board opened
+  with rather than the holdings as they now stand. Repair both, keep raising an
+  error for a board that is not a record, a board whose keys are not exactly
+  those two, shifts that are not a list, a shift that is not a record or whose
+  keys are wrong, a code or a holder that is not a non-empty string, two shifts
+  carrying one code, a day that is not whole or falls outside one through seven,
+  claims that are not a list, a claim that is not a record or whose keys are
+  wrong, a claimed code or a bidder that is not a non-empty string, and a ceiling
+  that is not whole or falls below one, and return the complete fixed file.
+target: solution.py
+target_content: |
+  def _whole(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def _label(value):
+      return isinstance(value, str) and bool(value)
+
+
+  def audit_swap_board(board: dict, ceiling: int) -> dict:
+      if not _whole(ceiling) or ceiling < 1:
+          raise ValueError("the ceiling is not whole or falls below one")
+      if not isinstance(board, dict):
+          raise ValueError("the board is not a record")
+      if sorted(board) != ["claims", "shifts"]:
+          raise ValueError("the board's keys are not exactly shifts and claims")
+
+      shifts = board["shifts"]
+      if not isinstance(shifts, list):
+          raise ValueError("the shifts are not a list")
+      days = {}
+      holders = {}
+      for shift in shifts:
+          if not isinstance(shift, dict):
+              raise ValueError("a shift is not a record")
+          if sorted(shift) != ["code", "day", "holder"]:
+              raise ValueError("a shift's keys are not exactly the three named")
+          if not _label(shift["code"]):
+              raise ValueError("a code is not a non-empty string")
+          if shift["code"] in holders:
+              raise ValueError("two shifts carry one code")
+          day = shift["day"]
+          if not _whole(day) or day < 1 or day > 7:
+              raise ValueError("a day is not whole or falls outside one through seven")
+          if not _label(shift["holder"]):
+              raise ValueError("a holder is not a non-empty string")
+          days[shift["code"]] = day
+          holders[shift["code"]] = shift["holder"]
+
+      claims = board["claims"]
+      if not isinstance(claims, list):
+          raise ValueError("the claims are not a list")
+      for claim in claims:
+          if not isinstance(claim, dict):
+              raise ValueError("a claim is not a record")
+          if sorted(claim) != ["bidder", "code"]:
+              raise ValueError("a claim's keys are not exactly code and bidder")
+          if not _label(claim["code"]):
+              raise ValueError("a claimed code is not a non-empty string")
+          if not _label(claim["bidder"]):
+              raise ValueError("a bidder is not a non-empty string")
+
+      opening = dict(holders)
+      moved = set()
+      verdicts = []
+
+      for claim in claims:
+          code = claim["code"]
+          bidder = claim["bidder"]
+          if code not in holders:
+              verdicts.append("unknown")
+              continue
+          if code in moved:
+              verdicts.append("gone")
+              continue
+          if holders[code] == bidder:
+              verdicts.append("self")
+              continue
+          clash = False
+          for other, who in opening.items():
+              if who == bidder and days[other] == days[code]:
+                  clash = True
+          load = 0
+          for who in holders.values():
+              if who == bidder:
+                  load += 1
+          if clash:
+              verdicts.append("busy")
+              continue
+          if load > ceiling:
+              verdicts.append("full")
+              continue
+          holders[code] = bidder
+          moved.add(code)
+          verdicts.append("taken")
+
+      counts = {}
+      for who in holders.values():
+          counts[who] = counts.get(who, 0) + 1
+      loads = [f"{who} {counts[who]}" for who in sorted(counts)]
+
+      return {"verdicts": verdicts, "loads": loads}
+interface: "def audit_swap_board(board: dict, ceiling: int) -> dict"
+stop_conditions:
+  - Whether a bidder may post two claims for one code in the same walk is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

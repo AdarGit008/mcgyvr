@@ -1,0 +1,30 @@
+id: p480-ring-change-rows
+task_type: function_implementation
+task: >-
+  Implement ring_change_rows, which rings out a line of changes on a peal of
+  bells. The first argument is the bells, a whole number from two to twelve.
+  The second is the changes, a non-empty list whose every entry is a list of
+  whole positions counted from one that stand still at that change, written
+  strictly climbing; the changes are rung in turn and taken up again from the
+  first once the last has been rung. The third is the count, a whole number
+  above nought, being how many rows to give back, the opening row among them.
+  The opening row is rounds, the bells one to however many there are in order.
+  Every later row comes of the row before it by ringing the next change: a bell
+  standing in one of that change's positions keeps its place, and every other
+  position swaps with its neighbour, the movers pairing off from the left. A
+  change can be rung only when the movers pair off exactly, which is to say
+  when every unbroken run of positions that do not stand still holds an even
+  number of them. Give back the rows in ringing order, each a list of bell
+  numbers. Raise an error for a bells argument that is not whole or falls
+  outside two to twelve, a changes argument that is not a list or is empty, a
+  change that is not a list, a place that is not whole or falls outside one to
+  the number of bells, places that do not climb strictly, a change whose movers
+  do not pair off, and a count that is not whole or falls below one.
+target: solution.py
+interface: "def ring_change_rows(bells: int, changes: list, count: int) -> list"
+stop_conditions:
+  - Whether a line must come back to rounds within the count is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

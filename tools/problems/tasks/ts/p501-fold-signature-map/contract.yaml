@@ -1,0 +1,99 @@
+id: p501-fold-signature-map
+task_type: bug_fix
+task: >-
+  foldSignatureMap says where a page falls in a perfect-bound book and gets two
+  of its sums wrong. The book is gathered into signatures, each signature a run
+  of leaves folded together and stitched within itself, and the signatures are
+  then bound side by side. The first argument is the pages, a whole number from
+  one through twenty thousand. The second is the signature size, a whole number
+  from four through four hundred that divides by four, being how many pages one
+  signature holds; the book is padded with unprinted pages until its count
+  divides by that figure, though no page ever asked about is a padded one. The
+  third argument is the wanted, a list of whole page numbers each from one
+  through the page count, which may repeat and are answered in the order given.
+  Signatures are numbered from one, and a page's place inside its own signature
+  is its page number less however many pages the signatures ahead of it hold.
+  Write P for that size and L for that place. Sheets inside a signature are
+  numbered from one, the first being the outermost. An odd L at or below half of
+  P sits on the front of sheet L plus one halved, on the right half. An even L at
+  or below half of P sits on the back of sheet L halved, on the left half. An odd
+  L above half of P sits on the back of sheet P plus one less L, halved, on the
+  right half. An even L above half of P sits on the front of sheet P plus two
+  less L, halved, on the left half. Give back one line for each wanted page in
+  order, being the page number then a space then its signature number then a
+  space then its sheet number then a space then front or back then a space then
+  left or right. The code below puts every even place at or below the half on the
+  front of its sheet rather than the back, and counts a page landing exactly on a
+  signature boundary into the following signature. Repair both, keep raising an
+  error for pages that are not whole or fall outside one through twenty thousand,
+  a signature size that is not whole, falls outside four through four hundred
+  or does not divide by four, wanted that is not a list, and a wanted page that is
+  not whole or falls outside one through the page count, and return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  function whole(value: unknown): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  export function foldSignatureMap(
+    pages: number,
+    perSignature: number,
+    wanted: number[],
+  ): string[] {
+    if (!whole(pages) || pages < 1 || pages > 20000) {
+      throw new Error("the pages are not whole or fall outside one through twenty thousand");
+    }
+    if (!whole(perSignature) || perSignature < 4 || perSignature > 400) {
+      throw new Error("the perSignature is not whole or falls outside four through four hundred");
+    }
+    if (perSignature % 4 !== 0) {
+      throw new Error("the perSignature does not divide by four");
+    }
+    if (!Array.isArray(wanted)) {
+      throw new Error("the wanted pages are not a list");
+    }
+    for (const page of wanted) {
+      if (!whole(page) || page < 1 || page > pages) {
+        throw new Error("a wanted page is not whole or falls outside one through the page count");
+      }
+    }
+
+    const half = perSignature / 2;
+    const lines: string[] = [];
+    for (const page of wanted) {
+      const signature = Math.floor(page / perSignature) + 1;
+      const place = page - (signature - 1) * perSignature;
+      let sheet = 0;
+      let side = "front";
+      let edge = "right";
+      if (place % 2 === 1) {
+        if (place <= half) {
+          sheet = (place + 1) / 2;
+          side = "front";
+          edge = "right";
+        } else {
+          sheet = (perSignature + 1 - place) / 2;
+          side = "back";
+          edge = "right";
+        }
+      } else if (place <= half) {
+        sheet = place / 2;
+        side = "front";
+        edge = "left";
+      } else {
+        sheet = (perSignature + 2 - place) / 2;
+        side = "front";
+        edge = "left";
+      }
+      lines.push(`${page} ${signature} ${sheet} ${side} ${edge}`);
+    }
+    return lines;
+  }
+interface: "export function foldSignatureMap(pages: number, perSignature: number, wanted: number[]): string[]"
+stop_conditions:
+  - Whether the padded pages at the tail of the last signature are ever reportable is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]
