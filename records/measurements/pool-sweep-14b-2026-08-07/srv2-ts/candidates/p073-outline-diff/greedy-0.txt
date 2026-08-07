@@ -1,0 +1,30 @@
+```ts
+export function outlineDiff(
+  before: Record<string, any>,
+  after: Record<string, any>
+): string[] {
+  const lines: string[] = [];
+
+  function compareBranches(path: string[], branchBefore: Record<string, any>, branchAfter: Record<string, any>) {
+    const keysBefore = new Set(Object.keys(branchBefore));
+    const keysAfter = new Set(Object.keys(branchAfter));
+
+    for (const key of keysAfter) {
+      if (!keysBefore.has(key)) {
+        lines.push("added " + [...path, key].join("/"));
+      }
+    }
+
+    for (const key of keysBefore) {
+      if (!keysAfter.has(key)) {
+        lines.push("removed " + [...path, key].join("/"));
+      } else {
+        compareBranches([...path, key], branchBefore[key], branchAfter[key]);
+      }
+    }
+  }
+
+  compareBranches([], before, after);
+  return lines.sort();
+}
+```

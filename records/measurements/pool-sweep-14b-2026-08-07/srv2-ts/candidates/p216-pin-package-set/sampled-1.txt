@@ -1,0 +1,88 @@
+```ts
+/**
+ * Implements pinPackageSet based on the given plan.
+ * @param plan - The mapping containing "shelf", "needs", and "root".
+ * @returns A mapping with "picked" and "stuck" packages.
+ */
+export function pinPackageSet(plan: Record<string, unknown>): Record<string, unknown> {
+  const { shelf, needs, root } = plan as {
+    shelf: Record<string, string[]>;
+    needs: Record<string, { name: string; from: string; under: string }[]>;
+    root: { name: string; from: string; under: string }[];
+  };
+
+  // Validate inputs
+  if (typeof shelf !== 'object' || !shelf) {
+    throw new Error('Invalid shelf');
+  }
+  if (typeof needs !== 'object' || !needs) {
+    throw new Error('Invalid needs');
+  }
+  if (!Array.isArray(root)) {
+    throw new Error('Invalid root');
+  }
+
+  for (const [pkg, versions] of Object.entries(shelf)) {
+    if (!Array.isArray(versions) || versions.length === 0) {
+      throw new Error(`Invalid shelf entry for ${pkg}`);
+    }
+    const versionSet = new Set(versions);
+    if (versionSet.size !== versions.length) {
+      throw new Error(`Duplicate versions in shelf for ${pkg}`);
+    }
+    for (const version of versions) {
+      if (!/^(\d+\.)+(\d+\.)+\d+$/.test(version)) {
+        throw new Error(`Invalid version string ${version} for ${pkg}`);
+      }
+    }
+  }
+
+  for (const [pkg, pkgNeeds] of Object.entries(needs)) {
+    if (!Array.isArray(pkgNeeds)) {
+      throw new Error(`Invalid needs entry for ${pkg}`);
+    }
+    if (!(pkg in shelf)) {
+      throw new Error(`Package ${pkg} not in shelf`);
+    }
+    for (const want of pkgNeeds) {
+      if (typeof want !== 'object' || !want) {
+        throw new Error('Invalid want');
+      }
+      const { name, from, under } = want as { name: string; from: string; under: string };
+      if (!(name in shelf)) {
+        throw new Error(`Package ${name} not in shelf`);
+      }
+      if (!/^(\d+\.)+(\d+\.)+\d+$/.test(from) || !/^(\d+\.)+(\d+\.)+\d+$/.test(under)) {
+        throw new Error(`Invalid version strings in want for ${pkg}`);
+      }
+      const fromVersion = versionToNumber(from);
+      const underVersion = versionToNumber(under);
+      if (fromVersion >= underVersion) {
+        throw new Error('Invalid want range');
+      }
+    }
+  }
+
+  // Helper functions
+  function versionToNumber(version: string): number {
+    return parseInt(version.replace(/\./g, ''), 10);
+  }
+
+  function isVersionInRange(version: string, from: string, under: string): boolean {
+    const versionNum = versionToNumber(version);
+    const fromNum = versionToNumber(from);
+    const underNum = versionToNumber(under);
+    return versionNum >= fromNum && versionNum < underNum;
+  }
+
+  // Process wants
+  const reachedPackages = new Set<string>();
+  const queue: { name: string; from: string; under: string }[] = [...root];
+
+  while (queue.length > 0) {
+    const currentWant = queue.shift()!;
+    const { name, from, under } = currentWant;
+
+    if (!reachedPackages.has(name)) {
+      reachedPackages.add(name);
+      if (name in needs)

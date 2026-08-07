@@ -1,0 +1,61 @@
+```ts
+export function unionCoverage(rects: number[][]): number {
+  // Helper function to check if a rectangle is valid
+  const isValidRectangle = (rect: number[]): boolean => {
+    return (
+      rect.length === 4 &&
+      rect.every(coord => typeof coord === 'number' && Number.isInteger(coord)) &&
+      rect[0] < rect[2] &&
+      rect[1] < rect[3] &&
+      rect.every(coord => coord >= -10000 && coord <= 10000)
+    );
+  };
+
+  // Validate all rectangles
+  for (const rect of rects) {
+    if (!isValidRectangle(rect)) {
+      throw new Error('Invalid rectangle');
+    }
+  }
+
+  // If no rectangles, return 0 area
+  if (rects.length === 0) {
+    return 0;
+  }
+
+  // Sort rectangles by their x1 coordinate
+  rects.sort((a, b) => a[0] - b[0]);
+
+  let totalArea = 0;
+
+  for (let i = 0; i < rects.length; i++) {
+    const currentRect = rects[i];
+    let [x1, y1, x2, y2] = currentRect;
+    let currentHeight = 0;
+
+    // For each rectangle, find overlapping rectangles in the same x range
+    for (let j = i + 1; j < rects.length && rects[j][0] < x2; j++) {
+      const nextRect = rects[j];
+      const [nx1, ny1, nx2, ny2] = nextRect;
+
+      // Calculate overlapping y range
+      const overlapY = Math.max(0, Math.min(y2, ny2) - Math.max(y1, ny1));
+      if (overlapY > 0) {
+        totalArea += currentHeight * (Math.min(nx2, x2) - Math.max(x1, nx1));
+        y1 = Math.min(y1, ny1);
+        y2 = Math.max(y2, ny2);
+        x1 = Math.max(x1, nx1);
+        x2 = Math.min(x2, nx2);
+      }
+    }
+
+    // Add the area of the current rectangle minus any overlaps
+    totalArea += (x2 - x1) * (y2 - y1);
+
+    // Update the current height for overlapping calculations
+    currentHeight = y2 - y1;
+  }
+
+  return totalArea;
+}
+```

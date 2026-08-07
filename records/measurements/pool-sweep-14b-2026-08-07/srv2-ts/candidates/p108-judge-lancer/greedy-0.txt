@@ -1,0 +1,49 @@
+```ts
+export function judgeLancer(board: string[], side: string, from: number[], to: number[]): string {
+  if (board.length !== 7 || !board.every(row => row.length === 7 && /^[WB.]+$/.test(row))) {
+    throw new Error("Invalid board");
+  }
+  if (side !== "W" && side !== "B") {
+    throw new Error("Invalid side");
+  }
+  if (!Array.isArray(from) || from.length !== 2 || !from.every(n => Number.isInteger(n) && n >= 0 && n < 7)) {
+    throw new Error("Invalid from square");
+  }
+  if (!Array.isArray(to) || to.length !== 2 || !to.every(n => Number.isInteger(n) && n >= 0 && n < 7)) {
+    throw new Error("Invalid to square");
+  }
+
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+
+  if (board[fromRow][fromCol] !== side) {
+    return "no_piece";
+  }
+
+  const rowDiff = Math.abs(toRow - fromRow);
+  const colDiff = Math.abs(toCol - fromCol);
+
+  if ((rowDiff === 0 && colDiff < 2) || (colDiff === 0 && rowDiff < 2)) {
+    return "too_close";
+  }
+
+  if (rowDiff > 3 || colDiff > 3 || (rowDiff !== 0 && colDiff !== 0)) {
+    return "bad_line";
+  }
+
+  const stepRow = rowDiff === 0 ? 0 : (toRow - fromRow) / rowDiff;
+  const stepCol = colDiff === 0 ? 0 : (toCol - fromCol) / colDiff;
+
+  for (let i = 1; i < Math.max(rowDiff, colDiff); i++) {
+    if (board[fromRow + i * stepRow][fromCol + i * stepCol] !== ".") {
+      return "blocked";
+    }
+  }
+
+  if (board[toRow][toCol] === side) {
+    return "own_piece";
+  }
+
+  return "ok";
+}
+```

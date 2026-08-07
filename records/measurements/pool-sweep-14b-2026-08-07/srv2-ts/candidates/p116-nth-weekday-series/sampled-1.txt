@@ -1,0 +1,69 @@
+```ts
+/**
+ * Expands a monthly recurrence rule over a span of months using only integer arithmetic.
+ * @param ordinal - The ordinal-th occurrence of a weekday (1 to 5 or -1 for the last).
+ * @param weekday - The weekday number (0 for Monday through 6 for Sunday).
+ * @param start - The starting month in "YYYY-MM" format.
+ * @param months - The number of consecutive months to expand the rule over.
+ * @returns An array of selected dates as zero-padded "YYYY-MM-DD" strings in chronological order.
+ */
+export function expandNthWeekday(ordinal: number, weekday: number, start: string, months: number): string[] {
+  if (![-1, 1, 2, 3, 4, 5].includes(ordinal)) {
+    throw new Error("Invalid ordinal");
+  }
+  if (weekday < 0 || weekday > 6) {
+    throw new Error("Invalid weekday");
+  }
+  const [startYear, startMonth] = parseMonth(start);
+  if (!startYear || !startMonth) {
+    throw new Error("Invalid start month");
+  }
+  if (months <= 0 || months > 240) {
+    throw new Error("Invalid number of months");
+  }
+
+  const results: string[] = [];
+  for (let i = 0; i < months; i++) {
+    const [year, month] = addMonths(startYear, startMonth, i);
+    const datesInMonth = getDatesInMonth(year, month);
+    const selectedDate = findNthWeekday(datesInMonth, weekday, ordinal);
+    if (selectedDate) {
+      results.push(selectedDate);
+    }
+  }
+
+  return results;
+}
+
+function parseMonth(month: string): [number, number] | null {
+  const match = month.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  const year = parseInt(match[1], 10);
+  const monthNum = parseInt(match[2], 10);
+  if (year < 1 || year > 9999 || monthNum < 1 || monthNum > 12) {
+    return null;
+  }
+  return [year, monthNum];
+}
+
+function addMonths(year: number, month: number, monthsToAdd: number): [number, number] {
+  const totalMonths = year * 12 + month - 1 + monthsToAdd;
+  const newYear = Math.floor(totalMonths / 12);
+  const newMonth = (totalMonths % 12) + 1;
+  return [newYear, newMonth];
+}
+
+function getDatesInMonth(year: number, month: number): string[] {
+  const daysInMonth = [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return Array.from({ length: daysInMonth[month - 1] }, (_, day) => `${year}-${padZero(month)}-${padZero(day + 1)}`);
+}
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+}
+
+function padZero(num: number): string {
+  return num < 10 ? `0${num}` : `${num}`;
+}
+
+function findNthWeekday(datesInMonth: string[], weekday: number,

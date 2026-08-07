@@ -1,0 +1,59 @@
+```ts
+export function crateOverflowPath(root: Record<string, unknown>): string {
+    if (typeof root !== 'object' || root === null) {
+        throw new Error('Invalid root');
+    }
+
+    const validateCrate = (crate: any, parentTags: string[]): void => {
+        if (typeof crate.tag !== 'string' || crate.tag.includes('.') || !crate.tag) {
+            throw new Error('Invalid tag');
+        }
+        if (!Number.isInteger(crate.weight) || crate.weight < 0) {
+            throw new Error('Invalid weight');
+        }
+        if (!Number.isInteger(crate.cap) || crate.cap <= 0) {
+            throw new Error('Invalid cap');
+        }
+        if (!Array.isArray(crate.inside)) {
+            throw new Error('Invalid inside');
+        }
+
+        const tagsSet = new Set<string>();
+        for (const item of crate.inside) {
+            if (typeof item !== 'object' || item === null) {
+                throw new Error('Invalid crate in inside');
+            }
+            validateCrate(item, [...parentTags, crate.tag]);
+            if (tagsSet.has(item.tag)) {
+                throw new Error('Duplicate tag in inside');
+            }
+            tagsSet.add(item.tag);
+        }
+    };
+
+    const calculateGross = (crate: any): number => {
+        return (
+            crate.weight +
+            crate.inside.reduce((total, item) => total + calculateGross(item), 0)
+        );
+    };
+
+    const findSpillingCrate = (crate: any, parentTags: string[]): string | null => {
+        if (calculateGross(crate) > crate.cap) {
+            return [...parentTags, crate.tag].join('.');
+        }
+
+        for (const item of crate.inside) {
+            const result = findSpillingCrate(item, [...parentTags, crate.tag]);
+            if (result !== null) {
+                return result;
+            }
+        }
+
+        return null;
+    };
+
+    validateCrate(root, []);
+    return findSpillingCrate(root, []) || '';
+}
+```

@@ -1,0 +1,66 @@
+```ts
+export function buildOnCallRota(roster: string[], blocked: string[][]): string[] {
+  if (roster.length === 0) {
+    throw new Error("Roster cannot be empty");
+  }
+  if (!Array.isArray(blocked)) {
+    throw new Error("Blocked must be a list of lists");
+  }
+
+  const uniqueNames = new Set(roster);
+  if (uniqueNames.size !== roster.length) {
+    throw new Error("Roster cannot contain duplicates");
+  }
+  for (const name of roster) {
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error("Roster must contain non-empty strings");
+    }
+  }
+
+  const shiftCount = blocked.length;
+  const ceiling = Math.ceil(shiftCount / roster.length);
+  const shiftHistory: { [key: string]: number } = {};
+
+  const rota: string[] = [];
+
+  for (let i = 0; i < shiftCount; i++) {
+    if (!Array.isArray(blocked[i])) {
+      throw new Error("Each blocked entry must be a list");
+    }
+    const blockedSet = new Set(blocked[i]);
+    for (const name of blockedSet) {
+      if (!roster.includes(name)) {
+        throw new Error(`Blocked name ${name} is not in the roster`);
+      }
+      if (blocked[i].filter(n => n === name).length > 1) {
+        throw new Error(`Name ${name} is blocked more than once in a single entry`);
+      }
+    }
+
+    const eligibleNames = roster.filter(name =>
+      !blockedSet.has(name) &&
+      (i === 0 || name !== rota[i - 1]) &&
+      (shiftHistory[name] || 0) < ceiling
+    );
+
+    if (eligibleNames.length === 0) {
+      return [];
+    }
+
+    let chosenName = eligibleNames[0];
+    let minShifts = shiftHistory[chosenName] || 0;
+    for (const name of eligibleNames.slice(1)) {
+      const shifts = shiftHistory[name] || 0;
+      if (shifts < minShifts) {
+        chosenName = name;
+        minShifts = shifts;
+      }
+    }
+
+    rota.push(chosenName);
+    shiftHistory[chosenName] = (shiftHistory[chosenName] || 0) + 1;
+  }
+
+  return rota;
+}
+```

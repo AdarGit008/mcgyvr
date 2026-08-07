@@ -1,0 +1,35 @@
+```ts
+export function roundRobinFinish(jobs: (string | number)[][], quantum: number): (string | number)[][] {
+  if (!Number.isInteger(quantum) || quantum < 1) {
+    throw new Error("quantum must be a positive integer");
+  }
+  const queue: { name: string; left: number }[] = [];
+  const seen = new Set<string>();
+  for (const job of jobs) {
+    const name = job[0];
+    const burst = job[1];
+    if (typeof name !== "string" || seen.has(name)) {
+      throw new Error("job names must be unique strings");
+    }
+    if (typeof burst !== "number" || !Number.isInteger(burst) || burst < 1) {
+      throw new Error("burst must be a positive integer");
+    }
+    seen.add(name);
+    queue.push({ name, left: burst });
+  }
+  const finished: (string | number)[][] = [];
+  let clock = 0;
+  while (queue.length > 0) {
+    const job = queue.shift()!;
+    const slice = Math.min(quantum, job.left);
+    job.left -= slice;
+    clock += slice;
+    if (job.left === 0) {
+      finished.push([job.name, clock]);
+    } else {
+      queue.push(job);
+    }
+  }
+  return finished;
+}
+```

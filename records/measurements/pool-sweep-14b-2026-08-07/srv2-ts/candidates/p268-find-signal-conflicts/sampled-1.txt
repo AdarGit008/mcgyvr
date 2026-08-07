@@ -1,0 +1,71 @@
+```ts
+/**
+ * Finds signal conflicts between approaches at a junction.
+ * @param cycle - The total cycle time in seconds (2 to 3600).
+ * @param approaches - Array of approach objects with name, offset, green, and amber times.
+ * @param pairs - Pairs of approach names that must never be lit together.
+ * @returns Sorted list of conflict reports in the format "name1~name2@second".
+ */
+export function findSignalConflicts(cycle: number, approaches: object[], pairs: string[][]): string[] {
+  if (cycle < 2 || cycle > 3600 || !Number.isInteger(cycle)) {
+    throw new Error("Cycle must be a whole number between 2 and 3600.");
+  }
+  if (!Array.isArray(approaches) || approaches.length === 0) {
+    throw new Error("Approach list cannot be empty or non-list.");
+  }
+
+  const approachMap: { [key: string]: { offset: number, green: number, amber: number } } = {};
+
+  for (const approach of approaches) {
+    if (
+      typeof approach !== 'object' ||
+      !('name' in approach) || !('offset' in approach) || !('green' in approach) || !('amber' in approach) ||
+      typeof approach.name !== 'string' || approach.name.trim() === '' ||
+      typeof approach.offset !== 'number' || approach.offset < 0 || approach.offset >= cycle ||
+      typeof approach.green !== 'number' || approach.green < 1 ||
+      typeof approach.amber !== 'number' || approach.amber < 0 ||
+      approach.offset + approach.green + approach.amber > cycle
+    ) {
+      throw new Error("Invalid approach record.");
+    }
+
+    const { name, offset, green, amber } = approach;
+    if (approachMap[name]) {
+      throw new Error("Repeated approach name.");
+    }
+    approachMap[name] = { offset, green, amber };
+  }
+
+  for (const pair of pairs) {
+    if (!Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== 'string' || typeof pair[1] !== 'string') {
+      throw new Error("Pair must be an array of two strings.");
+    }
+    if (pair[0].trim() === '' || pair[1].trim() === '') {
+      throw new Error("Approach name cannot be empty text.");
+    }
+    if (pair[0] === pair[1]) {
+      throw new Error("Pair must name different approaches.");
+    }
+    if (!approachMap[pair[0]] || !approachMap[pair[1]]) {
+      throw new Error("Pair names must reference declared approaches.");
+    }
+  }
+
+  const conflicts: string[] = [];
+
+  for (let second = 0; second < cycle; second++) {
+    for (const [name1, name2] of pairs) {
+      const approach1 = approachMap[name1];
+      const approach2 = approachMap[name2];
+
+      const isLit1 = (second - approach1.offset) % cycle >= 0 && (second - approach1.offset) % cycle < approach1.green + approach1.amber;
+      const isLit2 = (second - approach2.offset) % cycle >= 0 && (second - approach2.offset) % cycle < approach2.green + approach2.amber;
+
+      if (isLit1 && isLit2) {
+        conflicts.push(`${name1}~${name2}@${second}`);
+      }
+    }
+  }
+
+  return conflicts.sort((a, b) => {
+    const [timeA] = a.split('@

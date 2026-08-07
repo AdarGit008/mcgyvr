@@ -1,0 +1,43 @@
+```ts
+export function runBufferedLine(capacities: number[], buffers: number[], ticks: number): { made: number; left: number[] } {
+  if (capacities.length === 0) {
+    throw new Error("Station list cannot be empty");
+  }
+  if (buffers.length !== capacities.length - 1) {
+    throw new Error("Buffer list must have exactly one entry fewer than the station list");
+  }
+  if (!capacities.every(limit => Number.isInteger(limit) && limit > 0)) {
+    throw new Error("All per-tick limits must be positive integers");
+  }
+  if (!buffers.every(size => Number.isInteger(size) && size > 0)) {
+    throw new Error("All buffer sizes must be positive integers");
+  }
+  if (!Number.isInteger(ticks) || ticks < 0) {
+    throw new Error("Tick count must be a non-negative integer");
+  }
+
+  const numStations = capacities.length;
+  let made = 0;
+  const bufferContents: number[] = buffers.map(() => 0);
+
+  for (let tick = 0; tick < ticks; tick++) {
+    for (let station = numStations - 1; station >= 0; station--) {
+      const inboundBuffer = station === 0 ? Number.MAX_SAFE_INTEGER : bufferContents[station - 1];
+      const outboundBuffer = station === numStations - 1 ? Number.MAX_SAFE_INTEGER : buffers[station];
+      const capacity = capacities[station];
+
+      const toMove = Math.min(inboundBuffer, outboundBuffer, capacity);
+      if (station > 0) {
+        bufferContents[station - 1] -= toMove;
+      }
+      if (station < numStations - 1) {
+        bufferContents[station] += toMove;
+      } else {
+        made += toMove;
+      }
+    }
+  }
+
+  return { made, left: bufferContents };
+}
+```

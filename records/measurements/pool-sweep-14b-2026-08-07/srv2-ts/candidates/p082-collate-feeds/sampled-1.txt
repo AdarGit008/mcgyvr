@@ -1,0 +1,45 @@
+```ts
+export function collateFeeds(feeds: number[][][]): number[][] {
+  const timeline: number[][] = [];
+
+  for (const feed of feeds) {
+    for (let i = 0; i < feed.length; i++) {
+      const [tick, reading] = feed[i];
+      if (i > 0 && tick <= feed[i - 1][0]) {
+        throw new Error("Ticks must be strictly increasing within each feed.");
+      }
+      let added = false;
+      for (let j = 0; j < timeline.length; j++) {
+        if (timeline[j][0] === tick) {
+          // Keep the pair from the earliest feed
+          if (added) {
+            timeline.splice(j, 1);
+            j--;
+          } else {
+            added = true;
+          }
+          break;
+        }
+        if (timeline[j][0] > tick) {
+          timeline.splice(j, 0, [tick, reading]);
+          added = true;
+          break;
+        }
+      }
+      if (!added) {
+        timeline.push([tick, reading]);
+      }
+    }
+  }
+
+  // Thin the timeline by removing consecutive pairs with the same reading
+  const thinnedTimeline: number[][] = [];
+  for (let i = 0; i < timeline.length; i++) {
+    if (i === 0 || timeline[i][1] !== timeline[i - 1][1]) {
+      thinnedTimeline.push(timeline[i]);
+    }
+  }
+
+  return thinnedTimeline;
+}
+```

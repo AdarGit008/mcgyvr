@@ -1,0 +1,48 @@
+```ts
+export function convertLength(quantity: string, goal: string): number {
+  if (!quantity.trim()) {
+    throw new Error("Empty quantity");
+  }
+
+  const validSymbols = ["mm", "cm", "m", "km"];
+  if (!validSymbols.includes(goal)) {
+    throw new Error(`Unknown target symbol: ${goal}`);
+  }
+
+  const conversionFactors: { [key: string]: number } = {
+    mm: 1,
+    cm: 10,
+    m: 1000,
+    km: 1000000,
+  };
+
+  let totalMillimeters = 0;
+
+  for (const part of quantity.split(" ")) {
+    if (!part) {
+      throw new Error("Malformed part");
+    }
+
+    const match = part.match(/^(\d+)(mm|cm|m|km)$/);
+    if (!match) {
+      throw new Error(`Malformed part: ${part}`);
+    }
+
+    const value = parseInt(match[1], 10);
+    const symbol = match[2];
+
+    if (isNaN(value)) {
+      throw new Error(`Invalid number in part: ${part}`);
+    }
+
+    totalMillimeters += value * conversionFactors[symbol];
+  }
+
+  const targetFactor = conversionFactors[goal];
+  if (totalMillimeters % targetFactor !== 0) {
+    throw new Error("Sum does not divide evenly into the target");
+  }
+
+  return totalMillimeters / targetFactor;
+}
+```

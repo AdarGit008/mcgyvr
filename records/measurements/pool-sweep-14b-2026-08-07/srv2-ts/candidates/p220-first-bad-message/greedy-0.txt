@@ -1,0 +1,103 @@
+```ts
+export function firstBadMessage(exchange: unknown): number {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid exchange");
+  }
+
+  const validKinds = ["HELLO", "OFFER", "CHOOSE", "ACCEPT", "DATA", "BYE"];
+  const validFroms = ["client", "server"];
+
+  for (let i = 0; i < exchange.length; i++) {
+    const message = exchange[i];
+
+    if (typeof message !== "object" || message === null) {
+      throw new Error("Invalid message");
+    }
+
+    const { from, kind } = message as Record<string, unknown>;
+
+    if (!validFroms.includes(from as string)) {
+      throw new Error("Invalid 'from' field");
+    }
+
+    if (!validKinds.includes(kind as string)) {
+      throw new Error("Invalid 'kind' field");
+    }
+  }
+
+  let clientHelloCount = 0;
+  let serverOfferCount = 0;
+  let clientChooseCount = 0;
+  let serverAcceptCount = 0;
+  let clientDataCount = 0;
+  let serverDataCount = 0;
+  let clientByeCount = 0;
+  let serverByeCount = 0;
+
+  for (let i = 0; i < exchange.length; i++) {
+    const message = exchange[i] as Record<string, string>;
+
+    if (message.from === "client") {
+      switch (message.kind) {
+        case "HELLO":
+          clientHelloCount++;
+          if (clientHelloCount > 1 || serverOfferCount !== 0) {
+            return i;
+          }
+          break;
+        case "CHOOSE":
+          clientChooseCount++;
+          if (clientChooseCount > 1 || serverAcceptCount === 0) {
+            return i;
+          }
+          break;
+        case "DATA":
+          clientDataCount++;
+          if (serverAcceptCount === 0 || serverDataCount !== clientDataCount) {
+            return i;
+          }
+          break;
+        case "BYE":
+          clientByeCount++;
+          if (clientByeCount > 1 || serverByeCount !== 1) {
+            return i;
+          }
+          return exchange.length;
+        default:
+          return i;
+      }
+    } else if (message.from === "server") {
+      switch (message.kind) {
+        case "OFFER":
+          serverOfferCount++;
+          if (clientHelloCount !== 1 || serverOfferCount > 1) {
+            return i;
+          }
+          break;
+        case "ACCEPT":
+          serverAcceptCount++;
+          if (clientChooseCount !== 1 || serverAcceptCount > 1) {
+            return i;
+          }
+          break;
+        case "DATA":
+          serverDataCount++;
+          if (serverAcceptCount === 0 || clientDataCount !== serverDataCount) {
+            return i;
+          }
+          break;
+        case "BYE":
+          serverByeCount++;
+          if (clientByeCount !== 1 || serverByeCount > 1) {
+            return i;
+          }
+          break;
+        default:
+          return i;
+      }
+    }
+  }
+
+  return -1;
+}
+```

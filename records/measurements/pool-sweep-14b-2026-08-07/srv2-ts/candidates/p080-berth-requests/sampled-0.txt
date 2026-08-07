@@ -1,0 +1,86 @@
+```ts
+export function assignBerths(
+  berths: Array<{ id: string; size: number }>,
+  quota: Record<string, number>,
+  requests: Array<Record<string, unknown>>
+): string[] {
+  // Check for duplicate berth ids
+  const berthIds = new Set(berths.map((b) => b.id));
+  if (berthIds.size !== berths.length) {
+    throw new Error("Duplicate berth ids");
+  }
+
+  const results: string[] = [];
+  const boatToBerthMap: Record<string, string> = {};
+  const ownerToBoatsMap: Record<string, Set<string>> = {};
+
+  for (const request of requests) {
+    const op = request.op as string;
+    switch (op) {
+      case "dock": {
+        const boat = request.boat as string;
+        const owner = request.owner as string;
+        const size = Number(request.size);
+
+        if (isNaN(size)) {
+          throw new Error("Invalid size");
+        }
+
+        if (boatToBerthMap[boat]) {
+          results.push("rejected:already_docked");
+          continue;
+        }
+
+        const ownerQuota = quota[owner] || Infinity;
+        const boatsOwnedByOwner = ownerToBoatsMap[owner] || new Set<string>();
+        if (boatsOwnedByOwner.size >= ownerQuota) {
+          results.push("rejected:over_quota");
+          continue;
+        }
+
+        const availableBerth = berths.find(
+          (b) => !boatToBerthMap[b.id] && b.size >= size
+        );
+        if (!availableBerth) {
+          results.push("rejected:no_berth");
+          continue;
+        }
+
+        boatToBerthMap[boat] = availableBerth.id;
+        boatsOwnedByOwner.add(boat);
+        ownerToBoatsMap[owner] = boatsOwnedByOwner;
+        results.push(availableBerth.id);
+        break;
+      }
+      case "leave": {
+        const boat = request.boat as string;
+
+        if (!boatToBerthMap[boat]) {
+          results.push("rejected:not_docked");
+          continue;
+        }
+
+        const berthId = boatToBerthMap[boat];
+        delete boatToBerthMap[boat];
+
+        const owner = Object.keys(ownerToBoatsMap).find((o) =>
+          ownerToBoatsMap[o].has(boat)
+        );
+        if (owner) {
+          ownerToBoatsMap[owner].delete(boat);
+          if (ownerToBoatsMap[owner].size === 0) {
+            delete ownerToBoatsMap[owner];
+          }
+        }
+
+        results.push("left");
+        break;
+      }
+      default:
+        throw new Error(`Invalid operation: ${op}`);
+    }
+  }
+
+  return results;
+}
+```

@@ -1,0 +1,83 @@
+```ts
+export function bandParcelCharge(book: Record<string, unknown>, parcel: Record<string, unknown>): Record<string, unknown> {
+  if (typeof book !== 'object' || typeof parcel !== 'object') {
+    throw new Error('Book and parcel must be objects');
+  }
+
+  const zones = book['zones'] as string[];
+  const steps = book['steps'] as Array<Record<string, unknown>>;
+  const extras = book['extras'] as Array<Record<string, unknown>>;
+  const round = book['round'] as number;
+
+  if (!Array.isArray(zones) || zones.length === 0 || !zones.every(zone => typeof zone === 'string' && zone.trim() !== '')) {
+    throw new Error('Zones must be a non-empty array of distinct non-empty names');
+  }
+
+  if (new Set(zones).size !== zones.length) {
+    throw new Error('Zones must be distinct');
+  }
+
+  if (!Array.isArray(steps) || steps.length === 0) {
+    throw new Error('Steps must be a non-empty list of weight bands');
+  }
+
+  let openBandIndex = -1;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (typeof step !== 'object') {
+      throw new Error('Each step must be an object');
+    }
+    const upTo = step['upTo'] as number | null;
+    const cents = step['cents'] as Array<number>;
+
+    if ((upTo !== null && typeof upTo !== 'number') || (upTo !== null && upTo <= 0) || (!Array.isArray(cents) || cents.length !== zones.length)) {
+      throw new Error('Invalid band definition');
+    }
+
+    if (i > 0) {
+      const previousUpTo = steps[i - 1]['upTo'] as number | null;
+      if ((previousUpTo === null && upTo !== null) || (previousUpTo !== null && upTo !== null && previousUpTo >= upTo)) {
+        throw new Error('Bands must climb strictly');
+      }
+    }
+
+    if (upTo === null) {
+      if (openBandIndex !== -1) {
+        throw new Error('Only one open band is allowed and it must be the last');
+      }
+      openBandIndex = i;
+    }
+  }
+
+  if (openBandIndex === -1 || openBandIndex !== steps.length - 1) {
+    throw new Error('Exactly one open band that catches everything heavier and must be the last');
+  }
+
+  if (!Array.isArray(extras)) {
+    throw new Error('Extras must be a list');
+  }
+
+  const usedMarks = new Set<string>();
+  for (const extra of extras) {
+    if (typeof extra !== 'object') {
+      throw new Error('Each extra must be an object');
+    }
+    const mark = extra['mark'] as string;
+    const cents = extra['cents'] as number;
+    const zones = extra['zones'] as string[] | null;
+
+    if (typeof mark !== 'string' || mark.trim() === '' || usedMarks.has(mark)) {
+      throw new Error('Invalid mark');
+    }
+    usedMarks.add(mark);
+
+    if (typeof cents !== 'number' || cents < 0) {
+      throw new Error('Cents must be a non-negative whole number');
+    }
+
+    if (zones !== null && (!Array.isArray(zones) || !zones.every(zone => typeof zone === 'string' && zones.includes(zone)))) {
+      throw new Error('Invalid zones for extra');
+    }
+  }
+
+  if (typeof round !== 'number' || round <= 0

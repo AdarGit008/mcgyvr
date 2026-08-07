@@ -1,0 +1,118 @@
+```ts
+/**
+ * Replays a series of operations on a search index tree.
+ * @param steps - A list of strings representing "add:<n>" or "drop:<n>" operations.
+ * @returns An array of numbers in root-then-left-side-then-right-side order.
+ */
+export function replayTreeOps(steps: string[]): number[] {
+  if (!Array.isArray(steps)) {
+    throw new Error("Steps must be an array.");
+  }
+
+  interface TreeNode {
+    value: number;
+    left?: TreeNode;
+    right?: TreeNode;
+  }
+
+  let root: TreeNode | null = null;
+
+  const addValue = (node: TreeNode | null, value: number): void => {
+    if (!node) {
+      return;
+    }
+    if (value < node.value) {
+      if (!node.left) {
+        node.left = { value };
+      } else {
+        addValue(node.left, value);
+      }
+    } else if (value > node.value) {
+      if (!node.right) {
+        node.right = { value };
+      } else {
+        addValue(node.right, value);
+      }
+    }
+  };
+
+  const findMinNode = (node: TreeNode): TreeNode => {
+    let current = node;
+    while (current.left) {
+      current = current.left;
+    }
+    return current;
+  };
+
+  const removeValue = (node: TreeNode | null, value: number): TreeNode | null => {
+    if (!node) {
+      throw new Error("Cannot drop a value not in the index.");
+    }
+
+    if (value < node.value) {
+      node.left = removeValue(node.left, value);
+    } else if (value > node.value) {
+      node.right = removeValue(node.right, value);
+    } else {
+      if (!node.left && !node.right) {
+        return null;
+      }
+      if (!node.left) {
+        return node.right;
+      }
+      if (!node.right) {
+        return node.left;
+      }
+
+      const minValueNode = findMinNode(node.right);
+      node.value = minValueNode.value;
+      node.right = removeValue(node.right, minValueNode.value);
+    }
+
+    return node;
+  };
+
+  for (const step of steps) {
+    if (typeof step !== "string") {
+      throw new Error("Each step must be a string.");
+    }
+    const match = step.match(/^([a-z]+):(-?\d+)$/);
+    if (!match) {
+      throw new Error(`Step "${step}" is not in the correct format.`);
+    }
+
+    const operation = match[1];
+    const value = parseInt(match[2], 10);
+
+    if (operation === "add") {
+      if (isNaN(value)) {
+        throw new Error("Value must be a number.");
+      }
+      if (!root) {
+        root = { value };
+      } else {
+        addValue(root, value);
+      }
+    } else if (operation === "drop") {
+      if (isNaN(value)) {
+        throw new Error("Value must be a number.");
+      }
+      if (!root) {
+        throw new Error("Cannot drop from an empty index.");
+      }
+      root = removeValue(root, value);
+    } else {
+      throw new Error(`Unknown operation "${operation}".`);
+    }
+  }
+
+  const traverseInOrder = (node: TreeNode | null): number[] => {
+    if (!node) {
+      return [];
+    }
+    return [...traverseInOrder(node.left), node.value, ...traverseInOrder(node.right)];
+  };
+
+  return traverseInOrder(root);
+}
+```

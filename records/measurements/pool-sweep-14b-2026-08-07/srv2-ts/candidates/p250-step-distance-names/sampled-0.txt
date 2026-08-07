@@ -1,0 +1,74 @@
+```ts
+/**
+ * Calculates distances for steps in terms of reach, lift, leftover, name, colour,
+ * tally, and widest step.
+ * 
+ * @param steps - An array of steps, where each step is an array of two pitch marks.
+ * @returns An object containing named distances for the steps.
+ */
+export function nameStepDistances(steps: any[]): any {
+    if (!Array.isArray(steps) || steps.length === 0) {
+        throw new Error("Steps must be a non-empty list.");
+    }
+
+    const namesMap = [
+        "unison", "minor second", "major second", "minor third", 
+        "major third", "perfect fourth", "tritone", "perfect fifth", 
+        "minor sixth", "major sixth", "minor seventh", "major seventh"
+    ];
+
+    const sweetLeftovers = new Set([0, 3, 4, 5, 7, 8, 9]);
+    const sharpLeftovers = new Set([1, 2, 6, 10, 11]);
+
+    interface StepResult {
+        name: string;
+        lift: number;
+        colour: string;
+    }
+
+    const results: StepResult[] = [];
+    let widestReach = -1;
+    let widestIndex = -1;
+
+    steps.forEach((step, index) => {
+        if (!Array.isArray(step) || step.length !== 2) {
+            throw new Error("Each step must be a list of exactly two pitch marks.");
+        }
+
+        const [mark1, mark2] = step;
+        if (!Number.isInteger(mark1) || !Number.isInteger(mark2)) {
+            throw new Error("Pitch marks must be whole numbers.");
+        }
+
+        const reach = Math.abs(mark1 - mark2);
+        const lift = Math.floor(reach / 12);
+        const leftover = reach % 12;
+        const name = namesMap[leftover];
+        const colour = sweetLeftovers.has(leftover) ? "sweet" : sharpLeftovers.has(leftover) ? "sharp" : "";
+
+        results.push({ name, lift, colour });
+
+        if (reach > widestReach) {
+            widestReach = reach;
+            widestIndex = index;
+        }
+    });
+
+    const tally: Record<string, number> = {};
+    results.forEach(result => {
+        if (result.name in tally) {
+            tally[result.name]++;
+        } else {
+            tally[result.name] = 1;
+        }
+    });
+
+    return {
+        names: results.map(result => result.name),
+        lifts: results.map(result => result.lift),
+        colours: results.map(result => result.colour),
+        tally,
+        widest: widestIndex
+    };
+}
+```

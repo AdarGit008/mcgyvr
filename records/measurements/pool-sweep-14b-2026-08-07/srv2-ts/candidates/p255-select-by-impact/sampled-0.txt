@@ -1,0 +1,85 @@
+```ts
+export function selectByImpact(imports: Record<string, string[]>, suites: Record<string, string[]>, edited: string[]): string[] {
+  // Validate input shapes
+  if (typeof imports !== 'object' || Array.isArray(imports) || typeof suites !== 'object' || Array.isArray(suites) || !Array.isArray(edited)) {
+    throw new Error('Invalid input shape');
+  }
+
+  const allModules = new Set<string>([...Object.keys(imports), ...Object.keys(suites), ...edited]);
+
+  // Validate module names
+  for (const module of allModules) {
+    if (!imports.hasOwnProperty(module) || !suites.hasOwnProperty(module)) {
+      throw new Error('Module not declared in imports or suites');
+    }
+  }
+
+  // Validate self-imports and duplicate imports
+  for (const [module, imported] of Object.entries(imports)) {
+    if (imported.includes(module)) {
+      throw new Error('Module importing itself');
+    }
+    if (new Set(imported).size !== imported.length) {
+      throw new Error('Duplicate module in import list');
+    }
+  }
+
+  // Validate suite names
+  for (const [suite, modules] of Object.entries(suites)) {
+    if (suite === '') {
+      throw new Error('Suite name cannot be empty');
+    }
+    for (const module of modules) {
+      if (!allModules.has(module)) {
+        throw new Error('Module driven by suite not declared');
+      }
+    }
+  }
+
+  // Validate edited names
+  for (const module of edited) {
+    if (!allModules.has(module)) {
+      throw new Error('Edited module not declared');
+    }
+  }
+
+  const disturbedModules = new Set<string>();
+
+  // Function to mark modules as disturbed
+  function markDisturbed(module: string): void {
+    if (disturbedModules.has(module)) return;
+    disturbedModules.add(module);
+    for (const [m, imported] of Object.entries(imports)) {
+      if (imported.includes(module)) {
+        markDisturbed(m);
+      }
+    }
+  }
+
+  // Mark all edited modules and their importers as disturbed
+  for (const module of edited) {
+    markDisturbed(module);
+  }
+
+  const runningSuites = new Set<string>();
+
+  // Determine which suites should run
+  for (const [suite, modules] of Object.entries(suites)) {
+    for (const module of modules) {
+      if (disturbedModules.has(module)) {
+        runningSuites.add(suite);
+        break;
+      }
+    }
+  }
+
+  const suiteNames = Array.from(runningSuites).sort();
+
+  // Check if strictly more than half of all suites would run
+  if (suiteNames.length > Object.keys(suites).length / 2) {
+    return ["ALL"];
+  }
+
+  return suiteNames;
+}
+```

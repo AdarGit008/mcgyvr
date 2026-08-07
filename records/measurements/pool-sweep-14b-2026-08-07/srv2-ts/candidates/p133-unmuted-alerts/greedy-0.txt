@@ -1,0 +1,22 @@
+```ts
+export function unmutedAlerts(alerts: Array<{ id: string; resource: string; severity: number }>): string[] {
+  const alertMap = new Map<string, { id: string; severity: number }>();
+
+  for (const alert of alerts) {
+    if (alert.severity <= 0 || !Number.isInteger(alert.severity)) {
+      throw new Error("Severity must be a positive integer.");
+    }
+    if (alertMap.has(alert.id)) {
+      throw new Error("Duplicate alert id found.");
+    }
+    const existingAlert = alertMap.get(alert.resource);
+    if (!existingAlert || alert.severity > existingAlert.severity) {
+      alertMap.set(alert.resource, { id: alert.id, severity: alert.severity });
+    }
+  }
+
+  return Array.from(alertMap.values())
+    .sort((a, b) => b.severity - a.severity || a.id.localeCompare(b.id))
+    .map((alert) => alert.id);
+}
+```

@@ -1,0 +1,73 @@
+```ts
+export function strandedTickerPairs(legs: unknown[][]): string[] {
+  if (!Array.isArray(legs) || legs.length === 0) {
+    throw new Error("No legs are published.");
+  }
+
+  const tickerGraph: Record<string, Set<string>> = {};
+
+  for (const leg of legs) {
+    if (!Array.isArray(leg) || leg.length !== 2) {
+      throw new Error("A leg is not exactly two elements.");
+    }
+
+    const [sellTicker, buyTicker] = leg;
+
+    if (
+      typeof sellTicker !== "string" ||
+      typeof buyTicker !== "string" ||
+      sellTicker === "" ||
+      buyTicker === ""
+    ) {
+      throw new Error("A ticker is not a non-empty string.");
+    }
+
+    if (sellTicker === buyTicker) {
+      throw new Error("A leg sells and buys the same ticker.");
+    }
+
+    if (!tickerGraph[sellTicker]) {
+      tickerGraph[sellTicker] = new Set();
+    }
+
+    if (tickerGraph[sellTicker].has(buyTicker)) {
+      throw new Error("The identical leg is published twice.");
+    }
+
+    tickerGraph[sellTicker].add(buyTicker);
+  }
+
+  const tickers = Object.keys(tickerGraph);
+
+  const canReach: Record<string, Set<string>> = {};
+
+  const dfs = (ticker: string, visited: Set<string>) => {
+    if (!canReach[ticker]) {
+      canReach[ticker] = new Set();
+    }
+    for (const next of tickerGraph[ticker] || []) {
+      if (!visited.has(next)) {
+        visited.add(next);
+        canReach[ticker].add(next);
+        dfs(next, visited);
+      }
+    }
+  };
+
+  for (const ticker of tickers) {
+    dfs(ticker, new Set([ticker]));
+  }
+
+  const strandedPairs: string[] = [];
+
+  for (const fromTicker of tickers) {
+    for (const toTicker of tickers) {
+      if (fromTicker < toTicker && !canReach[fromTicker].has(toTicker)) {
+        strandedPairs.push(`${fromTicker}>${toTicker}`);
+      }
+    }
+  }
+
+  return strandedPairs.sort((a, b) => a.localeCompare(b));
+}
+```

@@ -1,0 +1,88 @@
+```ts
+export function rangeAlgebra(a: number[][], b: number[][], op: string): number[][] {
+  if (op !== "union" && op !== "intersect" && op !== "subtract") {
+    throw new Error("Invalid operation");
+  }
+
+  const normalize = (ranges: number[][]): number[][] => {
+    return ranges
+      .filter(([lo, hi]) => Number.isInteger(lo) && Number.isInteger(hi) && lo < hi)
+      .sort(([a1, a2], [b1, b2]) => a1 - b1);
+  };
+
+  const merge = (ranges: number[][]): number[][] => {
+    if (ranges.length === 0) return [];
+
+    let merged: number[][] = [ranges[0]];
+
+    for (let i = 1; i < ranges.length; i++) {
+      const last = merged[merged.length - 1];
+      const [lo, hi] = ranges[i];
+
+      if (lo <= last[1]) {
+        merged[merged.length - 1][1] = Math.max(last[1], hi);
+      } else {
+        merged.push([lo, hi]);
+      }
+    }
+
+    return merged;
+  };
+
+  const union = (a: number[][], b: number[][]): number[][] => {
+    return merge([...a, ...b]);
+  };
+
+  const intersect = (a: number[][], b: number[][]): number[][] => {
+    let result: number[][] = [];
+
+    for (const [alo, ahi] of a) {
+      for (const [blo, bhi] of b) {
+        const lo = Math.max(alo, blo);
+        const hi = Math.min(ahi, bhi);
+
+        if (lo < hi) {
+          result.push([lo, hi]);
+        }
+      }
+    }
+
+    return merge(result);
+  };
+
+  const subtract = (a: number[][], b: number[][]): number[][] => {
+    let result: number[][] = [];
+
+    for (const [alo, ahi] of a) {
+      let start = alo;
+
+      for (const [blo, bhi] of b) {
+        if (start < blo) {
+          result.push([start, Math.min(ahi, blo)]);
+        }
+        start = Math.max(start, bhi);
+      }
+
+      if (start < ahi) {
+        result.push([start, ahi]);
+      }
+    }
+
+    return merge(result);
+  };
+
+  const normalizeA = normalize(a);
+  const normalizeB = normalize(b);
+
+  switch (op) {
+    case "union":
+      return union(normalizeA, normalizeB);
+    case "intersect":
+      return intersect(normalizeA, normalizeB);
+    case "subtract":
+      return subtract(normalizeA, normalizeB);
+    default:
+      throw new Error("Invalid operation");
+  }
+}
+```

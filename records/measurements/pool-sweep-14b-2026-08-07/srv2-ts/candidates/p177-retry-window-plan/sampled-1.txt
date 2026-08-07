@@ -1,0 +1,56 @@
+```ts
+export function planRetryWindow(policy: { base: number; factor: number; ceiling: number; tries: number; deadline: number }, outcomes: string[]): { times: number[]; verdict: string } {
+    const validatePolicy = (policy: any): policy is { base: number; factor: number; ceiling: number; tries: number; deadline: number } => {
+        return typeof policy === 'object' &&
+               typeof policy.base === 'number' && policy.base >= 1 &&
+               typeof policy.factor === 'number' && policy.factor >= 1 &&
+               typeof policy.ceiling === 'number' && policy.ceiling >= policy.base &&
+               typeof policy.tries === 'number' && policy.tries >= 1 &&
+               typeof policy.deadline === 'number' && policy.deadline >= 0;
+    };
+
+    const validateOutcomes = (outcomes: any): outcomes is string[] => {
+        return Array.isArray(outcomes) && outcomes.every(o => ['won', 'lost', 'held'].includes(o));
+    };
+
+    if (!validatePolicy(policy)) {
+        throw new Error('Invalid policy');
+    }
+
+    if (!validateOutcomes(outcomes)) {
+        throw new Error('Invalid outcomes');
+    }
+
+    const { base, factor, ceiling, tries, deadline } = policy;
+    let times: number[] = [];
+    let verdict: string = '';
+    let nextAttemptTime: number = 0;
+    let consecutiveLosts: number = 0;
+
+    for (let i = 0; i < outcomes.length && verdict === ''; i++) {
+        const outcome = outcomes[i];
+
+        if (outcome === 'won') {
+            verdict = 'succeeded';
+        } else if (i >= tries - 1) {
+            verdict = 'exhausted';
+        } else {
+            times.push(nextAttemptTime);
+
+            if (outcome === 'lost') {
+                consecutiveLosts++;
+                nextAttemptTime += Math.min(base * Math.pow(factor, consecutiveLosts), ceiling);
+            } else if (outcome === 'held') {
+                consecutiveLosts = 0;
+                nextAttemptTime += ceiling;
+            }
+
+            if (nextAttemptTime >= deadline) {
+                verdict = 'expired';
+            }
+        }
+    }
+
+    return { times, verdict };
+}
+```

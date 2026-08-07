@@ -1,0 +1,50 @@
+```ts
+export function meridianWeekLabel(date: string): string {
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error('Invalid date format');
+  }
+
+  const [yearStr, monthStr, dayStr] = date.split('-').map(Number);
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+
+  if (year < 2 || year > 9999) {
+    throw new Error('Year out of range');
+  }
+  if (month < 1 || month > 12) {
+    throw new Error('Invalid month');
+  }
+  if (day < 1 || day > daysInMonth(year, month)) {
+    throw new Error('Invalid day');
+  }
+
+  const isLeapYear = (y: number): boolean => (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+  const daysInMonth = (y: number, m: number): number => {
+    if (m === 2) return isLeapYear(y) ? 29 : 28;
+    if ([4, 6, 9, 11].includes(m)) return 30;
+    return 31;
+  };
+
+  const daysSinceEpoch = (y: number, m: number, d: number): number => {
+    let days = 0;
+    for (let i = 2; i < y; i++) {
+      days += isLeapYear(i) ? 366 : 365;
+    }
+    for (let i = 1; i < m; i++) {
+      days += daysInMonth(y, i);
+    }
+    return days + d - 1;
+  };
+
+  const firstDayOfYear = daysSinceEpoch(year, 1, 1) % 7;
+  const firstWednesdayOfYear = (3 - firstDayOfYear + 7) % 7; // Wednesday is day 3
+  const weekNumber = Math.floor((daysSinceEpoch(year, month, day) - firstWednesdayOfYear) / 7) + 1;
+
+  if (weekNumber <= 0) {
+    return `${year - 1}-W${(52 + weekNumber).toString().padStart(2, '0')}`;
+  }
+
+  return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
+}
+```

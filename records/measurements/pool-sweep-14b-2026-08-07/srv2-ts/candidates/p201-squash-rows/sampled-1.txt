@@ -1,0 +1,70 @@
+```ts
+/**
+ * A chart with its twin rows squashed together.
+ */
+export function squashRows(chart: Record<string, unknown>): Record<string, unknown> {
+  const signals = (chart.signals as string[]).filter(
+    (s) => typeof s === "string" && s.length > 0
+  );
+  if (signals.length === 0 || new Set(signals).size !== signals.length) {
+    throw new Error("Invalid signals");
+  }
+
+  const rows = chart.rows as any[];
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("No rows provided");
+  }
+
+  const headLabel = chart.head as string;
+  if (typeof headLabel !== "string" || headLabel.length === 0) {
+    throw new Error("Invalid head label");
+  }
+
+  const rowLabels = new Set<string>();
+  for (const row of rows) {
+    const { label, mark, next } = row;
+    if (
+      typeof label !== "string" ||
+      label.length === 0 ||
+      rowLabels.has(label)
+    ) {
+      throw new Error("Invalid row label");
+    }
+    if (
+      typeof mark !== "string" ||
+      mark.length === 0 ||
+      !Array.isArray(next) ||
+      next.length !== signals.length
+    ) {
+      throw new Error("Invalid row or next list");
+    }
+    for (const n of next) {
+      if (typeof n !== "string" || n.length === 0) {
+        throw new Error("Invalid next label");
+      }
+    }
+    rowLabels.add(label);
+  }
+
+  const groupOf = new Map<string, number>();
+  const chosen: any[] = [];
+  const seen = new Map<string, number>();
+
+  for (const row of rows) {
+    const key = row.mark + "|" + row.next.join(",");
+    if (!seen.has(key)) {
+      seen.set(key, chosen.length);
+      chosen.push(row);
+    }
+    groupOf.set(row.label, seen.get(key) as number);
+  }
+
+  const folded = chosen.map((row, at) => ({
+    at,
+    mark: row.mark,
+    next: row.next.map((label: string) => groupOf.get(label)),
+  }));
+
+  return { entry: groupOf.get(headLabel), rows: folded };
+}
+```

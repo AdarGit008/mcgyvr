@@ -1,0 +1,93 @@
+```ts
+/**
+ * Folds a machine by merging indistinguishable states and reducing its size.
+ * @param machine - The input machine to be folded.
+ */
+export function foldMachine(machine: Record<string, unknown>): Record<string, unknown> {
+  const { alphabet, states, start, accepting, moves } = machine as {
+    alphabet: string[];
+    states: string[];
+    start: string;
+    accepting: string[];
+    moves: [string, string, string][];
+  };
+
+  // Validate input
+  if (!alphabet.length || !states.length) {
+    throw new Error("Alphabet and states must be non-empty.");
+  }
+
+  const validateNonEmptyStringList = (list: string[], name: string) => {
+    if (new Set(list).size !== list.length) {
+      throw new Error(`${name} must have distinct elements.`);
+    }
+    if (!list.every(item => typeof item === 'string' && item.length > 0)) {
+      throw new Error(`${name} must be a non-empty strings.`);
+    }
+  };
+
+  validateNonEmptyStringList(alphabet, "alphabet");
+  validateNonEmptyStringList(states, "states");
+
+  if (!states.includes(start)) {
+    throw new Error("Start state must be in the states list.");
+  }
+
+  const validateAccepting = (accepting: string[]) => {
+    if (!accepting.every(state => states.includes(state))) {
+      throw new Error("All accepting states must be in the states list.");
+    }
+    if (new Set(accepting).size !== accepting.length) {
+      throw new Error("Accepting states must have distinct elements.");
+    }
+  };
+
+  validateAccepting(accepting);
+
+  const moveMap = moves.reduce((acc, [from, symbol, to]) => {
+    if (!states.includes(from) || !alphabet.includes(symbol) || !states.includes(to)) {
+      throw new Error("Moves must reference valid states and symbols.");
+    }
+    if (acc[from]?.[symbol] && acc[from][symbol] !== to) {
+      throw new Error("Each state-symbol pair must have exactly one move.");
+    }
+    return { ...acc, [from]: { ...(acc[from] || {}), [symbol]: to } };
+  }, {} as Record<string, Record<string, string>>);
+
+  // Reachable states
+  const reachable = new Set([start]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const state of Array.from(reachable)) {
+      for (const symbol of alphabet) {
+        const next = moveMap[state]?.[symbol];
+        if (next && !reachable.has(next)) {
+          reachable.add(next);
+          changed = true;
+        }
+      }
+    }
+  }
+
+  // Filter out unreachable states
+  const filteredStates = states.filter(state => reachable.has(state));
+  const filteredAccepting = accepting.filter(state => reachable.has(state));
+  const filteredMoves = moves.filter(([from, symbol, to]) =>
+    reachable.has(from) && reachable.has(to)
+  );
+
+  // State equivalence classes
+  const equivalenceClasses: Record<string, Set<string>> = {};
+  let nextClassId = 0;
+  for (const state of filteredStates) {
+    equivalenceClasses[state] = new Set([state]);
+  }
+
+  const areEquivalent = (s1: string, s2: string): boolean => {
+    if (filteredAccepting.includes(s1) !== filteredAccepting.includes(s2)) return false;
+    for (const symbol of alphabet) {
+      const next1 = moveMap[s1]?.[symbol];
+      const next2 = moveMap[s2]?.[symbol];
+      if (!next1 && !next2) continue;
+      if

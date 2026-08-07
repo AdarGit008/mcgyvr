@@ -1,0 +1,98 @@
+```ts
+export function orderSkeinHands(hands: any[]): any {
+  if (!Array.isArray(hands) || hands.length === 0) {
+    throw new Error("Invalid input: hands must be a non-empty array.");
+  }
+
+  const grades = hands.map(hand => gradeHand(hand));
+  const rankedHands = hands
+    .map((hand, index) => ({ hand, grade: grades[index], index }))
+    .sort(compareHands);
+
+  return {
+    grades,
+    order: rankedHands.map(({ index }) => index)
+  };
+}
+
+function gradeHand(hand: any): string {
+  if (!Array.isArray(hand) || hand.length !== 5) {
+    throw new Error("Invalid input: each hand must be an array of exactly five elements.");
+  }
+
+  const cards = hand.map(card => parseCard(card));
+  const pips = Array.from(new Set(cards.map(card => card.pip)));
+  const houses = Array.from(new Set(cards.map(card => card.house)));
+
+  if (pips.length === 2) {
+    return "monolith";
+  }
+  if (pips.length === 5 && houses.length === 4) {
+    return "prism";
+  }
+  if (pips.length === 5 && Math.max(...pips) - Math.min(...pips) === 4) {
+    return "chain";
+  }
+  if (pips.length === 3) {
+    return "echo";
+  }
+  if (pips.length === 4) {
+    return "twin";
+  }
+  return "drift";
+}
+
+function parseCard(card: any): { pip: number, house: string } {
+  if (typeof card !== "string" || !/^\d[mrst]$/.test(card)) {
+    throw new Error("Invalid input: each card must be a string of a pip from 1 to 10 followed by one house letter.");
+  }
+
+  const pip = parseInt(card[0], 10);
+  const house = card[1];
+
+  return { pip, house };
+}
+
+function compareHands(a: { hand: any[], grade: string, index: number }, b: { hand: any[], grade: string, index: number }): number {
+  if (a.grade !== b.grade) {
+    return getGradeOrder(a.grade) - getGradeOrder(b.grade);
+  }
+
+  const ladderA = buildLadder(a.hand);
+  const ladderB = buildLadder(b.hand);
+
+  for (let i = 0; i < ladderA.length; i++) {
+    if (ladderA[i][0] !== ladderB[i][0]) {
+      return ladderB[i][0] - ladderA[i][0];
+    }
+  }
+
+  const weightA = calculateWeights(a.hand);
+  const weightB = calculateWeights(b.hand);
+
+  for (let i = 0; i < weightA.length; i++) {
+    if (weightA[i] !== weightB[i]) {
+      return weightB[i] - weightA[i];
+    }
+  }
+
+  return a.index - b.index;
+}
+
+function getGradeOrder(grade: string): number {
+  const gradeOrder = {
+    "monolith": 1,
+    "prism": 2,
+    "chain": 3,
+    "echo": 4,
+    "twin": 5,
+    "drift": 6
+  };
+
+  return gradeOrder[grade] || 0;
+}
+
+function buildLadder(hand: any[]): [number, number][] {
+  const cards = hand.map(card => parseCard(card));
+  const pipCounts = cards.reduce((acc, card) => {
+    acc[card.pip] = (

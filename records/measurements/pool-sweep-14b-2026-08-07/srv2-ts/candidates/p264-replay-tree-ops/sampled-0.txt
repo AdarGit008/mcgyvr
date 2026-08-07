@@ -1,0 +1,95 @@
+```ts
+/**
+ * Replays a series of tree operations to build and then report the values in a binary search tree.
+ * @param steps - A list of strings representing "add:<n>" or "drop:<n>" operations.
+ * @returns An array of numbers representing the values in root-then-left-side-then-right-side order.
+ */
+export function replayTreeOps(steps: string[]): number[] {
+  if (!Array.isArray(steps)) {
+    throw new Error("Invalid steps argument: not an array");
+  }
+
+  type TreeNode = {
+    value: number;
+    left?: TreeNode;
+    right?: TreeNode;
+  };
+
+  let root: TreeNode | null = null;
+
+  const addValue = (node: TreeNode | null, value: number): TreeNode => {
+    if (!node) {
+      return { value };
+    } else if (value < node.value) {
+      node.left = addValue(node.left, value);
+    } else if (value > node.value) {
+      node.right = addValue(node.right, value);
+    }
+    // Silently ignore duplicate values
+    return node;
+  };
+
+  const minValueNode = (node: TreeNode): TreeNode => {
+    let current = node;
+    while (current.left) {
+      current = current.left;
+    }
+    return current;
+  };
+
+  const removeValue = (node: TreeNode | null, value: number): TreeNode | null => {
+    if (!node) {
+      throw new Error("Invalid drop operation: value not found in the tree");
+    }
+
+    if (value < node.value) {
+      node.left = removeValue(node.left, value);
+    } else if (value > node.value) {
+      node.right = removeValue(node.right, value);
+    } else {
+      if (!node.left) {
+        return node.right;
+      } else if (!node.right) {
+        return node.left;
+      }
+
+      const minValue = minValueNode(node.right).value;
+      node.value = minValue;
+      node.right = removeValue(node.right, minValue);
+    }
+    return node;
+  };
+
+  steps.forEach(step => {
+    if (typeof step !== "string") {
+      throw new Error("Invalid step: not a string");
+    }
+
+    const match = step.match(/^(\w+):(-?\d+)$/);
+    if (!match) {
+      throw new Error(`Invalid step format: ${step}`);
+    }
+
+    const [_, operation, numStr] = match;
+    const value = parseInt(numStr, 10);
+
+    if (isNaN(value)) {
+      throw new Error("Invalid number in step");
+    }
+
+    if (operation === "add") {
+      root = addValue(root, value);
+    } else if (operation === "drop") {
+      root = removeValue(root, value);
+    } else {
+      throw new Error(`Unknown operation: ${operation}`);
+    }
+  });
+
+  const inorderTraversal = (node: TreeNode | null): number[] => {
+    return node ? [...inorderTraversal(node.left), node.value, ...inorderTraversal(node.right)] : [];
+  };
+
+  return inorderTraversal(root);
+}
+```

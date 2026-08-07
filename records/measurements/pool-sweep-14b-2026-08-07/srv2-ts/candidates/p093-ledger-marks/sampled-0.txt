@@ -1,0 +1,52 @@
+```ts
+export function linkLedgerMarks(marks: string[], aliases: Record<string, string>): [string, string[]][] {
+  const validateMark = (mark: string): { houseCode: string; serial: number; checkLetter: string } => {
+    const regex = /^([a-zA-Z]{2,3})[-/ ](\d+)([a-zA-Z])$/;
+    const match = mark.match(regex);
+    if (!match) throw new Error('Malformed mark');
+
+    const houseCode = match[1].toUpperCase();
+    const serial = parseInt(match[2], 10);
+    const checkLetter = match[3].toUpperCase();
+
+    if (serial < 1) throw new Error('Serial value must be at least 1');
+    const expectedCheckLetter = String.fromCharCode(((serial - 1) % 26) + 'A'.charCodeAt(0));
+    if (checkLetter !== expectedCheckLetter) throw new Error('Incorrect check letter');
+
+    return { houseCode, serial, checkLetter };
+  };
+
+  const resolveHouseCode = (houseCode: string): string => {
+    if (aliases[houseCode]) {
+      if (aliases[houseCode] === houseCode || aliases[aliases[houseCode]]) {
+        throw new Error('Bad alias table');
+      }
+      return aliases[houseCode];
+    }
+    return houseCode;
+  };
+
+  const entries: [string, string[]][] = [];
+
+  for (const mark of marks) {
+    if (typeof mark !== 'string') throw new Error('Non-string mark');
+
+    try {
+      const { houseCode, serial, checkLetter } = validateMark(mark);
+      const resolvedHouseCode = resolveHouseCode(houseCode);
+      const canonicalForm = `${resolvedHouseCode}-${serial.toString().padStart(2, '0')}-${checkLetter}`;
+
+      const existingEntry = entries.find(([key]) => key === canonicalForm);
+      if (existingEntry) {
+        existingEntry[1].push(mark);
+      } else {
+        entries.push([canonicalForm, [mark]]);
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  return entries;
+}
+```

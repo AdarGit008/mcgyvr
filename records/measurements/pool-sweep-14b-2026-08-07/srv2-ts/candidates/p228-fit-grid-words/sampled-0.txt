@@ -1,0 +1,90 @@
+```ts
+export function fitGridWords(slots: Array<Record<string, unknown>>, words: string[]): Record<string, unknown> {
+    if (!Array.isArray(slots) || slots.length === 0) {
+        throw new Error("Slots must be a non-empty list");
+    }
+
+    const slotMap: Map<string, { row: number, col: number, run: "across" | "down", len: number }> = new Map();
+    const grid: (string | null)[][] = [];
+    const placed: { slot: string, word: string }[] = [];
+
+    for (const slot of slots) {
+        if (typeof slot !== 'object' || !slot) {
+            throw new Error("Slot must be a mapping");
+        }
+
+        const id = slot.id as string;
+        const row = Number(slot.row);
+        const col = Number(slot.col);
+        const run = slot.run as "across" | "down";
+        const len = Number(slot.len);
+
+        if (typeof id !== 'string' || id === '') {
+            throw new Error("Id must be a non-empty string");
+        }
+
+        if (slotMap.has(id)) {
+            throw new Error("Ids must not be shared");
+        }
+
+        if (!Number.isInteger(row) || row < 0 || !Number.isInteger(col) || col < 0) {
+            throw new Error("Row and column must be whole numbers of nought or more");
+        }
+
+        if (run !== "across" && run !== "down") {
+            throw new Error("Run must be either 'across' or 'down'");
+        }
+
+        if (!Number.isInteger(len) || len < 2) {
+            throw new Error("Length must be a whole number of two or more");
+        }
+
+        slotMap.set(id, { row, col, run, len });
+
+        for (let i = 0; i < len; i++) {
+            if (run === "across") {
+                grid[row] = grid[row] || [];
+                grid[row][col + i] = null;
+            } else {
+                grid[row + i] = grid[row + i] || [];
+                grid[row + i][col] = null;
+            }
+        }
+    }
+
+    for (const slotId of slotMap.keys()) {
+        const { row, col, run, len } = slotMap.get(slotId)!;
+
+        let compatibleWords: string[] = words.filter(word => word.length === len);
+
+        if (compatibleWords.length === 0) {
+            return { placed, stuck: slotId };
+        }
+
+        for (const [i, cell] of grid[row].entries()) {
+            if (cell !== null) {
+                compatibleWords = compatibleWords.filter(word => word[i] === cell);
+            }
+        }
+
+        if (compatibleWords.length === 0) {
+            return { placed, stuck: slotId };
+        }
+
+        const wordToPlace = compatibleWords[0];
+        words = words.filter(w => w !== wordToPlace);
+
+        for (let i = 0; i < len; i++) {
+            if (run === "across") {
+                grid[row][col + i] = wordToPlace[i];
+            } else {
+                grid[row + i][col] = wordToPlace[i];
+            }
+        }
+
+        placed.push({ slot: slotId, word: wordToPlace });
+    }
+
+    return { placed, stuck: "" };
+}
+```

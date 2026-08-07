@@ -1,0 +1,51 @@
+```ts
+export function smallestFreeWord(n: number, k: number, banned: string[]): string {
+  if (!Number.isInteger(n) || n <= 0 || n > 12) {
+    throw new Error("Invalid length n");
+  }
+  if (!Number.isInteger(k) || k < 1 || k > 6) {
+    throw new Error("Invalid alphabet size k");
+  }
+  if (!Array.isArray(banned)) {
+    throw new Error("Invalid banned list");
+  }
+  for (const ban of banned) {
+    if (typeof ban !== "string" || ban.length !== 2 || !/^[a-z]{2}$/.test(ban)) {
+      throw new Error("Invalid banned entry");
+    }
+  }
+
+  const alphabet = Array.from({ length: k }, (_, i) => String.fromCharCode(97 + i));
+
+  function isValid(word: string): boolean {
+    for (let i = 0; i < word.length - 1; i++) {
+      if (banned.includes(word[i] + word[i + 1])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function backtrack(word: string): string | null {
+    if (word.length === n) {
+      return isValid(word) ? word : null;
+    }
+    for (const char of alphabet) {
+      const candidate = word + char;
+      if (isValid(candidate)) {
+        const result = backtrack(candidate);
+        if (result) {
+          return result;
+        }
+      }
+    }
+    return null;
+  }
+
+  const result = backtrack("");
+  if (!result) {
+    throw new Error("No valid word found");
+  }
+  return result;
+}
+```

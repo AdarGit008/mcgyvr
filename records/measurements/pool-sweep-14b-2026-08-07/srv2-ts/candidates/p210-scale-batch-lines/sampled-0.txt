@@ -1,0 +1,49 @@
+```ts
+export function scaleBatchLines(items: string[], want: number, base: number): string[] {
+  if (!Array.isArray(items)) throw new Error("Items must be an array");
+  if (want <= 0 || !Number.isInteger(want) || base <= 0 || !Number.isInteger(base))
+    throw new Error("Portion counts must be whole numbers above zero");
+
+  const measures = new Set(["g", "ml", "each"]);
+  const quantities: { [key: string]: number } = {};
+
+  return items.map((line, index) => {
+    const parts = line.split(" ");
+    if (parts.length !== 3) throw new Error(`Line ${index + 1} breaks the three part shape`);
+
+    const [quantityStr, measure, name] = parts;
+    const quantity = parseInt(quantityStr, 10);
+
+    if (
+      !quantity ||
+      quantity <= 0 ||
+      !/^\d+$/.test(quantityStr) ||
+      !measures.has(measure) ||
+      !/^[a-zA-Z]+(\s[a-zA-Z]+)*$/.test(name)
+    ) {
+      throw new Error(`Line ${index + 1} has invalid format`);
+    }
+
+    if (quantities[name]) throw new Error(`Duplicate name on line ${index + 1}`);
+
+    quantities[name] = quantity;
+
+    let scaledQuantity = Math.round((quantity * want) / base);
+    if (scaledQuantity === 0) scaledQuantity = 1;
+
+    switch (measure) {
+      case "g":
+        scaledQuantity = Math.ceil(scaledQuantity / 1) * 1;
+        break;
+      case "ml":
+        scaledQuantity = Math.ceil(scaledQuantity / 5) * 5;
+        break;
+      case "each":
+        scaledQuantity = Math.ceil(scaledQuantity / 1) * 1;
+        break;
+    }
+
+    return `${scaledQuantity} ${measure} ${name}`;
+  });
+}
+```

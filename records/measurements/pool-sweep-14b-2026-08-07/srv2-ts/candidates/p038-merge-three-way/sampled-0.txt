@@ -1,0 +1,50 @@
+```ts
+/**
+ * Merges three string-to-string mappings into a single mapping, resolving conflicts.
+ * @param base - The common ancestor mapping.
+ * @param ours - One of the edited copies.
+ * @param theirs - Another edited copy.
+ * @returns An object containing the merged mapping and a list of conflicting keys.
+ */
+export function mergeThreeWay(base: Record<string, string>, ours: Record<string, string>, theirs: Record<string, string>): { merged: Record<string, string>; conflicts: string[] } {
+  const validateMapping = (mapping: Record<string, string>) => {
+    if (typeof mapping !== 'object' || mapping === null) {
+      throw new Error('Argument must be a non-null object');
+    }
+    for (const key in mapping) {
+      if (typeof key !== 'string' || typeof mapping[key] !== 'string') {
+        throw new Error('Mapping keys and values must all be strings');
+      }
+    }
+  };
+
+  validateMapping(base);
+  validateMapping(ours);
+  validateMapping(theirs);
+
+  const merged: Record<string, string> = {};
+  const conflicts: string[] = [];
+
+  const allKeys = new Set([...Object.keys(base), ...Object.keys(ours), ...Object.keys(theirs)]);
+  for (const key of Array.from(allKeys).sort()) {
+    const baseValue = base[key];
+    const ourValue = ours[key];
+    const theirValue = theirs[key];
+
+    if (ourValue === baseValue && theirValue === baseValue) {
+      merged[key] = baseValue;
+    } else if ((ourValue === baseValue || !base.hasOwnProperty(key)) && (theirValue === baseValue || !base.hasOwnProperty(key))) {
+      merged[key] = ourValue ?? theirValue;
+    } else if (ourValue === theirValue && ourValue !== baseValue) {
+      merged[key] = ourValue;
+    } else {
+      conflicts.push(key);
+      if (base.hasOwnProperty(key)) {
+        merged[key] = baseValue;
+      }
+    }
+  }
+
+  return { merged, conflicts };
+}
+```

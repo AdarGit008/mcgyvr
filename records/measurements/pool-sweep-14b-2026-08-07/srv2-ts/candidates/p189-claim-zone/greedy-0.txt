@@ -1,0 +1,50 @@
+```ts
+export function claimZone(claims: string[], where: string): string {
+  // Validate input claims
+  if (!Array.isArray(claims)) {
+    throw new Error("Claims must be an array");
+  }
+
+  const parsedClaims = claims.map((claim) => {
+    const [stencil, name] = claim.split(' ');
+    if (name === undefined || name.includes(' ')) {
+      throw new Error("Claim must have a non-empty name with no spaces");
+    }
+    if (!stencil.includes('/')) {
+      throw new Error("Stencil must contain a slash");
+    }
+
+    const [post, depthStr] = stencil.split('/');
+    const depth = parseInt(depthStr, 10);
+    if (isNaN(depth) || depth < 0 || depth > 3) {
+      throw new Error("Depth must be between 0 and 3");
+    }
+
+    const numbers = post.split('.').map(Number);
+    if (numbers.length !== 3 || numbers.some((num) => num < 0 || num > 15 || !Number.isInteger(num))) {
+      throw new Error("Post must have exactly three numbers between 0 and 15");
+    }
+
+    return { stencil, name, depth, numbers };
+  });
+
+  // Validate where
+  const whereNumbers = where.split('.').map(Number);
+  if (whereNumbers.length !== 3 || whereNumbers.some((num) => num < 0 || num > 15 || !Number.isInteger(num))) {
+    throw new Error("Where must have exactly three numbers between 0 and 15");
+  }
+
+  // Find the deepest claim covering where
+  let bestClaim: string | null = null;
+  let bestDepth = -1;
+
+  for (const { stencil, name, depth, numbers } of parsedClaims) {
+    if (depth > bestDepth && numbers.every((num, i) => i < depth || num === whereNumbers[i])) {
+      bestClaim = name;
+      bestDepth = depth;
+    }
+  }
+
+  return bestClaim || '';
+}
+```

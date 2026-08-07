@@ -1,0 +1,88 @@
+```ts
+export function orderSkeinHands(hands: any[]): any {
+  if (!Array.isArray(hands) || hands.length === 0) {
+    throw new Error("Invalid input: must be a non-empty list of hands.");
+  }
+
+  const grades = hands.map(gradeHand);
+  const orderedIndices = Array.from({ length: hands.length }, (_, i) => i);
+
+  orderedIndices.sort((a, b) => compareHands(hands[a], hands[b], grades));
+
+  return {
+    grades,
+    order: orderedIndices,
+  };
+}
+
+function gradeHand(hand: any[]): string {
+  if (!Array.isArray(hand) || hand.length !== 5) {
+    throw new Error("Invalid hand: must be a list of exactly five cards.");
+  }
+
+  const cardSet = new Set<string>();
+  const pips: { [key: number]: number } = {};
+
+  for (const card of hand) {
+    if (
+      typeof card !== "string" ||
+      !/^\d[mrsv]$/.test(card) ||
+      cardSet.has(card)
+    ) {
+      throw new Error("Invalid card: must be a unique string of pip and house.");
+    }
+
+    const [pip, _] = card.split("");
+    const pipNumber = parseInt(pip, 10);
+
+    pips[pipNumber] = (pips[pipNumber] || 0) + 1;
+    cardSet.add(card);
+  }
+
+  const uniquePips = Object.keys(pips).map(Number).sort((a, b) => a - b);
+  const houseWeights: { [key: string]: number } = { m: 4, r: 3, s: 2, v: 1 };
+
+  if (uniquePips.length === 2) {
+    return "monolith";
+  } else if (
+    uniquePips.length === 5 &&
+    new Set(hand.map((card) => card[1])).size === 4
+  ) {
+    return "prism";
+  } else if (
+    uniquePips.length === 5 &&
+    uniquePips[4] - uniquePips[0] === 4
+  ) {
+    return "chain";
+  } else if (uniquePips.length === 3) {
+    return "echo";
+  } else if (uniquePips.length === 4) {
+    return "twin";
+  } else {
+    return "drift";
+  }
+}
+
+function compareHands(handA: any[], handB: any[], grades: string[]): number {
+  const gradeOrder = ["monolith", "prism", "chain", "echo", "twin", "drift"];
+  const gradeIndexA = gradeOrder.indexOf(grades[0]);
+  const gradeIndexB = gradeOrder.indexOf(grades[1]);
+
+  if (gradeIndexA !== gradeIndexB) {
+    return gradeIndexA - gradeIndexB;
+  }
+
+  const ladderA = getLadder(handA);
+  const ladderB = getLadder(handB);
+
+  for (let i = 0; i < ladderA.length; i++) {
+    if (ladderA[i] !== ladderB[i]) {
+      return ladderB[i] - ladderA[i];
+    }
+  }
+
+  const weightA = handA.map((card) => houseWeights[card[1]]).sort((a, b) => b - a);
+  const weightB = handB.map((card) => houseWeights[card[1]]).sort((a, b) => b - a);
+
+  for (let i = 0; i < weightA.length; i++) {
+    if (weightA[i] !==

@@ -1,0 +1,82 @@
+```ts
+export function weighUnit(spec: string, masses: Record<string, number>): number {
+  if (typeof spec !== "string") {
+    throw new Error("Spec must be a string");
+  }
+  if (spec.length === 0) {
+    throw new Error("Spec cannot be empty");
+  }
+
+  let at = 0;
+  const outer: { sum: number; count: number }[] = [];
+  let sum = 0;
+
+  const readCount = (): number => {
+    let digits = "";
+    while (at < spec.length && spec[at] >= "0" && spec[at] <= "9") {
+      if (digits === "0") {
+        throw new Error("Count cannot start with zero");
+      }
+      digits += spec[at];
+      at += 1;
+    }
+    return digits === "" ? 1 : Number(digits);
+  };
+
+  const readName = (): string => {
+    let name = "";
+    while (at < spec.length && (spec[at] >= "a" && spec[at] <= "z")) {
+      name += spec[at];
+      at += 1;
+    }
+    return name;
+  };
+
+  const parseSpec = (expectedCloser: string): number => {
+    let localSum = 0;
+    while (at < spec.length) {
+      const ch = spec[at];
+      if (ch === expectedCloser) {
+        at += 1;
+        return localSum;
+      } else if (ch === "(" || ch === "[") {
+        outer.push({ sum: localSum, count: readCount() });
+        localSum = parseSpec(ch === "(" ? ")" : "]");
+      } else if (ch >= "A" && ch <= "Z") {
+        let name = ch;
+        at += 1;
+        name += readName();
+        const mass = masses[name];
+        if (mass === undefined) {
+          throw new Error(`Unknown name: ${name}`);
+        }
+        localSum += mass * readCount();
+      } else {
+        throw new Error("Invalid character in spec");
+      }
+    }
+    throw new Error("Closer without opener");
+  };
+
+  const firstChar = spec[0];
+  if (firstChar === "(" || firstChar === "[") {
+    sum = parseSpec(firstChar === "(" ? ")" : "]");
+  } else if (firstChar >= "A" && firstChar <= "Z") {
+    let name = readName();
+    at = 0; // Reset to start for single name processing
+    const mass = masses[name];
+    if (mass === undefined) {
+      throw new Error(`Unknown name: ${name}`);
+    }
+    sum += mass * readCount();
+  } else {
+    throw new Error("Spec must start with a valid character");
+  }
+
+  if (at !== spec.length || outer.length > 0) {
+    throw new Error("Unmatched opener or unclosed bracket");
+  }
+
+  return sum;
+}
+```

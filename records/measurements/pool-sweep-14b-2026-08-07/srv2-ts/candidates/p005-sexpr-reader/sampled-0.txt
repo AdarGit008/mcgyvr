@@ -1,0 +1,49 @@
+```ts
+export function readSexpr(text: string): number | string | any[] {
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error('Invalid input');
+  }
+
+  const tokens = tokenize(text);
+  const result = parseExpression(tokens);
+
+  if (tokens.length > 0) {
+    throw new Error('Unexpected extra characters at the end of input');
+  }
+
+  return result;
+}
+
+function tokenize(input: string): string[] {
+  const tokenRegex = /[\s()]+|[+-]?\d+|[a-zA-Z0-9+-*/!?]+/g;
+  const tokens = input.match(tokenRegex);
+  if (!tokens) {
+    throw new Error('Invalid input');
+  }
+  return tokens.filter(token => !token.trim().isEmpty());
+}
+
+function parseExpression(tokens: string[]): number | string | any[] {
+  const token = tokens.shift();
+  if (token === undefined) {
+    throw new Error('Unexpected end of input');
+  }
+
+  if (token === '(') {
+    const list: any[] = [];
+    while (tokens[0] !== ')') {
+      list.push(parseExpression(tokens));
+    }
+    tokens.shift(); // Consume the closing parenthesis
+    return list;
+  } else if (token === ')') {
+    throw new Error('Unexpected closing parenthesis');
+  } else if (/^[+-]?\d+$/.test(token)) {
+    return parseInt(token, 10);
+  } else if (/^[a-zA-Z0-9+-*/!?]+$/.test(token) && !/^\d/.test(token)) {
+    return token;
+  } else {
+    throw new Error('Invalid atom');
+  }
+}
+```

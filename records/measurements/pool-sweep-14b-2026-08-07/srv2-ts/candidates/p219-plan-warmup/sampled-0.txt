@@ -1,0 +1,124 @@
+```ts
+export function planWarmup(brief: Record<string, unknown>): Record<string, unknown> {
+  if (typeof brief !== 'object' || brief === null) {
+    throw new Error('Invalid argument');
+  }
+
+  const { budget, slots, caps, items } = brief;
+
+  if (
+    typeof budget !== 'number' ||
+    !Number.isInteger(budget) ||
+    budget < 0
+  ) {
+    throw new Error('"budget" must be a non-negative whole number');
+  }
+
+  if (
+    typeof slots !== 'number' ||
+    !Number.isInteger(slots) ||
+    slots <= 0
+  ) {
+    throw new Error('"slots" must be a positive whole number');
+  }
+
+  if (typeof caps !== 'object' || caps === null) {
+    throw new Error('"caps" must be a mapping');
+  }
+
+  for (const family in caps) {
+    const cap = caps[family];
+    if (
+      typeof cap !== 'number' ||
+      !Number.isInteger(cap) ||
+      cap < 0
+    ) {
+      throw new Error('Each cap must be a non-negative whole number');
+    }
+  }
+
+  if (!Array.isArray(items)) {
+    throw new Error('"items" must be a list');
+  }
+
+  const seenNames = new Set<string>();
+
+  const validatedItems = items.map((item, index) => {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error(`Item at index ${index} must be a mapping`);
+    }
+
+    const { name, bytes, weight, family } = item as Record<string, unknown>;
+
+    if (
+      typeof name !== 'string' ||
+      name.trim() === ''
+    ) {
+      throw new Error(`Item at index ${index} has invalid name`);
+    }
+
+    if (seenNames.has(name)) {
+      throw new Error('Item names must be unique');
+    }
+    seenNames.add(name);
+
+    if (
+      typeof bytes !== 'number' ||
+      !Number.isInteger(bytes) ||
+      bytes <= 0
+    ) {
+      throw new Error(`Item at index ${index} has invalid bytes`);
+    }
+
+    if (
+      typeof weight !== 'number' ||
+      !Number.isInteger(weight) ||
+      weight < 0
+    ) {
+      throw new Error(`Item at index ${index} has invalid weight`);
+    }
+
+    if (
+      typeof family !== 'string' ||
+      family.trim() === ''
+    ) {
+      throw new Error(`Item at index ${index} has invalid family`);
+    }
+
+    if (!(family in caps)) {
+      throw new Error(`Family "${family}" not mentioned in "caps"`);
+    }
+
+    return { name, bytes, weight, family };
+  });
+
+  validatedItems.sort((a, b) => {
+    if (b.weight !== a.weight) {
+      return b.weight - a.weight;
+    }
+    if (a.bytes !== b.bytes) {
+      return a.bytes - b.bytes;
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  const loaded: string[] = [];
+  const turned: Record<string, unknown>[] = [];
+  let remainingSlots = slots;
+  const familyUsage: Record<string, number> = {};
+
+  for (const item of validatedItems) {
+    if (remainingSlots === 0) {
+      turned.push({ name: item.name, why: 'slots' });
+      continue;
+    }
+
+    if (!familyUsage[item.family]) {
+      familyUsage[item.family] = 0;
+    }
+
+    if (familyUsage[item.family] >= caps[item.family]) {
+      turned.push({ name: item.name, why: 'family' });
+      continue;
+    }
+

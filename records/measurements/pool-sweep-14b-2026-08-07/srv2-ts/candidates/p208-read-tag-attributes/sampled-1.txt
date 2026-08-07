@@ -1,0 +1,67 @@
+```ts
+export function readTagAttributes(tag: string): Record<string, unknown> {
+  if (typeof tag !== 'string') {
+    throw new Error('Invalid input: tag must be a string');
+  }
+
+  const tagPattern = /^\[([a-zA-Z][a-zA-Z0-9-]*)\s*([\s\S]*)\]$/;
+  const match = tag.match(tagPattern);
+
+  if (!match) {
+    throw new Error('Invalid tag format');
+  }
+
+  const stem = match[1];
+  const content = match[2];
+
+  if (/\s{2,}/.test(content)) {
+    throw new Error('Two spaces running in the tag');
+  }
+
+  if (content.endsWith(' ')) {
+    throw new Error('Space before closing bracket');
+  }
+
+  const marks: Record<string, { name: string; setting: string }> = {};
+  const markPattern = /(\w[\w0-9-]*)(?:=([^=\s]*(?:"[^"\\]*(?:\\.[^"\\]*)*"|'[^'\\]*(?:\\.[^'\\]*)*'))?)?/g;
+  let matchMark;
+
+  while ((matchMark = markPattern.exec(content)) !== null) {
+    const name = matchMark[1];
+    const settingString = matchMark[2];
+
+    if (marks[name]) {
+      if (marks[name].setting !== decodeSetting(settingString)) {
+        throw new Error('Name carried twice with different settings');
+      }
+    } else {
+      marks[name] = {
+        name,
+        setting: decodeSetting(settingString),
+      };
+    }
+  }
+
+  return { stem, marks };
+}
+
+function decodeSetting(settingString?: string): string {
+  if (!settingString) {
+    return '';
+  }
+
+  const quotePattern = /^(['"])(.*)\1$/;
+  const quoteMatch = settingString.match(quotePattern);
+
+  if (quoteMatch) {
+    const [, quote, content] = quoteMatch;
+    return content.replace(new RegExp(`\\${quote}`, 'g'), quote).replace(/\\\\/g, '\\');
+  }
+
+  if (/^[-._a-zA-Z0-9]+$/.test(settingString)) {
+    return settingString;
+  }
+
+  throw new Error('Invalid setting format');
+}
+```

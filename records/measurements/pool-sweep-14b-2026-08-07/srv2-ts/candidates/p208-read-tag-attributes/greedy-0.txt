@@ -1,0 +1,83 @@
+```ts
+export function readTagAttributes(tag: string): Record<string, unknown> {
+  if (typeof tag !== 'string') {
+    throw new Error('Invalid input: tag must be a string');
+  }
+
+  const openBracketIndex = tag.indexOf('[');
+  const closeBracketIndex = tag.lastIndexOf(']');
+
+  if (openBracketIndex !== 0 || closeBracketIndex !== tag.length - 1) {
+    throw new Error('Invalid tag format: missing or misplaced brackets');
+  }
+
+  const content = tag.slice(1, -1).trim();
+  const [stem, ...marks] = content.split(/\s+/);
+
+  if (!/^[a-zA-Z][a-zA-Z0-9-]*$/.test(stem)) {
+    throw new Error('Invalid stem format');
+  }
+
+  const result: Record<string, unknown> = { stem };
+  const markMap: Record<string, string> = {};
+
+  for (const mark of marks) {
+    if (!mark) {
+      throw new Error('Two spaces running or space before closing bracket');
+    }
+
+    let name: string;
+    let setting: string | undefined;
+
+    const equalsIndex = mark.indexOf('=');
+
+    if (equalsIndex === -1) {
+      name = mark;
+      setting = '';
+    } else if (equalsIndex === 0 || equalsIndex === mark.length - 1) {
+      throw new Error('Equals sign with no setting after it');
+    } else {
+      name = mark.slice(0, equalsIndex);
+      const rawSetting = mark.slice(equalsIndex + 1);
+
+      if (/^['"]/.test(rawSetting)) {
+        const quote = rawSetting[0];
+        const closeQuoteIndex = rawSetting.indexOf(quote, 1);
+
+        if (closeQuoteIndex === -1) {
+          throw new Error('Fence never closed');
+        }
+
+        setting = rawSetting.slice(1, closeQuoteIndex).replace(/\\(.)/g, (_, char) => {
+          if (char !== quote && char !== '\\') {
+            throw new Error('Backslash standing before anything else');
+          }
+          return char;
+        });
+
+        if (closeQuoteIndex !== rawSetting.length - 1) {
+          throw new Error('Fenced setting followed by a stray character');
+        }
+      } else {
+        setting = rawSetting.replace(/[^a-z0-9-.]/, () => {
+          throw new Error('Plain setting followed by a stray character');
+        });
+      }
+    }
+
+    if (!/^[a-z][a-z0-9-]*$/.test(name)) {
+      throw new Error('Invalid name format');
+    }
+
+    if (markMap[name] !== undefined && markMap[name] !== setting) {
+      throw new Error('Name carried twice with a different setting');
+    }
+
+    markMap[name] = setting;
+  }
+
+  result.marks = Object.entries(markMap).map(([name, setting]) => ({ name, setting }));
+
+  return result;
+}
+```

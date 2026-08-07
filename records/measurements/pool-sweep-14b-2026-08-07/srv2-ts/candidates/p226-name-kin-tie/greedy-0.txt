@@ -1,0 +1,88 @@
+```ts
+export function nameKinTie(links: Array<Record<string, unknown>>, one: string, other: string): string {
+  if (!Array.isArray(links)) {
+    throw new Error("Links must be an array.");
+  }
+
+  const parentMap: Record<string, string[]> = {};
+  const childMap: Record<string, string[]> = {};
+
+  for (const link of links) {
+    if (typeof link !== 'object' || typeof link.child !== 'string' || typeof link.parent !== 'string') {
+      throw new Error("Each link must be an object with non-empty string 'child' and 'parent'.");
+    }
+
+    const child = link.child;
+    const parent = link.parent;
+
+    if (child === parent) {
+      throw new Error("Nobody may stand as their own parent.");
+    }
+
+    if (!parentMap[child]) {
+      parentMap[child] = [];
+    }
+    if (!childMap[parent]) {
+      childMap[parent] = [];
+    }
+
+    if (parentMap[child].includes(parent)) {
+      throw new Error("A link may not be listed twice.");
+    }
+
+    if (parentMap[child].length >= 2) {
+      throw new Error("Nobody may be given more than two parents.");
+    }
+
+    parentMap[child].push(parent);
+    childMap[parent].push(child);
+  }
+
+  function findPathToRoot(name: string, path: Set<string> = new Set()): number[] {
+    if (path.has(name)) {
+      throw new Error("The links must not close a loop.");
+    }
+    if (!parentMap[name]) {
+      return [];
+    }
+    const paths = parentMap[name].map(parent => [0, ...findPathToRoot(parent, new Set([...path, name]))]);
+    return paths.reduce((a, b) => a.length < b.length ? a : b);
+  }
+
+  const pathOne = findPathToRoot(one);
+  const pathOther = findPathToRoot(other);
+
+  if (!pathOne.length || !pathOther.length) {
+    throw new Error("Either person is named nowhere in the links.");
+  }
+
+  let minU = Infinity;
+  let minV = Infinity;
+
+  for (const u of pathOne) {
+    for (const v of pathOther) {
+      if (u === v && u < minU) {
+        minU = u;
+        minV = v;
+      }
+    }
+  }
+
+  if (minU === Infinity || minV === Infinity) {
+    return "unrelated";
+  }
+
+  const degree = Math.min(minU, minV);
+  const removal = Math.abs(minU - minV);
+
+  if (removal > 10 || degree > 10) {
+    throw new Error("A cousin degree or a removal would run past ten.");
+  }
+
+  const degreeStr = degree === 0 ? "self" : degree === 1 ? "sibling" :
+    degree === 2 ? "parent" : `great-${degree - 2} grandparent`;
+  const removalStr = removal === 0 ? "" : ` ${removal} times removed`;
+
+  return minU < minV ? `${degreeStr}${removalStr}` : minU > minV ? `aunt-or-uncle${removalStr}` : `niece-or-nephew${removalStr}`;
+}
+```

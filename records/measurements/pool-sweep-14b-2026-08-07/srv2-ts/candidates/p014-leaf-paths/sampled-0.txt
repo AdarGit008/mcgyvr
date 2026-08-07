@@ -1,0 +1,53 @@
+```ts
+export function leafPaths(rows: [string, string][]): string[] {
+  if (rows.length === 0) {
+    throw new Error("Input cannot be empty");
+  }
+
+  const idToParent = new Map<string, string>();
+  const parentToChildren = new Map<string, Set<string>>();
+
+  for (const [id, parentId] of rows) {
+    if (idToParent.has(id)) {
+      throw new Error(`Duplicate id: ${id}`);
+    }
+    idToParent.set(id, parentId);
+
+    if (!parentToChildren.has(parentId)) {
+      parentToChildren.set(parentId, new Set());
+    }
+    parentToChildren.get(parentId)!.add(id);
+  }
+
+  const rootRows = Array.from(idToParent.entries()).filter(([id, parentId]) => parentId === "");
+  if (rootRows.length !== 1) {
+    throw new Error("Input must contain exactly one root row");
+  }
+
+  const [rootId] = rootRows[0];
+
+  const allIds = new Set([...idToParent.keys(), ...parentToChildren.keys()]);
+  for (const id of allIds) {
+    if (!idToParent.has(id)) {
+      throw new Error(`Node ${id} cannot be reached from the root`);
+    }
+  }
+
+  const leafPaths: string[] = [];
+
+  function dfs(currentId: string, path: string): void {
+    if (!parentToChildren.has(currentId)) {
+      leafPaths.push(path);
+      return;
+    }
+
+    for (const child of parentToChildren.get(currentId)!) {
+      dfs(child, `${path}/${child}`);
+    }
+  }
+
+  dfs(rootId, rootId);
+
+  return leafPaths.sort();
+}
+```

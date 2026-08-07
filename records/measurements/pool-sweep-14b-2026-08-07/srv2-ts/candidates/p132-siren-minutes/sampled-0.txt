@@ -1,0 +1,62 @@
+```ts
+export function sirenMinutes(events: Array<Record<string, unknown>>, horizon: number): Array<[string, number]> {
+  if (!Number.isInteger(horizon) || horizon < 0) {
+    throw new Error("Invalid horizon");
+  }
+
+  const activeAlerts = new Map<string, { id: string; severity: number; startTime: number }>();
+  const alertTimes = new Map<string, number>();
+
+  let lastTime = -1;
+  for (const event of events) {
+    const { at, kind, id, channel, severity } = event as { at: number; kind: string; id?: string; channel?: string; severity?: number };
+
+    if (kind !== "raise" && kind !== "clear") {
+      throw new Error("Invalid event kind");
+    }
+
+    if (!id || typeof id !== "string" || !channel || typeof channel !== "string" || (kind === "raise" && (!severity || typeof severity !== "number"))) {
+      throw new Error("Malformed event");
+    }
+
+    if (at <= lastTime) {
+      throw new Error("Event times do not strictly increase");
+    }
+    lastTime = at;
+
+    if (kind === "raise") {
+      if (activeAlerts.has(channel)) {
+        const currentAlert = activeAlerts.get(channel)!;
+        alertTimes.set(currentAlert.id, alertTimes.get(currentAlert.id)! + at - currentAlert.startTime);
+      }
+
+      if (activeAlerts.has(id)) {
+        throw new Error("ID already active");
+      }
+
+      activeAlerts.set(channel, { id, severity, startTime: at });
+    } else if (kind === "clear") {
+      if (!activeAlerts.has(id)) {
+        throw new Error("Clear of non-active ID");
+      }
+
+      const alert = activeAlerts.get(id)!;
+      activeAlerts.delete(id);
+      alertTimes.set(alert.id, alertTimes.get(alert.id)! + at - alert.startTime);
+    }
+  }
+
+  if (lastTime < horizon) {
+    for (const [id, { startTime }] of activeAlerts.entries()) {
+      alertTimes.set(id, alertTimes.get(id)! + horizon - startTime);
+    }
+  }
+
+  const result: Array<[string, number]> = [];
+  for (const [id, time] of alertTimes.entries()) {
+    result.push([id, time]);
+  }
+
+  return result.sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

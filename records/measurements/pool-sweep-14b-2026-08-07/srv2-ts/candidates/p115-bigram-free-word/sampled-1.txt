@@ -1,0 +1,55 @@
+```ts
+export function smallestFreeWord(n: number, k: number, banned: string[]): string {
+  if (!Number.isInteger(n) || n <= 0 || n > 12) {
+    throw new Error("Invalid n");
+  }
+  if (!Number.isInteger(k) || k < 1 || k > 6) {
+    throw new Error("Invalid k");
+  }
+  if (!Array.isArray(banned)) {
+    throw new Error("Invalid banned list");
+  }
+
+  const alphabet = Array.from({ length: k }, (_, i) => String.fromCharCode(97 + i));
+  const bannedSet = new Set<string>(banned);
+
+  for (const combination of banned) {
+    if (combination.length !== 2 || !/^[a-z]{2}$/.test(combination)) {
+      throw new Error("Invalid banned entry");
+    }
+    if (!alphabet.includes(combination[0]) || !alphabet.includes(combination[1])) {
+      throw new Error("Banned entry contains invalid characters");
+    }
+  }
+
+  const isValid = (word: string): boolean => {
+    for (let i = 0; i < word.length - 1; i++) {
+      if (bannedSet.has(word[i] + word[i + 1])) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const generateWords = (prefix: string, length: number): string[] => {
+    if (length === 0) {
+      return [prefix];
+    }
+
+    const results: string[] = [];
+    for (const char of alphabet) {
+      if (prefix.length === 0 || !bannedSet.has(prefix[prefix.length - 1] + char)) {
+        results.push(...generateWords(prefix + char, length - 1));
+      }
+    }
+    return results;
+  };
+
+  const words = generateWords("", n).filter(isValid);
+  if (words.length === 0) {
+    throw new Error("No valid word found");
+  }
+
+  return words.sort()[0];
+}
+```

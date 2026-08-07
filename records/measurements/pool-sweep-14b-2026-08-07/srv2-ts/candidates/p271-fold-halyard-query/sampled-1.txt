@@ -1,0 +1,80 @@
+```ts
+/**
+ * Folds a Halyard query string according to specified rules.
+ * @param text - The input Halyard query string.
+ */
+export function foldHalyardQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const hexToChar = (hex: string): string => {
+    const code = parseInt(hex, 16);
+    if (code < 33 || code > 126) {
+      throw new Error(`Invalid escape sequence: \\_${hex}`);
+    }
+    return String.fromCharCode(code);
+  };
+
+  const unescapeParam = (param: string): string => {
+    return param.replace(/_([0-9a-f]{2})/gi, (match, hex) => hexToChar(hex));
+  };
+
+  const parseQuery = (query: string): { [key: string]: string[] } => {
+    const params: { [key: string]: string[] } = {};
+    query.split('&').forEach(param => {
+      if (param.includes('=')) {
+        const [name, payload] = param.split('=', 2);
+        if (!name || name.includes('=')) {
+          throw new Error('Invalid parameter format');
+        }
+        params[name.toLowerCase()] = [...(params[name.toLowerCase()] || []), unescapeParam(payload)];
+      } else {
+        if (param) {
+          params[param.toLowerCase()] = [];
+        }
+      }
+    });
+    return params;
+  };
+
+  const escapeChar = (char: string): string => {
+    const code = char.charCodeAt(0);
+    if (code === 38 || code === 44 || code === 61 || code === 95) {
+      return `_${code.toString(16).padStart(2, '0')}`;
+    }
+    return char;
+  };
+
+  const escapePayload = (payload: string): string => {
+    return payload.split('').map(escapeChar).join('');
+  };
+
+  const foldQuery = (params: { [key: string]: string[] }): string[] => {
+    const bareNames = Object.keys(params)
+      .filter(name => params[name].length === 0)
+      .sort();
+    const namedParams = Object.keys(params)
+      .filter(name => params[name].length > 0)
+      .map(name => ({
+        name,
+        payloads: Array.from(new Set(params[name])).sort((a, b) =>
+          a.localeCompare(b)
+        ),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const foldedBareNames = bareNames.join('&');
+    const foldedNamedParams = namedParams
+      .map(({ name, payloads }) => `${name}=${escapePayload(payloads.join(','))}`)
+      .join('&');
+
+    return [foldedBareNames, foldedNamedParams].filter(Boolean);
+  };
+
+  const parsedParams = parseQuery(text);
+  const foldedParams = foldQuery(parsedParams);
+
+  return foldedParams.join('&');
+}
+```

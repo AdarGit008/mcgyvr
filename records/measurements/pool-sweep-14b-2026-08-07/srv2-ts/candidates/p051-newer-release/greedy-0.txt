@@ -1,0 +1,66 @@
+```ts
+export function newerRelease(a: string, b: string): number {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+
+  const parseVersion = (version: string) => {
+    const [base, prerelease] = version.split('-');
+    const [major, minor] = base.split('.').map(Number);
+
+    if (isNaN(major) || isNaN(minor)) {
+      throw new Error('Invalid version format');
+    }
+
+    return {
+      major,
+      minor,
+      prerelease: prerelease ? parsePrerelease(prerelease) : null
+    };
+  };
+
+  const parsePrerelease = (prerelease: string) => {
+    const [channel, buildStr] = prerelease.split('.');
+    const build = Number(buildStr);
+
+    if (!['dev', 'alpha', 'beta', 'rc'].includes(channel) || isNaN(build)) {
+      throw new Error('Invalid prerelease format');
+    }
+
+    return { channel, build };
+  };
+
+  const versionA = parseVersion(a);
+  const versionB = parseVersion(b);
+
+  if (versionA.major !== versionB.major) {
+    return versionA.major > versionB.major ? 1 : -1;
+  }
+
+  if (versionA.minor !== versionB.minor) {
+    return versionA.minor > versionB.minor ? 1 : -1;
+  }
+
+  if (!versionA.prerelease && !versionB.prerelease) {
+    return 0;
+  }
+
+  if (!versionA.prerelease) {
+    return 1;
+  }
+
+  if (!versionB.prerelease) {
+    return -1;
+  }
+
+  const channelOrder = ['dev', 'alpha', 'beta', 'rc'];
+  const channelIndexA = channelOrder.indexOf(versionA.prerelease.channel);
+  const channelIndexB = channelOrder.indexOf(versionB.prerelease.channel);
+
+  if (channelIndexA !== channelIndexB) {
+    return channelIndexA > channelIndexB ? 1 : -1;
+  }
+
+  return versionA.prerelease.build > versionB.prerelease.build ? 1 : -1;
+}
+```

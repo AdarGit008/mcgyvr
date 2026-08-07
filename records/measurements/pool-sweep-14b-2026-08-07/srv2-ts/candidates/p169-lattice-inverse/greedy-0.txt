@@ -1,0 +1,55 @@
+```ts
+export function latticeInverse(frame: number[][]): number[][] {
+  if (!Array.isArray(frame) || frame.length !== 2 && frame.length !== 3) {
+    throw new Error("Invalid frame dimensions");
+  }
+
+  for (const row of frame) {
+    if (!Array.isArray(row) || row.length !== frame.length) {
+      throw new Error("Invalid row dimensions");
+    }
+    for (const num of row) {
+      if (!Number.isInteger(num)) {
+        throw new Error("Frame entries must be whole numbers");
+      }
+    }
+  }
+
+  const determinant = calculateDeterminant(frame);
+  if (determinant !== 1 && determinant !== -1) {
+    return [];
+  }
+
+  return findInverse(frame, determinant);
+}
+
+function calculateDeterminant(frame: number[][]): number {
+  if (frame.length === 2) {
+    return frame[0][0] * frame[1][1] - frame[0][1] * frame[1][0];
+  } else { // frame.length === 3
+    const a = frame[0][0], b = frame[0][1], c = frame[0][2],
+          d = frame[1][0], e = frame[1][1], f = frame[1][2],
+          g = frame[2][0], h = frame[2][1], i = frame[2][2];
+    return a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+  }
+}
+
+function findInverse(frame: number[][], determinant: number): number[][] {
+  const inverse: number[][] = [];
+  for (let i = 0; i < frame.length; i++) {
+    const row: number[] = [];
+    for (let j = 0; j < frame.length; j++) {
+      const cofactor = calculateCofactor(frame, i, j);
+      row.push((i + j) % 2 === 0 ? cofactor : -cofactor);
+    }
+    inverse.push(row.map(num => Math.round(num / determinant)));
+  }
+  return inverse;
+}
+
+function calculateCofactor(frame: number[][], row: number, col: number): number {
+  const subFrame = frame.filter((_, r) => r !== row)
+                        .map(r => r.filter((_, c) => c !== col));
+  return calculateDeterminant(subFrame);
+}
+```

@@ -1,0 +1,54 @@
+```ts
+/**
+ * Parses a block of text into a nested outline structure.
+ * @param text - A string with newline-separated lines forming an indented list.
+ */
+export function nestOutline(text: string): any[] {
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error('Input must be a non-empty string.');
+  }
+
+  if (/\t/.test(text)) {
+    throw new Error('Input must not contain tab characters.');
+  }
+
+  const lines = text.split('\n').filter(line => line.trim().length > 0);
+
+  for (const line of lines) {
+    if (line.length % 2 !== 0 || line.match(/^[ ]*[^\s]+/)?.[0].length % 2 !== 0) {
+      throw new Error('Leading spaces must be a multiple of two.');
+    }
+  }
+
+  if (/^\s+/.test(lines[0])) {
+    throw new Error('Opening line must not be indented.');
+  }
+
+  const outline: any[] = [];
+  const stack: any[] = [];
+
+  for (const line of lines) {
+    const depth = Math.floor(line.search(/[^ ]/)) / 2;
+    const trimmedLine = line.trim();
+
+    if (depth > stack.length) {
+      throw new Error('Line cannot be more than one level deeper than its predecessor.');
+    }
+
+    while (stack.length > depth) {
+      stack.pop();
+    }
+
+    const item = [trimmedLine, []];
+    if (stack.length > 0) {
+      stack[stack.length - 1][1].push(item);
+    } else {
+      outline.push(item);
+    }
+
+    stack.push(item);
+  }
+
+  return outline;
+}
+```

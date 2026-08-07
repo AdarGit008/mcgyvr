@@ -1,0 +1,43 @@
+```ts
+/**
+ * The chore board shared out around the crew.
+ * @param chores - A list of non-empty strings representing the chores.
+ * @param crew - A list of non-empty strings representing the crew members.
+ * @returns A mapping from each crew member's name to the chores that fell to them.
+ */
+export function handOutChores(chores: string[], crew: string[]): Record<string, string[]> {
+  if (!Array.isArray(chores)) {
+    throw new Error("Chore board must be a list.");
+  }
+  if (chores.some(chore => typeof chore !== 'string' || chore.trim() === '')) {
+    throw new Error("Each chore must be a non-empty string.");
+  }
+  if (new Set(chores).size !== chores.length) {
+    throw new Error("Chores must not be listed twice.");
+  }
+  if (!Array.isArray(crew) || crew.length === 0) {
+    throw new Error("Crew must be a non-empty list.");
+  }
+  if (crew.some(member => typeof member !== 'string' || member.trim() === '')) {
+    throw new Error("Each crew member's name must be a non-empty string.");
+  }
+  if (new Set(crew).size !== crew.length) {
+    throw new Error("Two crew members cannot share the same name.");
+  }
+
+  const share: Record<string, string[]> = {};
+  crew.forEach(member => {
+    share[member] = [];
+  });
+
+  let markerIndex = 0;
+  chores.forEach(chore => {
+    const choreLength = chore.length;
+    const assignee = crew[markerIndex % crew.length];
+    share[assignee].push(chore);
+    markerIndex += choreLength;
+  });
+
+  return share;
+}
+```

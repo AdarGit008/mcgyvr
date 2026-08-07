@@ -1,0 +1,87 @@
+```ts
+/**
+ * Finds the best rate path for currency conversion.
+ * @param quotes - Array of quotes where each quote is [base, counter, micro].
+ * @param amount - The initial amount to convert from source to destination.
+ * @param source - The source currency code.
+ * @param destination - The destination currency code.
+ * @returns An object with "amount" and "path" representing the best conversion result.
+ */
+export function bestRatePath(quotes: unknown[][], amount: number, source: string, destination: string): Record<string, unknown> {
+  if (!Array.isArray(quotes) || quotes.length === 0) {
+    throw new Error("Quotes list is empty.");
+  }
+
+  const validatedQuotes = quotes.map((quote, index) => {
+    if (!Array.isArray(quote) || quote.length !== 3) {
+      throw new Error(`Invalid quote format at index ${index}.`);
+    }
+    const [base, counter, micro] = quote;
+    if (typeof base !== 'string' || typeof counter !== 'string' || typeof micro !== 'number') {
+      throw new Error(`Quote elements must be string, string, number at index ${index}.`);
+    }
+    if (base === '' || counter === '') {
+      throw new Error(`Empty currency code in quote at index ${index}.`);
+    }
+    if (base === counter) {
+      throw new Error(`Same base and counter currency in quote at index ${index}.`);
+    }
+    if (!Number.isInteger(micro) || micro <= 0) {
+      throw new Error(`Micro must be a positive integer at index ${index}.`);
+    }
+    return { base, counter, micro };
+  });
+
+  if (amount <= 0 || !Number.isInteger(amount)) {
+    throw new Error("Amount must be a positive whole number.");
+  }
+
+  if (source === destination) {
+    throw new Error("Source and destination cannot be the same code.");
+  }
+
+  const quoteMap = new Map<string, { counter: string, micro: number }[]>();
+  for (const { base, counter, micro } of validatedQuotes) {
+    if (!quoteMap.has(base)) {
+      quoteMap.set(base, []);
+    }
+    quoteMap.get(base)!.push({ counter, micro });
+  }
+
+  const visited = new Set<string>();
+  let bestPath: string[] | null = null;
+  let bestAmount = 0;
+
+  function dfs(currentCode: string, currentPath: string[], remainingAmount: number): void {
+    if (currentCode === destination) {
+      if (bestPath === null || remainingAmount > bestAmount || 
+          (remainingAmount === bestAmount && currentPath.length < bestPath.length) ||
+          (remainingAmount === bestAmount && currentPath.length === bestPath.length && currentPath.join(',') < bestPath.join(','))) {
+        bestPath = [...currentPath];
+        bestAmount = remainingAmount;
+      }
+      return;
+    }
+
+    visited.add(currentCode);
+    const nextQuotes = quoteMap.get(currentCode) || [];
+    for (const { counter, micro } of nextQuotes) {
+      if (!visited.has(counter)) {
+        const newAmount = Math.floor(remainingAmount * micro / 1_000_000);
+        dfs(counter, [...currentPath, counter], newAmount);
+      }
+    }
+    visited.delete(currentCode);
+  }
+
+  if (!quoteMap.has(source)) {
+    throw new Error("Source code is not named by any quote.");
+  }
+
+  dfs(source, [source], amount);
+
+  if (bestPath === null) {
+    throw new Error("No run connects source to destination.");
+  }
+
+  return { amount: bestAmount,

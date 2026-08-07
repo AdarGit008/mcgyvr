@@ -1,0 +1,58 @@
+```ts
+export function sieveReport(items: Array<Record<string, unknown>>, rules: Array<Record<string, unknown>>): string[] {
+  const validOps = new Set(['eq', 'ne', 'gt', 'lt', 'present', 'absent']);
+  const usedRuleNames = new Set<string>();
+
+  for (const rule of rules) {
+    if (typeof rule.name !== 'string' || rule.name === '') {
+      throw new Error('Invalid rule name');
+    }
+    if (usedRuleNames.has(rule.name)) {
+      throw new Error('Duplicate rule name');
+    }
+    usedRuleNames.add(rule.name);
+
+    if (!validOps.has(rule.op as string)) {
+      throw new Error(`Invalid op: ${rule.op}`);
+    }
+
+    if ((rule.op === 'eq' || rule.op === 'ne') && typeof rule.value === 'undefined') {
+      throw new Error('Value must be defined for "eq" and "ne" ops');
+    }
+    if ((rule.op === 'gt' || rule.op === 'lt') && (typeof rule.value !== 'number')) {
+      throw new Error('Value must be a number for "gt" and "lt" ops');
+    }
+  }
+
+  return items.map(item => {
+    for (const rule of rules) {
+      const { name, field, op, value } = rule as { name: string, field: string, op: string, value?: unknown };
+
+      if (!item.hasOwnProperty(field)) {
+        if (op === 'absent') continue;
+        return name;
+      }
+
+      switch (op) {
+        case 'eq':
+          if (item[field] !== value) return name;
+          break;
+        case 'ne':
+          if (item[field] === value) return name;
+          break;
+        case 'gt':
+          if (typeof item[field] !== 'number' || item[field] <= value!) return name;
+          break;
+        case 'lt':
+          if (typeof item[field] !== 'number' || item[field] >= value!) return name;
+          break;
+        case 'present':
+          continue;
+        case 'absent':
+          return name;
+      }
+    }
+    return 'pass';
+  });
+}
+```

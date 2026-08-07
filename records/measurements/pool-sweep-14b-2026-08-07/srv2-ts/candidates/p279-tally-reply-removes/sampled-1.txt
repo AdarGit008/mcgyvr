@@ -1,0 +1,63 @@
+```ts
+export function tallyReplyRemoves(links: string[][]): number[] {
+  if (!Array.isArray(links) || links.length === 0) {
+    throw new Error("Invalid input: batch must be a non-empty list of links.");
+  }
+
+  const idToAnswerMap = new Map<string, string>();
+  const idToRemoveMap = new Map<string, number>();
+
+  // Validate and populate maps
+  for (const link of links) {
+    if (!Array.isArray(link) || link.length !== 2) {
+      throw new Error("Invalid input: each link must be an array of exactly two strings.");
+    }
+    const [id, answerId] = link;
+
+    if (typeof id !== "string" || typeof answerId !== "string") {
+      throw new Error("Invalid input: both id and answerId must be strings.");
+    }
+
+    if (id === "") {
+      throw new Error("Invalid input: id cannot be an empty string.");
+    }
+
+    if (idToAnswerMap.has(id)) {
+      throw new Error("Invalid input: id used twice.");
+    }
+
+    idToAnswerMap.set(id, answerId);
+  }
+
+  // Detect cycles and calculate removes
+  for (const [id] of links) {
+    let currentId = id;
+    let removeCount = 0;
+
+    const visitedIds = new Set<string>();
+
+    while (currentId !== "") {
+      if (visitedIds.has(currentId)) {
+        throw new Error("Invalid input: cycle detected in replies.");
+      }
+
+      visitedIds.add(currentId);
+
+      idToRemoveMap.set(currentId, removeCount);
+      currentId = idToAnswerMap.get(currentId) || "";
+
+      removeCount++;
+    }
+  }
+
+  // Calculate the tally of removes
+  const maxRemove = Math.max(...idToRemoveMap.values());
+  const tally: number[] = new Array(maxRemove + 1).fill(0);
+
+  for (const remove of idToRemoveMap.values()) {
+    tally[remove]++;
+  }
+
+  return tally;
+}
+```

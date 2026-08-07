@@ -1,0 +1,71 @@
+```ts
+export function buildSetMeal(courses: { code: string; price: number }[][], quarrels: [string, string][]): { total: number; picks: string[] } {
+  if (courses.length === 0) throw new Error("No courses provided");
+  if (courses.length > 6) throw new Error("Too many courses");
+
+  const allCodes = new Set<string>();
+  for (const course of courses) {
+    if (course.length === 0) throw new Error("A course offers nothing");
+    if (course.length > 6) throw new Error("Too many options in a course");
+    for (const option of course) {
+      if (option.code.length === 0 || !Number.isInteger(option.price) || option.price < 1) {
+        throw new Error("Invalid option code or price");
+      }
+      if (allCodes.has(option.code)) throw new Error("Code repeats");
+      allCodes.add(option.code);
+    }
+  }
+
+  const quarrelSet = new Set<string>();
+  for (const [code1, code2] of quarrels) {
+    if (!allCodes.has(code1) || !allCodes.has(code2) || code1 === code2) {
+      throw new Error("Invalid quarrel");
+    }
+    quarrelSet.add(`${code1},${code2}`);
+    quarrelSet.add(`${code2},${code1}`);
+  }
+
+  function isQuarrelFree(picks: string[]): boolean {
+    for (let i = 0; i < picks.length - 1; i++) {
+      if (quarrelSet.has(`${picks[i]},${picks[i + 1]}`)) return false;
+    }
+    return true;
+  }
+
+  function backtrack(courseIndex: number, currentPicks: string[], currentTotal: number): { total: number; picks: string[] } | null {
+    if (courseIndex === courses.length) {
+      if (isQuarrelFree(currentPicks)) {
+        return { total: currentTotal, picks: currentPicks };
+      }
+      return null;
+    }
+
+    let bestResult: { total: number; picks: string[] } | null = null;
+
+    for (const option of courses[courseIndex]) {
+      const newPicks = [...currentPicks, option.code];
+      const result = backtrack(courseIndex + 1, newPicks, currentTotal + option.price);
+      if (result) {
+        if (!bestResult || result.total < bestResult.total || (result.total === bestResult.total && comparePicks(result.picks, bestResult.picks) < 0)) {
+          bestResult = result;
+        }
+      }
+    }
+
+    return bestResult;
+  }
+
+  function comparePicks(picks1: string[], picks2: string[]): number {
+    for (let i = 0; i < Math.min(picks1.length, picks2.length); i++) {
+      if (picks1[i] !== picks2[i]) {
+        return picks1[i].localeCompare(picks2[i]);
+      }
+    }
+    return picks1.length - picks2.length;
+  }
+
+  const result = backtrack(0, [], 0);
+  if (!result) throw new Error("No tray avoids every quarrel");
+  return result;
+}
+```

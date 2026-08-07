@@ -1,0 +1,47 @@
+```ts
+export function siftDownRun(heap: number[], start: number): number[][] {
+  if (heap.length === 0) {
+    throw new Error("Heap is empty");
+  }
+  if (start < 0 || start >= heap.length) {
+    throw new Error("Start index out of bounds");
+  }
+  if (!Number.isInteger(heap[start])) {
+    throw new Error("Entry is not a whole number");
+  }
+
+  const originalHeap = [...heap];
+  let current = start;
+  while (true) {
+    const left = 2 * current + 1;
+    const right = 2 * current + 2;
+    let smallest = current;
+
+    if (left < heap.length && heap[left] < heap[smallest]) {
+      smallest = left;
+    }
+    if (right < heap.length && heap[right] < heap[smallest]) {
+      smallest = right;
+    }
+
+    if (smallest === current) {
+      break;
+    }
+
+    const held = heap[current];
+    heap[current] = heap[smallest];
+    heap[smallest] = held;
+    current = smallest;
+  }
+
+  const path = [];
+  let index = start;
+  while (index !== current) {
+    path.push(index);
+    index = Math.floor((index - 1) / 2);
+  }
+  path.push(current);
+
+  return [heap, path.reverse()];
+}
+```

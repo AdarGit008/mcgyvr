@@ -1,0 +1,38 @@
+```ts
+/**
+ * Calculates the smallest cost to split a list of words into consecutive lines under a fixed width.
+ * @param words - Array of words to be wrapped.
+ * @param width - The maximum width of each line.
+ * @returns The smallest possible cost for the word wrap.
+ */
+export function wrapCost(words: string[], width: number): number {
+    if (words.length === 0) {
+        throw new Error("Word list cannot be empty.");
+    }
+    if (!Number.isSafeInteger(width) || width <= 0) {
+        throw new Error("Width must be a positive whole number.");
+    }
+
+    const n = words.length;
+    const dp: number[] = Array(n + 1).fill(Infinity);
+    dp[n] = 0;
+
+    for (let i = n - 1; i >= 0; i--) {
+        let lineLength = 0;
+        for (let j = i; j < n; j++) {
+            if (words[j].length > width) {
+                throw new Error("A word is longer than the width.");
+            }
+            lineLength += words[j].length + (j > i ? 1 : 0);
+            if (lineLength <= width) {
+                const unusedSpace = width - lineLength;
+                dp[i] = Math.min(dp[i], dp[j + 1] + unusedSpace * unusedSpace);
+            } else {
+                break;
+            }
+        }
+    }
+
+    return dp[0];
+}
+```

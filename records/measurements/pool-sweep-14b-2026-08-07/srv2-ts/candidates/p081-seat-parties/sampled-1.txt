@@ -1,0 +1,37 @@
+```ts
+export function seatParties(rows: number[], parties: number[]): string[] {
+  if (rows.length === 0) {
+    return parties.map(() => "rejected:too_big");
+  }
+
+  const rowSeats = rows.slice();
+  const results: string[] = [];
+
+  for (const party of parties) {
+    if (party < 1) {
+      throw new Error("Party size must be at least 1");
+    }
+
+    let seated = false;
+    for (let i = 0; i < rowSeats.length; i++) {
+      if (rowSeats[i] >= party) {
+        const seat = rows[i] - rowSeats[i] + 1;
+        results.push(`${i + 1}-${seat}`);
+        rowSeats[i] -= party;
+        seated = true;
+        break;
+      }
+    }
+
+    if (!seated) {
+      if (party > Math.max(...rows)) {
+        results.push("rejected:too_big");
+      } else {
+        results.push("rejected:full");
+      }
+    }
+  }
+
+  return results;
+}
+```

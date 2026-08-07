@@ -1,0 +1,33 @@
+```ts
+export function fillPlaceholders(text: string, slots: Record<string, string>): string {
+  const result = [];
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === "%") {
+      if (i + 1 < text.length && text[i + 1] === "%") {
+        // literal %
+        result.push("%");
+        i += 2;
+        continue;
+      }
+      const start = i;
+      i++;
+      while (i < text.length && text[i] !== "%") {
+        i++;
+      }
+      if (i >= text.length) {
+        throw new Error("Unclosed placeholder");
+      }
+      const slotName = text.slice(start + 1, i);
+      if (!slots.hasOwnProperty(slotName)) {
+        throw new Error(`Slot "${slotName}" not found in mapping`);
+      }
+      result.push(slots[slotName]);
+    } else {
+      result.push(text[i]);
+      i++;
+    }
+  }
+  return result.join("");
+}
+```

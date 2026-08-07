@@ -1,0 +1,43 @@
+```ts
+export function expandRunTag(pattern: string): string[] {
+  if (typeof pattern !== 'string') {
+    throw new Error('Argument must be a string');
+  }
+
+  const match = pattern.match(/^([^[]*)\[(.*?)\](.*)$/);
+  if (!match) {
+    throw new Error('Pattern must contain exactly one square-bracketed group');
+  }
+
+  const [_, stem, body, tail] = match;
+  const results: string[] = [];
+
+  if (body.includes(',')) {
+    const items = body.split(',');
+    if (items.some(item => item.trim() === '')) {
+      throw new Error('Empty comma item is not allowed');
+    }
+    results.push(...items.map(item => stem + item + tail));
+  } else {
+    const runMatch = body.match(/^(\d+)-(\d+)(?:\/(\d+))?$/);
+    if (!runMatch) {
+      throw new Error('Invalid run pattern');
+    }
+
+    const [__, startStr, endStr, stepStr] = runMatch;
+    const start = parseInt(startStr, 10);
+    const end = parseInt(endStr, 10);
+    const step = stepStr ? parseInt(stepStr, 10) : 1;
+
+    if (start > end || step === 0) {
+      throw new Error('Invalid run parameters');
+    }
+
+    for (let i = start; i <= end; i += step) {
+      results.push(stem + i + tail);
+    }
+  }
+
+  return results.sort((a, b) => a.localeCompare(b));
+}
+```

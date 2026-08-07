@@ -1,0 +1,109 @@
+```ts
+/**
+ * The term mark built from weighted strands with discards.
+ */
+export function strandMarkSheet(
+  strands: Array<Record<string, unknown>>
+): Record<string, unknown> {
+  // Validate input
+  if (strands.length === 0) {
+    throw new Error("Empty report");
+  }
+
+  const nameSet = new Set();
+  let totalShare = 0;
+
+  for (const strand of strands) {
+    const name = strand.name as string;
+    const share = strand.share as number;
+    const discard = strand.discard as number;
+    const work = strand.work as any[];
+
+    // Validate strand
+    if (nameSet.has(name)) {
+      throw new Error("Repeated strand name");
+    }
+    nameSet.add(name);
+
+    totalShare += share;
+
+    if (discard < 0) {
+      throw new Error("Negative discard count");
+    }
+
+    if (!work || work.length === 0) {
+      throw new Error("Strand with no work");
+    }
+
+    for (const entry of work) {
+      const score = entry[0];
+      const availability = entry[1];
+
+      if (availability <= 0) {
+        throw new Error("Piece available for nothing or less");
+      }
+
+      if (
+        typeof score !== "number" &&
+        score !== "absent" &&
+        (typeof score !== "string" || isNaN(Number(score)))
+      ) {
+        throw new Error("Invalid score type");
+      }
+
+      if (score !== "absent" && (score < 0 || score > availability)) {
+        throw new Error("Score above its availability or negative score");
+      }
+    }
+  }
+
+  if (totalShare !== 1000) {
+    throw new Error("Shares do not come to exactly 1000");
+  }
+
+  const discarded: string[] = [];
+  let mark = 0;
+
+  for (const strand of strands) {
+    const name = strand.name as string;
+    const share = strand.share as number;
+    const discard = strand.discard as number;
+    const work = strand.work as any[];
+
+    // Rank and discard
+    const order = work.map((_, index) => index);
+    order.sort((a, b) => {
+      if (work[a][0] === "absent") return 1;
+      if (work[b][0] === "absent") return -1;
+      const crossProductA = work[a][0] * work[b][1];
+      const crossProductB = work[b][0] * work[a][1];
+      if (crossProductA !== crossProductB) {
+        return crossProductA - crossProductB;
+      }
+      return work[b][1] - work[a][1];
+    });
+
+    const dropped = order.slice(0, Math.min(discard, work.length - 1));
+    for (const index of dropped) {
+      discarded.push(`${name}#${index}`);
+    }
+
+    // Calculate mark
+    let scored = 0;
+    let available = 0;
+
+    for (let i = 0; i < work.length; i++) {
+      if (!dropped.includes(i)) {
+        const score = work[i][0];
+        const availability = work[i][1];
+        scored += score === "absent" ? 0 : score;
+        available += availability;
+      }
+    }
+
+    mark += Math.floor((share * scored) / available);
+  }
+
+  return { mark, discarded };
+}
+```

@@ -1,0 +1,78 @@
+```ts
+/** A chart with its twin rows squashed together. */
+export function squashRows(chart: Record<string, unknown>): Record<string, unknown> {
+  const signals = chart.signals as string[];
+  if (!signals || signals.length === 0) {
+    throw new Error("Signals list is empty or missing.");
+  }
+  for (const signal of signals) {
+    if (typeof signal !== "string" || signal.trim() === "") {
+      throw new Error("Each signal must be a non-empty string.");
+    }
+  }
+
+  const rows = chart.rows as any[];
+  if (!rows || rows.length === 0) {
+    throw new Error("Rows list is empty or missing.");
+  }
+
+  const head = chart.head as string;
+  if (typeof head !== "string" || head.trim() === "") {
+    throw new Error("Head must be a non-empty string.");
+  }
+
+  const labelToRowMap = new Map<string, any>();
+  for (const row of rows) {
+    const label = row.label as string;
+    if (typeof label !== "string" || label.trim() === "") {
+      throw new Error("Each row's label must be a non-empty string.");
+    }
+    if (labelToRowMap.has(label)) {
+      throw new Error("Two rows cannot share the same label.");
+    }
+    const mark = row.mark as string;
+    if (typeof mark !== "string" || mark.trim() === "") {
+      throw new Error("Each row's mark must be a non-empty string.");
+    }
+    const next = row.next as string[];
+    if (!Array.isArray(next) || next.length !== signals.length) {
+      throw new Error("Each row's next list must have exactly one entry per signal.");
+    }
+    for (const label of next) {
+      if (typeof label !== "string" || !labelToRowMap.has(label)) {
+        throw new Error("Next entries must name existing rows.");
+      }
+    }
+    labelToRowMap.set(label, row);
+  }
+
+  const groupOf = new Map<string, number>();
+  const chosen: any[] = [];
+  const seen = new Map<string, number>();
+
+  function getKey(row: any): string {
+    return (
+      row.mark +
+      "|" +
+      signals.map((signal) => labelToRowMap.get(row.next[signals.indexOf(signal)]).mark).join(",")
+    );
+  }
+
+  for (const row of rows) {
+    const key = getKey(row);
+    if (!seen.has(key)) {
+      seen.set(key, chosen.length);
+      chosen.push(row);
+    }
+    groupOf.set(row.label, seen.get(key) as number);
+  }
+
+  const folded = chosen.map((row, at) => ({
+    at,
+    mark: row.mark,
+    next: signals.map((signal) => groupOf.get(row.next[signals.indexOf(signal)])),
+  }));
+
+  return { entry: groupOf.get(head), rows: folded };
+}
+```

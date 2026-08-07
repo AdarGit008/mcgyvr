@@ -1,0 +1,64 @@
+```ts
+export function stitchTables(left: Array<Record<string, unknown>>, right: Array<Record<string, unknown>>, key: string, mode: string): Array<Record<string, unknown>> {
+    if (mode !== "inner" && mode !== "left") {
+        throw new Error("Invalid mode");
+    }
+
+    const leftColumns = new Set<string>();
+    const rightColumns = new Set<string>();
+
+    for (const record of left) {
+        if (typeof record[key] !== "string") {
+            throw new Error("Left record key is not a string");
+        }
+        for (const column in record) {
+            leftColumns.add(column);
+        }
+    }
+
+    for (const record of right) {
+        if (typeof record[key] !== "string") {
+            throw new Error("Right record key is not a string");
+        }
+        if (rightColumns.has(record[key])) {
+            throw new Error("Duplicate key in right table");
+        }
+        for (const column in record) {
+            if (leftColumns.has(column) && column !== key) {
+                throw new Error("Column collision between tables");
+            }
+            rightColumns.add(column);
+        }
+    }
+
+    const rightMap = new Map<string, Record<string, unknown>>();
+    for (const record of right) {
+        rightMap.set(record[key], record);
+    }
+
+    const result: Array<Record<string, unknown>> = [];
+
+    for (const leftRecord of left) {
+        const rightRecord = rightMap.get(leftRecord[key]);
+        const combinedRecord: Record<string, unknown> = { ...leftRecord };
+
+        if (rightRecord) {
+            for (const column in rightRecord) {
+                if (column !== key) {
+                    combinedRecord[column] = rightRecord[column];
+                }
+            }
+        } else if (mode === "left") {
+            for (const column of rightColumns) {
+                if (column !== key) {
+                    combinedRecord[column] = null;
+                }
+            }
+        }
+
+        result.push(combinedRecord);
+    }
+
+    return result;
+}
+```

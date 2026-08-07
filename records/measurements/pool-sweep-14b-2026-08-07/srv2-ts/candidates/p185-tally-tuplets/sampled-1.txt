@@ -1,0 +1,82 @@
+```ts
+export function tallyTuplets(score: string, meter: string): number[] {
+  if (typeof score !== 'string') {
+    throw new Error('Score must be a string');
+  }
+
+  const parseSpan = (span: string): number => {
+    const [numerator, denominator] = span.split('/');
+    if (!numerator || !denominator) {
+      throw new Error('Invalid span format');
+    }
+    const num = parseInt(numerator, 10);
+    const denom = parseInt(denominator, 10);
+
+    if (isNaN(num) || isNaN(denom)) {
+      throw new Error('Invalid span values');
+    }
+
+    if (num < 2 || num.toString() !== numerator) {
+      throw new Error('Numerator must be a positive number without leading zeros');
+    }
+
+    const allowedDenominators = [1, 2, 4, 8, 16, 32, 64];
+    if (!allowedDenominators.includes(denom)) {
+      throw new Error('Invalid denominator');
+    }
+
+    return (num * 64) / denom;
+  };
+
+  const parseSqueeze = (squeeze: string): number => {
+    const match = squeeze.match(/^(\d+)\{(.*)\}$/);
+    if (!match) {
+      throw new Error('Invalid squeeze format');
+    }
+
+    const figure = parseInt(match[1], 10);
+    const innerSpans = match[2].split('+');
+
+    if (figure < 2) {
+      throw new Error('Squeeze figure must be two or more');
+    }
+
+    if (!innerSpans.length) {
+      throw new Error('Squeeze must contain at least one span');
+    }
+
+    const totalUnits = innerSpans.reduce((sum, span) => sum + parseSpan(span), 0);
+    const squeezeValue = (totalUnits * (figure - 1)) / figure;
+
+    if (!Number.isInteger(squeezeValue)) {
+      throw new Error('Squeeze worth must be a whole number of units');
+    }
+
+    return squeezeValue;
+  };
+
+  const parseMeasure = (measure: string, meterUnits: number): number => {
+    if (!measure.trim()) {
+      throw new Error('Measure cannot be empty');
+    }
+
+    let measureUnits = 0;
+
+    for (const entry of measure.split(' ')) {
+      if (entry.startsWith('{')) {
+        measureUnits += parseSqueeze(entry);
+      } else if (entry.includes('/')) {
+        measureUnits += parseSpan(entry);
+      } else {
+        throw new Error('Invalid entry format');
+      }
+    }
+
+    return measureUnits - meterUnits;
+  };
+
+  const meterUnits = parseSpan(meter);
+
+  return score.split(';').map(measure => parseMeasure(measure, meterUnits));
+}
+```

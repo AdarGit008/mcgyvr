@@ -1,0 +1,86 @@
+```ts
+export function expiryCache(capacity: number, ops: (string | number)[][]): number[] {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+
+  const cache: { key: string; value: number; expiry: number }[] = [];
+  const results: number[] = [];
+
+  for (const op of ops) {
+    if (op.length < 2 || typeof op[1] !== "number") {
+      throw new Error("Invalid operation format.");
+    }
+
+    const time = op[1];
+
+    // Purge dead entries
+    let i = 0;
+    while (i < cache.length) {
+      if (cache[i].expiry <= time) {
+        cache.splice(i, 1);
+      } else {
+        i++;
+      }
+    }
+
+    switch (op[0]) {
+      case "set": {
+        if (op.length !== 5 || typeof op[2] !== "string" || !Number.isInteger(op[3]) || op[3] <= 0 || !Number.isInteger(op[4]) || op[4] <= 0) {
+          throw new Error("Invalid set operation format.");
+        }
+
+        const key = op[2];
+        const value = op[3];
+        const ttl = op[4];
+
+        // Find existing entry to update
+        let found = false;
+        for (let i = 0; i < cache.length; i++) {
+          if (cache[i].key === key) {
+            cache[i] = { key, value, expiry: time + ttl };
+            found = true;
+            break;
+          }
+        }
+
+        // Add new entry if not found
+        if (!found) {
+          cache.push({ key, value, expiry: time + ttl });
+
+          // Evict if over capacity
+          if (cache.length > capacity) {
+            const toEvict = cache.reduce((minIndex, _, index) => {
+              if (index === 0 || cache[index].expiry < cache[minIndex].expiry || (cache[index].expiry === cache[minIndex].expiry && cache[index].key < cache[minIndex].key)) {
+                return index;
+              }
+              return minIndex;
+            }, 0);
+
+            cache.splice(toEvict, 1);
+          }
+        }
+
+        break;
+      }
+
+      case "get": {
+        if (op.length !== 3 || typeof op[2] !== "string") {
+          throw new Error("Invalid get operation format.");
+        }
+
+        const key = op[2];
+        const entry = cache.find(e => e.key === key);
+
+        results.push(entry ? entry.value : -1);
+        break;
+      }
+
+      default:
+        throw new Error("Unknown operation name.");
+    }
+  }
+
+  return results;
+}
+```

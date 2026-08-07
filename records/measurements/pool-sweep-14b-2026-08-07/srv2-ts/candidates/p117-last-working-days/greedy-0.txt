@@ -1,0 +1,55 @@
+```ts
+const LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const OFFSETS = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+
+function weekdayOf(year: number, month: number, day: number): number {
+  let y = year;
+  if (month < 3) {
+    y -= 1;
+  }
+  const sunday0 =
+    (y +
+      Math.floor(y / 4) -
+      Math.floor(y / 100) +
+      Math.floor(y / 400) +
+      OFFSETS[month - 1] +
+      day) %
+    7;
+  return (sunday0 + 6) % 7;
+}
+
+export function lastWorkingDays(start: string, months: number): string[] {
+  if (typeof start !== "string" || !/^\d{4}-\d{2}$/.test(start)) {
+    throw new Error("start must be zero-padded YYYY-MM");
+  }
+  let year = Number(start.slice(0, 4));
+  let month = Number(start.slice(5, 7));
+  if (year < 1 || month < 1 || month > 12) {
+    throw new Error("start must name a real month");
+  }
+  if (!Number.isInteger(months) || months < 1 || months > 120) {
+    throw new Error("months must be a positive integer of at most 120");
+  }
+  const out: string[] = [];
+  for (let step = 0; step < months; step++) {
+    if (year > 9999) {
+      throw new Error("run reaches past year 9999");
+    }
+    const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    const length = month === 2 && leap ? 29 : LENGTHS[month - 1];
+    let day = length;
+    while (weekdayOf(year, month, day) > 5) {
+      day -= 1;
+    }
+    const y = String(year).padStart(4, "0");
+    const m = String(month).padStart(2, "0");
+    out.push(y + "-" + m + "-" + String(day).padStart(2, "0"));
+    month += 1;
+    if (month === 13) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return out;
+}
+```

@@ -1,0 +1,77 @@
+```ts
+export function printOperatorTree(node: unknown): string {
+  if (typeof node === 'number') {
+    if (!Number.isInteger(node) || node < 0) {
+      throw new Error('Invalid number');
+    }
+    return node.toString();
+  }
+
+  if (typeof node === 'string') {
+    if (!node.match(/^[a-z]+$/)) {
+      throw new Error('Invalid word');
+    }
+    return node;
+  }
+
+  if (typeof node !== 'object' || node === null) {
+    throw new Error('Invalid node type');
+  }
+
+  const { op, left, right, negate, call } = node as Record<string, unknown>;
+
+  if (call !== undefined) {
+    if (typeof call !== 'object' || call === null) {
+      throw new Error('Invalid call structure');
+    }
+    const [func, args] = Object.values(call);
+    if (typeof func !== 'string' || !func.match(/^[a-z]+$/)) {
+      throw new Error('Invalid function name in call');
+    }
+    if (!Array.isArray(args) || args.some(arg => typeof arg !== 'object')) {
+      throw new Error('Invalid arguments in call');
+    }
+    return `${func}(${args.map(printOperatorTree).join(', ')})`;
+  }
+
+  if (negate !== undefined) {
+    if (typeof negate !== 'object' || negate === null) {
+      throw new Error('Invalid negate structure');
+    }
+    const expr = printOperatorTree(negate);
+    return `-${needsParentheses(negate, '-') ? `(${expr})` : expr}`;
+  }
+
+  if (op !== undefined) {
+    if (typeof left !== 'object' || left === null || typeof right !== 'object' || right === null) {
+      throw new Error('Invalid op structure');
+    }
+    if (!['or', 'and', '+', '-', '*', '/', '^'].includes(op as string)) {
+      throw new Error('Invalid operator');
+    }
+    const leftStr = printOperatorTree(left);
+    const rightStr = printOperatorTree(right);
+    const needsLeftParen = needsParentheses(left, op as string, true);
+    const needsRightParen = needsParentheses(right, op as string, false);
+    return `${needsLeftParen ? `(${leftStr})` : leftStr} ${op} ${needsRightParen ? `(${rightStr})` : rightStr}`;
+  }
+
+  throw new Error('Invalid node structure');
+}
+
+function needsParentheses(node: unknown, parentOp: string, isLeftOperand: boolean): boolean {
+  const precedence: Record<string, number> = { 'or': 1, 'and': 2, '+': 3, '-': 3, '*': 4, '/': 4, negate: 5, '^': 6 };
+  const associativity: Record<string, 'left' | 'right'> = { 'or': 'left', 'and': 'left', '+': 'left', '-': 'left', '*': 'left', '/': 'left', '^': 'right' };
+
+  if (typeof node !== 'object' || node === null) {
+    return false;
+  }
+
+  const { op, negate, call } = node as Record<string, unknown>;
+
+  if (call !== undefined) {
+    return precedence[parentOp] > precedence['call'] || (precedence[parentOp] === precedence['call'] && associativity[parentOp] === 'left' && isLeftOperand);
+  }
+
+  if (negate !== undefined) {
+    return precedence[parentOp] > precedence['negate'] || (precedence[parentOp] === precedence['negate']

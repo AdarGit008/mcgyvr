@@ -1,0 +1,65 @@
+```ts
+export function parseInvocation(catalogue: Array<{ name: string; kind: string; alias?: string }>, tokens: string[]): { options: Record<string, unknown>; operands: string[] } {
+  const options: Record<string, unknown> = {};
+  const operands: string[] = [];
+  const seenOptions: Set<string> = new Set();
+
+  for (const token of tokens) {
+    if (token === '--') {
+      operands.push(...tokens.slice(tokens.indexOf(token) + 1));
+      break;
+    }
+
+    let name: string | null = null;
+    let value: string | null = null;
+
+    if (token.startsWith('--')) {
+      const parts = token.split('=');
+      name = parts[0].slice(2);
+      value = parts.length > 1 ? parts.slice(1).join('=') : null;
+    } else if (token.startsWith('-') && token.length === 2) {
+      const alias = token[1];
+      const option = catalogue.find(opt => opt.alias === alias);
+      if (option) {
+        name = option.name;
+      }
+    }
+
+    if (!name) {
+      operands.push(token);
+      continue;
+    }
+
+    const option = catalogue.find(opt => opt.name === name);
+    if (!option) {
+      throw new Error(`Unknown option: ${name}`);
+    }
+
+    if (option.kind === 'toggle') {
+      if (value !== null) {
+        throw new Error(`Option ${name} is a toggle and should not have a value`);
+      }
+      options[name] = true;
+    } else if (option.kind === 'single') {
+      if (seenOptions.has(name)) {
+        throw new Error(`Option ${name} mentioned more than once`);
+      }
+      seenOptions.add(name);
+      options[name] = value !== null ? value : tokens.length > 1 ? tokens.shift()! : null;
+    } else if (option.kind === 'repeat') {
+      if (!options[name]) {
+        options[name] = [];
+      }
+      (options[name] as string[]).push(value !== null ? value : tokens.length > 1 ? tokens.shift()! : null);
+    }
+  }
+
+  for (const { name, kind } of catalogue) {
+    if (kind === 'single' && !seenOptions.has(name)) {
+      options[name] = null;
+    }
+  }
+
+  return { options, operands };
+}
+```

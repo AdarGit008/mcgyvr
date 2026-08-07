@@ -1,0 +1,32 @@
+```ts
+export function hotStreak(scores: number[], bar: number): number[] {
+  let maxStart = -1;
+  let maxLength = 0;
+  let currentStart = -1;
+  let currentLength = 0;
+
+  for (let i = 0; i < scores.length; i++) {
+    if (scores[i] > bar) {
+      if (currentStart === -1) {
+        currentStart = i;
+      }
+      currentLength++;
+    } else {
+      if (currentLength > maxLength) {
+        maxStart = currentStart;
+        maxLength = currentLength;
+      }
+      currentStart = -1;
+      currentLength = 0;
+    }
+  }
+
+  // Final check in case the longest streak ends at the last element
+  if (currentLength > maxLength) {
+    maxStart = currentStart;
+    maxLength = currentLength;
+  }
+
+  return [maxStart, maxLength];
+}
+```

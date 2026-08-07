@@ -1,0 +1,56 @@
+```ts
+/**
+ * Expands a fraction into its exact representation in a given base.
+ * @param numerator - The numerator of the fraction.
+ * @param denominator - The denominator of the fraction.
+ * @param base - The base to expand the fraction in, from 3 to 20.
+ * @returns The string representation of the fraction in the given base.
+ */
+export function expandFractionDigits(numerator: number, denominator: number, base: number): string {
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator)) {
+        throw new Error("Numerator and denominator must be whole numbers.");
+    }
+    if (base < 3 || base > 20) {
+        throw new Error("Base must be between 3 and 20.");
+    }
+    if (denominator <= 0) {
+        throw new Error("Denominator must be positive.");
+    }
+    if (Math.abs(numerator) > 1_000_000 || Math.abs(denominator) > 1_000_000) {
+        throw new Error("Numerator and denominator must be at most one million in magnitude.");
+    }
+
+    const glyphs = "0123456789ABCDEFGHIJ";
+    let result = "";
+    let isNegative = numerator < 0 !== denominator < 0;
+    numerator = Math.abs(numerator);
+    denominator = Math.abs(denominator);
+
+    const wholePart = Math.floor(numerator / denominator);
+    result += glyphs[wholePart];
+
+    if (numerator % denominator === 0) {
+        return isNegative && result !== "0" ? "-" + result : result;
+    }
+
+    result += ";";
+    const remainders = new Map<number, number>();
+    let remainder = numerator % denominator;
+    let fractionalPart = "";
+
+    while (remainder !== 0) {
+        if (remainders.has(remainder)) {
+            const start = remainders.get(remainder)!;
+            const recurring = fractionalPart.slice(start);
+            return isNegative ? "-" + result + fractionalPart.slice(0, start) + "[" + recurring + "]" : result + fractionalPart.slice(0, start) + "[" + recurring + "]";
+        }
+        remainders.set(remainder, fractionalPart.length);
+        remainder *= base;
+        const digit = Math.floor(remainder / denominator);
+        fractionalPart += glyphs[digit];
+        remainder %= denominator;
+    }
+
+    return isNegative ? "-" + result + fractionalPart : result + fractionalPart;
+}
+```

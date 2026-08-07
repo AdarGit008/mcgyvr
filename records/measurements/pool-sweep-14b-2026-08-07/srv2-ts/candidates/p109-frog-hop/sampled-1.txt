@@ -1,0 +1,58 @@
+```ts
+/**
+ * Checks if a frog can hop from the from square to the to square on the pond.
+ * @param pond - A 5x5 grid represented as five strings of five characters.
+ * @param from - The starting position [row, column].
+ * @param to - The target position [row, column].
+ * @returns True if the move is allowed, false otherwise.
+ */
+export function canHop(pond: string[], from: number[], to: number[]): boolean {
+  if (!Array.isArray(pond) || pond.length !== 5 || !pond.every(row => typeof row === 'string' && row.length === 5)) {
+    throw new Error('Invalid pond grid');
+  }
+
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+
+  if (!Number.isInteger(fromRow) || !Number.isInteger(fromCol) || fromRow < 0 || fromRow > 4 || fromCol < 0 || fromCol > 4) {
+    throw new Error('Invalid from position');
+  }
+
+  if (!Number.isInteger(toRow) || !Number.isInteger(toCol) || toRow < 0 || toRow > 4 || toCol < 0 || toCol > 4) {
+    throw new Error('Invalid to position');
+  }
+
+  const isWater = (row: number, col: number): boolean => pond[row][col] === '.';
+  const isFrog = (row: number, col: number): boolean => !isWater(row, col);
+
+  if (!isFrog(fromRow, fromCol)) {
+    throw new Error('From position must be occupied');
+  }
+
+  if (!isWater(toRow, toCol)) {
+    return false;
+  }
+
+  const isStep = (fromRow: number, fromCol: number, toRow: number, toCol: number): boolean => {
+    return (
+      (Math.abs(fromRow - toRow) === 1 && fromCol === toCol) ||
+      (Math.abs(fromCol - toCol) === 1 && fromRow === toRow)
+    );
+  };
+
+  const isVault = (fromRow: number, fromCol: number, toRow: number, toCol: number): boolean => {
+    if (
+      Math.abs(fromRow - toRow) !== 2 ||
+      Math.abs(fromCol - toCol) !== 2 ||
+      (!isFrog((fromRow + toRow) / 2, (fromCol + toCol) / 2))
+    ) {
+      return false;
+    }
+    const midRow = (fromRow + toRow) / 2;
+    const midCol = (fromCol + toCol) / 2;
+    return isFrog(midRow, midCol);
+  };
+
+  return isStep(fromRow, fromCol, toRow, toCol) || isVault(fromRow, fromCol, toRow, toCol);
+}
+```

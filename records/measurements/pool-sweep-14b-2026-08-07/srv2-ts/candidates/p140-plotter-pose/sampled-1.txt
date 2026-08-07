@@ -1,0 +1,66 @@
+```ts
+/**
+ * Parses a plotter program and returns the final pose of the pen plotter.
+ * @param program - A string representing the plotter's movement commands.
+ */
+export function plotterPose(program: string): { x: number; y: number; facing: string } {
+  if (typeof program !== 'string') {
+    throw new Error('Invalid program: must be a string');
+  }
+
+  const directions = ['N', 'E', 'S', 'W'];
+  let x = 0;
+  let y = 0;
+  let facingIndex = 0;
+
+  for (let i = 0; i < program.length; ) {
+    const command = program[i];
+
+    if (command === 'L') {
+      facingIndex = (facingIndex + 3) % 4;
+      i++;
+    } else if (command === 'R') {
+      facingIndex = (facingIndex + 1) % 4;
+      i++;
+    } else if (command === 'F' || command === 'B') {
+      const match = program.matchAt(i, /([FB])(\d+)/);
+      if (!match) {
+        throw new Error('Invalid command: F or B must be followed by digits');
+      }
+      const [, dir, distanceStr] = match;
+      const distance = parseInt(distanceStr, 10);
+
+      if (isNaN(distance) || distance <= 0) {
+        throw new Error('Invalid distance: must be a positive integer');
+      }
+
+      const moveX = directions[facingIndex] === 'E' ? distance : directions[facingIndex] === 'W' ? -distance : 0;
+      const moveY = directions[facingIndex] === 'N' ? distance : directions[facingIndex] === 'S' ? -distance : 0;
+
+      if (dir === 'B') {
+        x -= moveX;
+        y -= moveY;
+      } else {
+        x += moveX;
+        y += moveY;
+      }
+
+      i = match.index! + match[0].length;
+    } else {
+      throw new Error('Invalid command: only F, B, L, and R are allowed');
+    }
+  }
+
+  return { x, y, facing: directions[facingIndex] };
+}
+
+// Helper function to match a regex at a specific position in the string
+String.prototype.matchAt = function (pos: number, regex: RegExp) {
+  const match = this.slice(pos).match(regex);
+  if (!match) return null;
+  return {
+    ...match,
+    index: pos + match.index!,
+  };
+};
+```

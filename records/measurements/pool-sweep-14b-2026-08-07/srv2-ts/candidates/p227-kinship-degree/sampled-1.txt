@@ -1,0 +1,93 @@
+```ts
+/**
+ * How far apart two people stand in a register of forebears.
+ */
+export function kinshipDegree(
+  register: Record<string, string[]>,
+  one: string,
+  other: string,
+): Record<string, unknown> {
+  // Validate the register and input names
+  if (typeof register !== "object" || register === null) {
+    throw new Error("Invalid register");
+  }
+  for (const key in register) {
+    if (typeof key !== "string" || key.length === 0) {
+      throw new Error("Invalid key in register");
+    }
+    const forebears = register[key];
+    if (!Array.isArray(forebears) || forebears.length > 2) {
+      throw new Error("Invalid forebear list");
+    }
+    for (const forebear of forebears) {
+      if (typeof forebear !== "string" || forebear.length === 0) {
+        throw new Error("Invalid forebear name");
+      }
+      if (!register[forebear]) {
+        throw new Error("Forebear not a key in register");
+      }
+      if (forebear === key) {
+        throw new Error("Person cannot be their own forebear");
+      }
+    }
+  }
+
+  // Validate the input names
+  if (!(one in register) || !(other in register)) {
+    throw new Error("One or both names are not keys in register");
+  }
+
+  const climb = (start: string): Map<string, number> => {
+    const seen = new Map<string, number>();
+    let frontier = [start];
+    let step = 0;
+    while (frontier.length > 0) {
+      const next: string[] = [];
+      for (const name of frontier) {
+        if (!seen.has(name)) {
+          seen.set(name, step);
+          next.push(...(register[name] ?? []));
+        }
+      }
+      frontier = next.filter((name) => !seen.has(name));
+      step += 1;
+    }
+    return seen;
+  };
+
+  const mine = climb(one);
+  const theirs = climb(other);
+
+  // Check for direct line
+  if (mine.get(other) !== undefined || one === other) {
+    return { steps: mine.get(other) ?? 0, line: "direct", meet: one };
+  }
+  if (theirs.get(one) !== undefined) {
+    return { steps: theirs.get(one) ?? 0, line: "direct", meet: other };
+  }
+
+  // Check for collateral line
+  let minSteps = Infinity;
+  let meetingPoint = "";
+  for (const [name, up] of mine) {
+    const down = theirs.get(name);
+    if (down !== undefined) {
+      const totalSteps = up + down;
+      if (
+        totalSteps < minSteps ||
+        (totalSteps === minSteps && name < meetingPoint)
+      ) {
+        minSteps = totalSteps;
+        meetingPoint = name;
+      }
+    }
+  }
+
+  if (minSteps !== Infinity) {
+    return { steps: minSteps, line: "collateral", meet: meetingPoint };
+  }
+
+  // If no direct or collateral line, they are apart
+  return { steps: 0, line: "apart", meet: "" };
+}
+```

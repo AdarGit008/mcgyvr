@@ -1,0 +1,53 @@
+```ts
+export function recorderSnapshot(
+  slots: number,
+  script: number[],
+): { order: number[]; head: number; overwritten: number; starved: number } {
+  if (typeof slots !== "number" || !Number.isInteger(slots) || slots < 1) {
+    throw new Error("the slot count must be a positive whole number");
+  }
+  if (!Array.isArray(script)) {
+    throw new Error("the script must be a list");
+  }
+  const seats: number[] = new Array(slots).fill(-1);
+  let head = 0;
+  let carried = 0;
+  let overwritten = 0;
+  let starved = 0;
+
+  for (const entry of script) {
+    if (typeof entry !== "number" || !Number.isInteger(entry) || entry < -1) {
+      throw new Error("a script entry must be -1 or a frame number");
+    }
+
+    if (entry === -1) {
+      if (carried === 0) {
+        starved += 1;
+      } else {
+        head = (head + 1) % slots;
+        carried -= 1;
+      }
+    } else {
+      const targetSlot = (head + carried) % slots;
+      if (carried === slots) {
+        seats[head] = entry;
+        overwritten += 1;
+        head = (head + 1) % slots;
+      } else {
+        seats[targetSlot] = entry;
+        carried += 1;
+      }
+    }
+  }
+
+  const order: number[] = [];
+  for (let at = 0; at < slots; at++) {
+    const slotIndex = (head + at) % slots;
+    if (seats[slotIndex] !== -1) {
+      order.push(seats[slotIndex]);
+    }
+  }
+
+  return { order, head, overwritten, starved };
+}
+```

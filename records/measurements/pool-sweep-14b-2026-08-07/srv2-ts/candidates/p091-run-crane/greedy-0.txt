@@ -1,0 +1,47 @@
+```ts
+export function runCrane(script: string[][]): string[] {
+  const manifest: string[] = [];
+  const pile: string[] = [];
+
+  for (let i = 0; i < script.length; i++) {
+    const move = script[i];
+    if (!Array.isArray(move) || move.length !== 2) {
+      throw new Error(`Invalid move at index ${i}`);
+    }
+
+    const [command, label] = move;
+
+    switch (command) {
+      case "load":
+        if (typeof label !== "string") {
+          throw new Error(`Invalid label at index ${i}`);
+        }
+        pile.push(label);
+        break;
+      case "ship":
+        if (pile.length === 0) {
+          throw new Error(`Attempted to ship from an empty pile at index ${i}`);
+        }
+        manifest.push(pile.pop()!);
+        break;
+      case "bury":
+        if (pile.length === 0) {
+          throw new Error(`Attempted to bury in an empty pile at index ${i}`);
+        }
+        const topCrate = pile.pop()!;
+        pile.unshift(topCrate);
+        break;
+      case "scrap":
+        if (pile.length === 0) {
+          throw new Error(`Attempted to scrap from an empty pile at index ${i}`);
+        }
+        pile.pop();
+        break;
+      default:
+        throw new Error(`Unknown command at index ${i}: ${command}`);
+    }
+  }
+
+  return manifest;
+}
+```

@@ -1,0 +1,72 @@
+```ts
+
+/**
+ * Determines the order in which callers are served based on their join time and rank.
+ * @param events - An array of log entries with "kind", "tick", "who" (optional), and "rank" (optional).
+ * @param step - The aging step size, a positive whole number.
+ * @returns An array of names in the order they were served.
+ */
+export function agedServiceOrder(events: Array<Record<string, unknown>>, step: number): string[] {
+    if (step <= 0 || !Number.isInteger(step)) {
+        throw new Error("Step must be a positive whole number.");
+    }
+    if (events.length === 0) {
+        throw new Error("Log cannot be empty.");
+    }
+
+    const waitingRoom: { name: string, rank: number, joinTick: number }[] = [];
+    const served: string[] = [];
+
+    for (const event of events) {
+        const kind = event.kind as string;
+        const tick = event.tick as number;
+
+        if (kind !== "join" && kind !== "call") {
+            throw new Error("Event kind must be either 'join' or 'call'.");
+        }
+        if (!Number.isInteger(tick) || tick < 0) {
+            throw new Error("Tick must be a non-negative whole number.");
+        }
+
+        if (kind === "join") {
+            const who = event.who as string;
+            const rank = event.rank as number;
+
+            if (typeof who !== "string" || who.length === 0) {
+                throw new Error("Caller name must be a non-empty string.");
+            }
+            if (!Number.isInteger(rank) || rank < 0) {
+                throw new Error("Rank must be a non-negative whole number.");
+            }
+
+            if (waitingRoom.some(entry => entry.name === who)) {
+                throw new Error("A caller cannot join the waiting room more than once.");
+            }
+
+            waitingRoom.push({ name: who, rank, joinTick: tick });
+        } else if (kind === "call") {
+            if (waitingRoom.length === 0) {
+                throw new Error("Cannot call from an empty waiting room.");
+            }
+
+            waitingRoom.sort((a, b) => {
+                const standingA = a.rank + Math.floor((tick - a.joinTick) / step);
+                const standingB = b.rank + Math.floor((tick - b.joinTick) / step);
+
+                if (standingA !== standingB) {
+                    return standingB - standingA;
+                }
+                if (a.joinTick !== b.joinTick) {
+                    return a.joinTick - b.joinTick;
+                }
+                return a.name.localeCompare(b.name);
+            });
+
+            served.push(waitingRoom.shift()!.name);
+        }
+    }
+
+    return served;
+}
+
+```

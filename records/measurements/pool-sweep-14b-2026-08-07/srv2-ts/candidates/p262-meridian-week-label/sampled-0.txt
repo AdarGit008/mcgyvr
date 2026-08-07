@@ -1,0 +1,37 @@
+```ts
+export function meridianWeekLabel(date: string): string {
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error('Invalid date format');
+  }
+
+  const [yearStr, monthStr, dayStr] = date.split('-').map(Number);
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+
+  if (year < 2 || year > 9999) {
+    throw new Error('Year out of range');
+  }
+  if (month < 1 || month > 12) {
+    throw new Error('Month out of range');
+  }
+  const daysInMonth = [31, (isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (day < 1 || day > daysInMonth[month - 1]) {
+    throw new Error('Day out of range');
+  }
+
+  const daysSinceYearStart = getDaysSinceYearStart(year, month, day);
+  const weekNumber = Math.floor((daysSinceYearStart + 2) / 7) + 1;
+
+  return `${yearStr}-W${weekNumber.toString().padStart(2, '0')}`;
+}
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+}
+
+function getDaysSinceYearStart(year: number, month: number, day: number): number {
+  const daysInMonth = [31, (isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return daysInMonth.slice(0, month - 1).reduce((acc, d) => acc + d, 0) + day - 1;
+}
+```

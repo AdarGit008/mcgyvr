@@ -1,0 +1,61 @@
+```ts
+export function tallyStageRetries(stages: any[], budget: number): string[] {
+  if (budget < 1) throw new Error("Budget must be at least one.");
+
+  const results: string[] = [];
+  let totalAttempts = 0;
+  let totalRetries = 0;
+  let totalFlaps = 0;
+  let totalHalts = 0;
+  let greenStages = 0;
+
+  for (const stage of stages) {
+    if (!stage.name || typeof stage.name !== "string" || !stage.name.match(/^[^\s]+$/)) {
+      throw new Error("Invalid stage name.");
+    }
+    if (!Array.isArray(stage.outcomes) || stage.outcomes.length === 0) {
+      throw new Error("Outcome list must be non-empty.");
+    }
+
+    const outcomes = stage.outcomes;
+    const lastOutcome = outcomes[outcomes.length - 1];
+
+    if (outcomes.some(outcome => !["pass", "flap", "halt"].includes(outcome))) {
+      throw new Error("Invalid outcome.");
+    }
+    if (outcomes.slice(0, -1).some(outcome => outcome === "pass" || outcome === "halt")) {
+      throw new Error("Outcome follows a pass or halt.");
+    }
+    if (outcomes.length > budget) {
+      throw new Error("Stage outcomes exceed budget.");
+    }
+
+    const attemptCount = outcomes.length;
+    const retryCount = attemptCount - 1;
+    const flapCount = outcomes.filter(outcome => outcome === "flap").length;
+    const haltCount = outcomes.filter(outcome => outcome === "halt").length;
+    let verdict: string;
+
+    if (lastOutcome === "pass") {
+      verdict = "green";
+      greenStages++;
+    } else if (lastOutcome === "halt") {
+      verdict = "dead";
+    } else if (flapCount === budget) {
+      verdict = "spent";
+    } else {
+      verdict = "open";
+    }
+
+    results.push(`${stage.name} ${attemptCount} ${retryCount} ${flapCount} ${haltCount} ${verdict}`);
+
+    totalAttempts += attemptCount;
+    totalRetries += retryCount;
+    totalFlaps += flapCount;
+    totalHalts += haltCount;
+  }
+
+  results.push(`* ${totalAttempts} ${totalRetries} ${totalFlaps} ${totalHalts} ${greenStages}`);
+  return results;
+}
+```

@@ -1,0 +1,82 @@
+```ts
+/**
+ * Counts how many notes stand at each remove level in a discussion thread.
+ * @param links - A list of [id, answers] pairs representing note replies.
+ */
+export function tallyReplyRemoves(links: string[][]): number[] {
+  if (!Array.isArray(links) || links.length === 0) {
+    throw new Error("Invalid input: batch must be a non-empty list.");
+  }
+
+  const idToAnswers: Record<string, string[]> = {};
+  const idToDepth: Record<string, number> = {};
+
+  for (const link of links) {
+    if (!Array.isArray(link) || link.length !== 2) {
+      throw new Error("Invalid input: each link must be a pair [id, answers].");
+    }
+
+    const [id, answers] = link;
+
+    if (typeof id !== "string" || typeof answers !== "string") {
+      throw new Error("Invalid input: both id and answers must be strings.");
+    }
+
+    if (id === "") {
+      throw new Error("Invalid input: id cannot be an empty string.");
+    }
+
+    if (idToAnswers[id] !== undefined) {
+      throw new Error("Invalid input: id used twice.");
+    }
+
+    if (answers !== "" && !links.some(([otherId]) => otherId === answers)) {
+      throw new Error("Invalid input: answers field names no note in the batch.");
+    }
+
+    idToAnswers[id] = answers ? [answers] : [];
+  }
+
+  for (const id of Object.keys(idToAnswers)) {
+    if (!canTraceBackToStart(id, idToAnswers, new Set())) {
+      throw new Error("Invalid input: some note cannot be traced back to a starting note because the answering runs in a circle.");
+    }
+  }
+
+  const maxDepth = Math.max(...Object.values(idToDepth));
+  const tally: number[] = Array(maxDepth + 1).fill(0);
+
+  for (const depth of Object.values(idToDepth)) {
+    tally[depth]++;
+  }
+
+  return tally;
+}
+
+function canTraceBackToStart(
+  id: string,
+  idToAnswers: Record<string, string[]>,
+  visited: Set<string>
+): boolean {
+  if (visited.has(id)) {
+    return false; // Cycle detected
+  }
+
+  if (idToAnswers[id].length === 0) {
+    return true; // Reached a starting note
+  }
+
+  visited.add(id);
+
+  for (const answer of idToAnswers[id]) {
+    if (!canTraceBackToStart(answer, idToAnswers, visited)) {
+      return false;
+    }
+  }
+
+  visited.delete(id);
+  idToDepth[id] = Math.max(...idToAnswers[id].map((answer) => idToDepth[answer] + 1), 0);
+
+  return true;
+}
+```

@@ -1,0 +1,66 @@
+```ts
+/**
+ * Collapses a list of berths into the shortest list of slabs.
+ * @param berths - An array of berth strings to be collapsed.
+ * @returns An array of slab strings representing the collapsed berths.
+ */
+export function collapseBlocks(berths: string[]): string[] {
+  if (!Array.isArray(berths)) {
+    throw new Error("Input must be an array.");
+  }
+
+  const validateBerth = (berth: string): boolean => {
+    const fields = berth.split('.');
+    if (fields.length !== 4) {
+      return false;
+    }
+    return fields.every(field => field.length === 1 && /^[0-7]$/.test(field));
+  };
+
+  const normalizeBerths = (berths: string[]): string[] => {
+    const uniqueBerths = new Set<string>();
+    for (const berth of berths) {
+      if (typeof berth !== 'string' || !validateBerth(berth)) {
+        throw new Error("Invalid berth format.");
+      }
+      uniqueBerths.add(berth);
+    }
+    return Array.from(uniqueBerths).sort();
+  };
+
+  const getSlab = (berth: string, pin: number): string => {
+    const fields = berth.split('.');
+    const fixedFields = fields.slice(0, pin);
+    const wildcardFields = new Array(4 - pin).fill('0');
+    return `${fixedFields.join('.')}.${wildcardFields.join('.')}/${pin}`;
+  };
+
+  const collapseBerths = (berths: string[]): string[] => {
+    if (berths.length === 0) return [];
+
+    let slabs: string[] = [];
+    for (const berth of berths) {
+      let added = false;
+      for (let pin = 4; pin >= 0 && !added; pin--) {
+        const slab = getSlab(berth, pin);
+        let allMatch = true;
+        for (const b of berths) {
+          if (!b.startsWith(slab.split('/')[0])) {
+            allMatch = false;
+            break;
+          }
+        }
+        if (allMatch) {
+          slabs.push(slab);
+          added = true;
+        }
+      }
+    }
+
+    return slabs.filter((slab, index, self) => index === self.indexOf(slab));
+  };
+
+  const normalizedBerths = normalizeBerths(berths);
+  return collapseBerths(normalizedBerths);
+}
+```

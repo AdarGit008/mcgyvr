@@ -1,0 +1,111 @@
+```ts
+type Cell = { held: number; lo: Cell | null; hi: Cell | null };
+
+function plant(cell: Cell | null, held: number): Cell {
+  if (cell === null) {
+    return { held, lo: null, hi: null };
+  }
+  if (held < cell.held) {
+    cell.lo = plant(cell.lo, held);
+  } else if (held > cell.held) {
+    cell.hi = plant(cell.hi, held);
+  }
+  return cell;
+}
+
+function holds(cell: Cell | null, wanted: number): boolean {
+  while (cell !== null) {
+    if (wanted === cell.held) {
+      return true;
+    }
+    cell = wanted < cell.held ? cell.lo : cell.hi;
+  }
+  return false;
+}
+
+function pull(cell: Cell | null, wanted: number): Cell | null {
+  if (cell === null) {
+    return null;
+  }
+  if (wanted < cell.held) {
+    cell.lo = pull(cell.lo, wanted);
+    return cell;
+  }
+  if (wanted > cell.held) {
+    cell.hi = pull(cell.hi, wanted);
+    return cell;
+  }
+  if (cell.lo === null) {
+    return cell.hi;
+  }
+  if (cell.hi === null) {
+    return cell.lo;
+  }
+  let lowest = cell.hi;
+  while (lowest.lo !== null) {
+    lowest = lowest.lo;
+  }
+  cell.held = lowest.held;
+  cell.hi = removeLowest(cell.hi, lowest.held);
+  return cell;
+}
+
+function removeLowest(cell: Cell, wanted: number): Cell | null {
+  if (cell === null) {
+    return null;
+  }
+  if (wanted < cell.held) {
+    cell.lo = removeLowest(cell.lo, wanted);
+  } else if (wanted > cell.held) {
+    cell.hi = removeLowest(cell.hi, wanted);
+  } else {
+    if (cell.lo === null) {
+      return cell.hi;
+    }
+    if (cell.hi === null) {
+      return cell.lo;
+    }
+    let lowest = cell.hi;
+    while (lowest.lo !== null) {
+      lowest = lowest.lo;
+    }
+    cell.held = lowest.held;
+    cell.hi = removeLowest(cell.hi, lowest.held);
+  }
+  return cell;
+}
+
+function draw(cell: Cell | null): string {
+  if (cell === null) {
+    return ".";
+  }
+  return "[" + cell.held + "|" + draw(cell.lo) + "|" + draw(cell.hi) + "]";
+}
+
+function whole(value: unknown): boolean {
+  return typeof value === "number" && Number.isInteger(value);
+}
+
+export function renderLookupTree(planted: number[], pulled: number[]): string {
+  if (!Array.isArray(planted) || !Array.isArray(pulled)) {
+    throw new Error("both arguments must be lists");
+  }
+  let root: Cell | null = null;
+  for (const value of planted) {
+    if (!whole(value)) {
+      throw new Error("planted values must be whole numbers");
+    }
+    root = plant(root, value);
+  }
+  for (const value of pulled) {
+    if (!whole(value)) {
+      throw new Error("pulled values must be whole numbers");
+    }
+    if (!holds(root, value)) {
+      throw new Error("cannot pull a value the tree does not carry");
+    }
+    root = pull(root, value);
+  }
+  return draw(root);
+}
+```

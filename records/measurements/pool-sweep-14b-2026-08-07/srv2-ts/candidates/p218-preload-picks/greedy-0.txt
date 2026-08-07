@@ -1,0 +1,52 @@
+```ts
+export function preloadPicks(entries: unknown, room: unknown): string[] {
+  if (!Array.isArray(entries)) {
+    throw new Error("Entries must be an array.");
+  }
+  if (typeof room !== "number" || room < 0 || !Number.isInteger(room)) {
+    throw new Error("Room must be a non-negative whole number.");
+  }
+
+  const candidates = entries.map((entry, index) => {
+    if (typeof entry !== "object" || entry === null) {
+      throw new Error(`Entry at index ${index} is not a mapping.`);
+    }
+    const { key, size, hits } = entry as Record<string, unknown>;
+    if (typeof key !== "string" || key.trim() === "") {
+      throw new Error(`Key at index ${index} must be a non-empty string.`);
+    }
+    if (typeof size !== "number" || size <= 0 || !Number.isInteger(size)) {
+      throw new Error(`Size at index ${index} must be a positive whole number.`);
+    }
+    if (typeof hits !== "number" || hits < 0 || !Number.isInteger(hits)) {
+      throw new Error(`Hits at index ${index} must be a non-negative whole number.`);
+    }
+    return { key, size, hits };
+  });
+
+  const uniqueKeys = new Set(candidates.map((c) => c.key));
+  if (uniqueKeys.size !== candidates.length) {
+    throw new Error("Two candidates share the same key.");
+  }
+
+  candidates.sort((a, b) => {
+    if (b.hits === a.hits) {
+      if (a.size === b.size) {
+        return a.key.localeCompare(b.key);
+      }
+      return a.size - b.size;
+    }
+    return b.hits - a.hits;
+  });
+
+  const selectedKeys: string[] = [];
+  for (const candidate of candidates) {
+    if (candidate.size <= room) {
+      selectedKeys.push(candidate.key);
+      room -= candidate.size;
+    }
+  }
+
+  return selectedKeys;
+}
+```

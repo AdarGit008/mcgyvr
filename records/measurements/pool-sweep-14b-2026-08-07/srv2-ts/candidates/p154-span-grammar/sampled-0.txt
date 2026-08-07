@@ -1,0 +1,108 @@
+```ts
+/**
+ * Expands a pattern written in a custom grammar into distinct strings.
+ * @param pattern - The input pattern string to expand.
+ * @returns An array of expanded strings sorted by code point.
+ */
+export function expandSpanGrammar(pattern: string): string[] {
+  if (typeof pattern !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const groups = [];
+  let currentGroup = '';
+  let inGroup = false;
+  let escapeNext = false;
+
+  for (const char of pattern) {
+    if (escapeNext) {
+      escapeNext = false;
+      currentGroup += char;
+      continue;
+    }
+
+    if (char === '~') {
+      escapeNext = true;
+      continue;
+    }
+
+    if (!inGroup && char === '<') {
+      inGroup = true;
+      continue;
+    }
+
+    if (inGroup && char === '>') {
+      groups.push(currentGroup);
+      currentGroup = '';
+      inGroup = false;
+      continue;
+    }
+
+    if (inGroup) {
+      currentGroup += char;
+    } else {
+      currentGroup += char;
+    }
+  }
+
+  if (escapeNext || inGroup || currentGroup.includes('<')) {
+    throw new Error('Invalid pattern');
+  }
+
+  const expandedGroups = groups.map(group => {
+    if (group.includes('..')) {
+      return expandNumericSpan(group);
+    } else {
+      return group.split('|');
+    }
+  });
+
+  const result = cartesianProduct(expandedGroups).sort();
+
+  if (result.length > 500) {
+    throw new Error('Expansion count exceeds limit');
+  }
+
+  return result;
+}
+
+/**
+ * Expands a numeric span into an array of strings with leading zeros.
+ * @param span - The span string in the format "start..end".
+ * @returns An array of expanded numeric strings.
+ */
+function expandNumericSpan(span: string): string[] {
+  const [startStr, endStr] = span.split('..');
+  const start = parseInt(startStr, 10);
+  const end = parseInt(endStr, 10);
+
+  if (isNaN(start) || isNaN(end) || start > end) {
+    throw new Error('Invalid numeric span');
+  }
+
+  const width = start.toString().length;
+  const result: string[] = [];
+
+  for (let i = start; i <= end; i++) {
+    result.push(i.toString().padStart(width, '0'));
+  }
+
+  return result;
+}
+
+/**
+ * Computes the Cartesian product of multiple arrays.
+ * @param arrays - An array of arrays to compute the product of.
+ * @returns An array of combined strings from each input array.
+ */
+function cartesianProduct(arrays: string[][]): string[] {
+  if (arrays.length === 0) return [];
+
+  const first = arrays[0];
+  const rest = cartesianProduct(arrays.slice(1));
+
+  if (rest.length === 0) return first;
+
+  return first.flatMap(value => rest.map(suffix => value + suffix));
+}
+```

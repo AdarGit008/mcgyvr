@@ -1,0 +1,61 @@
+```ts
+export function codeOpenAnswers(rules: Array<Record<string, unknown>>, answers: string[]): Record<string, unknown> {
+  if (!Array.isArray(rules) || rules.length === 0) {
+    throw new Error("Rules must be a non-empty list.");
+  }
+
+  const ruleMap = new Map<string, { code: string, phraseWords: string[] }>();
+  for (const rule of rules) {
+    if (typeof rule !== 'object' || rule === null) {
+      throw new Error("Each rule must be a mapping.");
+    }
+    const code = rule.code as string;
+    const phrase = rule.phrase as string;
+
+    if (typeof code !== 'string' || code.trim() === '') {
+      throw new Error("Code must be a non-empty string.");
+    }
+
+    const phraseWords = phrase.split(/\s+/).filter(word => /^[a-z0-9]+$/.test(word));
+    if (phraseWords.length === 0) {
+      throw new Error("Phrase must contain one or more runs of lowercase letters and digits joined by single spaces.");
+    }
+
+    if (ruleMap.has(phrase)) {
+      throw new Error("Two rules cannot share a phrase.");
+    }
+
+    ruleMap.set(phrase, { code, phraseWords });
+  }
+
+  if (!Array.isArray(answers)) {
+    throw new Error("Answers must be a list.");
+  }
+
+  const tally: Record<string, number> = {};
+  const loose: string[] = [];
+
+  for (const answer of answers) {
+    if (typeof answer !== 'string') {
+      throw new Error("Each answer must be a string.");
+    }
+
+    const tidiedAnswer = answer.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    let coded = false;
+
+    for (const { code, phraseWords } of ruleMap.values()) {
+      if (tidiedAnswer.includes(' ' + phraseWords.join(' ') + ' ')) {
+        coded = true;
+        tally[code] = (tally[code] || 0) + 1;
+        break;
+      }
+    }
+
+    if (!coded) {
+      loose.push(tidiedAnswer);
+    }
+  }
+
+  return { tally, loose };
+}
+```

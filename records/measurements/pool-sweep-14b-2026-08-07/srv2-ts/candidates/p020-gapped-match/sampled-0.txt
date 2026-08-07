@@ -1,0 +1,30 @@
+```ts
+/**
+ * Determines if the needle occurs inside haystack as an in-order match of all its characters,
+ * allowing for at most 'gap' unmatched characters between matched characters.
+ * @param needle - The string to search for.
+ * @param haystack - The string in which to search.
+ * @param gap - The maximum number of unmatched characters allowed between matches.
+ * @returns True if a gapped match exists, false otherwise.
+ */
+export function gappedMatch(needle: string, haystack: string, gap: number): boolean {
+  if (needle.length === 0) {
+    throw new Error("Empty needle is not allowed.");
+  }
+  if (!Number.isInteger(gap) || gap < 0) {
+    throw new Error("Gap must be a non-negative integer.");
+  }
+
+  let needleIndex = 0;
+  for (let i = 0; i < haystack.length; i++) {
+    if (haystack[i] === needle[needleIndex]) {
+      needleIndex++;
+      if (needleIndex === needle.length) {
+        return true;
+      }
+      i += gap; // Skip up to 'gap' characters
+    }
+  }
+  return false;
+}
+```

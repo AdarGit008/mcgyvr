@@ -1,0 +1,61 @@
+```ts
+/**
+ * Folds pitch marks to their class, removes duplicates, and determines the triad stack name.
+ * @param marks - An array of whole numbers representing pitch marks in half-tones.
+ * @returns An object with keys "base" and "name" describing the triad stack.
+ */
+export function nameTriadStack(marks: number[]): any {
+  if (!Array.isArray(marks)) {
+    throw new Error("Input must be an array.");
+  }
+  if (marks.length === 0) {
+    throw new Error("Input array must not be empty.");
+  }
+  if (!marks.every(Number.isInteger)) {
+    throw new Error("All elements in the input array must be whole numbers.");
+  }
+
+  // Fold marks to their class and remove duplicates
+  const classes = Array.from(new Set(marks.map(mark => (mark % 12 + 12) % 12)));
+  if (classes.length < 3) {
+    throw new Error("Stack must have at least three unique classes.");
+  }
+
+  // Define the shapes in order of preference
+  const shapes = [
+    [0, 4, 7],    // major
+    [0, 3, 7],    // minor
+    [0, 3, 6],    // diminished
+    [0, 4, 8],    // augmented
+    [0, 5, 7],    // quartal
+    [0, 2, 6],    // narrow
+    [0, 4, 7, 11], // major seventh
+    [0, 4, 7, 10], // dominant seventh
+    [0, 3, 7, 10], // minor seventh
+    [0, 3, 6, 9]   // shrunk seventh
+  ];
+
+  let bestBase = -1;
+  let bestShapeName = "unknown";
+
+  for (const base of classes) {
+    const shape = classes.map(cls => ((cls - base + 12) % 12)).sort((a, b) => a - b);
+
+    for (const [index, preferredShape] of shapes.entries()) {
+      if (shape.length === preferredShape.length && preferredShape.every(val => shape.includes(val))) {
+        if (bestBase === -1 || index < shapes.indexOf(bestShapeName)) {
+          bestBase = base;
+          bestShapeName = preferredShape.join("-");
+        }
+        break;
+      }
+    }
+
+    if (bestBase !== -1) {
+      break;
+    }
+  }
+
+  return { base: bestBase, name: bestShapeName };
+}
+```

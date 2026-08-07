@@ -1,0 +1,59 @@
+```ts
+export function squashJournal(ops: (string | number)[][]): (string | number)[][] {
+  const store: Record<string, { value: number; lastPutIndex: number }> = {};
+  const result: (string | number)[][] = [];
+
+  for (let i = 0; i < ops.length; i++) {
+    const [op, key1, valueOrKey2] = ops[i];
+
+    if (typeof op !== 'string' || typeof key1 !== 'string') {
+      throw new Error('Invalid operation or key');
+    }
+
+    switch (op) {
+      case 'put': {
+        if (typeof valueOrKey2 !== 'number' || valueOrKey2 <= 0) {
+          throw new Error('Invalid value for put');
+        }
+        store[key1] = { value: valueOrKey2, lastPutIndex: i };
+        break;
+      }
+      case 'del': {
+        if (!store[key1]) {
+          throw new Error('Deleting absent key');
+        }
+        delete store[key1];
+        break;
+      }
+      case 'ren': {
+        const [oldKey, newKey] = ops[i].slice(1) as [string, string];
+
+        if (typeof oldKey !== 'string' || typeof newKey !== 'string') {
+          throw new Error('Invalid key for rename');
+        }
+
+        if (!store[oldKey]) {
+          throw new Error('Renaming absent key');
+        }
+        if (store[newKey]) {
+          throw new Error('Renaming onto existing key');
+        }
+
+        store[newKey] = { ...store[oldKey], lastPutIndex: i };
+        delete store[oldKey];
+        break;
+      }
+      default:
+        throw new Error('Unknown operation');
+    }
+  }
+
+  for (const [key, { value, lastPutIndex }] of Object.entries(store)) {
+    result.push(['put', key, value]);
+  }
+
+  result.sort((a, b) => (a[2] as number) - (b[2] as number));
+
+  return result;
+}
+```

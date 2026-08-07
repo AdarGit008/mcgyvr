@@ -1,0 +1,99 @@
+```ts
+export function foldReplyThread(messages: string[][]): string {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    throw new Error("Invalid input: messages must be a non-empty array.");
+  }
+
+  const messageMap = new Map<string, { id: string; parent: string; text: string; children: string[] }>();
+  const rootMessages: string[] = [];
+
+  for (const message of messages) {
+    if (!Array.isArray(message) || message.length !== 3) {
+      throw new Error("Invalid input: each message must be an array of exactly three strings.");
+    }
+
+    const [id, parent, text] = message;
+
+    if (typeof id !== "string" || typeof parent !== "string" || typeof text !== "string") {
+      throw new Error("Invalid input: id, parent, and text must all be strings.");
+    }
+
+    if (id.trim() === "") {
+      throw new Error("Invalid input: id cannot be empty.");
+    }
+
+    if (text.includes("\n")) {
+      throw new Error("Invalid input: text cannot contain a newline.");
+    }
+
+    if (messageMap.has(id)) {
+      throw new Error("Invalid input: duplicate id found.");
+    }
+
+    messageMap.set(id, { id, parent, text, children: [] });
+
+    if (parent === "") {
+      rootMessages.push(id);
+    } else {
+      const parentMessage = messageMap.get(parent);
+      if (!parentMessage) {
+        throw new Error("Invalid input: parent message does not exist.");
+      }
+      parentMessage.children.push(id);
+    }
+  }
+
+  // Check for cycles
+  const visited = new Set<string>();
+  const recursionStack = new Set<string>();
+
+  function hasCycle(nodeId: string): boolean {
+    if (recursionStack.has(nodeId)) {
+      return true;
+    }
+    if (visited.has(nodeId)) {
+      return false;
+    }
+
+    visited.add(nodeId);
+    recursionStack.add(nodeId);
+
+    const node = messageMap.get(nodeId)!;
+    for (const child of node.children) {
+      if (hasCycle(child)) {
+        return true;
+      }
+    }
+
+    recursionStack.delete(nodeId);
+    return false;
+  }
+
+  for (const rootMessage of rootMessages) {
+    if (hasCycle(rootMessage)) {
+      throw new Error("Invalid input: parent links form a cycle.");
+    }
+  }
+
+  function buildThread(id: string, depth: number): string[] {
+    const node = messageMap.get(id)!;
+    const lines: string[] = [];
+    for (const child of node.children) {
+      lines.push(...buildThread(child, depth + 1));
+    }
+    if (!node.parent) {
+      lines.push(" ".repeat(depth * 2) + node.id + " " + node.text);
+    } else {
+      lines.push(" ".repeat(depth * 2) + ">" + " ".repeat(depth) + node.id + " " + node.text);
+    }
+    return lines;
+  }
+
+  const result: string[] = [];
+  for (const rootMessage of rootMessages) {
+    result.push(...buildThread(rootMessage, 0));
+  }
+
+  return result.join("\n");
+}
+```

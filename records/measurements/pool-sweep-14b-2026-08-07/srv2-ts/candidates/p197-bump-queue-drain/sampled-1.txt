@@ -1,0 +1,97 @@
+```ts
+/**
+ * The order a crew works through a batch of graded tickets.
+ */
+export function bumpQueueDrain(
+  tickets: Array<Record<string, unknown>>,
+  start: number,
+  bumpEvery: number
+): string[] {
+  if (tickets.length === 0) {
+    throw new Error("Batch is empty");
+  }
+
+  const validateTicket = (ticket: Record<string, unknown>): boolean => {
+    return (
+      typeof ticket.id === "string" &&
+      ticket.id.trim() !== "" &&
+      typeof ticket.filed === "number" &&
+      Number.isInteger(ticket.filed) &&
+      ticket.filed >= 0 &&
+      typeof ticket.grade === "number" &&
+      Number.isInteger(ticket.grade) &&
+      ticket.grade >= 0 &&
+      ticket.grade <= 9
+    );
+  };
+
+  const uniqueIds = new Set<string>();
+  for (const ticket of tickets) {
+    if (!validateTicket(ticket)) {
+      throw new Error("Invalid ticket");
+    }
+    if (uniqueIds.has(ticket.id as string)) {
+      throw new Error("Duplicate ticket id");
+    }
+    uniqueIds.add(ticket.id as string);
+  }
+
+  if (typeof start !== "number" || !Number.isInteger(start) || start < 0) {
+    throw new Error("Invalid start minute");
+  }
+
+  if (
+    typeof bumpEvery !== "number" ||
+    !Number.isInteger(bumpEvery) ||
+    bumpEvery <= 0
+  ) {
+    throw new Error("Invalid bump interval");
+  }
+
+  const pending = [...tickets].sort((a, b) => {
+    if (a.filed === b.filed) {
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    }
+    return a.filed - b.filed;
+  });
+
+  const handled: string[] = [];
+  let currentMinute = start;
+
+  while (pending.length > 0) {
+    const eligibleTickets = pending.filter(
+      ticket => ticket.filed <= currentMinute
+    );
+
+    if (eligibleTickets.length === 0) {
+      currentMinute++;
+      continue;
+    }
+
+    let pick = 0;
+    for (let i = 1; i < eligibleTickets.length; i++) {
+      const here =
+        Math.min(
+          eligibleTickets[i].grade +
+            Math.floor((currentMinute - eligibleTickets[i].filed) / bumpEvery),
+          9
+        );
+      const held =
+        Math.min(
+          eligibleTickets[pick].grade +
+            Math.floor((currentMinute - eligibleTickets[pick].filed) / bumpEvery),
+          9
+        );
+      if (here > held || (here === held && eligibleTickets[i].filed < eligibleTickets[pick].filed)) {
+        pick = i;
+      }
+    }
+
+    handled.push(eligibleTickets[pick].id);
+    pending.splice(pending.indexOf(eligibleTickets[pick]), 1);
+    currentMinute++;
+  }
+
+  return handled;
+}
+```

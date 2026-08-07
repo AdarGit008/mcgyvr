@@ -1,0 +1,33 @@
+```ts
+/**
+ * Loads parcels onto two vans based on their weights.
+ * @param parcels - An array of positive integer weights of the parcels.
+ * @returns A pair of numbers representing the total weight in each van.
+ * @throws Error if the parcel list is empty or contains weights below one.
+ */
+export function loadVans(parcels: number[]): number[] {
+  if (parcels.length === 0) {
+    throw new Error("Parcel list cannot be empty.");
+  }
+
+  const validParcels = parcels.filter(weight => weight >= 1);
+  if (validParcels.length !== parcels.length) {
+    throw new Error("All parcel weights must be positive integers.");
+  }
+
+  validParcels.sort((a, b) => b - a);
+
+  let van1Total = 0;
+  let van2Total = 0;
+
+  for (const weight of validParcels) {
+    if (van1Total <= van2Total) {
+      van1Total += weight;
+    } else {
+      van2Total += weight;
+    }
+  }
+
+  return [van1Total, van2Total];
+}
+```

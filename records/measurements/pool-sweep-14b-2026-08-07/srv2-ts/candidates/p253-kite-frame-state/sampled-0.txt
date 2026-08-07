@@ -1,0 +1,30 @@
+```ts
+export function kiteFrameState(
+  rallies: string[],
+): { left: number; right: number; winner: string } {
+  if (!Array.isArray(rallies)) {
+    throw new Error("Invalid input: rallies must be an array");
+  }
+
+  const score: Record<string, number> = { left: 0, right: 0 };
+  let winner = "";
+
+  for (const rally of rallies) {
+    if (rally !== "left" && rally !== "right") {
+      throw new Error("Invalid input: rallies must be 'left' or 'right'");
+    }
+
+    score[rally] += 1;
+
+    if (winner === "") {
+      if (score[rally] >= 20) {
+        winner = rally;
+      } else if (score.rally - score[rally === "left" ? "right" : "left"] >= 2) {
+        winner = rally;
+      }
+    }
+  }
+
+  return { left: score.left, right: score.right, winner };
+}
+```

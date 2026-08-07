@@ -1,0 +1,69 @@
+```ts
+/**
+ * Places cards on a panel according to the given specifications.
+ * @param panel - The panel record with width, height, bleed, cardWidth, cardHeight, and seam.
+ * @param count - The number of cards to place.
+ * @param taken - The list of cell numbers already spoken for.
+ * @returns An array of pairs representing the top-left corner coordinates of each placed card.
+ */
+export function placeCards(panel: any, count: number, taken: any[]): number[][] {
+  if (
+    typeof panel.width !== 'number' || panel.width <= 0 ||
+    typeof panel.height !== 'number' || panel.height <= 0 ||
+    typeof panel.bleed !== 'number' || panel.bleed < 0 ||
+    typeof panel.cardWidth !== 'number' || panel.cardWidth <= 0 ||
+    typeof panel.cardHeight !== 'number' || panel.cardHeight <= 0 ||
+    typeof panel.seam !== 'number' || panel.seam < 0
+  ) {
+    throw new Error('Invalid panel measurements.');
+  }
+
+  if (typeof count !== 'number' || count < 0) {
+    throw new Error('Count must be a non-negative integer.');
+  }
+
+  const printableWidth = panel.width - 2 * panel.bleed;
+  const printableHeight = panel.height - 2 * panel.bleed;
+
+  const colCount = Math.floor((printableWidth + panel.seam) / (panel.cardWidth + panel.seam));
+  const rowCount = Math.floor((printableHeight + panel.seam) / (panel.cardHeight + panel.seam));
+
+  if (colCount <= 0 || rowCount <= 0) {
+    throw new Error('Panel carries no cells at all.');
+  }
+
+  const totalCells = colCount * rowCount;
+  const takenSet = new Set(taken);
+
+  for (const cell of taken) {
+    if (cell < 1 || cell > totalCells) {
+      throw new Error(`Spoken-for cell number ${cell} falls outside the grid.`);
+    }
+  }
+
+  const availableCells: number[] = [];
+  for (let i = 1; i <= totalCells; i++) {
+    if (!takenSet.has(i)) {
+      availableCells.push(i);
+    }
+  }
+
+  if (availableCells.length < count) {
+    throw new Error('Free cells cannot cover the count.');
+  }
+
+  const result: number[][] = [];
+  for (let i = 0; i < count; i++) {
+    const cellNumber = availableCells[i];
+    const colIndex = ((cellNumber - 1) % colCount);
+    const rowIndex = Math.floor((cellNumber - 1) / colCount);
+
+    const leftEdge = panel.bleed + colIndex * (panel.cardWidth + panel.seam);
+    const topEdge = panel.bleed + rowIndex * (panel.cardHeight + panel.seam);
+
+    result.push([leftEdge, topEdge]);
+  }
+
+  return result;
+}
+```

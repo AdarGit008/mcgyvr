@@ -1,0 +1,91 @@
+```ts
+export function matchStatementRows(
+  book: Array<Record<string, unknown>>,
+  bank: Array<Record<string, unknown>>,
+  tolerance: number
+): { pairs: string[][]; bookOnly: string[]; bankOnly: string[] } {
+  if (!Array.isArray(book) || !Array.isArray(bank)) {
+    throw new Error("First two arguments must be arrays.");
+  }
+  if (typeof tolerance !== "number" || tolerance < 0 || !Number.isInteger(tolerance)) {
+    throw new Error("Tolerance must be a non-negative integer.");
+  }
+
+  const validateRow = (row: Record<string, unknown>, name: string) => {
+    const { ref, day, cents } = row;
+    if (
+      typeof ref !== "string" ||
+      !ref ||
+      typeof day !== "number" ||
+      !Number.isInteger(day) ||
+      typeof cents !== "number" ||
+      !Number.isInteger(cents) ||
+      cents === 0
+    ) {
+      throw new Error(`${name} row must have valid non-empty string ref, integer day, and non-zero integer cents.`);
+    }
+  };
+
+  book.forEach((row) => validateRow(row, "book"));
+  bank.forEach((row) => validateRow(row, "bank"));
+
+  const uniqueRefs = (list: Array<Record<string, unknown>>, name: string) => {
+    const refs = new Set(list.map((row) => row.ref));
+    if (refs.size !== list.length) {
+      throw new Error(`${name} rows must have unique refs.`);
+    }
+  };
+
+  uniqueRefs(book, "book");
+  uniqueRefs(bank, "bank");
+
+  book.sort((a, b) => a.day - b.day || a.ref.localeCompare(b.ref));
+  bank.sort((a, b) => a.day - b.day || a.ref.localeCompare(b.ref));
+
+  const pairs: string[][] = [];
+  const bookOnly: string[] = [];
+  const bankOnly: string[] = [];
+
+  let bankIndex = 0;
+
+  for (const bookRow of book) {
+    const { ref: bookRef, day: bookDay, cents: bookCents } = bookRow;
+    let bestMatchBankIndex = -1;
+    let smallestDistance = Infinity;
+
+    while (
+      bankIndex < bank.length &&
+      bank[bankIndex].day <= bookDay + tolerance
+    ) {
+      const { ref: bankRef, day: bankDay, cents: bankCents } = bank[bankIndex];
+      if (bookCents === bankCents) {
+        const distance = Math.abs(bookDay - bankDay);
+        if (
+          distance < smallestDistance ||
+          (distance === smallestDistance &&
+            bankRow.day < bank[bestMatchBankIndex].day) ||
+          (distance === smallestDistance &&
+            bankRow.day === bank[bestMatchBankIndex].day &&
+            bankRef < bank[bestMatchBankIndex].ref)
+        ) {
+          smallestDistance = distance;
+          bestMatchBankIndex = bankIndex;
+        }
+      }
+      bankIndex++;
+    }
+
+    if (bestMatchBankIndex !== -1) {
+      pairs.push([bookRef, bank[bestMatchBankIndex].ref]);
+    } else {
+      bookOnly.push(bookRef);
+    }
+  }
+
+  for (; bankIndex < bank.length; bankIndex++) {
+    bankOnly.push(bank[bankIndex].ref as string);
+  }
+
+  return { pairs, bookOnly, bankOnly };
+}
+```

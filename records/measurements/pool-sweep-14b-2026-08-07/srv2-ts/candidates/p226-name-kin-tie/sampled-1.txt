@@ -1,0 +1,96 @@
+```ts
+/**
+ * Determines the kinship tie between two people based on their family links.
+ * @param links - An array of objects representing family links with "child" and "parent" properties.
+ * @param one - The name of the first person.
+ * @param other - The name of the second person.
+ * @returns A string describing the kinship tie between the two people.
+ */
+export function nameKinTie(links: Array<Record<string, unknown>>, one: string, other: string): string {
+    // Validate input
+    if (!Array.isArray(links)) {
+        throw new Error("Links must be an array.");
+    }
+
+    const familyMap: Map<string, Set<string>> = new Map();
+    const parentCount: Record<string, number> = {};
+
+    for (const link of links) {
+        if (typeof link !== 'object' || typeof link.child !== 'string' || typeof link.parent !== 'string') {
+            throw new Error("Each link must be an object with 'child' and 'parent' string properties.");
+        }
+
+        const { child, parent } = link;
+
+        if (child === "" || parent === "") {
+            throw new Error("Names cannot be empty strings.");
+        }
+
+        if (!familyMap.has(child)) {
+            familyMap.set(child, new Set());
+        }
+        if (!familyMap.has(parent)) {
+            familyMap.set(parent, new Set());
+        }
+
+        const childParents = familyMap.get(child)!;
+        if (childParents.size > 1) {
+            throw new Error("Nobody may be given more than two parents.");
+        }
+        if (child === parent) {
+            throw new Error("Nobody may stand as their own parent.");
+        }
+        childParents.add(parent);
+
+        parentCount[parent] = (parentCount[parent] || 0) + 1;
+        if (parentCount[parent] > 2) {
+            throw new Error("Someone is given a third parent.");
+        }
+
+        // Check for loops
+        const visited = new Set<string>();
+        let current: string | null = child;
+        while (current !== null) {
+            if (visited.has(current)) {
+                throw new Error("The links close a loop.");
+            }
+            visited.add(current);
+            current = [...familyMap.get(current)!][0] || null; // Assuming only one parent
+        }
+    }
+
+    if (!familyMap.has(one) || !familyMap.has(other)) {
+        throw new Error("Either person is named nowhere in the links.");
+    }
+
+    // BFS to find the shortest path to common ancestors
+    const getAncestors = (person: string): Set<string> => {
+        const ancestors = new Set<string>();
+        const queue = [person];
+        while (queue.length > 0) {
+            const current = queue.shift()!;
+            if (!ancestors.has(current)) {
+                ancestors.add(current);
+                familyMap.get(current)?.forEach(parent => queue.push(parent));
+            }
+        }
+        return ancestors;
+    };
+
+    const oneAncestors = getAncestors(one);
+    const otherAncestors = getAncestors(other);
+
+    let commonAncestors: { [key: string]: number[] } = {};
+
+    for (const ancestor of oneAncestors) {
+        if (otherAncestors.has(ancestor)) {
+            const u = [...oneAncestors].indexOf(ancestor);
+            const v = [...otherAncestors].indexOf(ancestor);
+            if (!commonAncestors[ancestor]) {
+                commonAncestors[ancestor] = [u, v];
+            }
+        }
+    }
+
+    if (Object.keys(commonAncestors).length === 0) {
+        return "unrelated";

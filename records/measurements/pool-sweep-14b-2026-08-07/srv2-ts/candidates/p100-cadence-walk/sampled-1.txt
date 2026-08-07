@@ -1,0 +1,71 @@
+```ts
+/**
+ * Finds the smallest number of edges in a walk from start to goal that follows the cadence.
+ * @param edges - A list of directed edges, each a [from, to, label] triple of non-empty strings.
+ * @param cadence - A list of non-empty strings representing the required label sequence.
+ * @param start - The starting node as a non-empty string.
+ * @param goal - The goal node as a non-empty string.
+ * @returns The smallest number of edges in the walk, or -1 if no such walk exists.
+ * @throws Error if cadence is empty, contains an invalid label, edges contain invalid triples,
+ *         or start/goal nodes are not part of any edge.
+ */
+export function labelCadenceWalk(edges: string[][], cadence: string[], start: string, goal: string): number {
+    if (cadence.length === 0) {
+        throw new Error("Cadence list cannot be empty.");
+    }
+    cadence.forEach(label => {
+        if (typeof label !== 'string' || label.trim() === '') {
+            throw new Error("Cadence entry must be a non-empty string.");
+        }
+    });
+
+    edges.forEach(edge => {
+        if (!Array.isArray(edge) || edge.length !== 3) {
+            throw new Error("Each edge must be a triple of non-empty strings.");
+        }
+        edge.forEach(part => {
+            if (typeof part !== 'string' || part.trim() === '') {
+                throw new Error("Edge parts must be non-empty strings.");
+            }
+        });
+    });
+
+    const nodes = new Set<string>();
+    edges.forEach(([from, to]) => {
+        nodes.add(from);
+        nodes.add(to);
+    });
+
+    if (!nodes.has(start) || !nodes.has(goal)) {
+        throw new Error("Start or goal node must appear in at least one edge.");
+    }
+
+    if (start === goal) return 0;
+
+    const queue: { node: string, steps: number, cadenceIndex: number }[] = [{ node: start, steps: 0, cadenceIndex: 0 }];
+    const visited = new Set<string>();
+
+    while (queue.length > 0) {
+        const { node, steps, cadenceIndex } = queue.shift()!;
+        const currentLabel = cadence[cadenceIndex % cadence.length];
+
+        edges.forEach(([from, to, label]) => {
+            if (from === node && label === currentLabel) {
+                const nextNode = to;
+                const nextSteps = steps + 1;
+                const nextCadenceIndex = (cadenceIndex + 1) % cadence.length;
+
+                if (nextNode === goal) return nextSteps;
+
+                const visitKey = `${nextNode}-${nextCadenceIndex}`;
+                if (!visited.has(visitKey)) {
+                    visited.add(visitKey);
+                    queue.push({ node: nextNode, steps: nextSteps, cadenceIndex: nextCadenceIndex });
+                }
+            }
+        });
+    }
+
+    return -1;
+}
+```

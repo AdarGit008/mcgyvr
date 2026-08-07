@@ -1,0 +1,55 @@
+```ts
+/**
+ * Finds the smallest number of edges in a walk from start to goal that follows the cadence.
+ * @param edges - A list of directed edges, each a [from, to, label] triple of non-empty strings.
+ * @param cadence - A list of non-empty strings representing the required sequence of labels.
+ * @param start - The starting node as a non-empty string.
+ * @param goal - The goal node as a non-empty string.
+ * @returns The smallest number of edges in the walk, or -1 if no such walk exists.
+ */
+export function labelCadenceWalk(edges: string[][], cadence: string[], start: string, goal: string): number {
+  if (cadence.length === 0) {
+    throw new Error("Cadence list cannot be empty.");
+  }
+  if (cadence.some(label => typeof label !== 'string' || label.trim() === '')) {
+    throw new Error("Cadence entries must be non-empty strings.");
+  }
+  if (!edges.every(edge => Array.isArray(edge) && edge.length === 3 &&
+      edge.every(part => typeof part === 'string' && part.trim() !== ''))) {
+    throw new Error("Each edge must be a triple of non-empty strings.");
+  }
+
+  const nodes = new Set<string>();
+  edges.forEach(([from, to]) => {
+    nodes.add(from);
+    nodes.add(to);
+  });
+
+  if (!nodes.has(start) || !nodes.has(goal)) {
+    throw new Error("Start or goal node appears in no edge.");
+  }
+
+  if (start === goal) {
+    return 0;
+  }
+
+  const cadenceLength = cadence.length;
+  let minEdges = Infinity;
+
+  function dfs(current: string, steps: number, cadenceIndex: number): void {
+    if (current === goal) {
+      minEdges = Math.min(minEdges, steps);
+      return;
+    }
+    for (const [from, to, label] of edges) {
+      if (from === current && label === cadence[cadenceIndex]) {
+        dfs(to, steps + 1, (cadenceIndex + 1) % cadenceLength);
+      }
+    }
+  }
+
+  dfs(start, 0, 0);
+
+  return minEdges === Infinity ? -1 : minEdges;
+}
+```

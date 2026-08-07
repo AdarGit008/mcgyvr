@@ -1,0 +1,41 @@
+```ts
+/**
+ * Implements a token bucket rate limiter to replay a request log.
+ * @param capacity - The maximum number of tokens the bucket can hold.
+ * @param refill - The rate at which tokens are added back into the bucket per time unit.
+ * @param requests - An array of [time, cost] pairs representing request arrival times and costs.
+ * @returns An array of labels "grant" or "refuse" corresponding to each request.
+ */
+export function tokenBucket(capacity: number, refill: number, requests: number[][]): string[] {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+  if (!Number.isInteger(refill) || refill < 0) {
+    throw new Error("Refill rate must be a non-negative integer.");
+  }
+
+  let tokens = capacity;
+  let lastTime = 0;
+
+  return requests.map(([time, cost]) => {
+    if (!Number.isInteger(time) || time < 0 || (time < lastTime && lastTime !== 0)) {
+      throw new Error("Invalid arrival time.");
+    }
+    if (!Number.isInteger(cost) || cost <= 0) {
+      throw new Error("Cost must be a positive integer.");
+    }
+
+    const timePassed = time - lastTime;
+    tokens += timePassed * refill;
+    tokens = Math.min(tokens, capacity);
+    lastTime = time;
+
+    if (tokens >= cost) {
+      tokens -= cost;
+      return "grant";
+    } else {
+      return "refuse";
+    }
+  });
+}
+```

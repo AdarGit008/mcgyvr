@@ -1,0 +1,61 @@
+```ts
+export function unspoolText(spool: string): string {
+  if (typeof spool !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let output = '';
+  let i = 0;
+  const n = spool.length;
+
+  while (i < n) {
+    if (spool[i] === '<') {
+      if (i + 1 < n && spool[i + 1] === '<') {
+        // Double less-than sign, append one less-than sign
+        output += '<';
+        i += 2;
+      } else {
+        // Pointer: <reach,haul>
+        let reachStart = i + 1;
+        while (i < n && spool[i] !== ',') {
+          if (!/^\d+$/.test(spool[i]) || spool[i] === '0') {
+            throw new Error('Invalid reach');
+          }
+          i++;
+        }
+        if (i === n) {
+          throw new Error('Pointer missing comma');
+        }
+        const reach = parseInt(spool.slice(reachStart, i), 10);
+
+        let haulStart = i + 1;
+        while (i < n && spool[i] !== '>') {
+          if (!/^\d+$/.test(spool[i]) || spool[i] === '0') {
+            throw new Error('Invalid haul');
+          }
+          i++;
+        }
+        if (i === n) {
+          throw new Error('Pointer missing greater-than sign');
+        }
+        const haul = parseInt(spool.slice(haulStart, i), 10);
+
+        if (reach > output.length) {
+          throw new Error('Reach larger than output length');
+        }
+
+        for (let j = 0; j < haul; j++) {
+          output += output[output.length - reach];
+        }
+        i++;
+      }
+    } else {
+      // Regular character, append as is
+      output += spool[i];
+      i++;
+    }
+  }
+
+  return output;
+}
+```

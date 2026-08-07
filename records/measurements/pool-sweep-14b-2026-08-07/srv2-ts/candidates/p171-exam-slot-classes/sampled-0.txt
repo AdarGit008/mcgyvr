@@ -1,0 +1,57 @@
+```ts
+export function examSlotClasses(conflicts: number[][]): number[][] {
+  if (!Array.isArray(conflicts) || conflicts.length === 0) {
+    throw new Error("Invalid input: conflicts must be a non-empty list of lists.");
+  }
+
+  const conflictMap = new Map<number, Set<number>>();
+  const examCount = conflicts.length;
+
+  // Validate and build the conflict map
+  for (let i = 0; i < examCount; i++) {
+    if (!Array.isArray(conflicts[i])) {
+      throw new Error("Invalid input: each conflict entry must be a list.");
+    }
+    const sharedExams = new Set<number>();
+    for (const j of conflicts[i]) {
+      if (j < 0 || j >= examCount) {
+        throw new Error("Invalid input: an entry names an exam that does not exist.");
+      }
+      if (i === j) {
+        throw new Error("Invalid input: an exam sharing a student with itself.");
+      }
+      if (sharedExams.has(j)) {
+        throw new Error("Invalid input: the same exam named twice inside one list.");
+      }
+      sharedExams.add(j);
+    }
+    conflictMap.set(i, sharedExams);
+  }
+
+  // Sort exams by number of conflicts in descending order
+  const examsByConflicts = Array.from(conflictMap.keys()).sort((a, b) => {
+    const diff = conflictMap.get(b)!.size - conflictMap.get(a)!.size;
+    return diff !== 0 ? diff : a - b; // Resolve ties by exam number
+  });
+
+  const sittings: number[][] = [];
+
+  for (const exam of examsByConflicts) {
+    let placed = false;
+    for (let sittingIndex = 0; sittingIndex < sittings.length; sittingIndex++) {
+      const sitting = sittings[sittingIndex];
+      const isCompatible = sitting.every(e => !conflictMap.get(exam)!.has(e));
+      if (isCompatible) {
+        sitting.push(exam);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      sittings.push([exam]);
+    }
+  }
+
+  return sittings.map(sitting => sitting.sort((a, b) => a - b));
+}
+```

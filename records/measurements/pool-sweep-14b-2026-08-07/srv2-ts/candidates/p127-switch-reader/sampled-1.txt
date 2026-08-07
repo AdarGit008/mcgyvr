@@ -1,0 +1,35 @@
+```ts
+export function readSwitches(
+  kinds: Record<string, string>,
+  tokens: string[],
+): { found: Record<string, boolean | string>; extra: string[] } {
+  const found: Record<string, boolean | string> = {};
+  const extra: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (token.startsWith("--")) {
+      const [name, value] = token.slice(2).split("=");
+      if (!kinds[name]) {
+        throw new Error(`Unknown option: ${name}`);
+      }
+      if (kinds[name] === "value") {
+        if (value !== undefined) {
+          found[name] = value;
+        } else if (i + 1 < tokens.length) {
+          found[name] = tokens[++i];
+        } else {
+          throw new Error(`Value option ${name} requires a following token`);
+        }
+      } else {
+        if (value !== undefined) {
+          throw new Error(`Switch option ${name} does not accept a value`);
+        }
+        found[name] = true;
+      }
+    } else {
+      extra.push(token);
+    }
+  }
+  return { found, extra };
+}
+```

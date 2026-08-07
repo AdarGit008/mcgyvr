@@ -1,0 +1,42 @@
+```ts
+/**
+ * Applies a list of configuration layers onto an initially empty result object.
+ * Each layer is a mapping that is applied left to right. For each key in a layer:
+ * - The language's null value deletes that key from the result.
+ * - If both the existing entry and the incoming value are mappings, they combine recursively.
+ * - Any other incoming value replaces the existing entry wholesale.
+ * Arrays are never concatenated, a deleted key may be reintroduced by a later layer,
+ * and no layer is mutated. Returns the accumulated result.
+ * Raises an error if the argument is not a list or if any layer is not a mapping.
+ */
+export function layerConfigs(layers: Array<Record<string, unknown>>): Record<string, unknown> {
+  if (!Array.isArray(layers)) {
+    throw new Error("Input must be an array of configuration layers.");
+  }
+
+  const result: Record<string, unknown> = {};
+
+  for (const layer of layers) {
+    if (typeof layer !== 'object' || layer === null) {
+      throw new Error("Each layer must be a mapping.");
+    }
+
+    for (const key in layer) {
+      if (layer.hasOwnProperty(key)) {
+        const value = layer[key];
+        if (value === null) {
+          delete result[key];
+        } else if (typeof value === 'object' && value !== null && typeof result[key] === 'object' && result[key] !== null) {
+          // Recursively merge objects
+          result[key] = layerConfigs([result[key] as Record<string, unknown>, value as Record<string, unknown>]);
+        } else {
+          // Replace the existing entry wholesale
+          result[key] = value;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+```

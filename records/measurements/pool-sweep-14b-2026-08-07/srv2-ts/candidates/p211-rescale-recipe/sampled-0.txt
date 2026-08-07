@@ -1,0 +1,59 @@
+```ts
+export function rescaleRecipe(lines: string[], num: number, den: number): string[] {
+  if (!Array.isArray(lines)) throw new Error("Invalid recipe format");
+  if (num <= 0 || den <= 0) throw new Error("Ratio must be positive numbers");
+
+  const units = ["tsp", "tbsp", "cup", "egg", "g"];
+  const grains: { [key: string]: number } = {
+    tsp: 4,
+    tbsp: 2,
+    cup: 8,
+    egg: 1,
+    g: 1
+  };
+
+  function parseAmount(amount: string): [number, number | null] {
+    if (/^\d+$/.test(amount)) return [parseInt(amount), null];
+    if (/^(\d+)\/(\d+)$/.test(amount)) {
+      const [, num, den] = amount.match(/^(\d+)\/(\d+)$/)!;
+      return [parseInt(num), parseInt(den)];
+    }
+    if (/^(\d+)\s+(\d+)\/(\d+)$/.test(amount)) {
+      const [, whole, num, den] = amount.match(/^(\d+)\s+(\d+)\/(\d+)$/)!;
+      return [parseInt(whole) + parseInt(num) / parseInt(den), null];
+    }
+    throw new Error("Invalid amount format");
+  }
+
+  function formatAmount(amount: number): string {
+    if (amount % 1 === 0) return amount.toString();
+    const whole = Math.floor(amount);
+    const part = amount - whole;
+    const denominator = grains[unit]!;
+    const numerator = Math.round(part * denominator);
+    if (numerator === denominator) return (whole + 1).toString();
+    return `${whole} ${numerator}/${denominator}`;
+  }
+
+  const parsedLines: { amount: [number, number | null], unit: string, ingredient: string }[] = [];
+  for (const line of lines) {
+    if (typeof line !== "string") throw new Error("Invalid recipe format");
+    const parts = line.match(/^(\S+)\s+(\S+)\s+(.+)$/);
+    if (!parts) throw new Error("Invalid recipe format");
+    const [_, amountStr, unit, ingredient] = parts;
+    const amount = parseAmount(amountStr);
+    if (!units.includes(unit)) throw new Error("Invalid unit");
+    if (!/^[a-zA-Z\s]+$/.test(ingredient)) throw new Error("Invalid ingredient");
+    if (parsedLines.some(item => item.ingredient === ingredient)) throw new Error("Duplicate ingredient");
+    parsedLines.push({ amount, unit, ingredient });
+  }
+
+  return parsedLines.map(({ amount: [whole, part], unit, ingredient }) => {
+    const totalAmount = whole * den + (part ? part * num : num);
+    const scaledWhole = Math.floor(totalAmount / den);
+    const scaledPart = totalAmount % den;
+    const scaledAmount = formatAmount(scaledWhole + scaledPart / den);
+    return `${scaledAmount} ${unit} ${ingredient}`;
+  });
+}
+```

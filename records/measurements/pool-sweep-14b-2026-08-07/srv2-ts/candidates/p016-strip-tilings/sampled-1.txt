@@ -1,0 +1,18 @@
+```ts
+export function countStripTilings(width: number): number {
+  if (!Number.isInteger(width) || width < 0) {
+    throw new Error("Width must be a non-negative integer.");
+  }
+
+  if (width === 0) return 1;
+  if (width === 1) return 1;
+
+  const dp = [1, 1];
+
+  for (let i = 2; i <= width; i++) {
+    dp[i] = dp[i - 1] + dp[i - 2] * 2;
+  }
+
+  return dp[width];
+}
+```

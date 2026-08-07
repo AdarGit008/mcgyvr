@@ -1,0 +1,77 @@
+```ts
+export function unionCoverage(rects: number[][]): number {
+  if (!Array.isArray(rects) || rects.length === 0) return 0;
+
+  const events: { x: number; type: 'start' | 'end'; y1: number; y2: number }[] = [];
+
+  for (const rect of rects) {
+    if (
+      !Array.isArray(rect) ||
+      rect.length !== 4 ||
+      !rect.every(Number.isInteger) ||
+      rect[0] >= rect[2] ||
+      rect[1] >= rect[3] ||
+      rect.some(coord => coord < -10000 || coord > 10000)
+    ) {
+      throw new Error('Invalid rectangle');
+    }
+
+    events.push({ x: rect[0], type: 'start', y1: rect[1], y2: rect[3] });
+    events.push({ x: rect[2], type: 'end', y1: rect[1], y2: rect[3] });
+  }
+
+  events.sort((a, b) => a.x - b.x);
+
+  let totalArea = 0;
+  let currentX = events[0].x;
+
+  const activeIntervals: { y1: number; y2: number }[] = [];
+
+  for (const event of events) {
+    if (event.type === 'start') {
+      insertInterval(activeIntervals, { y1: event.y1, y2: event.y2 });
+    } else {
+      removeInterval(activeIntervals, { y1: event.y1, y2: event.y2 });
+    }
+
+    const currentWidth = event.x - currentX;
+    const currentHeight = calculateActiveHeight(activeIntervals);
+    totalArea += currentWidth * currentHeight;
+
+    currentX = event.x;
+  }
+
+  return totalArea;
+}
+
+function insertInterval(intervals: { y1: number; y2: number }[], interval: { y1: number; y2: number }): void {
+  intervals.push(interval);
+  intervals.sort((a, b) => a.y1 - b.y1);
+}
+
+function removeInterval(intervals: { y1: number; y2: number }[], interval: { y1: number; y2: number }): void {
+  const index = intervals.findIndex(
+    int => int.y1 === interval.y1 && int.y2 === interval.y2
+  );
+  if (index !== -1) {
+    intervals.splice(index, 1);
+  }
+}
+
+function calculateActiveHeight(intervals: { y1: number; y2: number }[]): number {
+  let height = 0;
+  let currentY = -Infinity;
+
+  for (const interval of intervals) {
+    if (interval.y1 > currentY) {
+      currentY = interval.y1;
+    }
+    if (interval.y2 > currentY) {
+      height += interval.y2 - currentY;
+      currentY = interval.y2;
+    }
+  }
+
+  return height;
+}
+```

@@ -1,0 +1,53 @@
+```ts
+/**
+ * Determines the order in which picks are grabbed by a picker based on the
+ * serpentine pick pattern.
+ * @param picks - An array of pick objects with "sku", "aisle", and "bay" properties.
+ */
+export function serpentinePickOrder(picks: unknown): string[] {
+  if (!Array.isArray(picks)) {
+    throw new Error("Invalid input: picks must be an array.");
+  }
+
+  const validPicks = picks.map((pick, index) => {
+    if (typeof pick !== 'object' || pick === null) {
+      throw new Error(`Invalid pick at index ${index}: must be a mapping.`);
+    }
+
+    const { sku, aisle, bay } = pick as Record<string, unknown>;
+
+    if (typeof sku !== 'string' || sku.trim() === '') {
+      throw new Error(`Invalid sku at index ${index}: must be a non-empty string.`);
+    }
+
+    if (typeof aisle !== 'number' || !Number.isInteger(aisle) || aisle <= 0) {
+      throw new Error(`Invalid aisle at index ${index}: must be a positive whole number.`);
+    }
+
+    if (typeof bay !== 'number' || !Number.isInteger(bay) || bay <= 0) {
+      throw new Error(`Invalid bay at index ${index}: must be a positive whole number.`);
+    }
+
+    return { sku, aisle, bay };
+  });
+
+  const skuSet = new Set<string>();
+  for (const pick of validPicks) {
+    if (skuSet.has(pick.sku)) {
+      throw new Error(`Duplicate sku: ${pick.sku}.`);
+    }
+    skuSet.add(pick.sku);
+  }
+
+  return validPicks
+    .sort((a, b) => a.aisle - b.aisle || a.bay - b.bay)
+    .map(({ sku, aisle, bay }) => ({
+      sku,
+      aisle,
+      bay,
+      order: (bay * 1000 + aisle) * (aisle % 2 === 0 ? -1 : 1),
+    }))
+    .sort((a, b) => a.order - b.order)
+    .map(({ sku }) => sku);
+}
+```

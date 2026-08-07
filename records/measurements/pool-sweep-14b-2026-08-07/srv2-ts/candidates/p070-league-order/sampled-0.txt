@@ -1,0 +1,82 @@
+```ts
+export function leagueOrder(matches: (string | number)[][]): string[] {
+  const teams = new Set<string>();
+  const teamStats: { [key: string]: { points: number; goalDifference: number; goalsScored: number } } = {};
+
+  for (const match of matches) {
+    if (!Array.isArray(match) || match.length !== 4) {
+      throw Error("Invalid match format");
+    }
+
+    const [homeTeam, awayTeam, homeGoals, awayGoals] = match;
+
+    if (typeof homeTeam !== "string" || typeof awayTeam !== "string") {
+      throw Error("Team name must be a string");
+    }
+
+    if (homeTeam === awayTeam) {
+      throw Error("A team cannot play against itself");
+    }
+
+    if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals) || homeGoals < 0 || awayGoals < 0) {
+      throw Error("Goal count must be a non-negative integer");
+    }
+
+    teams.add(homeTeam);
+    teams.add(awayTeam);
+
+    const updateStats = (team: string, points: number, goalDiff: number, goalsScored: number) => {
+      if (!teamStats[team]) {
+        teamStats[team] = { points: 0, goalDifference: 0, goalsScored: 0 };
+      }
+      teamStats[team].points += points;
+      teamStats[team].goalDifference += goalDiff;
+      teamStats[team].goalsScored += goalsScored;
+    };
+
+    if (homeGoals > awayGoals) {
+      updateStats(homeTeam, 3, homeGoals - awayGoals, homeGoals);
+      updateStats(awayTeam, 0, awayGoals - homeGoals, awayGoals);
+    } else if (homeGoals < awayGoals) {
+      updateStats(awayTeam, 3, awayGoals - homeGoals, awayGoals);
+      updateStats(homeTeam, 0, homeGoals - awayGoals, homeGoals);
+    } else {
+      updateStats(homeTeam, 1, homeGoals - awayGoals, homeGoals);
+      updateStats(awayTeam, 1, awayGoals - homeGoals, awayGoals);
+    }
+  }
+
+  const teamList = Array.from(teams);
+
+  teamList.sort((a, b) => {
+    if (teamStats[b].points !== teamStats[a].points) {
+      return teamStats[b].points - teamStats[a].points;
+    }
+
+    // Group recount
+    const matchesInGroup = matches.filter(m => m.includes(a) && m.includes(b));
+    let groupPointsA = 0;
+    let groupPointsB = 0;
+
+    for (const match of matchesInGroup) {
+      const [home, away, homeG, awayG] = match as [string, string, number, number];
+      if (home === a && homeG > awayG) {
+        groupPointsA += 3;
+      } else if (away === a && awayG > homeG) {
+        groupPointsB += 3;
+      } else if (homeG === awayG) {
+        groupPointsA += 1;
+        groupPointsB += 1;
+      }
+    }
+
+    if (groupPointsB !== groupPointsA) {
+      return groupPointsB - groupPointsA;
+    }
+
+    if (teamStats[b].goalDifference !== teamStats[a].goalDifference) {
+      return teamStats[b].goalDifference - teamStats[a].goalDifference;
+    }
+
+    if (teamStats[b].goalsScored !== teamStats[a].goalsScored) {
+      return teamStats[b].goalsScored - teamStats

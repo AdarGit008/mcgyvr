@@ -1,0 +1,56 @@
+```ts
+export function foldParcels(events: Array<{ type: string; parcel: string }>): Record<string, string> {
+  const states: Record<string, string> = {};
+
+  events.forEach((event, index) => {
+    const { type, parcel } = event;
+
+    if (!parcel) {
+      throw new Error(`Event at index ${index} is missing the parcel key.`);
+    }
+
+    switch (type) {
+      case 'accept':
+        if (states[parcel]) {
+          throw new Error(`Parcel ${parcel} was already accepted at a previous event.`);
+        }
+        states[parcel] = 'accepted';
+        break;
+      case 'load':
+        if (states[parcel] !== 'accepted') {
+          throw new Error(`Parcel ${parcel} cannot be loaded as it is not in the accepted state.`);
+        }
+        states[parcel] = 'in_transit';
+        break;
+      case 'deliver':
+        if (states[parcel] !== 'in_transit') {
+          throw new Error(`Parcel ${parcel} cannot be delivered as it is not in the in_transit state.`);
+        }
+        states[parcel] = 'delivered';
+        break;
+      case 'bounce':
+        if (states[parcel] !== 'delivered') {
+          throw new Error(`Parcel ${parcel} cannot be bounced as it is not in the delivered state.`);
+        }
+        states[parcel] = 'returned';
+        break;
+      case 'lose':
+        if (states[parcel] === 'accepted' || states[parcel] === 'in_transit') {
+          states[parcel] = 'lost';
+        } else {
+          throw new Error(`Parcel ${parcel} cannot be lost as it is not in the accepted or in_transit state.`);
+        }
+        break;
+      default:
+        throw new Error(`Invalid event type ${type} at index ${index}.`);
+    }
+
+    if (states[parcel] === 'returned' || states[parcel] === 'lost') {
+      // No further events allowed for this parcel
+      Object.defineProperty(states, parcel, { writable: false });
+    }
+  });
+
+  return states;
+}
+```

@@ -1,0 +1,54 @@
+```ts
+export function plotterPose(program: string): { x: number; y: number; facing: string } {
+  if (typeof program !== 'string') {
+    throw new Error('Invalid program type');
+  }
+
+  const directions = ['N', 'E', 'S', 'W'];
+  let x = 0;
+  let y = 0;
+  let facingIndex = 0;
+
+  for (let i = 0; i < program.length; i++) {
+    const command = program[i];
+
+    if (command === 'L') {
+      facingIndex = (facingIndex + 3) % 4;
+    } else if (command === 'R') {
+      facingIndex = (facingIndex + 1) % 4;
+    } else if (command === 'F' || command === 'B') {
+      const match = program.match(/([FB]\d+)/);
+      if (!match || match.index !== i) {
+        throw new Error('Invalid command or distance');
+      }
+
+      i += match[0].length - 1;
+      const distance = parseInt(match[0].slice(1), 10);
+
+      if (distance === 0) {
+        throw new Error('Distance cannot be zero');
+      }
+
+      const direction = command === 'F' ? 1 : -1;
+      switch (directions[facingIndex]) {
+        case 'N':
+          y += direction * distance;
+          break;
+        case 'E':
+          x += direction * distance;
+          break;
+        case 'S':
+          y -= direction * distance;
+          break;
+        case 'W':
+          x -= direction * distance;
+          break;
+      }
+    } else {
+      throw new Error('Invalid command character');
+    }
+  }
+
+  return { x, y, facing: directions[facingIndex] };
+}
+```

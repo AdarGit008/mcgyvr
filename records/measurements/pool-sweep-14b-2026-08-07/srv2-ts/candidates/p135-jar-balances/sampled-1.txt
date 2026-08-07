@@ -1,0 +1,40 @@
+```ts
+/**
+ * Calculates the jar's contents at the close of every month based on topup, lid, and outflows.
+ * @param topup - The amount added to the jar each month.
+ * @param lid - The maximum amount that can be stored in the jar.
+ * @param outflows - An array of non-negative integers representing the outflow for each month.
+ * @returns An array of integers representing the jar's contents at the end of each month.
+ */
+export function jarBalances(topup: number, lid: number, outflows: number[]): number[] {
+  if (!Number.isInteger(topup) || topup < 0) {
+    throw new Error("Topup must be a non-negative integer.");
+  }
+  if (!Number.isInteger(lid) || lid < 0) {
+    throw new Error("Lid must be a non-negative integer.");
+  }
+  if (!Array.isArray(outflows)) {
+    throw new Error("Outflows must be an array.");
+  }
+  for (const outflow of outflows) {
+    if (!Number.isInteger(outflow) || outflow < 0) {
+      throw new Error("Each outflow must be a non-negative integer.");
+    }
+  }
+
+  const balances: number[] = [];
+  let currentBalance = 0;
+
+  for (const outflow of outflows) {
+    currentBalance += topup;
+    if (currentBalance < outflow) {
+      throw new Error("Outflow exceeds the jar's contents after topup.");
+    }
+    currentBalance -= outflow;
+    currentBalance = Math.min(currentBalance, lid);
+    balances.push(currentBalance);
+  }
+
+  return balances;
+}
+```

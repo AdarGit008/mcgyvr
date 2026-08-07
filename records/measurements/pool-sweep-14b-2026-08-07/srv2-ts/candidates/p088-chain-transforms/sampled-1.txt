@@ -1,0 +1,87 @@
+```ts
+export function chainTransforms(grid: number[][], steps: string[]): number[][] {
+  if (grid.length === 0) throw new Error("Grid must have at least one row");
+  const rowLength = grid[0].length;
+  for (const row of grid) {
+    if (row.length !== rowLength) throw new Error("All rows must have the same length");
+  }
+
+  let transformedGrid: number[][] = [...grid];
+
+  for (const step of steps) {
+    switch (step) {
+      case "cw":
+        transformedGrid = rotateClockwise(transformedGrid);
+        break;
+      case "ccw":
+        transformedGrid = rotateCounterclockwise(transformedGrid);
+        break;
+      case "mirror":
+        transformedGrid = mirrorHorizontal(transformedGrid);
+        break;
+      case "flip":
+        transformedGrid = flipVertical(transformedGrid);
+        break;
+      case "diag":
+        transformedGrid = reflectDiagonal(transformedGrid);
+        break;
+      default:
+        throw new Error("Invalid step name");
+    }
+  }
+
+  return transformedGrid;
+}
+
+function rotateClockwise(grid: number[][]): number[][] {
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+  const rotated: number[][] = Array.from({ length: numCols }, () => Array(numRows).fill(0));
+
+  for (let row = 0; row < numRows; row++) {
+    for (let col = 0; col < numCols; col++) {
+      rotated[col][numRows - 1 - row] = grid[row][col];
+    }
+  }
+
+  return rotated;
+}
+
+function rotateCounterclockwise(grid: number[][]): number[][] {
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+  const rotated: number[][] = Array.from({ length: numCols }, () => Array(numRows).fill(0));
+
+  for (let row = 0; row < numRows; row++) {
+    for (let col = 0; col < numCols; col++) {
+      rotated[numCols - 1 - col][row] = grid[row][col];
+    }
+  }
+
+  return rotated;
+}
+
+function mirrorHorizontal(grid: number[][]): number[][] {
+  const mirrored: number[][] = grid.map(row => [...row].reverse());
+  return mirrored;
+}
+
+function flipVertical(grid: number[][]): number[][] {
+  const flipped: number[][] = [...grid].reverse();
+  return flipped;
+}
+
+function reflectDiagonal(grid: number[][]): number[][] {
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+  const reflected: number[][] = Array.from({ length: numCols }, () => Array(numRows).fill(0));
+
+  for (let row = 0; row < numRows; row++) {
+    for (let col = 0; col < numCols; col++) {
+      reflected[col][row] = grid[row][col];
+    }
+  }
+
+  return reflected;
+}
+```

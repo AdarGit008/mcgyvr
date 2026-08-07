@@ -1,0 +1,82 @@
+```ts
+export function foldMachine(machine: Record<string, unknown>): Record<string, unknown> {
+  // Helper to validate that all elements in an array are non-empty strings and unique
+  const validateStrings = (arr: any[], name: string): arr is string[] => {
+    if (!Array.isArray(arr) || arr.length === 0) throw new Error(`${name} must be a non-empty list`);
+    const seen = new Set<string>();
+    for (const item of arr) {
+      if (typeof item !== 'string' || item.trim() === '') throw new Error(`${name} must contain only non-empty strings`);
+      if (seen.has(item)) throw new Error(`${name} contains duplicates`);
+      seen.add(item);
+    }
+    return true;
+  };
+
+  // Validate alphabet and states
+  const alphabet = machine.alphabet as string[];
+  const states = machine.states as string[];
+  validateStrings(alphabet, 'alphabet');
+  validateStrings(states, 'states');
+
+  // Validate start state
+  if (typeof machine.start !== 'string' || !states.includes(machine.start)) {
+    throw new Error('start must be a valid state name');
+  }
+
+  // Validate accepting states
+  const accepting = Array.isArray(machine.accepting) ? machine.accepting : [];
+  for (const acc of accepting) {
+    if (typeof acc !== 'string' || !states.includes(acc)) {
+      throw new Error('accepting states must be valid state names');
+    }
+  }
+
+  // Validate moves
+  const moves = machine.moves as [string, string, string][];
+  if (!Array.isArray(moves) || moves.length === 0) throw new Error('moves must be a non-empty list');
+  const moveMap = new Map<string, Map<string, string>>();
+  for (const [state, symbol, next] of moves) {
+    if (!states.includes(state) || !alphabet.includes(symbol) || !states.includes(next)) {
+      throw new Error('moves must reference valid states and symbols');
+    }
+    if (!moveMap.has(state)) moveMap.set(state, new Map());
+    const stateMoves = moveMap.get(state)!;
+    if (stateMoves.has(symbol)) throw new Error('each state-symbol pair must have exactly one move');
+    stateMoves.set(symbol, next);
+  }
+
+  // Reachable states from start
+  const reachableStates = new Set<string>();
+  const exploreReachable = (current: string) => {
+    if (!reachableStates.has(current)) {
+      reachableStates.add(current);
+      for (const symbol of alphabet) {
+        const next = moveMap.get(current)?.get(symbol);
+        if (next) exploreReachable(next);
+      }
+    }
+  };
+  exploreReachable(machine.start);
+
+  // Filter out unreachable states
+  const reachableMoves = moves.filter(([state, ,]) => reachableStates.has(state));
+
+  // Merge indistinguishable states
+  const groupMap = new Map<string, number>();
+  let currentGroup = 0;
+  const exploreGroups = (current: string) => {
+    if (!groupMap.has(current)) {
+      groupMap.set(current, currentGroup);
+      for (const symbol of alphabet) {
+        const next = moveMap.get(current)?.get(symbol);
+        if (next && reachableStates.has(next)) exploreGroups(next);
+      }
+    }
+  };
+  exploreGroups(machine.start);
+
+  // Build the result
+  const size = new Set(groupMap.values()).size;
+  const acceptingGroups = Array.from(new Set(accepting.map(state => groupMap.get(state)!))).sort((a, b) => a - b);
+  const movesByGroup: [number, string, number][] = [];
+  for (const move of reachableMoves)

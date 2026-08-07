@@ -1,0 +1,62 @@
+```ts
+export function orderShelfMarks(marks: string[]): string[] {
+  if (!Array.isArray(marks) || marks.length === 0) {
+    throw new Error("Invalid input");
+  }
+
+  const markRegex = /^(?<stack>[A-Z]{1,3}) (?<run>\d+(\.\d+)?) (?<cutter>[a-z]\d{1,3})$/;
+
+  const parsedMarks: { stack: string; run: number; dotPart: number | null; cutterLetter: string; cutterNumber: number }[] = [];
+
+  for (const mark of marks) {
+    if (typeof mark !== "string") {
+      throw new Error("Invalid input");
+    }
+
+    const match = mark.match(markRegex);
+    if (!match || !match.groups) {
+      throw new Error("Invalid shelf mark format");
+    }
+
+    const { stack, run, cutter } = match.groups;
+    const dotPartMatch = run.match(/\.\d+/);
+
+    parsedMarks.push({
+      stack,
+      run: parseInt(run.replace(/\..*/, ''), 10),
+      dotPart: dotPartMatch ? parseFloat(dotPartMatch[0]) : null,
+      cutterLetter: cutter[0],
+      cutterNumber: parseInt(cutter.slice(1), 10),
+    });
+  }
+
+  const uniqueMarks = new Set(marks);
+  if (uniqueMarks.size !== marks.length) {
+    throw new Error("Duplicate shelf mark found");
+  }
+
+  return parsedMarks
+    .sort((a, b) => {
+      if (a.stack !== b.stack) {
+        return a.stack.localeCompare(b.stack);
+      }
+      if (a.run !== b.run) {
+        return a.run - b.run;
+      }
+      if (a.dotPart !== null && b.dotPart !== null) {
+        return a.dotPart - b.dotPart;
+      }
+      if (a.dotPart === null && b.dotPart !== null) {
+        return -1;
+      }
+      if (a.dotPart !== null && b.dotPart === null) {
+        return 1;
+      }
+      if (a.cutterLetter !== b.cutterLetter) {
+        return a.cutterLetter.localeCompare(b.cutterLetter);
+      }
+      return a.cutterNumber - b.cutterNumber;
+    })
+    .map(mark => marks.find(m => m === `${mark.stack} ${mark.run.toString()}${mark.dotPart ? `.${mark.dotPart}` : ''} ${mark.cutterLetter}${mark.cutterNumber}`)!);
+}
+```

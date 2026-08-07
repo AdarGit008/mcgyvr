@@ -1,0 +1,58 @@
+```ts
+export function mergeMarkup(spans: Array<{ start: number; end: number; tag: string }>): Array<[number, number, string]> {
+  if (!Array.isArray(spans)) {
+    throw new Error("Input must be an array of spans");
+  }
+
+  spans.forEach(({ start, end, tag }) => {
+    if (!Number.isInteger(start) || !Number.isInteger(end)) {
+      throw new Error("Start and end positions must be integers");
+    }
+    if (start < 0) {
+      throw new Error("Start position cannot be negative");
+    }
+    if (start >= end) {
+      throw new Error("Start position must be strictly less than end position");
+    }
+    if (typeof tag !== "string" || tag.trim() === "") {
+      throw new Error("Tag must be a non-empty string");
+    }
+  });
+
+  // Sort spans by start position
+  spans.sort((a, b) => a.start - b.start);
+
+  const mergedSpans: Array<[number, number, string]> = [];
+
+  for (const span of spans) {
+    let { start, end, tag } = span;
+    if (mergedSpans.length === 0 || mergedSpans[mergedSpans.length - 1][2] !== tag) {
+      mergedSpans.push([start, end, tag]);
+    } else {
+      const lastSpan = mergedSpans[mergedSpans.length - 1];
+      if (lastSpan[1] >= start) {
+        throw new Error("Overlapping spans with different tags are not allowed");
+      }
+      if (lastSpan[1] === start) {
+        lastSpan[1] = end;
+      } else {
+        mergedSpans.push([start, end, tag]);
+      }
+    }
+  }
+
+  // Collapse overlapping or touching spans with the same tag
+  for (let i = 0; i < mergedSpans.length - 1; ) {
+    const currentSpan = mergedSpans[i];
+    const nextSpan = mergedSpans[i + 1];
+    if (currentSpan[2] === nextSpan[2] && currentSpan[1] >= nextSpan[0]) {
+      currentSpan[1] = Math.max(currentSpan[1], nextSpan[1]);
+      mergedSpans.splice(i + 1, 1);
+    } else {
+      i++;
+    }
+  }
+
+  return mergedSpans;
+}
+```

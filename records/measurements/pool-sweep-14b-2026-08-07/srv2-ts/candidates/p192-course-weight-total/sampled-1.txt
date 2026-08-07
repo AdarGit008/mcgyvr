@@ -1,0 +1,57 @@
+```ts
+export function courseWeightTotal(categories: Array<Record<string, unknown>>): number {
+  if (categories.length === 0) {
+    throw new Error("Empty syllabus");
+  }
+
+  const labelSet = new Set<string>();
+  let totalWeight = 0;
+
+  for (const category of categories) {
+    const label = category.label as string;
+    const weight = category.weight as number;
+    const items = category.items as Array<[number, number]>;
+
+    if (!label || typeof label !== "string") {
+      throw new Error("Invalid label");
+    }
+    if (labelSet.has(label)) {
+      throw new Error("Duplicate label");
+    }
+    labelSet.add(label);
+
+    if (weight < 0 || !Number.isInteger(weight)) {
+      throw new Error("Invalid weight");
+    }
+    totalWeight += weight;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error("Category holds no items");
+    }
+
+    let earnedPoints = 0;
+    let totalWorth = 0;
+
+    for (const [earned, worth] of items) {
+      if (worth <= 0 || !Number.isInteger(worth)) {
+        throw new Error("Invalid item worth");
+      }
+      if (earned < 0 || earned > worth || !Number.isInteger(earned)) {
+        throw new Error("Invalid earned points");
+      }
+
+      earnedPoints += earned;
+      totalWorth += worth;
+    }
+
+    const contribution = Math.floor((weight * earnedPoints) / totalWorth);
+    totalWeight += contribution;
+  }
+
+  if (totalWeight !== 10000) {
+    throw new Error("Weights do not add up to exactly 10000");
+  }
+
+  return totalWeight;
+}
+```

@@ -1,0 +1,47 @@
+```ts
+export function settleLedger(entries: Array<Record<string, unknown>>): Array<[string, number]> {
+  if (!Array.isArray(entries)) {
+    throw new Error("Invalid input: entries must be an array");
+  }
+
+  const ledgerEntries = entries.map((entry) => {
+    const { account, amount, seq } = entry;
+
+    if (typeof account !== "string" || account.trim() === "") {
+      throw new Error("Invalid entry: account must be a non-empty string");
+    }
+    if (typeof amount !== "number" || !Number.isInteger(amount)) {
+      throw new Error("Invalid entry: amount must be an integer");
+    }
+    if (typeof seq !== "number" || !Number.isInteger(seq)) {
+      throw new Error("Invalid entry: seq must be an integer");
+    }
+
+    return { account, amount, seq };
+  });
+
+  ledgerEntries.sort((a, b) => a.seq - b.seq);
+
+  const balances = new Map<string, number>();
+
+  for (const entry of ledgerEntries) {
+    const { account, amount, seq } = entry;
+
+    if (balances.has(seq.toString())) {
+      throw new Error("Invalid ledger: duplicate seq value");
+    }
+
+    balances.set(account, (balances.get(account) || 0) + amount);
+
+    if (balances.get(account)! < 0) {
+      throw new Error("Invalid ledger: account balance cannot go below zero");
+    }
+  }
+
+  const result = Array.from(balances.entries())
+    .filter(([account, balance]) => balance !== 0)
+    .sort(([accountA], [accountB]) => accountA.localeCompare(accountB));
+
+  return result;
+}
+```

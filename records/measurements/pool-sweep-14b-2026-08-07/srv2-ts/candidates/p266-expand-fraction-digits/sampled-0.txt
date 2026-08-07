@@ -1,0 +1,59 @@
+```ts
+/**
+ * Writes out the exact value of numerator over denominator in a chosen base,
+ * using only whole-number arithmetic.
+ * @param numerator - The numerator of the fraction.
+ * @param denominator - The denominator of the fraction.
+ * @param base - The base to write the fraction in, from 3 to 20.
+ * @returns The string representation of the fraction in the given base.
+ */
+export function expandFractionDigits(numerator: number, denominator: number, base: number): string {
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator)) {
+        throw new Error("Numerator and denominator must be whole numbers.");
+    }
+    if (base < 3 || base > 20) {
+        throw new Error("Base must be between 3 and 20.");
+    }
+    if (denominator <= 0) {
+        throw new Error("Denominator must be positive.");
+    }
+    if (Math.abs(numerator) > 1_000_000 || Math.abs(denominator) > 1_000_000) {
+        throw new Error("Numerator or denominator magnitude exceeds one million.");
+    }
+
+    const glyphs = "0123456789ABCDEFGHIJ";
+    let isNegative = numerator < 0;
+    numerator = Math.abs(numerator);
+
+    const wholePart = Math.floor(numerator / denominator);
+    let remainder = numerator % denominator;
+    if (remainder === 0) {
+        return isNegative ? "-" + glyphs[wholePart] : glyphs[wholePart];
+    }
+
+    const seenRemainders: { [key: number]: number } = {};
+    const fractionDigits: string[] = [];
+    let recurringStartIndex = -1;
+
+    while (remainder !== 0 && !seenRemainders.hasOwnProperty(remainder)) {
+        seenRemainders[remainder] = fractionDigits.length;
+        remainder *= base;
+        const digit = Math.floor(remainder / denominator);
+        fractionDigits.push(glyphs[digit]);
+        remainder %= denominator;
+    }
+
+    if (remainder !== 0) {
+        recurringStartIndex = seenRemainders[remainder];
+    }
+
+    let result = glyphs[wholePart] + ";";
+    if (recurringStartIndex === -1) {
+        result += fractionDigits.join("");
+    } else {
+        result += fractionDigits.slice(0, recurringStartIndex).join("") + "[" + fractionDigits.slice(recurringStartIndex).join("") + "]";
+    }
+
+    return isNegative ? "-" + result : result;
+}
+```

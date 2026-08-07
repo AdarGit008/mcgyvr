@@ -1,0 +1,55 @@
+```ts
+/**
+ * Labels regions in a grid where each region is a connected component of the same number.
+ * @param grid - A non-empty list of rows, each row a non-empty list of whole numbers.
+ */
+export function labelValueRegions(grid: number[][]): any {
+    if (!Array.isArray(grid) || grid.length === 0) {
+        throw new Error("Invalid grid input");
+    }
+
+    const numRows = grid.length;
+    const numCols = grid[0].length;
+
+    for (const row of grid) {
+        if (!Array.isArray(row) || row.length !== numCols) {
+            throw new Error("Invalid row in grid");
+        }
+        for (const value of row) {
+            if (!Number.isInteger(value)) {
+                throw new Error("Invalid square value in grid");
+            }
+        }
+    }
+
+    const map: number[][] = Array.from({ length: numRows }, () => Array(numCols).fill(0));
+    const sizes: number[] = [];
+    const values: number[] = [];
+    let regionCounter = 1;
+
+    function dfs(r: number, c: number, value: number): void {
+        if (r < 0 || r >= numRows || c < 0 || c >= numCols || map[r][c] !== 0 || grid[r][c] !== value) {
+            return;
+        }
+        map[r][c] = regionCounter;
+        sizes[regionCounter - 1]++;
+        dfs(r + 1, c, value);
+        dfs(r - 1, c, value);
+        dfs(r, c + 1, value);
+        dfs(r, c - 1, value);
+    }
+
+    for (let r = 0; r < numRows; r++) {
+        for (let c = 0; c < numCols; c++) {
+            if (map[r][c] === 0) {
+                values.push(grid[r][c]);
+                sizes.push(0);
+                dfs(r, c, grid[r][c]);
+                regionCounter++;
+            }
+        }
+    }
+
+    return { map, sizes, values };
+}
+```

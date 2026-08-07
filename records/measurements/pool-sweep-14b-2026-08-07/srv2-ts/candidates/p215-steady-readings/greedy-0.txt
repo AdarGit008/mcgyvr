@@ -1,0 +1,48 @@
+```ts
+export function steadyReadings(readings: unknown, spec: unknown): Record<string, unknown> {
+  if (!Array.isArray(readings) || readings.length === 0) {
+    throw new Error("Invalid readings input");
+  }
+  if (typeof spec !== "object" || spec === null) {
+    throw new Error("Invalid spec input");
+  }
+
+  const band = (spec as Record<string, unknown>)["band"];
+  const hold = (spec as Record<string, unknown>)["hold"];
+
+  if (typeof band !== "number" || !Number.isInteger(band) || band < 0) {
+    throw new Error("Invalid band value");
+  }
+  if (typeof hold !== "number" || !Number.isInteger(hold) || hold <= 0) {
+    throw new Error("Invalid hold value");
+  }
+
+  const settled: number[] = [];
+  const moved: number[] = [];
+
+  let steadyFigure = readings[0] as number;
+  let challengeStartIndex = -1;
+
+  for (let i = 0; i < readings.length; i++) {
+    const reading = readings[i];
+    if (typeof reading !== "number" || !Number.isInteger(reading)) {
+      throw new Error("Invalid reading value");
+    }
+
+    settled.push(steadyFigure);
+
+    const distanceFromSteady = Math.abs(reading - steadyFigure);
+    if (distanceFromSteady <= band) {
+      challengeStartIndex = -1;
+    } else {
+      if (challengeStartIndex === -1 || i - challengeStartIndex >= hold) {
+        steadyFigure = reading;
+        moved.push(i);
+        challengeStartIndex = i;
+      }
+    }
+  }
+
+  return { settled, moved };
+}
+```

@@ -1,0 +1,52 @@
+```ts
+export function canHop(pond: string[], from: number[], to: number[]): boolean {
+  if (!Array.isArray(pond) || pond.length !== 5 || !pond.every(row => typeof row === 'string' && row.length === 5)) {
+    throw new Error('Invalid pond format');
+  }
+
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+
+  if (!Number.isInteger(fromRow) || !Number.isInteger(fromCol) || !Number.isInteger(toRow) || !Number.isInteger(toCol)) {
+    throw new Error('Coordinates must be integers');
+  }
+
+  if (fromRow < 0 || fromRow > 4 || fromCol < 0 || fromCol > 4 || toRow < 0 || toRow > 4 || toCol < 0 || toCol > 4) {
+    throw new Error('Coordinates out of bounds');
+  }
+
+  const isWater = (row: number, col: number): boolean => pond[row][col] === '.';
+
+  if (!isWater(toRow, toCol)) {
+    return false;
+  }
+
+  // Step move
+  if (
+    (Math.abs(fromRow - toRow) === 1 && fromCol === toCol) ||
+    (Math.abs(fromCol - toCol) === 1 && fromRow === toRow)
+  ) {
+    return !isWater(fromRow, fromCol);
+  }
+
+  // Vault move
+  const rowDiff = Math.abs(toRow - fromRow);
+  const colDiff = Math.abs(toCol - fromCol);
+
+  if (rowDiff === 2 || colDiff === 2) {
+    const midRow = Math.floor((fromRow + toRow) / 2);
+    const midCol = Math.floor((fromCol + toCol) / 2);
+
+    return !isWater(fromRow, fromCol) && isWater(midRow, midCol);
+  }
+
+  if (rowDiff === colDiff && rowDiff === 2) {
+    const midRow = Math.floor((fromRow + toRow) / 2);
+    const midCol = Math.floor((fromCol + toCol) / 2);
+
+    return !isWater(fromRow, fromCol) && isWater(midRow, midCol);
+  }
+
+  return false;
+}
+```

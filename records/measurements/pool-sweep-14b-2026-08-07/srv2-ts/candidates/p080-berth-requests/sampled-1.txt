@@ -1,0 +1,82 @@
+```ts
+/**
+ * Assigns berths to boats based on requests and quota limits.
+ * @param berths - List of berths with id and size.
+ * @param quota - Quota mapping for owners.
+ * @param requests - List of boat operation requests.
+ * @returns List of result strings for each request.
+ */
+export function assignBerths(berths: Array<{ id: string; size: number }>, quota: Record<string, number>, requests: Array<Record<string, unknown>>): string[] {
+  const results: string[] = [];
+  const occupiedBerths: Record<string, { boat: string; owner: string }> = {};
+  const berthAvailability: boolean[] = new Array(berths.length).fill(true);
+
+  // Check for duplicate berth ids
+  const seenBerthIds = new Set<string>();
+  berths.forEach(berth => {
+    if (seenBerthIds.has(berth.id)) {
+      throw new Error("Duplicate berth id found");
+    }
+    seenBerthIds.add(berth.id);
+  });
+
+  requests.forEach(request => {
+    const { op, boat, owner, size } = request as { op: string; boat?: string; owner?: string; size?: number };
+
+    if (op === "dock") {
+      if (!boat || !owner || typeof size !== "number" || size <= 0) {
+        throw new Error("Invalid dock request");
+      }
+
+      // Check if already docked
+      if (occupiedBerths[boat]) {
+        results.push("rejected:already_docked");
+        return;
+      }
+
+      // Check quota
+      const ownerQuota = quota[owner] || Infinity;
+      const ownedBerthCount = Object.values(occupiedBerths).filter(b => b.owner === owner).length;
+      if (ownedBerthCount >= ownerQuota) {
+        results.push("rejected:over_quota");
+        return;
+      }
+
+      // Find a suitable berth
+      const freeBerthIndex = berths.findIndex((berth, index) => berthAvailability[index] && berth.size >= size);
+      if (freeBerthIndex === -1) {
+        results.push("rejected:no_berth");
+        return;
+      }
+
+      // Assign the berth
+      occupiedBerths[boat] = { boat, owner };
+      berthAvailability[freeBerthIndex] = false;
+      results.push(berths[freeBerthIndex].id);
+    } else if (op === "leave") {
+      if (!boat) {
+        throw new Error("Invalid leave request");
+      }
+
+      // Check if docked
+      if (!occupiedBerths[boat]) {
+        results.push("rejected:not_docked");
+        return;
+      }
+
+      // Free the berth
+      const { owner } = occupiedBerths[boat];
+      delete occupiedBerths[boat];
+      const freeBerthIndex = berths.findIndex(berth => !berthAvailability[berth.id]);
+      if (freeBerthIndex !== -1) {
+        berthAvailability[freeBerthIndex] = true;
+      }
+      results.push("left");
+    } else {
+      throw new Error("Invalid operation");
+    }
+  });
+
+  return results;
+}
+```

@@ -1,0 +1,34 @@
+```ts
+/**
+ * Computes the American Soundex code for a given word.
+ * @param word - The input string to be converted to a Soundex code.
+ * @returns A string representing the Soundex code of the input word.
+ */
+export function soundexCode(word: string): string {
+  if (typeof word !== 'string' || !/^[A-Za-z]+$/.test(word)) {
+    throw new Error('Input must be a non-empty string containing only ASCII letters.');
+  }
+
+  const firstLetter = word[0].toUpperCase();
+  const digitMap: { [key: string]: number } = {
+    b: 1, f: 1, p: 1, v: 1,
+    c: 2, g: 2, j: 2, k: 2, q: 2, s: 2, x: 2, z: 2,
+    d: 3, t: 3,
+    l: 4,
+    m: 5, n: 5,
+    r: 6
+  };
+
+  const digits = Array.from(word.toLowerCase()).slice(1)
+    .map(char => digitMap[char])
+    .reduce((acc, curr) => {
+      if (curr === acc[acc.length - 1]) return acc;
+      if (curr === undefined) return acc;
+      return [...acc, curr];
+    }, [] as number[]);
+
+  const soundex = [firstLetter, ...digits].join('');
+  const paddedSoundex = soundex.slice(0, 4).padEnd(4, '0');
+  return paddedSoundex;
+}
+```

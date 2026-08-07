@@ -1,0 +1,60 @@
+```ts
+export function cycleShapeReport(chart: number[]): any {
+  if (!Array.isArray(chart) || chart.length === 0) {
+    throw new Error("Invalid chart format");
+  }
+
+  const n = chart.length;
+  const visited = new Set<number>();
+  const loops: number[][] = [];
+  const widths: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    if (!visited.has(i)) {
+      const loop: number[] = [];
+      let current = i;
+
+      do {
+        if (typeof chart[current] !== "number" || !Number.isInteger(chart[current])) {
+          throw new Error("Invalid entry in chart");
+        }
+        if (chart[current] < 0 || chart[current] >= n) {
+          throw new Error("Entry names a seat outside the chart");
+        }
+        if (loop.includes(chart[current])) {
+          throw new Error("Two entries name the same seat");
+        }
+
+        visited.add(current);
+        loop.push(current);
+        current = chart[current];
+      } while (current !== i);
+
+      loops.push(loop);
+      widths.push(loop.length);
+    }
+  }
+
+  const repeat = widths.reduce((lcm, width) => {
+    return lcm * width / gcd(lcm, width);
+  }, 1);
+
+  const swing = (n - loops.length) % 2 === 0 ? "even" : "odd";
+
+  return {
+    loops: loops.sort((a, b) => a[0] - b[0]),
+    widths: widths.slice().sort((a, b) => b - a),
+    repeat,
+    swing
+  };
+}
+
+function gcd(a: number, b: number): number {
+  while (b !== 0) {
+    const temp = b;
+    b = a % b;
+    a = temp;
+  }
+  return a;
+}
+```

@@ -1,0 +1,24 @@
+```ts
+/**
+ * Calculates the accrued flat interest in cents for a given principal, rate, days, and year basis.
+ * @param principalCents - The principal amount in cents.
+ * @param rateBasisPoints - The interest rate in basis points (hundredths of one percent).
+ * @param days - The number of days the interest is accrued.
+ * @param yearBasis - The number of days in the year (360 or 365).
+ * @returns The earned interest in cents, rounded up if exactly halfway.
+ */
+export function accrueFlatInterest(principalCents: number, rateBasisPoints: number, days: number, yearBasis: number): number {
+    if (!Number.isInteger(principalCents) || !Number.isInteger(rateBasisPoints) || !Number.isInteger(days) || !Number.isInteger(yearBasis)) {
+        throw new Error("All arguments must be whole numbers.");
+    }
+    if (principalCents < 0 || rateBasisPoints < 0 || days < 0) {
+        throw new Error("Principal, rate, and days cannot be negative.");
+    }
+    if (yearBasis !== 360 && yearBasis !== 365) {
+        throw new Error("Year basis must be either 360 or 365.");
+    }
+
+    const interest = (principalCents * rateBasisPoints * days) / (10000 * yearBasis);
+    return Math.ceil(interest);
+}
+```

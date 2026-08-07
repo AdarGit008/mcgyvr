@@ -1,0 +1,50 @@
+```ts
+export function smallestArrangement(counts: number[]): string {
+  if (counts.length !== 4) {
+    throw new Error("Invalid input: counts must be an array of length 4.");
+  }
+
+  for (const count of counts) {
+    if (!Number.isInteger(count)) {
+      throw new Error("Invalid input: all counts must be integers.");
+    }
+    if (count < 0 || count > 12) {
+      throw new Error("Invalid input: each count must be between 0 and 12.");
+    }
+  }
+
+  if (counts.every(count => count === 0)) {
+    throw new Error("Invalid input: at least one count must be positive.");
+  }
+
+  const letters = ["a", "b", "c", "d"];
+  const result: string[] = [];
+  let remainingCounts = [...counts];
+
+  while (result.length < counts.reduce((sum, count) => sum + count, 0)) {
+    let chosenLetterIndex = -1;
+
+    for (let i = 0; i < letters.length; i++) {
+      if (remainingCounts[i] > 0 && !isThreeInARow(result, letters[i])) {
+        chosenLetterIndex = i;
+        break;
+      }
+    }
+
+    if (chosenLetterIndex === -1) {
+      throw new Error("No valid arrangement possible.");
+    }
+
+    result.push(letters[chosenLetterIndex]);
+    remainingCounts[chosenLetterIndex]--;
+  }
+
+  return result.join("");
+}
+
+function isThreeInARow(arr: string[], letter: string): boolean {
+  const n = arr.length;
+  if (n < 3) return false;
+  return arr[n - 1] === letter && arr[n - 2] === letter && arr[n - 3] === letter;
+}
+```

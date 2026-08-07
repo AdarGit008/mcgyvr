@@ -1,0 +1,44 @@
+```ts
+/**
+ * Normalizes a part code to the canonical format.
+ * @param code - The input part code string.
+ * @returns The normalized part code string.
+ */
+export function normalizePartCode(code: string): string {
+  if (typeof code !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  // Remove spaces and hyphens, and convert to uppercase
+  const cleaned = code.replace(/[-\s]/g, '').toUpperCase();
+
+  // Validate characters
+  if (!/^[0-9A-Z]{9}$/.test(cleaned)) {
+    throw new Error('Invalid characters in part code');
+  }
+
+  // Extract payload and check character
+  const payload = cleaned.slice(0, 8);
+  const checkChar = cleaned[8];
+
+  // Calculate the weighted sum of the payload
+  const weights = [3, 5, 7];
+  let weightedSum = 0;
+  for (let i = 0; i < payload.length; i++) {
+    const charValue = payload[i] >= 'A' ? payload.charCodeAt(i) - 65 + 10 : payload.charCodeAt(i) - 48;
+    weightedSum += charValue * weights[i % weights.length];
+  }
+
+  // Calculate the expected check character
+  const expectedCheckValue = weightedSum % 36;
+  const expectedCheckChar = expectedCheckValue < 10 ? expectedCheckValue.toString() : String.fromCharCode(expectedCheckValue - 10 + 65);
+
+  // Validate the check character
+  if (expectedCheckChar !== checkChar) {
+    throw new Error('Invalid check character');
+  }
+
+  // Return the canonical format
+  return `${payload.slice(0, 4)}-${payload.slice(4, 8)}-${checkChar}`;
+}
+```

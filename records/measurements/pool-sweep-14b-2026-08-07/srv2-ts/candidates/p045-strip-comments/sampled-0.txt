@@ -1,0 +1,67 @@
+```ts
+export function stripComments(source: string): string {
+  let inBlockComment = false;
+  let inStringLiteral = false;
+  let escapeNext = false;
+  let result = '';
+
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
+
+    if (escapeNext) {
+      result += char;
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escapeNext = true;
+      result += char;
+      continue;
+    }
+
+    if (inStringLiteral) {
+      if (char === '"') {
+        inStringLiteral = false;
+      }
+      result += char;
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (char === '*' && source[i + 1] === '/') {
+        inBlockComment = false;
+        i++; // Skip the '/' character
+      }
+      continue;
+    }
+
+    if (char === '"' && !inBlockComment) {
+      inStringLiteral = true;
+      result += char;
+      continue;
+    }
+
+    if (char === '/' && source[i + 1] === '*') {
+      inBlockComment = true;
+      i++; // Skip the '*' character
+      continue;
+    }
+
+    if (char === '/' && source[i + 1] === '/') {
+      break; // End of line, skip rest of the line
+    }
+
+    result += char;
+  }
+
+  if (inBlockComment) {
+    throw new Error("Unmatched block comment");
+  }
+  if (inStringLiteral) {
+    throw new Error("Unmatched string literal");
+  }
+
+  return result;
+}
+```

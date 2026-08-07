@@ -1,0 +1,58 @@
+```ts
+export function gradeReruns(log: string[], budget: number): string[] {
+  if (!Array.isArray(log)) {
+    throw new Error("Log must be an array");
+  }
+  if (!Number.isInteger(budget) || budget < 0) {
+    throw new Error("Budget must be a non-negative integer");
+  }
+
+  const goes = new Map<string, string[]>();
+  for (const entry of log) {
+    if (typeof entry !== "string") {
+      throw new Error("Each log entry must be a string");
+    }
+    const [name, mark] = entry.split(" ");
+    if (name === undefined || mark === undefined || name.includes(" ")) {
+      throw new Error("Entry must have exactly two parts: a non-empty job name and a mark");
+    }
+    if (!["green", "red"].includes(mark)) {
+      throw new Error("Mark must be either 'green' or 'red'");
+    }
+
+    const marks = goes.get(name);
+    if (marks !== undefined && marks.includes("green")) {
+      throw new Error("A job that has already gone green must never appear again");
+    }
+    if (marks !== undefined && marks.length >= budget + 1) {
+      throw new Error("A job may never have more than budget plus one goes");
+    }
+
+    if (marks === undefined) {
+      goes.set(name, [mark]);
+    } else {
+      marks.push(mark);
+    }
+  }
+
+  const graded: string[] = [];
+  for (const [name, marks] of Array.from(goes.entries()).sort(([a], [b]) => a.localeCompare(b))) {
+    if (marks.includes("green")) {
+      const lastMarkIndex = marks.lastIndexOf("green");
+      if (lastMarkIndex === 0) {
+        graded.push(name + ":solid");
+      } else {
+        graded.push(name + ":shaky");
+      }
+    } else {
+      if (marks.length === budget) {
+        graded.push(name + ":broken");
+      } else {
+        graded.push(name + ":dropped");
+      }
+    }
+  }
+
+  return graded;
+}
+```

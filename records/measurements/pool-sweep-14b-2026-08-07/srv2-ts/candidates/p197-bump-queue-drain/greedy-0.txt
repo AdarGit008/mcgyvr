@@ -1,0 +1,67 @@
+```ts
+/**
+ * The order a crew works through a batch of graded tickets.
+ */
+export function bumpQueueDrain(
+  tickets: Array<Record<string, unknown>>,
+  start: number,
+  bumpEvery: number
+): string[] {
+  if (tickets.length === 0) {
+    throw new Error("Batch is empty");
+  }
+
+  const validatedTickets = tickets.map((ticket, index) => {
+    if (typeof ticket !== "object" || ticket === null) {
+      throw new Error(`Ticket at index ${index} is not a mapping`);
+    }
+    const { id, filed, grade } = ticket as any;
+    if (typeof id !== "string" || id.trim() === "") {
+      throw new Error(`Ticket at index ${index} has missing or invalid id`);
+    }
+    if (typeof filed !== "number" || filed < 0 || !Number.isInteger(filed)) {
+      throw new Error(`Ticket at index ${index} has invalid filed minute`);
+    }
+    if (typeof grade !== "number" || grade < 0 || grade > 9 || !Number.isInteger(grade)) {
+      throw new Error(`Ticket at index ${index} has invalid grade`);
+    }
+    return { id, filed, grade };
+  });
+
+  const uniqueIds = new Set(validatedTickets.map(ticket => ticket.id));
+  if (uniqueIds.size !== validatedTickets.length) {
+    throw new Error("Duplicate ids found in the batch");
+  }
+
+  if (typeof start !== "number" || start < 0 || !Number.isInteger(start)) {
+    throw new Error("Invalid start minute");
+  }
+
+  if (typeof bumpEvery !== "number" || bumpEvery <= 0 || !Number.isInteger(bumpEvery)) {
+    throw new Error("Invalid bump interval");
+  }
+
+  const pending = validatedTickets.slice();
+  const handled: string[] = [];
+
+  while (pending.length > 0) {
+    let pick = -1;
+    for (let i = 0; i < pending.length; i++) {
+      const { id, filed, grade } = pending[i];
+      const urgency = Math.min(grade + Math.floor((start - filed) / bumpEvery), 9);
+      if (pick === -1 || urgency > pending[pick].urgency ||
+          (urgency === pending[pick].urgency && filed < pending[pick].filed) ||
+          (urgency === pending[pick].urgency && filed === pending[pick].filed && id < pending[pick].id)) {
+        pick = i;
+      }
+    }
+    if (pick !== -1) {
+      handled.push(pending[pick].id);
+      pending.splice(pick, 1);
+    }
+    start++;
+  }
+
+  return handled;
+}
+```

@@ -1,0 +1,72 @@
+```ts
+export function expandTemplate(template: string, context: Record<string, unknown>, missing: string): string {
+  if (missing !== 'error' && missing !== 'keep' && missing !== 'blank') {
+    throw new Error('Invalid missing-path policy');
+  }
+
+  let result = '';
+  let i = 0;
+  const length = template.length;
+
+  while (i < length) {
+    if (template[i] === '$') {
+      if (i + 1 < length && template[i + 1] === '$') {
+        // Literal dollar sign
+        result += '$';
+        i += 2;
+      } else if (i + 1 < length && template[i + 1] === '{') {
+        // Placeholder
+        let j = i + 2;
+        while (j < length && template[j] !== '}') {
+          j++;
+        }
+        if (j === length) {
+          throw new Error('Unclosed placeholder');
+        }
+
+        const path = template.substring(i + 2, j);
+        if (path.length === 0 || path.includes('..')) {
+          throw new Error('Invalid placeholder path');
+        }
+
+        let value: unknown = context;
+        for (const segment of path.split('.')) {
+          if (segment in value) {
+            value = value[segment];
+          } else {
+            switch (missing) {
+              case 'error':
+                throw new Error(`Path "${path}" not found`);
+              case 'keep':
+                result += '${' + path + '}';
+                break;
+              case 'blank':
+                // Do nothing
+                break;
+            }
+            i = j + 1;
+            continue;
+          }
+        }
+
+        if (typeof value === 'string') {
+          result += value;
+        } else if (typeof value === 'number' && Number.isInteger(value)) {
+          result += value.toString();
+        } else {
+          throw new Error(`Invalid value type for path "${path}"`);
+        }
+
+        i = j + 1;
+      } else {
+        throw new Error('Unexpected "$" in template');
+      }
+    } else {
+      result += template[i];
+      i++;
+    }
+  }
+
+  return result;
+}
+```

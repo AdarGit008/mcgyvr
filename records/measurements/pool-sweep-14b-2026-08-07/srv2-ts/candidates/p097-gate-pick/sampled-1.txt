@@ -1,0 +1,95 @@
+```ts
+/**
+ * Parses a gate string into clauses and carve-outs.
+ * @param gate - The gate string to parse.
+ * @returns An array of clauses with their respective carve-outs.
+ */
+function parseGate(gate: string): { floor?: number, ceiling?: number, carveOuts: Set<number> }[] {
+    const clauses = gate.split(',').map(clause => {
+        const [range, carveOutStr] = clause.split('^');
+        const [floorStr, ceilingStr] = range.split(':');
+
+        let floor: number | undefined;
+        let ceiling: number | undefined;
+
+        if (floorStr) {
+            floor = parseInt(floorStr, 10);
+            if (isNaN(floor) || floor < 0) {
+                throw new Error('Invalid gate format');
+            }
+        }
+
+        if (ceilingStr) {
+            ceiling = parseInt(ceilingStr, 10);
+            if (isNaN(ceiling) || ceiling < 0) {
+                throw new Error('Invalid gate format');
+            }
+        }
+
+        if (floor !== undefined && ceiling !== undefined && floor > ceiling) {
+            throw new Error('Invalid gate format');
+        }
+
+        const carveOuts = new Set<number>();
+        if (carveOutStr) {
+            for (const num of carveOutStr.split('').map(Number)) {
+                if (isNaN(num) || num < 0 || (floor !== undefined && num < floor) || (ceiling !== undefined && num > ceiling)) {
+                    throw new Error('Invalid gate format');
+                }
+                carveOuts.add(num);
+            }
+        }
+
+        return { floor, ceiling, carveOuts };
+    });
+
+    if (clauses.length === 0) {
+        throw new Error('Invalid gate format');
+    }
+
+    return clauses;
+}
+
+/**
+ * Determines if a build number is admitted by any clause in the gate.
+ * @param build - The build number to check.
+ * @param clauses - The parsed clauses from the gate.
+ * @returns True if the build is admitted, false otherwise.
+ */
+function isAdmitted(build: number, clauses: { floor?: number, ceiling?: number, carveOuts: Set<number> }[]): boolean {
+    for (const clause of clauses) {
+        if ((clause.floor === undefined || build >= clause.floor) &&
+            (clause.ceiling === undefined || build <= clause.ceiling) &&
+            !clause.carveOuts.has(build)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Selects the largest build number admitted by the gate from a list of offers.
+ * @param gate - The gate string defining admission criteria.
+ * @param offers - An array of candidate build numbers.
+ * @returns The largest admitted build number, or -1 if none are admitted.
+ */
+export function pickBuild(gate: string, offers: number[]): number {
+    if (typeof gate !== 'string') {
+        throw new Error('Invalid gate');
+    }
+
+    const clauses = parseGate(gate);
+
+    let maxAdmitted = -1;
+    for (const offer of offers) {
+        if (!Number.isInteger(offer) || offer < 0) {
+            throw new Error('Invalid offer');
+        }
+        if (isAdmitted(offer, clauses)) {
+            maxAdmitted = Math.max(maxAdmitted, offer);
+        }
+    }
+
+    return maxAdmitted;
+}
+```

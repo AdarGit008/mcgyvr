@@ -1,0 +1,102 @@
+```ts
+/**
+ * Expands a template string using a given context object and missing path policy.
+ * @param template - The template string to expand.
+ * @param context - The context object containing data for placeholders.
+ * @param missing - The policy for handling missing paths: "error", "keep", or "blank".
+ * @returns The expanded template string.
+ */
+export function expandTemplate(template: string, context: Record<string, unknown>, missing: string): string {
+  const policies = ["error", "keep", "blank"];
+  if (!policies.includes(missing)) {
+    throw new Error("Invalid missing path policy");
+  }
+
+  let result = "";
+  let i = 0;
+  while (i < template.length) {
+    if (template[i] === "$") {
+      if (i + 1 < template.length && template[i + 1] === "{") {
+        // Placeholder opening
+        const [path, endPos] = extractPath(template, i + 2);
+        if (!endPos) {
+          throw new Error("Missing closing '}' for placeholder");
+        }
+        result += resolvePath(path, context, missing);
+        i = endPos;
+      } else if (i + 1 < template.length && template[i + 1] === "$") {
+        // Literal dollar sign
+        result += "$";
+        i++;
+      } else {
+        throw new Error("Invalid use of '$'");
+      }
+    } else {
+      result += template[i];
+    }
+    i++;
+  }
+
+  return result;
+}
+
+/**
+ * Extracts a path from the template starting at the given index.
+ * @param template - The template string to extract the path from.
+ * @param start - The starting index for extracting the path.
+ * @returns A tuple containing the extracted path and the position of the closing "}".
+ */
+function extractPath(template: string, start: number): [string, number | undefined] {
+  let path = "";
+  let i = start;
+  while (i < template.length) {
+    if (template[i] === '}') {
+      return [path.trim(), i];
+    }
+    path += template[i];
+    i++;
+  }
+  return [path.trim(), undefined];
+}
+
+/**
+ * Resolves a dotted path in the context object.
+ * @param path - The dotted path to resolve.
+ * @param context - The context object containing data for placeholders.
+ * @param missing - The policy for handling missing paths: "error", "keep", or "blank".
+ * @returns The resolved value as a string, or the placeholder text based on the missing policy.
+ */
+function resolvePath(path: string, context: Record<string, unknown>, missing: string): string {
+  if (path === "") {
+    throw new Error("Empty path in placeholder");
+  }
+
+  const segments = path.split('.');
+  let currentContext = context;
+
+  for (const segment of segments) {
+    if (segment.trim() === "") {
+      throw new Error("Empty segment in path");
+    }
+    if (currentContext[segment] === undefined) {
+      switch (missing) {
+        case "error":
+          throw new Error(`Missing path: ${path}`);
+        case "keep":
+          return `${path}`;
+        case "blank":
+          return "";
+      }
+    }
+    currentContext = currentContext[segment];
+  }
+
+  if (typeof currentContext === "string") {
+    return currentContext;
+  } else if (typeof currentContext === "number" && Number.isInteger(currentContext)) {
+    return currentContext.toString();
+  } else {
+    throw new Error(`Invalid type for path: ${path}`);
+  }
+}
+```

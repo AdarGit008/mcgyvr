@@ -1,0 +1,53 @@
+```ts
+export function stitchTables(left: Array<Record<string, unknown>>, right: Array<Record<string, unknown>>, key: string, mode: string): Array<Record<string, unknown>> {
+  if (mode !== "inner" && mode !== "left") {
+    throw new Error("Invalid mode");
+  }
+
+  const rightMap = new Map<string, Record<string, unknown>>();
+  for (const record of right) {
+    if (typeof record[key] !== "string") {
+      throw new Error("Key value in right table must be a string");
+    }
+    if (rightMap.has(record[key] as string)) {
+      throw new Error("Duplicate key value in right table");
+    }
+    rightMap.set(record[key] as string, record);
+  }
+
+  const leftColumns = new Set<string>();
+  for (const record of left) {
+    if (typeof record[key] !== "string") {
+      throw new Error("Key value in left table must be a string");
+    }
+    for (const column of Object.keys(record)) {
+      if (column !== key && right.some(r => r.hasOwnProperty(column))) {
+        throw new Error("Non-key column name collision between tables");
+      }
+      leftColumns.add(column);
+    }
+  }
+
+  const result: Array<Record<string, unknown>> = [];
+  for (const record of left) {
+    const joinedRecord: Record<string, unknown> = { ...record };
+    const rightRecord = rightMap.get(record[key] as string);
+    if (rightRecord) {
+      for (const column of Object.keys(rightRecord)) {
+        if (column !== key) {
+          joinedRecord[column] = rightRecord[column];
+        }
+      }
+    } else if (mode === "left") {
+      for (const column of leftColumns) {
+        if (!joinedRecord.hasOwnProperty(column)) {
+          joinedRecord[column] = null;
+        }
+      }
+    }
+    result.push(joinedRecord);
+  }
+
+  return result;
+}
+```

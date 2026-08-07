@@ -1,0 +1,79 @@
+```ts
+export function replayLoanDesk(stock: Record<string, number>, cap: number, events: Array<[string, string, string]>): string[] {
+    if (cap <= 0) throw new Error("Cap must be a positive integer");
+    for (const title in stock) {
+        if (!Number.isInteger(stock[title]) || stock[title] <= 0) throw new Error("Copy count must be a positive integer");
+    }
+
+    const loans: Record<string, Set<string>> = {};
+    const holds: Record<string, string[]> = {};
+
+    return events.map(([action, member, title]) => {
+        if (!["borrow", "return", "renew", "hold"].includes(action)) throw new Error("Invalid action");
+
+        const hasTitle = stock[title] !== undefined;
+        const memberLoans = loans[member] || new Set();
+        const isTitleOut = memberLoans.has(title);
+        const holdQueue = holds[title] || [];
+
+        switch (action) {
+            case "borrow":
+                if (!hasTitle) return "no:unknown-title";
+                if (isTitleOut) return "no:already-out";
+                if (memberLoans.size >= cap) return "no:member-cap";
+                if (stock[title] === 0 && holdQueue.length > 0) return "no:none-left";
+                if (holdQueue.length > 0 && holdQueue[0] !== member) return "no:queued-ahead";
+
+                // Approve loan
+                memberLoans.add(title);
+                stock[title]--;
+                loans[member] = memberLoans;
+
+                // Move head of queue if applicable
+                if (holdQueue.length > 0 && holdQueue[0] === member) {
+                    holdQueue.shift();
+                    holds[title] = holdQueue;
+                }
+
+                return "ok";
+
+            case "return":
+                if (!hasTitle) return "no:unknown-title";
+                if (!isTitleOut) return "no:not-out";
+
+                // Approve return
+                memberLoans.delete(title);
+                stock[title]++;
+                loans[member] = memberLoans;
+
+                return "ok";
+
+            case "renew":
+                if (!hasTitle) return "no:unknown-title";
+                if (!isTitleOut) return "no:not-out";
+                if (holdQueue.length > 0) return "no:on-hold";
+                if ((loans[member][title] as any)?.renewCount >= 2) return "no:renew-cap";
+
+                // Approve renewal
+                (loans[member][title] as any).renewCount = (loans[member][title] as any)?.renewCount + 1 || 1;
+
+                return "ok";
+
+            case "hold":
+                if (!hasTitle) return "no:unknown-title";
+                if (isTitleOut) return "no:own-loan";
+                if (holdQueue.includes(member)) return "no:in-queue";
+                if (stock[title] > 0) return "ok"; // take-it
+
+                // Join queue
+                holdQueue.push(member);
+                holds[title] = holdQueue;
+
+                return "ok";
+
+            default:
+                throw new Error("Invalid action");
+        }
+    });
+}
+```

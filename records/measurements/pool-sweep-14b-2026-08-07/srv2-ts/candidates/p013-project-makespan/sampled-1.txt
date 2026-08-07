@@ -1,0 +1,70 @@
+```ts
+export function projectMakespan(durations: Record<string, number>, deps: [string, string][]): number {
+  // Validate durations
+  for (const [task, duration] of Object.entries(durations)) {
+    if (!Number.isInteger(duration) || duration <= 0) {
+      throw new Error(`Invalid duration for task ${task}: ${duration}`);
+    }
+  }
+
+  // Validate dependencies
+  const tasks = new Set(Object.keys(durations));
+  for (const [from, to] of deps) {
+    if (!tasks.has(from)) {
+      throw new Error(`Dependency from task "${from}" is not in durations`);
+    }
+    if (!tasks.has(to)) {
+      throw new Error(`Dependency to task "${to}" is not in durations`);
+    }
+    if (from === to) {
+      throw new Error(`Self-dependency detected for task "${from}"`);
+    }
+  }
+
+  // Build graph
+  const graph: Record<string, Set<string>> = {};
+  const inDegree: Record<string, number> = {};
+
+  for (const task of tasks) {
+    graph[task] = new Set();
+    inDegree[task] = 0;
+  }
+
+  for (const [from, to] of deps) {
+    graph[from].add(to);
+    inDegree[to]++;
+  }
+
+  // Kahn's algorithm for topological sorting
+  const queue: string[] = [];
+  let totalDuration = 0;
+
+  for (const task of tasks) {
+    if (inDegree[task] === 0) {
+      queue.push(task);
+    }
+  }
+
+  while (queue.length > 0) {
+    const task = queue.shift()!;
+    const duration = durations[task];
+    totalDuration = Math.max(totalDuration, duration);
+
+    for (const next of graph[task]) {
+      inDegree[next]--;
+      if (inDegree[next] === 0) {
+        queue.push(next);
+      }
+    }
+  }
+
+  // Check for cycles
+  for (const task of tasks) {
+    if (inDegree[task] > 0) {
+      throw new Error("Cyclic dependencies detected");
+    }
+  }
+
+  return totalDuration;
+}
+```

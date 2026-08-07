@@ -1,0 +1,95 @@
+```ts
+export function pinPackageSet(plan: Record<string, unknown>): Record<string, unknown> {
+  if (typeof plan !== 'object' || plan === null) {
+    throw new Error('Invalid plan');
+  }
+
+  const shelf = plan['shelf'];
+  const needs = plan['needs'];
+  const root = plan['root'];
+
+  if (typeof shelf !== 'object' || shelf === null) {
+    throw new Error('Invalid shelf');
+  }
+  if (typeof needs !== 'object' || needs === null) {
+    throw new Error('Invalid needs');
+  }
+  if (!Array.isArray(root)) {
+    throw new Error('Invalid root');
+  }
+
+  const validateVersion = (version: string): boolean => {
+    return /^\d+\.\d+\.\d+$/.test(version);
+  };
+
+  const compareVersions = (a: string, b: string): number => {
+    const [majorA, minorA, patchA] = a.split('.').map(Number);
+    const [majorB, minorB, patchB] = b.split('.').map(Number);
+
+    if (majorA !== majorB) return majorA - majorB;
+    if (minorA !== minorB) return minorA - minorB;
+    return patchA - patchB;
+  };
+
+  const isVersionInRange = (version: string, from: string, under: string): boolean => {
+    return compareVersions(version, from) >= 0 && compareVersions(version, under) < 0;
+  };
+
+  const validateShelfEntry = (versions: unknown[]): void => {
+    if (!Array.isArray(versions) || versions.length === 0) {
+      throw new Error('Invalid shelf entry');
+    }
+    for (const version of versions) {
+      if (typeof version !== 'string' || !validateVersion(version)) {
+        throw new Error('Invalid version string');
+      }
+    }
+  };
+
+  const validateWants = (wants: unknown[], packageName: string): void => {
+    if (!Array.isArray(wants)) {
+      throw new Error(`Invalid wants for package ${packageName}`);
+    }
+    for (const want of wants) {
+      if (typeof want !== 'object' || want === null) {
+        throw new Error(`Invalid want for package ${packageName}`);
+      }
+      const name = want['name'];
+      const from = want['from'];
+      const under = want['under'];
+
+      if (typeof name !== 'string' || typeof from !== 'string' || typeof under !== 'string') {
+        throw new Error(`Invalid want fields for package ${packageName}`);
+      }
+      if (!shelf.hasOwnProperty(name)) {
+        throw new Error(`Package ${name} not in shelf`);
+      }
+      if (!validateVersion(from) || !validateVersion(under) || compareVersions(from, under) >= 0) {
+        throw new Error(`Invalid version range for want of package ${packageName}`);
+      }
+    }
+  };
+
+  const validateShelf = (): void => {
+    for (const [packageName, versions] of Object.entries(shelf)) {
+      if (!Array.isArray(versions) || versions.length === 0) {
+        throw new Error('Invalid shelf entry');
+      }
+      validateShelfEntry(versions);
+    }
+  };
+
+  const validateNeeds = (): void => {
+    for (const [packageName, wants] of Object.entries(needs)) {
+      if (!shelf.hasOwnProperty(packageName)) {
+        throw new Error(`Package ${packageName} not in shelf`);
+      }
+      validateWants(wants as unknown[], packageName);
+    }
+  };
+
+  validateShelf();
+  validateNeeds();
+
+  const reached: Set<string> = new Set();
+  const queue: { name: string; wants:

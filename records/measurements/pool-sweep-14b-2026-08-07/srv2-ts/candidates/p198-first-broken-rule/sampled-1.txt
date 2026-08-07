@@ -1,0 +1,66 @@
+```ts
+/**
+ * Finds the first broken rule in a binary tree.
+ * @param root - The root node of the tree.
+ * @returns A mapping with "path" and "rule" if a rule is broken, otherwise an empty location and "sound".
+ */
+export function firstBrokenRule(root: Record<string, unknown>): Record<string, string> {
+  if (!root || typeof root !== 'object') {
+    throw new Error('Root must be a non-null object');
+  }
+
+  const validateNode = (node: Record<string, unknown>, path: string): Record<string, string> => {
+    if (
+      typeof node.key !== 'number' ||
+      !Number.isInteger(node.key) ||
+      typeof node.count !== 'number' ||
+      !Number.isInteger(node.count) ||
+      node.count <= 0 ||
+      (typeof node.left !== 'object' && typeof node.left !== 'undefined') ||
+      (typeof node.right !== 'object' && typeof node.right !== 'undefined')
+    ) {
+      throw new Error('Node validation failed');
+    }
+
+    if (node.left) {
+      const left = node.left as Record<string, unknown>;
+      if (left.key >= node.key) {
+        return { path: `${path}/L`, rule: 'order' };
+      }
+    }
+
+    if (node.right) {
+      const right = node.right as Record<string, unknown>;
+      if (right.key <= node.key) {
+        return { path: `${path}/R`, rule: 'order' };
+      }
+    }
+
+    const leftDepth = calculateDepth(node.left);
+    const rightDepth = calculateDepth(node.right);
+
+    if (Math.abs(leftDepth - rightDepth) > 1) {
+      return { path, rule: 'balance' };
+    }
+
+    const actualCount = countNodes(node);
+    if (actualCount !== node.count) {
+      return { path, rule: 'count' };
+    }
+
+    return { path: '', rule: 'sound' };
+  };
+
+  const calculateDepth = (node: Record<string, unknown> | undefined): number => {
+    if (!node) return 0;
+    return 1 + Math.max(calculateDepth(node.left), calculateDepth(node.right));
+  };
+
+  const countNodes = (node: Record<string, unknown>): number => {
+    if (!node) return 0;
+    return 1 + countNodes(node.left) + countNodes(node.right);
+  };
+
+  return validateNode(root, 'root');
+}
+```

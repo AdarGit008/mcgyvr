@@ -1,0 +1,47 @@
+```ts
+export function tidyShelfMark(raw: string): string {
+  if (typeof raw !== "string") {
+    throw new Error("Invalid input: not a string");
+  }
+
+  const parts = raw.trim().split("-");
+  if (parts.length !== 3) {
+    throw new Error("Invalid mark: does not have exactly three parts");
+  }
+
+  const [wing, bayWithFraction, peg] = parts;
+
+  if (!/^[A-Za-z]{2}$/.test(wing)) {
+    throw new Error("Invalid wing: must be two letters");
+  }
+
+  const tidyWing = wing.toUpperCase();
+
+  const bayMatch = bayWithFraction.match(/^(\d+)(?:\.(\d*))?$/);
+  if (!bayMatch) {
+    throw new Error("Invalid bay: malformed");
+  }
+
+  let [_, bay, fraction] = bayMatch;
+  const bayNumber = parseInt(bay, 10);
+
+  if (bayNumber < 1 || bayNumber > 999) {
+    throw new Error("Invalid bay: must be between 1 and 999");
+  }
+
+  const tidyBay = String(bayNumber).padStart(3, "0");
+
+  let tidyFraction = fraction ? parseInt(fraction).toString() : "";
+  if (tidyFraction.length > 2) {
+    throw new Error("Invalid fraction: must be one or two digits");
+  }
+
+  if (!/^[A-Za-z]$/.test(peg[0]) || !/^\d$/.test(peg[1]) || peg[1] === "0") {
+    throw new Error("Invalid peg: must be one letter followed by a non-zero digit");
+  }
+
+  const tidyPeg = peg[0].toLowerCase() + peg[1];
+
+  return `${tidyWing}-${tidyBay}${tidyFraction ? `.${tidyFraction}` : ""}-${tidyPeg}`;
+}
+```

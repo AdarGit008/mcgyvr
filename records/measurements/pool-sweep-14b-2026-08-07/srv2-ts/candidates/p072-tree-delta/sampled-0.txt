@@ -1,0 +1,50 @@
+```ts
+export function treeDelta(before: { name: string; value: number; children: unknown[] }, after: { name: string; value: number; children: unknown[] }): Array<Record<string, unknown>> {
+    if (before.name !== after.name) {
+        throw new Error("Root names differ");
+    }
+
+    const operations: Array<Record<string, unknown>> = [];
+
+    function walk(beforeNode: { name: string; value: number; children: unknown[] }, afterNode: { name: string; value: number; children: unknown[] }, path: string) {
+        if (beforeNode.value !== afterNode.value) {
+            operations.push({ op: "change", path, from: beforeNode.value, to: afterNode.value });
+        }
+
+        const afterNameToChild = new Map<string, { name: string; value: number; children: unknown[] }>();
+        for (const child of afterNode.children) {
+            if (!child || typeof child !== 'object' || !('name' in child) || typeof child.name !== 'string') {
+                throw new Error("Invalid child node");
+            }
+            if (afterNameToChild.has(child.name)) {
+                throw new Error("Duplicate child name");
+            }
+            afterNameToChild.set(child.name, child as { name: string; value: number; children: unknown[] });
+        }
+
+        for (const beforeChild of beforeNode.children) {
+            if (!beforeChild || typeof beforeChild !== 'object' || !('name' in beforeChild) || typeof beforeChild.name !== 'string') {
+                throw new Error("Invalid child node");
+            }
+            const afterChild = afterNameToChild.get(beforeChild.name);
+            if (afterChild) {
+                walk(beforeChild as { name: string; value: number; children: unknown[] }, afterChild, `${path}/${beforeChild.name}`);
+            } else {
+                operations.push({ op: "remove", path: `${path}/${beforeChild.name}` });
+            }
+        }
+
+        for (const afterChild of afterNode.children) {
+            if (!afterNameToChild.get((afterChild as { name: string }).name)) {
+                const newPath = `${path}/${(afterChild as { name: string }).name}`;
+                operations.push({ op: "add", path: newPath, value: (afterChild as { value: number }).value });
+                walk(afterChild as { name: string; value: number; children: unknown[] }, afterChild as { name: string; value: number; children: unknown[] }, newPath);
+            }
+        }
+    }
+
+    walk(before, after, before.name);
+
+    return operations;
+}
+```

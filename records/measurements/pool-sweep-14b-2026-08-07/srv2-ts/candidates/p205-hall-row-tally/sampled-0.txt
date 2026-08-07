@@ -1,0 +1,50 @@
+```ts
+export function tallyHallRows(hall: string[]): string[] {
+  if (!Array.isArray(hall) || hall.length === 0) {
+    throw new Error("Invalid hall input");
+  }
+
+  let totalHeld = 0;
+  let totalOpen = 0;
+  let widestTierIndex = -1;
+  let maxOpenChairs = -1;
+
+  const result: string[] = [];
+
+  for (let i = 0; i < hall.length; i++) {
+    const tier = hall[i];
+    if (typeof tier !== "string" || tier.length === 0) {
+      throw new Error("Invalid tier input");
+    }
+
+    if (i > 0 && tier.length !== hall[0].length) {
+      throw new Error("Tiers must have the same width");
+    }
+
+    const heldCount = (tier.match(/x/g) || []).length;
+    const openCount = (tier.match(/o/g) || []).length;
+    const invalidChars = tier.replace(/[xo=]/g, "");
+    if (invalidChars.length > 0) {
+      throw new Error("Invalid character in tier");
+    }
+
+    if (openCount === 0) {
+      throw new Error("Tier must offer at least one chair");
+    }
+
+    result.push(`tier=${i} held=${heldCount} open=${openCount}`);
+
+    totalHeld += heldCount;
+    totalOpen += openCount;
+
+    if (openCount > maxOpenChairs || (openCount === maxOpenChairs && i < widestTierIndex)) {
+      maxOpenChairs = openCount;
+      widestTierIndex = i;
+    }
+  }
+
+  result.push(`hall held=${totalHeld} open=${totalOpen} widest=tier=${widestTierIndex}`);
+
+  return result;
+}
+```

@@ -1,0 +1,64 @@
+```ts
+export function tallyTuplets(score: string, meter: string): number[] {
+  if (typeof score !== 'string') {
+    throw new Error('Score must be a string');
+  }
+
+  const parseSpan = (span: string): number => {
+    const [numerator, denominator] = span.split('/').map(Number);
+    if (!denominator || ![1, 2, 4, 8, 16, 32, 64].includes(denominator)) {
+      throw new Error('Invalid denominator');
+    }
+    if (numerator <= 0 || numerator.toString() !== span.split('/')[0]) {
+      throw new Error('Invalid numerator');
+    }
+    return (numerator * 64) / denominator;
+  };
+
+  const parseSqueeze = (squeeze: string): number => {
+    const [figure, content] = squeeze.match(/\d+\{(.+)\}/)?.slice(1) as [string, string];
+    if (!content || !figure) {
+      throw new Error('Malformed squeeze');
+    }
+    const k = Number(figure);
+    if (k < 2) {
+      throw new Error('Squeeze figure must be two or more');
+    }
+    const totalUnits = content.split('+').reduce((sum, span) => sum + parseSpan(span), 0);
+    const worth = (totalUnits * (k - 1)) / k;
+    if (!Number.isInteger(worth)) {
+      throw new Error('Squeeze worth must be a whole number of units');
+    }
+    return worth;
+  };
+
+  const parseEntry = (entry: string): number => {
+    if (entry.includes('/')) {
+      return parseSpan(entry);
+    } else if (entry.match(/\d+\{.+\}/)) {
+      return parseSqueeze(entry);
+    } else {
+      throw new Error('Invalid entry');
+    }
+  };
+
+  const parseMeasure = (measure: string, meterUnits: number): number => {
+    if (!measure.trim()) {
+      throw new Error('Measure with no entries in it');
+    }
+    const entries = measure.split(' ').map(parseEntry);
+    const totalUnits = entries.reduce((sum, unit) => sum + unit, 0);
+    return totalUnits - meterUnits;
+  };
+
+  const parseMeter = (meter: string): number => {
+    if (!meter.includes('/')) {
+      throw new Error('Malformed meter');
+    }
+    return parseSpan(meter);
+  };
+
+  const meterUnits = parseMeter(meter);
+  return score.split(';').map(measure => parseMeasure(measure, meterUnits));
+}
+```

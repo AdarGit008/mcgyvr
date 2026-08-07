@@ -1,0 +1,51 @@
+```ts
+export function firstBrokenRule(root: Record<string, unknown>): Record<string, string> {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root is not a valid node');
+  }
+
+  const validateNode = (
+    node: Record<string, unknown>,
+    path: string
+  ): { path: string; rule: string } | null => {
+    if (typeof node !== 'object' || node === null) {
+      throw new Error(`Invalid node at ${path}`);
+    }
+    if (
+      typeof node.key !== 'number' ||
+      !Number.isInteger(node.key) ||
+      typeof node.count !== 'number' ||
+      node.count <= 0 ||
+      !Number.isInteger(node.count)
+    ) {
+      return { path, rule: 'count' };
+    }
+
+    const hasLeft = 'left' in node;
+    const hasRight = 'right' in node;
+
+    if (hasLeft && typeof node.left !== 'object') {
+      throw new Error(`Invalid left at ${path}`);
+    }
+    if (hasRight && typeof node.right !== 'object') {
+      throw new Error(`Invalid right at ${path}`);
+    }
+
+    const leftDepth = hasLeft ? validateNode(node.left as Record<string, unknown>, `${path}/L`).depth : 0;
+    const rightDepth = hasRight ? validateNode(node.right as Record<string, unknown>, `${path}/R`).depth : 0;
+
+    if (Math.abs(leftDepth - rightDepth) > 1) {
+      return { path, rule: 'balance' };
+    }
+
+    return { path, depth: Math.max(leftDepth, rightDepth) + 1 };
+  };
+
+  try {
+    const result = validateNode(root, 'root');
+    return result.path === 'root' ? { path: '', rule: 'sound' } : { path: result.path, rule: 'balance' };
+  } catch (error) {
+    throw error;
+  }
+}
+```

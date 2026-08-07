@@ -1,0 +1,42 @@
+```ts
+export function expandGlossary(script: string[]): string {
+  if (!Array.isArray(script)) {
+    throw new Error("Script must be a list of strings.");
+  }
+
+  const slots: Record<string, string> = {};
+  const sent: string[] = [];
+
+  for (const line of script) {
+    if (typeof line !== "string") {
+      throw new Error("Each line in the script must be a string.");
+    }
+
+    if (line.startsWith("!")) {
+      const slotNumber = line.slice(1);
+      if (!slotNumber || !/^\d+$/.test(slotNumber) || parseInt(slotNumber, 10) <= 0) {
+        throw new Error("Invalid slot number in send line.");
+      }
+      sent.push(slots[slotNumber] ?? "");
+    } else if (line.includes("=")) {
+      const cut = line.indexOf("=");
+      const slotNumber = line.slice(0, cut);
+      const body = line.slice(cut + 1);
+
+      if (!slotNumber || !/^\d+$/.test(slotNumber) || parseInt(slotNumber, 10) <= 0) {
+        throw new Error("Invalid slot number in store line.");
+      }
+      if (slots[slotNumber] !== undefined) {
+        throw new Error("Slot stored a second time.");
+      }
+
+      const settledBody = body.replace(/\{(\d+)\}/g, (_whole, n) => slots[n] ?? "");
+      slots[slotNumber] = settledBody;
+    } else {
+      throw new Error("Line of neither kind.");
+    }
+  }
+
+  return sent.join("");
+}
+```

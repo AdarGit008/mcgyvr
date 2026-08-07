@@ -1,0 +1,61 @@
+```ts
+/**
+ * Strips comments from source text while preserving the structure of the remaining text.
+ * Single-line comments (//) are removed but the newline is retained.
+ * Block comments (/* */) are removed entirely, even if they span multiple lines.
+ * Neither marker counts inside double-quoted string literals, where backslashes escape characters.
+ * Throws an error for unclosed block comments or unclosed string literals.
+ */
+export function stripComments(source: string): string {
+  const length = source.length;
+  let result = "";
+  let inString = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < length; i++) {
+    const char = source[i];
+
+    if (inString) {
+      if (char === '"' && (i === 0 || source[i - 1] !== "\\")) {
+        inString = false;
+      }
+      result += char;
+    } else if (inBlockComment) {
+      if (char === "*" && i + 1 < length && source[i + 1] === "/") {
+        inBlockComment = false;
+        i++; // Skip the '/' character
+      }
+    } else {
+      if (char === '"') {
+        inString = true;
+        result += char;
+      } else if (char === "/" && i + 1 < length) {
+        const nextChar = source[i + 1];
+        if (nextChar === "/") {
+          // Skip the rest of the line
+          while (i < length && source[i] !== "\n") {
+            i++;
+          }
+          result += "\n"; // Preserve the newline
+        } else if (nextChar === "*") {
+          inBlockComment = true;
+          i++; // Skip the '*' character
+        } else {
+          result += char;
+        }
+      } else {
+        result += char;
+      }
+    }
+  }
+
+  if (inString) {
+    throw new Error("Unclosed string literal");
+  }
+  if (inBlockComment) {
+    throw new Error("Unclosed block comment");
+  }
+
+  return result;
+}
+```

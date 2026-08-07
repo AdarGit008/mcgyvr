@@ -1,0 +1,58 @@
+```ts
+export function bandParcelCharge(book: Record<string, unknown>, parcel: Record<string, unknown>): Record<string, unknown> {
+  // Validate book structure
+  if (typeof book !== 'object' || book === null) throw new Error('Invalid rate book');
+  const zones = book.zones as string[];
+  const steps = book.steps as { upTo: number | null; cents: number[] }[];
+  const extras = book.extras as { mark: string; cents: number; zones: string[] | null }[];
+  const round = book.round as number;
+
+  if (!Array.isArray(zones) || zones.length === 0 || !zones.every(zone => typeof zone === 'string' && zone.trim() !== '')) {
+    throw new Error('Invalid zones');
+  }
+  if (new Set(zones).size !== zones.length) throw new Error('Duplicate zones');
+
+  if (!Array.isArray(steps) || steps.length === 0) throw new Error('Invalid steps');
+  if (!steps.every(step => typeof step === 'object' && step !== null)) throw new Error('Invalid step');
+  if (steps.some(step => step.upTo !== null && (typeof step.upTo !== 'number' || step.upTo <= 0))) {
+    throw new Error('Invalid upTo in steps');
+  }
+  if (!steps.every(step => Array.isArray(step.cents) && step.cents.length === zones.length)) {
+    throw new Error('Invalid cents in steps');
+  }
+  if (steps.some(step => !step.cents.every(c => typeof c === 'number' && c >= 0))) {
+    throw new Error('Invalid cents values in steps');
+  }
+  if (!steps.every((step, i) => (i === 0 || step.upTo === null || step.upTo > steps[i - 1].upTo))) {
+    throw new Error('Steps do not climb strictly');
+  }
+  if (steps.filter(step => step.upTo === null).length !== 1 || steps[steps.length - 1].upTo !== null) {
+    throw new Error('Invalid open band');
+  }
+
+  if (!Array.isArray(extras)) throw new Error('Invalid extras');
+  if (!extras.every(extra => typeof extra === 'object' && extra !== null)) throw new Error('Invalid extra');
+  if (extras.some(extra => typeof extra.mark !== 'string' || extra.mark.trim() === '')) {
+    throw new Error('Invalid mark in extras');
+  }
+  if (new Set(extras.map(extra => extra.mark)).size !== extras.length) throw new Error('Duplicate marks');
+  if (!extras.every(extra => typeof extra.cents === 'number' && extra.cents >= 0)) {
+    throw new Error('Invalid cents in extras');
+  }
+  if (!extras.every(extra => extra.zones === null || (Array.isArray(extra.zones) && extra.zones.length > 0))) {
+    throw new Error('Invalid zones in extras');
+  }
+  if (extras.some(extra => extra.zones !== null && !extra.zones.every(zone => zones.includes(zone)))) {
+    throw new Error('Unknown zone in extras');
+  }
+
+  if (typeof round !== 'number' || round <= 0) throw new Error('Invalid round');
+
+  // Validate parcel structure
+  if (typeof parcel !== 'object' || parcel === null) throw new Error('Invalid parcel');
+  const parcelZone = parcel.zone as string;
+  const parcelGrams = parcel.grams as number;
+  const parcelMarks = parcel.marks as string[];
+
+  if (typeof parcelZone !== 'string' || !zones.includes(parcelZone)) throw new Error('Unknown zone in parcel');
+  if

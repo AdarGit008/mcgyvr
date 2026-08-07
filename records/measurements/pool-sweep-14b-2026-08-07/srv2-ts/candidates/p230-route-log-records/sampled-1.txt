@@ -1,0 +1,72 @@
+```ts
+export function routeLogRecords(
+  rules: Array<Record<string, unknown>>,
+  records: Array<Record<string, unknown>>,
+  spare: string
+): Array<Record<string, unknown>> {
+  if (!Array.isArray(rules) || !Array.isArray(records)) {
+    throw new Error("Rules and records must be arrays.");
+  }
+
+  const validLevels = ["trace", "debug", "info", "warn", "error", "fatal"];
+
+  for (const rule of rules) {
+    if (typeof rule !== "object" || rule === null) {
+      throw new Error("Rule must be a mapping.");
+    }
+    const { sink, least, tag, stop } = rule;
+    if (
+      typeof sink !== "string" ||
+      typeof spare !== "string" ||
+      sink.trim() === "" ||
+      spare.trim() === ""
+    ) {
+      throw new Error("Sink and spare name must be non-empty strings.");
+    }
+    if (!validLevels.includes(least as string)) {
+      throw new Error("Level must be one of the six names.");
+    }
+    if (typeof tag !== "string") {
+      throw new Error("Tag must be a string.");
+    }
+    if (stop !== true && stop !== false) {
+      throw new Error('"Stop" must be either true or false.');
+    }
+  }
+
+  for (const record of records) {
+    if (typeof record !== "object" || record === null) {
+      throw new Error("Record must be a mapping.");
+    }
+    const { level, tag } = record;
+    if (!validLevels.includes(level as string)) {
+      throw new Error("Level must be one of the six names.");
+    }
+    if (typeof tag !== "string") {
+      throw new Error("Tag must be a string.");
+    }
+  }
+
+  return records.map((record, index) => {
+    const sinks: string[] = [];
+    for (const rule of rules) {
+      const { sink, least, tag: ruleTag, stop } = rule;
+      if (
+        validLevels.indexOf(level as string) >= validLevels.indexOf(least as string) &&
+        (ruleTag === "" || tag === ruleTag)
+      ) {
+        if (!sinks.includes(sink as string)) {
+          sinks.push(sink as string);
+        }
+        if (stop === true) {
+          break;
+        }
+      }
+    }
+    if (sinks.length === 0) {
+      sinks.push(spare);
+    }
+    return { at: index, sinks };
+  });
+}
+```

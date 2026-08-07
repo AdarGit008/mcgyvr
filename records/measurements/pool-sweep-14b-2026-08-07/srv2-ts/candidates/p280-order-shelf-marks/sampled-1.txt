@@ -1,0 +1,52 @@
+```ts
+/**
+ * Sorts shelf marks according to the Marrow scheme rules.
+ * @param marks - An array of shelf mark strings to sort.
+ * @returns A new array of sorted shelf mark strings.
+ */
+export function orderShelfMarks(marks: string[]): string[] {
+  if (!Array.isArray(marks) || marks.length === 0) {
+    throw new Error("Invalid input: must be a non-empty array of strings.");
+  }
+
+  const markPattern = /^([A-Z]+) (\d+(\.\d+)?) ([a-z])(\d+)$/;
+
+  const parsedMarks = marks.map(mark => {
+    const match = mark.match(markPattern);
+    if (!match) {
+      throw new Error(`Invalid shelf mark format: ${mark}`);
+    }
+    return {
+      stack: match[1],
+      runWhole: parseInt(match[2], 10),
+      runFraction: match[3] ? parseFloat(match[3]) : 0,
+      cutterLetter: match[4],
+      cutterNumber: parseInt(match[5], 10),
+      original: mark
+    };
+  });
+
+  const uniqueMarks = new Set(parsedMarks.map(mark => mark.original));
+  if (uniqueMarks.size !== marks.length) {
+    throw new Error("Duplicate shelf marks are not allowed.");
+  }
+
+  parsedMarks.sort((a, b) => {
+    if (a.stack !== b.stack) {
+      return a.stack.localeCompare(b.stack);
+    }
+    if (a.runWhole !== b.runWhole) {
+      return a.runWhole - b.runWhole;
+    }
+    if (a.runFraction !== b.runFraction) {
+      return a.runFraction - b.runFraction;
+    }
+    if (a.cutterLetter !== b.cutterLetter) {
+      return a.cutterLetter.localeCompare(b.cutterLetter);
+    }
+    return a.cutterNumber - b.cutterNumber;
+  });
+
+  return parsedMarks.map(mark => mark.original);
+}
+```

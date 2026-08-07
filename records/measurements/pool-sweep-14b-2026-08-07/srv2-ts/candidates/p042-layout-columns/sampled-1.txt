@@ -1,0 +1,49 @@
+```ts
+export function layoutColumns(rows: string[][], aligns: string): string[] {
+  if (rows.length === 0) {
+    throw new Error("Table cannot be empty");
+  }
+
+  const columnWidths = rows[0].map((_, index) => {
+    return Math.max(...rows.map(row => row[index]?.length ?? 0));
+  });
+
+  if (aligns.length !== columnWidths.length) {
+    throw new Error("Alignment spec length must match the number of columns");
+  }
+
+  for (const align of aligns) {
+    if (!["l", "r", "c"].includes(align)) {
+      throw new Error("Alignment spec must only contain 'l', 'r', or 'c'");
+    }
+  }
+
+  return rows.map(row => {
+    if (row.length !== columnWidths.length) {
+      throw new Error("Row length must match the number of columns");
+    }
+
+    return row.map((cell, index) => {
+      const width = columnWidths[index];
+      const align = aligns[index];
+
+      if (typeof cell !== "string") {
+        throw new Error("All cells must be strings");
+      }
+
+      switch (align) {
+        case "l":
+          return cell.padEnd(width);
+        case "r":
+          return cell.padStart(width);
+        case "c":
+          const leftPadding = Math.floor((width - cell.length) / 2);
+          const rightPadding = width - cell.length - leftPadding;
+          return " ".repeat(leftPadding) + cell + " ".repeat(rightPadding);
+        default:
+          throw new Error("Invalid alignment");
+      }
+    }).join("  ").trim();
+  });
+}
+```

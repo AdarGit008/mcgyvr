@@ -1,0 +1,35 @@
+```ts
+export function nestOutline(text: string): any[] {
+  if (typeof text !== 'string' || text.trim().length === 0) {
+    throw new Error('Input must be a non-empty string.');
+  }
+  if (text.includes('\t')) {
+    throw new Error('Input must not contain tab characters.');
+  }
+
+  const lines = text.split('\n').filter(line => line.trim() !== '');
+  if (lines.length === 0) {
+    throw new Error('Input must contain at least one non-empty line.');
+  }
+
+  const root: any[] = [];
+  let stack: { depth: number; node: any }[] = [{ depth: -1, node: root }];
+
+  for (const line of lines) {
+    const indentCount = line.search(/\S|$/);
+    if (indentCount % 2 !== 0 || indentCount > (stack.length - 1) * 2 + 2) {
+      throw new Error('Invalid indentation.');
+    }
+
+    while (stack.length > indentCount / 2) {
+      stack.pop();
+    }
+
+    const node: any = { text: line.trim(), children: [] };
+    stack[stack.length - 1].node.push(node);
+    stack.push({ depth: indentCount, node });
+  }
+
+  return root;
+}
+```

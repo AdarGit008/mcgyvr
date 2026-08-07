@@ -1,0 +1,46 @@
+```ts
+/**
+ * Wraps the given text into lines that do not exceed the specified width.
+ * @param text - The input string to wrap, with words separated by single spaces.
+ * @param width - The maximum number of characters allowed per line.
+ * @returns An array of strings, each representing a line of wrapped text.
+ * @throws Error if width is not a positive integer or if text contains leading, trailing,
+ *         or doubled spaces, or if the input text is not a string.
+ */
+export function wrapText(text: string, width: number): string[] {
+  if (typeof text !== 'string') {
+    throw new Error('Input text must be a string.');
+  }
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error('Width must be a positive integer.');
+  }
+  if (/^\s+|\s+$|\s{2,}/.test(text)) {
+    throw new Error('Text must not have leading, trailing, or doubled spaces.');
+  }
+
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    if (word.length > width) {
+      // If a single word is longer than the width, it gets its own line
+      lines.push(word);
+      continue;
+    }
+
+    if ((currentLine + word).length <= width) {
+      currentLine += (currentLine ? ' ' : '') + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+```

@@ -1,0 +1,42 @@
+```ts
+export function collapseBlocks(berths: string[]): string[] {
+    if (!Array.isArray(berths)) {
+        throw new Error("Input must be an array");
+    }
+
+    const validateBerth = (berth: string): boolean => {
+        const parts = berth.split('.');
+        return parts.length === 4 && parts.every(part => /^[0-7]$/.test(part));
+    };
+
+    const normalizeBerths = (berths: string[]): string[] => {
+        return Array.from(new Set(berths)).filter(validateBerth);
+    };
+
+    const berthsList = normalizeBerths(berths);
+
+    if (berthsList.length === 0) {
+        return [];
+    }
+
+    berthsList.sort();
+
+    const collapseSlabs = (berths: string[]): string[] => {
+        const slabs: string[] = [];
+        let i = 0;
+
+        while (i < berths.length) {
+            let pin = 0;
+            while (pin <= 3 && berths[i].startsWith(berths[i].slice(0, pin + 1) + '.0'.repeat(3 - pin))) {
+                pin++;
+            }
+            slabs.push(`${berths[i]}/${pin}`);
+            i += Math.pow(2, 4 - pin);
+        }
+
+        return slabs;
+    };
+
+    return collapseSlabs(berthsList);
+}
+```

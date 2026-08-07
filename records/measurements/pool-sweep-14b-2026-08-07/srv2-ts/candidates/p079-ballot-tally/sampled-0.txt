@@ -1,0 +1,53 @@
+```ts
+export function tallyBallots(events: Array<Record<string, string>>): Record<string, number> {
+  const voteMap: Record<string, string> = {};
+  let electionClosed = false;
+
+  for (const event of events) {
+    if (electionClosed) {
+      throw new Error("Election already closed");
+    }
+
+    const eventType = event.type;
+    const voter = event.voter;
+    const option = event.option;
+
+    switch (eventType) {
+      case "cast":
+        if (voteMap[voter]) {
+          throw new Error("Voter has already cast a vote");
+        }
+        if (!option) {
+          throw new Error("Option is required for cast event");
+        }
+        voteMap[voter] = option;
+        break;
+
+      case "retract":
+        if (!voteMap[voter]) {
+          throw new Error("No standing vote to retract");
+        }
+        delete voteMap[voter];
+        break;
+
+      case "close":
+        electionClosed = true;
+        break;
+
+      default:
+        throw new Error("Invalid event type");
+    }
+  }
+
+  const tally: Record<string, number> = {};
+
+  for (const option of Object.values(voteMap)) {
+    if (!tally[option]) {
+      tally[option] = 0;
+    }
+    tally[option]++;
+  }
+
+  return tally;
+}
+```

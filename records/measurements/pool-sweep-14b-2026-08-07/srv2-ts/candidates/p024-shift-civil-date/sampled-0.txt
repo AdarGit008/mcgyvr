@@ -1,0 +1,61 @@
+```ts
+export function shiftCivilDate(date: string, days: number): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error("Invalid date format");
+  }
+
+  const [yearStr, monthStr, dayStr] = date.split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const day = parseInt(dayStr, 10);
+
+  if (month < 1 || month > 12) {
+    throw new Error("Invalid month");
+  }
+
+  const daysInMonth = [31, (isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (day < 1 || day > daysInMonth[month - 1]) {
+    throw new Error("Invalid day");
+  }
+
+  if (!Number.isInteger(days)) {
+    throw new Error("Days must be an integer");
+  }
+
+  let totalDays = (year - 1) * 365 + Math.floor((year - 1) / 4) - Math.floor((year - 1) / 100) + Math.floor((year - 1) / 400);
+  for (let m = 0; m < month - 1; m++) {
+    totalDays += daysInMonth[m];
+  }
+  totalDays += day;
+
+  totalDays += days;
+
+  if (totalDays < 1 || totalDays > 3652059) { // 365 * 9999 + Math.floor(9999 / 4) - Math.floor(9999 / 100) + Math.floor(9999 / 400)
+    throw new Error("Resulting date out of bounds");
+  }
+
+  let remainingDays = totalDays;
+  let y = 1;
+  while (remainingDays > daysInYear(y)) {
+    remainingDays -= daysInYear(y);
+    y++;
+  }
+
+  let m = 0;
+  const dim = daysInMonth.slice(0, isLeapYear(y) ? 12 : 11); // Days in month array
+  while (remainingDays > dim[m]) {
+    remainingDays -= dim[m];
+    m++;
+  }
+
+  return `${y.toString().padStart(4, '0')}-${(m + 1).toString().padStart(2, '0')}-${remainingDays.toString().padStart(2, '0')}`;
+}
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+}
+
+function daysInYear(year: number): number {
+  return isLeapYear(year) ? 366 : 365;
+}
+```

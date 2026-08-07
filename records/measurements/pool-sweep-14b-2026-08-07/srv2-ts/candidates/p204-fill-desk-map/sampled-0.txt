@@ -1,0 +1,81 @@
+```ts
+/**
+ * Fills the desk map based on the office floor plan and bank legend.
+ * @param plan - The office floor plan as a list of rows.
+ * @param legend - The legend mapping bank letters to people's names.
+ * @returns A map with "floor", "sat", and "spare" keys.
+ */
+export function fillDeskMap(plan: string[], legend: Record<string, string[]>): Record<string, unknown> {
+  if (!Array.isArray(plan) || plan.length === 0) {
+    throw new Error("Invalid floor plan");
+  }
+
+  const rowLength = plan[0].length;
+  if (rowLength === 0) {
+    throw new Error("Invalid floor plan");
+  }
+
+  for (const row of plan) {
+    if (typeof row !== "string" || row.length !== rowLength) {
+      throw new Error("Invalid floor plan");
+    }
+  }
+
+  const validChars = new Set([...Object.keys(legend), "#", "."]);
+  for (const row of plan) {
+    for (const char of row) {
+      if (!validChars.has(char)) {
+        throw new Error("Invalid character in floor plan");
+      }
+    }
+  }
+
+  for (const [key, value] of Object.entries(legend)) {
+    if (key.length !== 1 || !/[a-z]/.test(key)) {
+      throw new Error("Invalid legend key");
+    }
+    if (!Array.isArray(value) || !value.every(name => typeof name === "string" && /^[a-zA-Z]+$/.test(name))) {
+      throw new Error("Invalid legend value");
+    }
+  }
+
+  const floor = plan.map(row => row.split(""));
+  const sat: { [key: string]: string } = {};
+  let spare = 0;
+
+  for (const bank of Object.keys(legend).sort()) {
+    if (!plan.some(row => row.includes(bank))) {
+      throw new Error("Bank not found in floor plan");
+    }
+
+    const people = legend[bank];
+    let personIndex = 0;
+
+    for (let r = 0; r < plan.length; r++) {
+      for (let c = 0; c < rowLength; c++) {
+        if (plan[r][c] === bank) {
+          if (personIndex >= people.length) {
+            throw new Error("More desks than people for a bank");
+          }
+          const person = people[personIndex];
+          floor[r][c] = person[0].toUpperCase();
+          sat[`${bank}${r}${c}`] = `${person} r=${r} c=${c}`;
+          personIndex++;
+        }
+      }
+    }
+
+    if (personIndex < people.length) {
+      throw new Error("More people than desks for a bank");
+    }
+  }
+
+  spare = plan.reduce((total, row) => total + row.filter(char => /[a-z]/.test(char)).length, 0);
+
+  return {
+    floor: floor.map(row => row.join("")),
+    sat,
+    spare
+  };
+}
+```

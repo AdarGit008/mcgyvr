@@ -1,0 +1,59 @@
+```ts
+export function decodeBitRun(codebook: any, strip: string): string[] {
+  // Validate codebook
+  if (typeof codebook !== 'object' || codebook === null) {
+    throw new Error('Codebook must be a non-null object');
+  }
+
+  const words = Object.keys(codebook);
+  if (words.length === 0) {
+    throw new Error('Codebook must name at least one word');
+  }
+
+  // Validate each key and value in codebook
+  const marks = new Set<string>();
+  for (const word of words) {
+    if (typeof word !== 'string' || !/^[a-z]+$/.test(word)) {
+      throw new Error('Each key must be a non-empty string of lowercase letters');
+    }
+    const mark = codebook[word];
+    if (typeof mark !== 'string' || !/^[01]+$/.test(mark)) {
+      throw new Error('Each value must be a non-empty string of 0s and 1s');
+    }
+    if (marks.has(mark)) {
+      throw new Error('No two words may carry the very same mark');
+    }
+    marks.add(mark);
+  }
+
+  // Validate strip
+  if (typeof strip !== 'string') {
+    throw new Error('Strip must be a string');
+  }
+  if (!/^[01]+$/.test(strip)) {
+    throw new Error('Strip must hold only characters that are either 0 or 1');
+  }
+
+  const decodedWords: string[] = [];
+  let position = 0;
+
+  while (position < strip.length) {
+    let foundMatch = false;
+    for (const word of words) {
+      const mark = codebook[word];
+      if (strip.startsWith(mark, position)) {
+        decodedWords.push(word);
+        position += mark.length;
+        foundMatch = true;
+        break;
+      }
+    }
+
+    if (!foundMatch) {
+      throw new Error('Reading runs off the end of the strip with characters left over that finish no word\'s mark');
+    }
+  }
+
+  return decodedWords;
+}
+```

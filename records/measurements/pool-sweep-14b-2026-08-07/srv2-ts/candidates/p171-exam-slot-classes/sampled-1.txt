@@ -1,0 +1,58 @@
+```ts
+/**
+ * Examines the conflict matrix and returns the sittings for exams.
+ * @param conflicts - A 2D array where each index represents an exam,
+ * and the value at that index is an array of exams sharing students with it.
+ * @returns A 2D array where each sub-array represents a sitting
+ * containing the indices of exams seated in that sitting.
+ */
+export function examSlotClasses(conflicts: number[][]): number[][] {
+    if (!Array.isArray(conflicts) || conflicts.length === 0) {
+        throw new Error("Invalid input: conflicts must be a non-empty array of arrays.");
+    }
+
+    const n = conflicts.length;
+    const conflictCount: { [key: number]: number } = {};
+
+    // Validate and count conflicts
+    for (let i = 0; i < n; i++) {
+        if (!Array.isArray(conflicts[i])) {
+            throw new Error("Invalid input: each element of conflicts must be an array.");
+        }
+        const uniqueExams = new Set<number>(conflicts[i]);
+        if (uniqueExams.has(i)) {
+            throw new Error("An exam cannot share students with itself.");
+        }
+        if (uniqueExams.size !== conflicts[i].length) {
+            throw new Error("Duplicate exams found in the same conflict list.");
+        }
+        conflictCount[i] = uniqueExams.size;
+    }
+
+    // Sort exams by conflict count, then by index
+    const sortedExams = Array.from(conflictCount.keys()).sort((a, b) => {
+        if (conflictCount[a] === conflictCount[b]) {
+            return a - b;
+        }
+        return conflictCount[b] - conflictCount[a];
+    });
+
+    const sittings: number[][] = [];
+
+    for (const exam of sortedExams) {
+        let placed = false;
+        for (const sitting of sittings) {
+            if (!sitting.some(seatedExam => conflicts[exam].includes(seatedExam))) {
+                sitting.push(exam);
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            sittings.push([exam]);
+        }
+    }
+
+    return sittings.map(sitting => sitting.sort((a, b) => a - b));
+}
+```

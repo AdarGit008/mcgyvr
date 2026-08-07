@@ -1,0 +1,63 @@
+```ts
+export function replayEnvelopes(
+  envelopes: Array<{ name: string; monthly: number; cap: number }>,
+  months: Array<Array<[string, number]>>
+): { balances: Array<[string, number]>; forfeited: number } {
+  // Validate envelopes
+  const envelopeMap = new Map<string, { monthly: number; cap: number; balance: number }>();
+  for (const envelope of envelopes) {
+    if (!envelope.name || typeof envelope.name !== 'string') {
+      throw new Error('Envelope name must be a non-empty string');
+    }
+    if (envelopeMap.has(envelope.name)) {
+      throw new Error('Duplicate envelope name');
+    }
+    if (typeof envelope.monthly !== 'number' || envelope.monthly < 0) {
+      throw new Error('Monthly amount must be a non-negative integer');
+    }
+    if (typeof envelope.cap !== 'number' || envelope.cap < 0) {
+      throw new Error('Cap must be a non-negative integer');
+    }
+    envelopeMap.set(envelope.name, { monthly: envelope.monthly, cap: envelope.cap, balance: 0 });
+  }
+
+  let totalForfeited = 0;
+
+  // Process each month
+  for (const month of months) {
+    // Step 1: Add monthly deposits
+    for (const [name] of month) {
+      const envelope = envelopeMap.get(name);
+      if (!envelope) {
+        throw new Error('Outlay names an unknown envelope');
+      }
+      envelope.balance += envelope.monthly;
+    }
+
+    // Step 2: Subtract outlays
+    for (const [name, amount] of month) {
+      const envelope = envelopeMap.get(name);
+      if (!envelope) {
+        throw new Error('Outlay names an unknown envelope');
+      }
+      if (typeof amount !== 'number' || amount <= 0) {
+        throw new Error('Outlay amount must be a positive integer');
+      }
+      envelope.balance -= amount;
+    }
+
+    // Step 3: Apply caps and calculate forfeited
+    for (const envelope of envelopeMap.values()) {
+      if (envelope.balance > envelope.cap) {
+        totalForfeited += envelope.balance - envelope.cap;
+        envelope.balance = envelope.cap;
+      }
+    }
+  }
+
+  // Prepare the result
+  const balances = Array.from(envelopeMap.entries()).map(([name, { balance }]) => [name, balance]);
+
+  return { balances, forfeited: totalForfeited };
+}
+```

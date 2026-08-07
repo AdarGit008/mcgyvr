@@ -1,0 +1,69 @@
+```ts
+/**
+ * Spreads night duty among a crew based on given weights and away lists.
+ * @param crew - List of crew members' names.
+ * @param weights - Array of weights for each night (1 or 2).
+ * @param away - 2D array indicating who is off duty each night.
+ * @returns An array of assigned crew member names or '?' if no one can work.
+ */
+export function spreadNightDuty(crew: string[], weights: number[], away: string[][]): string[] {
+  // Validate input
+  if (crew.length === 0) throw new Error("Crew cannot be empty.");
+  if (new Set(crew).size !== crew.length) throw new Error("Crew must have unique names.");
+  if (!crew.every(name => typeof name === 'string' && name.trim() !== '')) {
+    throw new Error("Crew names must be non-empty strings.");
+  }
+  if (weights.some(weight => weight !== 1 && weight !== 2)) {
+    throw new Error("Weights must be either 1 or 2.");
+  }
+  if (away.length !== weights.length) {
+    throw new Error("Away list must have the same length as weights.");
+  }
+  for (let i = 0; i < away.length; i++) {
+    if (!Array.isArray(away[i])) {
+      throw new Error("Each entry in away must be an array.");
+    }
+    for (const name of away[i]) {
+      if (!crew.includes(name)) {
+        throw new Error(`Away list contains a name not in the crew: ${name}.`);
+      }
+    }
+  }
+
+  const stood = new Map<string, number>();
+  for (const name of crew) {
+    stood.set(name, 0);
+  }
+
+  const nights: string[] = [];
+  let previous1 = "";
+  let previous2 = "";
+
+  for (let night = 0; night < weights.length; night++) {
+    let chosen = "";
+    let minLoad = Infinity;
+
+    for (const name of crew) {
+      if (away[night].includes(name) || name === previous1 || name === previous2) {
+        continue;
+      }
+      const currentLoad = stood.get(name)! + weights[night];
+      if (currentLoad < minLoad || (currentLoad === minLoad && name < chosen)) {
+        minLoad = currentLoad;
+        chosen = name;
+      }
+    }
+
+    if (chosen === "") {
+      nights.push("?");
+    } else {
+      stood.set(chosen, stood.get(chosen)! + weights[night]);
+      nights.push(chosen);
+      previous2 = previous1;
+      previous1 = chosen;
+    }
+  }
+
+  return nights;
+}
+```

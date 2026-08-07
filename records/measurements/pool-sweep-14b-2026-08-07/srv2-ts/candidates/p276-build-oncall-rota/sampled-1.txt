@@ -1,0 +1,66 @@
+```ts
+export function buildOnCallRota(roster: string[], blocked: string[][]): string[] {
+  if (roster.length === 0) {
+    throw new Error("Roster cannot be empty");
+  }
+  if (!Array.isArray(blocked)) {
+    throw new Error("Blocked list must be an array");
+  }
+  if (new Set(roster).size !== roster.length) {
+    throw new Error("Roster cannot contain duplicates");
+  }
+  for (const name of roster) {
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error("Roster names must be non-empty strings");
+    }
+  }
+  for (const shiftBlock of blocked) {
+    if (!Array.isArray(shiftBlock)) {
+      throw new Error("Each blocked entry must be an array");
+    }
+    const uniqueBlocked = new Set(shiftBlock);
+    if (uniqueBlocked.size !== shiftBlock.length) {
+      throw new Error("Blocked names cannot contain duplicates in a single entry");
+    }
+    for (const name of shiftBlock) {
+      if (!roster.includes(name)) {
+        throw new Error("Blocked name must be present in the roster");
+      }
+    }
+  }
+
+  const shiftCount = blocked.length;
+  const rosterSize = roster.length;
+  const ceiling = Math.ceil(shiftCount / rosterSize);
+  const shiftAssignments: string[] = [];
+  const shiftCounts: number[] = Array(rosterSize).fill(0);
+
+  for (let i = 0; i < shiftCount; i++) {
+    let availablePeople = roster
+      .filter((name, index) => !shiftBlock.includes(name) && shiftAssignments[i - 1] !== name)
+      .map((name, index) => ({ name, count: shiftCounts[index], index }));
+
+    if (i > 0) {
+      const lastPerson = shiftAssignments[i - 1];
+      availablePeople = availablePeople.filter(person => person.name !== lastPerson);
+    }
+
+    availablePeople.sort((a, b) => {
+      if (a.count === b.count) {
+        return a.index - b.index;
+      }
+      return a.count - b.count;
+    });
+
+    if (availablePeople.length === 0) {
+      return [];
+    }
+
+    const chosenPerson = availablePeople[0].name;
+    shiftAssignments.push(chosenPerson);
+    shiftCounts[roster.indexOf(chosenPerson)]++;
+  }
+
+  return shiftAssignments;
+}
+```

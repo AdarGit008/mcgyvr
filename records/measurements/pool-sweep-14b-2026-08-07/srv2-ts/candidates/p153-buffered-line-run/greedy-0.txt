@@ -1,0 +1,52 @@
+```ts
+/**
+ * Simulates a factory line with processing stations in series and holding buffers between them.
+ * @param capacities - An array of per-tick piece limits for each station.
+ * @param buffers - An array of buffer sizes between each pair of adjacent stations.
+ * @param ticks - The number of whole ticks to simulate.
+ * @returns An object with keys "made" (total pieces finished by the last station) and "left" (final content of each buffer).
+ */
+export function runBufferedLine(capacities: number[], buffers: number[], ticks: number): { made: number; left: number[] } {
+  if (capacities.length === 0) {
+    throw new Error("Station list cannot be empty.");
+  }
+  if (buffers.length !== capacities.length - 1) {
+    throw new Error("Buffer list must have exactly one entry fewer than the station list.");
+  }
+  if (!capacities.every(limit => Number.isPositiveInteger(limit))) {
+    throw new Error("All per-tick limits must be positive integers.");
+  }
+  if (!buffers.every(size => Number.isPositiveInteger(size))) {
+    throw new Error("All buffer sizes must be positive integers.");
+  }
+  if (!Number.isNonNegativeInteger(ticks)) {
+    throw new Error("Tick count must be a non-negative integer.");
+  }
+
+  const numStations = capacities.length;
+  const numBuffers = buffers.length;
+  let made = 0;
+  const bufferContents: number[] = new Array(numBuffers).fill(0);
+
+  for (let tick = 0; tick < ticks; tick++) {
+    for (let station = numStations - 1; station >= 0; station--) {
+      const capacity = capacities[station];
+      const inboundBuffer = station > 0 ? bufferContents[station - 1] : Infinity;
+      const outboundBuffer = station < numBuffers ? bufferContents[station] : Infinity;
+
+      const piecesToMove = Math.min(capacity, inboundBuffer, outboundBuffer);
+      if (station === numStations - 1) {
+        made += piecesToMove;
+      }
+      if (station > 0) {
+        bufferContents[station - 1] -= piecesToMove;
+      }
+      if (station < numBuffers) {
+        bufferContents[station] += piecesToMove;
+      }
+    }
+  }
+
+  return { made, left: bufferContents };
+}
+```

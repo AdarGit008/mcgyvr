@@ -1,0 +1,41 @@
+```ts
+export function cycleShapeReport(chart: number[]): any {
+  if (!Array.isArray(chart)) throw new Error("Invalid chart: not an array");
+  if (chart.length === 0) throw new Error("Invalid chart: empty");
+
+  const visited = new Set<number>();
+  const loops: number[][] = [];
+
+  for (let i = 0; i < chart.length; i++) {
+    if (visited.has(i)) continue;
+    if (!Number.isInteger(chart[i])) throw new Error("Invalid chart: non-integer entry");
+    if (chart[i] < 0 || chart[i] >= chart.length) throw new Error("Invalid chart: out-of-bounds entry");
+
+    const loop: number[] = [];
+    let current = i;
+    do {
+      if (visited.has(current)) throw new Error("Invalid chart: duplicate entry");
+      visited.add(current);
+      loop.push(current);
+      current = chart[current];
+    } while (current !== i);
+
+    loops.push(loop);
+  }
+
+  const widths = loops.map(loop => loop.length).sort((a, b) => b - a);
+  const repeat = widths.reduce((lcm, width) => {
+    const gcd = (x: number, y: number): number => (!y ? x : gcd(y, x % y));
+    return (lcm * width) / gcd(lcm, width);
+  }, 1);
+
+  const swing = (chart.length - loops.length) % 2 === 0 ? "even" : "odd";
+
+  return {
+    loops: loops.sort((a, b) => a[0] - b[0]),
+    widths,
+    repeat,
+    swing
+  };
+}
+```

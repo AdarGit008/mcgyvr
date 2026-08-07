@@ -1,0 +1,52 @@
+```ts
+export function foldAttempts(records: string[]): string[] {
+  if (!Array.isArray(records)) {
+    throw new Error("Argument must be a list of strings.");
+  }
+
+  const cases: Record<string, { pass: boolean; fail: boolean }> = {};
+
+  for (const record of records) {
+    if (typeof record !== "string") {
+      throw new Error("Each record must be a string.");
+    }
+
+    const parts = record.split(" ");
+    if (parts.length !== 3) {
+      throw new Error("Record does not hold exactly three pieces.");
+    }
+
+    const [name, tryNumberStr, outcome] = parts;
+    if (!name || name.includes(" ")) {
+      throw new Error("Name must be non-empty and hold no space.");
+    }
+    if (outcome !== "pass" && outcome !== "fail") {
+      throw new Error("Outcome must be either 'pass' or 'fail'.");
+    }
+    const tryNumber = parseInt(tryNumberStr, 10);
+    if (isNaN(tryNumber) || tryNumber <= 0 || tryNumberStr !== tryNumber.toString()) {
+      throw new Error("Try number must be a positive integer with no padding zeros.");
+    }
+
+    if (!cases[name]) {
+      cases[name] = { pass: false, fail: false };
+    }
+    if (outcome === "pass") {
+      cases[name].pass = true;
+    } else {
+      cases[name].fail = true;
+    }
+  }
+
+  for (const [name, result] of Object.entries(cases)) {
+    if (result.pass && result.fail) {
+      continue;
+    }
+    throw new Error(`Case '${name}' has missing try numbers or repeats.`);
+  }
+
+  return Object.entries(cases)
+    .map(([name, result]) => `${name}=${result.fail ? "fail" : "pass"}`)
+    .sort((a, b) => a.localeCompare(b));
+}
+```

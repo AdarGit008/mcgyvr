@@ -1,0 +1,50 @@
+```ts
+/**
+ * Picks the names of tests that are impacted by edited paths.
+ * @param coverage - A record where keys are test names and values are arrays of source paths the test touches.
+ * @param edited - An array of paths that were edited in a commit.
+ * @returns An array of impacted test names in ascending order, with no repeats.
+ */
+export function pickImpactedTests(coverage: Record<string, string[]>, edited: string[]): string[] {
+  if (typeof coverage !== 'object' || Array.isArray(coverage) || coverage === null) {
+    throw new Error('Invalid coverage table');
+  }
+  if (!Array.isArray(edited)) {
+    throw new Error('Invalid edited paths list');
+  }
+
+  const impactedTests = new Set<string>();
+
+  for (const [testName, paths] of Object.entries(coverage)) {
+    if (testName === '') {
+      throw new Error('Test name cannot be an empty string');
+    }
+    if (!Array.isArray(paths)) {
+      throw new Error('Coverage list must be an array');
+    }
+    if (new Set(paths).size !== paths.length) {
+      throw new Error('Coverage list contains duplicate paths');
+    }
+
+    let isBlanket = false;
+    const uniquePaths = new Set<string>();
+
+    for (const path of paths) {
+      if (typeof path !== 'string') {
+        throw new Error('Path must be a string');
+      }
+      if (path === '*') {
+        isBlanket = true;
+      } else {
+        uniquePaths.add(path);
+      }
+    }
+
+    if (isBlanket || Array.from(uniquePaths).some(path => edited.includes(path))) {
+      impactedTests.add(testName);
+    }
+  }
+
+  return Array.from(impactedTests).sort();
+}
+```

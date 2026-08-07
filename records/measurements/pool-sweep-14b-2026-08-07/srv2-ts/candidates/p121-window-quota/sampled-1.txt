@@ -1,0 +1,52 @@
+```ts
+/**
+ * Implements windowQuota to manage call quotas within time frames.
+ * @param limit - The maximum number of times a name can be served in a frame.
+ * @param width - The width of each time frame.
+ * @param calls - An array of [time, name] pairs representing call arrivals.
+ * @returns An array of strings indicating "ok" for served calls and "over" for turned-away calls.
+ */
+export function windowQuota(limit: number, width: number, calls: (string | number)[][]): string[] {
+    if (!Number.isInteger(limit) || limit <= 0) {
+        throw new Error("Limit must be a positive integer.");
+    }
+    if (!Number.isInteger(width) || width <= 0) {
+        throw new Error("Width must be a positive integer.");
+    }
+
+    const results: string[] = [];
+    const frameCalls: Map<number, Map<string, number>> = new Map();
+
+    for (let i = 0; i < calls.length; i++) {
+        const [time, name] = calls[i];
+
+        if (!Number.isInteger(time) || time < 0) {
+            throw new Error("Time must be a non-negative integer.");
+        }
+        if (typeof name !== "string" || name.trim() === "") {
+            throw new Error("Name must be a non-empty string.");
+        }
+        if (i > 0 && time < calls[i - 1][0]) {
+            throw new Error("Calls must arrive in non-decreasing order of time.");
+        }
+
+        const frameNumber = Math.floor(time / width);
+        let frameMap = frameCalls.get(frameNumber);
+
+        if (!frameMap) {
+            frameMap = new Map();
+            frameCalls.set(frameNumber, frameMap);
+        }
+
+        const callCount = (frameMap.get(name) || 0) + 1;
+        if (callCount <= limit) {
+            results.push("ok");
+            frameMap.set(name, callCount);
+        } else {
+            results.push("over");
+        }
+    }
+
+    return results;
+}
+```

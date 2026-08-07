@@ -1,0 +1,54 @@
+```ts
+export function foldParcels(events: Array<{ type: string; parcel: string }>): Record<string, string> {
+  const states = new Map<string, string>();
+
+  for (let i = 0; i < events.length; i++) {
+    const { type, parcel } = events[i];
+
+    if (!parcel) {
+      throw new Error(`Invalid event at index ${i}: missing parcel key`);
+    }
+
+    switch (type) {
+      case 'accept':
+        if (states.has(parcel)) {
+          throw new Error(`Error at index ${i}: Parcel already in a state`);
+        }
+        states.set(parcel, 'accepted');
+        break;
+      case 'load':
+        if (states.get(parcel) !== 'accepted') {
+          throw new Error(`Invalid transition at index ${i}: Parcel not accepted`);
+        }
+        states.set(parcel, 'in_transit');
+        break;
+      case 'deliver':
+        if (states.get(parcel) !== 'in_transit') {
+          throw new Error(`Invalid transition at index ${i}: Parcel not in transit`);
+        }
+        states.set(parcel, 'delivered');
+        break;
+      case 'bounce':
+        if (states.get(parcel) !== 'delivered') {
+          throw new Error(`Invalid transition at index ${i}: Parcel not delivered`);
+        }
+        states.set(parcel, 'returned');
+        break;
+      case 'lose':
+        if (states.get(parcel) === 'accepted' || states.get(parcel) === 'in_transit') {
+          states.set(parcel, 'lost');
+          break;
+        }
+        throw new Error(`Invalid transition at index ${i}: Parcel not in a losable state`);
+      default:
+        throw new Error(`Unknown event type at index ${i}`);
+    }
+
+    if (states.get(parcel) === 'returned' || states.get(parcel) === 'lost') {
+      continue;
+    }
+  }
+
+  return Object.fromEntries(states);
+}
+```

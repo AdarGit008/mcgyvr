@@ -1,0 +1,106 @@
+```ts
+export function rangeAlgebra(a: number[][], b: number[][], op: string): number[][] {
+  if (op !== "union" && op !== "intersect" && op !== "subtract") {
+    throw new Error("Invalid operation");
+  }
+
+  const normalize = (ranges: number[][]): number[][] => {
+    return ranges
+      .filter(([lo, hi]) => lo < hi)
+      .sort(([aLo], [bLo]) => aLo - bLo);
+  };
+
+  const mergeRanges = (sortedRanges: number[][]): number[][] => {
+    if (sortedRanges.length === 0) return [];
+
+    const result: number[][] = [];
+    let currentRange = [...sortedRanges[0]];
+
+    for (let i = 1; i < sortedRanges.length; i++) {
+      const [lo, hi] = sortedRanges[i];
+      if (lo < currentRange[1]) {
+        currentRange[1] = Math.max(currentRange[1], hi);
+      } else {
+        result.push(currentRange);
+        currentRange = [lo, hi];
+      }
+    }
+
+    result.push(currentRange);
+    return result;
+  };
+
+  const unionRanges = (a: number[][], b: number[][]): number[][] => {
+    return mergeRanges([...a, ...b]);
+  };
+
+  const intersectRanges = (a: number[][], b: number[][]): number[][] => {
+    const result: number[][] = [];
+    let i = 0;
+    let j = 0;
+
+    while (i < a.length && j < b.length) {
+      const [aLo, aHi] = a[i];
+      const [bLo, bHi] = b[j];
+
+      if (aHi <= bLo) {
+        i++;
+      } else if (bHi <= aLo) {
+        j++;
+      } else {
+        result.push([Math.max(aLo, bLo), Math.min(aHi, bHi)]);
+        if (aHi < bHi) {
+          i++;
+        } else {
+          j++;
+        }
+      }
+    }
+
+    return result;
+  };
+
+  const subtractRanges = (a: number[][], b: number[][]): number[][] => {
+    const result: number[][] = [];
+    let i = 0;
+    let j = 0;
+
+    while (i < a.length) {
+      const [aLo, aHi] = a[i];
+
+      if (j >= b.length || b[j][1] <= aLo) {
+        result.push([aLo, aHi]);
+        i++;
+      } else {
+        const [bLo, bHi] = b[j];
+        if (aLo < bLo) {
+          result.push([aLo, bLo]);
+        }
+        if (aHi > bHi) {
+          i++;
+          a[i - 1] = [bHi, aHi];
+        } else {
+          i++;
+          j++;
+        }
+      }
+    }
+
+    return result;
+  };
+
+  const normalizedA = normalize(a);
+  const normalizedB = normalize(b);
+
+  switch (op) {
+    case "union":
+      return unionRanges(normalizedA, normalizedB);
+    case "intersect":
+      return intersectRanges(normalizedA, normalizedB);
+    case "subtract":
+      return subtractRanges(normalizedA, normalizedB);
+    default:
+      throw new Error("Invalid operation");
+  }
+}
+```

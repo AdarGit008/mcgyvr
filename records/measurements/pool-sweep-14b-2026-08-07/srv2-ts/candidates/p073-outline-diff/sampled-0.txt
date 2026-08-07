@@ -1,0 +1,36 @@
+```ts
+export function outlineDiff(
+  before: Record<string, any>,
+  after: Record<string, any>
+): string[] {
+  const lines: string[] = [];
+
+  const compareOutlines = (
+    path: string[],
+    beforeOutline: Record<string, any>,
+    afterOutline: Record<string, any>
+  ) => {
+    const currentPath = (path: string[]) => path.join('/');
+
+    for (const key of Object.keys(afterOutline)) {
+      if (!(key in beforeOutline)) {
+        lines.push("added " + currentPath([...path, key]));
+      }
+    }
+    for (const key of Object.keys(beforeOutline)) {
+      if (!(key in afterOutline)) {
+        lines.push("removed " + currentPath([...path, key]));
+      } else {
+        compareOutlines(
+          [...path, key],
+          beforeOutline[key],
+          afterOutline[key]
+        );
+      }
+    }
+  };
+
+  compareOutlines([], before, after);
+  return lines.sort();
+}
+```

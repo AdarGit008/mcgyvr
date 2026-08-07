@@ -1,0 +1,29 @@
+```ts
+/**
+ * A cleaned form of a slash-separated relative path.
+ */
+export function normalizeRelPath(path: string): string {
+  if (typeof path !== "string") {
+    throw new Error("Input must be a string");
+  }
+  if (path.startsWith("/") || path === "") {
+    throw new Error("Invalid path: cannot start with a slash or be empty");
+  }
+
+  const segments = path.split("/").filter(segment => segment !== "." && segment !== "");
+  const out: string[] = [];
+
+  for (const segment of segments) {
+    if (segment === "..") {
+      if (out.length === 0) {
+        throw new Error("Invalid path: cannot climb above the starting point");
+      }
+      out.pop();
+    } else {
+      out.push(segment);
+    }
+  }
+
+  return out.length > 0 ? out.join("/") : ".";
+}
+```

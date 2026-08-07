@@ -1,0 +1,71 @@
+```ts
+/**
+ * Determines the order in which callers are served based on their join rank and aging step.
+ * @param events - A log of moments with "kind", "tick", optional "who", and optional "rank".
+ * @param step - The aging step, a positive whole number.
+ * @returns An array of names of callers taken out of the waiting room in order.
+ */
+export function agedServiceOrder(events: Array<Record<string, unknown>>, step: number): string[] {
+    if (step <= 0 || !Number.isInteger(step)) {
+        throw new Error("Step must be a positive whole number.");
+    }
+    if (events.length === 0) {
+        throw new Error("Log cannot be empty.");
+    }
+
+    const waitingRoom: { name: string, rank: number, joinTick: number }[] = [];
+    const calledNames: string[] = [];
+
+    for (const event of events) {
+        const kind = event.kind as string;
+        const tick = Number(event.tick);
+
+        if (!Number.isInteger(tick) || tick < 0) {
+            throw new Error("Tick must be a non-negative whole number.");
+        }
+
+        if (kind === "join") {
+            const who = event.who as string;
+            const rank = Number(event.rank);
+
+            if (typeof who !== "string" || who.length === 0) {
+                throw new Error("Caller name must be a non-empty string.");
+            }
+            if (!Number.isInteger(rank) || rank < 0) {
+                throw new Error("Rank must be a non-negative whole number.");
+            }
+            if (waitingRoom.some(entry => entry.name === who)) {
+                throw new Error("A caller cannot join again.");
+            }
+
+            waitingRoom.push({ name: who, rank, joinTick: tick });
+        } else if (kind === "call") {
+            if (waitingRoom.length === 0) {
+                throw new Error("Cannot call when the waiting room is empty.");
+            }
+
+            waitingRoom.sort((a, b) => {
+                const standingA = a.rank + Math.floor((tick - a.joinTick) / step);
+                const standingB = b.rank + Math.floor((tick - b.joinTick) / step);
+
+                if (standingA !== standingB) {
+                    return standingB - standingA;
+                }
+                if (a.joinTick !== b.joinTick) {
+                    return a.joinTick - b.joinTick;
+                }
+                return a.name.localeCompare(b.name);
+            });
+
+            const called = waitingRoom.shift();
+            if (called) {
+                calledNames.push(called.name);
+            }
+        } else {
+            throw new Error("Event kind must be either 'join' or 'call'.");
+        }
+    }
+
+    return calledNames;
+}
+```

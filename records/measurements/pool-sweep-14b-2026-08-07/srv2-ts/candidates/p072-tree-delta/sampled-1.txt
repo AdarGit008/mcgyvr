@@ -1,0 +1,52 @@
+```ts
+export function treeDelta(before: { name: string; value: number; children: unknown[] }, after: { name: string; value: number; children: unknown[] }): Array<Record<string, unknown>> {
+    if (before.name !== after.name) {
+        throw new Error("Root names differ");
+    }
+
+    const operations: Array<Record<string, unknown>> = [];
+
+    function walk(nodeBefore: { name: string; value: number; children: unknown[] }, nodeAfter: { name: string; value: number; children: unknown[] }, path: string) {
+        if (nodeBefore.value !== nodeAfter.value) {
+            operations.push({ op: "change", path, from: nodeBefore.value, to: nodeAfter.value });
+        }
+
+        const beforeChildrenMap = new Map<string, { name: string; value: number; children: unknown[] }>();
+        nodeBefore.children.forEach(child => {
+            if (beforeChildrenMap.has((child as any).name)) {
+                throw new Error("Duplicate child name");
+            }
+            beforeChildrenMap.set((child as any).name, child as any);
+        });
+
+        const afterChildrenMap = new Map<string, { name: string; value: number; children: unknown[] }>();
+        nodeAfter.children.forEach(child => {
+            if (afterChildrenMap.has((child as any).name)) {
+                throw new Error("Duplicate child name");
+            }
+            afterChildrenMap.set((child as any).name, child as any);
+        });
+
+        for (const [name, childAfter] of afterChildrenMap.entries()) {
+            const childBefore = beforeChildrenMap.get(name);
+            if (childBefore) {
+                walk(childBefore, childAfter, `${path}/${name}`);
+            } else {
+                operations.push({ op: "add", path: `${path}/${name}`, value: childAfter.value });
+                childAfter.children.forEach(grandChild => {
+                    walk(grandChild as any, grandChild as any, `${path}/${name}/${(grandChild as any).name}`);
+                });
+            }
+        }
+
+        for (const [name, childBefore] of beforeChildrenMap.entries()) {
+            if (!afterChildrenMap.has(name)) {
+                operations.push({ op: "remove", path: `${path}/${name}` });
+            }
+        }
+    }
+
+    walk(before, after, "");
+    return operations;
+}
+```
