@@ -1,0 +1,43 @@
+id: p321-assign-track-columns
+task_type: bug_fix
+task: >-
+  assign_track_columns lays spans out on the drawing's tracks, and it happily
+  sits two spans that cover a row in common on the very same track. Fix it.
+  Every span carries a label and the first and last rows it covers, both
+  counted from zero and both taken as covered. Working through the spans in
+  the order given, put each one on the lowest-numbered track holding no
+  already-placed span that covers any row this span also covers, tracks being
+  numbered from zero. Return one track number per span, in the order the spans
+  arrived. Also add checking: an argument that is not a list, a span that is
+  not a mapping, a label that is missing, is not a string, or is empty, a
+  first or last row that is not a whole number, a first row below zero, a last
+  row earlier than the first, and a label that two spans share are each an
+  error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """The track each span is drawn on."""
+
+
+  def assign_track_columns(spans):
+      placed = []
+      tracks = []
+      for span in spans:
+          busy = set()
+          for other in placed:
+              if span["first"] < other["last"] and span["last"] > other["first"]:
+                  busy.add(other["track"])
+          track = 0
+          while track in busy:
+              track += 1
+          placed.append(
+              {"first": span["first"], "last": span["last"], "track": track}
+          )
+          tracks.append(track)
+      return tracks
+interface: "def assign_track_columns(spans: list) -> list"
+stop_conditions:
+  - Whether the spans arrive sorted by their first row is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

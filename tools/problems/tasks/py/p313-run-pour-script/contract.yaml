@@ -1,0 +1,42 @@
+id: p313-run-pour-script
+task_type: bug_fix
+task: >-
+  run_pour_script replays a measuring script over a rack of flasks, and it
+  ruins every pour that meets an occupied receiver. Fix it. Flasks of the
+  listed capacities start dry and answer to the marks A, B, C by position.
+  Each script line is exactly one of "fill M", "empty M" or "pour M N" with
+  single spaces between words: a fill brings that flask up to its capacity,
+  an empty leaves it dry, and a pour hands over only as much as the
+  receiving flask still has room for, stopping early when the giving flask
+  runs out. Return the contents of every flask after the last line, in
+  position order. Also add checking: a line whose first word is none of the
+  three, a mark naming no flask in the rack, a pour whose two marks agree, a
+  line carrying the wrong number of words, a line that is not a string, and
+  an empty capacity list are each an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """Flask contents after replaying a measuring script."""
+
+
+  def run_pour_script(capacities, script):
+      held = [0] * len(capacities)
+      for line in script:
+          parts = line.split(" ")
+          if parts[0] == "fill":
+              held[ord(parts[1]) - 65] = capacities[ord(parts[1]) - 65]
+          elif parts[0] == "empty":
+              held[ord(parts[1]) - 65] = 0
+          elif parts[0] == "pour":
+              giver = ord(parts[1]) - 65
+              taker = ord(parts[2]) - 65
+              moved = min(held[giver], capacities[taker])
+              held[giver] -= moved
+              held[taker] += moved
+      return held
+interface: "def run_pour_script(capacities: list, script: list) -> list"
+stop_conditions:
+  - Whether a mark below A or above Z may appear is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

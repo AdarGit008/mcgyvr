@@ -1,0 +1,22 @@
+id: p319-describe-ancestry
+task_type: function_implementation
+task: >-
+  Implement describeAncestry. The mapping names every checkpoint in a
+  project's history and lists, for each one, the checkpoints it was recorded
+  straight after; an opening checkpoint lists none and a checkpoint folding
+  two strands together lists several. Return "same" when the two named
+  checkpoints are one and the same, "behind:K" when the first can be reached
+  from the second by following those lists and K counts the fewest such steps,
+  "ahead:K" when instead the second can be reached from the first in K fewest
+  steps, and "apart" when neither reaches the other. Reject with an error a
+  mapping that is not a mapping, an entry whose value is not a list, a listed
+  predecessor absent from the mapping, a predecessor that is not a string, and
+  either named checkpoint absent from the mapping.
+target: solution.ts
+interface: "export function describeAncestry(history: Record<string, string[]>, one: string, other: string): string"
+stop_conditions:
+  - Whether the same predecessor may be listed twice by one checkpoint is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

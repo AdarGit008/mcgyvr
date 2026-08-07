@@ -1,0 +1,74 @@
+id: p325-fold-mutual-dues
+task_type: bug_fix
+task: >-
+  foldMutualDues cancels a pile of slips down to what each pair really owes,
+  and it currently gets the awkward pairs wrong. Fix it. Each slip is a
+  record with who, whom and cents: who holds the debt, whom holds the claim,
+  and cents is a whole number of one or more. Work pair by pair and never
+  across pairs — a slip between two people must never turn into a claim on a
+  third. For each unordered pair add up everything running one way, add up
+  everything running the other, and keep a single slip for the heavier
+  direction carrying the difference; a pair whose two directions come to the
+  same amount vanishes entirely. Return the surviving slips as records with
+  who, whom and cents, ordered by who and then by whom, both rising. Keep
+  raising an error when the slips are not a list, when a slip is not a record
+  carrying all three names, when who or whom is not a non-empty string, when
+  a slip names one person twice, and when cents is not a whole number of one
+  or more. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  type Slip = { who: string; whom: string; cents: number };
+
+  function tallied(value: any): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  function held(value: any): boolean {
+    return typeof value === "string" && value.length > 0;
+  }
+
+  export function foldMutualDues(slips: any): Slip[] {
+    if (!Array.isArray(slips)) {
+      throw new Error("the slips must be a list");
+    }
+    const running = new Map<string, Map<string, number>>();
+    for (const slip of slips) {
+      if (slip === null || typeof slip !== "object" || Array.isArray(slip)) {
+        throw new Error("a slip must be a record");
+      }
+      for (const name of ["who", "whom", "cents"]) {
+        if (!Object.prototype.hasOwnProperty.call(slip, name)) {
+          throw new Error("a slip is missing " + name);
+        }
+      }
+      if (!held(slip.who) || !held(slip.whom)) {
+        throw new Error("a name must be a non-empty string");
+      }
+      if (slip.who === slip.whom) {
+        throw new Error("a slip must not name one person twice");
+      }
+      if (!tallied(slip.cents) || slip.cents < 1) {
+        throw new Error("cents must be a whole number of one or more");
+      }
+      if (!running.has(slip.who)) {
+        running.set(slip.who, new Map<string, number>());
+      }
+      const row = running.get(slip.who) as Map<string, number>;
+      row.set(slip.whom, (row.get(slip.whom) ?? 0) + slip.cents);
+    }
+    const folded: Slip[] = [];
+    for (const who of [...running.keys()].sort()) {
+      const row = running.get(who) as Map<string, number>;
+      for (const whom of [...row.keys()].sort()) {
+        folded.push({ who, whom, cents: row.get(whom) as number });
+      }
+    }
+    return folded;
+  }
+interface: "export function foldMutualDues(slips: any): { who: string; whom: string; cents: number }[]"
+stop_conditions:
+  - Whether the slips arrive in any particular order is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

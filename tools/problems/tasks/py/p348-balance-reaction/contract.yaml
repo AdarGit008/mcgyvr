@@ -1,0 +1,29 @@
+id: p348-balance-reaction
+task_type: function_implementation
+task: >-
+  Implement balance_reaction. The argument is a reaction written as a left
+  side, then the four characters space dash greater-than space, then a
+  right side; each side lists one or more species parted by the three
+  characters space plus space. A species is a run of groups, and a group is
+  one capital ASCII letter, then at most one small ASCII letter, then
+  optionally a count of two or more written with no leading zero. Give
+  every species a whole number from 1 to 12 so that, for every symbol
+  appearing anywhere, the total on the left side matches the total on the
+  right side. Of the givings that succeed, take the one whose numbers add
+  up to least, and among those the one that reads smallest from left to
+  right. Rewrite the reaction with each species preceded by its number and
+  a space, dropping a number that is 1, keeping the separators as they
+  were, and return that text. Return the empty string when no giving in
+  that range succeeds. Raise an error for an argument that is not a string,
+  an argument without exactly one arrow, a side listing no species, a
+  species that does not follow the group shape, a count of zero or one or a
+  count written with a leading zero, the same species listed twice on one
+  side, and a reaction naming more than five species altogether.
+target: solution.py
+interface: "def balance_reaction(equation: str) -> str"
+stop_conditions:
+  - Whether the arrow may also be written with two dashes is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

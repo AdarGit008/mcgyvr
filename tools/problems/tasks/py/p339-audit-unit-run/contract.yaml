@@ -1,0 +1,28 @@
+id: p339-audit-unit-run
+task_type: function_implementation
+task: >-
+  Implement audit_unit_run. Somebody claims that a run of one-over-something
+  pieces adds up to the quotient top over bottom, and this routine passes
+  judgement on the claim. Add the claimed pieces up as one exact quotient,
+  putting the running total into lowest terms after every addition, then set
+  it beside the claim. Give back a mapping with two keys: "verdict", reading
+  "exact" when the pieces land on the claim, "short" when they fall beneath
+  it, and "over" when they overshoot it; and "gap", the pair
+  [gapTop, gapBottom] naming the claim less the pieces, in lowest terms, with
+  gapBottom positive and any minus sign carried on gapTop, written as [0, 1]
+  whenever the verdict is exact. A run holding no pieces at all adds to
+  nothing and is a perfectly legitimate claim to judge. Should the running
+  total's bottom ever pass 1000000000 once reduced, throw an error rather than
+  press on. Everything is exact whole-number work. Reject with an error: a run
+  that is not a list, a run of more than ten pieces, a piece that is not a
+  whole number from 2 through 100000, pieces that do not strictly rise, a top
+  that is not a whole number from 0 through 100000, and a bottom that is not a
+  whole number from 1 through 100000.
+target: solution.py
+interface: "def audit_unit_run(top: int, bottom: int, parts: list) -> dict"
+stop_conditions:
+  - Whether the claim itself has to be in lowest terms before judgement is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,30 @@
+id: p344-nearby-key-repairs
+task_type: function_implementation
+task: >-
+  Implement nearby_key_repairs. The first argument is a typed word, the
+  second a dictionary of known words, the third a neighbour table mapping
+  a single key to the string of keys physically touching it, in the order
+  the table lists them. When the typed word is itself in the dictionary,
+  answer with a one-item list holding that word and stop. Otherwise build
+  every guess that swaps exactly one key of the typed word for one of that
+  key's neighbours, keep only the guesses the dictionary knows, and order
+  what survives by two rules: a swap at a later place in the word comes
+  before a swap at an earlier place, and swaps at the same place follow the
+  order in which the neighbour table lists them. Answer with at most the
+  first three, or an empty list when nothing survives. A key the neighbour
+  table says nothing about simply yields no guesses. Note that likeness of
+  spelling never enters: a dictionary word differing in one key is a guess
+  only when the table calls those two keys neighbours. Reject with an error
+  a typed word that is not a non-empty string of lowercase letters, a
+  dictionary that is not a list of such strings, a neighbour table that is
+  not a plain mapping, a table key that is not one lowercase letter, a
+  table entry that is not a string of lowercase letters, a table entry
+  naming its own key, and a table entry naming the same key twice.
+target: solution.py
+interface: "def nearby_key_repairs(word: str, lexicon: list[str], neighbours: dict[str, str]) -> list[str]"
+stop_conditions:
+  - Whether the neighbour relation is expected to be symmetric is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

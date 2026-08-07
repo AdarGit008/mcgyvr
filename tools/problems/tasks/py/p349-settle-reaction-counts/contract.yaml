@@ -1,0 +1,61 @@
+id: p349-settle-reaction-counts
+task_type: bug_fix
+task: >-
+  settle_reaction_counts should hand back the multipliers that make a reaction
+  add up, but the version below looks only at symbols the left-hand side
+  mentions and will never reach past a multiplier of five. Fix it. The two
+  arguments are the left-hand and right-hand species of a reaction, each
+  species given as a mapping from a symbol to how many of that symbol it
+  holds. A multiplier is a whole number from 1 to 10, one per species, and
+  a set of multipliers settles the reaction when every symbol mentioned on
+  either side carries the same weighted total on both sides. Hand back the
+  settling set with the least total, and among ties the one reading
+  smallest from left to right, as one list holding the left-hand
+  multipliers followed by the right-hand ones; hand back an empty list when
+  nothing in range settles the reaction. The version below also skips
+  validation, which must raise an error when either argument is not a list,
+  when either argument is empty, when a species is not a plain mapping,
+  when a species mentions no symbol, when a symbol is not one capital
+  letter followed by at most one small letter, when a holding is not a
+  whole number of one or more, and when the two sides name more than five
+  species between them. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def settle_reaction_counts(
+      left: list[dict[str, int]], right: list[dict[str, int]]
+  ) -> list[int]:
+      names = list(left) + list(right)
+      symbols: list[str] = []
+      for species in left:
+          for symbol in species:
+              if symbol not in symbols:
+                  symbols.append(symbol)
+      size = len(names)
+      choice = [1] * size
+
+      def walk(index: int):
+          if index == size:
+              for symbol in symbols:
+                  total = 0
+                  for i in range(size):
+                      held = names[i].get(symbol, 0)
+                      total += held * choice[i] * (1 if i < len(left) else -1)
+                  if total != 0:
+                      return None
+              return list(choice)
+          for take in range(1, 6):
+              choice[index] = take
+              found = walk(index + 1)
+              if found is not None:
+                  return found
+          return None
+
+      found = walk(0)
+      return found if found is not None else []
+interface: "def settle_reaction_counts(left: list[dict[str, int]], right: list[dict[str, int]]) -> list[int]"
+stop_conditions:
+  - Whether a species may legitimately appear on both sides at once is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

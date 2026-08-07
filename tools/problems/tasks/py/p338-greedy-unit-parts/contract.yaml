@@ -1,0 +1,26 @@
+id: p338-greedy-unit-parts
+task_type: function_implementation
+task: >-
+  Implement greedy_unit_parts. A proper quotient — above nothing and below one
+  — splits into a sum of one-over-something pieces by always grabbing the
+  biggest piece that still fits underneath it. For the quotient top over
+  bottom the next piece is one over the ceiling of bottom divided by top; take
+  that piece away, put what remains into lowest terms, and grab again, halting
+  the moment nothing remains. Give back the list of the somethings in the
+  rising order the grabbing hands them over, so 5 over 6 gives [2, 3] and 3
+  over 7 gives [3, 11, 231]; those somethings are always strictly rising, so
+  no piece is ever repeated. Grabbing always halts, because the remainder's
+  top shrinks at every grab, yet the remainder's bottom can explode: put the
+  remainder in lowest terms before each grab and, should its bottom ever pass
+  10000000, throw an error instead of grabbing again. Every step is exact
+  whole-number work — no decimals anywhere. Reject with an error a top or
+  bottom that is not a whole number, a bottom outside 1 through 10000, a top
+  of nothing or less, and a top that is not strictly below the bottom.
+target: solution.py
+interface: "def greedy_unit_parts(top: int, bottom: int) -> list"
+stop_conditions:
+  - Whether the caller should be told how many pieces a quotient will take before grabbing starts is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

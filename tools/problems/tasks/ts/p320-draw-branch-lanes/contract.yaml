@@ -1,0 +1,24 @@
+id: p320-draw-branch-lanes
+task_type: function_implementation
+task: >-
+  Implement drawBranchLanes. Each entry carries an id and the branch it sits
+  on, and the entries arrive already ordered from the top of the drawing
+  downward. A branch takes hold of a lane on the row of its earliest entry and
+  lets go of it once the row of its latest entry has been drawn; on taking
+  hold it seizes the lowest-numbered lane no branch is holding at that moment,
+  lanes being numbered from zero. Draw one row per entry: walk every lane from
+  zero up to the highest lane held on that row, writing * for the lane the
+  entry itself sits on, | for a lane held by some other branch, and a single
+  space for a lane nobody holds; put one space between neighbouring lane
+  marks, then one more space, then the entry's id. Return the drawn rows in
+  order. Reject with an error a list that is empty or is not a list, an entry
+  that is not a mapping, an entry whose id or branch is missing, is not a
+  string, or is empty, and an id that two entries share.
+target: solution.ts
+interface: "export function drawBranchLanes(entries: { id: string; branch: string }[]): string[]"
+stop_conditions:
+  - Whether a branch may be handed back a lane it held earlier is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

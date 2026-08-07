@@ -1,0 +1,108 @@
+id: p323-layover-chain-audit
+task_type: bug_fix
+task: >-
+  checkLayovers audits a chain of hops a traveller has already picked out and
+  names the first thing wrong with it, but it currently misjudges the awkward
+  chains. Fix it. Each hop is a record with ref, board, alight, leaves and
+  lands: board and alight name halts, while leaves and lands are whole
+  minutes with lands past leaves. A chain is sound when the opening hop
+  leaves no sooner than readyAt, when every later hop boards precisely at the
+  halt where the hop before it alighted, and when every later hop leaves no
+  sooner than the previous hop's landing minute plus layover — a wait of
+  exactly layover is enough. Walk the hops in the order given and stop dead
+  at the first fault: the opening hop can only be faulted as early, and every
+  later hop is faulted as place before it is faulted as tight. Return a
+  record with verdict, at and arrive. A sound chain answers with the word
+  sound, an at of -1, and arrive holding the last hop's landing minute; a
+  faulted chain answers with the fault word early, place or tight, an at
+  holding the zero-based position of the offending hop, and an arrive of -1.
+  Keep raising an error when the hop list is not a list or holds nothing,
+  when a hop is not a record carrying all five names, when a ref or a halt
+  name is not a non-empty string, when a hop boards and alights at one halt,
+  when leaves or lands is not a whole number, when lands is not past leaves,
+  and when layover or readyAt is not a whole number of zero or more. Return
+  the complete fixed file.
+target: solution.ts
+target_content: |
+  type Hop = {
+    ref: string;
+    board: string;
+    alight: string;
+    leaves: number;
+    lands: number;
+  };
+
+  const PARTS = ["ref", "board", "alight", "leaves", "lands"];
+
+  function counted(value: any): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  function named(value: any): boolean {
+    return typeof value === "string" && value.length > 0;
+  }
+
+  export function checkLayovers(
+    hops: any,
+    layover: any,
+    readyAt: any,
+  ): { verdict: string; at: number; arrive: number } {
+    if (!Array.isArray(hops) || hops.length === 0) {
+      throw new Error("the hop list must be a non-empty list");
+    }
+    if (!counted(layover) || layover < 0) {
+      throw new Error("layover must be a whole number of zero or more");
+    }
+    if (!counted(readyAt) || readyAt < 0) {
+      throw new Error("readyAt must be a whole number of zero or more");
+    }
+    const chain: Hop[] = [];
+    for (const raw of hops) {
+      if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+        throw new Error("a hop must be a record");
+      }
+      for (const part of PARTS) {
+        if (!Object.prototype.hasOwnProperty.call(raw, part)) {
+          throw new Error("a hop is missing " + part);
+        }
+      }
+      if (!named(raw.ref)) {
+        throw new Error("a ref must be a non-empty string");
+      }
+      if (!named(raw.board) || !named(raw.alight)) {
+        throw new Error("a halt name must be a non-empty string");
+      }
+      if (raw.board === raw.alight) {
+        throw new Error("a hop must not board and alight at one halt");
+      }
+      if (!counted(raw.leaves) || !counted(raw.lands)) {
+        throw new Error("leaves and lands must be whole numbers");
+      }
+      if (raw.lands <= raw.leaves) {
+        throw new Error("lands must be past leaves");
+      }
+      chain.push({
+        ref: raw.ref,
+        board: raw.board,
+        alight: raw.alight,
+        leaves: raw.leaves,
+        lands: raw.lands,
+      });
+    }
+    for (let i = 1; i < chain.length; i++) {
+      if (chain[i].leaves <= chain[i - 1].lands + layover) {
+        return { verdict: "tight", at: i, arrive: -1 };
+      }
+      if (chain[i].board !== chain[i - 1].alight) {
+        return { verdict: "place", at: i, arrive: -1 };
+      }
+    }
+    return { verdict: "sound", at: -1, arrive: chain[chain.length - 1].lands };
+  }
+interface: "export function checkLayovers(hops: any, layover: any, readyAt: any): { verdict: string; at: number; arrive: number }"
+stop_conditions:
+  - Whether one halt may be called at twice by a chain is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

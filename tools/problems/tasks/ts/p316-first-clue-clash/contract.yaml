@@ -1,0 +1,23 @@
+id: p316-first-clue-clash
+task_type: function_implementation
+task: >-
+  Implement firstClueClash. A line is a string of # and . characters, and its
+  runs are the lengths of its blocks of consecutive # taken left to right. The
+  clue list says what those run lengths ought to be. Compare the line's actual
+  runs against the clues place by place and return the place where they first
+  disagree, counted from zero and including the place at which one of the two
+  lists has run out while the other has not; return -1 when the two agree all
+  the way along. A line of nothing but dots has no runs, so it agrees with an
+  empty clue list and disagrees at place 0 with any other. Reject with an
+  error an empty line, a line holding any character besides # and ., a clue
+  that is not a whole number above zero, a clue list that is not a list, a
+  line that is not a string, and a clue list too long for the line once every
+  pair of neighbouring blocks is given its single dot of separation.
+target: solution.ts
+interface: "export function firstClueClash(line: string, clues: number[]): number"
+stop_conditions:
+  - Whether leading or trailing dots are required around the blocks is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

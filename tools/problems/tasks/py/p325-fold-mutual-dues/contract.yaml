@@ -1,0 +1,57 @@
+id: p325-fold-mutual-dues
+task_type: bug_fix
+task: >-
+  fold_mutual_dues cancels a pile of slips down to what each pair really owes,
+  and it currently gets the awkward pairs wrong. Fix it. Each slip is a
+  record with who, whom and cents: who holds the debt, whom holds the claim,
+  and cents is a whole number of one or more. Work pair by pair and never
+  across pairs — a slip between two people must never turn into a claim on a
+  third. For each unordered pair add up everything running one way, add up
+  everything running the other, and keep a single slip for the heavier
+  direction carrying the difference; a pair whose two directions come to the
+  same amount vanishes entirely. Return the surviving slips as records with
+  who, whom and cents, ordered by who and then by whom, both rising. Keep
+  raising an error when the slips are not a list, when a slip is not a record
+  carrying all three names, when who or whom is not a non-empty string, when
+  a slip names one person twice, and when cents is not a whole number of one
+  or more. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def _tallied(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def _held(value):
+      return isinstance(value, str) and value != ""
+
+
+  def fold_mutual_dues(slips) -> list:
+      if not isinstance(slips, list):
+          raise ValueError("the slips must be a list")
+      running = {}
+      for slip in slips:
+          if not isinstance(slip, dict):
+              raise ValueError("a slip must be a record")
+          for name in ("who", "whom", "cents"):
+              if name not in slip:
+                  raise ValueError("a slip is missing " + name)
+          if not _held(slip["who"]) or not _held(slip["whom"]):
+              raise ValueError("a name must be a non-empty string")
+          if slip["who"] == slip["whom"]:
+              raise ValueError("a slip must not name one person twice")
+          if not _tallied(slip["cents"]) or slip["cents"] < 1:
+              raise ValueError("cents must be a whole number of one or more")
+          row = running.setdefault(slip["who"], {})
+          row[slip["whom"]] = row.get(slip["whom"], 0) + slip["cents"]
+      folded = []
+      for who in sorted(running):
+          for whom in sorted(running[who]):
+              folded.append({"who": who, "whom": whom, "cents": running[who][whom]})
+      return folded
+interface: "def fold_mutual_dues(slips) -> list"
+stop_conditions:
+  - Whether the slips arrive in any particular order is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

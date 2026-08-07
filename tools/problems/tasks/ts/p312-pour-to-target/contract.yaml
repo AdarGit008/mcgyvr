@@ -1,0 +1,24 @@
+id: p312-pour-to-target
+task_type: function_implementation
+task: >-
+  Implement pourToTarget. Vessels of the given whole-litre capacities begin
+  empty and are labelled A, B, C by position. Three actions exist: "fill X"
+  tops vessel X to its capacity, "empty X" discards everything in X, and
+  "pour X Y" moves liquid from X into Y until X runs dry or Y brims over.
+  Return the shortest action list after which some vessel holds exactly the
+  wanted litres, written as those quoted strings in order. Explore actions
+  from each situation as fills by position, then empties by position, then
+  pours over ordered position pairs, and among equally short lists give the
+  one this exploration order reaches first. An already-satisfied wanted
+  amount gives the empty list; a wanted amount no action list can ever leave
+  standing in a vessel gives the language's null value. Reject an empty
+  capacity list, a capacity below one, a capacity that is not a whole
+  number, and a negative wanted amount with an error.
+target: solution.ts
+interface: "export function pourToTarget(capacities: number[], wanted: number): string[] | null"
+stop_conditions:
+  - Whether two vessels may share the same capacity is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

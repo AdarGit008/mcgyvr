@@ -1,0 +1,27 @@
+id: p331-step-drop-report
+task_type: function_implementation
+task: >-
+  Implement stepDropReport. A tally is a two-element list of a step name and a
+  count, a whole number of zero or more, and the tallies arrive in any order
+  at all. The order argument lists the step names from top to bottom, all
+  different and none of them empty. Every named step must be tallied exactly
+  once and nothing else may be tallied. Answer with one record per step, top
+  to bottom, carrying step, count, lost and share. Lost is how many the step
+  shed against the step above it, and is zero for the topmost step. Share is
+  how many whole percent of the topmost step's count are still standing at
+  this step, always rounded down, and is zero everywhere when the topmost
+  count is zero. Raise an error when the tallies are not a list, when a tally
+  is not a list of exactly two items, when a step name is not a non-empty
+  string, when a count is not a whole number of zero or more, when the order
+  is not a list or holds nothing, when the order names one step twice, when a
+  tally names a step the order does not, when a step the order names is
+  tallied no times or more than once, and when a count stands above the count
+  of the step over it, since a step can never gather more than the one above.
+target: solution.ts
+interface: "export function stepDropReport(tallies: any, order: any): { step: string; count: number; lost: number; share: number }[]"
+stop_conditions:
+  - Whether the share of the topmost step is worth reporting at all is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

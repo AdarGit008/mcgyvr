@@ -1,0 +1,34 @@
+id: p317-pack-clue-line
+task_type: bug_fix
+task: >-
+  packClueLine draws a clue's groups crowded as far to the left as they will
+  go, and it forgets that neighbouring groups are never allowed to touch. Fix
+  it. Build a string of the given width in which the first clue becomes that
+  many # characters starting at the very left edge, each later clue becomes
+  its own group of # characters set down after exactly one dot separating it
+  from the group before, and every position still left over on the right holds
+  a dot. An empty clue list draws a width of nothing but dots. Also add
+  checking: a width that is not a whole number above zero, a clue that is not
+  a whole number above zero, a clue list that is not a list, and a clue list
+  whose groups and separators together outgrow the width are each an error.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The clue's groups crowded as far to the left as they will go. */
+  export function packClueLine(width: number, clues: number[]): string {
+    let line = "";
+    for (const clue of clues) {
+      line += "#".repeat(clue);
+    }
+    while (line.length < width) {
+      line += ".";
+    }
+    return line;
+  }
+interface: "export function packClueLine(width: number, clues: number[]): string"
+stop_conditions:
+  - Whether a drawing that exactly fills the width should still end with a dot is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

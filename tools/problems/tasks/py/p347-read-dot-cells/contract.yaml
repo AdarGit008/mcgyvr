@@ -1,0 +1,49 @@
+id: p347-read-dot-cells
+task_type: bug_fix
+task: >-
+  read_dot_cells should turn a written line of dot cells back into text, but
+  the version below mishandles counts and checks nothing. Fix it. The line
+  is cells joined by single hyphens. A cell is either 0, meaning a frame
+  with nothing raised, or a strictly rising run of distinct digits drawn
+  from 1 to 6 naming the raised dots. A cell's weight is the sum, over its
+  raised dots d, of two to the power d minus one. Weight 1 to 26 spells the
+  letters a to z in order. Weight 32 is the shift sign: the cell after it
+  must spell a letter, and that letter comes out capitalised. Weight 48 is
+  the count sign: every cell after it, as far as the next blank cell or the
+  end of the line, must weigh 1 to 10 and stands for the digit equal to its
+  weight modulo ten. A blank cell yields one space and closes any count in
+  force. Return the decoded text. The validation the version below omits
+  must throw an error for an argument that is not a string, an empty
+  argument, a cell that is neither 0 nor a run of digits 1 to 6, a cell
+  naming a dot twice, a cell whose dots do not rise, a weight outside a
+  count that spells nothing, a shift sign at the end of the line or
+  followed by a cell that spells no letter, and a cell inside a count
+  weighing more than 10. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def read_dot_cells(cells: str) -> str:
+      parts = cells.split("-")
+      out = ""
+      i = 0
+      while i < len(parts):
+          cell = parts[i]
+          if cell == "0":
+              out += " "
+              i += 1
+              continue
+          weight = sum(1 << (int(dot) - 1) for dot in cell)
+          if weight in (32, 48):
+              nxt = sum(1 << (int(dot) - 1) for dot in parts[i + 1])
+              out += chr(64 + nxt) if weight == 32 else str(nxt % 10)
+              i += 2
+              continue
+          out += chr(96 + weight)
+          i += 1
+      return out
+interface: "def read_dot_cells(cells: str) -> str"
+stop_conditions:
+  - Whether the decoded text is expected to end with a newline is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

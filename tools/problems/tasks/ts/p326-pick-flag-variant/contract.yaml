@@ -1,0 +1,41 @@
+id: p326-pick-flag-variant
+task_type: function_implementation
+task: >-
+  Implement pickFlagVariant. A flag is a record with rules, an ordered list,
+  and fallback, a variant name. Each rule is a record with match, a list of
+  tests, and split, a list of two-element [variant, share] lists whose shares
+  are whole numbers of zero or more adding up to exactly 100 and whose
+  variants are all different. A test is a three-element list of a trait name,
+  one of the words is, not or in, and a value: is holds when the subject
+  carries that trait with exactly that string, in holds when the subject
+  carries that trait and its string appears in that non-empty list, and not
+  holds when the subject either lacks the trait altogether or carries
+  something other than that string. A rule takes a subject when every one of
+  its tests holds, and a rule with no tests takes everybody. A subject is a
+  record with traits, a record of trait names to strings, and bucket, a whole
+  number from 0 to 99. The earliest rule that takes the subject decides, and
+  inside it the variant is found by walking the split from the front adding
+  the shares up: the subject belongs to the first entry whose running total
+  is strictly past the bucket, so a share of zero never receives anybody.
+  Return a record with variant and rule, rule holding the zero-based position
+  of the deciding rule; when no rule takes the subject return the fallback
+  with a rule of -1. Raise an error when the flag is not a record carrying
+  rules and fallback, when rules is not a list, when fallback is not a
+  non-empty string, when a rule is not a record carrying match and split,
+  when match is not a list, when a test is not a three-element list, when a
+  trait name is not a non-empty string, when the word is none of the three,
+  when the value of an is or not test is not a string, when the value of an
+  in test is not a non-empty list of strings, when split is empty or one of
+  its entries is not a two-element list, when a variant is not a non-empty
+  string or is named twice in one split, when a share is not a whole number
+  of zero or more, when the shares do not add up to 100, when the subject is
+  not a record carrying traits and bucket, when traits is not a record of
+  strings, and when bucket is not a whole number from 0 to 99.
+target: solution.ts
+interface: "export function pickFlagVariant(flag: any, subject: any): { variant: string; rule: number }"
+stop_conditions:
+  - Whether a trait name may repeat across the tests of one rule is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
