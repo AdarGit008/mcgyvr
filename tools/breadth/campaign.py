@@ -239,7 +239,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    problem = bundle.node_capability_error()
+    problem = bundle.JSTS.capability()
     if problem is not None:
         print(f"error: {problem}", file=sys.stderr)
         return 2

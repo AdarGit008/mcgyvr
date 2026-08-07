@@ -1,0 +1,30 @@
+```python
+def rle_encode(s: str) -> str:
+    """
+    Run-length encode a string.
+    
+    Each maximal run of one repeated character becomes that character followed by the run length,
+    so "aaabb" encodes to "a3b2". A single character still carries a count, so "ab" encodes to "a1b1".
+    The empty string encodes to the empty string. The input contains only letters.
+    
+    :param s: Input string containing only letters.
+    :return: Run-length encoded string.
+    """
+    if not s:
+        return ""
+    
+    result = []
+    count = 1
+    
+    for i in range(1, len(s)):
+        if s[i] == s[i - 1]:
+            count += 1
+        else:
+            result.append(f"{s[i - 1]}{count}")
+            count = 1
+    
+    # Append the last run
+    result.append(f"{s[-1]}{count}")
+    
+    return ''.join(result)
+```

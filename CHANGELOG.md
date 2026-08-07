@@ -872,6 +872,38 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   pays by a property that can be checked before running a ladder (does `c0`
   over-produce?) rather than by language.
 
+- The control CLM-0012 could not run has been run, and the null is about
+  neither the language nor the serving stack (#167, CLM-0017, the measurement
+  in `records/measurements/python-bundle-2026-08-07/`). CLM-0004's Python task
+  set was recovered from `AdarGit008/local-ai` — still there, pinned to the
+  commit the 2026-07-28 run was made at, and provably undrifted since — and
+  three arms ran on `qwen2.5-coder:3b` Q4_K_M at the endpoint CLM-0012 used.
+
+  **Serving stack: ruled out.** CLM-0004's instrument, re-run byte-unchanged
+  against Ollama, reproduces the effect (35/50/55/65% across `c0`–`c3`; +3, +4,
+  +6 tasks paired against `c0`) and reproduces its never-passing set *exactly*
+  (t02, t03, t06, t17, t18, t19). CAV-02 is a real rule that does not bite here.
+
+  **Language: ruled out.** The same twenty tasks, ported to mcgyvr contracts and
+  run through mcgyvr's rig against the same endpoint, are flat: +1 task at every
+  rung, the same task each time, p = 1.00.
+
+  **It is the harness, and one sentence is the whole effect.**
+  `render_user_message` already ends every user message by demanding the
+  complete file as one fenced block and nothing else — the output-shape device
+  CLM-0012's own token analysis identified as the mechanism. Through it the 3b
+  emits 111.8 completion tokens at `c0` where local-ai's contract draws 427.4.
+  A positive control settles it without the port in the way: the *original*
+  contracts under the *original* harness at `c0`, with that one sentence
+  appended and nothing else changed, score 11/20 at 121.5 completion tokens
+  against 7/20 at 427.4 — matching the entire 1 972-byte bundle's 11/20 and
+  beating it on tokens. The remaining ~1 500 bytes of standards, checklist and
+  pitfalls bought nothing measurable on either task set.
+
+  This discharges CLM-0012's scoping sentence and supersedes its attribution of
+  the flat token curve to the task set; CLM-0004 is neither withdrawn nor
+  weakened, and now has a stack it demonstrably applies to.
+
 - Decision `0012-re-entry-is-refused-by-what-the-caller-holds` (#177) — nothing
   re-enters mcgyvr while holding a pool slot or running inside a sandbox, and
   the rule is about possession at the moment of the call rather than about the
@@ -938,6 +970,20 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   bundles has not earned it. Rewriting the marker did not forfeit the
   measurement, because `check_c2_is_the_shipped_bundle` compares the *stripped*
   body — the property the stripping change below was for.
+
+- `prompts/python.md` moved from `MEASURED_BENEFIT` to a new
+  `BundleStanding.MEASURED_REDUNDANT`, and gained the provenance marker it
+  never had (#167, CLM-0017). Neither of the two existing values could say what
+  is true: `MEASURED_BENEFIT` reads as an endorsement of a gain mcgyvr's path
+  does not get, and `MEASURED_NO_EFFECT` would write off an artifact that is
+  worth about four tasks in twenty to a harness whose prompt lacks output
+  discipline. The new value says the effect is real and this project already
+  supplies it — redundancy is redundancy *with something*, and naming that is
+  the difference between a fact and a shrug. Same reasoning that produced
+  `BundleStanding` in the first place, applied once more: the type carries the
+  outcome because a reader takes the shorter word as endorsement.
+  `strip_provenance` keeps the new marker out of the prompt and off the
+  ceiling, so `python.md`'s body is still the measured `c2.md` byte for byte.
 
 - `MAX_BUNDLE_BYTES` stays one constant, now for a stated reason rather than
   for want of evidence. #144 asked whether the ceiling should become

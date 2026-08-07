@@ -84,18 +84,20 @@ def test_shipped_python_bundle_is_byte_identical_to_the_measured_one() -> None:
     assert shipped.text.encode("utf-8") == MEASURED_C2.read_bytes()
 
 
-def test_both_bundles_are_measured_and_only_one_of_them_helped() -> None:
-    """Two sweeps now, two different answers, and one flag cannot say both.
+def test_both_bundles_are_measured_and_neither_helps_on_this_path() -> None:
+    """Three sweeps now, three different answers, and one flag cannot say any.
 
-    CLM-0004 covered one language and CLM-0012 covered the other, so ``measured``
-    is True either way and has stopped being the interesting question.
-    ``standing`` is what separates the bundle that beat its absence from the one
-    that did not.
+    CLM-0004 covered one language, CLM-0012 the other, and #167 re-measured the
+    first through mcgyvr's own prompt assembly. ``measured`` is True throughout
+    and has stopped being the interesting question. ``standing`` is what
+    separates a bundle that measured nothing from one whose effect is real and
+    already supplied by the harness — and both of those from a gain, which is
+    what neither shipped bundle now has on mcgyvr's path.
     """
     assert load_bundle("python").measured is True
     assert load_bundle("js/ts").measured is True
 
-    assert load_bundle("python").standing is BundleStanding.MEASURED_BENEFIT
+    assert load_bundle("python").standing is BundleStanding.MEASURED_REDUNDANT
     assert load_bundle("js/ts").standing is BundleStanding.MEASURED_NO_EFFECT
 
 

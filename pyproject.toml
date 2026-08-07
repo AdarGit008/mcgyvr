@@ -71,7 +71,19 @@ src = ["src", "tests"]
 # invite edits that break the pin. records/evidence/ is third-party source
 # vendored as evidence and hashed in its MANIFEST.json (#118): a formatter run
 # there does not tidy anything, it invalidates the citation.
-extend-exclude = ["tools/baseline", "records/evidence"]
+#
+# tools/bundle/python/tasks/ is the same case one step removed. Its acceptance
+# scripts and reference solutions are copied byte for byte out of the recovered
+# instrument, and `tests/test_python_arm.py` holds them to that copy by digest.
+# They are also what decides whether a cell passes, so reformatting them would
+# not be a tidy-up: it would change the instrument #167 exists to keep fixed,
+# and the arm would stop being CLM-0004's task set. The contracts beside them
+# are ours and are not excluded — YAML is not ruff's anyway.
+extend-exclude = [
+    "tools/baseline",
+    "records/evidence",
+    "tools/bundle/python/tasks",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]

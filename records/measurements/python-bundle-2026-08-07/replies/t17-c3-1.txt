@@ -1,0 +1,7 @@
+```python
+def greet(name: str, greeting: str = "Hello") -> str:
+    return greeting + ", " + name + "!"
+
+def total_length(strings: list[str]) -> int:
+    return sum(len(s) for s in strings)
+```

@@ -1,0 +1,32 @@
+```python
+def parse_csv_row(line: str) -> list[str]:
+    result = []
+    current_field = ""
+    in_quote = False
+
+    for char in line:
+        if char == '"':
+            if in_quote:
+                # End of quoted field
+                if current_field:
+                    result.append(current_field)
+                    current_field = ""
+                in_quote = False
+            else:
+                # Start of quoted field
+                in_quote = True
+        elif char == ',' and not in_quote:
+            # End of field
+            if current_field:
+                result.append(current_field)
+                current_field = ""
+        else:
+            # Add character to current field
+            current_field += char
+
+    # Add the last field if there is one
+    if current_field:
+        result.append(current_field)
+
+    return result
+```

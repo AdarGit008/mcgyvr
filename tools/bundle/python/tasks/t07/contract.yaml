@@ -1,0 +1,16 @@
+id: t07-flatten-nested-lists
+task_type: function_implementation
+task: |
+  Implement flatten, which flattens arbitrarily nested lists:
+  [1,[2,[3,4]],5] becomes [1,2,3,4,5]. Only list instances are flattened —
+  strings, tuples and every other value are atomic, so ["ab",["cd"]] becomes
+  ["ab","cd"] and [(1,2),[3]] becomes [(1,2),3]. It must handle at least 50
+  levels of nesting.
+target: solution.py
+interface: "def flatten(nested: list) -> list"
+stop_conditions:
+  - Whether a list that contains itself must be detected rather than recursed into is not stated.
+acceptance: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

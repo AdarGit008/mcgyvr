@@ -1,0 +1,16 @@
+id: t02-merge-intervals
+task_type: function_implementation
+task: |
+  Implement merge_intervals. Merge every overlapping or touching interval:
+  [[1,3],[2,6],[8,10]] becomes [[1,6],[8,10]], and touching counts as
+  overlapping, so [[1,2],[2,3]] becomes [[1,3]]. The input may be unsorted
+  and the output is sorted by start. You must not mutate the input list or
+  any of its elements.
+target: solution.py
+interface: "def merge_intervals(intervals: list[list[int]]) -> list[list[int]]"
+stop_conditions:
+  - Whether an interval whose end precedes its start is legal input is not stated.
+acceptance: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

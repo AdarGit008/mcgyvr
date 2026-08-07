@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#144 — the bundle-size condition ladder, repeated over a JS/TS task set.
+"""#144 — the bundle-size condition ladder, over a JS/TS task set or a Python one.
 
 CLM-0004 measured a ~2 KB skill bundle taking qwen2.5-coder:3b from 45% to 70%
 first-pass acceptance at ~2.5x the speed, and an 8 KB bundle giving ten points
@@ -48,6 +48,19 @@ runs the declared command there. Node 24 executes TypeScript directly by
 stripping types, so a task needs no toolchain, no install and no network — which
 is what lets acceptance stay stdlib-only and isolated per CLM-0004's design.
 
+**--language selects which arm runs, and the second one exists to answer #167.**
+CLM-0012 measured the JS/TS ladder flat and could not say whether that was about
+the *language* or about the *serving stack*, because CLM-0004 drove the same
+weights through bare ``llama-server`` and this rig drives them through Ollama's
+OpenAI-compatible path. The control is CLM-0004's own Python task set, recovered
+from local-ai under #167 and ported to mcgyvr contracts in ``python/tasks/``, run
+against the same endpoint through this same instrument — so that against the
+JS/TS arm, language is the only thing that differs. Its conditions are not a copy
+of the measured bundles but the vendored files themselves, under
+``records/evidence/local-ai-2026-08-02/``, and its ``c2`` is
+``src/mcgyvr/prompts/python.md`` byte for byte just as the JS/TS ``c2`` is
+``javascript.md``.
+
 **--selftest is a precondition, not a convenience.** Every reference solution is
 run against its own acceptance script; the experiment is invalid unless that is
 100% green, exactly as the Python run required. It needs no worker and no
@@ -80,6 +93,10 @@ Usage::
 
     # the table, from rows already collected
     uv run --no-sync python tools/bundle/measure.py --out <dir> --summarise-only
+
+    # #167's control arm: the recovered Python task set, same endpoint
+    uv run --no-sync python tools/bundle/measure.py --language python \\
+        --out records/measurements/python-bundle-YYYY-MM-DD
 """
 
 from __future__ import annotations
@@ -92,7 +109,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -107,8 +124,16 @@ from mcgyvr.worker.prompt import render_user_message
 from mcgyvr.worker.reply import ReplyError, parse_reply
 
 HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[1]
 TASKS = HERE / "tasks"
 CONDITIONS = HERE / "conditions"
+
+# The Python arm's conditions are the measured bundles themselves, not a copy of
+# them. Vendoring the same three files twice would create exactly the drift the
+# c2 check exists to catch, on the one axis where a divergence would be silent:
+# a copy that fell behind would still be a valid ladder, just not CLM-0004's.
+VENDORED_EVIDENCE = REPO / "records" / "evidence" / "local-ai-2026-08-02"
+VENDORED_BUNDLES = VENDORED_EVIDENCE / "data" / "context_exp" / "bundles"
 
 # The ladder. c0 is the absence of a system prompt rather than an empty file:
 # CLM-0004's c0 is "none — contract only", which is also what `bundle_for`
@@ -127,10 +152,87 @@ TEMPERATURE = 0.0
 # set whose slowest reference runs in well under a second.
 ACCEPTANCE_TIMEOUT_S = 30.0
 
-# The file the worker writes and the acceptance script imports. Every contract
-# names it as its target, so the JS/TS adapter owns it and the c2 condition is
-# the bundle production would have selected.
-SOLUTION = "solution.ts"
+
+@dataclass(frozen=True)
+class Language:
+    """One arm of the experiment: a task set, a ladder, and how to run a file.
+
+    The arms share everything that could otherwise explain a difference between
+    them — the sampler, the cap, the remediation round, the prompt assembly, the
+    parser and the scoring — so that what differs between two results is the
+    thing named here and not the instrument. #167 is that question exactly.
+    """
+
+    name: str
+    tasks: Path
+    conditions: Path
+    #: The file the worker writes and the acceptance script imports. Every
+    #: contract names it as its target, so the adapter that owns the extension
+    #: is the one whose bundle c2 has to be.
+    solution: str
+    reference: str
+    accept: str
+    #: What must be true of this machine before a task can be scored, or None.
+    #: Checked before the first dispatch: a missing runtime fails every task
+    #: identically, and twenty red rows look exactly like a model that cannot
+    #: write the language.
+    capability: Callable[[], str | None]
+
+
+def node_capability() -> str | None:
+    """Why the JS/TS arm cannot run here, or ``None`` if it can."""
+    if node_runs_typescript():
+        return None
+    return (
+        "acceptance needs a Node that runs TypeScript directly — `node "
+        "accept.mjs` imports ./solution.ts. Type stripping is unflagged from "
+        "Node 23.6; the task set was built on 24."
+    )
+
+
+def python_capability() -> str | None:
+    """Why the Python arm cannot run here, or ``None`` if it can.
+
+    ``python`` rather than :data:`sys.executable`: the contracts declare
+    ``python accept.py`` and the rig runs the command a contract declares, so
+    what has to exist is the name on PATH. An interpreter this process happens
+    to be running under is not the one the acceptance command would find.
+    """
+    if shutil.which("python") is None:
+        return (
+            "acceptance needs `python` on PATH — the contracts declare "
+            "`python accept.py` and the rig runs the command they declare. "
+            "Run the sweep under `uv run`, which puts the project's "
+            "interpreter there."
+        )
+    return None
+
+
+JSTS = Language(
+    name="jsts",
+    tasks=TASKS,
+    conditions=CONDITIONS,
+    solution="solution.ts",
+    reference="reference.ts",
+    accept="accept.mjs",
+    capability=node_capability,
+)
+
+PYTHON = Language(
+    name="python",
+    tasks=HERE / "python" / "tasks",
+    conditions=VENDORED_BUNDLES,
+    solution="solution.py",
+    reference="reference.py",
+    accept="accept.py",
+    capability=python_capability,
+)
+
+LANGUAGES = {arm.name: arm for arm in (JSTS, PYTHON)}
+
+# The arm a flag-less invocation measures. #144's, so every command line already
+# written down keeps meaning what it meant.
+DEFAULT_LANGUAGE = JSTS
 
 
 # Where the machine-specific half of a sweep lives, git-ignored. An endpoint is
@@ -165,14 +267,15 @@ class Task:
     id: str
     contract: Contract
     directory: Path
+    language: Language
 
     @property
     def reference(self) -> Path:
-        return self.directory / "reference.ts"
+        return self.directory / self.language.reference
 
     @property
     def accept(self) -> Path:
-        return self.directory / "accept.mjs"
+        return self.directory / self.language.accept
 
 
 @dataclass(frozen=True)
@@ -183,7 +286,9 @@ class Acceptance:
     output: str
 
 
-def load_tasks(only: Sequence[str] = ()) -> list[Task]:
+def load_tasks(
+    only: Sequence[str] = (), language: Language = DEFAULT_LANGUAGE
+) -> list[Task]:
     """Every task in the set, or the named subset, contracts already validated.
 
     Loading through :func:`mcgyvr.contract.load` rather than a private parser is
@@ -192,7 +297,7 @@ def load_tasks(only: Sequence[str] = ()) -> list[Task]:
     public API is.
     """
     tasks: list[Task] = []
-    for directory in sorted(TASKS.iterdir()):
+    for directory in sorted(language.tasks.iterdir()):
         if not directory.is_dir() or (only and directory.name not in only):
             continue
         tasks.append(
@@ -200,6 +305,7 @@ def load_tasks(only: Sequence[str] = ()) -> list[Task]:
                 id=directory.name,
                 contract=load(directory / "contract.yaml"),
                 directory=directory,
+                language=language,
             )
         )
     if only:
@@ -209,36 +315,40 @@ def load_tasks(only: Sequence[str] = ()) -> list[Task]:
     return tasks
 
 
-def condition_text(condition: str) -> str:
+def condition_text(condition: str, language: Language = DEFAULT_LANGUAGE) -> str:
     """The system prompt for one condition; ``""`` for c0, which has none."""
     if condition == "c0":
         return ""
-    path = CONDITIONS / f"{condition}.md"
+    path = language.conditions / f"{condition}.md"
     if not path.is_file():
         raise MeasureError(f"no bundle file for condition {condition!r}: {path}")
     return path.read_text(encoding="utf-8")
 
 
-def check_c2_is_the_shipped_bundle() -> None:
-    """Refuse to run unless c2 is ``prompts/javascript.md``'s body, byte for byte.
+def check_c2_is_the_shipped_bundle(language: Language = DEFAULT_LANGUAGE) -> None:
+    """Refuse to run unless c2 is the shipped bundle's body, byte for byte.
 
     ``Bundle.text`` is already the body: the shipped file's provenance marker is
     stripped at load, so what this compares is exactly the string a worker would
     receive. If the two ever diverge, every number this tool produces would
-    describe a prompt nobody ships, which is the failure the equivalent Python
-    test exists to prevent.
+    describe a prompt nobody ships.
+
+    It holds on both arms for the same reason and by opposite routes. The JS/TS
+    ``c2`` was derived *from* ``prompts/javascript.md``; the Python ``c2`` is the
+    vendored file that ``prompts/python.md`` was derived from. Either way the
+    equality is what makes a rate quotable about a shipped prompt.
     """
-    shipped = bundle_for(SOLUTION)
-    if shipped is None:  # unreachable while the JS/TS adapter owns .ts
-        raise MeasureError(f"no bundle is registered for {SOLUTION}")
-    measured = condition_text("c2")
+    shipped = bundle_for(language.solution)
+    if shipped is None:  # unreachable while an adapter owns the extension
+        raise MeasureError(f"no bundle is registered for {language.solution}")
+    measured = condition_text("c2", language)
     if shipped.text != measured:
         raise MeasureError(
-            "the c2 condition is not the shipped bundle. "
-            f"conditions/c2.md is {len(measured.encode('utf-8'))} bytes; the "
-            f"shipped prompts/javascript.md body is {shipped.size_bytes}. "
-            "Re-derive c2.md from the shipped file, or the result describes a "
-            "prompt that is not shipped."
+            f"the c2 condition is not the shipped {language.name} bundle. "
+            f"{language.conditions / 'c2.md'} is "
+            f"{len(measured.encode('utf-8'))} bytes; the shipped body is "
+            f"{shipped.size_bytes}. Re-derive one from the other, or the result "
+            "describes a prompt that is not shipped."
         )
 
 
@@ -252,7 +362,10 @@ def build_messages(task: Task, condition: str) -> tuple[str, str]:
     selects the bundle by adapter, and the whole experiment is the substitution
     of that one choice.
     """
-    return condition_text(condition), render_user_message(task.contract.worker_view())
+    return (
+        condition_text(condition, task.language),
+        render_user_message(task.contract.worker_view()),
+    )
 
 
 def run_acceptance(task: Task, content: str, workdir: Path) -> Acceptance:
@@ -267,7 +380,7 @@ def run_acceptance(task: Task, content: str, workdir: Path) -> Acceptance:
     still only touches a temp directory that is about to be deleted.
     """
     workdir.mkdir(parents=True, exist_ok=True)
-    (workdir / SOLUTION).write_text(content, encoding="utf-8")
+    (workdir / task.language.solution).write_text(content, encoding="utf-8")
     shutil.copy(task.accept, workdir / task.accept.name)
     for command in (*task.contract.demonstration, *task.contract.acceptance):
         try:
@@ -431,15 +544,15 @@ def redact(url: str) -> str:
     return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
 
 
-def condition_digests() -> dict[str, str]:
+def condition_digests(language: Language = DEFAULT_LANGUAGE) -> dict[str, str]:
     """A hash per condition, so a table can be tied to the bytes it measured."""
     return {
-        name: hashlib.sha256(condition_text(name).encode("utf-8")).hexdigest()
+        name: hashlib.sha256(condition_text(name, language).encode("utf-8")).hexdigest()
         for name in LADDER
     }
 
 
-def task_digests() -> dict[str, str]:
+def task_digests(language: Language = DEFAULT_LANGUAGE) -> dict[str, str]:
     """A hash per task, over the contract's emitted form.
 
     The conditions are hashed because a reworded bundle is a different
@@ -455,7 +568,7 @@ def task_digests() -> dict[str, str]:
     """
     return {
         task.id: hashlib.sha256(dumps(task.contract).encode("utf-8")).hexdigest()
-        for task in load_tasks()
+        for task in load_tasks(language=language)
     }
 
 
@@ -478,7 +591,12 @@ def rig_revision() -> str:
     return proc.stdout.strip() if proc.returncode == 0 else "unknown"
 
 
-def record_run(out: Path, worker: Worker, invocation: dict[str, object]) -> None:
+def record_run(
+    out: Path,
+    worker: Worker,
+    invocation: dict[str, object],
+    language: Language = DEFAULT_LANGUAGE,
+) -> None:
     """Write, or extend, the provenance beside the rows.
 
     A rate without its backend is not quotable — CAV-02 is precisely that a
@@ -488,25 +606,35 @@ def record_run(out: Path, worker: Worker, invocation: dict[str, object]) -> None
     Resuming into a directory measured on a *different* worker is refused. The
     resume path exists so an interrupted sweep can be finished, and blending two
     backends into one denominator would produce a table that looks like one
-    measurement and is not.
+    measurement and is not. ``language`` joins that identity under #167, for the
+    same reason: two arms against one endpoint would otherwise resume into each
+    other, and the rows carry no field that would show it.
+
+    A manifest written before ``language`` existed has none, and is read as the
+    arm that was the only one there was. Defaulting it to *absent* would refuse
+    to resume the completed JS/TS sweep on the strength of a key the sweep could
+    not have written, which is a spurious refusal rather than a caught one.
     """
     path = out / "run.json"
     identity = {
         "endpoint": redact(worker.endpoint),
         "protocol": worker.protocol.value,
         "model": worker.model,
-        "conditions_sha256": condition_digests(),
-        "tasks_sha256": task_digests(),
+        "language": language.name,
+        "conditions_sha256": condition_digests(language),
+        "tasks_sha256": task_digests(language),
     }
     if path.is_file():
         previous = json.loads(path.read_text(encoding="utf-8"))
+        previous.setdefault("language", DEFAULT_LANGUAGE.name)
         drift = sorted(k for k, v in identity.items() if previous.get(k) != v)
         if drift:
             raise MeasureError(
                 f"{path} records a different run: {', '.join(drift)} changed. "
                 "Rows already here were measured on another worker, another "
-                "ladder or another task set; resuming would average two "
-                "measurements into one table. Use a fresh --out directory."
+                "language, another ladder or another task set; resuming would "
+                "average two measurements into one table. Use a fresh --out "
+                "directory."
             )
         previous["invocations"].append(invocation)
         path.write_text(json.dumps(previous, indent=2) + "\n", encoding="utf-8")
@@ -542,17 +670,6 @@ def node_runs_typescript() -> bool:
         except (OSError, subprocess.TimeoutExpired):
             return False
         return proc.returncode == 0
-
-
-def node_capability_error() -> str | None:
-    """Why acceptance cannot run here, or ``None`` if it can."""
-    if node_runs_typescript():
-        return None
-    return (
-        "acceptance needs a Node that runs TypeScript directly — `node "
-        "accept.mjs` imports ./solution.ts. Type stripping is unflagged from "
-        "Node 23.6; the task set was built on 24."
-    )
 
 
 def selftest(tasks: Iterable[Task]) -> int:
@@ -786,6 +903,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--out", type=Path, help="measurement directory for the rows")
     parser.add_argument(
+        "--language",
+        choices=sorted(LANGUAGES),
+        default=DEFAULT_LANGUAGE.name,
+        help="which arm to measure: the JS/TS task set #144 built, or the "
+        "Python one CLM-0004 measured, recovered under #167 "
+        f"(default: {DEFAULT_LANGUAGE.name})",
+    )
+    parser.add_argument(
         "--endpoint", help="base URL of the worker, e.g. http://localhost:11434"
     )
     parser.add_argument("--model", help="model name as the backend knows it")
@@ -834,18 +959,19 @@ def main() -> int:
         "(it rescued 2 of 35 attempts in the Python run)",
     )
     args = parser.parse_args()
+    language = LANGUAGES[args.language]
 
     try:
-        tasks = load_tasks([t for t in args.tasks.split(",") if t])
+        tasks = load_tasks([t for t in args.tasks.split(",") if t], language)
     except MeasureError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    # Every path that runs a task needs a Node that strips types; summarising
-    # rows already on disk does not. Refused here rather than discovered as a
-    # uniform failure twenty tasks in.
+    # Every path that runs a task needs the arm's runtime; summarising rows
+    # already on disk does not. Refused here rather than discovered as a uniform
+    # failure twenty tasks in.
     if not args.summarise_only:
-        problem = node_capability_error()
+        problem = language.capability()
         if problem is not None:
             print(f"error: {problem}", file=sys.stderr)
             return 2
@@ -875,7 +1001,7 @@ def main() -> int:
         return 2
 
     try:
-        check_c2_is_the_shipped_bundle()
+        check_c2_is_the_shipped_bundle(language)
         worker = resolve_worker(
             {
                 "endpoint": args.endpoint,
@@ -909,14 +1035,15 @@ def main() -> int:
                 "remediate": not args.no_remediate,
                 "rig_revision": rig_revision(),
             },
+            language,
         )
     except MeasureError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
     print(
-        f"measuring {worker.model} at {redact(worker.endpoint)} "
-        f"({worker.protocol.value})",
+        f"measuring the {language.name} arm on {worker.model} at "
+        f"{redact(worker.endpoint)} ({worker.protocol.value})",
         file=sys.stderr,
     )
 

@@ -1,0 +1,14 @@
+```python
+def safe_divide(a, b) -> float | None:
+    """
+    Returns a / b as a float if b is non-zero, otherwise returns None.
+    Raises TypeError for non-numeric inputs or when b is zero.
+    """
+    if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+        raise TypeError("Both arguments must be numeric.")
+    
+    if b == 0:
+        return None
+    
+    return a / b
+```

@@ -1,0 +1,12 @@
+def binary_search(a: list[int], x: int) -> int:
+    """Return the index of x in sorted a, or -1."""
+    lo, hi = 0, len(a)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if a[mid] == x:
+            return mid
+        if a[mid] < x:
+            lo = mid + 1
+        else:
+            hi = mid
+    return -1

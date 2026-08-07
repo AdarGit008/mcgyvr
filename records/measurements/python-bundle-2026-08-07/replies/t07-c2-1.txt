@@ -1,0 +1,19 @@
+```python
+def flatten(nested: list) -> list:
+    """
+    Flattens arbitrarily nested lists into a single-level list.
+    
+    Args:
+    nested (list): A potentially nested list of elements.
+    
+    Returns:
+    list: A flattened version of the input list.
+    """
+    result = []
+    for item in nested:
+        if isinstance(item, list):
+            result.extend(flatten(item))
+        else:
+            result.append(item)
+    return result
+```

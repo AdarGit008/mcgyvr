@@ -1,0 +1,15 @@
+id: t08-topological-sort
+task_type: function_implementation
+task: |
+  Implement topo_sort. Nodes are 0..n-1, and an edge (a, b) means a must
+  come before b. Return any valid topological order containing every node
+  exactly once. Raise ValueError if the graph contains a cycle. n == 0
+  returns an empty list.
+target: solution.py
+interface: "def topo_sort(n: int, edges: list[tuple[int, int]]) -> list[int]"
+stop_conditions:
+  - Whether a duplicate edge or a self-loop is legal input is not stated.
+acceptance: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

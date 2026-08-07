@@ -1,0 +1,7 @@
+```python
+def tag_item(name: str, tags: list[str] | None = None) -> list[str]:
+    if tags is None:
+        tags = []
+    tags.append(name)
+    return tags
+```
