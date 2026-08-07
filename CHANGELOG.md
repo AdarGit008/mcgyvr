@@ -410,6 +410,31 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   the default `max_parallel: 1` is what it would otherwise do. Measured on the
   executor: 12 jobs of 50 ms across sources of capacity 3 and 2 took 0.205 s
   against 0.604 s serial (2.94x, floor 0.15 s set by the two-slot source).
+- `Capacity.concurrency()` reports the one figure `Usage` structurally cannot:
+  how many dispatches this process had in flight **across** sources at once,
+  against the declared total (#200). `Usage.peak` is keyed by source, so a batch
+  that ran `local` three wide and then `fast` two wide reports 3 and 2 whether
+  or not the two ever overlapped — a batch working two rigs together and a batch
+  draining them in series are indistinguishable in it. Tracked rather than
+  derived, because a maximum of sums is not the sum of maxima and the coinciding
+  moment is the whole point. #185 is what made the number meaningful, by taking
+  the bound host-wide.
+
+  It arrived through a flake. `test_a_mixed_batch_...` asserted a wall clock —
+  six 50 ms jobs required to beat a 300 ms serial floor by 30% — and failed at
+  232 ms on a loaded box: faster than serial, per-source peaks intact, so the
+  concurrency had plainly happened. The clock was standing in for the
+  cross-source property, because nothing measured it. A stopwatch cannot
+  distinguish "the sources never overlapped" from "the box was busy".
+
+  The tests no longer time anything. Jobs **rendezvous on a barrier** — each
+  holds its slot until N parties hold theirs — so a busy machine makes a test
+  slower and never wrong, while a series-draining executor never trips it. The
+  bound test's assertions were also split by kind: `<=` (never exceeded) is
+  safety and no load can cause a violation, so sleeping jobs still test it;
+  `==` (the ceiling was reached) is liveness and moved to the barrier tests
+  where it is deterministic. Measured after: 25/25 capacity runs under
+  eight-core load, 8/8 full-suite runs, against 2 failures in ~14 before.
 - The binding proposal states what a capacity number does not buy (CON-02). A
   single-slot server handed concurrent requests **serializes them rather than
   refusing them**, so an over-declared `max_parallel` is not an error anyone will
