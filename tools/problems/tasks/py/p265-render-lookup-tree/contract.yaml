@@ -1,0 +1,92 @@
+id: p265-render-lookup-tree
+task_type: bug_fix
+task: >-
+  render_lookup_tree plants whole numbers into a lookup tree, pulls some of
+  them out again, and draws whatever tree is left. Planting walks down from
+  the root, taking the low side while the newcomer sits under the value in
+  hand and the high side while it sits over, then hangs the newcomer where
+  the walk runs out; a number the tree already carries is not planted a
+  second time. Pulling a value removes its cell: a cell with neither side
+  occupied simply goes, a cell with one side occupied is replaced by that
+  side, and a cell with both sides occupied is overwritten with the LOWEST
+  value found anywhere in its high side — and that stand-in must then leave
+  the high side, so the tree goes on carrying every value exactly once. The
+  drawing writes an occupied cell as [value|low|high] and an unoccupied side
+  as a lone dot, so an empty tree draws as just a dot. The present code
+  performs the overwrite but never sends the stand-in away, so the tree ends
+  up carrying it twice over. Repair the pull and leave the refusals exactly
+  as they are: an argument that is not a list, an entry that is not a whole
+  number, and a pull naming a value the tree does not carry at that moment
+  are all errors. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def plant(cell, held):
+      if cell is None:
+          return {"held": held, "lo": None, "hi": None}
+      if held < cell["held"]:
+          cell["lo"] = plant(cell["lo"], held)
+      elif held > cell["held"]:
+          cell["hi"] = plant(cell["hi"], held)
+      return cell
+
+
+  def holds(cell, wanted):
+      while cell is not None:
+          if wanted == cell["held"]:
+              return True
+          cell = cell["lo"] if wanted < cell["held"] else cell["hi"]
+      return False
+
+
+  def pull(cell, wanted):
+      if cell is None:
+          return None
+      if wanted < cell["held"]:
+          cell["lo"] = pull(cell["lo"], wanted)
+          return cell
+      if wanted > cell["held"]:
+          cell["hi"] = pull(cell["hi"], wanted)
+          return cell
+      if cell["lo"] is None:
+          return cell["hi"]
+      if cell["hi"] is None:
+          return cell["lo"]
+      lowest = cell["hi"]
+      while lowest["lo"] is not None:
+          lowest = lowest["lo"]
+      cell["held"] = lowest["held"]
+      return cell
+
+
+  def draw(cell):
+      if cell is None:
+          return "."
+      return "[" + str(cell["held"]) + "|" + draw(cell["lo"]) + "|" + draw(cell["hi"]) + "]"
+
+
+  def whole(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def render_lookup_tree(planted: list, pulled: list) -> str:
+      if not isinstance(planted, list) or not isinstance(pulled, list):
+          raise ValueError("both arguments must be lists")
+      root = None
+      for value in planted:
+          if not whole(value):
+              raise ValueError("planted values must be whole numbers")
+          root = plant(root, value)
+      for value in pulled:
+          if not whole(value):
+              raise ValueError("pulled values must be whole numbers")
+          if not holds(root, value):
+              raise ValueError("cannot pull a value the tree does not carry")
+          root = pull(root, value)
+      return draw(root)
+interface: "def render_lookup_tree(planted: list, pulled: list) -> str"
+stop_conditions:
+  - Whether the drawing may be produced recursively or with an explicit stack is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

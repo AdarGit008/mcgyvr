@@ -1,0 +1,25 @@
+id: p278-fold-reply-thread
+task_type: function_implementation
+task: >-
+  Implement fold_reply_thread. Every message arrives as [id, parent, text]: the
+  id names it, the parent names whichever message it answers or is empty when
+  the message opens a conversation of its own, and the text is what was said.
+  Rebuild the conversation. Opening messages come in the order they were
+  handed over; each message is followed immediately by the answers to it; and
+  answers to one and the same message keep, among themselves, the order they
+  were handed over in. Render one line per message: a quote marker, which is a
+  greater-than sign then a space, repeated once for every answer-step away
+  from an opening message, then the id, then a single space, then the text.
+  Return those lines joined by newlines. Reject with an error an empty batch,
+  a batch that is not a list, a message that is not exactly three strings, an
+  empty id, a repeated id, a parent naming no message in the batch, a text
+  carrying a newline of its own, and any message that no opening message can
+  ever reach because the parent links run in a circle.
+target: solution.py
+interface: "def fold_reply_thread(messages: list[list[str]]) -> str"
+stop_conditions:
+  - Whether an id may contain a space is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,40 @@
+id: p257-stalled-loop-members
+task_type: bug_fix
+task: |
+  stalledLoopMembers reads a batch scheduler's stall table — each key a stalled
+  job, each value the one job it is waiting to finish — and must name the jobs
+  caught in a closed loop of waiting. A job absent from the keys is still
+  running, so waiting on it ends nowhere. Three faults: the code hands back
+  every job it walked past, so the jobs that merely queue behind a loop are
+  wrongly counted as members; it starts from whichever key the table happens to
+  list first rather than deciding by name, so with two separate loops present
+  it can name the wrong one; and it hands the members back in walk order
+  instead of ascending order. When more than one loop exists, the loop to name
+  is the one holding the smallest job name of any loop, and its members come
+  back sorted ascending. With no loop at all the answer is an empty list. It
+  also accepts nonsense it must refuse: a job waiting on itself, an empty job
+  name, a waited-for value that is not a string, and an argument that is not a
+  table. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function stalledLoopMembers(waits: Record<string, string>): string[] {
+    for (const start of Object.keys(waits)) {
+      const seen: string[] = [];
+      let current = start;
+      while (waits[current] !== undefined && !seen.includes(current)) {
+        seen.push(current);
+        current = waits[current];
+      }
+      if (seen.includes(current)) {
+        return seen;
+      }
+    }
+    return [];
+  }
+interface: "export function stalledLoopMembers(waits: Record<string, string>): string[]"
+stop_conditions:
+  - Whether a job may appear as a waited-for value without ever being a key is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

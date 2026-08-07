@@ -1,0 +1,112 @@
+id: p265-render-lookup-tree
+task_type: bug_fix
+task: >-
+  renderLookupTree plants whole numbers into a lookup tree, pulls some of
+  them out again, and draws whatever tree is left. Planting walks down from
+  the root, taking the low side while the newcomer sits under the value in
+  hand and the high side while it sits over, then hangs the newcomer where
+  the walk runs out; a number the tree already carries is not planted a
+  second time. Pulling a value removes its cell: a cell with neither side
+  occupied simply goes, a cell with one side occupied is replaced by that
+  side, and a cell with both sides occupied is overwritten with the LOWEST
+  value found anywhere in its high side — and that stand-in must then leave
+  the high side, so the tree goes on carrying every value exactly once. The
+  drawing writes an occupied cell as [value|low|high] and an unoccupied side
+  as a lone dot, so an empty tree draws as just a dot. The present code
+  performs the overwrite but never sends the stand-in away, so the tree ends
+  up carrying it twice over. Repair the pull and leave the refusals exactly
+  as they are: an argument that is not a list, an entry that is not a whole
+  number, and a pull naming a value the tree does not carry at that moment
+  are all errors. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  type Cell = { held: number; lo: Cell | null; hi: Cell | null };
+
+  function plant(cell: Cell | null, held: number): Cell {
+    if (cell === null) {
+      return { held, lo: null, hi: null };
+    }
+    if (held < cell.held) {
+      cell.lo = plant(cell.lo, held);
+    } else if (held > cell.held) {
+      cell.hi = plant(cell.hi, held);
+    }
+    return cell;
+  }
+
+  function holds(cell: Cell | null, wanted: number): boolean {
+    while (cell !== null) {
+      if (wanted === cell.held) {
+        return true;
+      }
+      cell = wanted < cell.held ? cell.lo : cell.hi;
+    }
+    return false;
+  }
+
+  function pull(cell: Cell | null, wanted: number): Cell | null {
+    if (cell === null) {
+      return null;
+    }
+    if (wanted < cell.held) {
+      cell.lo = pull(cell.lo, wanted);
+      return cell;
+    }
+    if (wanted > cell.held) {
+      cell.hi = pull(cell.hi, wanted);
+      return cell;
+    }
+    if (cell.lo === null) {
+      return cell.hi;
+    }
+    if (cell.hi === null) {
+      return cell.lo;
+    }
+    let lowest = cell.hi;
+    while (lowest.lo !== null) {
+      lowest = lowest.lo;
+    }
+    cell.held = lowest.held;
+    return cell;
+  }
+
+  function draw(cell: Cell | null): string {
+    if (cell === null) {
+      return ".";
+    }
+    return "[" + cell.held + "|" + draw(cell.lo) + "|" + draw(cell.hi) + "]";
+  }
+
+  function whole(value: unknown): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  export function renderLookupTree(planted: number[], pulled: number[]): string {
+    if (!Array.isArray(planted) || !Array.isArray(pulled)) {
+      throw new Error("both arguments must be lists");
+    }
+    let root: Cell | null = null;
+    for (const value of planted) {
+      if (!whole(value)) {
+        throw new Error("planted values must be whole numbers");
+      }
+      root = plant(root, value);
+    }
+    for (const value of pulled) {
+      if (!whole(value)) {
+        throw new Error("pulled values must be whole numbers");
+      }
+      if (!holds(root, value)) {
+        throw new Error("cannot pull a value the tree does not carry");
+      }
+      root = pull(root, value);
+    }
+    return draw(root);
+  }
+interface: "export function renderLookupTree(planted: number[], pulled: number[]): string"
+stop_conditions:
+  - Whether the drawing may be produced recursively or with an explicit stack is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,22 @@
+id: p279-tally-reply-removes
+task_type: function_implementation
+task: >-
+  Implement tallyReplyRemoves. Every link is a pair [id, answers]: the id of a
+  note, then the id of whatever note it answers, the second being empty for a
+  note that starts a discussion off. A starting note stands at remove 0, a
+  note answering one stands at remove 1, a note answering that stands at
+  remove 2, and so on however far the discussion runs. Count how many notes
+  stand at each remove and give those counts back as a list running from
+  remove 0 upward, stopping at the deepest remove anything occupies. Reject
+  with an error an empty batch, a batch that is not a list, a link that is not
+  exactly two strings, an empty id, an id used twice, an answers field naming
+  no note in the batch, and a batch in which some note cannot be traced back
+  to a starting note because the answering runs in a circle.
+target: solution.ts
+interface: "export function tallyReplyRemoves(links: string[][]): number[]"
+stop_conditions:
+  - Whether an id is compared case-sensitively is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

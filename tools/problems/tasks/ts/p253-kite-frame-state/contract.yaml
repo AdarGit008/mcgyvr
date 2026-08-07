@@ -1,0 +1,38 @@
+id: p253-kite-frame-state
+task_type: bug_fix
+task: |
+  kiteFrameState scores a frame of Kite, where every rally is worth a point to
+  whichever of the two sides — "left" or "right" — won it, and it gets the
+  frame's ending wrong in three ways. A frame is claimed by the first side to
+  hold 15 or more points AND to be ahead by two or more; the code stops at bare
+  15, so 15-14 is wrongly a claimed frame. When the sides trade rallies neither
+  can pull two clear, so a second ceiling applies: whoever arrives at 20 points
+  claims the frame however narrow the gap, which the code never checks. And a
+  claimed frame is closed — rallies listed after it must leave both totals
+  alone, where the code keeps piling them on. A rally naming neither side is an
+  error wherever in the list it sits, as is an argument that is not a list.
+  Return a record carrying left, right and winner, winner being the claiming
+  side's name or "" while the frame is still live. Return the complete fixed
+  file.
+target: solution.ts
+target_content: |
+  export function kiteFrameState(
+    rallies: string[],
+  ): { left: number; right: number; winner: string } {
+    const score: Record<string, number> = { left: 0, right: 0 };
+    let winner = "";
+    for (const rally of rallies) {
+      score[rally] += 1;
+      if (score[rally] >= 15) {
+        winner = rally;
+      }
+    }
+    return { left: score.left, right: score.right, winner };
+  }
+interface: "export function kiteFrameState(rallies: string[]): { left: number; right: number; winner: string }"
+stop_conditions:
+  - Whether a frame may be replayed from a mid-frame record is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

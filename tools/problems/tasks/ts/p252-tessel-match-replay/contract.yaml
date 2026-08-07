@@ -1,0 +1,28 @@
+id: p252-tessel-match-replay
+task_type: function_implementation
+task: |
+  Implement replayTesselMatch, the scorer for Tessel, a two-side racket game.
+  The sides are called A and B, and the argument is the list of rally winners,
+  each the string "A" or "B". A serves the opening rally of the match. Tessel
+  uses side-out scoring: when the serving side wins a rally it takes one point
+  and serves again, and when the receiving side wins a rally no point is taken
+  and the serve passes to it. A band goes to the first side holding at least 7
+  points with a lead of at least 2; if neither side has that, play continues
+  until one side leads by 2 or arrives at 10 points, and a side arriving at 10
+  takes the band on a one-point lead. Every band begins with both point totals
+  back at zero and is served by the side that lost the band before it. The
+  match belongs to the first side holding three bands. Return a record with
+  winner ("A", "B", or "" while the match is undecided), bands as the two band
+  counts in A-then-B order, points as the two point totals in that same order,
+  and serve naming the side due to serve the next rally. Once the match is
+  decided the record keeps the closing points of the deciding band and an empty
+  serve. Reject a rally that is neither "A" nor "B", a rally arriving after the
+  match is already decided, and an argument that is not a list.
+target: solution.ts
+interface: "export function replayTesselMatch(rallies: string[]): { winner: string; bands: number[]; points: number[]; serve: string }"
+stop_conditions:
+  - Whether a band can be conceded or retired part-way is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

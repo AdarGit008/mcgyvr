@@ -1,0 +1,31 @@
+id: p268-find-signal-conflicts
+task_type: function_implementation
+task: >-
+  Implement findSignalConflicts. A junction repeats a fixed cycle of whole
+  seconds numbered 0 upward. Each approach is a record carrying exactly a
+  name, an offset, a green and an amber: from second offset it shows green
+  for green seconds, then amber for amber seconds, then red for whatever is
+  left of the cycle, and a stage running off the end of the cycle simply
+  carries on from second 0. An approach is called lit during its green and
+  its amber alike. The third argument lists pairs of approach names that must
+  never be lit together. For each listed pair that is lit together at some
+  second, report the text formed by the first name, a tilde, the second name,
+  an at sign, and the smallest second of the cycle at which both are lit;
+  names keep the order the pair wrote them in. Sort the reports by that
+  second, and reports sharing a second by their text. A pair that never
+  overlaps contributes nothing. Reject with an error a cycle that is not a
+  whole number in 2 through 3600, an empty or non-list approach list, an
+  approach that is not a record carrying exactly those four keys, a name that
+  is not non-empty text, an offset outside 0 through cycle minus one, a green
+  under one second or an amber under none, a green and amber together
+  outrunning the cycle, a repeated approach name, a pair that does not name
+  exactly two declared approaches, a pair naming one approach twice, and the
+  same pair listed twice in either order.
+target: solution.ts
+interface: "export function findSignalConflicts(cycle: number, approaches: object[], pairs: string[][]): string[]"
+stop_conditions:
+  - Whether an approach may be lit for the whole cycle without that counting as a fault is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

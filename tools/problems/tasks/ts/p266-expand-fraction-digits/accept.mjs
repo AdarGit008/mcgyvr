@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import { expandFractionDigits } from "./solution.ts";
+
+assert.equal(expandFractionDigits(1, 6, 10), "0;1[6]", "one settled glyph then a recurring one");
+assert.equal(expandFractionDigits(1, 7, 10), "0;[142857]", "the whole tail recurs from the start");
+assert.equal(expandFractionDigits(3, 2, 10), "1;5", "a settling tail carries no brackets");
+assert.equal(expandFractionDigits(5, 1, 10), "5", "an exact whole drops the semicolon entirely");
+assert.equal(expandFractionDigits(0, 9, 10), "0", "nothing is written as a bare zero");
+assert.equal(expandFractionDigits(-1, 3, 10), "-0;[3]", "the minus survives a zero stem");
+assert.equal(expandFractionDigits(-22, 7, 10), "-3;[142857]", "a negative mixed quantity");
+assert.equal(expandFractionDigits(-4, 2, 10), "-2", "a negative exact whole");
+assert.equal(expandFractionDigits(1, 2, 3), "0;[1]", "a half recurs in base three");
+assert.equal(expandFractionDigits(1, 3, 3), "0;1", "a third settles in base three");
+assert.equal(expandFractionDigits(1, 9, 3), "0;01", "a leading zero glyph in the tail");
+assert.equal(expandFractionDigits(1, 5, 12), "0;[2497]", "a four glyph cycle in base twelve");
+assert.equal(expandFractionDigits(1, 8, 12), "0;16", "a settling tail in base twelve");
+assert.equal(expandFractionDigits(255, 16, 16), "F;F", "letter glyphs on both sides of the semicolon");
+assert.equal(expandFractionDigits(1, 40, 20), "0;0A", "a letter glyph after a zero glyph");
+assert.equal(expandFractionDigits(121, 11, 11), "10", "a stem needing two glyphs");
+assert.equal(expandFractionDigits(100, 3, 10), "33;[3]", "a two glyph stem beside a cycle");
+assert.equal(expandFractionDigits(1, 64, 4), "0;001", "two zero glyphs before the tail settles");
+assert.equal(expandFractionDigits(1, 11, 10), "0;[09]", "a cycle opening on a zero glyph");
+
+assert.throws(() => expandFractionDigits(1, 6, 2), Error, "a base under three");
+assert.throws(() => expandFractionDigits(1, 6, 21), Error, "a base over twenty");
+assert.throws(() => expandFractionDigits(1, 0, 10), Error, "a denominator of zero");
+assert.throws(() => expandFractionDigits(1, -3, 10), Error, "a negative denominator");
+assert.throws(() => expandFractionDigits(1.5, 6, 10), Error, "a fractional numerator");
+assert.throws(() => expandFractionDigits(1, 6, 10.5), Error, "a fractional base");
+assert.throws(() => expandFractionDigits(1000001, 6, 10), Error, "a numerator past the ceiling");
+assert.throws(() => expandFractionDigits(1, 1000001, 10), Error, "a denominator past the ceiling");
+assert.throws(() => expandFractionDigits("1", 6, 10), Error, "a numerator that is text");
+console.log("ok");

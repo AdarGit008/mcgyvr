@@ -1,0 +1,30 @@
+import assert from "node:assert/strict";
+import { canonicalTagQuery } from "./solution.ts";
+
+assert.equal(canonicalTagQuery(""), "", "an empty query stays empty");
+assert.equal(canonicalTagQuery("a:1"), "a:1", "a single item passes through");
+assert.equal(canonicalTagQuery("b:2;a:1"), "a:1;b:2", "items are put in key order");
+assert.equal(canonicalTagQuery("a:1;a:1"), "a:1", "an exact repeat collapses");
+assert.equal(canonicalTagQuery("a:2;a:1"), "a:1;a:2", "a shared key orders by value");
+assert.equal(canonicalTagQuery("m:9;m:9;m:8;n:1"), "m:8;m:9;n:1", "repeats collapse while the rest reorder");
+assert.equal(canonicalTagQuery("a:1;A:2"), "A:2;a:1", "upper case sorts ahead of lower case");
+assert.equal(canonicalTagQuery("a:"), "a:", "an empty value is allowed");
+assert.equal(canonicalTagQuery("z~3Ax:1"), "z~3Ax:1", "a colon inside a key survives the round trip");
+assert.equal(canonicalTagQuery("a:~3B"), "a:~3B", "a semicolon inside a value survives the round trip");
+assert.equal(canonicalTagQuery("~7E:1"), "~7E:1", "a tilde inside a key survives the round trip");
+assert.equal(canonicalTagQuery("a~20b:1;ab:2"), "a b:1;ab:2", "a space needs no escape once decoded");
+assert.equal(canonicalTagQuery("a~3Ax:1;ab:2"), "a~3Ax:1;ab:2", "ordering follows the decoded key, not the written one");
+assert.equal(canonicalTagQuery("tag:~7E~3A~3B"), "tag:~7E~3A~3B", "all three special glyphs in one value");
+
+assert.throws(() => canonicalTagQuery("a1"), Error, "an item with no colon");
+assert.throws(() => canonicalTagQuery("a:1;"), Error, "a trailing separator leaves an empty item");
+assert.throws(() => canonicalTagQuery(":1"), Error, "an empty key");
+assert.throws(() => canonicalTagQuery("a:1:2"), Error, "a second bare colon");
+assert.throws(() => canonicalTagQuery("a:~3"), Error, "an escape cut short");
+assert.throws(() => canonicalTagQuery("a:~zz"), Error, "an escape that is not hex");
+assert.throws(() => canonicalTagQuery("a:~3a"), Error, "a lower-case hex escape");
+assert.throws(() => canonicalTagQuery("a:~7F"), Error, "an escape above the printable band");
+assert.throws(() => canonicalTagQuery("a:~1F"), Error, "an escape below the printable band");
+assert.throws(() => canonicalTagQuery("a:\t1"), Error, "a raw glyph outside the printable band");
+assert.throws(() => canonicalTagQuery(5), Error, "a query that is not text");
+console.log("ok");

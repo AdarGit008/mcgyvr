@@ -1,0 +1,83 @@
+id: p269-read-crossing-states
+task_type: bug_fix
+task: >-
+  read_crossing_states reports what a bank of pedestrian crossings is showing
+  at each of several moments. The controller repeats a period of whole
+  seconds. Every crossing is a record carrying exactly a name, a start, a
+  walk and a clear, and its start says how many seconds AFTER the
+  controller's own second 0 that crossing's own sequence begins — so at
+  controller second t the crossing stands at its own local second
+  (t minus start), folded into the period. Local seconds 0 up to walk minus
+  one show the letter W, the clear seconds that follow show C, and the rest
+  of the period shows S. For every moment asked about, return one text
+  carrying one letter per crossing in the order the crossings were declared.
+  The present code folds the wrong way round — it adds the start to the
+  moment instead of taking it away — so every crossing whose start is not
+  zero is reported showing the wrong letter. Repair the fold, minding that
+  the corrected subtraction can go below zero before it is folded, and leave
+  every refusal as it stands: a period that is not a whole number in 1
+  through 86400, an empty or non-list crossing list, a crossing that is not
+  a record carrying exactly those four keys, a name that is not non-empty
+  text, a start outside 0 through period minus one, a walk under one second
+  or a clear under none, a walk and clear together outrunning the period, a
+  repeated crossing name, a moments argument that is not a list, and a
+  moment that is not a whole number in 0 through 1000000 are all errors.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  def whole(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def read_crossing_states(period: int, crossings: list, moments: list) -> list:
+      if not whole(period) or period < 1 or period > 86400:
+          raise ValueError("period must be a whole number of seconds in 1..86400")
+      if not isinstance(crossings, list) or not crossings:
+          raise ValueError("crossings must be a non-empty list")
+      seen = set()
+      for crossing in crossings:
+          if not isinstance(crossing, dict):
+              raise ValueError("each crossing must be a record")
+          if sorted(crossing) != ["clear", "name", "start", "walk"]:
+              raise ValueError("each crossing carries exactly name, start, walk, clear")
+          if not isinstance(crossing["name"], str) or crossing["name"] == "":
+              raise ValueError("a crossing name must be non-empty text")
+          if (
+              not whole(crossing["start"])
+              or not whole(crossing["walk"])
+              or not whole(crossing["clear"])
+          ):
+              raise ValueError("start, walk and clear must be whole numbers")
+          if crossing["start"] < 0 or crossing["start"] >= period:
+              raise ValueError("start must lie in 0..period-1")
+          if crossing["walk"] < 1 or crossing["clear"] < 0:
+              raise ValueError("walk must be at least one second and clear at least none")
+          if crossing["walk"] + crossing["clear"] > period:
+              raise ValueError("walk plus clear must not outrun the period")
+          if crossing["name"] in seen:
+              raise ValueError("crossing names must not repeat")
+          seen.add(crossing["name"])
+      if not isinstance(moments, list):
+          raise ValueError("moments must be a list")
+      out = []
+      for moment in moments:
+          if not whole(moment) or moment < 0 or moment > 1000000:
+              raise ValueError("each moment must be a whole number in 0..1000000")
+          line = ""
+          for crossing in crossings:
+              local = (moment + crossing["start"]) % period
+              if local < crossing["walk"]:
+                  line += "W"
+              elif local < crossing["walk"] + crossing["clear"]:
+                  line += "C"
+              else:
+                  line += "S"
+          out.append(line)
+      return out
+interface: "def read_crossing_states(period: int, crossings: list, moments: list) -> list"
+stop_conditions:
+  - Whether the fold may be written with a modulus helper or inline is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

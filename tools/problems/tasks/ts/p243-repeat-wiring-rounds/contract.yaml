@@ -1,0 +1,68 @@
+id: p243-repeat-wiring-rounds
+task_type: bug_fix
+task: >-
+  applyCyclePower replays a patch panel. The panel is a list of whole
+  numbers; the number parked at slot i says which slot the plug in slot i is
+  moved to when the panel is replayed once. Every slot from zero up to one
+  below the list length shows up exactly once. Replaying the panel a stated
+  number of rounds gives another panel of the same shape, and the code
+  computes it the quick way: it gathers the slots into rings by following
+  the moves round until they come back, then slides each ring forward by the
+  number of rounds. The slide is wrong. It reduces the round count against
+  the number of slots on the whole panel instead of against the number of
+  slots on the ring being slid, so any panel whose rings are not all of one
+  length lands its plugs somewhere else entirely once the round count
+  reaches the panel size. Reduce each ring's slide against that ring's own
+  length. Leave the ring gathering, the zero-round case and the rejections
+  alone: a panel that is not a list, an empty panel, an entry that is not a
+  whole number, an entry naming a slot the panel does not have, a slot named
+  twice, and a round count that is not a whole number of zero or more all
+  keep raising an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function applyCyclePower(panel: number[], rounds: number): number[] {
+    if (!Array.isArray(panel) || panel.length === 0) {
+      throw new Error("the panel must be a non-empty list");
+    }
+    if (typeof rounds !== "number" || !Number.isInteger(rounds) || rounds < 0) {
+      throw new Error("rounds must be a whole number of zero or more");
+    }
+    const size = panel.length;
+    const named = new Set<number>();
+    for (const entry of panel) {
+      if (typeof entry !== "number" || !Number.isInteger(entry)) {
+        throw new Error("every entry must be a whole number");
+      }
+      if (entry < 0 || entry >= size) {
+        throw new Error("entry names a slot the panel does not have");
+      }
+      if (named.has(entry)) {
+        throw new Error("a slot is named twice");
+      }
+      named.add(entry);
+    }
+    const slide = rounds % size;
+    const settled = new Array(size).fill(false);
+    const moved = new Array(size).fill(0);
+    for (let start = 0; start < size; start++) {
+      if (settled[start]) continue;
+      const ring: number[] = [];
+      let at = start;
+      while (!settled[at]) {
+        settled[at] = true;
+        ring.push(at);
+        at = panel[at];
+      }
+      for (let i = 0; i < ring.length; i++) {
+        moved[ring[i]] = ring[(i + slide) % ring.length];
+      }
+    }
+    return moved;
+  }
+interface: "export function applyCyclePower(panel: number[], rounds: number): number[]"
+stop_conditions:
+  - Whether a negative round count should mean replaying the panel backwards is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

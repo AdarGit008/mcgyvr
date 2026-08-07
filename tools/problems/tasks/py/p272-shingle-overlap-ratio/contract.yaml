@@ -1,0 +1,23 @@
+id: p272-shingle-overlap-ratio
+task_type: function_implementation
+task: >-
+  Implement shingle_overlap_ratio. Two passages arrive as text, together with a
+  window width. Break each passage into tokens on runs of spaces, discarding
+  the empties, then collect the distinct windows of that many consecutive
+  tokens, every window written back as its own tokens joined by one space.
+  Score the pair as the count of windows both passages hold over the count of
+  windows either passage holds, and hand that score back as an exact reduced
+  fraction: a two-slot list of numerator then denominator, lowest terms,
+  denominator positive, and [0, 1] whenever nothing at all is held in common.
+  A window repeated inside one passage still counts once there. Reject with an
+  error a width that is not a positive whole number, a passage that is not a
+  string, a passage carrying no tokens whatever, and a passage carrying fewer
+  tokens than the width.
+target: solution.py
+interface: "def shingle_overlap_ratio(left: str, right: str, width: int) -> list[int]"
+stop_conditions:
+  - Whether any character besides the space separates tokens is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

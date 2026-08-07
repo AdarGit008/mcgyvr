@@ -1,0 +1,40 @@
+id: p248-skein-hand-order
+task_type: function_implementation
+task: >-
+  Implement orderSkeinHands. Skein is a card game of this invention and of
+  no other; take nothing from any game you already know. A card is written
+  as its pip, a number from 1 to 10 carrying no padding zero, followed at
+  once by its house letter — m for moss, r for rust, s for silt, v for
+  veil. A hand is a list of exactly five cards with no card written twice
+  inside it. The argument is a list of one or more hands. Grade every hand
+  by working down this list and taking the first grade that fits it:
+  "monolith" when the hand shows exactly two different pips; "prism" when
+  it shows five different pips and all four houses; "chain" when it shows
+  five different pips and its biggest pip stands exactly four above its
+  smallest; "echo" when it shows exactly three different pips; "twin" when
+  it shows exactly four different pips; and "drift" when none of those
+  fit. Those grades stand in that same order of strength, monolith
+  strongest and drift weakest. Two hands sharing a grade are separated
+  this way. Write each hand's ladder: its different pips, ordered by how
+  many cards carry the pip falling, and among pips carried by equally many
+  cards by the pip itself falling. Two ladders of one grade are always of
+  one length; walk them side by side and at the first place they differ the
+  bigger pip wins. Should the ladders match all the way, weigh the houses —
+  moss 4, rust 3, silt 2, veil 1 — write each hand's five weights falling
+  and walk those side by side, the bigger weight winning at the first place
+  they differ. Should those match too, the hands are level. Return a
+  mapping under two keys: "grades", the grade of each hand in the order the
+  hands arrived; and "order", the positions of the hands counted from zero,
+  strongest first, hands that are level keeping the order they arrived in.
+  Raise an error when the argument is not a list, when it holds no hands,
+  when a hand is not a list of exactly five things, when a card is not a
+  string of a pip from 1 to 10 followed by one house letter, and when a
+  hand writes the same card twice.
+target: solution.ts
+interface: "export function orderSkeinHands(hands: any[]): any"
+stop_conditions:
+  - Whether two hands may draw on the same card is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

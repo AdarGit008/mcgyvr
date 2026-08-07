@@ -1,0 +1,27 @@
+id: p276-build-oncall-rota
+task_type: function_implementation
+task: >-
+  Implement build_on_call_rota. The roster names the people who may stand a
+  shift, written in the order that settles ties. blocked carries one entry per
+  shift, the shifts in running order, and each entry lists the people who
+  cannot stand that particular shift; an entry may be empty. Fill the shifts
+  one after another. For a given shift the people who may take it are those
+  the shift does not block, who did not stand the shift immediately before it,
+  and whose tally of shifts so far is still short of the ceiling — the shift
+  count divided by the roster size, rounded upward. Among those, take whoever
+  has stood the fewest shifts so far, and upon a tie whoever sits earliest in
+  the roster. Should some shift admit nobody whatever, the rota is impossible:
+  hand back an empty list and stop there. Otherwise hand back the name
+  standing each shift, in shift order. Reject with an error a roster that is
+  empty, holds a repeat, or holds a name that is not a non-empty string; a
+  shift list that is empty or is not a list; an entry that is not a list; a
+  blocked name absent from the roster; and one name blocked twice inside a
+  single entry.
+target: solution.py
+interface: "def build_on_call_rota(roster: list[str], blocked: list[list[str]]) -> list[str]"
+stop_conditions:
+  - Whether a rota should avoid repeating the very first name at the very last shift is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

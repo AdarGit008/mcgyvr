@@ -1,0 +1,81 @@
+id: p249-kettle-hand-names
+task_type: bug_fix
+task: >-
+  name_kettle_hands names hands in Kettle, a made-up game whose rules are only
+  these. A card is written as its flue letter — g for gale, h for hush, j
+  for jade, k for kiln — followed at once by a heat from 1 to 8. A hand is a
+  list of exactly four cards, none of them written twice. The argument is a
+  list of one or more hands. Working down this list, the first line that
+  fits a hand names it: "kiln-run" when the four heats are four different
+  heats running one after the next, that is the biggest heat exactly three
+  above the smallest with no heat repeated, and the four flues are all
+  different; "double-flue" when just two flues show up and each of them
+  covers two of the cards; "banked" when the four heats added together
+  divide evenly by seven; "draught" when the biggest heat stands six or
+  more above the smallest; and "cold" when nothing above fits. The kiln-run
+  line is checked wrong. It asks only that the biggest heat stand three
+  above the smallest and never that the four heats differ, so a hand like
+  gale 2, hush 2, jade 5, kiln 5 is called a kiln-run when it is really a
+  banked hand. Add the missing demand that no heat is repeated. Change
+  nothing else: the order the lines are checked in, the "names" and
+  "totals" keys of the returned mapping, totals holding each hand's four
+  heats added together in the order the hands arrived, and the errors
+  raised for an argument that is not a list, a list holding no hands, a
+  hand that is not a list of exactly four things, a card that is not a
+  string of one flue letter and one heat from 1 to 8, and a card written
+  twice inside a hand. Return the complete fixed file.
+target: solution.py
+target_content: |
+  import re
+
+  CARD = re.compile(r"([ghjk])([1-8])")
+
+
+  def name_kettle_hands(hands: list) -> dict:
+      if not isinstance(hands, list) or not hands:
+          raise ValueError("the argument must be a list holding at least one hand")
+      names = []
+      totals = []
+      for hand in hands:
+          if not isinstance(hand, list) or len(hand) != 4:
+              raise ValueError("a hand must be a list of exactly four cards")
+          heats = []
+          flues = []
+          written = set()
+          for card in hand:
+              match = CARD.fullmatch(card) if isinstance(card, str) else None
+              if match is None:
+                  raise ValueError("a card must be one flue letter and one heat from 1 to 8")
+              if card in written:
+                  raise ValueError("a card is written twice inside a hand")
+              written.add(card)
+              flues.append(match.group(1))
+              heats.append(int(match.group(2)))
+          total = sum(heats)
+          spread = max(heats) - min(heats)
+          flue_count = {}
+          for flue in flues:
+              flue_count[flue] = flue_count.get(flue, 0) + 1
+          two_each = len(flue_count) == 2 and all(
+              count == 2 for count in flue_count.values()
+          )
+          if spread == 3 and len(flue_count) == 4:
+              name = "kiln-run"
+          elif two_each:
+              name = "double-flue"
+          elif total % 7 == 0:
+              name = "banked"
+          elif spread >= 6:
+              name = "draught"
+          else:
+              name = "cold"
+          names.append(name)
+          totals.append(total)
+      return {"names": names, "totals": totals}
+interface: "def name_kettle_hands(hands: list) -> dict"
+stop_conditions:
+  - Whether two hands in one call may share a card is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

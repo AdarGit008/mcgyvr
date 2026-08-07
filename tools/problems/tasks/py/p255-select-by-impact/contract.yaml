@@ -1,0 +1,28 @@
+id: p255-select-by-impact
+task_type: function_implementation
+task: |
+  Implement select_by_impact, which decides which suites a commit forces to run.
+  The first argument is the module graph: a table whose keys are every module
+  that exists and whose values list the modules each one imports directly. The
+  second is a table of suite names to the modules that suite drives directly.
+  The third lists the modules the commit edited. A module counts as disturbed
+  if it was edited, or if any module it imports is disturbed — disturbance
+  therefore climbs from an edited module to its importers, to their importers,
+  and so on, and the graph may hold import cycles which must not stall the
+  walk. A suite runs when any module it drives is disturbed. One override sits
+  on top: when strictly more than half of all suites would run, the whole set
+  is worth running unselected, so return the single-element list ["ALL"].
+  Otherwise return the running suites' names in ascending order. Editing
+  nothing runs nothing. Reject an import naming a module the graph does not
+  declare, a suite driving a module the graph does not declare, an edited name
+  the graph does not declare, a module that imports itself, an import list that
+  names the same module twice, a suite name that is empty, and any of the three
+  arguments given in the wrong shape.
+target: solution.py
+interface: "def select_by_impact(imports: dict, suites: dict, edited: list[str]) -> list[str]"
+stop_conditions:
+  - Whether a suite driving no modules at all is legal is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

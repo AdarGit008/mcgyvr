@@ -1,0 +1,50 @@
+id: p277-spread-night-duty
+task_type: bug_fix
+task: >-
+  spread_night_duty divides a run of nights among a crew. weights gives one
+  number per night in calendar order — 1 for a quiet night, 2 for a punishing
+  one — and away gives, over those same nights, whoever is off duty. Anyone
+  who works a night must then rest: they are barred from the two nights
+  following it. Pick, among the crew neither away nor resting, whoever carries
+  the lightest load so far, a load being the summed weights of the nights that
+  person has already worked; settle a tie by taking the name sorting earliest.
+  Give each night its chosen name; give a night nobody can work the mark ?
+  instead, which lays no rest upon anybody, and carry straight on to the next
+  night. The present code weighs a load by nights worked rather than by summed
+  weight, settles ties by position in the crew list instead of by name, and
+  rests a worker for one night only instead of two. Mend those three and add
+  the guards it lacks: throw an error when the crew is empty, repeats a name,
+  holds a name that is not a non-empty string, or holds the mark ? itself;
+  when weights is empty or holds anything other than 1 or 2; when away is not
+  the same length as weights; when an away entry is not a list; and when an
+  away entry names somebody outside the crew. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def spread_night_duty(
+      crew: list[str], weights: list[int], away: list[list[str]]
+  ) -> list[str]:
+      stood = {name: 0 for name in crew}
+      nights: list[str] = []
+      previous = ""
+      for night in range(len(weights)):
+          chosen = ""
+          for name in crew:
+              if name in away[night] or name == previous:
+                  continue
+              if chosen == "" or stood[name] < stood[chosen]:
+                  chosen = name
+          if chosen == "":
+              nights.append("?")
+              previous = ""
+              continue
+          stood[chosen] += 1
+          nights.append(chosen)
+          previous = chosen
+      return nights
+interface: "def spread_night_duty(crew: list[str], weights: list[int], away: list[list[str]]) -> list[str]"
+stop_conditions:
+  - Whether a night marked ? should be reported anywhere else is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

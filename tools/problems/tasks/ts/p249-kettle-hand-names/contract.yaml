@@ -1,0 +1,80 @@
+id: p249-kettle-hand-names
+task_type: bug_fix
+task: >-
+  nameKettleHands names hands in Kettle, a made-up game whose rules are only
+  these. A card is written as its flue letter — g for gale, h for hush, j
+  for jade, k for kiln — followed at once by a heat from 1 to 8. A hand is a
+  list of exactly four cards, none of them written twice. The argument is a
+  list of one or more hands. Working down this list, the first line that
+  fits a hand names it: "kiln-run" when the four heats are four different
+  heats running one after the next, that is the biggest heat exactly three
+  above the smallest with no heat repeated, and the four flues are all
+  different; "double-flue" when just two flues show up and each of them
+  covers two of the cards; "banked" when the four heats added together
+  divide evenly by seven; "draught" when the biggest heat stands six or
+  more above the smallest; and "cold" when nothing above fits. The kiln-run
+  line is checked wrong. It asks only that the biggest heat stand three
+  above the smallest and never that the four heats differ, so a hand like
+  gale 2, hush 2, jade 5, kiln 5 is called a kiln-run when it is really a
+  banked hand. Add the missing demand that no heat is repeated. Change
+  nothing else: the order the lines are checked in, the "names" and
+  "totals" keys of the returned mapping, totals holding each hand's four
+  heats added together in the order the hands arrived, and the errors
+  raised for an argument that is not a list, a list holding no hands, a
+  hand that is not a list of exactly four things, a card that is not a
+  string of one flue letter and one heat from 1 to 8, and a card written
+  twice inside a hand. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function nameKettleHands(hands: any[]): any {
+    if (!Array.isArray(hands) || hands.length === 0) {
+      throw new Error("the argument must be a list holding at least one hand");
+    }
+    const names: string[] = [];
+    const totals: number[] = [];
+    for (const hand of hands) {
+      if (!Array.isArray(hand) || hand.length !== 4) {
+        throw new Error("a hand must be a list of exactly four cards");
+      }
+      const heats: number[] = [];
+      const flues: string[] = [];
+      const written = new Set<string>();
+      for (const card of hand) {
+        if (typeof card !== "string" || !/^[ghjk][1-8]$/.test(card)) {
+          throw new Error("a card must be one flue letter and one heat from 1 to 8");
+        }
+        if (written.has(card)) {
+          throw new Error("a card is written twice inside a hand");
+        }
+        written.add(card);
+        flues.push(card.slice(0, 1));
+        heats.push(Number(card.slice(1)));
+      }
+      const total = heats.reduce((sum, heat) => sum + heat, 0);
+      const spread = Math.max(...heats) - Math.min(...heats);
+      const flueCount = new Map<string, number>();
+      for (const flue of flues) flueCount.set(flue, (flueCount.get(flue) ?? 0) + 1);
+      const twoEach =
+        flueCount.size === 2 && [...flueCount.values()].every((count) => count === 2);
+      let name = "cold";
+      if (spread === 3 && flueCount.size === 4) {
+        name = "kiln-run";
+      } else if (twoEach) {
+        name = "double-flue";
+      } else if (total % 7 === 0) {
+        name = "banked";
+      } else if (spread >= 6) {
+        name = "draught";
+      }
+      names.push(name);
+      totals.push(total);
+    }
+    return { names, totals };
+  }
+interface: "export function nameKettleHands(hands: any[]): any"
+stop_conditions:
+  - Whether two hands in one call may share a card is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

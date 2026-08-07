@@ -1,0 +1,29 @@
+id: p242-cycle-shape-report
+task_type: function_implementation
+task: >-
+  Implement cycleShapeReport. The argument is a relay chart written as a
+  list of whole numbers: the entry sitting at seat i names the seat whose
+  occupant i hands its baton to, seats counted from zero. A well-formed
+  chart names every seat from zero up to one below its length exactly
+  once. Trace the chart into loops: start at the lowest seat not yet
+  traced, walk to the seat it hands to, and keep walking until the walk
+  arrives back where it started. Return a mapping under four keys. Under
+  "loops" put the traced loops, each written as the seats in the order the
+  walk visited them, a seat handing to itself being a loop holding that one
+  seat; the loops themselves come in rising order of the seat each walk
+  started from. Under "widths" put how many seats each loop holds, biggest
+  first. Under "repeat" put the fewest number of times the whole chart must
+  be replayed before every baton is back where it began, which is the least
+  common multiple of the loop widths. Under "swing" put the word "even"
+  when the seat count minus the loop count is an even number and the word
+  "odd" when it is not. Raise an error when the argument is not a list,
+  when it holds nothing, when an entry is not a whole number, when an entry
+  names a seat outside the chart, and when two entries name the same seat.
+target: solution.ts
+interface: "export function cycleShapeReport(chart: number[]): any"
+stop_conditions:
+  - Whether a chart longer than a few thousand seats must be traced without recursion is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,26 @@
+id: p267-write-senary-tail
+task_type: function_implementation
+task: >-
+  Implement writeSenaryTail. A Loomis gauge divides every span into six
+  again and again, so a reading below one is spelled out as a run of marks
+  drawn from 0 1 2 3 4 5, each mark being a sixth of what the mark before it
+  was worth: a half reads "3", a quarter reads "13", and one thirty-sixth
+  reads "01". Given an upper reading and a lower reading standing for the
+  quotient of the two, spell the run out. Where the run comes to rest, print
+  just the marks. Where it never comes to rest, fence the repeating stretch
+  between two vertical bars, opening the fence at the earliest mark that can
+  begin it — one fifth reads "|1|", seven tenths reads "4|1|" and one
+  seventh reads "|05|". An upper reading of nothing prints as the single
+  mark "0". Every step is plain whole-number division and remainder; no
+  floating-point may take part. Reject with an error a reading that is not a
+  whole number, a lower reading outside 1 through 10000, an upper reading
+  below nothing, and an upper reading that is not smaller than the lower
+  one.
+target: solution.ts
+interface: "export function writeSenaryTail(numerator: number, denominator: number): string"
+stop_conditions:
+  - How long a fenced stretch may grow before the caller should worry is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,30 @@
+id: p260-cost-basis-report
+task_type: function_implementation
+task: |
+  Implement costBasisReport, which costs one stock line two ways at once over a
+  single stream of warehouse events. The argument is a list of rows: a receipt
+  is ["buy", units, unitCents] and a despatch is ["sell", units], with units a
+  whole number above zero and unitCents a whole number of cents at or above
+  zero. Under first-in-first-out, each receipt lays down a layer of units at
+  its own unit price and each despatch eats the oldest layers first, charging
+  out each unit at the price of the layer it came from. Under weighted average
+  the goods are one pool carrying a total unit count and a total cost, and a
+  despatch of q units out of a pool of u units carrying c cents charges out
+  c * q / u cents with any fraction dropped, leaving the pool that much
+  cheaper and q units lighter. Everything is whole cents throughout and the two
+  methods run side by side on the same events. Return a record with fifoSold
+  and averageSold, the cents charged out under each method; unitsLeft, the
+  units still in stock; and fifoValue and averageValue, the cents those
+  remaining units are still carried at under each method. Reject a despatch
+  larger than the stock on hand, a row whose first entry is neither "buy" nor
+  "sell", a receipt row that is not three entries, a despatch row that is not
+  two, units that are not whole or not above zero, a unit price that is not
+  whole or is below zero, and an argument that is not a list.
+target: solution.ts
+interface: "export function costBasisReport(events: unknown[][]): { fifoSold: number; averageSold: number; unitsLeft: number; fifoValue: number; averageValue: number }"
+stop_conditions:
+  - Whether a despatch may be reversed by a later negative receipt is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,29 @@
+id: p258-match-statement-rows
+task_type: function_implementation
+task: |
+  Implement matchStatementRows, which pairs a cash book against a bank
+  statement. Both arguments are lists of rows carrying ref (the row's own
+  label), day (a whole-numbered day counter) and cents (a whole number of
+  cents, negative for money going out). A book row and a statement row may be
+  paired only when their cents agree exactly and their days sit no further
+  apart than the third argument, a tolerance in days. No row is ever paired
+  twice, and the pairing is settled row by row: walk the book rows by
+  ascending day, and where two share a day by ascending ref, and give each the
+  still-free statement row whose day sits closest to it, breaking a tie of
+  distance by the earlier day and then by the smaller ref. A book row with no
+  eligible partner is simply left over. Return a record whose pairs holds
+  [book ref, statement ref] entries in the order the book rows were walked,
+  whose bookOnly holds the unpaired book refs ascending, and whose bankOnly
+  holds the unpaired statement refs ascending. Reject a ref repeated inside
+  either list, a ref that is not a non-empty string, a row missing any of the
+  three fields, a day or cents that is not a whole number, cents of zero, a
+  tolerance that is negative or not a whole number, and arguments that are not
+  two lists and a number.
+target: solution.ts
+interface: "export function matchStatementRows(book: Array<Record<string, unknown>>, bank: Array<Record<string, unknown>>, tolerance: number): { pairs: string[][]; bookOnly: string[]; bankOnly: string[] }"
+stop_conditions:
+  - Whether rows may carry fields beyond ref, day and cents is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

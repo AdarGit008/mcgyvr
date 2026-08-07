@@ -1,0 +1,27 @@
+id: p245-strip-word-read
+task_type: function_implementation
+task: >-
+  Implement decodeBitRun. The first argument is a codebook, a mapping whose
+  keys are words — non-empty strings of lowercase letters a to z — and
+  whose values are marks, non-empty strings written with nothing but the
+  characters 0 and 1. The second argument is a strip, a string written the
+  same way. Read the strip once from the left: at each stopping place take
+  the shortest run of characters ahead that is exactly some word's mark,
+  put that word down, and carry on from just past it. Return the list of
+  words put down, in the order they were read; an empty strip puts nothing
+  down and gives back an empty list. Raise an error when the codebook is
+  not a mapping, when it names no words, when a key is not a non-empty
+  string of lowercase letters, when a mark is not a non-empty string of
+  nothing but 0 and 1, when two words carry the very same mark, when one
+  word's mark is the opening stretch of another word's mark, when the strip
+  is not a string, when the strip holds a character that is neither 0 nor
+  1, and when the reading runs off the end of the strip with characters
+  left over that finish no word's mark.
+target: solution.ts
+interface: "export function decodeBitRun(codebook: any, strip: string): string[]"
+stop_conditions:
+  - Whether a codebook holding thousands of words must be read without rescanning it per stopping place is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

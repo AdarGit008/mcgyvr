@@ -1,0 +1,48 @@
+id: p273-grade-stretch-containment
+task_type: bug_fix
+task: >-
+  gradeContainment reports how much of a draft was already present in a
+  source, both handed over as lists of words. A stretch is span consecutive
+  words joined by one space. Build a tally of every stretch the source
+  produces, counting repeats separately, then walk the draft's stretches from
+  left to right: a stretch scores only while the tally still holds an unspent
+  copy of it, and scoring spends that copy, so a draft repeating a stretch
+  oftener than the source did stops scoring once the source's copies run out.
+  The answer is in thousandths — scoring stretches times one thousand, divided
+  by the draft's stretch count, truncated toward zero. The present code keeps
+  only the distinct stretches, so repeats over-score; it stops one stretch
+  early on both lists, so the closing stretch of each is never looked at; and
+  it divides before multiplying, so every answer collapses to nought or a flat
+  thousand. Repair those three and add the absent guards: throw an error when
+  span is not a positive whole number, when either argument is not a list,
+  when any element is not a non-empty string, and when the draft holds fewer
+  words than span. A source shorter than span merely yields no stretches and
+  grades nought. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function gradeContainment(
+    source: string[],
+    draft: string[],
+    span: number,
+  ): number {
+    const seen = new Set<string>();
+    for (let i = 0; i + span < source.length; i++) {
+      seen.add(source.slice(i, i + span).join(" "));
+    }
+    let matched = 0;
+    let total = 0;
+    for (let i = 0; i + span < draft.length; i++) {
+      total += 1;
+      if (seen.has(draft.slice(i, i + span).join(" "))) {
+        matched += 1;
+      }
+    }
+    return Math.floor(matched / total) * 1000;
+  }
+interface: "export function gradeContainment(source: string[], draft: string[], span: number): number"
+stop_conditions:
+  - Whether a word may itself contain a space is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,27 @@
+id: p262-meridian-week-label
+task_type: function_implementation
+task: >-
+  Implement meridian_week_label. The Meridian reckoning numbers weeks over a
+  proleptic Gregorian calendar without borrowing any built-in date facility.
+  A Meridian week opens on a Wednesday and closes on the Tuesday six days
+  later. Week 1 of Meridian year Y is whichever week holds the eighth of
+  January of calendar year Y; weeks then count upward 1, 2, 3 and so on
+  until the following year's week 1 opens, so a Meridian year holds either
+  52 or 53 weeks and its closing week may spill over into January. A
+  calendar date lying earlier than the opening of its own year's week 1
+  therefore belongs to the closing week of the preceding Meridian year.
+  Given a zero-padded "YYYY-MM-DD" date whose calendar year lies in 0002
+  through 9999, return its Meridian label written as four year digits, a
+  hyphen, the letter W, then the week number in two digits. A leap year is
+  one divisible by 4 apart from centuries, which leap only when divisible by
+  400. Reject with an error text that is not zero-padded "YYYY-MM-DD", a
+  calendar year outside the permitted span, a month outside 01 through 12, a
+  day the month does not hold, and an argument that is not text.
+target: solution.py
+interface: "def meridian_week_label(date: str) -> str"
+stop_conditions:
+  - Which internal weekday numbering the arithmetic uses is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

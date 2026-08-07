@@ -1,0 +1,30 @@
+import assert from "node:assert/strict";
+import { writeSenaryTail } from "./solution.ts";
+
+assert.equal(writeSenaryTail(0, 1), "0", "an empty reading is a single zero mark");
+assert.equal(writeSenaryTail(1, 2), "3", "a half is three sixths");
+assert.equal(writeSenaryTail(1, 3), "2", "a third is two sixths");
+assert.equal(writeSenaryTail(1, 4), "13", "a quarter needs two marks");
+assert.equal(writeSenaryTail(3, 4), "43", "three quarters");
+assert.equal(writeSenaryTail(5, 6), "5", "five sixths is the largest single mark");
+assert.equal(writeSenaryTail(1, 36), "01", "a leading zero mark before the last one");
+assert.equal(writeSenaryTail(35, 36), "55", "the highest reading below one at that spacing");
+assert.equal(writeSenaryTail(1, 8), "043", "three marks, none of them fenced");
+assert.equal(writeSenaryTail(1, 216), "001", "two zero marks then a one");
+assert.equal(writeSenaryTail(1, 5), "|1|", "a single mark repeating from the very start");
+assert.equal(writeSenaryTail(1, 7), "|05|", "a two mark run repeating from the start");
+assert.equal(writeSenaryTail(2, 7), "|14|", "the same spacing at a different reading");
+assert.equal(writeSenaryTail(7, 10), "4|1|", "one settled mark ahead of the fence");
+assert.equal(writeSenaryTail(1, 10), "0|3|", "a settled zero mark ahead of the fence");
+assert.equal(writeSenaryTail(1, 11), "|0313452421|", "a ten mark run");
+assert.equal(writeSenaryTail(13, 18), "42", "a reading that comes to rest quickly");
+
+assert.throws(() => writeSenaryTail(1, 0), Error, "a lower reading of zero");
+assert.throws(() => writeSenaryTail(1, 10001), Error, "a lower reading past the ceiling");
+assert.throws(() => writeSenaryTail(-1, 5), Error, "an upper reading below zero");
+assert.throws(() => writeSenaryTail(5, 5), Error, "an upper reading equal to the lower one");
+assert.throws(() => writeSenaryTail(7, 5), Error, "an upper reading above the lower one");
+assert.throws(() => writeSenaryTail(1.5, 5), Error, "a fractional upper reading");
+assert.throws(() => writeSenaryTail(1, 5.5), Error, "a fractional lower reading");
+assert.throws(() => writeSenaryTail("1", 5), Error, "an upper reading that is text");
+console.log("ok");

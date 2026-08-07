@@ -1,0 +1,32 @@
+id: p271-fold-halyard-query
+task_type: function_implementation
+task: >-
+  Implement foldHalyardQuery. A Halyard query strings parameters together
+  with ampersands. A parameter is either a bare name standing alone or a name
+  and a payload joined by an equals sign. Anywhere in a name or a payload, an
+  underscore followed by exactly two lower-case hex glyphs stands for the
+  glyph at that code, and only codes 21 through 7E may be named that way — a
+  space cannot appear at all, escaped or raw. Fold the query: unpick every
+  escape, lower-case each name (payloads keep whatever case they were
+  written in), gather the payloads belonging to one name into a single
+  parameter whose payloads are placed in rising glyph-code order with exact
+  repeats thrown away and written out joined by commas, and settle the
+  parameters so that every bare name comes first in rising order and every
+  name carrying payloads follows in rising order. Writing out re-escapes
+  exactly the four glyphs that would otherwise be read as structure —
+  ampersand as _26, comma as _2c, equals as _3d, underscore as _5f — and
+  joins the parameters with ampersands. Two spellings of one bare name become
+  one bare name. An empty query folds to the empty text, and a payload may be
+  empty. Reject with an error a name that is empty, a parameter carrying a
+  second bare equals sign, an underscore not followed by two lower-case hex
+  glyphs, an escape naming a code outside 21 through 7E, a raw glyph outside
+  that same band, a name that both stands alone and carries a payload, and an
+  argument that is not text.
+target: solution.ts
+interface: "export function foldHalyardQuery(text: string): string"
+stop_conditions:
+  - Whether a name is allowed to consist only of escapes is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
