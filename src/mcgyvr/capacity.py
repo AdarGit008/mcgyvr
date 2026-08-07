@@ -23,7 +23,10 @@ Four decisions shape it, and the first is the one the acceptance turns on:
   actually reached, and how long callers spent *waiting* for a slot. The last is
   the one an operator needs: a source whose wait time dominates its service time
   is a declared capacity that is throttling the batch, and nothing else in the
-  system would say so.
+  system would say so. :class:`Concurrency` reports the one figure a per-source
+  record structurally cannot: how many dispatches were in flight *across*
+  sources at once, which is the difference between a batch working two rigs
+  together and a batch draining them in series (#200).
 * **A nested acquisition of the same source raises rather than deadlocks.** At
   ``max_parallel: 1`` — the default :mod:`mcgyvr.initialize` writes — a job that
   dispatched to a source from inside a dispatch to that same source would block
@@ -171,6 +174,40 @@ class Usage:
         return self.peak >= self.limit
 
 
+@dataclass(frozen=True)
+class Concurrency:
+    """How many dispatches this process had in flight at once, across sources.
+
+    :class:`Usage` answers this per source and cannot answer it in total: its
+    ``peak`` is keyed by source, so a batch that ran one source three wide and
+    then another two wide reports 3 and 2 whether or not the two ever overlapped.
+    Those are different runs — one is a batch making progress on two rigs at
+    once, the other is a batch draining them in series — and until #200 nothing
+    in this module could tell them apart.
+
+    The question became worth asking when #185 made the bound host-wide. Before
+    it, "how many dispatches are in flight" was answerable by summing what one
+    process knew. Now the interesting figure is how much of the *declared total*
+    a batch actually used, and ``peak`` against :attr:`Capacity.total` is that
+    figure.
+
+    Per-process, for the same reason :class:`Usage` is: this explains one batch's
+    wall-clock. Another process's dispatches count against the same slot files
+    and are not counted here.
+    """
+
+    peak: int
+    """The most dispatches in flight at once, summed across every source."""
+
+    total: int
+    """The most that could ever be, if every source were saturated together."""
+
+    @property
+    def saturated(self) -> bool:
+        """Whether every slot of every source was in use at the same moment."""
+        return self.peak >= self.total
+
+
 class Capacity:
     """Per-source, host-wide slot files, and this process's record of their cost.
 
@@ -199,6 +236,11 @@ class Capacity:
         self._lock = threading.Lock()
         self._in_use = dict.fromkeys(self._limits, 0)
         self._peak = dict.fromkeys(self._limits, 0)
+        # Tracked alongside the per-source peaks rather than derived from them:
+        # a maximum of sums is not the sum of maxima, and it is the moment two
+        # sources were busy *together* that the per-source dict cannot hold.
+        self._in_flight = 0
+        self._in_flight_peak = 0
         self._acquisitions = dict.fromkeys(self._limits, 0)
         self._waited = dict.fromkeys(self._limits, 0.0)
         # Which sources *this* thread is currently holding. Thread-local rather
@@ -247,6 +289,18 @@ class Capacity:
                 )
                 for source, limit in self._limits.items()
             )
+
+    def concurrency(self) -> Concurrency:
+        """How much of the declared total this process ever had in flight at once.
+
+        Separate from :meth:`usage` rather than a field on it because it is not
+        a per-source fact and there is nowhere honest to put it in a per-source
+        record. Summing ``Usage.peak`` across sources would over-report: those
+        maxima can have occurred at different moments, and the whole point of
+        this number is the moment they coincided.
+        """
+        with self._lock:
+            return Concurrency(peak=self._in_flight_peak, total=self.total)
 
     @contextmanager
     def hold(
@@ -308,11 +362,14 @@ class Capacity:
             self._waited[source] += waited
             self._in_use[source] += 1
             self._peak[source] = max(self._peak[source], self._in_use[source])
+            self._in_flight += 1
+            self._in_flight_peak = max(self._in_flight_peak, self._in_flight)
         try:
             yield
         finally:
             with self._lock:
                 self._in_use[source] -= 1
+                self._in_flight -= 1
             held.discard(source)
             os.close(fd)  # closing the descriptor is what releases the flock
 

@@ -84,6 +84,12 @@ LOCAL = endpoint("local", 3)
 FAST = endpoint("fast", 2)
 SPARE = endpoint("spare", 1)
 
+# A deadlock guard for `rendezvous`, deliberately far longer than any batch here
+# needs. Nothing asserts on it: if the executor overlaps dispatches the barrier
+# trips as soon as the last party arrives, so a generous bound costs a slow test
+# nothing and only decides how long a genuinely broken one takes to say so.
+BARRIER_TIMEOUT_S = 30.0
+
 
 class Observer:
     """An independent record of how many jobs were inside a source at once.
@@ -99,16 +105,55 @@ class Observer:
         self.inside: dict[str, int] = {}
         self.peak: dict[str, int] = {}
         self.order: list[str] = []
+        # The same two figures across every source, kept independently of the
+        # per-source dict for the reason `Concurrency` exists: a maximum of sums
+        # is not the sum of maxima, so `max(peak.values())` and `sum(...)` both
+        # answer a different question than "were two sources ever busy at once".
+        self.inside_total = 0
+        self.peak_total = 0
 
     def enter(self, source: str) -> None:
         with self._lock:
             self.inside[source] = self.inside.get(source, 0) + 1
             self.peak[source] = max(self.peak.get(source, 0), self.inside[source])
+            self.inside_total += 1
+            self.peak_total = max(self.peak_total, self.inside_total)
             self.order.append(source)
 
     def leave(self, source: str) -> None:
         with self._lock:
             self.inside[source] -= 1
+            self.inside_total -= 1
+
+
+def rendezvous(
+    observer: Observer, endpoint: Endpoint, barrier: threading.Barrier
+) -> Any:
+    """A job that holds its slot until ``barrier`` parties are holding theirs.
+
+    The load-immune way to assert concurrency. A job that sleeps and a test that
+    then reads a peak is asking several threads to coincide inside a fixed
+    window, which is a race the machine's load decides — #200 is what that costs.
+    Waiting on a barrier inverts it: the job blocks until the required number of
+    dispatches really are in flight together, however long that takes, so a busy
+    box makes the test slower and never wrong.
+
+    If the executor cannot put that many in flight — the property under test
+    failing — no party arrives, every waiter raises ``BrokenBarrierError`` at the
+    timeout, and the batch reports failures rather than hanging. The timeout is
+    a deadlock guard, not a measurement: nothing asserts on how long it took.
+    """
+
+    def job(_capacity: Capacity) -> str:
+        with _capacity.hold(endpoint):
+            observer.enter(endpoint.source)
+            try:
+                barrier.wait(timeout=BARRIER_TIMEOUT_S)
+            finally:
+                observer.leave(endpoint.source)
+        return endpoint.source
+
+    return job
 
 
 def working(observer: Observer, *endpoints: Endpoint, seconds: float = 0.02) -> Any:
@@ -138,22 +183,35 @@ def test_no_source_ever_exceeds_its_declared_capacity(capsys: Any) -> None:
     outcomes = run_batch(jobs, capacity, workers=20)
 
     assert all(o.ok for o in outcomes)
+    # The safety property, and the only one that has to hold on every run: a
+    # sleeping job is enough to test it, because exceeding a bound is something
+    # the code would have to actively do and no amount of load can cause.
     assert observer.peak["local"] <= 3
     assert observer.peak["fast"] <= 2
     assert observer.peak["spare"] <= 1
-    # Non-vacuous: each ceiling was actually reached, so "never exceeded" is a
-    # bound that bit rather than a batch that was too small to test it.
-    assert observer.peak["local"] == 3
-    assert observer.peak["fast"] == 2
-    assert observer.peak["spare"] == 1
+    # Non-vacuity — that each ceiling was actually reached — is a *liveness*
+    # claim, which sampled peaks cannot carry on a loaded box (#200). It is
+    # asserted deterministically in the barrier tests below instead of hoped for
+    # here, so this test is about the bound and nothing else.
 
 
 def test_the_capacitys_own_record_agrees_with_what_was_observed() -> None:
-    """`usage()` is what an operator reads; it must not be a different story."""
+    """`usage()` is what an operator reads; it must not be a different story.
+
+    Six jobs through three slots, each holding until three are held at once. The
+    barrier is reusable, so the batch runs as two deterministic rounds of three:
+    `peak` is 3 because three genuinely coincided, and the second round could not
+    start until the first released, which is what makes `waited_seconds`
+    non-zero. Both were sampled from a sleep until #200 and flaked.
+    """
     capacity = Capacity({"local": 3})
     observer = Observer()
+    barrier = threading.Barrier(3)
 
-    run_batch([working(observer, LOCAL) for _ in range(6)], capacity, workers=6)
+    outcomes = run_batch(
+        [rendezvous(observer, LOCAL, barrier) for _ in range(6)], capacity, workers=6
+    )
+    assert all(o.ok for o in outcomes)
 
     (usage,) = capacity.usage()
     assert usage.source == "local"
@@ -163,6 +221,49 @@ def test_the_capacitys_own_record_agrees_with_what_was_observed() -> None:
     assert usage.saturated
     # Something waited: six jobs through three slots cannot all start at once.
     assert usage.waited_seconds > 0
+
+
+def test_the_cross_source_peak_agrees_with_what_was_observed() -> None:
+    """The same cross-check the per-source peak gets, for the figure #200 added.
+
+    ``concurrency()`` is the product's own report, and a test that asserted on
+    it alone would be asking the code under test to grade its own homework: a
+    bug in the accounting would be invisible, because the behaviour and the
+    report come from the same object. ``Observer`` counts the same thing from
+    outside, so the two are independent measurements of one fact.
+    """
+    capacity = Capacity({"local": 3, "fast": 2})
+    observer = Observer()
+    targets = [LOCAL] * 3 + [FAST] * 2
+    barrier = threading.Barrier(len(targets))
+
+    outcomes = run_batch([rendezvous(observer, t, barrier) for t in targets], capacity)
+
+    assert all(o.ok for o in outcomes)
+    reported = capacity.concurrency()
+    assert reported.peak == observer.peak_total == 5
+    assert reported.total == 5
+    assert reported.saturated
+
+
+def test_the_cross_source_peak_is_not_the_sum_of_the_per_source_peaks() -> None:
+    """Why it is tracked rather than derived: a maximum of sums is not a sum of maxima.
+
+    One source at a time, run to completion before the next begins. Each source
+    reaches its own limit, so summing the per-source peaks would report 5 — a
+    fully saturated batch — when at no instant was more than one dispatch in
+    flight. This is the reading `Usage` structurally cannot correct, and the
+    series-draining bug the mixed-batch test is guarding against.
+    """
+    capacity = Capacity({"local": 3, "fast": 2})
+    observer = Observer()
+
+    run_batch([working(observer, LOCAL, seconds=0.01)], capacity)
+    run_batch([working(observer, FAST, seconds=0.01)], capacity)
+
+    assert sum(u.peak for u in capacity.usage()) == 2
+    assert capacity.concurrency().peak == 1
+    assert not capacity.concurrency().saturated
 
 
 def test_a_source_that_never_filled_up_is_reported_unsaturated() -> None:
@@ -242,7 +343,7 @@ def test_a_dispatch_that_raises_still_gives_its_slot_back() -> None:
 # --- a mixed batch beats serial execution -----------------------------------
 
 
-def test_a_mixed_batch_finishes_sooner_than_the_same_work_serialized() -> None:
+def test_a_mixed_batch_runs_two_sources_at_once_rather_than_in_series() -> None:
     """The third acceptance bullet, measured on this module and not on a model.
 
     The jobs sleep rather than generate, so what this shows is that the executor
@@ -250,28 +351,42 @@ def test_a_mixed_batch_finishes_sooner_than_the_same_work_serialized() -> None:
     throughput claim about a backend: that is CON-01 (three models on one card,
     23.6 s against ~44 s serial) and CON-04, both measured on hardware.
 
-    Six jobs of 50 ms across two sources of capacity 3 and 2. Serial is 300 ms;
-    the concurrent floor is two rounds of `fast` against two of `local`, so
-    ~100 ms. The assertion leaves a wide margin because a loaded CI box is not a
-    quiet one, and a flaky timing test would be worse than none.
+    **This asserted a stopwatch until #200 and flaked.** It ran six 50 ms jobs
+    and required them to beat the 300 ms serial floor by 30%; on a loaded box it
+    came in at 232 ms — faster than serial, with the per-source peaks intact, so
+    the concurrency plainly happened — and failed for delivering 23% instead.
+    A ``sleep`` guarantees *at least* its duration, and a thread whose sleep has
+    elapsed still waits for a free core before it can release its slot, so the
+    wall clock stretches under load while the behaviour does not change.
+
+    The clock was there because the property this test is named for had no
+    instrument. ``peak`` is per source in both witnesses: a batch that drained
+    ``local`` three wide and only then started ``fast`` two wide satisfies both
+    per-source assertions and takes twice as long, and elapsed time was the only
+    thing that would have caught it. #200 gave that property a number in the
+    product and an independent one here, so the assertion is now on overlap
+    itself — which is immune to how busy the machine is, where timing it was not.
     """
     capacity = Capacity({"local": 3, "fast": 2})
     observer = Observer()
-    unit = 0.05
-    targets = [LOCAL] * 3 + [FAST] * 3
-    jobs = [working(observer, target, seconds=unit) for target in targets]
+    targets = [LOCAL] * 3 + [FAST] * 2
+    barrier = threading.Barrier(len(targets))
+    jobs = [rendezvous(observer, target, barrier) for target in targets]
 
-    started = time.monotonic()
     outcomes = run_batch(jobs, capacity)
-    elapsed = time.monotonic() - started
 
-    serial = unit * len(jobs)
+    # Every job returning means every one of them was inside its slot when the
+    # last party arrived. A batch that drained one source before starting the
+    # other could never trip the barrier, and these would be timeouts instead.
     assert all(o.ok for o in outcomes)
-    assert elapsed < serial * 0.7, (
-        f"{elapsed:.3f}s against a {serial:.3f}s serial floor"
-    )
     assert observer.peak["local"] == 3
     assert observer.peak["fast"] == 2
+
+    # The property the name claims, and the one the per-source peaks structurally
+    # cannot express: strictly more in flight than either source can supply on
+    # its own, so the two were busy together rather than in series.
+    assert observer.peak_total == 5
+    assert observer.peak_total > max(observer.peak.values())
 
 
 def test_capacity_one_serializes_and_that_is_visible() -> None:
