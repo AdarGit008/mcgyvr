@@ -1,0 +1,27 @@
+id: p286-drover-tour-count
+task_type: function_implementation
+task: >-
+  Implement countPieceTours, which counts the complete tours of an invented
+  board piece called the drover. The board has height rows and width columns,
+  and a square is written as the pair row then column, rows counted from 0
+  downward and columns from 0 rightward. From wherever it stands, a drover may
+  step one square along its row or one square along its column, or leap exactly
+  two squares diagonally in any of the four slanting directions; nothing
+  standing on the board obstructs a leap. blocked lists squares the drover may
+  never occupy. A tour begins on start and moves from square to square, never
+  standing twice on the same one, until it has stood on every unblocked square
+  exactly once; two tours differ whenever the order of squares differs. Return
+  how many tours the board admits, which is 0 when it admits none. Throw an
+  error when width or height is not an integer of at least 1; when the board
+  leaves more than 12 unblocked squares; when start is not a pair of integers
+  naming a square of the board, or names a blocked square; and when blocked is
+  not a list, holds an entry that is not a pair of integers naming a square of
+  the board, or names the same square twice.
+target: solution.ts
+interface: "export function countPieceTours(width: number, height: number, start: number[], blocked: number[][]): number"
+stop_conditions:
+  - Whether a tour may end anywhere in particular is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,28 @@
+id: p304-decode-grid-reference
+task_type: function_implementation
+task: >-
+  Implement decodeGridReference. The Harrow projection tiles the mapped world
+  with squares a hundred kilometres on a side, twenty across and twenty up, and
+  names each by two capitals drawn from ABCDEFGHJKLMNPQRSTUV — the alphabet
+  with I and O struck out so nobody misreads them as figures. The first capital
+  counts squares eastward from the western margin, the second counts squares
+  northward from the southern margin, both starting at nought. A reference is
+  those two capitals followed by an even count of decimal figures, at most ten
+  of them: the leading half sharpen the easting, the trailing half the
+  northing, and every further figure narrows the box by a factor of ten. Return
+  a two-element list holding the easting and then the northing, in metres, of
+  the south-west corner of the box the reference names — so AA is the origin,
+  BA sits a hundred thousand metres east of it, and AA51 lies fifty thousand
+  east by ten thousand north. Reject with an error an argument that is not a
+  string, a reference shorter than its two capitals, a capital outside the
+  permitted alphabet, a capital written in lower case, anything but decimal
+  figures trailing the capitals, an odd count of figures, and more than ten
+  figures.
+target: solution.ts
+interface: "export function decodeGridReference(reference: string): number[]"
+stop_conditions:
+  - Whether the projection wraps around at its eastern margin is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

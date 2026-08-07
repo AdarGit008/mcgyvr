@@ -1,0 +1,67 @@
+id: p287-heron-hop-rings
+task_type: bug_fix
+task: >-
+  reach_by_hops tallies where a wading bird can get to on a rectangular fen. The
+  fen has down rows and across columns; a square is the pair row then column,
+  rows counted from 0 at the top and columns from 0 at the left. A heron
+  standing on a square may land on the square one place away along its row or
+  its column, or on the square exactly three places away along its row or its
+  column, in either direction; it flies over whatever lies between but may
+  never land on a marsh square, and marsh lists those. Take the fewest hops
+  needed to reach each square from start, and return a list of length hops plus
+  one whose entry at position i counts the squares whose fewest hops is exactly
+  i, so position 0 always counts 1 for start itself and an unreachable square
+  is counted nowhere. The present code omits the three-place hop toward the top
+  of the fen, lets the heron land on marsh, and stops one ring short so the
+  final position stays 0. Mend those three and add the guards it lacks: throw
+  an error when across or down is not an integer of at least 1; when hops is
+  not an integer of at least 0; when start is not a pair of integers naming a
+  square of the fen, or names a marsh square; and when marsh is not a list,
+  holds an entry that is not a pair of integers naming a square of the fen, or
+  names the same square twice. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def reach_by_hops(
+      across: int,
+      down: int,
+      start: list[int],
+      marsh: list[list[int]],
+      hops: int,
+  ) -> list[int]:
+      steps = [
+          (-1, 0),
+          (1, 0),
+          (0, -1),
+          (0, 1),
+          (3, 0),
+          (0, -3),
+          (0, 3),
+      ]
+      rings = [0] * (hops + 1)
+      first = start[0] * across + start[1]
+      seen = {first}
+      edge = [(start[0], start[1])]
+      rings[0] = 1
+      for ring in range(1, hops):
+          following = []
+          for row, col in edge:
+              for step_down, step_across in steps:
+                  r = row + step_down
+                  c = col + step_across
+                  if r < 0 or r >= down or c < 0 or c >= across:
+                      continue
+                  key = r * across + c
+                  if key in seen:
+                      continue
+                  seen.add(key)
+                  following.append((r, c))
+          rings[ring] = len(following)
+          edge = following
+      return rings
+interface: "def reach_by_hops(across: int, down: int, start: list[int], marsh: list[list[int]], hops: int) -> list[int]"
+stop_conditions:
+  - Whether the total of the returned list should equal anything in particular is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

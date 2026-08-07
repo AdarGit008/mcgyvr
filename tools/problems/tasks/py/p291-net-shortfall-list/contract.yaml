@@ -1,0 +1,33 @@
+id: p291-net-shortfall-list
+task_type: function_implementation
+task: >-
+  Implement net_requirements, which says what a kitchen still has to buy in.
+  recipes tells how each made item is put together: an entry gives the item and
+  its needs, a list of an item and a per saying how many of it one made unit
+  swallows. An item recipes never gives is bought in rather than made. stock
+  says what the store already holds, an item against a held count. Work out
+  batch units of target this way: walk a made item's needs in the order they
+  are written, and for each of them multiply the per by the units being made to
+  get the call on that item; draw as much of the call as the store still holds,
+  leaving the store that much lighter; and if any of the call is left standing,
+  make that many of it in turn when it is a made item, or write it down as
+  bought in when it is not. Whatever the store holds of target itself is
+  ignored, since target is what is being made. Return one entry of item and buy
+  for every bought-in item with anything standing against it, ordered by item
+  name under plain code-point comparison, and an empty list when the store
+  covers everything. Throw an error when making target walks into an item
+  already being made further up the same chain. Throw an error too when recipes
+  or stock is not a list or holds something that is not a record; when either
+  gives the same item twice; when an item name anywhere is not a non-empty
+  string; when a needs list is empty or names one item twice inside a single
+  entry; when a per is not an integer of at least 1 or a held count is not an
+  integer of at least 0; when target is not a non-empty string; and when batch
+  is not an integer of at least 1.
+target: solution.py
+interface: "def net_requirements(recipes: list[dict], stock: list[dict], target: str, batch: int) -> list[dict]"
+stop_conditions:
+  - Whether the store may hold an item that no recipe ever calls for is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

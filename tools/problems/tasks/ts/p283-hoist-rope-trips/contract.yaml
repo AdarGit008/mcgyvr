@@ -1,0 +1,65 @@
+id: p283-hoist-rope-trips
+task_type: bug_fix
+task: >-
+  planHoistTrips picks which hoist of a goods lift bank serves each requested
+  stop. hoists lists the hoists, each with a tag and the level it rests at;
+  stops lists requested levels in the order they arrive. Serving a stop costs
+  rope: hauling a hoist upward burns 2 rope per level climbed, letting it down
+  burns 1 rope per level descended, and a hoist already resting at the stop
+  burns none. Serve each stop with the hoist whose rope cost is least, settling
+  a tie by the tag that sorts earliest; that hoist then rests at the stop and
+  adds the burnt rope to its lifetime spend. A hoist whose lifetime spend has
+  reached 12 rope is worn out and serves nothing further. When every hoist is
+  worn out, record the word idle for that stop and leave the bank untouched.
+  Return one tag or the word idle per stop. The present code burns the two
+  rope rates the wrong way round, settles a tie by position in the hoists list
+  rather than by tag, and retires a hoist only once its spend passes 12 rather
+  than on reaching it. Mend those three and add the guards it lacks: throw an
+  error when hoists is empty, repeats a tag, or holds an entry that is not a
+  record, whose tag is not a non-empty string, or whose tag is the word idle;
+  when a resting level or a requested stop is not an integer of at least 0;
+  and when stops is not a list. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function planHoistTrips(
+    hoists: { tag: string; level: number }[],
+    stops: number[],
+  ): string[] {
+    const rests = new Map<string, number>();
+    const spent = new Map<string, number>();
+    for (const hoist of hoists) {
+      rests.set(hoist.tag, hoist.level);
+      spent.set(hoist.tag, 0);
+    }
+    const sheet: string[] = [];
+    for (const stop of stops) {
+      let chosen = "";
+      let least = 0;
+      for (const hoist of hoists) {
+        if ((spent.get(hoist.tag) as number) > 12) {
+          continue;
+        }
+        const at = rests.get(hoist.tag) as number;
+        const cost = stop > at ? stop - at : 2 * (at - stop);
+        if (chosen === "" || cost < least) {
+          chosen = hoist.tag;
+          least = cost;
+        }
+      }
+      if (chosen === "") {
+        sheet.push("idle");
+        continue;
+      }
+      spent.set(chosen, (spent.get(chosen) as number) + least);
+      rests.set(chosen, stop);
+      sheet.push(chosen);
+    }
+    return sheet;
+  }
+interface: "export function planHoistTrips(hoists: { tag: string; level: number }[], stops: number[]): string[]"
+stop_conditions:
+  - Whether a worn-out hoist should still be reported anywhere is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

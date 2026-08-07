@@ -1,0 +1,53 @@
+id: p289-join-ledger-cards
+task_type: bug_fix
+task: >-
+  joinLedgerCards gathers punched ledger cards into records. The first
+  character of a card is its marker — = opens a fresh record and + carries the
+  record above it onward — and everything after that marker is the card's body.
+  layout names the body's columns: each entry gives a name, the start column
+  counting the body's leftmost column as 1, and the width in columns. Bodies
+  are packed out on the right with full stops, so a value is what remains once
+  the full stops trailing it are removed; a full stop that leads or sits inside
+  a value belongs to the value. A carrying card contributes each of its values
+  by tacking it onto the end of what the open record already holds for that
+  name. Return one record per opening card, in the order the records were
+  opened, each holding every layout name. The present code trims full stops off
+  the front of a value as well as the back, lets a carrying card replace the
+  open record instead of lengthening it, and reads every value one column too
+  far left so the marker leaks in. Mend those three and add the guards it
+  lacks: throw an error when layout is empty, repeats a name, holds a name that
+  is not a non-empty string, gives a start or width that is not an integer of
+  at least 1, or lays two entries over one column; when cards is empty or is
+  not a list of strings; when the first card carries rather than opens; when a
+  marker is neither = nor +; and when a body is too short to reach the
+  rightmost column the layout names, a body longer than that being fine.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function joinLedgerCards(
+    cards: string[],
+    layout: { name: string; start: number; width: number }[],
+  ): Record<string, string>[] {
+    const records: Record<string, string>[] = [];
+    for (const card of cards) {
+      const mark = card[0];
+      const values: Record<string, string> = {};
+      for (const field of layout) {
+        const raw = card.slice(field.start - 1, field.start - 1 + field.width);
+        values[field.name] = raw.replace(/^\.+/, "").replace(/\.+$/, "");
+      }
+      if (mark === "+") {
+        records[records.length - 1] = values;
+        continue;
+      }
+      records.push(values);
+    }
+    return records;
+  }
+interface: "export function joinLedgerCards(cards: string[], layout: { name: string; start: number; width: number }[]): Record<string, string>[]"
+stop_conditions:
+  - Whether a value gathered from several cards may itself end in a full stop is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

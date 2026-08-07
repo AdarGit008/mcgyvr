@@ -1,0 +1,48 @@
+id: p307-count-lane-span
+task_type: bug_fix
+task: >-
+  countLaneSpan measures how much of a tally sheet a batch of claims touches
+  between them. A claim reads LEFT:RIGHT and takes every upright lane from LEFT
+  through RIGHT with both ends kept. Lanes wear bijective base twenty-six
+  capitals — A is one, Z is twenty-six, AA is twenty-seven — and nothing runs
+  past ZZZ. Hand back how many distinct lanes at least one claim takes, so a
+  lane taken twice still counts once. The present code weighs the two ends as
+  plain text when it checks a claim runs forwards, which condemns Z:AA and
+  blesses AA:Z; it takes the difference of the two ends and so drops the
+  closing lane of every claim; and it pours each claim's width straight into
+  the running total, so overlapping claims are counted twice over. Repair those
+  three and add the absent guards: throw an error when the batch is not a list
+  or holds nothing, when a claim is not a string, when a claim does not hold
+  exactly one colon, when either end is blank or carries anything besides the
+  capitals A through Z, when either end runs longer than three capitals, and
+  when the right end sits before the left. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  function place(label: string): number {
+    let value = 0;
+    for (const capital of label) {
+      value = value * 26 + (capital.charCodeAt(0) - 64);
+    }
+    return value;
+  }
+
+  export function countLaneSpan(claims: string[]): number {
+    let total = 0;
+    for (const claim of claims) {
+      const ends = claim.split(":");
+      const left = ends[0];
+      const right = ends[1];
+      if (left > right) {
+        throw new Error("that claim runs backwards");
+      }
+      total += place(right) - place(left);
+    }
+    return total;
+  }
+interface: "export function countLaneSpan(claims: string[]): number"
+stop_conditions:
+  - Whether a claim may carry spaces around its colon is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,47 @@
+id: p309-smooth-with-taps
+task_type: bug_fix
+task: >-
+  smoothWithTaps drags a weighted window across a series of whole numbers. taps
+  holds an odd count of whole weights: its middle weight stands directly over
+  the sample being produced, the weights left of it over earlier samples and
+  those right of it over later ones. Where the window overhangs an end, the
+  series carries on by reflecting about the end sample itself, which acts as a
+  hinge and is never repeated — one place before the first sample stands the
+  second, two places before it the third, and the far end hinges the same way.
+  A series of a single sample folds every overhang onto that one sample. The
+  answer holds one number per sample, each the sum of every weight times
+  whatever sample it covers. The present code lines the opening weight up with
+  the sample instead of the middle one, so every answer is dragged sideways;
+  where the window overhangs it repeats the end sample rather than reflecting;
+  and it stops one sample short, so the closing answer never appears. Repair
+  those three and add the absent guards: throw an error when the series is not
+  a list or holds nothing, when a sample is not a whole number, when the
+  weights are not a list or hold nothing, when a weight is not a whole number,
+  and when the weights come to an even count. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function smoothWithTaps(samples: number[], taps: number[]): number[] {
+    const answer: number[] = [];
+    for (let at = 0; at < samples.length - 1; at++) {
+      let total = 0;
+      for (let tap = 0; tap < taps.length; tap++) {
+        let reach = at + tap;
+        if (reach < 0) {
+          reach = 0;
+        }
+        if (reach >= samples.length) {
+          reach = samples.length - 1;
+        }
+        total += samples[reach] * taps[tap];
+      }
+      answer.push(total);
+    }
+    return answer;
+  }
+interface: "export function smoothWithTaps(samples: number[], taps: number[]): number[]"
+stop_conditions:
+  - Whether a window wider than the series itself must be supported is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

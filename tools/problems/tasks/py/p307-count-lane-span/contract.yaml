@@ -1,0 +1,44 @@
+id: p307-count-lane-span
+task_type: bug_fix
+task: >-
+  count_lane_span measures how much of a tally sheet a batch of claims touches
+  between them. A claim reads LEFT:RIGHT and takes every upright lane from LEFT
+  through RIGHT with both ends kept. Lanes wear bijective base twenty-six
+  capitals — A is one, Z is twenty-six, AA is twenty-seven — and nothing runs
+  past ZZZ. Hand back how many distinct lanes at least one claim takes, so a
+  lane taken twice still counts once. The present code weighs the two ends as
+  plain text when it checks a claim runs forwards, which condemns Z:AA and
+  blesses AA:Z; it takes the difference of the two ends and so drops the
+  closing lane of every claim; and it pours each claim's width straight into
+  the running total, so overlapping claims are counted twice over. Repair those
+  three and add the absent guards: throw an error when the batch is not a list
+  or holds nothing, when a claim is not a string, when a claim does not hold
+  exactly one colon, when either end is blank or carries anything besides the
+  capitals A through Z, when either end runs longer than three capitals, and
+  when the right end sits before the left. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def place(label: str) -> int:
+      value = 0
+      for capital in label:
+          value = value * 26 + (ord(capital) - 64)
+      return value
+
+
+  def count_lane_span(claims: list[str]) -> int:
+      total = 0
+      for claim in claims:
+          ends = claim.split(":")
+          left = ends[0]
+          right = ends[1]
+          if left > right:
+              raise ValueError("that claim runs backwards")
+          total += place(right) - place(left)
+      return total
+interface: "def count_lane_span(claims: list[str]) -> int"
+stop_conditions:
+  - Whether a claim may carry spaces around its colon is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

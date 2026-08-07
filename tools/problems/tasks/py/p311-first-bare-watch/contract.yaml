@@ -1,0 +1,26 @@
+id: p311-first-bare-watch
+task_type: function_implementation
+task: >-
+  Implement first_bare_watch. A vessel's day falls into numbered watches, and
+  onDuty carries one entry per watch in watch order. Each entry lists the
+  warrants held by the hands standing that watch, one name written per hand per
+  warrant, so a warrant written twice means two hands hold it and an entry with
+  nothing in it means nobody at all is standing. warrants is the standing order:
+  every row pairs a warrant name with the fewest hands holding it that a watch
+  must muster, that headcount written in decimal figures. A watch stands bare
+  when some row of the standing order musters too few hands on it. Hand back the
+  number of the earliest bare watch, counting watches from one, and nought when
+  no watch stands bare at all. Reject with an error a duty list that is not a
+  list or holds nothing, a watch entry that is not a list, an item inside an
+  entry that is not a non-empty string, a standing order that is not a list or
+  holds nothing, a row that is not a pair, a row field that is not a non-empty
+  string, a headcount that is not decimal figures or that falls below one, and
+  one warrant demanded twice over.
+target: solution.py
+interface: "def first_bare_watch(on_duty: list[list[str]], warrants: list[list[str]]) -> int"
+stop_conditions:
+  - Whether one hand may hold two different warrants on the same watch is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

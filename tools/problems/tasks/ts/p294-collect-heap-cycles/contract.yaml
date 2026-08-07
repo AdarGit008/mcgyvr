@@ -1,0 +1,30 @@
+id: p294-collect-heap-cycles
+task_type: function_implementation
+task: >-
+  Implement collectHeapCycles. A heap is a list of cells, each carrying an id,
+  a refs list naming other cells, and a boolean finalizer. The second
+  argument is a list of held-id lists, one per collection the runtime
+  performs, in the order it performs them. Carry out one collection per
+  entry. Paint every cell the entry's held ids reach along refs, directly or
+  through other cells; the unpainted cells that are still on the heap are
+  doomed. A doomed cell whose finalizer is true and whose finalizer has not
+  yet been run has it run now; report those ids, in the order their cells
+  stand in the heap, as the collection's finalized list. A cell whose
+  finalizer just ran is spared this collection, and so is every cell it
+  reaches along refs. Every remaining doomed cell is swept: report those ids,
+  again in heap order, as the collection's collected list, and take them off
+  the heap for good. Return one entry per collection, each an object with a
+  finalized list and a collected list. Repeating a held id in one entry
+  changes nothing. Reject with an error a heap or a held-id list that is not
+  a list, a cell without a string id, a cell whose refs is not a list or
+  whose finalizer is not a boolean, an id carried by two cells, a ref naming
+  no cell, a held id naming no cell, and a held id whose cell an earlier
+  collection already swept.
+target: solution.ts
+interface: "export function collectHeapCycles(heap: { id: string; refs: string[]; finalizer: boolean }[], held: string[][]): { finalized: string[]; collected: string[] }[]"
+stop_conditions:
+  - Whether a cell may name itself among its own refs is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

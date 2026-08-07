@@ -1,0 +1,134 @@
+id: p299-pen-track-positions
+task_type: bug_fix
+task: >-
+  penTrackPositions lays a line of glyphs along the pen line, but it reads its
+  pair table too greedily, adding the shift of every row that fits a
+  neighbouring pair where only the topmost fitting row should count, and it
+  is blind to any row written against a group, seeing only rows whose two
+  sides are plain glyphs. Cure both faults. The font argument carries
+  advances, a mapping from a glyph to the units it moves the pen; groups, a
+  mapping from a group name to the string of glyphs belonging to it; and
+  pairs, an ordered table whose rows hold a left side, a right side and a
+  whole-number shift. A side is either one glyph or a group name wrapped in
+  braces, and it fits a glyph when it is that glyph or when the named group's
+  string holds it. Read the text from left to right: the first glyph sits at
+  pen 0, and every later glyph sits at the pen of the glyph before it plus
+  that glyph's advance plus the shift the topmost fitting row grants the two
+  of them, or plus nothing when no row fits. Return an object holding
+  positions, the pen of every glyph in order, and total, the pen of the last
+  glyph plus its advance, which is 0 for an empty text. Go on rejecting with
+  an error a text that is not a string, a font that is not an object, an
+  advances or groups entry that is not a plain mapping, an advance that is
+  not a whole number of zero or more, a group whose glyphs are not a string,
+  a pairs entry that is not a list, a row that is not two sides and a whole
+  number, a side that is neither one glyph nor braces around a name the
+  groups carry, a glyph the advances do not carry, and a pen or total that
+  would fall below zero. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  type Font = {
+    advances: Record<string, number>;
+    groups: Record<string, string>;
+    pairs: [string, string, number][];
+  };
+
+  const BRACED = /^\{(.+)\}$/;
+
+  function plainMapping(value: unknown): boolean {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
+  export function penTrackPositions(
+    text: string,
+    font: Font,
+  ): { positions: number[]; total: number } {
+    if (typeof text !== "string") {
+      throw new Error("penTrackPositions expects a string of glyphs");
+    }
+    if (!plainMapping(font)) {
+      throw new Error("the font must be an object");
+    }
+    const advances = font.advances;
+    const groups = font.groups;
+    const pairs = font.pairs;
+    if (!plainMapping(advances) || !plainMapping(groups)) {
+      throw new Error("advances and groups must be plain mappings");
+    }
+    for (const glyph of Object.keys(advances)) {
+      if (!Number.isInteger(advances[glyph]) || advances[glyph] < 0) {
+        throw new Error("an advance is a whole number of zero or more: " + glyph);
+      }
+    }
+    for (const name of Object.keys(groups)) {
+      if (typeof groups[name] !== "string") {
+        throw new Error("a group holds a string of glyphs: " + name);
+      }
+    }
+    if (!Array.isArray(pairs)) {
+      throw new Error("pairs must be a table list");
+    }
+
+    function checkSide(side: unknown): void {
+      if (typeof side !== "string") {
+        throw new Error("a side is written as text");
+      }
+      if (side.length === 1) {
+        return;
+      }
+      const braced = BRACED.exec(side);
+      if (braced === null || !Object.prototype.hasOwnProperty.call(groups, braced[1])) {
+        throw new Error("a side is one glyph or braces around a known group: " + side);
+      }
+    }
+
+    for (const row of pairs) {
+      if (!Array.isArray(row) || row.length !== 3) {
+        throw new Error("a row is two sides and a shift");
+      }
+      checkSide(row[0]);
+      checkSide(row[1]);
+      if (!Number.isInteger(row[2])) {
+        throw new Error("a shift is a whole number");
+      }
+    }
+
+    function shiftFor(left: string, right: string): number {
+      let shift = 0;
+      for (const row of pairs) {
+        if (row[0] === left && row[1] === right) {
+          shift += row[2];
+        }
+      }
+      return shift;
+    }
+
+    for (const glyph of text) {
+      if (!Object.prototype.hasOwnProperty.call(advances, glyph)) {
+        throw new Error("no advance for " + glyph);
+      }
+    }
+
+    const positions: number[] = [];
+    let pen = 0;
+    for (let at = 0; at < text.length; at++) {
+      if (at > 0) {
+        pen += advances[text[at - 1]] + shiftFor(text[at - 1], text[at]);
+      }
+      if (pen < 0) {
+        throw new Error("the pen falls below zero at glyph " + at);
+      }
+      positions.push(pen);
+    }
+    const total = text.length === 0 ? 0 : pen + advances[text[text.length - 1]];
+    if (total < 0) {
+      throw new Error("the total falls below zero");
+    }
+    return { positions, total };
+  }
+interface: "export function penTrackPositions(text: string, font: { advances: Record<string, number>; groups: Record<string, string>; pairs: [string, string, number][] }): { positions: number[]; total: number }"
+stop_conditions:
+  - Whether one glyph may belong to two groups at once is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]
