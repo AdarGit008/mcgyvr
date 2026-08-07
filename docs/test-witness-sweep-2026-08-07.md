@@ -484,21 +484,26 @@ test module.
 ## What this asks for next
 
 Fixes are out of scope here by #201's own framing; each finding names its mode
-and where its instrument belongs, which is what the issue asked for. The work
-that follows is:
+and where its instrument belongs, which is what the issue asked for. Everything
+below is filed, so no finding rests on this document being read:
 
-- **[F2](#f2)** and **[F1](#f1)** are worth doing as one change each and are
-  independent of everything else.
-- **[F3](#f3)**, **[F4](#f4)**, **[F6](#f6)** are small enough to ride
-  together.
-- **[F5](#f5)** is two changes with different weights: reading the p05 out of
-  `summary.json` is the one that makes CLM-0011 checkable; the `estimate_tokens`
-  unit test is a tidy-up.
-- **[F7](#f7)** is a docstring and a changelog line, and belongs to #66 rather
-  than to a test lane.
-- The [skips](#silent-skips) belong with #4's
-  quarantine discipline, which is where "what a green suite means" already
-  lives.
+| Finding | Filed as |
+|---|---|
+| **[F1](#f1)** — the probe stopwatch | **#204** |
+| **[F2](#f2)** — the cache with no witness | **#205** |
+| **[F3](#f3)**, **[F4](#f4)**, **[F6](#f6)** — counters checked against their own addends | **#206** (one issue; each is a few lines) |
+| **[F5](#f5)** — `ESTIMATE_RESERVE` untied from its measurement | **#207** |
+| **[F7](#f7)** — the stale `#117` pointer | a comment on **#66**, whose subject it is |
+| [Silent skips](#silent-skips) | a comment on **#4**, where "what a green run means" already lives |
+
+#204 and #205 are one change each and independent of everything else. #207 is
+two changes of different weight: reading the p05 out of `summary.json` is the one
+that makes CLM-0011 checkable, and the `estimate_tokens` unit test is a tidy-up.
+
+Neither of the last two earned a new issue. #201's own instruction — file
+against a specific subsystem's home where one exists — points [F7](#f7) at #66
+and the skips at #4, and minting duplicates beside them would be the
+contradiction DIV-02 exists to catch.
 
 **No finding warrants a new shipped field.** #200's answer was "both" because
 #185 had made the capacity bound host-wide, giving an operator a question the
