@@ -1,0 +1,44 @@
+id: p401-mirror-step-run
+task_type: bug_fix
+task: >-
+  mirror_step_run lays out one whole turn of a mirror-step dial. Handed width,
+  the count of marks in every word, it gives back a record under two keys.
+  Under "words" comes the entire turn in dial order, each word made of width
+  marks drawn from 0 and 1, opening with the word of all 0s; the turn is
+  raised by the mirroring recipe, which takes the turn for one mark fewer,
+  writes it out, writes it out a second time in reverse, then fits a 0 to the
+  front of every word of the first writing and a 1 to the front of every word
+  of the second. Under "flips" comes one entry per notch of turn, naming
+  which column altered on that notch, columns numbered from the left starting
+  at one; there is one fewer entry here than there are words. Two faults
+  spoil it. The second writing is laid down forwards rather than in reverse,
+  so neighbouring words can differ in more than a single mark; and the
+  altered column is numbered from the right instead of from the left.
+  Repair both. Go on raising an error when width is not a whole number and
+  when it lies outside one through twelve. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def mirror_step_run(width: int) -> dict:
+      if not isinstance(width, int) or isinstance(width, bool):
+          raise ValueError("width must be a whole number")
+      if width < 1 or width > 12:
+          raise ValueError("width lies within one through twelve")
+      words = [""]
+      for _ in range(width):
+          grown = ["0" + word for word in words]
+          grown += ["1" + word for word in words]
+          words = grown
+      flips = []
+      for before, after in zip(words, words[1:]):
+          for column in range(width):
+              if before[column] != after[column]:
+                  flips.append(width - column)
+                  break
+      return {"words": words, "flips": flips}
+interface: "def mirror_step_run(width: int) -> dict"
+stop_conditions:
+  - Whether the caller wants the turn to close back onto its opening word is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

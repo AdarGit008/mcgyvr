@@ -1,0 +1,26 @@
+id: p392-hull-corners
+task_type: function_implementation
+task: >-
+  Implement hullCorners. The argument is a scattering of markers on the
+  whole-number grid; each marker is a pair holding an x then a y, both whole
+  numbers, markers may repeat, and the order they arrive in carries no
+  meaning. Give back the corner posts of the tightest convex outline that
+  shuts every marker inside it. A marker that sits flat on a straight run
+  between two posts is not a post itself and is left out, so only genuine
+  turns survive. List the posts turning counter-clockwise, opening at the
+  post of least x and settling a tie there by least y. Two collapsed shapes
+  get their own stated rule: when every marker occupies one single spot, give
+  back that one spot alone; when the markers lie along a straight run without
+  all sharing a spot, give back only the two far ends of that run, the
+  smaller pair by x then by y coming first. Raise an error when the argument
+  is not a list, when it holds nothing, when a marker is not a pair of
+  exactly two whole numbers, and when a coordinate's magnitude passes one
+  million.
+target: solution.ts
+interface: "export function hullCorners(markers: number[][]): number[][]"
+stop_conditions:
+  - Whether the caller also wants the markers that fell strictly inside the outline is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

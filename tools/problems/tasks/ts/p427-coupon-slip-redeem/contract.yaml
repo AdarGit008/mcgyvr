@@ -1,0 +1,122 @@
+id: p427-coupon-slip-redeem
+task_type: bug_fix
+task: >-
+  redeemCouponSlips settles a visit's tickets against a run of coupon slips. The
+  tickets are [label, cents] pairs, each label a non-empty string appearing once
+  and each price a whole number of cents at nought or above. The slips are [tag,
+  label, share] triples taken in the order given: tag is the slip's own non-empty
+  name, appearing once across the run, label names the ticket the slip strikes,
+  and share is a whole number from 1 through 100. A slip's saving is share
+  hundredths of what its ticket still stands at, with any part of a cent dropped,
+  so a second slip on one ticket bites into what the first left behind. No more
+  than two slips may strike one ticket. A slip is passed over whole — never
+  trimmed — when its label matches no ticket, when its ticket has already been
+  struck twice, or when its saving would carry the visit's running saving past
+  the ceiling, itself a whole number of cents at nought or above; slips behind a
+  passed-over one are still weighed, and a slip passed over never counts as a
+  strike. Give back a mapping whose due is the sum of what the tickets still
+  stand at, whose saved is the running saving, and whose ignored lists the tags
+  passed over in the order they were passed over. The code below works each
+  saving out from the ticket's opening price rather than from what the ticket
+  still stands at, so a second slip on one ticket never compounds. Repair that,
+  keep raising an error for a ticket that is not a pair, a label or tag that is
+  empty or not a string, two tickets sharing a label, two slips sharing a tag, a
+  price that is not whole or falls below nought, a slip that is not three parts,
+  a share that is not whole or falls outside 1 through 100, and a ceiling that is
+  not whole or falls below nought, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  function whole(value: unknown): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  export function redeemCouponSlips(
+    tickets: (string | number)[][],
+    slips: (string | number)[][],
+    ceiling: number,
+  ): { due: number; saved: number; ignored: string[] } {
+    if (!whole(ceiling) || ceiling < 0) {
+      throw new Error("the ceiling must be whole and at nought or above");
+    }
+    if (!Array.isArray(tickets) || !Array.isArray(slips)) {
+      throw new Error("tickets and slips must be lists");
+    }
+
+    const standing = new Map<string, number>();
+    const opening = new Map<string, number>();
+    for (const ticket of tickets) {
+      if (!Array.isArray(ticket) || ticket.length !== 2) {
+        throw new Error("a ticket is a [label, cents] pair");
+      }
+      const label = ticket[0];
+      const cents = ticket[1];
+      if (typeof label !== "string" || label.length === 0) {
+        throw new Error("a label must be a non-empty string");
+      }
+      if (standing.has(label)) {
+        throw new Error(`two tickets share the label ${label}`);
+      }
+      if (!whole(cents) || (cents as number) < 0) {
+        throw new Error("a price must be whole and at nought or above");
+      }
+      standing.set(label, cents as number);
+      opening.set(label, cents as number);
+    }
+
+    const tags = new Set<string>();
+    for (const slip of slips) {
+      if (!Array.isArray(slip) || slip.length !== 3) {
+        throw new Error("a slip is a [tag, label, share] triple");
+      }
+      const tag = slip[0];
+      const label = slip[1];
+      const share = slip[2];
+      if (typeof tag !== "string" || tag.length === 0) {
+        throw new Error("a tag must be a non-empty string");
+      }
+      if (tags.has(tag)) {
+        throw new Error(`two slips share the tag ${tag}`);
+      }
+      tags.add(tag);
+      if (typeof label !== "string" || label.length === 0) {
+        throw new Error("a label must be a non-empty string");
+      }
+      if (!whole(share) || (share as number) < 1 || (share as number) > 100) {
+        throw new Error("a share runs from 1 through 100");
+      }
+    }
+
+    const struck = new Map<string, number>();
+    const ignored: string[] = [];
+    let saved = 0;
+    for (const slip of slips) {
+      const tag = slip[0] as string;
+      const label = slip[1] as string;
+      const share = slip[2] as number;
+      if (!standing.has(label) || (struck.get(label) ?? 0) >= 2) {
+        ignored.push(tag);
+        continue;
+      }
+      const saving = Math.floor(((opening.get(label) as number) * share) / 100);
+      if (saved + saving > ceiling) {
+        ignored.push(tag);
+        continue;
+      }
+      standing.set(label, (standing.get(label) as number) - saving);
+      saved += saving;
+      struck.set(label, (struck.get(label) ?? 0) + 1);
+    }
+
+    let due = 0;
+    for (const price of standing.values()) {
+      due += price;
+    }
+    return { due, saved, ignored };
+  }
+interface: "export function redeemCouponSlips(tickets: (string | number)[][], slips: (string | number)[][], ceiling: number): { due: number; saved: number; ignored: string[] }"
+stop_conditions:
+  - Whether a ticket's standing price may be driven below nought by a slip is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

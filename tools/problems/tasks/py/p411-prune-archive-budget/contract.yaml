@@ -1,0 +1,30 @@
+id: p411-prune-archive-budget
+task_type: function_implementation
+task: >-
+  Implement prune_archive_budget. An archive holds files, each a record with
+  label, size in bytes and age in days. Three limits govern it: a budget in
+  bytes, an age limit in days, and the least number of files that must be
+  left standing. Thin the archive one file at a time. Before each removal,
+  stop if only the least number of files is still standing; failing that,
+  remove the oldest file still standing whenever either reason holds — some
+  file still standing is older than the age limit, or the sizes still
+  standing come to more than the budget. Where two files are equally old take
+  the bigger of them, and where they match on size as well take the one whose
+  label sorts earlier. Should neither reason hold, stop there. Give back a
+  record whose removed lists the labels in the order they went, whose held is
+  the sizes of the survivors added up, whose over is how far those survivors
+  still exceed the budget or nothing at all when they do not, and whose stale
+  counts the survivors older than the age limit. Throw an error for files
+  that are not a list, a file that is not a record, a label that is not a
+  non-empty string, one label appearing twice, a size or an age that is not a
+  whole number of nothing or more, a budget that is not a whole number of
+  nothing or more, an age limit that is not a whole number above nothing, and
+  a least number that is not a whole number of nothing or more.
+target: solution.py
+interface: "def prune_archive_budget(files: list, budget: int, limit: int, least: int) -> dict"
+stop_conditions:
+  - Whether the archive may be handed over already sorted by age is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

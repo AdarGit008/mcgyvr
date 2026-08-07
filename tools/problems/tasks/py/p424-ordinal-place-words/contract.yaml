@@ -1,0 +1,29 @@
+id: p424-ordinal-place-words
+task_type: function_implementation
+task: >-
+  Implement spell_ordinal_place. Render a finishing place, a whole number from 1
+  through 999, in written English under this scheme. Build the counting form
+  first. The values 1 to 9 are one, two, three, four, five, six, seven, eight,
+  nine; the values 10 to 19 are ten, eleven, twelve, thirteen, fourteen,
+  fifteen, sixteen, seventeen, eighteen, nineteen; the round tens 20 to 90 are
+  twenty, thirty, forty, fifty, sixty, seventy, eighty, ninety, and a round ten
+  carrying a unit takes a hyphen between them, as in twenty-one. A value of 100
+  or more names its hundreds figure, then the word hundred, and where anything
+  under 100 is left over the word and follows it and then that leftover, as in
+  two hundred and four. The place form is that counting form with its trailing
+  piece — whatever stands after the last hyphen or space — exchanged for the
+  piece's place spelling. Those spellings are: one to first, two to second,
+  three to third, five to fifth, eight to eighth, nine to ninth, twelve to
+  twelfth, hundred to hundredth, and any round ten to the same word with its
+  closing y traded for ieth. Every piece not on that list simply takes th at
+  the end. Return the finished string. Raise an error for an argument that is
+  not a number, for one that is not whole, and for one below 1 or above 999.
+target: solution.py
+interface: "def spell_ordinal_place(place: int) -> str"
+stop_conditions:
+  - Whether places above 999 will ever need spelling is not stated.
+  - Whether a value carrying no fractional part but written as a decimal counts as whole is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,28 @@
+id: p404-dispense-exact-change
+task_type: function_implementation
+task: >-
+  Implement dispense_exact_change. A vending machine must pay out an amount of
+  minor units exactly, drawing only on the coins its hopper actually holds.
+  The hopper is given as pairs of a face value and how many coins of that
+  face the hopper carries; a face may be listed with a stock of none. Work
+  out the payout that uses the fewest coins altogether. Where two payouts
+  need equally many coins, prefer the one taking more coins of the largest
+  face; if those match too, prefer more of the next largest, and so on down
+  the faces. Give back the chosen payout as pairs of face value and coins
+  taken, largest face first, leaving out any face the payout does not touch;
+  an amount of nothing is paid by the empty payout. When no combination of
+  the stock lands on the amount exactly, refuse with an error rather than
+  paying out something near it. Refuse with an error as well an amount that
+  is not a whole number, an amount below nothing, an amount above 100000, a
+  hopper that is not a list, a hopper listing no faces at all, an entry that
+  is not a pair, a face value that is not a whole number above nothing, a
+  stock that is not a whole number of nothing or more, and one face value
+  listed twice.
+target: solution.py
+interface: "def dispense_exact_change(amount: int, hopper: list) -> list"
+stop_conditions:
+  - Whether the hopper pairs arrive in any particular order is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

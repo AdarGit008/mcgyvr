@@ -1,0 +1,24 @@
+id: p398-orrel-digits
+task_type: function_implementation
+task: >-
+  Implement orrelDigits. The Orrel line spells whole quantities in a place
+  system whose base is minus three, drawing on three marks and no others — o
+  for nought, i for one, y for two. Marks are laid down heaviest place first,
+  and the places read from the right are worth one, then minus three, then
+  nine, then minus twenty-seven, then eighty-one, each place worth minus
+  three times the place at its right hand. So "i" spells one, "y" spells two,
+  "io" spells minus three, "iy" spells minus one, "ioo" spells nine, and
+  "iyo" spells three. A minus sign is never drawn anywhere: a quantity below
+  nought is spelled out by the flipping places alone. Every whole quantity
+  has exactly one Orrel spelling that does not open with a padding o, and
+  nought itself is the lone mark "o". Give back the Orrel spelling of the
+  quantity handed in. Raise an error for an argument that is not a number,
+  for one that is not whole, and for one whose magnitude passes one million.
+target: solution.ts
+interface: "export function orrelDigits(value: number): string"
+stop_conditions:
+  - Whether a spelling longer than the places listed above should be capped somewhere is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

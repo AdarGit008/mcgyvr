@@ -1,0 +1,73 @@
+id: p415-latch-run-summary
+task_type: bug_fix
+task: >-
+  summariseLatchRun tallies a run of calls through a protective latch, and it
+  gets both the tally and the tripping rule wrong. The latch rests in one of
+  three modes, written shut, tripped and testing, and its dial is a record
+  with span, sour, wait and trials, each a whole number of one or more with
+  sour never larger than span. The run is a list of words, each good or bad,
+  one per step; nothing here is timed, only counted. Fix the walk to work
+  like this. The latch starts shut with an empty ledger. A step taken while
+  shut makes the call, and its word joins the ledger; the ledger holds at
+  most span words, dropping its oldest whenever a new one would overfill it.
+  The latch trips only when the ledger is full — holding exactly span words —
+  and the bad words in it number sour or more; tripping empties the ledger,
+  sets the mode to tripped and hands it a countdown of wait. A step taken
+  while tripped makes no call at all: the word is dropped, the countdown
+  falls by one, and reaching zero turns the mode to testing with no wins yet.
+  A step taken while testing makes the call; a good word is a win, and
+  reaching trials wins turns the mode back to shut, while a bad word trips
+  the latch again. Words seen while testing never join the ledger. Return a
+  record under four keys: mode, the mode after the last step; tried, how many
+  calls were made; shed, how many steps passed without a call; and trips, how
+  many times the latch became tripped. Add the missing checks too: raise an
+  error when the run is not a list, when a word is neither good nor bad, when
+  the dial is not a record carrying all four names, when span, sour, wait or
+  trials is not a whole number of one or more, and when sour is larger than
+  span. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** How a run of calls fared against a protective latch. */
+  export function summariseLatchRun(run: any[], dial: any): any {
+    let mode = "shut";
+    let countdown = 0;
+    let wins = 0;
+    let tried = 0;
+    let shed = 0;
+    let trips = 0;
+    const ledger: string[] = [];
+    for (const word of run) {
+      tried += 1;
+      if (mode === "shut") {
+        ledger.push(word);
+        if (ledger.filter((w) => w === "bad").length >= dial.sour) {
+          mode = "tripped";
+          countdown = dial.wait;
+          trips += 1;
+        }
+      } else if (mode === "tripped") {
+        countdown -= 1;
+        if (countdown === 0) {
+          mode = "testing";
+          wins = 0;
+        }
+      } else if (word === "good") {
+        wins += 1;
+        if (wins === dial.trials) {
+          mode = "shut";
+        }
+      } else {
+        mode = "tripped";
+        countdown = dial.wait;
+        trips += 1;
+      }
+    }
+    return { mode, tried, shed, trips };
+  }
+interface: "export function summariseLatchRun(run: any[], dial: any): any"
+stop_conditions:
+  - Whether the ledger should survive a return from testing to shut is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

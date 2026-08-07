@@ -1,0 +1,112 @@
+id: p423-ladder-race-bumps
+task_type: bug_fix
+task: >-
+  raceLadderBoard replays a lane race. The lane is squares 1 through size, and
+  every runner named in turns begins off the lane on square 0, which holds any
+  number of them at once. Each turn is a [name, steps] pair, taken in the order
+  given: the named runner advances steps squares from wherever it stands, and a
+  turn whose arrival would land beyond square size is forfeit. Coming down on a
+  chute mouth carries the runner at once to that pair's exit — one carry only,
+  since no exit is ever a mouth. Whichever square the runner finally rests on,
+  any other runner already resting there is knocked back off the lane to square
+  0; square 0 itself never knocks anybody back. A runner resting on square size
+  is home, and every later turn naming it is skipped. Give back a mapping from
+  each named runner to the square it finishes on. The code below looks for a
+  runner to knock back on the square the steps arrived at, before the carry has
+  been resolved, so a carried runner never clears the exit square and two
+  runners are left sharing it. Repair that, keep raising an error for a size
+  under 2 or not whole, a chute that is not two whole numbers on the lane, a
+  mouth equal to its own exit, a mouth on the home square, two chutes sharing a
+  mouth, an exit that is some pair's mouth, an empty or non-string name, and
+  steps that are not a whole number above zero, and return the complete fixed
+  file.
+target: solution.ts
+target_content: |
+  export function raceLadderBoard(
+    size: number,
+    chutes: number[][],
+    turns: (string | number)[][],
+  ): Record<string, number> {
+    if (typeof size !== "number" || !Number.isInteger(size) || size < 2) {
+      throw new Error("size must be a whole number of at least 2");
+    }
+    const exitOf = new Map<number, number>();
+    for (const pair of chutes) {
+      if (!Array.isArray(pair) || pair.length !== 2) {
+        throw new Error("a chute is a [mouth, exit] pair");
+      }
+      const mouth = pair[0];
+      const landing = pair[1];
+      for (const square of [mouth, landing]) {
+        if (
+          typeof square !== "number" ||
+          !Number.isInteger(square) ||
+          square < 1 ||
+          square > size
+        ) {
+          throw new Error("a chute square must be a whole number on the lane");
+        }
+      }
+      if (mouth === landing) {
+        throw new Error("a mouth may not be its own exit");
+      }
+      if (mouth === size) {
+        throw new Error("the home square may not be a mouth");
+      }
+      if (exitOf.has(mouth)) {
+        throw new Error("two chutes share one mouth");
+      }
+      exitOf.set(mouth, landing);
+    }
+    for (const landing of exitOf.values()) {
+      if (exitOf.has(landing)) {
+        throw new Error("an exit may not be a mouth");
+      }
+    }
+
+    const standing = new Map<string, number>();
+    for (const turn of turns) {
+      if (!Array.isArray(turn) || turn.length !== 2) {
+        throw new Error("a turn is a [name, steps] pair");
+      }
+      const name = turn[0];
+      const steps = turn[1];
+      if (typeof name !== "string" || name.length === 0) {
+        throw new Error("a runner's name must be a non-empty string");
+      }
+      if (typeof steps !== "number" || !Number.isInteger(steps) || steps < 1) {
+        throw new Error("steps must be a whole number above zero");
+      }
+      if (!standing.has(name)) {
+        standing.set(name, 0);
+      }
+      const from = standing.get(name) as number;
+      if (from === size) {
+        continue;
+      }
+      const arrival = from + steps;
+      if (arrival > size) {
+        continue;
+      }
+      for (const other of standing.keys()) {
+        if (other !== name && standing.get(other) === arrival) {
+          standing.set(other, 0);
+        }
+      }
+      const resting = exitOf.has(arrival) ? (exitOf.get(arrival) as number) : arrival;
+      standing.set(name, resting);
+    }
+
+    const final: Record<string, number> = {};
+    for (const name of standing.keys()) {
+      final[name] = standing.get(name) as number;
+    }
+    return final;
+  }
+interface: "export function raceLadderBoard(size: number, chutes: number[][], turns: (string | number)[][]): Record<string, number>"
+stop_conditions:
+  - Whether a runner may be named in turns after reaching home is not stated to be an error.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

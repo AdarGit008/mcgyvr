@@ -1,0 +1,28 @@
+id: p394-crossing-point
+task_type: function_implementation
+task: >-
+  Implement crossingPoint. Each argument is a straight stroke drawn on a
+  plan: a list of exactly two ends, an end being a pair holding an x then a
+  y, both whole numbers. Work out what the two strokes have in common and
+  hand back a record under the key "kind". Sharing nothing, the kind is
+  "apart" and the record carries nothing further. Sharing exactly one spot,
+  the kind is "point" and the record also carries "x" and "y"; the meeting
+  spot need not land on the grid, so each of those is given exactly as a
+  top over a bottom — a pair of whole numbers cut down to lowest terms with
+  a bottom of one or more, so three halves is written [3, 2] and minus two
+  is written [-2, 1]. Lying along one line and sharing a whole stretch, the
+  kind is "stretch" and the record carries "from" and "to", the two ends of
+  the shared stretch as grid pairs, the smaller by x then by y placed under
+  "from". Every step stays in whole numbers; nothing floating-point may
+  decide an outcome. Raise an error when a stroke is not a list of exactly
+  two ends, when an end is not a pair of exactly two whole numbers, when a
+  stroke's two ends sit on the same spot, and when any coordinate's
+  magnitude passes one thousand.
+target: solution.ts
+interface: "export function crossingPoint(first: number[][], second: number[][]): any"
+stop_conditions:
+  - Whether a caller wants the parameter along each stroke where the meeting falls is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

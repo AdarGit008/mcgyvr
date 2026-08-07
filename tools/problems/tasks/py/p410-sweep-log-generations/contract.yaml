@@ -1,0 +1,38 @@
+id: p410-sweep-log-generations
+task_type: function_implementation
+task: >-
+  Implement sweep_log_generations. A log file called the live file sits beside
+  its older copies, which carry the live file's name, a dot and a number from
+  one upward; number one is the youngest copy. The files arrive as records of
+  name, bytes and days, days being how long ago the file was last written to.
+  The set handed over must hold the live file and copies numbered one through
+  however many there are, with none missing and none repeated. Sweep the set
+  in three passes, the rules record supplying rotateAt, keep and maxDays.
+  First, should the live file's bytes have reached rotateAt, every copy's
+  number climbs by one, the live file itself becomes copy number one and
+  brings its bytes and days along, and a brand new live file of no bytes and
+  no days takes its place; should the live file be smaller than that, nothing
+  moves at all. Second, every copy whose number now stands above keep is
+  thrown out. Third, every copy still standing whose days stand above maxDays
+  is thrown out as well; the live file is never thrown out by either pass,
+  and the numbers of the survivors stay exactly as the first pass left them,
+  gaps and all. Give back a record whose kept lists the live file's name and
+  then the surviving copies by climbing number, whose rotated holds a pair of
+  old name and new name for every file the first pass renamed, by climbing
+  new number, and whose deleted lists the names the thrown-out files carried
+  at the moment they went, by climbing number. Throw an error for a live name
+  that is not a non-empty string, files that are not a list, a file that is
+  not a record, a name that is not a string, a name that is neither the live
+  name nor the live name followed by a dot and a number of one or more
+  written without a leading zero, a missing live file, one name appearing
+  twice, a gap in the copy numbers, bytes or days that are not a whole number
+  of nothing or more, rules that are not a record, and a rotateAt, keep or
+  maxDays that is not a whole number above nothing.
+target: solution.py
+interface: "def sweep_log_generations(base: str, files: list, rules: dict) -> dict"
+stop_conditions:
+  - Whether a copy's own bytes bear on any of the three passes is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

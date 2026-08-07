@@ -1,0 +1,30 @@
+id: p414-breaker-step-states
+task_type: function_implementation
+task: >-
+  Implement trace_breaker_states. A guard around a shaky service sits in one of
+  three postures, written closed, open and half. Its settings are a record
+  with trip, cool and proof, each a whole number of one or more. The outcomes
+  argument is a list of words, each either pass or fail, one per step; there
+  are no clocks anywhere, only these steps. The guard begins closed with a
+  losing streak of zero. Read one outcome per step and move as follows. While
+  closed, a fail lengthens the losing streak by one and a pass drops it back
+  to zero; the moment the streak equals trip the guard turns open and is
+  given a countdown of cool. While open, the service is never called, so the
+  step's outcome is thrown away and the countdown falls by one; when the
+  countdown reaches zero the guard turns half with a winning streak of zero.
+  While half, a pass lengthens the winning streak by one and turning it up to
+  proof puts the guard back to closed with a losing streak of zero, while a
+  fail sends the guard straight back to open with a fresh countdown of cool.
+  Return the posture the guard holds after each step, one word per outcome,
+  in step order. An empty outcomes list gives an empty list back. Raise an
+  error when outcomes is not a list, when an outcome is neither pass nor
+  fail, when settings is not a record carrying all three names, and when
+  trip, cool or proof is not a whole number of one or more.
+target: solution.py
+interface: "def trace_breaker_states(outcomes: list, settings: dict) -> list"
+stop_conditions:
+  - Whether the outcomes thrown away while open should be reported anywhere is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

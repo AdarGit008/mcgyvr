@@ -1,0 +1,31 @@
+id: p408-prorate-plan-switch
+task_type: function_implementation
+task: >-
+  Implement proratePlanSwitch. A subscription is billed a whole cycle at a
+  time, the days of a cycle numbered from one up to the cycle's length, and
+  the subscriber has already handed over the whole cycle's price in cents. On
+  one of those days the subscriber moves to another plan, and the day of the
+  move is itself the first day billed at the new plan's rate. The arguments
+  are the cycle's length in days, the day of the move, the cents already
+  handed over for the cycle, and the new plan's whole-cycle price in cents.
+  Count the days running from the day of the move to the cycle's last day,
+  that last day included, and call them the unused days. The credit is the
+  cents already handed over times the unused days over the cycle's length,
+  any fraction dropped. The charge is the new plan's price times the unused
+  days over the cycle's length, any fraction there carried upward instead.
+  Where the charge is the larger of the two, the subscriber owes the
+  difference and nothing at all is carried on the account; where the credit
+  is the larger, nothing is owed and the difference is carried on the
+  account; where the two match, neither. Give back a record carrying credit,
+  charge, due and carried, all four whole numbers of cents. Throw an error
+  for a cycle length that is not a whole number of one or more, a day of the
+  move that is not a whole number lying from one to the cycle's length, and a
+  price in cents that is not a whole number of nothing or more.
+target: solution.ts
+interface: "export function proratePlanSwitch(cycleDays: number, moveDay: number, paidCents: number, planCents: number): { credit: number; charge: number; due: number; carried: number }"
+stop_conditions:
+  - Whether a cycle may be so long that the arithmetic leaves the safe integer range is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,39 @@
+id: p418-render-crate-block
+task_type: function_implementation
+task: >-
+  Implement render_crate_block. A crate is a record whose field names are
+  non-empty strings of small letters; a field's value is a whole number, a
+  string, a list, or another crate, and a list holds values of those same
+  four kinds. Draw the crate as text in the notation set out here and return
+  it as one string, the lines joined by single line breaks with none trailing.
+  A level is written as that many copies of two full stops, so level zero is
+  nothing at all, level one is two stops and level three is six. The whole
+  crate is drawn at level zero. A crate at level n gives an opening brace on
+  its own line at level n, then its fields at level n plus one, then a
+  closing brace on its own line at level n; a crate with no fields is instead
+  the two braces together on one line at level n. A field whose value is a
+  whole number or a string is one line at its level holding the name, a
+  space, an arrow written as a hyphen and a closing angle bracket, a space,
+  and the value. A field whose value is a list or a crate is one line at its
+  level holding the name, a space and that same arrow, and then that value
+  drawn at one level deeper. A list at level n gives an opening square
+  bracket on its own line at level n, then every value it holds in the order
+  it holds them, each drawn at level n plus one, then a closing square
+  bracket on its own line at level n; a list with nothing in it is instead
+  the two brackets together on one line at level n. A whole number is drawn
+  as its digits, a leading hyphen if it is below zero. A string is drawn
+  wrapped in angle brackets. Fields are drawn in this order and no other:
+  every field holding a number or a string comes before every field holding a
+  list or a crate, and inside each of those two groups the shorter name comes
+  first with names of equal length in alphabetical order. Raise an error when
+  the argument is not a crate, when a field name is not a non-empty string of
+  small letters, when a value is none of the four kinds, when a number is not
+  whole, and when a string holds a line break or either angle bracket.
+target: solution.py
+interface: "def render_crate_block(crate: dict) -> str"
+stop_conditions:
+  - Whether a crate may nest deeply enough to exhaust the call stack is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,26 @@
+id: p395-segment-relation
+task_type: function_implementation
+task: >-
+  Implement segmentRelation. Two rods lie on graph paper. A rod arrives as a
+  list of exactly two tips, and a tip is a pair of whole numbers, the across
+  measure then the up measure; a rod always has some length, so its two tips
+  differ. Answer with one word for how the rods sit against each other.
+  Answer "clear" when no spot whatever belongs to both rods. Answer "pinned"
+  when exactly one spot belongs to both and that spot falls squarely on a
+  graph-paper crossing, meaning both of its measures come out whole. Answer
+  "adrift" when exactly one spot belongs to both but it lands between
+  crossings, so at least one of its measures is not whole — you are asked
+  only to notice that, never to name the spot. Answer "shared" when the rods
+  run along one and the same line and hold a whole length of it in common.
+  Settle all of this with whole-number arithmetic; a rounded value must never
+  decide the word. Raise an error when a rod is not a list of exactly two
+  tips, when a tip is not a pair of exactly two whole numbers, when a rod's
+  tips coincide, and when a measure's magnitude passes five hundred.
+target: solution.ts
+interface: "export function segmentRelation(one: number[][], other: number[][]): string"
+stop_conditions:
+  - Whether a rod that merely grazes another at a tip should be told apart from a proper crossing is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

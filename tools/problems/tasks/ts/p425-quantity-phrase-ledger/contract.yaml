@@ -1,0 +1,37 @@
+id: p425-quantity-phrase-ledger
+task_type: function_implementation
+task: >-
+  Implement phraseQuantityLedger. The first argument is a ledger, a list of
+  [tally, one, many] triples: tally is a whole number from 0 through 999, one is
+  the wording a stock carries when it comes to exactly a single item, and many
+  the wording it carries otherwise, each of the two a non-empty run of lowercase
+  letters a to z. The second argument is a lexicon, a mapping from the plain
+  figures of 0, 1, 2 and onward with no gap to the word each of those tallies is
+  written with; it must reach at least as far as 1, and every word in it is a
+  non-empty run of lowercase letters. Fold the ledger first: triples agreeing on
+  their one wording make a single stock whose tally is the sum of theirs, sitting
+  where that wording first showed up and keeping the many wording of that first
+  showing, while a later triple offering a different many for the same one is an
+  error. Throw away every stock whose summed tally comes to nought. Write each
+  surviving stock as its tally's word, one blank, then its wording; the tally's
+  word is what the lexicon holds for that tally, or the tally in plain figures
+  where the lexicon does not reach that far, and the wording is one when the
+  summed tally is exactly a single item and many everywhere else. Now join what
+  survived: with nothing left the answer is the words nothing at all; a lone
+  stock stands as its own writing; two are tied by the word and set between
+  blanks; three or more put a comma and a blank between neighbours and set a
+  comma, a blank and the word and before the last of them. Return the joined
+  line. Raise an error for a triple that is not three parts, a tally that is not
+  whole or falls outside 0 through 999, a wording that is empty or holds
+  anything but lowercase letters, a lexicon that is not a mapping, a lexicon
+  whose figures do not begin at 0 and run on without a gap, a lexicon reaching
+  no further than 0, and a lexicon word that is not a non-empty run of lowercase
+  letters.
+target: solution.ts
+interface: "export function phraseQuantityLedger(entries: (string | number)[][], lexicon: Record<string, string>): string"
+stop_conditions:
+  - Whether a summed tally may run past the ledger's own ceiling of 999 is not stated to be an error.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

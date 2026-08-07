@@ -1,0 +1,29 @@
+id: p399-marlow-step
+task_type: function_implementation
+task: >-
+  Implement marlow_step. A Marlow rung-count records a whole quantity in
+  columns whose base is minus seven, drawing on the seven capitals A through
+  G for nought up to six in that order. The weightiest column comes first,
+  and the columns counted back from the tail are worth one, then minus seven,
+  then forty-nine, then minus three hundred and forty-three, each column
+  worth minus seven times its neighbour to the right. Thus "B" records one,
+  "BA" records minus seven, "BG" records minus one, "BAA" records forty-nine,
+  and "A" on its own records nought. No sign is ever recorded; the flipping
+  columns supply what a sign would. A rung-count of two or more capitals
+  never begins with A, and every whole quantity has exactly one such
+  unpadded recording. Take the rung-count handed over, shift the quantity it
+  records by lift, which may sit below nought, at nought, or above it, and
+  give back the shifted quantity as a Marlow rung-count in that same unpadded
+  form. Raise an error for a rung-count that is not text, for one that is
+  empty, for one carrying a capital outside A through G, for one carrying a
+  lower-case letter, for one of two or more capitals beginning with A, for
+  one longer than ten capitals, and for a lift that is not a whole number or
+  whose magnitude passes one thousand.
+target: solution.py
+interface: "def marlow_step(rungs: str, lift: int) -> str"
+stop_conditions:
+  - Whether the shifted quantity may grow past ten capitals of its own is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,67 @@
+id: p407-check-band-drift
+task_type: bug_fix
+task: >-
+  checkBandDrift audits last season's shelf classes against this season's
+  counts and files the movements, and it files most of them wrongly. Repair
+  it. Every entry is a record with code, with hits — this season's count,
+  never under nothing — and with was, the class letter A, B or C the code
+  carried before. Sweep the entries by hits, heaviest first, settling a tie
+  of hits in favour of the smaller code. Pile up the hits as the sweep goes,
+  counting the entry in hand into the pile before that entry is weighed, and
+  weigh the pile against the season's hits altogether in permille: the entry
+  earns class A if the pile is at most the first mark of every thousand,
+  class B if it is at most the second mark, and class C otherwise. The two
+  marks are whole permille figures, the first under the second, each of them
+  from 1 to 999, and the weighing must be done without dividing anything.
+  Report a record whose up lists the codes that have moved to a nearer
+  class, whose down lists the codes that have moved to a further one, both
+  of them in sweep order, and whose steady counts the codes that did not
+  move; A counts as nearer than B and B as nearer than C. Raise an error for
+  entries that are not a list, entries holding nothing, an entry that is not
+  a record, a code that is not a non-empty string, one code appearing twice,
+  hits that are not a whole number of nothing or more, a season whose hits
+  come to nothing, a was outside the three letters, and marks that break any
+  rule above. Return the whole repaired file.
+target: solution.ts
+target_content: |
+  /** Which shelf classes moved between seasons. */
+  export function checkBandDrift(
+    entries: { code: string; hits: number; was: string }[],
+    marks: number[],
+  ): { up: string[]; down: string[]; steady: number } {
+    const nearness: Record<string, number> = { A: 0, B: 1, C: 2 };
+    let grand = 0;
+    for (const entry of entries) {
+      grand += entry.hits;
+    }
+    const sweep = entries.slice().sort((a, b) => b.hits - a.hits);
+    const up: string[] = [];
+    const down: string[] = [];
+    let steady = 0;
+    let piled = 0;
+    for (const entry of sweep) {
+      const weighed = piled * 1000;
+      let now = "C";
+      if (weighed <= marks[0] * grand) {
+        now = "A";
+      } else if (weighed <= marks[1] * grand) {
+        now = "B";
+      }
+      piled += entry.hits;
+      if (nearness[now] < nearness[entry.was]) {
+        down.push(entry.code);
+      } else if (nearness[now] > nearness[entry.was]) {
+        up.push(entry.code);
+      } else {
+        steady += 1;
+      }
+    }
+    return { up, down, steady };
+  }
+interface: "export function checkBandDrift(entries: { code: string; hits: number; was: string }[], marks: number[]): { up: string[]; down: string[]; steady: number }"
+stop_conditions:
+  - Whether a code absent from last season's list can appear at all is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

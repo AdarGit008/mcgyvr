@@ -1,0 +1,28 @@
+id: p428-leaflet-pick-count
+task_type: function_implementation
+task: >-
+  Implement count_leaflet_picks. A pick list is a string naming which pages of a
+  leaflet are to be run off. Its items are parted by commas and by nothing else,
+  and no blank of any kind may stand anywhere in the string. An item takes one of
+  three shapes: a bare figure names a single page; two figures parted by a hyphen
+  name every page from the first through the second, the second never being the
+  smaller of the two; and two figures parted by a plus sign name the first page
+  together with as many pages behind it as the second figure says, so that 12+4
+  names 12, 13, 14, 15 and 16. Every figure is written in plain decimal with no
+  leading nought, every page named must fall between 1 and 9999, and the figure
+  standing behind a plus sign is at least 1. Items may overlap or repeat one
+  another freely, and a page named more than once is still the one page. Return
+  how many distinct pages the list names. Raise an error for an argument that is
+  not a string, an empty string, an empty item anywhere in it, a character
+  outside the digits and the comma and the hyphen and the plus sign, an item
+  matching none of the three shapes, a figure carrying a leading nought, a page
+  of nought, a hyphen item whose second figure is smaller than its first, a plus
+  item whose figure behind the sign is nought, and any page named beyond 9999.
+target: solution.py
+interface: "def count_leaflet_picks(picks: str) -> int"
+stop_conditions:
+  - Whether the items must be listed in ascending order is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

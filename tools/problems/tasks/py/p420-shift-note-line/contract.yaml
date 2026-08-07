@@ -1,0 +1,30 @@
+id: p420-shift-note-line
+task_type: function_implementation
+task: >-
+  Implement shift_note_line. A note is written as one capital letter from A to
+  G, then at most one sign — a hash for raised or a small b for lowered — and
+  then one digit from 0 to 9 for its octave, so C4, F#3 and Bb5 are all
+  notes. Give a note a seat number of twelve times its octave plus its
+  letter's offset, where C is 0, D is 2, E is 4, F is 5, G is 7, A is 9 and B
+  is 11, with a hash adding one and a small b taking one away; Cb4 and B#4
+  are therefore perfectly good notes whose seats fall in a neighbouring
+  octave. To shift a note, add the shift to its seat, then split the new seat
+  back apart: the octave is the new seat divided by twelve rounded downwards,
+  and the leftover, always from 0 to 11, is looked up in one of two spelling
+  tables. Under the word sharp the leftovers read C, C#, D, D#, E, F, F#, G,
+  G#, A, A#, B; under the word flat they read C, Db, D, Eb, E, F, Gb, G, Ab,
+  A, Bb, B. Write the shifted note as that name followed by its octave
+  digit. Return the shifted notes as a list, in the order they arrived; an
+  empty list of notes gives an empty list back. Raise an error when the notes
+  are not a list, when a note is not a string of the shape described, when
+  the shift is not a whole number, which may be negative or zero, when the
+  spelling is neither sharp nor flat, and when any shifted note would land in
+  an octave below 0 or above 9.
+target: solution.py
+interface: "def shift_note_line(notes: list, shift: int, spelling: str) -> list"
+stop_conditions:
+  - Whether a note may carry two signs at once is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

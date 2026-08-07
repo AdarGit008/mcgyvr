@@ -1,0 +1,73 @@
+id: p431-tool-tray-slots
+task_type: bug_fix
+task: >-
+  fold_tool_tray replays a workbench tray. The tray holds at most slots entries all
+  told, pinned ones counted among them, and each action is a [verb, name] pair
+  taken in the order given. A touch on a name the tray already holds does nothing
+  beyond making that entry the most recently touched of them all. A touch on a
+  name the tray does not hold brings it in unpinned and most recently touched:
+  where a slot stands free it takes one, and where none does the least recently
+  touched entry that is not pinned is turned out to make room, but where every
+  entry is pinned the touch is refused outright and the tray stands as it was. A
+  pin on a name the tray does not hold changes nothing, and on one it does hold
+  marks that entry pinned without stirring the touch order at all; pinning what
+  is already pinned changes nothing either. A drop on a name the tray does not
+  hold changes nothing, and on one it does hold turns that entry out whether it
+  was pinned or not. Give back the tray's entries, most recently touched first,
+  each written as its own name with an asterisk set in front of it where the
+  entry is pinned and bare where it is not. The code below turns out the least
+  recently touched entry of them all rather than the least recently touched
+  unpinned one, so a pinned entry can be lost and a tray of nothing but pinned
+  entries never refuses a touch. Repair that, keep raising an error for a slots
+  figure that is not whole or falls below 1, an action that is not a pair, a verb
+  outside touch, pin and drop, and a name that is empty, carries an asterisk, or
+  is not a string, and return the complete fixed file.
+target: solution.py
+target_content: |
+  VERBS = ("touch", "pin", "drop")
+
+
+  def fold_tool_tray(slots: int, actions: list[list[str]]) -> list[str]:
+      if not isinstance(slots, int) or isinstance(slots, bool) or slots < 1:
+          raise ValueError("slots must be a whole number of at least 1")
+      if not isinstance(actions, list):
+          raise ValueError("the actions must be a list of pairs")
+
+      order: list[str] = []
+      stuck: set[str] = set()
+
+      for action in actions:
+          if not isinstance(action, (list, tuple)) or len(action) != 2:
+              raise ValueError("an action is a [verb, name] pair")
+          verb, name = action
+          if not isinstance(verb, str) or verb not in VERBS:
+              raise ValueError("a verb is one of touch, pin and drop")
+          if not isinstance(name, str) or not name or "*" in name:
+              raise ValueError("a name must be a non-empty string free of asterisks")
+
+          inside = name in order
+          if verb == "touch":
+              if inside:
+                  order.remove(name)
+                  order.append(name)
+                  continue
+              if len(order) >= slots:
+                  victim = order[0]
+                  order.remove(victim)
+                  stuck.discard(victim)
+              order.append(name)
+          elif verb == "pin":
+              if inside:
+                  stuck.add(name)
+          elif inside:
+              order.remove(name)
+              stuck.discard(name)
+
+      return [f"*{name}" if name in stuck else name for name in reversed(order)]
+interface: "def fold_tool_tray(slots: int, actions: list[list[str]]) -> list[str]"
+stop_conditions:
+  - Whether a pin may be undone once made is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,34 @@
+import assert from "node:assert/strict";
+import { countLeafletPicks } from "./solution.ts";
+
+assert.equal(countLeafletPicks("7"), 1, "a bare figure names one page");
+assert.equal(countLeafletPicks("3-7"), 5, "a hyphen item counts both ends");
+assert.equal(countLeafletPicks("12+4"), 5, "a plus item counts the page and its followers");
+assert.equal(countLeafletPicks("4-4"), 1, "a hyphen item may name one page");
+assert.equal(countLeafletPicks("4+1"), 2, "the smallest plus item");
+assert.equal(countLeafletPicks("1,2,3"), 3, "three bare figures");
+assert.equal(countLeafletPicks("1-5,4-8"), 8, "overlapping spans count once");
+assert.equal(countLeafletPicks("1-3,3-5"), 5, "spans touching at one page");
+assert.equal(countLeafletPicks("10,10,10"), 1, "a page repeated is still one page");
+assert.equal(countLeafletPicks("20-24,22+5"), 8, "a plus item reaching past a span");
+assert.equal(countLeafletPicks("1-9999"), 9999, "the whole leaflet");
+assert.equal(countLeafletPicks("9999"), 1, "the last page alone");
+assert.equal(countLeafletPicks("9995+4"), 5, "a plus item ending on the last page");
+assert.equal(countLeafletPicks("100,7-9,2"), 5, "items need not be in order");
+
+assert.throws(() => countLeafletPicks(""), Error, "an empty list is refused");
+assert.throws(() => countLeafletPicks(42), Error, "a non-string is refused");
+assert.throws(() => countLeafletPicks("1, 2"), Error, "a blank is refused");
+assert.throws(() => countLeafletPicks("1,,2"), Error, "an empty item is refused");
+assert.throws(() => countLeafletPicks("1,"), Error, "a trailing comma is refused");
+assert.throws(() => countLeafletPicks("1;2"), Error, "an outside character is refused");
+assert.throws(() => countLeafletPicks("03"), Error, "a leading nought is refused");
+assert.throws(() => countLeafletPicks("0"), Error, "a page of nought is refused");
+assert.throws(() => countLeafletPicks("7-3"), Error, "a backwards span is refused");
+assert.throws(() => countLeafletPicks("5+0"), Error, "a plus item carrying nothing is refused");
+assert.throws(() => countLeafletPicks("9999+1"), Error, "a plus item past the last page is refused");
+assert.throws(() => countLeafletPicks("9998-10001"), Error, "a span past the last page is refused");
+assert.throws(() => countLeafletPicks("1-2-3"), Error, "two hyphens in one item are refused");
+assert.throws(() => countLeafletPicks("1-2+3"), Error, "two operators in one item are refused");
+assert.throws(() => countLeafletPicks("-4"), Error, "an item opening with a hyphen is refused");
+console.log("ok");
