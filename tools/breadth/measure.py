@@ -133,6 +133,7 @@ TIER_ROOT = HERE / "tasks"
 # arms of the pool are two task sets. Not difficulty rungs — the campaign
 # driver climbs TIERS only and never arrives here, like the variants.
 POOL_ROOT = HERE.parent / "problems" / "tasks"
+POOL_MANIFEST = HERE.parent / "problems" / "admissions.jsonl"
 POOL_TIERS = ("pool-ts", "pool-py")
 
 # Where the machine-specific half lives, git-ignored — same contract as the
@@ -160,6 +161,28 @@ def draw_plan(
     return plan
 
 
+def pinned_pool_ids() -> frozenset[str]:
+    """The problems the pool's manifest admits, superseded ones excluded.
+
+    The pool grows in batches, so its directories hold candidates that have
+    not passed admission yet — a half-written arm, or a finished one waiting
+    on its pair. A tier's digest map covers whatever it serves, so serving
+    the directory would put unadmitted work into a run's identity and make
+    two runs a week apart incomparable for a reason nobody chose. The
+    manifest is the pool; the directory is where it lives.
+    """
+    if not POOL_MANIFEST.is_file():
+        return frozenset()
+    admitted: set[str] = set()
+    for line in POOL_MANIFEST.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        entry = json.loads(line)
+        if not entry.get("superseded_by"):
+            admitted.add(str(entry["id"]))
+    return frozenset(admitted)
+
+
 def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
     """The tier's tasks, contracts validated by the real loader.
 
@@ -168,9 +191,11 @@ def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
     """
     if tier == "d1":
         return list(bundle.load_tasks(only))
+    admitted: frozenset[str] | None = None
     if tier in POOL_TIERS:
         root = POOL_ROOT / tier.removeprefix("pool-")
         language = bundle.PYTHON if tier == "pool-py" else bundle.JSTS
+        admitted = pinned_pool_ids()
     else:
         root = TIER_ROOT / tier
         # Every tier in this rig's own tree is JS/TS, d1 because it *is* the
@@ -187,6 +212,8 @@ def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
     for directory in sorted(root.iterdir()):
         if not directory.is_dir() or (only and directory.name not in only):
             continue
+        if admitted is not None and directory.name not in admitted:
+            continue
         tasks.append(
             bundle.Task(
                 id=directory.name,
@@ -198,8 +225,14 @@ def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
     if only:
         missing = sorted(set(only) - {task.id for task in tasks})
         if missing:
+            unadmitted = (
+                " (present but not admitted by the pool's manifest)"
+                if admitted is not None
+                and all((root / name).is_dir() for name in missing)
+                else ""
+            )
             raise bundle.MeasureError(
-                f"no such task(s) in {tier}: {', '.join(missing)}"
+                f"no such task(s) in {tier}: {', '.join(missing)}{unadmitted}"
             )
     return tasks
 

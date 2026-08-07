@@ -110,6 +110,29 @@ def test_pool_tiers_load_pinned_problems_in_both_arms() -> None:
         assert {task.contract.id for task in tasks} == set(pinned)
 
 
+def test_pool_tiers_serve_only_admitted_problems() -> None:
+    """A candidate on disk but absent from the manifest is not dispatchable.
+
+    The pool grows in batches, so unadmitted directories exist while a batch
+    is being written. They must not reach a sweep: a tier's ``tasks_sha256``
+    covers what it serves, so an unadmitted candidate would enter a run's
+    identity and split the tier into incomparable versions. Caught for real
+    on 2026-08-07 — a probe run recorded 157 pool-py digests against 149
+    pool-ts while a batch was mid-flight.
+    """
+    pinned = {
+        str(entry["id"])
+        for entry in admit.manifest_entries()
+        if not entry.get("superseded_by")
+    }
+    for tier in breadth.POOL_TIERS:
+        served = {task.id for task in breadth.load_tier_tasks(tier)}
+        assert served <= pinned
+        root = breadth.POOL_ROOT / tier.removeprefix("pool-")
+        on_disk = {p.name for p in root.iterdir() if p.is_dir()}
+        assert served == on_disk & pinned
+
+
 def test_pool_tiers_are_not_campaign_rungs() -> None:
     """The campaign climbs TIERS; the pool must not be a rung it can reach."""
     for tier in breadth.POOL_TIERS:
