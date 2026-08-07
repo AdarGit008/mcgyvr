@@ -1,0 +1,21 @@
+id: t16-linear-time-fibonacci
+task_type: function_implementation
+task: |
+  fib below is exponential-time. Replace it with an implementation that runs
+  in linear time or better — fib(90) must return instantly, and the
+  acceptance script will time out if it does not. The results are unchanged:
+  fib(0) is 0, fib(1) is 1, and fib(n) is fib(n-1) + fib(n-2). A negative n
+  raises ValueError. Return the complete rewritten file.
+target: solution.py
+target_content: |
+  def fib(n):
+      if n < 2:
+          return n
+      return fib(n - 1) + fib(n - 2)
+interface: "def fib(n: int) -> int"
+stop_conditions:
+  - Whether a non-integer n should be rejected is not stated.
+acceptance: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

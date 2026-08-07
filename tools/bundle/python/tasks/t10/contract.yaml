@@ -1,0 +1,27 @@
+id: t10-binary-search-infinite-loop
+task_type: bug_fix
+task: |
+  binary_search can loop forever on some inputs, because the low bound is
+  moved to mid rather than past it. Fix it. It must return the index of x in
+  the sorted list a, or -1 if x is absent. Keep it a binary search — no
+  linear scans and no a.index(). Return the complete fixed file.
+target: solution.py
+target_content: |
+  def binary_search(a, x):
+      lo, hi = 0, len(a)
+      while lo < hi:
+          mid = (lo + hi) // 2
+          if a[mid] == x:
+              return mid
+          if a[mid] < x:
+              lo = mid
+          else:
+              hi = mid
+      return -1
+interface: "def binary_search(a: list[int], x: int) -> int"
+stop_conditions:
+  - Which index must be returned when the list contains duplicates is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

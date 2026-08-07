@@ -1,0 +1,24 @@
+id: t17-annotate-greet-and-total-length
+task_type: type_annotation
+task: |
+  Add type annotations to both functions below. The behaviour must not
+  change. greet takes two str parameters and returns str. total_length takes
+  a list[str] and returns int. The acceptance script reads the annotations
+  back with typing.get_type_hints, so they must be resolvable at runtime.
+  Return the complete annotated file.
+target: solution.py
+target_content: |
+  def greet(name, greeting="Hello"):
+      return greeting + ", " + name + "!"
+
+  def total_length(strings):
+      return sum(len(s) for s in strings)
+interface: |
+  def greet(name: str, greeting: str = "Hello") -> str
+  def total_length(strings: list[str]) -> int
+stop_conditions:
+  - Whether the parameter should be a Sequence rather than a list is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

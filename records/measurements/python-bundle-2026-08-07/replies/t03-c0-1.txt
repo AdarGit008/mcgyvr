@@ -1,0 +1,19 @@
+```python
+def parse_semver(version: str) -> tuple[int, int, int, str | None]:
+    parts = version.split('-')
+    
+    if len(parts) > 2:
+        raise ValueError("too few or too many parts")
+    
+    major, minor, patch = map(int, parts[0].split('.'))
+    
+    prerelease = None
+    if len(parts) == 2:
+        prerelease = parts[1]
+        
+        # Validate prerelease part
+        if not prerelease.isalnum() or prerelease.startswith('-') or prerelease.endswith('-'):
+            raise ValueError("invalid prerelease")
+    
+    return (major, minor, patch, prerelease)
+```

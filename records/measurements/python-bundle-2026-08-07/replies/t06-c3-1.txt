@@ -1,0 +1,43 @@
+```python
+def parse_csv_row(line: str) -> list[str]:
+    """
+    Splits a CSV row on commas, handling quoted fields with embedded commas.
+    
+    Args:
+        line (str): A single CSV row to be parsed.
+
+    Returns:
+        list[str]: A list of strings representing the parsed values from the row.
+    """
+    result = []
+    current_field = ""
+    in_quote = False
+    escape_next = False
+
+    for char in line:
+        if escape_next:
+            current_field += char
+            escape_next = False
+        elif char == '"':
+            if in_quote:
+                # End of quoted field
+                result.append(current_field)
+                current_field = ""
+                in_quote = False
+            else:
+                # Start of quoted field
+                in_quote = True
+        elif char == ',' and not in_quote:
+            # End of field, add to result
+            result.append(current_field)
+            current_field = ""
+        else:
+            # Add character to current field
+            current_field += char
+
+    # Handle the last field if there is one
+    if current_field:
+        result.append(current_field)
+
+    return result
+```

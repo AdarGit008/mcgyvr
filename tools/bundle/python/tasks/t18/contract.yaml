@@ -1,0 +1,23 @@
+id: t18-annotate-find-user
+task_type: type_annotation
+task: |
+  Add type annotations to find_user below. The behaviour and the lookup
+  logic must not change. users is a list[dict[str, int]] and user_id is an
+  int. The return type is dict[str, int] or None — either Optional[...] or
+  the | None form. The acceptance script reads the annotations back with
+  typing.get_type_hints, so they must be resolvable at runtime. Return the
+  complete annotated file.
+target: solution.py
+target_content: |
+  def find_user(users, user_id):
+      for user in users:
+          if user["id"] == user_id:
+              return user
+      return None
+interface: "def find_user(users: list[dict[str, int]], user_id: int) -> dict[str, int] | None"
+stop_conditions:
+  - Whether the values of the user dict are always int is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

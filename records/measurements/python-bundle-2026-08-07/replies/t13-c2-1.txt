@@ -1,0 +1,12 @@
+```python
+def reverse_words(sentence: str) -> str:
+    if sentence == "":
+        return ""
+    
+    words = sentence.split(" ")
+    out = []
+    for i in range(len(words) - 1, -1, -1):
+        if words[i] != "":  # Guard clause to skip empty strings
+            out.append(words[i])
+    return " ".join(out)
+```

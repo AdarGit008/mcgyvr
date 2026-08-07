@@ -175,6 +175,10 @@ def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
                 id=directory.name,
                 contract=bundle.load(directory / "contract.yaml"),
                 directory=directory,
+                # Every tier here is JS/TS, d1 because it *is* the bundle rig's
+                # set. #167 made the arm explicit on a Task rather than implied
+                # by a module constant; this rig has only ever had the one.
+                language=bundle.JSTS,
             )
         )
     if only:
@@ -520,7 +524,7 @@ def main() -> int:
         return 2
 
     if not args.summarise_only:
-        problem = bundle.node_capability_error()
+        problem = bundle.JSTS.capability()
         if problem is not None:
             print(f"error: {problem}", file=sys.stderr)
             return 2

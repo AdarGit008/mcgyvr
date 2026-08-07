@@ -1,0 +1,16 @@
+id: t01-run-length-encode
+task_type: function_implementation
+task: |
+  Implement rle_encode. Run-length encode a string: each maximal run of one
+  repeated character becomes that character followed by the run length, so
+  "aaabb" encodes to "a3b2". A single character still carries a count, so
+  "ab" encodes to "a1b1". The empty string encodes to the empty string. The
+  input contains only letters.
+target: solution.py
+interface: "def rle_encode(s: str) -> str"
+stop_conditions:
+  - Whether a digit in the input should be encoded or rejected is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

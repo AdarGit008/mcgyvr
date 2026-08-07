@@ -1,0 +1,15 @@
+id: t04-lru-cache
+task_type: function_implementation
+task: |
+  Implement an LRUCache class. get returns the stored value, or None if the
+  key is absent, and marks the key as recently used. put inserts or updates,
+  and when the size would exceed the capacity it evicts the least recently
+  used key first. A capacity of zero or less raises ValueError in __init__.
+target: solution.py
+interface: "class LRUCache — __init__(self, capacity: int), get(self, key), put(self, key, value)"
+stop_conditions:
+  - Whether updating an existing key counts as a use is not stated.
+acceptance: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

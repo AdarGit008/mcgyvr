@@ -1,0 +1,45 @@
+```python
+from typing import *
+from collections import *
+
+def topo_sort(n: int, edges: list[tuple[int, int]]) -> list[int]:
+    if n == 0:
+        return []
+
+    # Build adjacency list representation of the graph
+    adj_list = defaultdict(list)
+    for a, b in edges:
+        if a >= n or b >= n:
+            raise ValueError("Invalid edge: node index out of range")
+        adj_list[a].append(b)
+
+    # Initialize indegree array
+    indegrees = [0] * n
+    for neighbors in adj_list.values():
+        for neighbor in neighbors:
+            indegrees[neighbor] += 1
+
+    # Queue for nodes with no incoming edges
+    queue = deque([i for i in range(n) if indegrees[i] == 0])
+
+    # Result list to store the topological order
+    result = []
+
+    while queue:
+        node = queue.popleft()
+        result.append(node)
+
+        # Decrease the indegree of all neighbors of the current node
+        for neighbor in adj_list[node]:
+            indegrees[neighbor] -= 1
+
+            # If a neighbor's indegree becomes zero, add it to the queue
+            if indegrees[neighbor] == 0:
+                queue.append(neighbor)
+
+    # Check if all nodes were processed
+    if len(result) != n:
+        raise ValueError("Graph contains a cycle")
+
+    return result
+```

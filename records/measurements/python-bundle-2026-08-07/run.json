@@ -1,0 +1,69 @@
+{
+  "endpoint": "http://srv1:11434",
+  "protocol": "openai",
+  "model": "qwen2.5-coder:3b",
+  "language": "python",
+  "conditions_sha256": {
+    "c0": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "c1": "c23dbebd7aa4e92b20d2c920d9c35777dad2d60d0c1ecba58e1a0d551661de63",
+    "c2": "bceead24fa06b33e68382e9a81dff49a4e15328f2f275322c4d0a0df651326a3",
+    "c3": "901b563685efe77f01d52747a8a6c24f3c7224bb95dbc3b24c192bbef49e0340"
+  },
+  "tasks_sha256": {
+    "t01": "7e375647bbf63b28cdfdc9d5994efd683382ff8eec4b63d21a40f7452b4d7ca2",
+    "t02": "02c3b978c31a3769798ef9d4f4db93c26383301048c6a80791e7bbe7103ede67",
+    "t03": "e0b5a3654ca73376d075223230a34cef415281cad4dbc85088d4b8b29decfd88",
+    "t04": "47a9ec85b5fafca9c65baafbe3d7b7eefbe2f4a47ac1e12c97e0980c8eb22040",
+    "t05": "2e657b0df2d0518376298de2214d5062002f29db2565ab75e4ea66b8fc0fba53",
+    "t06": "8368091938fd95b50600649d96345e432473053e8105c1dc981e9456df90927e",
+    "t07": "cbc2c272d0d54802c6b4ba3e628a05578db97d3c07b93d61fc6cdff2b8b9e553",
+    "t08": "1c8d716d2104b4357d2f415c7e9331ec1b77a61312c10eda365f8480d1c32553",
+    "t09": "addeab1541e6637307534f1678386c0516cacfdb024f7fbe3c63764793f93858",
+    "t10": "cc1abab1165b441e9c84dd4796d4e802e8ef4afe5d021fcefaf87125f5e27eaf",
+    "t11": "74ffd2505e8e4d52ddfbec7f63fcd5de51eb5c63858469b072d917dcec2f50be",
+    "t12": "63e939c9f0f8471e9d89da002045be38c51e5bec8ccca84770e84dc0a8a2d273",
+    "t13": "fab4c8b24794c1e4c098bf933bcdfddeaa59185c289811bf4d761d1ed3a69c60",
+    "t14": "914b03dd3e7e83089eedbe9ff24c3e6cc2d1456c64427267e1d6d6e35d5dfc94",
+    "t15": "76266347ae9c9fc502c134beb3bb52ea85edfa0f0d54656a8840cdec3abcd57f",
+    "t16": "0dd38837ca1c3e5970b85d737b24079159d785cc43ddc9c69c59c5c54f60b21d",
+    "t17": "3dd6741f38e44bb77642a1eda8a401abb6baa647b562f0ba18482d45dfba242b",
+    "t18": "7555b92b434283e67f4cbb587906bf2daa641ca6e3f4df70815124da6fa8df50",
+    "t19": "18852b44eb1d15070183257fd7aacf92292ce50e888a3275a482544e6eacfff9",
+    "t20": "e53631145cdb6fe62ab50689424a1cf198e3350b0d5ee13c4e2852eb37dbace6"
+  },
+  "invocations": [
+    {
+      "started": "2026-08-07T01:56:19+00:00",
+      "conditions": [
+        "c0",
+        "c1",
+        "c2",
+        "c3"
+      ],
+      "tasks": [
+        "t01",
+        "t02",
+        "t03",
+        "t04",
+        "t05",
+        "t06",
+        "t07",
+        "t08",
+        "t09",
+        "t10",
+        "t11",
+        "t12",
+        "t13",
+        "t14",
+        "t15",
+        "t16",
+        "t17",
+        "t18",
+        "t19",
+        "t20"
+      ],
+      "remediate": true,
+      "rig_revision": "df3443f5a9148f963b16deef230f43cf22bce178"
+    }
+  ]
+}

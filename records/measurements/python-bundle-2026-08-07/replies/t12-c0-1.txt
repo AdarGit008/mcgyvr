@@ -1,0 +1,7 @@
+```
+def drop_small(counts: dict[str, int], threshold: int) -> dict[str, int]:
+    for key in list(counts.keys()):
+        if counts[key] < threshold:
+            del counts[key]
+    return counts
+```

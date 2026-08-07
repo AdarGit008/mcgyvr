@@ -1,0 +1,23 @@
+id: t14-iterate-directly
+task_type: function_implementation
+task: |
+  Rewrite select_active to iterate directly over users — a comprehension or
+  a for-in loop — instead of indexing by position. The behaviour must be
+  identical. The rewritten file must not use range(len(...)) or index into
+  users; the acceptance script reads the file and checks. Return the
+  complete rewritten file.
+target: solution.py
+target_content: |
+  def select_active(users):
+      result = []
+      for i in range(len(users)):
+          if users[i]["active"] and users[i]["age"] >= 18:
+              result.append(users[i]["name"])
+      return result
+interface: "def select_active(users: list[dict]) -> list[str]"
+stop_conditions:
+  - Whether a user dict missing "active" or "age" is legal input is not stated.
+acceptance: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

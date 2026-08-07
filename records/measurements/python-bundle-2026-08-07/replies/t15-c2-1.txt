@@ -1,0 +1,15 @@
+```python
+def convert_temps(values: list[float], mode: str) -> list[int]:
+    if mode == "fahrenheit":
+        return [round(v * 9 / 5 + 32) for v in values]
+    elif mode == "kelvin":
+        return [round(v + 273.15) for v in values]
+    else:
+        raise ValueError("Invalid mode")
+
+def celsius_to_fahrenheit_rounded(values: list[float]) -> list[int]:
+    return convert_temps(values, "fahrenheit")
+
+def celsius_to_kelvin_rounded(values: list[float]) -> list[int]:
+    return convert_temps(values, "kelvin")
+```

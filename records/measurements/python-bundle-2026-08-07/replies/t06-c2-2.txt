@@ -1,0 +1,30 @@
+```python
+def parse_csv_row(line: str) -> list[str]:
+    result = []
+    i, n = 0, len(line)
+    in_quote = False
+
+    while i < n:
+        if line[i] == '"':
+            if in_quote:
+                # End of quoted field
+                if i + 1 < n and line[i + 1] == '"':
+                    result.append(line[i + 2:i + 3])
+                    i += 3
+                else:
+                    in_quote = False
+            else:
+                # Start of quoted field
+                in_quote = True
+        elif line[i] == ',' and not in_quote:
+            # End of field
+            result.append(line[j:i].strip())
+            j = i + 1
+        i += 1
+
+    # Add the last field if there is one
+    if j < n:
+        result.append(line[j:].strip())
+
+    return result
+```

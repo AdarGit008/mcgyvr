@@ -1,0 +1,26 @@
+```python
+def read_config(text: str) -> dict[str, str]:
+    config = {}
+    for line in text.splitlines():
+        # Skip empty lines and comments
+        if not line.strip() or line.startswith('#'):
+            continue
+        
+        # Split the line on the first '='
+        parts = line.split('=', 1)
+        
+        # Check for valid key-value pair
+        if len(parts) != 2:
+            raise ValueError(f"Invalid format in config: {line}")
+        
+        key, value = parts
+        
+        # Strip whitespace from both key and value
+        key = key.strip()
+        value = value.strip()
+        
+        # Add to the configuration dictionary
+        config[key] = value
+    
+    return config
+```

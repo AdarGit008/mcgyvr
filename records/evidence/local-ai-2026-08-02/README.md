@@ -27,6 +27,7 @@ which is the whole of #118's first bullet.
 |---|---|
 | `data/context_exp/` | `CLM-0004` — bundle size vs first-pass acceptance. `summary_2026-07-28.md` is the write-up; `results_q3b.jsonl` and `results_qwen3.jsonl` are the 160 raw runs (2 models × 4 conditions × 20 tasks); `bundles/` are the three prompt bundles the conditions differ by |
 | `research/context_size_experiment_2026-07-28.md` | `CLM-0004` — the experiment design, written before the run |
+| `instrument/` | `CLM-0004` — the task set and harness that produced `data/context_exp/`, recovered under #167 and pinned to the commit the run was made at. See [`instrument/README.md`](instrument/README.md) |
 | `data/humaneval_plus_*.jsonl` | `CLM-0005` — the stored completions both rates were measured on. Also the generation behind `data/capability-table.json`, cited by `CLM-0001` and `CLM-0003` |
 | `data/humaneval_plus_summary_2026-07-26.md` | `CLM-0001`, `CLM-0005` — the original run's own pass rates, which are what make the re-evaluation checkable rather than self-reported |
 | `premise/premise.jsonl` | `CLM-0005` — one row per completion with its `ast.parse` verdict |
@@ -43,6 +44,17 @@ than quietly becoming the new truth.
 Two files postdate that manifest and are pinned separately, to
 [`d201ea1`](https://github.com/AdarGit008/local-ai/tree/d201ea1): `premise/`'s
 rows and eval results, produced by the run that measured them.
+
+`instrument/`'s three files are pinned separately too, to
+[`6d8c11d6`](https://github.com/AdarGit008/local-ai/tree/6d8c11d6) — the commit
+the 2026-07-28 run was made at, which is not local-ai's HEAD. The manifest
+records that as `instrument_commit` and per-entry `pinned_commit`.
+
+The three `bundles/` entries carried `bytes` but no `sha256` and so were being
+skipped by the digest test. They now carry one, because #167's Python arm uses
+those files directly as its conditions: `c2.md` is `src/mcgyvr/prompts/python.md`
+byte for byte, and an unpinned condition would leave the arm's ladder
+uncheckable.
 
 ## Re-running
 

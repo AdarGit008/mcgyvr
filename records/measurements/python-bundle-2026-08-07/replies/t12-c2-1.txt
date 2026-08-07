@@ -1,0 +1,22 @@
+```python
+def drop_small(counts: dict[str, int], threshold: int) -> dict[str, int]:
+    """
+    Drop keys from the dictionary where the value is less than the given threshold.
+    The function modifies the input dictionary in place and returns it.
+    
+    :param counts: Dictionary with string keys and integer values.
+    :param threshold: Integer threshold for dropping keys.
+    :return: The modified dictionary with keys dropped.
+    """
+    if not isinstance(counts, dict) or not all(isinstance(k, str) and isinstance(v, int) for k, v in counts.items()):
+        raise ValueError("counts must be a dictionary of strings to integers.")
+    
+    # Use a set to track keys to delete
+    keys_to_delete = {k for k, v in counts.items() if v < threshold}
+    
+    # Delete keys from the dictionary in place
+    for key in keys_to_delete:
+        del counts[key]
+    
+    return counts
+```

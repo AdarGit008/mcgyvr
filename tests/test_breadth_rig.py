@@ -340,7 +340,7 @@ def test_thinning_drops_assertions_and_never_the_setup() -> None:
             thinned = selectivity.thin(source, keep)
             assert selectivity.count_assertions(thinned) == keep
             assert "import assert" in thinned
-            assert f'from "./{breadth.bundle.SOLUTION}"' in thinned
+            assert f'from "./{breadth.bundle.JSTS.solution}"' in thinned
             assert thinned.count("\n") <= source.count("\n")
 
 

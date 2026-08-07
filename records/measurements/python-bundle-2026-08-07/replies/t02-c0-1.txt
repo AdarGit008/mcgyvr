@@ -1,0 +1,23 @@
+```python
+def merge_intervals(intervals: list[list[int]]) -> list[list[int]]:
+    if not intervals:
+        return []
+
+    # Sort intervals by their start value
+    intervals.sort(key=lambda x: x[0])
+
+    merged = [intervals[0]]
+
+    for interval in intervals[1:]:
+        last_merged_end = merged[-1][1]
+        current_start, current_end = interval
+
+        if current_start <= last_merged_end:
+            # Merge the current interval with the last merged interval
+            merged[-1] = [merged[-1][0], max(last_merged_end, current_end)]
+        else:
+            # Add the current interval as a new merged interval
+            merged.append(interval)
+
+    return merged
+```

@@ -1,0 +1,15 @@
+```python
+def safe_divide(a, b) -> float | None:
+    if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+        raise TypeError("Both arguments must be numeric.")
+    
+    if b == 0:
+        return None
+    
+    try:
+        result = a / b
+    except ZeroDivisionError:
+        return None
+    
+    return result
+```

@@ -1,0 +1,31 @@
+id: t15-deduplicate-converters
+task_type: function_implementation
+task: |
+  The two converters below differ only in their formula. Deduplicate them
+  into convert_temps(values, mode), where mode is "fahrenheit" or "kelvin"
+  and any other mode raises ValueError. Keep BOTH original functions working
+  as thin wrappers over convert_temps — the acceptance script asserts all
+  three. Return the complete rewritten file.
+target: solution.py
+target_content: |
+  def celsius_to_fahrenheit_rounded(values):
+      out = []
+      for v in values:
+          out.append(round(v * 9 / 5 + 32))
+      return out
+
+  def celsius_to_kelvin_rounded(values):
+      out = []
+      for v in values:
+          out.append(round(v + 273.15))
+      return out
+interface: |
+  def convert_temps(values: list[float], mode: str) -> list[int]
+  def celsius_to_fahrenheit_rounded(values: list[float]) -> list[int]
+  def celsius_to_kelvin_rounded(values: list[float]) -> list[int]
+stop_conditions:
+  - Whether mode should be matched case-insensitively is not stated.
+acceptance: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

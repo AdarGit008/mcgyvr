@@ -194,11 +194,16 @@ def test_the_provenance_marker_is_not_sent_to_the_worker() -> None:
 
 
 def test_stripping_provenance_leaves_a_markerless_bundle_alone() -> None:
-    """Python's bundle has no marker; the strip must be a no-op on it."""
-    python = (REPO / "src" / "mcgyvr" / "prompts" / "python.md").read_text(
-        encoding="utf-8"
+    """The strip must be a no-op on text that has no marker.
+
+    Both shipped bundles carry one since #167 gave ``python.md`` a standing
+    worth stating in the file, so the markerless case is exercised on text
+    written here rather than on a shipped file that might grow a marker later.
+    """
+    markerless = (
+        "You are a senior Python engineer.\n\nOutput rules:\n- Return ONLY code.\n"
     )
-    assert strip_provenance(python) == python
+    assert strip_provenance(markerless) == markerless
     assert strip_provenance("# heading\n\n<!-- a comment lower down -->\n") == (
         "# heading\n\n<!-- a comment lower down -->\n"
     )
@@ -249,9 +254,13 @@ def test_the_shipped_bundle_declares_the_null_result_it_measured() -> None:
 def test_a_measured_bundle_does_not_imply_a_bundle_that_helped() -> None:
     """The distinction the boolean could not carry, held where it can fail.
 
-    Both shipped bundles are measured; only one of them measured a benefit. If
-    these ever collapse to the same value, every reader of ``measured`` starts
-    citing CLM-0012 as if it said what CLM-0004 said.
+    Both shipped bundles are measured and neither buys anything on mcgyvr's own
+    path — but for different reasons, and the reasons are the point. The JS/TS
+    ladder measured no effect at all; the Python one measured a real effect that
+    ``render_user_message`` already delivers (#167). If these ever collapse to
+    the same value, a reader starts citing CLM-0012 as if it said what CLM-0004
+    said, or writes off an artifact that is worth four tasks in twenty to a
+    harness without output rules of its own.
     """
     js = bundle_for("solution.ts")
     python = bundle_for("solution.py")
@@ -259,7 +268,7 @@ def test_a_measured_bundle_does_not_imply_a_bundle_that_helped() -> None:
 
     assert js.measured is python.measured is True
     assert js.standing is not python.standing
-    assert python.standing is BundleStanding.MEASURED_BENEFIT
+    assert python.standing is BundleStanding.MEASURED_REDUNDANT
 
     # And the derivation still bottoms out: only never-swept reads as unmeasured,
     # so a null result cannot be mistaken for an absent one.
@@ -473,7 +482,7 @@ def test_resuming_onto_an_edited_task_set_is_refused(
 
     edited = dict(measure.task_digests())
     edited["t09"] = "0" * 64
-    monkeypatch.setattr(measure, "task_digests", lambda: edited)
+    monkeypatch.setattr(measure, "task_digests", lambda _language=None: edited)
 
     with pytest.raises(measure.MeasureError, match="tasks_sha256"):
         measure.record_run(tmp_path, worker, {})
@@ -551,7 +560,7 @@ def test_a_node_that_cannot_run_typescript_is_refused_with_its_reason(
     monkeypatch.setattr(measure.shutil, "which", lambda _name: None)
 
     assert measure.node_runs_typescript() is False
-    problem = measure.node_capability_error()
+    problem = measure.JSTS.capability()
     assert problem is not None
     assert "solution.ts" in problem
 
