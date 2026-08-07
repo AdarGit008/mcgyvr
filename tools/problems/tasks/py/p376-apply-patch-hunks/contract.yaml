@@ -1,0 +1,32 @@
+id: p376-apply-patch-hunks
+task_type: function_implementation
+task: >-
+  Implement apply_patch_hunks. The first argument is a file given as a list of
+  lines, each a string; the second is a list of hunks worked in the order
+  given. A hunk is a mapping carrying at, the number of the first file line it
+  covers counting from one, before, the lines it expects to find sitting there,
+  and after, the lines that take their place. Every at is measured against the
+  file as it was handed in and never against the file as earlier hunks have
+  left it, so a hunk that changes how many lines there are does not shift the
+  ones behind it. The ats must climb strictly, and no hunk may reach into the
+  next: a hunk's at plus the count of its before lines must not pass the
+  following hunk's at. A hunk whose before is empty is an insertion and drops
+  its after lines directly ahead of the line at its at, which may sit one past
+  the last line so as to add to the end. A hunk conflicts when the lines at its
+  place are not the ones its before names, or when its reach runs off the end
+  of the file; a conflicting hunk changes nothing, and its position in the hunk
+  list, counting from zero, joins the conflicts. Return a mapping carrying
+  lines, the file after every hunk that did apply, and conflicts, the positions
+  of those that did not, in climbing order. Raise an error when the file is not
+  a list of strings, when the hunks are not a list, when a hunk is not a
+  mapping, when at is not a whole number of one or more, when before or after
+  is not a list of strings, when the ats fail to climb strictly, and when one
+  hunk reaches into the next.
+target: solution.py
+interface: "def apply_patch_hunks(lines: list, hunks: list) -> dict"
+stop_conditions:
+  - Whether a hunk whose before and after are both empty is worth refusing is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

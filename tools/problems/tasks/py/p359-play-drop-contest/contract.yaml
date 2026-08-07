@@ -1,0 +1,86 @@
+id: p359-play-drop-contest
+task_type: bug_fix
+task: >-
+  play_drop_contest replays a contest of dropped discs, and it misses half
+  the slanting wins. Repair it. The board is columns wide and rows tall,
+  drawn with the topmost row first and a dot for a vacant square. The moves
+  are column numbers counted from zero; the marks alternate with r dropping
+  first, and each dropped disc settles on the lowest vacant square of its
+  column. A disc that completes four of one mark standing next to each
+  other — along a row, down a column, or on either slant — ends the
+  contest at once, and every move still to come is left undropped. What is
+  broken: the slant test walks only the slant falling to the right and
+  never the slant falling to the left, so a win laid out on that other
+  slant goes unseen and the contest carries on past it. Return a record
+  under three keys: winner, the winning mark or "none"; played, how many
+  moves were actually dropped, the winning one included; and board, the
+  finished board as a list of strings. Raise an error when either side of
+  the board is not a whole number of one or more, when the moves are not a
+  list, when a move is not a whole number, when a move names no column, and
+  when a move falls into a column already full — that last only while the
+  contest is still running, since moves after a win are never dropped.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  SLANTS = [(0, 1), (1, 0), (1, 1)]
+
+
+  def play_drop_contest(columns, rows, moves):
+      for size in (columns, rows):
+          if not isinstance(size, int) or isinstance(size, bool) or size < 1:
+              raise ValueError("the board sides must be whole numbers of one or more")
+      if not isinstance(moves, list):
+          raise ValueError("the moves must be a list")
+      grid = [["."] * columns for _ in range(rows)]
+      winner = "none"
+      played = 0
+
+      def runs_four(row, column, mark):
+          for down, across in SLANTS:
+              total = 1
+              for sense in (1, -1):
+                  step = 1
+                  while True:
+                      near_row = row + down * step * sense
+                      near_column = column + across * step * sense
+                      if not (0 <= near_row < rows and 0 <= near_column < columns):
+                          break
+                      if grid[near_row][near_column] != mark:
+                          break
+                      total += 1
+                      step += 1
+              if total >= 4:
+                  return True
+          return False
+
+      for move in moves:
+          if winner != "none":
+              break
+          if not isinstance(move, int) or isinstance(move, bool):
+              raise ValueError("every move must be a whole number")
+          if move < 0 or move >= columns:
+              raise ValueError("the move names no column")
+          landing = -1
+          for row in range(rows - 1, -1, -1):
+              if grid[row][move] == ".":
+                  landing = row
+                  break
+          if landing < 0:
+              raise ValueError("the column is already full")
+          mark = "r" if played % 2 == 0 else "y"
+          grid[landing][move] = mark
+          played += 1
+          if runs_four(landing, move, mark):
+              winner = mark
+      return {
+          "winner": winner,
+          "played": played,
+          "board": ["".join(row) for row in grid],
+      }
+interface: "def play_drop_contest(columns: int, rows: int, moves: list) -> dict"
+stop_conditions:
+  - Whether a contest whose moves run out with the board full should be called a draw by name is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

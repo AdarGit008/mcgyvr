@@ -1,0 +1,32 @@
+id: p374-coerce-expression-type
+task_type: function_implementation
+task: >-
+  Implement coerce_expression_type. The argument is an expression over a small
+  type system whose five types are tally (a whole quantity), measure (a graded
+  quantity), glyph (written text), flag (a truth) and void (nothing at all). A
+  node is a mapping: one carrying a type is a leaf naming one of the five, and
+  one carrying an op is a branch that must also carry a left and a right node;
+  a node carrying both or neither is malformed. The three ops read +, < and =.
+  A + fuses: two drawn from tally and measure give the broader of the two, with
+  measure broader than tally; a glyph beside a glyph, a tally or a measure
+  gives a glyph; a flag or a void on either side cannot be fused at all. A <
+  orders: two drawn from tally and measure give a flag, and so do two glyphs,
+  but a glyph against a tally or a measure has no order, and neither has a flag
+  or a void. An = matches: a void on either side always gives a flag, whatever
+  stands opposite; otherwise two drawn from tally and measure give a flag, two
+  glyphs give a flag, and two flags give a flag, while a glyph against a tally
+  or a measure, and a flag against anything but another flag, cannot be
+  matched. Return the name of the type the whole expression carries. Raise an
+  error when a node is not a mapping, when a node carries a type and an op
+  together or carries neither, when a leaf names a type outside the five, when
+  a branch gives an op outside the three or wants its left or its right, when
+  an op meets a pair it cannot take, and when the nesting runs deeper than
+  twelve nodes counting the outermost as the first.
+target: solution.py
+interface: "def coerce_expression_type(node: dict) -> str"
+stop_conditions:
+  - Whether a branch may carry keys beyond op, left and right is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

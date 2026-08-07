@@ -1,0 +1,66 @@
+id: p363-tape-print-ladder
+task_type: bug_fix
+task: >-
+  fold_tape_prints reports a session's tape wrongly. Repair it. A ladder
+  holds resting tickets, oldest first; a ticket is a mapping with "ref" (a
+  non-empty string), "way" (either "buy" or "sell"), "limit" (a positive
+  whole number) and "lots" (a positive whole number). The flow is a list of
+  tickets that arrive one after another. Each arriving ticket works the
+  ladder as far as its limit allows: a buy reaches sells whose limit sits at
+  or below its own, a sell reaches buys whose limit sits at or above its own,
+  and the ladder gives up its keenest limit first — the smallest for a buy to
+  take, the largest for a sell — with the older of two tickets at one limit
+  going first. Every trade prints at the ladder ticket's limit, not the
+  arriving one's, and a ticket worked down to nothing leaves the ladder.
+  Whatever lots an arriving ticket still has when nothing more can be reached
+  join the ladder as its newest ticket, where later flow may reach them.
+  Return a mapping with "prints", one mapping per limit that traded holding
+  "limit" and "lots" (the lots printed there across the whole session),
+  ordered by rising limit, and "left", the lots still sitting on the ladder
+  at the close. An empty flow prints nothing. Raise an error when a way is
+  neither buy nor sell, when a limit or a lots count is not a positive whole
+  number, when a ref is empty or is carried by two tickets anywhere in the
+  session, when a ticket is not a mapping, and when either argument is not a
+  list. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """The printed lots at each limit once the flow has worked the ladder."""
+
+
+  def fold_tape_prints(opening: list, flow: list) -> dict:
+      ladder = [dict(row) for row in opening]
+      prints = {}
+      for raw in flow:
+          taker = dict(raw)
+          left = taker["lots"]
+          for ticket in ladder:
+              if left == 0:
+                  break
+              if taker["way"] == "buy":
+                  reachable = (
+                      ticket["way"] == "sell" and ticket["limit"] <= taker["limit"]
+                  )
+              else:
+                  reachable = (
+                      ticket["way"] == "buy" and ticket["limit"] >= taker["limit"]
+                  )
+              if not reachable:
+                  continue
+              lots = min(left, ticket["lots"])
+              prints[taker["limit"]] = prints.get(taker["limit"], 0) + lots
+              ticket["lots"] -= lots
+              left -= lots
+      rows = [
+          {"limit": limit, "lots": prints[limit]} for limit in sorted(prints)
+      ]
+      rest = 0
+      for ticket in ladder:
+          rest += ticket["lots"]
+      return {"prints": rows, "left": rest}
+interface: "def fold_tape_prints(opening: list, flow: list) -> dict"
+stop_conditions:
+  - Whether an opening ladder may already hold a buy and a sell that could reach each other is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,32 @@
+id: p370-fold-dimension-terms
+task_type: function_implementation
+task: >-
+  Implement fold_dimension_terms. A term is a mapping with "op" (a single
+  sign), "count" (a whole number, which may be negative or zero) and "units"
+  (a mapping from unit names to exponents, every name a run of small letters
+  and every exponent a whole number that is never zero, an empty mapping
+  meaning the term carries no dimension at all). Fold the terms left to right
+  into one running quantity. The first term must carry the op "=" and simply
+  becomes that quantity. A later term carrying "*" multiplies the counts and
+  adds each of its exponents to the running one; a term carrying "/" divides
+  the counts and takes each of its exponents away, and that division must
+  come out whole or the fold fails; a term carrying "+" or "-" adds or takes
+  away its count and leaves the exponents alone, but only when the running
+  quantity and the term carry exactly the same unit names at exactly the same
+  exponents. Any exponent that reaches zero drops out. Return a mapping with
+  "count", the running count, and "units", the running exponents with the
+  zeros dropped. Raise an error when the term list is empty or is not a list,
+  when a term is not a mapping, when the first op is not "=" or a later op is
+  none of the four, when a count is not a whole number, when a unit name is
+  not a run of small letters, when an exponent is not a whole number or is
+  zero, when the units are not a mapping, when a divisor's count is zero,
+  when a division does not come out whole, and when a term is added to a
+  quantity carrying unlike units.
+target: solution.py
+interface: "def fold_dimension_terms(terms: list) -> dict"
+stop_conditions:
+  - Whether the answer's unit names should be reported in any particular arrangement is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

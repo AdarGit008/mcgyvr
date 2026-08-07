@@ -1,0 +1,43 @@
+id: p380-tiered-parking-charge
+task_type: function_implementation
+task: >-
+  Implement tiered_parking_charge. The first argument is a tariff, a mapping
+  carrying tiers, cap, dayStart and grace. The tiers are a non-empty list of
+  mappings, each with upTo, either a whole number of minutes above nought or
+  the language's null value marking the one open tier that takes everything
+  longer, and rate, the whole number of cents each of that tier's minutes
+  costs; the stated minute counts must climb strictly and the open tier must
+  appear exactly once, at the end. The cap is a whole number of cents of nought
+  or more, or null when a day's charge is never trimmed. The dayStart says how
+  many minutes past midnight a charging day turns over, from 0 through 1439,
+  and the grace is a whole number of minutes of nought or more. The second
+  argument is a ticket, a mapping carrying entry, the minute the car arrived
+  counted from midnight at the head of day nought, and stay, how many minutes
+  it stood, from 1 through 20160; the car occupies the minutes from entry
+  onward with entry itself taken in. Should the stay be no longer than the
+  grace nothing whatever is charged and every list comes back empty; past the
+  grace the grace buys nothing and every minute is paid for. Split the stay at
+  the charging day turnovers. Inside each charging day number the minutes the
+  car actually stood there from one upwards, so a day the car arrived partway
+  through starts its numbering afresh at one; a numbered minute falls in the
+  first tier whose stated minutes are not below it, and the open tier takes the
+  rest. Trim a day's charge to the cap when it passes it. Return a mapping
+  carrying days, what each charging day the car touched came to, in order;
+  capped, which of those days were trimmed, counting the days from nought; and
+  cents, the sum of the days. Raise an error when either argument is not a
+  mapping, when the tiers are not a non-empty list or a tier is not a mapping,
+  when a stated minute count is neither null nor a whole number above nought,
+  when the stated minute counts fail to climb strictly, when the open tier is
+  missing, repeated or not last, when a rate is not a whole number of nought or
+  more, when the cap is neither null nor a whole number of nought or more, when
+  dayStart falls outside 0 through 1439, when the grace is not a whole number
+  of nought or more, when entry is not a whole number of nought or more, and
+  when the stay falls outside 1 through 20160.
+target: solution.py
+interface: "def tiered_parking_charge(tariff: dict, ticket: dict) -> dict"
+stop_conditions:
+  - Whether two tiers may quote the very same rate is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

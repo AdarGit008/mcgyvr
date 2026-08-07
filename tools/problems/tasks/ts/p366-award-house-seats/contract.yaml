@@ -1,0 +1,29 @@
+id: p366-award-house-seats
+task_type: function_implementation
+task: >-
+  Implement awardHouseSeats. Each roll is a two-element list holding a
+  party's name and its tally, a whole number that is never negative; the
+  rolls come in the order the returning officer read them. Before a single
+  seat is given, strike out every roll whose tally falls short of a fifth of
+  all the tallies added together — strictly short, so a roll sitting on
+  exactly a fifth stays — and a struck roll never appears in the answer. Then
+  give the seats out one at a time: each goes to the standing roll with the
+  largest tally divided by one more than the seats it already holds, and that
+  quotient must be judged exactly rather than through rounded arithmetic.
+  Should two rolls stand level on the quotient the larger tally takes the
+  seat, and should the tallies be level too the roll read earlier takes it.
+  Return a mapping from each surviving party's name to the seats it holds
+  once every seat is given out, a survivor that got none appearing with zero.
+  Raise an error when there are no rolls, when a roll is not a two-element
+  list, when a name is not a non-empty string or two rolls share a name, when
+  a tally is not a whole number or is negative, when every tally is zero,
+  when striking leaves no roll standing, when the seat count is not a whole
+  number above zero, and when the rolls are not given as a list.
+target: solution.ts
+interface: "export function awardHouseSeats(rolls: Array<[string, number]>, seats: number): Record<string, number>"
+stop_conditions:
+  - Whether the seat count may exceed the number of standing rolls is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

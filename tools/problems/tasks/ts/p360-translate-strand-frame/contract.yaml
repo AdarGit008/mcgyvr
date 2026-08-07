@@ -1,0 +1,27 @@
+id: p360-translate-strand-frame
+task_type: function_implementation
+task: >-
+  Implement translateStrandFrame. A strand is a string over the four
+  symbols W, X, Y and Z, which carry the values 0, 1, 2 and 3 in that
+  order. The strand is cut into codons of three symbols, taken left to
+  right from place zero, so its length must be a whole multiple of three.
+  A codon names one residue, and only its first two symbols decide which:
+  work out four times the value of the first symbol plus the value of the
+  second, then take the letter standing at that place, counted from zero,
+  in the sixteen-letter run a through p. So WWW, WWX and WWZ all name a,
+  XYZ names g, and ZZY names p. Two codons are halt markers and name no
+  residue at all: ZZW and ZZX. Reading a halt marker stops the translation
+  there and then, and whatever follows it in the strand is never read.
+  Return a record under two keys: residues, the named residues joined into
+  one string in reading order, and halted, true only when a halt marker was
+  read. Raise an error when the strand is not a string, when it is empty,
+  when its length is not a whole multiple of three, and when it holds a
+  symbol outside W, X, Y and Z.
+target: solution.ts
+interface: "export function translateStrandFrame(strand: string): { residues: string; halted: boolean }"
+stop_conditions:
+  - Whether a strand arriving in lower case should be lifted to upper case rather than refused is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,44 @@
+id: p355-restore-front-shift
+task_type: bug_fix
+task: >-
+  restore_front_shift turns a list of codes back into text, and it forgets
+  to keep its ring moving. Repair it. The ring is a run of characters that
+  begins as the given alphabet taken left to right. Every code names a slot
+  of the ring, counted from zero: the character standing in that slot is
+  the next character of the text, and once it has been read out it must be
+  pulled from the ring and put back at the very front, each character that
+  stood ahead of it falling back one slot. The broken code reads every slot
+  out of the untouched opening ring and never rearranges it, so with the
+  alphabet "abcd" the codes [3, 1, 2] must give "dab" and instead give
+  "dbc". An empty list of codes gives an empty string. Leave the checks
+  exactly where they are: an alphabet that is not a string, an empty
+  alphabet, an alphabet carrying one character twice, a code list that is
+  not a list, a code that is not a whole number, and a code naming no slot
+  of the ring must each throw an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def restore_front_shift(alphabet, codes):
+      if not isinstance(alphabet, str):
+          raise ValueError("the alphabet must be a string")
+      if len(alphabet) == 0:
+          raise ValueError("the alphabet must not be empty")
+      ring = list(alphabet)
+      if len(set(ring)) != len(ring):
+          raise ValueError("the alphabet carries one character twice")
+      if not isinstance(codes, list):
+          raise ValueError("the codes must be a list")
+      pieces = []
+      for code in codes:
+          if not isinstance(code, int) or isinstance(code, bool):
+              raise ValueError("every code must be a whole number")
+          if code < 0 or code >= len(ring):
+              raise ValueError("the code names no slot of the ring")
+          pieces.append(ring[code])
+      return "".join(pieces)
+interface: "def restore_front_shift(alphabet: str, codes: list) -> str"
+stop_conditions:
+  - Whether a code list longer than any plausible text should be capped is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

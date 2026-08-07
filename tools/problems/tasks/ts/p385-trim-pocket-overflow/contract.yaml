@@ -1,0 +1,44 @@
+id: p385-trim-pocket-overflow
+task_type: bug_fix
+task: >-
+  Fix trimPocketOverflow. The first argument lists, in order, what a member
+  would hand over out of pocket on each of a year's settled claims, every entry
+  whole cents; the second is the ceiling the year's out-of-pocket total may
+  never pass. Walk the list once, keeping the tab of what has truly been handed
+  over. An entry goes over whole while the tab still has room beneath the
+  ceiling; the one entry that would carry the tab past the ceiling goes over
+  only as far as the room left to it, and every entry behind that one goes over
+  as nothing at all. Give back a list of the same length holding what was truly
+  handed over against each entry. The version below trims only once the ceiling
+  has already been reached, so the single entry that crosses it goes over in
+  full and the tab overshoots. Keep turning away with an error a ceiling or an
+  entry that is not a whole number or that falls below zero, and return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  export function trimPocketOverflow(owed: number[], ceiling: number): number[] {
+    if (!Number.isInteger(ceiling) || ceiling < 0) {
+      throw new Error("ceiling must be a whole number of cents, not below zero");
+    }
+    const handed: number[] = [];
+    let tab = 0;
+    for (const entry of owed) {
+      if (!Number.isInteger(entry) || entry < 0) {
+        throw new Error("every entry must be a whole number of cents, not below zero");
+      }
+      if (tab >= ceiling) {
+        handed.push(0);
+        continue;
+      }
+      handed.push(entry);
+      tab += entry;
+    }
+    return handed;
+  }
+interface: "export function trimPocketOverflow(owed: number[], ceiling: number): number[]"
+stop_conditions:
+  - Whether a later refund can give room back beneath the ceiling is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

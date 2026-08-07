@@ -1,0 +1,28 @@
+id: p358-find-line-of-four
+task_type: function_implementation
+task: >-
+  Implement findLineOfFour. The board is a list of one or more lines, each
+  a non-empty string of the marks r, y and the dot for a vacant square, all
+  lines one length, the first line being the topmost. Discs were dropped
+  down the columns, so no disc may hang: if a square carries a disc then
+  the square directly beneath it in the same column carries one too, and a
+  board breaking that must raise an error. A win is four squares of the one
+  mark lying next to each other along a straight heading. Sweep the squares
+  line by line from the top, and left to right inside a line; at each
+  square carrying a disc try the headings in this order — one square right,
+  one square down, one down and right, one up and right — and answer with
+  the first win met. Return a record under two keys: winner, the winning
+  mark, and cells, its four squares as [line, spot] pairs listed in the
+  order the heading walked them, both counted from zero. With no win
+  anywhere answer winner "none" and an empty cells list. Raise an error
+  when the board is not a list, when it holds no lines, when a line is not
+  a string, when a line is empty, when the lines are not all one length,
+  and when a mark is outside r, y and the dot.
+target: solution.ts
+interface: "export function findLineOfFour(board: string[]): { winner: string; cells: number[][] }"
+stop_conditions:
+  - Whether a board carrying wildly different counts of the two marks should be called impossible is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

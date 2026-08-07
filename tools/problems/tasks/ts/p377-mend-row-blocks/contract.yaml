@@ -1,0 +1,107 @@
+id: p377-mend-row-blocks
+task_type: bug_fix
+task: >-
+  mendRowBlocks lays a run of blocks over a sheet of rows. The first argument
+  is the sheet, a list of strings; the second is the blocks, each a mapping
+  carrying start (the number of the row it begins at, counting from one), drop
+  (how many rows it lifts out, never fewer than none), insert (the rows it puts
+  in their place) and guard (either the row it expects to find sitting at
+  start, or the language's null value when it will settle for whatever is
+  there). Every start is read against the sheet as it was handed in. A block is
+  turned away, and its position among the blocks noted in the rejected list,
+  when its reach passes the end of the sheet or when its guard names something
+  other than the row actually sitting at start; the rest are laid down. The
+  laying is wrong: each block is cut into the growing sheet at its own start,
+  taking no account of the rows earlier blocks have added or lifted out, so
+  once a block changes the row count every block behind it lands somewhere
+  other than where it was meant to. Carry the running difference between what
+  has been inserted and what has been dropped, and offset each later cut by it.
+  Leave everything else where it stands: the guard and reach tests being read
+  against the sheet as handed in, the ordering of the rejected list, the keys
+  rows and rejected of the returned mapping, and the errors raised for a sheet
+  that is not a list of strings, blocks that are not a list, a block that is
+  not a mapping, a start that is not a whole number of one or more, a drop that
+  is not a whole number of none or more, an insert that is not a list of
+  strings, a guard that is neither null nor a string, starts that fail to climb
+  strictly, and a block whose start and drop reach into the one behind it.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  function readRows(value: unknown, what: string): string[] {
+    if (!Array.isArray(value)) {
+      throw new Error("the " + what + " must be a list of strings");
+    }
+    for (const row of value) {
+      if (typeof row !== "string") {
+        throw new Error("the " + what + " must be a list of strings");
+      }
+    }
+    return value as string[];
+  }
+
+  export function mendRowBlocks(
+    rows: string[],
+    blocks: Array<Record<string, unknown>>,
+  ): Record<string, unknown> {
+    const sheet = readRows(rows, "sheet");
+    if (!Array.isArray(blocks)) {
+      throw new Error("the blocks must be a list");
+    }
+    const parsed: Array<{ start: number; drop: number; insert: string[]; guard: string | null }> = [];
+    for (const raw of blocks) {
+      if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+        throw new Error("every block must be a mapping");
+      }
+      const block = raw as Record<string, unknown>;
+      const start = block.start;
+      if (typeof start !== "number" || !Number.isInteger(start) || start < 1) {
+        throw new Error("start must be a whole number of one or more");
+      }
+      const drop = block.drop;
+      if (typeof drop !== "number" || !Number.isInteger(drop) || drop < 0) {
+        throw new Error("drop must be a whole number of none or more");
+      }
+      const held = block.guard;
+      if (held !== null && held !== undefined && typeof held !== "string") {
+        throw new Error("guard must be a string or null");
+      }
+      parsed.push({
+        start,
+        drop,
+        insert: readRows(block.insert, "insert"),
+        guard: typeof held === "string" ? held : null,
+      });
+    }
+    for (let i = 1; i < parsed.length; i++) {
+      if (parsed[i].start <= parsed[i - 1].start) {
+        throw new Error("the starts must climb strictly");
+      }
+      if (parsed[i - 1].start + parsed[i - 1].drop > parsed[i].start) {
+        throw new Error("one block reaches into the next");
+      }
+    }
+
+    const out = sheet.slice();
+    const rejected: number[] = [];
+    for (let i = 0; i < parsed.length; i++) {
+      const block = parsed[i];
+      const at = block.start - 1;
+      let refused = at > sheet.length || at + block.drop > sheet.length;
+      if (!refused && block.guard !== null) {
+        refused = sheet[at] !== block.guard;
+      }
+      if (refused) {
+        rejected.push(i);
+        continue;
+      }
+      out.splice(at, block.drop, ...block.insert);
+    }
+    return { rows: out, rejected };
+  }
+interface: "export function mendRowBlocks(rows: string[], blocks: Array<Record<string, unknown>>): Record<string, unknown>"
+stop_conditions:
+  - Whether a block that neither drops nor inserts anything is worth refusing is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

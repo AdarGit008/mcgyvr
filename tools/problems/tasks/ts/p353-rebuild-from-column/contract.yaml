@@ -1,0 +1,67 @@
+id: p353-rebuild-from-column
+task_type: bug_fix
+task: >-
+  rebuildFromLastColumn undoes a block-sorting fold, and it goes wrong the
+  moment a letter shows up more than once. Repair it. The fold being undone
+  worked this way: a text of one or more lowercase letters was spun into as
+  many spins as it has letters, spin k opening at place k and running on
+  through the front; the spins were laid out in dictionary order; the
+  closing letter of each spin, read down that layout, formed the column
+  string, and the seat the unspun text took in the layout became the home
+  number. Given the column and the home, hand back the text that was spun.
+  What is broken is the pairing of equal letters: when two seats of the
+  layout open on the very same letter, the earlier seat is the one whose
+  letter sits earlier in the column, and the code pairs them back to front,
+  so a text with a repeated letter returns scrambled — the column "nnbaaa"
+  with home 3 must rebuild "banana" and instead rebuilds "bababa". Leave
+  everything else where it is: the errors thrown for a column that is not a
+  string, an empty column, a column holding anything but lowercase letters,
+  a home that is not a whole number, and a home outside the run from zero
+  up to one below the column's length. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function rebuildFromLastColumn(column: string, home: number): string {
+    if (typeof column !== "string") {
+      throw new Error("the column must be a string");
+    }
+    if (column.length === 0) {
+      throw new Error("the column must not be empty");
+    }
+    if (!/^[a-z]+$/.test(column)) {
+      throw new Error("the column holds a letter outside a to z");
+    }
+    if (typeof home !== "number" || !Number.isInteger(home)) {
+      throw new Error("the home must be a whole number");
+    }
+    if (home < 0 || home >= column.length) {
+      throw new Error("the home is outside the column");
+    }
+    const width = column.length;
+    const seats: number[] = [];
+    for (let place = 0; place < width; place++) {
+      seats.push(place);
+    }
+    seats.sort((left, right) => {
+      if (column[left] < column[right]) {
+        return -1;
+      }
+      if (column[left] > column[right]) {
+        return 1;
+      }
+      return right - left;
+    });
+    let seat = home;
+    let text = "";
+    for (let step = 0; step < width; step++) {
+      seat = seats[seat];
+      text += column[seat];
+    }
+    return text;
+  }
+interface: "export function rebuildFromLastColumn(column: string, home: number): string"
+stop_conditions:
+  - Whether a text built from a shorter block repeated, whose spins are not all different, can arrive is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

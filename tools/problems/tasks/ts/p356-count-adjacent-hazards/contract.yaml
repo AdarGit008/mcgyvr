@@ -1,0 +1,26 @@
+id: p356-count-adjacent-hazards
+task_type: function_implementation
+task: >-
+  Implement countAdjacentHazards. A field arrives as a list of one or more
+  rows, each row a non-empty string built from just two symbols — a hash
+  for a hazard and a dot for a safe square — with every row as long as the
+  first. Redraw the field so that each safe square carries one digit: the
+  tally of hazards among the squares that touch it, meaning the square
+  above, the square below, the square on either hand and the four met only
+  at a corner, up to eight in all and fewer along an edge. A hazard square
+  is redrawn as a hash and nothing else. Return a record under three keys:
+  chart, the redrawn field as a list of strings; hazards, how many hazard
+  squares the field carries; and clear, how many squares are not hazards.
+  The field ["#..", "...", "..#"] redraws as ["#10", "121", "01#"] with two
+  hazards and seven clear. Throw an error when the field is not a list,
+  when it holds no rows, when a row is not a string, when a row is empty,
+  when the rows are not all the same length, and when a symbol is neither a
+  hash nor a dot.
+target: solution.ts
+interface: "export function countAdjacentHazards(field: string[]): { chart: string[]; hazards: number; clear: number }"
+stop_conditions:
+  - Whether a field so wide that a tally could exceed nine can arrive is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

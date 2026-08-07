@@ -1,0 +1,57 @@
+id: p367-divide-delegates
+task_type: bug_fix
+task: >-
+  divide_delegates hands out a convention's delegates wrongly. Repair it. A
+  slate is a mapping with "name" (a non-empty string no other slate carries),
+  "votes" (a whole number above zero) and "roster" (a whole number above
+  zero, the most delegates that slate could ever seat). Work the shares out
+  like this: with the slates still in the reckoning and the delegates still
+  to hand out, give each slate the whole part of its votes times those
+  delegates divided by the votes of all slates still in the reckoning, then
+  pass the delegates over and above that sum one apiece to the slates
+  carrying the largest leftover from the same division, a larger vote count
+  winning a level leftover and the earlier-listed slate winning when the
+  votes are level too. Any slate whose share came out above its roster is
+  pinned to its roster, dropped from the reckoning, its roster taken off the
+  delegates still to hand out, and the whole reckoning run again over the
+  slates that remain; carry on until nobody stands above their roster.
+  Return a mapping from every slate's name to the delegates it holds. Raise
+  an error when there are no slates, when a slate is not a mapping, when a
+  name is empty or is carried twice, when votes or a roster is not a whole
+  number above zero, when the delegate count is not a whole number above
+  zero, when the rosters added together fall short of the delegates to hand
+  out, and when the slates are not given as a list. Return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  """Delegates handed to each slate by quota, leftover and roster."""
+
+
+  def divide_delegates(slates: list, delegates: int) -> dict:
+      total = sum(row["votes"] for row in slates)
+      shares = []
+      for row in slates:
+          exact = row["votes"] * delegates
+          shares.append(
+              {
+                  "name": row["name"],
+                  "roster": row["roster"],
+                  "base": exact // total,
+                  "rest": exact % total,
+              }
+          )
+      spare = delegates - sum(row["base"] for row in shares)
+      queue = sorted(shares, key=lambda row: (-row["rest"], row["name"]))
+      for row in queue:
+          if spare == 0:
+              break
+          row["base"] += 1
+          spare -= 1
+      return {row["name"]: min(row["base"], row["roster"]) for row in shares}
+interface: "def divide_delegates(slates: list, delegates: int) -> dict"
+stop_conditions:
+  - Whether a slate pinned to its roster may later be brought back into the reckoning is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

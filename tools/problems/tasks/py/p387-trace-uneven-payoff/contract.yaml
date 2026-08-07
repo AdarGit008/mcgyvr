@@ -1,0 +1,31 @@
+id: p387-trace-uneven-payoff
+task_type: function_implementation
+task: >-
+  Implement trace_uneven_payoff. A loan of opening whole cents is worked down by a
+  list of instalments, one to a period, each of them whole cents and any of them
+  possibly nothing at all. Every period levies rate parts in ten thousand upon
+  the principal outstanding as that period begins, in whole cents with an exact
+  half cent lifted upward. An instalment is spread in a strict order: it settles
+  first whatever levy stayed unpaid from earlier periods, then the levy just
+  struck, and only what survives both of those bites into the principal. A levy
+  the instalment cannot cover joins the unpaid pile, and the pile is itself
+  never levied. An instalment larger than everything owed at that moment — pile
+  plus fresh levy plus principal — is refused with an error. Once the listed
+  instalments are spent, should any principal or any pile remain, one extra
+  settlement row closes the account there and then and so bears no levy of its
+  own: it hands over the pile together with the principal and leaves both at
+  nothing. Report the rows in order, each holding what was handed over, the levy
+  struck, how much of the handing went to levies old and fresh together, how
+  much bit into the principal, the principal still outstanding, and the pile
+  still standing. Raise an error when opening or rate is not a whole number,
+  when opening fails to be above zero, when rate falls below zero, when the
+  instalment list is not a list or is empty, and when an instalment is not a
+  whole number or falls below zero.
+target: solution.py
+interface: "def trace_uneven_payoff(opening: int, rate: int, instalments: object) -> list[list[int]]"
+stop_conditions:
+  - Whether an instalment may be handed over partway between two periods is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

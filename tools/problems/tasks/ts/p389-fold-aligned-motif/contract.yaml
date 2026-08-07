@@ -1,0 +1,28 @@
+id: p389-fold-aligned-motif
+task_type: function_implementation
+task: >-
+  Implement foldAlignedMotif. The first argument is an alignment: a non-empty
+  list of equal-length non-empty rows, every row written with the letters A, C,
+  G and T alone. The second is least, a whole number of at least one. Read the
+  alignment one column at a time. Tally how often each letter turns up down that
+  column; the letters whose tally reaches least survive, and should not one
+  letter of the column reach least then every letter the column holds survives
+  instead. Condense the surviving set into the one code that names exactly it,
+  by this dictionary — {A} is A, {C} is C, {G} is G, {T} is T, {A,G} is R,
+  {C,T} is Y, {C,G} is S, {A,T} is W, {G,T} is K, {A,C} is M, {C,G,T} is B,
+  {A,G,T} is D, {A,C,T} is H, {A,C,G} is V, and all four together is N. Give
+  back a mapping holding "pattern", the codes of the columns joined left to
+  right, and "outliers", the ascending indices of those columns where least
+  truly threw a letter away — a column rescued by the fallback threw nothing
+  away and is no outlier. Raise an error when the alignment is not a list or is
+  empty, when a row is not a string or is empty, when the rows disagree in
+  length, when a row holds a letter other than A, C, G or T, and when least is
+  not a whole number of at least one.
+target: solution.ts
+interface: "export function foldAlignedMotif(alignment: unknown, least: unknown): Record<string, unknown>"
+stop_conditions:
+  - Whether an alignment wide enough to exhaust memory must be refused is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

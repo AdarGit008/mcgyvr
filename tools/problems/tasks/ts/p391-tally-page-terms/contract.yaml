@@ -1,0 +1,48 @@
+id: p391-tally-page-terms
+task_type: bug_fix
+task: >-
+  Fix tallyPageTerms. The first argument is a list of index entries just as they
+  were scraped off the page, the second a skip list. Every entry is folded to
+  lowercase first, and then loses a trailing s — but only when at least four
+  letters would survive the loss, so a short entry holds on to its s. Whatever
+  the entry has become after both of those is its headword; a headword the skip
+  list names is passed over, and every other headword adds one to its own tally.
+  Give back the mapping of headword to tally. The version below never folds the
+  case at all, so entries parting only over capitals are tallied apart, and it
+  consults the skip list against the scraped entry rather than against the
+  headword, so an entry whose headword ought to be skipped slips through
+  instead. Repair both faults. Keep turning away with an error an entries or
+  skips argument that is not a list and an entry that is not a non-empty
+  string, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function tallyPageTerms(
+    entries: string[],
+    skips: string[],
+  ): Record<string, number> {
+    if (!Array.isArray(entries) || !Array.isArray(skips)) {
+      throw new Error("entries and skips must both be lists");
+    }
+    const tally: Record<string, number> = {};
+    for (const entry of entries) {
+      if (typeof entry !== "string" || entry === "") {
+        throw new Error("every entry must be a non-empty string");
+      }
+      if (skips.includes(entry)) {
+        continue;
+      }
+      let head = entry;
+      if (head.endsWith("s") && head.length > 4) {
+        head = head.slice(0, head.length - 1);
+      }
+      tally[head] = (tally[head] ?? 0) + 1;
+    }
+    return tally;
+  }
+interface: "export function tallyPageTerms(entries: string[], skips: string[]): Record<string, number>"
+stop_conditions:
+  - Whether a skip list entry may itself be written with capitals is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

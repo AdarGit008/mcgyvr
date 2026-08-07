@@ -1,0 +1,30 @@
+id: p382-flag-probe-readings
+task_type: function_implementation
+task: >-
+  Implement flag_probe_readings. The first argument is a non-empty list of whole
+  number probe readings, the second a mapping carrying low, high, jump and
+  stuck. A reading beneath low or above high is implausible and earns the flag
+  "range"; an implausible reading is never tested for a jump, and it never
+  becomes the value a later reading is compared against. Any other reading is
+  compared against the nearest earlier plausible reading and earns the flag
+  "jump" when the two differ by more than jump — the very first plausible
+  reading has nothing behind it and so never earns that flag. Separately from
+  both of those, follow the length of the run of identical touching readings
+  the reading sits in: once such a run has reached stuck readings, that reading
+  and every further reading of the same run earn the flag "stuck", while a
+  changed value opens a fresh run of length one. Give back one list of flag
+  names per reading, written in the order named here — range, then jump, then
+  stuck — so the answer is exactly as long as the reading list and an
+  unremarkable reading carries an empty list. Raise an error when the reading
+  list is not a list or is empty, when a reading is not a whole number, when
+  the second argument is not a mapping, when low or high or jump or stuck is
+  not a whole number, when low sits above high, when jump is beneath zero, and
+  when stuck is beneath two.
+target: solution.py
+interface: "def flag_probe_readings(readings: object, rules: object) -> list[list[str]]"
+stop_conditions:
+  - Whether a run of identical readings that straddles an implausible value counts as one run is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

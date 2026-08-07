@@ -1,0 +1,66 @@
+id: p367-divide-delegates
+task_type: bug_fix
+task: >-
+  divideDelegates hands out a convention's delegates wrongly. Repair it. A
+  slate is a mapping with "name" (a non-empty string no other slate carries),
+  "votes" (a whole number above zero) and "roster" (a whole number above
+  zero, the most delegates that slate could ever seat). Work the shares out
+  like this: with the slates still in the reckoning and the delegates still
+  to hand out, give each slate the whole part of its votes times those
+  delegates divided by the votes of all slates still in the reckoning, then
+  pass the delegates over and above that sum one apiece to the slates
+  carrying the largest leftover from the same division, a larger vote count
+  winning a level leftover and the earlier-listed slate winning when the
+  votes are level too. Any slate whose share came out above its roster is
+  pinned to its roster, dropped from the reckoning, its roster taken off the
+  delegates still to hand out, and the whole reckoning run again over the
+  slates that remain; carry on until nobody stands above their roster.
+  Return a mapping from every slate's name to the delegates it holds. Raise
+  an error when there are no slates, when a slate is not a mapping, when a
+  name is empty or is carried twice, when votes or a roster is not a whole
+  number above zero, when the delegate count is not a whole number above
+  zero, when the rosters added together fall short of the delegates to hand
+  out, and when the slates are not given as a list. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  /** Delegates handed to each slate by quota, leftover and roster. */
+  export function divideDelegates(
+    slates: Array<Record<string, unknown>>,
+    delegates: number,
+  ): Record<string, number> {
+    const rows = slates as any[];
+    const total = rows.reduce((sum, row) => sum + row.votes, 0);
+    const shares = rows.map((row) => {
+      const exact = row.votes * delegates;
+      return {
+        name: row.name as string,
+        roster: row.roster as number,
+        base: Math.floor(exact / total),
+        rest: exact % total,
+      };
+    });
+    let spare = delegates - shares.reduce((sum, row) => sum + row.base, 0);
+    const queue = [...shares].sort(
+      (a, b) => b.rest - a.rest || (a.name < b.name ? -1 : 1),
+    );
+    for (const row of queue) {
+      if (spare === 0) {
+        break;
+      }
+      row.base += 1;
+      spare -= 1;
+    }
+    const answer: Record<string, number> = {};
+    for (const row of shares) {
+      answer[row.name] = Math.min(row.base, row.roster);
+    }
+    return answer;
+  }
+interface: "export function divideDelegates(slates: Array<Record<string, unknown>>, delegates: number): Record<string, number>"
+stop_conditions:
+  - Whether a slate pinned to its roster may later be brought back into the reckoning is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

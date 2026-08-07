@@ -1,0 +1,31 @@
+id: p381-overnight-stall-fee
+task_type: function_implementation
+task: >-
+  Implement overnightStallFee. A car pulls into a stall at entry, a whole
+  number of minutes counted from midnight at the head of day nought, and stands
+  there for minutes, a whole number from 1 through 10080, the minute of arrival
+  taken in. Calendar days run midnight to midnight, day d holding the minutes
+  1440 times d through 1440 times d plus 1439. The third argument is a fee
+  sheet, a mapping carrying firstHour, laterHour, dayCap and nightFee, each a
+  whole number of cents of nought or more. Weigh each calendar day the car
+  touched on its own. Count the minutes it stood in that day and round them up
+  to whole hours, so a part hour is charged as a whole one; the first of those
+  hours costs firstHour and each one after it costs laterHour. Trim that sum to
+  dayCap when it passes it. Then, should any minute the car stood in that day
+  fall at or after one in the morning and before five, put nightFee on top; the
+  night fee goes on after the trimming and is never itself trimmed, and it goes
+  on at most once for a day however many of those minutes were stood. Return a
+  mapping carrying days, what each touched calendar day came to in order,
+  nights, how many of them drew the night fee, and total, the sum of the days.
+  Raise an error when the fee sheet is not a mapping, when any of its four
+  figures is not a whole number of nought or more, when entry is not a whole
+  number of nought or more, and when minutes is not a whole number from 1
+  through 10080.
+target: solution.ts
+interface: "export function overnightStallFee(entry: number, minutes: number, sheet: Record<string, unknown>): Record<string, unknown>"
+stop_conditions:
+  - Whether the night stretch should shift with the seasons is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

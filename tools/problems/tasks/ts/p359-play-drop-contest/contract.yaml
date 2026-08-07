@@ -1,0 +1,102 @@
+id: p359-play-drop-contest
+task_type: bug_fix
+task: >-
+  playDropContest replays a contest of dropped discs, and it misses half
+  the slanting wins. Repair it. The board is columns wide and rows tall,
+  drawn with the topmost row first and a dot for a vacant square. The moves
+  are column numbers counted from zero; the marks alternate with r dropping
+  first, and each dropped disc settles on the lowest vacant square of its
+  column. A disc that completes four of one mark standing next to each
+  other — along a row, down a column, or on either slant — ends the
+  contest at once, and every move still to come is left undropped. What is
+  broken: the slant test walks only the slant falling to the right and
+  never the slant falling to the left, so a win laid out on that other
+  slant goes unseen and the contest carries on past it. Return a record
+  under three keys: winner, the winning mark or "none"; played, how many
+  moves were actually dropped, the winning one included; and board, the
+  finished board as a list of strings. Raise an error when either side of
+  the board is not a whole number of one or more, when the moves are not a
+  list, when a move is not a whole number, when a move names no column, and
+  when a move falls into a column already full — that last only while the
+  contest is still running, since moves after a win are never dropped.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  const SLANTS: number[][] = [
+    [0, 1],
+    [1, 0],
+    [1, 1],
+  ];
+
+  export function playDropContest(
+    columns: number,
+    rows: number,
+    moves: number[],
+  ): { winner: string; played: number; board: string[] } {
+    for (const size of [columns, rows]) {
+      if (typeof size !== "number" || !Number.isInteger(size) || size < 1) {
+        throw new Error("the board sides must be whole numbers of one or more");
+      }
+    }
+    if (!Array.isArray(moves)) {
+      throw new Error("the moves must be a list");
+    }
+    const grid: string[][] = [];
+    for (let row = 0; row < rows; row++) {
+      grid.push(new Array(columns).fill("."));
+    }
+    let winner = "none";
+    let played = 0;
+    const runsFour = (row: number, column: number, mark: string): boolean => {
+      for (const slant of SLANTS) {
+        let total = 1;
+        for (const sense of [1, -1]) {
+          let step = 1;
+          for (;;) {
+            const nearRow = row + slant[0] * step * sense;
+            const nearColumn = column + slant[1] * step * sense;
+            if (nearRow < 0 || nearRow >= rows) break;
+            if (nearColumn < 0 || nearColumn >= columns) break;
+            if (grid[nearRow][nearColumn] !== mark) break;
+            total += 1;
+            step += 1;
+          }
+        }
+        if (total >= 4) return true;
+      }
+      return false;
+    };
+    for (const move of moves) {
+      if (winner !== "none") break;
+      if (typeof move !== "number" || !Number.isInteger(move)) {
+        throw new Error("every move must be a whole number");
+      }
+      if (move < 0 || move >= columns) {
+        throw new Error("the move names no column");
+      }
+      let landing = -1;
+      for (let row = rows - 1; row >= 0; row--) {
+        if (grid[row][move] === ".") {
+          landing = row;
+          break;
+        }
+      }
+      if (landing < 0) {
+        throw new Error("the column is already full");
+      }
+      const mark = played % 2 === 0 ? "r" : "y";
+      grid[landing][move] = mark;
+      played += 1;
+      if (runsFour(landing, move, mark)) {
+        winner = mark;
+      }
+    }
+    return { winner, played, board: grid.map((row) => row.join("")) };
+  }
+interface: "export function playDropContest(columns: number, rows: number, moves: number[]): { winner: string; played: number; board: string[] }"
+stop_conditions:
+  - Whether a contest whose moves run out with the board full should be called a draw by name is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]
