@@ -4,7 +4,8 @@ A source is a machine, and a machine has a finite number of requests it can
 serve at a time. That number is declared in the config (``max_parallel``) and
 was, until now, carried and not enforced: :mod:`mcgyvr.pool` puts it on every
 :class:`~mcgyvr.pool.Endpoint` and says in its own docstring that the semaphore
-is this issue's. This is the semaphore.
+is this issue's. This is that bound — a semaphore in shape, though since #185
+each permit is a host-wide file lock rather than a count in process memory.
 
 Four decisions shape it, and the first is the one the acceptance turns on:
 
@@ -43,21 +44,97 @@ look from here exactly like a source that is merely slow. This module enforces
 the declaration; it cannot enforce the server. :func:`mcgyvr.propose.propose`
 says so where an operator will read it, and :attr:`Usage.waited_seconds` is where
 the symptom shows up afterwards.
+
+**The bound is host-wide, not per-process (#185).** The rigs a source names are
+shared machines, and this repository's own workflow runs lanes as parallel
+worktrees — each its own process. A bound held in process memory is silently
+doubled the moment two lanes dispatch at one rig, which is exactly when the
+declared number matters. So a slot is not a semaphore permit: it is an
+exclusive ``flock`` on one of ``max_parallel`` lock files, keyed by the
+endpoint's ``base_url`` — the physical thing being protected, not the name a
+config gave it. Any mcgyvr process on this host contending for the same URL
+counts against the same files; threads within one process exclude one another
+through the very same locks, so there is one mechanism, not an in-process one
+with a cross-process patch. What remains per-process is *observation*:
+:class:`Usage` reports what this process acquired, waited and peaked at,
+because the numbers exist to explain this batch's wall-clock, and the bound —
+not the bookkeeping — is what must be shared.
+
+Three consequences are deliberate:
+
+* **A crashed holder cannot strand capacity.** The kernel releases a ``flock``
+  when its process dies, however it dies. That is this module's chosen answer
+  to "no acquisition may block forever" — chosen over an acquire timeout
+  because a long wait behind a deep batch queue is *legitimate* (twenty jobs at
+  ``max_parallel: 1`` wait nineteen service times, and a fixed timeout would
+  convert normal queueing into spurious failures), and over fail-fast because a
+  batch runner's whole job is to queue. A caller that prefers multica's
+  claim shape — one winner, losers refused at once, nothing queued — passes
+  ``timeout`` to :meth:`Capacity.hold` and gets exactly that. A holder that is
+  alive but wedged is not a capacity problem; it is the availability problem
+  #141 owns, and the wait it causes is visible in ``waited_seconds``.
+* **Slot files are never deleted.** Removing a lock file while a contender
+  holds the old inode lets the next opener lock a fresh inode and be granted a
+  slot that is already taken — the classic unlink race. The files are tiny,
+  they live in the temp directory, and they are reused; cleanliness is not
+  worth an over-admission.
+* **Sharing is by rendezvous, so the rendezvous must be shared.** The lock
+  directory defaults to the system temp directory (per user). Processes that
+  resolve different temp directories — a session-scoped ``TMPDIR``, say — are
+  bounding different files, honestly and separately; point ``lock_dir``
+  somewhere stable when the environment does that. Likewise the bound is per
+  host: two *machines* dispatching at one rig are beyond what a file lock can
+  see, and nothing here pretends otherwise.
 """
 
 from __future__ import annotations
 
+import fcntl
+import hashlib
+import os
+import re
+import tempfile
 import threading
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.pool import Endpoint
+
+# How often a waiter re-tries the slot files while blocked. Coarse enough to
+# cost nothing against dispatches measured in seconds to minutes; fine enough
+# that a freed slot is taken promptly. The loop is also what makes a long wait
+# interruptible, which a bare semaphore acquire was not.
+_POLL_SECONDS = 0.02
+
+# Lock-file names keep a readable prefix of the URL for an operator listing the
+# directory, and a digest for identity — two URLs that sanitize alike must not
+# share a bound by accident.
+_SLUG = re.compile(r"[^A-Za-z0-9.-]+")
+
+
+def _default_lock_dir() -> Path:
+    """The per-user rendezvous directory for this host's slot files."""
+    return Path(tempfile.gettempdir()) / f"mcgyvr-capacity-{os.getuid()}"
+
+
+def _slot_stem(base_url: str) -> str:
+    """A filesystem-safe identity for one rig, derived from its URL.
+
+    Normalized so that trailing-slash and case differences in a config do not
+    split one rig into two bounds; digested so that sanitizing cannot merge two
+    rigs into one.
+    """
+    normalized = base_url.strip().rstrip("/").lower()
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12]
+    slug = _SLUG.sub("-", normalized).strip("-")[-40:]
+    return f"{slug}.{digest}"
 
 
 class CapacityError(Exception):
@@ -74,6 +151,12 @@ class Usage:
     difference between "capacity is fine" and "capacity is the ceiling".
     ``waited_seconds`` is the total time callers spent blocked on a slot, summed
     across threads; it is the cost of the limit, stated rather than implied.
+
+    All three numbers are this *process's* observations. The bound itself is
+    host-wide, so a wait here may be caused by another process's dispatches —
+    that is the bound working, and the wait is still this batch's cost to
+    report. No cross-process ledger is kept, because the numbers exist to
+    explain this run's wall-clock, not to audit the host.
     """
 
     source: str
@@ -89,15 +172,20 @@ class Usage:
 
 
 class Capacity:
-    """Per-source semaphores, and the record of what they cost.
+    """Per-source, host-wide slot files, and this process's record of their cost.
 
     Built from a :class:`~mcgyvr.config.Config` with :meth:`of`, so the limits
     enforced are the ones the operator declared and there is no second place a
-    capacity can be written down. Safe to share across threads; that is the
-    entire point of it.
+    capacity can be written down. Safe to share across threads — and shared
+    with every other mcgyvr process on this host by construction, since a slot
+    is a ``flock`` on a file both can see (#185). ``lock_dir`` exists for
+    callers that need a rendezvous other than the per-user temp directory;
+    tests use it for isolation.
     """
 
-    def __init__(self, limits: Mapping[str, int]) -> None:
+    def __init__(
+        self, limits: Mapping[str, int], *, lock_dir: Path | None = None
+    ) -> None:
         for source, limit in limits.items():
             if limit < 1:
                 raise CapacityError(
@@ -107,10 +195,7 @@ class Capacity:
                     f"the ladder, not at zero capacity."
                 )
         self._limits = dict(limits)
-        self._slots = {
-            source: threading.BoundedSemaphore(limit)
-            for source, limit in self._limits.items()
-        }
+        self._lock_dir = lock_dir if lock_dir is not None else _default_lock_dir()
         self._lock = threading.Lock()
         self._in_use = dict.fromkeys(self._limits, 0)
         self._peak = dict.fromkeys(self._limits, 0)
@@ -164,13 +249,24 @@ class Capacity:
             )
 
     @contextmanager
-    def hold(self, endpoint: Endpoint) -> Iterator[None]:
+    def hold(
+        self, endpoint: Endpoint, *, timeout: float | None = None
+    ) -> Iterator[None]:
         """Hold one of ``endpoint``'s source's slots for the body of the block.
 
-        Blocks until a slot is free. The slot is released on the way out however
-        the body leaves — a backend that times out or refuses must not cost the
-        source a slot for the rest of the run, which is the leak the acceptance
-        names.
+        The slot is an exclusive lock on one of ``max_parallel`` files keyed by
+        the endpoint's ``base_url``, so it excludes every thread of every
+        mcgyvr process on this host, not only this one (#185). With the default
+        ``timeout=None`` this blocks until a slot frees — a deep batch queue is
+        a legitimate wait, and a crashed holder's locks are released by the
+        kernel, so the wait cannot be for a slot nobody can give back. A
+        finite ``timeout`` turns the acquisition into a claim: try for that
+        long, then raise :class:`CapacityError` naming the source — pass ``0``
+        for one attempt with no queueing at all, multica's shape.
+
+        The slot is released on the way out however the body leaves — a backend
+        that times out or refuses must not cost the source a slot for the rest
+        of the run, which is the leak the acceptance names.
 
         Raises :class:`CapacityError` rather than proceeding when the source is
         one this capacity does not know, when the endpoint's declared
@@ -179,17 +275,17 @@ class Capacity:
         or when the calling thread already holds this source.
         """
         source = endpoint.source
-        slot = self._slots.get(source)
-        if slot is None:
+        limit = self._limits.get(source)
+        if limit is None:
             known = ", ".join(sorted(self._limits)) or "none"
             raise CapacityError(
                 f"no declared capacity for source {source!r} — this capacity and "
                 f"the source map it is bounding were built from different "
                 f"configs. Known sources: {known}"
             )
-        if endpoint.max_parallel != self._limits[source]:
+        if endpoint.max_parallel != limit:
             raise CapacityError(
-                f"source {source!r} is bounded at {self._limits[source]} here "
+                f"source {source!r} is bounded at {limit} here "
                 f"but the endpoint declares max_parallel="
                 f"{endpoint.max_parallel}. Two answers to one question means one "
                 f"of them is from a stale config; rebuild both from the same one."
@@ -204,7 +300,7 @@ class Capacity:
             )
 
         started = time.monotonic()
-        slot.acquire()
+        fd = self._acquire_slot(source, endpoint.base_url, limit, timeout)
         waited = time.monotonic() - started
         held.add(source)
         with self._lock:
@@ -218,7 +314,40 @@ class Capacity:
             with self._lock:
                 self._in_use[source] -= 1
             held.discard(source)
-            slot.release()
+            os.close(fd)  # closing the descriptor is what releases the flock
+
+    def _acquire_slot(
+        self, source: str, base_url: str, limit: int, timeout: float | None
+    ) -> int:
+        """Take an exclusive lock on any free slot file, or raise at the deadline.
+
+        Each attempt sweeps every slot index non-blockingly; a full sweep with
+        no free slot means the rig is at its declared capacity *host-wide*, and
+        the waiter sleeps briefly and sweeps again. The files are created on
+        first use and never deleted — see the module docstring for the unlink
+        race that rule prevents.
+        """
+        directory = self._lock_dir
+        directory.mkdir(parents=True, exist_ok=True)
+        stem = _slot_stem(base_url)
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while True:
+            for index in range(limit):
+                fd = os.open(directory / f"{stem}.{index}.slot", os.O_RDWR | os.O_CREAT)
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except OSError:
+                    os.close(fd)
+                    continue
+                return fd
+            if deadline is not None and time.monotonic() >= deadline:
+                raise CapacityError(
+                    f"source {source!r} has all {limit} declared slot(s) in use "
+                    f"host-wide and none freed within {timeout}s. The bound "
+                    f"counts every mcgyvr process on this host; a longer or "
+                    f"absent timeout queues instead of refusing."
+                )
+            time.sleep(_POLL_SECONDS)
 
     def _held(self) -> set[str]:
         """The sources this thread holds, created on first use per thread."""

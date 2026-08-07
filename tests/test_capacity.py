@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -29,6 +30,19 @@ import pytest
 from mcgyvr.capacity import Capacity, CapacityError, Outcome, run_batch
 from mcgyvr.config import parse
 from mcgyvr.pool import Endpoint, Protocol
+
+
+@pytest.fixture(autouse=True)
+def isolated_lock_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Slot files are host-wide by design (#185); tests must not share them.
+
+    Two suites running at once on one machine — or a suite beside a real run —
+    would otherwise contend for the same bound and flake each other.
+    """
+    monkeypatch.setattr(
+        "mcgyvr.capacity._default_lock_dir", lambda: tmp_path / "capacity-locks"
+    )
+
 
 CONFIG = """
 version: 1
