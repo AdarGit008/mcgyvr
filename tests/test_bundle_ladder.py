@@ -122,10 +122,19 @@ def test_every_task_selects_the_jsts_bundle() -> None:
 
 
 def test_every_task_declares_a_runnable_acceptance_command() -> None:
-    """Acceptance is the contract's, executed — so it has to be there to run."""
+    """Acceptance is the contract's, executed — so it has to be there to run.
+
+    Since #183 the bug-fix tasks carry their command in ``demonstration`` (it
+    fails on the task's base by design); every other task carries it in
+    ``acceptance``. The runner executes both lists, so the property that
+    matters is the union being non-empty and runnable.
+    """
     for contract in _contracts():
-        assert contract.acceptance, contract.id
-        assert all(command.startswith("node ") for command in contract.acceptance)
+        commands = (*contract.demonstration, *contract.acceptance)
+        assert commands, contract.id
+        assert all(command.startswith("node ") for command in commands)
+        expects_baseline_failure = contract.type.needs_demonstration_commands
+        assert bool(contract.demonstration) == expects_baseline_failure, contract.id
 
 
 def test_the_composition_is_the_one_the_rates_will_be_averaged_over() -> None:
@@ -659,6 +668,66 @@ def test_a_dispatch_error_is_a_row_not_an_exception(tmp_path: Path) -> None:
     assert row["pass1"] is False
     assert "TransportError" in str(row["dispatch_error"])
     assert "latency_s" not in row
+
+
+def test_a_refused_reply_is_kept_verbatim_with_its_sha(tmp_path: Path) -> None:
+    """The replies the parser refuses are the corpus, not noise (ADR-0016).
+
+    The JS/TS sweep kept an error code and dropped the text for 160 real
+    replies; the refused ones are exactly the population a hand-authored
+    fixture set cannot contain, so the capture must happen before the parser
+    gets a say.
+    """
+    measure = _measure()
+    task = measure.load_tasks(["t01"])[0]
+    text = _fenced(task.reference)
+    runner = _StubRunner((text, StopReason.TRUNCATED))
+    replies = tmp_path / "replies"
+
+    row = measure.measure_cell(
+        task, "c2", runner, "stub-model", tmp_path, remediate=True, replies=replies
+    )
+
+    kept = replies / "t01-c2-1.txt"
+    assert row["parse_error"] == "incomplete-reply"
+    assert kept.read_text(encoding="utf-8") == text
+    assert row["reply_sha256"] == hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+@requires_typescript_node
+def test_the_remediation_reply_is_kept_beside_the_first(tmp_path: Path) -> None:
+    measure = _measure()
+    task = measure.load_tasks(["t01"])[0]
+    wrong = (
+        "```ts\nexport function runLengthEncode(input: string): string {\n"
+        "  return input;\n}\n```\n"
+    )
+    good = _fenced(task.reference)
+    runner = _StubRunner((wrong, StopReason.COMPLETE), (good, StopReason.COMPLETE))
+    replies = tmp_path / "replies"
+
+    row = measure.measure_cell(
+        task, "c2", runner, "stub-model", tmp_path, remediate=True, replies=replies
+    )
+
+    assert (replies / "t01-c2-1.txt").read_text(encoding="utf-8") == wrong
+    assert (replies / "t01-c2-2.txt").read_text(encoding="utf-8") == good
+    assert row["retry_sha256"] == hashlib.sha256(good.encode("utf-8")).hexdigest()
+
+
+def test_no_replies_dir_means_nothing_is_written(tmp_path: Path) -> None:
+    """The default stays the old signature: six earlier tests and any caller
+    that has not opted in must not start growing files."""
+    measure = _measure()
+    task = measure.load_tasks(["t01"])[0]
+    runner = _StubRunner(("no fence here", StopReason.COMPLETE))
+
+    row = measure.measure_cell(
+        task, "c0", runner, "stub-model", tmp_path, remediate=False
+    )
+
+    assert "reply_sha256" not in row
+    assert not list(tmp_path.glob("**/*.txt"))
 
 
 def test_the_summary_counts_every_cell(tmp_path: Path) -> None:

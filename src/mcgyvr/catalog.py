@@ -64,13 +64,23 @@ class Evidence:
 
     ``needs_commands`` is the load-bearing bit: evidence a structural check can
     produce costs a contract nothing to declare, while evidence that only a
-    command can produce means a contract with no acceptance commands cannot
-    supply it. That distinction is enforced rather than documented.
+    command can produce means a contract with no commands cannot supply it.
+    That distinction is enforced rather than documented.
+
+    ``baseline`` says what those commands must do on the *unchanged* tree —
+    ``"pass"`` for a regression signal, ``"fail"`` for a demonstration
+    (``failing_test_first``: a command that does not fail before the change
+    demonstrates nothing). The two expectations are opposite, so they cannot
+    share one contract list; ``baseline`` is what routes a kind to the right
+    one (``acceptance`` vs ``demonstration``, #183) without any consumer
+    naming a kind. Only meaningful where ``needs_commands`` is true — a
+    structural check has no baseline run.
     """
 
     name: str
     doc: str
     needs_commands: bool
+    baseline: str = "pass"
 
 
 @dataclass(frozen=True)
@@ -95,8 +105,22 @@ class TaskType:
 
     @property
     def needs_acceptance_commands(self) -> bool:
-        """Whether a contract of this type is unjudgeable without commands."""
-        return any(e.needs_commands for e in self.required_evidence)
+        """Whether this type needs commands that pass at baseline (``acceptance``).
+
+        Deliberately *not* "any command-needing evidence": a demonstration has
+        the opposite baseline expectation and its own contract list, so each is
+        checked against the list that can actually satisfy it (#183).
+        """
+        return any(
+            e.needs_commands and e.baseline == "pass" for e in self.required_evidence
+        )
+
+    @property
+    def needs_demonstration_commands(self) -> bool:
+        """Whether this type needs commands failing at baseline (``demonstration``)."""
+        return any(
+            e.needs_commands and e.baseline == "fail" for e in self.required_evidence
+        )
 
     @property
     def evidence_names(self) -> tuple[str, ...]:
@@ -265,9 +289,22 @@ def load(path: Path | None = None) -> Catalog:
             name=str(e["name"]),
             doc=str(e.get("doc", "")),
             needs_commands=bool(e.get("needs_commands", False)),
+            baseline=str(e.get("baseline", "pass")),
         )
         for e in raw.get("evidence_kinds", [])
     )
+    for kind in evidence:
+        if kind.baseline not in ("pass", "fail"):
+            raise CatalogError(
+                f"evidence_kinds[{kind.name}]: baseline {kind.baseline!r} is not "
+                f"'pass' or 'fail'"
+            )
+        if kind.baseline == "fail" and not kind.needs_commands:
+            raise CatalogError(
+                f"evidence_kinds[{kind.name}]: baseline 'fail' without "
+                f"needs_commands — a structural check has no baseline run whose "
+                f"outcome could be expected"
+            )
     by_evidence = {e.name: e for e in evidence}
     by_family = {f.name: f for f in families}
 

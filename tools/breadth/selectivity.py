@@ -127,6 +127,23 @@ def thin(source: str, keep: int) -> str:
     return "".join(kept)
 
 
+def declared_command(task: Any) -> str:
+    """The one runnable check a task declares, from either slot.
+
+    Since #183 a contract states its check in ``demonstration`` when the
+    evidence is expected to fail at baseline and in ``acceptance`` when it is
+    expected to pass — the bug-fix tasks moved to the former. Both are the
+    same command to run, and this rig only ever needs the first, so it reads
+    them in the order the bundle rig executes them rather than assuming a slot.
+    """
+    for command in (*task.contract.demonstration, *task.contract.acceptance):
+        return str(command)
+    raise bundle.MeasureError(
+        f"{task.id} declares no runnable check in either slot — there is "
+        "nothing for a thinned checker to be a thinning of"
+    )
+
+
 def count_assertions(source: str) -> int:
     return sum(
         1
@@ -148,7 +165,9 @@ def _judge(job: tuple[str, str, str, str]) -> tuple[str, bool]:
         accept.write_text(accept_source, encoding="utf-8")
         task = types.SimpleNamespace(
             accept=accept,
-            contract=types.SimpleNamespace(acceptance=[command]),
+            # Both slots, because run_acceptance runs demonstration first and
+            # then acceptance; the thinned file is the whole check either way.
+            contract=types.SimpleNamespace(demonstration=[], acceptance=[command]),
         )
         verdict = bundle.run_acceptance(task, content, Path(tmp) / "work")
     return key, bool(verdict.passed)
@@ -197,7 +216,7 @@ def main() -> int:
         for fraction in FRACTIONS:
             for (task_id, draw), content in parsed.items():
                 keep = max(1, round(totals[task_id] * fraction))
-                command = tasks[task_id].contract.acceptance[0]
+                command = declared_command(tasks[task_id])
                 jobs.append(
                     (
                         f"{fraction}|{task_id}|{draw}",

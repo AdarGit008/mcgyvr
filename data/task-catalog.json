@@ -49,19 +49,24 @@
     {
       "name": "type_check",
       "doc": "The project's type checker passes on the changed target.",
-      "needs_commands": true
+      "needs_commands": true,
+      "baseline": "pass"
     },
     {
       "name": "tests_pass",
       "doc": "The contract's acceptance commands pass in the sandbox.",
-      "needs_commands": true
+      "needs_commands": true,
+      "baseline": "pass"
     },
     {
       "name": "failing_test_first",
-      "doc": "An acceptance command that demonstrates the defect — it must fail before the change and pass after. Without it a fix is indistinguishable from a plausible edit.",
-      "needs_commands": true
+      "doc": "An acceptance command that demonstrates the defect — it must fail before the change and pass after. Without it a fix is indistinguishable from a plausible edit. Carried in the contract's `demonstration` list, not `acceptance`: the two lists have opposite baseline expectations, and one flat list cannot say which command is which (#183).",
+      "needs_commands": true,
+      "baseline": "fail"
     }
   ],
+
+  "_evidence_note": "`baseline` states what the evidence's commands must do on the unchanged tree — `pass` for a regression signal, `fail` for a demonstration — and is only meaningful where `needs_commands` is true. It is data here rather than a rule in code so that the contract loader can check each command-needing kind against the right contract list (`acceptance` for pass, `demonstration` for fail) without naming any evidence kind (#183).",
 
   "task_types": [
     {
@@ -132,7 +137,8 @@
       "name": "bug_fix",
       "starts_on": "local",
       "guarantee": "Defined wrong behaviour in one target is corrected, demonstrated by a command that fails before the change and passes after.",
-      "required_evidence": ["gate", "failing_test_first", "tests_pass"],
+      "required_evidence": ["gate", "failing_test_first"],
+      "_evidence_change_note": "tests_pass was required here until #183 made evidence kinds satisfiable per-slot. The guarantee sentence promises only the demonstration, and requiring a pass-at-baseline command besides would force a contract with one demonstrating test — the common real shape — to invent a decorative regression command. A declared `acceptance` list is still welcome and is still held green at preflight; it is just not manufactured where none exists.",
       "warrant": "structural, not measured — the capability table ranks synthesis against a given signature and says nothing about diagnosis in a repository the model can see (data/README.md), so nothing here warrants the diagnostic step. What makes a cheap attempt safe to make anyway is `failing_test_first`: with a demonstration required up front, a worker that did not understand the defect produces a change that visibly fails rather than a plausible one that lands.",
       "doc": "Correct defined wrong behaviour in one target, with a test that demonstrates the correction."
     }

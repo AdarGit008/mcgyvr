@@ -27,7 +27,7 @@ target_content: |
 interface: "export function binarySearch(items: readonly number[], target: number): number"
 stop_conditions:
   - Which index to return when the array holds duplicates is not stated.
-acceptance: ["node accept.mjs"]
+demonstration: ["node accept.mjs"]
 risk: medium
 scope:
   allow: ["solution.ts"]

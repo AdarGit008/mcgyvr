@@ -23,7 +23,7 @@ target_content: |
 interface: "export function parseConfig(text: string): Record<string, string>"
 stop_conditions:
   - Whether a key may contain internal whitespace is not stated.
-acceptance: ["node accept.mjs"]
+demonstration: ["node accept.mjs"]
 risk: high
 scope:
   allow: ["solution.ts"]

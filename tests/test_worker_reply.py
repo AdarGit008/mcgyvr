@@ -1,10 +1,20 @@
 """The single-file output protocol, tested mostly on replies that are wrong.
 
 A parser that only ever sees well-formed input is not the thing standing
-between a model's prose and a source file. Every refusal below is a real shape
-a local worker produces — an apology before the code, two blocks because it
-offered an alternative, a fence that never closed because the cap cut it off —
-and each one must resolve to a *named* failure rather than to a plausible file.
+between a model's prose and a source file. **Every fixture in this file is
+constructed**: an author imagining an apology before the code, two blocks
+because the model offered an alternative, a fence the cap cut off — and each
+must resolve to a *named* failure rather than to a plausible file. An earlier
+docstring called these "real shapes a local worker produces"; nothing linked
+any fixture to a run, so under this repository's own filter the claim was
+unverifiable, and it is withdrawn (#184).
+
+The population the parser actually faces is the captured one: the measurement
+rigs keep every raw reply, and ``test_reply_corpus.py`` asserts the whole set
+against pinned verdicts. #174 — a refusal shape no author here had imagined —
+is why the constructed set alone is not enough. Per ADR-0016 the split is
+deliberate: a shape found in a capture is pinned there as gold; a shape an
+adversarial imagination proposes lives here, marked as what it is.
 """
 
 from __future__ import annotations

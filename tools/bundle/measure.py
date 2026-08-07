@@ -36,6 +36,11 @@ this project would refuse is scored as a failure here too, by its refusal code.
 ``quality_sensitive=True`` marks every request: this output is read as a
 measurement of the model, so a caveated source may not serve it.
 
+**Every reply is kept.** Raw reply text lands in ``replies/`` beside the rows,
+parseable or refused, first attempt and remediation retry alike — the JS/TS
+sweep ran the parser over 160 real replies and kept only their error codes,
+which is the discard #184 names and ADR-0016 forbids repeating.
+
 **Acceptance is the contract's, executed, never inspected.** Each task declares
 ``acceptance: ["node accept.mjs"]``; the runner writes the worker's file as
 ``solution.ts`` beside a copy of ``accept.mjs`` in a fresh temp directory and
@@ -251,18 +256,20 @@ def build_messages(task: Task, condition: str) -> tuple[str, str]:
 
 
 def run_acceptance(task: Task, content: str, workdir: Path) -> Acceptance:
-    """Write the worker's file into a fresh tree and run the contract's command.
+    """Write the worker's file into a fresh tree and run the contract's commands.
 
-    The commands come from ``contract.acceptance`` and are run with the task
-    directory as the working directory's ancestor only by copying — nothing
-    reaches back into the repository, so a worker that writes a path traversal
-    into its file still only touches a temp directory that is about to be
-    deleted.
+    The commands come from ``contract.demonstration`` and ``contract.acceptance``
+    — after the change both lists must pass, which is the gate's own rule, and
+    the bug-fix tasks carry their one command in ``demonstration`` because it
+    fails on the task's base by design (#183). They run with the task directory
+    as the working directory's ancestor only by copying — nothing reaches back
+    into the repository, so a worker that writes a path traversal into its file
+    still only touches a temp directory that is about to be deleted.
     """
     workdir.mkdir(parents=True, exist_ok=True)
     (workdir / SOLUTION).write_text(content, encoding="utf-8")
     shutil.copy(task.accept, workdir / task.accept.name)
-    for command in task.contract.acceptance:
+    for command in (*task.contract.demonstration, *task.contract.acceptance):
         try:
             proc = subprocess.run(
                 command.split(),
@@ -580,6 +587,7 @@ def measure_cell(
     workdir: Path,
     *,
     remediate: bool,
+    replies: Path | None = None,
 ) -> dict[str, object]:
     """One (task, condition) run, from dispatch to a scored row.
 
@@ -587,7 +595,24 @@ def measure_cell(
     error, a reply the parser refuses, a file that does not run. A cell that
     disappeared from the results would silently shrink a denominator, and the
     rate is the whole output.
+
+    With ``replies`` set, every reply body is written there verbatim before
+    anything judges it — the parseable and the refused alike, the first
+    attempt and the remediation retry. The replies are the parser's real
+    input distribution, which the JS/TS sweep generated and threw away
+    (#184); ADR-0016 fixes what is kept as the text itself plus the sha256
+    that ties it to this row.
     """
+
+    def keep(text: str, attempt: int) -> dict[str, object]:
+        if replies is None:
+            return {}
+        replies.mkdir(parents=True, exist_ok=True)
+        name = f"{task.id}-{condition}-{attempt}.txt"
+        (replies / name).write_text(text, encoding="utf-8")
+        key = "reply_sha256" if attempt == 1 else "retry_sha256"
+        return {key: hashlib.sha256(text.encode("utf-8")).hexdigest()}
+
     system, user = build_messages(task, condition)
     row: dict[str, object] = {
         "task": task.id,
@@ -623,6 +648,7 @@ def measure_cell(
         "raw_stop_reason": completion.raw_stop_reason,
         "overran_cap": completion.overran_cap,
     }
+    row |= keep(completion.text, 1)
 
     parsed = parse_reply(
         completion.text,
@@ -670,6 +696,9 @@ def measure_cell(
             "dispatch_error": f"{type(exc).__name__}: {exc}",
             "fail_output": first.output,
         }
+    # The retry's stop reason is what its parse verdict is judged with; a
+    # captured retry without it could not be replayed (ADR-0016).
+    row |= {"retry_stop_reason": second.stop_reason.value} | keep(second.text, 2)
     reparsed = parse_reply(
         second.text,
         output_schema=task.contract.output_schema,
@@ -907,6 +936,7 @@ def main() -> int:
                     worker.model,
                     workdir,
                     remediate=not args.no_remediate,
+                    replies=args.out / "replies",
                 )
                 handle.write(json.dumps(row) + "\n")
                 handle.flush()

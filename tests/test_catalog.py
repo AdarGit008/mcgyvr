@@ -95,6 +95,31 @@ def test_every_entry_is_documented_and_warranted(shipped: Catalog) -> None:
         assert kind.name.islower()
 
 
+def test_evidence_baseline_routes_each_kind_to_the_slot_that_can_satisfy_it(
+    shipped: Catalog,
+) -> None:
+    """#183: the demonstrating evidence expects a baseline *failure*, so it
+    cannot share a slot with the regression evidence — and the split is data
+    on the kind, not a name known to any consumer."""
+    by_name = {e.name: e for e in shipped.evidence_kinds}
+    assert by_name["failing_test_first"].baseline == "fail"
+    assert by_name["tests_pass"].baseline == "pass"
+    for kind in shipped.evidence_kinds:
+        if not kind.needs_commands:
+            assert kind.baseline == "pass"  # the default; no baseline run exists
+
+
+def test_the_command_needing_properties_split_by_baseline(shipped: Catalog) -> None:
+    bug_fix = shipped.require("bug_fix")
+    assert bug_fix.needs_demonstration_commands  # failing_test_first
+    # Its guarantee promises the demonstration and nothing else, so no
+    # pass-at-baseline command is required of it (#183).
+    assert not bug_fix.needs_acceptance_commands
+    implementation = shipped.require("function_implementation")
+    assert implementation.needs_acceptance_commands  # tests_pass
+    assert not implementation.needs_demonstration_commands
+
+
 def test_deterministic_is_derived_from_the_family_not_declared(
     shipped: Catalog,
 ) -> None:
@@ -331,6 +356,26 @@ def test_an_undeclared_evidence_kind_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "c.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(CatalogError, match="not a declared evidence kind"):
+        load(path)
+
+
+def test_an_unknown_evidence_baseline_is_rejected(tmp_path: Path) -> None:
+    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
+    raw["evidence_kinds"][0]["baseline"] = "maybe"
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CatalogError, match="not 'pass' or 'fail'"):
+        load(path)
+
+
+def test_a_fail_baseline_without_commands_is_rejected(tmp_path: Path) -> None:
+    """A structural check has no baseline run whose outcome could be expected."""
+    raw = json.loads(catalog_path().read_text(encoding="utf-8"))
+    structural = next(e for e in raw["evidence_kinds"] if not e.get("needs_commands"))
+    structural["baseline"] = "fail"
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CatalogError, match=r"without\s+needs_commands"):
         load(path)
 
 
