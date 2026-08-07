@@ -109,12 +109,18 @@ Batch discipline: ~70% `function_implementation` / ~30% `bug_fix`; difficulty
 spread from d1-like to d2-like; every batch runs `admit.py` before anything
 is pinned; the batch's generator and date go in `--provenance`.
 
-## What the pool does not do (yet)
+## Running the pool
 
-- **No rig runs it yet.** The seam is `tools/breadth/measure.py`: a pool
-  tier alongside d1/d2/d3 (never a campaign climbing rung), with the arm
-  selected the way `tools/bundle/measure.py --language` selects it. Run
-  identity (`tasks_sha256`) then covers pool tasks with no new mechanism.
+`tools/breadth/measure.py --tier pool-ts` and `--tier pool-py` sweep the
+pool's arms. The arm lives in the tier name, so run identity (`tier` +
+`tasks_sha256` in `run.json`) separates the two with no new mechanism, and
+the campaign driver never climbs into either — pool tiers are breadth of
+problems, not difficulty rungs. Candidates land in the run's `candidates/`
+directory, which `tools/replies/pin.py` already walks: a pool run placed
+under `records/measurements/` feeds the corpus exactly the way ADR-0016
+already works.
+
+## What the pool does not do (yet)
 - **`build_dataset.py` predates paired arms.** Both arms of `p001` share an
   id, so the per-task cap would pool their replies and the prompt-rebuild
   step needs the arm's contract, not "the" contract. That consumer change

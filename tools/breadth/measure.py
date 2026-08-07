@@ -127,6 +127,14 @@ TIERS = ("d1", "d2", "d3")
 VARIANT_TIERS = ("d1r",)
 TIER_ROOT = HERE / "tasks"
 
+# The problem pool (#197), one tier per language arm. The arm lives in the
+# tier *name* so the existing run identity carries it: run.json's "tier"
+# plus "tasks_sha256" already refuse a resume across task sets, and two
+# arms of the pool are two task sets. Not difficulty rungs — the campaign
+# driver climbs TIERS only and never arrives here, like the variants.
+POOL_ROOT = HERE.parent / "problems" / "tasks"
+POOL_TIERS = ("pool-ts", "pool-py")
+
 # Where the machine-specific half lives, git-ignored — same contract as the
 # bundle rig's worker file, kept beside this script so the two experiments can
 # name different workers.
@@ -160,11 +168,20 @@ def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
     """
     if tier == "d1":
         return list(bundle.load_tasks(only))
-    root = TIER_ROOT / tier
+    if tier in POOL_TIERS:
+        root = POOL_ROOT / tier.removeprefix("pool-")
+        language = bundle.PYTHON if tier == "pool-py" else bundle.JSTS
+    else:
+        root = TIER_ROOT / tier
+        # Every tier in this rig's own tree is JS/TS, d1 because it *is* the
+        # bundle rig's set. #167 made the arm explicit on a Task rather than
+        # implied by a module constant; the pool tiers above are the first
+        # time this rig carries a second one.
+        language = bundle.JSTS
     if not root.is_dir():
         raise bundle.MeasureError(
             f"no such tier {tier!r}: {root} does not exist. "
-            f"Known: {TIERS + VARIANT_TIERS}"
+            f"Known: {TIERS + VARIANT_TIERS + POOL_TIERS}"
         )
     tasks = []
     for directory in sorted(root.iterdir()):
@@ -175,10 +192,7 @@ def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
                 id=directory.name,
                 contract=bundle.load(directory / "contract.yaml"),
                 directory=directory,
-                # Every tier here is JS/TS, d1 because it *is* the bundle rig's
-                # set. #167 made the arm explicit on a Task rather than implied
-                # by a module constant; this rig has only ever had the one.
-                language=bundle.JSTS,
+                language=language,
             )
         )
     if only:
@@ -486,9 +500,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--tier",
-        choices=TIERS + VARIANT_TIERS,
+        choices=TIERS + VARIANT_TIERS + POOL_TIERS,
         default="d1",
-        help="difficulty tier to run (default d1, the bundle rig's set)",
+        help="difficulty tier to run (default d1, the bundle rig's set); "
+        "pool-ts/pool-py are the #197 problem pool's arms, not rungs",
     )
     parser.add_argument(
         "--draws",
@@ -524,7 +539,8 @@ def main() -> int:
         return 2
 
     if not args.summarise_only:
-        problem = bundle.JSTS.capability()
+        language = bundle.PYTHON if args.tier == "pool-py" else bundle.JSTS
+        problem = language.capability()
         if problem is not None:
             print(f"error: {problem}", file=sys.stderr)
             return 2

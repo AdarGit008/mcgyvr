@@ -27,11 +27,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 
 
-def _admit() -> types.ModuleType:
-    """The admission gate, imported by path — ``tools/`` is not a package."""
-    spec = importlib.util.spec_from_file_location(
-        "pool_admit", REPO / "tools" / "problems" / "admit.py"
-    )
+def _by_path(name: str, path: Path) -> types.ModuleType:
+    """A tool module, imported by path — ``tools/`` is not a package."""
+    spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -39,7 +37,8 @@ def _admit() -> types.ModuleType:
     return module
 
 
-admit = _admit()
+admit = _by_path("pool_admit", REPO / "tools" / "problems" / "admit.py")
+breadth = _by_path("breadth_measure", REPO / "tools" / "breadth" / "measure.py")
 
 
 def _pool_ids() -> list[str]:
@@ -89,6 +88,33 @@ def test_checkers_meet_the_assertion_floor() -> None:
             assert text.count("assert") >= admit.MIN_ASSERTIONS, (
                 f"{problem} [{arm.name}]"
             )
+
+
+def test_pool_tiers_load_pinned_problems_in_both_arms() -> None:
+    """The rig seam: pool-ts and pool-py serve every pinned problem.
+
+    Restricted to manifest-pinned ids so a half-written candidate a
+    generator is still working on cannot fail the suite — the pinned set
+    is the pool; the rest is not yet anything.
+    """
+    pinned = sorted(
+        str(entry["id"])
+        for entry in admit.manifest_entries()
+        if not entry.get("superseded_by")
+    )
+    assert pinned, "an empty manifest would make this test vacuous"
+    for tier, language in (("pool-ts", "jsts"), ("pool-py", "python")):
+        tasks = breadth.load_tier_tasks(tier, only=pinned)
+        assert sorted(task.id for task in tasks) == pinned
+        assert {task.language.name for task in tasks} == {language}
+        assert {task.contract.id for task in tasks} == set(pinned)
+
+
+def test_pool_tiers_are_not_campaign_rungs() -> None:
+    """The campaign climbs TIERS; the pool must not be a rung it can reach."""
+    for tier in breadth.POOL_TIERS:
+        assert tier not in breadth.TIERS
+        assert tier not in breadth.VARIANT_TIERS
 
 
 def test_pool_prose_stays_below_the_near_duplicate_line() -> None:
