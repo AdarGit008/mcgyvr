@@ -1,0 +1,25 @@
+```python
+def resolve_profile(profiles: dict, wanted: str) -> dict:
+    if wanted not in profiles:
+        raise ValueError(f"No profile named '{wanted}'")
+
+    visited = set()
+    result = {}
+
+    def merge_settings(base):
+        nonlocal result
+        if base in visited:
+            raise ValueError(f"Cycle detected in inheritance chain for '{wanted}'")
+        visited.add(base)
+        if 'extends' in profiles[base]:
+            merge_settings(profiles[base]['extends'])
+        result.update(profiles[base])
+        del result['extends']
+
+    try:
+        merge_settings(wanted)
+    finally:
+        visited.discard(wanted)
+
+    return result
+```

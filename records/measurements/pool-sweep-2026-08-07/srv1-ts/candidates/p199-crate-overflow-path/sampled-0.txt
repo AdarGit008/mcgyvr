@@ -1,0 +1,63 @@
+```ts
+export function crateOverflowPath(root: Record<string, unknown>): string {
+    if (typeof root !== 'object' || root === null) {
+        throw new Error('Invalid root');
+    }
+
+    type Crate = {
+        tag: string;
+        weight: number;
+        cap: number;
+        inside: Crate[];
+    };
+
+    function calculateGross(crate: Crate): number {
+        return crate.weight + crate.inside.reduce((sum, cr) => sum + calculateGross(cr), 0);
+    }
+
+    function findSpillPath(crate: Crate, path: string[]): string | null {
+        if (calculateGross(crate) > crate.cap) {
+            return path.join('.');
+        }
+        for (const cr of crate.inside) {
+            const result = findSpillPath(cr, [cr.tag, ...path]);
+            if (result) {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    const outerCrate: Crate = root as any;
+    if (!('tag' in outerCrate) || !('weight' in outerCrate) || !('cap' in outerCrate) || !('inside' in outerCrate)) {
+        throw new Error('Invalid root structure');
+    }
+    const { tag, weight, cap, inside } = outerCrate;
+    if (typeof tag !== 'string' || tag.includes('.')) {
+        throw new Error('Invalid tag');
+    }
+    if (!Number.isInteger(weight) || weight < 0) {
+        throw new Error('Invalid weight');
+    }
+    if (!Number.isInteger(cap) || cap <= 0) {
+        throw new Error('Invalid cap');
+    }
+    if (!Array.isArray(inside)) {
+        throw new Error('Invalid inside');
+    }
+
+    const seenTags = new Set<string>();
+    for (const cr of inside) {
+        if ('tag' in cr && typeof cr.tag === 'string' && !cr.tag.includes('.')) {
+            if (seenTags.has(cr.tag)) {
+                throw new Error('Duplicate tag');
+            }
+            seenTags.add(cr.tag);
+        } else {
+            throw new Error('Invalid crate inside');
+        }
+    }
+
+    return findSpillPath(outerCrate, [tag]) || '';
+}
+```

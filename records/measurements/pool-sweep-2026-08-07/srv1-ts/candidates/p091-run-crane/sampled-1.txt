@@ -1,0 +1,45 @@
+```ts
+/**
+ * Runs a crane script and returns the manifest of shipped crates.
+ * @param script - A list of moves to be executed on the pile of crates.
+ * @returns The manifest of shipped crates in order.
+ */
+export function runCrane(script: string[][]): string[] {
+  const pile: string[] = [];
+  const manifest: string[] = [];
+
+  for (let i = 0; i < script.length; i++) {
+    const [move, label] = script[i];
+
+    if (!["load", "ship", "bury", "scrap"].includes(move)) {
+      throw new Error(`Invalid move at index ${i}`);
+    }
+
+    switch (move) {
+      case "load":
+        pile.push(label);
+        break;
+      case "ship":
+        if (pile.length === 0) {
+          throw new Error(`Empty pile at index ${i}`);
+        }
+        manifest.push(pile.pop()!);
+        break;
+      case "bury":
+        if (pile.length === 0) {
+          throw new Error(`Empty pile at index ${i}`);
+        }
+        pile.unshift(pile.pop()!);
+        break;
+      case "scrap":
+        if (pile.length === 0) {
+          throw new Error(`Empty pile at index ${i}`);
+        }
+        pile.pop();
+        break;
+    }
+  }
+
+  return manifest;
+}
+```

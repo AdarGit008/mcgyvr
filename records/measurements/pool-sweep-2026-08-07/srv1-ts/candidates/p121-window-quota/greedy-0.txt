@@ -1,0 +1,29 @@
+```ts
+export function windowQuota(limit: number, width: number, calls: (string | number)[][]): string[] {
+  if (!Number.isInteger(limit) || limit <= 0) throw new Error('Invalid limit');
+  if (!Number.isInteger(width) || width <= 0) throw new Error('Invalid width');
+  if (!Array.isArray(calls)) throw new Error('Invalid calls');
+
+  const results: string[] = [];
+  const frameCounts: { [frame: number]: { [name: string]: number } } = {};
+
+  for (const call of calls) {
+    if (!Array.isArray(call) || call.length !== 2) throw new Error('Invalid call format');
+    const [time, name] = call;
+    if (typeof time !== 'number' || !Number.isInteger(time) || time < 0) throw new Error('Invalid time');
+    if (typeof name !== 'string' || name === '') throw new Error('Invalid name');
+
+    const frame = Math.floor(time / width);
+    if (!frameCounts[frame]) frameCounts[frame] = {};
+
+    if (frameCounts[frame][name] >= limit) {
+      results.push('over');
+    } else {
+      frameCounts[frame][name] = (frameCounts[frame][name] || 0) + 1;
+      results.push('ok');
+    }
+  }
+
+  return results;
+}
+```

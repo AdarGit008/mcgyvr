@@ -1,0 +1,22 @@
+```ts
+export function groupTotals(
+  rows: Array<Record<string, unknown>>,
+  key: string,
+  field: string,
+): Array<[string, number]> {
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    const label = String(row[key]);
+    const amount = Number(row[field]);
+
+    if (!label || !amount || isNaN(amount)) {
+      throw new Error(`Invalid data: label=${label}, amount=${amount}`);
+    }
+
+    totals[label] = (totals[label] || 0) + amount;
+  }
+  return Object.keys(totals)
+    .sort((a, b) => totals[b] - totals[a] || a.localeCompare(b))
+    .map((name) => [name, totals[name]]);
+}
+```

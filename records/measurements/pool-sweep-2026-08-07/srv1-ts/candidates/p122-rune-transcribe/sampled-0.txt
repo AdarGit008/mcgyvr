@@ -1,0 +1,23 @@
+```ts
+export function transcribeRunes(source: string, table: Array<[string, string]>): string {
+    let result = '';
+    let position = 0;
+
+    while (position < source.length) {
+        const remainingSource = source.slice(position);
+        for (const [pattern, output] of table) {
+            if (remainingSource.startsWith(pattern)) {
+                result += output;
+                position += pattern.length;
+                break;
+            }
+        }
+        if (position === source.length) continue; // No rule matched, copy single character
+        if (source[position] === undefined) throw new Error('Invalid pattern: empty string');
+        result += source[position];
+        position++;
+    }
+
+    return result;
+}
+```

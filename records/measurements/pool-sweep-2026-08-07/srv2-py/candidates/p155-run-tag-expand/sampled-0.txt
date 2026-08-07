@@ -1,0 +1,38 @@
+```python
+def expand_run_tag(pattern: str) -> list:
+    if not isinstance(pattern, str):
+        raise ValueError("Input must be a string")
+    
+    if '[' not in pattern or ']' not in pattern:
+        raise ValueError("Pattern must contain exactly one square-bracketed group")
+    
+    stem, tail = pattern.split('[')
+    if stem.endswith(']') or tail.startswith('[') or tail.endswith('['):
+        raise ValueError("Invalid brackets placement")
+    
+    group_body, rest = tail.split(']', 1)
+    if not group_body:
+        raise ValueError("Empty body in square-bracketed group")
+    
+    if '/' in group_body:
+        start, end_step = group_body.split('/')
+        step = int(end_step)
+        end, _ = start.split('-', 1) if '-' in start else (start, '0')
+    elif '-' in group_body:
+        start, end = group_body.split('-', 1)
+        step = 1
+    else:
+        items = [group_body]
+        return sorted(stem + item + tail for item in items)
+    
+    start_num = int(start)
+    end_num = int(end)
+    if step == 0 or start_num > end_num:
+        raise ValueError("Invalid run specification")
+    
+    runs = []
+    for num in range(start_num, end_num + 1, step):
+        runs.append(str(num))
+    
+    return sorted(stem + run + tail for run in runs)
+```

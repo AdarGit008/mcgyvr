@@ -1,0 +1,30 @@
+```ts
+/**
+ * The index pairs of annotations that conflict.
+ */
+export function spanConflicts(
+  spans: Array<[number, number, string]>,
+): Array<[number, number]> {
+  for (const [start, end, label] of spans) {
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start >= end) {
+      throw new Error("bad span bounds");
+    }
+    if (typeof label !== "string" || label.length === 0) {
+      throw new Error("bad label");
+    }
+  }
+  const pairs: Array<[number, number]> = [];
+  for (let i = 0; i < spans.length; i++) {
+    for (let j = i + 1; j < spans.length; j++) {
+      if (
+        spans[i][0] < spans[j][1] &&
+        spans[j][0] < spans[i][1] &&
+        spans[i][2] !== spans[j][2]
+      ) {
+        pairs.push([i, j]);
+      }
+    }
+  }
+  return pairs;
+}
+```

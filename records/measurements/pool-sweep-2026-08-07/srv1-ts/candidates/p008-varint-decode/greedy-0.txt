@@ -1,0 +1,27 @@
+```ts
+export function decodeVarints(data: number[]): number[] {
+  if (!Array.isArray(data)) throw new Error("Input must be an array");
+  if (data.some(b => b < 0 || b > 255 || !Number.isInteger(b))) throw new Error("Invalid byte values");
+
+  const result: number[] = [];
+  let current = 0;
+  let shift = 0;
+
+  for (const byte of data) {
+    if (shift >= 35) throw new Error("Varint is too long");
+    if ((byte & 0x80) === 0) {
+      current |= (byte << shift);
+      result.push(current);
+      current = 0;
+      shift = 0;
+    } else {
+      current |= ((byte & 0x7F) << shift);
+      shift += 7;
+    }
+  }
+
+  if (shift > 0) throw new Error("Varint is incomplete");
+
+  return result;
+}
+```

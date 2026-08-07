@@ -1,0 +1,21 @@
+```python
+def hex_ring_walk(center: list, radius: int) -> list:
+    if len(center) != 2 or not all(isinstance(x, int) for x in center):
+        raise ValueError("Center must be a two-element list of integers")
+    if not isinstance(radius, int) or radius < 0:
+        raise ValueError("Radius must be a non-negative integer")
+
+    steps = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]]
+    path = []
+
+    for i in range(radius * 6):
+        step_index = i % len(steps)
+        if i == 0:
+            q, r = center[0] + steps[-1][0], center[1] + steps[-1][1]
+        else:
+            q += steps[step_index][0]
+            r += steps[step_index][1]
+        path.append([q, r])
+
+    return path
+```

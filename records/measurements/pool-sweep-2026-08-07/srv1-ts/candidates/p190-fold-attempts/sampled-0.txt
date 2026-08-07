@@ -1,0 +1,46 @@
+```ts
+export function foldAttempts(records: string[]): string[] {
+  if (!Array.isArray(records)) throw new Error('Argument must be a list');
+  const cases = records.reduce((acc, record) => {
+    const [name, tryNumStr, outcome] = record.split(/\s+/);
+    const tryNum = parseInt(tryNumStr, 10);
+
+    if (record.split(/\s+/).length !== 3)
+      throw new Error('Record must hold exactly three pieces');
+    if (!['pass', 'fail'].includes(outcome))
+      throw new Error('Outcome must be either "pass" or "fail"');
+    if (isNaN(tryNum) || tryNum <= 0 || !Number.isInteger(tryNum))
+      throw new Error('Try number must be digits standing for at least one with no padding zero');
+    if (name === '') throw new Error('Name cannot be empty');
+
+    if (!acc[name]) acc[name] = { pass: [], fail: [] };
+    acc[name][outcome].push(tryNum);
+
+    return acc;
+  }, {} as Record<string, { pass: number[]; fail: number[] }>);
+
+  for (const name in cases) {
+    const { pass, fail } = cases[name];
+    if (pass.length > 0 && fail.length > 0) continue;
+    if (pass.length === 0) throw new Error(`Case "${name}" must not be all fails`);
+    if (fail.length === 0) throw new Error(`Case "${name}" must not be all passes`);
+
+    const expectedTries = Array.from(
+      { length: Math.max(...[...pass, ...fail]) },
+      (_, i) => i + 1
+    );
+
+    if (!expectedTries.every((tryNum) => pass.includes(tryNum) || fail.includes(tryNum)))
+      throw new Error(`Case "${name}" must carry try numbers 1 through however many records it has, each exactly once`);
+  }
+
+  return Object.keys(cases)
+    .sort()
+    .map((name) => {
+      const { pass, fail } = cases[name];
+      if (pass.length === expectedTries.length && fail.length === 0) return `${name}=pass`;
+      else if (fail.length === expectedTries.length && pass.length === 0) return `${name}=fail`;
+      else return `${name}=flake`;
+    });
+}
+```

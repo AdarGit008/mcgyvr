@@ -1,0 +1,59 @@
+```ts
+export function weighUnit(
+  spec: string,
+  masses: Record<string, number>,
+): number {
+  if (typeof spec !== "string") throw new Error("Invalid spec");
+  if (spec.length === 0) throw new Error("Empty spec");
+
+  let at = 0;
+  const outer: number[] = [];
+  let sum = 0;
+
+  const readCount = (): number => {
+    let digits = "";
+    while (at < spec.length && /\d/.test(spec[at])) {
+      digits += spec[at];
+      at += 1;
+    }
+    if (digits === "") return 1;
+    const count = Number(digits);
+    if (!Number.isInteger(count) || count <= 0) throw new Error("Invalid count");
+    return count;
+  };
+
+  while (at < spec.length) {
+    const ch = spec[at];
+    at += 1;
+
+    if (ch === "(") {
+      outer.push(sum);
+      sum = 0;
+    } else if (ch === ")") {
+      if (outer.length === 0) throw new Error("Unmatched closer");
+      sum = (outer.pop() ?? 0) * readCount() + sum;
+    } else if (ch === "[") {
+      outer.push(sum);
+      sum = 0;
+    } else if (ch === "]") {
+      if (outer.length === 0) throw new Error("Unmatched closer");
+      sum = (outer.pop() ?? 0) * readCount() + sum;
+    } else if (/^[A-Z][a-z]{0,2}$/.test(ch)) {
+      let name = ch;
+      while (at < spec.length && /^[a-z]$/.test(spec[at])) {
+        name += spec[at];
+        at += 1;
+      }
+      const mass = masses[name] ?? 0;
+      if (mass === 0) throw new Error(`Unknown name: ${name}`);
+      sum += mass * readCount();
+    } else {
+      throw new Error("Invalid character in spec");
+    }
+  }
+
+  if (outer.length !== 0) throw new Error("Unmatched opener");
+
+  return sum;
+}
+```

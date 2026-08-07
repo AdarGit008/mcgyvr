@@ -1,0 +1,48 @@
+```ts
+export function rollupTotals(
+  nodes: Record<string, { value: number; parent: string }>,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  const childMap: Record<string, string[]> = {};
+
+  // Validate input and build child map
+  for (const id of Object.keys(nodes)) {
+    if (nodes[id].parent === "") {
+      if (!totals[id]) {
+        totals[id] = nodes[id].value;
+        childMap[id] = [];
+      } else {
+        throw new Error("Multiple roots found");
+      }
+    } else if (!nodes[nodes[id].parent]) {
+      throw new Error(`Unknown parent id: ${nodes[id].parent}`);
+    } else {
+      if (!childMap[nodes[id].parent]) {
+        childMap[nodes[id].parent] = [];
+      }
+      childMap[nodes[id].parent].push(id);
+      totals[id] = nodes[id].value;
+    }
+  }
+
+  // Recursively compute totals
+  const dfs = (id: string): number => {
+    let sum = totals[id];
+    if (childMap[id]) {
+      for (const child of childMap[id]) {
+        sum += dfs(child);
+      }
+    }
+    return sum;
+  };
+
+  for (const id of Object.keys(totals)) {
+    if (!childMap[id] && nodes[id].parent !== "") {
+      throw new Error(`Node ${id} cannot be reached from the root`);
+    }
+    totals[id] = dfs(id);
+  }
+
+  return totals;
+}
+```

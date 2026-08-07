@@ -1,0 +1,38 @@
+```typescript
+export function plotterPose(program: string): { x: number; y: number; facing: string } {
+  if (typeof program !== 'string') {
+    throw new Error('Invalid input: expected a string');
+  }
+
+  const directions = ['N', 'E', 'S', 'W'];
+  let x = 0, y = 0;
+  let currentFacingIndex = 0;
+
+  for (const char of program) {
+    if (char === 'L') {
+      currentFacingIndex = (currentFacingIndex + 3) % 4;
+    } else if (char === 'R') {
+      currentFacingIndex = (currentFacingIndex + 1) % 4;
+    } else if (char === 'F' || char === 'B') {
+      const directionOffset = directions[currentFacingIndex] === 'N' ? 0 :
+                              directions[currentFacingIndex] === 'S' ? 0 :
+                              directions[currentFacingIndex] === 'E' ? 1 : -1;
+      const moveDistance = parseInt(char + program.slice(1), 10);
+      if (isNaN(moveDistance) || moveDistance <= 0) {
+        throw new Error('Invalid drive distance');
+      }
+      if (char === 'F') {
+        x += directionOffset * moveDistance;
+        y += (currentFacingIndex % 2 ? -1 : 1) * moveDistance;
+      } else {
+        x -= directionOffset * moveDistance;
+        y -= (currentFacingIndex % 2 ? -1 : 1) * moveDistance;
+      }
+    } else {
+      throw new Error('Invalid command');
+    }
+  }
+
+  return { x, y, facing: directions[currentFacingIndex] };
+}
+```

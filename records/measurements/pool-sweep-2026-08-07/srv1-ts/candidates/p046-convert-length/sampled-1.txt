@@ -1,0 +1,37 @@
+```typescript
+export function convertLength(quantity: string, goal: string): number {
+  if (quantity === "" || !goal) throw new Error("Invalid input");
+
+  const units = ["mm", "cm", "m", "km"];
+  if (!units.includes(goal)) throw new Error("Unknown target unit");
+
+  const parts = quantity.split(" ");
+  let sumInMm = 0;
+
+  for (const part of parts) {
+    const match = part.match(/^(\d+)\s*(mm|cm|m|km)$/);
+    if (!match) throw new Error("Malformed part");
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+
+    switch (unit) {
+      case "mm": sumInMm += value; break;
+      case "cm": sumInMm += value * 10; break;
+      case "m": sumInMm += value * 1000; break;
+      case "km": sumInMm += value * 1000000; break;
+    }
+  }
+
+  const targetFactor = {
+    mm: 1,
+    cm: 10,
+    m: 1000,
+    km: 1000000
+  }[goal];
+
+  if (sumInMm % targetFactor !== 0) throw new Error("Non-integer result");
+
+  return sumInMm / targetFactor;
+}
+```

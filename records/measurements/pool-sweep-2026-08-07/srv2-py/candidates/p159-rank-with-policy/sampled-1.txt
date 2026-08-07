@@ -1,0 +1,33 @@
+```python
+from typing import List
+
+def rank_with_policy(scores: List[int], policy: str, direction: str) -> List[int]:
+    if len(scores) == 0:
+        raise ValueError("scores cannot be empty")
+    
+    if not all(isinstance(score, int) for score in scores):
+        raise ValueError("all elements in scores must be integers")
+    
+    if policy not in ["dense", "gapped", "entry"]:
+        raise ValueError("policy must be 'dense', 'gapped', or 'entry'")
+    
+    if direction not in ["asc", "desc"]:
+        raise ValueError("direction must be 'asc' or 'desc'")
+    
+    sorted_scores = sorted(scores, reverse=(direction == "desc"))
+    rank_map = {}
+    current_rank = 1
+    
+    for i, score in enumerate(sorted_scores):
+        if score not in rank_map:
+            rank_map[score] = current_rank
+        else:
+            if policy == "dense":
+                continue
+            elif policy == "gapped":
+                current_rank += 1
+            
+        current_rank += 1
+    
+    return [rank_map[scores[i]] for i in range(len(scores))]
+```

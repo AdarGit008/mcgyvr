@@ -1,0 +1,57 @@
+```ts
+export function replayLoanDesk(stock: Record<string, number>, cap: number, events: Array<[string, string, string]>): string[] {
+  if (typeof cap !== 'number' || cap <= 0) throw new Error('Invalid loan cap');
+  if (!Number.isInteger(cap)) throw new Error('Loan cap must be an integer');
+
+  const loans: Record<string, { title: string; renewals: number }[]> = {};
+  const holds: Record<string, string[]> = {};
+
+  return events.map(([action, member, title], index) => {
+    if (typeof action !== 'string' || !['borrow', 'return', 'renew', 'hold'].includes(action)) throw new Error(`Invalid action at index ${index}`);
+    if (typeof member !== 'string') throw new Error(`Invalid member at index ${index}`);
+    if (typeof title !== 'string') throw new Error(`Invalid title at index ${index}`);
+
+    const copyCount = stock[title];
+    if (!copyCount || copyCount <= 0) {
+      throw new Error('Invalid copy count');
+    }
+
+    switch (action) {
+      case 'borrow':
+        if (!stock[title] || stock[title] <= 0) return `no:unknown-title`;
+        if (loans[member]?.some(l => l.title === title)) return `no:already-out`;
+        if (Object.values(loans).flat().length >= cap) return `no:member-cap`;
+        if (holds[title]?.includes(member) && holds[title]!.indexOf(member) !== 0) return `no:queued-ahead`;
+        stock[title]--;
+        loans[member] = [...(loans[member] ?? []), { title, renewals: 0 }];
+        if (holds[title]?.length) {
+          const nextMember = holds[title].shift();
+          stock[nextMember!]++;
+        }
+        return 'ok';
+      case 'return':
+        if (!loans[member]?.some(l => l.title === title)) return `no:not-out`;
+        loans[member] = loans[member]!.filter(l => l.title !== title);
+        stock[title]++;
+        return 'ok';
+      case 'renew':
+        const loan = loans[member]?.find(l => l.title === title);
+        if (!loan) return `no:unknown-title`;
+        if (loans[member]!.some(l => l.title === title && l.renewals < 2)) {
+          loan.renewals++;
+          return 'ok';
+        } else {
+          return `no:on-hold`;
+        }
+      case 'hold':
+        if (loans[member]?.some(l => l.title === title)) return `no:own-loan`;
+        if (holds[title]?.includes(member)) return `no:in-queue`;
+        holds[title] = [...(holds[title] ?? []), member];
+        stock[title]--;
+        return 'ok';
+      default:
+        throw new Error(`Invalid action at index ${index}`);
+    }
+  });
+}
+```

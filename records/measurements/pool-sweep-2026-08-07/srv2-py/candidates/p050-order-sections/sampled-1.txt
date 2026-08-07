@@ -1,0 +1,24 @@
+```python
+def order_sections(labels: list[str]) -> list[str]:
+    def parse_label(label: str) -> tuple[int, ...]:
+        if not all(c.isdigit() for c in label):
+            raise ValueError("Invalid character in label")
+        if '0' in label and label[0] == '0':
+            raise ValueError("Leading zero in component")
+        return tuple(int(component) for component in label.split('.'))
+
+    def is_valid_label(label: str) -> bool:
+        try:
+            parse_label(label)
+            return True
+        except ValueError:
+            return False
+
+    if not all(isinstance(label, str) and is_valid_label(label) for label in labels):
+        raise ValueError("Invalid input: all elements must be non-empty strings with valid outline numbering")
+
+    if len(labels) != len(set(labels)):
+        raise ValueError("Duplicate labels are not allowed")
+
+    return sorted(labels, key=parse_label)
+```

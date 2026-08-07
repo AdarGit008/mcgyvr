@@ -1,0 +1,29 @@
+```python
+def lattice_inverse(frame: list[list[int]]) -> list[list[int]]:
+    if not isinstance(frame, list) or not all(isinstance(row, list) for row in frame):
+        raise ValueError("Input must be a list of lists")
+    
+    height = len(frame)
+    width = len(frame[0]) if frame else 0
+    if height != width or height not in [2, 3]:
+        raise ValueError("Frame must be exactly two or three rows tall and square")
+    
+    for row in frame:
+        if len(row) != width:
+            raise ValueError("All rows must have the same length")
+        if not all(isinstance(entry, int) for entry in row):
+            raise ValueError("All entries must be whole numbers")
+    
+    det = (frame[0][0] * frame[1][1]) - (frame[0][1] * frame[1][0])
+    if det not in [1, -1]:
+        return []
+    
+    inv_det = 1 if det == 1 else -1
+    
+    inverse_frame = [
+        [(inv_det * (frame[1][1] if i == j else -frame[1][0])) // det for j in range(width)]
+        for i in range(height)
+    ]
+    
+    return inverse_frame
+```

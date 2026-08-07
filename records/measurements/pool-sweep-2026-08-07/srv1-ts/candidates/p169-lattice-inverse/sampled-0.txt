@@ -1,0 +1,54 @@
+```ts
+export function latticeInverse(frame: number[][]): number[][] {
+  if (!Array.isArray(frame) || !frame.every(row => Array.isArray(row))) {
+    throw new Error('Input must be a list of lists');
+  }
+  const height = frame.length;
+  if (height !== 2 && height !== 3) {
+    throw new Error('Frame must be exactly two or three rows tall');
+  }
+  const width = frame[0].length;
+  if (!frame.every(row => row.length === width)) {
+    throw new Error('All rows must have the same length');
+  }
+  for (const row of frame) {
+    for (const entry of row) {
+      if (!Number.isInteger(entry)) {
+        throw new Error('All entries must be whole numbers');
+      }
+    }
+  }
+
+  const determinant = height === 2
+    ? frame[0][0] * frame[1][1] - frame[0][1] * frame[1][0]
+    : frame[0][0] * (frame[1][1] * frame[2][2] - frame[1][2] * frame[2][1]) -
+      frame[0][1] * (frame[1][0] * frame[2][2] - frame[1][2] * frame[2][0]) +
+      frame[0][2] * (frame[1][0] * frame[2][1] - frame[1][1] * frame[2][0]);
+
+  if (determinant !== 1 && determinant !== -1) {
+    return [];
+  }
+
+  const inverseFrame = Array.from({ length: width }, () =>
+    Array(width).fill(0)
+  );
+
+  for (let i = 0; i < height; i++) {
+    for (let j = 0; j < width; j++) {
+      let cofactor =
+        (i + j) % 2 === 0
+          ? frame[(i + 1) % height][(j + 1) % width] -
+            frame[(i + 1) % height][(j + 2) % width] * frame[(i + 2) % height][(j + 1) % width]
+          : frame[(i + 1) % height][(j + 1) % width] *
+            frame[(i + 2) % height][(j + 1) % width] -
+            frame[(i + 1) % height][(j + 2) % width] - frame[(i + 2) % height][(j + 1) % width];
+      if (height === 3) {
+        cofactor *= i * j % 2 === 0 ? 1 : -1;
+      }
+      inverseFrame[j][i] = Math.round(cofactor / determinant);
+    }
+  }
+
+  return inverseFrame;
+}
+```

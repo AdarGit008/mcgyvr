@@ -1,0 +1,15 @@
+```python
+def layer_configs(layers: list[dict]) -> dict:
+    result = {}
+    for layer in layers:
+        if not isinstance(layer, dict):
+            raise ValueError("Each layer must be a dictionary")
+        for key, value in layer.items():
+            if value is None:
+                result.pop(key, None)
+            elif isinstance(value, dict) and key in result and isinstance(result[key], dict):
+                result[key] = layer_configs([result[key], value])[key]
+            else:
+                result[key] = value
+    return result
+```

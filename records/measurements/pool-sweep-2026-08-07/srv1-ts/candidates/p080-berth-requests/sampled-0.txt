@@ -1,0 +1,56 @@
+```ts
+export function assignBerths(berths: Array<{ id: string; size: number }>, quota: Record<string, number>, requests: Array<Record<string, unknown>>): string[] {
+  const result: string[] = [];
+  const occupiedBerths: Map<string, { boat: string, owner: string }> = new Map();
+
+  function isIdUnique(id: string): boolean {
+    return !berths.some(berth => berth.id === id);
+  }
+
+  if (!isIdUnique) throw new Error("Duplicate berth ID found");
+
+  for (const request of requests) {
+    const op = request.op as string;
+    const boat = request.boat as string | undefined;
+    const owner = request.owner as string | undefined;
+    const size = request.size as number | undefined;
+
+    if (op === "dock") {
+      if (occupiedBerths.has(boat)) {
+        result.push("rejected:already_docked");
+        continue;
+      }
+
+      const ownerQuota = quota[owner] ?? Infinity;
+      if (Object.values(occupiedBerths).filter(b => b.owner === owner).length >= ownerQuota) {
+        result.push("rejected:over_quota");
+        continue;
+      }
+
+      for (const berth of berths) {
+        if (berth.size >= size) {
+          occupiedBerths.set(boat, { boat, owner });
+          result.push(berth.id);
+          break;
+        }
+      }
+
+      if (!occupiedBerths.has(boat)) {
+        result.push("rejected:no_berth");
+      }
+    } else if (op === "leave") {
+      if (!occupiedBerths.has(boat)) {
+        result.push("rejected:not_docked");
+        continue;
+      }
+
+      occupiedBerths.delete(boat);
+      result.push("left");
+    } else {
+      throw new Error(`Unknown operation: ${op}`);
+    }
+  }
+
+  return result;
+}
+```

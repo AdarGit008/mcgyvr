@@ -1,0 +1,20 @@
+```python
+def backoff_schedule(base: int, factor: int, cap: int, attempts: int) -> list:
+    if not isinstance(base, int) or base <= 0:
+        raise ValueError("base must be a whole number of one or more")
+    if not isinstance(factor, int) or factor <= 0:
+        raise ValueError("factor must be a whole number of one or more")
+    if not isinstance(cap, int) or cap < base:
+        raise ValueError("cap must be a whole number or is smaller than base")
+    if not isinstance(attempts, int) or attempts <= 0:
+        raise ValueError("attempts must be a whole number of one or more")
+
+    schedule = []
+    current_idle = base
+    for _ in range(attempts):
+        schedule.append(sum(schedule))
+        current_idle = min(current_idle * factor, cap)
+        schedule.append(current_idle)
+
+    return schedule[:-1]
+```

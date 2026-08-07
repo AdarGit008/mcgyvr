@@ -1,0 +1,27 @@
+```typescript
+export function postingLists(documents: string[]): Record<string, number[]> {
+  if (!Array.isArray(documents)) {
+    throw new Error("Input must be a list of strings.");
+  }
+
+  const index: Record<string, number[]> = {};
+
+  for (let i = 0; i < documents.length; ++i) {
+    const document = documents[i];
+    if (typeof document !== "string") {
+      throw new Error(`Document at position ${i} must be a string.`);
+    }
+
+    const terms = document.match(/[a-zA-Z0-9]+/g);
+    if (!terms || terms.length === 0) continue;
+
+    for (const term of terms) {
+      if (/^\d+$/.test(term) || term.length === 1) continue;
+
+      index[term.toLowerCase()] = [...(index[term.toLowerCase()] || []), i];
+    }
+  }
+
+  return index;
+}
+```

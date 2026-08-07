@@ -1,0 +1,35 @@
+```ts
+export function expandTemplate(
+  template: string,
+  context: Record<string, unknown>,
+  missing: 'error' | 'keep' | 'blank'
+): string {
+  return template.replace(/\$\$/g, '$').replace(/\$\{([^{}]*)\}/g, (match, path) => {
+    const segments = path.split('.');
+    let value = context;
+    for (const segment of segments) {
+      if (value && segment in value) {
+        value = (value as Record<string, unknown>)[segment];
+      } else {
+        switch (missing) {
+          case 'error':
+            throw new Error(`Missing path: ${path}`);
+          case 'keep':
+            return match;
+          case 'blank':
+            return '';
+          default:
+            throw new Error(`Invalid missing policy: ${missing}`);
+        }
+      }
+    }
+    if (typeof value === 'string') {
+      return value;
+    } else if (typeof value === 'number' && Number.isInteger(value)) {
+      return value.toString();
+    } else {
+      throw new Error(`Invalid path value: ${path}`);
+    }
+  });
+}
+```

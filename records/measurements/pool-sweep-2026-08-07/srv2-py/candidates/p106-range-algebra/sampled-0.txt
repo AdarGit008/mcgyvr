@@ -1,0 +1,59 @@
+```python
+def range_algebra(a: list, b: list, op: str) -> list:
+    if op not in {"union", "intersect", "subtract"}:
+        raise ValueError("Invalid operation")
+    
+    def parse_interval(interval):
+        lo, hi = interval
+        if not (isinstance(lo, int) and isinstance(hi, int)):
+            raise ValueError("Interval must be a pair of integers")
+        if lo >= hi:
+            raise ValueError("Interval lo must be strictly below hi")
+        return lo, hi
+    
+    def merge_intervals(intervals):
+        intervals.sort()
+        result = []
+        for lo, hi in intervals:
+            if not result or result[-1][1] < lo:
+                result.append((lo, hi))
+            else:
+                result[-1] = (result[-1][0], max(result[-1][1], hi))
+        return result
+    
+    a = [parse_interval(interval) for interval in a]
+    b = [parse_interval(interval) for interval in b]
+    
+    if op == "union":
+        return merge_intervals(a + b)
+    elif op == "intersect":
+        result = []
+        i, j = 0, 0
+        while i < len(a) and j < len(b):
+            lo_max = max(a[i][0], b[j][0])
+            hi_min = min(a[i][1], b[j][1])
+            if lo_max < hi_min:
+                result.append((lo_max, hi_min))
+            if a[i][1] < b[j][1]:
+                i += 1
+            else:
+                j += 1
+        return merge_intervals(result)
+    elif op == "subtract":
+        result = []
+        for interval in a:
+            lo, hi = interval
+            overlap = False
+            for b_lo, b_hi in b:
+                if lo < b_hi and hi > b_lo:
+                    if lo < b_lo:
+                        result.append((lo, b_lo))
+                    if hi > b_hi:
+                        lo = b_hi
+                    else:
+                        break
+                    overlap = True
+            if not overlap or lo < hi:
+                result.append((lo, hi))
+        return merge_intervals(result)
+```

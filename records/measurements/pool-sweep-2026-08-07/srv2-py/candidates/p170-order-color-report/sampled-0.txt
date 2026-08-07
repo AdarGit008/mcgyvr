@@ -1,0 +1,29 @@
+```python
+def order_color_report(
+    neighbours: list[list[int]], visit_order: list[int]
+) -> list[list[int]]:
+    if not neighbours or not visit_order:
+        raise ValueError("No transmitters")
+
+    num_transmitters = len(neighbours)
+    channel_plan = [-1] * num_transmitters
+
+    for node in range(num_transmitters):
+        if node not in visit_order:
+            raise ValueError(f"Transmitter {node} is not in the walk sequence")
+        if node in neighbours[node]:
+            raise ValueError(f"Transmitter {node} clashes with itself")
+
+    available_channels = set(range(num_transmitters))
+
+    for transmitter in visit_order:
+        clashing_channels = set(neighbours[transmitter])
+        used_channels = [channel_plan[i] for i in clashing_channels if channel_plan[i] != -1]
+        free_channels = available_channels - set(used_channels)
+        if not free_channels:
+            raise ValueError("No available channels for transmitter")
+        channel_plan[transmitter] = min(free_channels)
+
+    distinct_channels = len(set(channel_plan))
+    return [channel_plan, distinct_channels]
+```

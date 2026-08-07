@@ -1,0 +1,23 @@
+```python
+def line_choke_point(stations: list) -> dict:
+    if not stations:
+        raise ValueError("The station list cannot be empty.")
+    
+    def validate_station(station):
+        name, machines, rate = station
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"Station name '{name}' is invalid.")
+        if not isinstance(machines, int) or machines <= 0:
+            raise ValueError(f"Invalid machine count {machines} for station '{name}'.")
+        if not isinstance(rate, int) or rate <= 0:
+            raise ValueError(f"Invalid rate per machine {rate} for station '{name}'.")
+
+    for station in stations:
+        validate_station(station)
+
+    choke_point = min(stations, key=lambda s: s[1] * s[2], default=None)
+    if choke_point is None:
+        raise ValueError("No valid stations found.")
+    
+    return {"station": choke_point[0], "output": choke_point[1] * choke_point[2]}
+```

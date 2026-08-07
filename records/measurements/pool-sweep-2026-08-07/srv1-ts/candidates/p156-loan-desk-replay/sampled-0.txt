@@ -1,0 +1,77 @@
+```ts
+export function replayLoanDesk(stock: Record<string, number>, cap: number, events: Array<[string, string, string]>): string[] {
+  if (typeof cap !== 'number' || cap <= 0) {
+    throw new Error('Invalid cap: must be a positive integer');
+  }
+  const loaners = new Map<string, Set<string>>();
+  const queue = new Map<string, { member: string; title: string }[]>();
+
+  return events.map(([action, member, title]) => {
+    if (!['borrow', 'return', 'renew', 'hold'].includes(action)) {
+      throw new Error(`Invalid action: ${action}`);
+    }
+    if (typeof member !== 'string' || typeof title !== 'string') {
+      throw new Error('Event must be a triple [action, member, title]');
+    }
+
+    switch (action) {
+      case 'borrow':
+        if (!stock[title] || stock[title] === 0) return 'no:unknown-title';
+        if (loaners.has(member) && loaners.get(member)?.has(title)) return 'no:already-out';
+        const openLoans = loaners.get(member);
+        if ((openLoans?.size ?? 0) >= cap) return 'no:member-cap';
+        if (!stock[title]) return 'no:none-left';
+
+        loaners.set(member, (openLoans ?? new Set()).add(title));
+        stock[title] -= 1;
+
+        const queueForTitle = queue.get(title);
+        if (queueForTitle && queueForTitle.length > 0) {
+          const frontOfQueue = queueForTitle.shift();
+          if (frontOfQueue?.member === member) {
+            return 'ok';
+          } else {
+            loaners.set(frontOfQueue.member, (loaners.get(frontOfQueue.member) ?? new Set()).add(title));
+            stock[title] -= 1;
+            return `no:queued-ahead`;
+          }
+        }
+
+        return 'ok';
+
+      case 'return':
+        if (!loaners.has(member) || !loaners.get(member)?.has(title)) return 'no:unknown-title';
+        loaners.get(member)?.delete(title);
+        stock[title] += 1;
+        return 'ok';
+
+      case 'renew':
+        if (!loaners.has(member) || !loaners.get(member)?.has(title)) return 'no:unknown-title';
+        const renewals = Array.from(loaners.entries()).find(([m, loans]) => m === member && loans.has(title))?.[1].size ?? 0;
+        if (renewals >= 2) return 'no:on-hold';
+        loaners.get(member)?.add(title);
+        return 'ok';
+
+      case 'hold':
+        if (!stock[title] || stock[title] === 0) return 'no:unknown-title';
+        if (loaners.has(member) && loaners.get(member)?.has(title)) return 'no:own-loan';
+        const queueForTitle = queue.get(title);
+        if (queueForTitle?.some(q => q.member === member)) return 'no:in-queue';
+
+        queue.set(
+          title,
+          [...(queueForTitle ?? []), { member, title }]
+        );
+        stock[title] -= 1;
+
+        const frontOfQueue = queue.get(title)?.shift();
+        if (frontOfQueue?.member === member) {
+          return 'ok';
+        } else {
+          loaners.set(frontOfQueue.member, (loaners.get(frontOfQueue.member) ?? new Set()).add(title));
+          stock[title] -= 1;
+          return `no:queued-ahead`;
+        }
+
+      default:
+        throw

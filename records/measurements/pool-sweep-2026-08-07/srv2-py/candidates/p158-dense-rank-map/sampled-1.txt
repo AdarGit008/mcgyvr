@@ -1,0 +1,17 @@
+```python
+def dense_rank_map(values: list, order: str) -> list:
+    if not values or not all(isinstance(v, int) for v in values):
+        raise ValueError("Input must be a non-empty list of integers.")
+    
+    if order not in ("asc", "desc"):
+        raise ValueError("Order must be 'asc' or 'desc'.")
+    
+    ordered = sorted(values)
+    rank_map = {v: idx + 1 for idx, v in enumerate(ordered)}
+    ranks = [rank_map[v] for v in values]
+    
+    if order == "desc":
+        ranks = list(reversed(ranks))
+    
+    return ranks
+```

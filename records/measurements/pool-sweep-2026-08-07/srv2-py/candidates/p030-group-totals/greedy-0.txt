@@ -1,0 +1,19 @@
+```python
+def group_totals(rows: list[dict], key: str, field: str) -> list[list]:
+    if not all(isinstance(row, dict) for row in rows):
+        raise ValueError("All rows must be dictionaries")
+    
+    totals = {}
+    for row in rows:
+        label = row.get(key)
+        amount = row.get(field)
+        
+        if label is None or not isinstance(label, str):
+            raise ValueError(f"Label '{key}' must be a string")
+        if amount is None or not isinstance(amount, int):
+            raise ValueError(f"Amount '{field}' must be an integer")
+        
+        totals[label] = totals.get(label, 0) + amount
+    
+    return sorted([[name, total] for name, total in totals.items()], key=lambda x: (-x[1], x[0]))
+```

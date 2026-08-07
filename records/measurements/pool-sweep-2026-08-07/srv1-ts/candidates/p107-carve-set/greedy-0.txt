@@ -1,0 +1,40 @@
+```ts
+export function carveSet(steps: Array<[string, number, number]>): number[][] {
+    if (steps.length === 0) return [];
+
+    const set = new Set<number>();
+
+    for (const [verb, lo, hi] of steps) {
+        if (typeof lo !== 'number' || typeof hi !== 'number') throw new Error('Bounds must be integers');
+        if (!Number.isInteger(lo) || !Number.isInteger(hi)) throw new Error('Bounds must be integers');
+        if (lo >= hi) throw new Error('Lo must be strictly below Hi');
+
+        switch (verb) {
+            case 'add':
+                for (let i = lo; i < hi; i++) set.add(i);
+                break;
+            case 'cut':
+                for (let i = lo; i < hi; i++) set.delete(i);
+                break;
+            default:
+                throw new Error('Invalid verb');
+        }
+    }
+
+    const result: number[][] = [];
+    let currentLo: number | null = null;
+
+    for (const num of Array.from(set).sort((a, b) => a - b)) {
+        if (currentLo === null) {
+            currentLo = num;
+        } else if (num !== currentLo + 1) {
+            result.push([currentLo, num]);
+            currentLo = num;
+        }
+    }
+
+    if (currentLo !== null) result.push([currentLo, Number.POSITIVE_INFINITY]);
+
+    return result;
+}
+```

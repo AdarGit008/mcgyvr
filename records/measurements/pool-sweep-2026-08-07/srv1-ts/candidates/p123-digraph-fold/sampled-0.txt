@@ -1,0 +1,19 @@
+```ts
+export function foldDigraphs(
+  text: string,
+  table: Array<[string, string]>,
+): string {
+  let folded = text;
+  for (const [pattern, output] of table) {
+    if (pattern === "") {
+      throw new Error("empty pattern");
+    }
+    while (true) {
+      const index = folded.indexOf(pattern);
+      if (index === -1) break;
+      folded = folded.slice(0, index) + output + folded.slice(index + pattern.length);
+    }
+  }
+  return folded;
+}
+```

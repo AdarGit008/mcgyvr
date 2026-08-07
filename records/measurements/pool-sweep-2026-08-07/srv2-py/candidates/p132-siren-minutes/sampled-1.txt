@@ -1,0 +1,58 @@
+```python
+def siren_minutes(events: list, horizon: int) -> list:
+    if not all(isinstance(e, dict) and 'at' in e and 'kind' in e for e in events):
+        raise ValueError("All events must be dictionaries with 'at' and 'kind'")
+    if not isinstance(horizon, int):
+        raise ValueError("Horizon must be an integer")
+    if horizon < 0:
+        raise ValueError("Negative horizon is invalid")
+    
+    active_sirens = {}
+    siren_times = {}
+    
+    for event in events:
+        at = event['at']
+        kind = event['kind']
+        
+        if at >= horizon:
+            break
+        
+        if kind == 'raise':
+            id_ = event.get('id')
+            channel = event.get('channel')
+            severity = event.get('severity')
+            
+            if not isinstance(id_, str) or not isinstance(channel, str):
+                raise ValueError("ID and channel must be strings")
+            if not isinstance(severity, int) or not 1 <= severity <= 5:
+                raise ValueError("Severity must be an integer from 1 to 5")
+            
+            if id_ in active_sirens and active_sirens[id_]['channel'] == channel:
+                raise ValueError("Duplicate raise for the same ID on the same channel")
+            
+            if id_ in active_sirens and severity <= active_sirens[id_]['severity']:
+                continue
+            
+            if id_ in siren_times:
+                siren_times[id_] += at - max(active_sirens[active_id]['at'] for active_id in siren_times if active_id != id_)
+            
+            active_sirens[id_] = {'channel': channel, 'severity': severity}
+        elif kind == 'clear':
+            id_ = event.get('id')
+            
+            if not isinstance(id_, str):
+                raise ValueError("ID must be a string")
+            
+            if id_ not in active_sirens:
+                raise ValueError("Clearing an ID that is not active")
+            
+            siren_times[id_] += at - max(active_sirens[active_id]['at'] for active_id in siren_times)
+            del active_sirens[id_]
+        else:
+            raise ValueError("Invalid event kind")
+    
+    for id_, info in active_sirens.items():
+        siren_times[id_] += horizon - max(info['at'], next(active_sirens[active_id]['at'] for active_id in siren_times if active_id != id_), default=0)
+    
+    return sorted([[id_, time] for id_, time in siren_times.items()])
+```

@@ -1,0 +1,23 @@
+```python
+def rollup_totals(nodes: dict[str, dict]) -> dict[str, int]:
+    if "parent" in nodes:
+        raise ValueError("Input must have exactly one root node with an empty parent ID.")
+    
+    visited = set()
+    
+    def calculate_total(node_id: str) -> int:
+        if node_id in visited:
+            return 0
+        visited.add(node_id)
+        total = nodes[node_id]["value"]
+        for other, data in nodes.items():
+            if data["parent"] == node_id:
+                total += calculate_total(other)
+        return total
+    
+    root_node_id = next((node_id for node_id, data in nodes.items() if data["parent"] == ""), None)
+    if root_node_id is None:
+        raise ValueError("Input must have exactly one root node with an empty parent ID.")
+    
+    return {root_node_id: calculate_total(root_node_id)}
+```

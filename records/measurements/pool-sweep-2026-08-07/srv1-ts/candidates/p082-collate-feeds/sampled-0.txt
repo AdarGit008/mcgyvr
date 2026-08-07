@@ -1,0 +1,24 @@
+```ts
+/**
+ * Collates feeds onto one timeline ordered by ascending tick,
+ * discarding duplicates from later feeds and thinning the result.
+ * @param feeds - List of feeds, each a list of [tick, reading] pairs.
+ * @returns A new list representing the collated and thinned feed.
+ */
+export function collateFeeds(feeds: number[][][]): number[][] {
+  if (!feeds.every(feed => feed.every(([tick]) => typeof tick === 'number' && tick > (feed[tick - 1]?.[0] ?? -Infinity)))) {
+    throw new Error('Ticks must strictly increase within each feed.');
+  }
+
+  const timeline = feeds.reduce((acc, current) => {
+    for (const [tick, reading] of current) {
+      if (!acc.length || acc.slice(-1)[0][0] !== tick || acc.slice(-1)[0][1] !== reading) {
+        acc.push([tick, reading]);
+      }
+    }
+    return acc;
+  }, [] as number[][]);
+
+  return timeline;
+}
+```

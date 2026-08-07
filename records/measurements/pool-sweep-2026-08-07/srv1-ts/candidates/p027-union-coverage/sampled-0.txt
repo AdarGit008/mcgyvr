@@ -1,0 +1,59 @@
+```ts
+/**
+ * Calculates the total area covered by at least one axis-aligned rectangle,
+ * ensuring that overlapping regions are counted only once.
+ * @param rects - A list of rectangles, each [x1, y1, x2, y2].
+ * @returns The total covered area as a number.
+ */
+export function unionCoverage(rects: number[][]): number {
+    if (!rects.length) return 0;
+
+    const validRect = (r: number[]): boolean => 
+        r.length === 4 && 
+        r.every((v, i) => (i % 2 === 0 ? v >= -10000 : v > -10000) && v < 10000);
+
+    if (!rects.every(validRect)) throw new Error('Invalid rectangle coordinates');
+
+    const xSort = (a: number[], b: number[]): number => a[0] - b[0];
+    const ySort = (a: number[], b: number[]): number => a[1] - b[1];
+
+    rects.sort(xSort);
+    let totalArea = 0;
+    let currentYStack: number[][] = [];
+
+    for (const rect of rects) {
+        const [x1, y1, x2, y2] = rect;
+
+        // Remove fully covered intervals from the stack
+        currentYStack = currentYStack.filter(([prevX, prevY1, prevY2]) => prevY2 < y1);
+
+        if (currentYStack.length > 0) {
+            const lastInterval = currentYStack[currentYStack.length - 1];
+            totalArea += Math.max(0, x1 - lastInterval[0]);
+        }
+
+        // Merge overlapping intervals
+        let merged = false;
+        for (let i = 0; i < currentYStack.length; i++) {
+            const [prevX, prevY1, prevY2] = currentYStack[i];
+            if (y1 < prevY2) {
+                currentYStack[i] = [Math.min(x1, prevX), Math.min(y1, prevY1), Math.max(y2, prevY2)];
+                merged = true;
+                break;
+            }
+        }
+
+        // Add new interval to stack if none overlapped
+        if (!merged) {
+            currentYStack.push([x1, y1, y2]);
+        }
+    }
+
+    // Add width of remaining intervals
+    for (const [_, prevY1, prevY2] of currentYStack) {
+        totalArea += Math.max(0, rects[rects.length - 1][2] - prevY2);
+    }
+
+    return totalArea;
+}
+```

@@ -1,0 +1,41 @@
+```python
+def judge_lancer(board: list, side: str, origin: list, dest: list) -> str:
+    if len(board) != 7 or any(len(row) != 7 for row in board):
+        raise ValueError("Board must be a 7x7 grid of W, B, and '.'")
+    if side not in ("W", "B"):
+        raise ValueError("Side must be 'W' or 'B'")
+    if not (isinstance(origin, list) and len(origin) == 2 and all(isinstance(i, int) for i in origin)):
+        raise ValueError("Origin must be a pair of integers")
+    if not (isinstance(dest, list) and len(dest) == 2 and all(isinstance(i, int) for i in dest)):
+        raise ValueError("Destination must be a pair of integers")
+
+    row_o, col_o = origin
+    row_d, col_d = dest
+
+    if row_o < 0 or row_o > 6 or col_o < 0 or col_o > 6:
+        return "off_board"
+    if row_d < 0 or row_d > 6 or col_d < 0 or col_d > 6:
+        return "off_board"
+
+    if board[row_o][col_o] != side:
+        return "no_piece"
+
+    dr, dc = row_d - row_o, col_d - col_o
+    if abs(dr) not in (1, 2, 3) and abs(dc) not in (1, 2, 3):
+        return "bad_line"
+    if abs(dr * dc) != 0:
+        return "bad_line"
+
+    steps = max(abs(dr), abs(dc))
+    for i in range(1, steps):
+        row, col = row_o + dr // steps * i, col_o + dc // steps * i
+        if board[row][col] != '.':
+            return "blocked"
+
+    if board[row_d][col_d] == side:
+        return "own_piece"
+    if abs(dr) in (1, 2) and abs(dc) in (1, 2):
+        return "too_close"
+
+    return "ok"
+```

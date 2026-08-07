@@ -1,0 +1,25 @@
+```ts
+export function convertLength(quantity: string, goal: string): number {
+  const units = { mm: 1, cm: 10, m: 1000, km: 1000000 };
+  if (!units[goal]) throw new Error(`Unknown target unit: ${goal}`);
+
+  const parts = quantity.split(' ');
+  let total = 0;
+
+  for (const part of parts) {
+    const match = part.match(/^(\d+)\s*(mm|cm|m|km)$/);
+    if (!match) throw new Error(`Malformed part: ${part}`);
+
+    const [_, num, unit] = match;
+    const value = parseInt(num, 10);
+    if (isNaN(value)) throw new Error(`Invalid number in part: ${part}`);
+
+    total += value * units[unit];
+  }
+
+  const targetUnitValue = units[goal];
+  if (total % targetUnitValue !== 0) throw new Error('Non-integer result');
+
+  return total / targetUnitValue;
+}
+```

@@ -1,0 +1,71 @@
+```ts
+export function firstBrokenRule(root: Record<string, unknown>): Record<string, string> {
+    if (root === null || root === undefined) {
+        throw new Error("Root must be a non-null object");
+    }
+    const result = walkTree(root, "root");
+    return result ? { path: result.path, rule: result.rule } : {};
+}
+
+interface Node {
+    key: number;
+    count: number;
+    left?: Node;
+    right?: Node;
+}
+
+function isNode(obj: unknown): obj is Node {
+    if (typeof obj !== "object" || obj === null) return false;
+    const node = obj as Node;
+    return typeof node.key === "number" && Number.isInteger(node.key) && node.key >= 0 &&
+           typeof node.count === "number" && Number.isInteger(node.count) && node.count > 0 &&
+           (node.left === undefined || isNode(node.left)) &&
+           (node.right === undefined || isNode(node.right));
+}
+
+function validateOrder(parentKey: number, child: Node | undefined): void {
+    if (child && (typeof child.key !== "number" || !Number.isInteger(child.key) || child.key < parentKey)) {
+        throw new Error("Child key must be a whole number greater than the parent's key");
+    }
+}
+
+function validateBalance(node: Node): void {
+    const leftDepth = node.left ? walkTree(node.left, "left").depth : 0;
+    const rightDepth = node.right ? walkTree(node.right, "right").depth : 0;
+    if (Math.abs(leftDepth - rightDepth) > 1) {
+        throw new Error("Balance rule violated");
+    }
+}
+
+function validateCount(node: Node): void {
+    let actualCount = 1;
+    if (node.left) {
+        const leftResult = walkTree(node.left, "left");
+        actualCount += leftResult.count;
+    }
+    if (node.right) {
+        const rightResult = walkTree(node.right, "right");
+        actualCount += rightResult.count;
+    }
+    if (actualCount !== node.count) {
+        throw new Error("Count rule violated");
+    }
+}
+
+function walkTree(node: Node, path: string): { path: string, depth: number } {
+    validateOrder(Number.MAX_SAFE_INTEGER, node);
+    validateBalance(node);
+    validateCount(node);
+
+    let result = { path, depth: 1 };
+    if (node.left) {
+        const leftResult = walkTree(node.left, `${path}/left`);
+        if (leftResult) return leftResult;
+    }
+    if (node.right) {
+        const rightResult = walkTree(node.right, `${path}/right`);
+        if (rightResult) return rightResult;
+    }
+    return result;
+}
+```

@@ -1,0 +1,15 @@
+```python
+def sketch_bars(readings: list[int], budget: int) -> list[str]:
+    if not readings:
+        raise ValueError("Readings list cannot be empty")
+    if any(v < 0 for v in readings):
+        raise ValueError("All reading values must be non-negative")
+    if budget < 1:
+        raise ValueError("Budget must be at least one")
+
+    largest = max(readings)
+    return [
+        "#" * round(v * budget / largest) + "." * (budget - round(v * budget / largest))
+        for v in readings
+    ]
+```

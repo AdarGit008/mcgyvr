@@ -1,0 +1,39 @@
+```python
+def resolve_access(rules: list[dict], request: dict) -> dict:
+    if not rules or "action" not in request or "path" not in request:
+        raise ValueError("Invalid input")
+    
+    request_action = request["action"]
+    request_path = request["path"]
+    
+    if not request_action or not isinstance(request_action, str):
+        raise ValueError("Request action must be a non-empty string")
+    
+    if not all(isinstance(segment, str) for segment in request_path):
+        raise ValueError("Request path must contain only string segments")
+    
+    best_match = None
+    best_match_index = -1
+    
+    for i, rule in enumerate(rules):
+        effect = rule.get("effect", "")
+        action = rule.get("action", "")
+        path = rule.get("path", [])
+        
+        if effect not in ("allow", "deny") or not action:
+            raise ValueError("Invalid rule: effect and action must be specified")
+        
+        if (len(path) <= len(request_path) and
+                (not path or request_path[:len(path)] == path) and
+                (action == request_action or action == "any")):
+            
+            if best_match is None or len(rule["path"]) > len(best_match["path"]):
+                best_match = rule
+                best_match_index = i
+            elif len(rule["path"]) == len(best_match["path"]):
+                if effect == "deny" and best_match.get("effect", "") != "deny":
+                    best_match = rule
+                    best_match_index = i
+    
+    return {"decision": best_match.get("effect", "deny"), "rule": best_match_index}
+```

@@ -1,0 +1,75 @@
+```ts
+/**
+ * The order a crew works through a batch of graded tickets.
+ */
+export function bumpQueueDrain(
+  tickets: Array<Record<string, unknown>>,
+  start: number,
+  bumpEvery: number
+): string[] {
+  if (tickets.length === 0) {
+    throw new Error("The batch is empty.");
+  }
+
+  const parsedTickets = tickets.map((ticket, index) => {
+    if (typeof ticket !== "object" || ticket === null) {
+      throw new Error(`Ticket at index ${index} is not a mapping.`);
+    }
+    if (typeof ticket.id !== "string" || ticket.id.trim() === "") {
+      throw new Error(`Ticket at index ${index} has an invalid id.`);
+    }
+    if (!Number.isInteger(ticket.filed) || ticket.filed < 0) {
+      throw new Error(`Ticket at index ${index} has an invalid filed minute.`);
+    }
+    if (!Number.isInteger(ticket.grade) || ticket.grade < 0 || ticket.grade > 9) {
+      throw new Error(`Ticket at index ${index} has an invalid grade.`);
+    }
+    return { ...ticket, id: ticket.id.trim() };
+  });
+
+  const uniqueIds = new Set<string>();
+  for (const ticket of parsedTickets) {
+    if (uniqueIds.has(ticket.id)) {
+      throw new Error(`Duplicate id found: ${ticket.id}`);
+    }
+    uniqueIds.add(ticket.id);
+  }
+
+  if (!Number.isInteger(start) || start < 0) {
+    throw new Error("The start minute is not a non-negative whole number.");
+  }
+
+  if (!Number.isInteger(bumpEvery) || bumpEvery <= 0) {
+    throw new Error("The bump interval is not a positive whole number.");
+  }
+
+  const pending = parsedTickets.filter((ticket) => ticket.filed <= start);
+  const handled: string[] = [];
+
+  for (let minute = start; pending.length > 0; minute++) {
+    let pick = -1;
+    let maxUrgency = -1;
+
+    for (const [index, ticket] of pending.entries()) {
+      const urgency =
+        Math.min(
+          ticket.grade + Math.floor((minute - ticket.filed) / bumpEvery),
+          9
+        );
+      if (urgency > maxUrgency || (urgency === maxUrgency && index < pick)) {
+        maxUrgency = urgency;
+        pick = index;
+      }
+    }
+
+    if (pick !== -1) {
+      handled.push(pending[pick].id);
+      pending.splice(pick, 1);
+    } else {
+      minute++;
+    }
+  }
+
+  return handled;
+}
+```

@@ -1,0 +1,80 @@
+```typescript
+/**
+ * The term mark built from weighted strands with discards.
+ */
+export function strandMarkSheet(strands: Array<Record<string, unknown>>): Record<string, unknown> {
+  if (strands.length === 0) {
+    throw new Error("Empty report");
+  }
+
+  const uniqueNames = new Set<string>();
+  for (const strand of strands) {
+    if (!uniqueNames.has(strand.name)) {
+      uniqueNames.add(strand.name);
+    } else {
+      throw new Error(`Repeated strand name: ${strand.name}`);
+    }
+  }
+
+  let totalShare = 0;
+  for (const strand of strands) {
+    const share = Number(strand.share);
+    if (isNaN(share) || share < 0 || !Number.isInteger(share)) {
+      throw new Error("Invalid share");
+    }
+    totalShare += share;
+  }
+
+  if (totalShare !== 1000) {
+    throw new Error("Shares do not sum to exactly 1000");
+  }
+
+  const discarded: string[] = [];
+  let mark = 0;
+
+  for (const strand of strands) {
+    const work = strand.work as Array<[number | 'absent', number]>;
+    if (work.length === 0) {
+      throw new Error("Strand has no work");
+    }
+
+    const order = work
+      .map((entry, index) => [entry[0], entry[1], index] as [number | 'absent', number, number])
+      .sort((a, b) => {
+        if (a[0] === 'absent' && b[0] !== 'absent') return 1;
+        if (a[0] !== 'absent' && b[0] === 'absent') return -1;
+        if (a[0] === 'absent' && b[0] === 'absent') return a[2] - b[2];
+        const crossA = a[0] * b[1];
+        const crossB = b[0] * a[1];
+        if (crossA !== crossB) return crossA - crossB;
+        return b[1] - a[1];
+      });
+
+    const droppedCount = Math.min(strand.discard, order.length);
+    for (let i = 0; i < droppedCount; i++) {
+      discarded.push(`${strand.name}#${order[i][2]}`);
+    }
+
+    let scored = 0;
+    let available = 0;
+    for (const [score, availability, index] of order) {
+      if (!droppedCount || !discarded.includes(`${strand.name}#${index}`)) {
+        if (score === 'absent') {
+          scored += 0;
+        } else {
+          const scoreValue = Number(score);
+          if (isNaN(scoreValue) || scoreValue < 0 || scoreValue > availability) {
+            throw new Error("Invalid score");
+          }
+          scored += scoreValue;
+        }
+        available += availability;
+      }
+    }
+
+    mark += Math.floor((strand.share * scored) / available);
+  }
+
+  return { mark, discarded };
+}
+```

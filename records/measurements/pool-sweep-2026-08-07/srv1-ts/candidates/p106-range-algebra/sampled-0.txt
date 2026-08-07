@@ -1,0 +1,74 @@
+```ts
+export function rangeAlgebra(a: number[][], b: number[][], op: string): number[][] {
+  if (op !== "union" && op !== "intersect" && op !== "subtract") {
+    throw new Error("Invalid operation");
+  }
+
+  const result: number[][] = [];
+
+  const intervals = [...a, ...b].sort((x, y) => x[0] - y[0]);
+
+  for (const [lo, hi] of intervals) {
+    if (typeof lo !== "number" || typeof hi !== "number" || lo >= hi) {
+      throw new Error("Invalid interval");
+    }
+
+    while (result.length > 0 && result[result.length - 1][1] === lo) {
+      result.pop();
+    }
+
+    if (result.length === 0 || result[result.length - 1][1] < lo) {
+      result.push([lo, hi]);
+    } else if (result[result.length - 1][1] < hi) {
+      const last = result.pop()!;
+      result.push([last[0], hi]);
+    }
+  }
+
+  switch (op) {
+    case "union":
+      return result;
+    case "intersect": {
+      const intersect: number[][] = [];
+      let i = 0, j = 0;
+
+      while (i < result.length && j < a.length) {
+        if (result[i][1] <= a[j][0]) {
+          i++;
+        } else if (a[j][1] <= result[i][0]) {
+          j++;
+        } else {
+          intersect.push([Math.max(result[i][0], a[j][0]), Math.min(result[i][1], a[j][1])]);
+          if (result[i][1] < a[j][1]) i++;
+          else j++;
+        }
+      }
+
+      return intersect;
+    }
+    case "subtract": {
+      const subtract: number[][] = [];
+      let i = 0, j = 0;
+
+      while (i < result.length && j < b.length) {
+        if (result[i][1] <= b[j][0]) {
+          subtract.push([result[i]]);
+          i++;
+        } else if (b[j][1] <= result[i][0]) {
+          j++;
+        } else {
+          if (result[i][0] < b[j][0]) subtract.push([[result[i][0], b[j][0]]]);
+          if (b[j][1] < result[i][1]) i++; else break;
+        }
+      }
+
+      while (i < result.length) {
+        subtract.push([result[i]]);
+        i++;
+      }
+
+      return subtract.flat();
+    }
+  }
+}
+```

@@ -1,0 +1,15 @@
+```python
+def convert_length(quantity: str, goal: str) -> int:
+    units = {"mm": 1, "cm": 10, "m": 1000, "km": 1000000}
+    
+    if not quantity or goal not in units:
+        raise ValueError("Invalid input")
+    
+    total_mm = sum(int(num) * units[unit] for part in quantity.split() for num, unit in [part.split()] if unit in units)
+    
+    try:
+        return total_mm // units[goal]
+    except ZeroDivisionError:
+        raise ValueError("Cannot convert to zero")
+
+```

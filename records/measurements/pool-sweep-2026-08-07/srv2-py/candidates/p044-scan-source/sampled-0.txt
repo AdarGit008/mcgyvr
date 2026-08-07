@@ -1,0 +1,31 @@
+```python
+def scan_source(line: str) -> list[list[str]]:
+    result = []
+    i = 0
+
+    while i < len(line):
+        if line[i] in " \t":
+            i += 1
+        elif line[i].isdigit():
+            j = i + 1
+            while j < len(line) and line[j].isdigit():
+                j += 1
+            result.append(["num", line[i:j]])
+            i = j
+        elif line[i] == "_" or line[i].isalpha():
+            j = i + 1
+            while j < len(line) and (line[j].isdigit() or line[j].isalpha() or line[j] == "_"):
+                j += 1
+            result.append(["id", line[i:j]])
+            i = j
+        elif line[i:i+2] in "== != <= >= && ||":
+            result.append(["op", line[i:i+2]])
+            i += 2
+        elif line[i] in "= < > + - * / ( )":
+            result.append(["op", line[i]])
+            i += 1
+        else:
+            raise ValueError(f"Invalid character: {line[i]}")
+
+    return result
+```

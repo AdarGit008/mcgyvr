@@ -1,0 +1,42 @@
+```ts
+/**
+ * Returns the plural form of a given singular English noun.
+ * @param word - The singular English noun to pluralize.
+ * @returns The plural form of the input noun.
+ */
+export function pluralNoun(word: string): string {
+  if (typeof word !== 'string' || !/^[a-z]+$/.test(word)) {
+    throw new Error("Input must be a non-empty string containing only lowercase letters.");
+  }
+
+  const irregulars: { [key: string]: string } = {
+    child: "children",
+    person: "people",
+    foot: "feet",
+    mouse: "mice",
+    sheep: "sheep"
+  };
+
+  if (irregulars.hasOwnProperty(word)) {
+    return irregulars[word];
+  }
+
+  if (/s|x|z|ch|sh$/.test(word)) {
+    return word + 'es';
+  }
+
+  if (/y$/.test(word) && !/^[aeiou]/.test(word.slice(-2))) {
+    return word.slice(0, -1) + 'ies';
+  }
+
+  if (/fe$/.test(word)) {
+    return word.slice(0, -2) + 'ves';
+  }
+
+  if (/f$/.test(word)) {
+    return word.slice(0, -1) + 'ves';
+  }
+
+  return word + 's';
+}
+```

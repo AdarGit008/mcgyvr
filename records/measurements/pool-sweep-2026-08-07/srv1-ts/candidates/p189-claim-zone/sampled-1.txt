@@ -1,0 +1,39 @@
+```ts
+export function claimZone(claims: string[], where: string): string {
+  // Validate input
+  if (!Array.isArray(claims) || !claims.every((c) => typeof c === 'string')) {
+    throw new Error('Invalid claims');
+  }
+  const parts = where.split('.');
+  if (parts.length !== 3 || parts.some((p) => p.length > 2 || parseInt(p, 10) > 15)) {
+    throw new Error('Invalid where');
+  }
+
+  // Parse and validate claims
+  const parsedClaims: { stencil: string; name: string }[] = [];
+  for (const claim of claims) {
+    const [stencil, name] = claim.split(' ');
+    if (name.includes(' ')) throw new Error('Invalid name');
+    const parts = stencil.split('/');
+    if (parts.length !== 2 || !['0', '1', '2', '3'].includes(parts[1])) throw new Error('Invalid stencil');
+    const fixedNumbers = parseInt(parts[0], 16).toString(2);
+    const expectedLength = parseInt(parts[1], 10) * 4;
+    if (fixedNumbers.length !== expectedLength || isNaN(parseInt(fixedNumbers, 2))) {
+      throw new Error('Invalid stencil');
+    }
+    parsedClaims.push({ stencil: parts[0].padStart(expectedLength / 4, '0'), name });
+  }
+
+  // Find the deepest covering claim
+  let result = '';
+  for (const { stencil, name } of parsedClaims) {
+    if (stencil.startsWith(where)) {
+      if (result === '' || stencil.length > parsedClaims.find((c) => c.name === result)!.stencil.length) {
+        result = name;
+      }
+    }
+  }
+
+  return result;
+}
+```

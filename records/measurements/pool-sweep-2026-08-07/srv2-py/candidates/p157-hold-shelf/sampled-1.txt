@@ -1,0 +1,38 @@
+```python
+def hold_shelf_replay(slips: list) -> list:
+    queue = {}
+    results = []
+
+    for slip in slips:
+        parts = slip.split()
+        if len(parts) == 2 and parts[0] == "join":
+            name, _ = parts
+            if not name:
+                raise ValueError("Empty name in join slip")
+            if name not in queue:
+                queue[name] = True
+                results.append(f"at:{len(queue)}")
+            else:
+                results.append("no:again")
+        elif len(parts) == 2 and parts[0] == "leave":
+            name, _ = parts
+            if not name:
+                raise ValueError("Empty name in leave slip")
+            if name in queue:
+                del queue[name]
+                results.append("out")
+            else:
+                results.append("no:absent")
+        elif slip == "serve":
+            if not queue:
+                results.append("idle")
+            else:
+                for name in list(queue.keys()):
+                    del queue[name]
+                    results.append(f"take:{name}")
+                    break
+        else:
+            raise ValueError("Invalid slip format")
+
+    return results
+```

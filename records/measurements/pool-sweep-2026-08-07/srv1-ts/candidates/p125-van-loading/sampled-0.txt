@@ -1,0 +1,30 @@
+```ts
+/**
+ * Loads parcels onto two vans by weight.
+ * @param parcels - List of positive integer weights.
+ * @returns A list of two numbers representing the total weight in each van.
+ */
+export function loadVans(parcels: number[]): number[] {
+  if (parcels.length === 0) {
+    throw new Error("Parcel list cannot be empty.");
+  }
+
+  const firstVan: number[] = [];
+  const secondVan: number[] = [];
+
+  parcels.sort((a, b) => b - a);
+
+  for (const parcel of parcels) {
+    if (parcel < 1) {
+      throw new Error("Parcel weights must be positive integers.");
+    }
+    if (firstVan.length === 0 || (firstVan.reduce((acc, curr) => acc + curr, 0) <= secondVan.reduce((acc, curr) => acc + curr, 0))) {
+      firstVan.push(parcel);
+    } else {
+      secondVan.push(parcel);
+    }
+  }
+
+  return [firstVan.reduce((acc, curr) => acc + curr, 0), secondVan.reduce((acc, curr) => acc + curr, 0)];
+}
+```

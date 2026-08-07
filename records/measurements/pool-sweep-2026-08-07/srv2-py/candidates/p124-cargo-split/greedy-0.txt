@@ -1,0 +1,28 @@
+```python
+def split_cargo(weights: list[int]) -> list[int]:
+    if not weights or any(w < 1 for w in weights) or len(weights) > 16:
+        raise ValueError("Invalid input")
+    
+    total_weight = sum(weights)
+    target_weight = total_weight // 2
+    
+    def can_partition(index: int, current_weight: int, forward_hold: list[int]) -> bool:
+        if index == len(weights):
+            return abs(current_weight - (total_weight - current_weight)) <= 1
+        if current_weight > target_weight or (current_weight == target_weight and len(forward_hold) >= len(weights) // 2):
+            return False
+        
+        forward_hold.append(index)
+        if can_partition(index + 1, current_weight + weights[index], forward_hold):
+            return True
+        forward_hold.pop()
+        
+        return can_partition(index + 1, current_weight, forward_hold)
+    
+    for i in range(1, len(weights)):
+        forward_hold = [0]
+        if can_partition(i + 1, weights[0] + weights[i], forward_hold):
+            return sorted(forward_hold)
+    
+    raise ValueError("No valid partition found")
+```

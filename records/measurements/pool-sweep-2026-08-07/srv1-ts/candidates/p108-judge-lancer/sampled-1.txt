@@ -1,0 +1,50 @@
+```ts
+/**
+ * Judge one move in Lancers and return the first verdict that applies.
+ *
+ * @param board - 7x7 array of strings representing the board.
+ * @param side - The acting side, either "W" or "B".
+ * @param from - Array [row, column] of the starting square.
+ * @param to - Array [row, column] of the target square.
+ * @returns The verdict for the move.
+ */
+export function judgeLancer(board: string[], side: string, from: number[], to: number[]): string {
+  if (board.length !== 7 || !board.every(row => row.length === 7)) {
+    throw new Error('Invalid board format');
+  }
+  if (!['W', 'B'].includes(side) || !Array.isArray(from) || !Array.isArray(to)) {
+    throw new Error('Invalid side or move coordinates');
+  }
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+  if (fromRow < 0 || fromRow >= 7 || fromCol < 0 || fromCol >= 7 ||
+      toRow < 0 || toRow >= 7 || toCol < 0 || toCol >= 7) {
+    return 'off_board';
+  }
+  const piece = board[fromRow][fromCol];
+  if (piece !== side) {
+    return 'no_piece';
+  }
+  const rowDiff = Math.abs(toRow - fromRow);
+  const colDiff = Math.abs(toCol - fromCol);
+  if (rowDiff === 0 && colDiff !== 1 && colDiff !== 2 && colDiff !== 3 ||
+      colDiff === 0 && rowDiff !== 1 && rowDiff !== 2 && rowDiff !== 3) {
+    return 'bad_line';
+  }
+  const stepRow = Math.sign(toRow - fromRow);
+  const stepCol = Math.sign(toCol - fromCol);
+  for (let i = 1; i <= Math.max(rowDiff, colDiff); i++) {
+    if ((i === rowDiff || i === colDiff) && board[fromRow + stepRow * i][fromCol + stepCol * i] !== '.') {
+      return 'blocked';
+    }
+  }
+  const targetPiece = board[toRow][toCol];
+  if (targetPiece === side) {
+    return 'own_piece';
+  }
+  if (rowDiff === 1 && colDiff === 2 || rowDiff === 2 && colDiff === 1) {
+    return 'too_close';
+  }
+  return 'ok';
+}
+```

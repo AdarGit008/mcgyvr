@@ -1,0 +1,52 @@
+```ts
+export function holdShelfReplay(slips: string[]): string[] {
+  const queue: string[] = [];
+  const results: string[] = [];
+
+  for (const slip of slips) {
+    if (typeof slip !== 'string') {
+      throw new Error('Invalid slip type');
+    }
+
+    const parts = slip.split(' ');
+    const verb = parts[0];
+    const name = parts.length > 1 ? parts.slice(1).join(' ') : '';
+
+    if (!name && verb !== 'serve') {
+      throw new Error('Empty name in join or leave slip');
+    }
+
+    switch (verb) {
+      case 'join':
+        if (queue.includes(name)) {
+          results.push(`no:again`);
+        } else {
+          queue.push(name);
+          results.push(`at:${queue.indexOf(name) + 1}`);
+        }
+        break;
+      case 'leave':
+        const index = queue.indexOf(name);
+        if (index !== -1) {
+          queue.splice(index, 1);
+          results.push('out');
+        } else {
+          results.push('no:absent');
+        }
+        break;
+      case 'serve':
+        if (queue.length > 0) {
+          const servedName = queue.shift()!;
+          results.push(`take:${servedName}`);
+        } else {
+          results.push('idle');
+        }
+        break;
+      default:
+        throw new Error('Invalid verb in slip');
+    }
+  }
+
+  return results;
+}
+```

@@ -1,0 +1,20 @@
+```ts
+/**
+ * Clips a label to fit within a given character budget.
+ * @param label - The label to clip.
+ * @param budget - The maximum number of characters allowed.
+ * @returns The clipped label if necessary, otherwise the original label.
+ */
+export function clipLabel(label: string, budget: number): string {
+  if (typeof label !== 'string' || typeof budget !== 'number' || !Number.isInteger(budget) || budget < 4) {
+    throw new Error('Invalid arguments');
+  }
+
+  if (label.length <= budget) {
+    return label;
+  }
+
+  const clipped = label.slice(0, budget - 3).trimEnd();
+  return `${clipped}...`;
+}
+```

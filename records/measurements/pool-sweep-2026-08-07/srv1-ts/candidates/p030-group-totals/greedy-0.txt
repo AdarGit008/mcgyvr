@@ -1,0 +1,29 @@
+```ts
+export function groupTotals(
+  rows: Array<Record<string, unknown>>,
+  key: string,
+  field: string,
+): Array<[string, number]> {
+  const totals: Record<string, number> = {};
+
+  for (const row of rows) {
+    if (
+      typeof row[key] !== 'string' ||
+      (typeof row[field] !== 'number' && !Number.isInteger(row[field]))
+    ) {
+      throw new Error('Invalid row data');
+    }
+
+    const label = String(row[key]);
+    const amount = Number(row[field]);
+
+    if (!totals[label]) {
+      totals[label] = 0;
+    }
+    totals[label] += amount;
+  }
+
+  return Object.entries(totals)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+```

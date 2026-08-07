@@ -1,0 +1,62 @@
+```ts
+export function plotterPose(program: string): { x: number; y: number; facing: string } {
+    if (typeof program !== 'string') {
+        throw new Error('Invalid input: expected a string');
+    }
+
+    let x = 0;
+    let y = 0;
+    let facing = 'N';
+
+    for (const char of program) {
+        switch (char) {
+            case 'F': {
+                const distanceStr = program.slice(program.indexOf(char) + 1);
+                if (/^\d+$/.test(distanceStr)) {
+                    const distance = parseInt(distanceStr, 10);
+                    if (distance === 0) {
+                        throw new Error('Invalid drive distance: zero');
+                    }
+                    switch (facing) {
+                        case 'N': y += distance; break;
+                        case 'E': x += distance; break;
+                        case 'S': y -= distance; break;
+                        case 'W': x -= distance; break;
+                    }
+                } else {
+                    throw new Error('Invalid drive distance: not a positive integer');
+                }
+                break;
+            }
+            case 'B': {
+                const distanceStr = program.slice(program.indexOf(char) + 1);
+                if (/^\d+$/.test(distanceStr)) {
+                    const distance = parseInt(distanceStr, 10);
+                    if (distance === 0) {
+                        throw new Error('Invalid drive distance: zero');
+                    }
+                    switch (facing) {
+                        case 'N': y -= distance; break;
+                        case 'E': x -= distance; break;
+                        case 'S': y += distance; break;
+                        case 'W': x += distance; break;
+                    }
+                } else {
+                    throw new Error('Invalid drive distance: not a positive integer');
+                }
+                break;
+            }
+            case 'L':
+                facing = ['N', 'W', 'S', 'E'][['W', 'S', 'E', 'N'].indexOf(facing) - 1];
+                break;
+            case 'R':
+                facing = ['N', 'E', 'S', 'W'][['E', 'S', 'W', 'N'].indexOf(facing) + 1];
+                break;
+            default:
+                throw new Error(`Invalid command: '${char}'`);
+        }
+    }
+
+    return { x, y, facing };
+}
+```

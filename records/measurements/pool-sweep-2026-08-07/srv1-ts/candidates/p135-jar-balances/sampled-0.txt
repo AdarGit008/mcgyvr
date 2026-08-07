@@ -1,0 +1,31 @@
+```ts
+
+export function jarBalances(topup: number, lid: number, outflows: number[]): number[] {
+  if (typeof topup !== 'number' || typeof lid !== 'number' || !Array.isArray(outflows)) {
+    throw new Error('Invalid arguments');
+  }
+
+  if (!Number.isInteger(topup) || !Number.isInteger(lid) || outflows.some(x => !Number.isInteger(x))) {
+    throw new Error('Non-integer value provided');
+  }
+
+  if (topup < 0 || lid < 0) {
+    throw new Error('Negative value provided');
+  }
+
+  const balances: number[] = [];
+
+  let balance = topup;
+
+  for (const outflow of outflows) {
+    if (outflow > balance) {
+      throw new Error('Outflow exceeds available balance');
+    }
+    balance -= outflow;
+    balance = Math.min(balance, lid);
+    balances.push(balance);
+  }
+
+  return balances;
+}
+```

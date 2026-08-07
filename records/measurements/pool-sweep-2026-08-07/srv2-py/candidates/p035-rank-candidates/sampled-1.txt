@@ -1,0 +1,21 @@
+```python
+def rank_candidates(candidates: list[str], query: str, limit: int) -> list[str]:
+    if not isinstance(query, str) or not query:
+        raise ValueError("Query must be a non-empty string")
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Limit must be a positive integer")
+    for candidate in candidates:
+        if not isinstance(candidate, str):
+            raise ValueError("All candidates must be strings")
+
+    matches = []
+    for candidate in candidates:
+        if query.lower() == candidate.lower():
+            matches.append((0, candidate))  # Exact match
+        elif candidate.lower().startswith(query.lower()):
+            matches.append((1, candidate))  # Prefix match
+        elif query.lower() in candidate.lower():
+            matches.append((2, candidate))  # Infix match
+
+    return [candidate for _, candidate in sorted(matches)[:limit]]
+```

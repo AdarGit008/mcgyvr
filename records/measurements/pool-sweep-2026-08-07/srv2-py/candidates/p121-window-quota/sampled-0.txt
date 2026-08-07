@@ -1,0 +1,26 @@
+```python
+def window_quota(limit: int, width: int, calls: list) -> list:
+    if limit <= 0 or width <= 0:
+        raise ValueError("Limit and width must be positive integers.")
+    
+    quota = {}
+    result = []
+    
+    for time, name in calls:
+        if not isinstance(name, str) or len(name) == 0:
+            raise ValueError("Name must be a non-empty string.")
+        if time < 0:
+            raise ValueError("Time must be a non-negative integer.")
+        if time > 0 and time < calls[calls.index([time, name]) - 1][0]:
+            raise ValueError("Times must not be earlier than their predecessors.")
+        
+        frame = time // width
+        if quota.get(frame, {}).get(name, 0) < limit:
+            quota[frame].setdefault(name, 0)
+            quota[frame][name] += 1
+            result.append("ok")
+        else:
+            result.append("over")
+    
+    return result
+```

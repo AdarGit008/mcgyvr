@@ -1,0 +1,28 @@
+```python
+def merge_three_way(base: dict, ours: dict, theirs: dict) -> dict:
+    if not all(isinstance(d, dict) for d in (base, ours, theirs)):
+        raise ValueError("All arguments must be dictionaries of strings to strings.")
+    
+    merged = {}
+    conflicts = []
+    
+    keys = sorted(set(base.keys()).union(ours.keys(), theirs.keys()))
+    
+    for key in keys:
+        base_val = base.get(key)
+        our_val = ours.get(key)
+        their_val = theirs.get(key)
+        
+        if base_val is None and (our_val is not None or their_val is not None):
+            if our_val == their_val:
+                merged[key] = our_val
+            else:
+                conflicts.append(key)
+        elif base_val is not None:
+            if our_val == their_val:
+                merged[key] = our_val
+            else:
+                conflicts.append(key)
+    
+    return {"merged": merged, "conflicts": conflicts}
+```

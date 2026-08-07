@@ -1,0 +1,46 @@
+```ts
+export function repairReplicas(replicas: Array<Array<number | null>>): number[] {
+  if (replicas.length === 0) {
+    throw new Error("Replica list is empty");
+  }
+
+  const length = replicas[0].length;
+  for (const replica of replicas) {
+    if (replica.length !== length) {
+      throw new Error("Replica arrays differ in length");
+    }
+  }
+
+  const rebuiltArray: number[] = [];
+  for (let i = 0; i < length; i++) {
+    const counts: { [key: number]: number } = {};
+    let nullCount = 0;
+
+    for (const replica of replicas) {
+      if (replica[i] === null) {
+        nullCount++;
+      } else {
+        counts[replica[i]] = (counts[replica[i]] || 0) + 1;
+      }
+    }
+
+    const majorityThreshold = Math.floor((replicas.length - nullCount) / 2) + 1;
+
+    let winner: number | null = null;
+    for (const [value, count] of Object.entries(counts)) {
+      if (count >= majorityThreshold) {
+        winner = parseInt(value);
+        break;
+      }
+    }
+
+    if (winner === null && nullCount !== replicas.length) {
+      throw new Error("No value reaches a strict majority at some position");
+    }
+
+    rebuiltArray.push(winner ?? 0);
+  }
+
+  return rebuiltArray;
+}
+```

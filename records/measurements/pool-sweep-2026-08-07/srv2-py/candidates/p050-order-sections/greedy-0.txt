@@ -1,0 +1,32 @@
+```python
+def order_sections(labels: list[str]) -> list[str]:
+    def parse_label(label: str) -> tuple[int, ...]:
+        if not isinstance(label, str):
+            raise ValueError("Label must be a string")
+        components = label.split('.')
+        if len(components) == 0 or any(c == '' for c in components):
+            raise ValueError("Invalid label format")
+        return tuple(int(c) for c in components)
+
+    def validate_label(label: str) -> None:
+        parse_label(label)
+
+    def compare_labels(a: str, b: str) -> int:
+        pa = parse_label(a)
+        pb = parse_label(b)
+        min_len = min(len(pa), len(pb))
+        for i in range(min_len):
+            if pa[i] != pb[i]:
+                return pa[i] - pb[i]
+        return len(pa) - len(pb)
+
+    unique_labels = set()
+    for label in labels:
+        validate_label(label)
+        if label in unique_labels:
+            raise ValueError("Duplicate label")
+        unique_labels.add(label)
+
+    sorted_labels = sorted(labels, key=parse_label)
+    return sorted_labels
+```

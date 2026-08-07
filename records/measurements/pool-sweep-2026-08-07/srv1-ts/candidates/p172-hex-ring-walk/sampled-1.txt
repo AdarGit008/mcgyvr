@@ -1,0 +1,45 @@
+```ts
+/**
+ * Returns every cell standing exactly `radius` steps from the center, laid out as one closed walk.
+ * @param center - The axial address [q, r] of the center cell.
+ * @param radius - The number of steps away from the center.
+ * @returns An array of addresses representing one closed walk around the center cell at the given radius.
+ * @throws Will throw an error if the center is not a valid two-element address of whole numbers, or if the radius is negative or not a whole number.
+ */
+export function hexRingWalk(center: number[], radius: number): number[][] {
+  // Validate input
+  if (!Array.isArray(center) || center.length !== 2 || !center.every(Number.isInteger)) {
+    throw new Error('Center must be a two-element array of whole numbers.');
+  }
+  if (typeof radius !== 'number' || radius < 0 || !Number.isInteger(radius)) {
+    throw new Error('Radius must be a non-negative whole number.');
+  }
+
+  // Define the six steps
+  const steps = [
+    [1, 0],   // east
+    [1, -1],  // northeast
+    [0, -1],  // northwest
+    [-1, 0],  // west
+    [-1, 1],  // southwest
+    [0, 1]    // southeast
+  ];
+
+  const walk: number[][] = [];
+  let currentAddress = center.slice();
+  let directionIndex = 5; // Start with southeast
+
+  for (let i = 0; i < steps.length * (radius + 1); i++) {
+    if (i % steps.length === 0) {
+      directionIndex = (directionIndex - 1 + steps.length) % steps.length;
+    }
+    walk.push(currentAddress);
+    currentAddress = [
+      currentAddress[0] + steps[directionIndex][0],
+      currentAddress[1] + steps[directionIndex][1]
+    ];
+  }
+
+  return walk;
+}
+```

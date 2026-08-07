@@ -1,0 +1,42 @@
+```ts
+export function processStockMoves(moves: Array<Record<string, unknown>>): { levels: Record<string, number>; refused: Array<[number, string]> } {
+    const levels: Record<string, number> = {};
+    const refused: Array<[number, string]> = [];
+
+    for (let i = 0; i < moves.length; i++) {
+        const move = moves[i];
+        if (typeof move !== 'object' || move === null) continue;
+
+        const op = (move as { [key: string]: any }).op;
+        const item = (move as { [key: string]: any }).item;
+        const qty = (move as { [key: string]: any }).qty;
+
+        if (typeof item !== 'string' || item === '') continue;
+        if (typeof qty !== 'number' || !Number.isInteger(qty)) continue;
+
+        if (op === 'receive') {
+            if (qty < 1) throw new Error('Receive quantity must be at least 1');
+            levels[item] = (levels[item] || 0) + qty;
+        } else if (op === 'issue') {
+            if (!Object.prototype.hasOwnProperty.call(levels, item)) {
+                refused.push([i, 'unknown_item']);
+                continue;
+            }
+            if (qty < 1) throw new Error('Issue quantity must be at least 1');
+            if (levels[item] < qty) {
+                refused.push([i, 'short']);
+                continue;
+            }
+            levels[item] -= qty;
+        } else if (op === 'recount') {
+            if (!Number.isInteger(qty)) throw new Error('Recount quantity must be an integer');
+            if (qty < 0) throw new Error('Recount quantity must not be negative');
+            levels[item] = (levels[item] || 0);
+        } else {
+            throw new Error(`Invalid operation: ${op}`);
+        }
+    }
+
+    return { levels, refused };
+}
+```

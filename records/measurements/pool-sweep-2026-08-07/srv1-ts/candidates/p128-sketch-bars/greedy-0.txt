@@ -1,0 +1,13 @@
+```ts
+export function sketchBars(values: number[], budget: number): string[] {
+  if (values.length === 0) throw new Error("Empty value list");
+  if (budget < 1) throw new Error("Budget must be at least one");
+
+  const largest = Math.max(...values);
+  return values.map(v => {
+    if (v === 0) return ".".repeat(budget);
+    const filled = Math.ceil((v * budget) / largest);
+    return "#".repeat(filled) + ".".repeat(budget - filled);
+  });
+}
+```

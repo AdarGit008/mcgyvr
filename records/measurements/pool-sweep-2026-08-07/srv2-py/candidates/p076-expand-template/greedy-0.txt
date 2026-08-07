@@ -1,0 +1,44 @@
+```python
+def expand_template(template: str, context: dict, missing: str) -> str:
+    def resolve_path(path: str) -> str:
+        segments = path.split('.')
+        current = context
+        for segment in segments:
+            if segment not in current:
+                if missing == "error":
+                    raise ValueError(f"Missing path: {path}")
+                elif missing == "keep":
+                    return f"${{{path}}}"
+                elif missing == "blank":
+                    return ""
+                else:
+                    raise ValueError(f"Invalid missing-path policy: {missing}")
+            current = current[segment]
+        if isinstance(current, str):
+            return current
+        elif isinstance(current, int):
+            return str(current)
+        else:
+            raise ValueError(f"Unexpected type at path {path}: {type(current)}")
+
+    result = []
+    i = 0
+    while i < len(template):
+        if template[i:i+2] == "$$":
+            result.append("$")
+            i += 2
+        elif template[i:i+2] == "${":
+            j = template.find("}", i)
+            if j == -1:
+                raise ValueError(f"Unmatched ${ at position {i}")
+            path = template[i+2:j]
+            if not path or "." in path and path[0] == "." or path[-1] == ".":
+                raise ValueError(f"Invalid path: {path}")
+            result.append(resolve_path(path))
+            i = j + 1
+        else:
+            result.append(template[i])
+            i += 1
+
+    return "".join(result)
+```

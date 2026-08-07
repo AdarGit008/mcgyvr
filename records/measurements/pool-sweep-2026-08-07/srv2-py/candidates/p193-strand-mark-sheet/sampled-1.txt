@@ -1,0 +1,71 @@
+```python
+"""The term mark built from weighted strands with discards."""
+
+
+def strand_mark_sheet(strands: list) -> dict:
+    if not strands:
+        raise ValueError("Empty report")
+
+    names = set()
+    shares = 0
+
+    for i, strand in enumerate(strands):
+        name = strand["name"]
+        share = strand["share"]
+        discard = strand["discard"]
+        work = strand.get("work", [])
+
+        if name in names:
+            raise ValueError(f"Repeated strand name: {name}")
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"Invalid strand name: {name}")
+        if share < 0 or share > 1000:
+            raise ValueError(f"Invalid share for strand '{name}': {share}")
+        if discard < 0:
+            raise ValueError(f"Negative discard count for strand '{name}': {discard}")
+        if not work:
+            raise ValueError(f"No work provided for strand: {name}")
+
+        names.add(name)
+        shares += share
+
+    if shares != 1000:
+        raise ValueError("Shares do not sum to exactly 1000")
+
+    discarded = []
+    mark = 0
+    for strand in strands:
+        name = strand["name"]
+        share = strand["share"]
+        discard = strand["discard"]
+        work = strand.get("work", [])
+
+        order = sorted(range(len(work)), key=lambda i: (work[i][0], -work[i][1]))
+        dropped = order[: discard]
+
+        for index in dropped:
+            discarded.append(f"{name}#{index}")
+
+        scored = 0
+        available = 0
+        for index, entry in enumerate(work):
+            if index in dropped or entry[0] == "absent":
+                continue
+            score = entry[0]
+            avail = entry[1]
+
+            if not isinstance(score, (int, str)) or (isinstance(score, int) and (score < 0 or score > avail)):
+                raise ValueError(f"Invalid score for strand '{name}': {score}")
+            if isinstance(score, str) and score != "absent":
+                raise ValueError(f"Invalid score type for strand '{name}': {score}")
+
+            scored += score
+            available += avail
+
+        if available == 0:
+            continue
+
+        mark += share * scored // available
+
+    return {"mark": mark, "discarded": discarded}
+```

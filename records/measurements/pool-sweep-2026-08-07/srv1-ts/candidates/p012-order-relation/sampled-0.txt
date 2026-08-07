@@ -1,0 +1,49 @@
+```ts
+export function orderRelation(pairs: [string, string][], x: string, y: string): string {
+  if (x === y) {
+    throw new Error("Query items cannot be equal");
+  }
+
+  const graph: { [key: string]: Set<string> } = {};
+
+  for (const [a, b] of pairs) {
+    if (!graph[a]) {
+      graph[a] = new Set();
+    }
+    graph[a].add(b);
+  }
+
+  function canReach(start: string, end: string): boolean {
+    const visited = new Set<string>();
+    const queue = [start];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (current === end) {
+        return true;
+      }
+      visited.add(current);
+      for (const neighbor of graph[current] || []) {
+        if (!visited.has(neighbor)) {
+          queue.push(neighbor);
+        }
+      }
+    }
+
+    return false;
+  }
+
+  const reachesXFromY = canReach(y, x);
+  const reachesYFromX = canReach(x, y);
+
+  if (reachesXFromY && reachesYFromX) {
+    return "both";
+  } else if (reachesXFromY) {
+    return "after";
+  } else if (reachesYFromX) {
+    return "before";
+  } else {
+    return "unordered";
+  }
+}
+```

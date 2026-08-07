@@ -1,0 +1,26 @@
+```ts
+export function pluralNoun(word: string): string {
+  if (typeof word !== 'string' || !/^[a-z]+$/.test(word)) throw new Error('Invalid input');
+
+  const irregulars = { child: 'children', person: 'people', foot: 'feet', mouse: 'mice', sheep: 'sheep' };
+  if (irregulars.hasOwnProperty(word)) return irregulars[word];
+
+  if (word.endsWith('s') || word.endsWith('x') || word.endsWith('z') || word.endsWith('ch') || word.endsWith('sh')) {
+    return word + 'es';
+  }
+
+  if (/y$/.test(word) && /[^aeiou]y$/.test(word)) {
+    return word.slice(0, -1) + 'ies';
+  }
+
+  if (/fe$/.test(word)) {
+    return word.slice(0, -2) + 'ves';
+  }
+
+  if (/f$/.test(word)) {
+    return word.slice(0, -1) + 'ves';
+  }
+
+  return word + 's';
+}
+```

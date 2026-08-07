@@ -1,0 +1,53 @@
+```python
+from typing import List
+
+def expand_nth_weekday(ordinal: int, weekday: int, start: str, months: int) -> List[str]:
+    if ordinal not in {-1, 1, 2, 3, 4, 5}:
+        raise ValueError("Ordinal must be one of -1, 1, 2, 3, 4, 5")
+    if not (0 <= weekday <= 6):
+        raise ValueError("Weekday must be in range 0 through 6")
+    if not start.isdigit() or len(start) != 7 or start[4] != '-':
+        raise ValueError("Start must be a zero-padded 'YYYY-MM' string")
+    year = int(start[:4])
+    month = int(start[5:])
+    if not (1 <= year <= 9999 and 1 <= month <= 12):
+        raise ValueError("Invalid date range for start")
+    if months < 1 or months > 240:
+        raise ValueError("Months must be a positive integer of at most 240")
+    
+    def is_leap(year: int) -> bool:
+        return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
+    
+    def days_in_month(year: int, month: int) -> int:
+        if month in {4, 6, 9, 11}:
+            return 30
+        elif month == 2:
+            return 29 if is_leap(year) else 28
+        else:
+            return 31
+    
+    def nth_weekday_in_month(year: int, month: int, weekday: int, ordinal: int) -> str:
+        days = []
+        for day in range(1, days_in_month(year, month) + 1):
+            if (day - 1) % 7 == weekday:
+                days.append(day)
+        if ordinal == -1 and len(days) > 0:
+            return f"{year:04d}-{month:02d}-{days[-1]:02d}"
+        elif 1 <= ordinal <= len(days):
+            return f"{year:04d}-{month:02d}-{days[ordinal-1]:02d}"
+        else:
+            return ""
+    
+    results = []
+    for _ in range(months):
+        date = nth_weekday_in_month(year, month, weekday, ordinal)
+        if date:
+            results.append(date)
+        if month == 12:
+            year += 1
+            month = 1
+        else:
+            month += 1
+    
+    return results
+```

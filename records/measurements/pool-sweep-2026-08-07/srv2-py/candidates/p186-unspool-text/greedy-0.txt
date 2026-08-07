@@ -1,0 +1,43 @@
+```python
+def unspool_text(spool: str) -> str:
+    if not isinstance(spool, str):
+        raise ValueError("Input must be a string")
+    
+    output = []
+    i = 0
+    
+    while i < len(spool):
+        char = spool[i]
+        
+        if char == '<':
+            if i + 1 >= len(spool) or spool[i + 1] != '<':
+                raise ValueError("Single less-than sign found")
+            
+            i += 2
+            continue
+        
+        if char.isdigit():
+            reach_start = i
+            while i < len(spool) and spool[i].isdigit():
+                i += 1
+            
+            reach = int(spool[reach_start:i])
+            if reach == 0 or reach > len(output):
+                raise ValueError("Invalid reach value")
+            
+            haul_start = i
+            while i < len(spool) and spool[i].isdigit():
+                i += 1
+            
+            haul = int(spool[haul_start:i])
+            if haul == 0:
+                raise ValueError("Haul cannot be zero")
+            
+            for _ in range(haul):
+                output.append(output[-reach])
+        else:
+            output.append(char)
+            i += 1
+    
+    return ''.join(output)
+```

@@ -1,0 +1,59 @@
+```python
+from typing import List
+
+def expiry_cache(capacity: int, ops: List[List]) -> List[int]:
+    if capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    
+    cache = {}
+    time_line = []
+    result = []
+
+    for op in ops:
+        operation, t, *args = op
+        if operation == "set":
+            key, value, ttl = args
+            if not (isinstance(key, str) and isinstance(value, int) and isinstance(ttl, int)):
+                raise ValueError("Invalid arguments for set operation")
+            if ttl <= 0:
+                raise ValueError("TTL must be a positive integer")
+            if t < time_line[-1] if time_line else 0:
+                raise ValueError("Time cannot go backwards")
+            
+            current_time = time_line[-1] if time_line else 0
+            expiry = t + ttl
+            
+            # Purge dead entries
+            while time_line and time_line[0] <= current_time:
+                expired_key = cache.pop(time_line[0])
+                time_line.pop(0)
+                if len(cache) < capacity:
+                    break
+            
+            # Evict the oldest entry if necessary
+            if len(cache) == capacity:
+                oldest_expiry, oldest_key = min((expiry, key) for expiry, key in cache.items())
+                del cache[oldest_key]
+            
+            cache[expiry] = key
+            time_line.append(expiry)
+        
+        elif operation == "get":
+            if t < time_line[-1] if time_line else 0:
+                raise ValueError("Time cannot go backwards")
+            
+            current_time = time_line[-1] if time_line else 0
+            
+            # Purge dead entries
+            while time_line and time_line[0] <= current_time:
+                expired_key = cache.pop(time_line[0])
+                time_line.pop(0)
+            
+            key = args[0]
+            result.append(cache.get(expiry, -1) if expiry in cache else -1)
+        
+        else:
+            raise ValueError("Unknown operation")
+    
+    return result
+```

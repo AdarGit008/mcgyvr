@@ -1,0 +1,32 @@
+```ts
+/**
+ * Orders document section labels numerically according to their outline numbering.
+ * @param labels - The array of labels to order.
+ * @returns A new array with the labels sorted in table of contents order.
+ */
+export function orderSections(labels: string[]): string[] {
+    const validateLabel = (label: string): boolean => {
+        if (typeof label !== 'string') return false;
+        const components = label.split('.');
+        for (const component of components) {
+            if (!/^\d+$/.test(component)) return false;
+            if (component.length > 1 && component.startsWith('0')) return false;
+        }
+        return true;
+    };
+
+    if (!labels.every(validateLabel)) throw new Error('Invalid label format');
+    if (new Set(labels).size !== labels.length) throw new Error('Duplicate labels');
+
+    return labels.sort((a, b) => {
+        const componentsA = a.split('.').map(Number);
+        const componentsB = b.split('.').map(Number);
+
+        for (let i = 0; i < Math.min(componentsA.length, componentsB.length); i++) {
+            if (componentsA[i] !== componentsB[i]) return componentsA[i] - componentsB[i];
+        }
+
+        return componentsA.length - componentsB.length;
+    });
+}
+```

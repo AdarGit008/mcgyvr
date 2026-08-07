@@ -1,0 +1,13 @@
+```python
+def clip_label(label: str, budget: int) -> str:
+    if not isinstance(budget, int) or budget < 4:
+        raise ValueError("Budget must be an integer greater than or equal to 4")
+    if not isinstance(label, str):
+        raise ValueError("Label must be a string")
+
+    if len(label) <= budget:
+        return label
+
+    clipped = label[:budget - 3].rstrip()
+    return f"{clipped}..."
+```

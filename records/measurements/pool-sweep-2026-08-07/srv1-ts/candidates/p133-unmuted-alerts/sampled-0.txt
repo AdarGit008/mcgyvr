@@ -1,0 +1,30 @@
+```ts
+export function unmutedAlerts(alerts: Array<{ id: string; resource: string; severity: number }>): string[] {
+  const grouped Alerts = alerts.reduce((acc, alert) => {
+    if (acc[alert.resource]) {
+      if (acc[alert.resource].some(a => a.id === alert.id)) {
+        throw new Error(`Duplicate alert ID: ${alert.id}`);
+      }
+      acc[alert.resource] = [...acc[alert.resource], alert];
+    } else {
+      acc[alert.resource] = [alert];
+    }
+    return acc;
+  }, {} as { [resource: string]: Array<{ id: string; resource: string; severity: number }> });
+
+  const unmutedAlerts = Object.values(groupedAlerts).flatMap(resourceAlerts => {
+    const maxSeverity = Math.max(...resourceAlerts.map(a => a.severity));
+    return resourceAlerts.filter(a => a.severity > maxSeverity || (a.severity === maxSeverity && groupedAlerts[a.resource].indexOf(a) < groupedAlerts[a.resource].length - 1)).map(a => a.id);
+  });
+
+  if (!unmutedAlerts.every(id => Number.isInteger(Number(id)) && id === Math.floor(Number(id)) && id > 0)) {
+    throw new Error('Invalid severity value');
+  }
+
+  return unmutedAlerts.sort((a, b) => {
+    const diff = alerts.find(alert => alert.id === a).severity - alerts.find(alert => alert.id === b).severity;
+    if (diff !== 0) return -diff; // descending order of severity
+    return a.localeCompare(b); // ascending order of id
+  });
+}
+```

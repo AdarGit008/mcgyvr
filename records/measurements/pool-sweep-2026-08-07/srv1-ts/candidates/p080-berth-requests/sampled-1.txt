@@ -1,0 +1,47 @@
+```ts
+export function assignBerths(berths: Array<{ id: string; size: number }>, quota: Record<string, number>, requests: Array<Record<string, unknown>>): string[] {
+    const results: string[] = [];
+    const occupied = new Set<string>();
+    const ownerCounts = { ...quota };
+
+    for (const request of requests) {
+        if (!request.hasOwnProperty("op")) throw new Error("Invalid request format");
+
+        switch (request.op as string) {
+            case "dock": {
+                const { boat, owner, size } = request;
+                if (!boat || !size) throw new Error("Dock request missing boat or size");
+                if (occupied.has(boat)) results.push("rejected:already_docked");
+                else if (quota[owner] !== undefined && ownerCounts[owner] >= quota[owner]) results.push("rejected:over_quota");
+                else {
+                    for (const berth of berths) {
+                        if (!berth.size || berth.size < size) continue;
+                        occupied.add(boat);
+                        if (quota[owner]) ownerCounts[owner]++;
+                        results.push(berth.id);
+                        break;
+                    }
+                    if (results.length === results.length - 1) results.push("rejected:no_berth");
+                }
+                break;
+            }
+            case "leave": {
+                const { boat } = request;
+                if (!boat) throw new Error("Leave request missing boat");
+                if (!occupied.has(boat)) results.push("rejected:not_docked");
+                else {
+                    occupied.delete(boat);
+                    for (const owner in quota) {
+                        if (quota[owner] && ownerCounts[owner] > 0) ownerCounts[owner]--;
+                    }
+                    results.push("left");
+                }
+                break;
+            }
+            default: throw new Error(`Invalid operation "${request.op}"`);
+        }
+    }
+
+    return results;
+}
+```

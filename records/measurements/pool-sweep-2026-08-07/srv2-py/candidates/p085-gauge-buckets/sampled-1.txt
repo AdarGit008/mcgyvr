@@ -1,0 +1,16 @@
+```python
+def gauge_buckets(pulses: list, base: int, width: int, pockets: int) -> list:
+    if pockets <= 0:
+        raise ValueError("Pockets must be a positive integer.")
+    
+    tallies = [0] * (pockets + 2)
+    for pulse in pulses:
+        if pulse < base:
+            tallies[0] += 1
+        elif pulse >= base + pockets * width:
+            tallies[-1] += 1
+        else:
+            slot = (pulse - base) // width
+            tallies[1 + slot] += 1
+    return tallies
+```

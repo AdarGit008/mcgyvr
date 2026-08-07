@@ -1,0 +1,52 @@
+```ts
+/**
+ * Calculates the lattice inverse of a given frame if possible.
+ * @param frame - A square arrangement of whole numbers, either two or three rows tall.
+ * @returns The undoing frame if possible, otherwise an empty list.
+ */
+export function latticeInverse(frame: number[][]): number[][] {
+  const n = frame.length;
+  if (n !== 2 && n !== 3) throw new Error("Frame must be exactly two or three rows tall.");
+  for (const row of frame) {
+    if (row.length !== n) throw new Error("All rows must have the same length.");
+    for (const entry of row) {
+      if (!Number.isInteger(entry)) throw new Error("All entries must be whole numbers.");
+    }
+  }
+
+  const determinant = n === 2
+    ? frame[0][0] * frame[1][1] - frame[0][1] * frame[1][0]
+    : frame[0][0] * (frame[1][1] * frame[2][2] - frame[1][2] * frame[2][1]) -
+      frame[0][1] * (frame[1][0] * frame[2][2] - frame[1][2] * frame[2][0]) +
+      frame[0][2] * (frame[1][0] * frame[2][1] - frame[1][1] * frame[2][0]);
+
+  if (determinant !== 1 && determinant !== -1) return [];
+
+  const adjugate = n === 2
+    ? [
+        [frame[1][1], -frame[0][1]],
+        [-frame[1][0], frame[0][0]],
+      ]
+    : [
+        [
+          frame[1][1] * frame[2][2] - frame[1][2] * frame[2][1],
+          -(frame[1][0] * frame[2][2] - frame[1][2] * frame[2][0]),
+          frame[1][0] * frame[2][1] - frame[1][1] * frame[2][0],
+        ],
+        [
+          -(frame[0][1] * frame[2][2] - frame[0][2] * frame[2][1]),
+          frame[0][0] * frame[2][2] - frame[0][2] * frame[2][0],
+          -(frame[0][0] * frame[2][1] - frame[0][1] * frame[2][0]),
+        ],
+        [
+          frame[0][1] * frame[1][2] - frame[0][2] * frame[1][1],
+          -(frame[0][0] * frame[1][2] - frame[0][2] * frame[1][0]),
+          frame[0][0] * frame[1][1] - frame[0][1] * frame[1][0],
+        ],
+      ];
+
+  const inverse = adjugate.map(row => row.map(entry => entry / determinant));
+
+  return inverse;
+}
+```

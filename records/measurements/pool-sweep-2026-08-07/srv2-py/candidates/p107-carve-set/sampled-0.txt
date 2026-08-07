@@ -1,0 +1,41 @@
+```python
+def carve_set(steps: list) -> list:
+    if not steps:
+        return []
+
+    ranges = []
+    for step in steps:
+        verb, lo, hi = step
+        if verb == "add":
+            if not isinstance(lo, int) or not isinstance(hi, int):
+                raise ValueError("Bounds must be integers")
+            if lo >= hi:
+                raise ValueError("lo must be strictly below hi")
+            ranges.append((lo, hi))
+        elif verb == "cut":
+            if not isinstance(lo, int) or not isinstance(hi, int):
+                raise ValueError("Bounds must be integers")
+            if lo >= hi:
+                raise ValueError("lo must be strictly below hi")
+            new_ranges = []
+            for r in ranges:
+                if r[1] <= lo or r[0] >= hi:
+                    new_ranges.append(r)
+                elif r[0] < lo < r[1]:
+                    new_ranges.append((r[0], lo))
+                elif r[0] < hi < r[1]:
+                    new_ranges.append((hi, r[1]))
+            ranges = new_ranges
+        else:
+            raise ValueError("Invalid verb; must be 'add' or 'cut'")
+
+    # Merge overlapping and touching ranges
+    merged_ranges = []
+    for lo, hi in sorted(ranges):
+        if not merged_ranges or lo > merged_ranges[-1][1]:
+            merged_ranges.append((lo, hi))
+        else:
+            merged_ranges[-1] = (merged_ranges[-1][0], max(merged_ranges[-1][1], hi))
+
+    return merged_ranges
+```

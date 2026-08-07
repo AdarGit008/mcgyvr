@@ -1,0 +1,26 @@
+```ts
+export function traceTeleports(pads: number[], start: number): number[] {
+  if (pads.length === 0 || start < 0 || start >= pads.length) {
+    throw new Error("Invalid input");
+  }
+  const visited = new Set<number>();
+  let circuitStart = -1;
+  let circuitLength = 0;
+
+  for (let i = start; ; i = pads[i]) {
+    if (visited.has(i)) {
+      if (circuitStart === -1) {
+        circuitStart = visited.size;
+      }
+      circuitLength++;
+    } else {
+      visited.add(i);
+    }
+    if (i < 0 || i >= pads.length || pads[i] < 0 || pads[i] >= pads.length) {
+      throw new Error("Invalid destination");
+    }
+  }
+
+  return [visited.size - circuitStart, circuitLength, circuitStart];
+}
+```

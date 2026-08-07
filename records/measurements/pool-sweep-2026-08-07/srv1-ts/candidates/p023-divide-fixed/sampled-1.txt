@@ -1,0 +1,27 @@
+```ts
+export function divideFixed(numerator: number, denominator: number, places: number): string {
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(places)) {
+        throw new Error('All arguments must be integers.');
+    }
+    if (denominator === 0) {
+        throw new Error('Denominator cannot be zero.');
+    }
+    if (places < 0 || places > 6) {
+        throw new Error('Places must be between 0 and 6.');
+    }
+
+    let quotient = Math.floor(numerator * Math.pow(10, places + 1) / denominator);
+    const remainder = numerator * Math.pow(10, places + 1) % denominator;
+
+    if (remainder >= denominator / 2 || (remainder === denominator / 2 && quotient % 2 !== 0)) {
+        quotient += 1;
+    }
+
+    let result = quotient.toString().padStart(places + 2, '0').slice(0, -places);
+    if (places > 0) {
+        result = result.slice(0, -1) + '.' + result.slice(-places);
+    }
+
+    return result.replace(/^0\./, '.');
+}
+```

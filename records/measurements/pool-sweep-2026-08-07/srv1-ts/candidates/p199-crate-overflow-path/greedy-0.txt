@@ -1,0 +1,45 @@
+```ts
+export function crateOverflowPath(root: Record<string, unknown>): string {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Invalid input: outermost crate must be a mapping');
+  }
+
+  const traverse = (crate: any, path: string[]): string => {
+    if (typeof crate !== 'object' || crate === null) {
+      return '';
+    }
+
+    const { tag, weight, cap, inside } = crate;
+
+    if (typeof tag !== 'string' || tag.includes('.')) {
+      throw new Error('Invalid input: tag must be a non-empty string without full stop');
+    }
+    if (typeof weight !== 'number' || weight < 0 || !Number.isInteger(weight)) {
+      throw new Error('Invalid input: weight must be a non-negative whole number');
+    }
+    if (typeof cap !== 'number' || cap <= 0 || !Number.isInteger(cap)) {
+      throw new Error('Invalid input: cap must be a positive whole number');
+    }
+    if (!Array.isArray(inside)) {
+      throw new Error('Invalid input: inside must be a list');
+    }
+
+    const gross = weight + inside.reduce((acc, inner) => acc + traverse(inner, [...path, tag]), 0);
+
+    if (gross > cap) {
+      return path.join('.');
+    }
+
+    for (const inner of inside) {
+      const result = traverse(inner, [...path, tag]);
+      if (result) {
+        return result;
+      }
+    }
+
+    return '';
+  };
+
+  return traverse(root, []);
+}
+```

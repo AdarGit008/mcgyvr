@@ -1,0 +1,34 @@
+```ts
+export function expandGlossary(script: string[]): string {
+  const slots: Record<string, string> = {};
+  const sent: string[] = [];
+  for (const line of script) {
+    if (typeof line !== "string") {
+      throw new Error("Line is not a string");
+    }
+    if (line.startsWith("!")) {
+      const slot = line.slice(1);
+      if (!/^\d+$/.test(slot)) {
+        throw new Error("Slot number is zero or padded");
+      }
+      sent.push(slots[slot] ?? "");
+    } else {
+      const cut = line.indexOf("=");
+      if (cut === -1) {
+        throw new Error("Line is not a store line");
+      }
+      const slot = line.slice(0, cut);
+      if (!/^\d+$/.test(slot)) {
+        throw new Error("Slot number is zero or padded");
+      }
+      if (slots[slot]) {
+        throw new Error("Slot stored a second time");
+      }
+      slots[slot] = line.slice(cut + 1);
+    }
+  }
+  return sent
+    .map((body) => body.replace(/\{(\d+)\}/g, (_whole, n) => slots[n] ?? ""))
+    .join("");
+}
+```

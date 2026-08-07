@@ -1,0 +1,45 @@
+```ts
+export function corvidRender(value: number): string {
+  if (!Number.isInteger(value)) {
+    throw new Error("Input must be a whole number.");
+  }
+
+  const marks = ['v', 'w', 'x', 'y', 'z'];
+  let result = '';
+  let isNegative = value < 0;
+  value = Math.abs(value);
+
+  while (value > 0) {
+    if (value >= 25) {
+      result += 'zz';
+      value -= 25;
+    } else if (value >= 20) {
+      result += 'yz';
+      value -= 20;
+    } else if (value >= 15) {
+      result += 'zx';
+      value -= 15;
+    } else if (value >= 10) {
+      result += 'yw';
+      value -= 10;
+    } else if (value >= 5) {
+      result += 'xv';
+      value -= 5;
+    } else if (value === 4) {
+      result += 'wz';
+      value -= 4;
+    } else if (value === 3) {
+      result += 'yz';
+      value -= 3;
+    } else if (value === 2) {
+      result += 'zx';
+      value -= 2;
+    } else if (value === 1) {
+      result += 'yw';
+      value -= 1;
+    }
+  }
+
+  return isNegative ? '-' + result : result || 'x';
+}
+```

@@ -1,0 +1,17 @@
+```ts
+export function minimaxPairSum(first: number[], second: number[]): number {
+  if (first.length !== second.length || first.length === 0) {
+    throw new Error("Invalid input");
+  }
+
+  const sortedFirst = [...first].sort((a, b) => a - b);
+  const sortedSecond = [...second].sort((a, b) => a - b);
+
+  let maxPairSum = -Infinity;
+  for (let i = 0; i < sortedFirst.length; i++) {
+    maxPairSum = Math.max(maxPairSum, sortedFirst[i] + sortedSecond[sortedSecond.length - 1 - i]);
+  }
+
+  return maxPairSum;
+}
+```

@@ -1,0 +1,26 @@
+```ts
+/**
+ * Builds an inverted index from a list of documents.
+ * @param documents - List of strings representing document texts.
+ * @returns A record where each key is a term and the value is a sorted array of document indices containing that term.
+ */
+export function postingLists(documents: string[]): Record<string, number[]> {
+  if (!Array.isArray(documents)) throw new Error('Input must be an array');
+  for (const doc of documents) {
+    if (typeof doc !== 'string') throw new Error('All documents must be strings');
+  }
+
+  const index: Record<string, number[]> = {};
+
+  documents.forEach((doc, docIndex) => {
+    const terms = doc.replace(/[^a-zA-Z0-9]+/g, ' ').split(/\s+/).filter(term => term.length > 1 && !(/^\d+$/.test(term)));
+    const uniqueTerms = Array.from(new Set(terms));
+    uniqueTerms.forEach(term => {
+      if (!index[term]) index[term] = [];
+      if (!index[term].includes(docIndex)) index[term].push(docIndex);
+    });
+  });
+
+  return index;
+}
+```

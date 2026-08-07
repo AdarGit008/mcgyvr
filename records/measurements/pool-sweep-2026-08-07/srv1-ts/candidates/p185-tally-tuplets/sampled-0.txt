@@ -1,0 +1,51 @@
+```typescript
+/**
+ * Tally the units held by each measure in a score, subtracted from the units carried by the meter.
+ * @param {string} score - A string representing the score with measures separated by semicolons and entries by spaces.
+ * @param {string} meter - A string representing the meter as a plain span.
+ * @returns {number[]} An array of numbers, each representing the difference between the units carried and held in each measure.
+ */
+export function tallyTuplets(score: string, meter: string): number[] {
+    const DENominATORS = new Set([1, 2, 4, 8, 16, 32, 64]);
+
+    function parseSpan(span: string): number {
+        const [numerator, denominator] = span.split('/');
+        if (numerator.length > 1 || !DENominators.has(parseInt(denominator))) {
+            throw new Error('Invalid span format');
+        }
+        return (parseInt(numerator) * 64) / parseInt(denominator);
+    }
+
+    function parseSqueeze(squeeze: string, baseValue: number): number {
+        const figure = parseInt(squeeze.slice(1, -1));
+        if (figure < 2 || !Number.isInteger(baseValue)) {
+            throw new Error('Invalid squeeze format or value');
+        }
+        return ((baseValue * (figure - 1)) / figure) + baseValue;
+    }
+
+    function parseMeasure(measure: string, meterValue: number): number {
+        if (!measure.trim()) {
+            throw new Error('Empty measure');
+        }
+        const entries = measure.split(/\s+/).map(entry => entry.replace(/(\+|\{)/g, '').replace(/}/g, ''));
+        let totalUnits = 0;
+        for (const entry of entries) {
+            if (entry.includes('+')) {
+                totalUnits += parseSqueeze(entry, parseMeasure(measure, meterValue));
+            } else {
+                totalUnits += parseSpan(entry);
+            }
+        }
+        return meterValue - totalUnits;
+    }
+
+    const [meterNumerator, meterDenominator] = meter.split('/');
+    if (meterNumerator.length > 1 || !DENominators.has(parseInt(meterDenominator))) {
+        throw new Error('Invalid meter format');
+    }
+    const meterValue = (parseInt(meterNumerator) * 64) / parseInt(meterDenominator);
+
+    return score.split(';').map(measure => parseMeasure(measure, meterValue));
+}
+```

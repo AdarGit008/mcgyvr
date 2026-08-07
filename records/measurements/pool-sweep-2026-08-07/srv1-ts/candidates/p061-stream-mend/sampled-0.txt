@@ -1,0 +1,28 @@
+```typescript
+export function reassembleStream(
+  total: number,
+  fragments: Array<[number, string]>,
+): string {
+  if (fragments.some(frag => frag[0] < 0 || frag[1].length === 0)) {
+    throw new Error("invalid fragment offset or empty text");
+  }
+
+  const message = new Array(total).fill('');
+
+  for (const [offset, text] of fragments) {
+    for (let i = 0; i < text.length; i++) {
+      if (offset + i >= total || message[offset + i] !== '' && message[offset + i] !== text[i]) {
+        throw new Error("disagreement on shared position or fragment out-of-bounds");
+      }
+      message[offset + i] = text[i];
+    }
+  }
+
+  const result = message.join('');
+  if (result.length !== total) {
+    throw new Error("incomplete stream");
+  }
+
+  return result;
+}
+```

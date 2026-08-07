@@ -1,0 +1,40 @@
+```python
+def unspool_text(spool: str) -> str:
+    if not isinstance(spool, str):
+        raise ValueError("Argument must be a string")
+    
+    output = []
+    i = 0
+    
+    while i < len(spool):
+        if spool[i] == '<':
+            if i + 1 >= len(spool) or spool[i+1] == '<':
+                output.append('<')
+                i += 2
+            else:
+                reach_end = i + 2
+                haul_end = reach_end
+                while haul_end < len(spool) and spool[haul_end].isdigit() and int(spool[haul_end]) > 0:
+                    haul_end += 1
+                
+                if haul_end == reach_end or spool[reach_end] != ',':
+                    raise ValueError("Malformed pointer")
+                
+                reach = int(spool[reach_end + 1:haul_end])
+                haul = int(spool[i+2:reach_end])
+                
+                if reach <= 0 or haul <= 0 or (reach >= len(output) and haul > 0):
+                    raise ValueError("Invalid pointer values")
+                
+                if haul > reach:
+                    haul %= reach
+                
+                for _ in range(haul):
+                    output.append(output[-reach])
+                i = haul_end
+        else:
+            output.append(spool[i])
+            i += 1
+    
+    return ''.join(output)
+```

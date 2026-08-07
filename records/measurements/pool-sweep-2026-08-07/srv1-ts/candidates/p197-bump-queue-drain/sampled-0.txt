@@ -1,0 +1,89 @@
+```ts
+/** The order a crew works through a batch of graded tickets. */
+export function bumpQueueDrain(
+  tickets: Array<Record<string, unknown>>,
+  start: number,
+  bumpEvery: number
+): string[] {
+  if (tickets.length === 0) {
+    throw new Error("The batch is empty");
+  }
+
+  const parsedTickets: { id: string; filed: number; grade: number }[] = [];
+
+  for (const ticket of tickets) {
+    if (
+      typeof ticket !== "object" ||
+      ticket === null ||
+      !ticket.hasOwnProperty("id") ||
+      !ticket.hasOwnProperty("filed") ||
+      !ticket.hasOwnProperty("grade")
+    ) {
+      throw new Error("Invalid ticket format");
+    }
+
+    const id = ticket.id;
+    if (typeof id !== "string" || id.trim() === "") {
+      throw new Error("Invalid id");
+    }
+
+    const filed = Number(ticket.filed);
+    if (!Number.isInteger(filed) || filed < 0) {
+      throw new Error("Invalid filed minute");
+    }
+
+    const grade = Number(ticket.grade);
+    if (!Number.isInteger(grade) || grade < 0 || grade > 9) {
+      throw new Error("Invalid grade");
+    }
+
+    parsedTickets.push({ id, filed, grade });
+  }
+
+  const uniqueIds: Set<string> = new Set();
+  for (const ticket of parsedTickets) {
+    if (uniqueIds.has(ticket.id)) {
+      throw new Error("Duplicate id found");
+    }
+    uniqueIds.add(ticket.id);
+  }
+
+  if (!Number.isInteger(start) || start < 0) {
+    throw new Error("Invalid start minute");
+  }
+
+  if (!Number.isInteger(bumpEvery) || bumpEvery <= 0) {
+    throw new Error("Invalid bump interval");
+  }
+
+  const handled: string[] = [];
+  let currentMinute = start;
+
+  while (parsedTickets.length > 0) {
+    let pickIndex = -1;
+    for (let i = 0; i < parsedTickets.length; i++) {
+      if (
+        parsedTickets[i].filed <= currentMinute &&
+        (pickIndex === -1 ||
+          parsedTickets[i].grade + Math.floor((currentMinute - parsedTickets[i].filed) / bumpEvery) >
+            parsedTickets[pickIndex].grade + Math.floor((currentMinute - parsedTickets[pickIndex].filed) / bumpEvery) ||
+          parsedTickets[i].grade + Math.floor((currentMinute - parsedTickets[i].filed) / bumpEvery) ===
+            parsedTickets[pickIndex].grade + Math.floor((currentMinute - parsedTickets[pickIndex].filed) / bumpEvery) &&
+          parsedTickets[i].filed < parsedTickets[pickIndex].filed ||
+          parsedTickets[i].filed === parsedTickets[pickIndex].filed && ticket.id < parsedTickets[pickIndex].id)
+      ) {
+        pickIndex = i;
+      }
+    }
+
+    if (pickIndex !== -1) {
+      handled.push(parsedTickets[pickIndex].id);
+      parsedTickets.splice(pickIndex, 1);
+    } else {
+      currentMinute++;
+    }
+  }
+
+  return handled;
+}
+```

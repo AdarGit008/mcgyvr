@@ -1,0 +1,24 @@
+```python
+def count_phrase(tokens: list[str], phrase: str) -> int:
+    if not phrase.strip():
+        raise ValueError("Phrase must not be empty or contain only spaces")
+    
+    phrase_tokens = phrase.split()
+    count = 0
+    i = 0
+    
+    while i < len(tokens):
+        if tokens[i].lower() == phrase_tokens[0].lower():
+            match = True
+            for j in range(1, len(phrase_tokens)):
+                if i + j >= len(tokens) or tokens[i + j].lower() != phrase_tokens[j].lower():
+                    match = False
+                    break
+            if match:
+                count += 1
+                i += len(phrase_tokens)
+        else:
+            i += 1
+    
+    return count
+```

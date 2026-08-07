@@ -1,0 +1,21 @@
+```python
+def resolve_access(rules: list, request: dict) -> dict:
+    if not request.get("action"):
+        raise ValueError("Request action cannot be empty")
+    
+    best_match = None
+    for i, rule in enumerate(rules):
+        if rule["effect"] not in ("allow", "deny") or not rule["action"]:
+            raise ValueError(f"Invalid rule at index {i}")
+        
+        if (not rule["path"] or request["path"].startswith(rule["path"])) and \
+           (rule["action"] == request["action"] or rule["action"] == "any"):
+            if best_match is None:
+                best_match = i
+            elif len(rule["path"]) > len(rules[best_match]["path"]) or \
+                 (len(rule["path"]) == len(rules[best_match]["path"]) and 
+                  (rule["effect"] == "allow" or rules[best_match]["effect"] == "deny")):
+                best_match = i
+    
+    return {"decision": "deny", "rule": -1} if best_match is None else {"decision": rules[best_match]["effect"], "rule": best_match}
+```

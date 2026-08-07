@@ -1,0 +1,60 @@
+```ts
+export function claimZone(claims: string[], where: string): string {
+  if (!Array.isArray(claims) || claims.some(c => typeof c !== 'string')) {
+    throw new Error('Invalid claims input');
+  }
+
+  const parsedWhere = parsePost(where);
+  if (parsedWhere === null) {
+    throw new Error('Invalid where post format');
+  }
+
+  let deepestClaimName = '';
+
+  for (const claim of claims) {
+    const [stencil, name] = claim.split(' ');
+    if (!name || name.includes(' ')) {
+      throw new Error('Invalid claim format');
+    }
+
+    const parsedStencil = parsePost(stencil);
+    if (parsedStencil === null) {
+      throw new Error('Invalid stencil post format');
+    }
+
+    if (parsedStencil.length > parsedWhere.length) {
+      continue;
+    }
+
+    let isCovered = true;
+    for (let i = 0; i < parsedStencil.length; i++) {
+      if (parsedStencil[i] !== parsedWhere[i]) {
+        isCovered = false;
+        break;
+      }
+    }
+
+    if (isCovered && stencil.split('/').pop() > deepestClaimName.split('/').pop()) {
+      deepestClaimName = name;
+    }
+  }
+
+  return deepestClaimName;
+}
+
+function parsePost(post: string): number[] | null {
+  const parts = post.split('.');
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  for (const part of parts) {
+    const num = parseInt(part, 10);
+    if (isNaN(num) || num < 0 || num > 15) {
+      return null;
+    }
+  }
+
+  return parts.map(Number);
+}
+```

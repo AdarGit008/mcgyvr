@@ -1,0 +1,60 @@
+```python
+from typing import List, Tuple
+
+def siren_minutes(events: List[dict], horizon: int) -> List[Tuple[str, int]]:
+    if not all(isinstance(e, dict) and 'at' in e for e in events):
+        raise ValueError("All events must be dictionaries with an 'at' key.")
+    
+    if not isinstance(horizon, int) or horizon < 0:
+        raise ValueError("Horizon must be a non-negative integer.")
+    
+    active_alerts = {}
+    time_spent_sounding = {}
+    last_event_time = -1
+    
+    for event in events:
+        at = event['at']
+        if not isinstance(at, int) or at <= last_event_time:
+            raise ValueError("Event times must strictly increase and exceed the horizon.")
+        
+        last_event_time = at
+        
+        if event['kind'] == 'raise':
+            id_ = event.get('id')
+            channel = event.get('channel')
+            severity = event.get('severity')
+            
+            if not (isinstance(id_, str) and isinstance(channel, str) and isinstance(severity, int)):
+                raise ValueError("Malformed id, channel, or severity.")
+            
+            if severity < 1 or severity > 5:
+                raise ValueError("Severity must be between 1 and 5 inclusive.")
+            
+            if id_ in active_alerts:
+                raise ValueError(f"Alert {id_} already raised at time {active_alerts[id_]}.")
+            
+            active_alerts[id_] = at
+            
+        elif event['kind'] == 'clear':
+            id_ = event.get('id')
+            
+            if not isinstance(id_, str):
+                raise ValueError("Malformed id.")
+            
+            if id_ not in active_alerts:
+                raise ValueError(f"Alert {id_} not raised to be cleared at time {at}.")
+            
+            start_time = active_alerts.pop(id_)
+            if id_ in time_spent_sounding:
+                time_spent_sounding[id_] += at - start_time
+            else:
+                time_spent_sounding[id_] = at - start_time
+    
+    for id_, start_time in list(active_alerts.items()):
+        if id_ in time_spent_sounding:
+            time_spent_sounding[id_] += horizon - start_time
+        else:
+            time_spent_sounding[id_] = horizon - start_time
+    
+    return sorted([(id_, time) for id_, time in time_spent_sounding.items()])
+```

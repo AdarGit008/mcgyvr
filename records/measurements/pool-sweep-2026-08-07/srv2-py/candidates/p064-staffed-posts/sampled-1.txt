@@ -1,0 +1,29 @@
+```python
+def staffed_posts(wanted: list, posts: int) -> int:
+    if not isinstance(posts, int) or posts <= 0:
+        raise ValueError("Posts count must be a positive integer.")
+    if not all(isinstance(post, int) and 0 <= post < posts for post in set(wanted)):
+        raise ValueError("Invalid post numbers.")
+
+    available_posts = list(range(posts))
+    staffed = [None] * posts
+    reassignments = []
+
+    for i, post_wishes in enumerate(wanted):
+        if staffed[post_wishes] is None:
+            staffed[post_wishes] = i
+        else:
+            existing_applicant = staffed[post_wishes]
+            chain = [(existing_applicant, post_wishes)]
+            while True:
+                next_post = wanted[chain[-1][0]]
+                if next_post == chain[0][1]:
+                    break
+                chain.append((next_post, chain[-1][1]))
+            reassignments.extend(chain)
+
+    for app, _ in reassignments:
+        staffed[wanted[app]] = app
+
+    return sum(staffed[i] is not None for i in range(posts))
+```

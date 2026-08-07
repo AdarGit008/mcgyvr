@@ -1,0 +1,32 @@
+```python
+def place_donations(requests: list, lots: list) -> list:
+    if len(set(r['id'] for r in requests)) != len(requests):
+        raise ValueError("Duplicate request id")
+    if len(set(l['id'] for l in lots)) != len(lots):
+        raise ValueError("Duplicate lot id")
+    
+    placed = []
+    open_requests = sorted(
+        (r for r in requests if r['from'] <= r['to']),
+        key=lambda r: (-r['urgent'], r['to'] - r['from'], requests.index(r)),
+    )
+    
+    for lot in lots:
+        day = lot['day']
+        kind = lot['kind']
+        
+        if not isinstance(day, int) or not isinstance(kind, str):
+            raise ValueError("Invalid day or kind type")
+        
+        if lot['from'] > lot['to']:
+            raise ValueError("Invalid request span")
+        
+        for i in range(len(open_requests)):
+            req = open_requests[i]
+            if req['from'] <= day <= req['to'] and (kind == req['kind'] or req['kind'] == "ANY"):
+                placed.append([lot['id'], req['id']])
+                del open_requests[i]
+                break
+    
+    return placed
+```

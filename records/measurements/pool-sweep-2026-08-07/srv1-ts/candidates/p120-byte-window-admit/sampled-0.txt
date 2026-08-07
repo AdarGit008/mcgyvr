@@ -1,0 +1,36 @@
+```ts
+export function admitBytes(perKey: number, total: number, span: number, entries: (string | number)[][]): string[] {
+    if (!Number.isInteger(perKey) || perKey <= 0) throw new Error('Invalid perKey');
+    if (!Number.isInteger(total) || total <= 0) throw new Error('Invalid total');
+    if (!Number.isInteger(span) || span <= 0) throw new Error('Invalid span');
+
+    const result: string[] = [];
+    const keyCarried: { [key: string]: number } = {};
+    let currentTotalCarried = 0;
+
+    for (const entry of entries) {
+        const [time, key, size] = entry as [number, string, number];
+        if (!Number.isInteger(time) || time < 0) throw new Error('Negative time');
+        if (!Number.isInteger(size) || size <= 0) throw new Error('Invalid size');
+        if (typeof key !== 'string' || key.length === 0) throw new Error('Invalid key');
+
+        while (currentTotalCarried > 0 && entries[entries.indexOf(entry) - currentTotalCarried][0] < time - span) {
+            const [_, k, s] = entries[entries.indexOf(entry) - currentTotalCarried];
+            if (key === k) {
+                keyCarried[key] -= s;
+            }
+            currentTotalCarried--;
+        }
+
+        if (keyCarried[key] + size <= perKey && currentTotalCarried + size <= total) {
+            result.push('pass');
+            keyCarried[key] += size;
+            currentTotalCarried++;
+        } else {
+            result.push('drop');
+        }
+    }
+
+    return result;
+}
+```

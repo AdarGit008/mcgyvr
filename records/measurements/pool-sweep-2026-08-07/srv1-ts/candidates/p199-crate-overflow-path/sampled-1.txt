@@ -1,0 +1,37 @@
+```ts
+export function crateOverflowPath(root: Record<string, unknown>): string {
+  const validateCrate = (crate: any, path: string[]): void => {
+    if (typeof crate !== "object" || crate === null) {
+      throw new Error("Invalid root crate");
+    }
+    if (typeof crate.tag !== "string" || crate.tag.includes(".")) {
+      throw new Error("Invalid tag");
+    }
+    if (typeof crate.weight !== "number" || !Number.isSafeInteger(crate.weight) || crate.weight < 0) {
+      throw new Error("Invalid weight");
+    }
+    if (typeof crate.cap !== "number" || !Number.isSafeInteger(crate.cap) || crate.cap <= 0) {
+      throw new Error("Invalid cap");
+    }
+    if (!Array.isArray(crate.inside)) {
+      throw new Error("Invalid inside list");
+    }
+
+    for (const item of crate.inside) {
+      validateCrate(item, [...path, crate.tag]);
+    }
+
+    const gross = crate.weight + crate.inside.reduce((acc, item) => acc + item.gross, 0);
+    if (gross > crate.cap) {
+      throw new Error("Overflow found at " + path.join("."));
+    }
+  };
+
+  try {
+    validateCrate(root, []);
+    return "";
+  } catch (error) {
+    return error.message;
+  }
+}
+```

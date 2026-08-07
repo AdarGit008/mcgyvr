@@ -1,0 +1,61 @@
+```python
+def league_order(matches: list) -> list:
+    if any(not isinstance(m, list) or len(m) != 4 for m in matches):
+        raise ValueError("Invalid match entry")
+    
+    teams = set()
+    results = {}
+    
+    for home, away, home_goals, away_goals in matches:
+        if not (isinstance(home, str) and isinstance(away, str)):
+            raise ValueError("Team names must be strings")
+        if home == away or not (isinstance(home_goals, int) and isinstance(away_goals, int)) or home_goals < 0 or away_goals < 0:
+            raise ValueError("Invalid goal figures")
+        
+        teams.add(home)
+        teams.add(away)
+        
+        if home not in results:
+            results[home] = {'points': 0, 'goals_for': 0, 'goals_against': 0}
+        if away not in results:
+            results[away] = {'points': 0, 'goals_for': 0, 'goals_against': 0}
+        
+        results[home]['goals_for'] += home_goals
+        results[away]['goals_for'] += away_goals
+        results[home]['goals_against'] += away_goals
+        results[away]['goals_against'] += home_goals
+        
+        if home_goals > away_goals:
+            results[home]['points'] += 3
+        elif home_goals < away_goals:
+            results[away]['points'] += 3
+        else:
+            results[home]['points'] += 1
+            results[away]['points'] += 1
+    
+    def compare_teams(t1, t2):
+        if results[t1]['points'] != results[t2]['points']:
+            return results[t2]['points'] - results[t1]['points']
+        
+        group_points_t1 = sum(results[opponent]['points'] for opponent in teams if (t1, opponent) in matches and (opponent, t1) in matches)
+        group_points_t2 = sum(results[opponent]['points'] for opponent in teams if (t2, opponent) in matches and (opponent, t2) in matches)
+        
+        if group_points_t1 != group_points_t2:
+            return group_points_t2 - group_points_t1
+        
+        goal_diff_t1 = results[t1]['goals_for'] - results[t1]['goals_against']
+        goal_diff_t2 = results[t2]['goals_for'] - results[t2]['goals_against']
+        
+        if goal_diff_t1 != goal_diff_t2:
+            return goal_diff_t2 - goal_diff_t1
+        
+        goals_t1 = results[t1]['goals_for']
+        goals_t2 = results[t2]['goals_for']
+        
+        if goals_t1 != goals_t2:
+            return goals_t2 - goals_t1
+        
+        return ord(t1) - ord(t2)
+    
+    return sorted(teams, key=compare_teams)
+```

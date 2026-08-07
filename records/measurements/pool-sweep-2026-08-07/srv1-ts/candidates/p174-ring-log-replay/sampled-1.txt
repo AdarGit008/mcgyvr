@@ -1,0 +1,71 @@
+```ts
+/**
+ * Replays operations on a ring log, maintaining a journal of actions taken.
+ *
+ * @param capacity - The maximum number of labels the ring can hold.
+ * @param policy - The crowding policy: 'overwrite' or 'refuse'.
+ * @param operations - A list of operations, each being a list with the first element being the operation name.
+ * @returns An object containing the current contents of the ring, journal of actions, and total number of labels lost.
+ */
+export function replayRingLog(capacity: number, policy: string, operations: string[][]): { contents: string[]; journal: string[]; lost: number } {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+        throw new Error('Invalid capacity');
+    }
+    if (policy !== 'overwrite' && policy !== 'refuse') {
+        throw new Error('Invalid policy');
+    }
+    if (!Array.isArray(operations)) {
+        throw new Error('Operations must be a list');
+    }
+
+    const ring: string[] = [];
+    const journal: string[] = [];
+    let lost = 0;
+
+    for (const operation of operations) {
+        switch (operation[0]) {
+            case 'push':
+                if (!Array.isArray(operation) || operation.length !== 2 || typeof operation[1] !== 'string' || !operation[1].trim()) {
+                    throw new Error('Invalid push operation');
+                }
+                if (ring.length < capacity) {
+                    ring.push(operation[1]);
+                    journal.push(`stored ${operation[1]}`);
+                } else if (policy === 'overwrite') {
+                    const evicted = ring.shift() as string;
+                    ring.push(operation[1]);
+                    journal.push(`evicted, stored ${evicted} ${operation[1]}`);
+                    lost++;
+                } else if (policy === 'refuse') {
+                    journal.push('refused');
+                }
+                break;
+            case 'pop':
+                if (!Array.isArray(operation) || operation.length !== 1) {
+                    throw new Error('Invalid pop operation');
+                }
+                if (ring.length > 0) {
+                    const removed = ring.shift() as string;
+                    journal.push(`took ${removed}`);
+                } else {
+                    journal.push('bare');
+                }
+                break;
+            case 'peek':
+                if (!Array.isArray(operation) || operation.length !== 1) {
+                    throw new Error('Invalid peek operation');
+                }
+                if (ring.length > 0) {
+                    journal.push(`front ${ring[0]}`);
+                } else {
+                    journal.push('bare');
+                }
+                break;
+            default:
+                throw new Error('Unknown operation');
+        }
+    }
+
+    return { contents: ring, journal, lost };
+}
+```

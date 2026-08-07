@@ -1,0 +1,36 @@
+```ts
+export function turnCostRoute(grid: number[][], stepCost: number, turnCost: number): number {
+  if (grid.length === 0 || grid.some(row => row.length !== grid[0].length)) throw new Error('Invalid grid');
+  if (![1, 2].includes(stepCost) || !Number.isInteger(stepCost)) throw new Error('Invalid stepCost');
+  if (!Number.isInteger(turnCost) || turnCost < 0) throw new Error('Invalid turnCost');
+
+  const rows = grid.length;
+  const cols = grid[0].length;
+  if (grid[rows - 1][cols - 1] === 1) return -1;
+
+  const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+  const distance = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+  const prevDirection = Array.from({ length: rows }, () => Array(cols).fill(null));
+
+  distance[0][0] = 0;
+  const queue: [number, number][] = [[0, 0]];
+
+  while (queue.length > 0) {
+    const [x, y] = queue.shift()!;
+    for (const [dx, dy] of directions) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx >= 0 && nx < rows && ny >= 0 && ny < cols && grid[nx][ny] === 0) {
+        const newDistance = distance[x][y] + stepCost + (prevDirection[x][y] !== [dx, dy] ? turnCost : 0);
+        if (newDistance < distance[nx][ny]) {
+          distance[nx][ny] = newDistance;
+          prevDirection[nx][ny] = [dx, dy];
+          queue.push([nx, ny]);
+        }
+      }
+    }
+  }
+
+  return distance[rows - 1][cols - 1] === Infinity ? -1 : distance[rows - 1][cols - 1];
+}
+```

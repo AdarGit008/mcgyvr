@@ -1,0 +1,56 @@
+```python
+def fold_formula(recipe: str) -> str:
+    if not recipe or not isinstance(recipe, str):
+        raise ValueError("Invalid input")
+
+    def parse_tag(tag: str) -> tuple:
+        if len(tag) < 1 or len(tag) > 3 or not tag[0].isupper():
+            raise ValueError("Invalid tag")
+        return tag[0], tag[1:]
+
+    def parse_repeat(repeat: str) -> int:
+        if repeat == "":
+            return 1
+        if repeat[0] == '0':
+            raise ValueError("Repeat cannot start with zero")
+        return int(repeat)
+
+    def parse_body(body: str, acc: dict = None) -> dict:
+        if acc is None:
+            acc = {}
+        if body.startswith('('):
+            close_index = body.find(')')
+            if close_index == -1:
+                raise ValueError("Unmatched parenthesis")
+            inner_recipe = body[1:close_index]
+            repeat = parse_repeat(body[close_index + 1:])
+            for tag, count in parse_formula(inner_recipe).items():
+                acc[tag] = acc.get(tag, 0) + count * repeat
+        else:
+            tag = parse_tag(body)
+            repeat = parse_repeat("")
+            acc[tag] = acc.get(tag, 0) + repeat
+        return acc
+
+    def parse_formula(formula: str) -> dict:
+        i = 0
+        result = {}
+        while i < len(formula):
+            if formula[i].isalpha():
+                j = i + 1
+                while j < len(formula) and formula[j].islower() and j - i <= 2:
+                    j += 1
+                body = formula[i:j]
+                repeat = parse_repeat(formula[j:])
+                for tag, count in parse_body(body).items():
+                    result[tag] = result.get(tag, 0) + count * repeat
+                i = j + len(repeat)
+            else:
+                raise ValueError("Invalid character")
+        return result
+
+    formula_dict = parse_formula(recipe)
+    sorted_tags = sorted(formula_dict.keys())
+    result = "".join(f"{tag}{formula_dict[tag]}{'' if formula_dict[tag] == 1 else ''}" for tag in sorted_tags)
+    return result
+```

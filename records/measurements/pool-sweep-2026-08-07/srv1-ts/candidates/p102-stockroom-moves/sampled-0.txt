@@ -1,0 +1,51 @@
+```ts
+export function processStockMoves(moves: Array<Record<string, unknown>>): { levels: Record<string, number>; refused: Array<[number, string]> } {
+  const levels: Record<string, number> = {};
+  const refused: Array<[number, string]> = [];
+
+  for (let i = 0; i < moves.length; i++) {
+    const move = moves[i];
+    if (!move || typeof move !== "object" || !("op" in move) || !("item" in move) || !("qty" in move)) {
+      throw new Error("Invalid move");
+    }
+    const { op, item, qty } = move;
+    if (typeof item !== "string" || item === "") {
+      throw new Error("Invalid item name");
+    }
+    if (!Number.isInteger(qty)) {
+      throw new Error("Invalid quantity");
+    }
+
+    switch (op) {
+      case "receive":
+        if (qty < 1) {
+          throw new Error("Invalid receive quantity");
+        }
+        levels[item] = (levels[item] || 0) + qty;
+        break;
+      case "issue":
+        if (qty < 1) {
+          throw new Error("Invalid issue quantity");
+        }
+        if (!(item in levels)) {
+          refused.push([i, "unknown_item"]);
+        } else if (levels[item] < qty) {
+          refused.push([i, "short"]);
+        } else {
+          levels[item] -= qty;
+        }
+        break;
+      case "recount":
+        if (qty < 0) {
+          throw new Error("Invalid recount quantity");
+        }
+        levels[item] = qty;
+        break;
+      default:
+        throw new Error("Unknown operation");
+    }
+  }
+
+  return { levels, refused };
+}
+```

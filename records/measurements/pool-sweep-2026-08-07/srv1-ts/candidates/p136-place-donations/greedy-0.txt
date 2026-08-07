@@ -1,0 +1,45 @@
+```ts
+export function placeDonations(requests: Array<{ id: string; kind: string; from: number; to: number; urgent: boolean }>, lots: Array<{ id: string; kind: string; day: number }>): Array<[string, string]> {
+    const result: [string, string][] = [];
+    const requestMap = new Map<string, { kind: string; from: number; to: number; urgent: boolean }>();
+    const lotMap = new Map<string, { kind: string; day: number }>();
+
+    // Validate and populate maps
+    requests.forEach(req => {
+        if (requestMap.has(req.id)) throw new Error(`Duplicate request id: ${req.id}`);
+        if (!Number.isInteger(req.from) || !Number.isInteger(req.to) || req.from > req.to) throw new Error(`Invalid request span for id: ${req.id}`);
+        requestMap.set(req.id, req);
+    });
+
+    lots.forEach(lot => {
+        if (lotMap.has(lot.id)) throw new Error(`Duplicate lot id: ${lot.id}`);
+        if (!Number.isInteger(lot.day)) throw new Error(`Invalid lot day for id: ${lot.id}`);
+        lotMap.set(lot.id, lot);
+    });
+
+    // Process lots in order
+    lots.forEach(lot => {
+        const { kind, day } = lot;
+        let bestRequest: [string, number] | null = null;
+
+        requestMap.forEach((req, reqId) => {
+            if (day < req.from || day > req.to) return; // Lot does not fit the request's span
+            if (kind !== req.kind && kind !== "ANY") return; // Lot kind does not match request kind
+
+            if (!bestRequest || 
+                (req.urgent && !bestRequest[1]) ||
+                (req.urgent === bestRequest[1] && day < bestRequest[0]) ||
+                (req.urgent === bestRequest[1] && day === bestRequest[0] && reqId < requestMap.get(bestRequest[0])!.id)) {
+                bestRequest = [day, reqId];
+            }
+        });
+
+        if (bestRequest) {
+            result.push([lot.id, bestRequest[1]]);
+            requestMap.delete(bestRequest[1]);
+        }
+    });
+
+    return result;
+}
+```

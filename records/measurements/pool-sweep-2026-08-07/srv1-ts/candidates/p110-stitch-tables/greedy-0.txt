@@ -1,0 +1,38 @@
+```ts
+export function stitchTables(
+  left: Array<Record<string, unknown>>,
+  right: Array<Record<string, unknown>>,
+  key: string,
+  mode: string
+): Array<Record<string, unknown>> {
+  if (mode !== "inner" && mode !== "left") {
+    throw new Error("Invalid mode");
+  }
+
+  const rightMap = new Map<string, Record<string, unknown>>();
+  for (const record of right) {
+    if (typeof record[key] !== "string") {
+      throw new Error("Right table key must be a string");
+    }
+    if (rightMap.has(record[key])) {
+      throw new Error("Duplicate key in right table");
+    }
+    rightMap.set(record[key], record);
+  }
+
+  const result: Array<Record<string, unknown>> = [];
+  for (const leftRecord of left) {
+    if (typeof leftRecord[key] !== "string") {
+      throw new Error("Left table key must be a string");
+    }
+    const rightRecord = rightMap.get(leftRecord[key]);
+    if (rightRecord) {
+      result.push({ ...leftRecord, ...rightRecord });
+    } else if (mode === "left") {
+      result.push({ ...leftRecord, ...Object.fromEntries(rightMap.values().map(r => [r[key], null])) });
+    }
+  }
+
+  return result;
+}
+```

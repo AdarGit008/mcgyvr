@@ -1,0 +1,42 @@
+```ts
+export function changedCells(
+  cells: Record<string, string>,
+  name: string,
+  replacement: string,
+): string[] {
+  if (!(name in cells)) {
+    throw new Error(`unknown cell ${name}`);
+  }
+  const evaluate = (cell: string): number => {
+    if (!cells[cell].startsWith("=")) {
+      return parseInt(cells[cell], 10);
+    }
+    const refs = cells[cell]
+      .slice(1)
+      .split("+")
+      .map((part) => part.trim());
+    return refs.reduce((acc, ref) => acc + evaluate(ref), 0);
+  };
+
+  const before = evaluate(name);
+  cells[name] = replacement;
+  const after = evaluate(name);
+
+  if (before === after) {
+    return [];
+  }
+
+  const changed: string[] = [];
+  for (const [cell, raw] of Object.entries(cells)) {
+    if (!raw.startsWith("=")) {
+      continue;
+    }
+    const refs = raw.slice(1).split("+").map((part) => part.trim());
+    if (refs.includes(name)) {
+      changed.push(cell);
+    }
+  }
+
+  return changed.sort();
+}
+```

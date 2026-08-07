@@ -1,0 +1,22 @@
+```python
+def rollup_totals(nodes: dict[str, dict]) -> dict[str, int]:
+    if len(nodes) == 0:
+        raise ValueError("Input contains no nodes")
+    
+    roots = [node_id for node_id, node in nodes.items() if node["parent"] == ""]
+    if len(roots) != 1:
+        raise ValueError(f"Invalid number of root nodes: {len(roots)}")
+
+    def compute_total(node_id: str) -> int:
+        total = nodes[node_id]["value"]
+        for child_id, child in nodes.items():
+            if child["parent"] == node_id:
+                total += compute_total(child_id)
+        return total
+
+    totals = {}
+    for root in roots:
+        totals[root] = compute_total(root)
+
+    return totals
+```

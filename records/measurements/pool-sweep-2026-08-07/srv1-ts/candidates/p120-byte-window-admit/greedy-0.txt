@@ -1,0 +1,41 @@
+```ts
+export function admitBytes(perKey: number, total: number, span: number, entries: (string | number)[][]): string[] {
+    if (!Number.isInteger(perKey) || perKey <= 0) throw new Error('perKey must be a positive integer');
+    if (!Number.isInteger(total) || total <= 0) throw new Error('total must be a positive integer');
+    if (!Number.isInteger(span) || span <= 0) throw new Error('span must be a positive integer');
+
+    const result: string[] = [];
+    const keyCarries: { [key: string]: number } = {};
+    let overallCarry = 0;
+    let lastTime = -1;
+
+    for (const entry of entries) {
+        if (entry.length !== 3) throw new Error('Each entry must have three elements');
+        const [time, key, size] = entry as [number, string, number];
+        if (!Number.isInteger(time) || time < lastTime) throw new Error('Times must be non-decreasing integers');
+        if (typeof key !== 'string' || key === '') throw new Error('Key must be a non-empty string');
+        if (!Number.isInteger(size) || size <= 0) throw new Error('Size must be a positive integer');
+
+        lastTime = time;
+
+        // Remove expired entries
+        for (const k in keyCarries) {
+            if (time - keyCarries[k] >= span) delete keyCarries[k];
+        }
+
+        const currentKeyCarry = keyCarries[key] || 0;
+        const newKeyCarry = currentKeyCarry + size;
+        const newOverallCarry = overallCarry + size;
+
+        if (newKeyCarry <= perKey && newOverallCarry <= total) {
+            result.push('pass');
+            keyCarries[key] = time;
+            overallCarry = newOverallCarry;
+        } else {
+            result.push('drop');
+        }
+    }
+
+    return result;
+}
+```

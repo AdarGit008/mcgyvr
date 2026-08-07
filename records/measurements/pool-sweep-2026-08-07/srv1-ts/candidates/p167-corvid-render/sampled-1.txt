@@ -1,0 +1,26 @@
+```ts
+export function corvidRender(value: number): string {
+  if (!Number.isInteger(value)) {
+    throw new Error("Input must be a whole number");
+  }
+
+  const marks = ['v', 'w', 'x', 'y', 'z'];
+  let result = '';
+  let remainingValue = Math.abs(value);
+
+  if (value === 0) {
+    return 'x';
+  } else if (value < 0) {
+    result += '-';
+  }
+
+  for (let i = marks.length - 1; i >= 0; i--) {
+    while (remainingValue >= Math.pow(5, i)) {
+      remainingValue -= Math.pow(5, i);
+      result += marks[i];
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,49 @@
+```python
+def run_loom(program: list) -> dict:
+    stack = []
+    woven_output = []
+    status = "running"
+    step = -1
+
+    for i, instruction in enumerate(program):
+        step = i
+        if isinstance(instruction, list) and len(instruction) == 2:
+            command, value = instruction
+            if command == "put":
+                stack.append(value)
+            elif command == "twin":
+                if not stack:
+                    status = "starved"
+                    break
+                stack.append(stack[-1])
+            elif command == "flip":
+                if len(stack) < 2:
+                    status = "starved"
+                    break
+                stack[-1], stack[-2] = stack[-2], stack[-1]
+            elif command == "fuse":
+                if len(stack) < 2:
+                    status = "starved"
+                    break
+                a, b = stack.pop(), stack.pop()
+                stack.append(a + b)
+            elif command == "scale":
+                if len(stack) < 2:
+                    status = "starved"
+                    break
+                a, b = stack.pop(), stack.pop()
+                stack.append(a * b)
+            elif command == "weave":
+                if not stack:
+                    status = "starved"
+                    break
+                woven_output.append(stack.pop())
+        else:
+            status = "lost"
+            break
+
+    if status == "running" and not program:
+        status = "done"
+
+    return {"status": status, "output": woven_output}
+```

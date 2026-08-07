@@ -1,0 +1,46 @@
+```python
+def assign_berths(berths: list, quota: dict, requests: list) -> list:
+    occupied_berries = {}
+    results = []
+
+    for request in requests:
+        op = request["op"]
+        boat_id = request.get("boat")
+        owner = request.get("owner")
+        size = request.get("size")
+
+        if not boat_id or not owner and op == "dock":
+            raise ValueError("Invalid request: missing boat_id or owner")
+
+        if op == "dock":
+            if boat_id in occupied_berries:
+                results.append("rejected:already_docked")
+                continue
+
+            if owner:
+                current_count = occupied_berries.get(owner, 0)
+                if quota.get(owner, float('inf')) <= current_count:
+                    results.append("rejected:over_quota")
+                    continue
+
+            for berth in berths:
+                if berth["size"] >= size and berth["id"] not in occupied_berries.values():
+                    occupied_berries[boat_id] = berth["id"]
+                    results.append(str(berth["id"]))
+                    break
+            else:
+                results.append("rejected:no_berth")
+
+        elif op == "leave":
+            if boat_id not in occupied_berries:
+                results.append("rejected:not_docked")
+                continue
+
+            del occupied_berries[boat_id]
+            results.append("left")
+
+        else:
+            raise ValueError(f"Unknown operation: {op}")
+
+    return results
+```

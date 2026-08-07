@@ -1,0 +1,18 @@
+```typescript
+export function packFields(widths: number[], values: number[]): number {
+  if (widths.length !== values.length) throw new Error("Unequal lengths");
+  if (widths.length === 0) throw new Error("Empty input");
+
+  const totalWidth = widths.reduce((acc, width) => acc + width, 0);
+  if (totalWidth > 30 || totalWidth <= 0) throw new Error("Invalid combined width");
+
+  return widths.map((width, index) => {
+    const value = values[index];
+    if (!Number.isInteger(value)) throw new Error("Non-integer value");
+    if (value < 0) throw new Error("Negative value");
+    if (value >= Math.pow(2, width)) throw new Error("Value too large for its width");
+
+    return value << (totalWidth - width);
+  }).reduce((acc, shiftedValue) => acc | shiftedValue, 0);
+}
+```

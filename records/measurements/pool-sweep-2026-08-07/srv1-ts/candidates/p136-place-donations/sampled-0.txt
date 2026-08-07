@@ -1,0 +1,31 @@
+```ts
+export function placeDonations(requests: Array<{ id: string; kind: string; from: number; to: number; urgent: boolean }>, lots: Array<{ id: string; kind: string; day: number }>): Array<[string, string]> {
+    const placed: Array<[string, string]> = [];
+    const openRequests: Map<string, { lotId: string | null, request: typeof requests[0] }> = new Map();
+
+    for (const [i, lot] of lots.entries()) {
+        if (!Number.isInteger(lot.day)) throw new Error(`Invalid day ${lot.day} at index ${i}`);
+        if (lot.day < 0) throw new Error(`Negative day ${lot.day} at index ${i}`);
+
+        let bestRequest: { id: string; kind: string; from: number; to: number; urgent: boolean } | null = null;
+        for (const request of requests) {
+            if (!Number.isInteger(request.from) || !Number.isInteger(request.to)) throw new Error(`Invalid span ${request.from}-${request.to} for request ${request.id}`);
+            if (request.from > request.to) throw new Error(`Invalid span with from greater than to for request ${request.id}`);
+
+            if ((request.kind === "ANY" || lot.kind === request.kind) && lot.day >= request.from && lot.day <= request.to) {
+                if (!bestRequest || request.urgent || (request.to - request.from < bestRequest.to - bestRequest.from) || (request.to - request.from === bestRequest.to - bestRequest.from && openRequests.get(bestRequest.id)?.lotId !== null)) {
+                    bestRequest = request;
+                }
+            }
+        }
+
+        if (bestRequest) {
+            const [lotId, requestId] = [lot.id, bestRequest.id];
+            placed.push([lotId, requestId]);
+            openRequests.set(requestId, { lotId: lotId, request: bestRequest });
+        }
+    }
+
+    return placed;
+}
+```

@@ -1,0 +1,30 @@
+```ts
+export function parseDuration(input: string): number {
+    if (typeof input !== 'string' || input === '') {
+        throw new Error('Invalid input');
+    }
+
+    const unitMap: { [key: string]: number } = { d: 86400, h: 3600, m: 60, s: 1 };
+    const regex = /^(\d+)\s*([dhms])\b/;
+
+    let totalSeconds = 0;
+    while (input.length > 0) {
+        const match = input.match(regex);
+        if (!match) {
+            throw new Error('Unknown unit or format');
+        }
+
+        const value = parseInt(match[1], 10);
+        const unit = match[2];
+
+        if (isNaN(value) || value < 0) {
+            throw new Error('Missing value or non-negative integer required');
+        }
+
+        totalSeconds += value * unitMap[unit];
+        input = input.replace(regex, '');
+    }
+
+    return totalSeconds;
+}
+```

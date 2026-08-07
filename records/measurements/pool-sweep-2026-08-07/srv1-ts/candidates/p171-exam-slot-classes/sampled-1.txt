@@ -1,0 +1,46 @@
+```typescript
+export function examSlotClasses(conflicts: number[][]): number[][] {
+  if (!Array.isArray(conflicts) || conflicts.length === 0) {
+    throw new Error("Invalid input: must be a non-empty list of lists");
+  }
+
+  const numExams = conflicts.length;
+  for (let i = 0; i < numExams; i++) {
+    if (!Array.isArray(conflicts[i]) || conflicts[i].length === 0) {
+      throw new Error("Invalid input: each entry must be a non-empty list");
+    }
+    for (const j of conflicts[i]) {
+      if (j >= numExams || j < 0 || i === j || conflicts[j].indexOf(i) === -1) {
+        throw new Error("Invalid input: exam references must be valid and bidirectional");
+      }
+    }
+  }
+
+  const conflictCounts = new Array(numExams).fill(0);
+  for (let i = 0; i < numExams; i++) {
+    conflictCounts[i] = conflicts[i].length;
+  }
+
+  const sortedExams = [...conflictCounts.entries()].sort((a, b) => {
+    if (b[1] !== a[1]) return b[1] - a[1];
+    return a[0] - b[0];
+  }).map(([exam]) => exam);
+
+  const sittings: number[][] = [];
+  for (const exam of sortedExams) {
+    let placed = false;
+    for (let i = 0; i < sittings.length; i++) {
+      if (!sittings[i].some(otherExam => conflicts[exam].includes(otherExam))) {
+        sittings[i].push(exam);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      sittings.push([exam]);
+    }
+  }
+
+  return sittings;
+}
+```

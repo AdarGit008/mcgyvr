@@ -1,0 +1,46 @@
+```ts
+export function squashJournal(ops: (string | number)[][]): (string | number)[][] {
+  const keyMap = new Map<string, { value: number; lastPutIndex: number }>();
+  const result: (string | number)[][] = [];
+
+  for (let i = ops.length - 1; i >= 0; i--) {
+    const [op, ...args] = ops[i];
+    if (op === "put") {
+      const [key, value] = args as [string, number];
+      if (typeof key !== "string" || key === "" || typeof value !== "number" || value <= 0) {
+        throw new Error("Invalid put operation");
+      }
+      keyMap.set(key, { value, lastPutIndex: i });
+    } else if (op === "del") {
+      const [key] = args as [string];
+      if (typeof key !== "string" || key === "" || !keyMap.has(key)) {
+        throw new Error("Invalid del operation");
+      }
+      keyMap.delete(key);
+    } else if (op === "ren") {
+      const [oldKey, newKey] = args as [string, string];
+      if (
+        typeof oldKey !== "string" ||
+        oldKey === "" ||
+        typeof newKey !== "string" ||
+        newKey === "" ||
+        !keyMap.has(oldKey) ||
+        keyMap.has(newKey)
+      ) {
+        throw new Error("Invalid ren operation");
+      }
+      const { value, lastPutIndex } = keyMap.get(oldKey)!;
+      keyMap.delete(oldKey);
+      keyMap.set(newKey, { value, lastPutIndex });
+    } else {
+      throw new Error("Unknown operation");
+    }
+  }
+
+  for (const [key, { value }] of keyMap) {
+    result.push(["put", key, value]);
+  }
+
+  return result;
+}
+```

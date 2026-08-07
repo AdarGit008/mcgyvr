@@ -1,0 +1,36 @@
+```python
+def admit_bytes(per_key: int, total: int, span: int, entries: list) -> list:
+    if not all(isinstance(x, int) and x > 0 for x in [per_key, total, span]):
+        raise ValueError("perKey, total, and span must be positive integers")
+    if any(not isinstance(entry[1], str) or entry[1] == "" for entry in entries):
+        raise ValueError("key must be a non-empty string")
+    if any(isinstance(entry[2], int) and entry[2] > 0 for entry in entries):
+        raise ValueError("size must be a positive integer")
+    if any(entry[0] < 0 for entry in entries):
+        raise ValueError("time must not be negative")
+    if any(entries[i][0] > entries[i + 1][0] for i in range(len(entries) - 1)):
+        raise ValueError("times must not run backwards")
+
+    carried = {}
+    total_carried = 0
+    result = []
+
+    for time, key, size in entries:
+        while carried and time - list(carried.keys())[0] >= span:
+            oldest_key = next(iter(carried))
+            oldest_size = carried[oldest_key]
+            del carried[oldest_key]
+            total_carried -= oldest_size
+
+        if key not in carried:
+            carried[key] = 0
+        carried[key] += size
+        total_carried += size
+
+        if carried[key] <= per_key and total_carried <= total:
+            result.append("pass")
+        else:
+            result.append("drop")
+
+    return result
+```

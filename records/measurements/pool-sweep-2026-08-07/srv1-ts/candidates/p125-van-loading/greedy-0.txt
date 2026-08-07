@@ -1,0 +1,22 @@
+```ts
+export function loadVans(parcels: number[]): number[] {
+  if (parcels.length === 0) throw new Error("Parcel list cannot be empty");
+  for (const weight of parcels) {
+    if (weight < 1) throw new Error("Parcel weights must be positive integers");
+  }
+
+  const firstVan = 0;
+  const secondVan = 0;
+  const sortedParcels = parcels.sort((a, b) => b - a);
+
+  for (const parcel of sortedParcels) {
+    if (firstVan <= secondVan) {
+      firstVan += parcel;
+    } else {
+      secondVan += parcel;
+    }
+  }
+
+  return [firstVan, secondVan];
+}
+```

@@ -1,0 +1,22 @@
+```python
+def decode_varints(data: list) -> list[int]:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    
+    result = []
+    i = 0
+    while i < len(data):
+        value = 0
+        shift = 0
+        while True:
+            byte = data[i]
+            if byte < 0 or byte > 255:
+                raise ValueError("Byte out of range: {}".format(byte))
+            i += 1
+            value |= (byte & 0x7F) << shift
+            shift += 7
+            if not (byte & 0x80):
+                break
+        result.append(value)
+    return result
+```

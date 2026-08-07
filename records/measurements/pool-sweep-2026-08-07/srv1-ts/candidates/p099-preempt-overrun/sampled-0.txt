@@ -1,0 +1,67 @@
+```ts
+export function preemptFirstOverrun(jobs: Array<Record<string, unknown>>): string {
+  const seen = new Set<string>();
+  for (const job of jobs) {
+    if (typeof job.name !== "string" || job.name === "") {
+      throw new Error("name must be a non-empty string");
+    }
+    if (seen.has(job.name)) {
+      throw new Error(`name repeated: ${job.name}`);
+    }
+    seen.add(job.name);
+    if (!Number.isInteger(job.at) || (job.at as number) < 0) {
+      throw new Error("at must be a non-negative integer");
+    }
+    if (!Number.isInteger(job.work) || (job.work as number) <= 0) {
+      throw new Error("work must be a positive integer");
+    }
+    if (!Number.isInteger(job.due) || (job.due as number) <= 0) {
+      throw new Error("due must be a positive integer");
+    }
+  }
+  const remaining = new Map<string, number>();
+  const at = new Map<string, number>();
+  const due = new Map<string, number>();
+  for (const job of jobs) {
+    remaining.set(job.name as string, job.work as number);
+    at.set(job.name as string, job.at as number);
+    due.set(job.name as string, job.due as number);
+  }
+  const finish = new Map<string, number>();
+  let clock = 0;
+  while (remaining.size > 0) {
+    const ready = [...remaining.keys()].filter(
+      (name) => at.get(name)! <= clock,
+    );
+    if (ready.length === 0) {
+      clock++;
+      continue;
+    }
+    ready.sort((a, b) => due.get(a)! - due.get(b)! || (a < b ? -1 : 1));
+    const run = ready[0];
+    if (finish.size > 0 && due.get(run)! < Math.min(...finish.values())) {
+      break;
+    }
+    clock += Math.min(remaining.get(run)!, due.get(run)! - clock);
+    remaining.set(run, remaining.get(run)! - (due.get(run)! - clock));
+    if (remaining.get(run)! === 0) {
+      finish.set(run, clock);
+      remaining.delete(run);
+      at.delete(run);
+      due.delete(run);
+    }
+  }
+  const missed = jobs.filter(
+    (job) => finish.has(job.name as string)! < (job.due as number),
+  );
+  if (missed.length === 0) {
+    return "";
+  }
+  missed.sort(
+    (a, b) =>
+      (a.due as number) - (b.due as number) ||
+      ((a.name as string) < (b.name as string) ? -1 : 1),
+  );
+  return missed[0].name as string;
+}
+```

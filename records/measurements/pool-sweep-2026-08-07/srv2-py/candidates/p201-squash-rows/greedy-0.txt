@@ -1,0 +1,49 @@
+```python
+"""A chart with its twin rows squashed together."""
+
+
+def squash_rows(chart: dict) -> dict:
+    signals = chart.get("signals")
+    if not signals or len(signals) != len(set(signals)) or any(not isinstance(signal, str) or signal == "" for signal in signals):
+        raise ValueError("Invalid signals")
+
+    rows = chart.get("rows")
+    if not rows:
+        raise ValueError("No rows")
+
+    group_of = {}
+    chosen = []
+    seen = {}
+
+    for row in rows:
+        label = row.get("label")
+        mark = row.get("mark")
+        next_labels = row.get("next")
+
+        if not isinstance(label, str) or label == "":
+            raise ValueError("Invalid row label")
+        if not isinstance(mark, str) or mark == "":
+            raise ValueError("Invalid row mark")
+        if not isinstance(next_labels, list) or len(next_labels) != len(signals):
+            raise ValueError("Invalid next list")
+
+        key = mark + "|" + ",".join(next_labels)
+        if key not in seen:
+            seen[key] = len(chosen)
+            chosen.append(row)
+        group_of[label] = seen[key]
+
+    folded = [
+        {
+            "at": at,
+            "mark": row["mark"],
+            "next": [group_of[label] for label in row["next"]],
+        }
+        for at, row in enumerate(chosen)
+    ]
+
+    if chart["head"] not in group_of:
+        raise ValueError("Head row does not exist")
+
+    return {"entry": group_of[chart["head"]], "rows": folded}
+```

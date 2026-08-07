@@ -1,0 +1,49 @@
+```ts
+export function resolveProfile(profiles: Record<string, Record<string, unknown>>, wanted: string): Record<string, unknown> {
+    const visited = new Set<string>();
+
+    function getSettings(name: string): Record<string, unknown> {
+        if (visited.has(name)) throw new Error("Inheritance chain detected");
+        visited.add(name);
+
+        const profile = profiles[name];
+        if (!profile) throw new Error(`Profile '${name}' not found`);
+
+        const settings: Record<string, unknown> = {};
+
+        let currentName: string | undefined = name;
+        while (currentName) {
+            const currentProfile = profiles[currentName];
+            if (!currentProfile) break;
+
+            if (currentProfile.extends) {
+                currentName = currentProfile.extends as string;
+                continue;
+            }
+
+            for (const key in currentProfile) {
+                if (key !== "extends") settings[key] = currentProfile[key];
+            }
+
+            break;
+        }
+
+        return settings;
+    }
+
+    const settings: Record<string, unknown> = {};
+    let currentName: string | undefined = wanted;
+    while (currentName) {
+        const currentSettings = getSettings(currentName);
+        for (const key in currentSettings) {
+            if (key !== "extends") settings[key] = currentSettings[key];
+        }
+
+        if (!profiles[currentName]?.extends) break;
+
+        currentName = profiles[currentName].extends as string;
+    }
+
+    return settings;
+}
+```

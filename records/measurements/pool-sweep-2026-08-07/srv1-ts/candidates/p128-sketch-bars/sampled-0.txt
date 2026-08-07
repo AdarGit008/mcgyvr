@@ -1,0 +1,19 @@
+```ts
+export function sketchBars(values: number[], budget: number): string[] {
+  if (values.length === 0) {
+    throw new Error("Input values list cannot be empty.");
+  }
+  if (budget < 1) {
+    throw new Error("Budget must be a positive integer.");
+  }
+
+  const largest = Math.max(...values);
+  return values.map(v => {
+    if (v === 0) {
+      return ".".repeat(budget);
+    }
+    const filledCells = Math.ceil((v * budget) / largest);
+    return "#".repeat(filledCells) + ".".repeat(budget - filledCells);
+  });
+}
+```

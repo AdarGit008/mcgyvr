@@ -1,0 +1,37 @@
+```python
+def tree_delta(before: dict, after: dict) -> list:
+    if before["name"] != after["name"]:
+        raise ValueError("Root names differ")
+    
+    def check_children(parent_path, before_children, after_children):
+        result = []
+        seen_names = set()
+        
+        for after_child in after_children:
+            after_name = after_child["name"]
+            if after_name in seen_names:
+                raise ValueError(f"Duplicate child name '{after_name}' under {parent_path}")
+            seen_names.add(after_name)
+            
+            before_child = next((child for child in before_children if child["name"] == after_name), None)
+            if before_child is None:
+                result.append({"op": "add", "path": f"{parent_path}/{after_name}", "value": after_child["value"]})
+                result.extend(check_children(f"{parent_path}/{after_name}", [], after_child["children"]))
+            else:
+                if before_child["value"] != after_child["value"]:
+                    result.append({
+                        "op": "change",
+                        "path": f"{parent_path}/{after_name}",
+                        "from": before_child["value"],
+                        "to": after_child["value"]
+                    })
+                result.extend(check_children(f"{parent_path}/{after_name}", [before_child], after_child["children"]))
+        
+        for before_child in before_children:
+            if before_child["name"] not in seen_names:
+                result.append({"op": "remove", "path": f"{parent_path}/{before_child['name']}"})
+        
+        return result
+    
+    return check_children("", [before], [after])
+```

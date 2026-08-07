@@ -1,0 +1,16 @@
+```python
+def count_strip_tilings(width: int) -> int:
+    if width < 0 or not isinstance(width, int):
+        raise ValueError("Width must be a non-negative integer")
+    
+    if width == 0:
+        return 1
+    elif width == 1:
+        return 1
+    
+    prev, curr = 1, 1
+    for _ in range(2, width + 1):
+        prev, curr = curr, prev * 2 + curr
+    
+    return curr
+```

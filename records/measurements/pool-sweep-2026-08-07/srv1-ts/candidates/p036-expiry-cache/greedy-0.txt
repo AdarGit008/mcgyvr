@@ -1,0 +1,42 @@
+```ts
+export function expiryCache(capacity: number, ops: (string | number)[][]): number[] {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error('Invalid capacity');
+  }
+
+  const cache: { [key: string]: { value: number; expiry: number } } = {};
+  let time = 0;
+  const result: number[] = [];
+
+  for (const op of ops) {
+    if (op[0] === 'set') {
+      const [, t, k, v, ttl] = op as [string, number, string, number, number];
+      if (!Number.isInteger(t) || !Number.isInteger(ttl) || ttl <= 0 || t < time) {
+        throw new Error('Invalid set operation');
+      }
+      time = t;
+      cache[k] = { value: v, expiry: time + ttl };
+      while (Object.keys(cache).length > capacity) {
+        const earliestExpiry = Math.min(...Object.values(cache).map(entry => entry.expiry));
+        for (const key in cache) {
+          if (cache[key].expiry === earliestExpiry) {
+            delete cache[key];
+            break;
+          }
+        }
+      }
+    } else if (op[0] === 'get') {
+      const [, t, k] = op as [string, number, string];
+      if (!Number.isInteger(t) || t < time) {
+        throw new Error('Invalid get operation');
+      }
+      time = t;
+      result.push(cache[k]?.expiry > time ? cache[k].value : -1);
+    } else {
+      throw new Error('Unknown operation');
+    }
+  }
+
+  return result;
+}
+```

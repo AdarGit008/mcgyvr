@@ -1,0 +1,45 @@
+```python
+def link_ledger_marks(marks: list[str], aliases: dict[str, str]) -> list:
+    def parse_mark(mark: str) -> tuple:
+        parts = mark.split()
+        house_code, serial_check = parts[0].split('-')
+        if len(serial_check) != 2 and not serial_check.isdigit():
+            raise ValueError("Malformed mark")
+        serial = int(serial_check[:-1])
+        check_letter = serial_check[-1]
+        if serial == 0 or not check_letter.isalpha() or \
+           (ord(check_letter.upper()) - ord('A')) % 26 != serial:
+            raise ValueError("Wrong check letter or zero serial")
+        return house_code.upper(), serial, check_letter
+
+    def resolve_alias(code: str) -> str:
+        while code in aliases and aliases[code] not in aliases:
+            code = aliases[code]
+        if code in aliases:
+            raise ValueError("Invalid alias mapping")
+        return code
+
+    parsed_marks = []
+    unique_entries = set()
+    for mark in marks:
+        if not isinstance(mark, str):
+            raise ValueError("Non-string mark")
+        try:
+            house_code, serial, check_letter = parse_mark(mark)
+            resolved_house_code = resolve_alias(house_code)
+            entry = (resolved_house_code, serial, check_letter)
+            if entry not in unique_entries:
+                unique_entries.add(entry)
+                parsed_marks.append((mark, [mark]))
+        except ValueError as e:
+            raise ValueError(f"Malformed mark: {e}")
+
+    result = []
+    canonical_form = lambda x: f"{x[0]}-{x[1]:02d}-{chr(x[2] + ord('A'))}"
+    for entry in unique_entries:
+        canonical_entry = canonical_form(entry)
+        raws = [mark for mark, marks in parsed_marks if marks and (parsed_marks.marks[0], parsed_marks.marks[1], parsed_marks.marks[2]) == entry]
+        result.append((canonical_entry, raws))
+
+    return result
+```

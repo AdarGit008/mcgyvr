@@ -1,0 +1,51 @@
+```python
+def expand_span_grammar(pattern: str) -> list:
+    def parse_group(group):
+        if ".." in group:
+            start, end = map(int, group.split(".."))
+            width = len(str(start))
+            return [f"{i:0{width}d}" for i in range(start, end + 1)]
+        else:
+            return [choice.strip() for choice in group.split("|")]
+
+    def expand(groups):
+        if not groups:
+            return [""]
+        expansions = []
+        for choice in parse_group(groups[0]):
+            for rest in expand(groups[1:]):
+                expansions.append(choice + rest)
+        return expansions
+
+    if pattern.count("<") != pattern.count(">"):
+        raise ValueError("Unbalanced < and >")
+    if pattern.endswith("~"):
+        raise ValueError("Trailing ~")
+
+    groups = []
+    i = 0
+    while i < len(pattern):
+        if pattern[i] == "<":
+            j = pattern.find(">", i)
+            if j == -1:
+                raise ValueError("Unclosed group")
+            groups.append(pattern[i + 1:j])
+            i = j + 1
+        elif pattern[i] == "~":
+            if i + 1 >= len(pattern) or pattern[i + 1] not in "<> |~":
+                raise ValueError("Invalid escape sequence")
+            groups.append(pattern[i + 1])
+            i += 2
+        else:
+            j = i + 1
+            while j < len(pattern) and pattern[j].isalnum():
+                j += 1
+            groups.append(pattern[i:j])
+            i = j
+
+    expansions = expand(groups)
+    if len(expansions) > 500:
+        raise ValueError("Too many expansions")
+
+    return sorted(set(expansions))
+```

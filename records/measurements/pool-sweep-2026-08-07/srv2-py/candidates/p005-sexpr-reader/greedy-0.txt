@@ -1,0 +1,44 @@
+```python
+def read_sexpr(text: str) -> object:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    
+    text = text.strip()
+    if not text:
+        raise ValueError("Input cannot be empty or only whitespace")
+    
+    def parse_atom(token: str) -> object:
+        if token.isdigit() or (token[0] == '-' and token[1:].isdigit()):
+            return int(token)
+        elif token.isidentifier():
+            return token
+        else:
+            raise ValueError(f"Invalid atom: {token}")
+    
+    def parse_expr(index: int) -> tuple:
+        if text[index] == '(':
+            index += 1
+            elements = []
+            while text[index] != ')':
+                element, index = parse_expr(index)
+                elements.append(element)
+                if text[index] == ' ':
+                    index += 1
+            if text[index] != ')':
+                raise ValueError("Unclosed list")
+            return elements, index + 1
+        else:
+            end_index = index
+            while end_index < len(text) and text[end_index].isalnum() or text[end_index] in "+-*/!?":
+                end_index += 1
+            atom = text[index:end_index]
+            if not atom:
+                raise ValueError("Stray closing parenthesis")
+            return parse_atom(atom), end_index
+    
+    result, _ = parse_expr(0)
+    if len(text) > _.strip():
+        raise ValueError("Extra characters after the first expression")
+    
+    return result
+```

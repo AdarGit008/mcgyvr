@@ -1,0 +1,28 @@
+```ts
+export function truncatedProduct(left: number[], right: number[], cap: number): number[] {
+  if (!Array.isArray(left) || !Array.isArray(right) || typeof cap !== 'number') {
+    throw new Error('Invalid arguments');
+  }
+  if (left.some(c => typeof c !== 'number' || !Number.isInteger(c)) ||
+      right.some(c => typeof c !== 'number' || !Number.isInteger(c)) ||
+      left.length === 0 || left[left.length - 1] === 0) {
+    throw new Error('Invalid arguments');
+  }
+  if (cap < 0 || !Number.isInteger(cap)) {
+    throw new Error('Invalid arguments');
+  }
+
+  const result: number[] = Array(cap + 1).fill(0);
+  for (let i = 0; i <= Math.min(left.length - 1, cap); i++) {
+    for (let j = 0; j <= Math.min(right.length - 1, cap - i); j++) {
+      result[i + j] += left[i] * right[j];
+    }
+  }
+
+  while (result.length > 1 && result[result.length - 1] === 0) {
+    result.pop();
+  }
+
+  return result;
+}
+```

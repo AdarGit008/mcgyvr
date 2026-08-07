@@ -1,0 +1,46 @@
+```ts
+export function gradeBars(line: string, beats: number, unit: number): string[] {
+  if (typeof line !== 'string') throw new Error('Line must be a string');
+  if (beats < 1) throw new Error('Beats must be at least 1');
+  if (![1, 2, 4, 8, 16].includes(unit)) throw new Error('Unit must be one of 1, 2, 4, 8 or 16');
+
+  const bars = line.split('|').map(bar => bar.trim());
+  const result: string[] = [];
+
+  for (const bar of bars) {
+    if (bar === '') throw new Error('Bar cannot be empty');
+    const notes = bar.split(' ').filter(note => note);
+    if (notes.length === 0) throw new Error('Bar must contain at least one note');
+
+    let totalTicks = 0;
+    for (const note of notes) {
+      if (!['w', 'h', 'q', 'e', 's'].includes(note[0])) throw new Error(`Invalid note: ${note}`);
+      if (note.includes('.')) {
+        const baseNote = note.slice(0, -1);
+        const extraTicks = 0.5 * getTickValue(baseNote);
+        totalTicks += getTickValue(baseNote) + extraTicks;
+      } else {
+        totalTicks += getTickValue(note);
+      }
+    }
+
+    const barTicks = (beats * 64) / unit;
+    if (totalTicks < barTicks) result.push('short');
+    else if (totalTicks === barTicks) result.push('exact');
+    else result.push('long');
+  }
+
+  return result;
+}
+
+function getTickValue(note: string): number {
+  switch (note[0]) {
+    case 'w': return 64;
+    case 'h': return 32;
+    case 'q': return 16;
+    case 'e': return 8;
+    case 's': return 4;
+    default: throw new Error(`Invalid note: ${note}`);
+  }
+}
+```

@@ -1,0 +1,44 @@
+```ts
+export function canHop(pond: string[], from: number[], to: number[]): boolean {
+  const isValidIndex = (index: number) => index >= 0 && index <= 4;
+
+  if (
+    !Array.isArray(pond) ||
+    pond.length !== 5 ||
+    !pond.every(row => typeof row === 'string' && row.length === 5)
+  ) {
+    throw new Error('Invalid pond format');
+  }
+
+  if (!from.every(coord => typeof coord === 'number' && isValidIndex(coord))) {
+    throw new Error('Invalid from coordinates');
+  }
+
+  if (!to.every(coord => typeof coord === 'number' && isValidIndex(coord))) {
+    throw new Error('Invalid to coordinates');
+  }
+
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+
+  if (pond[fromRow][fromCol] !== '.' || pond[toRow][toCol] !== '.') {
+    return false;
+  }
+
+  const isAdjacent = Math.abs(fromRow - toRow) + Math.abs(fromCol - toCol) === 1;
+  if (isAdjacent) return true;
+
+  const midRow = fromRow + (toRow - fromRow) / 2;
+  const midCol = fromCol + (toCol - fromCol) / 2;
+
+  if (
+    isValidIndex(midRow) &&
+    isValidIndex(midCol) &&
+    pond[midRow][midCol] !== '.'
+  ) {
+    return Math.abs(fromRow - toRow) === 2 || Math.abs(fromCol - toCol) === 2;
+  }
+
+  return false;
+}
+```

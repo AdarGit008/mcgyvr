@@ -1,0 +1,20 @@
+```ts
+export function fillPlaceholders(
+  text: string,
+  slots: Record<string, string>
+): string {
+  const regex = /%([^%]+)%/g;
+  let match;
+  let out = text;
+
+  while ((match = regex.exec(text)) !== null) {
+    const name = match[1];
+    if (!slots.hasOwnProperty(name)) {
+      throw new Error(`Unknown slot: ${name}`);
+    }
+    out = out.slice(0, match.index) + slots[name] + out.slice(regex.lastIndex);
+  }
+
+  return out;
+}
+```

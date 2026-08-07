@@ -1,0 +1,22 @@
+```python
+def group_totals(rows: list[dict], key: str, field: str) -> list[list]:
+    if not rows:
+        return []
+
+    totals = {}
+    for row in rows:
+        label = row.get(key)
+        amount = row.get(field)
+
+        if label is None or not isinstance(label, str):
+            raise ValueError(f"Invalid label: {label}")
+        if amount is None or not isinstance(amount, int):
+            raise ValueError(f"Invalid amount: {amount}")
+
+        if label in totals:
+            totals[label] += amount
+        else:
+            totals[label] = amount
+
+    return sorted([[name, total] for name, total in totals.items()], key=lambda x: (-x[1], x[0]))
+```

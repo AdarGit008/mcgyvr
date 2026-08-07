@@ -1,0 +1,29 @@
+```python
+def repair_replicas(replicas: list) -> list:
+    if not replicas:
+        raise ValueError("Replica list cannot be empty")
+    
+    length = len(replicas)
+    if length == 1:
+        return replicas[0]
+    
+    for replica in replicas:
+        if len(replica) != length:
+            raise ValueError("All replicas must have the same length")
+    
+    result = []
+    for i in range(length):
+        values = [replica[i] for replica in replicas if replica[i] is not None]
+        if not values:
+            raise ValueError(f"Position {i} is lost in every replica")
+        
+        from collections import Counter
+        count = Counter(values)
+        majority_value = count.most_common(1)[0][0]
+        if count[majority_value] <= length // 2:
+            raise ValueError(f"No value reaches a strict majority at position {i}")
+        
+        result.append(majority_value)
+    
+    return result
+```

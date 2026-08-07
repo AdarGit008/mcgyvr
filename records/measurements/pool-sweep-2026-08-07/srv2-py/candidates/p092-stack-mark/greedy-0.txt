@@ -1,0 +1,19 @@
+```python
+def canonical_stack_mark(mark: str) -> str:
+    if not isinstance(mark, str):
+        raise ValueError("Input must be a string")
+    
+    parts = [p.strip() for p in mark.split('-') if p]
+    if len(parts) != 3:
+        raise ValueError("Mark must consist of three parts separated by hyphens or spaces")
+    
+    floor, wing, stack = parts
+    if not (floor.isdigit() and 1 <= int(floor) <= 9):
+        raise ValueError("Floor must be a digit from 1 to 9")
+    if wing.lower() not in 'nsew':
+        raise ValueError("Wing must be one of n, s, e, or w")
+    if not (stack.isdigit() and len(stack) <= 3 and int(stack) > 0):
+        raise ValueError("Stack number must be a positive integer with at most three digits")
+    
+    return f"{floor}{wing.upper()}{stack.zfill(3)}"
+```

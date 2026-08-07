@@ -1,0 +1,66 @@
+```ts
+/**
+ * Expands a template string using the provided context and missing-path policy.
+ *
+ * @param template - The template string to expand.
+ * @param context - The context mapping used for path resolution.
+ * @param missing - The missing-path policy ("error", "keep", or "blank").
+ * @returns The expanded template string.
+ */
+export function expandTemplate(template: string, context: Record<string, unknown>, missing: string): string {
+    const result = [];
+    let i = 0;
+
+    while (i < template.length) {
+        if (template.startsWith('$$', i)) {
+            result.push('$');
+            i += 2;
+        } else if (template.startsWith('${', i)) {
+            const end = template.indexOf('}', i + 2);
+            if (end === -1) {
+                throw Error("Mismatched '${' without closing '}'");
+            }
+            const path = template.slice(i + 2, end);
+            i = end + 1;
+            result.push(resolvePath(context, path, missing));
+        } else {
+            result.push(template[i]);
+            i++;
+        }
+    }
+
+    return result.join('');
+}
+
+/**
+ * Resolves a dotted path in the context and returns its value.
+ *
+ * @param context - The context mapping to resolve the path against.
+ * @param path - The dotted path to resolve.
+ * @param missing - The missing-path policy ("error", "keep", or "blank").
+ * @returns The resolved value, or an empty string if the path is missing and the policy is "blank".
+ */
+function resolvePath(context: Record<string, unknown>, path: string, missing: string): string {
+    const segments = path.split('.');
+    let current = context;
+
+    for (const segment of segments) {
+        if (!segment) {
+            throw Error("Empty segment in path");
+        }
+        if (current && typeof current === 'object' && segment in current) {
+            current = (current as Record<string, unknown>)[segment];
+        } else {
+            return missing === "blank" ? "" : `{${path}}`;
+        }
+    }
+
+    if (typeof current === 'string') {
+        return current;
+    } else if (typeof current === 'number' || typeof current === 'bigint') {
+        return current.toString();
+    } else {
+        throw Error(`Invalid type for path ${path}: ${typeof current}`);
+    }
+}
+```

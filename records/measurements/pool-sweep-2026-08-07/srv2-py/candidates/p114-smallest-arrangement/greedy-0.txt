@@ -1,0 +1,17 @@
+```python
+def smallest_arrangement(counts: list) -> str:
+    if len(counts) != 4 or any(not isinstance(x, int) or x < 0 or x > 12 for x in counts) or sum(counts) == 0:
+        raise ValueError("Invalid input")
+
+    letters = ['a', 'b', 'c', 'd']
+    result = []
+    while any(counts):
+        valid_letters = [letter for letter, count in zip(letters, counts) if count > 0 and (not result or result[-1] != letter)]
+        if not valid_letters:
+            raise ValueError("No valid arrangement possible")
+        next_letter = min(valid_letters, key=lambda x: (counts[letters.index(x)], -ord(x)))
+        result.append(next_letter)
+        counts[letters.index(next_letter)] -= 1
+
+    return ''.join(result)
+```

@@ -1,0 +1,65 @@
+```ts
+export function foldFormula(recipe: string): string {
+  if (typeof recipe !== 'string') {
+    throw new Error('Argument must be a string');
+  }
+  if (recipe === '') {
+    throw new Error('Empty argument not allowed');
+  }
+
+  const stack: { tag: string; count: number }[] = [];
+  let i = 0;
+
+  while (i < recipe.length) {
+    const char = recipe[i];
+    if (char >= 'A' && char <= 'Z') {
+      let tag = char;
+      i++;
+      if (i < recipe.length && (recipe[i] >= 'a' && recipe[i] <= 'z')) {
+        tag += recipe[i++];
+        if (i < recipe.length && (recipe[i] >= 'a' && recipe[i] <= 'z')) {
+          tag += recipe[i++];
+        }
+      }
+      let count = 1;
+      while (i < recipe.length && !isNaN(parseInt(recipe[i]))) {
+        count *= parseInt(recipe[i++]);
+      }
+      stack.push({ tag, count });
+    } else if (char === '(') {
+      const subRecipeStart = i;
+      let depth = 1;
+      while (i < recipe.length && depth > 0) {
+        i++;
+        if (recipe[i] === '(') depth++;
+        if (recipe[i] === ')') depth--;
+      }
+      const subRecipe = recipe.substring(subRecipeStart + 1, i - 1);
+      count = 1;
+      while (i < recipe.length && !isNaN(parseInt(recipe[i]))) {
+        count *= parseInt(recipe[i++]);
+      }
+      stack.push({ tag: foldFormula(subRecipe), count });
+    } else if (char === ')') {
+      throw new Error('Closing parenthesis with no opener');
+    } else if (isNaN(parseInt(char)) || char === '0') {
+      throw new Error('Invalid repeat or non-alphanumeric character');
+    }
+  }
+
+  const tagCounts = stack.reduce((acc, { tag, count }) => {
+    acc[tag] = (acc[tag] || 0) + count;
+    return acc;
+  }, {} as { [tag: string]: number });
+
+  let result = '';
+  Object.keys(tagCounts)
+    .sort()
+    .forEach(tag => {
+      if (tagCounts[tag] > 1) result += `${tag}${tagCounts[tag]}`;
+      else result += tag;
+    });
+
+  return result;
+}
+```

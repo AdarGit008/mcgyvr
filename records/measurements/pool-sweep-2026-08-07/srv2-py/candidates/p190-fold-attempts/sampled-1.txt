@@ -1,0 +1,40 @@
+```python
+def fold_attempts(records: list) -> list:
+    if not all(isinstance(record, str) for record in records):
+        raise ValueError("All records must be strings.")
+    
+    cases = {}
+    for record in records:
+        parts = record.split()
+        if len(parts) != 3:
+            raise ValueError("Each record must contain exactly three pieces.")
+        
+        name, try_num, outcome = parts
+        if not name or ' ' in name:
+            raise ValueError("Case name cannot be empty or contain spaces.")
+        if not try_num.isdigit() or int(try_num) < 1:
+            raise ValueError("Try number must be a positive integer without leading zeros.")
+        if outcome not in {'pass', 'fail'}:
+            raise ValueError("Outcome must be either 'pass' or 'fail'.")
+        
+        try_num = int(try_num)
+        if name not in cases:
+            cases[name] = [None] * (try_num + 1)
+        elif try_num > len(cases[name]):
+            raise ValueError(f"Try number {try_num} for case '{name}' skips a value.")
+        elif cases[name][try_num]:
+            raise ValueError(f"Try number {try_num} for case '{name}' repeats.")
+        
+        cases[name][try_num] = outcome
+    
+    settled_cases = {}
+    for name, results in cases.items():
+        if all(result == 'pass' for result in results if result):
+            settled_cases[name] = 'pass'
+        elif all(result == 'fail' for result in results if result):
+            settled_cases[name] = 'fail'
+        else:
+            settled_cases[name] = 'flake'
+    
+    return [f"{name}={result}" for name, result in sorted(settled_cases.items())]
+```

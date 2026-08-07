@@ -1,0 +1,13 @@
+```python
+def seal_serial(serial: str) -> str:
+    if not isinstance(serial, str):
+        raise ValueError("Input must be a string")
+    if len(serial) != 8 or not serial.isdigit():
+        raise ValueError("Input must be exactly eight decimal digits")
+
+    weight_cycle = [3, 7, 1, 3, 7, 1, 3, 7]
+    total = sum(int(digit) * weight for digit, weight in zip(serial, weight_cycle))
+    seal_digit = "K" if total % 11 == 10 else str(total % 11)
+
+    return serial + seal_digit
+```

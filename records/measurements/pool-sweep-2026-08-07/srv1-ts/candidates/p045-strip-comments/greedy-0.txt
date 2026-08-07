@@ -1,0 +1,37 @@
+```ts
+export function stripComments(source: string): string {
+  let result = "";
+  let inString = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < source.length; i++) {
+    if (inString) {
+      if (source[i] === '"' && source[i - 1] !== '\\') {
+        inString = false;
+      }
+    } else if (source[i] === '"') {
+      inString = true;
+    } else if (!inBlockComment) {
+      if (source[i] === '/' && i + 1 < source.length && source[i + 1] === '/') {
+        break; // Single-line comment, stop processing
+      } else if (source[i] === '/' && i + 1 < source.length && source[i + 1] === '*') {
+        inBlockComment = true;
+        i++; // Skip the '*' character
+      } else {
+        result += source[i];
+      }
+    } else {
+      if (source[i] === '*' && i + 1 < source.length && source[i + 1] === '/') {
+        inBlockComment = false;
+        i++; // Skip the '/' character
+      }
+    }
+  }
+
+  if (inBlockComment) {
+    throw new Error("Unterminated block comment");
+  }
+
+  return result;
+}
+```

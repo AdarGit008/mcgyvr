@@ -1,0 +1,42 @@
+```typescript
+export function stitchTables(
+  left: Array<Record<string, unknown>>,
+  right: Array<Record<string, unknown>>,
+  key: string,
+  mode: string
+): Array<Record<string, unknown>> {
+  // Validate input types and values
+  if (typeof key !== 'string' || !key) throw new Error('Invalid key');
+  if (!['inner', 'left'].includes(mode)) throw new Error('Invalid mode');
+
+  const rightKeyMap = new Map<string, Record<string, unknown>>();
+  for (const record of right) {
+    if (
+      typeof record[key] !== 'string' ||
+      rightKeyMap.has(record[key] as string)
+    ) {
+      throw new Error('Invalid right table');
+    }
+    rightKeyMap.set(record[key] as string, { ...record });
+  }
+
+  const result: Array<Record<string, unknown>> = [];
+  for (const leftRecord of left) {
+    if (typeof leftRecord[key] !== 'string') throw new Error('Invalid left table');
+
+    const rightRecord = rightKeyMap.get(leftRecord[key]);
+    if (!rightRecord && mode === 'inner') continue;
+
+    const mergedRecord: Record<string, unknown> = { ...leftRecord };
+    for (const [colName, colValue] of Object.entries(rightRecord!)) {
+      if (colName !== key) {
+        mergedRecord[colName] = colValue;
+      }
+    }
+
+    result.push(mergedRecord);
+  }
+
+  return result;
+}
+```

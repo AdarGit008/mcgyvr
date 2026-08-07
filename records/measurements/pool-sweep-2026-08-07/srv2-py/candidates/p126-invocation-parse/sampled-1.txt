@@ -1,0 +1,46 @@
+```python
+def parse_invocation(catalogue: list[dict], tokens: list[str]) -> dict:
+    options = {}
+    operands = []
+    i = 0
+
+    def find_option(token):
+        for opt in catalogue:
+            if opt['long'] == token or (opt.get('alias') and opt['alias'] == token[1]):
+                return opt
+        raise ValueError(f"Unknown option: {token}")
+
+    while i < len(tokens):
+        token = tokens[i]
+        if token == "--":
+            operands.extend(tokens[i+1:])
+            break
+        elif "=" in token:
+            # OUT OF SCOPE: Inline "=" on an alias token is not considered.
+            raise ValueError("Inline '=' on alias token is not supported")
+        elif token.startswith("--"):
+            opt = find_option(token)
+            if opt['kind'] == 'toggle':
+                options[opt['long']] = True
+            else:
+                i += 1
+                val = tokens[i] if i < len(tokens) else None
+                if opt['kind'] == 'single' and token in options:
+                    raise ValueError(f"Single option mentioned twice: {token}")
+                options[opt['long']] = val
+        elif token.startswith("-"):
+            opt = find_option(token)
+            if opt['kind'] == 'toggle':
+                options[opt['long']] = True
+            else:
+                i += 1
+                if i < len(tokens):
+                    operands.append(tokens[i])
+                else:
+                    raise ValueError(f"Option {token} requires a value but none provided")
+        else:
+            operands.append(token)
+        i += 1
+
+    return {'options': options, 'operands': operands}
+```

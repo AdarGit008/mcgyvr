@@ -1,0 +1,40 @@
+```ts
+export function orderColorReport(
+  neighbours: number[][],
+  visitOrder: number[],
+): number[][] {
+  if (neighbours.length === 0) {
+    throw new Error("No transmitters provided");
+  }
+
+  const channel: number[] = new Array(neighbours.length).fill(-1);
+  const visited = new Set<number>();
+
+  for (const node of visitOrder) {
+    if (!Number.isInteger(node) || node < 0 || node >= neighbours.length) {
+      throw new Error("Invalid transmitter in visit order");
+    }
+    if (visited.has(node)) {
+      throw new Error("Transmitter appears more than once in visit order");
+    }
+    visited.add(node);
+
+    let highest = -1;
+    for (const other of neighbours[node]) {
+      if (!Number.isInteger(other) || other < 0 || other >= neighbours.length) {
+        throw new Error("Invalid clashing transmitter");
+      }
+      if (other === node) {
+        throw new Error("Transmitter clashes with itself");
+      }
+      if (channel[other] > highest) {
+        highest = channel[other];
+      }
+    }
+    channel[node] = highest + 1;
+  }
+
+  const distinctChannels = new Set<number>(channel);
+  return [channel, [distinctChannels.size]];
+}
+```

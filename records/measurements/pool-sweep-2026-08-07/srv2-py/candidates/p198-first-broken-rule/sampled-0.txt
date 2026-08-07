@@ -1,0 +1,55 @@
+```python
+def first_broken_rule(root: dict) -> dict:
+    if root is None:
+        raise ValueError("Root cannot be None")
+
+    def check_node(node, path):
+        if not isinstance(node, dict):
+            raise ValueError(f"Node at {path} must be a dictionary")
+        required_keys = {"key", "count", "left", "right"}
+        if not required_keys.issubset(node.keys()):
+            raise ValueError(f"Node at {path} must have keys: {required_keys}")
+
+        key = node["key"]
+        count = node["count"]
+        left = node.get("left")
+        right = node.get("right")
+
+        if not isinstance(key, int) or key < 0:
+            raise ValueError(f"Key of node at {path} must be a non-negative integer")
+        if not isinstance(count, int) or count <= 0:
+            raise ValueError(f"Count of node at {path} must be a positive integer")
+
+        left_depth = right_depth = 0
+        if left is not None:
+            if not (isinstance(left, dict) or left is None):
+                raise ValueError(f"Left side of node at {path} must be a dictionary or None")
+            left_path = f"{path}/L"
+            if check_node(left, left_path) == {}:
+                return {}
+            left_depth = 1 + max(left_depth, check_node(left, left_path)["depth"])
+
+        if right is not None:
+            if not (isinstance(right, dict) or right is None):
+                raise ValueError(f"Right side of node at {path} must be a dictionary or None")
+            right_path = f"{path}/R"
+            if check_node(right, right_path) == {}:
+                return {}
+            right_depth = 1 + max(right_depth, check_node(right, right_path)["depth"])
+
+        balance_diff = abs(left_depth - right_depth)
+        if balance_diff > 1:
+            return {"path": path, "rule": "balance"}
+
+        claimed_count = left_depth + right_depth + 1
+        if claimed_count != count:
+            return {"path": path, "rule": "count"}
+
+        return {"depth": max(left_depth, right_depth)}
+
+    result = check_node(root, "root")
+    if result == {}:
+        return {"path": "", "rule": ""}
+    else:
+        return result
+```

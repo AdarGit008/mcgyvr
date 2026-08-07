@@ -1,0 +1,56 @@
+```ts
+export function pickBuild(gate: string, offers: number[]): number {
+  if (typeof gate !== 'string' || gate.trim() === '') {
+    throw new Error('Invalid gate format');
+  }
+
+  const clauses = gate.split(',').map((clause) => clause.trim());
+  if (clauses.length === 0) {
+    throw new Error('Gate has no clauses');
+  }
+
+  const rangeRegex = /^(?:(\d+):)?(?::(\d+))?$/;
+  const carveOutRegex = /\^(\d+)/;
+
+  const validClauses = clauses.filter((clause) => {
+    if (!rangeRegex.test(clause)) {
+      throw new Error('Malformed clause');
+    }
+    return true;
+  });
+
+  const parsedClauses = validClauses.map((clause) => {
+    const match = rangeRegex.exec(clause);
+    const lo = match[1] !== undefined ? parseInt(match[1], 10) : 0;
+    const hi = match[2] !== undefined ? parseInt(match[2], 10) : Infinity;
+    if (lo > hi) {
+      throw new Error('Clause ends out of order');
+    }
+    return { lo, hi };
+  });
+
+  const carveOuts: number[] = [];
+  for (const clause of parsedClauses) {
+    const carveOutMatch = clause.clause.match(carveOutRegex);
+    if (carveOutMatch) {
+      const carveOutBuild = parseInt(carveOutMatch[1], 10);
+      if (carveOutBuild < clause.lo || carveOutBuild > clause.hi) {
+        throw new Error('Invalid carve-out build');
+      }
+      carveOuts.push(carveOutBuild);
+    }
+  }
+
+  offers.sort((a, b) => a - b).reverse();
+  for (const offer of offers) {
+    if (offer < parsedClauses[0].lo || offer > parsedClauses[parsedClauses.length - 1].hi) {
+      continue;
+    }
+    if (!carveOuts.some((carveOut) => carveOut === offer)) {
+      return offer;
+    }
+  }
+
+  return -1;
+}
+```

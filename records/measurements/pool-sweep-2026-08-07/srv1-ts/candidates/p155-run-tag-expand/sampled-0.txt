@@ -1,0 +1,31 @@
+```ts
+export function expandRunTag(pattern: string): string[] {
+  if (typeof pattern !== 'string') throw new Error('Invalid argument: expected a string');
+
+  const match = pattern.match(/^(.*?)\[(.*?)\](.*)$/);
+  if (!match) throw new Error('Pattern must contain exactly one square-bracketed group');
+  const [_, stem, group, tail] = match;
+
+  if (group.includes('[') || group.includes(']')) throw new Error('Unclosed bracket or second opening/closing bracket detected');
+  if (group.startsWith(']') || group.endsWith('[')) throw new Error('Closing bracket before the opening one detected');
+
+  if (!group.trim()) throw new Error('Empty body in group');
+  const items = group.split(',').map(item => item.trim());
+  if (items.some(item => !item)) throw new Error('Empty comma item detected');
+
+  if (/^\d+-\d+$/.test(group) || /^\d+-\d+\/\d+$/.test(group)) {
+    const [start, end, stepStr = '1'] = group.split('-').map(Number);
+    if (isNaN(start) || isNaN(end) || isNaN(stepStr)) throw new Error('Invalid number in group');
+    if (start > end || start === end || stepStr === 0) throw new Error('Invalid run parameters');
+
+    const step = Number(stepStr);
+    const range: string[] = [];
+    for (let i = start; i <= end; i += step) {
+      range.push(i.toString());
+    }
+    return range.map(num => `${stem}${num}${tail}`);
+  } else {
+    return items.map(item => `${stem}${item}${tail}`);
+  }
+}
+```

@@ -1,0 +1,27 @@
+```ts
+export function convertLength(quantity: string, goal: string): number {
+  const units = { mm: 1e-3, cm: 1e-2, m: 1, km: 1e3 };
+  const parts = quantity.split(' ');
+
+  if (parts.length === 0 || !goal in units) {
+    throw new Error('Invalid input');
+  }
+
+  let sum = 0;
+  for (const part of parts) {
+    const match = part.match(/^(\d+)\s*(mm|cm|m|km)$/);
+    if (!match) {
+      throw new Error('Malformed part');
+    }
+    const [, num, unit] = match;
+    sum += parseInt(num, 10) * units[unit];
+  }
+
+  const target = units[goal];
+  if (sum % target !== 0) {
+    throw new Error('Non-integer result');
+  }
+
+  return Math.round(sum / target);
+}
+```

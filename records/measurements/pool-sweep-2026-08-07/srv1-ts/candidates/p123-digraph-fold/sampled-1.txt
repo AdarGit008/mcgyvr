@@ -1,0 +1,13 @@
+```ts
+export function foldDigraphs(text: string, table: Array<[string, string]>): string {
+  let folded = text;
+  for (const [pattern, output] of table) {
+    if (pattern === "") {
+      throw new Error("empty pattern");
+    }
+    const regex = new RegExp(pattern, "g");
+    folded = folded.replace(regex, () => output);
+  }
+  return folded;
+}
+```

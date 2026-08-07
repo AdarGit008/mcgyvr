@@ -1,0 +1,21 @@
+```python
+import re
+
+def posting_lists(documents: list) -> dict:
+    if not all(isinstance(doc, str) for doc in documents):
+        raise ValueError("All documents must be strings")
+    
+    index = {}
+    term_pattern = re.compile(r'\b[a-zA-Z0-9]{2,}\b')
+    
+    for i, doc in enumerate(documents):
+        terms = term_pattern.findall(doc.lower())
+        unique_terms = sorted(set(terms))
+        
+        for term in unique_terms:
+            if term not in index:
+                index[term] = []
+            index[term].append(i)
+    
+    return index
+```

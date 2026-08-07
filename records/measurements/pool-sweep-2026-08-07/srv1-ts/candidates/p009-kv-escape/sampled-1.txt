@@ -1,0 +1,17 @@
+```typescript
+/** One line of key=value pairs, joined by &. */
+export function encodePairs(pairs: [string, string][]): string {
+  const isValid = (str: any) => typeof str === 'string' && str.length > 0;
+  for (const [key, value] of pairs) {
+    if (!isValid(key)) throw new Error('Empty or non-string key');
+    if (!isValid(value)) throw new Error('Empty or non-string value');
+  }
+  const parts: string[] = [];
+  for (const [key, value] of pairs) {
+    const k = encodeURIComponent(key);
+    const v = encodeURIComponent(value);
+    parts.push(k + "=" + v);
+  }
+  return parts.join("&");
+}
+```

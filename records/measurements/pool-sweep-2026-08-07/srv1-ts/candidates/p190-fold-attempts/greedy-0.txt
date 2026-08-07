@@ -1,0 +1,37 @@
+```ts
+export function foldAttempts(records: string[]): string[] {
+  if (!Array.isArray(records)) throw new Error('Argument must be a list');
+  const cases = new Map<string, { pass: boolean; fail: boolean }>();
+
+  for (const record of records) {
+    const parts = record.split(' ');
+    if (parts.length !== 3) throw new Error('Record must have exactly three pieces');
+
+    const [name, tryNumberStr, outcome] = parts;
+    if (!name || name.includes(' ')) throw new Error('Name must be non-empty and contain no spaces');
+    if (tryNumberStr === '0' || !/^\d+$/.test(tryNumberStr)) throw new Error('Try number must be digits and not zero-padded');
+    const tryNumber = parseInt(tryNumberStr, 10);
+
+    if (!['pass', 'fail'].includes(outcome)) throw new Error('Outcome must be either "pass" or "fail"');
+
+    if (!cases.has(name)) cases.set(name, { pass: false, fail: false });
+
+    const caseInfo = cases.get(name)!;
+    if (tryNumber <= 0 || tryNumber > cases.size) throw new Error('Try number must be within the valid range for the case');
+    if (caseInfo.pass && outcome === 'fail' || caseInfo.fail && outcome === 'pass') {
+      throw new Error('Case cannot have both pass and fail outcomes');
+    }
+
+    if (outcome === 'pass') caseInfo.pass = true;
+    else caseInfo.fail = true;
+  }
+
+  return Array.from(cases.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, { pass, fail }]) => {
+      if (pass && !fail) return `${name}=pass`;
+      else if (!pass && fail) return `${name}=fail`;
+      else return `${name}=flake`;
+    });
+}
+```

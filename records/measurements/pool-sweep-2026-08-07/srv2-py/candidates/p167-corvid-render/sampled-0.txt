@@ -1,0 +1,23 @@
+```python
+def corvid_render(value: int) -> str:
+    if not isinstance(value, int):
+        raise ValueError("Input must be a whole number")
+    
+    marks = "vwxzy"
+    weight_factor = 5
+    
+    def tally_mark(mark_char: str) -> int:
+        return (marks.index(mark_char) - 2) * weight_factor
+    
+    if value == 0:
+        return "x"
+    
+    result = ""
+    for digit in str(value):
+        if not digit.isdigit():
+            raise ValueError("Input must be a whole number")
+        
+        result += "".join(marks[digit] for _ in range(int(digit)))
+    
+    return result
+```

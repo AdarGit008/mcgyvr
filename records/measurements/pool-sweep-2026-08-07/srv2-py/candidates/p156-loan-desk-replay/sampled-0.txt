@@ -1,0 +1,77 @@
+```python
+def replay_loan_desk(stock: dict, cap: int, events: list) -> list:
+    if not all(isinstance(v, int) and v > 0 for v in stock.values()):
+        raise ValueError("Invalid copy count")
+    if cap <= 0 or not isinstance(cap, int):
+        raise ValueError("Invalid loan cap")
+    if not all(isinstance(event, list) and len(event) == 3 for event in events):
+        raise ValueError("Invalid event format")
+
+    loans = {}
+    holds = {}
+    answers = []
+
+    def check_title(title):
+        return title in stock
+
+    def check_member(member):
+        return member in loans
+
+    for action, member, title in events:
+        if action == "borrow":
+            if not check_title(title):
+                answers.append("no:unknown-title")
+            elif check_member(member) and title in loans[member]:
+                answers.append("no:already-out")
+            elif len(loans.get(member, [])) >= cap:
+                answers.append("no:member-cap")
+            elif stock[title] == 0:
+                answers.append("no:none-left")
+            elif holds[title] and member != holds[title][0]:
+                answers.append("no:queued-ahead")
+            else:
+                if holds[title]:
+                    holds[title].pop(0)
+                loans.setdefault(member, []).append(title)
+                stock[title] -= 1
+                answers.append("ok")
+
+        elif action == "return":
+            if not check_title(title):
+                answers.append("no:unknown-title")
+            elif member not in loans or title not in loans[member]:
+                answers.append("no:not-out")
+            else:
+                loans[member].remove(title)
+                stock[title] += 1
+                answers.append("ok")
+
+        elif action == "renew":
+            if not check_title(title):
+                answers.append("no:unknown-title")
+            elif member not in loans or title not in loans[member]:
+                answers.append("no:not-out")
+            elif holds[title]:
+                answers.append("no:on-hold")
+            elif len(loans[member][title]) >= 2:
+                answers.append("no:renew-cap")
+            else:
+                loans[member][title].append(0)
+                answers.append("ok")
+
+        elif action == "hold":
+            if not check_title(title):
+                answers.append("no:unknown-title")
+            elif member in loans and title in loans[member]:
+                answers.append("no:own-loan")
+            elif holds.get(title) and member in holds[title]:
+                answers.append("no:in-queue")
+            else:
+                holds.setdefault(title, []).append(member)
+                answers.append("no:take-it")
+
+        else:
+            raise ValueError("Invalid action")
+
+    return answers
+```

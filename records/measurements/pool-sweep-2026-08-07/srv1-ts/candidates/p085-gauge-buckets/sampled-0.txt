@@ -1,0 +1,26 @@
+```ts
+export function gaugeBuckets(
+  pulses: number[],
+  base: number,
+  width: number,
+  pockets: number,
+): number[] {
+  if (width <= 0 || pockets < 1) {
+    throw new Error("Width must be positive and pocket count must be at least one.");
+  }
+  const tallies = new Array(pockets + 2).fill(0);
+  for (const pulse of pulses) {
+    if (pulse < base) {
+      tallies[0] += 1;
+    } else {
+      let slot = Math.floor((pulse - base) / width);
+      if (slot >= pockets) {
+        slot = pockets - 1;
+      }
+      tallies[1 + slot] += 1;
+    }
+  }
+  tallies[pockets + 1] = pulses.filter(pulse => pulse >= base + pockets * width).length;
+  return tallies;
+}
+```

@@ -1,0 +1,49 @@
+```ts
+export function runTransactions(commands: string[]): Record<string, string> {
+    const state: Record<string, string> = {};
+    const transactions: Array<Record<string, string>> = [];
+
+    for (const command of commands) {
+        const parts = command.split(' ');
+        if (parts.length < 2 || !['k', 'unset', 'begin', 'commit', 'rollback'].includes(parts[0])) {
+            throw new Error('Invalid command format');
+        }
+
+        switch (parts[0]) {
+            case 'k':
+                if (parts.length !== 3) throw new Error('Incorrect number of parts for k command');
+                const key = parts[1];
+                const value = parts[2];
+                if (transactions.length > 0) transactions[transactions.length - 1][key] = value;
+                else state[key] = value;
+                break;
+            case 'unset':
+                if (parts.length !== 2) throw new Error('Incorrect number of parts for unset command');
+                const keyToRemove = parts[1];
+                if (transactions.length > 0) delete transactions[transactions.length - 1][keyToRemove];
+                else delete state[keyToRemove];
+                break;
+            case 'begin':
+                if (transactions.length > 0) {
+                    const lastTransaction = transactions.pop()!;
+                    if (lastTransaction !== undefined) transactions.push({ ...state, ...lastTransaction });
+                }
+                transactions.push({});
+                break;
+            case 'commit':
+                if (transactions.length === 0) throw new Error('No open transaction to commit');
+                const nestedState = transactions.pop()!;
+                Object.assign(state, nestedState);
+                break;
+            case 'rollback':
+                if (transactions.length === 0) throw new Error('No open transaction to rollback');
+                transactions.pop();
+                break;
+        }
+    }
+
+    if (transactions.length > 0) throw new Error('Transaction still open after the last command');
+
+    return state;
+}
+```

@@ -1,0 +1,45 @@
+```python
+def replay_envelopes(envelopes: list, months: list) -> dict:
+    if not envelopes or any(not isinstance(e, dict) for e in envelopes):
+        raise ValueError("Invalid envelope format")
+    if not all('name' in e and 'monthly' in e and 'cap' in e for e in envelopes):
+        raise ValueError("Envelope must have name, monthly, and cap keys")
+    if not all(isinstance(e['name'], str) and len(e['name']) > 0 for e in envelopes):
+        raise ValueError("Envelope name must be a non-empty string")
+    if not all(isinstance(e['monthly'], int) and e['monthly'] >= 0 for e in envelopes):
+        raise ValueError("Envelope monthly must be a non-negative integer")
+    if not all(isinstance(e['cap'], int) and e['cap'] >= 0 for e in envelopes):
+        raise ValueError("Envelope cap must be a non-negative integer")
+    if len(set(e['name'] for e in envelopes)) != len(envelopes):
+        raise ValueError("Duplicate envelope names")
+
+    balances = {e['name']: 0 for e in envelopes}
+    forfeited = 0
+
+    for month in months:
+        if not isinstance(month, list) or len(month) != 2:
+            raise ValueError("Invalid month format")
+        if not isinstance(month[0], str) or len(month[0]) == 0:
+            raise ValueError("Month name must be a non-empty string")
+        if not isinstance(month[1], int) or month[1] <= 0:
+            raise ValueError("Month amount must be a positive integer")
+
+        envelope_name = month[0]
+        amount = month[1]
+
+        if envelope_name not in balances:
+            raise ValueError(f"Unknown envelope name: {envelope_name}")
+
+        # Step 1: Add monthly deposit
+        balances[envelope_name] += envelopes[envelopes.index({'name': envelope_name})]['monthly']
+
+        # Step 2: Subtract outlay
+        balances[envelope_name] -= amount
+
+        # Step 3: Forfeit excess if over cap
+        if balances[envelope_name] > envelopes[envelopes.index({'name': envelope_name})]['cap']:
+            forfeited += balances[envelope_name] - envelopes[envelopes.index({'name': envelope_name})]['cap']
+            balances[envelope_name] = envelopes[envelopes.index({'name': envelope_name})]['cap']
+
+    return {'balances': [(e['name'], balances[e['name']]) for e in envelopes], 'forfeited': forfeited}
+```

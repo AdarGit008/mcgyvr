@@ -1,0 +1,15 @@
+```ts
+export function rankCandidates(candidates: string[], query: string, limit: number): string[] {
+    if (typeof query !== 'string' || query.trim() === '') throw new Error('Invalid query');
+    if (!Number.isInteger(limit) || limit <= 0) throw new Error('Invalid limit');
+
+    const lowerQuery = query.toLowerCase();
+    candidates.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+    return candidates.filter(candidate => {
+        if (typeof candidate !== 'string') throw new Error('Non-string candidate');
+        const lowerCandidate = candidate.toLowerCase();
+        return lowerCandidate.includes(lowerQuery);
+    }).filter((_, index) => index < limit);
+}
+```

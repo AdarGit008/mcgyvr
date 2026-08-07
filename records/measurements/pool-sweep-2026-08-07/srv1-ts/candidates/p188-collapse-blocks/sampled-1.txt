@@ -1,0 +1,53 @@
+```ts
+export function collapseBlocks(berths: string[]): string[] {
+  if (!Array.isArray(berths)) {
+    throw new Error('Input must be an array');
+  }
+
+  const validFields = (field: string) => /^[0-7]$/.test(field);
+
+  for (const berth of berths) {
+    if (typeof berth !== 'string' || !/^[0-7]{4}\/\d$/.test(berth)) {
+      throw new Error('Invalid berth format');
+    }
+
+    const [fields, pin] = berth.split('/');
+    if (!fields.split('.').every(validFields) || parseInt(pin, 10) > 4) {
+      throw new Error('Invalid field or pin value');
+    }
+  }
+
+  const normalizeBerth = (berth: string): string[] => {
+    return berth.split('/').map((part, index) => 
+      index === 1 ? part : part.replace(/[1-7]/g, '0')
+    );
+  };
+
+  const berthsMap = new Map<string[], number>();
+  for (const berth of berths) {
+    const normalizedBerth = normalizeBerth(berth);
+    berthsMap.set(normalizedBerth[0], (berthsMap.get(normalizedBerth[0]) || 0) + 1);
+  }
+
+  const slabs: string[] = [];
+  for (const [base, count] of berthsMap.entries()) {
+    if (count === Math.pow(8, parseInt(base.slice(-1), 10))) {
+      slabs.push(normalizeBerth(`${base[0]}.${base[1]}.${base[2]}.0/${parseInt(base.slice(-1), 10)}`).join('.'));
+    } else {
+      for (let i = 0; i < count; i++) {
+        slabs.push(normalizeBerth(`${base[0]}.${base[1]}.${base[2]}.0/4`).join('.'));
+      }
+    }
+  }
+
+  const sortSlabs = (a: string, b: string): number => {
+    const [aBase, aPin] = a.split('/');
+    const [bBase, bPin] = b.split('/');
+    if (aBase < bBase) return -1;
+    if (aBase > bBase) return 1;
+    return parseInt(aPin, 10) - parseInt(bPin, 10);
+  };
+
+  return slabs.sort(sortSlabs);
+}
+```

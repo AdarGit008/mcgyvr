@@ -1,0 +1,41 @@
+```python
+def fold_formula(recipe: str) -> str:
+    if not isinstance(recipe, str) or not recipe:
+        raise ValueError("Invalid input")
+
+    def parse_tag(tag: str) -> str:
+        if len(tag) < 1 or not tag[0].isupper() or (len(tag) > 1 and not tag[1:].islower()):
+            raise ValueError("Invalid tag")
+        return tag
+
+    def parse_repeat(repeat: str) -> int:
+        if repeat.isdigit() and repeat[0] != '0':
+            return int(repeat)
+        raise ValueError("Invalid repeat")
+
+    def parse_body(body: str, depth=1) -> dict:
+        counts = {}
+        if body.startswith('('):
+            i = 1
+            while i < len(body):
+                if body[i] == '(':
+                    depth += 1
+                elif body[i] == ')':
+                    depth -= 1
+                    if depth == 0:
+                        sub_counts = parse_body(body[1:i], depth)
+                        count = parse_repeat(body[i + 1:])
+                        for tag, c in sub_counts.items():
+                            counts[tag] = counts.get(tag, 0) + c * count
+                        break
+                i += 1
+        else:
+            tag = parse_tag(body)
+            count = parse_repeat('1' if body.find('(') == -1 else '1')
+            counts[tag] = counts.get(tag, 0) + count
+        return counts
+
+    total_counts = parse_body(recipe)
+    result = ''.join(f"{tag}{count}" for tag, count in sorted(total_counts.items()) if count > 1)
+    return result
+```

@@ -1,0 +1,54 @@
+```ts
+export function bestRatePath(quotes: unknown[][], amount: number, source: string, destination: string): Record<string, unknown> {
+    if (quotes.length === 0) throw new Error("Empty quote list");
+    if (!Array.isArray(quotes[0]) || quotes[0].length !== 3) throw new Error("Invalid quote format");
+    if (typeof amount !== 'number' || amount <= 0) throw new Error("Invalid amount");
+    if (typeof source !== 'string' || source.length === 0) throw new Error("Invalid source currency code");
+    if (typeof destination !== 'string' || destination.length === 0) throw new Error("Invalid destination currency code");
+
+    const validCodes = quotes.map(quote => quote[0].toString());
+    if (!validCodes.includes(source)) throw new Error(`${source} is not named by any quote`);
+    if (!validCodes.includes(destination)) throw new Error(`${destination} is not named by any quote`);
+
+    const graph: Record<string, Array<[string, number]>> = {};
+    for (const [base, counter, micro] of quotes) {
+        if (typeof base !== 'string' || typeof counter !== 'string') throw new Error("Invalid quote format");
+        if (base === counter) throw new Error(`Quote between ${base} and ${counter} is invalid`);
+        if (!Number.isInteger(micro) || micro <= 0) throw new Error("Micro must be a positive whole number");
+
+        if (!graph[base]) graph[base] = [];
+        graph[base].push([counter, micro]);
+    }
+
+    const paths: Array<[number, string[]]> = [[amount, [source]]];
+
+    for (let i = 0; i < quotes.length; i++) {
+        const newPaths: Array<[number, string[]]> = [];
+        for (const [amount, path] of paths) {
+            const lastCode = path[path.length - 1];
+            if (!graph[lastCode]) continue;
+            for (const [nextCode, micro] of graph[lastCode]) {
+                if (path.includes(nextCode)) continue;
+                const newAmount = Math.floor(amount * micro / 1000000);
+                if (newPaths.some(([a, p]) => a === newAmount && p.length <= path.length)) continue;
+                newPaths.push([newAmount, [...path, nextCode]]);
+            }
+        }
+        paths = newPaths;
+    }
+
+    paths.sort((a, b) => {
+        if (a[0] !== b[0]) return b[0] - a[0];
+        if (a[1].length !== b[1].length) return a[1].length - b[1].length;
+        for (let i = 0; i < Math.min(a[1].length, b[1].length); i++) {
+            if (a[1][i] < b[1][i]) return -1;
+            if (a[1][i] > b[1][i]) return 1;
+        }
+        return a[1].length - b[1].length;
+    });
+
+    if (!paths.length) throw new Error("No run connects the source and destination");
+
+    return { amount: paths[0][0], path: paths[0][1] };
+}
+```

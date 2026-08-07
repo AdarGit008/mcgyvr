@@ -1,0 +1,20 @@
+```python
+def unmuted_alerts(alerts: list) -> list:
+    if any(not isinstance(alert, dict) or 'id' not in alert or 'resource' not in alert or 'severity' not in alert for alert in alerts):
+        raise ValueError("Invalid input format")
+    
+    if len(set(alert['id'] for alert in alerts)) != len(alerts):
+        raise ValueError("Duplicate alert ids found")
+    
+    if any(not isinstance(alert['severity'], int) or alert['severity'] <= 0 for alert in alerts):
+        raise ValueError("Severity must be a positive integer")
+    
+    muted = set()
+    for alert in alerts:
+        if any(other_alert['severity'] > alert['severity'] and other_alert['resource'] == alert['resource'] for other_alert in alerts):
+            muted.add(alert['id'])
+    
+    unmuted = [alert['id'] for alert in alerts if alert['id'] not in muted]
+    unmuted.sort(key=lambda x: (-alerts[[a for a in alerts if a['id'] == x][0]['severity'], x]))
+    return unmuted
+```

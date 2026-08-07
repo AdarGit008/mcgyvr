@@ -1,0 +1,34 @@
+```python
+def settle_ledger(entries: list[dict]) -> list[list]:
+    if not entries:
+        return []
+
+    account_balances = {}
+    seq_set = set()
+
+    for entry in sorted(entries, key=lambda x: x['seq']):
+        account = entry.get('account')
+        amount = entry.get('amount')
+        seq = entry.get('seq')
+
+        if not (isinstance(account, str) and isinstance(amount, int) and isinstance(seq, int)):
+            raise ValueError("Invalid entry format")
+
+        if account.startswith('-') or seq < 0:
+            raise ValueError("Account name must be non-empty and seq must be non-negative")
+
+        if account in account_balances:
+            if seq_set.__contains__(seq):
+                raise ValueError(f"Duplicate sequence number: {seq}")
+            seq_set.add(seq)
+        else:
+            account_balances[account] = 0
+
+        new_balance = account_balances.get(account) + amount
+        if new_balance < 0:
+            raise ValueError(f"Negative balance for account: {account}")
+
+        account_balances[account] = new_balance
+
+    return sorted([[acc, bal] for acc, bal in account_balances.items() if bal != 0])
+```

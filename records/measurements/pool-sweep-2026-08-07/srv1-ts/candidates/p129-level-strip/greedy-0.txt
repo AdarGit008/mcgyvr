@@ -1,0 +1,21 @@
+```ts
+export function levelStrip(
+  readings: number[],
+  low: number,
+  high: number,
+  ramp: string,
+): string {
+  if (ramp.length === 0) {
+    throw new Error("empty ramp");
+  }
+  if (high <= low) {
+    throw new Error("span must rise");
+  }
+  let out = "";
+  for (const r of readings) {
+    const index = Math.floor(((r - low) * (ramp.length - 1)) / (high - low));
+    out += ramp[Math.max(0, Math.min(index, ramp.length - 1))];
+  }
+  return out;
+}
+```

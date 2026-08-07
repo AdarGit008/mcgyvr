@@ -1,0 +1,33 @@
+```ts
+export function settleLedger(entries: Array<Record<string, unknown>>): Array<[string, number]> {
+    const ledgerMap = new Map<string, number>();
+    const seenSeqs = new Set<number>();
+
+    for (const entry of entries.sort((a, b) => (a.seq as number) - (b.seq as number))) {
+        if (
+            typeof entry.account !== 'string' ||
+            entry.account === '' ||
+            typeof entry.amount !== 'number' ||
+            typeof entry.seq !== 'number'
+        ) {
+            throw new Error('Invalid entry');
+        }
+
+        if (seenSeqs.has(entry.seq)) {
+            throw new Error('Duplicate seq');
+        }
+        seenSeqs.add(entry.seq);
+
+        const balance = ledgerMap.get(entry.account) || 0;
+        if (balance + entry.amount < 0) {
+            throw new Error('Negative balance');
+        }
+
+        ledgerMap.set(entry.account, balance + entry.amount);
+    }
+
+    return Array.from(ledgerMap.entries())
+        .filter(([_, balance]) => balance !== 0)
+        .sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

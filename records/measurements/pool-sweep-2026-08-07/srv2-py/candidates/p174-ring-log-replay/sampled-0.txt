@@ -1,0 +1,52 @@
+```python
+def replay_ring_log(capacity: int, policy: str, operations: list) -> dict:
+    if capacity <= 0 or not isinstance(capacity, int):
+        raise ValueError("Capacity must be a positive whole number")
+    if policy not in ['overwrite', 'refuse']:
+        raise ValueError("Policy must be either 'overwrite' or 'refuse'")
+    if not isinstance(operations, list):
+        raise ValueError("Operations must be a list")
+
+    ring = []
+    journal = []
+    lost = 0
+
+    for operation in operations:
+        if not isinstance(operation, list) or not operation:
+            raise ValueError("Each operation must be a non-empty list")
+        op_name = operation[0]
+        if op_name == 'push':
+            if len(operation) != 2 or not operation[1]:
+                raise ValueError("Push operation must have exactly one non-empty label string")
+            if len(ring) < capacity:
+                ring.append(operation[1])
+                journal.append(f"stored {operation[1]}")
+            else:
+                if policy == 'overwrite':
+                    oldest = ring.pop(0)
+                    ring.append(operation[1])
+                    journal.append(f"evicted {oldest}")
+                    journal.append(f"stored {operation[1]}")
+                elif policy == 'refuse':
+                    journal.append("refused")
+        elif op_name == 'pop':
+            if not ring:
+                journal.append("took")
+            else:
+                oldest = ring.pop(0)
+                journal.append(f"took {oldest}")
+        elif op_name == 'peek':
+            if not ring:
+                journal.append("front")
+            else:
+                oldest = ring[0]
+                journal.append(f"front {oldest}")
+        else:
+            raise ValueError("Invalid operation name")
+
+    return {
+        "contents": ring,
+        "journal": journal,
+        "lost": lost
+    }
+```

@@ -1,0 +1,64 @@
+```ts
+export function leagueOrder(matches: (string | number)[][]): string[] {
+  if (!Array.isArray(matches) || matches.some(match => match.length !== 4)) {
+    throw new Error('Invalid input: Each match must be a 4-item list.');
+  }
+
+  const teamPoints: { [team: string]: { points: number, goalDifference: number, goalsScored: number } } = {};
+
+  for (const match of matches) {
+    if (
+      typeof match[0] !== 'string' || typeof match[1] !== 'string' ||
+      !Number.isInteger(match[2]) || !Number.isInteger(match[3]) ||
+      match[2] < 0 || match[3] < 0
+    ) {
+      throw new Error('Invalid input: Teams must be strings and goals must be non-negative integers.');
+    }
+
+    const [homeTeam, awayTeam, homeGoals, awayGoals] = match;
+
+    if (homeTeam === awayTeam) {
+      throw new Error('Invalid input: A team cannot play against itself.');
+    }
+
+    if (!teamPoints[homeTeam]) {
+      teamPoints[homeTeam] = { points: 0, goalDifference: 0, goalsScored: 0 };
+    }
+    if (!teamPoints[awayTeam]) {
+      teamPoints[awayTeam] = { points: 0, goalDifference: 0, goalsScored: 0 };
+    }
+
+    teamPoints[homeTeam].goalsScored += homeGoals;
+    teamPoints[awayTeam].goalsScored += awayGoals;
+
+    if (homeGoals > awayGoals) {
+      teamPoints[homeTeam].points += 3;
+      teamPoints[awayTeam].goalDifference -= 1;
+    } else if (homeGoals < awayGoals) {
+      teamPoints[awayTeam].points += 3;
+      teamPoints[homeTeam].goalDifference -= 1;
+    } else {
+      teamPoints[homeTeam].points += 1;
+      teamPoints[awayTeam].points += 1;
+    }
+
+    teamPoints[homeTeam].goalDifference += homeGoals - awayGoals;
+    teamPoints[awayTeam].goalDifference += awayGoals - homeGoals;
+  }
+
+  const sortedTeams = Object.keys(teamPoints).sort((a, b) => {
+    if (teamPoints[b].points !== teamPoints[a].points) {
+      return teamPoints[b].points - teamPoints[a].points;
+    }
+    if (teamPoints[b].goalDifference !== teamPoints[a].goalDifference) {
+      return teamPoints[b].goalDifference - teamPoints[a].goalDifference;
+    }
+    if (teamPoints[b].goalsScored !== teamPoints[a].goalsScored) {
+      return teamPoints[b].goalsScored - teamPoints[a].goalsScored;
+    }
+    return a.localeCompare(b);
+  });
+
+  return sortedTeams;
+}
+```

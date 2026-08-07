@@ -1,0 +1,23 @@
+```python
+def hot_streak(scores: list, bar: int) -> list:
+    """Return the start index and length of the longest streak of games scoring more than the bar."""
+    if not scores or all(score <= bar for score in scores):
+        return [-1, 0]
+    
+    max_length = 0
+    current_start = -1
+    current_length = 0
+    
+    for i, score in enumerate(scores):
+        if score > bar:
+            if current_start == -1:
+                current_start = i
+            current_length += 1
+            if current_length > max_length:
+                max_length = current_length
+        else:
+            current_start = -1
+            current_length = 0
+    
+    return [current_start, max_length]
+```

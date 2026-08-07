@@ -1,0 +1,27 @@
+```ts
+export function windowQuota(limit: number, width: number, calls: (string | number)[][]): string[] {
+  if (!Number.isInteger(limit) || limit <= 0) throw new Error("Invalid limit");
+  if (!Number.isInteger(width) || width <= 0) throw new Error("Invalid width");
+  
+  const results: string[] = [];
+  const frameCallCounts = new Map<string, number>();
+  
+  calls.forEach(([timeStr, name]) => {
+    const time = Number(timeStr);
+    if (typeof name !== "string" || !name) throw new Error("Invalid name");
+    if (!Number.isInteger(time) || time < 0) throw new Error("Invalid time");
+    
+    const frame = Math.floor(time / width);
+    if (frameCallCounts.has(name)) {
+      frameCallCounts.set(name, frameCallCounts.get(name)! + 1);
+    } else {
+      frameCallCounts.set(name, 1);
+    }
+    
+    if (frameCallCounts.get(name)! > limit) results.push("over");
+    else results.push("ok");
+  });
+  
+  return results;
+}
+```

@@ -1,0 +1,44 @@
+```typescript
+export function printExprTree(node: unknown): string {
+  if (typeof node === 'number') {
+    if (!Number.isInteger(node) || node < 0) {
+      throw new Error('Invalid literal number');
+    }
+    return node.toString();
+  } else if (typeof node === 'string') {
+    if (/^[a-zA-Z]+$/.test(node)) {
+      return node;
+    } else {
+      throw new Error('Invalid name');
+    }
+  } else if (typeof node === 'object' && node !== null) {
+    const { op, left, right } = node as { op: string; left: unknown; right: unknown };
+    if (!op || !left || !right) {
+      throw new Error('Missing required fields');
+    }
+    const precedence = (op: string) => ['*'].includes(op) ? 2 : ['+', '-'].includes(op) ? 1 : 0;
+    const shouldWrap = (child: unknown, parentOp: string): boolean => {
+      if (typeof child === 'object' && child !== null) {
+        const { op: childOp } = child as { op: string };
+        return precedence(childOp) < precedence(parentOp);
+      }
+      return false;
+    };
+
+    const leftStr = shouldWrap(left, op) ? `(${printExprTree(left)})` : printExprTree(left);
+    const rightStr = shouldWrap(right, op) ? `(${printExprTree(right)})` : printExprTree(right);
+
+    switch (op) {
+      case '+':
+      case '-':
+      case '*':
+      case '/':
+        return `${leftStr} ${op} ${rightStr}`;
+      default:
+        throw new Error('Invalid operator');
+    }
+  } else {
+    throw new Error('Invalid node type');
+  }
+}
+```

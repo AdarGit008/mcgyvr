@@ -1,0 +1,46 @@
+```python
+def claim_zone(claims: list, where: str) -> str:
+    if not isinstance(claims, list):
+        raise ValueError("Claims must be a list")
+    if not isinstance(where, str):
+        raise ValueError("Where must be a string")
+
+    def parse_claim(claim: str) -> tuple:
+        parts = claim.split()
+        if len(parts) != 2:
+            raise ValueError("Claim must contain exactly one space")
+        stencil, name = parts
+        parts = stencil.split('/')
+        if len(parts) != 2:
+            raise ValueError("Stencil must contain exactly one slash")
+        post, depth = parts
+        if not post.isdigit() or not depth.isdigit():
+            raise ValueError("Post and depth must be digits")
+        post_parts = post.split('.')
+        if len(post_parts) != 3:
+            raise ValueError("Post must have three numbers separated by dots")
+        return tuple(int(p) for p in post_parts), int(depth), name
+
+    def is_covered(stencil_post, claim_post):
+        for s, c in zip(stencil_post, claim_post):
+            if s != '*' and s != c:
+                return False
+        return True
+
+    try:
+        parsed_claims = [parse_claim(claim) for claim in claims]
+    except ValueError as e:
+        raise ValueError("Invalid claim format") from e
+
+    covered_name = ""
+    max_depth = -1
+    where_parts = tuple(int(p) for p in where.split('.'))
+
+    for stencil_post, depth, name in parsed_claims:
+        if is_covered(stencil_post, where_parts):
+            if depth > max_depth or (depth == max_depth and name < covered_name):
+                covered_name = name
+                max_depth = depth
+
+    return covered_name
+```

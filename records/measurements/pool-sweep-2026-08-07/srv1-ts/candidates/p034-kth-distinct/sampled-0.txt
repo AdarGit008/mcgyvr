@@ -1,0 +1,14 @@
+```ts
+export function kthDistinct(values: number[], k: number): number {
+  if (!values.length || k <= 0) {
+    throw new Error("Invalid input");
+  }
+
+  const distinctValues = [...new Set(values)].filter((value) => Number.isInteger(value));
+  if (k > distinctValues.length) {
+    throw new Error("Rank exceeds the count of distinct values");
+  }
+
+  return distinctValues.sort((a, b) => a - b)[k - 1];
+}
+```

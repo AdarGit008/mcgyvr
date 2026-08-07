@@ -1,0 +1,47 @@
+```python
+from typing import List, Dict
+
+def replay_envelopes(envelopes: List[List[str]], months: List[List[List[str]]]) -> dict:
+    if not envelopes or any(len(e) != 3 for e in envelopes):
+        raise ValueError("Invalid envelope list")
+
+    env_map = {e[0]: {'monthly': int(e[1]), 'cap': int(e[2]), 'balance': 0, 'forfeited': 0} for e in envelopes}
+    
+    if len(env_map) != len(envelopes):
+        raise ValueError("Duplicate or empty envelope name")
+
+    for month in months:
+        for env_name, amount in month:
+            if env_name not in env_map:
+                raise ValueError(f"Unknown envelope: {env_name}")
+            
+            env = env_map[env_name]
+            env['balance'] += env['monthly']
+            try:
+                amount = int(amount)
+                if amount <= 0:
+                    raise ValueError("Outlay amount must be a positive integer")
+                
+                while amount > 0:
+                    if env['balance'] >= amount:
+                        env['balance'] -= amount
+                        break
+                    else:
+                        to_forfeit = min(amount, env['balance'])
+                        env['forfeited'] += to_forfeit
+                        env['balance'] -= to_forfeit
+                        amount -= to_forfeit
+                
+                if env['balance'] > env['cap']:
+                    overage = env['balance'] - env['cap']
+                    env['forfeited'] += overage
+                    env['balance'] = env['cap']
+                
+            except ValueError as e:
+                raise ValueError(f"Invalid outlay amount for {env_name}: {amount}") from e
+    
+    return {
+        'balances': [(e[0], e[2]['balance']) for e in envelopes],
+        'forfeited': sum(e[2]['forfeited'] for e in envelopes)
+    }
+```

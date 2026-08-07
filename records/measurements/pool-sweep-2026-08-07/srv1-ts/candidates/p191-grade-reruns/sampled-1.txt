@@ -1,0 +1,44 @@
+```ts
+export function gradeReruns(log: string[], budget: number): string[] {
+  if (typeof budget !== 'number' || isNaN(budget) || budget < 0) {
+    throw new Error('budget must be a whole number of at least zero');
+  }
+  const goes = new Map<string, { marks: string[], allowedGoes: number }>();
+  for (const entry of log) {
+    if (typeof entry !== 'string') {
+      throw new Error('log entries must be strings');
+    }
+    const [name, mark] = entry.split(" ");
+    if (!name || name.includes(" ")) {
+      throw new Error('entry names must be non-empty and not contain spaces');
+    }
+    if (mark !== "green" && mark !== "red") {
+      throw new Error('marks must be either green or red');
+    }
+    const job = goes.get(name);
+    if (job === undefined) {
+      if (mark === "green") {
+        throw new Error('a job may never appear again after going green');
+      }
+      goes.set(name, { marks: [mark], allowedGoes: budget + 1 });
+    } else {
+      if (mark === "green" && job.marks.includes("red")) {
+        throw new Error('a job that has gone red must never go green again');
+      }
+      if (job.marks.length >= job.allowedGoes) {
+        throw new Error('a job may not have more goes than the budget allows');
+      }
+      job.marks.push(mark);
+    }
+  }
+  const graded: string[] = [];
+  for (const [name, { marks }] of goes) {
+    if (marks[marks.length - 1] === "green") {
+      graded.push(name + ":" + (marks.length === 1 ? "solid" : "shaky"));
+    } else {
+      graded.push(name + ":" + (marks.length < marks.allowedGoes ? "dropped" : "broken"));
+    }
+  }
+  return graded.sort();
+}
+```

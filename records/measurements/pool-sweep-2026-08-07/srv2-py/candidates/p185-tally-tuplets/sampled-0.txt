@@ -1,0 +1,55 @@
+```python
+def tally_tuplets(score: str, meter: str) -> list:
+    def parse_span(span: str) -> float:
+        if '/' in span:
+            numerator, denominator = span.split('/')
+            if not numerator.isdigit() or int(numerator) == 0:
+                raise ValueError("Invalid numerator")
+            if denominator not in ['1', '2', '4', '8', '16', '32', '64']:
+                raise ValueError("Invalid denominator")
+            return int(numerator) * 64 / int(denominator)
+        else:
+            try:
+                return int(span) * 64
+            except ValueError:
+                raise ValueError("Invalid span")
+
+    def parse_entry(entry: str) -> float:
+        if entry.startswith('{') and entry.endswith('}'):
+            parts = entry[1:-1].split('+')
+            k = len(parts)
+            if k < 2:
+                raise ValueError("Squeeze figure must be at least two")
+            total_value = sum(parse_span(part) for part in parts)
+            return total_value * (k - 1) // k
+        else:
+            try:
+                return parse_span(entry)
+            except ValueError as e:
+                raise ValueError(f"Invalid entry: {e}")
+
+    def parse_measure(measure: str, meter_numerator: int, meter_denominator: int) -> float:
+        if not measure.strip():
+            raise ValueError("Measure with no entries")
+        total_value = sum(parse_entry(entry) for entry in measure.split())
+        expected_value = (meter_numerator * 64 / meter_denominator) - len(measure.split()) * 64
+        return total_value - expected_value
+
+    def parse_score(score: str, meter: str) -> list:
+        if not isinstance(meter, str):
+            raise ValueError("Meter must be a string")
+        if ' ' in meter:
+            meter_numerator, meter_denominator = map(int, meter.split('/'))
+            if not (meter_numerator > 0 and meter_denominator in [1, 2, 4, 8, 16, 32, 64]):
+                raise ValueError("Invalid meter")
+        else:
+            raise ValueError("Malformed meter")
+
+        return [parse_measure(measure, meter_numerator, meter_denominator) for measure in score.split(';')]
+
+    try:
+        parsed_meter = parse_score(meter, meter)
+        return [int(value) for value in parsed_meter]
+    except ValueError as e:
+        raise ValueError(f"Invalid score: {e}")
+```

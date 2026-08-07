@@ -1,0 +1,87 @@
+```ts
+export function foldMachine(machine: Record<string, unknown>): Record<string, unknown> {
+  const { alphabet, states, start, accepting, moves } = machine;
+
+  if (!Array.isArray(alphabet) || alphabet.length === 0 || new Set(alphabet).size !== alphabet.length) {
+    throw new Error("Invalid alphabet");
+  }
+  if (!alphabet.every(symbol => typeof symbol === "string" && symbol.length > 0)) {
+    throw new Error("Alphabet must contain non-empty strings");
+  }
+
+  if (!Array.isArray(states) || states.length === 0 || new Set(states).size !== states.length) {
+    throw new Error("Invalid states");
+  }
+  if (!states.every(state => typeof state === "string" && state.length > 0)) {
+    throw new Error("States must contain non-empty strings");
+  }
+
+  if (typeof start !== "string" || !states.includes(start)) {
+    throw new Error("Invalid start state");
+  }
+
+  if (!Array.isArray(accepting) || new Set(accepting).size !== accepting.length) {
+    throw new Error("Invalid accepting states");
+  }
+  if (!accepting.every(state => typeof state === "string" && states.includes(state))) {
+    throw new Error("Accepting states must be valid states");
+  }
+
+  if (!Array.isArray(moves) || moves.some(move => move.length !== 3)) {
+    throw new Error("Invalid moves");
+  }
+  const moveSet = new Set(moves.map(([from, symbol, to]) => [from, symbol, to].join(',')));
+  if (moveSet.size !== moves.length) {
+    throw new Error("Duplicate moves");
+  }
+  if (!moves.every(([from, symbol, to]) => states.includes(from) && alphabet.includes(symbol) && states.includes(to))) {
+    throw new Error("Moves must reference valid states and symbols");
+  }
+
+  const reachable = new Set<string>();
+  const queue: string[] = [start];
+  while (queue.length > 0) {
+    const state = queue.shift()!;
+    if (!reachable.has(state)) {
+      reachable.add(state);
+      moves
+        .filter(([from, symbol]) => from === state)
+        .forEach(([_, _, to]) => queue.push(to));
+    }
+  }
+
+  const groups: string[][] = [];
+  states.forEach(state => {
+    if (reachable.has(state)) {
+      let groupIndex = groups.findIndex(group => group.some(s => moves.some(([from, symbol, to]) => from === s && to === state)));
+      if (groupIndex === -1) {
+        groupIndex = groups.length;
+        groups.push([state]);
+      } else {
+        groups[groupIndex].push(state);
+      }
+    }
+  });
+
+  const acceptingGroups = groups
+    .map((group, index) => ({ group, index }))
+    .filter(({ group }) => group.some(s => accepting.includes(s)))
+    .sort((a, b) => a.index - b.index)
+    .map(({ index }) => index);
+
+  const newMoves: [number, string, number][] = [];
+  groups.forEach((group, fromIndex) => {
+    alphabet.forEach(symbol => {
+      const toState = moves.find(([from, sym]) => from === group[0] && sym === symbol)?.[2];
+      if (toState) {
+        const toGroupIndex = groups.findIndex(group => group.includes(toState));
+        newMoves.push([fromIndex, symbol, toGroupIndex]);
+      }
+    });
+  });
+
+  return {
+    size: groups.length,
+    start: 0,
+    accepting: acceptingGroups,
+    moves: newMoves.sort((a, b) => a[0] -

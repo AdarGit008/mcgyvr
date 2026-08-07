@@ -1,0 +1,12 @@
+```python
+def minimax_pair_sum(first: list, second: list) -> int:
+    if len(first) != len(second):
+        raise ValueError("Lists must be of equal length")
+    if not first or not second:
+        raise ValueError("Lists must not be empty")
+    
+    first_sorted = sorted(first)
+    second_sorted = sorted(second)
+    
+    return max(a + b for a, b in zip(first_sorted, second_sorted[::-1]))
+```

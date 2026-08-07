@@ -1,0 +1,15 @@
+```python
+def unmuted_alerts(alerts: list) -> list:
+    if len(alerts) != len(set(alert["id"] for alert in alerts)):
+        raise ValueError("Duplicate alert ids found")
+    
+    grouped_alerts = {}
+    for alert in alerts:
+        resource = alert["resource"]
+        severity = alert["severity"]
+        if resource not in grouped_alerts or severity > grouped_alerts[resource]["severity"]:
+            grouped_alerts[resource] = alert
+    
+    unmuted_ids = sorted((alert["id"] for alert in grouped_alerts.values()), key=lambda x: (-alert["severity"], x))
+    return unmuted_ids
+```

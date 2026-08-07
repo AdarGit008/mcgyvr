@@ -1,0 +1,55 @@
+```ts
+export function layoutColumns(rows: string[][], aligns: string): string[] {
+  if (rows.length === 0 || !Array.isArray(aligns) || aligns.length === 0) {
+    throw new Error("Input table cannot be empty.");
+  }
+
+  const numCols = rows[0].length;
+  if (!Array.isArray(rows[0]) || rows.some(row => row.length !== numCols)) {
+    throw new Error("All rows must have the same number of cells.");
+  }
+
+  for (const align of aligns) {
+    if (align !== 'l' && align !== 'r' && align !== 'c') {
+      throw new Error("Alignment specification can only contain 'l', 'r', and 'c'.");
+    }
+  }
+
+  const colWidths = Array(numCols).fill(0);
+  for (const row of rows) {
+    for (let i = 0; i < numCols; i++) {
+      const cell = row[i];
+      if (typeof cell !== 'string') {
+        throw new Error("All cells must be strings.");
+      }
+      colWidths[i] = Math.max(colWidths[i], cell.length);
+    }
+  }
+
+  return rows.map(row => {
+    let line = '';
+    for (let i = 0; i < numCols; i++) {
+      const cell = row[i];
+      let paddedCell;
+      switch (aligns[i]) {
+        case 'l':
+          paddedCell = cell.padEnd(colWidths[i], ' ');
+          break;
+        case 'r':
+          paddedCell = cell.padStart(colWidths[i], ' ');
+          break;
+        case 'c':
+          const padLeft = Math.floor((colWidths[i] - cell.length) / 2);
+          const padRight = colWidths[i] - cell.length - padLeft;
+          paddedCell = ''.padEnd(padLeft, ' ') + cell + ''.padStart(padRight, ' ');
+          break;
+        default:
+          // This case should never be reached due to earlier validation
+          throw new Error("Invalid alignment character.");
+      }
+      line += paddedCell + '  ';
+    }
+    return line.trim();
+  });
+}
+```

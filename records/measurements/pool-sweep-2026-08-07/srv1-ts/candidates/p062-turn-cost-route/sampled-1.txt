@@ -1,0 +1,51 @@
+```ts
+export function turnCostRoute(grid: number[][], stepCost: number, turnCost: number): number {
+  if (!grid.length || !grid[0].length) throw new Error("Grid must not be empty");
+  if (grid.some(row => row.length !== grid[0].length)) throw new Error("Grid must be rectangular");
+  for (const row of grid) {
+    for (const cell of row) {
+      if (cell !== 0 && cell !== 1) throw new Error("Cells must be 0 or 1");
+    }
+  }
+  if (!Number.isInteger(stepCost) || stepCost <= 0) throw new Error("Step cost must be a positive integer");
+  if (!Number.isInteger(turnCost) || turnCost < 0) throw new Error("Turn cost must be a non-negative integer");
+
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  const distance = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+  const previous = Array.from({ length: rows }, () => Array(cols).fill(null));
+
+  directionLoop: for (let dir = 0; dir < directions.length; dir++) {
+    const [dr, dc] = directions[dir];
+    if (grid[0][0] === 1 || grid[rows - 1][cols - 1] === 1) return -1;
+    if (dr !== 0 && dc !== 0) continue directionLoop;
+
+    distance[0][0] = dir === 0 ? stepCost : 0;
+    const queue: [number, number][] = [[0, 0]];
+    while (queue.length > 0) {
+      const [r, c] = queue.shift()!;
+      for (const nextDir of directions) {
+        const [nDr, nDc] = nextDir;
+        if (dr === nDr && dc === nDc) continue;
+
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols || grid[nr][nc] === 1) continue;
+
+        const ndist = distance[r][c] + stepCost + (dir !== 0 ? turnCost : 0);
+        if (ndist < distance[nr][nc]) {
+          distance[nr][nc] = ndist;
+          previous[nr][nc] = [r, c];
+          queue.push([nr, nc]);
+        }
+      }
+
+      dr = nDr;
+      dc = nDc;
+    }
+  }
+
+  return distance[rows - 1][cols - 1] === Infinity ? -1 : distance[rows - 1][cols - 1];
+}
+```

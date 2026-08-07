@@ -1,0 +1,39 @@
+```ts
+export function admitBytes(perKey: number, total: number, span: number, entries: (string | number)[][]): string[] {
+    if (!Number.isInteger(perKey) || perKey <= 0) throw new Error('Invalid perKey');
+    if (!Number.isInteger(total) || total <= 0) throw new Error('Invalid total');
+    if (!Number.isInteger(span) || span <= 0) throw new Error('Invalid span');
+    if (entries.some(entry => entry.length !== 3)) throw new Error('Invalid entries length');
+
+    const result: string[] = [];
+    const currentEntries: { [key: string]: number } = {};
+    let carriedVolume = 0;
+
+    for (const [time, key, size] of entries) {
+        if (typeof time !== 'number' || time < 0) throw new Error('Invalid time');
+        if (typeof key !== 'string' || key.length === 0) throw new Error('Invalid key');
+        if (!Number.isInteger(size) || size <= 0) throw new Error('Invalid size');
+
+        // Remove expired entries
+        const currentTime = time as number;
+        for (const [entryTime, entryKey] of Object.entries(currentEntries)) {
+            if (currentTime - parseInt(entryTime) >= span) {
+                carriedVolume -= currentEntries[entryKey];
+                delete currentEntries[entryKey];
+            }
+        }
+
+        // Check if the new entry can be carried
+        const keyCarriedVolume = currentEntries[key] || 0;
+        if (keyCarriedVolume + size <= perKey && carriedVolume + size <= total) {
+            currentEntries[key] = keyCarriedVolume + size;
+            carriedVolume += size;
+            result.push('pass');
+        } else {
+            result.push('drop');
+        }
+    }
+
+    return result;
+}
+```

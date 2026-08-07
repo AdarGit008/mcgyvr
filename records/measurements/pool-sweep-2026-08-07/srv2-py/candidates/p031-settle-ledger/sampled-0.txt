@@ -1,0 +1,33 @@
+```python
+def settle_ledger(entries: list[dict]) -> list[list]:
+    if any(not isinstance(entry, dict) or len(entry) != 3 for entry in entries):
+        raise ValueError("Each entry must be a dictionary with exactly three keys.")
+
+    ledger = {}
+    seen_seqs = set()
+
+    for entry in sorted(entries, key=lambda x: x['seq']):
+        account = entry.get('account')
+        amount = entry.get('amount')
+        seq = entry.get('seq')
+
+        if not (isinstance(account, str) and account):
+            raise ValueError("Account must be a non-empty string.")
+        if not isinstance(amount, int) or not isinstance(seq, int):
+            raise ValueError("Amount and seq must be integers.")
+        if seq in seen_seqs:
+            raise ValueError("Seq number must be unique.")
+
+        seen_seqs.add(seq)
+
+        if account not in ledger:
+            ledger[account] = 0
+
+        new_balance = ledger[account] + amount
+        if new_balance < 0:
+            raise ValueError(f"Negative balance for {account} at seq {seq}")
+
+        ledger[account] = new_balance
+
+    return sorted([[acc, bal] for acc, bal in ledger.items() if bal != 0])
+```

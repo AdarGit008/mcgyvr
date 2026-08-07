@@ -1,0 +1,37 @@
+```python
+def _fails(specimen: dict, stage: dict) -> bool:
+    value = specimen.get(stage["field"])
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return True
+    low = stage["low"]
+    high = stage["high"]
+    return (low is not None and value < low) or (high is not None and value > high)
+
+
+def stage_attrition(specimens: list[dict], stages: list[dict]) -> list:
+    seen = set()
+    for stage in stages:
+        name = stage.get("stage")
+        if not isinstance(name, str) or name == "":
+            raise ValueError("stage name must be a non-empty string")
+        if name == "through":
+            raise ValueError('a stage may not be named "through"')
+        if name in seen:
+            raise ValueError(f"stage name repeated: {name}")
+        seen.add(name)
+        low = stage["low"]
+        high = stage["high"]
+        if low is not None and high is not None and low > high:
+            raise ValueError("low exceeds high")
+    pairs = []
+    for stage in stages:
+        left = 0
+        for specimen in specimens:
+            if _fails(specimen, stage):
+                left += 1
+                break
+        pairs.append([stage["stage"], left])
+    through = len(specimens) - sum(pair[1] for pair in pairs[:-1])
+    pairs.append(["through", through])
+    return pairs
+```

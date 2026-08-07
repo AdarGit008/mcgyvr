@@ -1,0 +1,29 @@
+```python
+def commit_index(log: list[int], matches: list[int], current_term: int) -> dict[str, int | list[int]]:
+    if not all(isinstance(x, int) and x > 0 for x in log + [current_term]) or len(matches) == 0:
+        raise ValueError("Invalid term")
+    
+    if any(m < 0 or m > len(log) for m in matches):
+        raise ValueError("Invalid match")
+    
+    quorum = (len(matches) + 1) // 2
+    commit, safe = 0, 0
+    behind = []
+    
+    for idx, term in enumerate(log, start=1):
+        if term != current_term:
+            continue
+        
+        copied_by_quorum = sum(1 for m in matches if m >= idx) >= quorum
+        if copied_by_quorum and idx > commit:
+            commit = idx
+        
+        if all(m >= idx for m in matches) and idx > safe:
+            safe = idx
+    
+    for idx, m in enumerate(matches):
+        if m < commit:
+            behind.append(idx)
+    
+    return {"commit": commit, "safe": safe, "behind": behind}
+```

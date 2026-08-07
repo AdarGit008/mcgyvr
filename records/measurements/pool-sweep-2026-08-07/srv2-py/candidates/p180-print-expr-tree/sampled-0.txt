@@ -1,0 +1,41 @@
+```python
+def print_expr_tree(node) -> str:
+    def is_literal(val):
+        return isinstance(val, int) and val >= 0
+
+    def is_name(val):
+        return isinstance(val, str) and val.isalpha()
+
+    def is_record(val):
+        return isinstance(val, dict) and 'op' in val and 'left' in val and 'right' in val
+
+    def precedence(op):
+        if op in ('*', '/'):
+            return 2
+        elif op in ('+', '-'):
+            return 1
+        else:
+            raise ValueError(f"Invalid operator: {op}")
+
+    def needs_parens(op1, op2):
+        return precedence(op1) < precedence(op2)
+
+    def render(node):
+        if is_literal(node):
+            return str(node)
+        elif is_name(node):
+            return node
+        elif is_record(node):
+            left = render(node['left'])
+            right = render(node['right'])
+            op = node['op']
+            if needs_parens(op, node['left']):
+                left = f"({left})"
+            if needs_parens(op, node['right']):
+                right = f"({right})"
+            return f"{left} {op} {right}"
+        else:
+            raise ValueError("Invalid node type")
+
+    return render(node)
+```

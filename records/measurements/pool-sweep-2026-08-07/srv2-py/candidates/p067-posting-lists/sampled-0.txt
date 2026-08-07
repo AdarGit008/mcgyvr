@@ -1,0 +1,23 @@
+```python
+import re
+
+def posting_lists(documents: list) -> dict:
+    if not isinstance(documents, list):
+        raise ValueError("Input must be a list")
+    
+    index = {}
+    for doc_idx, doc in enumerate(documents):
+        if not isinstance(doc, str):
+            raise ValueError("Each document must be a string")
+        
+        terms = re.findall(r'\b\w+\b', doc.lower())
+        unique_terms = set(terms)
+        for term in unique_terms:
+            if len(term) > 1 and not term.isdigit():
+                if term not in index:
+                    index[term] = []
+                if doc_idx not in index[term]:
+                    index[term].append(doc_idx)
+    
+    return index
+```

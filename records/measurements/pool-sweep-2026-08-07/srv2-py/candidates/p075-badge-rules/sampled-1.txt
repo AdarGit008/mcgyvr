@@ -1,0 +1,9 @@
+```
+def evaluate_rules(rules: list, request: dict) -> str:
+    for rule in rules:
+        role_ok = rule.get("role") == request.get("role") or rule.get("role") == "everyone"
+        door_ok = rule.get("door") == request.get("door") or rule.get("door") == "all"
+        if role_ok and door_ok:
+            return rule["effect"]
+    return "deny"
+```

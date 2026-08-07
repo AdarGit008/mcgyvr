@@ -1,0 +1,71 @@
+```ts
+export function courseWeightTotal(categories: Array<Record<string, unknown>>): number {
+  if (categories.length === 0) {
+    throw new Error("Empty syllabus");
+  }
+
+  const labelSet = new Set<string>();
+
+  let totalWeight = 0;
+  let totalContribution = 0;
+
+  for (const category of categories) {
+    if (typeof category !== "object" || category === null) {
+      throw new Error("Invalid category structure");
+    }
+
+    const { label, weight, items } = category as {
+      label: string;
+      weight: number;
+      items: [number, number][];
+    };
+
+    if (!label || typeof label !== "string") {
+      throw new Error("Missing or invalid label");
+    }
+    if (labelSet.has(label.toLowerCase())) {
+      throw new Error("Duplicate category labels");
+    }
+    labelSet.add(label.toLowerCase());
+
+    if (typeof weight !== "number" || isNaN(weight) || weight < 0 || !Number.isInteger(weight)) {
+      throw new Error("Invalid weight");
+    }
+
+    if (weight % 100 !== 0) {
+      throw new Error("Weight must be a whole number of basis points");
+    }
+
+    totalWeight += weight;
+
+    if (items.length === 0) {
+      throw new Error("Empty items list in category");
+    }
+
+    let earnedPoints = 0;
+    let worthPoints = 0;
+
+    for (const [earned, worth] of items) {
+      if (typeof earned !== "number" || isNaN(earned) || earned < 0) {
+        throw new Error("Invalid earned points");
+      }
+      if (typeof worth !== "number" || isNaN(worth) || worth <= 0) {
+        throw new Error("Invalid worth points");
+      }
+
+      earnedPoints += earned;
+      worthPoints += worth;
+    }
+
+    const contribution = Math.floor((earnedPoints * weight) / worthPoints);
+
+    totalContribution += contribution;
+  }
+
+  if (totalWeight !== 10000) {
+    throw new Error("Total weight must be exactly 10000 basis points");
+  }
+
+  return totalContribution;
+}
+```

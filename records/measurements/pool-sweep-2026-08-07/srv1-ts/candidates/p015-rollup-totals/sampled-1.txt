@@ -1,0 +1,39 @@
+```ts
+export function rollupTotals(
+  nodes: Record<string, { value: number; parent: string }>,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  const parents: Record<string, string[]> = {};
+
+  for (const id of Object.keys(nodes)) {
+    if (nodes[id].parent === "") {
+      if (!parents[""]) {
+        parents[""] = [];
+      }
+      parents[""].push(id);
+    } else if (!(nodes[id].parent in nodes) && nodes[id].parent !== "") {
+      throw new Error(`Unknown parent id: ${nodes[id].parent}`);
+    }
+
+    if (id in totals) {
+      throw new Error(`Duplicate node id: ${id}`);
+    }
+  }
+
+  if (!parents[""] || parents[""].length !== 1) {
+    throw new Error("Invalid input: no root or more than one");
+  }
+
+  const visit = (nodeId: string): number => {
+    let total = nodes[nodeId].value;
+    for (const childId of parents[nodeId] ?? []) {
+      total += visit(childId);
+    }
+    return totals[nodeId] = total;
+  };
+
+  visit(parents[""][0]);
+
+  return totals;
+}
+```

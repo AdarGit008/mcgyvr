@@ -1,0 +1,23 @@
+```ts
+/**
+ * Finds the earliest time at which the count of simultaneously active bookings exceeds the capacity.
+ * @param bookings - List of pairs [start, end] representing booking times.
+ * @param capacity - The maximum number of bookings that can be hosted at once.
+ * @returns The earliest time when the capacity is exceeded, or -1 if it never happens.
+ */
+export function firstOverload(bookings: number[][], capacity: number): number {
+    if (capacity < 1) throw new Error('Capacity must be greater than 0');
+    const events = bookings.flatMap(([start, end]) => [
+        { time: start, type: 'start' },
+        { time: end, type: 'end' }
+    ]);
+    events.sort((a, b) => a.time - b.time || (a.type === 'end' ? 1 : -1));
+    let active = 0;
+    for (const event of events) {
+        if (event.type === 'start') active++;
+        else active--;
+        if (active > capacity) return event.time;
+    }
+    return -1;
+}
+```

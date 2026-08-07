@@ -1,0 +1,17 @@
+```python
+def quarter_spin(grid: list, turns: int) -> list:
+    n = len(grid)
+    if n == 0 or any(len(row) != n for row in grid):
+        raise ValueError("Grid must be non-empty and square")
+    
+    turns %= 4
+    
+    if turns == 1:
+        return [list(col[::-1]) for col in zip(*grid)]
+    elif turns == 2:
+        return [row[::-1] for row in grid][::-1]
+    elif turns == 3:
+        return [list(row) for row in zip(*grid)][::-1]
+    
+    return grid
+```

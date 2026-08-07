@@ -1,0 +1,46 @@
+```ts
+/**
+ * Settle ledger entries in ascending seq order and return final balances.
+ * @param entries - Array of ledger entries with account, amount, and seq properties.
+ * @returns An array of [account, balance] pairs sorted by account name, excluding zero-balance accounts.
+ */
+export function settleLedger(entries: Array<Record<string, unknown>>): Array<[string, number]> {
+    const balances: Map<string, number> = new Map();
+    const appliedSeqs: Set<number> = new Set();
+
+    for (const entry of entries.sort((a, b) => (a as any).seq - (b as any).seq)) {
+        if (
+            typeof entry !== 'object' ||
+            entry === null ||
+            !('account' in entry && 'amount' in entry && 'seq' in entry)
+        ) {
+            throw new Error('Invalid ledger entry');
+        }
+
+        const { account, amount, seq } = entry;
+        if (typeof account !== 'string' || account.trim() === '' || typeof amount !== 'number' || !Number.isInteger(amount) || typeof seq !== 'number' || !Number.isInteger(seq)) {
+            throw new Error('Invalid ledger entry properties');
+        }
+
+        if (appliedSeqs.has(seq)) {
+            throw new Error('Duplicate sequence number encountered');
+        }
+        appliedSeqs.add(seq);
+
+        if (!balances.has(account)) {
+            balances.set(account, 0);
+        }
+
+        const currentBalance = balances.get(account)!;
+        const newBalance = currentBalance + amount;
+
+        if (newBalance < 0) {
+            throw new Error('Negative balance encountered');
+        }
+
+        balances.set(account, newBalance);
+    }
+
+    return Array.from(balances).filter(([_, balance]) => balance !== 0).sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

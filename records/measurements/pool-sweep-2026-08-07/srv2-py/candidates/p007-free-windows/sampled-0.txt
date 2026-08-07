@@ -1,0 +1,26 @@
+```python
+"""The free stretches of a working window, given its busy intervals."""
+
+def free_windows(window_start: int, window_end: int, busy: list) -> list:
+    if not isinstance(window_start, int) or not isinstance(window_end, int):
+        raise ValueError("Window bounds must be integers.")
+    if window_start >= window_end:
+        raise ValueError("Window start must precede the window end.")
+    if any(not (isinstance(start, int) and isinstance(end, int)) for start, end in busy):
+        raise ValueError("Busy intervals must have integer start and end points.")
+    if any(start >= end for start, end in busy):
+        raise ValueError("Busy interval start must precede the end.")
+
+    gaps = []
+    cursor = window_start
+    for start, end in sorted(busy):
+        if start < window_start:
+            start = window_start
+        if end > window_end:
+            end = window_end
+        if start >= cursor and end > cursor:
+            gaps.append([cursor, end])
+            cursor = end
+
+    return gaps
+```

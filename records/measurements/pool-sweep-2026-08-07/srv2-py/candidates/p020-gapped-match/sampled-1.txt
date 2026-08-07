@@ -1,0 +1,19 @@
+```python
+def gapped_match(needle: str, haystack: str, gap: int) -> bool:
+    if not needle or gap < 0 or not isinstance(gap, int):
+        raise ValueError("Needle must be non-empty and gap must be a non-negative integer")
+
+    m, n = len(needle), len(haystack)
+    i = j = 0
+
+    while i < m and j < n:
+        if needle[i] == haystack[j]:
+            i += 1
+        elif gap > 0:
+            gap -= 1
+        else:
+            return False
+        j += 1
+
+    return i == m
+```

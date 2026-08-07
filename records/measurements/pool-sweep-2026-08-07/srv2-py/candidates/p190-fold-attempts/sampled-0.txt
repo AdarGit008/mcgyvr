@@ -1,0 +1,41 @@
+```python
+from typing import List
+
+def fold_attempts(records: List[str]) -> List[str]:
+    if not all(isinstance(record, str) for record in records):
+        raise ValueError("All records must be strings.")
+    
+    cases = {}
+    for record in records:
+        parts = record.split()
+        if len(parts) != 3:
+            raise ValueError("Each record must hold exactly three pieces.")
+        
+        name, try_number, outcome = parts
+        if not name or " " in name:
+            raise ValueError("Case name cannot be empty or contain spaces.")
+        if not try_number.isdigit() or int(try_number) <= 0:
+            raise ValueError("Try number must be a positive integer with no padding zero.")
+        if outcome not in {"pass", "fail"}:
+            raise ValueError("Outcome must be either 'pass' or 'fail'.")
+        
+        try_number = int(try_number)
+        if name not in cases:
+            cases[name] = []
+        cases[name].append((try_number, outcome))
+    
+    results = {}
+    for name, attempts in cases.items():
+        attempts.sort()
+        pass_count = sum(1 for _, outcome in attempts if outcome == "pass")
+        fail_count = sum(1 for _, outcome in attempts if outcome == "fail")
+        
+        if not attempts or len(attempts) != attempts[-1][0]:
+            raise ValueError(f"Case '{name}' has missing or repeated try numbers.")
+        
+        result = "pass" if pass_count == len(attempts) else "fail" if fail_count == len(attempts) else "flake"
+        results[name] = result
+    
+    sorted_results = sorted(results.items())
+    return [f"{name}={result}" for name, result in sorted_results]
+```

@@ -1,0 +1,54 @@
+```ts
+export function judgeLancer(board: string[], side: string, from: number[], to: number[]): string {
+  if (board.length !== 7 || board.some(row => row.length !== 7 || /[^WB.]/.test(row))) {
+    throw new Error("Invalid board");
+  }
+  if (!/^[WB]$/.test(side)) {
+    throw new Error("Invalid side");
+  }
+  if (!Array.isArray(from) || from.length !== 2 || !from.every(Number.isInteger)) {
+    throw new Error("Invalid from square");
+  }
+  if (!Array.isArray(to) || to.length !== 2 || !to.every(Number.isInteger)) {
+    throw new Error("Invalid to square");
+  }
+
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+
+  if (fromRow < 0 || fromRow >= 7 || fromCol < 0 || fromCol >= 7) {
+    return "off_board";
+  }
+  if (toRow < 0 || toRow >= 7 || toCol < 0 || toCol >= 7) {
+    return "off_board";
+  }
+
+  const lancer = board[fromRow][fromCol];
+  if (!lancer || lancer !== side) {
+    return "no_piece";
+  }
+
+  if (Math.abs(toRow - fromRow) + Math.abs(toCol - fromCol) !== 3) {
+    return "bad_line";
+  }
+
+  const dr = Math.sign(toRow - fromRow);
+  const dc = Math.sign(toCol - fromCol);
+
+  for (let r = fromRow + dr, c = fromCol + dc; r !== toRow || c !== toCol; r += dr, c += dc) {
+    if (board[r][c] !== ".") {
+      return "blocked";
+    }
+  }
+
+  const pieceAtTo = board[toRow][toCol];
+  if (pieceAtTo === side) {
+    return "own_piece";
+  }
+  if (Math.abs(toRow - fromRow) <= 1 || Math.abs(toCol - fromCol) <= 1) {
+    return "too_close";
+  }
+
+  return "ok";
+}
+```

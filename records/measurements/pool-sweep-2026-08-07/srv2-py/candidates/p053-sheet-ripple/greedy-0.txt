@@ -1,0 +1,29 @@
+```python
+def changed_cells(cells: dict[str, str], name: str, replacement: str) -> list[str]:
+    if name not in cells:
+        raise ValueError(f"unknown cell {name}")
+    
+    def evaluate(cell: str) -> int:
+        if cell.startswith("="):
+            refs = [part.strip() for part in cell[1:].split("+")]
+            return sum(evaluate(ref) for ref in refs)
+        else:
+            return int(cell)
+    
+    original_value = evaluate(name)
+    cells[name] = replacement
+    new_value = evaluate(name)
+    
+    if original_value == new_value:
+        return []
+    
+    changed = [name]
+    for cell, raw in cells.items():
+        if not raw.startswith("="):
+            continue
+        refs = [part.strip() for part in raw[1:].split("+")]
+        if name in refs and evaluate(cell) != original_value:
+            changed.append(cell)
+    
+    return sorted(changed)
+```

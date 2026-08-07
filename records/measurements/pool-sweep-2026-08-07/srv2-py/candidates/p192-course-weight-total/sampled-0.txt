@@ -1,0 +1,51 @@
+```python
+def course_weight_total(categories: list) -> int:
+    if not categories:
+        raise ValueError("Syllabus cannot be empty")
+    
+    label_set = set()
+    total_weight = 0
+    
+    for category in categories:
+        if not isinstance(category, dict):
+            raise ValueError("Each category must be a dictionary")
+        
+        label = category.get("label")
+        weight = category.get("weight")
+        items = category.get("items")
+        
+        if not all(isinstance(item, list) and len(item) == 2 for item in items):
+            raise ValueError("Items must be a non-empty list of two-element lists")
+        
+        if label is None or not isinstance(label, str) or not label:
+            raise ValueError("Label must be a non-empty string")
+        
+        if weight is None or not isinstance(weight, int) or weight < 0 or weight > 10000:
+            raise ValueError("Weight must be a non-negative integer up to 10000")
+        
+        if items is None or not isinstance(items, list) or not items:
+            raise ValueError("Items list cannot be empty")
+        
+        if label in label_set:
+            raise ValueError("Labels must be unique across the syllabus")
+        
+        label_set.add(label)
+        total_weight += weight
+        
+        earned_points = sum(item[0] for item in items)
+        worth_points = sum(item[1] for item in items)
+        
+        if any(earned_point < 0 or earned_point > worth_point for earned_point, worth_point in items):
+            raise ValueError("Earned points must be non-negative and not exceed worth")
+        
+        if worth_points <= 0:
+            raise ValueError("Worth points must be strictly positive")
+    
+    if total_weight != 10000:
+        raise ValueError("Total weight of weights must equal exactly 10000")
+    
+    return sum(
+        (category["weight"] * sum(item[0] for item in category["items"])) // sum(item[1] for item in category["items"])
+        for category in categories
+    )
+```

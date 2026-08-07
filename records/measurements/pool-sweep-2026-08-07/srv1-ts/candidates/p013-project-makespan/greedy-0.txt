@@ -1,0 +1,46 @@
+```ts
+export function projectMakespan(durations: Record<string, number>, deps: [string, string][]): number {
+  const graph: Record<string, Set<string>> = {};
+  const inDegree: Record<string, number> = {};
+
+  for (const task of Object.keys(durations)) {
+    graph[task] = new Set();
+    inDegree[task] = 0;
+  }
+
+  for (const [a, b] of deps) {
+    if (!durations.hasOwnProperty(a) || !durations.hasOwnProperty(b)) {
+      throw new Error(`Invalid dependency pair: ${a} or ${b} is not a task.`);
+    }
+    if (a === b) {
+      throw new Error(`Invalid dependency pair: ${a} depends on itself.`);
+    }
+    graph[a].add(b);
+    inDegree[b]++;
+  }
+
+  const queue: string[] = [];
+  for (const task of Object.keys(inDegree)) {
+    if (inDegree[task] === 0) {
+      queue.push(task);
+    }
+  }
+
+  let time = 0;
+  while (queue.length > 0) {
+    const size = queue.length;
+    time += Math.max(...Object.values(durations).filter((_, i) => queue.includes(Object.keys(durations)[i])));
+    for (let i = 0; i < size; i++) {
+      const task = queue.shift()!;
+      for (const neighbor of graph[task]) {
+        inDegree[neighbor]--;
+        if (inDegree[neighbor] === 0) {
+          queue.push(neighbor);
+        }
+      }
+    }
+  }
+
+  return time;
+}
+```

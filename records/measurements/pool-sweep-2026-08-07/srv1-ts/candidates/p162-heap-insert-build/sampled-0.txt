@@ -1,0 +1,29 @@
+```ts
+export function buildMinHeapByInsertion(values: number[]): number[] {
+  if (!Array.isArray(values)) {
+    throw new Error("Argument must be a list.");
+  }
+  for (const value of values) {
+    if (!Number.isInteger(value)) {
+      throw new Error("All elements must be whole numbers.");
+    }
+  }
+
+  const heap: number[] = [];
+  for (const value of values) {
+    heap.push(value);
+    let index = heap.length - 1;
+    while (index > 0) {
+      const parentIndex = Math.floor((index - 1) / 2);
+      if (heap[index] < heap[parentIndex]) {
+        [heap[index], heap[parentIndex]] = [heap[parentIndex], heap[index]];
+        index = parentIndex;
+      } else {
+        break;
+      }
+    }
+  }
+
+  return heap;
+}
+```

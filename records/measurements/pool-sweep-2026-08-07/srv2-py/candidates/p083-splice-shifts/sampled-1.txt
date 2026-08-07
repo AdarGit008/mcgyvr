@@ -1,0 +1,9 @@
+```python
+def splice_shifts(sheets: list) -> list:
+    merged = set()
+    for sheet in sheets:
+        if isinstance(sheet, list):
+            for badge in sheet:
+                merged.add(badge)
+    return sorted(merged)
+```

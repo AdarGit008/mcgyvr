@@ -1,0 +1,26 @@
+```python
+import re
+from typing import List
+
+def split_field_path(path: str) -> List[str]:
+    if not isinstance(path, str):
+        raise ValueError("Input must be a string.")
+    if path == "" or path.startswith(".") or path.endswith("."):
+        raise ValueError("Empty string or leading/trailing dot detected.")
+    
+    pattern = r'([a-zA-Z_]\w*)\[(\d+)\]'
+    parts = re.findall(pattern, path)
+    if len(parts) != path.count('['):
+        raise ValueError("Unterminated bracket detected.")
+    
+    result = []
+    for part in path.split('.'):
+        match = re.match(r'([a-zA-Z_]\w*)\[(\d+)\]', part)
+        if match:
+            result.append(match.group(1))
+            result.append(int(match.group(2)))
+        elif part:
+            result.append(part)
+    
+    return result
+```

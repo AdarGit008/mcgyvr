@@ -1,0 +1,56 @@
+ ```ts
+export function newerRelease(a: string, b: string): number {
+  if (a === b) {
+    return 0;
+  }
+
+  const [aVersion, aSuffix] = parseRelease(a);
+  const [bVersion, bSuffix] = parseRelease(b);
+
+  if (!aVersion || !bVersion) {
+    throw new Error('Invalid release format');
+  }
+
+  const [aMajor, aMinor] = aVersion.split('.').map(Number);
+  const [bMajor, bMinor] = bVersion.split('.').map(Number);
+
+  if (aMajor !== bMajor) {
+    return aMajor > bMajor ? 1 : -1;
+  }
+
+  if (aMinor !== bMinor) {
+    return aMinor > bMinor ? 1 : -1;
+  }
+
+  if (!aSuffix && !bSuffix) {
+    return 0;
+  }
+
+  const suffixOrder: { [key: string]: number } = { dev: 0, alpha: 1, beta: 2, rc: 3 };
+
+  if (suffixOrder[aSuffix.channel] !== suffixOrder[bSuffix.channel]) {
+    return suffixOrder[aSuffix.channel] < suffixOrder[bSuffix.channel] ? 1 : -1;
+  }
+
+  if (!aSuffix.build && !bSuffix.build) {
+    return 0;
+  }
+
+  return aSuffix.build > bSuffix.build ? 1 : -1;
+}
+
+interface Suffix {
+  channel: string;
+  build?: number;
+}
+
+function parseRelease(version: string): [string, Suffix] | null {
+  const match = version.match(/(\d+\.\d+)(-(\w+)\.(\d+))?/);
+  if (!match) return null;
+
+  const [, versionPart, suffixChannel, channel, buildStr] = match;
+  const build = buildStr ? Number(buildStr) : undefined;
+
+  return [versionPart, { channel: suffixChannel || '', build }];
+}
+```

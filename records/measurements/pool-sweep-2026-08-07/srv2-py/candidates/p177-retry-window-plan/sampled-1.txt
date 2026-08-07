@@ -1,0 +1,58 @@
+```python
+def plan_retry_window(policy: dict, outcomes: list) -> dict:
+    if (
+        not isinstance(policy, dict)
+        or len(policy) != 5
+        or 'base' not in policy
+        or 'factor' not in policy
+        or 'ceiling' not in policy
+        or 'tries' not in policy
+        or 'deadline' not in policy
+    ):
+        raise ValueError("Invalid policy format")
+
+    for key in ['base', 'factor', 'ceiling', 'tries', 'deadline']:
+        if not isinstance(policy[key], int) or policy[key] < 1:
+            raise ValueError(f"{key} must be a positive integer")
+
+    if policy['ceiling'] < policy['base']:
+        raise ValueError("Ceiling must be at least base")
+
+    if not isinstance(outcomes, list):
+        raise ValueError("Outcomes must be a list")
+
+    allowed_outcomes = {'won', 'lost', 'held'}
+    if any(outcome not in allowed_outcomes for outcome in outcomes):
+        raise ValueError("Invalid outcome found")
+
+    times = []
+    attempt_count = 0
+    current_time = 0
+
+    while attempt_count < policy['tries']:
+        if len(outcomes) == 0:
+            break
+
+        outcome = outcomes.pop(0)
+        times.append(current_time)
+
+        if outcome == 'won':
+            return {'times': times, 'verdict': 'succeeded'}
+        elif attempt_count >= policy['tries']:
+            return {'times': times, 'verdict': 'exhausted'}
+
+        attempt_count += 1
+
+        if outcome == 'lost':
+            gap = policy['base'] * (policy['factor'] ** (outcomes.count('lost') - 1))
+            gap = min(gap, policy['ceiling'])
+        elif outcome == 'held':
+            gap = policy['ceiling']
+            outcomes.clear()
+
+        current_time += gap
+        if current_time > policy['deadline']:
+            return {'times': times, 'verdict': 'expired'}
+
+    return {'times': times, 'verdict': 'exhausted'}
+```

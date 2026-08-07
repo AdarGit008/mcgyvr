@@ -1,0 +1,18 @@
+```python
+def trace_teleports(pads: list[int], start: int) -> list[int]:
+    if not pads or start < 0 or start >= len(pads):
+        raise ValueError("Invalid input")
+    
+    visited = set()
+    circuit = []
+    current = start
+    
+    while True:
+        if current in visited:
+            break
+        visited.add(current)
+        circuit.append(current)
+        current = pads[current]
+    
+    return [len(circuit) - 1, len(circuit), circuit[0]]
+```

@@ -1,0 +1,12 @@
+```python
+def fit_chargers(chargers: list, devices: list) -> list:
+    handed = []
+    for device in devices:
+        pick = -1
+        for index, charger in enumerate(chargers):
+            if charger["plug"] == device["plug"] and charger["low"] <= device["draw"] <= charger["high"]:
+                pick = index
+                break
+        handed.append(pick)
+    return handed
+```

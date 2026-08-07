@@ -1,0 +1,64 @@
+```python
+def claim_zone(claims: list, where: str) -> str:
+    if not isinstance(claims, list):
+        raise ValueError("Claims must be a list.")
+    
+    if not all(isinstance(c, str) for c in claims):
+        raise ValueError("All claims must be strings.")
+    
+    if ' ' not in where or len(where.split(' ')) != 2:
+        raise ValueError("Where must contain exactly one space and two parts.")
+    
+    target_post, _ = where.split(' ')
+    if len(target_post.split('.')) != 3:
+        raise ValueError("Target post must be three numbers joined by dots.")
+    
+    try:
+        target_numbers = [int(n) for n in target_post.split('.')]
+        if any(n < 0 or n > 15 for n in target_numbers):
+            raise ValueError("Numbers must be between 0 and 15.")
+    except ValueError:
+        raise ValueError("Post must contain exactly three numbers joined by dots.")
+    
+    max_depth = -1
+    covering_name = ""
+    
+    for claim in claims:
+        parts = claim.split(' ')
+        if len(parts) != 2:
+            raise ValueError("Claim must consist of a stencil and a name separated by a space.")
+        
+        stencil, name = parts
+        
+        if ' ' in name or not name:
+            raise ValueError("Name must be non-empty and contain no spaces.")
+        
+        if '/' not in stencil or (stencil.count('/') != 1):
+            raise ValueError("Stencil must contain exactly one slash.")
+        
+        st_parts = stencil.split('/')
+        fixed_depth = int(st_parts[1])
+        if fixed_depth < 0 or fixed_depth > 3:
+            raise ValueError("Depth must be between 0 and 3.")
+        
+        try:
+            st_numbers = [int(n) for n in st_parts[0].split('.')]
+        except ValueError:
+            raise ValueError("Stencil must contain exactly three numbers joined by dots.")
+        
+        if any(n < 0 or n > 15 for n in st_numbers):
+            raise ValueError("Numbers must be between 0 and 15.")
+        
+        if fixed_depth == len(st_numbers):
+            covered = True
+            for i, (t, s) in enumerate(zip(target_numbers[:fixed_depth], st_numbers)):
+                if t != s:
+                    covered = False
+                    break
+            
+            if covered and fixed_depth > max_depth:
+                max_depth = fixed_depth
+                covering_name = name
+    
+    return covering_name
+```

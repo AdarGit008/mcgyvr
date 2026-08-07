@@ -1,0 +1,25 @@
+```python
+def union_coverage(rects: list[list[int]]) -> int:
+    if not all(isinstance(r, list) and len(r) == 4 for r in rects):
+        raise ValueError("All entries must be four integers.")
+    if any(x1 >= x2 or y1 >= y2 for x1, y1, x2, y2 in rects):
+        raise ValueError("Invalid rectangle: x1 must be strictly below x2 and y1 must be strictly below y2.")
+    if any(not (-10000 <= c <= 10000) for r in rects for c in r):
+        raise ValueError("Coordinates must be within the range -10000 through 10000.")
+
+    x_coords = sorted(set(x for rect in rects for x in (rect[0], rect[2])))
+    y_coords = sorted(set(y for rect in rects for y in (rect[1], rect[3])))
+
+    def rectangle_area(rect):
+        return (rect[2] - rect[0]) * (rect[3] - rect[1])
+
+    total_area = 0
+    for i in range(1, len(x_coords)):
+        for j in range(1, len(y_coords)):
+            x1, x2 = x_coords[i-1], x_coords[i]
+            y1, y2 = y_coords[j-1], y_coords[j]
+            overlapping_rects = [rect for rect in rects if x1 <= rect[0] < x2 and y1 <= rect[1] < y2]
+            total_area += rectangle_area([x1, y1, x2, y2]) - sum(rectangle_area(rect) for rect in overlapping_rects)
+
+    return total_area
+```

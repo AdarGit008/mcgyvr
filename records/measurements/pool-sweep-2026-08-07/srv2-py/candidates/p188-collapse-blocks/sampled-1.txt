@@ -1,0 +1,35 @@
+```python
+def collapse_blocks(berths: list) -> list:
+    if not isinstance(berths, list):
+        raise ValueError("Argument must be a list")
+    
+    for berth in berths:
+        if not isinstance(berth, str):
+            raise ValueError("All elements must be strings")
+        
+        parts = berth.split('/')
+        if len(parts) != 2:
+            raise ValueError("Berth must contain exactly one slash")
+        
+        address, pin = parts
+        fields = address.split('.')
+        if len(fields) != 4 or not all(f.isdigit() and 0 <= int(f) <= 7 for f in fields):
+            raise ValueError("Berth must have four fields between 0 and 7")
+        
+        if not pin.isdigit() or not 0 <= int(pin) <= 4:
+            raise ValueError("Pin must be a number between 0 and 4")
+    
+    berths = list(set(berths))
+    slabs = []
+    
+    for berth in sorted(berths):
+        address, pin = berth.split('/')
+        fields = address.split('.')
+        
+        while len(slabs) > 0 and slabs[-1].split('/')[0].startswith(''.join(fields[:len(fields)-int(pin)])):
+            slabs.pop()
+        
+        slabs.append(f"{'.'.join(fields)}/{pin}")
+    
+    return slabs
+```

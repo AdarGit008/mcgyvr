@@ -1,0 +1,46 @@
+```
+def _whole(value):
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def prune_replica_logs(replicas: list, held: int) -> dict:
+    if not isinstance(replicas, list) or len(replicas) == 0:
+        raise ValueError("the replicas must be a non-empty list")
+    if not _whole(held) or held < 0:
+        raise ValueError("the number held must be a whole number of zero or more")
+    seen = []
+    total = 0
+    for replica in replicas:
+        if not isinstance(replica, dict):
+            raise ValueError("a replica must be a record")
+        for field in ("name", "acked", "weight"):
+            if field not in replica:
+                raise ValueError("a replica record is missing " + field)
+        name = replica["name"]
+        if not isinstance(name, str) or name == "":
+            raise ValueError("a replica name must be a non-empty string")
+        if name in seen:
+            raise ValueError("replica names must not repeat")
+        seen.append(name)
+        if not _whole(replica["weight"]) or replica["weight"] < 1:
+            raise ValueError("a weight must be a whole number of one or more")
+        acked = replica["acked"]
+        if not _whole(acked) or acked < 0 or acked > held:
+            raise ValueError(
+                "an acked position must lie between zero and the number held"
+            )
+        total += replica["weight"]
+    committed = 0
+    for position in range(held, 0, -1):
+        backing = sum(r["weight"] for r in replicas if r["acked"] >= position)
+        if backing * 2 > total:
+            committed = position
+            break
+    discardable = min(replica["acked"] for replica in replicas)
+    laggards = [r["name"] for r in replicas if r["acked"] < committed]
+    return {
+        "committed": committed,
+        "discardable": discardable,
+        "laggards": laggards,
+    }
+```

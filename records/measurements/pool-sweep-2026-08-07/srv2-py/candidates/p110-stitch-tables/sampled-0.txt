@@ -1,0 +1,27 @@
+```python
+def stitch_tables(left: list, right: list, key: str, mode: str) -> list:
+    if mode not in ["inner", "left"]:
+        raise ValueError("Invalid mode. Must be 'inner' or 'left'.")
+    
+    if not all(isinstance(record.get(key), str) for record in left + right):
+        raise ValueError("All records must have key column with a string value.")
+    
+    right_map = {}
+    for record in right:
+        if record[key] in right_map:
+            raise ValueError(f"Duplicate key '{record[key]}' found in the right table.")
+        right_map[record[key]] = {k: v for k, v in record.items() if k != key}
+    
+    result = []
+    for left_record in left:
+        if mode == "inner":
+            if left_record[key] in right_map:
+                result.append({**left_record, **right_map[left_record[key]]})
+        else:  # mode == "left"
+            result_record = {**left_record}
+            for k, v in right_map.get(left_record[key], {}).items():
+                result_record[k] = v
+            result.append(result_record)
+    
+    return result
+```

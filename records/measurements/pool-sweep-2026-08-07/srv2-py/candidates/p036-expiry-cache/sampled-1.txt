@@ -1,0 +1,51 @@
+```python
+def expiry_cache(capacity: int, ops: list[list]) -> list[int]:
+    if capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    
+    cache = {}
+    expiration = []
+    result = []
+
+    for time, op_type, *args in ops:
+        current_time = len(result)
+        if current_time > 0 and time < current_time:
+            raise ValueError("Time cannot go backwards")
+        
+        if op_type == "set":
+            ttl = args[2]
+            if ttl <= 0:
+                raise ValueError("TTL must be a positive integer")
+            
+            key = args[1]
+            value = args[3]
+            expiration.append((time + ttl, key))
+            cache[key] = (value, time + ttl)
+        
+        elif op_type == "get":
+            key = args[1]
+            if key in cache:
+                stored_value, exp_time = cache[key]
+                if current_time < exp_time:
+                    result.append(stored_value)
+                    continue
+                else:
+                    del cache[key]
+            
+            expiration = [(t, k) for t, k in expiration if t > current_time]
+            if key in cache:
+                value, _ = cache[key]
+                result.append(value)
+            else:
+                result.append(-1)
+        
+        else:
+            raise ValueError("Unknown operation name")
+    
+    while len(cache) > capacity:
+        _, key_to_evict = min(expiration)
+        del cache[key_to_evict]
+        expiration.remove((min(t for t, k in expiration if k == key_to_evict), key_to_evict))
+    
+    return result
+```

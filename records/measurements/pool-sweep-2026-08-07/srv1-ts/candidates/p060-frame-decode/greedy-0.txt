@@ -1,0 +1,36 @@
+```ts
+/**
+ * Decodes frames from a byte stream.
+ * @param stream - List of byte values (0 to 255).
+ * @returns List of payloads in stream order.
+ */
+export function decodeFrames(stream: number[]): number[][] {
+    const frames: number[][] = [];
+    let index = 0;
+
+    while (index < stream.length) {
+        if (stream[index] === undefined || stream[index] < 0 || stream[index] > 255) {
+            throw new Error('Invalid byte value');
+        }
+
+        const length = (stream[index++] << 8) | stream[index++];
+        if (length > stream.length - index) {
+            throw new Error('Stream ends inside a payload');
+        }
+
+        const payload: number[] = [];
+        for (let i = 0; i < length; i++) {
+            payload.push(stream[index++]);
+        }
+
+        const checksum = stream[index++];
+        if (checksum !== 0 && payload.reduce((acc, byte) => acc ^ byte, 0) !== checksum) {
+            throw new Error('Checksum mismatch');
+        }
+
+        frames.push(payload);
+    }
+
+    return frames;
+}
+```

@@ -1,0 +1,29 @@
+```python
+def tally_ballots(events: list) -> dict:
+    vote_counts = {}
+    voter_choices = {}
+
+    for event in events:
+        if event["type"] == "cast":
+            voter = event["voter"]
+            option = event["option"]
+            if voter in voter_choices:
+                raise ValueError("Voter already has a standing vote")
+            voter_choices[voter] = option
+            vote_counts[option] = vote_counts.get(option, 0) + 1
+        elif event["type"] == "retract":
+            voter = event["voter"]
+            if voter not in voter_choices:
+                raise ValueError("No standing vote to retract")
+            option = voter_choices.pop(voter)
+            vote_counts[option] -= 1
+        elif event["type"] == "close":
+            for event in events[i:]:
+                if event["type"] != "close":
+                    raise ValueError("Event after close is not allowed")
+            break
+        else:
+            raise ValueError("Invalid event type")
+
+    return {option: vote_counts.get(option, 0) for option in set(vote_counts)}
+```

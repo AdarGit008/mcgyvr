@@ -1,0 +1,33 @@
+```ts
+export function runCrane(script: string[][]): string[] {
+  const pile: string[] = [];
+  const manifest: string[] = [];
+
+  for (let i = 0; i < script.length; i++) {
+    const [move, label] = script[i];
+
+    switch (move) {
+      case "load":
+        if (label === undefined) throw new Error(`Invalid move at index ${i}`);
+        pile.push(label);
+        break;
+      case "ship":
+        if (pile.length === 0) throw new Error(`Invalid move at index ${i}`);
+        manifest.push(pile.pop()!);
+        break;
+      case "bury":
+        if (pile.length === 0) throw new Error(`Invalid move at index ${i}`);
+        pile.unshift(pile.pop()!);
+        break;
+      case "scrap":
+        if (pile.length === 0) throw new Error(`Invalid move at index ${i}`);
+        pile.pop();
+        break;
+      default:
+        throw new Error(`Unknown move at index ${i}`);
+    }
+  }
+
+  return manifest;
+}
+```

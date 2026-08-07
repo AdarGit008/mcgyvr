@@ -1,0 +1,29 @@
+```typescript
+/**
+ * Locates every place where query words appear as consecutive whole words in a passage.
+ * Words are maximal runs of ASCII letters and digits, case-insensitive.
+ * @param passage The text to search within.
+ * @param query The sequence of words to find.
+ * @returns An array of offsets for the start of each hit, sorted in ascending order.
+ */
+export function wordSpanStarts(passage: string, query: string): number[] {
+  if (typeof passage !== 'string' || typeof query !== 'string') {
+    throw new Error('Both passage and query must be strings.');
+  }
+
+  const words = query.split(/\W+/).filter(Boolean);
+  if (words.length === 0) {
+    throw new Error('Query must contain at least one word.');
+  }
+
+  const result: number[] = [];
+  const regex = new RegExp(`\\b${words.join('\\s')}\\b`, 'gi');
+
+  let match;
+  while ((match = regex.exec(passage)) !== null) {
+    result.push(match.index);
+  }
+
+  return result;
+}
+```

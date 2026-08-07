@@ -1,0 +1,43 @@
+```ts
+export function planRetryWindow(policy: { base: number; factor: number; ceiling: number; tries: number; deadline: number }, outcomes: string[]): { times: number[]; verdict: string } {
+    const { base, factor, ceiling, tries, deadline } = policy;
+    if (typeof base !== 'number' || typeof factor !== 'number' || typeof ceiling !== 'number' || typeof tries !== 'number' || typeof deadline !== 'number') {
+        throw new Error('Policy must contain whole numbers for base, factor, ceiling, tries, and deadline.');
+    }
+    if (base < 1 || factor < 1 || tries < 1 || deadline < 1) {
+        throw new Error('Base, factor, tries, and deadline must be whole numbers of one or more.');
+    }
+    if (ceiling < base) {
+        throw new Error('Ceiling must be a whole number of at least base.');
+    }
+    if (!Array.isArray(outcomes)) {
+        throw new Error('Outcomes must be a list.');
+    }
+    const validOutcomes = ['won', 'lost', 'held'];
+    for (const outcome of outcomes) {
+        if (!validOutcomes.includes(outcome)) {
+            throw new Error('Invalid outcome in the list.');
+        }
+    }
+
+    const times: number[] = [];
+    let currentTime = 0;
+    let attemptCount = 0;
+
+    while (attemptCount < tries && currentTime <= deadline) {
+        times.push(currentTime);
+        if (outcomes[attemptCount] === 'won') {
+            break;
+        } else if (outcomes[attemptCount] === 'lost') {
+            const consecutiveLost = outcomes.slice(attemptCount + 1).reduce((count, outcome) => outcome === 'lost' ? count + 1 : count, 0);
+            currentTime += base * Math.pow(factor, consecutiveLost);
+        } else if (outcomes[attemptCount] === 'held') {
+            currentTime += ceiling;
+        }
+        attemptCount++;
+    }
+
+    const verdict = attemptCount === tries ? 'exhausted' : currentTime > deadline ? 'expired' : 'succeeded';
+    return { times, verdict };
+}
+```

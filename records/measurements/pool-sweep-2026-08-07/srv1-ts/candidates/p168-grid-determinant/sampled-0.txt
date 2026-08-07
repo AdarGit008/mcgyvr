@@ -1,0 +1,38 @@
+```ts
+/**
+ * Calculate the determinant of a square grid of whole numbers.
+ * @param grid - A square grid of whole numbers with 1 to 3 rows.
+ * @returns The determinant of the grid, exact and without decimals.
+ */
+export function gridDeterminant(grid: number[][]): number {
+    if (!Array.isArray(grid) || grid.length === 0) {
+        throw new Error('Invalid input: not a list of lists');
+    }
+    const n = grid.length;
+    if (n < 1 || n > 3) {
+        throw new Error('Invalid input: grid must have 1 to 3 rows');
+    }
+    for (const row of grid) {
+        if (!Array.isArray(row) || row.length !== n) {
+            throw new Error('Invalid input: grid must be square');
+        }
+        for (const cell of row) {
+            if (!Number.isInteger(cell)) {
+                throw new Error('Invalid input: all cells must be whole numbers');
+            }
+        }
+    }
+
+    if (n === 1) {
+        return grid[0][0];
+    } else if (n === 2) {
+        return grid[0][0] * grid[1][1] - grid[0][1] * grid[1][0];
+    } else {
+        let det = 0;
+        for (let i = 0; i < n; i++) {
+            det += Math.pow(-1, i) * grid[0][i] * gridDeterminant(grid.slice(1).map(row => row.filter((_, j) => j !== i)));
+        }
+        return det;
+    }
+}
+```

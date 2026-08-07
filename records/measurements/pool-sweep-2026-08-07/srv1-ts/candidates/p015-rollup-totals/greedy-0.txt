@@ -1,0 +1,30 @@
+```ts
+export function rollupTotals(
+  nodes: Record<string, { value: number; parent: string }>,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  const visited: Set<string> = new Set();
+
+  function calculateTotal(id: string): number {
+    if (visited.has(id)) return 0;
+    visited.add(id);
+    let total = nodes[id].value;
+    for (const other of Object.keys(nodes)) {
+      if (nodes[other].parent === id) {
+        total += calculateTotal(other);
+      }
+    }
+    totals[id] = total;
+    return total;
+  }
+
+  const rootIds = Object.keys(nodes).filter(id => nodes[id].parent === '');
+  if (rootIds.length !== 1) throw new Error('Input must have exactly one root');
+
+  for (const rootId of rootIds) {
+    calculateTotal(rootId);
+  }
+
+  return totals;
+}
+```

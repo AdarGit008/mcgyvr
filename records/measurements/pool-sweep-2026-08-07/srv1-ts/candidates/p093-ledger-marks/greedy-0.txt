@@ -1,0 +1,52 @@
+```ts
+export function linkLedgerMarks(marks: string[], aliases: Record<string, string>): [string, string[]][] {
+    const validSeparators = new Set(['-', '/', ' ']);
+    const checkLetterMap = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i));
+
+    function validateMark(mark: string): { houseCode: string; serial: number; checkLetter: string } {
+        const parts = mark.split(/[-\/ ]/);
+        if (parts.length !== 3 || !validSeparators.has(parts[1])) throw new Error('Invalid mark format');
+
+        const [houseCode, serialStr, checkLetter] = parts;
+        const houseCodeUpper = houseCode.toUpperCase();
+        const serial = parseInt(serialStr, 10);
+
+        if (!/^[A-Z]{2,3}$/.test(houseCodeUpper)) throw new Error('Invalid house code');
+        if (serial <= 0 || isNaN(serial)) throw new Error('Invalid serial number');
+        if (!checkLetterMap[serial % 26]) throw new Error('Invalid check letter');
+
+        return { houseCode: houseCodeUpper, serial, checkLetter };
+    }
+
+    function resolveAlias(houseCode: string): string {
+        let resolved = aliases[houseCode];
+        while (resolved && resolved !== houseCode) {
+            const nextResolved = aliases[resolved];
+            if (!nextResolved || nextResolved === resolved) throw new Error('Invalid alias mapping');
+            resolved = nextResolved;
+        }
+        return resolved || houseCode;
+    }
+
+    const entries = new Map<string, { canonical: string; raws: string[] }>();
+
+    for (const mark of marks) {
+        if (typeof mark !== 'string') throw new Error('Non-string mark');
+
+        try {
+            const { houseCode, serial, checkLetter } = validateMark(mark);
+            const resolvedHouseCode = resolveAlias(houseCode);
+
+            const canonical = `${resolvedHouseCode}-${serial.toString().padStart(2, '0')}-${checkLetter}`;
+            if (!entries.has(canonical)) {
+                entries.set(canonical, { canonical, raws: [] });
+            }
+            entries.get(canonical)!.raws.push(mark);
+        } catch (error) {
+            throw new Error(`Malformed mark: ${mark}`);
+        }
+    }
+
+    return Array.from(entries.values()).map(({ canonical, raws }) => [canonical, raws]);
+}
+```

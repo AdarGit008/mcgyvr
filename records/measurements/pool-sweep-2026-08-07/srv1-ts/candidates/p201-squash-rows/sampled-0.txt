@@ -1,0 +1,56 @@
+ ```ts
+/**
+ * A chart with its twin rows squashed together.
+ */
+export function squashRows(
+  chart: Record<string, unknown>
+): Record<string, unknown> {
+  const signals = chart.signals as string[];
+  if (!signals || signals.length === 0) {
+    throw new Error("Signal list is empty or contains non-empty strings.");
+  }
+  if (new Set(signals).size !== signals.length) {
+    throw new Error("Signal list contains duplicates.");
+  }
+
+  const rows = chart.rows as any[];
+  if (!rows || rows.length === 0) {
+    throw new Error("No rows provided.");
+  }
+
+  const groupOf = new Map<string, number>();
+  const chosen: any[] = [];
+  const seen = new Map<string, number>();
+
+  for (const row of rows) {
+    if (!row.label || typeof row.label !== "string" || row.label.trim() === "") {
+      throw new Error("Row label must be a non-empty string.");
+    }
+    if (!row.mark || typeof row.mark !== "string" || row.mark.trim() === "") {
+      throw new Error("Row mark must be a non-empty string.");
+    }
+    if (row.next.length !== signals.length) {
+      throw new Error("Row next list does not hold exactly one entry per signal.");
+    }
+
+    const twinKey = signals.map(signal => `${row.signal}[${signal}]`).join("|");
+    if (!seen.has(twinKey)) {
+      seen.set(twinKey, chosen.length);
+      chosen.push(row);
+    }
+    groupOf.set(row.label, seen.get(twinKey) as number);
+  }
+
+  const folded = chosen.map((row, at) => ({
+    at,
+    mark: row.mark,
+    next: signals.map(signal => groupOf.get(`${row.label}[${signal}]`)),
+  }));
+
+  if (!rows.some(r => r.label === chart.head)) {
+    throw new Error("Head row names no row.");
+  }
+
+  return { entry: groupOf.get(chart.head as string), rows: folded };
+}
+```

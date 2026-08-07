@@ -1,0 +1,28 @@
+```python
+def run_buffered_line(capacities: list[int], buffers: list[int], ticks: int) -> dict:
+    if not capacities or len(buffers) != len(capacities) - 1:
+        raise ValueError("Invalid input lengths")
+    if any(not isinstance(c, int) or c <= 0 for c in capacities + buffers):
+        raise ValueError("All limits and sizes must be positive integers")
+    if not isinstance(ticks, int) or ticks < 0:
+        raise ValueError("Ticks must be a non-negative integer")
+
+    made = 0
+    buffer_states = [0] * len(buffers)
+
+    for _ in range(ticks):
+        for i in range(len(capacities) - 1, 0, -1):
+            limit = capacities[i]
+            inbound_buffer = buffer_states[i - 1]
+            outbound_buffer = buffer_states[i]
+
+            move_amount = min(limit, inbound_buffer, buffers[i] - outbound_buffer)
+            if move_amount > 0:
+                buffer_states[i - 1] -= move_amount
+                buffer_states[i] += move_amount
+
+        made += buffer_states[-1]
+        buffer_states[-1] = 0
+
+    return {"made": made, "left": buffer_states}
+```

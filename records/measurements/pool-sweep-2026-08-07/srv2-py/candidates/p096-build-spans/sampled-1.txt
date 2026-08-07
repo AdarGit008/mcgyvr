@@ -1,0 +1,68 @@
+```python
+def intersect_build_spans(spans: list[str]) -> str:
+    from re import fullmatch
+
+    def parse_span(span: str) -> tuple[int | None, int | None, set[int]]:
+        if span == "..":
+            return None, None, set()
+        match = fullmatch(r"([0-9]+)\.\.([0-9]+)(?:!([0-9]+))*", span)
+        lo = hi = None
+        strikes = set()
+        if match:
+            lo_str, hi_str, *strike_raws = match.groups()
+            lo = int(lo_str) if lo_str else 0
+            hi = int(hi_str) if hi_str else float('inf')
+            strikes.update(int(strike_raw) for strike_raw in strike_raws)
+        elif span.startswith(".."):
+            hi_str, *strike_raws = span[2:].split("!")
+            hi = int(hi_str)
+            strikes.update(int(strike_raw) for strike_raw in strike_raws)
+        elif span.endswith(".."):
+            lo_str, *strike_raws = span[:-2].split("!")
+            lo = int(lo_str)
+            strikes.update(int(strike_raw) for strike_raw in strike_raws)
+        else:
+            raise ValueError(f"Invalid span: {span}")
+        if hi is not None and lo is not None and lo > hi:
+            raise ValueError(f"Reversed limits in span: {span}")
+        return lo, hi, strikes
+
+    def adjust_spans(spans: list[tuple[int | None, int | None, set[int]]]) -> tuple[int | None, int | None, set[int]]:
+        lo = hi = None
+        strikes = set()
+        for span_lo, span_hi, span_strikes in spans:
+            if lo is None or (span_lo is not None and span_lo > lo):
+                lo = span_lo
+            if hi is None or (span_hi is not None and span_hi < hi):
+                hi = span_hi
+            strikes.update(span_strikes)
+        return lo, hi, strikes
+
+    def tighten_limits(lo: int | None, hi: int | None) -> tuple[int | None, int | None]:
+        if lo is not None and hi is not None and lo > hi:
+            return None, None
+        return lo, hi
+
+    def strike_builds(lo: int | None, hi: int | None, strikes: set[int]) -> tuple[int | None, int | None]:
+        while lo is not None and lo in strikes:
+            lo += 1
+        while hi is not None and hi in strikes:
+            hi -= 1
+        return lo, hi
+
+    if not spans:
+        raise ValueError("Empty list of spans")
+    parsed_spans = [parse_span(span) for span in spans]
+    adjusted_spans = adjust_spans(parsed_spans)
+    tightened_limits = tighten_limits(adjusted_spans[0], adjusted_spans[1])
+    struck_limits = strike_builds(tightened_limits[0], tightened_limits[1], adjusted_spans[2])
+
+    if struck_limits[0] is None or struck_limits[1] is None:
+        return "empty"
+
+    lo_str = str(struck_limits[0])
+    hi_str = str(struck_limits[1]) if struck_limits[1] != float('inf') else ""
+    strikes_str = "".join(f"!{strike}" for strike in sorted(adjusted_spans[2]))
+    result = f"{lo_str}..{hi_str}{strikes_str}"
+    return result
+```

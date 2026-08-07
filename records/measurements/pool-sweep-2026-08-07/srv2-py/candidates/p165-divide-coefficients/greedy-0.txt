@@ -1,0 +1,22 @@
+```python
+def divide_coefficients(dividend: list[int], divisor: list[int]) -> list[list[int]]:
+    if not divisor:
+        raise ValueError("Divisor cannot be empty")
+    if any(coeff == 0 for coeff in dividend + divisor):
+        raise ValueError("No coefficient can be zero")
+    if not all(isinstance(coeff, int) for coeff in dividend + divisor):
+        raise ValueError("All coefficients must be integers")
+
+    rest = list(dividend)
+    quotient = []
+    while len(rest) >= len(divisor):
+        factor = rest[-1] // divisor[-1]
+        if factor * divisor[-1] != rest[-1]:
+            raise ValueError("Exact division required")
+        quotient.append(factor)
+        for i, term in enumerate(divisor):
+            rest[len(rest) - len(divisor) + i] -= factor * term
+        while rest and not rest[-1]:
+            rest.pop()
+    return [quotient[::-1], rest]
+```

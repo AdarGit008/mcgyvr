@@ -1,0 +1,51 @@
+```python
+def replay_envelopes(envelopes: list, months: list) -> dict:
+    """
+    Replays the given monthly envelopes and returns their final balances and total forfeited amount.
+    
+    :param envelopes: List of [name, monthly_deposit, cap] records.
+    :param months: List of lists containing [envelope_name, outlay_amount].
+    :return: Dictionary with 'balances' as a list of [name, balance], and 'forfeited' as total forfeited amount.
+    """
+    
+    # Validate envelopes
+    envelope_names = set()
+    for name, monthly, cap in envelopes:
+        if not name or name in envelope_names:
+            raise ValueError(f"Duplicate or empty envelope name: {name}")
+        if not isinstance(monthly, int) or not isinstance(cap, int):
+            raise ValueError(f"Invalid monthly deposit or cap for envelope {name}: {monthly}, {cap}")
+        if monthly < 0 or cap < 0:
+            raise ValueError(f"Non-negative integer required for monthly deposit and cap for envelope {name}: {monthly}, {cap}")
+        envelope_names.add(name)
+    
+    # Initialize balances and forfeited amount
+    balances = {name: 0 for name, _, _ in envelopes}
+    forfeited = 0
+    
+    # Process each month's transactions
+    for month in months:
+        for name, outlay in month:
+            if name not in envelope_names:
+                raise ValueError(f"Unknown envelope name: {name}")
+            if not isinstance(outlay, int) or outlay <= 0:
+                raise ValueError(f"Positive integer required for outlay amount for envelope {name}: {outlay}")
+            
+            # Step 1: Add monthly deposit
+            balances[name] += envelopes[envelope_names.index(name)][1]
+            
+            # Step 2: Subtract outlay, accumulate debt if necessary
+            balances[name] -= outlay
+            
+            # Step 3: Cap enforcement and forfeit excess
+            if balances[name] > envelopes[envelope_names.index(name)][2]:
+                overflow = balances[name] - envelopes[envelope_names.index(name)][2]
+                balances[name] = envelopes[envelope_names.index(name)][2]
+                forfeited += overflow
+    
+    # Prepare the result
+    return {
+        "balances": [[name, balance] for name, balance in balances.items()],
+        "forfeited": forfeited
+    }
+```

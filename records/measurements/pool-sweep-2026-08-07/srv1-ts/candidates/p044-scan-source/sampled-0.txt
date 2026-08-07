@@ -1,0 +1,38 @@
+```ts
+export function scanSource(line: string): [string, string][] {
+    const tokens: [string, string][] = [];
+    let i = 0;
+
+    while (i < line.length) {
+        if (/^\s/.test(line[i])) {
+            i++;
+            continue;
+        }
+
+        if (/^\d/.test(line[i])) {
+            let numStart = i;
+            while (/\d/.test(line[++i])) {}
+            tokens.push(["num", line.slice(numStart, i)]);
+        } else if (/^[a-zA-Z_]/.test(line[i])) {
+            let idStart = i;
+            while (/[\w]/.test(line[++i])) {}
+            tokens.push(["id", line.slice(idStart, i)]);
+        } else if (/[<>=!&|()=+\-*/]/.test(line[i]) && i + 1 < line.length) {
+            const op = line.substring(i, i + 2);
+            if (op === "==" || op === "!=" || op === "<=" || op === ">=" || op === "&&" || op === "||") {
+                tokens.push(["op", op]);
+                i += 2;
+            } else {
+                throw new Error(`Invalid character: ${line[i]}`);
+            }
+        } else if (/[<>=!&|()=+\-*/]/.test(line[i])) {
+            tokens.push(["op", line[i]]);
+            i++;
+        } else {
+            throw new Error(`Invalid character: ${line[i]}`);
+        }
+    }
+
+    return tokens;
+}
+```

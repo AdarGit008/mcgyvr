@@ -1,0 +1,28 @@
+```ts
+export function staffedPosts(wanted: number[][], posts: number): number {
+  if (!Number.isInteger(posts) || posts <= 0) {
+    throw new Error('Invalid posts count');
+  }
+
+  const postAssignments = new Array<number>(posts).fill(-1);
+
+  for (const applicant of wanted) {
+    for (const post of applicant) {
+      if (!Number.isInteger(post) || post < 0 || post >= posts) {
+        throw new Error('Invalid post number');
+      }
+      if (postAssignments[post] === -1) {
+        postAssignments[post] = applicant[0];
+        break;
+      } else if (postAssignments.includes(applicant[0])) {
+        const currentPost = postAssignments.indexOf(applicant[0]);
+        postAssignments[currentPost] = -1;
+        postAssignments[post] = applicant[0];
+        break;
+      }
+    }
+  }
+
+  return postAssignments.filter(post => post !== -1).length;
+}
+```

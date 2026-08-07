@@ -1,0 +1,31 @@
+```python
+def order_relation(pairs: list[list[str]], x: str, y: str) -> str:
+    if x == y:
+        raise ValueError("Query items must be distinct")
+    
+    graph = {item: set() for pair in pairs for item in pair}
+    
+    for a, b in pairs:
+        graph[a].add(b)
+    
+    def dfs(start, target):
+        stack = [start]
+        visited = set()
+        
+        while stack:
+            node = stack.pop()
+            if node == target:
+                return True
+            if node not in visited:
+                visited.add(node)
+                stack.extend(graph[node] - visited)
+        
+        return False
+    
+    if dfs(x, y):
+        return "before"
+    elif dfs(y, x):
+        return "after"
+    else:
+        return "unordered"
+```

@@ -1,0 +1,30 @@
+```typescript
+export function printOperatorTree(node: unknown): string {
+    if (typeof node === 'number') {
+        if (!Number.isInteger(node) || node < 0) throw new Error('Invalid number');
+        return node.toString();
+    }
+    if (typeof node === 'string' && /^[a-z]+$/.test(node)) return node;
+    if (node instanceof Object && !Array.isArray(node)) {
+        const { op, negate, call } = node as Record<string, unknown>;
+        if ((op || negate || call) === undefined) throw new Error('Invalid node shape');
+        if (call !== undefined) {
+            if (typeof call !== 'string' || !/^[a-z]+$/.test(call)) throw new Error('Invalid function name');
+            if (!Array.isArray(node.args)) throw new Error('Args must be an array');
+            return `${call}(${node.args.map(printOperatorTree).join(', ')})`;
+        }
+        const [left, right] = ['left', 'right'].map(k => node[k]);
+        if ((op || left === undefined || right === undefined) && negate === undefined) throw new Error('Invalid node shape');
+        if (negate !== undefined) {
+            return `-${printOperatorTree(negate)}`;
+        }
+        if (!['or', 'and', '+', '-', '*', '/', '^'].includes(op as string)) throw new Error('Invalid operator');
+        const leftBP = ['^', '*', '/'].includes(op as string) ? 4 : 3;
+        const rightBP = op === '^' ? 4 : 2;
+        const needsParensLeft = (leftBP < 5 || (op === '+' || op === '-' && leftBP <= 3)) && !negate;
+        const needsParensRight = (rightBP <= 3 && !['or', 'and'].includes(op as string)) || negate;
+        return `${needsParensLeft ? '(' : ''}${printOperatorTree(left)}${needsParensLeft ? ')' : ''} ${op} ${needsParensRight ? '(' : ''}${printOperatorTree(right)}${needsParensRight ? ')' : ''}`;
+    }
+    throw new Error('Invalid input type');
+}
+```

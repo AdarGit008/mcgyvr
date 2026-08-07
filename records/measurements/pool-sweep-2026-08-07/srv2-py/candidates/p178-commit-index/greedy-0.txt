@@ -1,0 +1,37 @@
+```python
+def commit_index(log: list, matches: list, current_term: int) -> dict:
+    if not all(isinstance(x, list) for x in [log, matches]):
+        raise ValueError("Both log and matches must be lists.")
+    
+    if not isinstance(current_term, int) or current_term < 1:
+        raise ValueError("Current term must be a whole number of one or more.")
+    
+    if any(not isinstance(term, int) or term < 1 for term in log):
+        raise ValueError("All terms in the log must be whole numbers of one or more.")
+    
+    if any(term > current_term for term in log):
+        raise ValueError("No entry may be stamped above the leader's current term.")
+    
+    if any(not isinstance(match, int) or match < 0 or (match != 0 and match >= len(log)) for match in matches):
+        raise ValueError("Copied numbers must be whole numbers between zero and the log's length.")
+    
+    quorum = (len(matches) + 1) // 2
+    commit = 0
+    safe = 0
+    behind = []
+    
+    for i, match in enumerate(matches):
+        if match >= commit:
+            commit = match
+    
+    for i, match in enumerate(matches):
+        if match < commit:
+            behind.append(i)
+    
+    for entry in range(len(log) - 1, -1, -1):
+        if log[entry] == current_term and all(match >= entry for match in matches):
+            safe = entry
+            break
+    
+    return {"commit": commit, "safe": safe, "behind": behind}
+```

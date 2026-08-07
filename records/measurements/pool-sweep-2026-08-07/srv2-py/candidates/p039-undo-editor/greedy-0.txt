@@ -1,0 +1,38 @@
+```python
+def run_editor(ops: list[list]) -> str:
+    past: list[str] = []
+    future: list[str] = []
+    text = ""
+    for op in ops:
+        kind = op[0]
+        if kind == "type":
+            piece = op[1]
+            if not isinstance(piece, str) or not piece:
+                raise ValueError("type needs a non-empty string")
+            past.append(text)
+            future.clear()
+            text += piece
+        elif kind == "erase":
+            count = op[1]
+            if (
+                not isinstance(count, int)
+                or isinstance(count, bool)
+                or count < 1
+                or count > len(text)
+            ):
+                raise ValueError("erase count out of range")
+            past.append(text)
+            future.clear()
+            text = text[: len(text) - count]
+        elif kind == "undo":
+            if past:
+                future.append(text)
+                text = past.pop()
+        elif kind == "redo":
+            if future:
+                past.append(text)
+                text = future.pop()
+        else:
+            raise ValueError(f"unknown operation {kind!r}")
+    return text
+```

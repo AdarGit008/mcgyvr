@@ -1,0 +1,36 @@
+```python
+def grade_bars(line: str, beats: int, unit: int) -> list:
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string")
+    if not 1 <= unit <= 16 or not 1 <= beats < 32 * unit:
+        raise ValueError("Invalid meter")
+    
+    bars = line.split('|')
+    results = []
+    
+    for bar in bars:
+        total_ticks = 0
+        notes = bar.strip().split()
+        
+        if not notes:
+            raise ValueError("Bar must contain at least one note")
+        
+        for note in notes:
+            note_base, dot_count = (note[:-1], 1) if '.' in note else (note, 0)
+            
+            if note_base not in "wheqs":
+                raise ValueError(f"Invalid note: {note}")
+            
+            ticks = "wheqs".index(note_base) * 64 // unit
+            total_ticks += ticks + ticks // 2 * dot_count
+        
+        bar_ticks = beats * 64 // unit
+        if total_ticks < bar_ticks:
+            results.append("short")
+        elif total_ticks == bar_ticks:
+            results.append("exact")
+        else:
+            results.append("long")
+    
+    return results
+```

@@ -1,0 +1,21 @@
+```python
+def fold_digraphs(text: str, table: list[list[str]]) -> str:
+    folded = text
+    i = 0
+    while i < len(folded):
+        max_len = 0
+        winner = None
+        for pattern, output in table:
+            if pattern == "":
+                raise ValueError("empty pattern")
+            pos = folded.find(pattern, i)
+            if pos == i and len(pattern) > max_len:
+                max_len = len(pattern)
+                winner = output
+        if winner is not None:
+            folded = folded[:i] + winner + folded[i + max_len:]
+            i += len(winner)
+        else:
+            i += 1
+    return folded
+```

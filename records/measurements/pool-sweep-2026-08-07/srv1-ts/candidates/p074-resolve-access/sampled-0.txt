@@ -1,0 +1,31 @@
+```ts
+export function resolveAccess(
+  rules: Array<{ effect: string; action: string; path: string[] }>,
+  request: { action: string; path: string[] }
+): { decision: string; rule: number } {
+  if (request.action === '') throw new Error('Request action cannot be empty');
+
+  let bestRuleIndex = -1;
+  let bestMatchScore = -Infinity;
+
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
+    if (rule.effect !== 'allow' && rule.effect !== 'deny') throw new Error(`Invalid effect: ${rule.effect}`);
+
+    const rulePathLength = rule.path.length;
+    if (request.path.length < rulePathLength) continue;
+
+    const pathMatch = request.path.slice(0, rulePathLength).join('') === rule.path.join('');
+    if (!pathMatch || (rule.action !== 'any' && rule.action !== request.action)) continue;
+
+    const actionScore = rule.action === request.action ? 1 : 0;
+    const pathScore = rulePathLength * 2 + actionScore;
+    if (pathScore > bestMatchScore) {
+      bestRuleIndex = i;
+      bestMatchScore = pathScore;
+    }
+  }
+
+  return { decision: rules[bestRuleIndex]?.effect || 'deny', rule: bestRuleIndex };
+}
+```

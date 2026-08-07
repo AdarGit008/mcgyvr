@@ -1,0 +1,27 @@
+```python
+def scan_source(line: str) -> list[list[str]]:
+    tokens = []
+    i = 0
+    while i < len(line):
+        if line[i].isspace():
+            i += 1
+        elif line[i].isdigit():
+            start = i
+            while i + 1 < len(line) and line[i + 1].isdigit():
+                i += 1
+            tokens.append(['num', line[start:i + 1]])
+        elif line[i].isalpha() or line[i] == '_':
+            start = i
+            while i + 1 < len(line) and (line[i + 1].isalnum() or line[i + 1] == '_'):
+                i += 1
+            tokens.append(['id', line[start:i + 1]])
+        elif line[i:i+2] in ('==', '!=', '<=', '>=', '&&', '||'):
+            tokens.append(['op', line[i:i+2]])
+            i += 2
+        elif line[i] in '=<>+-*/()':
+            tokens.append(['op', line[i]])
+            i += 1
+        else:
+            raise ValueError(f"Invalid character: {line[i]}")
+    return tokens
+```

@@ -1,0 +1,56 @@
+```ts
+export function weighUnit(
+  spec: string,
+  masses: Record<string, number>,
+): number {
+  if (typeof spec !== "string" || spec.length === 0) {
+    throw new Error("Invalid spec");
+  }
+
+  let at = 0;
+  const outer: number[] = [];
+  let sum = 0;
+
+  const readCount = (): number => {
+    let digits = "";
+    while (at < spec.length && /\d/.test(spec[at])) {
+      digits += spec[at];
+      at += 1;
+    }
+    return digits === "" ? 1 : Number(digits);
+  };
+
+  while (at < spec.length) {
+    const ch = spec[at];
+    if (ch === "(" || ch === "[") {
+      outer.push(sum);
+      sum = 0;
+      at += 1;
+    } else if (ch === ")" || ch === "]") {
+      if (outer.length === 0) {
+        throw new Error("Unmatched closer");
+      }
+      at += 1;
+      const count = readCount();
+      sum = (outer.pop() ?? 0) * count + sum;
+    } else {
+      let name = ch;
+      at += 1;
+      while (at < spec.length && /[a-z]/.test(spec[at])) {
+        name += spec[at];
+        at += 1;
+      }
+      if (!name.match(/^[A-Z][a-z]{0,2}$/)) {
+        throw new Error("Invalid name");
+      }
+      sum += (masses[name] ?? 0) * readCount();
+    }
+  }
+
+  if (outer.length > 0) {
+    throw new Error("Unmatched opener");
+  }
+
+  return sum;
+}
+```

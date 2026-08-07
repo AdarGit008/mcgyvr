@@ -1,0 +1,20 @@
+```python
+def span_conflicts(spans: list) -> list:
+    """The index pairs of annotations that conflict."""
+    for start, end, label in spans:
+        if (
+            not isinstance(start, int)
+            or not isinstance(end, int)
+            or start >= end
+        ):
+            raise ValueError("bad span bounds")
+        if not isinstance(label, str) or label == "":
+            raise ValueError("bad label")
+    pairs = []
+    for i in range(len(spans)):
+        for j in range(i + 1, len(spans)):
+            if spans[i][0] < spans[j][1] and spans[j][0] < spans[i][1]:
+                if spans[i][2] != spans[j][2]:
+                    pairs.append([i, j])
+    return pairs
+```

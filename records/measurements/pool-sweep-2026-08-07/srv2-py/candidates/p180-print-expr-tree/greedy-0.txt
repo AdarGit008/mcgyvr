@@ -1,0 +1,29 @@
+```python
+def print_expr_tree(node) -> str:
+    if isinstance(node, (int, float)) and node >= 0:
+        return str(int(node))
+    elif isinstance(node, str) and node.isalpha():
+        return node
+    elif isinstance(node, dict):
+        op = node.get('op')
+        left = node.get('left')
+        right = node.get('right')
+        if op not in '+-*/':
+            raise ValueError("Invalid operator")
+        if left is None or right is None:
+            raise ValueError("Missing left or right child")
+        left_str = print_expr_tree(left)
+        right_str = print_expr_tree(right)
+        if op == '*' or op == '/':
+            if (left_str[0] in '+-') and (op != '*'):
+                left_str = f"({left_str})"
+            if (right_str[0] in '+-') and (op != '*'):
+                right_str = f"({right_str})"
+        else:
+            if (left_str[0] in '+-') or (right_str[0] in '+-'):
+                left_str = f"({left_str})"
+                right_str = f"({right_str})"
+        return f"{left_str} {op} {right_str}"
+    else:
+        raise ValueError("Invalid node type")
+```

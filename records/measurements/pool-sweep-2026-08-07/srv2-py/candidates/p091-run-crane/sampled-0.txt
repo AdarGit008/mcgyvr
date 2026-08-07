@@ -1,0 +1,26 @@
+```python
+def run_crane(script: list) -> list:
+    pile = []
+    manifest = []
+
+    for i, move in enumerate(script):
+        if move[0] == "load":
+            label = move[1]
+            pile.append(label)
+        elif move[0] == "ship":
+            if not pile:
+                raise ValueError(f"Fault at index {i}: crane is empty")
+            manifest.append(pile.pop())
+        elif move[0] == "bury":
+            if not pile:
+                raise ValueError(f"Fault at index {i}: crane is empty")
+            pile.insert(0, pile.pop())
+        elif move[0] == "scrap":
+            if not pile:
+                raise ValueError(f"Fault at index {i}: crane is empty")
+            pile.pop()
+        else:
+            raise ValueError(f"Invalid move at index {i}")
+
+    return manifest
+```

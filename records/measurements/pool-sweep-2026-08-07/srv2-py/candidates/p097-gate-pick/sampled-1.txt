@@ -1,0 +1,20 @@
+```python
+def pick_build(gate: str, offers: list[int]) -> int:
+    if not isinstance(gate, str) or not gate.strip():
+        raise ValueError("Invalid gate format")
+    
+    clauses = gate.split(',')
+    for clause in clauses:
+        parts = clause.split('^')
+        carve_outs = set(map(int, parts[1].split(','))) if len(parts) > 1 else set()
+        lo, hi = map(lambda x: int(x.strip()) if x else None, parts[0].split(':'))
+        
+        if (lo is not None and hi is not None and lo > hi) or (lo is not None and lo < 0) or (hi is not None and hi < 0):
+            raise ValueError("Invalid clause format")
+        
+        for build in offers:
+            if (lo is None or lo <= build <= hi) and build not in carve_outs:
+                return build
+    
+    return -1
+```

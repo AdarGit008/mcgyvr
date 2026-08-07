@@ -1,0 +1,58 @@
+```ts
+export function divideFixed(numerator: number, denominator: number, places: number): string {
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(places)) {
+        throw new Error('Arguments must be integers');
+    }
+    if (denominator === 0) {
+        throw new Error('Denominator cannot be zero');
+    }
+    if (places < 0 || places > 6) {
+        throw new Error('Places must be between 0 and 6');
+    }
+
+    let isNegative = false;
+    if (numerator * denominator < 0) {
+        isNegative = true;
+    }
+    numerator = Math.abs(numerator);
+    denominator = Math.abs(denominator);
+
+    let quotient = '';
+    let remainder = numerator;
+
+    for (let i = 0; i <= places + 1; i++) {
+        remainder *= 10;
+        let digit = Math.floor(remainder / denominator);
+        remainder %= denominator;
+
+        if (i === places) {
+            // Round half up
+            if (remainder * 2 >= denominator) {
+                if ((digit % 2) !== 0 || (digit % 2 === 0 && remainder * 2 > denominator)) {
+                    digit++;
+                }
+            }
+            break;
+        }
+
+        quotient += digit.toString();
+    }
+
+    // Remove trailing zeros
+    while (quotient[quotient.length - 1] === '0') {
+        quotient = quotient.slice(0, -1);
+    }
+
+    if (quotient.length === 0) {
+        quotient = '0';
+    } else if (quotient.length < places + 1) {
+        quotient += '0'.repeat(places + 1 - quotient.length);
+    }
+
+    if (isNegative) {
+        quotient = '-' + quotient;
+    }
+
+    return quotient;
+}
+```

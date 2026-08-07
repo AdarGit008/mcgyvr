@@ -1,0 +1,35 @@
+```python
+def pick_build(gate: str, offers: list[int]) -> int:
+    if not isinstance(gate, str) or not gate:
+        raise ValueError("Invalid gate string")
+    
+    clauses = gate.split(',')
+    for clause in clauses:
+        parts = clause.split('^')
+        if len(parts) > 2:
+            raise ValueError("Malformed clause")
+        
+        base_clause, carve_outs = parts
+        lo, hi = -1, -1
+        
+        if ':' in base_clause:
+            lo_str, hi_str = base_clause.split(':')
+            if lo_str:
+                lo = int(lo_str)
+            if hi_str:
+                hi = int(hi_str)
+        
+        if lo > hi or (lo == -1 and hi == -1):
+            raise ValueError("Clause out of order")
+        
+        carve_outs = [int(co) for co in carve_outs.split('^') if co]
+        
+        for offer in offers:
+            if not isinstance(offer, int) or offer < 0:
+                raise ValueError("Invalid offer")
+            
+            if lo <= offer <= hi and offer not in carve_outs:
+                return offer
+    
+    return -1
+```

@@ -1,0 +1,35 @@
+```ts
+export function commitIndex(log: number[], matches: number[], currentTerm: number): { commit: number; safe: number; behind: number[] } {
+    if (!Array.isArray(log) || !Array.isArray(matches)) {
+        throw new Error("Both log and matches must be arrays");
+    }
+    if (typeof currentTerm !== "number" || currentTerm <= 0 || !Number.isInteger(currentTerm)) {
+        throw new Error("Current term must be a whole number greater than zero");
+    }
+
+    let commit = 0;
+    let safe = 0;
+    const behind: number[] = [];
+
+    for (let i = 0; i < matches.length; i++) {
+        if (typeof matches[i] !== "number" || matches[i] < 0 || !Number.isInteger(matches[i]) || matches[i] > log.length) {
+            throw new Error(`Follower ${i} has an invalid copied number`);
+        }
+        if (matches[i] > commit && log[matches[i] - 1] === currentTerm) {
+            commit = matches[i];
+        }
+    }
+
+    for (let i = 0; i < matches.length; i++) {
+        safe = Math.min(safe, matches[i]);
+    }
+
+    for (let i = 0; i < matches.length; i++) {
+        if (matches[i] < commit) {
+            behind.push(i);
+        }
+    }
+
+    return { commit, safe, behind };
+}
+```

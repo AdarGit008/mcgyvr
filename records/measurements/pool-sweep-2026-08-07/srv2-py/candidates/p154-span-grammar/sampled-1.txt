@@ -1,0 +1,40 @@
+```python
+def expand_span_grammar(pattern: str) -> list:
+    def parse_group(group):
+        if '..' in group:
+            start, end = map(int, group.split('..'))
+            width = len(str(start))
+            return [f"{i:0{width}d}" for i in range(start, end + 1)]
+        else:
+            choices = [choice.strip() for choice in group.split('|')]
+            if any(not choice.isalnum() for choice in choices):
+                raise ValueError("Invalid characters in alternation")
+            return choices
+
+    def expand(tuples, depth=0):
+        if depth == len(pattern.groups()):
+            result.add(''.join(tuples))
+            return
+        start = pattern.start(depth)
+        end = pattern.end(depth)
+        group = pattern.group(depth)
+        subgroups = [parse_group(subgroup) for subgroup in group[1:-1].split('<')]
+        for choice in product(*subgroups):
+            expand(tuples + list(choice), depth + 1)
+
+    if not isinstance(pattern, str):
+        raise ValueError("Invalid input type")
+
+    pattern = re.compile(r'<(.*?)>')
+    groups = pattern.findall(pattern)
+    if any(group == '>' or group.startswith('>') or group.endswith('<') for group in groups):
+        raise ValueError("Unclosed or misplaced group")
+
+    result = set()
+    expand([], 0)
+
+    if len(result) > 500:
+        raise ValueError("Too many expansions")
+
+    return sorted(result)
+```

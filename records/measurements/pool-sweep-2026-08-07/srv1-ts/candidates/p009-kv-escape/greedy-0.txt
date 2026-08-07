@@ -1,0 +1,19 @@
+```ts
+/** One line of key=value pairs, joined by &. */
+export function encodePairs(pairs: [string, string][]): string {
+  if (pairs.some(([key]) => !key || typeof key !== 'string')) {
+    throw new Error('Invalid key');
+  }
+  if (pairs.some(([, value]) => typeof value !== 'string')) {
+    throw new Error('Invalid value');
+  }
+
+  const parts: string[] = [];
+  for (const [key, value] of pairs) {
+    const k = key.replace(/%/g, '%25').replace(/&/g, '%26').replace(/=/g, '%3D');
+    const v = value.replace(/%/g, '%25').replace(/&/g, '%26').replace(/=/g, '%3D');
+    parts.push(k + "=" + v);
+  }
+  return parts.join("&");
+}
+```

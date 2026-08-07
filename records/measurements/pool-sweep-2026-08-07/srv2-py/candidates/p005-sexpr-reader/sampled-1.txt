@@ -1,0 +1,55 @@
+```python
+def read_sexpr(text: str) -> object:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+
+    text = text.strip()
+    if not text or not any(char.isalnum() or char in "+-*/!?()" for char in text):
+        raise ValueError("Invalid input")
+
+    def parse_atom(start: int) -> (int, int):
+        end = start
+        while end < len(text) and (text[end].isdigit() or text[end] == '-'):
+            end += 1
+        if end > start and text[start] != '-' and not all(char.isdigit() for char in text[start:end]):
+            raise ValueError("Invalid atom")
+        return int(text[start:end]), end
+
+    def parse_list(start: int) -> (list, int):
+        result = []
+        start += 1
+        while start < len(text):
+            if text[start] == ')':
+                break
+            item, start = read_sexpr(text[start:])
+            result.append(item)
+            if start >= len(text) or text[start].isspace():
+                start += 1
+            elif text[start] != '(':
+                raise ValueError("Invalid list")
+        if start >= len(text) or text[start] != ')':
+            raise ValueError("Unclosed list")
+        return result, start + 1
+
+    def read_sexpr(start: int) -> (object, int):
+        if text[start].isspace():
+            start += 1
+        if start == len(text):
+            raise ValueError("Empty input or trailing whitespace")
+
+        if text[start] == '(':
+            return parse_list(start)
+        else:
+            end = parse_atom(start)[1]
+            if end > start and text[end].isspace():
+                end += 1
+            elif end < len(text) and not (text[end].isalnum() or text[end] in "+-*/!?()" or text[end].isspace()):
+                raise ValueError("Invalid symbol")
+            return text[start:end], end
+
+    result, end = read_sexpr(0)
+    if end != len(text):
+        raise ValueError("Extra characters after the first expression")
+
+    return result
+```

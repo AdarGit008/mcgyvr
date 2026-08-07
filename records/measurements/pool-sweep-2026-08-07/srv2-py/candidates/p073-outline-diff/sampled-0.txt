@@ -1,0 +1,19 @@
+```python
+def outline_diff(before: dict, after: dict) -> list:
+    def compare(outline1, outline2, path):
+        added = []
+        removed = []
+        for key in outline1:
+            if key not in outline2:
+                removed.append("removed " + "/".join(path + [key]))
+            else:
+                compare(outline1[key], outline2[key], path + [key])
+        for key in outline2:
+            if key not in outline1:
+                added.append("added " + "/".join(path + [key]))
+                compare(outline1.get(key, {}), outline2[key], path + [key])
+        return added, removed
+
+    added, removed = compare(before, after, [])
+    return sorted(added + removed)
+```

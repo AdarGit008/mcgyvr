@@ -1,0 +1,50 @@
+```python
+from collections import deque
+
+def expiry_cache(capacity: int, ops: list[list]) -> list[int]:
+    if capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    
+    cache = {}
+    evict_queue = deque()
+    time_now = 0
+    
+    results = []
+    
+    for op in ops:
+        match op:
+            case ["set", time, key, value, ttl]:
+                if time < time_now:
+                    raise ValueError("Time cannot go backwards")
+                
+                time_now = time
+                cache[key] = (value, time + ttl)
+                evict_queue.append((time + ttl, key))
+                
+                while evict_queue and evict_queue[0][0] <= time_now:
+                    _, key_to_evict = evict_queue.popleft()
+                    if key_to_evict in cache:
+                        del cache[key_to_evict]
+                
+                if len(cache) > capacity:
+                    oldest_time, oldest_key = min(evict_queue)
+                    while oldest_time == time_now and evict_queue:
+                        oldest_time, oldest_key = evict_queue.popleft()
+                    del cache[oldest_key]
+                    evict_queue.append((oldest_time, oldest_key))
+            case ["get", time, key]:
+                if time < time_now:
+                    raise ValueError("Time cannot go backwards")
+                
+                time_now = time
+                while evict_queue and evict_queue[0][0] <= time_now:
+                    _, key_to_evict = evict_queue.popleft()
+                    if key_to_evict in cache:
+                        del cache[key_to_evict]
+                
+                results.append(cache.get(key, (None,))[0] if key in cache else -1)
+            case _:
+                raise ValueError("Unknown operation")
+    
+    return results
+```

@@ -1,0 +1,21 @@
+```python
+def backoff_schedule(base: int, factor: int, cap: int, attempts: int) -> list:
+    if not (isinstance(base, int) and base > 0):
+        raise ValueError("base must be a whole number of one or more")
+    if not (isinstance(factor, int) and factor > 0):
+        raise ValueError("factor must be a whole number of one or more")
+    if not (isinstance(cap, int) and cap >= base):
+        raise ValueError("cap must be a whole number or equal to base")
+    if not (isinstance(attempts, int) and attempts > 0):
+        raise ValueError("attempts must be a whole number of one or more")
+    if isinstance(base, bool) or isinstance(factor, bool) or isinstance(cap, bool) or isinstance(attempts, bool):
+        raise ValueError("base, factor, cap, and attempts cannot be boolean")
+
+    moments = [0]
+    for _ in range(1, attempts):
+        next_idle = moments[-1] * factor
+        if next_idle > cap:
+            next_idle = cap
+        moments.append(moments[-1] + base + next_idle)
+    return moments[1:]
+```

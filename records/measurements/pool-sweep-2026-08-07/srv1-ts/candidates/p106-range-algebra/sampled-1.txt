@@ -1,0 +1,54 @@
+```ts
+/**
+ * Computes the result of applying a set operation on two lists of intervals.
+ *
+ * @param a - The first list of intervals [lo, hi).
+ * @param b - The second list of intervals [lo, hi).
+ * @param op - The operation to apply: "union", "intersect", or "subtract".
+ * @returns The resulting list of intervals in canonical form.
+ */
+export function rangeAlgebra(a: number[][], b: number[][], op: string): number[][] {
+  if (op !== 'union' && op !== 'intersect' && op !== 'subtract') {
+    throw new Error('Invalid operation');
+  }
+
+  const result: [number, number][] = [];
+
+  for (const interval of a) {
+    if (!Number.isInteger(interval[0]) || !Number.isInteger(interval[1])) {
+      throw new Error('Intervals must be pairs of integers');
+    }
+    if (interval[0] >= interval[1]) {
+      throw new Error('Lo must be strictly below hi');
+    }
+    result.push(interval);
+  }
+
+  for (const interval of b) {
+    if (!Number.isInteger(interval[0]) || !Number.isInteger(interval[1])) {
+      throw new Error('Intervals must be pairs of integers');
+    }
+    if (interval[0] >= interval[1]) {
+      throw new Error('Lo must be strictly below hi');
+    }
+    const idx = result.findIndex(([lo, hi]) => lo < interval[1] && hi > interval[0]);
+    if (idx !== -1) {
+      const [_, hi] = result[idx];
+      const [lo, _] = interval;
+      result[idx] = [Math.min(lo, _, hi), Math.max(hi, _, _)];
+    } else {
+      result.push(interval);
+    }
+  }
+
+  switch (op) {
+    case 'union':
+      return result.sort((a, b) => a[0] - b[0]);
+    case 'intersect':
+      return result.filter(([lo, hi]) => a.some(([alo, ahi]) => alo < hi && hi > alo)).sort((a, b) => a[0] - b[0]);
+    case 'subtract':
+      const subtracted = result.filter(([lo, hi]) => !b.some(([blo, bhi]) => blo < hi && hi > blo));
+      return subtracted.sort((a, b) => a[0] - b[0]);
+  }
+}
+```

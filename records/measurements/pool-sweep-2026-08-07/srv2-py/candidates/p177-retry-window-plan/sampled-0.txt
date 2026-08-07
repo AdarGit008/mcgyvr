@@ -1,0 +1,49 @@
+```python
+def plan_retry_window(policy: dict, outcomes: list) -> dict:
+    if (
+        not isinstance(policy, dict)
+        or len(policy) != 5
+        or not all(key in policy for key in ["base", "factor", "ceiling", "tries", "deadline"])
+        or not all(isinstance(policy[key], int) and policy[key] >= 1 for key in ["base", "factor", "tries", "deadline"])
+        or policy["ceiling"] < policy["base"]
+        or not isinstance(outcomes, list)
+        or any(outcome not in {"won", "lost", "held"} for outcome in outcomes)
+    ):
+        raise ValueError("Invalid input")
+
+    base = policy["base"]
+    factor = policy["factor"]
+    ceiling = policy["ceiling"]
+    tries = policy["tries"]
+    deadline = policy["deadline"]
+
+    times = []
+    current_time = 0
+    consecutive_lost = 0
+
+    for outcome in outcomes:
+        if outcome == "won":
+            times.append(current_time)
+            break
+        elif len(times) == tries:
+            times.append("exhausted")
+            break
+        elif outcome == "lost":
+            consecutive_lost += 1
+            gap = base * factor ** consecutive_lost
+            if current_time + gap >= deadline:
+                times.append("expired")
+                break
+            else:
+                current_time += gap
+        elif outcome == "held":
+            consecutive_lost = 0
+            gap = ceiling
+            if current_time + gap >= deadline:
+                times.append("expired")
+                break
+            else:
+                current_time += gap
+
+    return {"times": times, "verdict": outcomes[len(times)] if len(times) < len(outcomes) else None}
+```

@@ -1,0 +1,25 @@
+```ts
+export function canonicalStackMark(mark: string): string {
+  if (typeof mark !== 'string') {
+    throw new Error('Invalid argument type');
+  }
+
+  const parts = mark.split(/[-\s]+/).filter(Boolean);
+  if (parts.length !== 3) {
+    throw new Error('Invalid format');
+  }
+
+  const [floor, wing, stack] = parts;
+  if (!/^\d$/.test(floor)) {
+    throw new Error('Invalid floor digit');
+  }
+  if (!/^[nsewNSEO]$/.test(wing)) {
+    throw new Error('Invalid wing letter');
+  }
+  if (!/^(\d{1,3})$/.test(stack)) {
+    throw new Error('Invalid stack number');
+  }
+
+  return `${floor}${wing.toUpperCase()}${stack.padStart(3, '0')}`;
+}
+```

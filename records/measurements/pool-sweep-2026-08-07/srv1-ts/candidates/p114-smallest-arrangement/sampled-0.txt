@@ -1,0 +1,44 @@
+```ts
+export function smallestArrangement(counts: number[]): string {
+  if (counts.length !== 4 || !counts.every(c => typeof c === 'number' && c >= 0 && c <= 12)) {
+    throw new Error('Input must be a list of four non-negative integers between 0 and 12.');
+  }
+
+  const letters = ['a', 'b', 'c', 'd'];
+  const availableLetters = letters.filter((_, i) => counts[i] > 0);
+
+  if (availableLetters.length === 0) {
+    throw new Error('At least one count must be positive.');
+  }
+
+  const queue: { letter: string; remaining: number }[] = [];
+  for (const letter of availableLetters) {
+    queue.push({ letter, remaining: counts[letters.indexOf(letter)] });
+  }
+
+  let result = '';
+  while (queue.length > 0) {
+    queue.sort((a, b) => a.letter.localeCompare(b.letter));
+    const { letter, remaining } = queue.shift()!;
+    if (remaining <= 1) {
+      result += letter.repeat(remaining);
+      continue;
+    }
+
+    result += `${letter}${letter}${letter}`;
+    queue.push({ letter, remaining: remaining - 3 });
+  }
+
+  for (const letter of letters) {
+    while (counts[letters.indexOf(letter)] > 0) {
+      if (result.includes(`${letter}${letter}${letter}`)) {
+        throw new Error('Cannot form a valid string with the given counts.');
+      }
+      result += letter;
+      counts[letters.indexOf(letter)]--;
+    }
+  }
+
+  return result;
+}
+```

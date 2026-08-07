@@ -1,0 +1,45 @@
+```python
+def fold_formula(recipe: str) -> str:
+    if not recipe:
+        raise ValueError("Empty argument")
+
+    stack = []
+    for char in recipe:
+        if char == '(':
+            stack.append([])
+        elif char == ')':
+            if not stack:
+                raise ValueError("Closing parenthesis with no opener")
+            top = stack.pop()
+            multiplier = 1
+            while stack and isinstance(stack[-1], int):
+                multiplier *= stack.pop()
+            for tag, count in top:
+                if tag in locals():
+                    locals()[tag] += count * multiplier
+                else:
+                    locals()[tag] = count * multiplier
+        elif char.isdigit():
+            if not stack or not isinstance(stack[-1], list) or not stack[-1][-1][0].isdigit():
+                raise ValueError("Invalid repeat")
+            top = stack.pop()
+            tag, prev_count = top.pop()
+            top.append((tag, int(prev_count + char)))
+        else:
+            if stack and isinstance(stack[-1], list) and stack[-1][-1][0].isdigit():
+                raise ValueError("Item that starts with a lowercase letter")
+            if not stack or stack[-1] == ')':
+                stack.append([])
+            top = stack.pop()
+            tag = char
+            count = 1
+            while stack and isinstance(stack[-1], int):
+                count *= stack.pop()
+            top.append((tag, count))
+
+    if stack:
+        raise ValueError("Parenthesis left open")
+
+    result = [f"{tag}{count if count > 1 else ''}" for tag, count in locals().items() if isinstance(tag, str)]
+    return ''.join(sorted(result))
+```

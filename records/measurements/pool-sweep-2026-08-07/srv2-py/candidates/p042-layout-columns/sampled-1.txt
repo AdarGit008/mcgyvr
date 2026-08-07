@@ -1,0 +1,21 @@
+```python
+def layout_columns(rows: list[list[str]], aligns: str) -> list[str]:
+    if not rows or not all(len(row) == len(aligns) for row in rows):
+        raise ValueError("Invalid table dimensions")
+    
+    if set(aligns).difference('lrc'):
+        raise ValueError("Alignment spec must contain only 'l', 'r', and 'c'")
+    
+    widths = [max(len(cell) for cell in column) for column in zip(*rows)]
+    
+    def format_cell(content: str, width: int, align: str) -> str:
+        if align == 'l':
+            return content.ljust(width)
+        elif align == 'r':
+            return content.rjust(width)
+        else:
+            padding = (width - len(content)) // 2
+            return f"{' ' * padding}{content}{' ' * (padding + (width & 1))}"
+    
+    return [('  '.join(format_cell(cell, width, align) for cell, width, align in zip(row, widths, aligns))).rstrip() for row in rows]
+```

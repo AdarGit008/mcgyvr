@@ -1,0 +1,61 @@
+```ts
+/**
+ * Parses a block of text into a nested outline structure based on indentation.
+ *
+ * @param {string} text - A string representing an indented list.
+ * @returns {any[]} - An array of [text, children] pairs, where children are recursively the same shape.
+ */
+export function nestOutline(text: string): any[] {
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error('Input must be a non-empty string.');
+  }
+
+  const lines = text.split('\n').filter(line => line.trim() && !line.startsWith('\t'));
+
+  if (!lines[0].startsWith('  ')) {
+    throw new Error('Opening line must be indented.');
+  }
+
+  return parseLines(lines, 2);
+}
+
+function parseLines(lines: string[], depth: number): any[] {
+  const result: any[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const currentLine = lines[i];
+    const currentDepth = countLeadingSpaces(currentLine);
+
+    if (currentDepth % 2 !== 0 || currentDepth < depth) {
+      throw new Error(`Invalid indentation at line ${i + 1}.`);
+    }
+
+    const indent = currentDepth - depth;
+    const text = currentLine.trimStart().slice(indent * 2);
+    const children: any[] = [];
+
+    while (i + 1 < lines.length && countLeadingSpaces(lines[i + 1]) > currentDepth) {
+      i++;
+      children.push(...parseLines([lines[i]], indent));
+    }
+
+    result.push([text, children]);
+    i++;
+  }
+
+  return result;
+}
+
+function countLeadingSpaces(str: string): number {
+  let count = 0;
+  for (const char of str) {
+    if (char === ' ') {
+      count++;
+    } else {
+      break;
+    }
+  }
+  return count;
+}
+```

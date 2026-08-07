@@ -1,0 +1,36 @@
+```python
+def chain_transforms(grid: list, steps: list) -> list:
+    if not grid or any(len(row) != len(grid[0]) for row in grid):
+        raise ValueError("Grid must be non-empty and all rows must have the same length")
+
+    def cw(g):
+        return [list(row[::-1]) for row in zip(*g)]
+
+    def ccw(g):
+        return [list(row) for row in zip(*g[::-1])]
+
+    def mirror(g):
+        return [row[::-1] for row in g]
+
+    def flip(g):
+        return g[::-1]
+
+    def diag(g):
+        return [list(col) for col in zip(*g)]
+
+    transforms = {
+        'cw': cw,
+        'ccw': ccw,
+        'mirror': mirror,
+        'flip': flip,
+        'diag': diag
+    }
+
+    result = grid[:]
+    for step in steps:
+        if step not in transforms:
+            raise ValueError(f"Invalid step: {step}")
+        result = transforms[step](result)
+
+    return result
+```

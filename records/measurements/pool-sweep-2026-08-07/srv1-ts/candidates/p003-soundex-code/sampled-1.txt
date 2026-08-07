@@ -1,0 +1,38 @@
+```ts
+export function soundexCode(word: string): string {
+    if (typeof word !== 'string' || !/^[a-zA-Z]+$/.test(word)) {
+        throw new Error('Invalid input. Must be a non-empty string containing only ASCII letters.');
+    }
+
+    const firstLetter = word[0].toUpperCase();
+    let code = firstLetter;
+
+    const digitMap: { [key: string]: number } = {
+        b: 1, f: 1, p: 1, v: 1,
+        c: 2, g: 2, j: 2, k: 2, q: 2, s: 2, x: 2, z: 2,
+        d: 3, t: 3,
+        l: 4,
+        m: 5, n: 5,
+        r: 6
+    };
+
+    let previousDigit = null;
+    for (let i = 1; i < word.length; i++) {
+        const currentLetter = word[i].toLowerCase();
+        const digit = digitMap[currentLetter];
+
+        if (digit !== undefined) {
+            if (previousDigit !== digit || currentLetter === 'h' || currentLetter === 'w') {
+                code += digit;
+                previousDigit = digit;
+            }
+        }
+    }
+
+    while (code.length < 4) {
+        code += '0';
+    }
+
+    return code.slice(0, 4);
+}
+```

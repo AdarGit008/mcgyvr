@@ -1,0 +1,40 @@
+```python
+def run_transactions(commands: list[str]) -> dict[str, str]:
+    def parse_command(command: str) -> tuple[str, ...]:
+        parts = command.split()
+        if len(parts) < 2:
+            raise ValueError("Command must have at least two parts")
+        return parts[0], *parts[1:]
+
+    def apply_command(state: dict[str, str], transaction_stack: list[dict[str, str]], cmd: tuple[str, ...]) -> None:
+        verb = cmd[0]
+        if verb == "set":
+            key, value = cmd[1:]
+            state[key] = value
+        elif verb == "unset":
+            key = cmd[1]
+            if key in state:
+                del state[key]
+        elif verb == "begin":
+            transaction_stack.append(state.copy())
+        elif verb == "commit":
+            if not transaction_stack:
+                raise ValueError("No open transaction to commit")
+            inner_state = transaction_stack.pop()
+            for key, value in inner_state.items():
+                state[key] = value
+        elif verb == "rollback":
+            if not transaction_stack:
+                raise ValueError("No open transaction to rollback")
+            transaction_stack.pop()
+        else:
+            raise ValueError(f"Unknown command verb: {verb}")
+
+    state = {}
+    transaction_stack = []
+    for command in commands:
+        cmd = parse_command(command)
+        apply_command(state, transaction_stack, cmd)
+
+    return state
+```

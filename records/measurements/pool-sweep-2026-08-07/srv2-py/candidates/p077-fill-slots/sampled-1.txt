@@ -1,0 +1,19 @@
+```python
+def fill_placeholders(text: str, slots: dict) -> str:
+    out = []
+    i = 0
+    while i < len(text):
+        if text[i] == '%':
+            if i + 1 < len(text) and text[i + 1] == '%':
+                out.append('%')
+                i += 2
+            elif i + 1 < len(text) and text[i + 1] in slots:
+                out.append(slots[text[i + 1]])
+                i += 2
+            else:
+                raise ValueError("Unmatched '%' or unknown slot name")
+        else:
+            out.append(text[i])
+            i += 1
+    return ''.join(out)
+```

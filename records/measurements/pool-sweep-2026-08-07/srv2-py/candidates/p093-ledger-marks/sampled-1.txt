@@ -1,0 +1,42 @@
+```python
+import re
+
+def link_ledger_marks(marks: list[str], aliases: dict[str, str]) -> list:
+    def parse_mark(mark: str) -> tuple:
+        pattern = r'^([A-Za-z]{2,3})[-/ ](\d+)([A-Z])$'
+        match = re.match(pattern, mark)
+        if not match:
+            raise ValueError("Malformed mark")
+        
+        house_code, serial_str, check_letter = match.groups()
+        house_code = house_code.upper()
+        serial = int(serial_str.lstrip('0'))
+        if serial == 0 or (serial % 26 != ord(check_letter) - ord('A')):
+            raise ValueError("Wrong check letter or serial value")
+        
+        return canonicalize(house_code, serial), mark
+
+    def canonicalize(house_code: str, serial: int) -> str:
+        return f"{house_code}-{serial:02d}-Q"
+
+    def resolve_alias(code: str) -> str:
+        while code in aliases:
+            replacement = aliases[code]
+            if replacement == code or replacement.upper() in aliases:
+                raise ValueError("Invalid alias mapping")
+            code = replacement
+        return code
+
+    canonical_marks = {}
+
+    for mark in marks:
+        upper_code = resolve_alias(mark.split('-')[0].upper())
+        canonical, raw_mark = parse_mark(f"{upper_code}-{'-'.join(mark.split('-')[1:])}")
+        
+        if canonical not in canonical_marks:
+            canonical_marks[canonical] = []
+        
+        canonical_marks[canonical].append(raw_mark)
+
+    return list(canonical_marks.items())
+```

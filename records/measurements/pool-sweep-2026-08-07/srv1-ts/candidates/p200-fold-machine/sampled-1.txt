@@ -1,0 +1,85 @@
+```ts
+export function foldMachine(machine: Record<string, unknown>): Record<string, unknown> {
+  const { alphabet, states, start, accepting, moves } = machine;
+
+  if (!Array.isArray(alphabet) || alphabet.length === 0 || new Set(alphabet).size !== alphabet.length) {
+    throw new Error('Invalid alphabet');
+  }
+  if (!Array.isArray(states) || states.length === 0 || new Set(states).size !== states.length) {
+    throw new Error('Invalid states');
+  }
+  if (typeof start !== 'string' || !states.includes(start)) {
+    throw new Error('Invalid start state');
+  }
+  if (!Array.isArray(accepting) || accepting.some(state => !states.includes(state))) {
+    throw new Error('Invalid accepting states');
+  }
+  if (!Array.isArray(moves)) {
+    throw new Error('Invalid moves');
+  }
+
+  const moveMap = new Map<string, Map<string, string>>();
+  for (const [from, symbol, to] of moves) {
+    if (!states.includes(from) || !alphabet.includes(symbol) || !states.includes(to)) {
+      throw new Error('Invalid move');
+    }
+    if (!moveMap.has(from)) {
+      moveMap.set(from, new Map());
+    }
+    const fromMoves = moveMap.get(from)!;
+    if (fromMoves.has(symbol)) {
+      throw new Error('Duplicate move');
+    }
+    fromMoves.set(symbol, to);
+  }
+
+  const reachableStates = new Set<string>([start]);
+  for (let i = 0; i < reachableStates.size; i++) {
+    const state = Array.from(reachableStates)[i];
+    for (const symbol of alphabet) {
+      const next = moveMap.get(state)?.get(symbol);
+      if (next && !reachableStates.has(next)) {
+        reachableStates.add(next);
+      }
+    }
+  }
+
+  const unreachables = states.filter(state => !reachableStates.has(state));
+
+  const equivalenceClasses = new Map<string, Set<string>>();
+  for (const state of states) {
+    let key = '';
+    for (const symbol of alphabet) {
+      key += moveMap.get(state)?.get(symbol);
+    }
+    if (!equivalenceClasses.has(key)) {
+      equivalenceClasses.set(key, new Set());
+    }
+    equivalenceClasses.get(key)!.add(state);
+  }
+
+  const groups = Array.from(equivalenceClasses.values()).filter(group => !unreachables.some(unreachable => group.has(unreachable)));
+
+  const newStates = Array.from(groups).map((group, index) => index.toString());
+  const newAccepting = accepting.filter(state => groups.some(group => group.has(state))).sort((a, b) => groups.indexOf(equivalenceClasses.get(a)!) - groups.indexOf(equivalenceClasses.get(b)!)).map(state => groups.findIndex(group => group.has(state)).toString());
+
+  const newMoves: [string, string, string][] = [];
+  for (const group of groups) {
+    for (const symbol of alphabet) {
+      let nextGroup = null;
+      for (const state of group) {
+        const nextState = moveMap.get(state)?.get(symbol);
+        if (nextState && !unreachables.includes(nextState)) {
+          nextGroup = groups.findIndex(g => g.has(nextState));
+          break;
+        }
+      }
+      newMoves.push([group.size.toString(), symbol, nextGroup?.toString() ?? 'null']);
+    }
+  }
+
+  return {
+    size: groups.length,
+    start: '0',
+    accepting: newAccepting,
+    moves: newMoves.sort((a, b) => a[0] === b[0] ? alphabet.indexOf(a[1]) - alphabet.indexOf(b[1])

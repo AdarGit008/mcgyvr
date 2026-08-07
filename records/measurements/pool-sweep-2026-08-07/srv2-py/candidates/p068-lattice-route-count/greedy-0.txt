@@ -1,0 +1,28 @@
+```python
+def lattice_route_count(grid: list) -> int:
+    if not isinstance(grid, list) or not grid:
+        raise ValueError("grid must be a non-empty list of rows")
+    cols = len(grid[0]) if isinstance(grid[0], list) else 0
+    for row in grid:
+        if not isinstance(row, list) or len(row) != cols or cols == 0:
+            raise ValueError("grid rows must be equal-length non-empty lists")
+        for cell in row:
+            if isinstance(cell, bool) or cell not in (0, 1):
+                raise ValueError("cells must be 0 or 1")
+    rows = len(grid)
+    if grid[0][0] == 1 or grid[rows - 1][cols - 1] == 1:
+        return 0
+    routes = [[0] * cols for _ in range(rows)]
+    routes[0][0] = 1 if grid[0][0] == 0 else 0
+    for r in range(1, rows):
+        routes[r][0] = routes[r - 1][0] if grid[r][0] == 0 else 0
+    for c in range(1, cols):
+        routes[0][c] = routes[0][c - 1] if grid[0][c] == 0 else 0
+    for r in range(1, rows):
+        for c in range(1, cols):
+            if grid[r][c] == 1:
+                routes[r][c] = 0
+            else:
+                routes[r][c] = routes[r - 1][c] + routes[r][c - 1]
+    return routes[rows - 1][cols - 1]
+```

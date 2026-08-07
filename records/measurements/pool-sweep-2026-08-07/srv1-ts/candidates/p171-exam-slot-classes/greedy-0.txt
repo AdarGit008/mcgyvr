@@ -1,0 +1,49 @@
+```ts
+export function examSlotClasses(conflicts: number[][]): number[][] {
+  if (!Array.isArray(conflicts) || conflicts.length === 0) {
+    throw new Error("Invalid input: must be a non-empty list of lists.");
+  }
+
+  const n = conflicts.length;
+  for (let i = 0; i < n; i++) {
+    if (!Array.isArray(conflicts[i]) || conflicts[i].length !== n) {
+      throw new Error("Invalid input: each entry must be a list of length n.");
+    }
+    if (conflicts[i][i] !== 0) {
+      throw new Error("Invalid input: exam cannot share students with itself.");
+    }
+    const seen = new Set<number>();
+    for (const j of conflicts[i]) {
+      if (j < 0 || j >= n || seen.has(j)) {
+        throw new Error("Invalid input: invalid exam number or duplicate pair.");
+      }
+      seen.add(j);
+    }
+  }
+
+  const exams = Array.from({ length: n }, (_, i) => i);
+  exams.sort((a, b) => {
+    const sharedA = conflicts[a].filter(x => x !== a).length;
+    const sharedB = conflicts[b].filter(x => x !== b).length;
+    if (sharedA === sharedB) return a - b;
+    return sharedB - sharedA;
+  });
+
+  const sittings: number[][] = [];
+  for (const exam of exams) {
+    let placed = false;
+    for (let i = 0; i < sittings.length; i++) {
+      if (!sittings[i].some(sharedExam => conflicts[exam][sharedExam] !== 0)) {
+        sittings[i].push(exam);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      sittings.push([exam]);
+    }
+  }
+
+  return sittings;
+}
+```

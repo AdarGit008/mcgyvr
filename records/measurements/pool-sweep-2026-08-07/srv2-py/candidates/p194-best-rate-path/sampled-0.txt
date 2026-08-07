@@ -1,0 +1,48 @@
+```python
+def best_rate_path(quotes: list, amount: int, source: str, destination: str) -> dict:
+    if not quotes or (len(quotes) == 1 and len(quotes[0]) != 3):
+        raise ValueError("Invalid quote list")
+
+    currency_codes = set()
+    for quote in quotes:
+        if len(quote) != 3:
+            raise ValueError("Invalid quote format")
+        base, counter, micro = quote
+        if not all(isinstance(i, str) and i) or base == counter or not isinstance(micro, int) or micro <= 0:
+            raise ValueError("Invalid currency code or micro value")
+        currency_codes.add(base)
+        currency_codes.add(counter)
+
+    if source not in currency_codes or destination not in currency_codes:
+        raise ValueError("Source or destination not in quotes")
+    if source == destination:
+        raise ValueError("Source and destination cannot be the same")
+
+    graph = {}
+    for base, counter, micro in quotes:
+        if base not in graph:
+            graph[base] = {}
+        graph[base][counter] = micro
+
+    max_amount = amount
+    best_path = [source]
+
+    def dfs(current, path, current_amount):
+        nonlocal max_amount, best_path
+        if current == destination and current_amount > max_amount:
+            max_amount = current_amount
+            best_path = list(path)
+        elif current == destination:
+            return
+
+        for next_currency in graph.get(current, {}):
+            if next_currency not in path:
+                dfs(next_currency, path + [next_currency], (current_amount * graph[current][next_currency]) // 1_000_000)
+
+    dfs(source, [source], amount)
+
+    if len(best_path) == 1:
+        raise ValueError("No valid run found")
+
+    return {"amount": max_amount, "path": best_path}
+```

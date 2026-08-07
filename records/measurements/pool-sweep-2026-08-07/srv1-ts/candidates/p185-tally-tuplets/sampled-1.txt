@@ -1,0 +1,46 @@
+```ts
+export function tallyTuplets(score: string, meter: string): number[] {
+  const denominators = new Set([1, 2, 4, 8, 16, 32, 64]);
+
+  function parseSpan(span: string): number {
+    if (/^\d+\/\d+$/.test(span)) {
+      const [numerator, denominator] = span.split('/').map(Number);
+      if (numerator === 0 || numerator.toString().padStart(2, '0') !== span) throw new Error(`Invalid span: ${span}`);
+      return (numerator * 64) / denominator;
+    } else {
+      const num = parseInt(span, 10);
+      if (!denominators.has(num)) throw new Error(`Invalid span: ${span}`);
+      return num;
+    }
+  }
+
+  function parseSqueeze(squeeze: string): number {
+    let k = Number(squeeze[0]);
+    if (isNaN(k) || k < 2) throw new Error(`Invalid squeeze figure: ${squeeze[0]}`);
+    const spans = squeeze.slice(1, -1).split('+').map(parseSpan);
+    const total = spans.reduce((acc, span) => acc + span, 0);
+    return Math.round(((total * (k - 1)) / k) * 100) / 100;
+  }
+
+  function parseMeasure(measure: string): number {
+    if (!measure.trim()) throw new Error('Empty measure');
+    const [meterSpan, ...spans] = measure.split(' ');
+    const meterValue = parseSpan(meterSpan);
+    const squeezeRegExp = /\{[^}]*\}/;
+    if (squeezeRegExp.test(measure)) {
+      const squeezedSpans = measure.match(squeezeRegExp)?.[0];
+      if (!squeezedSpans) throw new Error(`Unmatched braces: ${measure}`);
+      return meterValue - Math.round(parseSqueeze(squeezedSpans) * 100) / 100;
+    } else {
+      const value = spans.reduce((acc, span) => acc + parseSpan(span), 0);
+      return meterValue - value;
+    }
+  }
+
+  if (typeof score !== 'string' || typeof meter !== 'string') throw new Error('Invalid input types');
+  if (!score.trim() || !meter.trim()) throw new Error('Empty score or meter');
+
+  const measures = score.split(';').map(parseMeasure);
+  return measures;
+}
+```

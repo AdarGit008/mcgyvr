@@ -1,0 +1,22 @@
+```ts
+export function countStripTilings(width: number): number {
+  if (width < 0 || !Number.isInteger(width)) {
+    throw new Error('Width must be a non-negative integer');
+  }
+
+  if (width === 0) {
+    return 1; // empty grid has exactly one covering
+  }
+  if (width === 1) {
+    return 1; // single upright domino covers the grid
+  }
+
+  let prev = 1, curr = 1;
+  for (let i = 2; i <= width; i++) {
+    const next = prev + curr * 2;
+    prev = curr;
+    curr = next;
+  }
+  return curr;
+}
+```

@@ -1,0 +1,53 @@
+```typescript
+export function expandGlossary(script: string[]): string {
+  const slots: Record<string, string> = {};
+  const sent: string[] = [];
+  for (const line of script) {
+    if (!line.startsWith("!") && !line.includes("=")) {
+      throw new Error("Invalid line format");
+    }
+    if (line.startsWith("!")) {
+      const slot = line.slice(1);
+      if (!/\d+/.test(slot)) {
+        throw new Error("Invalid slot number");
+      }
+      sent.push(slots[slot] ?? "");
+    } else {
+      const cut = line.indexOf("=");
+      const slot = line.slice(0, cut);
+      const body = line.slice(cut + 1).trim();
+      if (!/\d+/.test(slot) || !slot.startsWith("1")) {
+        throw new Error("Invalid slot number");
+      }
+      if (slots[slot]) {
+        throw new Error("Duplicate slot number");
+      }
+      slots[slot] = body;
+    }
+  }
+  for (const s of sent) {
+    let depth = 0;
+    let i = 0;
+    while (i < s.length) {
+      if (s[i] === "{") {
+        depth++;
+        i++;
+      } else if (s[i] === "}") {
+        if (depth === 0) {
+          throw new Error("Closing brace with nothing open");
+        }
+        depth--;
+        i++;
+      } else {
+        i++;
+      }
+    }
+    if (depth !== 0) {
+      throw new Error("Brace opened and never closed");
+    }
+  }
+  return sent
+    .map((body) => body.replace(/\{(\d+)\}/g, (_whole, n) => slots[n] ?? ""))
+    .join("");
+}
+```

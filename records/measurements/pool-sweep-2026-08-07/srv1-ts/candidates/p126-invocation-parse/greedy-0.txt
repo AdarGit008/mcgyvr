@@ -1,0 +1,75 @@
+```ts
+export function parseInvocation(catalogue: Array<{ name: string; kind: string; alias?: string }>, tokens: string[]): { options: Record<string, unknown>; operands: string[] } {
+    const options: Record<string, unknown> = {};
+    const operands: string[] = [];
+    let i = 0;
+
+    while (i < tokens.length) {
+        const token = tokens[i];
+
+        if (token === "--") {
+            operands.push(...tokens.slice(i + 1));
+            break;
+        }
+
+        if (token.startsWith("--")) {
+            const longName = token.substring(2);
+            const option = catalogue.find(opt => opt.name === longName);
+
+            if (!option) throw new Error(`Unknown option: ${longName}`);
+
+            i++;
+
+            if (option.kind === "toggle") {
+                options[longName] = true;
+            } else if (option.kind === "single" || option.kind === "repeat") {
+                const valueToken = tokens[i];
+
+                if (!valueToken) throw new Error(`Missing value for option: ${longName}`);
+
+                if (option.kind === "single" && options[longName] !== undefined) throw new Error(`Duplicate single option: ${longName}`);
+
+                if (option.kind === "repeat") {
+                    if (options[longName] === undefined) options[longName] = [];
+                    (options[longName] as string[]).push(valueToken);
+                } else {
+                    options[longName] = valueToken;
+                }
+
+                i++;
+            }
+        } else if (token.startsWith("-")) {
+            const alias = token.substring(1);
+            const option = catalogue.find(opt => opt.alias === alias);
+
+            if (!option) throw new Error(`Unknown alias: ${alias}`);
+
+            i++;
+
+            if (option.kind === "toggle") {
+                options[option.name] = true;
+            } else if (option.kind === "single" || option.kind === "repeat") {
+                const valueToken = tokens[i];
+
+                if (!valueToken) throw new Error(`Missing value for option: ${option.name}`);
+
+                if (option.kind === "single" && options[option.name] !== undefined) throw new Error(`Duplicate single option: ${option.name}`);
+
+                if (option.kind === "repeat") {
+                    if (options[option.name] === undefined) options[option.name] = [];
+                    (options[option.name] as string[]).push(valueToken);
+                } else {
+                    options[option.name] = valueToken;
+                }
+
+                i++;
+            }
+        } else {
+            operands.push(token);
+            i++;
+        }
+    }
+
+    return { options, operands };
+}
+```

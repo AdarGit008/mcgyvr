@@ -1,0 +1,50 @@
+```python
+def read_sexpr(text: str) -> object:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    text = text.strip()
+    if not text:
+        raise ValueError("Empty or whitespace-only input")
+
+    def parse_atom(atom: str) -> object:
+        try:
+            return int(atom)
+        except ValueError:
+            if atom in "+-*/!?":
+                return atom
+            if atom[0].isdigit():
+                raise ValueError(f"Invalid atom '{atom}'")
+            return atom
+
+    def read_list() -> list:
+        result = []
+        while True:
+            ch = next_token()
+            if ch == ')':
+                break
+            elif ch == '(':
+                result.append(read_list())
+            else:
+                result.append(parse_atom(ch))
+        return result
+
+    def next_token() -> str:
+        nonlocal pos
+        while pos < len(text) and text[pos].isspace():
+            pos += 1
+        if pos >= len(text):
+            raise ValueError("Unclosed list or stray closing parenthesis")
+        ch = text[pos]
+        pos += 1
+        return ch
+
+    pos = 0
+    token = next_token()
+    if token != '(':
+        return parse_atom(token)
+    result = read_list()
+    ch = next_token()
+    if ch != ')':
+        raise ValueError("Unclosed list")
+    return result
+```

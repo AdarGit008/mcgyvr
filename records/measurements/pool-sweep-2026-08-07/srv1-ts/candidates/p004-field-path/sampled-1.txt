@@ -1,0 +1,21 @@
+```ts
+export function splitFieldPath(path: string): (string | number)[] {
+    if (typeof path !== 'string' || path.trim() === '') throw new Error('Invalid input');
+
+    const parts = path.split('.');
+    const result: Array<string | number> = [];
+
+    for (const part of parts) {
+        if (part.startsWith('[')) {
+            const match = part.match(/^\[(\d+)]$/);
+            if (!match || isNaN(match[1]) || parseInt(match[1], 10) < 0) throw new Error('Invalid index');
+            result.push(parseInt(match[1], 10));
+        } else if (part !== '') {
+            if (/^[a-zA-Z_][a-zA-Z\d_]*$/.test(part)) result.push(part);
+            else throw new Error('Invalid identifier');
+        }
+    }
+
+    return result;
+}
+```

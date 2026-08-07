@@ -1,0 +1,55 @@
+```ts
+export function replayEnvelopes(
+  envelopes: Array<{ name: string; monthly: number; cap: number }>,
+  months: Array<Array<[string, number]>>,
+): { balances: Array<[string, number]>; forfeited: number } {
+  const balanceMap = new Map<string, number>();
+  let totalForfeited = 0;
+
+  // Initialize balances to zero
+  for (const envelope of envelopes) {
+    if (balanceMap.has(envelope.name)) {
+      throw new Error(`Duplicate envelope name: ${envelope.name}`);
+    }
+    balanceMap.set(envelope.name, 0);
+  }
+
+  // Process each month
+  for (const month of months) {
+    // Step 1: Add monthly deposits
+    for (const envelope of envelopes) {
+      const currentBalance = balanceMap.get(envelope.name)!;
+      balanceMap.set(envelope.name, currentBalance + envelope.monthly);
+    }
+
+    // Step 2: Subtract outlays
+    for (const [name, amount] of month) {
+      if (!balanceMap.has(name)) {
+        throw new Error(`Unknown envelope name in outlay: ${name}`);
+      }
+      const currentBalance = balanceMap.get(name)!;
+      if (amount <= 0) {
+        throw new Error(`Non-positive outlay amount: ${amount}`);
+      }
+      balanceMap.set(name, currentBalance - amount);
+    }
+
+    // Step 3: Handle caps and forfeitures
+    for (const envelope of envelopes) {
+      const currentBalance = balanceMap.get(envelope.name)!;
+      if (currentBalance > envelope.cap) {
+        const excess = currentBalance - envelope.cap;
+        totalForfeited += excess;
+        balanceMap.set(envelope.name, envelope.cap);
+      }
+    }
+  }
+
+  // Convert balance map to array and return result
+  const balances: Array<[string, number]> = [];
+  for (const [name, balance] of envelopes) {
+    balances.push([name, balance]);
+  }
+  return { balances, forfeited: totalForfeited };
+}
+```

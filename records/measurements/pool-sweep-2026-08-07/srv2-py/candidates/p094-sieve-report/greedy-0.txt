@@ -1,0 +1,37 @@
+```python
+def sieve_report(items: list[dict], rules: list[dict]) -> list[str]:
+    def apply_rule(item, rule):
+        field = rule["field"]
+        op = rule["op"]
+        value = rule.get("value")
+        
+        if field not in item:
+            return "absent" != op
+        
+        item_value = item[field]
+        
+        if isinstance(value, (int, float)):
+            if op == "eq":
+                return item_value == value
+            elif op == "ne":
+                return item_value != value
+            elif op == "gt":
+                return item_value > value
+            elif op == "lt":
+                return item_value < value
+        
+        if op == "present":
+            return True
+        elif op == "absent":
+            return False
+        
+        raise ValueError(f"Invalid operation: {op}")
+    
+    def check_item(item):
+        for rule in rules:
+            if not apply_rule(item, rule):
+                return rule["name"]
+        return "pass"
+    
+    return [check_item(item) for item in items]
+```

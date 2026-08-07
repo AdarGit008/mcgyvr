@@ -1,0 +1,57 @@
+```ts
+/**
+ * Expands a run tag pattern into a sorted list of strings.
+ * @param pattern The input pattern to expand.
+ * @returns A sorted array of strings representing the expanded pattern.
+ */
+export function expandRunTag(pattern: string): string[] {
+  if (typeof pattern !== 'string') {
+    throw new Error('Invalid argument: Expected a string.');
+  }
+
+  const regex = /^(.*?)(\[(.*?)\])(.*)$/;
+  const match = pattern.match(regex);
+
+  if (!match) {
+    throw new Error('Invalid pattern: Missing bracketed group.');
+  }
+
+  const [stem, , body, tail] = match;
+
+  if (body.includes('[') || body.includes(']')) {
+    throw new Error('Invalid pattern: Unclosed or extra brackets.');
+  }
+
+  if (!body.includes('-') && !body.includes(',')) {
+    throw new Error('Invalid pattern: Empty body.');
+  }
+
+  const items = body.split(',').map(item => item.trim());
+  const results: string[] = [];
+
+  if (items.some(item => item === '' || !item.match(/^\d+$/))) {
+    throw new Error('Invalid pattern: Empty or non-digit comma item.');
+  } else if (body.includes('-')) {
+    const [start, end, stepStr] = body.split('-');
+    const startNum = parseInt(start);
+    const endNum = parseInt(end);
+    const step = stepStr ? parseInt(stepStr) : 1;
+
+    if (isNaN(startNum) || isNaN(endNum) || isNaN(step)) {
+      throw new Error('Invalid pattern: Non-numeric run parameters.');
+    }
+
+    if (startNum > endNum || step === 0) {
+      throw new Error('Invalid pattern: Invalid run range or step.');
+    }
+
+    for (let i = startNum; i <= endNum; i += step) {
+      results.push(`${stem}${i}${tail}`);
+    }
+  } else {
+    results.push(...items.map(item => `${stem}${item}${tail}`));
+  }
+
+  return results.sort((a, b) => a.localeCompare(b));
+}
+```

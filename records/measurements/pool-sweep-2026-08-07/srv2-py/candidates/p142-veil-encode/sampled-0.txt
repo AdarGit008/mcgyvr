@@ -1,0 +1,22 @@
+```python
+def veil_encode(keyword: str, message: str) -> str:
+    if not keyword or not all(c.islower() for c in keyword):
+        raise ValueError("Keyword must be a non-empty string of lowercase a-z")
+    
+    if any(not c.islower() and c != ' ' for c in message):
+        raise ValueError("Message must be made of lowercase a-z and spaces")
+
+    keyword_set = set(keyword)
+    remaining_letters = sorted(set('abcdefghijklmnopqrstuvwxyz') - keyword_set, reverse=True)
+    veil_alphabet = list(keyword) + remaining_letters
+
+    encoded_message = []
+    for char in message:
+        if char == ' ':
+            encoded_message.append(char)
+        else:
+            index = ord(char) - ord('a')
+            encoded_message.append(veil_alphabet[index])
+
+    return ''.join(encoded_message)
+```

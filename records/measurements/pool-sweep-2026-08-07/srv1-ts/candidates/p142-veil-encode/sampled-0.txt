@@ -1,0 +1,15 @@
+```ts
+export function veilEncode(keyword: string, message: string): string {
+  if (!keyword || !/^[a-z]+$/.test(keyword)) throw new Error("Invalid keyword");
+  if (!/^[a-z\s]*$/.test(message)) throw new Error("Invalid message");
+
+  const alphabet = "abcdefghijklmnopqrstuvwxyz";
+  const used = new Set(keyword.split(""));
+  const remaining = alphabet.split("").filter(char => !used.has(char)).reverse();
+  const veilAlphabet = [...keyword, ...remaining].join("");
+
+  return message
+    .split("")
+    .map(char => (char === " " ? char : veilAlphabet[alphabet.indexOf(char)]));
+}
+```

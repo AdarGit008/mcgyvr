@@ -1,0 +1,25 @@
+```ts
+export function rankWithPolicy(scores: number[], policy: string, direction: string): number[] {
+  if (scores.length === 0) throw new Error("Empty input");
+  if (!Number.isInteger(scores[0])) throw new Error("Scores must be integers");
+  if (policy !== "dense" && policy !== "gapped" && policy !== "entry") throw new Error("Invalid policy");
+  if (direction !== "asc" && direction !== "desc") throw new Error("Invalid direction");
+
+  const sortedIndices = scores.map((score, index) => index).sort((a, b) => {
+    if (scores[a] === scores[b]) return a - b; // Preserve original order for ties
+    return direction === "asc" ? scores[a] - scores[b] : scores[b] - scores[a];
+  });
+
+  const ranks = new Map<number, number>();
+  let rank = 1;
+
+  sortedIndices.forEach((index, i) => {
+    if (i > 0 && scores[index] !== scores[sortedIndices[i - 1]]) {
+      rank += policy === "gapped" ? 1 : 0;
+    }
+    ranks.set(scores[index], rank);
+  });
+
+  return scores.map(score => ranks.get(score)!);
+}
+```

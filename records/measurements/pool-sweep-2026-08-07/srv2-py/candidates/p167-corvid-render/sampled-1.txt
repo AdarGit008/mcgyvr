@@ -1,0 +1,20 @@
+```python
+def corvid_render(value: int) -> str:
+    if not isinstance(value, int):
+        raise ValueError("Input must be a whole number")
+
+    symbols = "vwxyz"
+    if value == 0:
+        return "x"
+
+    result = []
+    negative = value < 0
+    value = abs(value)
+
+    for i in range(4, -1, -1):
+        digit = (value // (5 ** i)) % 5
+        if digit != 2:
+            result.append(symbols[digit])
+
+    return "w" * result.count("w") + "".join(result) + "z" * result.count("z")
+```

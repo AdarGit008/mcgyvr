@@ -1,0 +1,27 @@
+```ts
+export function tallyTuplets(score: string, meter: string): number[] {
+  const unitsPerMeasure = (parseInt(meter.split('/')[0], 10) * 64) / parseInt(meter.split('/')[1], 10);
+  if (isNaN(unitsPerMeasure) || unitsPerMeasure <= 0) throw new Error('Invalid meter');
+
+  return score
+    .split(';')
+    .map((measure) => {
+      const entries = measure.trim().split(/\s+/).filter(Boolean);
+      if (entries.length === 0) throw new Error('Empty measure');
+
+      let totalUnits = 0;
+      for (const entry of entries) {
+        if (/^\d+\/[1-9]\d*$/.test(entry)) {
+          const [numerator, denominator] = entry.split('/').map(Number);
+          if (denominator === 0 || !([1, 2, 4, 8, 16, 32, 64].includes(denominator))) throw new Error('Invalid span');
+          totalUnits += (numerator * 64) / denominator;
+        } else if (/^\d+\{[^{}]*\}$/.test(entry)) {
+          const figure = parseInt(entry.match(/^\d+/)[0], 10);
+          if (figure < 2 || !Number.isInteger((totalUnits *= figure - 1) / figure)) throw new Error('Invalid squeeze');
+        } else throw new Error('Invalid entry');
+      }
+
+      return Math.round(unitsPerMeasure - totalUnits);
+    });
+}
+```

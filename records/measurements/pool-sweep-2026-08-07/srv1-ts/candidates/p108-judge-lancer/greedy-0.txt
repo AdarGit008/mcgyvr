@@ -1,0 +1,62 @@
+```ts
+export function judgeLancer(board: string[], side: string, from: number[], to: number[]): string {
+  if (board.length !== 7 || board.some(row => row.length !== 7)) {
+    throw new Error("Invalid board dimensions");
+  }
+  if (!["W", "B"].includes(side)) {
+    throw new Error("Invalid side");
+  }
+  if (!Array.isArray(from) || from.length !== 2 || !from.every(Number.isInteger)) {
+    throw new Error("Invalid from square");
+  }
+  if (!Array.isArray(to) || to.length !== 2 || !to.every(Number.isInteger)) {
+    throw new Error("Invalid to square");
+  }
+
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+
+  if (fromRow < 0 || fromRow > 6 || fromCol < 0 || fromCol > 6) {
+    return "off_board";
+  }
+  if (toRow < 0 || toRow > 6 || toCol < 0 || toCol > 6) {
+    return "off_board";
+  }
+
+  const piece = board[fromRow][fromCol];
+  if (piece !== side) {
+    return "no_piece";
+  }
+
+  const rowDiff = Math.abs(toRow - fromRow);
+  const colDiff = Math.abs(toCol - fromCol);
+
+  if ((rowDiff === 0 && colDiff > 3) || (colDiff === 0 && rowDiff > 3)) {
+    return "bad_line";
+  }
+  if (rowDiff !== 0 && colDiff !== 0) {
+    return "bad_line";
+  }
+
+  const directionRow = Math.sign(toRow - fromRow);
+  const directionCol = Math.sign(toCol - fromCol);
+
+  for (let i = 1; i <= Math.max(rowDiff, colDiff); i++) {
+    const row = fromRow + directionRow * i;
+    const col = fromCol + directionCol * i;
+    if (board[row][col] !== ".") {
+      return "blocked";
+    }
+  }
+
+  const toPiece = board[toRow][toCol];
+  if (toPiece === side) {
+    return "own_piece";
+  }
+  if (Math.abs(toRow - fromRow) <= 1 && Math.abs(toCol - fromCol) <= 1) {
+    return "too_close";
+  }
+
+  return "ok";
+}
+```

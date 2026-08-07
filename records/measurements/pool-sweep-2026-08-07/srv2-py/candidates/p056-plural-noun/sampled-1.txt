@@ -1,0 +1,31 @@
+```python
+def plural_noun(word: str) -> str:
+    if not word or not word.islower() or not word.isalpha():
+        raise ValueError("Invalid input")
+    
+    irregulars = {
+        "child": "children",
+        "person": "people",
+        "foot": "feet",
+        "mouse": "mice",
+        "sheep": "sheep"
+    }
+    
+    if word in irregulars:
+        return irregulars[word]
+    
+    if word.endswith(('s', 'x', 'z', 'ch', 'sh')):
+        return f"{word}es"
+    
+    if word.endswith('y') and word[-2] not in 'aeiou':
+        return f"{word[:-1]}ies"
+    
+    if word.endswith('fe'):
+        return f"{word[:-2]}ves"
+    
+    if word.endswith('f'):
+        return f"{word[:-1]}ves"
+    
+    return f"{word}s"
+
+```

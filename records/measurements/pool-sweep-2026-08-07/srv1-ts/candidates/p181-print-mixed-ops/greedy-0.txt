@@ -1,0 +1,52 @@
+```ts
+export function printOperatorTree(node: unknown): string {
+  if (typeof node === 'number') {
+    if (!Number.isInteger(node) || node < 0) throw new Error('Invalid number');
+    return node.toString();
+  }
+  if (typeof node === 'string') {
+    if (/^[a-z]+$/.test(node)) return node;
+    throw new Error('Invalid word');
+  }
+  if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+
+  const record = node as { [key: string]: unknown };
+  if ('op' in record) {
+    const { op, left, right } = record;
+    if (!['or', 'and', '+', '-', '*', '/', '^'].includes(op)) throw new Error('Invalid operator');
+    if (typeof left !== 'object' || left === null || typeof right !== 'object' || right === null) throw new Error('Invalid operands');
+
+    const precedence = {
+      or: 1,
+      and: 2,
+      '+': 3,
+      '-': 4,
+      '*': 5,
+      '/': 6,
+      '^': 7
+    };
+
+    const leftStr = printOperatorTree(left);
+    const rightStr = printOperatorTree(right);
+    const currentPrecedence = precedence[op];
+    const leftNeedsParens = precedence[leftStr] < currentPrecedence || (precedence[leftStr] === currentPrecedence && op !== '^');
+    const rightNeedsParens = precedence[rightStr] < currentPrecedence;
+
+    return `${leftNeedsParens ? `(${leftStr})` : leftStr} ${op} ${rightNeedsParens ? `(${rightStr})` : rightStr}`;
+  } else if ('negate' in record) {
+    const { negate } = record;
+    if (typeof negate !== 'object' || negate === null) throw new Error('Invalid negate operand');
+
+    const negateStr = printOperatorTree(negate);
+    return `-${negateNeedsParens ? `(${negateStr})` : negateStr}`;
+  } else if ('call' in record) {
+    const { call, args } = record;
+    if (typeof call !== 'string' || !/^[a-z]+$/.test(call) || !Array.isArray(args)) throw new Error('Invalid call');
+
+    const argStrings = args.map(printOperatorTree);
+    return `${call}(${argStrings.join(', ')})`;
+  }
+
+  throw new Error('Invalid node structure');
+}
+```

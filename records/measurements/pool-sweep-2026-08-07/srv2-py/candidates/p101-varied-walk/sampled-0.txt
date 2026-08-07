@@ -1,0 +1,35 @@
+```python
+from collections import deque
+
+
+def varied_label_walk(edges: list[list[str]], start: str, goal: str) -> int:
+    nodes = set()
+    for edge in edges:
+        if (
+            not isinstance(edge, list)
+            or len(edge) != 3
+            or any(not isinstance(part, str) or part == "" for part in edge)
+        ):
+            raise ValueError("each edge must be a [from, to, label] triple of non-empty strings")
+        nodes.add(edge[0])
+        nodes.add(edge[1])
+    if start not in nodes:
+        raise ValueError("start appears in no edge")
+    if goal not in nodes:
+        raise ValueError("goal appears in no edge")
+    if start == goal:
+        return 0
+    queue = deque([(start, "", 0)])
+    visited = {(start, "")}
+    while queue:
+        node, last, steps = queue.popleft()
+        for source, target, label in edges:
+            if source != node or label == last:
+                continue
+            if target == goal:
+                return steps + 1
+            if (target, label) not in visited:
+                visited.add((target, label))
+                queue.append((target, label, steps + 1))
+    return -1
+```

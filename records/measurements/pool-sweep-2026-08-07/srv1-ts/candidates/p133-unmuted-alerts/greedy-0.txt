@@ -1,0 +1,33 @@
+```ts
+export function unmutedAlerts(alerts: Array<{ id: string; resource: string; severity: number }>): string[] {
+  const groupedAlerts = alerts.reduce((acc, alert) => {
+    if (acc[alert.resource]) {
+      acc[alert.resource].push(alert);
+    } else {
+      acc[alert.resource] = [alert];
+    }
+    return acc;
+  }, {} as { [resource: string]: Array<{ id: string; resource: string; severity: number }> });
+
+  const unmutedAlerts = Object.values(groupedAlerts).flatMap((group) => {
+    if (group.length === 1) return group.map((alert) => alert.id);
+    const maxSeverity = Math.max(...group.map((alert) => alert.severity));
+    return group
+      .filter((alert) => alert.severity === maxSeverity)
+      .map((alert) => alert.id)
+      .sort();
+  });
+
+  const idSet = new Set(unmutedAlerts);
+  if (unmutedAlerts.length !== idSet.size) {
+    throw new Error("Duplicate alert ids found");
+  }
+
+  return unmutedAlerts.sort((a, b) => {
+    const severityA = alerts.find((alert) => alert.id === a)?.severity || 0;
+    const severityB = alerts.find((alert) => alert.id === b)?.severity || 0;
+    if (severityA !== severityB) return severityB - severityA;
+    return a.localeCompare(b);
+  });
+}
+```

@@ -1,0 +1,19 @@
+```python
+def quarter_spin(grid: list, turns: int) -> list:
+    turns %= 4
+    if turns == 0:
+        return grid.copy()
+    elif turns == 2:
+        n = len(grid)
+        result = [[grid[j][i] for j in range(n - 1, -1, -1)] for i in range(n)]
+        return result
+    else:
+        n = len(grid)
+        if len(set(len(row) for row in grid)) != 1:
+            raise ValueError("Grid must be rectangular")
+        if turns == 1:
+            result = [[grid[j][i] for j in range(n)] for i in range(n - 1, -1, -1)]
+        else:  # turns == 3
+            result = [[grid[j][i] for j in range(n - 1, -1, -1)][::-1] for i in range(n)]
+        return result
+```

@@ -1,0 +1,28 @@
+```typescript
+/**
+ * Finds the length of the longest stretch of consecutive days that starts and ends on a kept day,
+ * with at most 'grace' unkept days in between.
+ * @param counts - List of daily step counts.
+ * @param goal - The minimum step count to keep a day.
+ * @param grace - Maximum number of unkept days allowed between kept days.
+ * @returns Length of the longest stretch of consecutive days that meets the criteria.
+ */
+export function graceWindow(counts: number[], goal: number, grace: number): number {
+  if (goal <= 0) throw new Error('Goal must be positive');
+  if (grace < 0) throw new Error('Grace must not be negative');
+
+  const keptDays = counts.filter((count) => count >= goal);
+  const n = keptDays.length;
+
+  if (n === 0) return 0;
+
+  let maxLength = 1;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j <= Math.min(i + grace + 1, n); j++) {
+      maxLength = Math.max(maxLength, j - i);
+    }
+  }
+
+  return maxLength;
+}
+```

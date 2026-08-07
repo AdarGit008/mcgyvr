@@ -1,0 +1,28 @@
+```ts
+export function commitIndex(log: number[], matches: number[], currentTerm: number): { commit: number; safe: number; behind: number[] } {
+    if (!Array.isArray(log) || !Array.isArray(matches)) {
+        throw new Error("log and matches must be arrays");
+    }
+    if (typeof currentTerm !== "number" || currentTerm <= 0 || !Number.isInteger(currentTerm)) {
+        throw new Error("currentTerm must be a whole number of one or more");
+    }
+
+    const quorum = Math.floor((matches.length + 1) / 2);
+    let commit = 0;
+    let safe = 0;
+
+    for (let i = log.length - 1; i >= 0; i--) {
+        if (log[i] !== currentTerm) continue;
+        if (i > commit) commit = i;
+        if (matches.every(match => match >= i)) safe = i;
+        break;
+    }
+
+    const behind: number[] = [];
+    for (let i = 0; i < matches.length; i++) {
+        if (matches[i] < commit) behind.push(i);
+    }
+
+    return { commit, safe, behind };
+}
+```

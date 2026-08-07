@@ -1,0 +1,29 @@
+```python
+def first_overload(bookings: list, capacity: int) -> int:
+    if capacity < 1:
+        raise ValueError("Capacity must be at least 1")
+    
+    for booking in bookings:
+        start, end = booking
+        if not (isinstance(start, int) and isinstance(end, int)):
+            raise ValueError("Endpoints must be integers")
+        if start >= end:
+            raise ValueError("Start time must come before end time")
+
+    timeline = []
+    for start, end in sorted(bookings):
+        timeline.append((start, 1))
+        timeline.append((end, -1))
+
+    active_bookings = 0
+    max_active = 0
+    overload_time = -1
+
+    for time, change in timeline:
+        active_bookings += change
+        if active_bookings > capacity and max_active <= capacity:
+            max_active = active_bookings
+            overload_time = time
+
+    return overload_time
+```

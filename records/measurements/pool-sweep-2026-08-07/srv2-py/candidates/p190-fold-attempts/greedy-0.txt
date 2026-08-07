@@ -1,0 +1,42 @@
+```python
+def fold_attempts(records: list) -> list:
+    if not isinstance(records, list):
+        raise ValueError("Argument must be a list")
+    
+    results = {}
+    
+    for record in records:
+        if not isinstance(record, str):
+            raise ValueError("Each record must be a string")
+        
+        parts = record.split()
+        if len(parts) != 3:
+            raise ValueError("Record must contain exactly three pieces")
+        
+        name, try_num, outcome = parts
+        if not name or ' ' in name:
+            raise ValueError("Case name must be non-empty and contain no spaces")
+        if not try_num.isdigit() or int(try_num) <= 0:
+            raise ValueError("Try number must be a positive integer with no padding zeros")
+        if outcome not in {'pass', 'fail'}:
+            raise ValueError("Outcome must be either 'pass' or 'fail'")
+        
+        try_num = int(try_num)
+        if name not in results:
+            results[name] = {'tries': set(), 'outcomes': set()}
+        if try_num in results[name]['tries']:
+            raise ValueError(f"Case '{name}' has duplicate try number {try_num}")
+        results[name]['tries'].add(try_num)
+        results[name]['outcomes'].add(outcome)
+    
+    for name, data in results.items():
+        if len(data['tries']) != max(data['tries']):
+            raise ValueError(f"Case '{name}' has skipped a try number")
+    
+    settled_results = {name: 'pass' if all(outcome == 'pass' for outcome in outcomes) else
+                      'fail' if all(outcome == 'fail' for outcome in outcomes) else
+                      'flake'
+                      for name, data in results.items()}
+    
+    return [f"{name}={result}" for name, result in sorted(settled_results.items())]
+```

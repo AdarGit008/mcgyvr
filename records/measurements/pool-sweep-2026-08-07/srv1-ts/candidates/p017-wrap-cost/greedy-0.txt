@@ -1,0 +1,21 @@
+```ts
+export function wrapCost(words: string[], width: number): number {
+  if (words.length === 0 || words.includes("") || Math.max(...words.map(word => word.length)) > width || !Number.isInteger(width) || width <= 0) {
+    throw new Error("Invalid input");
+  }
+
+  const dp = Array(words.length + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= words.length; i++) {
+    let length = 0;
+    for (let j = i - 1; j >= 0; j--) {
+      length += words[j].length + (i - j - 1);
+      if (length > width) break;
+      dp[i] = Math.min(dp[i], dp[j] + (width - length) ** 2);
+    }
+  }
+
+  return dp[words.length];
+}
+```

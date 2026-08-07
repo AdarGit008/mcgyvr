@@ -1,0 +1,42 @@
+```ts
+export function canHop(pond: string[], from: number[], to: number[]): boolean {
+  if (!Array.isArray(pond) || pond.length !== 5) {
+    throw new Error('Invalid pond input');
+  }
+  for (const row of pond) {
+    if (typeof row !== 'string' || row.length !== 5) {
+      throw new Error('Invalid pond input');
+    }
+  }
+  if (!Array.isArray(from) || from.length !== 2 || !Array.isArray(to) || to.length !== 2) {
+    throw new Error('Invalid square coordinates');
+  }
+  for (const coord of [...from, ...to]) {
+    if (typeof coord !== 'number' || coord < 0 || coord > 4) {
+      throw new Error('Invalid square coordinates');
+    }
+  }
+
+  const [fRow, fCol] = from;
+  const [tRow, tCol] = to;
+
+  const isValidSquare = (row: number, col: number): boolean => {
+    return row >= 0 && row < 5 && col >= 0 && col < 5 && pond[row][col] !== '.';
+  };
+
+  if (!isValidSquare(fRow, fCol) || !isValidSquare(tRow, tCol)) {
+    return false;
+  }
+
+  const isStep = (fRow === tRow && Math.abs(fCol - tCol) === 1) || (fCol === tCol && Math.abs(fRow - tRow) === 1);
+  if (isStep) {
+    return true;
+  }
+
+  const isVault = (
+    ((Math.abs(fRow - tRow) === 2 && fCol === tCol) || (fRow === tRow && Math.abs(fCol - tCol) === 2)) &&
+    isValidSquare((fRow + tRow) / 2, (fCol + tCol) / 2)
+  );
+  return isVault;
+}
+```

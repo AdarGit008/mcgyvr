@@ -1,0 +1,19 @@
+```python
+def shelf_count(entries: list) -> list:
+    """Fold shelf entries into a final count and a skipped-take tally."""
+    count = 0
+    skippedTakes = 0
+    for kind, amount in entries:
+        if kind not in ["add", "take", "fix"]:
+            raise ValueError("Invalid kind")
+        if not isinstance(amount, int) or amount < 0:
+            raise ValueError("Invalid amount")
+        if kind == "add":
+            count += amount
+        elif kind == "take":
+            if amount > count:
+                skippedTakes += amount
+            else:
+                count -= amount
+    return [count, skippedTakes]
+```

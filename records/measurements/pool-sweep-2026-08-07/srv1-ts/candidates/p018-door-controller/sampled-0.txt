@@ -1,0 +1,20 @@
+```ts
+export function finalDoorState(events: string[]): string {
+  const moves: Record<string, string> = {
+    unlock: "closed",
+    lock: "locked",
+    open: "open",
+    close: "closed",
+  };
+  let state = "locked";
+  let ignored = 0;
+  for (const event of events) {
+    if (moves[event]) {
+      state = moves[event];
+    } else {
+      ignored++;
+    }
+  }
+  return state + ":" + ignored;
+}
+```

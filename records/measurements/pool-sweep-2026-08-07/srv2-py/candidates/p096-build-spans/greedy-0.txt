@@ -1,0 +1,46 @@
+```python
+def intersect_build_spans(spans: list[str]) -> str:
+    if not spans:
+        raise ValueError("Empty input")
+
+    def parse_span(span: str) -> tuple[int | None, int | None, set[int]]:
+        parts = span.split("..")
+        lo, hi = map(lambda x: None if x == "" else int(x), parts)
+        strikes = {int(s[1:]) for s in span.split("!") if s.startswith("!")}
+        if lo is not None and hi is not None and lo > hi:
+            raise ValueError("Reversed limits")
+        if any(s.startswith("0") and s != "0" for s in span.split("!")):
+            raise ValueError("Leading zero")
+        return lo, hi, strikes
+
+    def intersect(lo1: int | None, hi1: int | None, lo2: int | None, hi2: int | None) -> tuple[int | None, int | None]:
+        if lo1 is not None and lo2 is not None:
+            lo = max(lo1, lo2)
+        else:
+            lo = lo1 or lo2
+        if hi1 is not None and hi2 is not None:
+            hi = min(hi1, hi2)
+        else:
+            hi = hi1 or hi2
+        return lo, hi
+
+    def apply_strikes(lo: int | None, hi: int | None, strikes: set[int]) -> tuple[int | None, int | None]:
+        if lo is not None and hi is not None:
+            strikes = {s for s in strikes if lo <= s <= hi}
+        return lo, hi
+
+    lo, hi, strikes = parse_span(spans[0])
+    for span in spans[1:]:
+        lo2, hi2, strikes2 = parse_span(span)
+        lo, hi = intersect(lo, hi, lo2, hi2)
+        strikes = strikes.intersection(strikes2)
+
+    if lo is not None and hi is not None and lo > hi:
+        return "empty"
+
+    strikes = sorted(strikes)
+    result = f"{lo or ''}..{hi or ''}"
+    if strikes:
+        result += "".join(f"!{s}" for s in strikes)
+    return result
+```

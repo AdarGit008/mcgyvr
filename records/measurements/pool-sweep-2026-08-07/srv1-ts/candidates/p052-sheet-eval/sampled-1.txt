@@ -1,0 +1,55 @@
+```typescript
+import { Stack } from 'typescript-collections';
+
+export function computeSheet(cells: Record<string, string>): Record<string, number> {
+    const result: Record<string, number> = {};
+    const visited: Set<string> = new Set();
+
+    function evaluateCell(name: string): number {
+        if (visited.has(name)) {
+            throw new Error(`Reference cycle detected`);
+        }
+        if (result[name] !== undefined) {
+            return result[name];
+        }
+
+        visited.add(name);
+        const cellText = cells[name].trim();
+        if (/^\d+$|-\d+$/.test(cellText)) {
+            result[name] = parseInt(cellText, 10);
+        } else if (!/^=\s*[^=]+$/.test(cellText)) {
+            throw new Error(`Malformed formula for cell ${name}`);
+        }
+
+        const terms = cellText.split(/\s*\+\s*/).slice(1);
+        result[name] = terms.reduce((acc, term) => {
+            if (/^\d+$|-\d+$/.test(term)) {
+                return acc + parseInt(term, 10);
+            } else if (/^[A-Z]+\d+$/.test(term)) {
+                return acc + evaluateCell(term);
+            } else {
+                throw new Error(`Invalid term in formula for cell ${name}`);
+            }
+        }, 0);
+
+        visited.delete(name);
+        return result[name];
+    }
+
+    Object.keys(cells).forEach(name => {
+        try {
+            evaluateCell(name);
+        } catch (error) {
+            // Handle error gracefully, as we're building the full result map
+        }
+    });
+
+    Object.keys(cells).forEach(name => {
+        if (!visited.has(name)) {
+            throw new Error(`Unreachable cell ${name}`);
+        }
+    });
+
+    return result;
+}
+```

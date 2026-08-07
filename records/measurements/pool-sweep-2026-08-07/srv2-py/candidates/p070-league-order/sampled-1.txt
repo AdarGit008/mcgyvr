@@ -1,0 +1,56 @@
+```python
+def league_order(matches: list) -> list:
+    if any(not isinstance(m, list) or len(m) != 4 for m in matches):
+        raise ValueError("Each match must be a 4-item list")
+    
+    teams = set()
+    results = {}
+    goal_differences = {}
+    goals_scored = {}
+
+    for home, away, home_goals, away_goals in matches:
+        if not (isinstance(home, str) and isinstance(away, str)):
+            raise ValueError("Team names must be strings")
+        if home == away:
+            raise ValueError("Teams cannot play against themselves")
+        if not (isinstance(home_goals, int) and isinstance(away_goals, int) and home_goals >= 0 and away_goals >= 0):
+            raise ValueError("Goal figures must be non-negative integers")
+
+        teams.add(home)
+        teams.add(away)
+
+        results[home] = results.get(home, [0, 0, 0])
+        results[away] = results.get(away, [0, 0, 0])
+
+        if home_goals > away_goals:
+            results[home][0] += 3
+        elif home_goals < away_goals:
+            results[away][0] += 3
+        else:
+            results[home][0] += 1
+            results[away][0] += 1
+
+        results[home][1] += home_goals
+        results[home][2] += away_goals
+        results[away][1] += away_goals
+        results[away][2] += home_goals
+
+        goal_differences[home] = goal_differences.get(home, 0) + (home_goals - away_goals)
+        goal_differences[away] = goal_differences.get(away, 0) + (away_goals - home_goals)
+
+        goals_scored[home] = goals_scored.get(home, 0) + home_goals
+        goals_scored[away] = goals_scored.get(away, 0) + away_goals
+
+    standings = sorted(
+        teams,
+        key=lambda t: (
+            results[t][0],
+            goal_differences[t],
+            goals_scored[t],
+            t
+        ),
+        reverse=True
+    )
+
+    return standings
+```

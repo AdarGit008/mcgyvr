@@ -1,0 +1,70 @@
+```python
+def fold_machine(machine: dict) -> dict:
+    alphabet = machine.get("alphabet")
+    states = machine.get("states")
+    start = machine.get("start")
+    accepting = machine.get("accepting")
+    moves = machine.get("moves")
+
+    if not alphabet or not states or not start or not accepting or not moves:
+        raise ValueError("Invalid input machine.")
+
+    if len(alphabet) != len(set(alphabet)) or any(not isinstance(s, str) or s == "" for s in alphabet):
+        raise ValueError("Alphabet must be a list of distinct non-empty strings.")
+    if len(states) != len(set(states)) or any(not isinstance(s, str) or s == "" for s in states):
+        raise ValueError("States must be a list of distinct non-empty strings.")
+    if start not in states:
+        raise ValueError(f"Start '{start}' is not a listed state.")
+    if len(accepting) != len(set(accepting)) or any(s not in states for s in accepting):
+        raise ValueError("Accepting states must be a list of distinct names drawn from the states.")
+    if any(state not in states or symbol not in alphabet for state, symbol, _ in moves):
+        raise ValueError("Moves must name existing states and symbols.")
+
+    reachable = set()
+    queue = [start]
+    while queue:
+        current_state = queue.pop(0)
+        if current_state not in reachable:
+            reachable.add(current_state)
+            for _, symbol, next_state in moves:
+                if symbol == "" or next_state == "":
+                    raise ValueError("Symbol and state names must be non-empty strings.")
+                if (current_state, symbol) in [(s, sy) for s, sy, _ in moves]:
+                    queue.append(next_state)
+
+    unreachable_states = states - reachable
+    machine["moves"] = [move for move in moves if move[0] not in unreachable_states and move[2] not in unreachable_states]
+
+    equivalent_classes = []
+    while len(states) > 0:
+        current_state = states.pop(0)
+        class_ = {current_state}
+        queue = [(current_state, symbol) for symbol in alphabet]
+        while queue:
+            current_state, symbol = queue.pop(0)
+            next_state = [move[2] for move in moves if move[0] == current_state and move[1] == symbol][0]
+            if next_state not in class_:
+                class_.add(next_state)
+                if next_state in states:
+                    states.remove(next_state)
+                    queue.extend([(next_state, sy) for sy in alphabet])
+        equivalent_classes.append(class_)
+
+    machine["moves"] = [
+        [equivalent_classes.index(group), symbol, equivalent_classes.index([move[2] for move in moves if move[0] == state and move[1] == symbol][0])]
+        for group in equivalent_classes
+        for state in group
+        for symbol in alphabet
+    ]
+
+    groups = {i: sorted(class_) for i, class_ in enumerate(equivalent_classes)}
+    machine["size"] = len(groups)
+    machine["start"] = 0
+    machine["accepting"] = [groups.index(sorted([s for s in states if s in accepting])) for s in states if s in accepting]
+    machine["moves"] = sorted(
+        machine["moves"],
+        key=lambda x: (x[0], alphabet.index(x[1])),
+    )
+
+    return machine
+```

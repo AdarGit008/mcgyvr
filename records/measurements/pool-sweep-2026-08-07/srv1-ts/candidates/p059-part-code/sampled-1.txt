@@ -1,0 +1,18 @@
+```ts
+export function normalizePartCode(code: string): string {
+  if (typeof code !== 'string') throw new Error('Invalid input type');
+
+  const cleaned = code.replace(/[- ]/g, '').toUpperCase();
+  if (cleaned.length !== 10 || !/^[0-9A-Z]+$/.test(cleaned)) throw new Error('Invalid format');
+
+  const weights = [3, 5, 7];
+  let sum = 0;
+  for (let i = 0; i < 8; i++) {
+    sum += parseInt(cleaned[i], 36) * weights[i % 3];
+  }
+  const calculatedCheckChar = String((sum % 36)).toUpperCase();
+  if (cleaned[8] !== calculatedCheckChar) throw new Error('Invalid check character');
+
+  return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}-${calculatedCheckChar}`;
+}
+```

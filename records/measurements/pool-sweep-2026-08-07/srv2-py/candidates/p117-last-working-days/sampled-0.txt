@@ -1,0 +1,36 @@
+```python
+LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+OFFSETS = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4]
+
+
+def weekday_of(year, month, day):
+    y = year - 1 if month < 3 else year
+    sunday0 = (y + y // 4 - y // 100 + y // 400 + OFFSETS[month - 1] + day) % 7
+    return (sunday0 + 6) % 7
+
+
+def last_working_days(start: str, months: int) -> list:
+    if not isinstance(start, str) or re.fullmatch(r"\d{4}-\d{2}", start) is None:
+        raise ValueError("start must be zero-padded YYYY-MM")
+    year = int(start[:4])
+    month = int(start[5:7])
+    if year < 1 or not 1 <= month <= 12:
+        raise ValueError("start must name a real month")
+    if not isinstance(months, int) or isinstance(months, bool) or not 1 <= months <= 120:
+        raise ValueError("months must be a positive integer of at most 120")
+    out = []
+    for _ in range(months):
+        if year > 9999:
+            raise ValueError("run reaches past year 9999")
+        leap = (year % 4 == 0 and year % 100 != 0) or year % 400 == 0
+        length = 29 if month == 2 and leap else LENGTHS[month - 1]
+        day = length
+        while weekday_of(year, month, day) > 4:
+            day -= 1
+        out.append(f"{year:04d}-{month:02d}-{day:02d}")
+        month += 1
+        if month == 13:
+            month = 1
+            year += 1
+    return out
+```

@@ -1,0 +1,30 @@
+```python
+def merge_markup(spans: list) -> list:
+    if not spans:
+        return []
+
+    for span in spans:
+        if not isinstance(span, dict):
+            raise ValueError("Each span must be a dictionary.")
+        if "start" not in span or "end" not in span or "tag" not in span:
+            raise ValueError("Each span must have 'start', 'end', and 'tag' keys.")
+        if not isinstance(span["start"], int) or not isinstance(span["end"], int):
+            raise ValueError("Start and end must be integers.")
+        if span["start"] < 0 or span["start"] >= span["end"]:
+            raise ValueError("Invalid start or end values.")
+        if not isinstance(span["tag"], str) or not span["tag"]:
+            raise ValueError("Tag must be a non-empty string.")
+
+    spans = sorted(spans, key=lambda x: (x["start"], -x["end"]))
+    merged = [spans[0]]
+    for current in spans[1:]:
+        last = merged[-1]
+        if current["start"] < last["end"]:
+            if current["tag"] != last["tag"]:
+                raise ValueError("Overlapping spans with different tags.")
+            merged[-1] = {"start": min(last["start"], current["start"]), "end": max(last["end"], current["end"]), "tag": last["tag"]}
+        else:
+            merged.append(current)
+
+    return [[span["start"], span["end"], span["tag"]] for span in merged]
+```

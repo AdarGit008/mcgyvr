@@ -1,0 +1,83 @@
+```ts
+/**
+ * Replays a log of service order events and returns the names of callers taken out of the waiting room in order.
+ * @param events - An array of records representing moments with "kind", "tick", and optionally "who" and "rank".
+ * @param step - A positive whole number representing the aging step duration.
+ * @returns An array of strings representing the names of callers taken out of the waiting room.
+ */
+export function agedServiceOrder(events: Array<Record<string, unknown>>, step: number): string[] {
+    if (step <= 0) throw new Error("Step must be a positive whole number.");
+    if (events.length === 0) throw new Error("Log cannot be empty.");
+
+    const waitingRoom = new Map<number, { name: string; rank: number }[]>();
+    const result: string[] = [];
+
+    for (const event of events) {
+        const kind = event["kind"] as string;
+        const tick = event["tick"] as number;
+
+        if (typeof tick !== "number" || tick < 0) throw new Error("Tick must be a non-negative whole number.");
+        if (tick > 0 && waitingRoom.size > 0 && Object.keys(waitingRoom).some(t => t >= tick)) {
+            throw new Error("Ticks cannot run backwards.");
+        }
+
+        switch (kind) {
+            case "join":
+                const name = event["who"] as string;
+                const rank = event["rank"] as number;
+
+                if (!name || typeof name !== "string" || name.trim() === "" || rank < 0) {
+                    throw new Error("Invalid 'join' event.");
+                }
+
+                if (waitingRoom.has(tick)) {
+                    const waitingList = waitingRoom.get(tick)!;
+                    for (const existing of waitingList) {
+                        if (existing.name === name) {
+                            throw new Error("Caller already in the waiting room.");
+                        }
+                    }
+                }
+
+                if (!waitingRoom.has(tick)) waitingRoom.set(tick, []);
+                waitingRoom.get(tick)!.push({ name, rank });
+                break;
+
+            case "call":
+                if (waitingRoom.size === 0) throw new Error("Cannot call when the waiting room is empty.");
+
+                let oldestTick = Math.max(...Object.keys(waitingRoom).map(Number));
+                let highestStanding: number | undefined;
+                let earliestName: string | undefined;
+
+                for (const [t, list] of waitingRoom.entries()) {
+                    if (!highestStanding || t < oldestTick) {
+                        oldestTick = t;
+                        highestStanding = 0;
+                        earliestName = undefined;
+                    }
+
+                    for (const { name, rank } of list) {
+                        const standing = rank + Math.floor((oldestTick - t) / step);
+                        if ((highestStanding === undefined || standing > highestStanding) ||
+                            (standing === highestStanding && oldestTick - t < oldestTick) ||
+                            (standing === highestStanding && earliestName! > name)) {
+                            highestStanding = standing;
+                            earliestName = name;
+                        }
+                    }
+                }
+
+                result.push(earliestName!);
+                waitingRoom.get(oldestTick)?.shift();
+                if (waitingRoom.get(oldestTick)?.length === 0) waitingRoom.delete(oldestTick);
+                break;
+
+            default:
+                throw new Error("Invalid event kind.");
+        }
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,17 @@
+```ts
+export function applyInflections(
+  word: string,
+  rules: Array<[string, string]>,
+): string {
+  for (const [suffix, replacement] of rules) {
+    if (suffix === "") {
+      throw new Error("empty suffix in rule table");
+    }
+    const index = word.lastIndexOf(suffix);
+    if (index !== -1) {
+      return word.slice(0, index) + replacement;
+    }
+  }
+  return word;
+}
+```

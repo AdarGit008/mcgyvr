@@ -1,0 +1,41 @@
+```ts
+export function examSlotClasses(conflicts: number[][]): number[][] {
+    if (!Array.isArray(conflicts) || conflicts.length === 0) {
+        throw new Error("Invalid input: expected a non-empty list of lists.");
+    }
+
+    const n = conflicts.length;
+    for (let i = 0; i < n; i++) {
+        if (!Array.isArray(conflicts[i]) || !conflicts[i].every(j => typeof j === 'number' && j >= 0 && j < n)) {
+            throw new Error("Invalid input: expected a list of lists of valid exam numbers.");
+        }
+        const seen = new Set<number>();
+        for (const j of conflicts[i]) {
+            if (seen.has(j)) {
+                throw new Error("Invalid input: duplicate exam numbers within a list.");
+            }
+            seen.add(j);
+        }
+    }
+
+    const sharedCount = conf => conf.length;
+    conflicts.sort((a, b) => sharedCount(b) - sharedCount(a) || a[0] - b[0]);
+
+    const sittings: number[][] = [];
+    for (let i = 0; i < n; i++) {
+        let found = false;
+        for (let j = 0; j < sittings.length; j++) {
+            if (!conflicts[i].some(k => sittings[j].includes(k))) {
+                sittings[j].push(i);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            sittings.push([i]);
+        }
+    }
+
+    return sittings;
+}
+```

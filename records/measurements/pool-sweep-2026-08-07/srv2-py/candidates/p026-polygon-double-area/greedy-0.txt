@@ -1,0 +1,21 @@
+```python
+def polygon_double_area(vertices: list[list[int]]) -> int:
+    if len(vertices) < 3:
+        raise ValueError("At least three vertices are required")
+    
+    for vertex in vertices:
+        if not isinstance(vertex, list) or len(vertex) != 2 or not all(isinstance(coord, int) for coord in vertex):
+            raise ValueError("Each vertex must be a pair of integers")
+    
+    if any(vertices[i] == vertices[(i + 1) % len(vertices)] for i in range(len(vertices))):
+        raise ValueError("No two consecutive vertices can be identical")
+    
+    area = 0
+    n = len(vertices)
+    for i in range(n):
+        x1, y1 = vertices[i]
+        x2, y2 = vertices[(i + 1) % n]
+        area += x1 * y2 - y1 * x2
+    
+    return abs(area)
+```

@@ -1,0 +1,35 @@
+```ts
+export function labelCadenceWalk(edges: string[][], cadence: string[], start: string, goal: string): number {
+  if (cadence.length === 0) throw new Error("Empty cadence list");
+  if (!cadence.every(label => typeof label === "string" && label !== "")) throw new Error("Invalid cadence entry");
+  if (!edges.every(edge => edge.length === 3 && edge.every(node => typeof node === "string" && node !== ""))) throw new Error("Invalid edge format");
+  if (!edges.some(([from, to]) => from === start) || !edges.some(([from, to]) => to === goal)) throw new Error("Start or goal not in edges");
+
+  const adjacencyList: { [key: string]: { [key: string]: number } } = {};
+  for (const [from, to, label] of edges) {
+    if (!adjacencyList[from]) adjacencyList[from] = {};
+    adjacencyList[from][to] = (adjacencyList[from][to] || 0) + 1;
+  }
+
+  const cadenceLength = cadence.length;
+  const queue: { node: string; steps: number; labelIndex: number }[] = [{ node: start, steps: 0, labelIndex: 0 }];
+  const visited: Set<string> = new Set();
+
+  while (queue.length > 0) {
+    const { node, steps, labelIndex } = queue.shift()!;
+    if (node === goal && labelIndex === cadenceLength - 1) return steps;
+
+    if (!visited.has(node)) {
+      visited.add(node);
+      for (const nextNode in adjacencyList[node]) {
+        if (adjacencyList[node][nextNode] > 0) {
+          queue.push({ node: nextNode, steps: steps + 1, labelIndex: (labelIndex + 1) % cadenceLength });
+          adjacencyList[node][nextNode]--;
+        }
+      }
+    }
+  }
+
+  return -1;
+}
+```

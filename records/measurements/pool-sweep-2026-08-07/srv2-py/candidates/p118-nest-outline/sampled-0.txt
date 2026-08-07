@@ -1,0 +1,26 @@
+```python
+def nest_outline(text: str) -> list:
+    if not text or '\t' in text:
+        raise ValueError("Input must be a non-empty string with no tab characters.")
+    
+    lines = text.strip().splitlines()
+    if lines and lines[0].strip():
+        raise ValueError("The first line cannot be indented.")
+    
+    result = []
+    stack = [result]
+    
+    for line in lines:
+        level = (len(line) - len(line.lstrip())) // 2
+        if level % 2 != 0 or level < 0:
+            raise ValueError("Invalid indentation level.")
+        
+        while len(stack) > level + 1:
+            stack.pop()
+        
+        item = [line.strip(), []]
+        stack[-1].append(item)
+        stack.append(item[1])
+    
+    return result
+```

@@ -1,0 +1,24 @@
+```ts
+export function quarterSpin(grid: number[][], turns: number): number[][] {
+  const n = grid.length;
+  if (n === 0 || !Number.isInteger(turns)) throw new Error("Invalid input");
+
+  const effectiveTurns = turns % 4;
+  if (effectiveTurns === 0) return grid;
+
+  let result: number[][] = JSON.parse(JSON.stringify(grid));
+
+  for (let t = 0; t < effectiveTurns; t++) {
+    const temp: number[][] = [];
+    for (let i = 0; i < n; i++) {
+      temp.push([]);
+      for (let j = 0; j < n; j++) {
+        temp[i][j] = grid[n - 1 - j][i];
+      }
+    }
+    result = temp;
+  }
+
+  return result;
+}
+```

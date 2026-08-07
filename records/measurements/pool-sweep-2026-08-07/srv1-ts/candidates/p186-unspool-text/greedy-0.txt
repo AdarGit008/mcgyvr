@@ -1,0 +1,25 @@
+```ts
+export function unspoolText(spool: string): string {
+  if (typeof spool !== 'string') {
+    throw new Error('Argument must be a string');
+  }
+
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < spool.length) {
+    if (spool[i] === '<') {
+      if (i + 1 >= spool.length || spool[i + 1] !== '<') {
+        throw new Error('Invalid pointer');
+      }
+      result.push('<');
+      i += 2;
+    } else {
+      result.push(spool[i]);
+      i++;
+    }
+  }
+
+  return result.join('');
+}
+```

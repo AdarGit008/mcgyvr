@@ -1,0 +1,32 @@
+```python
+NAMES = (
+    "Saturday",
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+)
+MONTH_LEN = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
+def weekday_name(year: int, month: int, day: int) -> str:
+    for value in (year, month, day):
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise ValueError("weekday_name expects integer arguments")
+    if year < 1:
+        raise ValueError("year must be at least 1")
+    if month < 1 or month > 12:
+        raise ValueError("month outside 1..12")
+    leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+    length = 29 if month == 2 and leap else MONTH_LEN[month - 1]
+    if day < 1 or day > length:
+        raise ValueError("day does not exist in that month")
+    if month < 3:
+        month += 12
+        year -= 1
+    k = year % 100
+    j = year // 100
+    h = (day + (13 * (month + 1)) // 5 + k + k // 4 + j // 4 + 5 * j) % 7
+    return NAMES[h]
+```

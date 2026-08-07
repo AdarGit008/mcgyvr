@@ -1,0 +1,22 @@
+```python
+def sketch_bars(readings: list[int], budget: int) -> list[str]:
+    if not readings:
+        raise ValueError("Readings list cannot be empty")
+    if any(v < 0 for v in readings):
+        raise ValueError("All readings must be non-negative integers")
+    if budget < 1:
+        raise ValueError("Budget must be a positive integer")
+
+    largest = max(readings)
+    lines = []
+    for v in readings:
+        if v == 0:
+            line = "." * budget
+        else:
+            filled_cells = round(v * budget / largest)
+            filled_cells = max(1, filled_cells)  # Ensure at least one cell is filled
+            line = "#" * filled_cells + "." * (budget - filled_cells)
+        lines.append(line)
+
+    return lines
+```

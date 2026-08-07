@@ -1,0 +1,15 @@
+```python
+def normalize_hostname(hostname: str) -> str:
+    if not isinstance(hostname, str):
+        raise ValueError("Hostname must be a string")
+
+    normalized = hostname.lower().rstrip('.')
+    labels = normalized.split('.')
+
+    if any(len(label) > 63 or label[0] == '-' or label[-1] == '-' for label in labels):
+        raise ValueError("Invalid label length or hyphen placement")
+    if len(normalized) > 253:
+        raise ValueError("Hostname exceeds maximum length of 253 characters")
+
+    return normalized
+```

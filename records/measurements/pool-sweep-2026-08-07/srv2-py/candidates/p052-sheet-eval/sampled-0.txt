@@ -1,0 +1,26 @@
+```python
+def compute_sheet(cells: dict[str, str]) -> dict[str, int]:
+    def resolve(cell_name: str) -> int:
+        if cell_name in cache:
+            return cache[cell_name]
+        if cell_name not in cells:
+            raise ValueError(f"Cell '{cell_name}' is not defined.")
+        
+        value = cells[cell_name].strip()
+        if value.startswith('='):
+            terms = [term.strip() for term in value[1:].split('+')]
+            result = sum(resolve(term) if term[0] == '-' or term[0].isdigit() else resolve(term) for term in terms)
+        elif value.lstrip('-').isdigit():
+            result = int(value)
+        else:
+            raise ValueError(f"Malformed literal or term: {value}")
+        
+        cache[cell_name] = result
+        return result
+    
+    cache = {}
+    try:
+        return {cell_name: resolve(cell_name) for cell_name in cells}
+    except RecursionError:
+        raise ValueError("Reference cycle detected")
+```

@@ -1,0 +1,29 @@
+```python
+def squash_journal(ops: list) -> list:
+    if not all(isinstance(op, list) and len(op) == 3 for op in ops):
+        raise ValueError("Invalid operation format")
+    
+    key_value_store = {}
+    last_put = {}
+    
+    for i, (op_type, key, value) in enumerate(ops):
+        if op_type == "put":
+            if not isinstance(key, str) or not key:
+                raise ValueError("Key must be a non-empty string")
+            if not isinstance(value, int) or value <= 0:
+                raise ValueError("Value must be a positive integer")
+            last_put[key] = i
+        elif op_type == "del":
+            if key not in key_value_store:
+                raise ValueError("Deleting absent key")
+            del key_value_store[key]
+        elif op_type == "ren":
+            if old_key not in key_value_store or new_key in key_value_store:
+                raise ValueError("Renaming absent key or existing key")
+            key_value_store[new_key] = key_value_store.pop(old_key)
+            last_put[new_key] = i
+        else:
+            raise ValueError("Unknown operation name")
+    
+    return [[op_type, key, value] for key, (op_type, _, value) in sorted(last_put.items(), key=lambda x: x[1])]
+```

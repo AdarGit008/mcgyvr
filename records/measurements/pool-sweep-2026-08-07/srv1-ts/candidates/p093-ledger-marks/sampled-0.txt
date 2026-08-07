@@ -1,0 +1,65 @@
+```ts
+/**
+ * Links ledger marks by resolving aliases and removing duplicates.
+ * @param marks - Array of ledger marks to link.
+ * @param aliases - Object mapping retired house codes to replacements.
+ * @returns An array of [canonical, raws] pairs, one per distinct entry.
+ */
+export function linkLedgerMarks(marks: string[], aliases: Record<string, string>): [string, string[]][] {
+  const resolvedMarks = marks.map(mark => resolveMark(mark, aliases));
+  const uniqueMarks = Array.from(new Set(resolvedMarks));
+
+  return uniqueMarks.map(canonical => [canonical, marks.filter(mark => parseMark(mark)[0] === canonical)]);
+}
+
+/**
+ * Resolves a mark by applying the alias table and validates it.
+ * @param mark - The ledger mark to resolve.
+ * @param aliases - Object mapping retired house codes to replacements.
+ * @returns The resolved and validated mark in canonical form.
+ */
+function resolveMark(mark: string, aliases: Record<string, string>): string {
+  if (typeof mark !== 'string') throw new Error('Invalid mark format');
+  const [houseCode, serialCheck] = parseMark(mark);
+  const resolvedHouseCode = aliases[houseCode.toUpperCase()] || houseCode;
+  if (resolvedHouseCode === houseCode) throw new Error('Alias table maps a code to itself');
+  return canonicalize(`${resolvedHouseCode}-${serialCheck}`);
+}
+
+/**
+ * Parses a mark into its components.
+ * @param mark - The ledger mark to parse.
+ * @returns A tuple containing the house code, serial value, and check letter.
+ */
+function parseMark(mark: string): [string, number, string] {
+  const regex = /^([A-Za-z]{2,3})[-/ ](\d+)([A-Z])$/;
+  const match = mark.match(regex);
+  if (!match) throw new Error('Invalid mark format');
+  const [, houseCode, serialStr, checkLetter] = match;
+  const serial = parseInt(serialStr, 10);
+  if (serial <= 0 || !checkLetter || getCheckLetter(serial) !== checkLetter.toUpperCase()) {
+    throw new Error('Invalid mark format or checksum error');
+  }
+  return [houseCode.toLowerCase(), serial, checkLetter];
+}
+
+/**
+ * Converts a house code and serial value into canonical form.
+ * @param mark - The mark to canonicalize.
+ * @returns The canonical form of the mark.
+ */
+function canonicalize(mark: string): string {
+  const [houseCode, serialCheck] = parseMark(mark);
+  return `${houseCode.toUpperCase()}-${serialCheck.slice(1)}-${getCheckLetter(parseInt(serialCheck.slice(1), 10))}`;
+}
+
+/**
+ * Calculates the check letter for a given serial value.
+ * @param serial - The serial value to calculate the check letter for.
+ * @returns The calculated check letter.
+ */
+function getCheckLetter(serial: number): string {
+  const alphabetPosition = (serial % 26 + 65) % 91;
+  return String.fromCharCode(alphabetPosition);
+}
+```

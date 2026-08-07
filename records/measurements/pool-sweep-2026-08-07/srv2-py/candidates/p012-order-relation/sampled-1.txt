@@ -1,0 +1,28 @@
+```python
+def order_relation(pairs: list[list[str]], x: str, y: str) -> str:
+    if x == y:
+        raise ValueError("Items cannot be equal.")
+    
+    forward = set()
+    backward = set()
+    
+    for a, b in pairs:
+        if a not in forward and a not in backward:
+            forward.add(a)
+        if b not in forward and b not in backward:
+            backward.add(b)
+        
+        if a == y:
+            backward.add(x)
+        elif b == x:
+            forward.add(y)
+    
+    if x in forward and y in backward:
+        return "both"
+    elif x in forward:
+        return "before"
+    elif y in backward:
+        return "after"
+    else:
+        return "unordered"
+```

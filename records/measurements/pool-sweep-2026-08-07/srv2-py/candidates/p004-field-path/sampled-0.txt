@@ -1,0 +1,20 @@
+```python
+import re
+
+def split_field_path(path: str) -> list:
+    if not path or path.startswith('.') or path.endswith('.'):
+        raise ValueError("Invalid input: empty string or leading/trailing dot")
+    
+    pattern = r'([a-zA-Z_][a-zA-Z0-9_]*)\[(\d+)\]'
+    parts = re.findall(pattern, path)
+    
+    result = []
+    for part in parts:
+        result.append(part[0])
+        result.append(int(part[1]))
+    
+    if not all(isinstance(p, (str, int)) for p in result):
+        raise ValueError("Invalid input: non-string identifier or integer index")
+    
+    return result
+```

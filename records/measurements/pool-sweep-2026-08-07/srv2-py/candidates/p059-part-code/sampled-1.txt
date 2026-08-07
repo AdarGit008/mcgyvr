@@ -1,0 +1,30 @@
+```python
+def normalize_part_code(code: str) -> str:
+    if not isinstance(code, str):
+        raise ValueError("Input must be a string")
+
+    # Remove spaces and hyphens, and convert to uppercase
+    cleaned_code = ''.join(c for c in code if c.isalnum()).upper()
+
+    if len(cleaned_code) != 9:
+        raise ValueError("Cleaned code must have exactly nine characters")
+
+    payload = cleaned_code[:-1]
+    check_char = cleaned_code[-1]
+
+    # Convert payload to numeric values
+    payload_values = [ord(c) - 48 if '0' <= c <= '9' else ord(c) - 55 for c in payload]
+
+    # Calculate weighted sum with repeating weight cycle 3, 5, 7
+    weights = [3, 5, 7]
+    weighted_sum = sum((payload_values[i] * weights[i % len(weights)]) for i in range(len(payload)))
+
+    # Calculate expected check character value
+    expected_check_char = str((weighted_sum % 36)).upper()
+
+    if check_char != expected_check_char:
+        raise ValueError("Invalid check character")
+
+    # Return canonical rendering: four characters, a hyphen, four more characters, a hyphen, and the check character
+    return f"{payload[:4]}-{payload[4:]}-{check_char}"
+```

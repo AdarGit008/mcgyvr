@@ -1,0 +1,24 @@
+```python
+import re
+
+def split_field_path(path: str) -> list:
+    if not isinstance(path, str):
+        raise ValueError("Input must be a string")
+    if path == "" or path.startswith(".") or path.endswith("."):
+        raise ValueError("Empty string or leading/trailing dot is invalid")
+    
+    pattern = r'([a-zA-Z_]\w*)(\[(\d+)\])?'
+    parts = re.findall(pattern, path)
+    
+    result = []
+    for identifier, _, index in parts:
+        if identifier[0].isdigit():
+            raise ValueError("Identifier cannot start with a digit")
+        result.append(identifier)
+        if index is not None:
+            if index.startswith('0') or not index.isdigit():
+                raise ValueError("Index must be a non-negative integer without leading zero or sign")
+            result.append(int(index))
+    
+    return result
+```

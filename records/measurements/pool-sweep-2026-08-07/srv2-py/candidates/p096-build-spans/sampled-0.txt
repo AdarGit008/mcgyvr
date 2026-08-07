@@ -1,0 +1,66 @@
+```python
+def intersect_build_spans(spans: list[str]) -> str:
+    def parse_span(span: str) -> tuple[int | None, int | None, set[int]]:
+        parts = span.split('..')
+        if len(parts) != 2 or not parts[0].isdigit() and '..' in parts[1]:
+            raise ValueError("Malformed span")
+        
+        lo = hi = None
+        strikes = set()
+        
+        for part in parts:
+            if part.startswith('!'):
+                try:
+                    strike = int(part[1:])
+                    strikes.add(strike)
+                except ValueError:
+                    raise ValueError("Invalid strike format")
+            else:
+                if lo is None:
+                    if part == '':
+                        lo = 0
+                    elif part.isdigit():
+                        lo = int(part)
+                    else:
+                        raise ValueError("Invalid lower limit format")
+                else:
+                    if part == '':  # Empty upper bound
+                        hi = None
+                    elif part.isdigit() and (hi is None or int(part) >= lo):
+                        hi = int(part)
+                    else:
+                        raise ValueError("Invalid upper limit format or reversed limits")
+        
+        return lo, hi, strikes
+
+    if not spans:
+        raise ValueError("Empty list of spans")
+
+    lo, hi, strikes = parse_span(spans[0])
+    for span in spans[1:]:
+        next_lo, next_hi, next_strikes = parse_span(span)
+        
+        if lo is None:
+            lo = next_lo
+        elif next_lo is not None and next_lo > lo:
+            lo = next_lo
+        
+        if hi is not None and (next_hi is None or next_hi < hi):
+            hi = next_hi
+        
+        strikes |= next_strikes
+    
+    if lo is not None and hi is not None and lo > hi:
+        return "empty"
+    
+    strikes -= {i + 1 for i in strikes if i >= lo and i <= hi}
+    result = []
+    
+    if lo is not None:
+        result.extend(range(lo, hi + 1))
+    
+    if strikes:
+        result.extend(sorted(strikes))
+    
+    return '..'.join(map(str, result)) if result else ".."
+```

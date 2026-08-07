@@ -1,0 +1,52 @@
+```ts
+export function replayRingLog(capacity: number, policy: string, operations: string[][]): { contents: string[]; journal: string[]; lost: number } {
+    if (!Number.isInteger(capacity) || capacity <= 0) throw new Error("Capacity must be a positive whole number");
+    if (policy !== "overwrite" && policy !== "refuse") throw new Error("Policy must be 'overwrite' or 'refuse'");
+    if (!Array.isArray(operations)) throw new Error("Operations must be an array");
+
+    const contents: string[] = [];
+    const journal: string[] = [];
+    let lost = 0;
+
+    for (const op of operations) {
+        if (!Array.isArray(op) || op.length === 0) throw new Error("Each operation must be a non-empty list");
+        const [name, ...args] = op;
+        switch (name) {
+            case "push":
+                if (args.length !== 1 || typeof args[0] !== "string") throw new Error("Push must carry exactly one non-empty label string");
+                if (contents.length === capacity) {
+                    if (policy === "overwrite") {
+                        const oldest = contents.shift()!;
+                        journal.push(`evicted ${oldest}`);
+                        lost++;
+                    } else {
+                        journal.push("refused");
+                        continue;
+                    }
+                }
+                contents.push(args[0]);
+                journal.push(`stored ${args[0]}`);
+                break;
+            case "pop":
+                if (contents.length === 0) {
+                    journal.push("took");
+                } else {
+                    const oldest = contents.shift()!;
+                    journal.push(`took ${oldest}`);
+                }
+                break;
+            case "peek":
+                if (contents.length === 0) {
+                    journal.push("front");
+                } else {
+                    journal.push(`front ${contents[0]}`);
+                }
+                break;
+            default:
+                throw new Error("Invalid operation name");
+        }
+    }
+
+    return { contents, journal, lost };
+}
+```

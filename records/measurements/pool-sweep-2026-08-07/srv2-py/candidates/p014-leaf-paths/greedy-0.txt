@@ -1,0 +1,33 @@
+```python
+def leaf_paths(rows: list[list[str]]) -> list[str]:
+    if not rows:
+        raise ValueError("Input cannot be empty")
+    
+    graph = {}
+    root_count = 0
+    
+    for node, parent in rows:
+        if node == "":
+            root_count += 1
+        else:
+            if node in graph:
+                raise ValueError(f"Duplicate id: {node}")
+            graph[node] = parent
+    
+    if root_count != 1:
+        raise ValueError("Input must have exactly one root row")
+    
+    def find_paths(node, path):
+        current_path = path + [node]
+        parent = graph.get(node)
+        
+        if parent is None:
+            return ["/".join(current_path)]
+        elif parent == "":
+            return []
+        else:
+            return sum((find_paths(child, current_path) for child in graph if graph[child] == parent), [])
+    
+    paths = find_paths("", [])
+    return sorted(paths)
+```

@@ -1,0 +1,65 @@
+```ts
+export function rangeAlgebra(a: number[][], b: number[][], op: string): number[][] {
+    if (!["union", "intersect", "subtract"].includes(op)) {
+        throw new Error("Invalid operation");
+    }
+
+    const result: [number, number][] = [];
+
+    for (const interval of a) {
+        if (interval.length !== 2 || !Number.isInteger(interval[0]) || !Number.isInteger(interval[1])) {
+            throw new Error("Invalid interval format");
+        }
+        if (interval[0] >= interval[1]) {
+            throw new Error("Invalid interval range");
+        }
+
+        const [lo, hi] = interval;
+        let i = 0;
+
+        while (i < result.length && result[i][1] < lo) {
+            i++;
+        }
+
+        while (i < result.length && result[i][0] <= hi) {
+            if (result[i][1] < hi) {
+                result[i][1] = hi;
+            }
+            i++;
+        }
+
+        if (i === 0 || result[i - 1][1] < lo) {
+            result.push([lo, hi]);
+        } else if (result[i - 1][1] > hi) {
+            result[i - 1][1] = hi;
+        }
+    }
+
+    for (const interval of b) {
+        if (op === "subtract") {
+            const [lo, hi] = interval;
+            let i = 0;
+
+            while (i < result.length && result[i][1] < lo) {
+                i++;
+            }
+
+            while (i < result.length && result[i][0] <= hi) {
+                if (result[i][0] < lo) {
+                    result.push([lo, result[i][0]]);
+                }
+                if (result[i][1] > hi) {
+                    result.push([hi, result[i][1]]);
+                }
+                i++;
+            }
+
+            while (i < result.length && result[i][1] <= hi) {
+                result.splice(i, 1);
+            }
+        }
+    }
+
+    return result.sort((a, b) => a[0] - b[0]);
+}
+```

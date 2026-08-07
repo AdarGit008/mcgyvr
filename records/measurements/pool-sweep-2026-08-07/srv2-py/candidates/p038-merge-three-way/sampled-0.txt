@@ -1,0 +1,24 @@
+```python
+def merge_three_way(base: dict, ours: dict, theirs: dict) -> dict:
+    if not (isinstance(base, dict) and isinstance(ours, dict) and isinstance(theirs, dict)):
+        raise ValueError("All arguments must be dictionaries.")
+
+    merged = {}
+    conflicts = {}
+
+    for key in set(base.keys()) | set(ours.keys()) | set(theirs.keys()):
+        base_value = base.get(key)
+        our_value = ours.get(key)
+        their_value = theirs.get(key)
+
+        if (base_value, our_value) == (their_value, None):
+            merged[key] = our_value
+        elif (our_value, their_value) == (base_value, None):
+            merged[key] = their_value
+        elif base_value == our_value and base_value != their_value:
+            conflicts[key] = (ours.get(key), theirs.get(key))
+        else:
+            merged[key] = base_value
+
+    return {"merged": merged, "conflicts": {k: v for k, v in sorted(conflicts.items())}}
+```

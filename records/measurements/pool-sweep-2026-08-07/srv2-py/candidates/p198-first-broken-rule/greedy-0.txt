@@ -1,0 +1,46 @@
+```python
+def first_broken_rule(root: dict) -> dict:
+    if root is None:
+        raise ValueError("Root cannot be None")
+    
+    def check_node(node, path):
+        if not isinstance(node, dict):
+            raise ValueError(f"Node at {path} must be a dictionary")
+        if len(node) != 4:
+            raise ValueError(f"Node at {path} must have exactly four entries")
+        
+        key = node.get("key")
+        count = node.get("count")
+        left = node.get("left")
+        right = node.get("right")
+        
+        if not isinstance(key, int):
+            raise ValueError(f"Key at {path} must be a whole number")
+        if not isinstance(count, int) or count <= 0:
+            raise ValueError(f"Count at {path} must be a positive whole number")
+        if left is not None and right is not None:
+            if not (isinstance(left, dict) and isinstance(right, dict)):
+                raise ValueError(f"Sides at {path} must be nodes or None")
+        
+        left_depth = 0 if left is None else check_node(left, f"{path}/L")["depth"]
+        right_depth = 0 if right is None else check_node(right, f"{path}/R")["depth"]
+        
+        if abs(left_depth - right_depth) > 1:
+            return {"path": path, "rule": "balance"}
+        
+        left_count = 1 + (left["count"] if left else 0)
+        right_count = 1 + (right["count"] if right else 0)
+        
+        if count != left_count + right_count - 1:
+            return {"path": path, "rule": "count"}
+        
+        if left is not None and key <= left["key"]:
+            return {"path": path, "rule": "order"}
+        if right is not None and key >= right["key"]:
+            return {"path": path, "rule": "order"}
+        
+        return {"depth": max(left_depth, right_depth) + 1}
+    
+    result = check_node(root, "root")
+    return {} if result == {"depth": 1} else result
+```

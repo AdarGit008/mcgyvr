@@ -1,0 +1,21 @@
+```python
+def grace_window(counts: list, goal: int, grace: int) -> int:
+    if goal <= 0:
+        raise ValueError("Goal must be positive")
+    if grace < 0:
+        raise ValueError("Grace cannot be negative")
+
+    kept_days = [i for i, count in enumerate(counts) if count >= goal]
+    if not kept_days:
+        return 0
+
+    max_stretch = 1
+    for i in range(len(kept_days)):
+        for j in range(i + 1, len(kept_days)):
+            stretch_length = kept_days[j] - kept_days[i] + 1
+            unkept_days = j - i - 1
+            if unkept_days <= grace:
+                max_stretch = max(max_stretch, stretch_length)
+
+    return max_stretch
+```

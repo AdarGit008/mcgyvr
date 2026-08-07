@@ -1,0 +1,49 @@
+```python
+def newer_release(a: str, b: str) -> int:
+    if a == b:
+        return 0
+
+    def parse_version(version: str):
+        parts = version.split('.')
+        major = minor = channel = build = None
+        if len(parts) >= 1 and parts[0].isdigit():
+            major = int(parts[0])
+        if len(parts) >= 2 and parts[1].isdigit():
+            minor = int(parts[1])
+        if len(parts) > 2:
+            suffix_parts = parts[2].split('-')
+            channel = suffix_parts[0]
+            if len(suffix_parts) == 2 and suffix_parts[1].isdigit():
+                build = int(suffix_parts[1])
+        return major, minor, channel, build
+
+    a_major, a_minor, a_channel, a_build = parse_version(a)
+    b_major, b_minor, b_channel, b_build = parse_version(b)
+
+    if (a_major is None or a_minor is None) or (b_major is None or b_minor is None):
+        raise ValueError("Invalid release version format")
+
+    if a_major != b_major:
+        return 1 if a_major > b_major else -1
+    if a_minor != b_minor:
+        return 1 if a_minor > b_minor else -1
+
+    if a_channel is None and b_channel is not None:
+        return -1
+    if a_channel is not None and b_channel is None:
+        return 1
+    if a_channel is not None and b_channel is not None:
+        channel_order = {'dev': 0, 'alpha': 1, 'beta': 2, 'rc': 3}
+        if channel_order[a_channel] != channel_order[b_channel]:
+            return -1 if channel_order[a_channel] < channel_order[b_channel] else 1
+
+    if a_build is not None and b_build is not None:
+        if a_build != b_build:
+            return 1 if a_build > b_build else -1
+    elif a_build is not None:
+        return 1
+    elif b_build is not None:
+        return -1
+
+    return 0
+```

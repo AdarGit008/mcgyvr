@@ -1,0 +1,77 @@
+```python
+def weigh_unit(spec: str, masses: dict) -> int:
+    if not isinstance(spec, str):
+        raise ValueError("spec must be a string")
+    if not all(c.isalpha() or c.isdigit() or c in "()[]" for c in spec):
+        raise ValueError("invalid character in spec")
+
+    at = 0
+    outer = []
+    total = 0
+
+    def read_count():
+        nonlocal at
+        digits = ""
+        while at < len(spec) and spec[at].isdigit():
+            digits += spec[at]
+            at += 1
+        if digits == "":
+            return 1
+        elif digits[0] == '0':
+            raise ValueError("count cannot start with zero")
+        else:
+            return int(digits)
+
+    def read_name_and_count():
+        nonlocal at
+        name = ""
+        while at < len(spec) and "a" <= spec[at].lower() <= "z":
+            name += spec[at]
+            at += 1
+        count = read_count()
+        if not name:
+            raise ValueError("empty name is invalid")
+        return name, count
+
+    def read_spec():
+        nonlocal at
+        if spec[at] == '(':
+            at += 1
+            result = weigh_unit(spec[at:], masses)
+            at += 1
+        elif spec[at] == '[':
+            at += 1
+            result = weigh_unit(spec[at:], masses)
+            at += 1
+        else:
+            name, count = read_name_and_count()
+            if not masses.get(name):
+                raise ValueError(f"unknown mass: {name}")
+            result = masses[name] * count
+
+        if spec[at:].startswith(')') or spec[at:].startswith(']'):
+            raise ValueError("closing bracket found without matching opening")
+
+        return result
+
+    while at < len(spec):
+        ch = spec[at]
+        if ch in "([":
+            outer.append(total)
+            total = 0
+            at += 1
+        elif ch in ")]":
+            at += 1
+            count = read_count()
+            if not outer:
+                raise ValueError("closing bracket with nothing open")
+            total = outer.pop() * count + total
+        else:
+            result = read_spec()
+            total += result
+
+    if outer:
+        raise ValueError("opening bracket found without matching closing")
+
+    return total
+```

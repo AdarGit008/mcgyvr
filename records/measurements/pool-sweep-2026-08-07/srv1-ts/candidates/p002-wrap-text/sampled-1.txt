@@ -1,0 +1,35 @@
+```ts
+/**
+ * Wraps text into lines with a given maximum width.
+ * @param text - The input text to wrap.
+ * @param width - The maximum line width.
+ * @returns An array of wrapped lines.
+ */
+export function wrapText(text: string, width: number): string[] {
+    if (typeof text !== 'string') throw new Error('Text must be a string');
+    if (!Number.isInteger(width) || width <= 0) throw new Error('Width must be a positive integer');
+
+    const words = text.split(' ');
+    if (words.some(word => word.length > width)) {
+        throw new Error('A word is longer than the width');
+    }
+
+    let lines: string[] = [];
+    let currentLine: string[] = [];
+
+    for (const word of words) {
+        if (currentLine.join(' ').length + word.length + 1 <= width) {
+            currentLine.push(word);
+        } else {
+            lines.push(currentLine.join(' '));
+            currentLine = [word];
+        }
+    }
+
+    if (currentLine.length > 0) {
+        lines.push(currentLine.join(' '));
+    }
+
+    return lines;
+}
+```

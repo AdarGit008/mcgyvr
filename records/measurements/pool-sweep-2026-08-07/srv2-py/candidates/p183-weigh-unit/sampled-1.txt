@@ -1,0 +1,55 @@
+```python
+def weigh_unit(spec: str, masses: dict) -> int:
+    at = 0
+    outer = []
+    total = 0
+
+    def read_count():
+        nonlocal at
+        digits = ""
+        while at < len(spec) and spec[at].isdigit():
+            digits += spec[at]
+            at += 1
+        if digits.startswith('0'):
+            raise ValueError("Count cannot start with zero")
+        return 1 if digits == "" else int(digits)
+
+    def expect(expected):
+        nonlocal at
+        if at >= len(spec) or spec[at] != expected:
+            raise ValueError(f"Expected '{expected}'")
+
+    while at < len(spec):
+        ch = spec[at]
+        if ch == '(':
+            at += 1
+            outer.append(total)
+            total = 0
+        elif ch == '[':
+            raise ValueError("Square brackets are not allowed")
+        elif ch == ')':
+            expect(')')
+            at += 1
+            count = read_count()
+            parent_total = outer.pop() if outer else 0
+            total = parent_total * count + total
+        elif ch == ']':
+            raise ValueError("Square brackets are not allowed")
+        else:
+            name = ch
+            at += 1
+            while at < len(spec) and "a" <= spec[at] <= "z":
+                name += spec[at]
+                at += 1
+            if len(name) > 3 or (len(name) == 2 and not name[0].isupper()) or not name[0].isupper():
+                raise ValueError("Invalid name format")
+            count = read_count()
+            total += masses.get(name, 0) * count
+            if total < 0:
+                raise ValueError("Total mass cannot be negative")
+
+    if at != len(spec):
+        raise ValueError("Extra characters at the end of the spec")
+
+    return total
+```

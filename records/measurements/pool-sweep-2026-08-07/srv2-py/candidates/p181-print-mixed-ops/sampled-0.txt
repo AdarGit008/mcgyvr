@@ -1,0 +1,45 @@
+```python
+def print_operator_tree(node) -> str:
+    if isinstance(node, (int, float)) and node == int(node):
+        return str(int(node))
+    elif isinstance(node, str) and node.islower():
+        return node
+    elif isinstance(node, dict):
+        op = node.get('op')
+        negate = node.get('negate')
+        call = node.get('call')
+        
+        if (op is None and negate is None and call is None) or \
+           (op is not None and ('left' not in node or 'right' not in node)) or \
+           (op is not None and op not in '+-*/^&|<>'):
+            raise ValueError("Invalid node structure")
+        
+        if call:
+            function_word = call.get('word')
+            args = call.get('args')
+            if not isinstance(function_word, str) or not function_word.islower() or not isinstance(args, list):
+                raise ValueError("Invalid call structure")
+            return f"{function_word}({', '.join(print_operator_tree(arg) for arg in args)})"
+        
+        if negate:
+            operand = print_operator_tree(negate)
+            if negate['negate'] == node:
+                return f"-{operand}"
+            return f"-( {operand} )"
+        
+        left, right = print_operator_tree(node['left']), print_operator_tree(node['right'])
+        op_symbol = op
+        precedence = {'or': 1, 'and': 2, '+': 3, '-': 4, '*': 5, '/': 6, '^': 7}
+        
+        left_precedence = precedence[op] if op in precedence else float('inf')
+        right_precedence = precedence[op] if op in precedence else float('inf')
+        if op == '-' or op == '+':
+            right_precedence -= 1
+        
+        left_parentheses = '(' if left_precedence < precedence[op] and not (op == '^' and node['left']['op'] != '^') else ''
+        right_parentheses = f" {right}" if right_precedence <= precedence[op] and not (op == '^' and node['right']['op'] != '^') else ''
+        
+        return f"{left_parentheses}{left} {op_symbol} {right_parentheses}"
+    
+    raise ValueError("Invalid node type")
+```

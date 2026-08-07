@@ -1,0 +1,47 @@
+```python
+def fold_parcels(events: list) -> dict:
+    """
+    Apply a series of events to parcels in a depot and return their final states.
+    
+    :param events: List of dictionaries, each with 'type' and 'parcel' keys.
+    :return: Dictionary mapping parcel IDs to their final states.
+    """
+    if not events:
+        return {}
+    
+    parcel_states = {}
+    for index, event in enumerate(events):
+        parcel_id = event.get('parcel')
+        if parcel_id is None:
+            raise ValueError(f"Event at index {index} missing 'parcel' key.")
+        
+        current_state = parcel_states.get(parcel_id)
+        new_state = None
+        
+        if event['type'] == 'accept':
+            if current_state in ('accepted', 'in_transit', 'delivered', 'returned', 'lost'):
+                raise ValueError(f"Invalid state '{current_state}' for accept at index {index}.")
+            new_state = 'accepted'
+        elif event['type'] == 'load':
+            if current_state != 'accepted':
+                raise ValueError(f"Invalid state '{current_state}' for load at index {index}.")
+            new_state = 'in_transit'
+        elif event['type'] == 'deliver':
+            if current_state != 'in_transit':
+                raise ValueError(f"Invalid state '{current_state}' for deliver at index {index}.")
+            new_state = 'delivered'
+        elif event['type'] == 'bounce':
+            if current_state != 'delivered':
+                raise ValueError(f"Invalid state '{current_state}' for bounce at index {index}.")
+            new_state = 'returned'
+        elif event['type'] == 'lose':
+            if current_state not in ('accepted', 'in_transit'):
+                raise ValueError(f"Invalid state '{current_state}' for lose at index {index}.")
+            new_state = 'lost'
+        else:
+            raise ValueError(f"Unknown event type '{event['type']}' at index {index}.")
+        
+        parcel_states[parcel_id] = new_state
+    
+    return parcel_states
+```

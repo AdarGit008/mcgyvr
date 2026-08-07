@@ -1,0 +1,42 @@
+```ts
+export function pickBuild(gate: string, offers: number[]): number {
+    if (typeof gate !== 'string' || gate.trim() === '') {
+        throw new Error('Invalid gate string');
+    }
+
+    const clauses = gate.split(',').map(c => c.trim());
+    if (clauses.length === 0) {
+        throw new Error('Gate has no clauses');
+    }
+
+    const parsedClauses = clauses.map(clause => {
+        const parts = clause.split('^');
+        const rangeParts = parts[0].split(':');
+        const lo = parseInt(rangeParts[0], 10);
+        const hi = rangeParts.length > 1 ? parseInt(rangeParts[1], 10) : Infinity;
+
+        if (isNaN(lo) || isNaN(hi) || lo > hi) {
+            throw new Error('Malformed clause');
+        }
+
+        return { lo, hi, carveOut: parts.length > 1 ? parseInt(parts[1], 10) : undefined };
+    });
+
+    let maxAdmittedBuild = -1;
+
+    for (const offer of offers.sort((a, b) => a - b)) {
+        if (offer < maxAdmittedBuild) continue;
+        const admitted = parsedClauses.some(clause => {
+            if (offer >= clause.lo && offer <= clause.hi) {
+                return clause.carveOut === undefined || clause.carveOut !== offer;
+            }
+            return false;
+        });
+        if (admitted) {
+            maxAdmittedBuild = offer;
+        }
+    }
+
+    return maxAdmittedBuild;
+}
+```

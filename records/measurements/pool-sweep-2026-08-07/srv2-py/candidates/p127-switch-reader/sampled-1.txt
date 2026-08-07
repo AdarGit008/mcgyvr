@@ -1,0 +1,28 @@
+```
+def read_switches(kinds: dict, tokens: list[str]) -> dict:
+    found = {}
+    extra = []
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token.startswith("--"):
+            parts = token[2:].split("=")
+            name = parts[0]
+            kind = kinds.get(name)
+            if kind is None:
+                raise ValueError(f"Unknown option: {name}")
+            if kind == "value":
+                if len(parts) > 1:
+                    found[name] = parts[1]
+                elif i + 1 < len(tokens):
+                    found[name] = tokens[i + 1]
+                    i += 1
+                else:
+                    raise ValueError(f"Missing value for option: {name}")
+            else:
+                found[name] = True
+        else:
+            extra.append(token)
+        i += 1
+    return {"found": found, "extra": extra}
+```

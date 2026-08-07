@@ -1,0 +1,24 @@
+```ts
+export function normalizeHostname(hostname: string): string {
+    if (typeof hostname !== 'string') {
+        throw new Error('Invalid argument: expected a string');
+    }
+
+    let normalized = hostname.toLowerCase().replace(/\.$/, '');
+
+    // Check label length and hyphen rules
+    const labels = normalized.split('.');
+    for (const label of labels) {
+        if (label.length < 1 || label.length > 63 || label.startsWith('-') || label.endsWith('-')) {
+            throw new Error('Invalid hostname: label length or hyphen rule violated');
+        }
+    }
+
+    // Check total length
+    if (normalized.length > 253) {
+        throw new Error('Invalid hostname: total length exceeds 253 characters');
+    }
+
+    return normalized;
+}
+```

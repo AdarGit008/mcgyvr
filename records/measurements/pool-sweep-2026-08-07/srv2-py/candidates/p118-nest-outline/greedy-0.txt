@@ -1,0 +1,30 @@
+```python
+def nest_outline(text: str) -> list:
+    if not text or '\t' in text:
+        raise ValueError("Invalid input")
+    
+    lines = text.strip().split('\n')
+    if not all(line.isspace() for line in lines):
+        raise ValueError("Input must be a non-empty string with no tab characters and only leading spaces of multiples of two")
+    
+    root = []
+    stack = [root]
+    
+    for line in lines:
+        indent_level = len(line) - len(line.lstrip())
+        if indent_level % 2 != 0 or (indent_level > 0 and not line.strip()):
+            raise ValueError("Invalid indentation or blank line")
+        
+        while stack and indent_level <= stack[-1][-1][1]:
+            stack.pop()
+        
+        item = [line.strip(), []]
+        if stack:
+            stack[-1][-1][1].append(item)
+        else:
+            root.append(item)
+        
+        stack.append(item[1])
+    
+    return root
+```

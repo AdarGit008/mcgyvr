@@ -1,0 +1,22 @@
+```python
+def grace_window(counts: list, goal: int, grace: int) -> int:
+    if goal <= 0 or grace < 0:
+        raise ValueError("Goal must be positive and grace cannot be negative")
+
+    kept_days = [i for i, count in enumerate(counts) if count >= goal]
+    n_kept_days = len(kept_days)
+
+    if n_kept_days == 0:
+        return 0
+
+    max_window = 1
+    left = 0
+
+    for right in range(n_kept_days):
+        while kept_days[right] - kept_days[left] > grace + 1:
+            left += 1
+        window_length = kept_days[right] - kept_days[left] + 1
+        max_window = max(max_window, window_length)
+
+    return max_window
+```

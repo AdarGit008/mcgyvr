@@ -1,0 +1,8 @@
+```python
+def splice_shifts(sheets: list) -> list:
+    merged = set()
+    for sheet in sheets:
+        if sheet:
+            merged.update(sheet)
+    return sorted(merged)
+```

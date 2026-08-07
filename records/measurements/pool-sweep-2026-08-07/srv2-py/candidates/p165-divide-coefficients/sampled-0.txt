@@ -1,0 +1,20 @@
+```python
+def divide_coefficients(dividend: list[int], divisor: list[int]) -> list[list[int]]:
+    if len(divisor) == 0:
+        raise ValueError("Divisor must not be empty")
+    if any(coef == 0 for coef in dividend + divisor):
+        raise ValueError("No coefficient may be zero")
+    if not all(isinstance(coef, int) and coef > 0 for coef in dividend + divisor):
+        raise ValueError("All coefficients must be positive integers")
+
+    rest = list(dividend)
+    quotient = []
+    while len(rest) >= len(divisor):
+        factor = rest[-1] // divisor[-1]
+        if factor * divisor[-1] != rest[-1]:
+            raise ValueError("Cannot divide exact multiples")
+        quotient.append(factor)
+        for i, term in enumerate(divisor):
+            rest[len(rest) - len(divisor) + i] -= factor * term
+    return [quotient[::-1], rest]
+```

@@ -1,0 +1,56 @@
+```ts
+/**
+ * Parses the invocation tokens based on the provided option catalogue.
+ * @param catalogue - Array of option records with long name, kind, and optional alias.
+ * @param tokens - Token list of an invocation.
+ * @returns A record with options mapping every catalogued long name to its outcome and operands holding the operands in order.
+ */
+export function parseInvocation(catalogue: Array<{ name: string; kind: string; alias?: string }>, tokens: string[]): { options: Record<string, unknown>; operands: string[] } {
+    const options: Record<string, unknown> = {};
+    const operands: string[] = [];
+    let tokenIndex = 0;
+
+    while (tokenIndex < tokens.length) {
+        const token = tokens[tokenIndex];
+
+        if (token.startsWith('--')) {
+            if (token === '--') {
+                operands.push(...tokens.slice(tokenIndex + 1));
+                break;
+            }
+
+            const optionName = token.substring(2);
+            const option = catalogue.find(opt => opt.name === optionName || opt.alias === optionName);
+
+            if (!option) throw new Error(`Unknown option: ${token}`);
+
+            if (option.kind === 'toggle') {
+                options[optionName] = true;
+                tokenIndex++;
+            } else {
+                let value: string | null;
+
+                if (option.kind === 'single' && token.includes('=')) {
+                    const splitToken = token.split('=');
+                    if (splitToken.length !== 2) throw new Error(`Invalid syntax for single option with value: ${token}`);
+                    value = splitToken[1];
+                } else {
+                    value = tokenIndex + 1 < tokens.length ? tokens[tokenIndex + 1] : null;
+                    tokenIndex++;
+                }
+
+                if (option.kind === 'single') {
+                    if (options.hasOwnProperty(optionName)) throw new Error(`Single option mentioned twice: ${token}`);
+                }
+
+                options[optionName] = value;
+            }
+        } else {
+            operands.push(token);
+            tokenIndex++;
+        }
+    }
+
+    return { options, operands };
+}
+```

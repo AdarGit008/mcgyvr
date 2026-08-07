@@ -1,0 +1,42 @@
+```ts
+export function gradeBars(line: string): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const notes = ['w', 'h', 'q', 'e', 's'];
+  const noteValues = [64, 32, 16, 8, 4];
+
+  return line.split('|').map(bar => {
+    if (bar.trim() === '') {
+      throw new Error('Bar cannot be empty');
+    }
+
+    let ticks = 0;
+    bar.split(' ').forEach(note => {
+      const match = note.match(/([wheqs])(\.)?/);
+      if (!match) {
+        throw new Error(`Invalid note: ${note}`);
+      }
+      const [fullNote, dot] = match.slice(1);
+      const index = notes.indexOf(fullNote);
+      if (index === -1) {
+        throw new Error(`Unknown note: ${fullNote}`);
+      }
+      ticks += noteValues[index];
+      if (dot) {
+        ticks += noteValues[index] / 2;
+      }
+    });
+
+    const barTicks = beats * 64 / unit;
+    if (ticks < barTicks) {
+      return 'short';
+    } else if (ticks > barTicks) {
+      return 'long';
+    } else {
+      return 'exact';
+    }
+  });
+}
+```

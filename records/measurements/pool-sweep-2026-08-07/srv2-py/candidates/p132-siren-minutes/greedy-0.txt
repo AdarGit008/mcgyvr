@@ -1,0 +1,38 @@
+```python
+def siren_minutes(events: list, horizon: int) -> list:
+    if not isinstance(horizon, int):
+        raise ValueError("Horizon must be an integer")
+    if horizon < 0:
+        raise ValueError("Negative horizon is not allowed")
+
+    active_alerts = {}
+    total_time = {}
+
+    for event in events:
+        if 'at' not in event or 'kind' not in event:
+            raise ValueError("Event must have 'at' and 'kind' fields")
+        if event['at'] < 0 or event['at'] > horizon:
+            raise ValueError("Event time out of valid range")
+
+        if event['kind'] == "raise":
+            if event['id'] in active_alerts and active_alerts[event['id']] >= event['at']:
+                raise ValueError(f"Duplicate raise for id {event['id']} at time {event['at']}")
+            if 'channel' not in event or 'severity' not in event:
+                raise ValueError("Raise event must have 'channel' and 'severity' fields")
+            if not isinstance(event['severity'], int) or event['severity'] < 1 or event['severity'] > 5:
+                raise ValueError("Severity must be an integer between 1 and 5")
+
+            active_alerts[event['id']] = event['at']
+            total_time[event['id']] = total_time.get(event['id'], 0)
+
+        elif event['kind'] == "clear":
+            if event['id'] not in active_alerts:
+                raise ValueError(f"Clear for id {event['id']} at time {event['at']} but id is not active")
+            last_active_time = active_alerts.pop(event['id'])
+            total_time[event['id']] += event['at'] - last_active_time
+
+        else:
+            raise ValueError("Invalid kind. Must be 'raise' or 'clear'")
+
+    return sorted([[id, time] for id, time in total_time.items()])
+```

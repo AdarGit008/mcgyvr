@@ -1,0 +1,43 @@
+```ts
+export function stripComments(source: string): string {
+  let result = "";
+  let inString = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
+    const nextChar = source[i + 1];
+
+    if (inString) {
+      if (char === '\\' && nextChar !== undefined) {
+        i++; // Skip the next character as it's escaped
+      } else if (char === '"' && !inBlockComment) {
+        inString = false;
+      }
+    } else if (!inBlockComment) {
+      if (char === '"') {
+        inString = true;
+      } else if (char === '/' && nextChar === '*') {
+        i++; // Skip the '*' character
+        inBlockComment = true;
+      } else if (char === '/' && nextChar === '/') {
+        break; // Stop at the end of the current line
+      }
+    }
+
+    if (!inBlockComment) {
+      result += char;
+    }
+  }
+
+  if (inBlockComment) {
+    throw new Error("Unterminated block comment");
+  }
+
+  if (inString) {
+    throw new Error("Unterminated string literal");
+  }
+
+  return result;
+}
+```

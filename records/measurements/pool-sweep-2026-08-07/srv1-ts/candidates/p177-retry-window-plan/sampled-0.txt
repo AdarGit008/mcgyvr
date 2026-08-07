@@ -1,0 +1,51 @@
+```typescript
+export function planRetryWindow(policy: { base: number; factor: number; ceiling: number; tries: number; deadline: number }, outcomes: string[]): { times: number[]; verdict: string } {
+    const { base, factor, ceiling, tries, deadline } = policy;
+    if (typeof base !== 'number' || typeof factor !== 'number' || typeof ceiling !== 'number' || typeof tries !== 'number' || typeof deadline !== 'number') {
+        throw new Error('Policy must be a record with all five names as whole numbers.');
+    }
+    if (base < 1 || factor < 1 || tries < 1 || deadline < 1) {
+        throw new Error('Base, factor, tries, and deadline must be whole numbers of one or more.');
+    }
+    if (!Number.isInteger(factor) || !Number.isInteger(ceiling)) {
+        throw new Error('Factor and ceiling must be whole numbers.');
+    }
+    if (ceiling < base) {
+        throw new Error('Ceiling must be a whole number of at least base.');
+    }
+    if (!Array.isArray(outcomes)) {
+        throw new Error('Outcomes must be a list.');
+    }
+
+    const times: number[] = [];
+    let currentTime = 0;
+    let consecutiveLost = 0;
+
+    for (const outcome of outcomes) {
+        if (!['won', 'lost', 'held'].includes(outcome)) {
+            throw new Error('Each listed outcome must be outside the three names.');
+        }
+
+        times.push(currentTime);
+
+        if (outcome === 'won') {
+            return { times, verdict: 'succeeded' };
+        } else if (outcome === 'lost') {
+            consecutiveLost++;
+            currentTime += base * Math.pow(factor, consecutiveLost - 1);
+            if (currentTime > ceiling) {
+                return { times, verdict: 'expired' };
+            }
+        } else if (outcome === 'held') {
+            consecutiveLost = 0;
+            currentTime = ceiling;
+        }
+
+        if (times.length >= tries) {
+            return { times, verdict: 'exhausted' };
+        }
+    }
+
+    throw new Error('Outcomes list ran out while the plan is still going.');
+}
+```

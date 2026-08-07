@@ -1,0 +1,66 @@
+```python
+def leaf_paths(rows: list[list[str]]) -> list[str]:
+    from collections import defaultdict
+
+    # Validate input
+    if not rows:
+        raise ValueError("Input cannot be empty")
+    
+    id_to_parent = {}
+    parent_count = defaultdict(int)
+    root_id = None
+    
+    for node_id, parent_id in rows:
+        if node_id == "":
+            if root_id is not None:
+                raise ValueError("Multiple root nodes found")
+            root_id = node_id
+        else:
+            if node_id in id_to_parent:
+                raise ValueError(f"Duplicated id: {node_id}")
+            if parent_id != "" and parent_id not in id_to_parent:
+                raise ValueError(f"Invalid parent id: {parent_id}")
+        
+        id_to_parent[node_id] = parent_id
+        parent_count[parent_id] += 1
+    
+    if root_id is None:
+        raise ValueError("No root node found")
+    
+    # Find leaves using BFS
+    leaves = []
+    queue = [node_id for node_id, count in parent_count.items() if count == 1]
+    
+    while queue:
+        current_node = queue.pop(0)
+        if id_to_parent[current_node] != "":
+            queue.append(id_to_parent[current_node])
+        else:
+            leaves.append(current_node)
+    
+    # Validate reachability from root
+    visited = set()
+    stack = [root_id]
+    while stack:
+        node_id = stack.pop()
+        if node_id not in visited:
+            visited.add(node_id)
+            for child_id, parent_id in rows:
+                if parent_id == node_id:
+                    stack.append(child_id)
+    
+    unreachable_leaves = list(set(leaves) - visited)
+    if unreachable_leaves:
+        raise ValueError(f"Unreachable leaves: {unreachable_leaves}")
+    
+    # Construct paths
+    paths = []
+    for leaf in leaves:
+        path = []
+        while leaf != "":
+            path.append(leaf)
+            leaf = id_to_parent[leaf]
+        paths.append("/".join(reversed(path)))
+    
+    return sorted(paths)
+```
