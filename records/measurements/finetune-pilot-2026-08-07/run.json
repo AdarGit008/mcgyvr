@@ -1,0 +1,54 @@
+{
+  "record": "measurement/finetune-pilot/1",
+  "issue": 189,
+  "date": "2026-08-07",
+  "question": "Does QLoRA on the verified-pass corpus move HumanEval+ on the served quant by the ladder's +3pp admission threshold, and does the gain survive q4_K_M?",
+  "design": "2x2: {base, tuned} x {q4_K_M, f16}, greedy HumanEval+ pass@1, every arm through the same front door",
+  "protocol": {
+    "eval": "EvalPlus 0.3.1, --backend openai, --greedy, dataset humaneval (164 tasks, base + plus tests)",
+    "server": "llama-server bundled with ollama (/usr/local/lib/ollama/llama-server, reports version 1 b4d6c7d8f), --jinja -c 4096 -ngl 99",
+    "eval_hosts": {
+      "base-q4": "rig_a (GTX 1660 SUPER 6 GB)",
+      "tuned-q4": "rig_a (GTX 1660 SUPER 6 GB)",
+      "tuned-f16": "rig_b (RTX 3060 12 GB)",
+      "base-f16": "rig_b (RTX 3060 12 GB)"
+    },
+    "note": "f16 arms cannot run on rig_a (6 GB < 6.2 GB weights); host differs by precision, never within a comparison pair",
+    "backends": {
+      "gpu": "the primary set (gpu/): CUDA via GGML_BACKEND_PATH=/usr/local/lib/ollama/cuda_v13/libggml-cuda.so. Placement verified by VRAM check before each arm.",
+      "cpu": "an accidental first pass (cpu/), kept as a robustness cross-check: without GGML_BACKEND_PATH the ollama-bundled llama-server silently ignores -ngl and runs on CPU. Its base-f16 arm was stopped at task 8 when the fallback was noticed, so cpu/ has three arms only.",
+      "why_it_matters": "same artifacts, greedy decode: the tuned-q4 minus base-q4 HumanEval+ delta is +1.9pp on the GPU backend and -0.7pp on the CPU backend. Backend numerics alone move a greedy single-run delta by more than half the ladder's 3pp admission threshold."
+    }
+  },
+  "artifacts": {
+    "base-q4": {
+      "file": "ollama blob for qwen2.5-coder:3b (Q4_K_M)",
+      "sha256": "4a188102020e9c9530b687fd6400f775c45e90a0d7baafe65bd0a36963fbb7ba"
+    },
+    "base-f16": {
+      "file": "base-f16.gguf, convert_hf_to_gguf.py --outtype f16 over the training base checkpoint",
+      "sha256": "258adf1c2e7618b7e87c1e3bbe86540bcf4e23dc55b28db8091c3aa33f300085"
+    },
+    "tuned-f16": {
+      "file": "tuned-f16.gguf, same converter over the merged 16-bit checkpoint",
+      "sha256": "f6a98e5a69b7caf9b737865711387c0771e034aca65b87f2c1ce2c39cd10dfb0"
+    },
+    "tuned-q4": {
+      "file": "tuned-q4_K_M.gguf, llama-quantize q4_K_M over tuned-f16.gguf; sha verified identical on both rigs",
+      "sha256": "11272f7bd6f62634d2151d7866ade6385dfaf628dbef2ccedf4d84a040e48d4f"
+    }
+  },
+  "training": {
+    "base_checkpoint": "unsloth/Qwen2.5-Coder-3B-Instruct (snapshot 02b0e3a17b955797ac3f169d15576aac65d962fd)",
+    "recipe": "tools/finetune/train_qlora.py at this record's commit: QLoRA r16 alpha16, ChatML, loss on assistant tokens only, 3 epochs, lr 2e-4 linear, seed 3407",
+    "stack": {
+      "unsloth": "2026.8.5",
+      "torch": "2.11.0+cu130",
+      "transformers": "5.5.0",
+      "trl": "0.24.0"
+    },
+    "dataset": "tools/finetune/build_dataset.py --cap 40: 658 train / 80 val over 20 tasks, all TypeScript; manifest vendored beside this file",
+    "trainer_host": "rig_b (RTX 3060 12 GB), 1919 s wall-clock, train_loss 0.196, final eval_loss 0.218",
+    "caveat": "the corpus is 20 distinct problems in one language; see #197"
+  }
+}
