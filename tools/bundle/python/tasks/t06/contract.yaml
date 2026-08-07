@@ -1,0 +1,18 @@
+id: t06-parse-csv-row
+task_type: function_implementation
+task: |
+  Implement parse_csv_row, which splits one CSV row on commas: 'a,b,c'
+  becomes ["a","b","c"]. A double-quoted field may contain commas, so
+  '"a,b",c' becomes ["a,b", "c"]. Doubled quotes inside a quoted field are a
+  literal quote, so '"say ""hi""",x' becomes ['say "hi"', 'x']. Empty fields
+  are preserved: 'a,,b' becomes ["a","","b"], and '' becomes [""]. Do not
+  import the csv module — implement the parsing yourself; the acceptance
+  script reads the file and checks.
+target: solution.py
+interface: "def parse_csv_row(line: str) -> list[str]"
+stop_conditions:
+  - Whether a quote appearing outside a quoted field is an error is not stated.
+acceptance: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

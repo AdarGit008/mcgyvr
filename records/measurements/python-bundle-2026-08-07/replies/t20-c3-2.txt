@@ -1,0 +1,18 @@
+```python
+def read_config(text: str) -> dict[str, str]:
+    config = {}
+    for line in text.splitlines():
+        if not line.strip():  # Skip blank lines
+            continue
+        if line.startswith('#'):  # Skip comment lines
+            continue
+        
+        parts = line.split('=', 1)
+        if len(parts) != 2:
+            raise ValueError(f"Invalid line format: {line}")
+        
+        key, value = parts
+        config[key.strip()] = value.strip()
+    
+    return config
+```

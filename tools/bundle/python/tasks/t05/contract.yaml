@@ -1,0 +1,14 @@
+id: t05-chunk-list
+task_type: function_implementation
+task: |
+  Implement chunk_list. chunk_list([1,2,3,4,5], 2) returns
+  [[1,2],[3,4],[5]] — the last chunk may be short. Empty input returns an
+  empty list. A size of zero or less raises ValueError.
+target: solution.py
+interface: "def chunk_list(items: list, size: int) -> list[list]"
+stop_conditions:
+  - Whether the chunks may share objects with the input list is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

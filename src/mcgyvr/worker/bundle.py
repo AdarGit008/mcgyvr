@@ -38,6 +38,26 @@ on this task set, so the mechanism the bundle works through had nothing to act
 on. That predicts where a bundle *will* pay: workers that over-produce without
 one, not languages as such.
 
+**#167 ran the control that says why, and it is not the language.** CLM-0012
+could not separate "the device does not work in JS/TS" from "the device does not
+work on this serving stack", because CLM-0004's Python task set had been left in
+another repository. It was recovered, and both readings are wrong. Re-run
+unchanged against Ollama, CLM-0004's own instrument reproduces its effect
+(35/50/55/65% across c0-c3, and its never-passing set exactly) — so the stack is
+not it. The same twenty tasks through *this* module's prompt assembly measure
++1 task at p = 1.00 — so the language is not it either.
+
+What differs is the harness. :func:`~mcgyvr.worker.prompt.render_user_message`
+already ends every user message by demanding the whole file as one fenced block
+and nothing else, which *is* the device. Through it the 3b emits 111.8
+completion tokens at c0, where local-ai's markerless contract draws 427.4;
+appending that one sentence to the original contracts under the original
+harness moved c0 from 7/20 to 11/20 at 121.5 tokens, matching the entire
+1 972-byte bundle. So ``prompts/python.md`` ships with
+:data:`BundleStanding.MEASURED_REDUNDANT`: its effect is real, and this project
+had already built it. The remaining ~1 500 bytes of standards, checklists and
+pitfalls bought nothing measurable on either task set.
+
 The file still ships. Measuring no benefit is not measuring harm, and c0 is not
 a better-evidenced choice than c2 — the run cannot separate them either. What
 changed is that "probably better than nothing" is no longer available as a
@@ -109,13 +129,38 @@ class BundleStanding(StrEnum):
     (CLM-0012). The file still ships because measuring no benefit is not
     measuring harm — but nothing here licenses citing a gain."""
 
+    MEASURED_REDUNDANT = "measured-redundant"
+    """The bundle's effect is real, and this project's own prompt already has it.
+
+    `python.md`: CLM-0004's 45%-to-70% is not withdrawn and reproduces on the
+    serving stack mcgyvr dispatches on (#167 arm B: 35/50/55/65% across c0-c3
+    through the same instrument on Ollama). What it was measured against is a
+    user message with no output rule in it. Through
+    :func:`~mcgyvr.worker.prompt.render_user_message`, over the same twenty
+    tasks on the same endpoint, the same bundle measures +1 task at p = 1.00.
+
+    The cause is isolated rather than inferred: `render_user_message` ends every
+    message by requiring the complete file as one fenced block and nothing else,
+    which is the device the bundle's gain runs through. Appending that one
+    sentence to the *original* contracts under the *original* harness — nothing
+    else changed — took c0 from 7/20 at 427.4 completion tokens to 11/20 at
+    121.5, matching the whole 1 972-byte bundle's 11/20 and beating it on
+    tokens.
+
+    Distinct from :data:`MEASURED_NO_EFFECT`, and the distinction is load-bearing
+    in both directions. A reader must not cite a gain here — on mcgyvr's path
+    there is none. A reader must also not conclude the artifact is inert: give
+    it to a harness whose prompt lacks output discipline and it is worth about
+    four tasks in twenty. What is redundant is redundant *with something*, and
+    naming that is the difference between a fact and a shrug."""
+
 
 # What each shipped bundle's own measurement found. A language absent from this
 # table has had no sweep; `js/ts` is here with a null result rather than absent,
 # because "measured, and it did nothing" is a different fact from "unmeasured"
 # and only one of them is settled.
 _STANDING: dict[str, BundleStanding] = {
-    "python": BundleStanding.MEASURED_BENEFIT,
+    "python": BundleStanding.MEASURED_REDUNDANT,
     "js/ts": BundleStanding.MEASURED_NO_EFFECT,
 }
 

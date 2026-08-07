@@ -1,0 +1,36 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0017",
+  "statement": "CLM-0012's null is about neither the language nor the serving stack, but the harness: the skill-bundle effect CLM-0004 measured is delivered almost entirely by one output-shape instruction, and mcgyvr's own user message already contains it. Three arms on qwen2.5-coder:3b Q4_K_M at http://srv1:11434 (Ollama, OpenAI-compatible) settle it. (1) Serving stack is ruled out: CLM-0004's own instrument, run byte-unchanged against Ollama, reproduces the effect at 35/50/55/65% first-pass across c0-c3 (paired against c0: +3, +4, +6 tasks; McNemar exact p=0.45, 0.12, 0.07), with completion tokens collapsing from 427.4 at c0 to 108.5-144.8 and latency from 5.91 s to 2.19-3.00 s, and with CLM-0004's never-passing set reproduced exactly (t02, t03, t06, t17, t18, t19 fail in all four conditions on both stacks). CAV-02's warning that a figure from another backend describes different weights does not bite here. (2) Language is ruled out: the same twenty Python tasks, ported to mcgyvr contracts and run through mcgyvr's rig against the same endpoint, are flat at 65/70/70/70% — +1 task at every rung, the same task each time (t04), p=1.00, inside the +/-1-task floor, which is the same null CLM-0012 measured in JS/TS. (3) The cause is isolated rather than inferred: render_user_message ends every user message by requiring the complete file as one fenced block and nothing else, and through it the model emits 111.8 completion tokens at c0 where local-ai's contract draws 427.4. A positive control removes the port from the question — the original twenty contracts, the original harness, c0, with that one sentence appended and nothing else changed — and scores 11/20 at 121.5 completion tokens against 7/20 at 427.4 without it, matching the entire 1972-byte c2 bundle's 11/20 and beating it on tokens. The remaining ~1500 bytes of coding standards, edge-case checklist and pitfalls bought nothing measurable. This discharges CLM-0012's scoping sentence and explains its null rather than merely bounding it: CLM-0012 attributed its flat completion-token curve to the task set, whereas the same tasks ramble at 427.4 tokens through one harness and 111.8 through another. CLM-0004 is not withdrawn or weakened; what changes is that its 45%-to-70% describes a user message with no output rule in it, so prompts/python.md moves from BundleStanding.MEASURED_BENEFIT to MEASURED_REDUNDANT — the effect is real and mcgyvr already supplies it. Limits: n=20 with one greedy seed and a +/-1-task floor; one model, one rig, and arm B was not replicated on a second host as CLM-0012's JS/TS run was, which matters more for a positive result than for a null; the mcgyvr contracts are a hand-written port, so the cross-arm baseline comparison carries authorship risk that the within-arm c0-versus-c2 comparison does not, and the ported arm's never-passing set differs from the other two by one swap in each direction (t17 becomes reliably passable because its interface field states the annotation form its acceptance checks; t20 stops passing) — which is why the positive control was run on the unported contracts; the control appends the rule to the user message where c1 places its rules in the system prompt, so position is not controlled; and CLM-0004 and arm B disagree on where the curve peaks (c2 versus c3), which nothing here depends on.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "medium",
+  "citations": [
+    {
+      "url": "records/measurements/python-bundle-2026-08-07/README.md",
+      "supports_because": "States the method, the arm-by-arm design in which each row changes exactly one variable from the row above it, all four condition tables, the paired McNemar tables, the never-passing sets, the positive control and every limit above — including the authorship risk in the ported contracts and the one task where it is clearest."
+    },
+    {
+      "url": "records/measurements/python-bundle-2026-08-07/original-harness/results_q3b.jsonl",
+      "supports_because": "The 80 raw rows of the arm that rules out the serving stack: CLM-0004's instrument unchanged against Ollama, one row per task per condition, so the 35/50/55/65% and the never-passing set are recomputable rather than trusted."
+    },
+    {
+      "url": "records/measurements/python-bundle-2026-08-07/results.jsonl",
+      "supports_because": "The 80 raw rows of the arm that rules out the language: the same twenty tasks through mcgyvr's rig, flat at 65/70/70/70% with the single t04 gain visible per condition. 0 dispatch errors and 0 replies the parser refused, so no cell is missing from a denominator."
+    },
+    {
+      "url": "records/measurements/python-bundle-2026-08-07/output-rule-probe.jsonl",
+      "supports_because": "The positive control, one row per task: the unported contracts under the unported harness at c0 with only the output rule appended, which is what separates the finding from an artefact of how the mcgyvr contracts were written."
+    },
+    {
+      "url": "records/evidence/local-ai-2026-08-02/instrument/README.md",
+      "supports_because": "The provenance of the recovered instrument, pinned to the commit the 2026-07-28 run was made at, with the check showing it has not drifted since — which is what makes arm B a replication rather than a new instrument wearing CLM-0004's task ids."
+    },
+    {
+      "url": "records/evidence/local-ai-2026-08-02/data/context_exp/results_q3b.jsonl",
+      "supports_because": "CLM-0004's own 80 rows, the baseline arm B is compared against for both the condition totals and the never-passing set."
+    }
+  ],
+  "_confidence_note": "Medium: 180 dispatches across three arms on one model and one rig, with the decisive comparison — the positive control — being a single 20-task run without remediation. The direction is unambiguous (7/20 to 11/20, 427.4 to 121.5 completion tokens, from one sentence) and the mechanism was predicted in advance by CLM-0012's own token analysis rather than found by searching. What is not established is the size of the residual bundle effect once output discipline is present: +1 task at p=1.00 is consistent with zero and with a true effect of one to two tasks, and n=20 with 13 condition-insensitive tasks cannot resolve that. Not raised to high because arm B was not replicated on a second host and no arm was re-rolled."
+}

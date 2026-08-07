@@ -1,0 +1,19 @@
+```python
+def flatten(nested: list) -> list:
+    result = []
+    for item in nested:
+        if isinstance(item, list):
+            result.extend(flatten(item))
+        else:
+            result.append(item)
+    return result
+
+# Example usage:
+nested_list = [1, [2, [3, 4]], 5]
+flattened_list = flatten(nested_list)
+print(flattened_list)  # Output: [1, 2, 3, 4, 5]
+
+mixed_list = ["ab", ["cd"], (1, 2), [3]]
+flattened_mixed = flatten(mixed_list)
+print(flattened_mixed)  # Output: ['ab', 'cd', (1, 2), 3]
+```

@@ -1,0 +1,16 @@
+id: t03-parse-semver
+task_type: function_implementation
+task: |
+  Implement parse_semver. "1.2.3" parses to (1, 2, 3, None) and
+  "1.2.3-beta.1" to (1, 2, 3, "beta.1"). The prerelease part is whatever
+  follows a "-", and its characters are limited to [0-9A-Za-z.-]. Anything
+  else raises ValueError: too few or too many parts, a non-numeric part, the
+  empty string, and build metadata — "1.2.3+meta" is invalid here.
+target: solution.py
+interface: "def parse_semver(version: str) -> tuple[int, int, int, str | None]"
+stop_conditions:
+  - Whether a leading zero in a numeric part is legal is not stated.
+acceptance: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

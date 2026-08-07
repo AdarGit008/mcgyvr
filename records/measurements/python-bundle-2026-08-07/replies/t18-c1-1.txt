@@ -1,0 +1,9 @@
+```python
+from typing import List, Dict, Optional
+
+def find_user(users: List[Dict[str, int]], user_id: int) -> Dict[str, int] | None:
+    for user in users:
+        if user["id"] == user_id:
+            return user
+    return None
+```

@@ -2,8 +2,8 @@
   "record": "reply-corpus/1",
   "issue": 184,
   "totals": {
-    "replies": 9024,
-    "parses": 8689,
+    "replies": 9129,
+    "parses": 8794,
     "refusals": 335
   },
   "entries": [
@@ -107958,6 +107958,1266 @@
       "expect": {
         "content_sha256": "e2f4d718b683eb7c9ed5cf913577dda7276dd197984ccbc2872ef7521c6366f9",
         "info_string": "typescript"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t01-c0-1.txt",
+      "sha256": "291048bec785e5b0c3eafbfd856b7341bf6e92b603b63e06e94b24f70badd858",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2466e4008e09515cb189a1664119ec0c4b2e193638f2c5e1debc21154746422c",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t01-c1-1.txt",
+      "sha256": "8e12666483eb21329c091d1c6013a9ebb606e68392b35e5f56ee8bfcd41094e9",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d3f0508aafb852b88563a3805d7d67b5747270746175a71bea116544e0727ae7",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t01-c2-1.txt",
+      "sha256": "832a6d80a9120be8c254ccc5275c5a54c29f19c26cef4d83dd04e4e9aaf7997f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "55b35e989c80c37b5b2d2af69dd069f825ab4f2fab763ca3f7f68a3fed3a7c51",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t01-c3-1.txt",
+      "sha256": "cca992fa5b7eed3b1351d266fed3aae2b0425fb70815101265fd9adbfdc56171",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "258638639f52aebd056bf8319d122fbb711eb2fc64365758cac5ad583c4e8d74",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t02-c0-1.txt",
+      "sha256": "863f9e212f44e83db2457a572862e5bf735123c17de1f68d77210c04aea221dd",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9a7f9c752d6a262716317f25068aa85a8150be817300d9c518cbe913c25963b4",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t02-c0-2.txt",
+      "sha256": "863f9e212f44e83db2457a572862e5bf735123c17de1f68d77210c04aea221dd",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9a7f9c752d6a262716317f25068aa85a8150be817300d9c518cbe913c25963b4",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t02-c1-1.txt",
+      "sha256": "07f69496338fcdb28c2afa0da2ed184899d8859c1475879c21cad284e15ead19",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "129cadeb790051324ff1a41d5ff164a4f9f060bc18dd482c6b494e5330a11271",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t02-c1-2.txt",
+      "sha256": "63d19f832f9b0a2d5b85f7e4cb79cd486ae009cfc956650c86f62ba37feae6ee",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2d8fe0bc7063a256440642e7dac614a458eb18c853459d1a1f72fdbe74a838a4",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t02-c2-1.txt",
+      "sha256": "8a12960f4fd6cdf3927eec933238a24a680f5cd55c692f392c3704687e4a4d27",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8d0e54310488e8c2258076b2aa1f36896e046defe29b0c4fbad8b2b0e7117075",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t02-c2-2.txt",
+      "sha256": "b27e4df2ecb24ecead7212a19d92ee2529fc4b72a9934881a45d7ec8c924bee9",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ed31802e201bdc47424dd1ecf5322af2c92892534e435ba6d4774523ece59813",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t02-c3-1.txt",
+      "sha256": "0268bdf6f292dd08714ca4d9260ab053966bce319df60d667616581957a36093",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6f62f4f6fb87cadb6de44aa6d7b7c7ccf997dd61f7422c3d19a98a939e1516ba",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t02-c3-2.txt",
+      "sha256": "b27e4df2ecb24ecead7212a19d92ee2529fc4b72a9934881a45d7ec8c924bee9",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ed31802e201bdc47424dd1ecf5322af2c92892534e435ba6d4774523ece59813",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t03-c0-1.txt",
+      "sha256": "717a68fb6987f2bc045288b7a10b83df5df4195ab2cafbb6df9491c6c8d721e1",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a3686f4c29a5d8e5685b3ece0f43d74eec7d877a2a64cd8514ab732d9112550b",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t03-c0-2.txt",
+      "sha256": "e64fff5a046e1ecae8b33f699f6c372f5ef4b2d58502ddeeebbbc8caf01b08a8",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1ed356268c796aab3bef984b32dfe31b0c694b95c9423871815937b58cbedf8c",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t03-c1-1.txt",
+      "sha256": "9cd76e382ce206a5172b8dd176c83abd096447987ae352efbe593e5cbe10739a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "fda652bf8ace6abf2cdf3cd97eb40ae1399c4c4f58f9b1b84dff124839130d05",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t03-c1-2.txt",
+      "sha256": "b4c9d13316c1e753c4936e57232b3e72e2335bad0f136b780c03d7e47b555116",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a988ca9c94cf6d68b0ac001494c9053bfcc8c00695ede1f392f5f24e11ac2d50",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t03-c2-1.txt",
+      "sha256": "9431c2c57716a74f10b2bcb7b423f703be336ffe19b043f180abf452a966d7bb",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "eeb1a2907744464d2952db3f9683f0bd956cd6e55952b43b48d10495df08f691",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t03-c2-2.txt",
+      "sha256": "24b16885c98bf501b1a2e0e7c5ec2e6691cefe3bf5c8cef4f4e06111f4020c8c",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f4ddbcc3e95e4a72445ba1c0fb1794e570f4a533158dac79e6cf48dd589d9c57",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t03-c3-1.txt",
+      "sha256": "a89cfd19b8b54364b29a917a8da5dd856f9b81cf206a662c1b3ca3bd918766cd",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "54acca952b3d8cd7852c2561d9570087eba94deb80cad1294f5a74fc553c20cf",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t03-c3-2.txt",
+      "sha256": "d89038087042006503a7266f6eaa004a9f8130874ffcda2c6dcffd0485275bed",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9774849e41db39bd5e524fa612cbeb320c24f84aae2a964fbaaa75d0563be39c",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t04-c0-1.txt",
+      "sha256": "afe38870403609d37a3d1e6a0bbd05e786a3caa95d358bb3132826d2542ea3e5",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "603264919b7c063ce62368958f240653d4069d9bd1854f8410902a52c00fb80b",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t04-c0-2.txt",
+      "sha256": "f85a8b7fae66fdd49e87f353031c9fe1ca55a6afbde3cd505764335f70fd8238",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "06dca6127084d9ec49d5fe52333545ae0bf5a8dc99b83a97f56dc79791b35840",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t04-c1-1.txt",
+      "sha256": "e4eb3792b984e3ab15c192bf01c27f248fd98d210d053ab3779e1c95d29ba2bf",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4b91740ff5ec1dd1224675d802cfb729ad4767cf49ca7c0552fb8d096f628d88",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t04-c2-1.txt",
+      "sha256": "3e364c826667ec551404c66861faf61d9f0c52b256b5015d36a13b1cd1071f3f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6563ff54d09fba837e9add8c5b3270897527ec9604a67de5a4de6464c5c4018e",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t04-c3-1.txt",
+      "sha256": "3435807b48528172df289c837e51be70c3e4d4db14857c71e8a0d9b2cefb04d3",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1a8e67da79ad1427aca45dcf35ba682f7840c0a7777029bdb3c61d64f198fde7",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t05-c0-1.txt",
+      "sha256": "a11d2209e35736ca59d6b73e40a07edf20dbf74e88be7e32a4604fc63b6e2064",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3639878bc8f91aca7f691b9da8aa04ef473f752204dae5c5a51d5542bd3a7d2d",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t05-c1-1.txt",
+      "sha256": "be9e083c10eaa1459421ac86620f75ea5fd162ca24fdc7592f713f8eaac48ee4",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "25982aed2c7b771c827c5b06d1c515f145f7ddabe4e3748b87b0486ee2d72232",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t05-c2-1.txt",
+      "sha256": "810872857ac5644d9b1f103b5144508398b75c228feaaf80b1795ed46cf2670f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "99983edf73d500117323d042535f256996eda8f3891e6db7f419d4e0b40b5e37",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t05-c3-1.txt",
+      "sha256": "5c95be3fbd7847fad762f891ef306cb882db3a9ec72a316131531ac7775d7942",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "382a260000d7683fbbee319095acd3a894c266077fa3f80b690ad6f5bd3af843",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t06-c0-1.txt",
+      "sha256": "80b683b83e02e55b8215d27ddbc394c26712e0718bbc3cd2882c156bf3c3b03b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9e1cf19348c845b2ce63a3025f0ceed0036608c89833bd094e2ac7c9922b9062",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t06-c0-2.txt",
+      "sha256": "80b683b83e02e55b8215d27ddbc394c26712e0718bbc3cd2882c156bf3c3b03b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9e1cf19348c845b2ce63a3025f0ceed0036608c89833bd094e2ac7c9922b9062",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t06-c1-1.txt",
+      "sha256": "bc8e64b92e0b0d3600cb9ee57044c68c94e7353ba868e00f221f3af3fa51cbf3",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e0a9ea41c0d0794bc57ba3c978f801d5f9f240a721d5a535c63320e2bb3fc4bb",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t06-c1-2.txt",
+      "sha256": "a040f38d587076ba6456e8afaedfa5a709307fe7fdc30d5ad949c7a055b409ad",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "375d380f948fceba639d01dd1ac06019efa1bcf8bc354eed70c256ea893bfa24",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t06-c2-1.txt",
+      "sha256": "28a9b2a2b06f0d2c1416da0aedc2ab5b5ff7ec4446704931a323953ed2976ca5",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f9014f9126c73ad587efa11f227d7fb887171efa890513270558e4a523e453d9",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t06-c2-2.txt",
+      "sha256": "b2a5a4940941a0f4ba90ffc4f15da5690e141da1a6a987556671e84d70e7aa66",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6b311e14513582143eceb246d24a20a47867487a04fe1f2797a749ebb7eedb66",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t06-c3-1.txt",
+      "sha256": "a2fd43bbfc86cddfb439c4f2a143d611b1d61d6aed0ea48c015f5f66ce7d9bcb",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8d6d2f79fdba99ae47cea4c34ebad6650606e9d84f11a3c175594a935a625509",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t06-c3-2.txt",
+      "sha256": "80b683b83e02e55b8215d27ddbc394c26712e0718bbc3cd2882c156bf3c3b03b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9e1cf19348c845b2ce63a3025f0ceed0036608c89833bd094e2ac7c9922b9062",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t07-c0-1.txt",
+      "sha256": "43d60e33103c55036b34774c90d519217ac5bfcd0b83d9f6496395d18cbd2fd0",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "146c59de43ee5fb049da98424367af0315feb36183838c9d195adb299d5bd629",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t07-c1-1.txt",
+      "sha256": "10de7bf77787a3e483c8fc0ce5f485639a6480c98d425c3083050a65fa644d5d",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d3940b5cfad1789ecd88536fdf9a040c4f3a838d33a411dabd2985dc310eda02",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t07-c2-1.txt",
+      "sha256": "3fbbd55a166a3419231f405eaae2b01dc873d7300a7041d617ff750e1484d48b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1d17f1f5fbcf571214a694d633f1b3f99ab99085ea53b865e080881144fde186",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t07-c3-1.txt",
+      "sha256": "8037fcfbf19e1eb9f1287a720123332f1b5a66b32d1930f3e24d0cb40f0356bd",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6b3b0651d9021173e9f34f6ee8ceac97c05598606e8d4dc7b368416ad2dbf397",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t08-c0-1.txt",
+      "sha256": "e48ec36e7f53b870c453c21818db01c94ba1bbc118728082958bf5ebea8696d1",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5b387131112acbc2a3889d44df5548c583e411d84a323d2f72b220958d3460da",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t08-c1-1.txt",
+      "sha256": "5e9b17e39e84377bf5a6b1605f4cfc842a7c216b7c39bf688492e27d17dadcad",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c8abff951caee37108b961ae20ae9f0150388d2f2fe79e246aece8978acb4503",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t08-c2-1.txt",
+      "sha256": "8d58ef5d06fe3ca895868dde11f17ff7976ffa57d756124012d1cc1d08158528",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c754f47d34efaacc0d3cd4fed2c5c38d5d4f3b402ba40f8f5347eaf5ff0effe6",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t08-c3-1.txt",
+      "sha256": "39c0aa8ec1b50920310b1d0455d61fa631316bcf249d0f8bfec40c324c0d04d4",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "71bd381eb644c28b5f8f5b0bab5433edc9a30293f9974c7eee5ff70770a117fd",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t09-c0-1.txt",
+      "sha256": "05b84047f82dabd2cc6ad2e98e177fc0b3ac33122fe69cc4d839061712a6fdc0",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ba42412fbb5d3f3235d01e990f85fc5301e9588cbc28fb86db9b7c0da2ad2d6c",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t09-c1-1.txt",
+      "sha256": "dd002f09a88f994d44680d195fdf80374c448a711c89ccf85e181b4d8729aabf",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c06600bd12fd4c72064bbd999596e9b170227b6c095ba5ad92f3e32355d98598",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t09-c2-1.txt",
+      "sha256": "3a1b72ae7f03046b523109b10414a7fc54947de1249fc8098577dbe35ee9dc81",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ba42412fbb5d3f3235d01e990f85fc5301e9588cbc28fb86db9b7c0da2ad2d6c",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t09-c3-1.txt",
+      "sha256": "dd002f09a88f994d44680d195fdf80374c448a711c89ccf85e181b4d8729aabf",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c06600bd12fd4c72064bbd999596e9b170227b6c095ba5ad92f3e32355d98598",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t10-c0-1.txt",
+      "sha256": "ba46647ca2f735ac3c66936c6c6b0b8b5a3d075a4459a030fd5cd94c2384f3f2",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4b0da8d8a265743b35150674f7f9eba774fd9df51320d1c0cc73aeb863e9bfc5",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t10-c1-1.txt",
+      "sha256": "ba46647ca2f735ac3c66936c6c6b0b8b5a3d075a4459a030fd5cd94c2384f3f2",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4b0da8d8a265743b35150674f7f9eba774fd9df51320d1c0cc73aeb863e9bfc5",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t10-c2-1.txt",
+      "sha256": "6ef09813d6e9186b13806dafa6dd4298ae9faff6d022a761b018b15a90bc7b75",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4b0da8d8a265743b35150674f7f9eba774fd9df51320d1c0cc73aeb863e9bfc5",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t10-c3-1.txt",
+      "sha256": "6ef09813d6e9186b13806dafa6dd4298ae9faff6d022a761b018b15a90bc7b75",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4b0da8d8a265743b35150674f7f9eba774fd9df51320d1c0cc73aeb863e9bfc5",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t11-c0-1.txt",
+      "sha256": "1a96a54646766af7edada0793d843123a8515f61649498961357ff2ee8821f38",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7e960bd5ce8e8854515ba97a755e2a8858fa2de6975598636b61d23ef624807f",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t11-c1-1.txt",
+      "sha256": "24d5f0fff9a49a37c0e02683ab724d9754b068281f54b83310156df0fbb90cad",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7e960bd5ce8e8854515ba97a755e2a8858fa2de6975598636b61d23ef624807f",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t11-c2-1.txt",
+      "sha256": "24d5f0fff9a49a37c0e02683ab724d9754b068281f54b83310156df0fbb90cad",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7e960bd5ce8e8854515ba97a755e2a8858fa2de6975598636b61d23ef624807f",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t11-c3-1.txt",
+      "sha256": "24d5f0fff9a49a37c0e02683ab724d9754b068281f54b83310156df0fbb90cad",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7e960bd5ce8e8854515ba97a755e2a8858fa2de6975598636b61d23ef624807f",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t12-c0-1.txt",
+      "sha256": "64fffebd04d7c1a923074b4ae8e9f7b9fcdf4f26a312d509443d29727a4dbf1b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5e74b63d9c201324a3a53f07ebdf75c637bcaa4607765da63a92a14c02819039",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t12-c1-1.txt",
+      "sha256": "f7dadc7488614d99bdb4692dd677adf2a00a9d78879ef91c8b3674059067a217",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5e74b63d9c201324a3a53f07ebdf75c637bcaa4607765da63a92a14c02819039",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t12-c2-1.txt",
+      "sha256": "2eb49e5ffa08a9c2ef5fa752f8b3c1fbc5d63a54de3ca6bb2c7291396ab3145c",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "b55bd95d592b50ba4c1dd15309fa6b00f3bf6ceb5506e25b24d8597b24238d95",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t12-c3-1.txt",
+      "sha256": "f7dadc7488614d99bdb4692dd677adf2a00a9d78879ef91c8b3674059067a217",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5e74b63d9c201324a3a53f07ebdf75c637bcaa4607765da63a92a14c02819039",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t13-c0-1.txt",
+      "sha256": "d415d8268ab61748d2a91d4a0aaebf87034289275b1b13b4465140ec75f86f75",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2d340bf40ac5bc90eb283c498a8ea4ef2710b74861054b6d3b200bb22bf2b7cd",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t13-c1-1.txt",
+      "sha256": "d415d8268ab61748d2a91d4a0aaebf87034289275b1b13b4465140ec75f86f75",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2d340bf40ac5bc90eb283c498a8ea4ef2710b74861054b6d3b200bb22bf2b7cd",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t13-c2-1.txt",
+      "sha256": "24b04be103ac4af2348b792f10adb51c06266f3e006646d0db96b920e54c4c49",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cb8f11ba48a4ff00ca827fc311b30a5538ac73866f7c5de787531b3ab55f2455",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t13-c3-1.txt",
+      "sha256": "274cf84ccf639bc1aa5af486ed1b5488ed378eb47491704d5879da563fcbed0e",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "00de4380174768169e5ec9ea2a60ff85e9585ba46da416ffdba12a21f2b34921",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t14-c0-1.txt",
+      "sha256": "cad062dee077bc74a5fca042797bca2766bf2acac50db97b62ef420505861dc1",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "558e324b8f7aac69d87b387338d5ba846120c6fb883c1acec42a64f1df85c38b",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t14-c1-1.txt",
+      "sha256": "73dbb352414ed2e0870eedc9451fd23daa2fd3cfdc43cfb266f28c8e9b278551",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "558e324b8f7aac69d87b387338d5ba846120c6fb883c1acec42a64f1df85c38b",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t14-c2-1.txt",
+      "sha256": "ad1a5407399a1b968fa84194ccb03158b6bb41e3ceef46c6d277ed3a8fbd1df2",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "06dfbce1ae4c4214f31b0b4beb9ac926b3c04c06761e848dcc90639f9b518cbb",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t14-c3-1.txt",
+      "sha256": "ad1a5407399a1b968fa84194ccb03158b6bb41e3ceef46c6d277ed3a8fbd1df2",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "06dfbce1ae4c4214f31b0b4beb9ac926b3c04c06761e848dcc90639f9b518cbb",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t15-c0-1.txt",
+      "sha256": "36e064cf013fa8a11a19a9504cb91c13ac4cfd6cc0d78ff81a188150d04f056b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2647a6e099c38ab3c14b759fef2029b53904986aeb683886552176beb0083d8b",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t15-c1-1.txt",
+      "sha256": "36e064cf013fa8a11a19a9504cb91c13ac4cfd6cc0d78ff81a188150d04f056b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2647a6e099c38ab3c14b759fef2029b53904986aeb683886552176beb0083d8b",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t15-c2-1.txt",
+      "sha256": "821f3edf064bd7449b412d83ac9c494647f015609dc2bbb3b047973bd54a43b3",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2647a6e099c38ab3c14b759fef2029b53904986aeb683886552176beb0083d8b",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t15-c3-1.txt",
+      "sha256": "d547dc26ac302ce597ed7385791b046748f8eada6975b0dfee866c682b66beea",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6b788f922a972526809d9004b73f47d59e9b49a4cbebb52f94466f9f42098986",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t16-c0-1.txt",
+      "sha256": "869db9e2f5a67eb9c966e8aa22b23545fa04d33cd5a82aa698c84571a5982288",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "78c4e526eaf5d0f264c29b49827c30009228d25f8b97791039dabcf6711bd680",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t16-c1-1.txt",
+      "sha256": "f8c94a1dc077cdac675b18900ba05dcfdca86cdb9d0530c1d96d9de4ac290806",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8fbc0e5d1549360b7d59247192bf079881248a160ff6d6a74efaa34fbd730862",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t16-c2-1.txt",
+      "sha256": "8908f14357b633e7bc98bb88718436c7263d4373924c11ab5dbc719e7edf9173",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "df69a392b1a2052143ba24718917762803552b5567c70581fcc6c49176395e52",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t16-c3-1.txt",
+      "sha256": "e84f601ddd2dfa8724ddeda4666726e1585c0724348b6ba1ecc0c460d5382484",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "78c4e526eaf5d0f264c29b49827c30009228d25f8b97791039dabcf6711bd680",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t17-c0-1.txt",
+      "sha256": "80a5f170a9afb6fa4e008046efa557b86935a3d5149f8ca21efa84880da515a5",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e59f8853c94274e062661e7faf9ab0ff9d49649d0dbe7580015ad76c22cbe096",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t17-c1-1.txt",
+      "sha256": "80a5f170a9afb6fa4e008046efa557b86935a3d5149f8ca21efa84880da515a5",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e59f8853c94274e062661e7faf9ab0ff9d49649d0dbe7580015ad76c22cbe096",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t17-c2-1.txt",
+      "sha256": "4494eb359c9fb73ff132bc773de1ce77dfb4e8f34641ff15e067374a7119ffd7",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e59f8853c94274e062661e7faf9ab0ff9d49649d0dbe7580015ad76c22cbe096",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t17-c3-1.txt",
+      "sha256": "4494eb359c9fb73ff132bc773de1ce77dfb4e8f34641ff15e067374a7119ffd7",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e59f8853c94274e062661e7faf9ab0ff9d49649d0dbe7580015ad76c22cbe096",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t18-c0-1.txt",
+      "sha256": "3e31ada62944aefd29b364b3e824600cb671c808c0637e4dccb23640878eea4c",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "89b407dbfbdb0bad43a6c199cc20598fb08100888c5454440e0f4db497a0fa25",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t18-c0-2.txt",
+      "sha256": "3e31ada62944aefd29b364b3e824600cb671c808c0637e4dccb23640878eea4c",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "89b407dbfbdb0bad43a6c199cc20598fb08100888c5454440e0f4db497a0fa25",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t18-c1-1.txt",
+      "sha256": "17613b5c0cac3224a302b4feb49f47df84a284f26734201169d4d1258936d6c9",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0c428c670ac57117bb610a1ce26630483c64d1ee199dfb4ecf759038c3b532ae",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t18-c1-2.txt",
+      "sha256": "3e31ada62944aefd29b364b3e824600cb671c808c0637e4dccb23640878eea4c",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "89b407dbfbdb0bad43a6c199cc20598fb08100888c5454440e0f4db497a0fa25",
+        "info_string": ""
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t18-c2-1.txt",
+      "sha256": "578fe830202616b32b478feb7163a8cf0d7cd284a0cde43ac912bc1240ee7057",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "89b407dbfbdb0bad43a6c199cc20598fb08100888c5454440e0f4db497a0fa25",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t18-c2-2.txt",
+      "sha256": "578fe830202616b32b478feb7163a8cf0d7cd284a0cde43ac912bc1240ee7057",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "89b407dbfbdb0bad43a6c199cc20598fb08100888c5454440e0f4db497a0fa25",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t18-c3-1.txt",
+      "sha256": "578fe830202616b32b478feb7163a8cf0d7cd284a0cde43ac912bc1240ee7057",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "89b407dbfbdb0bad43a6c199cc20598fb08100888c5454440e0f4db497a0fa25",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t18-c3-2.txt",
+      "sha256": "578fe830202616b32b478feb7163a8cf0d7cd284a0cde43ac912bc1240ee7057",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "89b407dbfbdb0bad43a6c199cc20598fb08100888c5454440e0f4db497a0fa25",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t19-c0-1.txt",
+      "sha256": "eb57cbe1d03139da82737ce45e884b702a33e0e4f30532058d868d6ec6426ccf",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2072e9c3418c09ebb2f3db414b0fddeaeb947f04ebaa370dac59f67ced93e3c7",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t19-c0-2.txt",
+      "sha256": "5e3112c3159133c42e20b5be5fac0f2f493acde03e47c32eef6220840586ff0b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "44371fef1bc40b980a214d4ebeddd3fe5718689351a895b8567280406b43d004",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t19-c1-1.txt",
+      "sha256": "76a1878187da0c63db793a9a7c244bc111a5cd71c1dc933a219885841305e3e7",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "957d2977224714eddd4d49e0e79815bb92dd259def3b0cb98f9b19666f08d3bf",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t19-c1-2.txt",
+      "sha256": "5e3112c3159133c42e20b5be5fac0f2f493acde03e47c32eef6220840586ff0b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "44371fef1bc40b980a214d4ebeddd3fe5718689351a895b8567280406b43d004",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t19-c2-1.txt",
+      "sha256": "212c86a9fc29d98e33b934f27f6d8da191d161ca77d8e0425baf2382b7ffd50d",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9cf63d54c3a94220bf08db184b921f9372ab7391128819e45437c8b70a1224a3",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t19-c2-2.txt",
+      "sha256": "51f0f4e625d60a9273a307b004a0e19d1e4a2d114ca1a34dcbb7e90d40f992ff",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5fc55b2e1ed2fa0cc3cc9933f4e3a1111254a859268fffa499f4396798f42afe",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t19-c3-1.txt",
+      "sha256": "212c86a9fc29d98e33b934f27f6d8da191d161ca77d8e0425baf2382b7ffd50d",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9cf63d54c3a94220bf08db184b921f9372ab7391128819e45437c8b70a1224a3",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t19-c3-2.txt",
+      "sha256": "5e3112c3159133c42e20b5be5fac0f2f493acde03e47c32eef6220840586ff0b",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "44371fef1bc40b980a214d4ebeddd3fe5718689351a895b8567280406b43d004",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t20-c0-1.txt",
+      "sha256": "4d27a9f98a46b5695d45c59d47d20f4b47e975ef9e053e013544bee939d0b657",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "398de5f844120f82a8cb5ee50a7290c32b77a3c6597357a8d71b6e68c5907d54",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t20-c0-2.txt",
+      "sha256": "c4ff29eb926adb461da4f910b542662aec9c53c348a9fedbe462ab9ad33c1704",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "02a969ebc48a212cc109570d0ded1b6935221b3aef65f72f0cf4587c8af054a1",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t20-c1-1.txt",
+      "sha256": "3d95abe39c15417cf7cd91af02daf9996e700edd9b23c743a5ad57208fd237ef",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8614d91a2baa4488e08967291df2675e3d066de83b686a10f03b662423ff2ad5",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t20-c1-2.txt",
+      "sha256": "3840aa25677cf5aa413013031e2165f1d32f51e571455687423e84c8fb1939fa",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "34517ac9f9dfff89a00fee103795ba8b6fc5b1652b285ac435e7f3c34d1bc40f",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t20-c2-1.txt",
+      "sha256": "c51f77e295393b36f3890d3b4da97db0ed993ef69617359a90173676fa486bb2",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "398c7814187665265ec15d7f7722eebab35a8227539fb792c1ab649a04039008",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t20-c2-2.txt",
+      "sha256": "f236b515656fddbc9e50a88ab98615e707469503105b8003335a3ff9d8af23da",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d1e1652d1080a410163764a8ef3808ad432a0b10297b5aee59eef375b0635639",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t20-c3-1.txt",
+      "sha256": "3d95abe39c15417cf7cd91af02daf9996e700edd9b23c743a5ad57208fd237ef",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8614d91a2baa4488e08967291df2675e3d066de83b686a10f03b662423ff2ad5",
+        "info_string": "python"
+      }
+    },
+    {
+      "run": "python-bundle-2026-08-07",
+      "file": "replies/t20-c3-2.txt",
+      "sha256": "d77348de5e55c1f4a28aea33cd8d3da9f8948b24df79a4b4fa9ba6b5075b951c",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a54c79d614a4811ac274625ee7463631b3ca8ba86f99926800b54fcc9bb9e3f4",
+        "info_string": "python"
       }
     }
   ]

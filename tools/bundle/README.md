@@ -1,8 +1,16 @@
-# The JS/TS bundle-size experiment — design, and what is not yet measured
+# The bundle-size experiment — design, and what it measured
 
 Issue: [#144](https://github.com/AdarGit008/mcgyvr/issues/144), under
 [#19](https://github.com/AdarGit008/mcgyvr/issues/19).
 Instrument: `measure.py`. Conditions: `conditions/`. Task set: `tasks/`.
+
+> **The rig has two arms.** `--language jsts` is the default and is everything
+> below: #144's JS/TS ladder. `--language python` is #167's control — CLM-0004's
+> own twenty tasks, recovered from local-ai and ported to mcgyvr contracts in
+> `python/tasks/`, with the *vendored* measured bundles as its conditions. It
+> exists because CLM-0012's null could not say whether it was about the language
+> or about the serving stack, and the answer turned out to be neither. See
+> [`python/README.md`](python/README.md).
 Prior run this repeats: [CLM-0004](../../records/claims/CLM-0004.json), designed
 in [`context_size_experiment_2026-07-28.md`](../../records/evidence/local-ai-2026-08-02/research/context_size_experiment_2026-07-28.md).
 

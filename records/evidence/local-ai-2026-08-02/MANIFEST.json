@@ -50,21 +50,48 @@
     {
       "path": "data/context_exp/bundles/c1.md",
       "present": true,
-      "bytes": 440
+      "bytes": 440,
+      "sha256": "c23dbebd7aa4e92b20d2c920d9c35777dad2d60d0c1ecba58e1a0d551661de63"
     },
     {
       "path": "data/context_exp/bundles/c2.md",
       "present": true,
-      "bytes": 1972
+      "bytes": 1972,
+      "sha256": "bceead24fa06b33e68382e9a81dff49a4e15328f2f275322c4d0a0df651326a3"
     },
     {
       "path": "data/context_exp/bundles/c3.md",
       "present": true,
-      "bytes": 8342
+      "bytes": 8342,
+      "sha256": "901b563685efe77f01d52747a8a6c24f3c7224bb95dbc3b24c192bbef49e0340"
     },
     {
       "path": "research/context_size_experiment_2026-07-28.md",
-      "present": true
+      "present": true,
+      "sha256": "3f94d2d0ef889029aad0a8363d1d83b593d661a4cf10965d993d07b479cf2491",
+      "bytes": 4897
+    },
+    {
+      "path": "instrument/context_tasks.py",
+      "present": true,
+      "sha256": "931d9377f723aa590f6fc9a08ac0334f3c1e4d6e11b810b0548921eec4760c0b",
+      "bytes": 37751,
+      "pinned_commit": "6d8c11d6"
+    },
+    {
+      "path": "instrument/context_exp.py",
+      "present": true,
+      "sha256": "e7487e212cc6c326b78390fa0bfd764266096abf9233d87ee235b62325acbbf0",
+      "bytes": 9011,
+      "pinned_commit": "6d8c11d6"
+    },
+    {
+      "path": "instrument/run_context_exp.sh",
+      "present": true,
+      "sha256": "ce30e8e3bd1c23659c27c34acd04816bfc1ef729554742b2539a60ffd626522c",
+      "bytes": 2828,
+      "pinned_commit": "6d8c11d6"
     }
-  ]
+  ],
+  "instrument_commit": "6d8c11d6"
 }

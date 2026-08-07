@@ -1,0 +1,26 @@
+```python
+def parse_semver(version: str) -> tuple[int, int, int, str | None]:
+    """
+    Parses a semantic version string into its components.
+    
+    Args:
+        version (str): The semantic version string to parse.
+        
+    Returns:
+        tuple[int, int, int, str | None]: A tuple containing the major,
+            minor, patch versions and the prerelease part of the version.
+    """
+    parts = version.split('.')
+    if len(parts) != 3:
+        raise ValueError("Invalid number of parts in version string.")
+    
+    major, minor, patch = map(int, parts[:3])
+    
+    prerelease = None
+    if len(parts) > 3 and parts[3].startswith('-'):
+        prerelease = parts[3][1:]
+        if not prerelease.isalnum() or '.' in prerelease:
+            raise ValueError("Invalid prerelease string.")
+    
+    return (major, minor, patch, prerelease)
+```

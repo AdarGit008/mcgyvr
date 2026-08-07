@@ -1,0 +1,4 @@
+```python
+def select_active(users: list[dict]) -> list[str]:
+    return [user["name"] for user in users if user.get("active", False) and user.get("age", 0) >= 18]
+```
