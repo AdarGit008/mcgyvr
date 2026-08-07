@@ -1,0 +1,90 @@
+id: p457-scan-tape-label
+task_type: bug_fix
+task: >-
+  scanTapeLabel reads the label at the front of a tape image. The argument is a
+  list of byte values, whole numbers from 0 through 255. The first two bytes are
+  the marker and must be 212 then 79. The third byte is the major shape, and only
+  1 and 2 are known. The fourth byte is the record width in bytes and must be at
+  least one. The fifth byte says how many records follow. A shape-one label stops
+  there, so it is five bytes long. A shape-two label goes on with a sixth byte
+  counting the extra table's entries, then that many entries of three bytes each:
+  a kind byte and then a value in two bytes, the weightier first. Entry kinds must
+  climb strictly, so no kind repeats and none trails a larger one. A shape-two
+  label is therefore six bytes plus three for every entry. Everything past the
+  label is the run of records, and the count of bytes there must be exactly the
+  record count times the record width. Give back a record whose major and minor
+  are the third and fourth bytes, whose records is the fifth, and whose extras is
+  a list holding, for each entry in the table's own order, a pair of the kind byte
+  and the two-byte value, an empty list under shape one. The code below measures
+  the run of records from a fixed six bytes under shape two, forgetting that the
+  extra table's own bytes sit in front of the records. Repair that, keep raising
+  an error when the argument is not a list, when an element is not a whole number
+  from 0 through 255, when the run is shorter than the fixed part, when the marker
+  is wrong, when the major shape is unknown, when the record width is nought, when
+  a shape-two run ends before the extra count or inside the extra table, when the
+  kinds do not climb, and when the bytes past the label are not the run of records
+  promised, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function scanTapeLabel(
+    bytes: any,
+  ): { major: number; minor: number; records: number; extras: number[][] } {
+    if (!Array.isArray(bytes)) {
+      throw new Error("bytes must be a list");
+    }
+    for (const byte of bytes) {
+      if (typeof byte !== "number" || !Number.isInteger(byte) || byte < 0 || byte > 255) {
+        throw new Error("every byte must be a whole number from 0 through 255");
+      }
+    }
+    if (bytes.length < 5) {
+      throw new Error("the run is too short for the fixed part of the label");
+    }
+    if (bytes[0] !== 212 || bytes[1] !== 79) {
+      throw new Error("the two opening bytes are not this label's marker");
+    }
+    const major = bytes[2];
+    if (major !== 1 && major !== 2) {
+      throw new Error(`major ${major} is not a shape this reader knows`);
+    }
+    const minor = bytes[3];
+    if (minor < 1) {
+      throw new Error("the record width must be at least one byte");
+    }
+    const records = bytes[4];
+
+    let headerLength = 5;
+    const extras: number[][] = [];
+    if (major === 2) {
+      if (bytes.length < 6) {
+        throw new Error("the run ends before the extra count");
+      }
+      const count = bytes[5];
+      headerLength = 6 + 3 * count;
+      if (bytes.length < headerLength) {
+        throw new Error("the run ends inside the extra table");
+      }
+      let last = -1;
+      for (let i = 0; i < count; i++) {
+        const at = 6 + 3 * i;
+        const kind = bytes[at];
+        if (kind <= last) {
+          throw new Error("the extra table is not in rising order of kind");
+        }
+        last = kind;
+        extras.push([kind, bytes[at + 1] * 256 + bytes[at + 2]]);
+      }
+    }
+
+    if (bytes.length - (major === 1 ? 5 : 6) !== records * minor) {
+      throw new Error("what follows the label is not the run of records it promises");
+    }
+    return { major, minor, records, extras };
+  }
+interface: "export function scanTapeLabel(bytes: any): { major: number; minor: number; records: number; extras: number[][] }"
+stop_conditions:
+  - Whether an extra of a kind the reader does not know should be reported rather than simply read is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

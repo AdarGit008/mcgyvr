@@ -1,0 +1,42 @@
+id: p447-resolve-dice-pool
+task_type: bug_fix
+task: >-
+  resolve_dice_pool works out what a handful of dice is worth once the
+  weakest are set aside, and it botches nearly every part of that. Repair it.
+  Each pool arrives as a mapping with "sides", "dice" and "keep". The rolls
+  are drawn in order: the first pool takes its "dice" rolls from the front of
+  the roll list, the next pool takes its own from whatever follows, and so
+  on. Within a pool the "keep" largest rolls are held and the rest are set
+  aside; where equal rolls compete for the last held place, the one drawn
+  earlier is held. Return a mapping whose "totals" key holds one sum of held
+  rolls per pool in pool order, and whose "dropped" key holds one list per
+  pool of the positions, counted from zero across the whole roll list, of the
+  rolls set aside, in ascending order. Throw an error when the pools are not
+  a list or are empty, when "sides" is not a whole number of at least two,
+  when "dice" is not a whole number of at least one, when "keep" is not a
+  whole number of at least one or is larger than "dice", when a roll is not a
+  whole number from one up to its own pool's "sides", when the rolls run out
+  part way through, and when any roll is left undrawn. Return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  def resolve_dice_pool(pools: list, rolls: list) -> dict:
+      """What each handful of dice is worth once the weakest are set aside."""
+      totals = []
+      dropped = []
+      at = 0
+      for pool in pools:
+          taken = rolls[at : at + pool["dice"]]
+          at += pool["dice"]
+          order = sorted(taken)
+          kept = order[: pool["keep"]]
+          totals.append(sum(kept))
+          dropped.append([taken.index(roll) for roll in order[pool["keep"] :]])
+      return {"totals": totals, "dropped": dropped}
+interface: "def resolve_dice_pool(pools: list, rolls: list) -> dict"
+stop_conditions:
+  - Whether the pools may be given in any order other than the order their rolls were drawn in is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

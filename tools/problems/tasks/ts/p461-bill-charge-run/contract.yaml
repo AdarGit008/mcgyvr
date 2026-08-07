@@ -1,0 +1,75 @@
+id: p461-bill-charge-run
+task_type: bug_fix
+task: >-
+  billChargeRun runs an electric meter across a tariff strip and totals the
+  bill. The prices argument is the strip: one whole number of nought or more per
+  slot, the pence a single unit costs while that slot lasts, and a slot's place in
+  the list is its number counting from nought. The draw argument is how many units
+  the meter pulls in one whole slot, a whole number above nought, and target is
+  how many units are wanted altogether, a whole number of nought or more. Pick
+  slots from the cheapest price upward, and where two slots cost the same take the
+  one with the smaller number first. In each slot picked, pull either a whole draw
+  or only what is still wanted, whichever is the smaller, and stop as soon as the
+  wanted amount has been reached. Give back a record whose slots lists the numbers
+  of the slots the meter ran in, smallest number first, whose units is how much
+  was pulled in all, whose bill is each slot's units times that slot's price added
+  up, and whose short is how much of the target the strip could not supply. The
+  code below pulls a whole draw in every slot it picks, even the last one, so a
+  target that does not divide by the draw is over-pulled and over-billed. Repair
+  that, keep raising an error when prices is not a list, when a price is not a
+  whole number of nought or more, when draw is not a whole number above nought,
+  and when target is not a whole number of nought or more, and return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  function whole(value: unknown): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  export function billChargeRun(
+    prices: any[],
+    draw: number,
+    target: number,
+  ): { slots: number[]; units: number; bill: number; short: number } {
+    if (!Array.isArray(prices)) {
+      throw new Error("prices must be a list");
+    }
+    for (const price of prices) {
+      if (!whole(price) || price < 0) {
+        throw new Error("every price must be a whole number of nought or more");
+      }
+    }
+    if (!whole(draw) || draw < 1) {
+      throw new Error("draw must be a whole number above nought");
+    }
+    if (!whole(target) || target < 0) {
+      throw new Error("target must be a whole number of nought or more");
+    }
+
+    const order = prices.map((_price, index) => index);
+    order.sort((a, b) => (prices[a] !== prices[b] ? prices[a] - prices[b] : a - b));
+
+    const taken = new Map<number, number>();
+    let owed = target;
+    let bill = 0;
+    for (const slot of order) {
+      if (owed === 0) break;
+      const units = draw;
+      taken.set(slot, units);
+      bill += units * prices[slot];
+      owed -= units;
+      if (owed < 0) {
+        owed = 0;
+      }
+    }
+
+    const slots = [...taken.keys()].sort((a, b) => a - b);
+    return { slots, units: target - owed, bill, short: owed };
+  }
+interface: "export function billChargeRun(prices: any[], draw: number, target: number): { slots: number[]; units: number; bill: number; short: number }"
+stop_conditions:
+  - Whether the meter may be stopped part way through a slot and restarted later in it is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

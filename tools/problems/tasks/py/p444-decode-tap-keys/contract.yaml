@@ -1,0 +1,25 @@
+id: p444-decode-tap-keys
+task_type: function_implementation
+task: >-
+  Implement decode_tap_keys for a keypad where a letter is entered by tapping
+  its key over and over. Key 2 carries A, B and C; key 3 carries D, E and F;
+  key 4 carries G, H and I; key 5 carries J, K and L; key 6 carries M, N and
+  O; key 7 carries P, Q, R and S; key 8 carries T, U and V; key 9 carries W,
+  X, Y and Z; key 0 carries one space and nothing else. An unbroken run of
+  taps on one key yields the single letter that the run's length picks out of
+  that key, so four taps of 7 yield S. There is no wrapping back round to the
+  first letter. A hyphen breaks a run, which is how two letters sharing a key
+  are told apart; a hyphen written between taps on two different keys is
+  allowed and changes nothing. Return the entered text in capitals. Raise an
+  error for a sequence that is not a string, an empty sequence, a run longer
+  than its key carries, any use of key 1, any character that is neither a key
+  nor a hyphen, a hyphen at either end of the sequence, and two hyphens in a
+  row.
+target: solution.py
+interface: "def decode_tap_keys(taps: str) -> str"
+stop_conditions:
+  - Whether this keypad has any way to enter a digit as itself is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

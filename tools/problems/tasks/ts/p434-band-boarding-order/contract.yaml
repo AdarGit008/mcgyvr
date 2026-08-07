@@ -1,0 +1,36 @@
+id: p434-band-boarding-order
+task_type: function_implementation
+task: >-
+  Implement orderBoardingBands. The layout argument writes one row of the
+  cabin as its seat letters with a single vertical bar standing for the
+  aisle, as in "ABC|DEF"; every letter is a distinct capital A to Z and each
+  side of the bar carries at least one. A seat is a window seat when it is
+  the leftmost letter of the left block or the rightmost letter of the right
+  block, an aisle seat when it stands next to the bar without already being
+  a window seat, and a middle seat otherwise. The rows argument counts the
+  rows, numbered 1 at the nose. The band argument cuts the cabin into bands
+  of that many rows counted forward from the last row, so band one holds the
+  rows nearest the tail, band two the rows in front of those, and the
+  frontmost band may come up short. Each passenger is a pair of a name and a
+  seat, a seat being the row number in plain digits followed by the seat
+  letter, as in "12C". Call the passengers in this order: by band, band one
+  first; inside a band the window seats, then the middle seats, then the
+  aisle seats; inside a class the higher row number first; and inside one
+  row and class by the letters' own left-to-right place in the layout.
+  Return the names in the order called. Raise an error when the layout is
+  not a string, when it does not carry exactly one bar, when either side of
+  the bar is empty, when a seat letter is not a capital letter or is written
+  twice, when rows or the band size is not a whole number of one or more,
+  when the passenger list is not a list, when a passenger is not a pair of a
+  name and a seat, when a name is empty, is not a string, or is shared, when
+  a seat is not digits followed by one letter, when the row falls outside
+  the cabin, when the letter is not in the layout, and when two passengers
+  hold one seat.
+target: solution.ts
+interface: "export function orderBoardingBands(layout: string, rows: number, band: number, passengers: Array<[string, string]>): string[]"
+stop_conditions:
+  - Whether a row number may be written with a leading zero is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

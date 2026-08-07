@@ -1,0 +1,31 @@
+id: p456-read-vault-header
+task_type: function_implementation
+task: >-
+  Implement readVaultHeader. The argument is a list of byte values, whole numbers
+  from 0 through 255, holding one vault file: a header and then the body. The
+  first three bytes are the marker and must be 86, 76 and 84 in that order. The
+  fourth byte is the edition, and this reader knows only edition 1 and edition 2.
+  The fifth and sixth bytes give the declared body size, the fifth being the
+  weightier of the two. The seventh byte is the flag byte, in which the lowest
+  bit means sealed and the next bit means packed; every other bit of it must be
+  clear. Edition 1 stops there, so its header is seven bytes. Edition 2 goes on
+  with four more bytes giving a stamp, weightiest byte first, so its header is
+  eleven bytes. Whatever follows the header is the body, and the number of bytes
+  left over must equal the declared size exactly — no more and no fewer. Give
+  back a record whose version is the edition, whose size is the declared body
+  size, whose sealed and packed report the two flags, and whose stamp is the
+  edition 2 stamp or nought under edition 1. Raise an error when the argument is
+  not a list, when an element is not a whole number from 0 through 255, when the
+  run is too short to hold the marker and the edition, when the marker is wrong,
+  when the edition is one the reader does not know, when the run ends inside the
+  header the edition calls for, when any flag bit beyond the lowest two is
+  raised, and when the bytes left after the header do not match the declared
+  size.
+target: solution.ts
+interface: "export function readVaultHeader(bytes: any): { version: number; size: number; sealed: boolean; packed: boolean; stamp: number }"
+stop_conditions:
+  - Whether a stamp of nought should be read as an absent stamp rather than a real one is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

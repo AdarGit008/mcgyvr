@@ -1,0 +1,38 @@
+id: p468-seat-classroom-pairs
+task_type: function_implementation
+task: >-
+  Implement seatClassroom. The argument is a room, a mapping carrying exactly
+  the five keys rows, cols, pupils, together and apart. rows and cols are whole
+  numbers above nought giving a grid of desks, and the desks are read along a
+  row from the left and then on to the row beneath. pupils is a list of
+  non-empty strings, no two alike, and there are never more of them than there
+  are desks. together and apart are lists of pairings, each pairing a list of
+  exactly two different names the roster holds; no pairing may be listed twice
+  inside one list, and no pairing may sit in both lists. Two desks are
+  neighbours when they share a row and stand in neighbouring columns, or share
+  a column and stand in neighbouring rows. A seating is legal when every pupil
+  has a desk, the two named by each together pairing sit at neighbouring desks,
+  and the two named by each apart pairing do not; desks nobody needs stay
+  empty, and an empty desk neighbours nobody as far as the pairings are
+  concerned. Walk the desks in reading order, at each one trying the unseated
+  pupils in ascending name order and only then leaving that desk empty, and
+  give back the first legal seating that walk reaches: a mapping whose seated
+  reads true and whose grid holds one list per row, each carrying that row's
+  names in column order with an empty string standing for an empty desk. Where
+  no legal seating exists at all, give back seated reading false and a grid
+  holding nothing. Raise an error when the argument is not a mapping or fails
+  to carry exactly those five keys, when rows or cols is not whole or falls
+  below one, when the pupils are not a list, when a pupil is not a non-empty
+  string, when two pupils share a name, when the pupils outnumber the desks,
+  when together or apart is not a list, when a pairing is not a list of exactly
+  two names, when a pairing names somebody the roster does not hold, when a
+  pairing names one pupil twice, when a pairing is listed twice inside one
+  list, and when a pairing appears in both lists.
+target: solution.ts
+interface: "export function seatClassroom(room: Record<string, unknown>): { seated: boolean; grid: string[][] }"
+stop_conditions:
+  - Whether desks touching only at a corner count as neighbours is not stated beyond the rule given.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

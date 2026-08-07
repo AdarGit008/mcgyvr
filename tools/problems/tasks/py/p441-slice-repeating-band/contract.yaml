@@ -1,0 +1,28 @@
+id: p441-slice-repeating-band
+task_type: function_implementation
+task: >-
+  Implement slice_repeating_band. A woven band is made of motifs laid end to
+  end: the motifs argument gives the lengths of the motifs of one run, in
+  order, each a whole number of one or more, and the band repeats that run
+  end to end without limit. The band is cut into strip_count strips, each
+  exactly strip_width long, the first strip opening at the very beginning of
+  the band and every later strip opening where the strip before it closed.
+  Report one mapping per strip, in cutting order, carrying "motif", the
+  number the covering motif holds inside a run counting from 0, the covering
+  motif being the one holding the strip's first unit; "into", how many units
+  of that motif lie behind the strip's opening edge; "joins", how many joins
+  between neighbouring motifs fall strictly inside the strip, a join lying on
+  either edge of the strip counting for nothing; and "runs", how many
+  complete runs of the band lie behind the strip's opening edge. Return the
+  list of those mappings. Raise an error when the motifs are not a list, when
+  the list is empty, when a motif length is not a whole number of one or
+  more, when strip_width is not a whole number from 1 through 1000, and when
+  strip_count is not a whole number from 0 through 500.
+target: solution.py
+interface: "def slice_repeating_band(motifs: list, strip_width: int, strip_count: int) -> list"
+stop_conditions:
+  - Whether the band is also woven backwards from the beginning is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

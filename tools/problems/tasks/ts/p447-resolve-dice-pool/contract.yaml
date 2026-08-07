@@ -1,0 +1,46 @@
+id: p447-resolve-dice-pool
+task_type: bug_fix
+task: >-
+  resolveDicePool works out what a handful of dice is worth once the weakest
+  are set aside, and it botches nearly every part of that. Repair it. Each
+  pool arrives as a mapping with "sides", "dice" and "keep". The rolls are
+  drawn in order: the first pool takes its "dice" rolls from the front of the
+  roll list, the next pool takes its own from whatever follows, and so on.
+  Within a pool the "keep" largest rolls are held and the rest are set aside;
+  where equal rolls compete for the last held place, the one drawn earlier is
+  held. Return a mapping whose "totals" key holds one sum of held rolls per
+  pool in pool order, and whose "dropped" key holds one list per pool of the
+  positions, counted from zero across the whole roll list, of the rolls set
+  aside, in ascending order. Throw an error when the pools are not a list or
+  are empty, when "sides" is not a whole number of at least two, when "dice"
+  is not a whole number of at least one, when "keep" is not a whole number of
+  at least one or is larger than "dice", when a roll is not a whole number
+  from one up to its own pool's "sides", when the rolls run out part way
+  through, and when any roll is left undrawn. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** What each handful of dice is worth once the weakest are set aside. */
+  export function resolveDicePool(
+    pools: Record<string, number>[],
+    rolls: number[],
+  ): Record<string, unknown> {
+    const totals: number[] = [];
+    const dropped: number[][] = [];
+    let at = 0;
+    for (const pool of pools) {
+      const taken = rolls.slice(at, at + pool.dice);
+      at += pool.dice;
+      const order = taken.slice().sort();
+      const kept = order.slice(0, pool.keep);
+      totals.push(kept.reduce((sum, roll) => sum + roll, 0));
+      dropped.push(order.slice(pool.keep).map((roll) => taken.indexOf(roll)));
+    }
+    return { totals, dropped };
+  }
+interface: "export function resolveDicePool(pools: Record<string, number>[], rolls: number[]): Record<string, unknown>"
+stop_conditions:
+  - Whether the pools may be given in any order other than the order their rolls were drawn in is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

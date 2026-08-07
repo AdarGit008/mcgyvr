@@ -1,0 +1,31 @@
+id: p462-earn-loyalty-points
+task_type: function_implementation
+task: >-
+  Implement earn_loyalty_points. A member's card earns points on every till
+  receipt at a rate that follows how much that member has already spent this
+  year. The first argument is the receipts, a list of whole numbers of cents
+  at nought or above, taken in the order they were rung up. The second
+  argument is the ladder, a non-empty list of mappings each carrying exactly
+  the two keys from and per: from is a whole number of cents at nought or
+  above naming the running outlay at which that rung opens, and per is a whole
+  number of points at nought or above handed over for each full thousand cents
+  of a receipt. The rungs arrive with from climbing strictly and the opening
+  rung must sit at nought. A receipt earns wholly at one rung — the last rung
+  whose from is at or below the outlay the member had already rung up before
+  that receipt — so no receipt is ever split between two rungs, and the outlay
+  grows only once the receipt has earned. The award for a receipt is its cents
+  times that rung's per, divided by a thousand with any fraction thrown away.
+  Return one award per receipt, in receipt order. Raise an error when either
+  argument is not a list, when a receipt is not whole or falls below nought,
+  when the ladder is empty, when a rung is not a mapping or fails to carry
+  exactly those two keys, when a from or a per is not whole or falls below
+  nought, when the opening rung does not sit at nought, and when the from
+  values fail to climb strictly.
+target: solution.py
+interface: "def earn_loyalty_points(receipts: list, ladder: list) -> list"
+stop_conditions:
+  - Whether the outlay carried into the first receipt may start above nought is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

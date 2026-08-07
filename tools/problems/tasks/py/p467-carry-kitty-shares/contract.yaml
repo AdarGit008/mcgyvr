@@ -1,0 +1,26 @@
+id: p467-carry-kitty-shares
+task_type: function_implementation
+task: >-
+  Implement carry_kitty_shares. A walking group keeps one kitty for the whole
+  journey and settles it hop by hop, and the group's size changes from hop to
+  hop. The argument is the hops, a non-empty list of mappings in walking order
+  each carrying exactly the two keys cents (a whole number at nought or above,
+  what that hop came to) and heads (a whole number above nought, how many
+  walked it). The kitty opens empty. At each hop its cents go into the kitty,
+  then every head that walked that hop is billed the whole part of the kitty
+  divided by the number of heads, and whatever the kitty cannot break up
+  evenly stays in it and rides on to the hop that follows — it is never
+  rounded away and never billed twice. Return a mapping whose each lists what
+  one head was billed at each hop, in walking order, and whose left is what the
+  kitty still holds once the last hop has been settled. Raise an error when the
+  argument is not a list, when it is empty, when a hop is not a mapping or
+  fails to carry exactly those two keys, when a hop's cents are not whole or
+  fall below nought, and when a hop's heads are not whole or fall below one.
+target: solution.py
+interface: "def carry_kitty_shares(hops: list) -> dict"
+stop_conditions:
+  - Whether the same walkers are meant on two hops sharing a head count is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

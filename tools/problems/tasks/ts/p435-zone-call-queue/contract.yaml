@@ -1,0 +1,39 @@
+id: p435-zone-call-queue
+task_type: function_implementation
+task: >-
+  Implement buildZoneQueue. The first argument lists the zone labels in the
+  order the gate calls them: at least one, each a non-empty string, none
+  written twice. The second argument lists the travellers in the order they
+  reached the desk, each a mapping carrying "name" (a non-empty string no
+  other traveller shares), "zone" (one of the called labels), "party" (a
+  string, the empty string meaning the traveller travels alone) and "early"
+  (a boolean marking someone who needs extra time down the jetway). Parties
+  are kept together: everyone sharing one non-empty party string forms a
+  single travelling unit, while a traveller whose party string is empty is a
+  unit of one and is never joined to another. A unit walks when the earliest
+  of its members' zones is called — earliest meaning nearest the front of
+  the calling order — so a party spread across several zones walks with its
+  earliest zone and is not called again afterwards. Before any zone is
+  called the gate pre-boards every unit holding at least one traveller
+  marked early, whatever zone that unit would otherwise have waited for, and
+  the pre-boarded travellers walk as one block in ascending name order. The
+  remaining units are then called zone by zone; inside a zone the units
+  follow the desk order of their earliest-listed member, and inside a unit
+  the travellers follow ascending name order. Return a mapping under
+  "queue", every traveller's name in the order they walk, and "calls", one
+  whole number per zone in calling order giving how many travellers that
+  call sends down the jetway, pre-boarded travellers counting under no zone
+  at all. Raise an error when either argument is not a list, when the zone
+  list is empty, when a zone label is not a non-empty string or is repeated,
+  when a traveller is not a mapping, when a name is missing, is not a
+  string, is empty or is shared, when a party is not a string, when early is
+  not a boolean, and when a traveller's zone is not one of the called
+  labels.
+target: solution.ts
+interface: "export function buildZoneQueue(zones: string[], travellers: Array<Record<string, unknown>>): { queue: string[]; calls: number[] }"
+stop_conditions:
+  - Whether a party string may match a zone label is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

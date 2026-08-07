@@ -1,0 +1,34 @@
+id: p469-audit-seating-chart
+task_type: function_implementation
+task: >-
+  Implement audit_seating_chart. Somebody has already drawn up a chart and the
+  job is to say where it breaks the rules rather than to draw a better one. The
+  first argument is the chart, a non-empty list of bands of equal, non-zero
+  length; every cell holds a string, an empty one standing for a blank place
+  and anything else for the person sitting there, and no name is written twice.
+  The second and third arguments are ties, each a list whose members are lists
+  of exactly two different names the chart carries: the second argument holds
+  the ties that want the two sitting next to one another, the third the ties
+  that want them nowhere near. Two occupied cells sit next to one another when
+  they share a band and stand one column apart, or share a column and stand one
+  band apart; nothing else counts, so cells meeting only at a corner do not.
+  Walk the second argument in the order given and, for each tie whose two are
+  not next to one another, put out the word split, a colon, and the tie's two
+  names joined by a hyphen with the earlier one alphabetically written first;
+  then walk the third argument the same way and, for each tie whose two are
+  next to one another, put out the word touching, a colon and that same joined
+  form. Return those findings in that order, and an empty list when the chart
+  breaks nothing. Raise an error when the chart is not a non-empty list, when a
+  band is not a non-empty list, when the bands differ in length, when a cell is
+  not a string, when a name is written on the chart twice, when either list of
+  ties is not a list, when a tie is not a list of exactly two names, when a tie
+  names something that is not a string, when a tie names somebody the chart
+  does not carry, and when a tie names one person twice.
+target: solution.py
+interface: "def audit_seating_chart(chart: list, glued: list, split: list) -> list"
+stop_conditions:
+  - Whether a name may be written on the chart as whitespace alone is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,30 @@
+id: p442-read-blazon-line
+task_type: function_implementation
+task: >-
+  Implement read_blazon_line for an invented shield notation. A line is one or
+  more clauses joined by a semicolon and one space. The first clause names the
+  field: either a bare tincture on its own, or the word parted, then pale or
+  fess, then a tincture, the word and, and a second tincture that must differ
+  from the first. Every later clause names a charge as exactly three words: a
+  count, a charge word, and a tincture. The counts are a, two, three, four and
+  five, standing for one through five. The charge words are lion, mullet,
+  crescent, rose and bend; a count above one demands that same word with an s
+  added, and a count of one demands the bare word. The tinctures are or,
+  argent, gules, azure, sable, vert and purpure. No charge word may be named
+  twice in one line. Return a mapping whose "field" key holds a mapping with a
+  "cut" key reading plain, pale or fess and a "tinctures" key holding the
+  field tinctures in the order written, and whose "charges" key holds one
+  mapping per charge in order, each carrying a "count" key, a "charge" key
+  holding the bare word, and a "tincture" key. Raise an error for a line that
+  is not a string, an empty line, an empty clause, a first clause of any other
+  shape, a later clause that is not three words, an unknown count, charge word
+  or tincture, a count and a word whose number disagree, a parted field whose
+  two tinctures match, and a charge word named twice.
+target: solution.py
+interface: "def read_blazon_line(line: str) -> dict"
+stop_conditions:
+  - Whether the notation has a form for a charge laid upon another charge is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,111 @@
+id: p463-redeem-point-batches
+task_type: bug_fix
+task: >-
+  redeem_point_batches replays a loyalty account's ledger of points and gets
+  the drawing order wrong. The argument is the events, a list of mappings dealt
+  with in the order given, whose day never steps backwards. An earn event
+  carries exactly the four keys kind (the word earn), day (a whole number at
+  nought or above), points (a whole number above nought) and life (a whole
+  number at nought or above); it opens a batch holding those points, spendable
+  on any day from its own day through day plus life, that last day taken in. A
+  burn event carries exactly the three keys kind (the word burn), day and
+  points. Before an event is dealt with, every batch whose last spendable day
+  falls before that event's day is struck out and whatever it still holds is
+  added to the lapsed count. A burn draws from the live batches, soonest to
+  lapse first and, where two batches lapse on the same day, the one opened
+  earlier first; should the live batches together hold less than the burn asks
+  for, not one point is drawn and that burn records nought. Give back a mapping
+  whose taken lists what each burn actually drew, in burn order, whose lapsed
+  is the total struck out unspent, and whose balance is what the live batches
+  hold once the last event has been dealt with, with no further striking out.
+  The code below draws from batches in the order they were opened rather than
+  by how soon they lapse, and strikes a batch out on its last spendable day
+  instead of the day after. Repair both, keep raising an error for an argument
+  that is not a list, an event that is not a mapping, a kind outside earn and
+  burn, an event whose keys are not the ones its kind calls for, a day that is
+  not whole or steps backwards, points that are not whole or fall below one,
+  and a life that is not whole or falls below nought, and return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  def _whole(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def redeem_point_batches(events: list) -> dict:
+      if not isinstance(events, list):
+          raise ValueError("redeem_point_batches expects a list of events")
+
+      batches = []
+      taken = []
+      lapsed = 0
+      seq = 0
+      clock = 0
+      started = False
+
+      for event in events:
+          if not isinstance(event, dict):
+              raise ValueError("an event is not a mapping")
+          kind = event.get("kind")
+          if kind not in ("earn", "burn"):
+              raise ValueError("an event's kind is outside earn and burn")
+          wanted = (
+              ["day", "kind", "life", "points"]
+              if kind == "earn"
+              else ["day", "kind", "points"]
+          )
+          if sorted(event) != wanted:
+              raise ValueError("an event's keys are not the ones its kind calls for")
+          day = event["day"]
+          if not _whole(day) or day < 0:
+              raise ValueError("a day is not whole or falls below nought")
+          if started and day < clock:
+              raise ValueError("a day steps backwards")
+          clock = day
+          started = True
+          points = event["points"]
+          if not _whole(points) or points < 1:
+              raise ValueError("points are not whole or fall below one")
+
+          alive = []
+          for batch in batches:
+              if batch["last"] <= clock:
+                  lapsed += batch["left"]
+              else:
+                  alive.append(batch)
+          batches = alive
+
+          if kind == "earn":
+              life = event["life"]
+              if not _whole(life) or life < 0:
+                  raise ValueError("a life is not whole or falls below nought")
+              batches.append({"last": clock + life, "seq": seq, "left": points})
+              seq += 1
+              continue
+
+          held = sum(batch["left"] for batch in batches)
+          if held < points:
+              taken.append(0)
+              continue
+          need = points
+          for batch in batches:
+              if need == 0:
+                  break
+              drawn = min(batch["left"], need)
+              batch["left"] -= drawn
+              need -= drawn
+          batches = [batch for batch in batches if batch["left"] > 0]
+          taken.append(points)
+
+      return {
+          "taken": taken,
+          "lapsed": lapsed,
+          "balance": sum(batch["left"] for batch in batches),
+      }
+interface: "def redeem_point_batches(events: list) -> dict"
+stop_conditions:
+  - Whether two events may share one day is not stated beyond days never stepping backwards.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

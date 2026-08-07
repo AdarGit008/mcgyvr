@@ -1,0 +1,40 @@
+id: p443-shield-contrast-audit
+task_type: bug_fix
+task: >-
+  audit_shield_contrast grades how well every figure on a shield stands out
+  from what lies behind it, and gets it wrong. Repair it. Each shield arrives
+  as a mapping with a "label", a "field" holding one or two tincture names,
+  and a "charges" list whose entries each hold a "figure" and a "tincture".
+  Or and argent are metals; gules, azure, sable, vert and purpure are
+  colours. A figure is sound when its tincture appears in neither half of the
+  field and its class, metal or colour, differs from the class of at least
+  one field tincture. Give back one mapping per shield that bears at least
+  one unsound figure, in the order the shields arrive, each carrying that
+  shield's "label" and an "unsound" list naming the offending figures in the
+  order they were borne; a shield whose figures all stand out contributes
+  nothing at all. Throw an error when the shields are not a list, when a
+  label is missing or empty, when two shields share a label, when a field
+  holds neither one nor two tinctures, when any tincture is outside the seven
+  named above, and when one shield bears the same figure twice. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  def audit_shield_contrast(shields: list) -> list:
+      """Which figures fail to stand out from the field behind them."""
+      metals = {"or", "argent"}
+      report = []
+      for shield in shields:
+          unsound = [
+              charge["figure"]
+              for charge in shield["charges"]
+              if (charge["tincture"] in metals) == (shield["field"][0] in metals)
+          ]
+          report.append({"label": shield["label"], "unsound": unsound})
+      return report
+interface: "def audit_shield_contrast(shields: list) -> list"
+stop_conditions:
+  - Whether a shield may bear no figures at all is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

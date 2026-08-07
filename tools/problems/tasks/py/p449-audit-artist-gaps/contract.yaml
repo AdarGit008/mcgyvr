@@ -1,0 +1,36 @@
+id: p449-audit-artist-gaps
+task_type: bug_fix
+task: >-
+  audit_artist_gaps reports where a play order crowds one artist too closely,
+  and its arithmetic is off. Repair it. The playlist arrives as the artist
+  name of each track in the order played, and the spacing says how many other
+  tracks must sit between one play of an artist and that same artist's very
+  next play. Compare only appearances that follow one another for the same
+  artist, never a pair with a further appearance of that artist standing
+  between them. A pair breaks the rule when fewer than the spacing tracks
+  actually sit between the two. Return one mapping per broken pair, each with
+  an "artist" key, an "at" key giving the position of the later of the two
+  counted from zero, and a "between" key giving how many tracks really do sit
+  between them; order the report by "at" ascending. Throw an error when the
+  playlist is not a list or is empty, when an entry is not a string of at
+  least one character, and when the spacing is not a whole number of zero or
+  more. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def audit_artist_gaps(playlist: list, spacing: int) -> list:
+      """Where a play order crowds one artist too closely."""
+      report = []
+      last_seen = {}
+      for at, artist in enumerate(playlist):
+          before = last_seen.get(artist)
+          if before is not None and at - before < spacing:
+              report.append({"artist": artist, "at": at, "between": at - before})
+          last_seen[artist] = at
+      return report
+interface: "def audit_artist_gaps(playlist: list, spacing: int) -> list"
+stop_conditions:
+  - Whether a spacing wider than the playlist itself is worth reporting on at all is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

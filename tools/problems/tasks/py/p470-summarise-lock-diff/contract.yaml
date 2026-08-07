@@ -1,0 +1,80 @@
+id: p470-summarise-lock-diff
+task_type: bug_fix
+task: >-
+  summarise_lock_diff sets two lock records side by side and reports the wrong
+  direction of travel. Each argument is a mapping from a package name, a
+  non-empty string, to the release pinned for it: one or more groups of digits
+  split by full stops, no group carrying a leading nought unless the group is a
+  lone nought. Releases rank group by group as numbers, the shorter of the two
+  padded out with noughts on the right, so 1.10 outranks 1.9 and 1.2 names the
+  very same release as 1.2.0. A package the second record pins and the first
+  does not is added; one the first pins and the second does not is dropped; one
+  both pin, with the second record's release outranking the first's, is lifted,
+  and one where it is outranked is lowered. A package pinned to the same
+  release under both records goes into none of the four. Give back a mapping
+  whose added, dropped, lifted and lowered each hold their package names in
+  ascending order. The code below ranks the releases as plain text, so 1.9 is
+  read as outranking 1.10 and a package merely rewritten from 1.2 to 1.2.0 is
+  reported as having moved, and it puts each list out in whatever order the
+  mappings happen to hold their names rather than in ascending order. Repair
+  both, keep raising an error for an argument that is not a mapping, a package
+  name that is not a non-empty string, and a release that is not a string or is
+  not written in the stated shape, and return the complete fixed file.
+target: solution.py
+target_content: |
+  import re
+
+  SHAPE = re.compile(r"(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*")
+
+
+  def _check(name, raw):
+      if not isinstance(raw, str) or SHAPE.fullmatch(raw) is None:
+          raise ValueError("a release is not written in the stated shape: " + str(name))
+      return raw
+
+
+  def _read(book):
+      if not isinstance(book, dict):
+          raise ValueError("a lock record is not a mapping")
+      held = {}
+      for name, raw in book.items():
+          if not isinstance(name, str) or not name:
+              raise ValueError("a package name is not a non-empty string")
+          held[name] = _check(name, raw)
+      return held
+
+
+  def summarise_lock_diff(before: dict, after: dict) -> dict:
+      was = _read(before)
+      now = _read(after)
+      added = []
+      dropped = []
+      lifted = []
+      lowered = []
+
+      for name in now:
+          if name not in was:
+              added.append(name)
+      for name in was:
+          if name not in now:
+              dropped.append(name)
+              continue
+          if was[name] == now[name]:
+              continue
+          if was[name] < now[name]:
+              lifted.append(name)
+          else:
+              lowered.append(name)
+      return {
+          "added": added,
+          "dropped": dropped,
+          "lifted": lifted,
+          "lowered": lowered,
+      }
+interface: "def summarise_lock_diff(before: dict, after: dict) -> dict"
+stop_conditions:
+  - Whether a release may carry more than three groups of digits is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

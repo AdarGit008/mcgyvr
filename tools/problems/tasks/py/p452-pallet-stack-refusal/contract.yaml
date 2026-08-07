@@ -1,0 +1,37 @@
+id: p452-pallet-stack-refusal
+task_type: function_implementation
+task: >-
+  Implement stack_pallet. It builds one column of cartons on a pallet and says
+  where the column stopped. Each carton is a record with name (a non-empty
+  string, no two cartons answering to the same one), mass, high and wide (whole
+  numbers above nought), bears (a whole number of nought or more, the greatest
+  mass the carton will carry above itself) and top (true when the carton is
+  flagged as the last thing the column may hold). The limits record carries deck
+  and roof, both whole numbers above nought, for what the pallet is rated to
+  hold and how tall the column may grow before the doorway bites. Take the
+  cartons in the order given and try to lay each one on the growing column. A
+  carton is refused for the first of these that holds, in this order: capped,
+  when the carton now uppermost is flagged top; overhang, when the carton is
+  wider than the carton now uppermost; crush, when laying it would leave some
+  carton already in the column carrying more mass above itself than its bears
+  allows; deck, when the column's mass with it aboard would pass the deck
+  rating; roof, when the column's height with it aboard would pass the roof
+  rating. Sitting exactly on a rating is fine. The first refusal ends the build,
+  and the cartons behind it are never tried. Give back a record whose stacked
+  lists the carton names from the pallet upward, whose refused names the carton
+  that ended the build or is an empty string when none did, whose reason carries
+  that carton's word from the five above or an empty string, and whose mass and
+  high are the totals the column actually reached. Raise an error when items is
+  not a list, when limits is not a record, when deck or roof is missing or is not
+  a whole number above nought, when an item is not a record, when a name is empty
+  or not a string, when two cartons answer to one name, when mass, high or wide
+  is not a whole number above nought, when bears is not a whole number of nought
+  or more, and when top is not a boolean.
+target: solution.py
+interface: "def stack_pallet(items: list, limits: dict) -> dict"
+stop_conditions:
+  - Whether the pallet itself imposes a width on the carton laid directly upon it is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

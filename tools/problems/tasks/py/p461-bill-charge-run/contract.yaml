@@ -1,0 +1,60 @@
+id: p461-bill-charge-run
+task_type: bug_fix
+task: >-
+  bill_charge_run runs an electric meter across a tariff strip and totals the
+  bill. The prices argument is the strip: one whole number of nought or more per
+  slot, the pence a single unit costs while that slot lasts, and a slot's place in
+  the list is its number counting from nought. The draw argument is how many units
+  the meter pulls in one whole slot, a whole number above nought, and target is
+  how many units are wanted altogether, a whole number of nought or more. Pick
+  slots from the cheapest price upward, and where two slots cost the same take the
+  one with the smaller number first. In each slot picked, pull either a whole draw
+  or only what is still wanted, whichever is the smaller, and stop as soon as the
+  wanted amount has been reached. Give back a record whose slots lists the numbers
+  of the slots the meter ran in, smallest number first, whose units is how much
+  was pulled in all, whose bill is each slot's units times that slot's price added
+  up, and whose short is how much of the target the strip could not supply. The
+  code below pulls a whole draw in every slot it picks, even the last one, so a
+  target that does not divide by the draw is over-pulled and over-billed. Repair
+  that, keep raising an error when prices is not a list, when a price is not a
+  whole number of nought or more, when draw is not a whole number above nought,
+  and when target is not a whole number of nought or more, and return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  def _whole(value) -> bool:
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def bill_charge_run(prices: list, draw: int, target: int) -> dict:
+      if not isinstance(prices, list):
+          raise ValueError("prices must be a list")
+      for price in prices:
+          if not _whole(price) or price < 0:
+              raise ValueError("every price must be a whole number of nought or more")
+      if not _whole(draw) or draw < 1:
+          raise ValueError("draw must be a whole number above nought")
+      if not _whole(target) or target < 0:
+          raise ValueError("target must be a whole number of nought or more")
+
+      order = sorted(range(len(prices)), key=lambda slot: (prices[slot], slot))
+
+      taken: dict[int, int] = {}
+      owed = target
+      bill = 0
+      for slot in order:
+          if owed == 0:
+              break
+          units = draw
+          taken[slot] = units
+          bill += units * prices[slot]
+          owed = max(0, owed - units)
+
+      return {"slots": sorted(taken), "units": target - owed, "bill": bill, "short": owed}
+interface: "def bill_charge_run(prices: list, draw: int, target: int) -> dict"
+stop_conditions:
+  - Whether the meter may be stopped part way through a slot and restarted later in it is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]
