@@ -1,0 +1,37 @@
+id: p137-fit-chargers
+task_type: bug_fix
+task: >-
+  fitChargers hands out bench chargers to devices, and the current code
+  double-books them and trips on the safe limits. Fix it: each charger is a
+  record with plug (a string) and low and high (integers, the inclusive
+  range of current draw it can safely supply); each device is a record with
+  plug (a string) and draw (an integer). Work through the devices in the
+  order given. A device receives the lowest-index charger not yet handed
+  out whose plug matches the device's exactly and whose range contains the
+  device's draw, both boundaries included. Every charger serves at most one
+  device for good. Return a list with one entry per device: the index of
+  the charger it received, or -1 when nothing on the bench fits.
+target: solution.ts
+target_content: |
+  export function fitChargers(chargers: Array<{ plug: string; low: number; high: number }>, devices: Array<{ plug: string; draw: number }>): number[] {
+    const handed: number[] = [];
+    for (const device of devices) {
+      let pick = -1;
+      for (let i = 0; i < chargers.length; i++) {
+        const charger = chargers[i];
+        if (charger.low < device.draw && device.draw < charger.high) {
+          pick = i;
+          break;
+        }
+      }
+      handed.push(pick);
+    }
+    return handed;
+  }
+interface: "export function fitChargers(chargers: Array<{ plug: string; low: number; high: number }>, devices: Array<{ plug: string; draw: number }>): number[]"
+stop_conditions:
+  - Whether plug strings are case-sensitive is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

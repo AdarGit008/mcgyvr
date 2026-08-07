@@ -1,0 +1,28 @@
+id: p155-run-tag-expand
+task_type: function_implementation
+task: >-
+  Implement expandRunTag. The pattern uses an invented notation that is
+  this problem's own — it is not shell brace expansion and not globbing.
+  A pattern holds exactly one square-bracketed group; whatever precedes
+  the opening bracket is the stem and whatever follows the closing
+  bracket is the tail, both taken verbatim. When the group body has the
+  shape number-number, optionally followed by /number, it is a run: it
+  stands for the whole numbers from the first up through the second,
+  counting by the step written after the slash (1 when there is no
+  slash) and never passing the second number; the first number must not
+  exceed the second, the step must not be zero, and values are written
+  without padding. Any other body is a listing of one or more
+  comma-separated items, each of which must be non-empty. The whole
+  pattern stands for stem+item+tail for every item the group stands for.
+  Return the distinct results sorted ascending. Raise an error for a
+  non-string argument, a pattern with no group, an unclosed bracket, a
+  second opening or closing bracket anywhere, a closing bracket before
+  the opening one, an empty body, and an empty comma item.
+target: solution.ts
+interface: "export function expandRunTag(pattern: string): string[]"
+stop_conditions:
+  - Whether an items listing may itself contain digits shaped almost like a run is decided by the run shape test alone; nothing further is stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

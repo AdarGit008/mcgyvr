@@ -1,0 +1,32 @@
+id: p123-digraph-fold
+task_type: bug_fix
+task: >-
+  Fix fold_digraphs. The function folds a text through a table of
+  [pattern, output] pairs in a single left-to-right sweep: at each
+  position of the original text, every pattern that occurs verbatim
+  starting there competes, the widest one wins, and a width tie goes to
+  the pair listed earlier in the table; the winner's output is emitted
+  and the sweep resumes just past the matched span. Positions no pattern
+  claims emit their character untouched. Emitted output is final —
+  nothing ever matches against it. The current code instead walks the
+  table and globally substitutes each pattern over the whole working
+  string in turn, so one pair's output feeds the next pair's matches and
+  an early narrow pattern steals spans a wider one should own. Rework it
+  into the single-sweep discipline. Keep raising an error for a pair
+  whose pattern is empty, and return the complete fixed file.
+target: solution.py
+target_content: |
+  def fold_digraphs(text: str, table: list[list[str]]) -> str:
+      folded = text
+      for pattern, output in table:
+          if pattern == "":
+              raise ValueError("empty pattern")
+          folded = folded.replace(pattern, output)
+      return folded
+interface: "def fold_digraphs(text: str, table: list[list[str]]) -> str"
+stop_conditions:
+  - Nothing is stated about non-string entries in the table.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

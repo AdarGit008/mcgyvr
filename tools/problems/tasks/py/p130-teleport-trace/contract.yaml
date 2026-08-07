@@ -1,0 +1,22 @@
+id: p130-teleport-trace
+task_type: function_implementation
+task: >-
+  Implement trace_teleports. A hall of numbered pads is wired so that pad
+  i flings whoever stands on it to pad pads[i], every pad having exactly
+  one destination. Stepping onto the start pad and riding the wiring
+  forever must eventually revisit some pad, after which the journey
+  circles the same pads endlessly. Report three numbers as a list: how
+  many rides happen before first arriving at a pad of that endless
+  circuit, how many distinct pads the circuit itself contains, and the
+  index of the first circuit pad the journey reaches. A start pad
+  already on the circuit reports zero rides and itself. Reject an empty
+  hall, a destination outside the hall, and a start index outside the
+  hall with an error.
+target: solution.py
+interface: "def trace_teleports(pads: list[int], start: int) -> list[int]"
+stop_conditions:
+  - Nothing is stated about non-integer entries.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

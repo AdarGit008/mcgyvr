@@ -1,0 +1,23 @@
+id: p159-rank-with-policy
+task_type: function_implementation
+task: >-
+  Implement rankWithPolicy. Given a list of integer scores, a tie policy
+  and a direction, produce every score's rank, reported at the score's
+  original index. Direction "asc" treats smaller as better and "desc"
+  treats larger as better. Policy "dense" gives tied scores one shared
+  rank and the next distinct score the very next rank. Policy "gapped"
+  gives a tied group the rank one more than the count of strictly better
+  scores, so the group's width opens a gap right after it. Policy "entry"
+  grants every score its own rank by breaking ties in favour of the score
+  appearing earlier in the input, so the ranks are exactly 1 through n
+  with none repeated. Raise an error for an empty list, a score that is
+  not an integer, a policy word outside the three, and a direction word
+  outside the two.
+target: solution.ts
+interface: "export function rankWithPolicy(scores: number[], policy: string, direction: string): number[]"
+stop_conditions:
+  - Which argument's validation failure is reported first when several are invalid is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

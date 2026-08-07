@@ -1,0 +1,21 @@
+id: p128-sketch-bars
+task_type: function_implementation
+task: >-
+  Implement sketch_bars. Given a list of non-negative integer values and
+  a positive cell budget, draw one horizontal bar per value. The largest
+  value fills its whole budget of cells; any other value v fills
+  round(v * budget / largest) cells, rounding halves upward, except that
+  a nonzero value always fills at least one cell. A bar is its filled
+  cells as "#" followed by "." padding out to exactly the budget, so
+  every line has the same length. When every value is zero there is
+  nothing to scale against and every line is all dots. Return the lines
+  as a list, one per value, in input order. Reject an empty value list,
+  a negative value, and a budget below one with an error.
+target: solution.py
+interface: "def sketch_bars(readings: list[int], budget: int) -> list[str]"
+stop_conditions:
+  - Nothing is stated about fractional values.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

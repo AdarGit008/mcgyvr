@@ -1,0 +1,22 @@
+id: p135-jar-balances
+task_type: function_implementation
+task: >-
+  Implement jarBalances. A savings jar starts empty and is replayed one
+  month at a time. Each month the jar first receives topup, then pays that
+  month's outflow, and finally spills: whatever exceeds lid drains away, so
+  at most lid remains for the following month. The third argument lists the
+  outflows, one non-negative integer per month, and both topup and lid are
+  non-negative integers. This jar can never owe anything, so a month whose
+  outflow is more than the jar holds after the topup is an error. Return the
+  jar's contents at the close of every month, one integer per outflow, in
+  month order; an empty outflow list returns an empty list. Reject with an
+  error a topup, lid or outflow that is not a non-negative integer, and an
+  outflows argument that is not a list.
+target: solution.ts
+interface: "export function jarBalances(topup: number, lid: number, outflows: number[]): number[]"
+stop_conditions:
+  - Whether a lid of zero is a realistic configuration is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

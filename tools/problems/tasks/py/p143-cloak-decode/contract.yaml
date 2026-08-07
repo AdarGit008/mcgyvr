@@ -1,0 +1,48 @@
+id: p143-cloak-decode
+task_type: bug_fix
+task: >-
+  cloak_decode turns cloaked text back into plain text but currently
+  applies the cloak a second time instead of lifting it. The cloak row is
+  drawn from a keyword: keep each keyword letter's first appearance, then
+  continue with the rest of a-z in normal order; the row's letter at
+  position i stands in for the plain letter at position i (a is 0), and
+  spaces stay as they are. Decoding must locate each cloaked letter's
+  position in the row and emit the ordinary letter of that position — the
+  code instead looks the letter up as if it were plain and swaps it
+  forward, so with keyword "orbit" (row o, r, b, i, t, a, c, ...) the
+  cloaked text "roi" must decode to "bad" yet the code produces "ple".
+  Fix the mapping direction and keep the validation as it is: the keyword
+  must be a non-empty string of lowercase a-z and the text a string of
+  lowercase a-z and spaces, anything else rejected with an error. Return
+  the complete fixed file.
+target: solution.py
+target_content: |
+  import string
+
+
+  def cloak_decode(keyword: str, text: str) -> str:
+      if not isinstance(keyword, str) or not keyword:
+          raise ValueError("keyword must be a non-empty string")
+      if any(ch not in string.ascii_lowercase for ch in keyword):
+          raise ValueError("keyword must be lowercase a-z only")
+      if not isinstance(text, str):
+          raise ValueError("text must be a string")
+      if any(ch != " " and ch not in string.ascii_lowercase for ch in text):
+          raise ValueError("text must be lowercase a-z and spaces only")
+      cloak = []
+      for ch in keyword:
+          if ch not in cloak:
+              cloak.append(ch)
+      for ch in string.ascii_lowercase:
+          if ch not in cloak:
+              cloak.append(ch)
+      return "".join(
+          ch if ch == " " else cloak[ord(ch) - ord("a")] for ch in text
+      )
+interface: "def cloak_decode(keyword: str, text: str) -> str"
+stop_conditions:
+  - How text outside lowercase a-z and spaces would ever arrive is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

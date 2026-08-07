@@ -1,0 +1,30 @@
+id: p153-buffered-line-run
+task_type: function_implementation
+task: >-
+  Implement run_buffered_line. A factory line has processing stations in
+  series with a holding buffer between each adjacent pair, so a line of n
+  stations has n-1 buffers, all starting empty. The first argument lists
+  each station's per-tick piece limit, the second lists each buffer's
+  size, and the third is how many whole ticks to simulate. The first
+  station draws from an unlimited stock of raw pieces and the last drops
+  finished pieces into an unlimited outbound bin. Within one tick the
+  stations act one at a time from the LAST station back to the FIRST:
+  when a station acts it moves as many pieces as it can, capped by its
+  per-tick limit, by what its inbound buffer holds at that moment, and by
+  the free room left in its outbound buffer at that moment — downstream
+  neighbours have already acted this tick, so the room they freed is
+  usable, while a full downstream buffer blocks the mover. Return a
+  mapping with keys "made" (pieces the last station finished across all
+  ticks) and "left" (each buffer's final content, first buffer first).
+  Throw an error when the station list is empty, when the buffer list
+  does not have exactly one entry fewer than the station list, when any
+  per-tick limit or buffer size is not a positive integer, or when the
+  tick count is not a non-negative integer.
+target: solution.py
+interface: "def run_buffered_line(capacities: list, buffers: list, ticks: int) -> dict"
+stop_conditions:
+  - Whether the simulation should short-circuit once every buffer reaches a repeating state is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

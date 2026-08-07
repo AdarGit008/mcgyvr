@@ -1,0 +1,27 @@
+id: p132-siren-minutes
+task_type: function_implementation
+task: >-
+  Implement sirenMinutes. A control room plays at most one siren per channel:
+  among the alerts currently active on a channel, only the one with the
+  highest severity sounds, and when severities tie the one raised earliest
+  keeps sounding. The first argument is a list of events whose integer at
+  fields strictly increase, each event either {at, kind: "raise", id,
+  channel, severity} or {at, kind: "clear", id}, where id and channel are
+  non-empty strings and severity is an integer from 1 to 5. The second
+  argument, horizon, is the integer moment accounting stops. Replay the
+  events, charging the span between consecutive moments to whichever alert
+  sounds on each channel, and return one [id, total sounding time] pair per
+  id ever raised — an alert suppressed throughout gets 0 — sorted by id
+  ascending. A cleared id may be raised again later and its time keeps
+  accumulating. Raise an error for a raise of an id already active, a clear
+  of an id not active, event times that fail to strictly increase or exceed
+  the horizon, a kind other than the two, a malformed id, channel or
+  severity, and a non-integer horizon.
+target: solution.ts
+interface: "export function sirenMinutes(events: Array<Record<string, unknown>>, horizon: number): Array<[string, number]>"
+stop_conditions:
+  - Whether a negative horizon with no events is meaningful is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

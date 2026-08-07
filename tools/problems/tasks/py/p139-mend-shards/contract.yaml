@@ -1,0 +1,36 @@
+id: p139-mend-shards
+task_type: bug_fix
+task: >-
+  mend_shards rebuilds a record from damaged copies, and the current code
+  miscounts in three separate ways. Fix it: the input is a list of copies,
+  all the same length; a slot holds a non-negative integer, or the
+  language's null value where that copy is corrupted. For each position the
+  winning value is the one held by the most copies, counting uncorrupted
+  slots only — corruption is never a candidate and must never outvote a
+  real value. On a count tie, the winner is the tied value held by the
+  earliest copy in the list. A position corrupted in every copy becomes -1
+  in the output. Return the mended array. Raise an error when the list of
+  copies is empty, when copies differ in length, and when a slot is neither
+  a non-negative integer nor the null value.
+target: solution.py
+target_content: |
+  def mend_shards(copies):
+      mended = []
+      for position in range(len(copies[0])):
+          counts = {}
+          for copy in copies:
+              value = copy[position]
+              counts[value] = counts.get(value, 0) + 1
+          best = max(
+              counts,
+              key=lambda value: (counts[value], -1 if value is None else value),
+          )
+          mended.append(-1 if best is None else best)
+      return mended
+interface: "def mend_shards(copies: list) -> list"
+stop_conditions:
+  - How ties among more than two values interact with copy order is stated only by the earliest-copy rule.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

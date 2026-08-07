@@ -1,0 +1,33 @@
+id: p156-loan-desk-replay
+task_type: function_implementation
+task: >-
+  Implement replay_loan_desk. It replays a day at a lending desk. The first
+  argument maps each title to its copy count, the second is the
+  per-member loan cap, and the third is the event list, each event a
+  triple [action, member, title] with action borrow, return, renew or
+  hold. Answer every event in order with "ok" or "no:<reason>", using the
+  first reason that applies in the order given below, and return the list
+  of answers. For borrow: unknown-title when the title is not in stock;
+  already-out when the member currently has that title; member-cap when
+  the member's open loans already reach the cap; none-left when no copy
+  is free; queued-ahead when the title's hold queue is non-empty and the
+  member is not at its head; otherwise the loan opens, and a member who
+  was the queue's head leaves the queue. For return: unknown-title;
+  not-out when the member has no open loan of the title; otherwise the
+  copy comes back. For renew: unknown-title; not-out; on-hold when the
+  title's hold queue is non-empty; renew-cap when that loan has already
+  been renewed twice; otherwise the renewal counts, and a fresh borrow
+  always starts back at zero renewals. For hold: unknown-title; own-loan
+  when the member has the title out; in-queue when the member is already
+  queued for it; take-it when a copy is free; otherwise the member joins
+  the tail of the queue. Throw an error for an action outside the four,
+  an event that is not a triple, a copy count that is not a positive
+  integer, or a cap that is not a positive integer.
+target: solution.py
+interface: "def replay_loan_desk(stock: dict, cap: int, events: list) -> list"
+stop_conditions:
+  - Whether a member name is ever validated beyond being used as a key is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

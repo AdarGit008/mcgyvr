@@ -1,0 +1,47 @@
+id: p127-switch-reader
+task_type: bug_fix
+task: >-
+  Fix readSwitches. The first argument classifies long option names:
+  each maps to either switch or value. Walking the token list, "--name"
+  where name is a switch records true for it; where name is a value
+  option, the very next token is recorded as its text; and the inline
+  form "--name=text" records everything after the first "=", so later
+  "=" signs belong to the text. A name the classification does not know
+  must raise an error, as must a value option standing last with
+  nothing following it, and a switch handed an inline "=" form. When
+  the same name is recorded twice the later recording stands. Tokens
+  that do not begin with "--" pass through untouched, in order, under
+  the key extra; recorded options sit under the key found. The current
+  code silently invents entries for unknown names, chops recorded text
+  at every "=", accepts a dangling value option, and lets a switch
+  swallow an inline form. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function readSwitches(
+    kinds: Record<string, string>,
+    tokens: string[],
+  ): { found: Record<string, boolean | string>; extra: string[] } {
+    const found: Record<string, boolean | string> = {};
+    const extra: string[] = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      if (token.startsWith("--")) {
+        const [name, value] = token.slice(2).split("=");
+        if (kinds[name] === "value") {
+          found[name] = value !== undefined ? value : tokens[++i];
+        } else {
+          found[name] = true;
+        }
+      } else {
+        extra.push(token);
+      }
+    }
+    return { found, extra };
+  }
+interface: "export function readSwitches(kinds: Record<string, string>, tokens: string[]): { found: Record<string, boolean | string>; extra: string[] }"
+stop_conditions:
+  - What a bare "--" token means is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

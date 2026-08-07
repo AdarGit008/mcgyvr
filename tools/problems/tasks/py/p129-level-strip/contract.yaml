@@ -1,0 +1,34 @@
+id: p129-level-strip
+task_type: bug_fix
+task: >-
+  Fix level_strip. Each integer reading becomes one character of a ramp
+  string whose characters run dimmest to brightest. With n ramp
+  characters and a span from low to high, the lawful index is
+  floor((reading - low) * n / (high - low)), clamped into 0..n-1, so
+  readings under low print the dimmest character and readings at or
+  beyond high print the brightest. The current code scales by n - 1,
+  rounds to nearest instead of flooring, and never clamps, so
+  out-of-span readings reach past the ramp entirely and in-span readings
+  light the wrong character near band edges. Keep rejecting a ramp with
+  no characters and a span whose high end does not exceed its low end
+  with an error. One character per reading, concatenated in reading
+  order — return the complete fixed file.
+target: solution.py
+target_content: |
+  def level_strip(readings: list[int], low: int, high: int, ramp: str) -> str:
+      if len(ramp) == 0:
+          raise ValueError("empty ramp")
+      if high <= low:
+          raise ValueError("span must rise")
+      out = []
+      for r in readings:
+          index = round((r - low) * (len(ramp) - 1) / (high - low))
+          out.append(ramp[index])
+      return "".join(out)
+interface: "def level_strip(readings: list[int], low: int, high: int, ramp: str) -> str"
+stop_conditions:
+  - Behavior for a ramp containing repeated characters is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

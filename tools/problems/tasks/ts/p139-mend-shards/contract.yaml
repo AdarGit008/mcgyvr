@@ -1,0 +1,45 @@
+id: p139-mend-shards
+task_type: bug_fix
+task: >-
+  mendShards rebuilds a record from damaged copies, and the current code
+  miscounts in three separate ways. Fix it: the input is a list of copies,
+  all the same length; a slot holds a non-negative integer, or the
+  language's null value where that copy is corrupted. For each position the
+  winning value is the one held by the most copies, counting uncorrupted
+  slots only — corruption is never a candidate and must never outvote a
+  real value. On a count tie, the winner is the tied value held by the
+  earliest copy in the list. A position corrupted in every copy becomes -1
+  in the output. Return the mended array. Raise an error when the list of
+  copies is empty, when copies differ in length, and when a slot is neither
+  a non-negative integer nor the null value.
+target: solution.ts
+target_content: |
+  export function mendShards(copies: Array<Array<number | null>>): number[] {
+    const mended: number[] = [];
+    for (let position = 0; position < copies[0].length; position++) {
+      const counts = new Map<number | null, number>();
+      for (const copy of copies) {
+        const value = copy[position];
+        counts.set(value, (counts.get(value) ?? 0) + 1);
+      }
+      let best: number | null = null;
+      let bestCount = 0;
+      for (const [value, count] of counts) {
+        const rank = value === null ? -1 : value;
+        const bestRank = best === null ? -1 : best;
+        if (count > bestCount || (count === bestCount && rank > bestRank)) {
+          best = value;
+          bestCount = count;
+        }
+      }
+      mended.push(best === null ? -1 : best);
+    }
+    return mended;
+  }
+interface: "export function mendShards(copies: Array<Array<number | null>>): number[]"
+stop_conditions:
+  - How ties among more than two values interact with copy order is stated only by the earliest-copy rule.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

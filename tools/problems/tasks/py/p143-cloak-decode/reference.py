@@ -1,0 +1,23 @@
+import string
+
+
+def cloak_decode(keyword: str, text: str) -> str:
+    if not isinstance(keyword, str) or not keyword:
+        raise ValueError("keyword must be a non-empty string")
+    if any(ch not in string.ascii_lowercase for ch in keyword):
+        raise ValueError("keyword must be lowercase a-z only")
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+    if any(ch != " " and ch not in string.ascii_lowercase for ch in text):
+        raise ValueError("text must be lowercase a-z and spaces only")
+    cloak = []
+    for ch in keyword:
+        if ch not in cloak:
+            cloak.append(ch)
+    for ch in string.ascii_lowercase:
+        if ch not in cloak:
+            cloak.append(ch)
+    return "".join(
+        ch if ch == " " else string.ascii_lowercase[cloak.index(ch)]
+        for ch in text
+    )

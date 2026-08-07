@@ -1,0 +1,51 @@
+id: p143-cloak-decode
+task_type: bug_fix
+task: >-
+  cloakDecode turns cloaked text back into plain text but currently
+  applies the cloak a second time instead of lifting it. The cloak row is
+  drawn from a keyword: keep each keyword letter's first appearance, then
+  continue with the rest of a-z in normal order; the row's letter at
+  position i stands in for the plain letter at position i (a is 0), and
+  spaces stay as they are. Decoding must locate each cloaked letter's
+  position in the row and emit the ordinary letter of that position — the
+  code instead looks the letter up as if it were plain and swaps it
+  forward, so with keyword "orbit" (row o, r, b, i, t, a, c, ...) the
+  cloaked text "roi" must decode to "bad" yet the code produces "ple".
+  Fix the mapping direction and keep the validation as it is: the keyword
+  must be a non-empty string of lowercase a-z and the text a string of
+  lowercase a-z and spaces, anything else rejected with an error. Return
+  the complete fixed file.
+target: solution.ts
+target_content: |
+  export function cloakDecode(keyword: string, text: string): string {
+    if (typeof keyword !== "string" || keyword.length === 0) {
+      throw new Error("keyword must be a non-empty string");
+    }
+    if (!/^[a-z]+$/.test(keyword)) {
+      throw new Error("keyword must be lowercase a-z only");
+    }
+    if (typeof text !== "string") {
+      throw new Error("text must be a string");
+    }
+    if (!/^[a-z ]*$/.test(text)) {
+      throw new Error("text must be lowercase a-z and spaces only");
+    }
+    const cloak: string[] = [];
+    for (const ch of keyword + "abcdefghijklmnopqrstuvwxyz") {
+      if (!cloak.includes(ch)) {
+        cloak.push(ch);
+      }
+    }
+    let plain = "";
+    for (const ch of text) {
+      plain += ch === " " ? " " : cloak[ch.charCodeAt(0) - 97];
+    }
+    return plain;
+  }
+interface: "export function cloakDecode(keyword: string, text: string): string"
+stop_conditions:
+  - How text outside lowercase a-z and spaces would ever arrive is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]
