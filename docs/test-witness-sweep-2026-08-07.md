@@ -89,10 +89,11 @@ serial — the exact failure #200 measured at 2 in ~14 runs.
 with a rendezvous:
 
 ```python
-barrier = threading.Barrier(6, timeout=30)   # a deadlock guard, not a measurement
+barrier = threading.Barrier(6, timeout=30)  # a deadlock guard, not a measurement
+
 
 def rendezvous(target: Endpoint, _timeout: float) -> Verdict:
-    barrier.wait()          # trips only when all six are genuinely in flight
+    barrier.wait()  # trips only when all six are genuinely in flight
     return dead(target, _timeout)
 ```
 
