@@ -1,0 +1,35 @@
+id: p089-quarter-spin
+task_type: bug_fix
+task: >-
+  quarterSpin turns a grid of integers clockwise by quarter turns, and the
+  current code survives only square grids. Fix it: given a list of
+  equal-length rows and a non-negative integer turns, return the grid after
+  turns clockwise quarter turns. Four turns restore any grid, so only
+  turns modulo 4 can matter, and a rectangular grid must come back with
+  its width and height exchanged after an odd number of turns. The
+  argument grid must be left exactly as it was.
+target: solution.ts
+target_content: |
+  export function quarterSpin(grid: number[][], turns: number): number[][] {
+    for (let t = 0; t < turns; t++) {
+      const n = grid.length;
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const keep = grid[i][j];
+          grid[i][j] = grid[j][i];
+          grid[j][i] = keep;
+        }
+      }
+      for (const row of grid) {
+        row.reverse();
+      }
+    }
+    return grid;
+  }
+interface: "export function quarterSpin(grid: number[][], turns: number): number[][]"
+stop_conditions:
+  - An upper bound on turns is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

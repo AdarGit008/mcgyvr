@@ -1,0 +1,20 @@
+import assert from "node:assert/strict";
+import { pickBuild } from "./solution.ts";
+
+assert.equal(pickBuild("3:9", [1, 4, 8, 12]), 8, "largest offer inside the clause");
+assert.equal(pickBuild("3:9^8", [1, 4, 8, 12]), 4, "a carve-out shuts one build out");
+assert.equal(pickBuild(":5,10:", [6, 7]), -1, "offers falling between clauses lose");
+assert.equal(pickBuild(":", [0]), 0, "the everything clause admits build 0");
+assert.equal(pickBuild("10:^12", [12]), -1, "a carve-out works in an open-ended clause");
+assert.equal(pickBuild("0:5^4,4:9", [4]), 4, "a build carved from one clause may enter by another");
+assert.equal(pickBuild("2:3", [], ), -1, "no offers, no pick");
+assert.equal(pickBuild(":4,20:30", [25, 3, 19]), 25, "the winner may come from any clause");
+assert.throws(() => pickBuild("9:3", [1]), Error, "ends out of order are rejected");
+assert.throws(() => pickBuild("3:9^20", [1]), Error, "an uncovered carve-out is rejected");
+assert.throws(() => pickBuild("", [1]), Error, "a gate with no clause is rejected");
+assert.throws(() => pickBuild("3-9", [1]), Error, "a malformed clause is rejected");
+assert.throws(() => pickBuild("03:9", [1]), Error, "a leading zero is rejected");
+assert.throws(() => pickBuild("3:9", [-2]), Error, "a negative offer is rejected");
+assert.throws(() => pickBuild("3:9", [2.5]), Error, "a fractional offer is rejected");
+assert.throws(() => pickBuild(7, [1]), Error, "a non-string gate is rejected");
+console.log("ok");

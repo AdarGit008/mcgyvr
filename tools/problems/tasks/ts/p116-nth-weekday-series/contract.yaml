@@ -1,0 +1,25 @@
+id: p116-nth-weekday-series
+task_type: function_implementation
+task: >-
+  Implement expandNthWeekday. It expands a monthly recurrence rule over a
+  span of months using only integer arithmetic -- no standard-library
+  calendar or date help. The rule picks, in each month, the ordinal-th
+  occurrence of a weekday (weekday 0 is Monday through 6 for Sunday;
+  ordinal is 1 through 5, or -1 meaning the final occurrence); a month
+  lacking a fifth occurrence simply contributes nothing. The span covers
+  months consecutive months beginning at start, a zero-padded "YYYY-MM".
+  Return every selected date as zero-padded "YYYY-MM-DD" strings in
+  chronological order. Leap handling follows the usual civil rule: years
+  divisible by 4 leap, except century years, which leap only when
+  divisible by 400. Reject with an error an ordinal outside {-1, 1, 2, 3,
+  4, 5}, a weekday outside 0..6, a start that is not a well-formed month
+  in years 0001..9999, a months that is not a positive integer of at most
+  240, and a span running past year 9999.
+target: solution.ts
+interface: "export function expandNthWeekday(ordinal: number, weekday: number, start: string, months: number): string[]"
+stop_conditions:
+  - Which weekday convention the underlying congruence uses internally is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

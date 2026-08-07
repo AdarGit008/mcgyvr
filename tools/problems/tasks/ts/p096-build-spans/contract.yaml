@@ -1,0 +1,26 @@
+id: p096-build-spans
+task_type: function_implementation
+task: >-
+  Implement intersectBuildSpans. A span restricts an integer build counter:
+  it is written "lo..hi" with both limits included and lo not above hi,
+  "lo.." with no upper limit, "..hi" with no lower limit, or ".." for no
+  limit at all, followed by zero or more strike marks "!n", each striking
+  the single build n out of the span. A struck build must lie inside its own
+  span's limits, and no number may be written with a leading zero (a bare 0
+  is fine). Given a non-empty list of spans, compute the builds admitted by
+  every one of them and render that set canonically: the tightest limits,
+  then the surviving strikes sorted ascending, each written once. A strike
+  landing exactly on a limit is never written as a strike — the limit moves
+  past it instead, repeatedly if the next build is also struck — and a
+  bounded result whose lower limit ends up above its upper is the empty
+  set, rendered "empty". Reject with an error a malformed span, reversed
+  limits, a leading zero, a strike outside its own span, a non-string
+  span, and an empty list.
+target: solution.ts
+interface: "export function intersectBuildSpans(spans: string[]): string"
+stop_conditions:
+  - How large the build numbers may grow is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

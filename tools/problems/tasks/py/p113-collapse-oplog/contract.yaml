@@ -1,0 +1,40 @@
+id: p113-collapse-oplog
+task_type: bug_fix
+task: >-
+  collapse_oplog condenses a replay log for a store whose starting contents
+  are unknown. Each record is ["set", key, value] or ["drop", key];
+  because nothing is known about the store beforehand, the net effect on
+  any key is decided entirely by the final record naming it. The condensed
+  log must contain exactly one record per key that appears -- that key's
+  final record -- sorted alphabetically by key, so replaying it anywhere
+  leaves the store exactly as the full log would. The current code keeps
+  the earliest record for each key rather than the latest, so any key
+  touched twice comes out wrong. Fix that, and keep the existing
+  validation: a record whose kind is neither set nor drop, a key that is
+  not a string, and a set carrying a non-integer value are rejected with
+  an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def collapse_oplog(records: list) -> list:
+      chosen = {}
+      for record in records:
+          kind = record[0]
+          if kind not in ("set", "drop"):
+              raise ValueError("unknown record kind")
+          key = record[1]
+          if not isinstance(key, str):
+              raise ValueError("key must be a string")
+          if kind == "set":
+              value = record[2]
+              if not isinstance(value, int) or isinstance(value, bool):
+                  raise ValueError("value must be an integer")
+          if key not in chosen:
+              chosen[key] = record
+      return [chosen[key] for key in sorted(chosen)]
+interface: "def collapse_oplog(records: list) -> list"
+stop_conditions:
+  - Whether a record with extra trailing elements is rejected is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

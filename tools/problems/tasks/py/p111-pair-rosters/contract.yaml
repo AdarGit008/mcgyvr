@@ -1,0 +1,46 @@
+id: p111-pair-rosters
+task_type: bug_fix
+task: |
+  pair_rosters loses matches. It inner-joins two rosters, given as lists
+  of records, on the key column: for each record of the first roster
+  whose key value also appears in the second, in first-roster order, it
+  must emit that record's columns plus the partner record's non-key
+  columns, and silently drop first-roster records with no partner. Two
+  defects to fix. First, a record whose partner is the very FIRST record
+  of the second roster is wrongly dropped, because the lookup confuses
+  stored position 0 with absence. Second, a key value carried by two
+  records of the second roster must raise an error, where today the
+  later record silently replaces the earlier one. Keep the rest as it
+  is: any record whose key column is absent or not a string raises an
+  error, and first-roster key values are free to repeat. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  def pair_rosters(left: list, right: list, key: str) -> list:
+      """Inner-join two rosters on a key column."""
+      where = {}
+      for index, row in enumerate(right):
+          value = row.get(key)
+          if not isinstance(value, str):
+              raise ValueError("bad key value")
+          where[value] = index
+      joined = []
+      for row in left:
+          value = row.get(key)
+          if not isinstance(value, str):
+              raise ValueError("bad key value")
+          if where.get(value):
+              partner = right[where[value]]
+              merged = dict(row)
+              for name, item in partner.items():
+                  if name != key:
+                      merged[name] = item
+              joined.append(merged)
+      return joined
+interface: "def pair_rosters(left: list, right: list, key: str) -> list"
+stop_conditions:
+  - What happens when a non-key column name appears in both rosters is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

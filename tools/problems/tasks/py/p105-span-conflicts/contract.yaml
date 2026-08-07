@@ -1,0 +1,42 @@
+id: p105-span-conflicts
+task_type: bug_fix
+task: |
+  span_conflicts flags the wrong pairs. Every annotation is a
+  [start, end, label] triple covering the characters from start up to
+  but not including end. Two annotations conflict exactly when they
+  share at least one character position AND carry different labels:
+  annotations that merely touch never conflict, and overlap between two
+  annotations with the same label is deliberate layering, not a
+  conflict. The current code treats touching as sharing and reports
+  same-label pairs too. Fix both defects, and keep the existing
+  validation as it is: bounds must be integers with start strictly below
+  end, and each label a non-empty string, or an error is raised. Report
+  each conflicting pair as [i, j] with i below j, the two annotations'
+  zero-based input positions, in lexicographic order. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  def span_conflicts(spans: list) -> list:
+      """The index pairs of annotations that conflict."""
+      for start, end, label in spans:
+          if (
+              not isinstance(start, int)
+              or not isinstance(end, int)
+              or start >= end
+          ):
+              raise ValueError("bad span bounds")
+          if not isinstance(label, str) or label == "":
+              raise ValueError("bad label")
+      pairs = []
+      for i in range(len(spans)):
+          for j in range(i + 1, len(spans)):
+              if spans[i][0] <= spans[j][1] and spans[j][0] <= spans[i][1]:
+                  pairs.append([i, j])
+      return pairs
+interface: "def span_conflicts(spans: list) -> list"
+stop_conditions:
+  - Whether negative positions can appear is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

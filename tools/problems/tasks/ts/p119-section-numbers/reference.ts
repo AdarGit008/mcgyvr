@@ -1,0 +1,24 @@
+export function sectionNumbers(text: string, unit: number): string[] {
+  if (!Number.isInteger(unit) || unit <= 0) {
+    throw new Error("unit must be a positive integer");
+  }
+  const counters: number[] = [];
+  const out: string[] = [];
+  let previous = -1;
+  for (const line of text.split("\n")) {
+    const content = line.replace(/^ */, "");
+    const indent = line.length - content.length;
+    if (indent % unit !== 0) {
+      throw new Error("indentation is not a multiple of the unit");
+    }
+    const step = indent / unit;
+    if (step > previous + 1) {
+      throw new Error("nesting jumps more than one step");
+    }
+    counters[step] = (counters[step] ?? 0) + 1;
+    counters.length = step + 1;
+    out.push(counters.join(".") + " " + content);
+    previous = step;
+  }
+  return out;
+}

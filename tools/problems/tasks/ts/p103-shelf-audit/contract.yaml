@@ -1,0 +1,36 @@
+id: p103-shelf-audit
+task_type: bug_fix
+task: |
+  shelfCount misreads outgoing stock. It folds a list of two-element
+  entries over one shelf that starts at zero: ["add", n] raises the count
+  by n, ["fix", n] overwrites the count with n, and ["take", n] lowers it
+  by n — but a take asking for more than the shelf currently holds must
+  be skipped entirely and tallied, never applied. The current code drives
+  the count negative on an oversized take and always reports a tally of
+  zero. It also validates nothing, where it must reject a kind other
+  than "add", "take" and "fix", and an amount that is negative or not an
+  integer, with an error. Return the pair [finalCount, skippedTakes],
+  and return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Fold shelf entries into a final count and a skipped-take tally. */
+  export function shelfCount(entries: Array<[string, number]>): [number, number] {
+    let count = 0;
+    for (const [kind, amount] of entries) {
+      if (kind === "add") {
+        count += amount;
+      } else if (kind === "take") {
+        count -= amount;
+      } else {
+        count = amount;
+      }
+    }
+    return [count, 0];
+  }
+interface: "export function shelfCount(entries: Array<[string, number]>): [number, number]"
+stop_conditions:
+  - Whether a take of exactly zero should count as skipped is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

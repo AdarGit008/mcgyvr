@@ -1,0 +1,24 @@
+id: p094-sieve-report
+task_type: function_implementation
+task: >-
+  Implement sieve_report. The first argument is a list of item records, each
+  a mapping from field name to value. The second is the sieve: an ordered
+  list of rule mappings, each holding a "name", a "field", an "op", and (for
+  the comparison ops) a "value". The six ops: "eq" requires the item's field
+  to equal the value, "ne" requires it to differ, "gt" and "lt" require the
+  field to hold a number greater than or less than the value, "present"
+  requires the field to exist, "absent" requires it not to. Each item is
+  tested against the rules in order and stops at the first rule it fails; a
+  field the item lacks fails every op except "absent", and a value that is
+  not a number fails "gt" and "lt". Return one string per item, in item
+  order: "pass" for an item satisfying every rule, otherwise the name of the
+  first rule it failed. Reject with an error an op outside the six, and a
+  rule name that is empty or already used by an earlier rule.
+target: solution.py
+interface: "def sieve_report(items: list[dict], rules: list[dict]) -> list[str]"
+stop_conditions:
+  - Whether item field values may themselves be lists is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

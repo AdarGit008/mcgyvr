@@ -1,0 +1,21 @@
+id: p082-collate-feeds
+task_type: function_implementation
+task: >-
+  Implement collate_feeds. The input is a list of feeds, each feed a list of
+  [tick, reading] pairs of integers whose ticks strictly increase within the
+  feed. Collate every feed onto one timeline ordered by ascending tick. When
+  several feeds carry the same tick, only the pair from the earliest feed in
+  the argument list survives; the rest are discarded. Then thin the
+  timeline: a surviving pair whose reading equals the reading of the pair
+  directly before it on the timeline is dropped, so the result records
+  changes only. Feeds may be empty, and collating no feeds gives the empty
+  list. Raise an error when any feed breaks the strictly increasing tick
+  rule.
+target: solution.py
+interface: "def collate_feeds(feeds: list) -> list"
+stop_conditions:
+  - The allowed range of tick and reading values is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

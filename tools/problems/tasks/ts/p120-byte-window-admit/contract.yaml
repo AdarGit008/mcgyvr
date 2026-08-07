@@ -1,0 +1,25 @@
+id: p120-byte-window-admit
+task_type: function_implementation
+task: >-
+  Implement admitBytes. It labels each entry of a transfer log as carried
+  or shed under two rolling limits measured over the trailing span.
+  Entries are [time, key, size] with integer times that never decrease; a
+  previously carried entry stamped t still counts while t is strictly
+  greater than the current time minus span, and ages out at exactly span.
+  A new entry is carried only when its size plus the still-counting
+  carried volume of its own key stays within perKey, and its size plus
+  the still-counting carried volume across every key stays within total;
+  otherwise it is shed, and shed entries never count toward anything, so
+  a later attempt may succeed where a bigger one just failed. Return
+  "pass" or "drop" per entry, in order. Reject with an error: a perKey,
+  total, or span that is not a positive integer, a size that is not a
+  positive integer, a key that is not a non-empty string, a negative
+  time, and times running backwards.
+target: solution.ts
+interface: "export function admitBytes(perKey: number, total: number, span: number, entries: (string | number)[][]): string[]"
+stop_conditions:
+  - Whether perKey may exceed total is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

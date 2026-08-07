@@ -1,0 +1,23 @@
+id: p097-gate-pick
+task_type: function_implementation
+task: >-
+  Implement pickBuild. A gate string lists one or more clauses separated by
+  commas, and a build number is admitted when at least one clause takes it.
+  A clause is "lo:hi" (both ends included), "lo:" (no ceiling), ":hi" (no
+  floor), or ":" (everything), where each end is a non-negative integer in
+  plain decimal without leading zeros and lo is not above hi; a clause may
+  be followed by carve-outs "^n", each shutting the single build n out of
+  that clause only, never out of the others. The second argument offers
+  candidate builds in no particular order. Return the largest offered build
+  the gate admits, or -1 when it admits none of them. Reject with an error
+  a gate that is not a string, a gate with no clause, a malformed clause,
+  ends out of order, a carve-out naming a build the clause does not cover,
+  and an offer that is not a non-negative integer.
+target: solution.ts
+interface: "export function pickBuild(gate: string, offers: number[]): number"
+stop_conditions:
+  - Whether the same build may be offered twice is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

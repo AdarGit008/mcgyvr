@@ -1,0 +1,18 @@
+id: p086-hot-streak
+task_type: function_implementation
+task: >-
+  Implement hotStreak. The input is a list of integer scores in the order
+  the games were played, plus an integer bar. A streak is a run of
+  consecutive games each scoring strictly more than the bar. Return the
+  pair [start, length] describing the longest streak, start being the
+  0-based index of its first game. When two streaks share the longest
+  length, report the one that began first. When not a single game clears
+  the bar, return [-1, 0].
+target: solution.ts
+interface: "export function hotStreak(scores: number[], bar: number): number[]"
+stop_conditions:
+  - The allowed range of scores is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

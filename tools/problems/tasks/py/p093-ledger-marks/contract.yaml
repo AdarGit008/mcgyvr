@@ -1,0 +1,28 @@
+id: p093-ledger-marks
+task_type: function_implementation
+task: >-
+  Implement link_ledger_marks. A ledger mark is a house code of two or three
+  letters, exactly one separator (a hyphen, a slash, or a single space), a
+  serial of digits, and a check letter written directly after the digits.
+  Case never matters and the serial may carry leading zeros, but its value
+  must be at least 1, and the check letter must be the letter whose alphabet
+  position (A being 0) equals the serial value modulo 26 — 42 checks as Q.
+  The second argument maps retired house codes, in uppercase, to their
+  replacements; resolve a mark's uppercased house code through it in at most
+  one step, and reject a table whose replacement is itself retired or that
+  maps a code to itself. Two marks name the same entry when they agree,
+  after resolution, on house code, serial value and check letter; the
+  canonical spelling joins those three with hyphens, all uppercase and the
+  serial stripped of leading zeros, as in "AV-42-Q". Return a list of
+  [canonical, raws] pairs, one per distinct entry in order of first
+  appearance, where raws holds that entry's marks exactly as given, in input
+  order. Reject with an error a malformed mark, a wrong check letter, a
+  serial of value 0, a non-string mark, and the bad tables above.
+target: solution.py
+interface: "def link_ledger_marks(marks: list[str], aliases: dict[str, str]) -> list"
+stop_conditions:
+  - Whether the alias table may contain lowercase codes is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

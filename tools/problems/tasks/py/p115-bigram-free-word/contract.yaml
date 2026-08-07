@@ -1,0 +1,21 @@
+id: p115-bigram-free-word
+task_type: function_implementation
+task: >-
+  Implement smallest_free_word. Given a length n, an alphabet size k, and a
+  list of banned two-letter combinations, return the alphabetically least
+  word of exactly n letters drawn from the first k lowercase letters in
+  which no banned combination occurs as adjacent characters, and raise an
+  error when every candidate is blocked. A locally best choice may need
+  revisiting: with n = 2, k = 2 and banned ["aa", "ab"], the answer is
+  "ba", because nothing may follow an initial a. Reject with an error an n
+  that is not a positive integer of at most 12, a k that is not an integer
+  from 1 to 6, a banned collection that is not a list, and a banned entry
+  that is not a two-character string of letters within the first k.
+target: solution.py
+interface: "def smallest_free_word(n: int, k: int, banned: list) -> str"
+stop_conditions:
+  - Whether duplicate banned entries are rejected is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,58 @@
+id: p111-pair-rosters
+task_type: bug_fix
+task: |
+  pairRosters loses matches. It inner-joins two rosters, given as lists
+  of records, on the key column: for each record of the first roster
+  whose key value also appears in the second, in first-roster order, it
+  must emit that record's columns plus the partner record's non-key
+  columns, and silently drop first-roster records with no partner. Two
+  defects to fix. First, a record whose partner is the very FIRST record
+  of the second roster is wrongly dropped, because the lookup confuses
+  stored position 0 with absence. Second, a key value carried by two
+  records of the second roster must raise an error, where today the
+  later record silently replaces the earlier one. Keep the rest as it
+  is: any record whose key column is absent or not a string raises an
+  error, and first-roster key values are free to repeat. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  /** Inner-join two rosters on a key column. */
+  export function pairRosters(
+    left: Array<Record<string, unknown>>,
+    right: Array<Record<string, unknown>>,
+    key: string,
+  ): Array<Record<string, unknown>> {
+    const where: Record<string, number> = {};
+    right.forEach((row, index) => {
+      const value = row[key];
+      if (typeof value !== "string") {
+        throw new Error("bad key value");
+      }
+      where[value] = index;
+    });
+    const joined: Array<Record<string, unknown>> = [];
+    for (const row of left) {
+      const value = row[key];
+      if (typeof value !== "string") {
+        throw new Error("bad key value");
+      }
+      if (where[value]) {
+        const partner = right[where[value]];
+        const merged: Record<string, unknown> = { ...row };
+        for (const name of Object.keys(partner)) {
+          if (name !== key) {
+            merged[name] = partner[name];
+          }
+        }
+        joined.push(merged);
+      }
+    }
+    return joined;
+  }
+interface: "export function pairRosters(left: Array<Record<string, unknown>>, right: Array<Record<string, unknown>>, key: string): Array<Record<string, unknown>>"
+stop_conditions:
+  - What happens when a non-key column name appears in both rosters is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

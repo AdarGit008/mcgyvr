@@ -1,0 +1,23 @@
+id: p107-carve-set
+task_type: function_implementation
+task: >-
+  Implement carve_set. Build a set of integers by folding a list of
+  instructions, starting from the empty set. Each instruction is a triple
+  ["add", lo, hi] or ["cut", lo, hi] naming the half-open range from lo
+  up to but not including hi: add puts every integer of that range into
+  the set, cut removes every integer of that range from it, and either
+  may change nothing. After the last instruction, return the set as
+  [lo, hi] pairs — sorted ascending, disjoint, with touching pieces
+  fused and nothing empty. Cutting through the middle of a held stretch
+  leaves two pieces, and adding between two pieces can weld them back
+  into one. Reject with an error a verb other than "add" and "cut", a
+  bound that is not an integer, and a lo not strictly below its hi. No
+  instructions at all yields the empty list.
+target: solution.py
+interface: "def carve_set(steps: list) -> list"
+stop_conditions:
+  - Whether an instruction may also arrive as a mapping is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

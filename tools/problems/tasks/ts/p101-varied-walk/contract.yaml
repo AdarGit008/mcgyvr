@@ -1,0 +1,66 @@
+id: p101-varied-walk
+task_type: bug_fix
+task: >-
+  variedLabelWalk measures the shortest walk between two nodes of a
+  directed graph whose edges are [from, to, label] triples of non-empty
+  strings, under one rule: consecutive edges of the walk must never carry
+  the same label. Nodes and edges may be revisited, and sometimes a walk
+  has to leave a node and come back under a different label before it can
+  continue. Return the number of edges in the shortest lawful walk, 0 when
+  start and goal are equal, and -1 when no walk obeys the rule. The current
+  code marks whole nodes as visited on first reach, so it refuses ever to
+  return to one and answers -1 for graphs whose only lawful walk doubles
+  back. Two arrivals differ by the label of the edge that brought you in —
+  track the pair of node and arriving label instead — and keep rejecting
+  with an error a malformed edge and a start or goal appearing in no edge.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function variedLabelWalk(edges: string[][], start: string, goal: string): number {
+    const nodes = new Set<string>();
+    for (const edge of edges) {
+      if (
+        !Array.isArray(edge) ||
+        edge.length !== 3 ||
+        edge.some((part) => typeof part !== "string" || part === "")
+      ) {
+        throw new Error("each edge must be a [from, to, label] triple of non-empty strings");
+      }
+      nodes.add(edge[0]);
+      nodes.add(edge[1]);
+    }
+    if (!nodes.has(start)) {
+      throw new Error("start appears in no edge");
+    }
+    if (!nodes.has(goal)) {
+      throw new Error("goal appears in no edge");
+    }
+    if (start === goal) {
+      return 0;
+    }
+    const queue: [string, string, number][] = [[start, "", 0]];
+    const visited = new Set<string>([start]);
+    while (queue.length > 0) {
+      const [node, last, steps] = queue.shift()!;
+      for (const [from, to, label] of edges) {
+        if (from !== node || label === last) {
+          continue;
+        }
+        if (to === goal) {
+          return steps + 1;
+        }
+        if (!visited.has(to)) {
+          visited.add(to);
+          queue.push([to, label, steps + 1]);
+        }
+      }
+    }
+    return -1;
+  }
+interface: "export function variedLabelWalk(edges: string[][], start: string, goal: string): number"
+stop_conditions:
+  - Whether edge labels are case-sensitive is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,40 @@
+id: p085-gauge-buckets
+task_type: bug_fix
+task: >-
+  gaugeBuckets tallies pulses into equal-width pockets and mis-bins exactly
+  the awkward ones. Fix it: the arguments are a list of integer pulses, an
+  integer base, a positive width and a positive pocket count, and pocket i
+  spans base + i*width up to but not including base + (i+1)*width. Return
+  count + 2 tallies as one flat list: first the number of pulses under the
+  base, then each pocket in order, and last the number of pulses at or
+  past the top of the final pocket. A pulse sitting exactly on the edge
+  two pockets share belongs to the higher pocket, and nothing is silently
+  dropped: every pulse lands in exactly one tally.
+target: solution.ts
+target_content: |
+  export function gaugeBuckets(
+    pulses: number[],
+    base: number,
+    width: number,
+    pockets: number,
+  ): number[] {
+    const tallies = new Array(pockets + 2).fill(0);
+    for (const pulse of pulses) {
+      if (pulse < base) {
+        continue;
+      }
+      let slot = Math.round((pulse - base) / width);
+      if (slot >= pockets) {
+        slot = pockets - 1;
+      }
+      tallies[1 + slot] += 1;
+    }
+    return tallies;
+  }
+interface: "export function gaugeBuckets(pulses: number[], base: number, width: number, pockets: number): number[]"
+stop_conditions:
+  - Whether width and the pocket count have an upper bound is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

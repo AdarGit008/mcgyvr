@@ -1,0 +1,63 @@
+id: p117-last-working-days
+task_type: bug_fix
+task: >-
+  last_working_days reports, for a run of consecutive months, the closing
+  business date of each: the latest day of the month that is a Monday
+  through Friday, with no holidays considered. The first argument names
+  the opening month as zero-padded "YYYY-MM"; the second says how many
+  months to cover; results come back as zero-padded "YYYY-MM-DD" strings.
+  Everything is computed by hand from integers -- February gains its 29th
+  day in years divisible by 4 but not by 100, and in years divisible by
+  400 -- and nothing may be borrowed from built-in date machinery. The
+  current code steps back one day when a month closes on Saturday but
+  leaves a month closing on Sunday untouched, so such months report Sunday
+  as a business day. Repair the adjustment; keep the validation unchanged:
+  an opening month that is not well-formed with a real month number, a
+  count that is not a positive integer of at most 120, and a run reaching
+  past year 9999 are rejected with an error. Return the complete fixed
+  file.
+target: solution.py
+target_content: |
+  import re
+
+  LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  OFFSETS = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4]
+
+
+  def weekday_of(year, month, day):
+      y = year - 1 if month < 3 else year
+      sunday0 = (y + y // 4 - y // 100 + y // 400 + OFFSETS[month - 1] + day) % 7
+      return (sunday0 + 6) % 7
+
+
+  def last_working_days(start: str, months: int) -> list:
+      if not isinstance(start, str) or re.fullmatch(r"\d{4}-\d{2}", start) is None:
+          raise ValueError("start must be zero-padded YYYY-MM")
+      year = int(start[:4])
+      month = int(start[5:7])
+      if year < 1 or not 1 <= month <= 12:
+          raise ValueError("start must name a real month")
+      if not isinstance(months, int) or isinstance(months, bool) or not 1 <= months <= 120:
+          raise ValueError("months must be a positive integer of at most 120")
+      out = []
+      for _ in range(months):
+          if year > 9999:
+              raise ValueError("run reaches past year 9999")
+          leap = (year % 4 == 0 and year % 100 != 0) or year % 400 == 0
+          length = 29 if month == 2 and leap else LENGTHS[month - 1]
+          day = length
+          if weekday_of(year, month, day) == 5:
+              day -= 1
+          out.append(f"{year:04d}-{month:02d}-{day:02d}")
+          month += 1
+          if month == 13:
+              month = 1
+              year += 1
+      return out
+interface: "def last_working_days(start: str, months: int) -> list"
+stop_conditions:
+  - Whether the weekday helper may be restructured while fixing the adjustment is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

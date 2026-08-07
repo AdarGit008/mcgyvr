@@ -1,0 +1,23 @@
+id: p114-smallest-arrangement
+task_type: function_implementation
+task: >-
+  Implement smallest_arrangement. The input is a list of one to four
+  integer counts, position i giving how many copies of the i-th lowercase
+  letter (a, b, c, d) the output must contain; each count is between 0 and
+  12 and at least one is positive. Produce the alphabetically least string
+  that uses every letter exactly its counted number of times while never
+  letting three identical letters stand consecutively, and raise an error
+  when no such string exists. Beware that grabbing the least available
+  letter can paint the remainder into a corner: with counts [2, 4] the
+  answer is "abbabb", because taking a second a up front strands the four
+  b's. Reject an input that is not such a list -- wrong length, a
+  non-integer, a negative count, a count above 12, or all counts zero --
+  with an error.
+target: solution.py
+interface: "def smallest_arrangement(counts: list) -> str"
+stop_conditions:
+  - Which error message accompanies an infeasible instance is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

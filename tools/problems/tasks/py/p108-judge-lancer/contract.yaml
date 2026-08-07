@@ -1,0 +1,30 @@
+id: p108-judge-lancer
+task_type: function_implementation
+task: >-
+  Implement judge_lancer. Lancers is played on a seven-by-seven board,
+  given as seven strings of seven characters — "W" a white lancer, "B" a
+  black lancer, "." an empty square. A move names the acting side ("W" or
+  "B"), a from square and a to square, each [row, column] counted from
+  zero at the top left. A lancer slides one, two or three squares along a
+  rank or file, never diagonally, and every square it slides across must
+  be empty. It may finish on an empty square, or capture an enemy lancer
+  standing two or three squares away — an adjacent enemy sits inside the
+  lance's reach and cannot be taken. Judge one move and return the FIRST
+  verdict that applies, in this order: "off_board" when either named
+  square lies outside the board; "no_piece" when the from square does not
+  hold the acting side's lancer; "bad_line" when the to square is not one
+  to three squares from the from square straight along a rank or file;
+  "blocked" when a slid-across square is occupied; "own_piece" when the
+  to square holds the acting side's own lancer; "too_close" when it
+  holds an adjacent enemy; otherwise "ok". Reject with an error a board
+  that is not seven strings of seven characters drawn from W, B and the
+  dot, a side other than "W" and "B", and a named square that is not a
+  pair of integers.
+target: solution.py
+interface: "def judge_lancer(board: list, side: str, origin: list, dest: list) -> str"
+stop_conditions:
+  - How many lancers each side may have on the board is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

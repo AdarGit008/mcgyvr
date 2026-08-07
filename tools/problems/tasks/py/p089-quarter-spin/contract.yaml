@@ -1,0 +1,28 @@
+id: p089-quarter-spin
+task_type: bug_fix
+task: >-
+  quarter_spin turns a grid of integers clockwise by quarter turns, and the
+  current code survives only square grids. Fix it: given a list of
+  equal-length rows and a non-negative integer turns, return the grid after
+  turns clockwise quarter turns. Four turns restore any grid, so only
+  turns modulo 4 can matter, and a rectangular grid must come back with
+  its width and height exchanged after an odd number of turns. The
+  argument grid must be left exactly as it was.
+target: solution.py
+target_content: |
+  def quarter_spin(grid, turns):
+      for _ in range(turns):
+          n = len(grid)
+          for i in range(n):
+              for j in range(i + 1, n):
+                  grid[i][j], grid[j][i] = grid[j][i], grid[i][j]
+          for row in grid:
+              row.reverse()
+      return grid
+interface: "def quarter_spin(grid: list, turns: int) -> list"
+stop_conditions:
+  - An upper bound on turns is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

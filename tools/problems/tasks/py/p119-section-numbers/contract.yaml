@@ -1,0 +1,45 @@
+id: p119-section-numbers
+task_type: bug_fix
+task: >-
+  section_numbers assigns dotted numbers to the lines of an indented
+  document. Nesting is unit spaces per step; a line's number is its
+  parent's number, a dot, and its position among that parent's own lines,
+  so a document whose steps run 0, 1, 1, 0, 1 is numbered 1, 1.1, 1.2, 2,
+  2.1. Each output entry is the number, one space, and the line's content
+  without its indentation. The current code never clears the counters of
+  deeper steps when a shallower line arrives, so once the document returns
+  toward the margin, the next deep line continues stale counts -- the
+  sequence above wrongly finishes with 2.3. Fix that; the validation stays
+  exactly as written: a unit that is not a positive integer, indentation
+  that is not a whole multiple of the unit, a line nesting more than one
+  step past its predecessor, and an opening line off the margin are
+  rejected with an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def section_numbers(text: str, unit: int) -> list:
+      if not isinstance(unit, int) or isinstance(unit, bool) or unit <= 0:
+          raise ValueError("unit must be a positive integer")
+      counters = []
+      out = []
+      previous = -1
+      for line in text.split("\n"):
+          content = line.lstrip(" ")
+          indent = len(line) - len(content)
+          if indent % unit != 0:
+              raise ValueError("indentation is not a multiple of the unit")
+          step = indent // unit
+          if step > previous + 1:
+              raise ValueError("nesting jumps more than one step")
+          while len(counters) <= step:
+              counters.append(0)
+          counters[step] += 1
+          out.append(".".join(str(c) for c in counters[: step + 1]) + " " + content)
+          previous = step
+      return out
+interface: "def section_numbers(text: str, unit: int) -> list"
+stop_conditions:
+  - How blank lines are treated is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

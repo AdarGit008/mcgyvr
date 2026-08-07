@@ -1,0 +1,18 @@
+id: p087-grace-window
+task_type: function_implementation
+task: >-
+  Implement grace_window. A habit log is a list of daily step counts, and a
+  day is kept when its count reaches the goal. Return the length in days of
+  the longest stretch of consecutive days that starts on a kept day, ends
+  on a kept day, and holds at most grace unkept days in between; a single
+  kept day is a stretch of length 1. With no kept day anywhere the answer
+  is 0. Raise an error when the goal is not positive or when grace is
+  negative.
+target: solution.py
+interface: "def grace_window(counts: list, goal: int, grace: int) -> int"
+stop_conditions:
+  - Whether a day's count can be negative is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

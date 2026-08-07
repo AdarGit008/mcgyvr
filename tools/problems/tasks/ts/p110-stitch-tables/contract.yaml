@@ -1,0 +1,26 @@
+id: p110-stitch-tables
+task_type: function_implementation
+task: >-
+  Implement stitchTables. Join two tables — each a list of records
+  mapping column names to values — on the named key column. Every record
+  of both tables must carry the key column with a string value; anything
+  else is an error. Within the right table a key value may appear on at
+  most one record, and a repeat is an error. A non-key column name
+  present in any record of the left table AND in any record of the right
+  table is an error, detected before any joining happens. The result
+  holds one record per left record, in left order: the left record's
+  columns plus every non-key column of its matching right record. Under
+  mode "inner" a left record with no match is dropped; under mode "left"
+  it is kept, with every non-key column name appearing anywhere in the
+  right table carried as the language's null value. A mode outside these
+  two is an error. Key values in the left table may repeat, and each
+  such record joins on its own. Records may differ in which columns they
+  carry, and the inputs must not be modified.
+target: solution.ts
+interface: "export function stitchTables(left: Array<Record<string, unknown>>, right: Array<Record<string, unknown>>, key: string, mode: string): Array<Record<string, unknown>>"
+stop_conditions:
+  - Which order the structural errors are reported in is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
