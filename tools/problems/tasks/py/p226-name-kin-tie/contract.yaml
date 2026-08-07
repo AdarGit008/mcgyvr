@@ -1,0 +1,39 @@
+id: p226-name-kin-tie
+task_type: function_implementation
+task: >-
+  Implement name_kin_tie. The first argument is a list of links, each a mapping
+  with "child" and "parent", both non-empty names. Nobody may stand as their
+  own parent, no link may be listed twice, nobody may be given more than two
+  parents, and the links must not close a loop. The second and third arguments
+  name two people, each of whom must appear somewhere in the links. Count how
+  far a forebear stands from a person by the fewest links leading up to them,
+  the person themselves standing at nought. Among the forebears both people
+  reach, take the one whose greater count is smallest, and where several tie,
+  the one whose smaller count is smallest as well; all of those give the same
+  pair of counts. Call the second person's count u and the third person's v.
+  Name what the third person is to the second. Both nought is "self". When v is
+  nought, u of one is "parent", two is "grandparent", and every step past two
+  puts a further "great-" in front of "grandparent". When u is nought the same
+  run gives "child", "grandchild" and "great-" before "grandchild". Both one is
+  "sibling". When v is one and u is two or more the answer is "aunt-or-uncle"
+  with a further "great-" in front for every step u runs past two, and when u
+  is one and v is two or more it is "niece-or-nephew" built the same way. When
+  both counts are two or more the two are cousins: the degree is one less than
+  the smaller count and the removal is the difference between the counts,
+  giving "first cousin" through to "tenth cousin", followed when the removal is
+  not nought by a space and then "once removed", "twice removed", "three times
+  removed" and onward in words as far as "ten times removed". Return
+  "unrelated" when the two reach no forebear in common. Raise an error when the
+  links are not a list, when a link is not a mapping, when a name is missing,
+  empty or not a string, when a link makes someone their own parent, when a
+  link is listed twice, when someone is given a third parent, when the links
+  close a loop, when either person is named nowhere in the links, and when a
+  cousin degree or a removal would run past ten.
+target: solution.py
+interface: "def name_kin_tie(links: list, one: str, other: str) -> str"
+stop_conditions:
+  - Whether the two people may be joined through more than one forebear at the very same pair of counts is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

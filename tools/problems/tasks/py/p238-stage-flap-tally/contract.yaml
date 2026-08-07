@@ -1,0 +1,31 @@
+id: p238-stage-flap-tally
+task_type: function_implementation
+task: >-
+  Implement tally_stage_retries. A pipeline is a list of stage records, each
+  with name (a non-empty string holding no space, no two alike) and outcomes
+  (a non-empty list of the words pass, flap and halt, in the order that
+  stage's attempts were made). A flap is a wobble the runner is willing to
+  try again; a pass and a halt each end a stage where they stand, so no
+  outcome may follow either of them. The second argument is the budget: the
+  most attempts any one stage was allowed, a whole number of one or more,
+  and a stage carrying more outcomes than that could never have happened.
+  Settle each stage on one word — green when its last outcome is a pass,
+  dead when its last is a halt, spent when every outcome is a flap and there
+  are exactly budget of them, and open when every outcome is a flap but
+  fewer. Return one line per stage in the order given, each carrying the
+  name, the attempt count, the retry count (one fewer than the attempts),
+  the flap count, the halt count and the verdict, separated by single
+  spaces. Then return one last line beginning with an asterisk which
+  carries, in that same order and spacing, the attempt, retry, flap and halt
+  counts summed over every stage and finally how many stages came out green.
+  Raise an error for a bad name, a repeated name, a missing or empty outcome
+  list, a word that is none of the three, an outcome standing after a pass
+  or a halt, a budget below one, and a stage over budget.
+target: solution.py
+interface: "def tally_stage_retries(stages: list, budget: int) -> list"
+stop_conditions:
+  - Whether two pipelines may be tallied against one shared budget is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

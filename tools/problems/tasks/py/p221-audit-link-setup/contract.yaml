@@ -1,0 +1,59 @@
+id: p221-audit-link-setup
+task_type: bug_fix
+task: >-
+  audit_link_setup checks a link setup against the drill and misjudges the
+  counters. Repair it. The argument is a non-empty list of records, each a
+  mapping with "side" (either "caller" or "listener"), "verb" (one of PROBE,
+  READY, KEY, SEAL, PING, PONG and CLOSE) and "seq" (a whole number). The
+  drill runs so: the caller sends PROBE carrying counter 1; the listener
+  sends READY carrying the counter the PROBE carried; the caller sends KEY
+  carrying one more than that; the listener sends SEAL carrying the counter
+  the KEY carried. From there the caller may send PING carrying one more
+  than the counter last carried, which the listener must answer with PONG
+  carrying that same counter, and the pair may repeat without limit or never
+  happen at all. The caller then sends CLOSE carrying one more than the
+  counter last carried, the listener answers CLOSE carrying that same
+  counter, and the run is over — nothing further belongs. Report the first
+  record that departs from the drill as its verb, an at sign, and its place
+  in the list counting from one, such as KEY@3. Report an empty string when
+  the whole run is present and faultless, and the word short when nothing
+  departs from the drill but the run stops before the listener's CLOSE.
+  Raise an error when the list is not a list or is empty, when a record is
+  not a mapping, when "side" is neither "caller" nor "listener", when "verb"
+  is none of the seven, and when "seq" is not a whole number. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  """The first record of a link setup that departs from the drill."""
+
+  SCRIPT = [
+      ("caller", "PROBE"),
+      ("listener", "READY"),
+      ("caller", "KEY"),
+      ("listener", "SEAL"),
+  ]
+
+
+  def audit_link_setup(exchange: list) -> str:
+      at = 0
+      for record in exchange:
+          side = record["side"]
+          verb = record["verb"]
+          if at < len(SCRIPT):
+              if (side, verb) != SCRIPT[at]:
+                  return verb + "@" + str(at)
+              at += 1
+              continue
+          if side == "caller" and verb in ("PING", "CLOSE"):
+              continue
+          if side == "listener" and verb in ("PONG", "CLOSE"):
+              continue
+          return verb + "@" + str(at)
+      return ""
+interface: "def audit_link_setup(exchange: list) -> str"
+stop_conditions:
+  - Whether a counter is allowed to run past any particular ceiling is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

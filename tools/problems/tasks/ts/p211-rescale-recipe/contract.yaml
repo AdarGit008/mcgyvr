@@ -1,0 +1,33 @@
+id: p211-rescale-recipe
+task_type: function_implementation
+task: >-
+  Implement rescaleRecipe. A recipe arrives as rows, each row an amount, one
+  space, a unit, one space, and an ingredient. An amount is spelled three
+  ways: bare digits for a whole count; a numerator, a slash and a
+  denominator for a part below one; or a whole count, a space, and such a
+  part for something in between. Every number inside an amount is at least
+  one and carries no leading zero, and a part must be smaller than one and
+  already reduced. The unit is tsp, tbsp, cup, egg or g, and the ingredient
+  is one or more words of letters divided by single spaces. The second and
+  third arguments are the numerator and the denominator of the ratio the
+  recipe is being pulled by. Multiply every amount by that ratio as an exact
+  fraction and never as a decimal. Each unit then rounds on a grain of its
+  own: tsp on a quarter, tbsp on a half, cup on an eighth, egg and g on a
+  whole. Take the nearest whole number of grains, and where the product lies
+  exactly between two of them take the larger. An amount that would come to
+  no grains at all takes one grain instead. Write each result back in the
+  same three part shape, picking whichever of the three spellings fits, with
+  any part reduced and smaller than one. Raise an error when the recipe is
+  not a list, when a row is not a string, when a row breaks the shape, when
+  a part is not reduced or is not smaller than one, when the unit is none of
+  the five, when the ingredient is not words of letters, when two rows carry
+  the same ingredient, and when the ratio's numerator or denominator is not
+  a whole number above zero.
+target: solution.ts
+interface: "export function rescaleRecipe(lines: string[], num: number, den: number): string[]"
+stop_conditions:
+  - Whether an amount may be spelled as an improper fraction rather than a whole count and a part is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

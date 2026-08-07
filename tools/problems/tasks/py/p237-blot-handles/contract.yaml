@@ -1,0 +1,39 @@
+id: p237-blot-handles
+task_type: bug_fix
+task: >-
+  blot_handles hides the handles in a message, hides one character too many of
+  each, and pays no attention to the message's code fences. Repair both
+  faults. A handle is an at sign followed by 3 to 12 characters, each of them
+  a lowercase letter, a digit or an underscore, with none of those three
+  kinds and no at sign standing immediately before the at sign, and none of
+  those three kinds standing immediately after the last of them. A backtick
+  opens a fence which the next backtick shuts, and a backtick with no partner
+  fences everything from itself to the end of the message. Break the message
+  into fenced parts and plain parts, copy every fenced part through exactly
+  as it stands with its backticks, and consider each plain part on its own.
+  Blot a handle in a plain part by keeping the at sign and the first
+  character after it, then turning each remaining character of the handle
+  into a full stop, so the message keeps its length. Anything a hair under
+  three characters or past twelve is no handle at all. Return the blotted
+  message. Leave the existing rejection of an argument that is not a string
+  alone.
+target: solution.py
+target_content: |
+  import re
+
+  HANDLE = re.compile(r"(?<![a-z0-9_@])@[a-z0-9_]{3,12}(?![a-z0-9_])")
+
+
+  def blot_handles(message: str) -> str:
+      if not isinstance(message, str):
+          raise ValueError("blot_handles expects a string")
+      return HANDLE.sub(
+          lambda found: "@" + "." * (len(found.group(0)) - 1), message
+      )
+interface: "def blot_handles(message: str) -> str"
+stop_conditions:
+  - Whether a fence may be opened by a doubled backtick is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,30 @@
+id: p230-route-log-records
+task_type: function_implementation
+task: >-
+  Implement route_log_records. The levels, from lowest to highest, are "trace",
+  "debug", "info", "warn", "error" and "fatal". The first argument is a list of
+  rules, each a mapping with "sink" (a non-empty name, which other rules may
+  share), "least" (a level name), "tag" (a string, the empty one standing for
+  any tag at all) and "stop" (true or false). The second argument is a list of
+  records, each a mapping with "level" (a level name) and "tag" (a string). The
+  third argument is the name of the spare sink. Walk the rules in the order
+  given for each record on its own: a rule takes the record when the record's
+  level stands at or above the rule's least level and the rule's tag is either
+  empty or the record's tag exactly. A rule that takes the record adds its
+  sink, unless that sink was already added for this record, and when the rule
+  says stop no further rule is tried for that record. A record no rule takes
+  goes to the spare sink and nowhere else. Return one mapping per record in the
+  order given, carrying "at" (where the record sat in the list, counting from
+  nought) and "sinks" (the names added, in the order they were added). Raise an
+  error when the rules or the records are not a list, when a rule or a record
+  is not a mapping, when a sink or the spare name is not a non-empty string,
+  when a level is not one of the six names, when a tag is not a string, and
+  when "stop" is neither true nor false.
+target: solution.py
+interface: "def route_log_records(rules: list, records: list, spare: str) -> list"
+stop_conditions:
+  - Whether the spare sink may also be named by a rule is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,42 @@
+id: p224-band-parcel-charge
+task_type: function_implementation
+task: >-
+  Implement bandParcelCharge. The first argument is a rate book, a mapping with
+  "zones" (a non-empty list of distinct non-empty names), "steps" (a non-empty
+  list of weight bands), "extras" (a list of handling charges) and "round" (a
+  positive whole number of cents). A band is a mapping with "upTo", either a
+  positive whole number of grams or null for the one open band that catches
+  everything heavier, and "cents", one non-negative whole number per zone in
+  the zones' own order. The bands' stated weights must climb strictly, and
+  exactly one band may be open, which must be the last. A handling charge is a
+  mapping with "mark" (a non-empty name no other charge shares), "cents" (a
+  non-negative whole number) and "zones" (null for every zone, or a list of
+  distinct known zone names). The second argument is a parcel, a mapping with
+  "zone" (a known zone name), "grams" (a positive whole number) and "marks" (a
+  list of distinct marks the book names). The parcel falls in the first band
+  whose stated weight is not below its grams, so a parcel sitting exactly on a
+  band's weight stays in that band, and its base is that band's price for the
+  parcel's zone. A handling charge is added once when the parcel carries its
+  mark and the charge covers the parcel's zone. Add the base and the charges,
+  then raise the sum to the next multiple of "round", leaving it alone when it
+  already sits on one. Return a mapping with "band" (which band was used,
+  counting from zero), "base", "extra" (the charges added), "total" (the raised
+  sum) and "applied" (the marks charged for, in the book's own order). Raise an
+  error when the book or the parcel is not a mapping, when the zones are empty
+  or repeat or hold something other than a non-empty name, when the bands are
+  empty or a band is not a mapping, when a stated weight is neither null nor a
+  positive whole number, when the stated weights do not climb strictly, when
+  the open band is missing, repeated or not last, when a band's price list does
+  not hold one non-negative whole number per zone, when the extras are not a
+  list or a charge is malformed or repeats a mark or names an unknown zone,
+  when "round" is not a positive whole number, and when the parcel names an
+  unknown zone or mark, repeats a mark, or gives grams that are not a positive
+  whole number.
+target: solution.ts
+interface: "export function bandParcelCharge(book: Record<string, unknown>, parcel: Record<string, unknown>): Record<string, unknown>"
+stop_conditions:
+  - Whether two bands may quote the very same price for a zone is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

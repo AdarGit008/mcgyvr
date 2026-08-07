@@ -1,0 +1,29 @@
+id: p222-code-open-answers
+task_type: function_implementation
+task: >-
+  Implement code_open_answers. The first argument is a non-empty list of coding
+  rules, each a mapping with "code" (a non-empty string) and "phrase" (one or
+  more runs of lowercase letters and digits joined by single spaces). Several
+  rules may carry the same code, but no two may carry the same phrase. The
+  second argument is a list of written-in answers. Tidy an answer by lowering
+  its case and turning every run of characters that are neither letters nor
+  digits into one space, then dropping any space left at either end. A rule
+  takes a tidied answer when the rule's phrase words sit inside it as a
+  consecutive run of whole words. Try the rules in the order given and let the
+  first that takes the answer code it; an answer no rule takes stays uncoded.
+  Return a mapping with "tally", one entry per distinct code in the order the
+  codes first appear among the rules, each a mapping with "code" and "count"
+  (how many answers that code took), and "loose", the tidied text of every
+  uncoded answer in the order the answers arrived, repeats and all. Raise an
+  error when the rules are not a non-empty list, when a rule is not a mapping,
+  when a code is not a non-empty string, when a phrase is not shaped as
+  described, when two rules share a phrase, when the answers are not a list,
+  and when an answer is not a string.
+target: solution.py
+interface: "def code_open_answers(rules: list, answers: list) -> dict"
+stop_conditions:
+  - Whether a phrase may run longer than the tidied answer it is tried against is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

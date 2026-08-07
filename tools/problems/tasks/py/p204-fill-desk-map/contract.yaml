@@ -1,0 +1,33 @@
+id: p204-fill-desk-map
+task_type: function_implementation
+task: >-
+  Implement fill_desk_map. The first argument draws an office floor as a
+  non-empty list of equally long non-empty rows; every character is a hash
+  for a partition, a full stop for an aisle, or a small letter naming the
+  bank a desk belongs to. The second argument is a legend keyed by bank
+  letter, each key carrying the list of people who take that bank's desks,
+  first in the list to the earliest desk. A bank's desks are ordered by
+  reading the floor top row downward and, inside a row, leftmost character
+  first. Hand the desks out that way and return a mapping with three keys.
+  Under "floor" give the floor drawn again, a taken desk shown as its
+  person's opening letter written as a capital, a desk nobody took left as
+  its small bank letter, partitions and aisles untouched. Under "sat" give
+  one entry per person who got a desk, banks in rising letter order and
+  inside a bank in the legend's own order, each entry the person's name then
+  a space then r and the row counted from zero then a space then c and the
+  column counted from zero. Under "spare" give how many desks nobody took.
+  Raise an error when the floor is not a list or is empty, when a row is not
+  a string or is empty, when the rows are not all the same length, when a
+  character is of no allowed kind, when the legend is not a mapping, when a
+  key is not exactly one small letter, when a key names a bank the floor
+  never draws, when a key's value is not a list, when a name is not a
+  non-empty string of letters, when one name is handed two desks, and when a
+  bank is given more people than it has desks.
+target: solution.py
+interface: "def fill_desk_map(plan: list, legend: dict) -> dict"
+stop_conditions:
+  - Whether two people at the same bank may share an opening letter is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

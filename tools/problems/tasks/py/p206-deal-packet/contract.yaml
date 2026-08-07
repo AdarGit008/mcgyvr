@@ -1,0 +1,32 @@
+id: p206-deal-packet
+task_type: function_implementation
+task: >-
+  Implement deal_packet. Nothing here is shuffled: the packet is handed out
+  by a stated turn sequence and by nothing else. The first argument is the
+  packet, a list of distinct non-empty strings handed out front to back. The
+  second argument gives one holding limit per hand, a whole number above
+  zero, and its length is how many hands there are. The third argument names
+  the turn sequence: "round" calls hand zero, then hand one, on to the last
+  hand, then begins again; "reverse" calls the last hand first and counts
+  down to hand zero, then begins again; "snake" counts up to the last hand,
+  calls that same last hand once more, counts back down to hand zero, calls
+  hand zero once more, and so on, so with three hands the calls run 0, 1, 2,
+  2, 1, 0, 0, 1, 2 and onward. Walk the packet front to back. For each
+  string take the next call in the sequence; if the hand it names has
+  already reached its limit, that call is passed over and the next call is
+  taken instead. Once every hand has reached its limit, the strings still
+  unhanded stay in packet order and become the leavings. Return a mapping
+  whose "hands" key holds one list per hand, each holding what that hand
+  received in the order it received it, and whose "left" key holds the
+  leavings. Raise an error when the packet is not a list, when an entry of
+  it is not a non-empty string, when an entry appears twice, when the limits
+  are not a non-empty list, when a limit is not a whole number above zero,
+  and when the turn sequence is not one of the three names.
+target: solution.py
+interface: "def deal_packet(items: list, seats: list, order: str) -> dict"
+stop_conditions:
+  - Whether the packet may be longer than every limit added together is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

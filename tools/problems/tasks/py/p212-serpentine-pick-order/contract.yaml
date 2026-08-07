@@ -1,0 +1,24 @@
+id: p212-serpentine-pick-order
+task_type: function_implementation
+task: >-
+  Implement serpentine_pick_order. A pick is a mapping with "sku" (a
+  non-empty string no other pick repeats), "aisle" (a positive whole number)
+  and "bay" (a positive whole number). A picker starts at the mouth of the
+  lowest numbered aisle and works the aisles in ascending order. Odd
+  numbered aisles are worked mouth to end, so their bays come out in
+  ascending bay order; even numbered aisles are worked end to mouth, so
+  their bays come out in descending bay order. When two picks sit in the
+  same aisle at the same bay, the one listed earlier is grabbed first.
+  Return the skus in the order the picker grabs them; an empty pick list
+  gives an empty answer. Raise an error when the pick list is not a list,
+  when a pick is not a mapping, when a sku is missing, empty or not a
+  string, when two picks share a sku, and when an aisle or a bay is not a
+  positive whole number.
+target: solution.py
+interface: "def serpentine_pick_order(picks: object) -> list"
+stop_conditions:
+  - Whether the picker returns to the mouth of the warehouse at the end is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

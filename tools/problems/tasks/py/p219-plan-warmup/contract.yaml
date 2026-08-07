@@ -1,0 +1,37 @@
+id: p219-plan-warmup
+task_type: function_implementation
+task: >-
+  Implement plan_warmup. The argument is a mapping with "budget" (a
+  non-negative whole number of bytes), "slots" (a positive whole number of
+  places the warm store has), "caps" (a mapping from a family to the
+  non-negative whole number of members that family may contribute) and
+  "items" (a list of mappings, each with "name" (a non-empty string no other
+  item repeats), "bytes" (a positive whole number), "weight" (a non-negative
+  whole number) and "family" (a non-empty string that "caps" must mention)).
+  Order the items by weight from heaviest to lightest, settling a tie by the
+  smaller bytes and then by the name that sorts earlier. Walk that order and
+  judge each item by three tests in this sequence: with no place left in the
+  store it is turned away for "slots"; otherwise with its family's
+  contribution already at its cap it is turned away for "family"; otherwise
+  with bytes above what the budget still holds it is turned away for
+  "bytes". An item passing all three is loaded, spending one place, one of
+  its family's allowance and its bytes; an item turned away spends nothing
+  and the walk goes on. Return a mapping with "loaded", the names loaded in
+  the order they were loaded, "spare", the bytes the budget still holds at
+  the end, and "turned", one mapping of "name" and "why" per item turned
+  away, in the order they were judged. Raise an error when the argument or
+  "caps" is not a mapping, when "items" is not a list, when "budget" is not
+  a non-negative whole number, when "slots" is not a positive whole number,
+  when a cap is not a non-negative whole number, when an item is not a
+  mapping, when a name is missing, empty or not a string, when two items
+  share a name, when bytes is not a positive whole number, when weight is
+  not a non-negative whole number, and when a family is not a non-empty
+  string or "caps" does not mention it.
+target: solution.py
+interface: "def plan_warmup(brief: dict) -> dict"
+stop_conditions:
+  - Whether a family named in "caps" that no item belongs to should be reported is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,26 @@
+id: p220-first-bad-message
+task_type: function_implementation
+task: >-
+  Implement first_bad_message. An exchange is a non-empty list of messages,
+  each a mapping with "from" (either "client" or "server") and "kind" (one
+  of HELLO, OFFER, CHOOSE, ACCEPT, DATA and BYE). A whole exchange runs like
+  this: the client says HELLO, the server answers OFFER, the client says
+  CHOOSE, the server answers ACCEPT. After that the client may say DATA,
+  which the server must answer with DATA, and the two may go round like that
+  as often as they please or not at all. Then the client says BYE, the
+  server answers BYE, and nothing more may be said. Walk the messages and
+  return the 0-based position of the first one that cannot lawfully stand
+  where it stands. When every message stands lawfully and the exchange runs
+  all the way to the server's closing BYE, return -1 instead. When every
+  message stands lawfully but the exchange stops short of that closing BYE,
+  return how many messages there were. Raise an error when the exchange is
+  not a list or is empty, when a message is not a mapping, when "from" is
+  neither "client" nor "server", and when "kind" is none of the six names.
+target: solution.py
+interface: "def first_bad_message(exchange: object) -> int"
+stop_conditions:
+  - Whether an exchange may carry anything besides "from" and "kind" on a message is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

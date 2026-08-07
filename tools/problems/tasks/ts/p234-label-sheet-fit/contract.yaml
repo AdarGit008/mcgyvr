@@ -1,0 +1,28 @@
+id: p234-label-sheet-fit
+task_type: function_implementation
+task: >-
+  Implement fitLabelSheet. The first argument describes a blank sheet with
+  width and height (positive integers), marginX and marginY (non-negative
+  integers trimmed from each of the two sides they name) and gapX and gapY
+  (non-negative integers of clear space demanded between neighbouring labels
+  in that direction). The second argument describes one label with width and
+  height (positive integers) and turn (a boolean saying whether a label may
+  be laid on its side). The printable field is the sheet less both of each
+  margin. Labels sit in a plain grid with no stagger, so a field measuring f
+  holds floor((f + gap) / (size + gap)) labels along that direction when f is
+  at least size, and none at all otherwise. Every label on a sheet faces the
+  same way. Work out the grid for the label upright and, when turn allows it,
+  for the label with its width and height swapped; keep whichever yields the
+  larger total, preferring upright when the two are equal. Return a record
+  with across, down, total and turned. Raise an error when a sheet or label
+  measurement is not a positive integer, when a margin or gap is not a
+  non-negative integer, when turn is missing or is not a boolean, and when
+  not one label fits.
+target: solution.ts
+interface: "export function fitLabelSheet(sheet: any, label: any): any"
+stop_conditions:
+  - Whether the leftover field may be trimmed off after printing is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

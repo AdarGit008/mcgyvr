@@ -1,0 +1,35 @@
+id: p208-read-tag-attributes
+task_type: function_implementation
+task: >-
+  Implement readTagAttributes for a small bracket markup. A tag opens with a
+  left square bracket, carries a stem, then carries zero or more marks each
+  introduced by exactly one space, and closes with a right square bracket
+  that must be the very last character. A stem is a letter followed by any
+  number of letters, digits and hyphens. A mark is a name on its own, whose
+  setting is the empty string, or a name, an equals sign, and a setting. A
+  name is a small letter followed by any number of small letters, digits and
+  hyphens. A setting written plain runs over letters, digits, hyphens,
+  underscores and full stops and must have at least one character. A setting
+  written between fences opens with a double or a single quote and closes
+  with the very same quote; inside, a backslash stands before the closing
+  quote or before another backslash and means that one character, any other
+  backslash is an error, the opposite quote means itself, and the fenced
+  setting may be empty. A name carried twice with a setting spelled exactly
+  as before folds into the single earlier mark; a name carried twice with a
+  different setting is an error. Return a mapping whose "stem" key holds the
+  stem and whose "marks" key holds one mapping per surviving mark, in the
+  order the marks first appeared, each with a "name" key and a "setting"
+  key. Raise an error for a tag that is not a string, a missing opening or
+  closing bracket, anything after the closing bracket, a stem or a name that
+  breaks its shape, two spaces running, a space before the closing bracket,
+  an equals sign with no setting after it, a fence never closed, a backslash
+  standing before anything else, and a plain setting followed by a stray
+  character.
+target: solution.ts
+interface: "export function readTagAttributes(tag: string): Record<string, unknown>"
+stop_conditions:
+  - Whether a fenced setting may hold a raw newline is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

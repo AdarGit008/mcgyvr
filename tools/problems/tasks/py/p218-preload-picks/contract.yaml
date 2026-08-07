@@ -1,0 +1,27 @@
+id: p218-preload-picks
+task_type: function_implementation
+task: >-
+  Implement preload_picks. The first argument is a list of candidate
+  entries, each a mapping with "key" (a non-empty string no other entry
+  repeats), "size" (a positive whole number) and "hits" (a non-negative
+  whole number counting how often it was wanted last week); the second is
+  the warm-up room, a non-negative whole number. Line the candidates up by
+  hits from most to fewest, breaking a tie in favour of the smaller size and
+  a further tie in favour of the key that sorts earlier. Go down that line
+  and take each candidate whose size is no larger than the room still free,
+  charging its size against the room; a candidate too large is passed over
+  and the line carries on, so a smaller candidate further down may still be
+  taken. Return the keys of the candidates taken, in the order they were
+  taken. Raise an error when the candidate list is not a list, when the room
+  is not a non-negative whole number, when a candidate is not a mapping,
+  when a key is missing, empty or not a string, when two candidates share a
+  key, when a size is not a positive whole number, and when hits is not a
+  non-negative whole number.
+target: solution.py
+interface: "def preload_picks(entries: object, room: object) -> list"
+stop_conditions:
+  - Whether the warm-up should stop early once the room is exhausted rather than passing over the rest is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

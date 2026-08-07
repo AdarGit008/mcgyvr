@@ -1,0 +1,23 @@
+id: p214-debounce-levels
+task_type: function_implementation
+task: >-
+  Implement debounce_levels. A raw line is delivered as a non-empty list of
+  samples, each of them 0 or 1, and hold is a positive whole number saying
+  how many samples in a row must disagree with the settled level before the
+  change is believed. The settled level starts as the first sample. Walk the
+  samples from the second onward: a sample agreeing with the settled level
+  clears the tally, while a sample disagreeing with it adds one to the
+  tally, and the moment the tally reaches hold the settled level becomes
+  that sample and the tally clears. Report the settled level at every
+  sample, the first one included, so the report is exactly as long as the
+  raw line; with a hold of one the report copies the raw line. Raise an
+  error when the sample list is not a list or is empty, when a sample is
+  neither 0 nor 1, and when hold is not a positive whole number.
+target: solution.py
+interface: "def debounce_levels(samples: object, hold: object) -> list"
+stop_conditions:
+  - Whether a level held at the very end of the line should be reported as still unsettled is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,26 @@
+id: p205-hall-row-tally
+task_type: function_implementation
+task: >-
+  Implement tally_hall_rows. Its argument draws a lecture hall: a non-empty
+  list of tiers, each tier a non-empty string, all of one width. A character
+  is x where somebody already holds the chair, o where the chair is going
+  begging, and = where a step interrupts the tier and no chair stands.
+  Return the hall written up as a list of strings. Emit one line per tier in
+  the order drawn, spelling "tier" then the tier's place counted from zero,
+  a space, "held=" and how many of its chairs are held, a space, "open=" and
+  how many of its chairs go begging. Then emit one closing line spelling
+  "hall held=" and the held count over the whole hall, a space, "open=" and
+  the open count over the whole hall, a space, "widest=tier" and the place
+  of the tier offering the most open chairs, breaking a tie in favour of the
+  lower place. Signal an error if the argument is no list at all or holds
+  nothing, if some tier is not a string or has no characters, if two tiers
+  differ in width, if some character is none of the three, or if a tier
+  offers no chair whatsoever.
+target: solution.py
+interface: "def tally_hall_rows(hall: list) -> list"
+stop_conditions:
+  - Whether a hall may consist of a single tier is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]
