@@ -1,0 +1,20 @@
+id: p166-tessari-value
+task_type: function_implementation
+task: >-
+  Implement tessari_value. The Tessari numerals count in nines using exactly
+  nine glyphs — K L M N P Q R S T — standing for the quantities zero through
+  eight in that order, so K is nothing, L is one, N is three and T is eight.
+  A numeral writes its glyphs heaviest place first: LK is nine, MN is
+  twenty-one, LKK is eighty-one. A numeral of two or more glyphs never opens
+  with K; the only numeral that opens with K is the lone glyph K, which is
+  nothing. Return the quantity the numeral names. Reject with an error: an
+  empty text, a glyph outside those nine, a lower-case glyph, a numeral
+  padded with a leading K, and an argument that is not text.
+target: solution.py
+interface: "def tessari_value(text: str) -> int"
+stop_conditions:
+  - Whether surrounding whitespace should be trimmed before reading is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

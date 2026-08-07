@@ -1,0 +1,65 @@
+id: p193-strand-mark-sheet
+task_type: bug_fix
+task: >-
+  strandMarkSheet reports a term mark wrongly. Repair it. A report is built
+  from strands; a strand is a mapping with "name" (a non-empty string,
+  unique among strands), "share" (a non-negative whole number of
+  thousandths, and the shares across all strands must come to exactly 1000),
+  "discard" (a non-negative whole count) and "work" (a non-empty list of
+  two-element lists holding what the pupil scored and what the piece was
+  available for). A score is either a whole number from zero up to the
+  availability, or the word "absent", which stands for work never handed in
+  and counts as a score of zero rather than vanishing from the strand. Rank
+  a strand's pieces from weakest upward, comparing two pieces by
+  cross-multiplying their scores against each other's availability so no
+  decimal is ever formed; when two pieces rank alike, the one available for
+  more points is weaker, and if that matches too the earlier position is
+  weaker. Discard that many pieces from the weak end, but never leave a
+  strand empty: a discard count at or above the strand's piece count
+  discards all but the single strongest piece. A strand then adds its share
+  times the surviving scores, divided by the surviving availability, with
+  the remainder thrown away. Return a mapping with "mark", the strand
+  contributions added together, and "discarded", the name and original
+  position of every discarded piece written as the name, a hash, then the
+  position, listed strand by strand and weakest first inside a strand.
+  Raise an error for an empty report, a repeated strand name, shares that
+  miss 1000, a negative discard count, a strand with no work, a piece
+  available for nothing or less, a score above its availability, a negative
+  score, and a score that is neither a whole number nor the word "absent".
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The term mark built from weighted strands with discards. */
+  export function strandMarkSheet(
+    strands: Array<Record<string, unknown>>
+  ): Record<string, unknown> {
+    const discarded: string[] = [];
+    let mark = 0;
+    for (const strand of strands as any[]) {
+      const work = strand.work as any[];
+      const order = work.map((_entry, index) => index);
+      order.sort((a, b) => work[a][0] - work[b][0]);
+      const dropped = order.slice(0, strand.discard);
+      for (const index of dropped) {
+        discarded.push(strand.name + "#" + index);
+      }
+      let scored = 0;
+      let available = 0;
+      work.forEach((entry, index) => {
+        if (dropped.includes(index) || entry[0] === "absent") {
+          return;
+        }
+        scored += entry[0];
+        available += entry[1];
+      });
+      mark += Math.floor((strand.share * scored) / available);
+    }
+    return { mark, discarded };
+  }
+interface: "export function strandMarkSheet(strands: Array<Record<string, unknown>>): Record<string, unknown>"
+stop_conditions:
+  - Whether a strand may name a piece the pupil was formally excused from is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

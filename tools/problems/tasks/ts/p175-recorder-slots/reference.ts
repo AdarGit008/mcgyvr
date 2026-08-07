@@ -1,0 +1,41 @@
+export function recorderSnapshot(
+  slots: number,
+  script: number[],
+): { order: number[]; head: number; overwritten: number; starved: number } {
+  if (typeof slots !== "number" || !Number.isInteger(slots) || slots < 1) {
+    throw new Error("the slot count must be a positive whole number");
+  }
+  if (!Array.isArray(script)) {
+    throw new Error("the script must be a list");
+  }
+  const seats: number[] = new Array(slots).fill(-1);
+  let head = 0;
+  let carried = 0;
+  let overwritten = 0;
+  let starved = 0;
+  for (const entry of script) {
+    if (typeof entry !== "number" || !Number.isInteger(entry) || entry < -1) {
+      throw new Error("a script entry must be -1 or a frame number");
+    }
+    if (entry === -1) {
+      if (carried === 0) {
+        starved += 1;
+      } else {
+        head = (head + 1) % slots;
+        carried -= 1;
+      }
+    } else if (carried === slots) {
+      seats[head] = entry;
+      head = (head + 1) % slots;
+      overwritten += 1;
+    } else {
+      seats[(head + carried) % slots] = entry;
+      carried += 1;
+    }
+  }
+  const order: number[] = [];
+  for (let at = 0; at < carried; at++) {
+    order.push(seats[(head + at) % slots]);
+  }
+  return { order, head, overwritten, starved };
+}

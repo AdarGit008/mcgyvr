@@ -1,0 +1,25 @@
+id: p171-exam-slot-classes
+task_type: function_implementation
+task: >-
+  Implement exam_slot_classes. Exams are numbered from zero, and the argument
+  gives for each exam the exams that share at least one student with it — a
+  shared pair is admitted by both exams involved. Seat the exams in sittings
+  numbered from zero. Consider the exams in order of how many exams they
+  share students with, busiest first, and where two are equally busy take
+  the lower-numbered exam first. Each exam in its turn joins the
+  lowest-numbered sitting that holds no exam it shares a student with, and
+  when no sitting so far will do it opens the next one. Return the sittings
+  themselves: entry s is the ascending list of exam numbers seated in
+  sitting s, and the answer holds exactly as many entries as sittings were
+  opened. Reject with an error: an argument that is not a list of lists, a
+  list of no exams at all, an entry naming an exam that does not exist, an
+  exam sharing a student with itself, the same exam named twice inside one
+  list, and a pair that only one of the two admits.
+target: solution.py
+interface: "def exam_slot_classes(conflicts: list[list[int]]) -> list[list[int]]"
+stop_conditions:
+  - Nothing is stated about the order in which equally busy exams should appear inside a sitting.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

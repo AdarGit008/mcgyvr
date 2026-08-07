@@ -1,0 +1,23 @@
+id: p176-backoff-schedule
+task_type: function_implementation
+task: >-
+  Implement backoffSchedule. A worker dials a flaky endpoint on a widening
+  schedule built from four whole numbers named base, factor, cap and
+  attempts. The opening dial happens at moment zero. Before the second dial
+  the worker idles base moments; before every dial after that it idles
+  factor times as long as it idled the time before, save that no idle may
+  ever run past cap — once the widening idle would reach or pass cap, every
+  idle from there on is exactly cap. Return the moment of each dial,
+  earliest first, holding as many moments as attempts asks for. Raise an
+  error when base is not a whole number of one or more, when factor is not
+  a whole number of one or more, when cap is not a whole number or is
+  smaller than base, when attempts is not a whole number of one or more,
+  and when any of the four arrives as a boolean.
+target: solution.ts
+interface: "export function backoffSchedule(base: number, factor: number, cap: number, attempts: number): number[]"
+stop_conditions:
+  - How large a moment may grow before it stops being exact is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

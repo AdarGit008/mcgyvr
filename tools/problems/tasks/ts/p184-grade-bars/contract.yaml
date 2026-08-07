@@ -1,0 +1,26 @@
+id: p184-grade-bars
+task_type: function_implementation
+task: >-
+  Implement gradeBars. The line argument is a written-out rhythm: bars
+  separated by the vertical bar character, and inside a bar the notes are
+  separated by spaces. A note is one of the letters w h q e s — whole,
+  half, quarter, eighth, sixteenth — worth 64, 32, 16, 8 and 4 ticks in
+  that order, and it may carry one trailing full stop, which adds half of
+  the note's own worth to it, so q. is worth 24 ticks. The meter is given
+  by beats and unit: unit says which note gets the beat and must be one of
+  1, 2, 4, 8 or 16, beats says how many of them a bar holds and must be at
+  least 1, so a bar holds beats times 64 divided by unit ticks. Return one
+  word per bar, in the order the bars were written: "short" when the notes
+  fall below what the bar holds, "exact" when they meet it, and "long"
+  when they run past it. Raise an error for a letter outside the five, a
+  note carrying two full stops, a bar holding no notes at all, a unit
+  outside the five allowed, a beats below one, and a line that is not a
+  string.
+target: solution.ts
+interface: "export function gradeBars(line: string, beats: number, unit: number): string[]"
+stop_conditions:
+  - Whether more than one space may separate two notes is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

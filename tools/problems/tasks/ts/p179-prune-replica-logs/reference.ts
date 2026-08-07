@@ -1,0 +1,76 @@
+export function pruneReplicaLogs(
+  replicas: Array<{ name: string; acked: number; weight: number }>,
+  held: number,
+): { committed: number; discardable: number; laggards: string[] } {
+  if (!Array.isArray(replicas) || replicas.length === 0) {
+    throw new Error("the replicas must be a non-empty list");
+  }
+  if (typeof held !== "number" || !Number.isInteger(held) || held < 0) {
+    throw new Error("the number held must be a whole number of zero or more");
+  }
+  const seen: string[] = [];
+  let total = 0;
+  for (const replica of replicas) {
+    if (
+      typeof replica !== "object" ||
+      replica === null ||
+      Array.isArray(replica)
+    ) {
+      throw new Error("a replica must be a record");
+    }
+    for (const field of ["name", "acked", "weight"]) {
+      if (!(field in replica)) {
+        throw new Error("a replica record is missing " + field);
+      }
+    }
+    if (typeof replica.name !== "string" || replica.name === "") {
+      throw new Error("a replica name must be a non-empty string");
+    }
+    if (seen.includes(replica.name)) {
+      throw new Error("replica names must not repeat");
+    }
+    seen.push(replica.name);
+    if (
+      typeof replica.weight !== "number" ||
+      !Number.isInteger(replica.weight) ||
+      replica.weight < 1
+    ) {
+      throw new Error("a weight must be a whole number of one or more");
+    }
+    if (
+      typeof replica.acked !== "number" ||
+      !Number.isInteger(replica.acked) ||
+      replica.acked < 0 ||
+      replica.acked > held
+    ) {
+      throw new Error("an acked position must lie between zero and the number held");
+    }
+    total += replica.weight;
+  }
+  let committed = 0;
+  for (let position = held; position >= 1; position--) {
+    let backing = 0;
+    for (const replica of replicas) {
+      if (replica.acked >= position) {
+        backing += replica.weight;
+      }
+    }
+    if (backing * 2 > total) {
+      committed = position;
+      break;
+    }
+  }
+  let discardable = replicas[0].acked;
+  for (const replica of replicas) {
+    if (replica.acked < discardable) {
+      discardable = replica.acked;
+    }
+  }
+  const laggards: string[] = [];
+  for (const replica of replicas) {
+    if (replica.acked < committed) {
+      laggards.push(replica.name);
+    }
+  }
+  return { committed, discardable, laggards };
+}

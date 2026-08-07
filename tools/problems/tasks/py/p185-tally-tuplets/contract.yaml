@@ -1,0 +1,33 @@
+id: p185-tally-tuplets
+task_type: function_implementation
+task: >-
+  Implement tally_tuplets. A score is measures separated by semicolons, and
+  a measure is entries separated by spaces. Every span is counted in
+  units, where the undivided span is 64 units. An entry is either a plain
+  span written as numerator, a slash, and denominator — the numerator a
+  positive number with no padding zero, the denominator one of 1, 2, 4, 8,
+  16, 32 or 64 — worth numerator times 64 divided by denominator units; or
+  a squeeze, written as a repetition figure, an opening brace, one or more
+  plain spans joined by plus signs, and a closing brace, with no spaces
+  anywhere inside it. A squeeze figured k is worth the total of its
+  members multiplied by k minus one and then divided by k, and the figure
+  k must be two or more. Squeezes never sit inside squeezes. The meter
+  argument is written the same way a plain span is, and a measure may hold
+  meter-numerator times 64 divided by meter-denominator units. Return one
+  whole number per measure, in order: the units it holds subtracted from
+  the units it actually carries, so a measure that overflows reports a
+  positive number and one left hungry reports a negative one. Raise an
+  error for a denominator outside the seven allowed, a numerator of zero
+  or one written with a padding zero, an entry that is not shaped like
+  either form, a brace never closed or closed with nothing inside, a
+  figure below two, a squeeze whose worth is not a whole number of units,
+  a measure with no entries in it, a malformed meter, and a score that is
+  not a string.
+target: solution.py
+interface: "def tally_tuplets(score: str, meter: str) -> list"
+stop_conditions:
+  - Whether a squeeze may hold only one member span is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

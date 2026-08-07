@@ -1,0 +1,22 @@
+id: p167-corvid-render
+task_type: function_implementation
+task: >-
+  Implement corvidRender. A Corvid tally writes a whole number on a balanced
+  scale of five whose marks lean to either side of nothing: v leans minus
+  two, w leans minus one, x leans nothing, y leans plus one, z leans plus
+  two. Marks run heaviest place first and each place is worth five times the
+  place on its right, so wz means minus five plus two, which is minus three,
+  and yvv means twenty-five minus ten minus two, which is thirteen. Every
+  whole number, below nothing or above it, has exactly one such tally once
+  this rule is added: no tally opens with x except the lone mark x, which is
+  nothing itself. Return the tally for the given number as text. Reject with
+  an error anything that is not a whole number — a fraction, a run of text,
+  a true-or-false value, an unbounded quantity.
+target: solution.ts
+interface: "export function corvidRender(value: number): string"
+stop_conditions:
+  - Nothing is stated about how large a number the tally must cope with.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

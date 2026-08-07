@@ -1,0 +1,28 @@
+id: p182-fold-formula
+task_type: function_implementation
+task: >-
+  Implement fold_formula. Its argument is a recipe string written in the
+  grammar stated here and nowhere else. A recipe is one or more items. An
+  item is a body followed by an optional repeat, and a body is either a
+  tag — one uppercase ASCII letter followed by up to two lowercase ASCII
+  letters — or a whole recipe wrapped in round parentheses. A repeat is a
+  run of digits denoting a positive integer written without a leading
+  zero, and its absence means once. A repeat placed after a parenthesised
+  body multiplies every tally the parentheses produced, and parentheses
+  may sit inside parentheses to any depth. Flatten the whole recipe to
+  per-tag totals and return them as one string: the tags in ascending code
+  point order, each written once, followed by its total when that total is
+  two or more and by nothing at all when the total is one. So Mg(OH)2
+  becomes H2MgO2 and K4(ON(SO3)2)2 becomes K4N2O14S4. Raise an error for
+  the empty argument, a parenthesis left open, a closing parenthesis with
+  no opener, a pair of parentheses enclosing nothing, a repeat that begins
+  with the digit zero, an item that starts with a lowercase letter, a tag
+  carrying three lowercase letters, and an argument that is not a string.
+target: solution.py
+interface: "def fold_formula(recipe: str) -> str"
+stop_conditions:
+  - Whether a tag may repeat non-adjacently inside the same parentheses is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

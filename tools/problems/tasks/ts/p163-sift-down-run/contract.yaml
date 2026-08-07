@@ -1,0 +1,37 @@
+id: p163-sift-down-run
+task_type: bug_fix
+task: >-
+  siftDownRun reports the wrong thing about a heap repair. The array holds
+  whole numbers and already obeys the min-heap rule at every slot except
+  possibly the one named by the start argument, whose resident must now
+  sink. Sinking one step means this: consider the resident's children at
+  2i+1 and 2i+2 that lie inside the array, take the smaller of them and on
+  a tie the left one, and when that child holds a strictly smaller number
+  trade the two slots and carry on from the child's slot; otherwise the
+  resident has settled. The answer is two rows — first the array once the
+  resident has settled, then the slots the resident occupied in order,
+  beginning with the start slot and ending where it settled. The present
+  code peeks only at the left child, so it walks past a smaller right
+  child; it sinks at most one level instead of repeating; and it hands back
+  a bare array instead of the two rows. Repair all three, leave the
+  caller's array untouched, and add the absent checks: throw an error for
+  an empty array, for a start slot outside the array, and for an entry that
+  is not a whole number.
+target: solution.ts
+target_content: |
+  export function siftDownRun(heap: number[], start: number): number[][] {
+    const left = 2 * start + 1;
+    if (left < heap.length && heap[left] < heap[start]) {
+      const held = heap[start];
+      heap[start] = heap[left];
+      heap[left] = held;
+    }
+    return heap as unknown as number[][];
+  }
+interface: "export function siftDownRun(heap: number[], start: number): number[][]"
+stop_conditions:
+  - Nothing is stated about slots above the start slot that may already break the rule.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

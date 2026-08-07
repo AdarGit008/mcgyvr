@@ -1,0 +1,29 @@
+id: p188-collapse-blocks
+task_type: function_implementation
+task: >-
+  Implement collapseBlocks. This invented address space names a berth by
+  four fields joined with dots, every field exactly one character drawn
+  from 0 to 7, so 4096 berths exist and 1.2.3.4 is one of them. A slab is
+  written as a berth, a slash, and a pin between 0 and 4: the pin says how
+  many leading fields are fixed, every field after those must be written
+  as 0, and the slab stands for every berth agreeing with it on the fixed
+  fields. So x.y.z.0/3 stands for eight berths, x.y.0.0/2 for sixty-four,
+  and 0.0.0.0/0 for all of them. Given a list of berths, return the
+  shortest list of slabs standing for exactly that set of berths and
+  nothing besides — which means eight sibling slabs sharing a pin and
+  agreeing on every fixed field above it must always be written as their
+  single shorter parent, repeatedly, while a group missing even one
+  sibling stays written out. Repeated berths in the argument count once.
+  Order the answer by the first berth each slab stands for, lowest first,
+  reading the fields most significant first. Raise an error for a berth
+  without exactly four fields, a field that is not a single character
+  between 0 and 7, an argument that is not a list, and an element that is
+  not a string.
+target: solution.ts
+interface: "export function collapseBlocks(berths: string[]): string[]"
+stop_conditions:
+  - Whether the argument may already contain slab notation is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

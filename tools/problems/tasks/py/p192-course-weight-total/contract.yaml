@@ -1,0 +1,27 @@
+id: p192-course-weight-total
+task_type: function_implementation
+task: >-
+  Implement course_weight_total. A syllabus divides the final mark into
+  weighted categories. Each category is a mapping with "label" (a non-empty
+  string, unique across the syllabus), "weight" (a non-negative whole number
+  of basis points, where one basis point is a hundredth of a percent) and
+  "items" (a non-empty list of two-element lists holding the points a
+  student earned and the points the piece was worth). A category's
+  contribution is its weight times the sum of earned points across its
+  items, divided by the sum of worth across those same items, keeping only
+  the whole part of that quotient and throwing the remainder away. The
+  answer is the contributions added together and reported in basis points,
+  so a syllabus answered perfectly reads 10000. Stay in whole numbers
+  throughout; do not build a decimal fraction at any step. Raise an error
+  for an empty syllabus, two categories sharing a label, weights that do not
+  add up to exactly 10000, a negative weight, a category holding no items,
+  an item whose worth is not strictly positive, and earned points that are
+  negative or larger than the worth.
+target: solution.py
+interface: "def course_weight_total(categories: list) -> int"
+stop_conditions:
+  - Whether labels that differ only in letter case count as the same label is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,62 @@
+id: p175-recorder-slots
+task_type: bug_fix
+task: >-
+  recorder_snapshot replays a flight recorder's write script and reports what
+  survived, and its bookkeeping is wrong in several places at once. Repair
+  it. The recorder owns a fixed number of slots, numbered from zero and
+  reused in a cycle. It remembers which slot carries the oldest surviving
+  frame and how many frames it carries in all; it begins carrying nothing,
+  with slot zero next in line. The script is read left to right: a frame
+  number, always a whole number of zero or more, is written, while the
+  value -1 ejects the oldest frame. A write made while spare slots remain
+  lands that many places past the oldest slot, counting around the cycle. A
+  write made while every slot is occupied lands on the slot carrying the
+  oldest frame and destroys it, after which the oldest marker moves on one
+  place; each such write is tallied as overwritten. An eject moves the
+  oldest marker on one place and lowers the carried count, but an eject
+  with nothing to give changes nothing and is tallied as starved instead.
+  Return a record with order, the surviving frames listed oldest first,
+  head, the slot number carrying the oldest surviving frame — or the slot
+  the next write will take, when nothing survives — and the two tallies
+  overwritten and starved. Throw an error when the slot count is not a
+  positive whole number, when the script is not a list, and when a script
+  entry is neither -1 nor a whole number of zero or more. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  def recorder_snapshot(slots, script):
+      if not isinstance(slots, int) or isinstance(slots, bool) or slots < 1:
+          raise ValueError("the slot count must be a positive whole number")
+      if not isinstance(script, list):
+          raise ValueError("the script must be a list")
+      seats = [-1] * slots
+      head = 0
+      carried = 0
+      overwritten = 0
+      starved = 0
+      for entry in script:
+          if not isinstance(entry, int) or isinstance(entry, bool) or entry < -1:
+              raise ValueError("a script entry must be -1 or a frame number")
+          if entry == -1:
+              head = (head + 1) % slots
+              carried -= 1
+          elif carried == slots:
+              seats[head] = entry
+              overwritten += 1
+          else:
+              seats[(head + carried) % slots] = entry
+              carried += 1
+      order = [seats[at] for at in range(carried)]
+      return {
+          "order": order,
+          "head": head,
+          "overwritten": overwritten,
+          "starved": starved,
+      }
+interface: "def recorder_snapshot(slots: int, script: list) -> dict"
+stop_conditions:
+  - Whether the same frame number may be written twice is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

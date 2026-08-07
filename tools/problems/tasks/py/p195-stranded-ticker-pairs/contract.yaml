@@ -1,0 +1,24 @@
+id: p195-stranded-ticker-pairs
+task_type: function_implementation
+task: >-
+  Implement stranded_ticker_pairs. A desk publishes legs; a leg is a
+  two-element list naming the ticker it sells out of and the ticker it buys
+  into, and it may be walked in that direction alone. The tickers in play
+  are exactly those some leg names. One ticker routes to another when a
+  series of legs, each starting where the previous one ended, joins them; a
+  ticker is never asked to route to itself. Report every ordered couple of
+  distinct tickers with no route between them, each written as the starting
+  ticker, a greater-than sign, then the ticker it fails to reach. Sort the
+  report by the starting ticker and then by the one out of reach, comparing
+  the text of the codes. An empty report means every couple routes. Raise an
+  error when no legs are published, when a leg is not exactly two elements,
+  when a ticker is not a non-empty string, when a leg sells and buys the
+  same ticker, and when the identical leg is published twice.
+target: solution.py
+interface: "def stranded_ticker_pairs(legs: list) -> list"
+stop_conditions:
+  - Whether tickers should be ordered by code point or by some locale rule is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

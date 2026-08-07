@@ -1,0 +1,34 @@
+id: p200-fold-machine
+task_type: function_implementation
+task: >-
+  Implement fold_machine. A machine is a mapping with "alphabet" (a
+  non-empty list of distinct non-empty symbol strings), "states" (a
+  non-empty list of distinct non-empty state names), "start" (one of those
+  names), "accepting" (a list of distinct names drawn from them, possibly
+  empty) and "moves" (a list of three-element lists holding a state, a
+  symbol and the state that symbol leads to), with exactly one move for
+  every state paired with every symbol. First throw away the states no run
+  of symbols can reach from the start. Then merge the states that no run of
+  symbols can ever tell apart; two states are told apart when some run from
+  one lands on an accepting state while that same run from the other does
+  not. Number the surviving groups by exploring outward from the group
+  holding the start, taking symbols in the order the alphabet lists them and
+  handing each newly met group the next number, the start's own group being
+  zero. Return a mapping with "size", how many groups survived, "start",
+  which is always zero, "accepting", the numbers of the groups whose states
+  accept in increasing order, and "moves", one three-element list per group
+  and symbol holding the group number, the symbol and the group number it
+  leads to, sorted by group number and then by the symbol's place in the
+  alphabet. Raise an error when the alphabet or the state list is empty or
+  holds a repeat or a member that is not a non-empty string, when the start
+  is not a listed state, when an accepting name is not a listed state or
+  appears twice, when a move names a state or a symbol nobody declared, and
+  when some pairing of state and symbol has no move or has two.
+target: solution.py
+interface: "def fold_machine(machine: dict) -> dict"
+stop_conditions:
+  - Whether a machine with no accepting states at all deserves special mention is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

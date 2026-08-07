@@ -1,0 +1,26 @@
+id: p172-hex-ring-walk
+task_type: function_implementation
+task: >-
+  Implement hexRingWalk. Cells of a hexagonal board carry an axial address
+  [q, r]. The six unit steps, named in walk order, are east [1, 0],
+  northeast [1, -1], northwest [0, -1], west [-1, 0], southwest [-1, 1] and
+  southeast [0, 1]; adding a step to an address gives the neighbour lying
+  that way. The first argument is the centre address and the second is a
+  radius. Return every cell standing exactly radius steps from the centre,
+  laid out as one closed walk: start on the cell reached by taking radius
+  southwest steps away from the centre, then record the cell underfoot and
+  take one east step, radius times over; repeat that pairing of record and
+  step with northeast, then northwest, then west, then southwest, and last
+  southeast, which lands back where the walk opened. A radius of zero
+  yields the centre by itself. Raise an error when the centre is not a
+  two-element address of whole numbers, when the radius is not a whole
+  number, when the radius is negative, and when either argument carries a
+  boolean in place of a number.
+target: solution.ts
+interface: "export function hexRingWalk(center: number[], radius: number): number[][]"
+stop_conditions:
+  - How far from the origin an address may stray is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

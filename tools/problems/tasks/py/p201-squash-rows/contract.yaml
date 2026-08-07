@@ -1,0 +1,57 @@
+id: p201-squash-rows
+task_type: bug_fix
+task: >-
+  squash_rows folds a chart wrongly. Repair it. A chart is a mapping with
+  "signals" (a non-empty list of distinct non-empty strings), "head" (a row
+  label) and "rows" (a non-empty list of mappings, each with "label", a
+  non-empty string no other row shares, "mark", a non-empty string, and
+  "next", a list holding one row label per signal in the signals' own
+  order). Two rows are twins when their marks agree and, signal by signal,
+  the rows they lead to are themselves twins; take the widest reading of
+  twin the chart allows, so two rows are held apart only when some series of
+  signals drives them to marks that differ. Squash each set of twins into
+  one group. Number the groups by where their earliest member sits in the
+  row list, so the group holding the very first row is zero and the rest
+  climb from there; rows that nothing ever leads to are grouped and numbered
+  like any other. Return a mapping with "entry", the number of the group
+  holding the head row, and "rows", one mapping per group in ascending
+  number carrying "at" (the group's number), "mark" (the mark its rows
+  share) and "next" (the group numbers each signal leads to, in the signals'
+  order). Raise an error when the signal list is empty or repeats a signal
+  or holds something that is not a non-empty string, when there are no rows,
+  when two rows share a label, when a label or a mark is not a non-empty
+  string, when a row's next list does not hold exactly one entry per signal,
+  when a next entry names no row, and when the head names no row. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  """A chart with its twin rows squashed together."""
+
+
+  def squash_rows(chart: dict) -> dict:
+      rows = chart["rows"]
+      group_of = {}
+      chosen = []
+      seen = {}
+      for row in rows:
+          key = row["mark"] + "|" + ",".join(row["next"])
+          if key not in seen:
+              seen[key] = len(chosen)
+              chosen.append(row)
+          group_of[row["label"]] = seen[key]
+      folded = [
+          {
+              "at": at,
+              "mark": row["mark"],
+              "next": [group_of[label] for label in row["next"]],
+          }
+          for at, row in enumerate(chosen)
+      ]
+      return {"entry": group_of[chart["head"]], "rows": folded}
+interface: "def squash_rows(chart: dict) -> dict"
+stop_conditions:
+  - Whether two groups may end up sharing a mark once the squashing is done is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,37 @@
+id: p165-divide-coefficients
+task_type: bug_fix
+task: >-
+  divide_coefficients botches schoolbook long division. Both arguments are
+  ascending runs of whole-number coefficients — index k holds the multiplier
+  of t to the k, no run ever ends in a zero, and an empty run stands for
+  nothing at all. Hand back two rows: the quotient, then what is left over,
+  each an ascending run in that same shape. Stay inside the whole numbers —
+  at every round the leading coefficient of what is left must be an exact
+  multiple of the divisor's leading coefficient, and when it is not, throw
+  an error rather than approximate. Rounds continue for as long as what is
+  left is at least as long as the divisor. The present code stacks the
+  quotient backwards so the highest power lands first; it divides without
+  testing exactness, so fractions creep in; and it drops exactly one slot
+  per round instead of clearing every zero that piled up on top. Repair
+  those three and add the absent guards: throw an error when the divisor is
+  the empty run, when either run ends in a zero, when an argument is not a
+  list, and when a coefficient is not a whole number.
+target: solution.py
+target_content: |
+  def divide_coefficients(dividend: list[int], divisor: list[int]) -> list[list[int]]:
+      rest = list(dividend)
+      quotient = []
+      while len(rest) >= len(divisor):
+          factor = rest[-1] / divisor[-1]
+          quotient.append(factor)
+          for i, term in enumerate(divisor):
+              rest[len(rest) - len(divisor) + i] -= factor * term
+          rest.pop()
+      return [quotient, rest]
+interface: "def divide_coefficients(dividend: list[int], divisor: list[int]) -> list[list[int]]"
+stop_conditions:
+  - Nothing is stated about which sign the leftover's leading coefficient takes.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

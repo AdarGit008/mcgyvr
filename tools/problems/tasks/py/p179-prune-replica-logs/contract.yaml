@@ -1,0 +1,79 @@
+id: p179-prune-replica-logs
+task_type: bug_fix
+task: >-
+  prune_replica_logs decides how far a coordinator's write stream has settled,
+  and it is wrong on three separate counts. Repair it. The second argument
+  says how many positions the coordinator is holding, numbered one upward.
+  The first argument describes the replicas, each a record with a name, an
+  acked position — the highest one it has accepted, zero for none — and a
+  weight, the number of votes it carries. A position counts as settled once
+  the combined weight of the replicas that have accepted it or anything
+  later is strictly more than half the combined weight of every replica; a
+  tie at exactly half is not enough. Report committed as the highest
+  settled position, or zero when none clears the bar. Report discardable as
+  the lowest acked position held by any replica, since everything at or
+  below it already sits on all of them and the coordinator need not keep
+  it. Report laggards as the names of the replicas whose acked position is
+  strictly below committed, in the order the replicas were described. Throw
+  an error when the replica list is not a list or is empty, when a replica
+  record lacks any of the three fields, when a name is not a non-empty
+  string or repeats an earlier name, when a weight is not a whole number of
+  one or more, when an acked position is not a whole number between zero
+  and the number held, and when the number held is not a whole number of
+  zero or more. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def _whole(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def prune_replica_logs(replicas, held):
+      if not isinstance(replicas, list) or len(replicas) == 0:
+          raise ValueError("the replicas must be a non-empty list")
+      if not _whole(held) or held < 0:
+          raise ValueError("the number held must be a whole number of zero or more")
+      seen = []
+      total = 0
+      for replica in replicas:
+          if not isinstance(replica, dict):
+              raise ValueError("a replica must be a record")
+          for field in ("name", "acked", "weight"):
+              if field not in replica:
+                  raise ValueError("a replica record is missing " + field)
+          name = replica["name"]
+          if not isinstance(name, str) or name == "":
+              raise ValueError("a replica name must be a non-empty string")
+          if name in seen:
+              raise ValueError("replica names must not repeat")
+          seen.append(name)
+          if not _whole(replica["weight"]) or replica["weight"] < 1:
+              raise ValueError("a weight must be a whole number of one or more")
+          acked = replica["acked"]
+          if not _whole(acked) or acked < 0 or acked > held:
+              raise ValueError(
+                  "an acked position must lie between zero and the number held"
+              )
+          total += replica["weight"]
+      committed = 0
+      for position in range(held, 0, -1):
+          backing = sum(r["weight"] for r in replicas if r["acked"] >= position)
+          if backing * 2 >= total:
+              committed = position
+              break
+      discardable = replicas[0]["acked"]
+      for replica in replicas:
+          if replica["acked"] > discardable:
+              discardable = replica["acked"]
+      laggards = [r["name"] for r in replicas if r["acked"] <= committed]
+      return {
+          "committed": committed,
+          "discardable": discardable,
+          "laggards": laggards,
+      }
+interface: "def prune_replica_logs(replicas: list, held: int) -> dict"
+stop_conditions:
+  - Whether a replica may carry more weight than all the others together is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

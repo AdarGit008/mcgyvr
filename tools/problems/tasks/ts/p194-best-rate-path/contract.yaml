@@ -1,0 +1,32 @@
+id: p194-best-rate-path
+task_type: function_implementation
+task: >-
+  Implement bestRatePath. A quote is a three-element list [base, counter,
+  micro]: one unit of the base currency buys micro millionths of a unit of
+  the counter currency, and the quote works in that direction only.
+  Converting a whole amount across one quote gives the amount times micro
+  divided by one million with the remainder discarded, and that discard
+  happens at every single hop, so a chain of quotes is not the same as one
+  multiplication. A run is a sequence of distinct currency codes beginning
+  at the source and ending at the destination with every neighbouring pair
+  covered by a quote; no code may repeat inside a run. Among all runs pick
+  the one leaving the largest whole amount at the destination; should two
+  runs leave the same amount, prefer the one crossing fewer quotes, and
+  should that match too, prefer the run whose codes come first when compared
+  position by position. Return a mapping with "amount", the whole amount
+  arriving at the destination, and "path", the run's codes from source to
+  destination inclusive. Raise an error when the quote list is empty, when a
+  quote is not three elements, when a code is not a non-empty string, when a
+  quote names the same code on both sides, when micro is not a positive
+  whole number, when one ordered pair is quoted twice, when the amount is
+  not a positive whole number, when the source and the destination are the
+  same code, when either of them is named by no quote, and when no run
+  connects them at all.
+target: solution.ts
+interface: "export function bestRatePath(quotes: unknown[][], amount: number, source: string, destination: string): Record<string, unknown>"
+stop_conditions:
+  - Whether codes are compared case-sensitively when matching a quote to a run is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

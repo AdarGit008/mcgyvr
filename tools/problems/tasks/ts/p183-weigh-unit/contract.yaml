@@ -1,0 +1,63 @@
+id: p183-weigh-unit
+task_type: bug_fix
+task: >-
+  weighUnit adds up the mass of a bracketed spec and trusts far too much.
+  Harden it. A spec is one or more parts; a part is a core with an optional
+  count; a core is a name — one capital letter plus at most two small
+  letters — or another spec wrapped in round brackets or in square
+  brackets. A count is digits denoting a positive number written without a
+  leading zero, absent meaning one, and a count after a wrapped core scales
+  only what that wrapping produced, not anything already added before it.
+  Every name is looked up in the masses table, which maps a name to a
+  non-negative whole mass. Return the total mass as a whole number. Every
+  one of these must instead raise an error: a name the table does not
+  hold, an opener answered by a bracket of the other shape, an opener
+  never answered at all, a closer with nothing open, a wrapping with no
+  parts inside it, a count starting with the digit zero, a spec of length
+  zero, and a spec that is not a string. Return the whole fixed file.
+target: solution.ts
+target_content: |
+  export function weighUnit(
+    spec: string,
+    masses: Record<string, number>,
+  ): number {
+    let at = 0;
+    const outer: number[] = [];
+    let sum = 0;
+    const readCount = (): number => {
+      let digits = "";
+      while (at < spec.length && spec[at] >= "0" && spec[at] <= "9") {
+        digits += spec[at];
+        at += 1;
+      }
+      return digits === "" ? 1 : Number(digits);
+    };
+    while (at < spec.length) {
+      const ch = spec[at];
+      if (ch === "(" || ch === "[") {
+        outer.push(sum);
+        sum = 0;
+        at += 1;
+      } else if (ch === ")" || ch === "]") {
+        at += 1;
+        const count = readCount();
+        sum = (outer.pop() ?? 0) * count + sum;
+      } else {
+        let name = ch;
+        at += 1;
+        while (at < spec.length && spec[at] >= "a" && spec[at] <= "z") {
+          name += spec[at];
+          at += 1;
+        }
+        sum += (masses[name] ?? 0) * readCount();
+      }
+    }
+    return sum;
+  }
+interface: "export function weighUnit(spec: string, masses: Record<string, number>): number"
+stop_conditions:
+  - Whether the masses table may hold names the spec never mentions is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

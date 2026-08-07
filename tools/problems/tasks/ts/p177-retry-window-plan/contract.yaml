@@ -1,0 +1,33 @@
+id: p177-retry-window-plan
+task_type: function_implementation
+task: >-
+  Implement planRetryWindow. The first argument is a policy record carrying
+  five whole numbers under the names base, factor, ceiling, tries and
+  deadline. The second argument lists the outcomes already observed, one per
+  attempt in order, each of them won, lost or held. The opening attempt
+  starts at moment zero, and reading the outcome of the attempt just made
+  decides what follows. An outcome of won closes the plan with the verdict
+  succeeded. Failing that, a plan which has already made as many attempts
+  as tries allows closes with the verdict exhausted. Failing both, a gap is
+  worked out and the following attempt is pencilled in that many moments
+  after the one just made: after lost the gap is base multiplied by factor
+  once for every consecutive lost beyond the first, never allowed past
+  ceiling; after held the gap is exactly ceiling and the run of consecutive
+  lost outcomes is forgotten. Should the pencilled-in moment fall on or
+  past deadline the plan closes with the verdict expired and that attempt
+  never happens; otherwise it happens and its own outcome is read in turn.
+  Return a record with times, the moment every attempt that happened
+  started, and verdict. Outcomes left over once the plan closes are
+  ignored. Raise an error when the policy is not a record carrying all five
+  names, when any of base, factor, tries and deadline is not a whole number
+  of one or more, when ceiling is not a whole number of at least base, when
+  the outcome list is not a list, when any listed outcome is outside the
+  three names, and when the list runs out while the plan is still going.
+target: solution.ts
+interface: "export function planRetryWindow(policy: { base: number; factor: number; ceiling: number; tries: number; deadline: number }, outcomes: string[]): { times: number[]; verdict: string }"
+stop_conditions:
+  - Whether an attempt is allowed to start exactly at moment zero when the deadline is one is not stated beyond the on-or-past rule.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

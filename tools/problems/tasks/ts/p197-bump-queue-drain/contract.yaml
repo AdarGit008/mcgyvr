@@ -1,0 +1,55 @@
+id: p197-bump-queue-drain
+task_type: bug_fix
+task: >-
+  bumpQueueDrain hands out work in the wrong order. Repair it. Each ticket is
+  a mapping with "id" (a non-empty string, unique across the batch), "filed"
+  (the non-negative whole minute it was raised) and "grade" (a whole number
+  from 0 to 9). The crew handles at most one ticket a minute, beginning at
+  the given start minute and advancing a minute at a time until every ticket
+  is gone. A ticket becomes eligible at the minute it was filed and not
+  before, so a minute with nothing eligible simply passes with nothing
+  handled. A ticket's urgency at a minute is its grade plus the whole count
+  of bump intervals separating that minute from the minute the ticket was
+  filed, and the urgency is then held down to 9, which nothing may exceed.
+  The crew handles the eligible ticket of highest urgency; ties fall to the
+  ticket filed earlier, and ties there fall to the id that sorts first.
+  Return the ids in the order they were handled. Raise an error when the
+  batch is empty, when a ticket is not a mapping, when an id is missing or
+  repeated, when a filed minute is not a non-negative whole number, when a
+  grade is not a whole number between 0 and 9, when the start minute is not
+  a non-negative whole number, and when the bump interval is not a positive
+  whole number. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The order a crew works through a batch of graded tickets. */
+  export function bumpQueueDrain(
+    tickets: Array<Record<string, unknown>>,
+    start: number,
+    bumpEvery: number
+  ): string[] {
+    const pending = (tickets as any[]).slice();
+    const handled: string[] = [];
+    while (pending.length > 0) {
+      let pick = 0;
+      for (let i = 1; i < pending.length; i++) {
+        const here =
+          pending[i].grade + Math.floor((start - pending[i].filed) / bumpEvery);
+        const held =
+          pending[pick].grade +
+          Math.floor((start - pending[pick].filed) / bumpEvery);
+        if (here > held) {
+          pick = i;
+        }
+      }
+      handled.push(pending[pick].id);
+      pending.splice(pick, 1);
+    }
+    return handled;
+  }
+interface: "export function bumpQueueDrain(tickets: Array<Record<string, unknown>>, start: number, bumpEvery: number): string[]"
+stop_conditions:
+  - Whether idle minutes are stepped through one by one or skipped over is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

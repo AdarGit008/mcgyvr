@@ -1,0 +1,30 @@
+id: p196-aged-service-order
+task_type: function_implementation
+task: >-
+  Implement agedServiceOrder. A counter replays a log of moments, each a
+  mapping carrying "kind" and "tick"; ticks never run backwards, and moments
+  sharing a tick are replayed in the order given. A moment of kind "join"
+  also carries "who", a non-empty string, and "rank", a non-negative whole
+  number, and it puts that caller into the waiting room. A moment of kind
+  "call" takes one caller out of the waiting room. At tick t a caller's
+  standing is its rank plus the count of whole aging steps that have passed
+  since it joined, that is the gap between t and its join tick divided by
+  the step with the remainder dropped. A "call" removes the caller of
+  greatest standing; when two stand level the one who joined at the earlier
+  tick goes first, and when their join ticks match too the one whose name
+  sorts earlier goes first. Return the names taken out of the waiting room,
+  in the order they were taken. Raise an error when the step is not a
+  positive whole number, when the log is empty, when a moment's kind is
+  neither "join" nor "call", when a tick is not a non-negative whole number,
+  when a tick precedes the one before it, when a joining caller has no name
+  or carries a rank that is not a non-negative whole number, when a name
+  already in the waiting room joins again, and when a "call" finds the
+  waiting room empty.
+target: solution.ts
+interface: "export function agedServiceOrder(events: Array<Record<string, unknown>>, step: number): string[]"
+stop_conditions:
+  - Whether callers still waiting when the log ends should be reported anywhere is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
