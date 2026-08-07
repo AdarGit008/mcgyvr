@@ -1,0 +1,37 @@
+id: p030-group-totals
+task_type: bug_fix
+task: |
+  groupTotals aggregates a row set wrongly in three ways. Called with a
+  list of records, the name of the property holding each row's group label
+  and the name of the property holding its integer amount, it must return
+  [label, total] pairs where total is the SUM of every amount filed under
+  that label; the current code overwrites the running value instead of
+  adding to it, so only each label's last row survives. The output must be
+  ordered by total descending with ties broken by label ascending — not
+  the plain label sort it does now. And it validates nothing, where it
+  must reject a row missing either named property, a label that is not a
+  string, and an amount that is not an integer, each with an error. A
+  label seen once keeps its single amount, amounts may be negative, and an
+  empty row list yields an empty result. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function groupTotals(
+    rows: Array<Record<string, unknown>>,
+    key: string,
+    field: string,
+  ): Array<[string, number]> {
+    const totals: Record<string, number> = {};
+    for (const row of rows) {
+      totals[String(row[key])] = row[field] as number;
+    }
+    return Object.keys(totals)
+      .sort()
+      .map((name) => [name, totals[name]]);
+  }
+interface: "export function groupTotals(rows: Array<Record<string, unknown>>, key: string, field: string): Array<[string, number]>"
+stop_conditions:
+  - Whether rows may carry extra properties beyond the two named is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

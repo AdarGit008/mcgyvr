@@ -1,0 +1,44 @@
+id: p007-free-windows
+task_type: bug_fix
+task: >-
+  freeWindows computes the free time inside a working window incorrectly.
+  Fix it: the window runs from its start bound up to but not including its
+  end bound, and the busy intervals arrive unordered, may overlap one
+  another, and may reach past either edge of the window. Clip each busy
+  interval to the window, drop those lying wholly outside it, and merge
+  overlap so no reported gap falls inside a busy stretch; two busy
+  intervals that merely touch leave no gap between them. Return the maximal
+  free stretches in increasing order as half-open pairs of integers; a
+  fully booked window yields an empty list and an untouched window yields
+  the whole window as its single pair. Also add the missing validation:
+  reject a window whose start does not precede its end, a busy interval
+  whose start does not precede its end, and any endpoint that is not an
+  integer, with an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** The free stretches of a working window, given its busy intervals. */
+  export function freeWindows(
+    windowStart: number,
+    windowEnd: number,
+    busy: number[][],
+  ): number[][] {
+    const gaps: number[][] = [];
+    let cursor = windowStart;
+    for (const [start, end] of busy) {
+      if (start > cursor) {
+        gaps.push([cursor, start]);
+      }
+      cursor = end;
+    }
+    if (cursor < windowEnd) {
+      gaps.push([cursor, windowEnd]);
+    }
+    return gaps;
+  }
+interface: "export function freeWindows(windowStart: number, windowEnd: number, busy: number[][]): number[][]"
+stop_conditions:
+  - Whether the window bounds may be negative is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

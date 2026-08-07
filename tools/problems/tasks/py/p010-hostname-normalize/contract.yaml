@@ -1,0 +1,20 @@
+id: p010-hostname-normalize
+task_type: function_implementation
+task: >-
+  Implement normalize_hostname. Lowercase the given hostname and remove one
+  trailing dot if present, the way DNS treats an absolute name. Then check
+  the result: one or more labels separated by dots, each label 1 to 63
+  characters drawn from lowercase letters, digits and hyphens, no label
+  starting or ending with a hyphen, and the whole normalized name at most
+  253 characters. Return the normalized name when it passes every rule.
+  Reject a name breaking any of these rules, and a non-string argument,
+  with an error.
+target: solution.py
+interface: "def normalize_hostname(hostname: str) -> str"
+stop_conditions:
+  - Whether the numeric form of an IPv4 address should be accepted as a
+    hostname is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

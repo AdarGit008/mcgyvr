@@ -1,0 +1,23 @@
+id: p004-field-path
+task_type: function_implementation
+task: >-
+  Implement split_field_path. The input names a location inside nested
+  records: identifiers separated by dots, where any identifier may be
+  followed by one or more index suffixes in square brackets, as in
+  items[0].tags[2]. An identifier starts with a letter or underscore and
+  continues with letters, digits or underscores. An index is a bare
+  non-negative integer with no sign and no leading zero, though 0 alone is
+  fine. Return the parts in order as a list mixing identifier strings and
+  integer indexes: items[0].tags[2] gives the identifier items, the index
+  0, the identifier tags, the index 2. Reject the empty string, a leading
+  or trailing dot, empty brackets, an unterminated bracket, an index with a
+  leading zero or a sign, an identifier starting with a digit, and a
+  non-string argument, with an error.
+target: solution.py
+interface: "def split_field_path(path: str) -> list"
+stop_conditions:
+  - Whether whitespace around dots or brackets is tolerated is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

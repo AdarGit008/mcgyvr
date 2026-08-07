@@ -1,0 +1,58 @@
+id: p039-undo-editor
+task_type: bug_fix
+task: >-
+  run_editor replays editing operations over a document that starts empty
+  and returns the final text. ["type", s] appends the non-empty string s,
+  ["erase", n] removes the last n characters, ["undo"] reverts the latest
+  surviving edit, and ["redo"] reinstates the most recently undone one;
+  undo with nothing to revert and redo with nothing to reinstate are silent
+  no-ops. Performing a fresh edit must discard the entire redo history — a
+  document cannot redo across a divergence. The current code keeps undone
+  states alive after new edits, so a later redo resurrects text from an
+  abandoned timeline. Fix that invariant while preserving everything else,
+  including rejecting with an error an erase count that is not a positive
+  integer or exceeds the current length, and an unknown operation name.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  def run_editor(ops: list[list]) -> str:
+      past: list[str] = []
+      future: list[str] = []
+      text = ""
+      for op in ops:
+          kind = op[0]
+          if kind == "type":
+              piece = op[1]
+              if not isinstance(piece, str) or not piece:
+                  raise ValueError("type needs a non-empty string")
+              past.append(text)
+              text = text + piece
+          elif kind == "erase":
+              count = op[1]
+              if (
+                  not isinstance(count, int)
+                  or isinstance(count, bool)
+                  or count < 1
+                  or count > len(text)
+              ):
+                  raise ValueError("erase count out of range")
+              past.append(text)
+              text = text[: len(text) - count]
+          elif kind == "undo":
+              if past:
+                  future.append(text)
+                  text = past.pop()
+          elif kind == "redo":
+              if future:
+                  past.append(text)
+                  text = future.pop()
+          else:
+              raise ValueError(f"unknown operation {kind!r}")
+      return text
+interface: "def run_editor(ops: list[list]) -> str"
+stop_conditions:
+  - How many levels of undo history must be retained is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,25 @@
+id: p036-expiry-cache
+task_type: function_implementation
+task: >-
+  Implement expiry_cache. It replays a list of operations against a bounded
+  key-value cache whose eviction is governed by expiry times, and returns
+  the read results in order. A write ["set", time, key, value, ttl] stores
+  a positive integer value under a string key that lives from time until
+  time + ttl; a read ["get", time, key] yields the stored value, or -1
+  when the key is absent or its lifetime has ended — an entry is dead once
+  the clock reaches its expiry. Writing a key that is still alive
+  overwrites its value and lifetime without any eviction. Writing a new key
+  first purges every dead entry; if the cache still holds capacity entries
+  after that, the live entry with the earliest expiry is evicted, ties
+  broken by the smallest key. Times are integers that never decrease across
+  operations. Reject a capacity that is not a positive integer, a ttl that
+  is not a positive integer, a time that goes backwards, and an unknown
+  operation name, with an error.
+target: solution.py
+interface: "def expiry_cache(capacity: int, ops: list[list]) -> list[int]"
+stop_conditions:
+  - Whether a read may purge the dead entry it observes is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

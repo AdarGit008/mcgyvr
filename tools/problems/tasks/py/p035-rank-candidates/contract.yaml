@@ -1,0 +1,22 @@
+id: p035-rank-candidates
+task_type: function_implementation
+task: >-
+  Implement rank_candidates. It ranks completion candidates against a typed
+  query, comparing case-insensitively while preserving each candidate's
+  original spelling in the result. A candidate equal to the query is an
+  exact match, one that merely starts with it is a prefix match, one
+  containing it anywhere else is an infix match, and one not containing it
+  at all is dropped. Exact matches outrank prefix matches, which outrank
+  infix matches; within the same tier a shorter candidate comes before a
+  longer one, and candidates of equal length keep their original relative
+  order. Return at most limit candidates. Reject an empty query, a query
+  that is not a string, a limit that is not a positive integer, and a
+  candidate that is not a string, with an error.
+target: solution.py
+interface: "def rank_candidates(candidates: list[str], query: str, limit: int) -> list[str]"
+stop_conditions:
+  - Whether non-ASCII case pairs fold the way ASCII pairs do is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

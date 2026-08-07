@@ -1,0 +1,24 @@
+id: p008-varint-decode
+task_type: function_implementation
+task: >-
+  Implement decodeVarints. The input is a list of byte values, integers 0
+  through 255, holding a back-to-back sequence of unsigned base-128
+  varints, least significant group first: each byte contributes 7 payload
+  bits, and a set high bit means another byte of the same number follows.
+  Decode the entire list and return the numbers in order: the bytes 150
+  then 1 decode to the single number 150, and the bytes 5, 150, 1, 0
+  decode to the numbers 5, 150 and 0. Encodings must be minimal: a
+  multi-byte varint whose final byte is zero spells the same number in
+  fewer bytes, so reject it as overlong. Also reject a byte that is
+  negative, above 255 or not an integer, a list that ends while the last
+  varint still expects a continuation, and an argument that is not a list,
+  with an error.
+target: solution.ts
+interface: "export function decodeVarints(data: number[]): number[]"
+stop_conditions:
+  - Whether numbers beyond the language's exact integer range must
+    round-trip is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

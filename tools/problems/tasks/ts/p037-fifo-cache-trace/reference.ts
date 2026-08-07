@@ -1,0 +1,19 @@
+export function fifoCacheTrace(capacity: number, keys: string[]): string[] {
+  if (!Number.isInteger(capacity) || capacity < 1) {
+    throw new Error("capacity must be a positive integer");
+  }
+  const cached: string[] = [];
+  const trace: string[] = [];
+  for (const key of keys) {
+    if (cached.includes(key)) {
+      trace.push("hit");
+    } else {
+      if (cached.length === capacity) {
+        cached.shift();
+      }
+      cached.push(key);
+      trace.push("miss");
+    }
+  }
+  return trace;
+}

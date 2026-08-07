@@ -1,0 +1,66 @@
+id: p025-weekday-name
+task_type: bug_fix
+task: |
+  weekdayName misreports every date in January and February. The function
+  takes a proleptic Gregorian date as integer year, month and day and
+  returns the English weekday name, "Monday" through "Sunday", using pure
+  integer arithmetic — no date or calendar facility from the standard
+  library. The congruence it applies is only valid when January and February
+  are treated as months 13 and 14 of the previous year; the current code
+  feeds the raw month and year straight in, so 2024-01-01 does not come back
+  as the Monday it was, while March through December dates are already
+  correct. Fix the computation, and keep the existing validation exactly as
+  strict: a non-integer argument, a year below 1, a month outside 1..12 and
+  a day that does not exist in its month (February 29 in a common year
+  included) are rejected with an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  const NAMES = [
+    "Saturday",
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+  ];
+  const MONTH_LEN = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  export function weekdayName(year: number, month: number, day: number): string {
+    if (
+      !Number.isInteger(year) ||
+      !Number.isInteger(month) ||
+      !Number.isInteger(day)
+    ) {
+      throw new Error("weekdayName expects integer arguments");
+    }
+    if (year < 1) {
+      throw new Error("year must be at least 1");
+    }
+    if (month < 1 || month > 12) {
+      throw new Error("month outside 1..12");
+    }
+    const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    const length = month === 2 && leap ? 29 : MONTH_LEN[month - 1];
+    if (day < 1 || day > length) {
+      throw new Error("day does not exist in that month");
+    }
+    const k = year % 100;
+    const j = Math.floor(year / 100);
+    const h =
+      (day +
+        Math.floor((13 * (month + 1)) / 5) +
+        k +
+        Math.floor(k / 4) +
+        Math.floor(j / 4) +
+        5 * j) %
+      7;
+    return NAMES[h];
+  }
+interface: "export function weekdayName(year: number, month: number, day: number): string"
+stop_conditions:
+  - Whether dates before the Gregorian adoption deserve different treatment is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,22 @@
+id: p026-polygon-double-area
+task_type: function_implementation
+task: >-
+  Implement polygonDoubleArea. The input is the vertex list of a simple
+  polygon on the integer lattice: each vertex is a pair [x, y] of integers,
+  the vertices are given in order around the boundary (clockwise or
+  counter-clockwise both occur), and the first vertex is NOT repeated at the
+  end. Return twice the enclosed area as a non-negative integer — doubling
+  keeps the answer exact on the lattice, so the unit square yields 2 and the
+  right triangle (0,0) (4,0) (0,3) yields 12. Orientation must not change
+  the answer, and a fully collinear vertex list encloses nothing and yields
+  0. Reject fewer than three vertices, a vertex that is not a pair of two
+  integers, two identical consecutive vertices, and a last vertex identical
+  to the first, all with an error.
+target: solution.ts
+interface: "export function polygonDoubleArea(vertices: number[][]): number"
+stop_conditions:
+  - Whether a self-intersecting boundary must be detected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

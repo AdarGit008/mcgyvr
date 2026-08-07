@@ -1,0 +1,19 @@
+id: p016-strip-tilings
+task_type: function_implementation
+task: >-
+  Implement count_strip_tilings. Count the distinct ways to cover a grid two
+  cells tall and width cells wide, completely and without overlap, using
+  one-by-two dominoes (laid upright or flat) and two-by-two squares. A
+  width of zero has exactly one covering, the empty one, and a width of
+  one has exactly one, a single upright domino. Two coverings are distinct
+  when any cell is served by a differently placed or differently shaped
+  piece. Return the count. Reject with an error a width that is negative
+  or not a whole number.
+target: solution.py
+interface: "def count_strip_tilings(width: int) -> int"
+stop_conditions:
+  - How large a width must be handled, and in what running time, is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,20 @@
+id: p017-wrap-cost
+task_type: function_implementation
+task: >-
+  Implement wrapCost. Break a list of words into consecutive lines under a
+  fixed width. Words on a line are separated by single spaces, so a line's
+  length is the sum of its word lengths plus one for each adjacent pair,
+  and a line may never exceed the width. Every line, including the last,
+  costs the square of its unused space, and a split's cost is the sum over
+  its lines. Return the smallest cost any split can achieve; note that
+  packing greedily is not always optimal. Reject with an error an empty
+  word list, a word that is empty, a word longer than the width, and a
+  width that is not a positive whole number.
+target: solution.ts
+interface: "export function wrapCost(words: string[], width: number): number"
+stop_conditions:
+  - Whether words may themselves contain spaces is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,25 @@
+id: p031-settle-ledger
+task_type: function_implementation
+task: >-
+  Implement settle_ledger. The input is a list of ledger entries in
+  arbitrary order, each a record with an account (a non-empty string), an
+  amount (an integer, negative meaning a withdrawal) and a seq (an integer
+  sequence number, unique across the ledger but not necessarily
+  consecutive). Apply the entries strictly in ascending seq order — never
+  in list order — with every account starting from a balance of zero.
+  Reject with an error: a seq appearing twice, an entry lacking any of the
+  three properties, an account that is not a non-empty string, an amount
+  or seq that is not an integer, and any entry whose application would take
+  its account's balance below zero at that moment of the seq-ordered
+  replay, even when a later deposit would have recovered it. Return the
+  final state as [account, balance] pairs sorted by account name
+  ascending, leaving out every account whose final balance is exactly
+  zero; an empty ledger settles to an empty list.
+target: solution.py
+interface: "def settle_ledger(entries: list[dict]) -> list[list]"
+stop_conditions:
+  - Whether negative seq values can appear is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

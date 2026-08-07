@@ -1,0 +1,24 @@
+id: p040-token-bucket
+task_type: function_implementation
+task: >-
+  Implement tokenBucket. It replays a request log against a token-bucket
+  rate limiter and labels every request. The bucket holds at most capacity
+  tokens and starts full at time zero; tokens accrue at a fixed refill rate
+  per time unit and never overflow the capacity. Each request is a pair
+  [time, cost]: on arrival the bucket is first topped up with everything
+  accrued since the previous arrival, then the request is granted and its
+  cost withdrawn if enough tokens remain, or refused with the balance left
+  untouched. Arrival times are integers that never decrease, and nothing
+  accrues between two requests sharing an arrival time. Return the labels
+  "grant" or "refuse" in request order. Reject a capacity that is not a
+  positive integer, a refill rate that is not a non-negative integer, a
+  cost that is not a positive integer, a negative arrival time, and arrival
+  times that go backwards, with an error.
+target: solution.ts
+interface: "export function tokenBucket(capacity: number, refill: number, requests: number[][]): string[]"
+stop_conditions:
+  - Whether tokens keep accruing after the final request is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

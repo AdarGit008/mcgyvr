@@ -1,0 +1,21 @@
+id: p006-booking-overload
+task_type: function_implementation
+task: >-
+  Implement first_overload. Bookings of one shared resource arrive as a list
+  of pairs of integers, each a half-open span from its start up to but not
+  including its end, in no particular order and free to overlap, together
+  with a capacity giving how many bookings the resource can host at once.
+  Return the earliest time at which the count of simultaneously active
+  bookings exceeds the capacity, or -1 if that never happens. Because spans
+  are half-open, a booking ending at time t and another starting at t are
+  never active together. Reject a capacity below 1, a booking whose start
+  does not come strictly before its end, and endpoints that are not
+  integers, with an error.
+target: solution.py
+interface: "def first_overload(bookings: list, capacity: int) -> int"
+stop_conditions:
+  - Whether negative times are permitted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

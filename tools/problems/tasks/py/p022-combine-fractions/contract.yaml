@@ -1,0 +1,21 @@
+id: p022-combine-fractions
+task_type: function_implementation
+task: >-
+  Implement combine_fractions. The input is a list of fraction strings, each
+  of the form "n/d" where n is an integer (optionally prefixed with a minus
+  sign) and d is a positive integer: "1/2", "-3/4", "7/1". Sum the fractions
+  exactly using integer arithmetic and return the total in lowest terms as a
+  string of the same form. The returned denominator is always positive, any
+  minus sign sits on the numerator, a whole-number total keeps an explicit
+  denominator of 1, and a total of zero is exactly "0/1". Reject an empty
+  list, an entry that is not of the "n/d" form, a zero denominator, and a
+  sign on the denominator with an error. Do not use floating-point at any
+  step.
+target: solution.py
+interface: "def combine_fractions(parts: list[str]) -> str"
+stop_conditions:
+  - Whether whitespace around or inside an entry is accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

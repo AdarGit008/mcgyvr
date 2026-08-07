@@ -1,0 +1,24 @@
+id: p003-soundex-code
+task_type: function_implementation
+task: >-
+  Implement soundexCode. Compute the American Soundex code of one word: its
+  first letter, uppercased, followed by exactly three digits. After the
+  first letter, each remaining letter maps to a digit (b f p v give 1, c g j
+  k q s x z give 2, d t give 3, l gives 4, m n give 5, r gives 6) while a e
+  i o u y h w map to nothing. Consecutive letters carrying the same digit
+  are written once; this collapsing also applies across an intervening h or
+  w, but a vowel a e i o u y between two same-digit letters keeps both. The
+  first letter takes part in collapsing yet never appears as a digit
+  itself. Pad with zeros or truncate so exactly three digits follow the
+  letter: Robert and Rupert both give R163, Tymczak gives T522, Pfister
+  gives P236. Reject a word that is empty or has any character besides
+  ASCII letters, and a non-string argument, with an error.
+target: solution.ts
+interface: "export function soundexCode(word: string): string"
+stop_conditions:
+  - What a word made only of dropped letters, like why, should code to is
+    not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

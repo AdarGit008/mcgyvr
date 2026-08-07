@@ -1,0 +1,52 @@
+id: p025-weekday-name
+task_type: bug_fix
+task: |
+  weekday_name misreports every date in January and February. The function
+  takes a proleptic Gregorian date as integer year, month and day and
+  returns the English weekday name, "Monday" through "Sunday", using pure
+  integer arithmetic — no date or calendar facility from the standard
+  library. The congruence it applies is only valid when January and February
+  are treated as months 13 and 14 of the previous year; the current code
+  feeds the raw month and year straight in, so 2024-01-01 does not come back
+  as the Monday it was, while March through December dates are already
+  correct. Fix the computation, and keep the existing validation exactly as
+  strict: a non-integer argument, a year below 1, a month outside 1..12 and
+  a day that does not exist in its month (February 29 in a common year
+  included) are rejected with an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  NAMES = (
+      "Saturday",
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+  )
+  MONTH_LEN = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
+
+  def weekday_name(year: int, month: int, day: int) -> str:
+      for value in (year, month, day):
+          if not isinstance(value, int) or isinstance(value, bool):
+              raise ValueError("weekday_name expects integer arguments")
+      if year < 1:
+          raise ValueError("year must be at least 1")
+      if month < 1 or month > 12:
+          raise ValueError("month outside 1..12")
+      leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+      length = 29 if month == 2 and leap else MONTH_LEN[month - 1]
+      if day < 1 or day > length:
+          raise ValueError("day does not exist in that month")
+      k = year % 100
+      j = year // 100
+      h = (day + (13 * (month + 1)) // 5 + k + k // 4 + j // 4 + 5 * j) % 7
+      return NAMES[h]
+interface: "def weekday_name(year: int, month: int, day: int) -> str"
+stop_conditions:
+  - Whether dates before the Gregorian adoption deserve different treatment is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

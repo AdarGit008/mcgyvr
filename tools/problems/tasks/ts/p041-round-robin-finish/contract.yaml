@@ -1,0 +1,59 @@
+id: p041-round-robin-finish
+task_type: bug_fix
+task: >-
+  roundRobinFinish simulates a round-robin scheduler over jobs that are all
+  ready at time zero and reports each job's completion as a pair of its
+  name and its finish time, in the order the jobs complete. The ready queue
+  starts in the given order; the scheduler repeatedly takes the front job,
+  runs it for one quantum or for its remaining work, whichever is smaller,
+  advances the clock by exactly the amount of work performed, and then
+  either records the completion or sends the job to the back of the queue.
+  The current code always advances the clock by a full quantum, so a job
+  whose final slice is shorter than the quantum inflates its own finish
+  time and every finish time after it. Fix the clock so it moves only by
+  work actually done, keep the queue rotation and the completion order as
+  they are, and keep rejecting with an error a quantum that is not a
+  positive integer, a burst that is not a positive integer, and a duplicate
+  or non-string job name. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function roundRobinFinish(jobs: (string | number)[][], quantum: number): (string | number)[][] {
+    if (!Number.isInteger(quantum) || quantum < 1) {
+      throw new Error("quantum must be a positive integer");
+    }
+    const queue: { name: string; left: number }[] = [];
+    const seen = new Set<string>();
+    for (const job of jobs) {
+      const name = job[0];
+      const burst = job[1];
+      if (typeof name !== "string" || seen.has(name)) {
+        throw new Error("job names must be unique strings");
+      }
+      if (typeof burst !== "number" || !Number.isInteger(burst) || burst < 1) {
+        throw new Error("burst must be a positive integer");
+      }
+      seen.add(name);
+      queue.push({ name, left: burst });
+    }
+    const finished: (string | number)[][] = [];
+    let clock = 0;
+    while (queue.length > 0) {
+      const job = queue.shift()!;
+      const slice = Math.min(quantum, job.left);
+      job.left -= slice;
+      clock += quantum;
+      if (job.left === 0) {
+        finished.push([job.name, clock]);
+      } else {
+        queue.push(job);
+      }
+    }
+    return finished;
+  }
+interface: "export function roundRobinFinish(jobs: (string | number)[][], quantum: number): (string | number)[][]"
+stop_conditions:
+  - Whether a job name may be the empty string is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

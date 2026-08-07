@@ -1,0 +1,34 @@
+id: p011-relpath-clean
+task_type: bug_fix
+task: >-
+  normalizeRelPath cleans a slash-separated relative path, and its
+  treatment of dot segments is broken in several ways. Fix it: split the
+  path on slashes, discard empty segments and single-dot segments, and let
+  each double-dot segment remove the nearest real segment before it. A
+  double-dot with nothing left to remove would climb above the starting
+  point — reject that with an error instead of silently ignoring it. When
+  everything cancels out and no segment remains, the result is the
+  single-dot path, never an empty string. Also reject the empty string
+  itself, a path beginning with a slash, and a non-string argument, with an
+  error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** A cleaned form of a slash-separated relative path. */
+  export function normalizeRelPath(path: string): string {
+    const out: string[] = [];
+    for (const segment of path.split("/")) {
+      if (segment === "..") {
+        out.pop();
+      } else if (segment !== ".") {
+        out.push(segment);
+      }
+    }
+    return out.join("/");
+  }
+interface: "export function normalizeRelPath(path: string): string"
+stop_conditions:
+  - Whether backslashes deserve any special handling is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

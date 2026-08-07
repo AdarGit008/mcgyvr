@@ -1,0 +1,21 @@
+id: p033-keyset-page
+task_type: function_implementation
+task: >-
+  Implement keyset_page. It pages through a sorted collection with a keyset
+  cursor: given a list of integer ids in strictly increasing order, an
+  integer cursor, and a page limit, return a mapping whose key "items"
+  holds the first limit ids strictly greater than the cursor and whose key
+  "done" holds true when no id remains beyond the page and false otherwise.
+  To read the first page a caller passes any cursor smaller than the first
+  id; a cursor need not itself appear among the ids. An empty id list gives
+  an empty page that is done. Reject a limit that is not a positive
+  integer, a cursor that is not an integer, and ids that are not strictly
+  increasing, with an error.
+target: solution.py
+interface: "def keyset_page(ids: list[int], cursor: int, limit: int) -> dict"
+stop_conditions:
+  - Whether ids may be negative or zero is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

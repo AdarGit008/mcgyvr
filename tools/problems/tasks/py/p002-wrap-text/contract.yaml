@@ -1,0 +1,18 @@
+id: p002-wrap-text
+task_type: function_implementation
+task: >-
+  Implement wrap_text. Given a text made of words separated by single spaces
+  and a maximum line width, break the text into lines greedily: each line
+  takes as many following words as still fit, words on a line are joined by
+  one space, and no line grows wider than the width. A word longer than the
+  width still gets a line of its own, unbroken. Return the lines in order as
+  a list. Reject a width that is not a positive integer, a text with a
+  leading, trailing or doubled space, and a non-string text, with an error.
+target: solution.py
+interface: "def wrap_text(text: str, width: int) -> list[str]"
+stop_conditions:
+  - What the empty string as text should produce is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

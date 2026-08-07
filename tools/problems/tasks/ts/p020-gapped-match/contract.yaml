@@ -1,0 +1,19 @@
+id: p020-gapped-match
+task_type: function_implementation
+task: >-
+  Implement gappedMatch. Decide whether needle occurs inside haystack as
+  an in-order match of all of its characters, where between one matched
+  character and the next at most gap unmatched characters may be skipped.
+  Any number of characters may come before the first matched character or
+  after the last. Return true when such a match exists and false
+  otherwise; be aware that always taking the earliest candidate character
+  can miss a match that starts later. Reject with an error an empty needle
+  and a gap that is negative or not a whole number.
+target: solution.ts
+interface: "export function gappedMatch(needle: string, haystack: string, gap: number): boolean"
+stop_conditions:
+  - Whether letters are compared case-sensitively is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
