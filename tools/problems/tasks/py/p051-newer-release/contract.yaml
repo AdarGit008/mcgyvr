@@ -1,0 +1,28 @@
+id: p051-newer-release
+task_type: bug_fix
+task: >-
+  newer_release decides which of two release strings is fresher, and the
+  current code just compares them as text, which gets almost every
+  interesting pair wrong. Fix it. A release is "<major>.<minor>", each a
+  number without leading zeros, optionally followed by "-<channel>.<build>"
+  where the channel is dev, alpha, beta or rc and the build is a number.
+  Compare major numerically, then minor numerically. At the same
+  major.minor, a bare release (no suffix) is the stable one and beats every
+  suffixed prerelease; among prereleases the channels rank dev below alpha
+  below beta below rc, and within one channel the build number decides.
+  Return 1 when the first argument is newer, -1 when the second is, and 0
+  when they name the same release. Throw an error for a string that fits
+  none of this or an argument that is not a string.
+target: solution.py
+target_content: |
+  def newer_release(a: str, b: str) -> int:
+      if a == b:
+          return 0
+      return 1 if a > b else -1
+interface: "def newer_release(a: str, b: str) -> int"
+stop_conditions:
+  - Whether a build number may have leading zeros is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

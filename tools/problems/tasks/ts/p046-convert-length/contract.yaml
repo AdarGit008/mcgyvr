@@ -1,0 +1,21 @@
+id: p046-convert-length
+task_type: function_implementation
+task: >-
+  Implement convertLength. A measurement arrives as a compound metric
+  quantity: parts separated by single spaces, each part a whole number
+  glued directly to one of the symbols mm, cm, m or km, as in "1km 250m"
+  or "5mm 2cm". Parts may come in any order and a symbol may recur; the
+  quantity's meaning is simply the sum of its parts. Convert that sum into
+  the requested target symbol and return the count as an integer. Precision
+  is sacred: when the sum does not divide evenly into the target ("5mm"
+  asked for in cm, say), refuse with an error rather than round. Also
+  refuse a malformed part, a symbol outside the four, an unknown target,
+  and an empty quantity, with an error.
+target: solution.ts
+interface: "export function convertLength(quantity: string, goal: string): number"
+stop_conditions:
+  - Whether a part's number may carry a plus or minus sign is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

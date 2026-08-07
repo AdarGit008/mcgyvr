@@ -1,0 +1,21 @@
+id: p064-staffed-posts
+task_type: function_implementation
+task: >-
+  Implement staffed_posts. A harbour has posts numbered 0 through posts-1
+  and a list of applicants, each giving the post numbers they are qualified
+  to hold. A post takes at most one applicant and an applicant holds at
+  most one post. Return the greatest number of posts that can be staffed
+  simultaneously. Handing every applicant, in order, the first free post
+  they name is not enough: reaching the maximum can require moving an
+  already placed applicant along to another of their posts, and chains of
+  such reassignment must be followed. Reject with an error a posts count
+  that is not a positive integer and any listed post number that is not an
+  integer from 0 to posts-1.
+target: solution.py
+interface: "def staffed_posts(wanted: list, posts: int) -> int"
+stop_conditions:
+  - Whether an applicant may list the same post twice is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

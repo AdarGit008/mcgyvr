@@ -1,0 +1,23 @@
+id: p081-seat-parties
+task_type: function_implementation
+task: >-
+  Implement seatParties. A hall has numbered rows; the first argument is
+  the list of row lengths. Parties arrive in order, each given only as its
+  size, and a party always sits together in one row. Rows fill strictly
+  left to right with no cancellations, so each row's free seats are one
+  block at its right end. Seat every party in the lowest-numbered row
+  whose free block holds it, and record "<row>-<seat>" with 1-based
+  numbers for the row and for the party's first seat. When no row can
+  take the party right now, record "rejected:full" — unless the party is
+  bigger than the longest row would be when empty, which is recorded as
+  "rejected:too_big" instead. A party size below 1 is an error. A
+  rejected party occupies nothing, and seating continues with later
+  parties. Return one record per party.
+target: solution.ts
+interface: "export function seatParties(rows: number[], parties: number[]): string[]"
+stop_conditions:
+  - What seatParties records when the list of rows is empty is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

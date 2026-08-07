@@ -1,0 +1,21 @@
+id: p048-allocate-cents
+task_type: function_implementation
+task: >-
+  Implement allocateCents. A sum of money held as an integer number of
+  cents must be divided among parties according to positive integer
+  weights, and not one cent may appear or vanish. Give each party the
+  floor of total times its weight over the weight sum; then hand the cents
+  still undistributed out one apiece, ordered by largest remainder of that
+  same product first, breaking remainder ties in favor of the earliest
+  party. Return the per-party amounts in party order; they always add up
+  to exactly the given total. Reject an empty weight list, a weight that
+  is not a positive integer, and a total that is negative or not an
+  integer, with an error.
+target: solution.ts
+interface: "export function allocateCents(total: number, weights: number[]): number[]"
+stop_conditions:
+  - Whether an all-equal-weights split has further tie rules is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

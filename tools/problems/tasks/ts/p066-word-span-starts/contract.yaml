@@ -1,0 +1,22 @@
+id: p066-word-span-starts
+task_type: function_implementation
+task: >-
+  Implement wordSpanStarts. Given a passage and a query, locate every place
+  where the query's words appear as consecutive whole words of the passage.
+  A word is a maximal run of ASCII letters and digits; every other
+  character merely separates words. Words compare case-insensitively, so
+  the passage and the query may disagree on capitalisation, spacing and
+  punctuation at a hit. For each hit report the offset, counted in
+  characters from the start of the passage, of the first character of the
+  hit's first word, in ascending order; hits are allowed to overlap. A
+  query word never matches part of a longer passage word. Reject with an
+  error a passage or query that is not a string, and a query containing no
+  words at all.
+target: solution.ts
+interface: "export function wordSpanStarts(passage: string, query: string): number[]"
+stop_conditions:
+  - Whether non-ASCII letters can form words is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

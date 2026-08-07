@@ -1,0 +1,20 @@
+id: p065-minimax-pair-sum
+task_type: function_implementation
+task: >-
+  Implement minimaxPairSum. Two equally long non-empty lists of integers
+  must be paired off, every entry of the first with exactly one entry of
+  the second. A pairing is judged by its largest pair sum, and the goal is
+  to make that judgement as small as possible. Pairing the lists in the
+  order given is generally not optimal, and neither is putting big values
+  together; think about which arrangement provably cannot be improved by
+  swapping two partners. Return the smallest achievable largest pair sum,
+  leaving both input lists unmodified. Reject with an error lists of
+  different lengths, an empty list, and any entry that is not an integer.
+target: solution.ts
+interface: "export function minimaxPairSum(first: number[], second: number[]): number"
+stop_conditions:
+  - How large the entries may grow before overflow becomes a concern is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

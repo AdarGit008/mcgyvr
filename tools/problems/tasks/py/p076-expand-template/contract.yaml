@@ -1,0 +1,24 @@
+id: p076-expand-template
+task_type: function_implementation
+task: >-
+  Implement expand_template. Scan the template left to right: the two
+  characters "$$" produce one literal dollar sign; "${" opens a
+  placeholder that runs to the next "}" and holds a dotted path such as
+  "user.name", looked up segment by segment in the nested context mapping;
+  any other "$" is an error, as is a "${" with no closing "}" and a path
+  that is empty or has an empty segment. A path resolving to a string is
+  inserted as is and an integer is inserted in decimal, but resolving to
+  anything else (a mapping, a list, a boolean) is an error. Inserted text
+  is never rescanned for further placeholders. The third argument is the
+  missing-path policy, applied whenever a segment lookup fails: "error"
+  raises, "keep" inserts the placeholder text unchanged including its
+  delimiters, and "blank" inserts nothing. Any other policy word is an
+  error.
+target: solution.py
+interface: "def expand_template(template: str, context: dict, missing: str) -> str"
+stop_conditions:
+  - How a floating-point value found at a path should be printed is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

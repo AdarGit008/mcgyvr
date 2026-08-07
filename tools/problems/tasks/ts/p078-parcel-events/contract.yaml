@@ -1,0 +1,23 @@
+id: p078-parcel-events
+task_type: function_implementation
+task: >-
+  Implement foldParcels. The input is a list of event mappings applied in
+  order to an initially empty depot; every event carries a "type" and a
+  "parcel" id. Type "accept" brings a new parcel into state "accepted" and
+  is an error for an id seen before, in any state. Every other type is an
+  error for an id never accepted: "load" moves "accepted" to "in_transit",
+  "deliver" moves "in_transit" to "delivered", "bounce" moves "delivered"
+  to "returned", and "lose" moves either "accepted" or "in_transit" to
+  "lost". Any other move is an invalid transition, and the states
+  "returned" and "lost" admit no further events at all. A type outside
+  these five is an error. Every error raised must mention the zero-based
+  index of the offending event in its message. On success return a mapping
+  from each parcel id to its final state.
+target: solution.ts
+interface: "export function foldParcels(events: Array<{ type: string; parcel: string }>): Record<string, string>"
+stop_conditions:
+  - What foldParcels does with an event missing its parcel key is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

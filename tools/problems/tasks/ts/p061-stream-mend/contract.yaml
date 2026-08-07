@@ -1,0 +1,37 @@
+id: p061-stream-mend
+task_type: bug_fix
+task: >-
+  Fix reassembleStream. The first argument is the exact length of the
+  original message; the second is a list of fragments, each a pair of a
+  character offset and a piece of text, delivered in arbitrary order.
+  Fragments may duplicate one another and may overlap, and wherever two
+  fragments cover the same position they must carry the same character.
+  Rebuilding requires every position of the message to be covered by at
+  least one fragment and every fragment to lie entirely within the declared
+  length; disagreement on a shared position, an uncovered position, a
+  negative offset, or a fragment running past the end is an error. The
+  current code merely sorts the fragments by offset and glues their texts
+  together, so overlapping or duplicated coverage corrupts honest streams
+  and an out-of-place fragment can slip through whenever the glued lengths
+  happen to add up. Place characters by their offsets instead. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  export function reassembleStream(
+    total: number,
+    fragments: Array<[number, string]>,
+  ): string {
+    const parts = [...fragments].sort((a, b) => a[0] - b[0]);
+    const message = parts.map((part) => part[1]).join("");
+    if (message.length !== total) {
+      throw new Error("incomplete stream");
+    }
+    return message;
+  }
+interface: "export function reassembleStream(total: number, fragments: Array<[number, string]>): string"
+stop_conditions:
+  - Whether fragments may arrive after reassembly has already succeeded is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

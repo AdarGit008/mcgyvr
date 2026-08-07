@@ -1,0 +1,39 @@
+id: p073-outline-diff
+task_type: bug_fix
+task: >-
+  outlineDiff compares two document outlines. An outline is a nested
+  mapping whose keys are headings; the value under each heading is the
+  mapping of its subheadings (empty when there are none). The current code
+  inspects only the top level. Fix it: report "added " followed by the
+  slash-joined path of every heading present in the second outline but
+  missing from the first, and "removed " plus the path of every heading
+  present only in the first; descend into headings the two outlines share;
+  never descend into a heading already reported, so an added or removed
+  branch yields exactly one line; and return the lines sorted
+  lexicographically.
+target: solution.ts
+target_content: |
+  export function outlineDiff(
+    before: Record<string, any>,
+    after: Record<string, any>
+  ): string[] {
+    const lines: string[] = [];
+    for (const key of Object.keys(after)) {
+      if (!(key in before)) {
+        lines.push("added " + key);
+      }
+    }
+    for (const key of Object.keys(before)) {
+      if (!(key in after)) {
+        lines.push("removed " + key);
+      }
+    }
+    return lines;
+  }
+interface: "export function outlineDiff(before: Record<string, any>, after: Record<string, any>): string[]"
+stop_conditions:
+  - Whether a heading name may itself contain a slash is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

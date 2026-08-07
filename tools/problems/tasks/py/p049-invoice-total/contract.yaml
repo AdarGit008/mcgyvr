@@ -1,0 +1,24 @@
+id: p049-invoice-total
+task_type: function_implementation
+task: >-
+  Implement invoice_total. Each invoice line is a record with qty (how many,
+  a positive integer), unit (the price of one, an integer count of cents)
+  and discount (a rate in basis points, an integer from 0 through 10000).
+  A line's gross is qty times unit; its rebate is gross times discount over
+  10000, rounded half up to whole cents; its net is gross minus rebate.
+  Rounding is a per-line affair — never pool the grosses and round once,
+  the cents differ. The subtotal is the sum of the nets. The second
+  argument is the tax rate, again basis points 0 through 10000; the tax is
+  the subtotal times that rate over 10000, rounded half up. Return a record
+  with the keys subtotal, tax and total, the last being subtotal plus tax.
+  Reject an empty line list, a qty that is not a positive integer, a unit
+  that is negative or not an integer, and a discount or tax rate outside 0
+  through 10000 or not an integer, with an error.
+target: solution.py
+interface: "def invoice_total(lines: list[dict], rate: int) -> dict[str, int]"
+stop_conditions:
+  - Whether a line may also carry extra ignored fields is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,23 @@
+import assert from "node:assert/strict";
+import { pluralNoun } from "./solution.ts";
+
+assert.equal(pluralNoun("cat"), "cats", "default rule appends s");
+assert.equal(pluralNoun("bus"), "buses", "trailing s takes es");
+assert.equal(pluralNoun("box"), "boxes", "trailing x takes es");
+assert.equal(pluralNoun("buzz"), "buzzes", "trailing z takes es");
+assert.equal(pluralNoun("church"), "churches", "trailing ch takes es");
+assert.equal(pluralNoun("dish"), "dishes", "trailing sh takes es");
+assert.equal(pluralNoun("city"), "cities", "consonant plus y becomes ies");
+assert.equal(pluralNoun("day"), "days", "vowel plus y just appends s");
+assert.equal(pluralNoun("knife"), "knives", "trailing fe becomes ves");
+assert.equal(pluralNoun("leaf"), "leaves", "trailing f becomes ves");
+assert.equal(pluralNoun("child"), "children", "irregular child");
+assert.equal(pluralNoun("person"), "people", "irregular person");
+assert.equal(pluralNoun("mouse"), "mice", "irregular mouse");
+assert.equal(pluralNoun("sheep"), "sheep", "irregular sheep is unchanged");
+assert.throws(() => pluralNoun(""), Error, "empty string is rejected");
+assert.throws(() => pluralNoun("Cat"), Error, "uppercase is rejected");
+assert.throws(() => pluralNoun("two words"), Error, "a space is rejected");
+assert.throws(() => pluralNoun("naïve"), Error, "accented letters are rejected");
+assert.throws(() => pluralNoun(7), Error, "a non-string is rejected");
+console.log("ok");

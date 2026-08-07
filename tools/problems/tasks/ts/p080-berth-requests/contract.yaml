@@ -1,0 +1,26 @@
+id: p080-berth-requests
+task_type: function_implementation
+task: >-
+  Implement assignBerths. A marina's berths come as a list of {"id": ...,
+  "size": ...} mappings, and a quota mapping limits how many berths each
+  owner may hold at once (an owner absent from it is unlimited). Process
+  request mappings in order, producing one result string each. A request
+  {"op": "dock", "boat": ..., "owner": ..., "size": ...} is answered with
+  the first of these that applies: "rejected:already_docked" when that
+  boat is presently in a berth; "rejected:over_quota" when the owner
+  already holds their full quota; "rejected:no_berth" when no free berth
+  is at least the requested size. Otherwise the boat takes the first free
+  berth in list order that is large enough, and the result is that berth's
+  id. A request {"op": "leave", "boat": ...} frees the boat's berth and
+  answers "left", or answers "rejected:not_docked" when the boat is not in
+  one; a freed berth may be taken again and no longer counts against its
+  owner. Raise an error for any other op, and for two berths declaring the
+  same id. Return the list of results.
+target: solution.ts
+interface: "export function assignBerths(berths: Array<{ id: string; size: number }>, quota: Record<string, number>, requests: Array<Record<string, unknown>>): string[]"
+stop_conditions:
+  - Whether a quota of zero should behave differently from an absent owner is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

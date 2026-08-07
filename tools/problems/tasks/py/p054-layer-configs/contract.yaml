@@ -1,0 +1,22 @@
+id: p054-layer-configs
+task_type: function_implementation
+task: >-
+  Implement layer_configs. The input is an ordered list of configuration
+  layers, each a mapping, applied left to right onto an initially empty
+  result. For each key a layer carries: the language's null value deletes
+  that key from the result, silently doing nothing when the key is absent;
+  when both the existing entry and the incoming value are mappings, the two
+  combine recursively under these same rules; any other incoming value —
+  scalars and arrays alike — replaces the existing entry wholesale. Arrays
+  are never concatenated, a deleted key may be reintroduced by a later
+  layer, and no layer may be mutated. Return the accumulated result. Raise
+  an error when the argument is not a list or when any layer is not a
+  mapping.
+target: solution.py
+interface: "def layer_configs(layers: list[dict]) -> dict"
+stop_conditions:
+  - Whether key insertion order in the returned mapping is significant is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,35 @@
+id: p071-bracket-seed-order
+task_type: bug_fix
+task: >-
+  bracketSeedOrder writes the top-to-bottom sheet of a single-elimination
+  bracket for count seeded entrants, count being a power of two of at
+  least 2. On the returned sheet, consecutive pairs meet first, winners of
+  adjacent pairs meet next, and so on up to the final; the layout must
+  guarantee that whenever the smaller seed number always advances, seeds 1
+  and 2 can only meet in the final, and every meeting's two seeds sum to
+  one more than the number of entrants alive in that round. The current
+  code writes the correctly summed opening pairs down the sheet in plain
+  seed order, which parks the top two seeds in the same half. Fix the
+  layout by growing it recursively: starting from [1], repeatedly double
+  the field to size m by replacing each seed s with the pair s, m+1-s.
+  Keep rejecting with an error a count that is not a power of two of at
+  least 2. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function bracketSeedOrder(count: number): number[] {
+    if (!Number.isInteger(count) || count < 2 || (count & (count - 1)) !== 0) {
+      throw new Error("count must be a power of two, at least 2");
+    }
+    const sheet: number[] = [];
+    for (let seed = 1; seed <= count / 2; seed++) {
+      sheet.push(seed, count + 1 - seed);
+    }
+    return sheet;
+  }
+interface: "export function bracketSeedOrder(count: number): number[]"
+stop_conditions:
+  - What ceiling on count must still run within the time limit is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

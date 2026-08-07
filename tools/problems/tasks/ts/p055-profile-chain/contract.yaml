@@ -1,0 +1,20 @@
+id: p055-profile-chain
+task_type: function_implementation
+task: >-
+  Implement resolveProfile. The first argument maps profile names to flat
+  setting tables; a table may carry the reserved key extends naming the
+  profile it inherits from. Resolving a name walks up to the root of its
+  inheritance chain, then folds each table's settings in from the root
+  downward so that a descendant's setting always beats its ancestor's. The
+  reserved key itself never appears in the output, and the input must not
+  be mutated. Return the folded settings for the requested profile. Raise
+  an error when the requested name has no profile, when an extends target
+  names no profile, and when following the chain visits any profile twice.
+target: solution.ts
+interface: "export function resolveProfile(profiles: Record<string, Record<string, unknown>>, wanted: string): Record<string, unknown>"
+stop_conditions:
+  - The depth an inheritance chain may reach is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

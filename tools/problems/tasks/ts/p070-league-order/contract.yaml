@@ -1,0 +1,23 @@
+id: p070-league-order
+task_type: function_implementation
+task: >-
+  Implement leagueOrder. Given the played matches of a league season, each
+  a 4-item list of home team, away team, home goals, away goals, produce
+  the final standings as a list of team names, best first. A win earns 3
+  points, a draw 1, a loss 0, and every name appearing in any match is
+  ranked. Teams level on points are separated by, in order: points
+  recounted over only the matches in which both sides belong to the level
+  group; then goal difference across the whole season; then goals scored
+  across the whole season; then name, ascending. The group recount happens
+  once per level group and is never re-restricted to smaller subgroups.
+  Reject with an error a match where a team faces itself, a goal figure
+  that is not a non-negative integer, a team name that is not a string,
+  and a match entry that is not a 4-item list.
+target: solution.ts
+interface: "export function leagueOrder(matches: (string | number)[][]): string[]"
+stop_conditions:
+  - Whether the same two clubs may meet more than twice in one season is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

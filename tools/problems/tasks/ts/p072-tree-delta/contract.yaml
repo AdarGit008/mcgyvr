@@ -1,0 +1,26 @@
+id: p072-tree-delta
+task_type: function_implementation
+task: >-
+  Implement treeDelta. A tree node is a mapping with keys "name" (a string),
+  "value" (an integer) and "children" (a list of nodes); names are unique
+  among siblings. Compare the before tree to the after tree and return a
+  flat list of operation mappings. A node's path is the names from the root
+  down to it joined with "/". Walking from the root: at a pair of matched
+  nodes, first emit {"op": "change", "path": ..., "from": ..., "to": ...}
+  if their values differ; then take the after node's children in order — a
+  child whose name also occurs among the before node's children is matched
+  and walked recursively, while a brand-new child emits {"op": "add",
+  "path": ..., "value": ...} for itself and then for each of its
+  descendants in preorder; finally each before child whose name is gone
+  from the after children emits one {"op": "remove", "path": ...} covering
+  its whole subtree, in before order. Raise an error when the two root
+  names differ, and when any node of either tree has two children sharing
+  a name.
+target: solution.ts
+interface: "export function treeDelta(before: { name: string; value: number; children: unknown[] }, after: { name: string; value: number; children: unknown[] }): Array<Record<string, unknown>>"
+stop_conditions:
+  - What treeDelta does when a node lacks one of the three keys is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

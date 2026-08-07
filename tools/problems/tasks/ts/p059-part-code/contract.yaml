@@ -1,0 +1,24 @@
+id: p059-part-code
+task_type: function_implementation
+task: >-
+  Implement normalizePartCode. A part code carries eight payload characters
+  and one check character, all drawn from 0-9 and A-Z, where a digit's
+  value is itself and a letter's value runs from 10 for A to 35 for Z.
+  Under the PC-36 scheme the check character's value must equal the
+  weighted sum of the payload values, taken left to right with the
+  repeating weight cycle 3, 5, 7, reduced modulo 36. Input may arrive in
+  lowercase and with spaces or hyphens scattered anywhere; discard those
+  separators, uppercase what remains, and verify it. Return the canonical
+  rendering: four characters, a hyphen, four more characters, a hyphen, and
+  the check character. Raise an error for a non-string argument, for any
+  character besides the alphanumerics and those two separators, for
+  anything but nine characters once cleaned, and for a check character
+  whose value does not verify.
+target: solution.ts
+interface: "export function normalizePartCode(code: string): string"
+stop_conditions:
+  - Whether separators other than spaces and hyphens may appear is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
