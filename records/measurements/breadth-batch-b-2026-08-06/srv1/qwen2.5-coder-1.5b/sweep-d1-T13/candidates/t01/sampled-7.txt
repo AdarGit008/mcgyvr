@@ -1,0 +1,40 @@
+```ts
+function validInput(str: string): str is string {
+  return typeof str === 'string';
+}
+
+export function runLengthEncode(input: string): string {
+  if (!validInput(input)) {
+    throw Error("Invalid input: must be a string");
+  }
+
+  if (input.length === 0) {
+    return "";
+  }
+
+  let i = 1, j = 0;
+ let prevChar = input[0].charCodeAt(0);
+
+  const encoding: string[] = []);
+
+  while (j < input.length - 1) {
+    const currChar = input[j + 1].charCodeAt(0);
+    const charDif = prevChar - currChar;
+
+    if (charDif === 0) { // repeat current char
+      i +=1;
+    } else {
+      encoding.push(`${String.fromCharCode(prevChar)}${i}`);
+      prevChar = currChar;
+      i = 2; // count from the next
+      j++; 
+    }
+
+    j++;
+  } 
+
+  encoding.push(`${String.fromCharCode(prevChar)}${i - 1}`); 
+
+  return encoding.join("");
+}
+```

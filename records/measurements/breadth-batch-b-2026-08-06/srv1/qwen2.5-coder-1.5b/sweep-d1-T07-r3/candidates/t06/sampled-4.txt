@@ -1,0 +1,41 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (line === '') return [];
+
+  let result = [];
+  let currentField = '';
+  let inQuote = false;
+  let needsEscape = false;
+
+  for (let char of line) {
+    needsEscape = char === '"' && !inQuote;
+    if (!needsEscape && char === ',') {
+      result.push(currentField);
+      currentField = '';
+    } else if (!needsEscape && (char === '"' || char === '\n')) {
+      if (currentField.length > 0) {
+        result.push(currentField);
+        currentField = '';
+      }
+      if (char === '"') inQuote = !inQuote;
+    } else {
+      currentField += char;
+    }
+  }
+
+  if (currentField.length > 0) result.push(currentField);
+
+  // Ensure the last field is added
+  if (!result.length || result[result.length - 1] === '') return [];
+
+  // Check for unescaped double quotes in fields
+  for (let i = 0; i < result.length; i++) {
+    let field = result[i];
+    if (field.includes('"') && !inQuote) {
+      throw new Error(`Unmatched closing quote in field ${i + 1}`);
+    }
+  }
+
+  return result;
+}
+```

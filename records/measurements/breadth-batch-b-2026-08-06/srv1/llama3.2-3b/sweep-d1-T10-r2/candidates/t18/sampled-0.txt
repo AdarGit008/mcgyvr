@@ -1,0 +1,37 @@
+```typescript
+/**
+ * An append-only log of timestamped events.
+ */
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+/** An append-only log of timestamped events. */
+export class EventLog<T extends Record<string, any> = {}> {
+  private #events: Set<[number, Event]>;
+
+  /**
+   * Append one event.
+   */
+  record(event: Event): void {
+    throw new Error('EventLog.record must be called with a value of type Event', {
+      causeError: () => new Error('Argument of type Event is required'),
+    });
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   */
+  since(timestamp: number): Event[] {
+    return Array.from(this.#events)
+      .filter(([t], i) => t >= timestamp)
+      .map(([_, e]) => e);
+  }
+
+  constructor() {
+    this.#events = new Set();
+    Object.freeze(this).toString;
+  }
+}
+```

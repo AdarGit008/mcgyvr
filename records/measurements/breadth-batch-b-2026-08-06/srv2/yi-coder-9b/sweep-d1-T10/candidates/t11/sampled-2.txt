@@ -1,0 +1,8 @@
+Here is the correct implementation based on your specifications:
+
+```typescript
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].sort((a ,b) => a - b);
+}
+```

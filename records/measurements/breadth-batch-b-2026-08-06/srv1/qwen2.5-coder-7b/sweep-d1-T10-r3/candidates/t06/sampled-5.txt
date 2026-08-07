@@ -1,0 +1,33 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+    const result: string[] = [];
+    let field = '';
+    let inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') {
+            if (!inQuote) {
+                if (i > 0 && line[i - 1] !== '\\') {
+                    throw new Error('Missing opening quote');
+                }
+                inQuote = true;
+            } else {
+                if (i < line.length - 1 && line[i + 1] === '"') {
+                    field += line[++i];
+                } else {
+                    inQuote = false;
+                }
+            }
+        } else if (!inQuote) {
+            if (line[i] === ',') {
+                result.push(field.trim());
+                field = '';
+            } else {
+                field += line[i];
+            }
+        }
+    }
+    if (inQuote) throw new Error('Unbalanced quotes');
+    result.push(field.trim());
+    return result;
+}
+```

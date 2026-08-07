@@ -1,0 +1,15 @@
+```typescript
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  const isNumeric = (value: string | number): boolean => typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)));
+
+  return [...values].sort((a, b) => {
+    if (!isNumeric(a) || !isNumeric(b)) {
+      throw new Error('Input must be numbers or strings that can be parsed to numbers');
+    }
+    const aValue = Number(a);
+    const bValue = Number(b);
+    return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+  });
+}
+```

@@ -1,0 +1,12 @@
+```ts
+/**
+ * The numbers, ascending, without mutating the argument.
+ * Order numbers numerically, starting from 0.
+ *
+ * @param {readonly number[]} values - Array of numbers to sort.
+ * @returns {number[]} A new array containing the sorted numbers.
+ */
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].sort((a, b) => a - b);
+}
+```

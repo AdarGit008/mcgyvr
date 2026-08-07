@@ -1,0 +1,21 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (!Number.isInteger(depth)) {
+        throw new Error("Depth must be a non-negative integer or Infinity.");
+    }
+    
+    return items.flatMap(item => {
+        const recurse = (item: unknown, currentDepth: number): unknown[] => {
+            if (Array.isArray(item) && !depth || currentDepth < depth) {
+                return item.flatMap(recurse);
+            }
+            // If it's not an array and doesn't need further recursion, treat it as a value
+            return [item];
+        };
+
+        return recurse(item, 0).map(Object.freeze);
+    });
+}
+```
+
+This implementation recursively flattens the input arrays up to the specified depth. The function uses `flatMap` to handle the transformation of each item in the array. If an item is an array and the current depth allows for further recursion, it calls itself (reaching a maximum depth with `Infinity`). If the item is not an array or nesting doesn't extend beyond the specified depth, it returns the item as a single-element array. The result is then mapped over to prevent any changes to items deeper in the structure once they are flattened.

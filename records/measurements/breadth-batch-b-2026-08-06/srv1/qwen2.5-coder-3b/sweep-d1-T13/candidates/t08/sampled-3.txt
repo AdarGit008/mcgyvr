@@ -1,0 +1,73 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjList = new Map<string, Set<string>>();
+    for (const [from, to] of edges) {
+        if (!adjList.has(from)) adjList.set(from, new Set());
+       _adjList[from].add(to);
+        if (!adjList.has(to)) adjList.set(to, new Set());
+    }
+
+    const visited = new Map<string, number>();
+    for (const node of nodes) visited.set(node, 0);
+
+    async function dfs(node: string): Promise<void> {
+        let depth = visited.get(node)! + visited.size - 1;
+        await (async () => {
+            let visitedBeforeMaxLevel = false;
+            await Promise.allSettled(
+                Array.from(adjList.get(node) ?? []).map(neighbor =>
+                    visited.get(neighbor)! <= depth
+                        ? neighbor === node // Cycle detected
+                            ? Promise.reject(new Error("Cycle Detected"))
+                            : void dfs(neighbor)
+                        : visitedBeforeMaxLevel ||
+                          (await new Promise(resolve => setTimeout(resolve, 0)),
+                           setImmediate(() => {
+                               visited.set(neighbor!, -depth);
+                               if (visitedAfterMaxLevel) adjacentBeforeMaxLevel.push(neighbor);
+
+                               function isMaxNode(level: number) {
+                                   return Array.from(
+                                       adjList.get(node)!,
+                                       neighbor =>
+                                           visitedBeforeMaxLevel.includes(neighbor)
+                                               ? visited.get(neighbor)!
+                                               : Infinity
+                                   ).includes(level);
+                               }
+
+                               for (const before of adjacentBeforeMaxLevel) {
+                                   await new Promise(resolve => setTimeout(resolve, 0));
+                                   if (!visitedAfterMaxLevel && isMaxNode(visitedBeforeMaxLevel[adjacentBeforeMaxLevel.indexOf(before)])) visited.set(before!, -1); // No cycle found, remove -1 after the max nodes
+                               }
+                           }))
+
+                )
+            ).then(responses => {
+                if (depth === 0) sorted.push(node);
+                else visited.set(
+                    depth > 0 ? node : adjacentBeforeMaxLevel.some(isMaxNode) ? "-Infinity" : "-", // Edge case: same depth neighbors, sort them lexicographically by their first appearance to break ties
+                    node === "-Infinity"
+                        ? `edge from another free node with equal depth`
+                        : Math.max(...adjacentBeforeMaxLevel.map(b => visited.get(b)!))),
+                    depth + (node !== -"-Infinite"`"),
+                    sorted[adjacentBeforeMaxLevel.indexOf(before)] ?? Infinity,
+                );
+            });
+
+        })();
+    }
+
+    for (const node of nodes.filter(n => !visited.has(node))) {
+        if (await new Promise(resolve => setTimeout(resolve, 0)), dfs(n)) continue; // Try to run dfs from start
+        throw new Error("Failed to find a valid ordering after trying all starting points");
+    }
+
+    return sorted;
+}
+
+async function setImmediate(cb: () => any): Promise<void> {
+    if (!setImmediate.$immediatePromiseCallbacks) await new Promise((res) => (setImmediate.$immediatePromiseCallbacks = res));
+    return setImmediate.$immediatePromiseCallbacks();
+}
+```

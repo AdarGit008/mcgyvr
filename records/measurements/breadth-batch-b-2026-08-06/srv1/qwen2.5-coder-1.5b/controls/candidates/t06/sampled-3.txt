@@ -1,0 +1,51 @@
+```ts
+function parseCsvLine(line: string): string[] {
+    if (line === "") return [];
+
+    const fields: string[] = [];
+    let fieldBuilder = "";
+    let nestingLevel = 0;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+            nestingLevel++;
+            fieldBuilder += char;
+        } else if (nestingLevel > 0) {
+            fieldBuilder += char;
+        } else if (char === ",") {
+            if (fieldBuilder !== "") fields.push(fieldBuilder);
+            fieldBuilder = "";
+        } else {
+            fieldBuilder += char;
+        }
+    }
+
+    if (fieldBuilder !== "") fields.push(fieldBuilder);
+
+    for (let i = 0; i < fields.length; i++) {
+        const field = fields[i];
+        if (field.startsWith("\"") && field.endsWith("\"")) {
+            let escaped = false;
+            for (let j = 1; j < field.length - 1; j++) {
+                if (escaped) {
+                    if (field[j] === "\"") {
+                        fields[i] = field.substring(0, j) + "\"" + field.substring(j + 1);
+                        break;
+                    }
+                    escaped = false;
+                } else {
+                    if (field[j] === "\\") {
+                        escaped = true;
+                    } else if (field[j] === ",") {
+                        throw new Error(`Unmatched quote in csv field at position ${i}`);
+                    }
+                }
+            }
+        }
+    }
+
+    return fields;
+}
+```

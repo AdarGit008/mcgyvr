@@ -1,0 +1,55 @@
+```typescript
+export class LruCache<K, V> {
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map<K, { value: V; lastUsed: number }>();
+    this.oldestKey = null;
+  }
+
+  get keyIndex(key: K) {
+    const entry = this.cache.get(key);
+    return entry ? this.cache.size - this.cache.values().next().value.index : null;
+  }
+
+  set(key: K, value: V): void {
+    if (this.capacity === 0) return;
+
+    // Update or insert the key
+    let index = this.keyIndex(key);
+    if (index !== null) {
+      // Key exists, update it and mark as most recently used
+      const entry = this.cache.get(key)!;
+      entry.value = value;
+      entry.lastUsed = this.cache.size - 1;
+      this.removeOldestKey();
+    } else {
+      // Key does not exist, add new entry if within capacity
+      if (this.cache.size === this.capacity) {
+        this.removeOldestKey();
+      }
+      this.cache.set(key, { value, lastUsed: this.cache.size });
+    }
+
+    // Update oldest key if necessary
+    const keys = Array.from(this.cache.keys());
+    if (keys.length > 0) this.oldestKey = keys[0];
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private removeOldestKey() {
+    if (this.oldestKey !== null) {
+      this.cache.delete(this.oldestKey);
+      const oldestIndex = Array.from(this.cache.values()).findIndex(
+        ({ lastUsed }) => lastUsed === 0
+      );
+      this.oldestKey = oldestIndex !== -1 ? Array.from(this.cache.keys())[oldestIndex] : null;
+    }
+  }
+}
+```

@@ -1,0 +1,21 @@
+```ts
+/** Returns the division of `a` by `b`, throwing an error if invalid inputs are provided. */
+export function safeDivide(a: number, b: number): number {
+  // Ensure both inputs are numbers
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Both inputs must be numbers.');
+  }
+
+  // Ensure neither input is NaN or infinite (i.e., finite)
+  if (!isFinite(a) || !isFinite(b)) {
+    throw new Error('Both inputs must be finite numbers.');
+  }
+
+  // Check for division by zero
+  if (b === 0) {
+    throw new Error('Cannot divide by zero.');
+  }
+
+  return a / b;
+}
+```

@@ -1,0 +1,70 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, [V, number]>;
+  private order: K[];
+
+  /**
+   * Creates a new LruCache instance with the given capacity.
+   *
+   * @param capacity The maximum number of entries in the cache.
+   */
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+    this.order = [];
+  }
+
+  /**
+   * Returns the value associated with the given key, or undefined if no entry exists.
+   *
+   * @param key The key to look up in the cache.
+   */
+  get(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (entry) {
+      this.order.splice(this.order.indexOf(key), 1);
+      this.order.push(key);
+      return entry[0];
+    }
+    if (this.order.length >= this.capacity) {
+      const oldestKey = this.order.shift() as K;
+      this.cache.delete(oldestKey);
+    }
+    return undefined;
+  }
+
+  /**
+   * Inserts or updates the value associated with the given key in the cache.
+   *
+   * @param key The key to access in the cache.
+   * @param value The value to associate with the key.
+   */
+  set(key: K, value: V) {
+    if (this.cache.has(key)) {
+      const oldEntry = this.cache.get(key);
+      this.order.splice(this.order.indexOf(key), 1);
+      this.order.push(key);
+      this.cache.set(key, [value, this.order.length]);
+      return;
+    }
+    if (this.order.length >= this.capacity) {
+      const oldestKey = this.order.shift() as K;
+      this.cache.delete(oldestKey);
+    }
+    this.order.push(key);
+    this.cache.set(key, [value, this.order.length]);
+  }
+
+  /**
+   * Returns the number of entries currently in the cache.
+   *
+   */
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```

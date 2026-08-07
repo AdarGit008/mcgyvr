@@ -1,0 +1,70 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Invalid argument');
+  }
+
+  const result: string[] = [];
+  let i = 0;
+  let field = '';
+
+  while (i < line.length) {
+    const char = line[i];
+
+    if (char === '"') {
+      // If we're not at the start of a field, this is an error
+      if (field !== '') {
+        throw new Error('Invalid argument');
+      }
+
+      i++; // Move past the opening quote
+      let quotedField = '';
+
+      while (i < line.length) {
+        if (line[i] === '"') {
+          // Check if next char is also a quote (doubled quote)
+          if (i + 1 < line.length && line[i + 1] === '"') {
+            quotedField += '"';
+            i += 2; // Skip both quotes
+          } else {
+            // This is the closing quote
+            i++; // Move past the closing quote
+
+            // After a quoted field, there must be either comma or end of line
+            if (i < line.length && line[i] !== ',') {
+              throw new Error('Invalid argument');
+            }
+
+            field = quotedField;
+            break;
+          }
+        } else {
+          quotedField += line[i];
+          i++;
+        }
+      }
+
+      // If we reached the end without finding closing quote
+      if (i >= line.length && field === '') {
+        throw new Error('Invalid argument');
+      }
+
+      result.push(field);
+      field = '';
+    } else if (char === ',') {
+      result.push(field);
+      field = '';
+      i++;
+    } else {
+      // Regular character, add to current field
+      field += char;
+      i++;
+    }
+  }
+
+  // Add the last field if there's anything left
+  result.push(field);
+
+  return result;
+}
+```

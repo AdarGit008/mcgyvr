@@ -1,0 +1,17 @@
+```ts
+function isValidNumber(num: any): boolean {
+  return typeof num === 'number' && !isNaN(num);
+}
+
+export function safeDivide(a: number, b: number) {
+  if (!isValidNumber(a) || !isValidNumber(b)) {
+    throw new Error('Both arguments must be finite numbers.');
+  }
+
+  if (b === 0 || isNaN(b) || -0 === b) {
+    throw new Error('Cannot divide by zero including negativeZero.');
+  }
+
+  return a / b;
+}
+```

@@ -1,0 +1,33 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals) || intervals.length === 0) {
+    return [];
+  }
+
+  // Validate and sort intervals
+  const sortedIntervals = intervals.slice().sort((a, b) => a[0] - b[0]);
+  for (const interval of sortedIntervals) {
+    if (!Array.isArray(interval) || interval.length !== 2 || interval[0] > interval[1]) {
+      throw new Error("Invalid interval");
+    }
+  }
+
+  const merged: number[][] = [];
+  let currentInterval = [...sortedIntervals[0]];
+
+  for (let i = 1; i < sortedIntervals.length; i++) {
+    const nextInterval = sortedIntervals[i];
+    if (currentInterval[1] >= nextInterval[0]) {
+      // Merge intervals
+      currentInterval[1] = Math.max(currentInterval[1], nextInterval[1]);
+    } else {
+      merged.push([...currentInterval]);
+      currentInterval = [...nextInterval];
+    }
+  }
+
+  merged.push([...currentInterval]);
+
+  return merged;
+}
+```

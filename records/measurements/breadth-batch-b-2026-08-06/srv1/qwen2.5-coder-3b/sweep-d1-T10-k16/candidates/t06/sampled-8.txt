@@ -1,0 +1,58 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let currentField = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      if (!inQuote) {
+        // Opening quote
+        if (!i || !line[i - 1].match(/^[, ]+/)) {
+          throw new Error('Quoted field is never closed');
+        }
+        inQuote = true;
+      } else {
+        // Closing quote
+        inQuote = false;
+        continue; // Skip the following comma inside a quoted field
+      }
+    }
+    
+    if (inQuote) {
+      // Inside a quoted field, add any character except another quote or space at the end of the line
+      if (char === ',') {
+        result.push(currentField);
+        currentField = '';
+      } else if (i < line.length - 1 && char === ' ' && line[i + 1] !== ',') {
+        result.push(currentField);
+        currentField = '';
+      } else {
+        currentField += char;
+      }
+    } else {
+      // Within an unquoted field
+      if (char === ',' && (i === 0 || line[i - 1].match(/^[, ]+/))) {
+        // Add the empty previous field, but don't add leading or trailing spaces
+        result.push(currentField);
+        currentField = '';
+      } else if (i > 0 && char.match(/[^\s]/) && line[i - 1] === ',') {
+        // Adding a new non-empty field
+        result.push(currentField);
+        currentField = char;
+      } else if (char.match(/[^\s]+/)) {
+        // Accumulating characters of the current field
+        currentField += char;
+      }
+    }
+  }
+  
+  // Add the last field, if any
+  if (currentField) {
+    result.push(currentField);
+  }
+  
+  return result;
+}
+```

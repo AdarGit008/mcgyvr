@@ -1,0 +1,19 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  if (typeof text !== "string") throw new Error("Invalid input type");
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim().startsWith("#") && !line.includes("=")) continue;
+    try {
+      const [key, value] = line.split(/=/, 1);
+      key = key.trim();
+      value = value.trim();
+      config[key] = value;
+    } catch (error) {
+      console.error(`Error parsing line '${line}':`, error);
+    }
+  }
+  return config;
+}
+```

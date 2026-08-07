@@ -1,0 +1,43 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version.startsWith("v") && !version.startsWith("V")) version = `v${version}`;
+
+  const split = version.split(/[-+]/);
+  const [major, minor, patch] = split[0].split(".");
+  let prerelease = split.length > 1 ? split[1] : null;
+  let build = split.length > 2 ? split[2] : null;
+
+  if (!major || !minor || !patch) {
+    throw new Error("Missing major, minor, or patch number");
+  }
+
+  const re = /^\d+$/;
+  if (!re.test(major) || !re.test(minor) || !re.test(patch)) {
+    throw new Error("Invalid major, minor, or patch number");
+  }
+
+  if (prerelease) {
+    prerelease = prerelease.replace(/[-]/g, ""); // Remove dashes
+    const parts = prerelease.split(".");
+    for (let i = 0; i < parts.length; i++) {
+      if (!parts[i]) continue;
+      if (!re.test(parts[i])) {
+        throw new Error("Invalid prerelease part");
+      }
+    }
+  }
+
+  if (build) {
+    build = build.replace(/[-]/g, ""); // Remove dashes
+    const parts = build.split(".");
+    for (let i = 0; i < parts.length; i++) {
+      if (!parts[i]) continue;
+      if (!re.test(parts[i])) {
+        throw new Error("Invalid build part");
+      }
+    }
+  }
+
+  return { major: parseInt(major, 10), minor: parseInt(minor, 10), patch: parseInt(patch, 10), prerelease, build };
+}
+```

@@ -1,0 +1,14 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  if (line.length === 0) return [];
+
+  const fields = line.split(/",(?=(:"")*(?!"))/);
+  return fields.map(field => field.replace(/^"|"$|"$/g, ''));
+}
+
+// Test cases:
+console.log(parseCsvLine('"Hello,""World"",Test")); // ["Hello,\"World\",Test"]
+console.log(parseCsvLine("NoQuotesHere"));          // ["NoQuotesHere"]
+console.log(parseCsvLine("""Double,"", Quotes"""));  // ["\"Double,", "Quotes\""]
+console.log(parseCsvLine(""));                // []
+```

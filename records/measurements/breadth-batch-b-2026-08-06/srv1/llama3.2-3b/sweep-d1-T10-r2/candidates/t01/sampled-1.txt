@@ -1,0 +1,36 @@
+```ts
+export function runLengthEncode(input: string): string {
+    /**
+     * Replaces every maximal run of one repeated character in the input string with that character followed by its count.
+     *
+     * @param input The input string to encode.
+     */
+    if (typeof input !== "string") {
+        throw new Error("Input must be a string");
+    }
+
+    let output = "";
+    let currentChar: string | null = null;
+    let currentCount = 0;
+
+    for (let char of input) {
+        if (char === currentChar) {
+            currentCount++;
+            continue;
+        } else {
+            if (currentChar !== null) {
+                output += currentChar + (currentCount > 1 ? currentCount.toString() : "1");
+            }
+            currentChar = char;
+            currentCount = 1;
+        }
+    }
+
+    // encode the last character
+    if (currentChar !== null) {
+        output += currentChar + (currentCount > 1 ? currentCount.toString() : "1");
+    }
+
+    return output;
+}
+```

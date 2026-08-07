@@ -1,0 +1,38 @@
+```typescript
+/**
+ * Flattens a nested array up to a specified depth level, defaulting to every level.
+ * 
+ * @param items - The input array with nested arrays.
+ * @param depth - The maximum depth level for flattening. Must be a non-negative integer or Infinity.
+ */
+export function flatten(items: readonly unknown[], depth: number = Infinity): unknown[] {
+    // Type guard to check if the depth is valid
+    const isValidDepth = typeof depth === "number" && Number.isInteger(depth) && depth >= 0;
+    
+    if (!isValidDepth) {
+        throw new Error("Invalid depth. Must be a non-negative integer.");
+    }
+
+    return items.map((item, index) => {
+        // Base case: If item is not an array, it's already in the flattened state
+        if (!Array.isArray(item)) {
+            return item;
+        }
+        
+        // If the current depth is 0, return a copy of the input unchanged
+        if (depth === 0) {
+            const array = [...items]; // Create a copy to avoid mutation
+            array[index] = Item; // Replace the value with the same type as the flattened output
+            return array;
+        }
+        
+        // Recursive case: If the item is an array, recursively flatten it and then merge results if depth > 0
+        const flattenedSubarray = flatten(item, depth - 1);
+        return isValidDepth ? 
+            depth === Infinity ? 
+                [...flattenedSubarray] : 
+                Array.from({ length: flushedSubarray.length }, (_, i) => flushedSubarray[i]) :
+                    [];
+    });
+}
+```

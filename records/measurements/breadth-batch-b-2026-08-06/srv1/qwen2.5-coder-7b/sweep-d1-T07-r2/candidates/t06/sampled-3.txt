@@ -1,0 +1,33 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (line === "") return [""];
+  
+  const result: string[] = [];
+  let field: string = "";
+  let inQuotes: boolean = false;
+  
+  for (const char of line) {
+    if (char === '"') {
+      if (inQuotes && field.endsWith('"')) {
+        // Remove the trailing quote and escape the double quote
+        field = field.slice(0, -1).replace(/""/g, '"');
+        inQuotes = false;
+        result.push(field);
+        field = "";
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === "," && !inQuotes) {
+      result.push(field.trim());
+      field = "";
+    } else {
+      field += char;
+    }
+  }
+  
+  if (inQuotes) throw new Error("Unclosed quoted field");
+  
+  result.push(field.trim());
+  return result;
+}
+```

@@ -1,0 +1,18 @@
+```ts
+/**
+ * The factorial of n.
+ */
+export function factorial(n: number): number {
+  if (typeof n !== 'number') {
+    throw new Error('Input must be a positive integer.');
+  }
+  if (n < 0) {
+    throw new Error('Input must be a non-negative integer.');
+  }
+  
+  const result = Array.from({ length: n }, (_, i) => i + 1).reduce((acc, num) =>
+    acc * num, 1);
+  
+  return result;
+}
+```

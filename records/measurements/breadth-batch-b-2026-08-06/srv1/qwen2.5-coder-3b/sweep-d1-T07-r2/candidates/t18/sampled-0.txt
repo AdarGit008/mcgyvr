@@ -1,0 +1,23 @@
+```ts
+export interface Event { name: string; timestamp: number }
+
+export class EventLog {
+  #events: Event[] = [];
+
+  /** Append one event. */
+  record(event: Event): void {
+    if (!event || typeof event.name !== 'string' || typeof event.timestamp !== 'number') {
+      throw new Error('Invalid event');
+    }
+    this.#events.push(event);
+  }
+
+  /** Every event at or after the given timestamp, in insertion order. */
+  since(timestamp: number): Event[] {
+    if (isNaN(timestamp) || !isFinite(timestamp)) {
+      throw new Error('Invalid timestamp');
+    }
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

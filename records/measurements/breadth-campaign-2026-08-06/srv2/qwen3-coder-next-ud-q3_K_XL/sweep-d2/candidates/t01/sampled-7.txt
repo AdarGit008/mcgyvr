@@ -1,0 +1,64 @@
+```ts
+/**
+ * Merges overlapping or touching intervals into non-overlapping intervals sorted by start.
+ * @param intervals An array of [start, end] pairs with start <= end.
+ * @returns A new array of merged intervals sorted by start.
+ * @throws Error if any interval is invalid (not a two-number pair, contains non-finite numbers, or start > end).
+ */
+export function mergeIntervals(intervals: [number, number][]): [number, number][] {
+  // Validate input
+  if (!Array.isArray(intervals)) {
+    throw new Error("Input must be an array");
+  }
+
+  for (let i = 0; i < intervals.length; i++) {
+    const interval = intervals[i];
+    if (!Array.isArray(interval) || interval.length !== 2) {
+      throw new Error("Each interval must be a two-number pair");
+    }
+    
+    const [start, end] = interval;
+    if (typeof start !== 'number' || typeof end !== 'number') {
+      throw new Error("Interval values must be numbers");
+    }
+    
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+      throw new Error("Interval values must be finite numbers");
+    }
+    
+    if (start > end) {
+      throw new Error("Start must be <= end in each interval");
+    }
+  }
+
+  // Handle empty array case
+  if (intervals.length === 0) {
+    return [];
+  }
+
+  // Create a copy and sort by start value
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+  
+  const result: [number, number][] = [];
+  let currentInterval: [number, number] = [sorted[0][0], sorted[0][1]];
+  
+  for (let i = 1; i < sorted.length; i++) {
+    const [start, end] = sorted[i];
+    
+    // Check if intervals overlap or touch
+    if (start <= currentInterval[1]) {
+      // Merge intervals by updating the end if necessary
+      currentInterval = [currentInterval[0], Math.max(currentInterval[1], end)];
+    } else {
+      // No overlap, add current interval to result and start a new one
+      result.push(currentInterval);
+      currentInterval = [start, end];
+    }
+  }
+  
+  // Add the last interval
+  result.push(currentInterval);
+  
+  return result;
+}
+```

@@ -1,0 +1,12 @@
+```ts
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (typeof n !== 'number') {
+    throw new Error('n must be a number');
+  }
+  if (n < 0) {
+    throw new Error('n must not be negative');
+  }
+  return n === 0 || n === 1 ? 1 : n * factorial(n - 1);
+}
+```

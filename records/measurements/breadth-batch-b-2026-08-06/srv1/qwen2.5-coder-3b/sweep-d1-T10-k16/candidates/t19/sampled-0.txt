@@ -1,0 +1,23 @@
+```ts
+/** Performs safe integer division by ensuring the divisor is non-zero and both arguments are finite numbers. */
+export function safeDivide(a: number, b: number): number {
+  if (!isFinite(a) || !isFinite(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+  
+  if (b === 0) {
+    throw new Error("Divisor cannot be zero.");
+  }
+
+  return a / b;
+}
+
+/**
+ * Checks if the given value is a finite number.
+ * @param val - The value to check.
+ * @returns {boolean} True if `val` is a finite number, false otherwise.
+ */
+function isFinite(val: number): boolean {
+  return typeof val === "number" && !isNaN(val) && val !== Infinity && val !== -Infinity;
+}
+```

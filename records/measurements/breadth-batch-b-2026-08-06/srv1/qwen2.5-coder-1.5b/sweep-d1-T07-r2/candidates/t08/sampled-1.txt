@@ -1,0 +1,73 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * Sorts a list of nodes in a topological order based on directed edges.
+ *
+ * @param nodes - An array of node names (strings) that must be unique.
+ * @param edges - An array of [from, to] pairs representing directed edges where from before to.
+ * @returns An array of sorted node names following the topological order.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    // Check if there are any duplicate edges
+    const edgeSet = new Set<string>();
+    for (const [from, to] of edges) {
+        if (!edgeSet.add(`${from},${to}`)) {
+            throw new Error(`Cycle detected: ${from} -> ${to}`);
+        }
+    }
+
+    // Count the dependencies for each node
+    const indegree: Record<string, number> = {};
+    nodes.forEach(node => (indegree[node] = 0));
+
+    edges.forEach(([from, to]) => {
+        indegree[to]++;
+    });
+
+    // Perform topological sort using Kahn's algorithm
+    const deque: string[] = [];
+    nodes.forEach(node => {
+        if (!indegree[node]) {
+            deque.push(node);
+        }
+    });
+
+    const sortedNodes: string[] = [];
+    while (deque.length > 0) {
+        const node = deque.shift()!;
+        sortedNodes.push(node);
+
+        for (const [from, to] of edges) {
+            if (to === node) {
+                indegree[from]--;
+                if (!indegree[from]) {
+                    deque.push(from);
+                }
+            }
+        }
+    }
+
+    // Check if all nodes were accounted for
+    if (nodes.length !== sortedNodes.length || Object.keys(indegree).length > 0) {
+        throw new Error('Graph contains cycles');
+    }
+
+    return sortedNodes;
+}
+
+// Test cases to verify the solution
+function check() {
+    assert.deepStrictEqual(topologicalSort(['A', 'B', 'C'], [['B', 'C'], ['A', 'B']]), ['B', 'C', 'A']);
+    assert.deepStrictEqual(topologicalSort(['A', 'B', 'C'], [['B', 'A'], ['A', 'C']]), ['A', 'B', 'C']);
+    assert.deepStrictEqual(topologicalSort(['A', 'B', 'C'], [['A', 'B'], ['C', 'D']]), ['A', 'B', 'D', 'C']);
+    try {
+        topologicalSort(['A', 'B', 'C'], [['C', 'A'], ['A', 'B']]);
+    } catch (error) {
+        assert.equal(error.message, 'Cycle detected: C -> A');
+    }
+    console.log('All test cases passed!');
+}
+
+check();
+```

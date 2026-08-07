@@ -1,0 +1,8 @@
+```typescript
+/**
+ * Orders the numbers in the array ascending.
+ */
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].sort((a, b) => (typeof a === 'number' && typeof b === 'number') ? Number.isNaN(a) - Number.isNaN(b) || a - b : NaN);
+}
+```

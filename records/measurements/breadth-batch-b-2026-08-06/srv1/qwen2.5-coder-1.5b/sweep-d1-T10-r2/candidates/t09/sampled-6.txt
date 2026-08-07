@@ -1,0 +1,22 @@
+```ts
+/**
+ * The factorial of n.
+ */
+export function factorial(n: number): number {
+  // Add validity checks for non-zero, positive integers
+  if (n <= 0) {
+    throw new Error("Factorial is not defined for non-positive numbers.");
+  }
+  if (!Number.isInteger(n)) {
+    throw new Error("Factorial is only defined for integer values.");
+  }
+
+  // Base case: factorial(1) returns 1
+  if (n === 1) {
+    return 1;
+  } else {
+    // Recursive part of the function
+    return n * factorial(n - 1);
+  }
+}
+```

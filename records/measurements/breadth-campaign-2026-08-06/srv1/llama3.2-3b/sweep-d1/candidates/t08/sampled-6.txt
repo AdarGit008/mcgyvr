@@ -1,0 +1,44 @@
+```typescript
+/**
+ * Returns an ordering satisfying every edge in the given edges for the nodes.
+ *
+ * When several orderings are valid, pick the one that keeps nodes in their input order.
+ * Among the nodes currently free of unmet dependencies, always take the earliest in nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    const graph: Map<string, Set<string>> = new Map();
+    for (const node of nodes) {
+        graph.set(node, new Set());
+    }
+
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) {
+            throw new Error(`Edge ${from} -> ${to} names a node not in nodes`);
+        }
+        graph.get(from)!.add(to);
+    }
+
+    const freeNodes: string[] = [...nodes];
+    const result: string[] = [];
+
+    while (freeNodes.length > 0) {
+        let earliestFreeNode = freeNodes[0];
+        for (let i = 1; i < freeNodes.length; i++) {
+            if (graph.get(freeNodes[i]).has(earliestFreeNode)) {
+                earliestFreeNode = freeNodes[i];
+            }
+        }
+
+        if (!earliestFreeNode) {
+            throw new Error("Cycle detected");
+        }
+
+        result.push(earliestFreeNode);
+        graph.get(earliestFreeNode)!.forEach((node) => {
+            freeNodes.splice(freeNodes.indexOf(node), 1);
+        });
+    }
+
+    return result;
+}
+```

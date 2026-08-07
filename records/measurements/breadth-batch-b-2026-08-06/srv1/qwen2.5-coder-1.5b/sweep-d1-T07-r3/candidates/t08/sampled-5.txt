@@ -1,0 +1,39 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.length === 0 || nodes.length > 1_000_000) throw new Error('Invalid node count');
+  if (edges.length > 1_000_000) throw new Error('Too many edges');
+
+  const graph = new Map<string, Set<string>>();
+  const inDegrees = new Map<string, number>();
+
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) graph.set(from, new Set());
+    if (!graph.has(to)) graph.set(to, new Set());
+
+    graph.get(from)?.add(to);
+    inDegrees.set(to, (inDegrees.get(to) || 0) + 1);
+
+    if (nodes.includes(from) && !nodes.includes(to)) throw new Error(`Node ${from} is not in the list of nodes`);
+    if (nodes.includes(to) && !nodes.includes(from)) throw new Error(`Node ${to} is not in the list of nodes`);
+  }
+
+  const sortedNodes: string[] = [];
+  const freeNodes = [...nodes].filter(node => inDegrees.get(node) === 0);
+
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    sortedNodes.push(node);
+    const neighbors = graph.get(node)!;
+
+    for (const neighbor of neighbors) {
+      inDegrees.set(neighbor, inDegrees.get(neighbor) - 1);
+
+      if (inDegrees.get(neighbor) === 0) freeNodes.push(neighbor);
+    }
+  }
+
+  if (sortedNodes.length !== nodes.length) throw new Error('Cycle detected');
+
+  return sortedNodes;
+}
+```

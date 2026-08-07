@@ -1,0 +1,14 @@
+```ts
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== "number" || limit < 3) {
+    throw new Error("limit must be a non-negative integer of at least 3");
+  }
+
+  if (text.length <= limit) {
+    return text;
+  }
+  const ellipsis = "..." + text.slice(text.length - 3, text.length);
+  return text.slice(0, limit - 4) + ellipsis;
+}
+```

@@ -1,0 +1,61 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map<string, Set<string>>();
+
+    // Build the graph from the edges
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) {
+            graph.set(from, new Set());
+        }
+        graph.get(from)?.add(to);
+    }
+
+    // Find all nodes that have no incoming edges (indegree 0)
+    const initialNodes = Array.from(nodes).filter(node => !edges.some(([from]) => from === node));
+
+    // Sort the initial nodes to maintain their original order in case of cycles
+    initialNodes.sort();
+    let orderedNodes: string[] = [];
+
+    while (initialNodes.length > 0) {
+        const currentNode = initialNodes.shift()!;
+        if (!graph.has(currentNode)) {
+            orderedNodes.push(currentNode);
+            continue;
+        }
+
+        // Remove all edges connected to the current node from the graph
+        for (const nextNode of graph.get(currentNode)!) {
+            const neighbors = graph.get(nextNode)!;
+            neighbors.delete(currentNode);
+            if (neighbors.size === 0) {
+                initialNodes.push(nextNode); // Add new nodes with no incoming edges to the queue
+            }
+        }
+
+        orderedNodes.push(currentNode);
+    }
+
+    // Check for cycles by ensuring all nodes are included in the order
+    const visited = new Set<string>();
+    let hasCycle = false;
+    function dfs(node: string): boolean {
+        if (visited.has(node)) return true; // Cycle detected
+        visited.add(node);
+        for (const neighbor of graph.get(node) || []) {
+            if (dfs(neighbor)) return true;
+        }
+        visited.delete(node);
+        return false;
+    }
+
+    for (const node of nodes) {
+        if (!graph.has(node)) continue;
+        if (dfs(node)) hasCycle = true;
+    }
+
+    if (hasCycle) throw new Error('Cycle detected');
+
+    return orderedNodes;
+}
+```

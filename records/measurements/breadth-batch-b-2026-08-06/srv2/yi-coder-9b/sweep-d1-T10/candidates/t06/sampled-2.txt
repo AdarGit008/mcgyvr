@@ -1,0 +1,29 @@
+Here is how you could solve this problem in TypeScript:
+
+```ts
+export function parseCsvLine(line: string): string[] {
+    const fields = [];
+    let field = "";
+    let inQuotes = false;
+    for (let char of line) {
+        if (char === '"') {
+            inQuotes = !inQuotes;
+            continue;
+        }
+        if (char === ',' && !inQuotes) {
+            fields.push(field);
+            field = "";
+        } else {
+            field += char;
+        }
+    }
+    if (inQuotes) {
+        throw new Error('Unmatched quote in CSV line');
+    }
+    fields.push(field); // add last field since it wasn't followed by a comma
+    return fields;
+}
+```
+Note that this parses the CSV format very strictly, and expects all quoted fields to be properly closed with an additional double quote character. It won’t treat doubled quote characters in quoted fields as representing a single literal quote character. 
+
+If you wish to have doubled quotes treated as a single quote character inside of a quoted field, the logic will become more complex due to having multiple states to track; one for being in a quoted field and another for encountering an additional quote character.

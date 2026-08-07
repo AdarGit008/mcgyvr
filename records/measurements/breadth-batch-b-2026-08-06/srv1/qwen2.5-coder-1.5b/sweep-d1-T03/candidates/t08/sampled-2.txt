@@ -1,0 +1,54 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Map<string, Set<string>>();
+  const inDegree = new Map<string, number>();
+  const queue: string[] = [];
+
+  // Build the graph and calculate in-degrees
+  for (const edge of edges) {
+    const from = edge[0];
+    const to = edge[1];
+
+    if (!graph.has(from)) {
+      graph.set(from, new Set());
+    }
+    if (!graph.has(to)) {
+      graph.set(to, new Set());
+    }
+
+    graph.get(from)?.add(to);
+    inDegree.set(to, (inDegree.get(to) || 0) + 1);
+  }
+
+  // Find all nodes with zero in-degree
+  for (const node of nodes) {
+    if (!inDegree.has(node)) {
+      queue.push(node);
+    }
+  }
+
+  const sortedNodes: string[] = [];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    sortedNodes.push(current);
+
+    for (const neighbor of graph.get(current) || []) {
+      inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+
+      if (inDegree.get(neighbor) === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check for cycles
+  for (const node of nodes) {
+    if (inDegree.has(node) && inDegree.get(node)! > 0) {
+      throw new Error(`Cycle detected: ${node}`);
+    }
+  }
+
+  return sortedNodes;
+}
+```

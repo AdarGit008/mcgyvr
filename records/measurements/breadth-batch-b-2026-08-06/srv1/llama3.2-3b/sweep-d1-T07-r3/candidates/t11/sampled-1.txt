@@ -1,0 +1,17 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].sort((a, b) => {
+    if (isNaN(a) || isNaN(b)) {
+      throw new Error('NaN is not defined');
+    }
+    if (a < b) {
+      return -1;
+    } else if (a > b) {
+      return 1;
+    } else {
+      return 0;
+    }
+  });
+}
+```

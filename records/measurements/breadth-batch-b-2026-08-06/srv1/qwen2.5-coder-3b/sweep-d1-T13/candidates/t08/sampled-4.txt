@@ -1,0 +1,34 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Map<string, Map<string, boolean>>();
+  for each of edges) {
+    const [from, to] = edge;
+    if (!nodes.includes(from)) throw new Error(`Invalid node name '${from}' in edge`);
+    if (!nodes.includes(to)) throw new Error(`Invalid node name '${to}' inedge`);
+    graph.set(from, (graph.get(from) ?? new Map<string, boolean>()).set(to, true));
+  }
+
+  const order: string[] = [];
+  const freeNodes: Set<string> = new Set(nodes);
+
+  function visit(node: string): void {
+    if (!freeNodes.has(node)) return;
+    freeNodes.delete(node);
+    for (const dependent of graph.get(node) ?? []) visit(dependent);
+    order.push(node);
+  }
+
+  try {
+    let canSort = true;
+    while (canSort || !freeNodes.isEmpty()) {
+      const firstAvailable = [...freeNodes].sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b))[0];
+      if (!firstAvailable) break;
+      visit(firstAvailable);
+      canSort = order.length !== nodes.length; // Edge case: may have added cyclic dependency
+    }
+    return order;
+  } catch (err) {
+    throw err;
+  }
+}
+```

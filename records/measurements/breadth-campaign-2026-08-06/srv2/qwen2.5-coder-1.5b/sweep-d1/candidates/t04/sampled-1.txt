@@ -1,0 +1,54 @@
+```ts
+export class LruCache<K, V> {
+  private cache: { [key: K]: V } = {};
+  private capacity: number;
+  private size: number;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+    this.size = 0;
+  }
+
+  get(key: K): V | undefined {
+    if (this.cache[key]) {
+      this.touch(key);
+      return this.cache[key];
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache[key]) {
+      this.touch(key);
+    } else {
+      this.size++;
+    }
+    this.cache[key] = value;
+
+    if (this.size > this.capacity) {
+      const leastRecentlyUsedKey = Object.keys(this.cache).reduce((a, b) => {
+        return this.accessed[a] < this.accessed[b] ? a : b;
+      }, Object.keys(this.cache)[0]);
+      delete this.cache[leastRecentlyUsedKey];
+    }
+  }
+
+  get size(): number {
+    return this.size;
+  }
+
+  private accessed: { [key: K]: number } = {};
+
+  private touch(key: K) {
+    if (this.accessed[key]) {
+      this.accessed[key]++;
+    } else {
+      this.accessed[key] = 1;
+    }
+    // No need to sort here, we're only interested in the order of last access
+  }
+}
+```

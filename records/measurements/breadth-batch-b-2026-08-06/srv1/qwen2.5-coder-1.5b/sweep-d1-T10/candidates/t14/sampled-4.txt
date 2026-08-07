@@ -1,0 +1,7 @@
+```ts
+import { User } from './model'; // Assuming 'model' package exists
+export function activeEmails(users: readonly User[]): string[] {
+  const out = users.filter(user => user.active).map(user => user.email.toLowerCase());
+  return out;
+}
+```

@@ -1,0 +1,34 @@
+```typescript
+/** Splits one line of CSV into its fields on commas. */
+export function parseCsvLine(line: string): string[] {
+    let currentField = '';
+    const result: string[] = [];
+    let inQuote = false;
+
+    for (const char of line) {
+        if (char === '"') {
+            if (inQuote) {
+                if (line.indexOf(char, line.indexOf(char) + 1) !== -1) {
+                    throw new Error('Unbalanced quote');
+                }
+                continue;
+            }
+
+            inQuote = true;
+        }
+
+        if (!inQuote && char === ',') {
+            result.push(currentField.trim());
+            currentField = '';
+        } else {
+            currentField += char;
+        }
+    }
+
+    if (currentField) {
+        result.push(currentField);
+    }
+
+    return result;
+}
+```

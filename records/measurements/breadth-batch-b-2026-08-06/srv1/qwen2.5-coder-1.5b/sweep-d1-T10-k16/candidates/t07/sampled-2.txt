@@ -1,0 +1,27 @@
+```ts
+function flatten<T>(items: readonly T[], depth: number = Infinity): unknown[] {
+  let result: unknown[];
+
+  if (depth === 0) {
+    return items;
+  }
+
+  if (!Array.isArray(items)) {
+    throw new Error("Input must be an array");
+  }
+
+  result = [];
+
+  for (const item of items) {
+    if (Array.isArray(item) && depth > 1) {
+      result.push(...flatten(item, depth - 1));
+    } else if (item !== null && typeof item === "object") {
+      throw new Error("Deep arrays support not available");
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+```

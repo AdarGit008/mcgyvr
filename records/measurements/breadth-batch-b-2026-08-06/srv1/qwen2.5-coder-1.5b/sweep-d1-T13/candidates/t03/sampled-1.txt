@@ -1,0 +1,18 @@
+```typescript
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const re = /^v(\d+)\.(\d+)\.(\d+)(?:-([^0-9-.]+|-alpha-num-\d.*)?)?(?:\+(beta|delta)-?(\w+)\+(\w+\.\w+\.\d+))?$/;
+  const match = re.exec(version);
+
+  if (!match) {
+    throw new Error(`invalid semver format: ${version}`);
+  }
+
+  return {
+    major: parseInt(match[1], 10),
+    minor: parseInt(match[2], 10),
+    patch: parseInt(match[3], 10), // assuming the prerelease+build version format is used for digit-only strings
+    prerelease: match[4] ? match[4].trimStart('-') : null, // trimming leading '-' if present
+    build: match[6] ? `${match[6]}+${match[7]}/${match[8]}` : match[5] ? match[5].trimStart('-') + '+' : null // parsing build from prerelease string or full build string otherwise
+  };
+}
+```

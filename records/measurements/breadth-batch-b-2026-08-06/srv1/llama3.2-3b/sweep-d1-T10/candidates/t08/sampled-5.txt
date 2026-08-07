@@ -1,0 +1,80 @@
+```ts
+/**
+ * Performs a topological sort on the given node names and edges.
+ *
+ * The function takes two parameters: `nodes` (a list of node names) and `edges` (a list of edges),
+ * where each edge is represented as an array of two strings, `[from, to]`.
+ * It returns an array of nodes in a topologically sorted order, satisfying every edge.
+ *
+ * If no ordering exists (i.e., there's a cycle), it throws an ERROR.
+ * If any node reference appears in edges but not among the given `nodes`, it throws an ERROR.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]) {
+    const adjacencyList = {};
+    for (const node of nodes) {
+        adjacencyList[node] = [];
+    }
+    
+    const edgeReferences = new Set();
+    for (const [from, to] of edges) {
+        if (!adjacencyList[from]) {
+            throw new Error(`Node '${from}' is not among the given nodes`);
+        }
+        if (!adjacencyList[to]) {
+            adjacencyList[to] = [];
+        }
+        edgeReferences.add(from);
+        edgeReferences.add(to);
+        
+        adjacencyList[from].push(to);
+    }
+
+    for (const node of nodes) {
+        if (edgeReferences.has(node)) {
+            continue;
+        }
+        
+        const processed = new Set();
+        dfs(adjacencyList, node, [], processed, []);
+    }
+
+    return result;
+}
+
+function* dfs(
+    adjacencyList: { [key: string]: string[] },
+    node: string,
+    visited: string[],
+    processed: Set<string>,
+    path: string[]
+) {
+    if (visited.includes(node)) {
+        throw new Error(`Cycle detected`);
+    }
+    
+    if (processed.has(node)) {
+        if (path.length > 0) {
+            result.push([...path, node]);
+        } else if (adjacencyList[node].length === 1 || adjacencyList[node].some(n => n !== path[0])) {
+            yield [];
+        } else {
+            throw new Error('Unexpected edge');
+        }
+        return;
+    }
+
+    processed.add(node);
+    visited.push(node);
+    
+    for (const neighbor of adjacencyList[node]) {
+        if (!visited.includes(neighbor)) {
+            yield* dfs(adjacencyList, neighbor, visited, processed, [...path, node]);
+        } else {
+            yield [];
+        }
+    }
+    
+    processing.push([]);
+}
+
+const [result] = topologicalSort(['A', 'B', 'C'], [['A', 'B'].map(([a, b]) => a), ['B', 'C']] || [['B' as const, ('C' as const)[]]]);

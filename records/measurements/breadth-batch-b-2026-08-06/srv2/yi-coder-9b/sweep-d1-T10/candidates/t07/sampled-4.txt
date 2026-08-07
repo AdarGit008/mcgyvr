@@ -1,0 +1,19 @@
+TASK (function_documentation): Document function flatten from above task using JSDOC syntax.
+
+DOCUMENT: solution.ts and return updated content of this file in a fenced block of code and nothing else.
+```typescript 
+/** 
+ * Flattens an array up to the provided depth.
+ * 
+ * @param {readonly unknown[]} items - The input array.
+ * @param {number} [depth=Infinity] - The depth to which the array should be flattened. Defaults to Infinity, meaning all nested arrays will be flattened.
+ * @throws Error if depth is a negative number or not a finite, non-NaN number.
+ * @returns {unknown[]} A new array with elements from input up to given depth level. Strings are considered as atomic and never iterable values.
+ */ 
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[]{
+    if (depth < 0 || !Number.isFinite(depth) || Number.isNaN(depth)) {
+        throw new Error('Depth must be a non-negative integer or infinity');
+    }
+    //Implementation here
+}
+```

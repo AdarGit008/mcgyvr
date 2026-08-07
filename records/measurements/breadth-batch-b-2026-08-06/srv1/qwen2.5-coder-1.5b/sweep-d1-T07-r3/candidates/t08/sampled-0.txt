@@ -1,0 +1,38 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.length === 0) return [];
+
+  const graph = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    const [from, to] = edge;
+    if (!graph.has(from)) graph.set(from, new Set());
+    graph.get(from)?.add(to);
+  }
+
+  const inDegree = new Map<string, number>();
+  nodes.forEach(node => inDegree.set(node, 0));
+
+  for (const node of graph.keys()) {
+    for (const neighbor of graph.get(node) || []) {
+      inDegree.set(neighbor, inDegree.get(neighbor)! + 1);
+    }
+  }
+
+  const queue: string[] = Array.from(nodes).filter(node => inDegree.get(node)! === 0);
+
+  if (queue.length === 0) throw new Error('Cycle detected');
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+    for (const neighbor of graph.get(node) || []) {
+      inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+      if (inDegree.get(neighbor)! === 0) queue.push(neighbor);
+    }
+  }
+
+  return result;
+}
+```

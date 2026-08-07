@@ -1,0 +1,26 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!intervals || intervals.length === 0) return [];
+
+  // Sort intervals by start time
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const mergedIntervals: number[][] = [intervals[0]];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const currentStart = intervals[i][0];
+    const previousEnd = mergedIntervals[mergedIntervals.length - 1][1];
+
+    // If the current start is within or overlaps with the last interval's end
+    if (currentStart <= previousEnd) {
+      // Merge by updating the last interval's end
+      mergedIntervals[mergedIntervals.length - 1][1] = Math.max(previousEnd, intervals[i][1]);
+    } else {
+      // Otherwise, add a new interval to the list
+      mergedIntervals.push(intervals[i]);
+    }
+  }
+
+  return mergedIntervals;
+}
+```

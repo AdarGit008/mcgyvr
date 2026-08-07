@@ -1,0 +1,60 @@
+```ts
+/**
+ * Merges overlapping or touching intervals into non-overlapping intervals.
+ * @param intervals An array of [start, end] pairs of finite numbers with start <= end.
+ * @returns A new array of merged intervals sorted by start.
+ */
+export function mergeIntervals(intervals: [number, number][]): [number, number][] {
+  // Validate input
+  if (!Array.isArray(intervals)) {
+    throw new Error('Input must be an array');
+  }
+
+  for (let i = 0; i < intervals.length; i++) {
+    const interval = intervals[i];
+    if (!Array.isArray(interval) || interval.length !== 2) {
+      throw new Error(`Interval at index ${i} is not a two-number pair`);
+    }
+    const [start, end] = interval;
+    if (typeof start !== 'number' || typeof end !== 'number') {
+      throw new Error(`Interval at index ${i} contains non-number values`);
+    }
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+      throw new Error(`Interval at index ${i} contains non-finite numbers`);
+    }
+    if (start > end) {
+      throw new Error(`Interval at index ${i} has start > end`);
+    }
+  }
+
+  // Handle empty input
+  if (intervals.length === 0) {
+    return [];
+  }
+
+  // Create a copy of the intervals array and sort by start
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+
+  // Merge intervals
+  const result: [number, number][] = [];
+  let current = sorted[0];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const next = sorted[i];
+    // Check if intervals overlap or touch (next start <= current end)
+    if (next[0] <= current[1]) {
+      // Merge by extending current interval's end if needed
+      current = [current[0], Math.max(current[1], next[1])];
+    } else {
+      // No overlap, push current to result and move to next
+      result.push(current);
+      current = next;
+    }
+  }
+
+  // Push the last interval
+  result.push(current);
+
+  return result;
+}
+```

@@ -1,0 +1,21 @@
+```ts
+/**
+ * Returns the division of a by b, throwing if either argument is invalid.
+ */
+export function safeDivide(a: number, b: number): number {
+  /**
+   * Throws an error with 'division by zero' message when the divisor is zero.
+   */
+
+  if (b === 0 || b === -0) {
+    throw new Error('division by zero');
+  }
+
+  /**
+   * Returns only a finite number, rejecting booleans and NaNs.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-math-operation
+  const result = (a >>> 0) / (b >>> 0);
+  return isNaN(result) || Number.isFinite(result) ? result : NaN;
+}
+```

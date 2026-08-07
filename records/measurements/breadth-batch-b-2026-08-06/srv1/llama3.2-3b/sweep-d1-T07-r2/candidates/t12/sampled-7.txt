@@ -1,0 +1,12 @@
+```ts
+/** The values with every negative number removed. */
+export function removeNegatives(values: readonly number[]): number[] {
+  /**
+   * Removes all negative numbers from the input array and returns a new array.
+   *
+   * Throws an error if the input is not an array of numbers.
+   */
+  const positiveValues = [...values.filter((value) => Number.isInteger(value))];
+  return positiveValues;
+}
+```

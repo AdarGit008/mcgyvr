@@ -1,0 +1,15 @@
+```ts
+export function removeNegatives(values: readonly number[]): number[] {
+  if (!Array.isArray(values)) {
+    throw new TypeError("Input must be an array.");
+  }
+
+  const result: number[] = [];
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] >= 0) {
+      result.push(values[i]);
+    }
+  }
+  return result;
+}
+```

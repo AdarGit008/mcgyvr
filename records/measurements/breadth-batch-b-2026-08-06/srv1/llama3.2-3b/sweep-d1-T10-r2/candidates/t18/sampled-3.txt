@@ -1,0 +1,35 @@
+```typescript
+/**
+ * An append-only log of timestamped events.
+ */
+export class EventLog {
+  #events: Event[] = [];
+
+  /**
+   * Append one event.
+   *
+   * @param event `Event` to record.
+   */
+  record(event: Event): void;
+  record(eventName: string, timestamp: number): void {
+    if (typeof event === 'object' && !('name' in event) || typeof event !== 'object') {
+      throw new Error(`Invalid argument type for `.`record`. Expected an Event object`);
+    }
+    this.#events.push({ name: eventName as string, timestamp } as const);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   *
+   * @param timestamp The timestamp from which to start searching (inclusive).
+   */
+  since(timestamp: number): Event[] {
+    if (isNaN(timestamp) || timestamp < 0) {
+      throw new Error(`Invalid argument type for .since. Expected a non-negative number`);
+    }
+    return [...this.#events.filter((event) => event.timestamp >= timestamp)];
+  }
+}
+
+export interface Event { name: string; timestamp: number }
+```

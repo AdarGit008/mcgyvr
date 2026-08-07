@@ -1,0 +1,26 @@
+```ts
+function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Argument must be a string');
+  }
+
+  const encoded = '';
+  let currentChar = input[0];
+  let count = 1;
+
+  for (let i = 1; i < input.length; i++) {
+    const char = input[i];
+    if (char === currentChar) {
+      count++;
+    } else {
+      encoded += `${currentChar}${count > 9 ? count.toString() : ''}`;
+      currentChar = char;
+      count = 1;
+    }
+  }
+
+  encoded += `${currentChar}${count > 9 ? count.toString() : ''}`;
+
+  return encoded;
+}
+```

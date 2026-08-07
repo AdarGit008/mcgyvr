@@ -1,0 +1,72 @@
+```ts
+export class LruCache<K, V> {
+  /**
+   * Creates an instance of LruCache.
+   *
+   * The capacity parameter represents the maximum number of items that can be
+   * stored in the cache. The constructor throws an Error if capacity is not a
+   * positive integer.
+   */
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+
+    this.capacity = capacity;
+    this.size = 0;
+    this.cache = new Map();
+  }
+
+  /**
+   * Returns the value associated with the given key if present, otherwise undefined.
+   */
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value) {
+      // Move to the front of the cache
+      this.cache.delete(key);
+      this.cache.set(key, value);
+
+      return value;
+    }
+
+    const entry = this.cache.get(key);
+    if (entry && this.size < this.capacity) {
+      // Update size and remove oldest entry if possible
+      this.size++;
+      return undefined;
+    } else {
+      // Cache was empty or exceeded capacity
+      return undefined;
+    }
+  }
+
+  /**
+   * Sets the value of the given key.
+   *
+   * If the key is present, it updates the value; otherwise, creates a new entry.
+   */
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      // Update value and move to front
+      this.size++;
+      this.cache.delete(key);
+      this.cache.set(key, value);
+    } else {
+      // Create new entry and increment size
+      this.size++;
+      this.cache.set(key, value);
+
+      if (this.size > this.capacity) {
+        // Evict oldest item if cache over capacity
+        const oldestKey = this.cache.keys().next().value;
+        this.cache.delete(oldestKey);
+      }
+    }
+  }
+
+  get size(): number {
+    return this.size;
+  }
+}
+```

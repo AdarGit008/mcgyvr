@@ -1,0 +1,44 @@
+```ts
+/**
+ * Fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K extends string | number | symbol, V> {
+    private cache: Map<K, V>;
+    private capacity: number;
+    private useCountKeyPrefix: K = 'useCount';
+
+    constructor(capacity: number) {
+        if (!Number.isInteger(capacity) || capacity <= 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+        this.cache = new Map<K, V>();
+        this.capacity = capacity;
+    }
+
+    public get(key: K): V | undefined {
+        if (!this.cache.has(key)) return undefined;
+
+        const currentUseCount = this.cache.get(this.useCountKeyPrefix.toString() + key) as number || 0;
+        this.cache.set(this.useCountKeyPrefix.toString() + key, currentUseCount + 1);
+        return this.cache.get(key);
+    }
+
+    public set(key: K, value: V): void {
+        if (!this.cache.has(this.useCountKeyPrefix.toString() + key)) {
+            this.cache.set(this.useCountKeyPrefix.toString() + key, 0);
+        }
+        this.cache.set(key, value);
+
+        const entriesToRemove = Array.from(this.cache.keys()).filter(k => k !== key).sort((a, b) =>
+            parseInt(a.split(this.useCountKeyPrefix.toString())[1]) - parseInt(b.split(this.useCountKeyPrefix.toString())[1])
+        );
+        while (entriesToRemove.length > this.capacity) {
+            this.cache.delete(entriesToRemove.pop() as K);
+        }
+    }
+
+    public get size(): number {
+        return this.cache.size;
+    }
+}
+```

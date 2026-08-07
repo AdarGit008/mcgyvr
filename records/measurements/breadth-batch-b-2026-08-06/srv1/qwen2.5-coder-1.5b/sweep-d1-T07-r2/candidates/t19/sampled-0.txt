@@ -1,0 +1,22 @@
+```ts
+/**
+ * safeDivide is not safe.
+ * It throws an Error when the divisor is zero (including -0),
+ * and throws an Error unless both arguments are finite numbers.
+ * A boolean is not a number here even though JavaScript will
+ * happily divide by one - reject it. Return the complete fixed file.
+ *
+ * @param a - The numerator, must be a finite number.
+ * @param b - The denominator, must be a finite number.
+ * @returns The result of a / b if valid, otherwise throws an Error.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+  if (b === 0) {
+    throw new Error("The divisor cannot be zero.");
+  }
+  return a / b;
+}
+```

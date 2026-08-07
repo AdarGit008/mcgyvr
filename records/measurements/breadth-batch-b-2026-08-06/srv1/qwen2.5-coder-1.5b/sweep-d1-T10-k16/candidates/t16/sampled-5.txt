@@ -1,0 +1,23 @@
+```ts
+const MODULUS = 1000000007;
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (n < 0) {
+    throw new Error("The input must be a non-negative integer");
+  }
+
+  let a = 0;
+  let b = 1;
+
+  for (let i = 2; i <= n; i++) {
+    const temp = (a + b) % MODULUS;
+    a = b;
+    b = temp;
+  }
+
+  return a;
+}
+```
+
+This solution iterates directly over the Fibonacci sequence up to the nth term, applying modulo operations at each step to handle large numbers efficiently. It avoids recursion and uses O(n) space, ensuring it can handle inputs up to 200000 without causing a stack overflow.

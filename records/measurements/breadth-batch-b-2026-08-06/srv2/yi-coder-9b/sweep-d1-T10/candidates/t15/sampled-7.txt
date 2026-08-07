@@ -1,0 +1,23 @@
+```ts
+/** Convert to either Fahrenheit or Kelvin from Celsius. */
+function validateTemperature(temp: number): void {
+  if (typeof temp !== "number" || !Number.isFinite(temp)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (temp < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  validateTemperature(celsius);
+  return celsius * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  validateTemperature(celsius);
+  return celsius + 273.15;
+}
+```

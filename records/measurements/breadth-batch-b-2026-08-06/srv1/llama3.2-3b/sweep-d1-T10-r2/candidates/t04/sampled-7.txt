@@ -1,0 +1,67 @@
+```typescript
+export class LruCache<K, V> {
+    private keyToIndex: Map<K, number>;
+    private valueToIndex: Map<V, number>;
+    private indices: number[];
+    private capacity: number;
+    private currentSize: number;
+
+    /**
+     * Initializes a new instance of the LruCache class.
+     *
+     * @param capacity The maximum number of items to store in the cache.
+     */
+    constructor(capacity: number) {
+        if (typeof capacity !== 'number' || capacity <= 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+
+        this.capacity = capacity;
+        this.keyToIndex = new Map();
+        this.valueToIndex = new Map();
+        this.indices = Array(capacity).fill(0);
+        this.currentSize = 0;
+
+    /**
+     *Gets the value for the specified key.
+     *
+     * @param {K} key
+     * @returns 
+     */
+    get(key: K): V | undefined {
+        const currentIndexForK = this.keyToIndex.get(key);
+
+        if (currentIndexForK !== undefined) {
+            if (this.indices[currentIndexForK] === thisIndices.length - 1) {
+                this movedItem(indexIndexForK);
+            }
+            return valueFromIndex(currentIndexForK);
+        }
+
+    /**
+     *Sets the key-value pair.
+     *
+     * @param {V} key
+     * @param {};
+     */
+    set(key: K, value: V): void {
+        if (this.keyToIndexes.containsKey(key)) {
+            this.delete(key);
+        }
+        const currentIndexForK = this.keyToIndex.get(key);
+
+        // add to cache and update index
+        this.keyToIndex.set(key, currentIndices.length);
+        deleteFromIndex(currentIndicesForK)
+        forUpdateIndex(currentIndicesForK, 0)
+
+    /**
+     *Returns the number of entries in the cache.
+     *
+     */
+
+    get size(): number {
+        return this.currentSize;
+ } 
+}
+```

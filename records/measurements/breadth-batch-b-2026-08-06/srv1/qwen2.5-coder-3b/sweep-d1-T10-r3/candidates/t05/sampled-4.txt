@@ -1,0 +1,19 @@
+```ts
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error("Size must be a positive integer.");
+  }
+
+  return items.reduce((acc, item, index) => {
+    const currentGroup = acc[acc.length - 1];
+    if (currentGroup && currentGroup.length === size) {
+      acc.push([item]);
+    } else if (currentGroup && currentGroup.length < size) {
+      currentGroup.push(item);
+    } else if (!currentGroup) {
+      acc.push([item]);
+    }
+    return acc;
+  }, [] as T[][]);
+}
+```

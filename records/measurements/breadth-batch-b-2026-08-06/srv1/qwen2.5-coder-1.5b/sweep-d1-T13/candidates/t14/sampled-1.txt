@@ -1,0 +1,5 @@
+```typescript
+export function activeEmails(users: readonly User[]): string[] {
+  return users.filter(_ => _.active).map(_ => _.email.toLowerCase());
+}
+```

@@ -1,0 +1,26 @@
+```typescript
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!intervals.length) return [];
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const merged = [intervals[0]];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const currentEnd = merged[merged.length - 1][1];
+
+    if (currentEnd >= intervals[i][0]) {
+      // There is an overlap, merge the intervals
+      merged[merged.length - 1] = [
+        Math.min(merged[merged.length - 1][0], intervals[i][0]),
+        Math.max(currentEnd, intervals[i][1])
+      ];
+    } else {
+      // Intervals do not overlap, add the current interval to the merged list
+      merged.push(intervals[i]);
+    }
+  }
+
+  return merged;
+}
+```

@@ -1,0 +1,31 @@
+```ts
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  const lines = text.split("\n");
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    
+    let trimmedLine = line.trimStart();
+    let [key, value] = trimmedLine.split("=", 2);
+
+    if (!value && !key) {
+      throw new Error(`Empty or invalid line in config: ${trimmedLine}`);
+    }
+    if (key.includes("=")) {
+      key = key[0]; // Ignore all characters after the first '='
+    }
+
+    if (Object.prototype.hasOwnProperty.call(config, key)) {
+      console.error(`Duplicate key found in config: ${key}`);
+      continue;
+    }
+
+    if (!/\S/.test(value!)) {
+      throw new Error(`No value provided for key: ${key}`);
+    }
+
+    config[key] = value!;
+  }
+  return config;
+}
+```

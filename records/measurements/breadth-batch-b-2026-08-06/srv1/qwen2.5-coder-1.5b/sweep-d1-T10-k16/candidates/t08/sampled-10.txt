@@ -1,0 +1,43 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (nodes.length === 0) {
+        return [];
+    }
+
+    const graph = new Map(nodes.map(node => ([node, []])));
+    edges.forEach(([from, to]) => {
+        graph.set(from, [...graph.get(from), to]);
+    });
+
+    const inDepts = new Map(nodes.map(node => [node, 0]));
+    nodes.forEach(node => {
+        edges.forEach(([from, to]) => {
+            if (from === node) {
+                inDepts.set(to, inDepts.get(to)! + 1);
+            }
+        });
+    });
+
+    const freeNodes = Array.from(nodes).filter(node => inDepts.get(node)! === 0);
+
+    while (freeNodes.length > 0 && edges.length !== 0) {
+        const nodeToRemove = freeNodes.shift()!;
+        if (!graph.has(nodeToRemove)) return [];
+        
+        graph.delete(nodeToRemove);
+        edges = edges.filter(([from, to]) => from !== nodeToRemove && !graph.has(to));
+
+        for (const dep of graph.get(nodeToRemove)!) {
+            inDepts.set(dep, inDepts.get(dep)! - 1);
+            if (inDepts.get(dep)! === 0 && !freeNodes.includes(dep)) {
+                freeNodes.push(dep);
+            }
+        }
+    }
+
+    const remainingNodes = Array.from(graph.keys());
+    if (remainingNodes.length > 0) return [];
+
+    return nodes;
+}
+```

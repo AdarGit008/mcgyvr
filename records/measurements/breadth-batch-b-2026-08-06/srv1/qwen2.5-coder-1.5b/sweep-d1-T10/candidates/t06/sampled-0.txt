@@ -1,0 +1,42 @@
+```ts
+/**
+ * Split one line of CSV into its fields on commas. A field wrapped in double quotes may contain commas,
+ * and a doubled quote inside such a field means one literal quote character; the surrounding quotes are not part of the value.
+ * Fields that are not quoted are taken literally, including any surrounding spaces. An empty line is one empty field.
+ * Throw an Error for a quoted field that is never closed.
+ *
+ * @param line A CSV line to parse into fields.
+ * @returns An Array of string fields from the CSV line, in order of.csv parsing.
+ */
+export function parseCsvLine(line: string): string[] {
+    if (!line) return [];
+
+    const fields = [];
+    let inQuotes = false;
+    let escapeNext = false; // Flag to escape the following character after a double quote
+
+    for (let i = 0, len = line.length; i < len; i++) {
+        const char = line[i];
+
+        if (escapeNext) {
+            if (char === '"') return new Error("Unterminated quoted field"); // Always terminate quoted fields
+            escapeNext = false;
+        } else if (char === '"') {
+            if (inQuotes) {
+                inQuotes = false; // End of quotes, push the current field onto the array
+            } else {
+                inQuotes = true; // Start of quotes
+            }
+        } else if (char === ',' && !inQuotes) {
+            fields.push(line.slice(i - firstNonSpaceIndex, i).trim());
+            firstNonSpaceIndex = i + 1; // Index of the next non-space character after the last comma
+        }
+    }
+
+    // Push the remaining part that's not in quotes to the array
+    const remaining = line.slice(firstNonSpaceIndex).trim();
+    if (remaining) fields.push(remaining);
+
+    return fields;
+}
+```

@@ -1,0 +1,36 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjacencyList = new Map<string, Set<string>>();
+    const inDegreeCounts = new Map<string, number>();
+
+    for (const node of nodes) {
+        adjacencyList.set(node, new Set());
+        inDegreeCounts.set(node, 0);
+    }
+
+    for (const [from, to] of edges) {
+        if (!nodes.includes(to)) throw Error(`Node ${to} not in nodes`);
+        adjacencyList.get(from)?.add(to);
+        inDegreeCounts.set(to, inDegreeCounts.get(to)! + 1);
+    }
+
+    const queue = [...nodes].filter(node => inDegreeCounts.get(node) === 0);
+    const result: string[] = [];
+  
+    while (queue.length > 0) {
+        let earliestNode = queue[0];
+        for (const node of queue) if (nodes.indexOf(node) < nodes.indexOf(earliestNode)) earliestNode = node;
+        const indexInQueue = queue.indexOf(earliestNode);
+        queue.splice(indexInQueue, 1);
+  
+        result.push(earliestNode);
+        for (const adjacent of adjacencyList.get(earliestNode)!) {
+            inDegreeCounts.set(adjacent, inDegreeCounts.get(adjacent)! - 1);
+            if (inDegreeCounts.get(adjacent) === 0) queue.push(adjacent);
+        }
+    }
+  
+    const unvisitedNodes = nodes.filter(node => !result.includes(node));
+    return result.concat(unvisitedNodes);
+}
+```

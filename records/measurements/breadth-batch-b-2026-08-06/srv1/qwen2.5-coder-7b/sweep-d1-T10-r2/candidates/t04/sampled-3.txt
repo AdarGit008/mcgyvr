@@ -1,0 +1,67 @@
+```ts
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+    private capacity: number;
+    private cache: Map<K, V>;
+    private order: K[];
+
+    /**
+     * @param capacity - The maximum number of entries the cache can hold.
+     * @throws Error if capacity is not a positive integer.
+     */
+    constructor(capacity: number) {
+        if (!Number.isInteger(capacity) || capacity <= 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+        this.capacity = capacity;
+        this.cache = new Map<K, V>();
+        this.order = [];
+    }
+
+    /**
+     * Retrieves the value associated with the key.
+     * Counts as a use, updating the order of the cache.
+     * @param key - The key to retrieve the value for.
+     * @returns The value associated with the key, or undefined if not present.
+     */
+    get(key: K): V | undefined {
+        if (this.cache.has(key)) {
+            this.order.splice(this.order.indexOf(key), 1);
+            this.order.push(key);
+            return this.cache.get(key);
+        }
+        return undefined;
+    }
+
+    /**
+     * Inserts or updates the value associated with the key.
+     * Counts as a use, updating the order of the cache.
+     * If the cache exceeds capacity, evicts the least-recently used entry first.
+     * @param key - The key to associate the value with.
+     * @param value - The value to store.
+     */
+    set(key: K, value: V): void {
+        if (this.cache.has(key)) {
+            this.order.splice(this.order.indexOf(key), 1);
+        }
+        this.order.push(key);
+        this.cache.set(key, value);
+
+        if (this.cache.size > this.capacity) {
+            const lruKey = this.order.shift();
+            if (lruKey !== undefined) {
+                this.cache.delete(lruKey);
+            }
+        }
+    }
+
+    /**
+     * The current number of entries in the cache.
+     */
+    get size(): number {
+        return this.cache.size;
+    }
+}
+```

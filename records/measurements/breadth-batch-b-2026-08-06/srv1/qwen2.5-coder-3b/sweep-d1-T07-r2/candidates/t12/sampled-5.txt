@@ -1,0 +1,13 @@
+```
+import { cloneDeep } from 'lodash';
+
+/** The values with every negative number removed. */
+export function removeNegatives(values: readonly number[]): number[] {
+  if (!Array.isArray(values)) {
+    throw new Error('Input must be an array');
+  }
+
+  const result = cloneDeep(values);
+  return result.filter(value => value >= 0);
+}
+```

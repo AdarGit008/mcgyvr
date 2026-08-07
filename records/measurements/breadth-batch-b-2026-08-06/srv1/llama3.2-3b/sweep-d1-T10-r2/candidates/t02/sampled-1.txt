@@ -1,0 +1,30 @@
+```typescript
+/**
+ * Merge overlapping intervals in ascending order.
+ *
+ * Throws Error for invalid start or end values.
+ * Returns fresh copies of merged intervals without mutating the input array.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!intervals.every((interval) => interval.length === 2 && typeof interval[0] === 'number' && typeof interval[1] === 'number')) {
+    throw new Error('Invalid interval format');
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const merged: number[][] = [];
+  for (const [start, end] of intervals) {
+    if (start > end) {
+      throw new Error(`Invalid start value in interval ${JSON.stringify([start, end])}`);
+    }
+    const lastMergedInterval = merged[merged.length - 1];
+    if (!lastMergedInterval || lastMergedInterval[1] < start) {
+      merged.push([start, end]);
+    } else {
+      lastMergedInterval[1] = Math.max(lastMergedInterval[1], end);
+    }
+  }
+
+  return merged;
+}
+```

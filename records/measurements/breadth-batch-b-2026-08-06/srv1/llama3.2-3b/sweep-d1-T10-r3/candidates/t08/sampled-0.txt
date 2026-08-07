@@ -1,0 +1,58 @@
+```typescript
+/*
+ * Calculates a topological ordering from given nodes and edges.
+
+ * Edge meaning: An edge between two nodes represents a dependency between them,
+ * i.e., the first node 'from' depends on the second node 'to'. The function will
+ * check that the nodes exist (no name errors) before returning an ordering.
+ *
+ * If no valid topological ordering exists due to a cycle in the graph, throws
+ * Error with message 'cycle detected'.
+ *
+ * When there are multiple orderings satisfying every edge, always selects the
+ * earliest of nodes that have not yet met their dependencies as the first node in
+ * each proposed ordering.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    // Indexing map to efficiently find nodes for edges and reverse lookups
+    const nodesByIndex = [
+        ...nodes,
+        ...Array.from({ length: nodes.length }, (_, idx) => `${nodes[idx]}-adjacent`),
+    ].reduce((m, node) => (m[node] = m[node] || [], m), {}) as {
+        [key: string]: readonly string[];
+    };
+
+    // Map reverse lookups from edges to a dependency ordering
+    const edgeOrderings = edges.map(([from, to]) => ({
+        from,
+        to,
+        previousEdges: nodesByIndex[from].filter((n) => n !== 'adjacent'),
+    }));
+
+    try {
+        // Check for cycles when trying the various orderings
+        const unmetDependencies = nodesByIndex.map((_, idx) => ({ node: nodes[idx], edgeOrderings }));
+        while (unmetDependencies.some(({ previousEdges }) => previousEdges.length > 0)) {
+            unmetDependencies.forEach(({ node, previousEdges }) => {
+                if (!nodes.includes(node)) throw new Error('node not in list of nodes');
+                const earliestPredecessor = previousEdges.shift() || 'adjacent';
+                if (earliestPredecessor === 'adjacent') {
+                    throw new Error(`cycle detected`);
+                }
+            });
+        }
+
+        // Create result ordering from valid edge orderings
+        return edges.reduce(
+            (resultingOrder, { to } as { from: to, ...edges })
+                => (resultingOrder.includes(to) ? resultingOrder : [to, ...resultingOrder]),
+            []
+        );
+    } catch (e) {
+        if (e.name === 'cycle detected' || e.message.startsWith('node')) {
+            throw new Error(e.message);
+        }
+        throw e as unknown as Error;
+    }
+}
+```

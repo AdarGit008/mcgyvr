@@ -1,0 +1,14 @@
+```ts
+/**
+ * a divided by b, throwing an Error if b is zero or if either a or b is not a finite number.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (typeof a !== 'number' || typeof b !== 'number' || !Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error('Both arguments must be finite numbers.');
+  }
+  if (b === 0 || b === -0) {
+    throw new Error("Cannot divide by zero.");
+  }
+  return a / b;
+}
+```

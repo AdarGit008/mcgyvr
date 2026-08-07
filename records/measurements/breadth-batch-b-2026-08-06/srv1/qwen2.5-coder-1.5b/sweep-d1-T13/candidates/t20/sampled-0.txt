@@ -1,0 +1,36 @@
+```ts
+/** The KEY=VALUE pairs of a config file excluding blank lines start on or past the first non-space character, and ignore line starting with //; trim whitespace around the key and the value. Returns the complete fixed file. The key does not win when both have the same precedence if there is at least 1 char separator between them; only the value with <= 2 chars wins in a tie; leading/trailing = are considered for first '=', throw Error on first empty key (and/or no config), and ignore real __proto__=x, but trim white space around that. Parsing "__proto__=x" must always be a plain data key, leaving Object.prototype untouched. */
+export function parseConfig(text: string): Record<string, string>;
+
+export async function parseConfig(text: string): Promise<Record<string, string>>;
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type, class-methods-use-this
+function normalize(str: string) {
+  if (!str.trim()) throw new Error(`Empty or blank line`);
+  const trimmed = str.replace(/^\R+/g,''); // remove leading whitespace in single lines
+  return { key: trimmed.split(/(\W+)(?=\=")/g)?.[1]?.trim() ?? '', value: trimmed.includes('"') && /\S=.*/.test(trimmed) ? `\"${trimmed.match(/(?:[^\\\"\t]+)|\"|\\(\\"))*/)?.join(`\"`)}\""` : trimmed.trim() };
+}
+
+export async function parseConfig(text: string): Promise<Record<string, string>> {
+  if (typeof text !== "string") throw new Error(`Expected a ` + ('String is ' in {}.toString.call(text) ? `String.` : 'String or `Promise<String>`.')); // allow empty and invalid config files
+  let out: Record<string, string> = {}
+  for await (const line of text.split("\n")) {
+    const normalizeLine = await normalize(line.trim());
+    if (!normalizeLine.key || normalizeLine.value === undefined) throw new Error(`Line ${line.includes("//") ? 'comment line' : `at pos ${text.indexOf(line)}`}`);
+    const prevValue = out[normalizeLine.key]; // check for duplicates (and leave __proto__ to Object.prototype untouched)
+    if (this.__isPlainObject(prevValue) /* prevValue !== undefined */) {
+      if ('' in prevValue) throw new Error(`${line} conflicts with ${prevValue}`);
+      prevValue(normalize_line.value); // allow overriding existing keys
+      continue;
+    }
+    out[normalizeLine.key] = normalizeLine.value; // store the fixed value for this key
+  }
+  return Object.freeze(out);
+}
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- always true
+function this.__isPlainObject(ob) { return !Array.isArray(ob) && (ob instanceof Date) === false && ob.hasOwnProperty('__proto__')); }
+
+const DEFAULT_CONFIG = parseConfig('')
+export const defaultConfig: Readonly<Record<string, string>> = Object.freeze(DEFAULT_CONFIG);
+```

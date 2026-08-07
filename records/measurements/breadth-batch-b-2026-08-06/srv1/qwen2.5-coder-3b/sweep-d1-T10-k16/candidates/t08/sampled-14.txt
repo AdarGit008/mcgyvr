@@ -1,0 +1,66 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map<string, Set<string>>();
+    nodes.forEach(node => graph.set(node, new Set()));
+
+    for (const [from, to] of edges) {
+        if (!graph.has(from) || !graph.has(to)) {
+            throw new Error(`Edge ${from} -> ${to} contains a node not in nodes`);
+        }
+        graph.get(from)?.add(to);
+    }
+
+    const indegree = new Map<string, number>();
+    nodes.forEach(node => indegree.set(node, 0));
+
+    for (const [node] of edges) {
+        indegree.set(node, (indegree.get(node) ?? 0) + 1);
+    }
+
+    const zeroInDegreeNodes: string[] = [];
+    nodes.forEach(node => {
+        if (indegree.get(node)! === 0) {
+            zeroInDegreeNodes.push(node);
+        }
+    });
+
+    const result: string[] = [];
+    while (zeroInDegreeNodes.length > 0) {
+        const node = zeroInDegreeNodes.shift()!;
+        result.push(node);
+
+        graph.get(node)?.forEach(neighbor => {
+            indegree.set(neighbor, (indegree.get(neighbor)! - 1));
+            if (indegree.get(neighbor)! === 0) {
+                zeroInDegreeNodes.push(neighbor);
+            }
+        });
+    }
+
+    return result.length === nodes.length ? result : [];
+}
+
+function hasCycle(node: string, visited: Set<string>, onStack: Set<string>): boolean {
+    if (visited.has(node)) return false;
+    if (onStack.has(node)) return true;
+
+    visited.add(node);
+    onStack.add(node);
+
+    const neighbors = graph.get(node);
+    for (const neighbor of neighbors ?? []) {
+        if (hasCycle(neighbor, visited, onStack)) {
+            return true;
+        }
+    }
+
+    onStack.delete(node);
+    return false;
+}
+
+try {
+    topologicalSort(["A", "B", "C", "D"], [["A", "B"], ["C", "D"], ["B", "C"]]);
+} catch (error) {
+    console.error(error.message);
+}
+```

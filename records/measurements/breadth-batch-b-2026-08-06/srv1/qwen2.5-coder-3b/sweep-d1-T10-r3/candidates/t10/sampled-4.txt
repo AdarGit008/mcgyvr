@@ -1,0 +1,23 @@
+```typescript
+/** The index of target in a sorted array, or -1. */
+export function binarySearch(items: readonly number[], target: number): number {
+  if (items.length <= 0) return -1; // Empty array case
+
+  let low = 0;
+  let high = items.length - 1;
+
+  while (low <= high) { // Fixed the condition inside the loop
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1; // Increase low to mid + 1
+    } else {
+      high = mid - 1; // Decrease high to mid - 1
+    }
+  }
+
+  return -1; // Target not found, return -1
+}
+```

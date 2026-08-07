@@ -1,0 +1,57 @@
+```ts
+/**
+ * Splits one line of CSV into its fields on commas, handling quoted fields with commas,
+ * and throws an Error for unbalanced quotes in a field.
+ */
+export function parseCsvLine(line: string): string[] {
+    const stack = [];
+    let currentField = '';
+    let isQuoted = false;
+
+    for (const char of line) {
+        if (char === '"') {
+            if (!isQuoted) {
+                stack.push('quote');
+                isQuoted = true;
+            } else {
+                stack.pop();
+                if (stack.length > 0 && stack[stack.length - 1] === 'quote') {
+                    continue;
+                }
+                throw new Error('Unbalanced quotes in a field.');
+            }
+        }
+
+        if (!isQuoted) {
+            currentField += char;
+        } else {
+            if (char === ',') {
+                stack.push('comma');
+            } else if (char !== '\r\n') {
+                currentField += char;
+            }
+        }
+    }
+
+    const result: string[] = [];
+    let isComma = false;
+
+    for (const token of [...stack, line].filter(t => t)) {
+        if (token === ',') {
+            if (result.length > 0) {
+                result.push('');
+            }
+            isComma = true;
+        } else if (token === 'quote' || token === 'comma') {
+            continue;
+        } else if (isComma) {
+            result[result.length - 1] += token;
+            isComma = false;
+        } else {
+            result.push(token);
+        }
+    }
+
+    return result.filter(field => field !== '');
+}
+```

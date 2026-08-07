@@ -1,0 +1,23 @@
+```typescript
+
+function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (!Number.isInteger(depth) && depth !== Infinity && !isNaN(depth)) {
+        throw new Error("depth must be a non-negative integer or Infinity");
+    }
+    depth = Math.abs(depth);
+
+    const result: unknown[] = [];
+
+    function recurse(item: unknown, currentDepth: number = 0): void {
+        if (Array.isArray(item) && currentDepth < depth && item.length > 0) {
+            item.forEach(recurse, currentDepth + 1);
+        } else {
+            result.push(item);
+        }
+    }
+
+    recurse(items);
+
+    return result;
+}
+```

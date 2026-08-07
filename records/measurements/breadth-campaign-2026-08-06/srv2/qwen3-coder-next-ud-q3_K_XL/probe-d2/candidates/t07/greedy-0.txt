@@ -1,0 +1,35 @@
+```ts
+/**
+ * Scans a string for bracket balance across (), [], {} pairs.
+ * Returns -1 if balanced; otherwise returns the index of the first offending character.
+ */
+export function firstUnbalanced(input: string): number {
+  const stack: { char: string; index: number }[] = [];
+  const openingBrackets = '([{';
+  const closingBrackets = ')]}';
+  const matchingPairs: Record<string, string> = {
+    ')': '(',
+    ']': '[',
+    '}': '{',
+  };
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+
+    if (openingBrackets.includes(char)) {
+      stack.push({ char, index: i });
+    } else if (closingBrackets.includes(char)) {
+      if (stack.length === 0 || stack[stack.length - 1].char !== matchingPairs[char]) {
+        return i;
+      }
+      stack.pop();
+    }
+  }
+
+  if (stack.length > 0) {
+    return stack[0].index;
+  }
+
+  return -1;
+}
+```

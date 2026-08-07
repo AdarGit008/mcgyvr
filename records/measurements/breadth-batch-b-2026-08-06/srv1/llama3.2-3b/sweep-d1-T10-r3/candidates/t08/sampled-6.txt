@@ -1,0 +1,60 @@
+```typescript
+/**
+ * Returns topologically sorted ordering for nodes given [from, to] edges.
+ * When several orderings are valid, picks the one that keeps nodes in their original
+ * order - among the nodes currently free of unmet dependencies, always takes the
+ * earliest in nodes.
+ *
+ * @param nodes - Node names.
+ * @param edges - Edge names from -> to.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    const adj: { [key: string]: Set<string> } = {};
+
+    nodes.forEach((node) => {
+        adj[node] = new Set();
+    });
+
+    edges.forEach(([fromNode, toNode]) => {
+        if (!adj[fromNode] || !adj[toNode]) {
+            throw new Error(`Edge ${[fromNode, toNode].join(' -> ')}: Node not present in ` + nodes.join(', '));
+        }
+
+        adj[fromNode].add(toNode);
+    });
+
+    const visitedCount = {};
+    const order = [];
+
+    for (const node of nodes) {
+        if (!visitedCount[node] && hasCycle(adj, visitedCount, order, [node])) {
+            throw new Error(`Cycle detected in ${[...adj.keys()].join(' -> ')}`);
+        }
+    }
+
+    return order;
+}
+
+function hasCycle(adj: { [key: string]: Set<string> }, visitedCount: { [key: string]: number }, order: string[], nodeSet: readonly string[]): boolean {
+    if (visitedCount[nodeSet[0]] >= 2) {
+        return true; // cycle detected
+    }
+    if (!adj[nodeSet[0]]) { // root node
+        return false;
+    }
+    visitedCount[nodeSet[0]] = 1;
+
+    for (const n of adj[nodeSet[0]]) {
+        if (
+            !adj[n]
+            || hasCycle(adj, visitedCount, order, [n, ...nodeSet])
+        ) {
+            return true;
+        }
+    }
+
+    visitedCount[nodeSet[0]] = undefined; // reset the count
+    order.push(nodeSet[0]);
+    return false;
+}
+```

@@ -1,0 +1,104 @@
+```ts
+// parseSemver.ts
+
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  /* Validate and parse the input version*/
+  interface Version {
+    type: 'normal' | 'beta',
+    major: number;
+    minor?: number;
+    patch?: number;
+    preRss?: string[];
+    build?: string;
+  }
+
+  if (!version || typeof version !== 'string') throw `Invalid version string '${version}'`.
+
+  const match = version.match(/^(?<type>[\D]{0,})?((\d+)\.(\d+)?\.(\d+)*)?(-(?<prerelease>(.?)))?(?:+(?<build>[a-zA-Z]++[\d]*))$/);
+
+  if (!match) throw `Invalid version string '${version}'.
+
+  const { type: type, major = thisMajor(v), minor: minor = '0', ...parts } = match
+    .reduce(
+      ({ major, minor, patch }, item) => ({
+        major,
+        minor,
+        patch: parseInt(item, 10),
+        ...parts},
+      ),
+      <Version>{
+        type: /alpha/.test(match.type)
+          ? 'beta'
+          : type || 'normal',
+        major: thisMajor(v),
+      },
+    );
+
+  // Clean up the optional non-digit tokens.
+  const prereleaseArray:any = parts.prerelease
+    .split(/(\d+)/)
+    .map(a => (/^[+-]\-/).test(a) ? `-${a.toString()}` : a.trim());
+
+  const buildArray: Array<string> | null = parts.build;
+
+  const prerelease =
+    prereleaseArray.includes('-') && !prereleaseArray.includes('+')
+      ? '-'.concat(prereleaseArray.join('.'))
+      : prereleaseArray.length
+      ? prereleaseArray.toString()
+      : prereleaseArray.length
+      ? '.'
+      : null;
+
+  const build =
+    'build' in parts || (typeof build === 'undefined' && minor === '0') ?
+      +buildArray ?
+        buildArray.length == 1 !
+          // Don't include leading zeros even after trimming; it should be treated as a part of the value
+          ? buildArray.map(n => n.trim())
+          : '.'
+          .concat(buildArray.join('.'))
+          : 'undefined' :
+        null :
+      buildArray;
+
+  return {
+    major,
+    minor: parseInt(minor, 10),
+    patch: parseInt(patch!), // Ensure it's a number for accurate numeric comparisions
+    prerelease: parseOptionalToken(prereleaseArray, '-'),
+    build: parseOptionalToken(buildArray, '+'),
+  };
+
+}
+
+function thisMajor(v: string): number|undefined {
+  return v.slice(0, 1).trim() === 'v'
+    ? +v.trim().slice(1)
+    : undefined;
+}
+
+
+/*
+ * Parse any of the provided optional tokens.
+ * If a token is included twice (i.e. 'alpha-beta-alpha'), it's ignored.
+ * Leading zeros are removed for better numerical comparisons.
+ */
+function parseOptionalToken(tokens: string[]): string | null {
+  const seen: Set<string> = new Set(),
+        result: String[] = [];
+
+  while (tokens.length > 0) {
+    const token = tokens.shift();
+
+    if (!seen.has(token)) {
+      if (/alpha|beta/.test(token)) {
+        seen.add(token);
+        continue;
+      }
+      switch (token) {
+        case undefined:
+          continue /**
+                  * Don't allow missing ones.
+                  */ /**
+                      * Always

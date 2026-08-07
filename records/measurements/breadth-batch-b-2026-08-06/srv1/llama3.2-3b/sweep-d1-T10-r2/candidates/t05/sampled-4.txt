@@ -1,0 +1,20 @@
+```typescript
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+    /**
+     * Split an array into consecutive groups of at most size elements,
+     * preserving order; the final group is shorter when the length does not divide evenly.
+     */
+
+    // Check if size is a positive integer and throw if it's not
+    if (typeof size !== 'number' || size < 1) {
+        throw new Error('size must be a positive integer');
+    }
+
+    const result: T[][] = [];
+    for (let i = 0; i < items.length; i += size) {
+        // Slice the array into groups of size elements starting at index i
+        result.push(items.slice(i, i + size));
+    }
+    return result;
+}
+```

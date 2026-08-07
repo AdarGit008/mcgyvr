@@ -1,0 +1,84 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private entries: { key: K; value: V }[];
+  private head: { key: K, value: V } | null = null;
+  private tail: { key: K, value: V } | null = null;
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.entries = [];
+  }
+
+  get(key: K): V | undefined {
+    const index = this.findKeyIndex(key);
+    if (index === -1) return undefined;
+
+    this.moveToHead(index);
+
+    return this.head?.value;
+  }
+
+  set(key: K, value: V): void {
+    const index = this.findKeyIndex(key);
+    let node: { key: K; value: V } | null = null;
+
+    if (index !== -1) {
+      node = this.entries[index];
+      node.value = value;
+    } else {
+      if (this.entries.length >= this.capacity) {
+        const tailNode = this.tail!;
+        delete this.entries[this.findKeyIndex(tailNode.key)];
+        this.tail = tailNode.prev;
+        if (tailNode.prev) tailNode.prev.next = null;
+      }
+      node = { key, value };
+    }
+
+    if (!this.head || !this.tail) {
+      this.head = this.tail = node;
+    } else {
+      const headNode = this.head!;
+      headNode.prev = node;
+      node.next = headNode;
+      this.head = node;
+    }
+
+    if (index === -1) {
+      this.entries.push(node);
+    }
+  }
+
+  get size(): number {
+    return this.entries.length;
+  }
+
+  private findKeyIndex(key: K): number {
+    for (let i = 0; i < this.entries.length; i++) {
+      if (this.entries[i].key === key) return i;
+    }
+    return -1;
+  }
+
+  private moveToHead(index: number): void {
+    const node = this.entries[index];
+    if (!node || node === this.head) return;
+
+    const nextNode = node.next!;
+    const prevNode = node.prev!;
+
+    if (prevNode) prevNode.next = nextNode;
+    if (nextNode) nextNode.prev = prevNode;
+    else this.tail = prevNode;
+
+    node.next = this.head;
+    node.prev = null;
+    this.head!.prev = node;
+    this.head = node!;
+  }
+}
+```

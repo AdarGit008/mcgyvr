@@ -1,0 +1,76 @@
+```typescript
+/**
+ * Splits one line of CSV into its fields on commas, handling quoted fields and escaped quotes.
+ */
+export function parseCsvLine(line: string): string[] {
+  // Split at commas, preserving surrounding whitespace
+  const split = line.match(/"[^"]*"|[^,]+/g);
+  
+  // Initialize variables for parsing quoted fields and count of open quotes
+  let inQuote = false;
+  let quoteCount = -1;
+  
+  // Result array
+  const result: string[] = [];
+  
+  // Process each field
+  while (split !== null && split.length > 0) {
+    let current = split.shift();
+    
+    // Handle escaped double quotes
+    if (current[0] === '"' && current[current.length - 1] === '"') {
+      result.push(current.slice(1, -1));
+    } else {
+      // Check for unescaped double quote appearance; throw Error if found
+      if (inQuote && !quoteCount) {
+        throw new Error('" character without preceding ");
+      }
+      
+      // Is it a field in quotes?
+      if (current[0] === '"' && inQuote) {
+        quoteCount++;
+        
+        // If incomplete, continue processing next field
+        while (split !== null && split.length > 0 && split[0].startsWith('"' + current)) {
+          result.push(split.shift());
+        }
+        
+        // Update quote status and close if end of line is reached without closing the quoted value
+        if (inQuote && result.length) {
+          inQuote = false;
+          result[result.length - 1] += ']';
+        } else if (!split.length) { // No next field; should happen after input ends?
+          throw new Error(`Unbalanced quote inside " at '${current}"`);
+        }
+        
+        continue;
+      }
+      
+      // If in quoted field, push current value without a trailing space
+      if (inQuote) {
+        result[result.length - 1] += ' ';
+      } else {
+        // Add to result array, removing end-of-field spaces to match spec behavior
+        let trimmed = current.trim();
+        
+        // Check for NaNs or Zeros in numeric fields but include only exactly one occurrence per quoted field
+        if (trimmed && (!isNaN(parseFloat(trimmed)) || trimmed === '0' || trimmed === '') && !result.find(f => f.includes(trimmed))) {
+          result.push(trimmed);
+        } else {
+          // Push empty field if value is an empty string
+          if (trimmed == '') {
+            result.push('');
+          } else {
+            // Otherwise, just push quoted field as it is
+            result.push(current);
+          }
+        }
+      }
+      
+      inQuote = current[0] === '"';
+    }
+  }
+  
+  return result;
+}
+```

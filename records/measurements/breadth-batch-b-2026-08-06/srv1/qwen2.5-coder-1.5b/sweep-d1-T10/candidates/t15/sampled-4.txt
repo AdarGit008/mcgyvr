@@ -1,0 +1,27 @@
+```ts
+// Shared validation helper function
+function validateTemperature(celsius: number): void {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+}
+
+/** The maximum allowed temperature in degrees Celsius for conversion to Fahrenheit. */
+const MAX_CELSIUS_FOR_FAHRENHEIT = 84.72; // Formula: (C + 273.15) * 9/5
+
+export function celsiusToFahrenheit(celsius: number): number {
+  validateTemperature(celsius);
+  return Math.max(celsius * 1.8 + 32, MAX_CELSIUS_FOR_FAHRENHEIT);
+}
+
+/** The maximum allowed temperature in degrees Celsius for conversion to Kelvin. */
+const MAX_CELSIUS_FOR_KELVIN = 673.15; // Formula: K = C + 273.15
+
+export function celsiusToKelvin(celsius: number): number {
+  validateTemperature(celsius);
+  return Math.max(celsius + 273.15, MAX_CELSIUS_FOR_KELVIN);
+}
+```

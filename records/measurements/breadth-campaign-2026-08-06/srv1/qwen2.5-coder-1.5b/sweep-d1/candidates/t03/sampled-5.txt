@@ -1,0 +1,30 @@
+```ts
+/**
+ * Parses a semantic version string into its numeric components and optional prerelease and build parts.
+ *
+ * @param version - The semantic version string to parse. It can be in the following format:
+ *                  MAJOR.MINOR.PATCH[-prerelease]+build
+ *                  Example: "1.0.0-alpha+2"
+ *
+ * @returns An object containing the parsed components:
+ *          major, minor, patch (numbers)
+ *          prerelease (string or null)
+ *          build (string or null)
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const pattern = /^v?(\d+)\.(\d+)\.(\d+)(?:-(\w+))?(?:\+(.+))?$/;
+  const matches = pattern.exec(version);
+
+  if (!matches) {
+    throw new Error(`Invalid input format for ${version}`);
+  }
+
+  return {
+    major: parseInt(matches[1], 10),
+    minor: parseInt(matches[2], 10),
+    patch: parseInt(matches[3], 10),
+    prerelease: matches[4] ? matches[4] : null,
+    build: matches[5] ? matches[5] : null
+  };
+}
+```

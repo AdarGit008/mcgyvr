@@ -1,0 +1,26 @@
+```typescript
+/**
+ * Returns a new array with nested arrays flattened up to depth levels, defaulting to every level.
+ * A string is a value, never something to iterate into, no matter how deep it appears.
+ * A depth of 0 returns a copy of the input unchanged. The input must not be mutated.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (typeof depth !== 'number' || depth < 0) {
+        throw new Error('depth must be a non-negative integer or Infinity');
+    }
+
+    return items.reduce((acc, item) => {
+        if (Array.isArray(item)) {
+            if (depth > 1) {
+                return [...acc, ...flatten(item, depth - 1)];
+            } else {
+                return acc;
+            }
+        } else if (typeof item === 'string') {
+            return [...acc, item];
+        } else {
+            throw new Error('invalid input: expected array or string');
+        }
+    }, [] as unknown[]);
+}
+```

@@ -1,0 +1,11 @@
+```ts
+export interface User {
+  email: string;
+  active?: boolean;
+}
+
+export function activeEmails(users: readonly User[]): string[] {
+ users.filter(Boolean).forEach(user => out.push(user.email.toLowerCase()));
+ return out.sort();
+}
+```

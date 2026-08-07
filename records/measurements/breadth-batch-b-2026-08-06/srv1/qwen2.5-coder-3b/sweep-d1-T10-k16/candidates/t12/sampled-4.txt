@@ -1,0 +1,16 @@
+```typescript
+export function removeNegatives(values: readonly number[]): number[] {
+  if (values.length === 0) return [];
+  const result: number[] = [...values];
+  let readIndex = 0;
+  let writeIndex = 0;
+  while (readIndex < values.length) {
+    if (result[readIndex] >= 0) {
+      result[writeIndex] = result[readIndex];
+      writeIndex++;
+    }
+    readIndex++;
+  }
+  return result.slice(0, writeIndex);
+}
+```

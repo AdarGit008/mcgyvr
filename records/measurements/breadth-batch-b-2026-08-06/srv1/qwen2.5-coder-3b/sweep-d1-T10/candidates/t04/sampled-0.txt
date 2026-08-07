@@ -1,0 +1,58 @@
+```ts
+export class LruCache<K, V> {
+  private capacity: number;
+  private cacheMap = new Map<K, { value: V, timestamp: number }>();
+  private keyOrder: K[] = [];
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cacheMap.get(key);
+    if (entry) {
+      // Move to the end of the key order list
+      this.moveKeyToTail(key);
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    let newEntry = { value, timestamp: Date.now() };
+
+    if (this.cacheMap.has(key)) {
+      // Update the existing entry and move it to the end
+      const existingEntry = this.cacheMap.get(key)!;
+      this.cacheMap.set(key, newEntry);
+      this.keyOrder.splice(this.keyOrder.indexOf(key), 1);
+    } else {
+      // Add a new entry if the cache is not full
+      if (this.cacheMap.size >= this.capacity) {
+        const leastRecentKey = this.keyOrder.shift()!;
+        this.cacheMap.delete(leastRecentKey);
+      }
+      // Always add to the end of the key order list
+      newEntry.timestamp = Date.now();
+    }
+
+    this.keyOrder.push(key);
+    this.cacheMap.set(key, newEntry);
+  }
+
+  get size(): number {
+    return this.cacheMap.size;
+  }
+
+  private moveKeyToTail(key: K): void {
+    const index = this.keyOrder.indexOf(key);
+    if (index >= 0) {
+      this.keyOrder.splice(index, 1);
+      this.keyOrder.push(key);
+    }
+  }
+}
+```

@@ -1,0 +1,99 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * Least Recently Used cache implementation.
+ */
+class LruCache<K, V> {
+  private capacity: number;
+  private items: Map<K, V>;
+  private head!: K | undefined;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.items = new Map();
+  }
+
+  get(key: K): V | undefined {
+    // If key is not found, return undefined and count as use
+    const value = this.items.get(key);
+    if (value !== undefined) {
+      this._moveToFront(key);
+      this._increaseUseCount(key);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    // If key already exists, update the value and count as use
+    if (this.items.has(key)) {
+      this.items.set(key, value);
+      this._moveToFront(key);
+      this._increaseUseCount(key);
+    } else {
+      // Create a new entry and manage cache size
+      const newItem = { key: key, value: value };
+      if (this.items.size < this.capacity) {
+        this.head = newItem.key;
+        this.items.set(newItem.key, newItem);
+      } else {
+        const lastKey = this.tail!;
+        delete this.items[lastKey];
+        this._replaceLastKey(this.head!, newItem.key, newItem);
+        this._increaseUseCount(key);
+      }
+    }
+  }
+
+  get size(): number {
+    return this.items.size;
+  }
+
+  private _moveToFront(key: K): void {
+    if (key !== this.head) {
+      const next = this.items.get(key)! as { [key: string]: V };
+      delete this.items[key];
+      this.items.set(next.key, next);
+      // If moved to the head, adjust queue head
+      if (next === this.tail) {
+        this.tail = next.prev!;
+      }
+      next.next = this.head;
+      if (this.head !== undefined) {
+        (this.head as { [key: string]: V })!.prev = next;
+      }
+      this.head = key;
+    }
+  }
+
+  private _replaceLastKey(previousKey: K, key: K, newItem: { [key: string]: V }): void {
+    if (previousKey !== undefined) {
+      const previousItem = this.items.get(previousKey)! as { [key: string]: V };
+      previousItem.next = newItem.key;
+    }
+    delete this.items[previousKey];
+    this.items.set(key, newItem);
+  }
+
+  private _increaseUseCount(key: K): void {
+    // No additional logic needed for use count
+  }
+}
+
+// Check function to verify the solution
+function checkLruCache() {
+  const lru = new LruCache<string, number>(4);
+
+  // Test get method with missing key
+  assert.strictEqual(lru.get('a'), undefined, 'get(null) should return undefined');
+
+  // Test set method with existing key
+  lru.set('a', 1);
+  assert.deepStrictEqual(lru.items.get('a'), { key: 'a', value: 1 }, 'set(a, 1) should update existing key');
+}
+
+checkLruCache();
+```

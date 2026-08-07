@@ -1,0 +1,48 @@
+```typescript
+class LruCache<K, V> {
+  private capacity: number;
+  private cacheMap: Map<K, { value: V; usedAt: number }>;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+    this.cacheMap = new Map();
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cacheMap.get(key);
+    if (!entry) return undefined;
+
+    entry.usedAt = Date.now();
+    return entry.value;
+  }
+
+  set(key: K, value: V): void {
+    const now = Date.now();
+
+    // Remove the entry if it exists to mark it as being used again
+    this.cacheMap.delete(key);
+
+    // Add the new entry with the current time
+    this.cacheMap.set(key, { value, usedAt: now });
+
+    // Evict the least recently used item if necessary
+    const keys = Array.from(this.cacheMap.keys()).sort((a, b) =>
+      this.cacheMap.get(a)?.usedAt - this.cacheMap.get(b)?.usedAt
+    );
+
+    while (this.capacity < this.cacheMap.size && keys.length > 0) {
+      const keyToRemove = keys.shift();
+      if (keyToRemove !== undefined) {
+        this.cacheMap.delete(keyToRemove);
+      }
+    }
+  }
+
+  get size(): number {
+    return this.cacheMap.size;
+  }
+}
+```

@@ -1,0 +1,18 @@
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error('depth must be a non-negative integer or Infinity');
+  }
+
+  return items.flatMap((item) => {
+    if (Array.isArray(item)) {
+      if (depth === 1) {
+        return item;
+      }
+      return flatten(item, depth - 1);
+    } else {
+      return [item];
+    }
+  });
+}
+```

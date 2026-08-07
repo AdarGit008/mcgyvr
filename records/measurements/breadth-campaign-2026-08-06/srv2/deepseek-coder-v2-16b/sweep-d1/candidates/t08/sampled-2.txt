@@ -1,0 +1,56 @@
+ ```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!Array.isArray(nodes) || !Array.isArray(edges)) {
+        throw new Error("Invalid input");
+    }
+
+    const nodeSet = new Set(nodes);
+    const edgeMap = new Map<string, string[]>();
+    const inDegree = new Map<string, number>();
+    const queue: string[] = [];
+    const result: string[] = [];
+
+    // Initialize the graph
+    for (const [from, to] of edges) {
+        if (!nodeSet.has(from) || !nodeSet.has(to)) {
+            throw new Error("Invalid edge");
+        }
+        if (!edgeMap.has(from)) {
+            edgeMap.set(from, []);
+        }
+        edgeMap.get(from)!.push(to);
+        inDegree.set(to, (inDegree.get(to) || 0) + 1);
+    }
+
+    // Initialize queue with nodes having no dependencies
+    for (const node of nodes) {
+        if (!inDegree.has(node)) {
+            queue.push(node);
+        }
+    }
+
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        result.push(current);
+
+        const neighbors = edgeMap.get(current);
+        if (neighbors) {
+            for (const neighbor of neighbors) {
+                inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+                if (inDegree.get(neighbor) === 0) {
+                    queue.push(neighbor);
+                }
+            }
+        }
+    }
+
+    // Check for cycles
+    for (const node of nodes) {
+        if (inDegree.has(node) && inDegree.get(node)! > 0) {
+            throw new Error("Cycle detected");
+        }
+    }
+
+    return result;
+}
+```

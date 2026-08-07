@@ -1,0 +1,23 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (depth === undefined) {
+        return [...items];
+    }
+
+    const flattenedItems = [];
+
+    for (const item of items) {
+        if (Array.isArray(item)) {
+            if (depth > 0) {
+                flattenedItems.push(...flatten(item, depth - 1));
+            } else {
+                flattenedItems.push(...item);
+            }
+        } else {
+            flattenedItems.push(item);
+        }
+    }
+
+    return flattenedItems;
+}
+```

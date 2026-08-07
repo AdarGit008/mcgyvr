@@ -1,0 +1,90 @@
+```ts
+export class LruCache<K, V> {
+  #capacity: number;
+  #size: number = 0;
+  #cacheSet = new Set();
+  private cacheItems: [K, V][] = [];
+
+  constructor(capacity: number) {
+    if (isNaN(capacity)) {
+      throw Error("Capacity must be a finite number");
+    }
+    this.#capacity = Math.ceil(capacity);
+
+    for (let i = 0; i < capacity; i++) {
+      const tmpItem: never[] = [null, null];
+      this.cacheItems.push(tmpItem);
+      cacheSet.add(null);
+    }
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cacheSet.has(this.search(cacheItems[0], key))) return;
+
+    const item: unknown[] = this.findOne(null, key);
+    this.inplaceSwap(0, this.size - 1); // Move the retrieved item to the freshest position
+    cacheSet.delete(item[0]);
+    cacheSet.add(key);
+
+    this.#size++;
+    if (this.get_size() > this.capacity) {
+      delete this.cacheItems[cacheItems.length - 1].at(1);
+      this.cacheSet.delete(this.cacheItems[this.size - 1][0]);
+      // Cache eviction should not alter the order or key presence as evicted position does not exist in cache yet
+    }
+
+    const retrievedItem = item.map(uncurry);
+
+    return retrievedItem.filter(Boolean)[0] as V; // Convert null/undefined elements to undefined/null before returning
+  }
+
+  set(key: K, value: V): void {
+    if (!this.cacheSet.has(key)) this.#size++;
+
+    const existingPos = this.search(this.cacheItems[0], key);
+
+    if (existingPos !== undefined)
+      if (this.get_size() > this.capacity) delete this.cacheItems[existingPos].at(1); // Cache eviction should not alter the order or key presence as evicted position exists in cache
+
+    const nextItem = [key, value];
+    this.replace(nextItem);
+  }
+
+  /**
+   * Replaces `nextItem` with `prev`; positions both after `lastIdx`. Handles case of item being missing.
+   */
+  private replace(prev: unknown[], nextItem: unknown[]): void {
+    const lastIdx = Math.max(0, prev.at(-1) as any);
+
+    if (Number.POSITIVE_INFINITY > prev.length || prev.some(_ => _.eq !== null))
+      throw Error("Previous index must not exceed size and items there should not have `eq` member");
+
+    if (--lastIdx <= nextItem.indexOf(null)) return; // No replacement, or already in right position
+
+    const insertAt = lastIdx + 1;
+
+    for (let i = this.size; i >= insertAt; --i) {
+      previous!.at(i - 1);
+      nextItem[i];
+    }
+
+    prev.splice(prev.length - insertAt);
+
+    nextItem[insertAt] = prev;
+    prev.push(nextItem.at(-2)![0]);
+
+    const itemsChanged: K[] = [];
+
+    for (const [currKey, currVal] of this.cacheItems.filter(i => i !== undefined && i[0]) as [K, V][]) {
+      if (!currKey.eq) itemsChanged.push(currKey);
+    }
+
+    /* 
+       To check whether `itemsChanged` has changed we use spread operator here
+       instead of direct array comparision. Spread operator creates a new reference
+       and therefore the original array's order can retain and the comparison will be
+       treated as different arrays.
+       
+       Original reasoning is:
+       
+       if this.items[0] === items Changed[

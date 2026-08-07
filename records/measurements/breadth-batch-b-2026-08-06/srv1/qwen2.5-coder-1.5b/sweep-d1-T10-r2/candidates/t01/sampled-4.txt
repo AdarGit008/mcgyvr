@@ -1,0 +1,46 @@
+```ts
+import { compareNumbers } from "lodash";
+
+type RunLength = {
+  character: string;
+  length: number;
+};
+
+function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  let result: string[] = [];
+  let currentCharacter: string | null = null;
+  let count: number = 0;
+
+  for (const char of input) {
+    if (char !== currentCharacter || count === 9) {
+      if (count > 1) {
+        result.push(`${currentCharacter}${count}`);
+      } else {
+        result.push(currentCharacter);
+      }
+      currentCharacter = char;
+      count = 1;
+    } else {
+      count++;
+    }
+  }
+
+  if (count > 1) {
+    result.push(`${currentCharacter}${count}`);
+  } else {
+    result.push(currentCharacter);
+  }
+
+  return result.join('');
+}
+
+// Test cases to verify the correctness of the solution
+console.log(runLengthEncode("aaabbbcccc")); // "a3b4c4"
+console.log(runLengthEncode("abcde"));   // "a1b1c1d1e1"
+console.log(runLengthEncode("zzz"));    // "z3"
+console.log(runLengthEncode "");      // ""
+console.log(runLengthEncode("singleeleventh"));  // "s1e1l1n1g1e1t1h1"

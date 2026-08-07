@@ -1,0 +1,40 @@
+```ts
+// The function parseSemver accepts a string in the format MAJOR.MINOR.PATCH,
+// where "MAJOR", "MINOR", and "PATCH" are non-negative integers (
+// optionally prefixed with '0'). It also supports optional trailing hyphens
+// that mark prereleases, followed by '+', then an arbitrary string for build.
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  // Validate the version string against the semver format
+  const re = /^v?(\d+)\.(\d+)\.(\d+)(?:-(\d+\.\d+(\.\d+)?)|(?:\+([\w-]+))?$/;
+  const match = re.exec(version);
+  if (!match) {
+    throw new Error('version');
+  }
+
+  // Extract major, minor, and patch parts
+  const [_, majorStr, minorStr, patchStr] = match.slice(1, 4);
+  const major = parseInt(majorStr, 10);
+  const minor = parseInt(minorStr, 10);
+  const patch = parseInt(patchStr, 10);
+
+  // Handle prerelease and build
+  let prerelease = match[5];
+  let build = match[6];
+
+  if (prerelease) {
+    prerelease = prerelease.split('.').map((part) => parseInt(part, 10));
+  }
+
+  if (build) {
+    build = build.substring(1).split('+').pop()!;
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+
+// Example usage:
+console.log(parseSemver("1.2.3")); // Returns { major: 1, minor: 2, patch: 3, prerelease: null, build: null }
+console.log(parseSemver("1.2.3-beta.1+build345")); // Returns { major: 1, minor: 2, patch: 3, prerelease: ['beta', '1'], build: 'build345' }
+```
+
+This solution includes a check to ensure the input string matches the expected semver format and throws an error with the correct name for invalid inputs. It also handles optional prereleases and builds, returning them as arrays for easier processing if needed.

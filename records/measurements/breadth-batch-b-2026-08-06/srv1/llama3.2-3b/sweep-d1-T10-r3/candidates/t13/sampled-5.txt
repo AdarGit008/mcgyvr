@@ -1,0 +1,15 @@
+```typescript
+/**
+ * Truncates the given text to the specified limit, replacing the excess with three dots,
+ * unless the result is still at least 3 characters long. Throws an Error if the limit is not a positive integer.
+ */
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== "number" || limit <= 0 || !Number.isInteger(limit)) {
+    throw new Error("Limit must be a positive integer");
+  }
+  
+  return text.length >= limit / 4 ? 
+         text.slice(0, Math.min(text.length, limit - 3)) + "..." : 
+         text;
+}
+```

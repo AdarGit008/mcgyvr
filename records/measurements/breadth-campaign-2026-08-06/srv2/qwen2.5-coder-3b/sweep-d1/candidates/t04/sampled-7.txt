@@ -1,0 +1,81 @@
+```ts
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { value: V; timestamp: number }>;
+  private head: K | null = null;
+  private tail: K | null = null;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+    this.cache = new Map<K, { value: V; timestamp: number }>();
+  }
+
+  private evictLeastRecentlyUsed() {
+    const leastRecentlyUsedKey = Array.from(this.cache.keys()).reduce((min, key) => {
+      return this.cache.get(key)?.timestamp < this.cache.get(min)?.timestamp ? key : min;
+    }, this.head);
+
+    if (leastRecentlyUsedKey !== undefined) {
+      this.cache.delete(leastRecentlyUsedKey);
+      if (this.head === leastRecentlyUsedKey) {
+        this.head = this.tail;
+      } else if (this.tail === leastRecentlyUsedKey) {
+        this.tail = null;
+      } else {
+        const prevKey = Array.from(this.cache.keys()).find(key => this.cache.get(key)?.next === leastRecentlyUsedKey);
+        if (prevKey !== undefined) {
+          (this.cache.get(prevKey)?.next as K | null) = null;
+        }
+      }
+    }
+  }
+
+  private updateNode<K>(key: K) {
+    const node = this.cache.get(key);
+    if (node) {
+      node.timestamp = Date.now();
+      if (this.tail !== key) {
+        // Move the node to the end
+        if (this.head === key) {
+          this.head = node.next;
+        } else {
+          const prevKey = Array.from(this.cache.keys()).find(prev => this.cache.get(prev)?.next === key);
+          if (prevKey !== undefined) {
+            (this.cache.get(prevKey)?.next as K | null) = node?.next;
+          }
+        }
+        this.tail = key;
+      }
+    } else {
+      this.evictLeastRecentlyUsed();
+      this.head = key;
+      this.tail = key;
+      this.cache.set(key, { value: undefined, timestamp: Date.now() });
+    }
+  }
+
+  get(key: K): V | undefined {
+    const node = this.cache.get(key);
+    if (node) {
+      this.updateNode(key);
+      return node.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    this.updateNode(key);
+    this.cache.set(key, { value, timestamp: Date.now() });
+    if (this.size > this.capacity) {
+      this.evictLeastRecentlyUsed();
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```

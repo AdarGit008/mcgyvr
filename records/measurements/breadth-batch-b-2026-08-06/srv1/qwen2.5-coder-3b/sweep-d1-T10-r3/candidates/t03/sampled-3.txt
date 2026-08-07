@@ -1,0 +1,31 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const regex = /^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?$|^(0|[1-9]\d*)-(0|[1-9]\d*|[\w-]+)?$|^(0|[1-9]\d*)$|^([a-zA-Z0-9.-]+)-([a-zA-Z0-9.-]+)?(-[a-zA-Z0-9-]+)?$|^([a-zA-Z0-9.-]+)$/;
+  const match = version.match(regex);
+
+  if (!match) {
+    throw new Error(`Invalid version string: ${version}`);
+  }
+
+  const [rawMajor, rawMinor, rawPatch, prerelease, build] = match;
+
+  function validateAndParsePart(part: string | undefined): number {
+    if (part === undefined || part.match(/^[0-9]+$/)) {
+      return parseInt(part as string, 10);
+    }
+    throw new Error(`Invalid part in version string: ${part}`);
+  }
+
+  const major = validateAndParsePart(rawMajor);
+  const minor = rawMinor ? validateAndParsePart(rawMinor) : 0;
+  const patch = rawPatch ? validateAndParsePart(rawPatch) : 0;
+
+  return {
+    major,
+    minor,
+    patch,
+    prerelease: prerelease ? prerelease.replace(/^v?/, '') : null,
+    build: build ? build.replace(/^v?/, '') : null,
+  };
+}
+```

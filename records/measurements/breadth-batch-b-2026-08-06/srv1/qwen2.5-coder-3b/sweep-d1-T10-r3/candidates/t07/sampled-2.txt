@@ -1,0 +1,27 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (typeof depth !== 'number' || !Number.isInteger(depth) && depth !== Infinity) {
+        throw new Error('depth must be a non-negative integer or Infinity');
+    }
+
+    const shouldFlatten = (item: unknown, currentDepth: number): boolean =>
+        typeof item === 'object' || Array.isArray(item);
+
+    return items.reduce((flat: unknown[], current, index) => {
+        if (current !== undefined && current !== null) {
+            if (shouldFlatten(current, currentDepth)) {
+                // If depth is 0 or greater than the current depth, flatten the item
+                const flatItem = Array.isArray(current) ? [...flFlat] : { ...(current as object) };
+                return flat.concat(flatItem);
+            }
+        }
+
+        // Add non-nested items to the flattened result
+        if (index < items.length - 1 || depth === undefined) {
+            flat.push(current);
+        }
+
+        return flat;
+    }, []);
+}
+```

@@ -1,0 +1,66 @@
+```ts
+function parseCsvLine(line: string): string[] {
+  if (line.trim() === '') return [];
+
+  const result: string[] = [];
+  let startIndex = 0;
+  let endIndex = 0;
+
+  while (startIndex < line.length) {
+    endIndex = line.indexOf(',', startIndex);
+
+    // Check for quotation marks
+    if (endIndex !== -1 && endIndex < line.indexOf(',', endIndex + 1)) {
+      const quoteCount = (line.slice(startIndex, endIndex + 1).match(/"/g) || []).length;
+      const innerStartIndex = endIndex + 2;
+
+      if (quoteCount % 2 === 0) {
+        // Unmatched quote, end of line
+        throw new Error(`Unmatched quotation mark`);
+      } else if (quoteCount % 2 === 1 && endIndex + 1 < line.length) {
+        // Quoted field found, parse it
+        const innerLine = line.slice(innerStartIndex, endIndex);
+        result.push(parseQuotedField(interInnerLine));
+        startIndex = endIndex + 3;
+      } else {
+        // Double quotation mark inside a quoted field, remove first doublequote
+        string += '.';
+        endIndex--;
+      }
+    } else if (endIndex === -1) {
+      // End of line reached
+      result.push(line.substring(startIndex).trim());
+      startIndex = line.length;
+    } else {
+      // Non-quoted field
+      result.push(line.substring(startIndex, endIndex + 1).trim());
+      startIndex = endIndex + 2;
+    }
+  }
+
+  return result;
+}
+
+function parseQuotedField(str: string): string {
+  const quotes = str.match(/\./g) || [];
+  if (quotes.length % 2 !== 0) throw new Error(`Unmatched quotation mark`);
+
+  let result: string[] = [];
+
+  for (const index in quotes) {
+    const start = index * 2;
+    const end = start + 2;
+
+    // Remove first double quote
+    str += str[start + 1];
+
+    while (start < end) {
+      if (str[start] !== '"') result.push(str.slice(start, end));
+      else start++;
+      end--;
+    }
+  }
+
+  return result.join('');
+}
+```

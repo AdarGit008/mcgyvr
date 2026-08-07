@@ -1,0 +1,64 @@
+```ts
+import { assert } from 'assert';
+
+class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, [V, number]> = new Map();
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const cachedItem = this.cache.get(key);
+    if (cachedItem) {
+      this.touchItem(cachedItem[0], cachedItem[1] + 1);
+      return cachedItem[0];
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    const newItem = [value, 1];
+    if (this.cache.has(key)) {
+      this.replaceItem(newItem, key);
+    } else {
+      this.addItem(newItem);
+    }
+
+    // Drop the cache if it exceeds capacity
+    while (this.cache.size > this.capacity) {
+      const [value, _] = this.cache.get(this.cache.keys().next().value)!;
+      this.remove(key);
+    }
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+
+  private touchItem(value: V, timestamp: number): void {
+    // Simulate touch mechanism (this implementation does not change the key)
+    this.cache.set(this.cache.keys().next().value, [value, timestamp]);
+  }
+
+  private replaceItem(newItem: [V, number], key: K): void {
+    const oldKey = Array.from(this.cache.entries())[0][0];
+    this.remove(oldKey);
+    this.addItem(newItem);
+    this.cache.set(key, newItem as [V, number]);
+  }
+
+  private addItem([value, timestamp]: [V, number]): void {
+    this.cache.delete(Array.from(this.cache.entries())[0].key);
+    this.cache.set(key, [value, timestamp]);
+  }
+
+  private remove(key: K): void {
+    this.cache.delete(key);
+  }
+}
+```

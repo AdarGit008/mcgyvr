@@ -1,0 +1,17 @@
+```ts
+/** Returns the division of `a` by `b`, throwing on error. */
+export function safeDivide(a: number, b: number): Promise<number> {
+  if (!(typeof a === 'number' && typeof b === 'number')) {
+    throw new Error('Both arguments must be numbers.');
+  }
+
+  const isFiniteA = !isNaN(a) && !isFinite(b);
+  const isFiniteB = !isNaN(b);
+
+  if (isFiniteA && isFiniteB) {
+    return Promise.resolve(a / b);
+  } else {
+    throw new Error('Cannot divide by zero or non-finite value.');
+  }
+}
+```

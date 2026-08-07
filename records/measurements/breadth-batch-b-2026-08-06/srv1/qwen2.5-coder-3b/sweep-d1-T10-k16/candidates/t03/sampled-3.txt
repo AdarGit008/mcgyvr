@@ -1,0 +1,14 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  // Regular expression to match the semantic version format: MAJOR.MINOR.PATCH(-prerelease)?(+build)?
+  const semVerPattern = /^v?(\d+)\.(\d+)\.(\d+)(-(.*))?(\+(.*))?$/
+  const matches = version.match(semVerPattern)
+
+  if (!matches || matches.length !== 7) {
+    throw new Error(`Invalid semantic version format: ${version}`)
+  }
+
+  const [_, major, minor, patch, prerelease, build] = matches
+  return { major: Number(major), minor: Number(minor), patch: Number(patch), prerelease, build }
+}
+```

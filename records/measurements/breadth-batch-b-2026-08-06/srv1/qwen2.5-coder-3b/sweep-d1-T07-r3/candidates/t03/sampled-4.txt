@@ -1,0 +1,17 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-(\S+))?(?:\+(\S+))?$/);
+
+  if (!match) {
+    throw new Error(`Invalid semver format for input: "${version}"`);
+  }
+
+  return {
+    major: parseInt(match[1], 10),
+    minor: parseInt(match[2], 10),
+    patch: parseInt(match[3], 10),
+    prerelease: match[4],
+    build: match[5]
+  };
+}
+```

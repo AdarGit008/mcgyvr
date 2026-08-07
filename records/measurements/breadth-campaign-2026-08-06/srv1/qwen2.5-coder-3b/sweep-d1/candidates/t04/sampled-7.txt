@@ -1,0 +1,51 @@
+```typescript
+export class LruCache<K, V> {
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.map = new Map<K, { value: V; usedAt: number }>();
+    this.recentKeys = [];
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.map.get(key);
+    if (entry) {
+      this.recentKeys.splice(this.recentKeys.indexOf(key), 1); // Remove from recent keys
+      this.recentKeys.push(key); // Add to recent keys
+      entry.usedAt = Date.now(); // Update usage time
+    }
+    return entry ? entry.value : undefined;
+  }
+
+  set(key: K, value: V): void {
+    const existingEntry = this.map.get(key);
+    let newEntry: { value: V; usedAt: number } | null;
+
+    if (existingEntry) {
+      // Update the existing entry
+      newEntry = { ...existingEntry, value };
+      this.recentKeys.splice(this.recentKeys.indexOf(key), 1); // Remove from recent keys
+      this.recentKeys.push(key); // Add to recent keys
+      newEntry.usedAt = Date.now(); // Update usage time
+    } else {
+      if (this.map.size === this.capacity) {
+        const leastRecentlyUsedKey = this.recentKeys.shift(); // Evict the oldest key
+        if (leastRecentlyUsedKey !== undefined) {
+          this.map.delete(leastRecentlyUsedKey);
+        }
+      }
+
+      newEntry = { value, usedAt: Date.now() };
+      this.recentKeys.push(key); // Add to recent keys
+    }
+
+    this.map.set(key, newEntry);
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+}
+```

@@ -1,0 +1,5 @@
+```typescript
+export function removeNegatives(values: readonly number[]): number[] {
+  return values.filter(num => num >= 0);
+}
+```

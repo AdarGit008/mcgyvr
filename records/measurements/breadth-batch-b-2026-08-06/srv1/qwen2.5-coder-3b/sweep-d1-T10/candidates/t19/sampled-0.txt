@@ -1,0 +1,11 @@
+```ts
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a)) {
+    throw new Error("First argument must be finite.");
+  }
+  if (!Number.isFinite(b) || b === 0) {
+    throw new Error("Second argument must be a finite number and not zero.");
+  }
+  return a / b;
+}
+```

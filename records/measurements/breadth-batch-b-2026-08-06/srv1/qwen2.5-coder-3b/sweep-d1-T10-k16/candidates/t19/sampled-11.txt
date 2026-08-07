@@ -1,0 +1,14 @@
+```
+/**
+ * safeDivide divides two numbers safely by checking for division by zero and finite numbers.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+  if (b === 0 || b === -0) {// include zero and negative zero
+    throw new Error("Divisor cannot be zero.");
+  }
+  return a / b;
+}
+```

@@ -1,0 +1,81 @@
+```ts
+export function romanToInt(input: string): number {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  
+  if (input.length === 0) {
+    throw new Error('Input cannot be empty');
+  }
+  
+  const romanMap = new Map<string, number>([
+    ['I', 1],
+    ['V', 5],
+    ['X', 10],
+    ['L', 50],
+    ['C', 100],
+    ['D', 500],
+    ['M', 1000]
+  ]);
+  
+  for (const char of input) {
+    if (!romanMap.has(char)) {
+      throw new Error('Invalid Roman numeral character');
+    }
+  }
+  
+  let value = 0;
+  let i = 0;
+  
+  while (i < input.length) {
+    const currentChar = input[i];
+    const currentValue = romanMap.get(currentChar)!;
+    
+    if (i + 1 < input.length) {
+      const nextChar = input[i + 1];
+      const nextValue = romanMap.get(nextChar)!;
+      
+      if (currentValue < nextValue) {
+        value += nextValue - currentValue;
+        i += 2;
+        continue;
+      }
+    }
+    
+    value += currentValue;
+    i += 1;
+  }
+  
+  if (value <= 0 || value > 3999) {
+    throw new Error('Number out of valid range (1-3999)');
+  }
+  
+  // Re-encode to canonical form and compare
+  const canonical = numberToRoman(value);
+  if (canonical !== input) {
+    throw new Error('Not a canonical Roman numeral');
+  }
+  
+  return value;
+}
+
+function numberToRoman(num: number): string {
+  if (num <= 0 || num > 3999) {
+    throw new Error('Number out of valid range (1-3999)');
+  }
+  
+  const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+  const numerals = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
+  
+  let result = '';
+  
+  for (let i = 0; i < values.length; i++) {
+    while (num >= values[i]) {
+      result += numerals[i];
+      num -= values[i];
+    }
+  }
+  
+  return result;
+}
+```

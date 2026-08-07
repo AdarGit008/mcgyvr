@@ -1,0 +1,43 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    /**
+     * Returns a new array with nested arrays flattened up to `depth` levels,
+     * defaulting to every level. A string is a value, never something to iterate into.
+     * A depth of 0 returns a copy of the input unchanged.
+     *
+     * Args:
+     *   items (readonly unknown[]): Input array.
+     *   depth?: number
+     */
+    if (depth === undefined) {
+        depth = Infinity;
+    }
+
+    if (!Number.isInteger(depth) || (depth < 0 && !Infinity === depth)) {
+        throw new Error("depth must be a non-negative integer or Infinity");
+    }
+
+    const result: unknown[] = [];
+
+    function recursiveFlatten(items: readonly unknown[], currentDepth: number, accumulator: unknown[]) {
+
+        for (const item of items) {
+
+            if (!Object.prototype.toString.call(item).slice(8, -1)) { // is value
+                result.push(...accumulator, item);
+            } else {
+                accumulator.push(item);
+
+                if (currentDepth < depth || currentDepth === Infinity) {
+                    recursiveFlatten(Object.values(item), currentDepth + 1, accumulator);
+                }
+
+                accumulator.pop();
+            }
+        }
+    }
+
+    recursiveFlatten(items, 0, result);
+    return result;
+}
+```

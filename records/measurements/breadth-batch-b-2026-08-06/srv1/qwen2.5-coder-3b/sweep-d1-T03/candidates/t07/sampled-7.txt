@@ -1,0 +1,26 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) depth = Infinity;
+  if (!Number.isInteger(depth) || depth < 0) throw new Error("Depth must be a non-negative integer or Infinity.");
+
+  const result: unknown[] = [];
+
+  function flattenRecursive(item: unknown, currentDepth: number): void {
+    if (Array.isArray(item)) {
+      for (const element of item) {
+        if (currentDepth > 0) {
+          flattenRecursive(element, currentDepth - 1);
+        } else {
+          result.push(element);
+        }
+      }
+    } else {
+      result.push(item);
+    }
+  }
+
+  flattenRecursive(items, depth);
+
+  return result;
+}
+```

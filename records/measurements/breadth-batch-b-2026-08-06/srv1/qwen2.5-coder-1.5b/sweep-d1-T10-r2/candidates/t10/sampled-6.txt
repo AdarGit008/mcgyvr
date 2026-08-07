@@ -1,0 +1,28 @@
+```ts
+/**
+ * The index of target in a sorted array, or -1. If the target is not found,
+ * the search window excludes its upper bound.
+ *
+ * @param items - A sorted array of numbers.
+ * @param target - The number to find in the array.
+ * @returns The index of the first occurrence of `target` in `items`, or -1 if `target` is not found.
+ */
+export function binarySearch(items: readonly number[], target: number): number {
+  let low = 0;
+  let high = items.length;
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  return -1;
+}
+```

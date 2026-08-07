@@ -1,0 +1,49 @@
+```typescript
+type Graph = Map<string, Set<string>>;
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Graph = new Map();
+
+  // Build the graph
+  for (const edge of edges) {
+    const [from, to] = edge;
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw new Error(`Edge '${from}' or '${to}' not in nodes`);
+    }
+    graph.set(from, (graph.get(from) || new Set()).add(to));
+  }
+
+  // Helper function to find a node with no dependencies
+  const canBePushed = (node: string): boolean => {
+    return !Array.from(graph.keys()).some(key => graph.get(key)?.has(node));
+  };
+
+  // Main DFS to perform topological sorting while maintaining the order of nodes in input
+  const result: string[] = [];
+  const visited: Set<string> = new Set();
+  const stack: string[] = [];
+
+  for (const node of nodes) {
+    if (!visited.has(node)) {
+      dfs(node);
+    }
+  }
+
+  return result.reverse();
+
+  function dfs(node: string): void {
+    if (!canBePushed(node)) {
+      throw new Error('Cycle detected');
+    }
+
+    visited.add(node);
+    stack.push(node);
+
+    for (const neighbor of graph.get(node) || []) {
+      dfs(neighbor);
+    }
+
+    result.push(stack.pop()!); // Push the node itself after all its dependencies are handled
+  }
+}
+```

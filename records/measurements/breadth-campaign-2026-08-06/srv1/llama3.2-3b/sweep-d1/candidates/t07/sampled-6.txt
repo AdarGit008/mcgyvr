@@ -1,0 +1,29 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (depth === undefined) depth = Infinity;
+    if (!(0 <= depth && Number.isFinite(depth))) throw new Error('Invalid input depth');
+    
+    const result: unknown[] = [];
+    for (const item of items) {
+        if (typeof item !== 'string') {
+            let subResult: unknown[];
+            switch (typeof item) {
+                case 'number':
+                    subResult = Array.isArray(item) ? flatten(item, Math.min(depth - 1, Infinity)) : [item];
+                    break;
+                case 'object' && !Array.isArray(item):
+                    if ('length' in item && Number.isInteger(item['length'])) {
+                        subResult = flatten(Array.from(item.values()), Math.min(depth - 1, Infinity));
+                    } else {
+                        subResult = flatten(Object.values(item), Math.min(depth - 1, Infinity));
+                    }
+                    break;
+                default:
+                    continue;
+            }
+            result.push(...subResult);
+        }
+    }
+    return result;
+}
+```

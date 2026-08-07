@@ -1,0 +1,27 @@
+```ts
+import { strict as assert } from 'assert';
+
+/** The index of target in a sorted array, or -1. */
+export function binarySearch(items: readonly number[], target: number): number {
+  let low = 0;
+  let high = items.length - 2; // Fixed to exclude the higher bound
+  while (low <= high) { // Changed inequality to include the lower bound for correctness
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return -1;
+}
+
+// Test cases to verify the correctness of the solution
+assert.binarySearch([0, 2, 3, 5, 6], 3, 2); // Expected output: 2
+assert.binarySearch([1, 2, 4, 7] -1, 6); // Expected output: -1
+assert.binarySearch(["", "a"], ""); // Expected output: 0
+assert.binarySearch(['b', 'c'], 'd'); // Expected output: -1
+```

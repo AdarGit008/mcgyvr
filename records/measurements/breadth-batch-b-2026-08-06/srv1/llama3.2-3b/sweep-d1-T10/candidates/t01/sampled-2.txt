@@ -1,0 +1,44 @@
+```typescript
+/**
+ * Encodes a string using run-length encoding.
+ *
+ * @param input The string to encode.
+ */
+export function runLengthEncode(input: string): string {
+  // Check that input is a string and throw an Error if not.
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string.');
+  }
+
+  // Initialize variables for the result and current character/run.
+  let result = '';
+  let currentChar = '';
+  let charCount = 0;
+
+  // Iterate through each character in the input string...
+  for (let i = 0; i < input.length; i++) {
+    const charCode = input.charCodeAt(i);
+
+    // ...if it's different from our current run's character, or if we've reached
+    // the end of the inputs.
+    if (charCode !== currentChar) {
+      // If this was the last character in a sequence, add it to the result with its count.
+      if (currentChar !== '') {
+        result += currentChar + charCount;
+      }
+      // Update our variables for the new character/rerun and proceed.
+      [currentChar, charCount] = [String.fromCharCode(charCode), 1];
+    } else {
+      // If we are on the next iteration in our run (i.e., this is a longer sequence),
+      // increment the count of characters in this run.
+      charCount++;
+    }
+  }
+
+  // After iterating through all of the input, we should still have a
+  // current character left. Add it to the result with its final count.
+  result += currentChar + (charCount);
+
+  return result;
+}
+```

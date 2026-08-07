@@ -1,0 +1,84 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+  private capacity: number;
+  private map: Map<K, { value: V; index: number }>;
+  private head: K | null;
+
+  /**
+   * Create a new LruCache with the given capacity.
+   *
+   * @param capacity - The maximum size of the cache.
+   */
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+    this.capacity = capacity;
+    this.map = new Map();
+    this.head = null;
+  }
+
+  /**
+   * Get the value for the given key, or undefined if no such entry exists.
+   *
+   * @param key - The key to retrieve.
+   */
+  get(key: K): V | undefined {
+    const node = this.map.get(key);
+    if (node) {
+      const index = node.index;
+      this.map.delete(key);
+      this.map.set(key, { value: node.value, index });
+      if (this.head === key) this.head = null;
+      return node.value;
+    }
+    this.map.set(key, { value: undefined, index: Infinity });
+    this.head = key;
+    return undefined;
+  }
+
+  /**
+   * Set the value for the given key.
+   *
+   * @param key - The key to set.
+   * @param value - The value to associate with the key.
+   */
+  set(key: K, value: V) {
+    const node = this.map.get(key);
+    if (node) {
+      this.map.delete(key);
+      this.map.set(key, { value, index: Infinity });
+    } else {
+      if (this.head === key || this.map.size >= this.capacity) {
+        const removedKey = this.removeLRU();
+        this.map.delete(removedKey);
+      }
+      this.map.set(key, { value, index: 0 });
+    }
+  }
+
+  /**
+   * Returns the number of entries in the cache.
+   */
+  get size(): number {
+    return this.map.size;
+  }
+
+  private removeLRU(): K | null {
+    const minIndex = Infinity;
+    let removedKey: K | null;
+
+    for (const [key, node] of this.map) {
+      if (node.index < minIndex) {
+        minIndex = node.index;
+        removedKey = key;
+      }
+    }
+
+    return removedKey;
+  }
+}
+```

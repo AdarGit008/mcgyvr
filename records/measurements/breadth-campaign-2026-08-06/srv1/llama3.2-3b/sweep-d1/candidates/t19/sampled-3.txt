@@ -1,0 +1,13 @@
+```typescript
+/**
+ * Returns the result of dividing `a` by `b`, throwing an Error if `b` is zero or if both arguments are not numbers.
+ */
+export function safeDivide(a: number, b: number): number {
+  /**
+   * @throws {Error} If `b` is zero or if either `a` or `b` is not a finite number.
+   */
+  return (typeof a !== 'number' || typeof b !== 'number')
+    ? throw new Error('Both arguments must be numbers.')
+    : a / (b === 0 || isNaN(b) ? throw new Error('Cannot divide by zero.') : b);
+}
+```

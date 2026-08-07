@@ -1,0 +1,31 @@
+```ts
+// flatten.js
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  // Default depth to Infinity if not defined
+  if (typeof depth !== 'number' || isNaN(depth) && depth !== Infinity) {
+    throw new Error('Depth must be a non-negative integer or Infinity.');
+  }
+
+  const flatArray = [];
+
+  function recursiveFlatten(items, currentDepth) {
+    for (const item of items) {
+      if (item instanceof Array) {
+        if (currentDepth < depth) {
+          recursiveFlatten(item, currentDepth + 1);
+        } else {
+          flatArray.push(...item);
+        }
+      } else if (typeof item === 'string') {
+        flatArray.push(item);
+      } else {
+        flatArray.push(item);
+      }
+    }
+  }
+
+  recursiveFlatten(items, 0);
+
+  return flatArray;
+}
+```

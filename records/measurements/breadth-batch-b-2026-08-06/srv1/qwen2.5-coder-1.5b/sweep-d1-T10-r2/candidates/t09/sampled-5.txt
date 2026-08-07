@@ -1,0 +1,21 @@
+```ts
+import { assert } from "assert";
+
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (typeof n !== "number" || !isFinite(n)) {
+    throw new Error("Argument must be a non-negative, finite integer");
+  }
+  if (n < 0) {
+    return Infinity;
+  }
+  if (n === 1) {
+    return 1;
+  }
+  return n * factorial(n - 1);
+}
+
+function isFinite(value: any): boolean {
+  return typeof value === "number" && Number.isFinite(value);
+}
+```

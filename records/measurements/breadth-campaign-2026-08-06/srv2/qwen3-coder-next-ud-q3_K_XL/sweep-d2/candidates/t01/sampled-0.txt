@@ -1,0 +1,52 @@
+```ts
+/**
+ * Merges overlapping or touching intervals and returns them sorted by start.
+ * @param intervals Array of [start, end] pairs with start <= end.
+ * @returns New array of merged intervals sorted by start.
+ */
+export function mergeIntervals(intervals: [number, number][]): [number, number][] {
+  // Validate input
+  for (const interval of intervals) {
+    if (
+      !Array.isArray(interval) ||
+      interval.length !== 2 ||
+      typeof interval[0] !== 'number' ||
+      typeof interval[1] !== 'number' ||
+      !isFinite(interval[0]) ||
+      !isFinite(interval[1]) ||
+      interval[0] > interval[1]
+    ) {
+      throw new Error('Invalid interval: each interval must be a two-number pair with start <= end');
+    }
+  }
+
+  if (intervals.length === 0) {
+    return [];
+  }
+
+  // Sort intervals by start
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+
+  // Merge intervals
+  const merged: [number, number][] = [];
+  let current = sorted[0];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const [start, end] = sorted[i];
+    
+    if (start <= current[1]) {
+      // Overlapping or touching intervals
+      current = [current[0], Math.max(current[1], end)];
+    } else {
+      // No overlap, add current interval and move to next
+      merged.push(current);
+      current = [start, end];
+    }
+  }
+
+  // Add the last interval
+  merged.push(current);
+
+  return merged;
+}
+```

@@ -1,0 +1,71 @@
+```ts
+/**
+ * Tokenizes a string by splitting on spaces/tabs, respecting quotes and escapes.
+ */
+export function tokenize(input: string): string[] {
+  if (input === "") {
+    return [];
+  }
+
+  const tokens: string[] = [];
+  let currentToken = "";
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+
+    if (char === "\\") {
+      // Escape sequence
+      if (i + 1 >= input.length) {
+        throw new Error("Trailing backslash");
+      }
+      currentToken += input[i + 1];
+      i += 2;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      i++;
+      continue;
+    }
+
+    if (inQuotes) {
+      currentToken += char;
+      i++;
+      continue;
+    }
+
+    // Not in quotes
+    if (char === " " || char === "\t") {
+      // Separator: end current token if non-empty
+      if (currentToken !== "") {
+        tokens.push(currentToken);
+        currentToken = "";
+      }
+      // Skip all consecutive separators
+      while (i < input.length && (input[i] === " " || input[i] === "\t")) {
+        i++;
+      }
+      continue;
+    }
+
+    // Normal character outside quotes
+    currentToken += char;
+    i++;
+  }
+
+  // Handle unterminated quote
+  if (inQuotes) {
+    throw new Error("Unterminated quote");
+  }
+
+  // Handle trailing token
+  if (currentToken !== "") {
+    tokens.push(currentToken);
+  }
+
+  return tokens;
+}
+```

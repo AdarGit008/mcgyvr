@@ -1,0 +1,40 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+    if (line.trim() === "") return [];
+
+    const result: string[] = [];
+    let fieldStart = 0;
+    let inQuotedField = false;
+
+    for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') {
+            if (inQuotedField) {
+                // Closing quoted field
+                result.push(line.substring(fieldStart, i));
+                inQuotedField = false;
+            } else {
+                // Opening quoted field
+                if (i > 0 && line[i - 1] !== ",") {
+                    throw new Error("A quoted field is never closed.");
+                }
+                fieldStart = i;
+                inQuotedField = true;
+            }
+        } else if (line[i] === "," && !inQuotedField) {
+            // End of a field
+            result.push(line.substring(fieldStart, i).trim());
+            fieldStart = i + 1;
+        }
+    }
+
+    // If the last character is a quote but not inside a quoted field, there's an unmatched quoted string
+    if (line.trim().endsWith('"') && !inQuotedField) {
+        throw new Error("A quoted field is never closed.");
+    }
+
+    // Add the remaining field
+    result.push(line.substring(fieldStart).trim());
+
+    return result;
+}
+```

@@ -1,0 +1,27 @@
+```ts
+export function firstUnbalanced(input: string): number {
+  const stack: { char: string; index: number }[] = [];
+  const openers = { '(': ')', '[': ']', '{': '}' };
+  const closers = { ')': '(', ']': '[', '}': '{' };
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+
+    if (openers[char] !== undefined) {
+      stack.push({ char, index: i });
+    } else if (closers[char] !== undefined) {
+      if (stack.length === 0 || stack[stack.length - 1].char !== closers[char]) {
+        return i;
+      }
+      stack.pop();
+    }
+  }
+
+  // If there are still openers left, return the index of the earliest unclosed opener
+  if (stack.length > 0) {
+    return stack[0].index;
+  }
+
+  return -1;
+}
+```

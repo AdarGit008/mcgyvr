@@ -1,0 +1,72 @@
+```ts
+/**
+ * Adds two nonnegative decimal strings of arbitrary length.
+ * @param a - First nonnegative decimal string.
+ * @param b - Second nonnegative decimal string.
+ * @returns The sum as a canonical decimal string without leading zeros.
+ * @throws Error if inputs are invalid (non-string, empty, or contain non-digit characters).
+ */
+export function addDecimalStrings(a: string, b: string): string {
+    // Validate inputs
+    if (typeof a !== 'string' || typeof b !== 'string') {
+        throw new Error('Inputs must be strings');
+    }
+    if (a.length === 0 || b.length === 0) {
+        throw new Error('Inputs must not be empty');
+    }
+    
+    // Check for invalid characters
+    const isValidDigit = (char: string): boolean => char >= '0' && char <= '9';
+    if (!a.split('').every(isValidDigit) || !b.split('').every(isValidDigit)) {
+        throw new Error('Inputs must contain only digits 0-9');
+    }
+
+    // Remove leading zeros for processing, but keep at least one digit
+    const normalize = (s: string): string => {
+        let i = 0;
+        while (i < s.length - 1 && s[i] === '0') {
+            i++;
+        }
+        return s.slice(i);
+    };
+    
+    const aNorm = normalize(a);
+    const bNorm = normalize(b);
+    
+    // Handle zero cases
+    if (aNorm === '0' && bNorm === '0') {
+        return '0';
+    }
+    
+    // Ensure a is the longer string for simpler processing
+    if (aNorm.length < bNorm.length) {
+        [aNorm, bNorm] = [bNorm, aNorm];
+    }
+    
+    const result: string[] = [];
+    let carry = 0;
+    let i = aNorm.length - 1;
+    let j = bNorm.length - 1;
+    
+    // Add digit by digit from right to left
+    while (i >= 0 || j >= 0) {
+        const digitA = i >= 0 ? parseInt(aNorm[i], 10) : 0;
+        const digitB = j >= 0 ? parseInt(bNorm[j], 10) : 0;
+        
+        const sum = digitA + digitB + carry;
+        result.push((sum % 10).toString());
+        carry = Math.floor(sum / 10);
+        
+        i--;
+        j--;
+    }
+    
+    // Add remaining carry if any
+    if (carry > 0) {
+        result.push('1');
+    }
+    
+    // Reverse and join to form the final string
+    return result.reverse().join('');
+}
+```

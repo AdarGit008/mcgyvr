@@ -1,0 +1,16 @@
+```ts
+
+function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth === 'undefined') depth = Infinity;
+
+  const checkDepth = (item, currentDepth) => {
+    if (Array.isArray(item)) {
+      if (currentDepth >= depth) return item;
+      return item.flatMap(checkDepth);
+    }
+    return item;
+  };
+
+  return items.map((item) => checkDepth(item, 0));
+}
+```

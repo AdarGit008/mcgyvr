@@ -1,0 +1,47 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+    const result: string[] = [];
+    let inQuote = false;
+    let currentField = '';
+    let i = 0;
+
+    while (i < line.length) {
+        if (line[i] === '"') {
+            if (inQuote) {
+                // Escape quote
+                currentField += '"';
+            } else {
+                inQuote = true;
+                if (currentField.trim() !== '') {
+                    throw new Error("Quoted field never closed");
+                }
+            }
+        } else if (line[i] === ',') {
+            if (!inQuote) {
+                result.push(currentField);
+                currentField = '';
+            } else {
+                currentField += ',';
+            }
+        } else if (i !== 0 && line[i - 1] === ' ') {
+            // Trim leading spaces after a delimiter
+            i++;
+            continue;
+        } else if (line[i] === '\n' || line[i] === '\r') {
+            throw new Error("CSV file must not end with newline or carriage return");
+        } else {
+            currentField += line[i];
+        }
+        i++;
+    }
+
+    // Add the last field
+    result.push(currentField);
+
+    if (inQuote) {
+        throw new Error("Quoted field never closed");
+    }
+
+    return result;
+}
+```

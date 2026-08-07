@@ -1,0 +1,21 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+   
+  let result = "";
+  let count = 1;
+  for( let i=0 ; i<input.length;i++){
+      // check if current character is not the same as previous one then append previous characters count to result and reset count to 1
+    if (input[i]!==input[i+1]){
+        result+= input[i]+count.toString();
+        count = 1;
+       }else { 
+         // just increase the run count if current character is same as previous one
+           count++;
+          }   
+    }  
+    return result ;
+ }
+```

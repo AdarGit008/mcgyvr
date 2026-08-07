@@ -1,0 +1,28 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (typeof version !== 'string') throw new Error('version must be a string');
+  if (version.startsWith('v')) version = version.slice(1);
+
+  const parts = version.split('.');
+  if (parts.length < 3) throw new Error('version must have at least three parts');
+
+  let major, minor, patch;
+  try {
+    major = parseInt(parts[0], 10);
+    minor = parseInt(parts[1], 10);
+    patch = parseInt(parts[2], 10);
+  } catch (e) {
+    throw new Error('version numbers must be digits');
+  }
+
+  let prerelease, build;
+  if (parts.length > 3) {
+    prerelease = parts.slice(3).join('.');
+  }
+  if (parts.length > 4) {
+    build = parts.slice(5).join('.');
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

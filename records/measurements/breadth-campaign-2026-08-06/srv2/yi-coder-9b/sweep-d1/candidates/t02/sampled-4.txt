@@ -1,0 +1,36 @@
+Here is a TypeScript implementation that satisfies the task requirements:
+
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals) || !intervals.length) return [];
+
+  // Clone intervals to ensure we do not mutate input nor return references to input arrays.
+  const sortedIntervals = JSON.parse(JSON.stringify(intervals));
+
+  // Sort intervals by start time, then end time in case of a tie.
+  sortedIntervals.sort((a, b) => {
+    if (a[0] !== b[0]) return a[0] - b[0];
+    else return a[1] - b[1];
+  });
+
+  // Validate intervals and check for error conditions.
+  for (let i = 0; i < sortedIntervals.length; i++) {
+    if (sortedIntervals[i][0] > sortedIntervals[i][1]) throw new Error('Invalid interval: start is greater than end');
+  }
+
+  const mergedIntervals: number[][] = [];
+  let currentInterval = sortedIntervals[0];
+
+  for (let i = 1; i < sortedIntervals.length; i++) {
+    if (sortedIntervals[i][0] <= currentInterval[1]) { // If this interval overlaps with the current one, merge them.
+      currentInterval[1] = Math.max(currentInterval[1], sortedIntervals[i][1]);
+    } else {
+      mergedIntervals.push(currentInterval);
+      currentInterval = sortedIntervals[i];
+    }
+  }
+  mergedIntervals.push(currentInterval); // Add the last interval to mergedIntervals.
+
+  return mergedIntervals;
+}
+```

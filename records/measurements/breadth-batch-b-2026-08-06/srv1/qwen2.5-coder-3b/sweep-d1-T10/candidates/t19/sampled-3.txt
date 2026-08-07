@@ -1,0 +1,12 @@
+```
+import { isFinite } from "lodash";
+
+/** Safe division that throws errors for unsupported cases. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a)) throw new Error("Both arguments must be finite numbers");
+  if (!b || !Number.isFinite(b) || Number.isNaN(b) || typeof b === "boolean") {
+    throw new Error("Divisor must be non-zero finite number or undefined/null");
+  }
+  return a / b;
+}
+```

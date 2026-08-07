@@ -1,0 +1,44 @@
+Here is the complete implementation for `topologicalSort` function:
+
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjList = new Map<string, Set<string>>();
+    const indegree = new Map<string, number>();
+      
+    for (const node of nodes) {
+        adjList.set(node, new Set());
+        indegree.set(node, 0);  
+    }
+
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error('An edge names a node not in nodes');
+        }
+        if (!adjList.get(from)?.has(to)) {  // avoid duplicate edges
+            adjList.get(from)?.add(to);   
+            indegree.set(to, indegree.get(to) as number + 1);    
+        }
+    }
+
+    const ready = nodes.filter(node => indegree.get(node) === 0);  // nodes with no incoming edges are ready
+    const result: string[] = [];
+      
+    while (ready.length > 0) {                             
+        const node = ready.shift() as string;     
+        result.push(node);       
+          
+        for (const next of adjList.get(node)?.values() || []) {  // decrement indegree for nodes this one points to
+            indegree.set(next, indegree.get(next) as number - 1);   
+              
+            if ((indegree.get(next) as number) === 0) {    
+                ready.push(next);          // if it has no more incoming edges, mark it as ready
+            }  
+        }
+    }      
+
+    if (result.length < nodes.length) {   
+        throw new Error('A cycle exists');     
+    } 
+    return result;                           
+}
+```

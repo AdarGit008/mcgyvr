@@ -1,0 +1,35 @@
+```ts
+export function firstUnbalanced(input: string): number {
+  const stack: { index: number; char: string }[] = [];
+  const bracketPairs = new Map<string, string>([
+    [')', '('],
+    [']', '['],
+    ['}', '{']
+  ]);
+  
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    
+    if ('()[]{}'.includes(char)) {
+      if (bracketPairs.has(char)) {
+        // Closing bracket
+        if (stack.length === 0 || stack[stack.length - 1].char !== bracketPairs.get(char)) {
+          return i;
+        }
+        stack.pop();
+      } else {
+        // Opening bracket
+        stack.push({ index: i, char });
+      }
+    }
+  }
+  
+  // If there are unclosed brackets, return the index of the earliest one
+  if (stack.length > 0) {
+    return stack[0].index;
+  }
+  
+  // All brackets are balanced
+  return -1;
+}
+```

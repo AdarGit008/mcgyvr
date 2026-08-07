@@ -1,0 +1,30 @@
+```typescript
+/**
+ * Parse KEY=VALUE pairs from a config file into a plain object.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Ignore blank lines and lines starting with '#'
+    if (!line.trim() || line.startsWith('#')) {
+      continue;
+    }
+    
+    const [keyTrimmed, valueTrimmed] = line.split('=', 2);
+    keyTrimmed = keyTrimmed.trim();
+    valueTrimmed = valueTrimmed.trim();
+    
+    // Split on the first '=' and trim whitespace around keys
+    const [key, value] = [keyTrimmed, valueTrimmed].filter(Boolean).split('=', 2);
+    
+    if (!value) {
+      throw new Error(`Empty key: ${line}`);
+    }
+    if (!key) {
+      throw new Error(`No '=' in line: ${line}`);
+    }
+    config[key] = value;
+  }
+  return config;
+}
+```

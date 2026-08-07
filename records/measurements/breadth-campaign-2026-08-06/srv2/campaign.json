@@ -1,0 +1,484 @@
+{
+  "endpoint": "http://srv2:11434",
+  "tiers": [
+    "d1",
+    "d2",
+    "d3"
+  ],
+  "ease": 0.9,
+  "draws": 8,
+  "models": [
+    {
+      "model": "qwen2.5-coder:1.5b",
+      "probes": {
+        "d1": {
+          "pass": 7,
+          "logic": 13,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.35
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 61,
+        "logic": 119,
+        "parse": 0,
+        "truncated": 0,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": null,
+          "t02": null,
+          "t03": null,
+          "t04": null,
+          "t05": 6,
+          "t06": null,
+          "t07": null,
+          "t08": null,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0,
+          "t13": 6,
+          "t14": 1,
+          "t15": 2,
+          "t16": null,
+          "t17": 1,
+          "t18": 6,
+          "t19": 0,
+          "t20": null
+        }
+      }
+    },
+    {
+      "model": "qwen2.5-coder:3b",
+      "probes": {
+        "d1": {
+          "pass": 11,
+          "logic": 8,
+          "parse": 0,
+          "truncated": 1,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.55
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 83,
+        "logic": 96,
+        "parse": 0,
+        "truncated": 1,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": 0,
+          "t02": 1,
+          "t03": null,
+          "t04": 1,
+          "t05": 0,
+          "t06": null,
+          "t07": null,
+          "t08": 0,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0,
+          "t13": null,
+          "t14": 1,
+          "t15": 0,
+          "t16": 3,
+          "t17": 1,
+          "t18": 0,
+          "t19": 0,
+          "t20": null
+        }
+      }
+    },
+    {
+      "model": "qwen2.5-coder:7b",
+      "probes": {
+        "d1": {
+          "pass": 13,
+          "logic": 7,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.65
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 128,
+        "logic": 52,
+        "parse": 0,
+        "truncated": 0,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": 0,
+          "t02": 2,
+          "t03": 6,
+          "t04": 0,
+          "t05": 0,
+          "t06": null,
+          "t07": null,
+          "t08": 0,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0,
+          "t13": 0,
+          "t14": 0,
+          "t15": 0,
+          "t16": 0,
+          "t17": 0,
+          "t18": 0,
+          "t19": 0,
+          "t20": null
+        }
+      }
+    },
+    {
+      "model": "yi-coder:9b",
+      "probes": {
+        "d1": {
+          "pass": 12,
+          "logic": 8,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.6
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 114,
+        "logic": 66,
+        "parse": 0,
+        "truncated": 0,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": 0,
+          "t02": 0,
+          "t03": null,
+          "t04": 3,
+          "t05": 1,
+          "t06": null,
+          "t07": null,
+          "t08": 0,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0,
+          "t13": 0,
+          "t14": 0,
+          "t15": 0,
+          "t16": 0,
+          "t17": 0,
+          "t18": 0,
+          "t19": 0,
+          "t20": null
+        }
+      }
+    },
+    {
+      "model": "deepseek-coder-v2:16b",
+      "probes": {
+        "d1": {
+          "pass": 12,
+          "logic": 8,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.6
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 105,
+        "logic": 75,
+        "parse": 0,
+        "truncated": 0,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": 5,
+          "t02": 7,
+          "t03": null,
+          "t04": null,
+          "t05": 0,
+          "t06": null,
+          "t07": null,
+          "t08": 1,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0,
+          "t13": 3,
+          "t14": 0,
+          "t15": 7,
+          "t16": 0,
+          "t17": 0,
+          "t18": 0,
+          "t19": 0,
+          "t20": null
+        }
+      }
+    },
+    {
+      "model": "qwen2.5-coder:14b",
+      "probes": {
+        "d1": {
+          "pass": 15,
+          "logic": 5,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.75
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 132,
+        "logic": 48,
+        "parse": 0,
+        "truncated": 0,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": 0,
+          "t02": 0,
+          "t03": 7,
+          "t04": 0,
+          "t05": 0,
+          "t06": 1,
+          "t07": null,
+          "t08": 0,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0,
+          "t13": 0,
+          "t14": 0,
+          "t15": 0,
+          "t16": 0,
+          "t17": 0,
+          "t18": null,
+          "t19": 1,
+          "t20": null
+        }
+      }
+    },
+    {
+      "model": "gpt-oss:20b",
+      "probes": {
+        "d1": {
+          "pass": 14,
+          "logic": 0,
+          "parse": 1,
+          "truncated": 5,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.7
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 115,
+        "logic": 3,
+        "parse": 6,
+        "truncated": 56,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": 0,
+          "t02": 4,
+          "t03": 0,
+          "t04": 3,
+          "t05": 0,
+          "t06": 4,
+          "t07": null,
+          "t08": null,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0,
+          "t13": 1,
+          "t14": 0,
+          "t15": 0,
+          "t16": 0,
+          "t17": 0,
+          "t18": 1,
+          "t19": 0,
+          "t20": null
+        }
+      }
+    },
+    {
+      "model": "qwen3:30b-a3b",
+      "probes": {
+        "d1": {
+          "pass": 1,
+          "logic": 0,
+          "parse": 0,
+          "truncated": 19,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.05
+        }
+      },
+      "stop_tier": "d1",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 8,
+        "logic": 0,
+        "parse": 0,
+        "truncated": 172,
+        "dispatch": 0,
+        "tier": "d1",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": null,
+          "t02": null,
+          "t03": null,
+          "t04": null,
+          "t05": null,
+          "t06": null,
+          "t07": null,
+          "t08": null,
+          "t09": null,
+          "t10": null,
+          "t11": null,
+          "t12": 3,
+          "t13": null,
+          "t14": 3,
+          "t15": null,
+          "t16": null,
+          "t17": null,
+          "t18": null,
+          "t19": null,
+          "t20": null
+        }
+      }
+    },
+    {
+      "model": "qwen3-coder:30b",
+      "probes": {
+        "d1": {
+          "pass": 19,
+          "logic": 1,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.95
+        },
+        "d2": {
+          "pass": 9,
+          "logic": 3,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 12,
+          "pass_rate": 0.75
+        }
+      },
+      "stop_tier": "d2",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 84,
+        "logic": 24,
+        "parse": 0,
+        "truncated": 0,
+        "dispatch": 0,
+        "tier": "d2",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": 0,
+          "t02": 0,
+          "t03": null,
+          "t04": 7,
+          "t05": 0,
+          "t06": 0,
+          "t07": 0,
+          "t08": 2,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0
+        }
+      }
+    },
+    {
+      "model": "qwen3-coder-next-ud:q3_K_XL",
+      "probes": {
+        "d1": {
+          "pass": 19,
+          "logic": 1,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 20,
+          "pass_rate": 0.95
+        },
+        "d2": {
+          "pass": 10,
+          "logic": 2,
+          "parse": 0,
+          "truncated": 0,
+          "dispatch": 0,
+          "n": 12,
+          "pass_rate": 0.833
+        }
+      },
+      "stop_tier": "d2",
+      "ceiling_not_reached": false,
+      "sweep": {
+        "pass": 90,
+        "logic": 16,
+        "parse": 0,
+        "truncated": 2,
+        "dispatch": 0,
+        "tier": "d2",
+        "draws": 8,
+        "first_pass_indices": {
+          "t01": 0,
+          "t02": 0,
+          "t03": 0,
+          "t04": null,
+          "t05": 0,
+          "t06": 0,
+          "t07": 0,
+          "t08": 0,
+          "t09": 0,
+          "t10": 0,
+          "t11": 0,
+          "t12": 0
+        }
+      }
+    }
+  ]
+}

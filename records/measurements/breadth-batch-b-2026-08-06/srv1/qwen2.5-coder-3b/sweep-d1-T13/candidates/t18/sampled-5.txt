@@ -1,0 +1,37 @@
+```ts
+import { type Event } from "./solution2";
+
+export class EventLog {
+  #events: Event[];
+
+  constructor(events?: Event[]) {
+    this.#events = events || [];
+  }
+
+  /**
+   * Record a event entry to the log.
+   * 
+   * Parameters:
+   * @param event - The details of the event which needs to be appended.
+   */
+  record(event: Event): void {
+    this.#events.push(event);
+  }
+
+  /**
+   * Fetch and return events that have occurred since the given timestamp, in chronological order.
+   * 
+   * Parameters:
+   * @param timestamp - The timestamp indicating when events should be included (included).
+   *  
+   * Returns:
+   * An array of event log entries starting from or after the specified timestamp. Events are ordered by their time occurrence.
+   */
+  since(timestamp: number): Event[] {
+    if (!Number.isInteger(timestamp) || isNaN(timestamp)) {
+      throw new Error("Timestamp must be a valid integer.");
+    }
+    return this.#events.filter((event) => event.timestamp >= timesttamp);
+  }
+}
+```

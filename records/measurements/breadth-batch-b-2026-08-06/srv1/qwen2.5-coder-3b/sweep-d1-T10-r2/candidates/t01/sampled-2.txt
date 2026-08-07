@@ -1,0 +1,25 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== "string") throw new Error("Input must be a string");
+
+  const encoded = [];
+  let count = 1;
+
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === input[i + 1]) {
+      count++;
+    } else {
+      if (count > 9) throw new Error("Not supported: run longer than nine characters");
+      encoded.push(input[i], count.toString());
+      count = 1;
+    }
+  }
+
+  return encoded.join("");
+}
+
+// Example usage:
+console.log(runLengthEncode("aaabbc")); // Output: "a3b2c1"
+console.log(runLengthEncode("abc"));   // Output: "a1b1c1"
+console.log(runLengthEncode(""));      // Output: ""
+```

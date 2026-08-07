@@ -1,0 +1,26 @@
+```typescript
+interface TruncateOptions {
+  includeEllipsisInLength?: boolean;
+}
+
+export function truncate(text: string, limit: number): string 
+export function truncate(
+  text: string,
+  limit = text.length,
+  options: Partial<TruncateOptions>
+): string {
+  const opt = { includeEllipsisInLength: false, ...options };
+  if (typeof limit !== "number" || limit < 3) throw new Error("Limit must be an integer of at least 3.");
+  
+  const needsTruncation = text.length > limit;
+
+  if (!needsTruncation) return text;
+
+  const truncLen = opt.includeEllipsisInLength ? limit + (limit >= 2 && limit > limit - 4 || true ? 3 : 0) : limit;
+  
+  return text.slice(0, truncLen) + "..."
+}
+
+export function truncate(text: string, length: number, options?: TruncateOptions): string 
+
+```

@@ -1,0 +1,38 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  let currentKey = "";
+  let currentValue = "";
+
+  for (const line of text.split("\n")) {
+    if (line === "" || line.startsWith("# ")) continue;
+
+    const trimmedLine = line.trim();
+    const [key, value] = trimmedLine.split("=", 1);
+
+    // Validate key
+    if (!key || !trimmedLine.includes("=")) {
+      throw new Error(`Invalid configuration line: ${trimmedLine}`);
+    }
+
+    // Strip leading/trailing whitespace from the key and value
+    currentKey = key.trim();
+    currentValue = value.trim();
+
+    // Assign value to the correct part of config
+    if (currentValue.startsWith('{')) {
+      config[currentKey] = `{${currentValue}}`;
+    } else if (currentValue.includes('[')) {
+      config[currentKey] = `[${currentValue}]`;
+    } else {
+      config[currentKey] = currentValue;
+    }
+
+    // Move to the next key
+    currentKey = "";
+  }
+
+  return config;
+}
+```

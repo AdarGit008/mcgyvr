@@ -1,0 +1,18 @@
+```ts
+/**
+ * The KEY=VALUE pairs of a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith("#")) continue;
+    const index = trimmedLine.indexOf("=");
+    if (index === -1) throw new Error(`No '=' found in line: "${line}"`);
+    const key = trimmedLine.slice(0, index).trim();
+    if (key === "__proto__") throw new Error("__proto__ is not allowed");
+    config[key] = trimmedLine.slice(index + 1).trim();
+  }
+  return config;
+}
+```

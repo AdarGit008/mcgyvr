@@ -1,0 +1,10 @@
+```ts
+/** Parses a configuration file into an object of string pairs. */
+export function parseConfig(text: string): Record<string, string> {
+  const config = Object.create(null) as Record<string, string>;
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const trimmedStart = line.trimStart();
+    if (trimmedStart === '' || trimmedStart.startsWith('#')) continue;
+    const idx = line.indexOf('=');
+    if (idx === -1) throw new Error(`Missing '=' in line: "${line}"`);

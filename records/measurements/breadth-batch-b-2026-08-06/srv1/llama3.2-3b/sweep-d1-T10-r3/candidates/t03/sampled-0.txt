@@ -1,0 +1,37 @@
+```typescript
+/**
+ * Parses a semantic version string into its three number parts and optional
+ * prerelease and build metadata.
+ *
+ * Throws an Error with the input string if it does not match the expected format:
+ *   - A digit followed by a dot, then another digit, then a dot, then possibly
+ *     another sequence of digits for the patch version.
+ *
+ * @param version The semantic version string to parse.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const semVerRegex = /^(\d+)\.(\d+)\.(\d+)(?:(-[a-zA-Z0-9.-]+))?(?:\+(.+))?$/;
+
+  const matches = version.match(semVerRegex);
+  
+  if (!matches) {
+    throw new Error(`Invalid semantic version string: ${version}`);
+  }
+
+  return {
+    major: parseInt(matches[1], 10),
+    minor: parseInt(matches[2], 10),
+    patch: parseInt(matches[3], 10),
+
+    prerelease: matches[4] ? matches[4] : null,
+
+    build: matches.length > 5 ? matches[5] : null,
+  };
+}
+```

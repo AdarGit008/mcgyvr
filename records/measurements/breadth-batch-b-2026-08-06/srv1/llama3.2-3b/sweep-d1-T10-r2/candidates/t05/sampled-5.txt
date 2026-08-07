@@ -1,0 +1,18 @@
+```ts
+interface Chunk<T> {
+  (items: readonly T[], size: number): T[][];
+}
+
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) throw new Error('positive integer');
+
+  const result: T[][] = [];
+
+  for (let i = 0; i < items.length; i += size) {
+    const chunk = items.slice(i, i + size);
+    result.push(chunk);
+  }
+
+  return result;
+}
+```

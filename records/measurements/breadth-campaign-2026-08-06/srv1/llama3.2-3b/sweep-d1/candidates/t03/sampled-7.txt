@@ -1,0 +1,30 @@
+```typescript
+/**
+ * Parses a semantic version string into its constituent parts.
+ *
+ * @param version The semantic version string to parse.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease?: string | null;
+  build?: string | null;
+} {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)([-\w\./]+)?(\\|+)?(.*)$/);
+  
+  if (!match) {
+    throw new Error(`Invalid semver: ${version}`);
+  }
+  
+  const [, major, minor, patch] = match.slice(1).map(Number);
+  
+  return {
+    major,
+    minor,
+    patch,
+    prerelease: match[3],
+    build: match[5],
+  };
+}
+```

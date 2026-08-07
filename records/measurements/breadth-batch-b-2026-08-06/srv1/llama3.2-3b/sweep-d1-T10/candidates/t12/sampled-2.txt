@@ -1,0 +1,9 @@
+```ts
+/**
+ * The values with all negative numbers removed.
+ */
+export function removeNegatives(values: readonly number[]): number[] {
+  // Use Array.prototype.filter() to create a new array with only non-negative values.
+  return values.filter((value, index) => value >= 0).slice();
+}
+```

@@ -1,0 +1,18 @@
+```ts
+import { isArray, isNumber } from 'lodash';
+
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (!isArray(items) || !isNumber(size)) {
+    throw new Error('Invalid arguments');
+  }
+  if (size <= 0) {
+    return [];
+  }
+
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+}
+```

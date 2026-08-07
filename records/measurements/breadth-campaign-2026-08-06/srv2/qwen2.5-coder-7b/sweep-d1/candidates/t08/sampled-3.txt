@@ -1,0 +1,58 @@
+```ts
+/**
+ * Performs topological sort on a directed acyclic graph (DAG).
+ *
+ * @param nodes - An array of node names.
+ * @param edges - An array of [from, to] pairs representing directed edges.
+ * @returns A string array representing the topologically sorted order of nodes.
+ * @throws Error if there is a cycle in the graph or an edge references a node not in the nodes list.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: { [node: string]: string[] } = {};
+    const indegree: { [node: string]: number } = {};
+
+    // Initialize graph and indegree
+    nodes.forEach(node => {
+        graph[node] = [];
+        indegree[node] = 0;
+    });
+
+    // Build the graph and compute in-degrees
+    edges.forEach(([from, to]) => {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Edge ${from} -> ${to} references a node not in nodes list.`);
+        }
+        graph[from].push(to);
+        indegree[to]++;
+    });
+
+    // Initialize the queue with nodes having zero in-degree
+    const queue: string[] = [];
+    nodes.forEach(node => {
+        if (indegree[node] === 0) {
+            queue.push(node);
+        }
+    });
+
+    // Perform topological sort
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        graph[node].forEach(neighbor => {
+            indegree[neighbor]--;
+            if (indegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        });
+    }
+
+    // Check for cycles
+    if (result.length !== nodes.length) {
+        throw new Error('Cycle detected in the graph.');
+    }
+
+    return result;
+}
+```

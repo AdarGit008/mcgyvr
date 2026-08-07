@@ -1,0 +1,46 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function parseCsvLine(line: string): string[] {
+  if (line === '') return [];
+
+  const fields = [];
+  let escaped = false;
+  let currentField = '';
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (escaped) {
+      currentField += char;
+      escaped = false;
+    } else if (char === '"') {
+      escaped = true;
+    } else if (char === ',' && !escaped) {
+      fields.push(currentField.trim());
+      currentField = '';
+    } else {
+      currentField += char;
+    }
+  }
+
+  // Add the last field if it's not empty
+  if (currentField.trim() !== '') {
+    fields.push(currentField.trim());
+  }
+
+  return fields;
+}
+
+// Testing the function with provided data points
+function check() {
+  assert.deepStrictEqual(parseCsvLine(""), []);
+  assert.deepStrictEqual(parseCsvLine("a,b,c"), ["a", "b", "c"]);
+  assert.deepStrictEqual(parseCsvLine('"a,b"c,d'), ["a,b", "c", "d"]);
+  assert.deepStrictEqual(parseCsvLine('"a,b,c"d'), ["a,b,c", "d"]);
+  assert.throws(() => parseCsvLine('"a,b,c"'), 'Unmatched quote in field');
+  console.log("All tests passed!");
+}
+
+check();
+```

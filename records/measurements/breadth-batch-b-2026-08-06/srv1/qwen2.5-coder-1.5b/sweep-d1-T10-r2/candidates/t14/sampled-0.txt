@@ -1,0 +1,16 @@
+```ts
+import { User } from './user';
+
+export interface ActiveUsers {
+  lowercasedEmails: string[];
+}
+
+export function activeEmails(users: readonly User[]): ActiveUsers {
+  return users.reduce((acc, user) => {
+    if (user.active) {
+      acc.lowercasedEmails.push(user.email.toLowerCase());
+    }
+    return acc;
+  }, { lowercasedEmails: [] });
+}
+```

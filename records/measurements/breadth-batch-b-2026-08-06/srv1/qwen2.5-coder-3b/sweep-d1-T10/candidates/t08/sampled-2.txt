@@ -1,0 +1,53 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!Array.isArray(nodes) || !nodes.every(n => typeof n === 'string')) {
+        throw new Error('Invalid nodes');
+    }
+    if (!Array.isArray(edges) || !edges.every(e => e.length === 2 && Array.isArray(e))) {
+        throw new Error('Invalid edges');
+    }
+
+    const graph: Map<string, Set<string>> = {};
+    const indegrees: Map<string, number> = new Map();
+
+    nodes.forEach(node => {
+        graph.set(node, new Set());
+        indegrees.set(node, 0);
+    });
+
+    edges.forEach(([from, to]) => {
+        if (!graph.has(from) || !graph.has(to)) {
+            throw new Error('Undefined node referenced in edge');
+        }
+        graph.get(from)?.add(to);
+        indegrees.set(to, (indegrees.get(to) || 0) + 1);
+    });
+
+    const queue: string[] = [];
+    nodes.forEach(node => {
+        if (!indegrees.has(node)) {
+            queue.push(node);
+        }
+    });
+
+    const result: string[] = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        graph.get(node)?.forEach(neighbor => {
+            indegrees.set(neighbor, indegrees.get(neighbor)! - 1);
+            if (indegrees.get(neighbor)! === 0) {
+                queue.push(neighbor);
+            }
+        });
+    }
+
+    if (result.length !== nodes.length) {
+        throw new Error('Cycle detected in graph');
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,9 @@
+```typescript
+/** Safely divides two numbers, handling zero and NaN for accuracy. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a)) throw new Error("first value must be finite");
+  if (!Number.isFinite(b) || b === 0) throw new Error("second value must be non-zero and finite");
+
+  return a / b;
+}
+```

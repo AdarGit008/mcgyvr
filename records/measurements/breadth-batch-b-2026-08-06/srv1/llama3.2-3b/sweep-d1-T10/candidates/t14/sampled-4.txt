@@ -1,0 +1,18 @@
+```typescript
+export interface User {
+  email: string;
+  active: boolean;
+}
+
+/**
+ * The lowercased addresses of the active users, in order.
+ *
+ * @param {readonly User[]} [users] - An array of user objects. This parameter is optional and defaults to an empty array if not provided.
+ */
+export function activeEmails(users?: readonly User[]): string[] {
+  const result = Array.from(users || [], user => {
+    return user.active ? user.email.toLowerCase() : undefined;
+  }).filter(Boolean);
+  return result;
+}
+```

@@ -1,0 +1,16 @@
+```typescript
+/**
+ * Flattens a deeply nested array up to a specified depth.
+ * @param items The array to flatten.
+ * @param depth The maximum depth to flatten, defaulting to Infinity.
+ * @returns A new array with elements flattened up to the specified depth.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) depth = Infinity;
+  if (typeof depth !== 'number' || depth < 0 || (depth !== Infinity && !Number.isInteger(depth)))
+    throw new Error('Depth must be a non-negative integer or Infinity.');
+  return items.flatMap(item =>
+    Array.isArray(item) && depth > 0 ? flatten(item, depth - 1) : item
+  );
+}
+```

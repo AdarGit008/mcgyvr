@@ -1,0 +1,50 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList = new Map<string, Set<string>>();
+  const inDegree = new Map<string, number>();
+
+  // Build the adjacency list and indegree map
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw new Error(`Invalid edge: ${from} or ${to}`);
+    }
+    adjacencyList.set(from, (adjacencyList.get(from) || new Set<string>()).add(to));
+    inDegree.set(to, (inDegree.get(to) || 0) + 1);
+  }
+
+  // Initialize the queue with nodes that have no dependencies
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if (!inDegree.has(node)) {
+      queue.push(node);
+    }
+  }
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (!nodes.includes(current)) {
+      throw new Error(`Invalid node: ${current}`);
+    }
+    result.push(current);
+
+    // Decrement the indegree of all neighbors
+    for (const neighbor of adjacencyList.get(current) || []) {
+      inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+      if (inDegree.get(neighbor) === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check if there are any cycles
+  for (const [node, degree] of inDegree.entries()) {
+    if (degree !== 0) {
+      throw new Error(`Cycle detected: ${nodes.filter(n => n !== node).join(', ')}`);
+    }
+  }
+
+  return result;
+}
+```

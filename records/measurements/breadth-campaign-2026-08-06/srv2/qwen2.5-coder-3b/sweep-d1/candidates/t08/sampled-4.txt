@@ -1,0 +1,61 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = buildGraph(nodes, edges);
+  const inDegree = new Map<string, number>();
+  const queue: string[] = [];
+  
+  // Initialize indegree for all nodes and find initial free nodes
+  for (const node of nodes) {
+    inDegree.set(node, 0);
+    if (!graph.has(node)) {
+      throw new Error(`Node ${node} not found.`);
+    }
+  }
+
+  for (const [from, to] of edges) {
+    if (!inDegree.has(from)) {
+      throw new Error(`Edge from ${from} to ${to} references a non-existent node.`);
+    }
+    inDegree.set(to, inDegree.get(to)! + 1);
+  }
+
+  // Add all nodes with zero indegree to the queue
+  for (const [node] of graph.entries()) {
+    if (inDegree.get(node) === 0) {
+      queue.push(node);
+    }
+  }
+
+  const result: string[] = [];
+  
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+
+    for (const neighbor of graph.get(node)!) {
+      inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+      if (inDegree.get(neighbor)! === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check for cycles
+  if (result.length !== nodes.length) {
+    throw new Error("Cycle detected in the graph.");
+  }
+
+  return result;
+}
+
+function buildGraph(nodes: readonly string[], edges: readonly (readonly [string, string])[]): Map<string, Set<string>> {
+  const graph = new Map<string, Set<string>>();
+  for (const node of nodes) {
+    graph.set(node, new Set<string>());
+  }
+  for (const [from, to] of edges) {
+    graph.get(from)?.add(to);
+  }
+  return graph;
+}
+```

@@ -1,0 +1,16 @@
+```ts
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  if (limit < 3 || !Number.isInteger(limit) || typeof text !== 'string') {
+    throw new Error('Limit must be an integer greater than or equal to 3');
+  }
+
+  if (text.length <= limit) {
+    return text;
+  }
+
+  // Truncate the text to the length `limit - 4`, with "... at the end"
+  const truncatedText = `${text.slice(0, Math.max(limit - 7, 0))}...`;
+  return truncatedText.slice(truncatedText.lastIndexOf('a') + 1); // Keep an English word
+}
+```

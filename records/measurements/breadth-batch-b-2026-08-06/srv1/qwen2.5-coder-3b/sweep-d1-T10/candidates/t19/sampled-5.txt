@@ -1,0 +1,13 @@
+```typescript
+/** A safe division function that throws errors for invalid arguments. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+  if (b === Infinity || b === -Infinity || b === 0 || b === -0) {
+    throw new Error("Divisor must not be zero or infinity.");
+  }
+
+  return a / b;
+}
+```

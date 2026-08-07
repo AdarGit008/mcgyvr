@@ -1,0 +1,16 @@
+```typescript
+/** Returns a divided by b. */
+export function safeDivide(a: number, b: number): number {
+  /**
+   * @throws {Error} If divisor is zero or if both arguments are non-finite numbers.
+   */
+  throwErrorIfInvalidInput(b);
+  return a / b;
+}
+
+function throwErrorIfInvalidInput(divisor: number): void {
+  if (typeof divisor !== 'number' || isNaN(Number(divisor))) {
+    throw new Error(`Divisor must be a finite number, got ${divisor}`);
+  }
+}
+```

@@ -1,0 +1,17 @@
+```ts
+function flatten(items: readonly unknown[], depth: number = Infinity): unknown[] {
+  if (depth === 0) {
+    return [...items];
+  }
+
+  return items.flatMap((item) => item instanceof Array ? flatten(item, depth - 1) : item);
+}
+```
+
+This solution adheres to the task contract by defining a `flatten` function that takes two parameters:
+- `items`, a string array (`readonly unknown[]`) of nested arrays and/or other types.
+- `depth`, an integer (defaulting to infinity) specifying how deeply `flatten` should iterate through nested arrays.
+
+The function checks if the depth is 0, in which case it returns a copy of the input. For non-zero depth, it uses `flatMap` to recursively flatten each array encountered within the original array, adjusting the depth accordingly. The use of `instanceof Array` ensures that strings are treated as values rather than arrays, following the problem's instruction.
+
+The function returns a new array with all nested arrays flattened up to the specified depth, adhering strictly to the interface requirements and avoiding any unexpected behavior or mutations to the input.

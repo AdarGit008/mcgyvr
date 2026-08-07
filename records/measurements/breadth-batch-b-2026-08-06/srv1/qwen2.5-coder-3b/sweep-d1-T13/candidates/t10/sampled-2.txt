@@ -1,0 +1,11 @@
+```ts
+
+import { bisectLeft } from 'bisect'
+
+export function binarySearch(items: readonly number[], target: number): number {
+  // Using TypeScript's built-in binary search to handle edge cases like empty or single-element arrays.
+  return bisectLeft(items, target) as number;
+}
+
+
+```

@@ -1,0 +1,7 @@
+```ts
+/** Parses a configuration string into an object of key/value pairs. */
+export function parseConfig(text: string): Record<string, string> {
+  const config = Object.create(null) as Record<string, string>;
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const raw

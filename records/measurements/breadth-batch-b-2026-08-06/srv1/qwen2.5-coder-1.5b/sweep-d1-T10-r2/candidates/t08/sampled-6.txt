@@ -1,0 +1,87 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const inDegrees = new Map<readonly string, number>();
+    const outgoingEdges = new Map<readonly string, readonly string[]>();
+
+    for (const node of nodes) {
+        inDegrees.set(node, 0);
+        outgoingEdges.set(node, []);
+    }
+
+    for (const [from, to] of edges) {
+        in Degrees.set(to, inDegrees.get(to)! + 1);
+        outgoingEdges.get(from)!.push(to);
+    }
+
+    const topologicallySortedNodes = [];
+    const queue: readonly string[] = [];
+
+    for (const node of nodes) {
+        if (!inDegrees.get(node)!) {
+            queue.push(node);
+        }
+    }
+
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        topologicallySortedNodes.push(current);
+
+        for (const neighbor of outgoingEdges.get(current)) {
+            inDegrees.set(neighbor, inDegrees.get(neighbor)! - 1);
+
+            if (!inDegrees.get(neighbor)!) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    const cyclesFound = new Set<readonly string[]>();
+    for (const node of nodes) {
+        let path: readonly string[] = [];
+        let current = node;
+
+        while (current && !cyclesFound.has(path)) {
+            path.push(current);
+
+            if (path.length > 1 && inDegrees.get[current] !== undefined) {
+                cyclesFound.add(path);
+                continue;
+            }
+
+            current = outgoingEdges.get(current)?.[0];
+        }
+    }
+
+    const allNodes = [...inDegrees.keys(), ...outgoingEdges.keys()];
+    const nodesAndInDegree = new Map<readonly string, [readonly string[], number]>(allNodes.map(node => [node, [inDegrees.get(node)!].sort((a, b) => a - b), 0]));
+
+    for (const edge of edges) {
+        const nodesForEdge = nodesAndInDegree.get(edge[0]);
+        if (!nodesForEdge || !nodesForEdge[0]) continue;
+
+        let isCycleFound = false;
+        for (let i = nodesForEdge[1].length - 1; i >= 0 && !isCycleFound; i--) {
+            const nodeForEdge = nodesForEdge[0][i];
+
+            if (!outgoingEdges.get(nodeForEdge)?.includes(edge[1])) continue;
+
+            isCycleFound = true;
+        }
+
+        if (isCycleFound) {
+           cyclesFound.add([edge]);
+        }
+    }
+
+    for (const cycle of cyclesFound) {
+        throw new Error(`Cyclic dependency detected: ${cycle.join(' -> ')}`);
+    }
+
+    return topologicallySortedNodes;
+}
+```
+
+Edge cases and potential improvements:
+- In the implementation, I've handled edges in arbitrary order - `topologicalSort([1, 2], [[1, 2], [2, 1]])` should be valid.
+- The current implementation does not handle cycles when there are multiple paths from one node to another. If this behavior is desired, it would involve additional data structures or logic to manage cycles.
+- The function assumes that the input nodes array contains all unique elements (no duplicates). If the input might contain duplicates, the function should either reject them at initialization time or identify and handle them appropriately, possibly by marking each node as visited or ignoring it in the algorithm.

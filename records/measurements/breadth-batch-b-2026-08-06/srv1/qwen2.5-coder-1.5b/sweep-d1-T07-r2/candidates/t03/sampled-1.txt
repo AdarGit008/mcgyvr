@@ -1,0 +1,36 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const re = /^v?((\d+)\.(\d+)\.(\d+)(?:-(.+))?(?:\+(.+))?$/;
+  const match = version.match(re);
+
+  if (!match) {
+    throw new Error(`Invalid semver format: ${version}`);
+  }
+
+  const major = parseInt(match[2], 10);
+  const minor = parseInt(match[3], 10);
+  const patch = parseInt(match[4], 10);
+
+  let prerelease = null;
+  if (match[5]) {
+    prerelease = match[5];
+  }
+
+  let build = null;
+  if (match[6]) {
+    build = match[6];
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+
+// Example usage:
+try {
+  console.log(parseSemver("1.2.3")); // { major: 1, minor: 2, patch: 3, prerelease: null, build: null }
+  console.log(parseSemver("v1.2.3")); // { major: 1, minor: 2, patch: 3, prerelease: null, build: null }
+  console.log(parseSemver("1.2.3-rc.0")); // { major: 1, minor: 2, patch: 3, prerelease: 'rc.0', build: null }
+  console.log(parseSemver("1.2.3+build.1")); // { major: 1, minor: 2, patch: 3, prerelease: null, build: 'build.1' }
+} catch (error) {
+  console.error(error);
+}
+```

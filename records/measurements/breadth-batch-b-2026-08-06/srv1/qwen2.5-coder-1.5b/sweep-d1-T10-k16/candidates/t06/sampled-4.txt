@@ -1,0 +1,39 @@
+```typescript
+function parseCsvLine(line: string): string[] {
+    if (!line.trim()) return [];
+
+    const tokens = [];
+    let currentToken = '';
+    let escaping = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        switch (char) {
+            case '"':
+                if (escaping) { // Double quote inside a quoted field
+                    currentToken += '"';
+                    escaping = false;
+                } else { // Start of a quoted field
+                    escaping = true;
+                }
+                break;
+            case ',':
+                if (!escaping) tokens.push(currentToken.trim());
+                currentToken = '';
+                break;
+            default:
+                currentToken += char;
+                escaping = false;
+        }
+    }
+
+    if (currentToken.trim()) tokens.push(currentToken trim());
+
+    // Check for unquoted fields that are never closed
+    for (const token of tokens) {
+        if (tokenincludes(',')) throw new Error('Unquoted field never closed');
+    }
+
+    return tokens;
+}
+```

@@ -1,0 +1,21 @@
+```ts
+/**
+ * Merge overlapping intervals while maintaining sorted ascending order by start.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!intervals || !Array.isArray(intervals) || intervals.length === 0)
+    return intervals;
+
+  const result = [[intervals[0][0], intervals[0][1]]];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const [start, end] = intervals[i];
+    if (start <= result[result.length - 1][1])
+      result[result.length - 1][1] = Math.max(result[result.length - 1][1], end);
+    else
+      result.push([start, end]);
+  }
+
+  return result;
+}
+```

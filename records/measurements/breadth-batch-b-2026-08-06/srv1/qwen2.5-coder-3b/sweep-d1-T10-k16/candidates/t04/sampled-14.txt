@@ -1,0 +1,114 @@
+```typescript
+type Entry<K, V> = [K, V];
+
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, Entry<K, V>>;
+  private listHead: Link<Entry<K, V>> | null;
+  private listTail: Link<Entry<K, V>> | null;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+    this.listHead = null;
+    this.listTail = null;
+  }
+
+  private getNode(key: K): Link<Entry<K, V>> | null {
+    return this.cache.get(key);
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  set(key: K, value: V): void {
+    if (!Number.isInteger(key)) {
+      throw new Error('Key must be an integer');
+    }
+    const entry = { key, value };
+    const node = getNode(key);
+
+    if (node) {
+      // Update the existing node
+      node.val = entry;
+      this.moveToFront(node);
+    } else {
+      this.cache.set(key, entry);
+      if (this.cache.size > this.capacity) {
+        this.evictLRU();
+      }
+      const newNode: Link<Entry<K, V>> = { val: entry, prev: null, next: null };
+      if (!this.listHead) {
+        this.listHead = newNode;
+        this.listTail = newNode;
+      } else {
+        this.listHead.prev = newNode;
+        newNode.next = this.listHead;
+        this.listHead = newNode;
+      }
+    }
+  }
+
+  get(key: K): V | undefined {
+    const node = getNode(key);
+    if (!node) return undefined;
+
+    this.moveToFront(node);
+
+    return node.val.value;
+  }
+
+  private evictLRU(): void {
+    const lruNode = this.listTail;
+    if (lruNode) {
+      const lruEntry = lruNode.val;
+      this.cache.delete(lruEntry.key);
+      this.removeFromList(lruNode);
+    }
+  }
+
+  private moveToFront(node: Link<Entry<K, V>>): void {
+    if (node === null) return;
+
+    if (node === this.listTail) {
+      // Node is already at the end
+      this.listTail = lruNode.prev;
+      this.cache.delete(lruEntry.key);
+      return;
+    }
+
+    node.prev?.next = node.next;
+    if (node.next) {
+      node.next.prev = node.prev;
+    } else {
+      // Node was the last node, update tail
+      this.listTail = node.prev;
+    }
+
+    node.prev = null;
+    node.next = this.listHead;
+    this.listHead!.prev = node;
+    this.listHead = node;
+  }
+
+  private removeFromList(node: Link<Entry<K, V>>): void {
+    if (node === null) return;
+
+    if (node === this.listHead) {
+      // Node is the head
+      this.listHead = node.next;
+    } else if (node === this.listTail) {
+      // Node is the tail
+      this.listTail = node.prev;
+    } else {
+      // Node is in between
+      node.prev!.next = node.next;
+      node.next?.prev = node.prev;
+    }
+  }
+}
+```

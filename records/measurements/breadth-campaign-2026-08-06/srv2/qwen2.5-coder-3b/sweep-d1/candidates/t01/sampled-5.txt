@@ -1,0 +1,23 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  
+  if (input.length === 0) return '';
+  
+  let result = '';
+  let count = 1;
+  
+  for (let i = 1; i <= input.length; i++) {
+    if (i < input.length && input[i] === input[i - 1]) {
+      count++;
+    } else {
+      result += input[i - 1] + count.toString();
+      count = 1;
+    }
+  }
+  
+  return result.slice(0, result.length - 1); // Remove the trailing '1' if it exists
+}
+```

@@ -1,0 +1,36 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals)) throw new Error("Input must be an array of intervals");
+  if (intervals.length === 0) return [];
+
+  // Sort intervals by their start time in ascending order
+  const sortedIntervals = [...intervals].sort(([a], [b]) => a - b);
+
+  // Array to store merged intervals
+  const merged: number[][] = [];
+
+  let currentInterval: [number, number] | undefined = sortedIntervals[0];
+
+  for (const [start, end] of sortedIntervals.slice(1)) {
+    if (!currentInterval || end <= currentInterval[0]) {
+      // Merge if no overlap or the end is less than the start of the next interval
+      merged.push([currentInterval![0], end]);
+    } else if (start <= currentInterval![1]) {
+      // Extend the current interval to include this one's overlap
+      currentInterval = [Math.min(currentInterval![0], start), Math.max(currentInterval![1], end)];
+    } else {
+      throw new Error("Interval error: cannot merge intervals due to invalid state");
+    }
+  }
+
+  // Handle any remaining single interval that has not been merged
+  if (
+    currentInterval &&
+    [...merged].every(([s, e]) => s !== currentInterval![0] || e !== currentInterval![1])
+  ) {
+    merged.push(currentInterval);
+  }
+
+  return merged;
+}
+```

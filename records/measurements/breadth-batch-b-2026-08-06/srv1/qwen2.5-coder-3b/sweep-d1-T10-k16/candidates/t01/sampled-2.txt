@@ -1,0 +1,26 @@
+```typescript
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  
+  const result = [];
+  let count = 1;
+  
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === input[i + 1]) {
+      count++;
+    } else {
+      result.push(input[i], count.toString());
+      count = 1;
+    }
+    
+    // Stop if the run exceeds nine characters
+    if (count > 9) {
+      throw new Error('Run length exceeds maximum of nine');
+    }
+  }
+  
+  return result.join('');
+}
+```

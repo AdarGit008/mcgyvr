@@ -1,0 +1,15 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Skip blank lines and those starting with #
+    if (/^\s*#|^$/g.test(line)) continue;
+
+    const [key, value] = line.trim().split("=", 2);
+    if (!key) throw new Error(`Empty key at line: ${line}`);
+    config[key.trim()] = value || "";
+  }
+  return config;
+}
+```

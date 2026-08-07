@@ -1,0 +1,61 @@
+```ts
+export function topoSort(n: number, edges: [number, number][]): number[] {
+  if (n < 0) {
+    throw new Error("n must be non-negative");
+  }
+
+  // Validate edges and build adjacency list and in-degree count
+  const adjacencyList: number[][] = Array.from({ length: n }, () => []);
+  const inDegree: number[] = new Array(n).fill(0);
+
+  for (const [u, v] of edges) {
+    if (!Number.isInteger(u) || !Number.isInteger(v)) {
+      throw new Error("Edge endpoints must be integers");
+    }
+    if (u < 0 || u >= n || v < 0 || v >= n) {
+      throw new Error(`Edge endpoint not in [0, ${n})`);
+    }
+    if (u === v) {
+      throw new Error("Self-loop detected");
+    }
+    adjacencyList[u].push(v);
+    inDegree[v]++;
+  }
+
+  // Initialize priority queue (using a min-heap simulation with sorted array)
+  const queue: number[] = [];
+  for (let i = 0; i < n; i++) {
+    if (inDegree[i] === 0) {
+      queue.push(i);
+    }
+  }
+
+  // Sort initially to ensure lexicographically smallest selection
+  queue.sort((a, b) => a - b);
+
+  const result: number[] = [];
+
+  while (queue.length > 0) {
+    // Take the smallest available node
+    const node = queue.shift() as number;
+    result.push(node);
+
+    // Reduce in-degree of neighbors
+    for (const neighbor of adjacencyList[node]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+        // Maintain sorted order to always pick smallest next node
+        queue.sort((a, b) => a - b);
+      }
+    }
+  }
+
+  // Check if all nodes were processed (no cycle)
+  if (result.length !== n) {
+    throw new Error("Graph contains a cycle");
+  }
+
+  return result;
+}
+```

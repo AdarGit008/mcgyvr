@@ -1,0 +1,44 @@
+```typescript
+/**
+ * Performs a topological sort on nodes given edges.
+ *
+ * Returns: An ordering of nodes that satisfies every edge. If no such ordering exists (a cycle is present), throws Error.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly ([string, string] & { [key: string]: Set<string> })[]): string[] {
+    const graph = new Map<string, Set<string>>(Array.from(edges, edge => ({ ...edge })));
+    
+    for (const node of nodes) {
+        if (!graph.has(node)) throw new Error(`Node '${node}' is not present in the edges`);
+    }
+
+    const visited: readonly boolean[] = nodes.map(() => false);
+    const currentPath: readonly Set<string> = new Set();
+    const sortedNodes = [];
+
+    for (const node of nodes) {
+        if (!visited[node]) {
+            if (!visitNode(graph, visited, currentPath, sortedNodes, node)) throw new Error('A cycle is present');
+        }
+    }
+
+    return sortedNodes;
+}
+
+function visitNode(graph: Map<string, Set<string>>, visited: readonly boolean[], currentPath: readonly Set<string>, sortedNodes: readonly string[], nodes: string): boolean {
+    if (currentPath.has(nodes)) return false;
+
+    const path = new Set(Array.from(currentPath).concat([nodes]));
+
+    for (const neighbor of graph.get(nodes)!) {
+        if (!visited[neighbor]) {
+            if (!visitNode(graph, visited, currentPath.add(neighbor), sortedNodes, neighbor)) return false;
+        }
+    }
+
+    if (!currentPath.has(...path)) visited[nodes] = true;
+    sortedNodes.push(nodes);
+    currentPath.delete(nodes);
+
+    return true;
+}
+```

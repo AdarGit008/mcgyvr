@@ -1,0 +1,38 @@
+```typescript
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  let lineIndex = 0;
+  
+  for (const line of text.split("\n")) {
+    lineIndex++;
+    
+    // Skip blank lines
+    if (!line.trim()) {
+      continue;
+    }
+    
+    // Skip comments (lines starting with #)
+    const commentStart = line.indexOf('#');
+    if (commentStart === 0) {
+      continue;
+    }
+    
+    const keyEnd = line.indexOf('=', 1);
+    if (keyEnd === -1) {
+      throw new Error(`Invalid input on line ${lineIndex}: missing '='`);
+    }
+    
+    // Trim whitespace around the key and value
+    const key = line.slice(0, keyEnd).trim();
+    const value = line.slice(keyEnd + 1).trim();
+    
+    if (!key) {
+      throw new Error(`Invalid input on line ${lineIndex}: empty key`);
+    }
+    
+    config[key] = value;
+  }
+
+  return config;
+}
+```

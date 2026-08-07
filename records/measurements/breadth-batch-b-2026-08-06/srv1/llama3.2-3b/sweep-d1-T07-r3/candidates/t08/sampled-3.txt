@@ -1,0 +1,61 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    /**
+     * Given node names and `[from, to]` edges meaning `from` must come before `to`,
+     * return an ordering satisfying every edge. When several orderings are valid,
+     * pick the one that keeps nodes in their input order - among the nodes currently
+     * free of unmet dependencies, always take the earliest in nodes.
+     *
+     * Throws an `Error` naming a cycle when no ordering exists, and an `Error`
+     * for an edge naming a node not in `nodes`.
+     */
+
+    // Create a map from edges to their reverse edges
+    const graph: { [key: string]: readonly Set<string> } = {};
+    for (const [from, to] of edges) {
+        if (!graph[from]) graph[from] = new Set();
+        if (!graph[to]) graph[to] = new Set();
+
+        // Add edge from to from in reverse
+        graph[to].add(from);
+    }
+
+    // Create a map of nodes and their out-degrees
+    const outDegree: { [key: string]: number } = {};
+    for (const node of nodes) {
+        outDegree[node] = 0;
+    }
+    for (const [from, to] of edges) {
+        outDegree[to]++;
+    }
+
+    // Create a queue of nodes with no incoming edges
+    const queue: readonly string[] = [];
+    for (const [node, degree] of Object.entries(outDegree)) {
+        if (degree === 0) {
+            queue.push(node);
+        }
+    }
+
+    // Create the topological sort
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        for (const neighbor of graph[node] || []) {
+            outDegree[neighbor]--;
+            if (outDegree[neighbor] === 0 && nodes.includes(neighbor)) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    // Check for cycles
+    if (result.length !== nodes.length) {
+        throw new Error("Cycle detected");
+    }
+
+    return result;
+}
+```

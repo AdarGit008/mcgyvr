@@ -1,0 +1,40 @@
+```typescript
+import { strict as assert } from 'assert';
+
+const MODULUS = 1000000007;
+
+/**
+ * The nth Fibonacci number, modulo 1000000007.
+ */
+export function fibMod(n: number): number {
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error("n must be a non-negative integer.");
+  }
+
+  if (n === 0) return 0;
+  if (n === 1) return 1;
+
+  let prev = 0, curr = 1;
+  for (let i = 2; i <= n; i++) {
+    const next = (prev + curr) % MODULUS;
+    prev = curr;
+    curr = next;
+  }
+  return curr;
+}
+
+// Test cases to verify the correctness of fibMod
+function testFibMod() {
+  assert.equal(fibMod(0), 0);
+  assert.equal(fibMod(1), 1);
+  assert.equal(fibMod(2), 1);
+  assert.equal(fibMod(3), 2);
+  assert.equal(fibMod(4), 3);
+  assert.equal(fibMod(5), 5);
+  assert.equal(fibMod(6), 8);
+  // Add more test cases as needed
+}
+
+// Run the test cases
+testFibMod();
+```

@@ -1,0 +1,18 @@
+```ts
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  return convertTemperature(celsius, 9/5 + 32);
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  return convertTemperature(celsius, 273.15);
+}
+
+function convertTemperature(celsius: number, factor): number {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("Both celsius and factor must be a finite number");
+  }
+  return celsius * factor;
+}
+```

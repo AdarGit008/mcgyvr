@@ -1,0 +1,40 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    /** 
+     * Merges overlapping intervals into the smallest possible non-overlapping list while preserving order. 
+     * @param intervals A list of [start, end] pairs.
+     */
+    
+    if (!intervals.length) return [];
+
+    // Sort by start value
+    intervals.sort((a, b) => a[0] - b[0]);
+
+    const merged: number[][] = [];
+    for (const interval of intervals) {
+        // If the interval is invalid, throw an error.
+        if (interval[0] > interval[1]) throw new Error('Invalid interval');
+
+        // Find the index to insert the current interval
+        let i = 0;
+        while (i < merged.length && merged[i][0] <= interval[0]) {
+            i++;
+        }
+
+        // If no such index exists, append it.
+        if (i === merged.length) {
+            merged.push(interval);
+        } else {
+            // Merge the current interval with the previous one
+            const [start, end] = merged[i - 1];
+            if (interval[0] <= end) {
+                merged[i - 1] = [start, Math.max(end, interval[1])];
+            } else {
+                merged.push(interval);
+            }
+        }
+    }
+
+    return merged;
+}
+```

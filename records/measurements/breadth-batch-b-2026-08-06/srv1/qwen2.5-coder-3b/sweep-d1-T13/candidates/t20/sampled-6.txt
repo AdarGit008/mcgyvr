@@ -1,0 +1,39 @@
+```ts
+/**
+ * The KEY=VALUE pairs of a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const parsed: Record<string, string> = {};
+  const lines = text.split("\n");
+  for (const line of lines) {
+    let key: string | null = null;
+    let value: string;
+
+    const trimmedLine = line.trimStart();
+    if (trimmedLine === "" || trimmedLine.startsWith("#")) {
+      continue;
+    }
+
+    [key, value] = trimmedLine.split("=", 2);
+
+    if (!key) {
+      throw new Error(`line ${Math.abs(
+        lines.indexOf(line)
+      ) + 1} missing a key`);
+    }
+    if (value === undefined || value === "" && key === "__proto__") {
+      throw new Error(`line ${Math.abs(lines.indexOf(line)) + 
+            1} has empty key or unsupported __proto__ line`;
+    }
+
+    // Parse the first non-spaced character to determine if the line should be ignored
+    const ignoreLine = /\s*[^\w#]/.test(trimmedLine);
+
+    if (!ignoreLine) {
+      config[key.trim()] = value?.trim();
+    }
+  }
+
+  return parsed;
+}
+```

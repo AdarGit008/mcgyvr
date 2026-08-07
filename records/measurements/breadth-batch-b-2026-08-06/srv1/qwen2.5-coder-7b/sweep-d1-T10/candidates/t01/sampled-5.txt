@@ -1,0 +1,20 @@
+```ts
+/**
+ * Replace every maximal run of one repeated character with that character followed by the run length,
+ * in order: "aaabbc" encodes to "a3b2c1". A run of length one still carries its count, so "abc"
+ * encodes to "a1b1c1". The empty string encodes to the empty string.
+ *
+ * @param input - The string to encode using run-length encoding.
+ * @returns The run-length encoded string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Invalid argument: input must be a string');
+  }
+
+  return input.split('').reduce((encoded, char, index) => {
+    const count = input.slice(index).split(char).shift().length;
+    return encoded + `${char}${count}`;
+  }, '');
+}
+```

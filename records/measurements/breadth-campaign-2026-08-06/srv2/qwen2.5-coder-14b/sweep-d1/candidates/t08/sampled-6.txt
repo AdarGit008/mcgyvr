@@ -1,0 +1,46 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Record<string, Set<string>> = {};
+  const inDegree: Record<string, number> = {};
+
+  // Initialize graph and in-degree for each node
+  nodes.forEach(node => {
+    graph[node] = new Set();
+    inDegree[node] = 0;
+  });
+
+  // Build the graph and compute in-degrees
+  edges.forEach(([from, to]) => {
+    if (!graph[from] || !graph[to]) {
+      throw new Error(`Edge references a node not in nodes: ${from} -> ${to}`);
+    }
+    graph[from].add(to);
+    inDegree[to]++;
+  });
+
+  // Find all nodes with no incoming edges
+  const zeroInDegreeNodes = nodes.filter(node => inDegree[node] === 0);
+
+  const sortedOrder: string[] = [];
+
+  while (zeroInDegreeNodes.length > 0) {
+    const currentNode = zeroInDegreeNodes.shift()!;
+    sortedOrder.push(currentNode);
+
+    // Reduce in-degree of neighbors and add to zero-in-degree list if needed
+    for (const neighbor of graph[currentNode]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        zeroInDegreeNodes.push(neighbor);
+      }
+    }
+  }
+
+  // If sortedOrder does not include all nodes, there is a cycle
+  if (sortedOrder.length !== nodes.length) {
+    throw new Error('Graph contains a cycle');
+  }
+
+  return sortedOrder;
+}
+```

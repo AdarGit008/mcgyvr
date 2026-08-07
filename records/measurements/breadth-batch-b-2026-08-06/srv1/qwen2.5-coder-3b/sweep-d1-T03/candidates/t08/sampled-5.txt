@@ -1,0 +1,48 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes.every(node => typeof node === 'string')) {
+        throw new Error('Invalid nodes: all must be strings');
+    }
+    if (!edges.every(([from, to]) => from in nodes && to in nodes)) {
+        throw new Error('Invalid edges: both nodes must exist in the nodes array');
+    }
+
+    const graph = new Map<string, Set<string>>();
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) graph.set(from, new Set());
+        graph.get(from)?.add(to);
+    }
+
+    const indegree = new Map<string, number>();
+    for (const node of nodes) {
+        indegree.set(node, 0);
+    }
+    for (const [from] of edges) {
+        indegree.set(from, indegree.get(from)! + 1);
+    }
+
+    const queue: string[] = [];
+    for (const [node, count] of indegree.entries()) {
+        if (count === 0) queue.push(node);
+    }
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        for (const neighbor of graph.get(node) || []) {
+            indegree.set(neighbor, indegree.get(neighbor)! - 1);
+            if (indegree.get(neighbor)! === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    if (result.length !== nodes.length) {
+        throw new Error('Cycle detected in the graph');
+    }
+
+    return result;
+}
+```

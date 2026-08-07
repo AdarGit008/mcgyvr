@@ -1,0 +1,28 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const regex = /^(\d+)(\.(\d+))?(\.(\d+))?(-(.+))?(\+(.+))?$/;
+    const match = version.match(regex);
+
+    if (!match) {
+        throw new Error(`Invalid semver format: ${version}`);
+    }
+
+    const [_, major, minorStr, patchStr, prerelease, _, build] = match;
+
+    let majorNum = parseInt(major, 10);
+    let minorNum = parseInt(minorStr || '0', 10);
+    let patchNum = parseInt(patchStr || '0', 10);
+
+    if (isNaN(majorNum) || isNaN(minorNum) || isNaN(patchNum)) {
+        throw new Error(`Invalid numeric part in semver: ${version}`);
+    }
+
+    return {
+        major: majorNum,
+        minor: minorNum,
+        patch: patchNum,
+        prerelease: prerelease ? prerelease : null,
+        build: build ? build : null
+    };
+}
+```

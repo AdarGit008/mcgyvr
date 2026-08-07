@@ -1,0 +1,92 @@
+```ts
+import { strict as assert } from 'assert';
+
+const cycle = (nodes: string[]):Error => new Error(`Cycle detected in topological order of nodes: ${nodes.join(', ')}`);
+const nodeNotFound = (node: string):Error => new Error(`${node} not found in nodes`);
+
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Map<string, string[]>((a, b) => a.localeCompare(b));
+  const nodeDepths = new Map<string, number>();
+  const dependencies = Object.create(null);
+  let freeNodes = [];
+
+  // Build the graph and calculate depth for each node
+  edges.forEach(edge => {
+    const [from, to] = edge;
+    if (!graph.has(from)) graph.set(from, []);
+    if (!dependencies[from]) dependencies[from] = [];
+    if (to !== from) {
+      graph.get(from).push(to);
+      dependencies[to].push(from);
+      nodeDepths.set(to, (nodeDepths.get(to) || 0) + 1);
+    }
+  });
+
+  // Collect nodes with no incoming edges
+  for (const node of nodes) {
+    if (!graph.has(node)) continue;
+    let hasChild = false;
+
+    graph.forEach((children, parent) => {
+      if (children.includes(node)) {
+        hasChild = true;
+        dependencies[parent].splice(dependencies[parent].indexOf(node), 1);
+      }
+    });
+
+    if (hasChild && !dependencies[node].includes(node)) freeNodes.push(node);
+  }
+
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    freeNodes.concat(graph.get(node)).forEach(child => {
+      const depthToNode = nodeDepths.get(node)! + 1;
+      const depthToChild = nodeDepths.get(child)!;
+
+      if (depthToNode <= depthToChild && !hasDependenciesOnNode(dependencies, child)) {
+        freeNodes.push(child);
+      }
+
+      dependencies[child].splice(dependencies[child].indexOf(node), 1);
+
+      if (children.length === dependencies[node].length) freeNodes.push(...graph.get(node));
+
+      nodeDepths.set(child, Math.max(depthToChild + 1, nodeDepths.get(child)!));
+    });
+
+    let hasChild = false;
+
+    graph.forEach((children, parent) => {
+      if (children.includes(node)) {
+        hasChild = true;
+        dependencies[parent].splice(dependencies[parent].indexOf(node), 1);
+      }
+    });
+
+    if (!hasChild && !dependencies[node].includes(node)) return [node];
+  }
+
+  throw cycle(nodes);
+}
+
+function hasDependenciesOnNode(dependencies: Record<string, string[]>, node: string): boolean {
+  for (const dependant of dependencies[node]) {
+    if (dependant in nodes) continue;
+    return true;
+  }
+  return false;
+}
+
+// Check function to verify the correctness of the generated function.
+function check() {
+  const graph = new Map([
+    ["a", ["b"]],
+    ["b", ["c"]],
+    ["c", ["d"]),
+    ["d", []]
+  ]);
+
+  const edges = [["a", "b"], ["b", "c"], ["c", "d"], ["b", "e"]];
+
+  assert.deepStrictEqual(topologicalSort(["a", "b", "c", "d", "e"], edges), ["a", "c", "b", "d", "e"], 'Topological sort of all nodes in correct order');
+  assert.deepStrictEqual(topologicalSort(["a", "b", "c"], edges.slice(0, 3)), ["a", "b", "

@@ -1,0 +1,21 @@
+```typescript
+/**
+ * The words grouped by their length, in first-seen order.
+ */
+export function groupByLength(words: readonly string[]): Map<number, ReadOnlyArray<string>> {
+  const groups = new Map();
+ - for (const word of words) {  // Remove leading dash on variable declaration
+ + for (const word in words) {   // Replace 'of' loop with correct iteration syntax
+     if (!Array.isArray(groups[word])) { // Check presence with Array.isArray to handle edge cases better
+       groups[word] = [words[word]];     // Use bracket notation properly and directly assign to map entries
+     } else {
+       (groups[word] as Array<string>).push(words[word]);
+     }
+   }
+  return groups;
+}
+
+// Define ReadOnlyArray type using mapped types for clarity
+type ReadOnlyArray<A> = number extends "never" ? A[] : { readonly [K in keyof A]: A[K & keyof A];
+}
+```

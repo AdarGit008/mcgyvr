@@ -1,0 +1,68 @@
+```ts
+export class LruCache<K, V> {
+    private cache: Map<K, V> = new Map();
+    private capacity: number;
+    private usageCount: { [key: K]: number } = {};
+
+    constructor(capacity: number) {
+        if (!Number.isInteger(capacity) || capacity <= 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+        this.capacity = capacity;
+    }
+
+    get(key: K): V | undefined {
+        const value = this.cache.get(key);
+        if (value !== undefined && this.usageCount[key] > 0) {
+            if (!this.usageCount.hasOwnProperty(key)) { // Prevent reuse of cached keys to keep track of usage
+                throw new Error('Key not used since set or get with new value');
+            }
+            this.usageCount[key]++;
+        } else {
+            this.checkAndRemoveIfCapacityExceeded();
+        }
+        return value;
+    }
+
+    set(key: K, value: V) {
+        if (this.cache.has(key)) {
+            this.usageCount[key]++;
+        } else {
+            this.clearUsageCountsUntil(key);
+
+            if (this.cache.size === this.capacity) {
+                const leastRecentlyUsedKey = [...this.cache.entries()].reduce((a, b) => a[1] < b[1] ? a : b)[0];
+                this.cache.delete(leastRecentlyUsedKey);
+            }
+        }
+        this.usageCount[key] = 1;
+        if (!this.cache.has(key)) {
+            this.cache.set(key, value);
+        }
+    }
+
+    get size(): number {
+        return this.cache.size;
+    }
+
+    private clearUsageCountsUntil(targetKey: K): void {
+        for (const [key, count] of Object.entries(this.usageCount)) {
+            if (key !== targetKey) {
+                this.usageCount[key]--;
+                if (this.usageCount[key] === 0) {
+                    delete this.usageCount[key];
+                }
+            } else {
+                return;
+            }
+        }
+    }
+
+    private checkAndRemoveIfCapacityExceeded(): void {
+        while (this.cache.size > this.capacity) {
+            const leastRecentlyUsedKey = [...this.cache.entries()].reduce((a, b) => a[1] < b[1] ? a : b)[0];
+            this.cache.delete(leastRecentlyUsedKey);
+        }
+    }
+}
+```

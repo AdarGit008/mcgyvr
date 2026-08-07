@@ -1,0 +1,16 @@
+```ts
+import { trim } from "lodash";
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  text.split("\n").forEach((line, index) => {
+    const trimmedLine = trim(line);
+    if (!trimmedLine || trimmedLine.startsWith("#")) return;
+    const [key, value] = trimmedLine.split("=", 2).map(trim);
+    if (key === "__proto__") throw new Error(`Invalid line at index ${index}: key cannot be '__proto__'`);
+    config[key] = value;
+  });
+  return config;
+}
+```

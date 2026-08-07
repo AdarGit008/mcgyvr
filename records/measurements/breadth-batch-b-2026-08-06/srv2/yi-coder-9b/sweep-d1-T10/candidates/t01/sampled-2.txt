@@ -1,0 +1,27 @@
+```ts
+interface IRunLengthEncode {
+  (input: string): string;
+}
+
+export const runLengthEncode: IRunLengthEncode = (input) => {
+  if (typeof input !== "string") {
+    throw new Error("Input is not a string.");
+  } else if (input === "") {
+    return "";
+  }
+
+  let encoded = '', currentChar = input[0], count = 1;
+
+  for(let i=1; i<input.length;i++){
+    if (currentChar == input[i]){
+      count += 1;
+    } else {
+      encoded += `${currentChar}${count}`;
+      currentChar = input[i];
+      count = 1;
+    }
+  }
+
+  return encoded + `${currentChar}${count}`;
+};
+```

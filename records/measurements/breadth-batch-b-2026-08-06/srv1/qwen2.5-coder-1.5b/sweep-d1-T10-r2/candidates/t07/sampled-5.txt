@@ -1,0 +1,57 @@
+```ts
+import { isArray } from "lodash";
+
+/**
+ * Flattens a nested array up to a specified depth level.
+ * If no depth is provided, flattens all levels.
+ * Supports strings, numbers, and objects (not arrays or Maps).
+ *
+ * @param items The array to flatten.
+ * @param depth The maximum depth level for flattening. Defaults to Infinity.
+ * @returns A new array with nested values flattened up to the specified depth.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) {
+    return [...items];
+  }
+
+  const result: unknown[] = [];
+
+  const flatArray = ( currentItem: unknown[]) => {
+    for (const item of currentItem) {
+      if (isArray(item)) {
+        // Skip string values as only arrays and objects are allowed
+        if (typeof item === "string") {
+          continue;
+        }
+        if (isFinite(depth)) {
+          if (depth > 0) {
+            flatArray(item);
+          } else {
+            result.push(...item);
+          }
+        } else if (!result.includes(item)) {
+          result.push(item);
+        }
+      } else {
+        result.push(item);
+      }
+    }
+  };
+
+  flatArray(items);
+
+  return result;
+}
+
+// Check function to verify the solution's correctness
+function checkFlatten() {
+  console.log(flatten([1, [2, [3]], 4])); // Should output [1, 2, 3, 4]
+  console.log(flatten([5, [[6]], 7], 1)); // Should output [5, 6, 7]
+  console.log(flatten(["a", "b", "c"])); // Should output ["a", "b", "c"]
+  console.log(flatten([[true, false]])); // Should output [true, false]
+  console.log(flatten(new Set([1, [2, [3]], 4]), Infinity)); // Should output a flattened copy of the set
+}
+
+checkFlatten();
+```

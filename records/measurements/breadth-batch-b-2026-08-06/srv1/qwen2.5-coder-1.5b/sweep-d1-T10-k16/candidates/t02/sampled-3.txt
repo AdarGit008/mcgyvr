@@ -1,0 +1,18 @@
+```ts
+
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.some(x => x[0] > x[1])) {
+    throw new Error("Invalid pair found");
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  return intervals.reduce((acc: number[][], [start, end]): number[][] => {
+    const currentStart = acc.length > 0 && acc[acc.length - 1][1] >= start ? acc.pop()[1] : start;
+    if (end > currentStart) {
+      acc.push([currentStart, end]);
+    }
+    return acc;
+  }, []);
+}
+```

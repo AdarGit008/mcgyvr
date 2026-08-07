@@ -1,0 +1,21 @@
+```ts
+/** An append-only log of timestamped events. */
+export interface Event { name: string; timestamp: number }
+
+export class EventLog {
+  #events: Event[] = [];
+
+  /** Append one event. */
+  record(event: Event): void {
+    if (!event || typeof event.name !== 'string' || isNaN(event.timestamp)) {
+      throw new Error('Invalid event object');
+    }
+    this.#events.push(event);
+  }
+
+  /** Every event at or after the given timestamp, in insertion order. */
+  since(timestamp: number): Event[] {
+    return this.#events.filter((event) => !isNaN(event.timestamp) && event.timestamp >= timestamp);
+  }
+}
+```

@@ -1,0 +1,22 @@
+```ts
+/**
+ * The factorial of n.
+ *
+ * @throws Error if n is negative, non-integer, or larger than 20.
+ */
+export function factorial(n: number): number {
+  if (typeof n !== 'number' || Number.isNaN(n) || !Number.isInteger(n)) {
+    throw new Error('Input must be a non-negative integer.');
+  }
+
+  const MAX_FACTORIAL = 15; // Based on the range of typical implementations
+  if (n > MAX_FACTORIAL) {
+    throw new Error(`Factorial is too large for this implementation.`);
+  }
+
+  if (n === 0) {
+    return 1;
+  }
+  return n * factorial(n - 1);
+}
+```

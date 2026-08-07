@@ -1,0 +1,53 @@
+```ts
+class LruCache<K, V> {
+  private capacity: number;
+  private cacheMap = new Map<K, { value: V; order: number }>();
+  private lastOrder = 0;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cacheMap.get(key);
+    if (!entry) return undefined;
+
+    // Update the order of accesses
+    this.lastOrder++;
+    entry.order = this.lastOrder;
+    return entry.value;
+  }
+
+  set(key: K, value: V): void {
+    const shouldEvict = !this.cacheMap.has(key) && this.cacheMap.size >= this.capacity;
+    
+    if (shouldEvict) {
+      // Find the least recently used item to evict
+      let minOrder = Infinity;
+      let candidateKey: K | undefined;
+
+      for (const [k, entry] of this.cacheMap.entries()) {
+        if (entry.order < minOrder) {
+          minOrder = entry.order;
+          candidateKey = k;
+        }
+      }
+
+      if (candidateKey !== undefined) {
+        this.cacheMap.delete(candidateKey);
+      }
+    }
+
+    // Add or update the key in the cache
+    this.lastOrder++;
+    this.cacheMap.set(key, { value, order: this.lastOrder });
+  }
+
+  get size(): number {
+    return this.cacheMap.size;
+  }
+}
+```

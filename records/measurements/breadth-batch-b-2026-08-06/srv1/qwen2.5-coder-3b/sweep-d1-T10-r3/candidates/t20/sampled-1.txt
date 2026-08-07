@@ -1,0 +1,16 @@
+```
+import { trim } from "lodash";
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const trimmedLine = trim(line);
+    if (trimmedLine.length === 0 || trimmedLine.startsWith("#")) continue;
+    const [key, value] = trimmedLine.split("=", 2).map(trim); // Split on first '='
+    if (!key) throw new Error(`Error: Empty key at line ${line}`);
+    config[key] = value;
+  }
+  return config;
+}
+```

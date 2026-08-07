@@ -1,0 +1,69 @@
+```ts
+/**
+ * Finds the first and last positions of a target value in a sorted array.
+ * Uses binary search to achieve O(log n) time complexity.
+ * Returns [-1, -1] if the target is not found.
+ */
+export function searchRange(nums: number[], target: number): [number, number] {
+    // Helper function to find the leftmost index where target could be inserted
+    // or where it appears (first occurrence)
+    const findLeftBound = (): number => {
+        let left = 0;
+        let right = nums.length;
+        
+        while (left < right) {
+            const mid = Math.floor((left + right) / 2);
+            
+            if (nums[mid] >= target) {
+                right = mid;
+            } else {
+                left = mid + 1;
+            }
+        }
+        
+        // Check if target exists at the found position
+        if (left < nums.length && nums[left] === target) {
+            return left;
+        }
+        
+        return -1;
+    };
+    
+    // Helper function to find the rightmost index where target appears (last occurrence)
+    const findRightBound = (): number => {
+        let left = 0;
+        let right = nums.length;
+        
+        while (left < right) {
+            const mid = Math.floor((left + right) / 2);
+            
+            if (nums[mid] > target) {
+                right = mid;
+            } else {
+                left = mid + 1;
+            }
+        }
+        
+        // The right bound is one position before the insertion point
+        const rightBound = left - 1;
+        
+        // Check if target exists at the found position
+        if (rightBound >= 0 && nums[rightBound] === target) {
+            return rightBound;
+        }
+        
+        return -1;
+    };
+    
+    const leftBound = findLeftBound();
+    
+    // If target not found, return [-1, -1]
+    if (leftBound === -1) {
+        return [-1, -1];
+    }
+    
+    const rightBound = findRightBound();
+    
+    return [leftBound, rightBound];
+}
+```

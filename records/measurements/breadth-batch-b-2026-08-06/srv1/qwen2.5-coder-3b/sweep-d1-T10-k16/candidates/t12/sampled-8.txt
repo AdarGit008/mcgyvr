@@ -1,0 +1,17 @@
+```
+import { cloneDeep } from "lodash";
+
+export function removeNegatives(values: readonly number[]): number[] {
+  if (values == null) {
+    throw new Error("Input must be non-null");
+  }
+  let result = cloneDeep(values);
+  for (let i = 0; i < result.length; i++) {
+    if (result[i] < 0) {
+      result.splice(i, 1);
+      i--; // adjust index since one element is removed
+    }
+  }
+  return result;
+}
+```

@@ -1,0 +1,48 @@
+Here is the implementation for `topologicalSort`:
+
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList = new Map<string, string[]>(); // To keep track of each node's dependents.
+  const inDegrees = new Map<string, number>();       // To count how many dependencies a node has.
+
+  for (const node of nodes) {
+    adjacencyList.set(node, []); 
+    inDegrees.set(node, 0);
+  }
+
+  for (const [from, to] of edges) {
+    if (!adjacencyList.has(from) || !adjacencyList.has(to)) {
+      throw new Error('An edge names a node not in nodes');
+    }
+    adjacencyList.get(from)?.push(to);  // Add to's reference into from's list.
+    inDegrees.set(to, inDegrees.get(to)! + 1); // Increase 'to' dependency count.
+  }
+
+  const ready: string[] = [];
+  for (const [node, count] of inDegrees) {
+      if (count === 0) {
+          ready.push(node);
+      }
+  }
+
+  const result: string[] = []; // The final order of nodes.
+
+  while (ready.length > 0) {
+    const node = ready.shift()!;
+    result.push(node);
+    for (const dependent of adjacencyList.get(node) || []) {
+      inDegrees.set(dependent, inDegrees.get(dependent)! -1 ); // Decrease the dependency count for 'dependent'.
+      if (inDegrees.get(dependent) === 0) {
+        ready.push(dependent);
+      }
+    }
+  }
+
+  // If there is a cycle, some nodes will never become in-degree zero and get removed from the loop above.
+  if (result.length < nodes.length) {
+    throw new Error('A cycle exists');
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,49 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const regex = /^v?(\d+)\.(\d+)\.(\d+)(?:-(.+))?(?:\+(.+))?$/;
+  const match = version.match(regex);
+
+  if (!match || !match[1] || !match[2] || !match[3]) {
+    throw new Error(`Invalid semantic version string: ${version}`);
+  }
+
+  const major = parseInt(match[1], 10);
+  const minor = parseInt(match[2], 10);
+  const patch = parseInt(match[3], 10);
+
+  let prerelease = match[4] ? match[4].replace(/-/g, '.').split('.') : null;
+  let build = match[5] ? match[5].replace(/-/g, '.').split('.') : null;
+
+  if (prerelease && prerelease.some(part => isNaN(parseInt(part)) || part.length === 0)) {
+    throw new Error(`Invalid prerelease in version string: ${version}`);
+  }
+
+  if (build && build.some(part => isNaN(parseInt(part)) || part.length === 0)) {
+    throw new Error(`Invalid build in version string: ${version}`);
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+
+// Check function to verify the correctness of the solution
+function check() {
+  console.assert(JSON.stringify(parseSemver("1.2.3")) === JSON.stringify({ major: 1, minor: 2, patch: 3, prerelease: null, build: null }), 'Example 1 failed');
+  console.assert(JSON.stringify(parseSemver("v1.2.3")) === JSON.stringify({ major: 1, minor: 2, patch: 3, prerelease: null, build: null }), 'Example 2 failed');
+  console.assert(JSON.stringify(parseSemver("1.2.3-alpha")) === JSON.stringify({ major: 1, minor: 2, patch: 3, prerelease: ['alpha'], build: null }), 'Example 3 failed');
+  console.assert(JSON.stringify(parseSemver("1.2.3-beta+build01")) === JSON.stringify({ major: 1, minor: 2, patch: 3, prerelease: ['beta'], build: ['build01'] }), 'Example 4 failed');
+
+  try {
+    parseSemver("1.2.3-v");
+  } catch (error) {
+    console.assert(error.message === "Invalid semantic version string: 1.2.3-v", 'Example 5 failed');
+  }
+
+  try {
+    parseSemver("0.0.0-alpha+2");
+  } catch (error) {
+    console.assert(error.message === "Invalid prerelease in version string: 0.0.0-alpha+2", 'Example 6 failed');
+  }
+}
+
+check();
+```

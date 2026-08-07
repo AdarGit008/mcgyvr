@@ -1,0 +1,12 @@
+```ts
+/** Safe division that throws errors for invalid inputs. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a)) {
+    throw new Error("Invalid dividend");
+  }
+  if (!Number.isFinite(b) || isNaN(b)) {
+    throw new Error("Invalid divisor or not a finite number");
+  }
+  return a / b;
+}
+```

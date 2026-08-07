@@ -1,0 +1,25 @@
+```ts
+export interfaceemperatureConvertorFunctions {
+  (celsius: number): number;
+}
+
+const validateCelsius(celsius: number): temperatureConvertorFunctions {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("must be at or above absolute zero");
+  }
+  return celsius;
+}
+
+export function celsiusToFahrenheit(celsius: number): number {
+  validateCelsius(celsius);
+  return celsius * 1.8 + 32;
+}
+
+export function celsiusToKelvin(celsius: number): number {
+  const validCelsius = validateCelsius(celsius);
+  return validCelsius + 273.15;
+}
+```

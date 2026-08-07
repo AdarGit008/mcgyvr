@@ -1,0 +1,37 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: { [key: string]: string[] } = {};
+  const inDegree: { [key: string]: number } = {};
+
+  nodes.forEach((node) => {
+    graph[node] = [];
+    inDegree[node] = 0;
+  });
+
+  edges.forEach(([from, to]) => {
+    if (!nodes.includes(from) || !nodes.includes(to)) throw new Error(`Node in edge not found: ${from} or ${to}`);
+    graph[from].push(to);
+    inDegree[to]++;
+  });
+
+  const queue: string[] = nodes.filter(node => inDegree[node] === 0);
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+
+    graph[node].forEach(neighbor => {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    });
+  }
+
+  if (result.length !== nodes.length) throw new Error('Acyclic digraph but result does not match node count');
+
+  return result;
+}
+```

@@ -1,0 +1,38 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Map<string, Set<string>>();
+
+  // Build the graph
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw new Error(`Edge names must be in nodes`);
+    }
+    if (!graph.has(from)) {
+      graph.set(from, new Set());
+    }
+    graph.get(from)?.add(to);
+  }
+
+  const freeNodes = [...nodes];
+  const result: string[] = [];
+
+  while (freeNodes.length > 0) {
+    const freeNode = freeNodes.shift()!;
+    if (!graph.has(freeNode)) continue;
+
+    // Find dependencies of the current node
+    const dependencies = graph.get(freeNode)!;
+    for (const dep of dependencies) {
+      // If a dependency is not in the result, there's a cycle
+      if (!result.includes(dep)) {
+        throw new Error(`Cycle detected`);
+      }
+    }
+
+    // Add the free node to the result
+    result.push(freeNode);
+  }
+
+  return result;
+}
+```

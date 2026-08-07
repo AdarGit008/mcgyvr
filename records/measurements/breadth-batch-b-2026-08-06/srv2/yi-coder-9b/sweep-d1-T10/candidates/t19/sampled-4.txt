@@ -1,0 +1,10 @@
+```ts
+/** a divided by b. */
+export function safeDivide(a: number, b: number): number {  
+    if (isNaN(a) || isNaN(b)) throw new Error('Arguments must be numbers');
+    if ([Infinity, -Infinity].includes(a) || [Infinity, -Infinity].includes(b)) throw new Error('Arguments cannot be infinite values') 
+    if (typeof a === 'boolean' || typeof b === 'boolean') throw new Error('Boolean is not acceptable as argument');
+    if (b === 0)  throw new Error('Can\'t divide by zero');
+    return a / b;
+}
+```

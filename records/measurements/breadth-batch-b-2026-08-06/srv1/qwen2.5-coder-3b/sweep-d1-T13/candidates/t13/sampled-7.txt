@@ -1,0 +1,39 @@
+```typescript
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  if (!Number.isInteger(limit) || limit < 3) {
+    throw new Error("limit must be an integer of at least 3");
+  }
+  if (text.length <= limit) {
+    return text;
+  }
+
+  const ellipsis = "...";
+  if (len(ellipsis) > limit) {
+    throw new Error(`Ellipsis length (${len(ellipsis)}) exceeds limit(${limit})`);
+  }
+
+  // Calculate how many characters of ellipsis to include
+  const overlap = ellipsis.split("").filter(c => c === " ").reduce(
+    (sum, char) => sum + len(char),
+    0
+  );
+  const includedEllipsisChars = Math.min(ellipsis.length - overlap, limit - text.length);
+
+  return (
+    text.slice(0, limit - includedEllipsisChars) +
+    ellipsis.substring(len("...") - includedEllipsisChars)
+  );
+}
+
+// Helper function to check the length of a string in characters, not including astral characters
+function len(s: string): number {
+  const m = s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "").length;
+  return m;
+}
+```
+
+Description:
+1. Adjusted the logic to properly account for overlapping whitespace in ellipsis strings.
+2. Introduced a helper function `len` to accurately calculate the length of the string by treating astral characters correctly.
+3. Improved robustness: now throw an error if the ellipsis is longer than the limit before any processing.

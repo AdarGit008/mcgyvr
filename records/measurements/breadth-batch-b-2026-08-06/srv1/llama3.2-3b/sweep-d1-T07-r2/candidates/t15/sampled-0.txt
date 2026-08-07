@@ -1,0 +1,31 @@
+```typescript
+/** Returns temperature in Fahrenheit from Celsius, or Kelvin if specified. */
+export function celsiusToFahrenheit(celsius: number): number {
+  throw new Error("Not implemented");
+}
+
+/** Returns temperature in kelvin from Celsius. */
+export function celsiusToKelvin(celsius: number): number {
+  throw new Error("Not implemented");
+}
+
+function validateTemperature(t: number): void {
+  if (typeof t !== "number" || !Number.isFinite(t)) {
+    throw new Error("must be a finite number");
+  }
+  if (t < -273.15) {
+    throw new Error(" must be at or above absolute zero");
+  }
+}
+
+// Implementation
+function celsiusToFahrenheit(celsius: number): number {
+  validateTemperature(celsius);
+  return celsius * 1.8 + 32;
+}
+
+function celsiusToKelvin(celsius: number): number {
+  validateTemperature(celsius);
+  return celsius + 273.15;
+}
+```

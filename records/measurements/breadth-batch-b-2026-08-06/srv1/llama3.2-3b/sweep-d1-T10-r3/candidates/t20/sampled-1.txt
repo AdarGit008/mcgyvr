@@ -1,0 +1,35 @@
+```typescript
+/**
+ * Parses and returns the KEY=VALUE pairs from the given text,
+ * ignoring blank lines and lines starting with '#', trimming whitespace
+ * around keys and values, splitting on the first '=' character if present.
+ *
+ * Throws an Error specifying the line number for a line with no '=' 
+ * or an empty key, and ensures each resulting key-value pair is
+ * stored as a property of the returned object that does not reach 
+ * the prototype chain.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  const lines = text.split("\n").filter(line => line.trim());
+  
+   for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const trimmedLine = line.replace(/^#|^\s+/, '');
+    if (!trimmedLine || !trimmedLine.includes('=')) {
+        throw new Error(`Invalid config line at line ${i + 1}: ${line}`);
+    }
+    
+      const [key, value] = trimmedLine.split(/=/
+       , 2).map(v => v.trim());
+    if (value && key.trim()) {
+     config[key] = value;
+    } else {  // no '=' means no valid pair
+        throw new Error(`Empty key at line ${i + 1}: "${line}"`);
+    }
+   }
+
+  return config;
+}
+```

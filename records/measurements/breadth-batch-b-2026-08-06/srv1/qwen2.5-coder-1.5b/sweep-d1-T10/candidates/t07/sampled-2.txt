@@ -1,0 +1,21 @@
+```ts
+import { isArray } from 'lodash-es';
+
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !=='number' || depth < 0) {
+    throw new Error('depth must be a non-negative integer or Infinity');
+  }
+
+  const out = [];
+  for (let item of items) {
+    if (isArray(item) && depth > 1) {
+      let depthCopy = !depth || depth === -1 ? Math.max(...item.map(depth => depth + 1)) : depth;
+      out.push(...flatten(item, depthCopy));
+    } else {
+      out.push(item);
+    }
+  }
+
+  return out;
+}
+```

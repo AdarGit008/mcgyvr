@@ -1,0 +1,50 @@
+```typescript
+/**
+ * An append-only log of timestamped events.
+ */
+export interface EventLog {
+  /**
+   * Append one event to the log.
+   *
+   * @param event The event to record. Must have 'name' and 'timestamp' properties.
+   */
+  record(event: Event): void;
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   *
+   * @param timestamp The timestamp from which to filter events.
+   */
+  since(timestamp: number): Event[];
+}
+
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+export class EventLog {
+  private #events = [];
+
+  /**
+   * Append one event to the log.
+   *
+   * @param event The event to record. Must have 'name' and 'timestamp' properties.
+   */
+  record(event: Event): void {
+    if (!('name' in event) || !('timestamp' in event)) {
+      throw new Error(`Invalid event: ${Event.name}, ${Event.timestamp}`);
+    }
+    this.#events.push(event);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   *
+   * @param timestamp The timestamp from which to filter events.
+   */
+  since(timestamp: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp || isNaN(event.timestamp));
+  }
+}
+```

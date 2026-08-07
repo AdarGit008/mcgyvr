@@ -1,0 +1,11 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined || IsFinite(depth)) {
+    return recursivelyFlatten(items, depth);
+  } else throw new Error('Depth must be an integer or Infinity');
+}
+
+function IsFinite(value: unknown): boolean {
+  return typeof value === 'number' && !isNaN(value) && isFinite(value);
+}
+```

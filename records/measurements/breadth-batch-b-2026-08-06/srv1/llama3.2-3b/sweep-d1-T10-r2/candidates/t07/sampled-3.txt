@@ -1,0 +1,48 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    /**
+     * Returns a new array with nested arrays flattened up to specified depth levels,
+     * defaulting to every level. Nested arrays whose elements are strings are not processed.
+     * A depth of 0 returns a copy of the input unchanged. The input must not be mutated.
+     */
+    
+    if (depth === undefined) {
+        throw new Error('Depth value is required');
+    }
+    
+    if (!Number.isInteger(depth) || ( Infinity !== depth && depth < 0)) {
+        throw new Error('Depth must be a non-negative integer or Infinity');
+    }
+    
+    function recursiveFlatten(parent: readonly unknown[][], current: number, depthRemain: number): readonly unknown[][] {
+        
+        return parent.reduce((result, item) => {
+            const lengthItem = Array.isArray(item) ? item.length : 0;
+            
+            if (depthRemaining <= 0 || typeof item === 'string') {
+                
+                result.push(recursiveFlatten(parent.map(i => i.includes(item)), current + 1, depth - depthRemain));
+            } else { 
+                
+                const lengthList = Array.isArray(item) ? lengthItem : 0;
+                
+                if (lengthItem === lengthList) {
+                    
+                    return [...result, item];
+                }
+            }
+            
+            return result;
+        }, []),
+        
+        function adjustItem(item: unknown): readonly unknown[][] {
+            if (typeof item === 'string') { return [item]; } else { return [item]; };
+        })();
+    }
+    
+    const depthRemain = depth as number;
+    const parent = [];
+    
+    return recursiveFlatten(parent, 0, depthRemain).flatMap(adjustItem);
+}
+```

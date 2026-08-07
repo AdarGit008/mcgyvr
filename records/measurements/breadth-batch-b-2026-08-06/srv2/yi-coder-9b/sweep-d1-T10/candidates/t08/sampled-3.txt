@@ -1,0 +1,43 @@
+Here is a possible implementation for topologicalSort function:
+
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjacencyList = new Map<string, string[]>();
+    const inDegreeCounts = new Map<string, number>();
+  
+    for (const node of nodes) {
+        adjacencyList.set(node, []);
+        inDegreeCounts.set(node, 0);
+    }
+  
+    for (const [from, to] of edges) {
+        if (!adjacencyList.has(from) || !adjacencyList.has(to)) {
+            throw new Error('An edge names a node not in nodes.');
+        }
+        adjacencyList.get(from)?.push(to);
+        inDegreeCounts.set(to, (inDegreeCounts.get(to) || 0) + 1);      
+    }                  
+  
+    const zeroInDegreeNodes = [...inDegreeCounts].filter(([_node, inDegree]) => inDegree === 0).map(([node]) => node);
+    const sorted: string[] = [];
+  
+    while (zeroInDegreeNodes.length > 0) {
+        const from = zeroInDegreeNodes.shift() as string; // Assumed to exist according to the while condition.
+        sorted.push(from);
+      
+        for (const to of adjacencyList.get(from) || []) {
+            inDegreeCounts.set(to, inDegreeCounts.get(to) - 1 as number);  
+            if (inDegreeCounts.get(to) === 0) {
+                zeroInDegreeNodes.push(to);              
+            }
+        }      
+    }          
+  
+     // If all nodes are in sorted, there were no cycles; else return an error.
+    if (sorted.length < nodes.length) {
+        throw new Error('No ordering exists because of a cycle.'); 
+    };       
+  
+    return sorted;      
+}
+```

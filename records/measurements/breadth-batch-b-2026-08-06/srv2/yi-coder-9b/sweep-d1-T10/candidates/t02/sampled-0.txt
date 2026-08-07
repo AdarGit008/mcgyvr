@@ -1,0 +1,35 @@
+Here is the implementation according to given problem:
+
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals) || intervals.length === 0) return [];
+
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]); // Sort by start of every interval
+  let result: number[][] = [];
+
+  for (let i = 0; i < sorted.length - 1; ++i) {
+    const current = [...sorted[i]];
+
+    // Validate the pair, if start > end throw an error
+    if(current[0] > current[1]){
+        throw new Error('Invalid interval');
+    }  
+
+    // While the next interval overlaps with current 
+    while (i < sorted.length - 1 && (sorted[i + 1][0] <= current[1])) {
+      current[1] = Math.max(current[1], sorted[i + 1][1]); // Extend the end of this interval
+         
+      ++i;
+    }
+
+    result.push(current);  // Push new merged interval to result-set 'res'.
+  }
+
+  if (intervals[intervals.length - 1][0] > intervals[intervals.length - 1][1]){
+      throw new Error('Invalid interval');
+  }    
+
+  result.push([...intervals[intervals.length - 1]]); // Push the last pair since it was not checked in loop above
+  return result;
+}
+```

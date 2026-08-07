@@ -1,0 +1,30 @@
+```
+import { filter, map } from 'lodash';
+import isEqual from 'lodash/isEqual';
+
+// Importing lodash functions for functional programming and equality checks
+function normalizeEmail(email: string): string {
+  return email?.toLowerCase() || '';
+}
+
+export interface User {
+  email: string;
+  active?: boolean;
+}
+
+/** The lowercased addresses of the active users, in order. */
+export function activeEmails(users: readonly User[]): string[] {
+  return filter(
+    map(users as User[], (user) => ({
+      rawEmail: user.email ?? '',
+      isActive: Boolean(user.active),
+    })),
+    { isValidEmail: true } // Simplified check for active user with fallback to false
+  ).map(normalizeEmail);
+}
+
+// Type guards for simplification
+function isUser(obj: any): obj is User {
+ return obj && typeof obj?.email === 'string' && (obj?.active as boolean | undefined) !== undefined;
+}
+```

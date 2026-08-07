@@ -1,0 +1,12 @@
+```ts
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== 'number' || limit < 3) {
+    throw new Error('Limit must be integer at least 3');
+  }
+  return text.length <= limit
+    ? text
+    : `${text.slice(0, limit - 3)}...`;
+
+}
+```

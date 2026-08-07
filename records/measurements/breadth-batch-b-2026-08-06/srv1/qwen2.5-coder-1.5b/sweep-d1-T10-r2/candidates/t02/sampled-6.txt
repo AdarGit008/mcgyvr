@@ -1,0 +1,22 @@
+```ts
+
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.some(interval => interval[0] > interval[1])) {
+    throw new Error('Non-overlapping intervals');
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const result: number[][] = [];
+  let currentInterval = intervals.shift();
+
+  while (currentInterval) {
+    result.push(currentInterval);
+    while (intervals.length > 0 && intervals[0][0] <= currentInterval[1]) {
+      currentInterval = [...currentInterval, ...intervals.shift()];
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,20 @@
+```typescript
+/** The index of target in a sorted array, or -1 if not found. */
+export function binarySearch(items: readonly number[], target: number): number {
+  let low = 0;
+  let high = items.length;
+  // High is now exclusive for inclusion check, ensuring full range search.
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid; // Decrease high to search in the left half.
+    }
+  }
+  return -1;
+}
+```

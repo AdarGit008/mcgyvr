@@ -1,0 +1,32 @@
+```ts
+/**
+ * Encodes a string by replacing every maximal run of one repeated character with that character followed by the run length.
+ * A run of length one still carries its count, so "abc" encodes to "a1b1c1".
+ * The empty string encodes to the empty string. Throws an Error if the argument is not a string.
+ *
+ * @param input The string to encode.
+ * @returns The encoded string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let encoded = '';
+  let count = 1;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    const nextChar = i + 1 < input.length ? input[i + 1] : '';
+
+    if (char === nextChar) {
+      count++;
+    } else {
+      encoded += char + (count > 1 ? count.toString() : '');
+      count = 1;
+    }
+  }
+
+  return encoded;
+}
+```

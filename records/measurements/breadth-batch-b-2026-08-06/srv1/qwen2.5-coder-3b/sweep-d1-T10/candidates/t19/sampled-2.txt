@@ -1,0 +1,14 @@
+```ts
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a)) {
+    throw new Error("a is not finite.");
+  }
+  if (!Number.isFinite(b)) {
+    throw new Error("b is not finite.");
+  }
+  if (b === 0 || b === -0) {
+    throw new Error("Division by zero is undefined.");
+  }
+  return a / b;
+}
+```

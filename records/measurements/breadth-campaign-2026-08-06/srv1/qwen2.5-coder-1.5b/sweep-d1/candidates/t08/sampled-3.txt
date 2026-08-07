@@ -1,0 +1,40 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Map<string, Set<string>>();
+
+  for (const edge of edges) {
+    const [from, to] = edge;
+    if (!graph.has(from)) {
+      graph.set(from, new Set());
+    }
+    graph.get(from)?.add(to);
+  }
+
+  const inDegree = new Map<string, number>();
+  nodes.forEach(node => {
+    inDegree.set(node, graph.has(node) ? graph.get(node)?.size() : 0);
+  });
+
+  const freeNodes = [...nodes.filter(node => inDegree.get(node)! === 0)];
+
+  if (freeNodes.length === 0) {
+    throw new Error('Graph is cyclic');
+  }
+
+  const ordering: string[] = [];
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    ordering.push(node);
+    graph.set(node, undefined!);
+
+    for (const neighbor of graph.get(node)! || []) {
+      inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+      if (inDegree.get(neighbor)! === 0) {
+        freeNodes.push(neighbor);
+      }
+    }
+  }
+
+  return ordering;
+}
+```

@@ -1,0 +1,46 @@
+```ts
+export class LruCache<K, V> { 
+  private capacity: number;
+  private cache: Map<K, V>;
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) throw Error('Capacity must be a positive integer');
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+  
+  get(key: K): V | undefined {
+    const hasKey = this.cache.has(key);
+    if (!hasKey) return undefined; 
+      // The get operation should not count as a use in the problem description, so we return here if key is found.
+
+  // If the key exists, move it to the end because it has been used
+    const val = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, val!); 
+    return val;
+}
+
+  
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) { // If the key already exists, update the value and move it to the end
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.capacity) { 
+        // If cache is full, remove the oldest entry which is at the beginning of Map.
+      this.cache.delete(this.getLeastRecentlyUsedKey()!);
+  }
+   this.cache.set(key, value); // Add new or updated entry to the end.
+ }
+    // Returns size of cache
+  get size(): number {
+    return this.cache.size;
+  } 
+
+  private getLeastRecentlyUsedKey() : K | undefined { 
+   if(this.cache.size == 0) return undefined;
+   else{
+       // Since Map preserves insertion order, the first element is LRU.
+     return this.cache.keys().next().value; 
+    }  
+ }
+```

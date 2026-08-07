@@ -1,0 +1,37 @@
+```typescript
+/**
+ * Parse a config file into a Record<string, string>.
+ *
+ * Ignores blank lines and lines starting with "#". Trims whitespace from key
+ * and value, splits on the first "=". Throws an Error when encountering a line
+ * without an "=" or a zero-length key.
+ *
+ * @param text The contents of the config file.
+ */
+export function parseConfig(text: string): Record<string | Symbol, string> {
+  const config: Record<infer Key, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line || line.trimLeft().startsWith("#")) {
+      continue;
+    }
+    let [keyValue] = line.trim();
+    let key: string;
+    let value: string;
+    const equalsIndex = keyValue.indexOf("=");
+    if (equalsIndex !== -1) {
+      [key, value] = [keyValue.slice(0, equalsIndex), keyValue.slice(equalsIndex + 1)];
+      key = key.trim();
+      value = value.trim();
+    } else {
+      const errorLine = line;
+      throw new Error(`Invalid line: ${errorLine}`);
+    }
+    if (!key.length) {
+      const errorLine = line;
+      throw new Error(`Empty key in line: ${errorLine}`);
+    }
+    config[key] = value;
+  }
+  return config;
+}
+```

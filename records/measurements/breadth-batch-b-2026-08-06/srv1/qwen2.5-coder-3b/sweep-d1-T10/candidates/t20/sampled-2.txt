@@ -1,0 +1,35 @@
+```ts
+import { isNilOrEmpty } from "./utils";
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  
+  // Split the text into lines and iterate over them
+  for (const line of text.split("\n")) {
+    const trimmedLine = line.trim();
+    
+    // Ignore blank lines or comment lines starting with '#'
+    if (!trimmedLine || trimmedLine.startsWith("#")) continue;
+    
+    // Check if there's an = sign in the line
+    if (!trimmedLine.includes("=")) {
+      throw new Error(`Invalid config file: no '=' found on line "${trimmedLine}"`);
+    }
+    
+    // Split the line into key and value using the first = as a delimiter
+    const [key, value] = trimmedLine.split("=", 2);
+    key.trim();
+    
+    // Ensure the key does not reach Object.prototype by checking for '__proto__'
+    if (key === "__proto__") {
+      throw new Error(`Invalid config file: cannot set '__proto__' as a key`);
+    }
+    
+    // Store the key-value pair in the config object
+    config[key] = value;
+  }
+  
+  return config;
+}
+```

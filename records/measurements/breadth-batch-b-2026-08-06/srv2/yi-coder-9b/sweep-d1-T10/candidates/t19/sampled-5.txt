@@ -1,0 +1,9 @@
+```typescript
+/** divides a by b safely. */
+export function safeDivide(a: number, b: number): number {
+  if (b === 0 || !isFinite(a) || !isFinite(b)) {
+    throw new Error('Invalid arguments for division');
+  }
+  return a / b;
+}
+```

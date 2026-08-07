@@ -1,0 +1,37 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') throw new Error('Input must be a string');
+
+  const result: string[] = [];
+  let currentField = '';
+  let inQuotedField = false;
+  let doubleQuoteCount = 0;
+
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') {
+      if (inQuotedField && doubleQuoteCount % 2 === 1) {
+        // Found a literal double quote inside an unquoted field
+        currentField += '"';
+      } else {
+        inQuotedField = !inQuotedField;
+        doubleQuoteCount++;
+      }
+    } else if (line[i] === ',' && !inQuotedField) {
+      result.push(currentField.trim());
+      currentField = '';
+    } else {
+      currentField += line[i];
+    }
+
+    // Handle the case where there's an unbalanced quote at the end
+    if (!inQuotedField && doubleQuoteCount % 2 !== 0) {
+      throw new Error('Unterminated quoted field');
+    }
+  }
+
+  // Add the last field if any is present and not empty
+  if (currentField.trim() !== '') result.push(currentField);
+
+  return result;
+}
+```

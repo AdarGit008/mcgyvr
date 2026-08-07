@@ -1,0 +1,69 @@
+```ts
+/**
+ * Splits one line of CSV into its fields on commas.
+ * A field wrapped in double quotes may contain commas,
+ * and a doubled quote inside such a field means one literal quote character;
+ * the surrounding quotes are not part of the value. Fields that are not quoted
+ * are taken literally, including any surrounding spaces. An empty line is
+ * one empty field. Throws an Error for a quoted field that is never closed.
+ *
+ * @param line The CSV line to split.
+ * @returns An array of fields in the CSV line.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (line.trim() === "") return [];
+
+  const fields: string[] = [];
+  let currentField = "";
+  let escaping = false;
+  let inQuotes = false;
+
+  for (const char of line) {
+    if (escaping) {
+      if (char === '"') currentField += '"';
+      else currentField += char;
+      escaping = false;
+    } else if (inQuotes && char === '"') {
+      if (currentField.endsWith('"')) {
+        inQuotes = false;
+        fields.push(currentField.slice(0, -1));
+        currentField = "";
+      } else {
+        currentField += '"';
+      }
+    } else if (char === ',') {
+      if (!inQuotes) fields.push(currentField);
+      currentField = "";
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+      currentField += char;
+    } else {
+      currentField += char;
+    }
+
+    escaping = char === '"';
+  }
+
+  if (currentField.trim() !== "") fields.push(currentField);
+
+  return fields;
+}
+
+// Check function to verify the correctness of the solution
+function checkParseCsvLine() {
+  console.assert(parseCsvLine("") === [], 'Empty line should return empty array');
+  console.assert(parseCsvLine("a,b,c") === ["a", "b", "c"], 'Single element line should return [single]');
+  console.assert(parseCsvLine('"abc,def","ghi,jkl"') === ["abc,def", "ghi,jkl"], 'Quoted field with commas should be preserved');
+  console.assert(parseCsvLine('1,2,"3,4,5"') === ["1", "2", "3,4,5"], 'Nested quoted field with commas should be preserved');
+  console.assert(parseCsvLine('"1","2,3,"4,5"') === ["1", "2,3", "4,5"], 'Quoted field with nested quotes should be preserved');
+  try {
+    parseCsvLine('a,b,c,d');
+    console.log("'a,b,c,d' -> Passed");
+  } catch (e) {
+    console.error("'a,b,c,d' -> Failed: ", e);
+  }
+}
+
+// Run the check function
+checkParseCsvLine();
+```

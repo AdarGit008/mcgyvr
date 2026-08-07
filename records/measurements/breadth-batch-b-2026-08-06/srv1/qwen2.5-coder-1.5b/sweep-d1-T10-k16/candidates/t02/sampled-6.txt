@@ -1,0 +1,39 @@
+```ts
+
+// Merge an array of [start, end] arrays into a single array of non-overlapping intervals, sorted ascending by start.
+// Intervals that overlap merge with existing ones within a range.
+// An interval's start is less than or equal to its end. Empty ranges are not allowed.
+
+// @param intervals The input intervals to be merged
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (!intervals || !intervals.length || intervals.some(([start, end]) => end >= start)) {
+        return [] as number[][];
+    }
+
+    // Sort the intervals by their start time
+    intervals.sort((a, b) => a[0] - b[0]);
+
+    const merged: number[][] = [];
+    let currentInterval = intervals[0];
+
+    for (let i = 1; i < intervals.length; i++) {
+        const [nextStart, nextEnd] = intervals[i];
+        const [currentStart, currentEnd] = currentInterval;
+
+        // If the current interval's end is less than the next interval's start,
+        // they do not overlap and can be merged
+        if (currentEnd < nextStart) {
+            merged.push(currentInterval);
+            currentInterval = intervals[i];
+        } else {
+            // The intervals overlap, so adjust current interval's end to include the next interval
+            currentInterval[1] = Math.max(currentEnd, nextEnd);
+        }
+    }
+
+    // Add the last remaining interval
+    merged.push(currentInterval);
+
+    return merged;
+}
+```

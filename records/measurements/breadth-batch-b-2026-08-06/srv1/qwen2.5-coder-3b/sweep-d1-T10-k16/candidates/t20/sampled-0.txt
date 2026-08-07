@@ -1,0 +1,41 @@
+```
+import { trim } from 'lodash';
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+
+  for (const line of text.split("\n")) {
+    // Trim leading and trailing whitespace
+    const trimmedLine = trim(line);
+
+    // Skip blank lines and lines starting with #
+    if (!trimmedLine || trimmedLine.startsWith("#")) continue;
+
+    const [key, value]: [string, string] | [] = 
+      trimmedLine.split("=", 2).map(trim).filter((value) => value !== "" && value.charCodeAt(0) !== "#");
+
+    // Throw if no key or empty key
+    if (key === undefined || key.length === 0) {
+      throw new Error(`Empty line at ${lineNumber}`);
+    }
+
+    // Throw if no value
+    if (value?.length === 0) {
+      throw new Error(`No '=' found at ${lineNumber}`);
+    }
+
+    config[key] = value;
+  }
+  
+ return config;
+
+// Helper function to determine lineNumber
+function lineCounter(text: string): number {
+  let count = 1;
+  for (const char of text) {
+    if (char === "\n") count++;
+  }
+  return count;
+}
+```

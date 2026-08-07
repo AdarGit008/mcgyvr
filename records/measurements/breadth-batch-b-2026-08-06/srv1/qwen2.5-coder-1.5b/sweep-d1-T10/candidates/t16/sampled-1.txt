@@ -1,0 +1,25 @@
+```ts
+import { assert } from 'assert';
+
+const MODULUS = 1000000007;
+
+/** The nth Fibonacci number modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (n < 2) {
+    return n;
+  }
+  let a = 0, b = 1;
+  for (let i = 2; i <= n; i++) {
+    const next = (a + b) % MODULUS;
+    a = b;
+    b = next;
+  }
+  return b;
+}
+
+// Test cases
+assert(fibMod(0) === 0);
+assert(fibMod(1) === 1);
+assert(fibMod(10) === 55);
+assert(fibMod(20) === 46368);
+```

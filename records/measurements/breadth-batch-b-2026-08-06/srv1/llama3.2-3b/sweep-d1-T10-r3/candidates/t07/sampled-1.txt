@@ -1,0 +1,52 @@
+```typescript
+/**
+ * Returns a new array with nested arrays flattened up to the given depth level,
+ * defaulting to every level. If a string value is encountered, it is returned unchanged.
+ * The input array must not be mutated. Throws an Error unless depth is a non-negative integer or Infinity.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error('Invalid depth', { cause: 'depth' });
+  }
+
+  const result: unknown[] = [];
+
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      if (depth === -1 || flattenItem(item, depth - 1).length > 0, 'depth')) {
+        const flattenedItem = flattenItem(item, depth);
+        // Append or spread instead of += to avoid mutation
+        result.push(...flattenedItem);
+      } else {
+        result.push(item); // Strings and primitives are not flattened further
+      }
+    } else {
+      if (typeof item !== 'string') {
+        result.push(flattenItem(item, depth));
+      }
+    }
+  }
+
+  return result;
+}
+
+function flattenItem(value: unknown, depth: number): unknown[] {
+  const result: unknown[] = [];
+
+  if (Array.isArray(value)) {
+    // Not using Array.prototype.forEach with an index to avoid potential off-by-one errors
+    for (const v of value) {
+      if (depth <= 0 || Array.isArray(v)) {
+        result.push(...flattenItem(v, depth));
+      } else {
+        result.push(v);
+      }
+    }
+  } else if (typeof value === 'string') {
+    // Strings are simply appended to the result
+    result.push(value);
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,60 @@
+```ts
+function parseCsvLine(line: string): string[] {
+    if (!line) return [];
+
+    const fields = [];
+    let inDoubleQuote = false;
+    let escapeNextQuote = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        switch (char) {
+            case '"':
+                if (escapeNextQuote) {
+                    fields.push('"');
+                    escapeNextQuote = false;
+                } else {
+                    inDoubleQuote = !inDoubleQuote;
+                }
+                break;
+            case ',':
+                if (!inDoubleQuote) {
+                    fields.push(line.slice(i, i + 1));
+                    i++;
+                    continue;
+                }
+                break;
+            default:
+                if (escapeNextQuote) {
+                    escapeNextQuote = false;
+                    fields.push(char);
+                }
+        }
+
+        if (i === line.length - 1 && !inDoubleQuote && escapeNextQuote) {
+            fields.push('"');
+            escapeNextQuote = false;
+        }
+    }
+
+    return fields.filter(field => field !== '"');
+}
+
+// Check function to verify the correctness of parseCsvLine
+function checkParseCsvLine() {
+    console.log(parseCsvLine("")); // []
+    console.log(parseCsvLine(",,")); // ["", ""]
+    console.log(parseCsvLine('"Hello, world!"')); // ["Hello, world!"]
+    console.log(parseCsvLine('A,B,C')); // ["A", "B", "C"]
+    console.log(parseCsvLine('123,"456,789"')); // ["123", "456,789"]
+    console.log(parseCsvLine('"This is a \\"test\\" string."')); // ["This is a \"test\" string."]
+    try {
+        parseCsvLine('"Single quote inside a double quote without closing it');
+        console.error('Expected an error for invalid quoted field');
+    } catch (error) {
+        console.log(error.message); // Expected an error for invalid quoted field
+    }
+}
+
+checkParseCsvLine();
+```

@@ -1,0 +1,20 @@
+```ts
+function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.some(interval => interval[0] > interval[1])) throw new Error('Invalid interval');
+  
+  const sorted = intervals.sort(([a], [b]) => a - b);
+  
+  let merged: number[][] = [];
+  
+  for (const interval of sorted) {
+    if (!merged.length || interval[0] !== merged[merged.length - 1][1]) {
+      merged.push(interval);
+    } else {
+      const lastMerge = merged.pop()!;
+      merged.push([lastMerge[0], Math.max(lastMerge[1], interval[1])]);
+    }
+  }
+  
+  return merged;
+}
+```

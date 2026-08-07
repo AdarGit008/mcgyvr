@@ -1,0 +1,69 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+    if (!line.trim()) return [];
+
+    const result: string[] = [];
+    let currentField = '';
+    let isQuoted = false;
+    let inQuotes = false;
+    let doubleQuoteCount = 0;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (!isQuoted && char === '"') {
+            // End of quoted field
+            if (inQuotes) {
+                result.push(decodeCsvField(currentField));
+            }
+            isQuoted = true;
+            currentField = '';
+        } else if (isQuoted) {
+            if (char === '"' && i + 1 < line.length && line[i + 1] === '"') {
+                // Escaped double quote
+                currentField += '"';
+                i++;
+            } else if (char === ',') {
+                // End of quoted field, stop capturing
+                result.push(decodeCsvField(currentField));
+                inQuotes = false;
+                currentField = '';
+            } else {
+                // Adding non-escaped characters to the current field
+                currentField += char;
+            }
+        } else if (char === '"' && i + 1 < line.length) {
+            // Start of quoted field with a double quote, must decode it later
+            inQuotes = true;
+            currentField += '"';
+            doubleQuoteCount++;
+        } else if (!inQuotes) {
+            if (char === ',') {
+                result.push(decodeCsvField(currentField));
+                currentField = '';
+            } else {
+                currentField += char;
+            }
+        } else {
+            // Non-quoted field characters, just add them
+            currentField += char;
+        }
+    }
+
+    if (isQuoted) {
+        throw new Error('Quoted field was never closed.');
+    }
+
+    if (currentField.trim()) {
+        result.push(decodeCsvField(currentField));
+    }
+
+    return result.filter(field => field.length > 0);
+}
+
+function decodeCsvField(field: string): string {
+    // Remove surrounding quotes and decode any escaped quotes
+    const decoded = field.slice(1, -1).replace(/""/g, '"');
+    return decoded === '' ? null : decoded;
+}
+```

@@ -1,0 +1,25 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error("Invalid argument");
+  }
+
+  let encoded = '';
+  let currentChar = input[0];
+  let count = -1;
+
+  for (let char of inputSlice(1)) {
+    if(char === currentChar) {
+      count++;
+    } else {
+      encoded += `${currentChar}${encodeURIComponent(count < 9 ? count.toString() : "1")}`;
+      currentChar = char;
+      count = 0;
+    }
+  }
+
+  encoded += `${currentChar}${encodeURIComponent(count < 9 ? count.toString() : "1")}`;
+
+  return encoded;
+}
+```

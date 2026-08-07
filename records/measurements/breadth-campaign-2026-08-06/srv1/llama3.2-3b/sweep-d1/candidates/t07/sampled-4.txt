@@ -1,0 +1,36 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    /**
+     * Flatten nested arrays to specified depth level.
+     *
+     * @param items Input array to be flattened. May contain strings, nested arrays, and other types of values.
+     * @param depth Optional depth level up to which the array should be flattened. If not provided, defaults to Infinity.
+     */
+    if (depth === undefined) depth = Infinity;
+    if (depth < 0) throw new Error("Depth must be a non-negative integer or Infinity");
+
+    const result: unknown[] = [];
+    for (const item of items) {
+        if (Array.isArray(item)) {
+            let newResult: unknown[] = [];
+            if (depth === 0 || depth > 1 && Array.isArray(result[result.length - 1])) {
+                newResult = Array.from(result).map((x, index) => [result[index], x]);
+            }
+            for (const subItem of item) {
+                let newSubResult: unknown[] = [];
+                if (depth === Infinity || typeof subItem !== 'string') {
+                    newSubResult = Array.from(newResult).flat(Infinity);
+                } else {
+                    newSubResult = [subItem];
+                }
+                if (newSubResult.length > 0) {
+                    result.push(...newSubResult.map((x, index) => [result[result.length - 1], x]));
+                }
+            }
+        } else {
+            result.push(item);
+        }
+    }
+    return result;
+}
+```

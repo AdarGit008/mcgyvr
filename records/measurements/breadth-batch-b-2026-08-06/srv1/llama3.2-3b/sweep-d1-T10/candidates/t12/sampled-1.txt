@@ -1,0 +1,6 @@
+```typescript
+/** Returns a copy of `values` with every negative number removed. */
+export function removeNegatives(values: readonly number[]): number[] {
+  return values.slice(values.filter((value) => value >= 0));
+}
+```

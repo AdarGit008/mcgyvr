@@ -1,0 +1,21 @@
+```ts
+/**
+a divided by b.
+*/
+export function safeDivide(a: number | boolean | null | undefined, b: number): number {
+  // Reject non-NaN numbers
+  if (b === 0 && (typeof b !== 'number' || isFinite(b)) || (typeof b !== 'number') || isFinite(b) === false) {
+    throw new Error('Cannot divide by zero of non-numeric value');
+  }
+
+  // Reject NaN values of both arguments
+  const aNumber = typeof a !== 'number' ? NaN : a;
+  const bDecimalNumber = isNaN((typeof b) !== 'number') || bNumber ? NaN : b;
+
+  if (isNaN(aNumber) || isNaN(bDecimalNumber)) {
+    throw new Error('Cannot divide by non-numeric value');
+  }
+
+  return a / b;
+}
+```

@@ -1,0 +1,38 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges || nodes.length === 0) throw new Error("Input cannot be empty or null");
+
+  const adjList = new Map<string, string[]>();
+  const inDegree = new Map<string, number>();
+
+  // Initialize the adjacency list and the in-degree of each node
+  for (const edge of edges) {
+    if (!adjList.has(edge[0])) adjList.set(edge[0], []);
+    if (!inDegree.has(edge[0])) inDegree.set(edge[0], 0);
+    adjList.get(edge[0])?.push(edge[1]);
+    inDegree.set(edge[1], inDegree.get(edge[1])! + 1);
+  }
+
+  const sortedNodes: string[] = [];
+
+  // Topological sort algorithm
+  while (nodes.length) {
+    let freeNode: string | undefined;
+    for (const node of nodes) {
+      if (inDegree.get(node)! === 0) {
+        sortedNodes.push(node);
+        delete inDegree.set(node, Infinity);
+        freeNode = node;
+        break;
+      }
+    }
+
+    // If no unvisited node with zero indegree is found, it forms a cycle
+    if (!freeNode) throw new Error("Cycle detected");
+
+    nodes = nodes.filter(n => n !== freeNode);
+  }
+
+  return sortedNodes;
+}
+```

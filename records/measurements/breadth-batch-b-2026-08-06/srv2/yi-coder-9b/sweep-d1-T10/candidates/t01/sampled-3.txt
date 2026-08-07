@@ -1,0 +1,20 @@
+Here is the function `runLengthEncode` as requested:
+```ts
+export function runLengthEncode(input: string): string { 
+    if (typeof input !== 'string') throw new Error('Input should be a string');
+   
+    let result = '';
+    let currentChar = input[0];
+    let charCount = 1;
+    for(let i=1;i<=input.length;i++){  
+        if(input[i]==currentChar) {
+            charCount += 1;
+        } else {              
+            result += currentChar + String(charCount); 
+            currentChar = input[i];
+            charCount = 1;
+        }   
+    }  
+    return result;
+}
+```

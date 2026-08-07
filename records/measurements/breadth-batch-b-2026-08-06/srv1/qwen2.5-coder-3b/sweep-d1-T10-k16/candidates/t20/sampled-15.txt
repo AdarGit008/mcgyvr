@@ -1,0 +1,22 @@
+```ts
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  const lines = text.split("\n").map(l => l.trim()).filter(l => !l.startsWith("#") && l.length > 0);
+  
+  for (const line of lines) {
+    const [key, value] = line.split("=").map(value => value.trim());
+    
+    if (!key || typeof key !== "string" || typeof value !== "string") {
+      throw new Error(`Invalid line "${line}", missing or invalid key or value`);
+    }
+    
+    if (config[key] && key === "__proto__") {
+      throw new Error(`Key "__proto__" cannot overwrite ${key} because it refers to prototype properties.`);
+    }
+    
+    config[key] = value;
+  }
+  
+  return config;
+}
+```

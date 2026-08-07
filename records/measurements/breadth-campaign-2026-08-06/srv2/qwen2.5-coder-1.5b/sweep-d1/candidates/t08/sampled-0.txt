@@ -1,0 +1,52 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges) {
+        throw new Error('Input cannot be empty');
+    }
+
+    const nodeSet = new Set(nodes);
+    const edgeMap = new Map<string, Set<string>>();
+
+    for (const [from, to] of edges) {
+        if (!nodeSet.has(from) || !nodeSet.has(to)) {
+            throw new Error(`Node "${from}" or "${to}" not in nodes`);
+        }
+
+        let toSet = edgeMap.get(to);
+        if (!toSet) {
+            toSet = new Set();
+            edgeMap.set(to, toSet);
+        }
+        toSet.add(from);
+
+        const fromSet = edgeMap.get(from);
+        if (fromSet) {
+            fromSet.delete(to);
+        } else {
+            throw new Error(`Cycle detected with edge "${from}" -> "${to}"`);
+        }
+    }
+
+    const freeNodes = nodes.filter(node => !edgeMap.has(node));
+
+    if (!freeNodes.length) {
+        throw new Error('Graph has no topological order');
+    }
+
+    const sortedNodes: string[] = [];
+
+    while (freeNodes.length) {
+        const node = freeNodes.shift()!;
+        sortedNodes.push(node);
+
+        for (const to of edgeMap.get(node)!) {
+            edgeMap.set(to, edgeMap.get(to)!.delete(node));
+            if (!edgeMap.has(to)) {
+                freeNodes.push(to);
+            }
+        }
+    }
+
+    return sortedNodes;
+}
+```

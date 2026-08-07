@@ -1,0 +1,9 @@
+```
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (!Array.isArray(values) || !values.every(Number.isFinite)) {
+    throw new Error("Input must be a non-empty array of finite numbers.");
+  }
+  return [...values].sort((a, b) => a - b);
+}
+```

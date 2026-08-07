@@ -1,0 +1,39 @@
+```ts
+export class LruCache<K, V> {
+  private cache: { [key: K]: V } = {};
+  private order: K[] = [];
+  private capacity: number;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache[key];
+    if (value !== undefined) {
+      this.order.splice(this.order.indexOf(key), 1);
+      this.order.push(key);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.hasOwnProperty(key)) {
+      this.order.splice(this.order.indexOf(key), 1);
+    }
+    this.cache[key] = value;
+    this.order.push(key);
+    if (this.order.length > this.capacity) {
+      const firstKey = this.order.shift();
+      delete this.cache[firstKey];
+    }
+  }
+
+  get size(): number {
+    return Object.keys(this.cache).length;
+  }
+}
+```

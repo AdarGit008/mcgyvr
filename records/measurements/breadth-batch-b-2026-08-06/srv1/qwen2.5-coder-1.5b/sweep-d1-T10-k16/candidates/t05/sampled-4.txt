@@ -1,0 +1,22 @@
+```ts
+/**
+ *_splits `items` into chunks of size up to `size`, preserving order.
+ * @param items An array of T elements.
+ * @param size The maximum number of elements per chunk.
+ * @returns A 2D array of chunks. If `size > items.length`, the first chunk is empty.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+    if (typeof size !== 'number' || !Number.isInteger(size) || size < 1) {
+        throw new Error('Size must be a positive integer');
+    }
+
+    return items.reduce((acc, item, index) => {
+        const chunkIndex = Math.floor(index / size);
+        acc[chunkIndex] = [...(acc[chunkIndex] || []), item];
+        if (chunkIndex + 1 === size && acc.length < size) {
+            acc.push([]);
+        }
+        return acc;
+    }, []);
+}
+```

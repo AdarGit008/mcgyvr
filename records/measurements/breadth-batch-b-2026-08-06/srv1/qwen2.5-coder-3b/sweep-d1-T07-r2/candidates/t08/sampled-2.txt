@@ -1,0 +1,33 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjacencyList = new Map<string, Set<string>>();
+    nodes.forEach(node => adjacencyList.set(node, new Set()));
+
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Invalid edge: ${from} or ${to} not in nodes`);
+        }
+        adjacencyList.get(from)!.add(to);
+    }
+
+    const freeNodes = [...nodes];
+    const sortedNodes: string[] = [];
+
+    while (freeNodes.length > 0) {
+        const nextNode = freeNodes[0];
+        for (const [node, dependencies] of adjacencyList.entries()) {
+            if (dependencies.has(nextNode)) {
+                dependencies.delete(nextNode);
+            }
+        }
+        freeNodes.shift();
+        sortedNodes.push(nextNode);
+    }
+
+    if (sortedNodes.length < nodes.length) {
+        throw new Error("Cycle detected in the graph");
+    }
+
+    return sortedNodes;
+}
+```

@@ -1,0 +1,32 @@
+```typescript
+/**
+ * Flattens an array with nested arrays up to a specified depth level.
+ *
+ * @param items - The input array that may contain nested arrays.
+ * @param depth - The maximum depth level at which to flatten. Defaults to Infinity,
+ *                meaning the input will not be flattened.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (!depth || !Number.isInteger(depth) || (0 < depth && depth <= 0) ||
+        Number.isNaN(depth))
+        throw new Error('Invalid depth value');
+
+    return flattenHelper(items, depth, []);
+}
+/**
+ * The actual recursive flattening function with a safe base case to ensure an
+ * array is eventually reduced.
+ */
+function flattenHelper(
+    arr: readonly unknown[],
+    atDepth: number,
+    result: unknown[]
+) {
+    for (const item of arr)
+        if (Array.isArray(item) && atDepth > 0)
+            result = [...result, ...flattenHelper(item, atDepth - 1, [])];
+        else if (!atDepth || Number.isNaN(atDepth))
+            result.push(item);
+        return result;
+}
+```

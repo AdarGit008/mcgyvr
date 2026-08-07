@@ -1,0 +1,27 @@
+```
+/** An append-only log of timestamped events. */
+export class EventLog {
+  #events: Event[];
+
+  /** Initialize with no events. */
+  private constructor() {
+    this.#events = [];
+  }
+
+  /** Add one event to the log. */
+  record(event: Event): void {
+    if (event == null || typeof event.name !== 'string' || typeof event.timestamp !== 'number') {
+      throw new Error("Invalid event.");
+    }
+    this.#events.push(event);
+  }
+
+  /** Events that occurred at or after the given timestamp, in insertion order. */
+  since(timestamp: number): Event[] {
+    if (isNaN(timestamp)) {
+      throw new Error('Timestamp must be a number.');
+    }
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

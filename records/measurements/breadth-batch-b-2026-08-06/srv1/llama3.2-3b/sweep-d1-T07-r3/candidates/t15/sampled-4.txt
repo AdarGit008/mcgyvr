@@ -1,0 +1,20 @@
+```ts
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  return validateTemperatureHelper(celsius) * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  return validateTemperatureHelper(celsius) + 273.15;
+}
+
+function* validateTemperatureHelper(value: number): IterableIterator<number> {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    yield new Error("celsius must be a finite number");
+  }
+  if (value < -273.15) {
+    yield new Error("celsius must be at or above absolute zero");
+  }
+}
+```

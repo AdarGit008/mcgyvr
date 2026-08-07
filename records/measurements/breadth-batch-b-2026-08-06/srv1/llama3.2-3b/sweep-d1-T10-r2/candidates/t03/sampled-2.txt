@@ -1,0 +1,40 @@
+```typescript
+/**
+ * Parse a semantic version string into its constituent parts and return them as an object with optional build and prerelease strings.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const match = version.match(/^([0-9]+)\.([0-9]+)\.([0-9]+)/);
+  if (!match) {
+    throw new Error("Invalid major.minor.patch format");
+  }
+  const [major, minor, patch] = match.slice(1).map(Number);
+
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+    throw new Error(
+      `Invalid major, minor, or patch format: expected numbers without leading zeros`
+    );
+  }
+
+  let prerelease = null;
+  if (version.includes("-")) {
+    const preReleaseIndex = version.indexOf("-");
+    const prereleaseValue = version.substring(preReleaseIndex + 1);
+    if (!prereleaseValue) {
+      throw new Error("Empty string after hyphen");
+    }
+    prerelease = prereleaseValue;
+    if (/^\d+$/.test(prerelease)) {
+      throw new Error("Invalid range value");
+    }
+  }
+
+  const build = null; // this will be present in some semver strings but not all
+  return { major, minor, patch, prerelease, build };
+}
+```

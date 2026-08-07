@@ -1,0 +1,11 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  // Convert the input to a sorted array of numbers
+  return values.slice().sort((a, b) => a - b);
+}
+```
+
+Explanation:
+- The `slice()` method is used to create a shallow copy of the original array, preserving its original order.
+- The `sort()` method on the copied array is then called with a compare function `(a, b) => a - b`, which sorts the numbers in ascending order.

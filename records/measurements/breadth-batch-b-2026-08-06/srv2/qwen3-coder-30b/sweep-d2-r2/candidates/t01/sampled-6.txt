@@ -1,0 +1,42 @@
+```ts
+export function mergeIntervals(intervals: [number, number][]): [number, number][] {
+  if (intervals.length === 0) {
+    return [];
+  }
+
+  // Validate input
+  for (const interval of intervals) {
+    if (!Array.isArray(interval) || interval.length !== 2) {
+      throw new Error("Each element must be a two-number pair");
+    }
+    const [start, end] = interval;
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+      throw new Error("Both start and end must be finite numbers");
+    }
+    if (start > end) {
+      throw new Error("Start cannot be greater than end");
+    }
+  }
+
+  // Sort intervals by start time
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+
+  const result: [number, number][] = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const [currentStart, currentEnd] = sorted[i];
+    const [lastStart, lastEnd] = result[result.length - 1];
+
+    // Check if current interval overlaps or touches the last one
+    if (currentStart <= lastEnd) {
+      // Merge intervals
+      result[result.length - 1] = [lastStart, Math.max(lastEnd, currentEnd)];
+    } else {
+      // No overlap, add new interval
+      result.push([currentStart, currentEnd]);
+    }
+  }
+
+  return result;
+}
+```

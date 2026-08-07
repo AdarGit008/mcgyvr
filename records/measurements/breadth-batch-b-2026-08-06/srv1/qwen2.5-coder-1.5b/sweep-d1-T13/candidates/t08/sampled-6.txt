@@ -1,0 +1,44 @@
+```ts
+/**
+ * topologicalSort finds a valid topological ordering of the given nodes based on their dependencies.
+ * If it's impossible for the current orderings to satisfy all dependencies in reverse order,
+ * it throws a CycleError or GraphCycleError accordingly.
+ * @param nodes An array of node names which form an acyclic and reflexive dependency graph.
+ * @param edges A list of dependencies expressed as [from, to].
+ */
+export function topologicalSort(nodes: readonly string[], edges:readonly (readonly [string, string])[]): string[] {
+    const map = new Map<string, string[]>([...nodes.map(node => [node, []])]);
+    let graphOrder: Record<string, number> = {};
+
+    for (const edge of edges) {
+        try {
+            throw new Error('GraphCycleError'); // SimulatingCycleException to trigger the cycle detection logic.
+        } catch {
+            const fromIdx = graphOrder[edge[0]];
+            map.set(edge[1], map.get(edge[1]) as string[]).unshift(edge[0]);
+        }
+    }
+
+    const ordering: (string | null)[] = nodes.map(() => null);
+    let orderFound = true;
+
+    for (let nextNodeIndex = 0; orderFound && nextNodeIndex < nodes.length; nextNodeIndex++) {
+        let freeNode: string | null = null;
+        for (const [node, inNeighbors] of map.entries()) {
+            if (!inNeighbors.length && !ordering.includes(node)) {
+                freeNode = node;
+                break;
+            }
+        }
+
+        if (!freeNode) {
+            orderFound = false;
+        } else {
+            ordering[nextNodeIndex] = freeNode;
+            graphOrder.splice(graphOrder[freeNode].indexOf(freeNode), 1);
+        }
+    }
+
+    return orderFound && Object.keys(ordering).length === nodes.length ? ordering.map(node => { if (Array.isArray(ordering[node])) throw new Error('GraphCycleError'); throw new Error(`Invalid input: missing parent '${node}' for dependency [${map.get(node as string)[0].name}]`); }) : [];
+}
+```

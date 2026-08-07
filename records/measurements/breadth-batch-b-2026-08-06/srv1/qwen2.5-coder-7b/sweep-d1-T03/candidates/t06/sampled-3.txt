@@ -1,0 +1,45 @@
+```ts
+/**
+ * Splits one line of CSV into its fields on commas. Handles quoted fields that may contain commas
+ * and doubled quotes inside such fields. Fields that are not quoted are taken literally,
+ * including any surrounding spaces. An empty line is one empty field. Throws an Error for a quoted
+ * field that is never closed.
+ *
+ * @param line - The CSV line to split into fields.
+ * @returns An array of string fields.
+ */
+export function parseCsvLine(line: string): string[] {
+    if (line === '') return [''];
+
+    const result: string[] = [];
+    let field = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+            if (!inQuotes) {
+                inQuotes = true;
+            } else {
+                if (i + 1 < line.length && line[i + 1] === '"') {
+                    field += char;
+                    i++; // Skip the next double quote
+                } else {
+                    throw new Error('Unmatched quote');
+                }
+            }
+        } else if (char === ',' && !inQuotes) {
+            result.push(field.trim());
+            field = '';
+        } else {
+            field += char;
+        }
+    }
+
+    if (inQuotes) throw new Error('Unmatched quote');
+
+    result.push(field.trim());
+    return result;
+}
+```

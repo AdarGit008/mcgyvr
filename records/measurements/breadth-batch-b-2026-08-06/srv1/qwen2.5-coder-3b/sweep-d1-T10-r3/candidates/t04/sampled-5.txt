@@ -1,0 +1,59 @@
+```typescript
+class LruCache<K, V> {
+  private capacity: number;
+  private store: Map<K, { value: V; timestamp: number }>;
+  private order: K[] = [];
+
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+    this.capacity = capacity;
+    this.store = new Map<K, { value: V; timestamp: number }>();
+  }
+
+  private evict() {
+    if (this.capacity === 0) return;
+    const firstKey = this.order[0];
+    this.store.delete(firstKey);
+    this.order.splice(0, 1);
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.store.get(key);
+    if (!entry) return;
+    entry.timestamp = Date.now();
+    this.moveToFront(key);
+    return entry.value;
+  }
+
+  set(key: K, value: V) {
+    const entry = this.store.get(key);
+    if (entry) {
+      entry.value = value;
+      entry.timestamp = Date.now();
+      this.moveToFront(key);
+    } else {
+      if (this.store.size >= this.capacity) {
+        this.evict();
+      }
+      this.store.set(key, { value: value, timestamp: Date.now() });
+      if (!this.order.includes(key)) {
+        this.order.push(key);
+      }
+    }
+  }
+
+  get size(): number {
+    return this.store.size;
+  }
+
+  private moveToFront(key: K) {
+    const index = this.order.indexOf(key);
+    if (index !== -1) {
+      this.order.splice(index, 1);
+      this.order.unshift(key);
+    }
+  }
+}
+```

@@ -1,0 +1,36 @@
+```ts
+/**
+ * The index of target in a sorted array, or -1.
+ */
+export function binarySearch(items: readonly number[], target: number): number {
+  if (!items.every((item) => typeof item === 'number')) {
+    throw new Error('array must be composed entirely of numbers');
+  }
+
+  for (const item of items) {
+    if (item !== target && (typeof item !== 'number' || typeof target !== 'number')) {
+      throw new Error('both array and target must be arrays or single values');
+    }
+  }
+
+  let low = 0;
+  let high = items.length - 1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target && mid + 1 <= high) {
+      low = mid + 1;
+    } else if (items[mid] > target && low >= 0) {
+      high = mid - 1;
+    } else if (low === mid || high === mid) {
+      return -1;
+    } else {
+      throw new Error('this should never be reachable');
+    }
+  }
+  throw new Error('this should never be reachable');
+}
+```

@@ -1,0 +1,20 @@
+```ts
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') throw new Error('Input must be a string');
+    if (input === '') return '';
+
+    let encoded = '';
+    let count = 1;
+    for (let i = 0; i < input.length; i++) {
+        const char = input[i];
+        const nextChar = input[i + 1] ?? '\0'; // Using `\0` to represent the end of the string
+        if (char === nextChar) count++;
+        else {
+            encoded += char + (count > 9 ? count.toString() : count);
+            count = 1;
+        }
+    }
+
+    return encoded;
+}
+```

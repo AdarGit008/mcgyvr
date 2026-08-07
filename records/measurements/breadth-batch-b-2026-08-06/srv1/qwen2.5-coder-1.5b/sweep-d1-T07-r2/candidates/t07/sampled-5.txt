@@ -1,0 +1,47 @@
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (typeof items !== 'object' || items === null) {
+    return [items];
+  }
+
+  if (Array.isArray(items)) {
+    const flattenedItems: unknown[] = [];
+
+    for (const item of items) {
+      if (Array.isArray(item)) {
+        if (depth > 0) {
+          flattenedItems.push(...flatten(item, depth - 1));
+        } else {
+          flattenedItems.push(...item);
+        }
+      } else {
+        flattenedItems.push(item);
+      }
+    }
+
+    return flattenedItems;
+  }
+
+  if (items instanceof Set) {
+    const flattenedSet: unknown[] = [];
+
+    for (const item of items.values()) {
+      flattenedSet.push(item);
+    }
+
+    return flattenedSet;
+  }
+
+  if (items instanceof Map) {
+    const flattenedMap: unknown[] = [];
+
+    for (const [key, value] of items.entries()) {
+      flattenedMap.push([key, value]);
+    }
+
+    return flattenedMap;
+  }
+
+  throw new Error('Items must be of type object, array, Set, or Map');
+}
+```

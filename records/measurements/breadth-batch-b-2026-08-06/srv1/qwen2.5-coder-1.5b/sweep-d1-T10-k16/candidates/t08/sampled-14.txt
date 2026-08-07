@@ -1,0 +1,49 @@
+```ts
+import { setImmediate } from 'timers';
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    // Check if nodes contain unique values
+    const uniqueNodes = new Set(nodes);
+    if (uniqueNodes.size !== nodes.length) {
+        throw Error('Duplicate elements found in `nodes`');
+    }
+
+    // Count dependencies for each node
+    const nodeDependencies: Record<string, number> = {};
+    edges.forEach(([from, to]) => {
+        nodeDependencies[to] = (nodeDependencies[to] ?? 0) + 1;
+    });
+
+    // Find nodes with no_dependencies and sort by ascending order of their occurrences in nodes array
+    const orderedNodes: string[] = edges.reduce((acc, [from, to]) => {
+        if (!nodeDependencies[from]) {
+            acc.unshift(to);
+            nodeDependencies[to]--;
+        } else {
+            acc.push(to);
+        }
+        return acc;
+    }, []);
+
+    // Find cycle in the graph
+    let hasCycle = false;
+    orderedNodes.forEach((node) => {
+        const unmetDependencies = Array.from(uniqueNodes).filter(noDep => {
+            if (unmetDependencies.includes(node)) {
+                throw Error('Cycle detected starting from ' + node);
+            }
+            return !nodeDependencies[noDep]!;
+        });
+        if (unmetDependencies.length > 0) {
+            hasCycle = true;
+        }
+    });
+
+    // Return the sorted nodes or throw error if no ordering exists
+    if (hasCycle) {
+        throw Error('No valid topological sort');
+    } else {
+        return orderedNodes;
+    }
+}
+```

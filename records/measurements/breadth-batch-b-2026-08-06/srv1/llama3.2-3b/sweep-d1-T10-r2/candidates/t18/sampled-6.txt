@@ -1,0 +1,42 @@
+```typescript
+/**
+ * An append-only log of timestamped events.
+ */
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+export class EventLog {
+
+  private readonly #events = new Map<number, Event[]): [number, Event[]][][];
+
+  /**
+   * Append one event.
+   *
+   * @param event - The event to record.
+   * @returns void
+   */
+  public record(event: Event): void {
+    if (!event) {
+      throw new Error('Event is missing');
+    }
+    this.#events.set(event.timestamp, [...(this.#events.get(event.timestamp) ||=[]), event] );
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   *
+   * @param timestamp - The timestamp from which to return events.
+   * @returns A list of events that occurred on or after the given timestamp
+   */
+  public since(timestamp: number): Event[] {
+    if (isNaN(timestamp) || typeof timestamp !== 'number') {
+      throw new Error('Invalid timestamp type', { cause: "timestamp must be a Number" });
+    }
+    if (!this.#events.has(timestamp)) return [];
+    return [...(this.#events.get(timestamp)!)];
+  }
+
+}
+```

@@ -1,0 +1,91 @@
+```ts
+import * as path from "path";
+import { readFile } from "fs";
+
+/** The KEY=VALUE pairs of a config file. */
+export async function parseConfig(configFilePath: string): Promise<Record<string, string>> {
+  const rawConfigText = await readFile(configFilePath, "utf8");
+  return parseRawConfig(rawConfigText);
+}
+
+function isConfigLine(line: string): boolean {
+  return line.trimStart().startsWith("#") || !isEmptyLine(line);
+}
+
+function isEmptyLine(line: string): boolean {
+  return ! /^\s*$/.test(line);
+}
+
+function parseKeyAndValue(keyValueLine: string): [string, string] {
+  const index = keyValueLine.indexOf("=");
+  if (index === -1) {
+    throw new Error(`Malformed line at ${keyValueLine}`);
+  }
+  return [keyValueLine.slice(0, index).trim(), keyValueLine.slice(index + 1).trim()];
+}
+
+function parseRawConfig(rawConfigText: string): Record<string, string> {
+  const parsedConfig: { [k in string]: string } = {};
+  let currentKey;
+
+  for (const line of rawConfigText.split(/\r?\n/g)) {
+    if (!isConfigLine(line)) {
+      continue;
+    }
+
+    const [key, value] = parseKeyAndValue(line);
+    const trimmedKey = trimWhitespace(key);
+
+    // Special case for "__proto__="
+    if (trimmedKey === "__proto__") {
+      parsedConfig.__proto__ = value;
+      continue;
+    }
+
+    // Ignore empty keys and lines without =
+    if (trimmedKey === "" || trimmedKey.includes("=")) {
+      continue;
+    }
+
+    try {
+      const result = eval(trimmedKey);
+      if (result === undefined) {
+        throw new Error(`Invalid key at ${keyValueLine}`);
+      }
+    } catch (error) {
+      // The key may be a primitive number or boolean, so we avoid throwing here.
+      console.error(`Invalid key at ${keyValueLine}`, error);
+      continue;
+    }
+
+    parsedConfig[trimmedKey] = value.trim();
+  }
+
+  const prototypeObject = {};
+  for (const key in proto) {
+    if (!proto.hasOwnProperty(key)) {
+      continue;
+    }
+    prototypeObject[key] = "";
+  }
+
+  for (const key of Object.getOwnPropertyNames(Object.prototype).slice(1)) {
+    if (!(key in parsedConfig)) {
+      parsedConfig[key] = prototypeObject[key];
+    }
+  }
+
+  return parsedConfig;
+}
+
+// Example usage:
+(async () => {
+  const filePath = path.join(__dirname, "example.config");
+  try {
+    const config = await parseConfig(filePath);
+    console.log(config, JSON.stringify(config));
+  } catch (error) {
+    console.error(error);
+  }
+})();
+```

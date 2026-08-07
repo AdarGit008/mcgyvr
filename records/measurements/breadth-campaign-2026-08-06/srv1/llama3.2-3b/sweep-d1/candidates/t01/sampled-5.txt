@@ -1,0 +1,33 @@
+```ts
+/**
+ * Encodes a given string by replacing every maximal run of one repeated character
+ * with that character followed by the run length in order.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== "string") {
+    throw new Error("Input must be a string");
+  }
+
+  const result = [];
+  let currentChar = "";
+
+  for (const char of input) {
+    if (!currentChar || char !== currentChar[0]) {
+      if (currentChar) {
+        result.push(currentChar);
+        result.push(currentChar.length.toString());
+      }
+      currentChar = char;
+    } else {
+      currentChar += char;
+    }
+  }
+
+  if (currentChar) {
+    result.push(currentChar);
+    result.push(currentChar.length.toString());
+  }
+
+  return result.join("");
+}
+```

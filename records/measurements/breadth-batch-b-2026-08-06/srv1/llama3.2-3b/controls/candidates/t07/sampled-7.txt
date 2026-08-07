@@ -1,0 +1,32 @@
+```ts
+export class Flatten implements Iterable<unknown[]> {
+  private readonly items: readonly unknown[];
+  private readonly depth: number;
+
+  constructor(items: readonly unknown[], depth?: number) {
+    this.items = items;
+    this.depth = depth ?? Infinity;
+  }
+
+  *[Symbol.iterator]() {
+    for (const item of this.items) {
+      if (typeof item === 'string') {
+        yield [];
+      } else if (Array.isArray(item)) {
+        const flattened = new Flatten(new Array(Math.min(this.depth - 1, item.length)), this.depth - 1);
+        yield* flattened;
+      } else if (this.depth > 0) {
+        for (const nested of new Flatten([item], this.depth - 1)) {
+          yield [...nested];
+        }
+      }
+    }
+  }
+
+  static readonly: never;
+}
+
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  return Array.from(new Flatten(items, depth));
+}
+```

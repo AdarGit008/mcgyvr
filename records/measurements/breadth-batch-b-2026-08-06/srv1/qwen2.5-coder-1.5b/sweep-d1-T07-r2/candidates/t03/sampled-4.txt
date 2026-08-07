@@ -1,0 +1,18 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const re = /^v?(\d+)\.(\d+)\.(\d+)(?:-(\w+))?(?:\+(.+))?$/
+  if (!re.test(version)) {
+    throw new Error('Invalid version format. Expected a string in MAJOR.MINOR.PATCH(-prerelease)+build format.')
+  }
+
+  const [, major, minor, patch, prerelease, build] = re.exec(version) as [string, string, string, string, string | null, string | null]
+
+  return {
+    major: parseInt(major, 10),
+    minor: parseInt(minor, 10),
+    patch: parseInt(patch, 10),
+    prerelease: prerelease ? prerelease : null,
+    build: build ? build : null
+  }
+}
+```

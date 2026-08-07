@@ -1,0 +1,29 @@
+```ts
+function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error('depth must be a non-negative integer or Infinity');
+  }
+
+  const result: unknown[] = [];
+
+  function flat(item, currentDepth = 0) {
+    if (Array.isArray(item)) {
+      for (const subItem of item) {
+        flat(subItem, currentDepth + 1);
+      }
+    } else if (typeof item === 'object' && item !== null) {
+      for (const key in item) {
+        if (item.hasOwnProperty(key)) {
+          flat(item[key], currentDepth + 1);
+        }
+      }
+    } else {
+      result.push(item);
+    }
+  }
+
+  flat(items);
+
+  return result;
+}
+```

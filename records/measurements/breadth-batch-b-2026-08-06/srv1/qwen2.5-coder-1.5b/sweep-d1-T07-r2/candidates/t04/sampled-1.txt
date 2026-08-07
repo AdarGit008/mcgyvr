@@ -1,0 +1,40 @@
+```ts
+class LruCache<K, V> {
+  private cache: { [key: K]: V } = {};
+  private capacity: number;
+  private usedCount: number;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.usedCount = 0;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache[key];
+    if (value !== undefined) {
+      delete this.cache[key];
+      this.cache[key] = value;
+      this.usedCount++;
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    this.cache[key] = value;
+    this.usedCount++;
+
+    if (this.usedCount > this.capacity) {
+      const oldestKey = Object.keys(this.cache).reduce((a, b) => (this.cache[a] < this.cache[b] ? a : b), 0);
+      delete this.cache[oldestKey];
+      this.usedCount--;
+    }
+  }
+
+  get size(): number {
+    return this.usedCount;
+  }
+}
+```

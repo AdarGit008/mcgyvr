@@ -1,0 +1,16 @@
+```ts
+/**
+ * Safely divides two numbers, throwing an Error for invalid input.
+ */
+export function safeDivide(a: number, b: number): number {
+  // Ensure both arguments are finite numbers
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error('Arguments must be finite numbers');
+  }
+  // Reject zero divisor (covers +0 and -0)
+  if (b === 0) {
+    throw new Error('Divisor cannot be zero');
+  }
+  return a / b;
+}
+```

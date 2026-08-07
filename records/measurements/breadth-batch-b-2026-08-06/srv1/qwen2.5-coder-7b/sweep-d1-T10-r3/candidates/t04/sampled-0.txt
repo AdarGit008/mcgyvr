@@ -1,0 +1,59 @@
+```ts
+class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, V>;
+  private usageOrder: K[];
+
+  /**
+   * Creates a fixed-capacity least-recently-used cache.
+   * @param capacity positive integer representing the max number of entries
+   */
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+    this.cache = new Map<K, V>();
+    this.usageOrder = [];
+  }
+
+  /**
+   * Retrieves the value for a key and counts as a use.
+   * @param key key to retrieve
+   * @returns the value if found, otherwise undefined
+   */
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      this.usageOrder.splice(this.usageOrder.indexOf(key), 1);
+      this.usageOrder.push(key);
+    }
+    return value;
+  }
+
+  /**
+   * Inserts or updates a key-value pair and counts as a use.
+   * @param key key to insert/update
+   * @param value value to store for the key
+   */
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.usageOrder.splice(this.usageOrder.indexOf(key), 1);
+    }
+    this.cache.set(key, value);
+    this.usageOrder.push(key);
+
+    if (this.cache.size > this.capacity) {
+      const leastUsedKey = this.usageOrder.shift();
+      if (leastUsedKey !== undefined) {
+        this.cache.delete(leastUsedKey);
+      }
+    }
+  }
+
+  /** Returns the current entry count. */
+  get size(): number {
+    return this.cache.size;
+  }
+}
+```

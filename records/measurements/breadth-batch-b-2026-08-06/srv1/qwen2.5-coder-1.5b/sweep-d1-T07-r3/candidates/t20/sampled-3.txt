@@ -1,0 +1,13 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  const lines = text.split("\n").filter(l => l.trim() && !l.startsWith("#"));
+  for (const line of lines) {
+    const [key, value] = line.split("=");
+    if (!key || !value) throw new Error(`Invalid key or value on line: ${line}`);
+    config[key.trim()] = value.trim();
+  }
+  return config;
+}
+```

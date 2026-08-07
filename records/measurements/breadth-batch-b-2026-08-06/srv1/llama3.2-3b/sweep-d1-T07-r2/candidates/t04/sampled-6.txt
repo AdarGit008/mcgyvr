@@ -1,0 +1,66 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+  private readonly capacity: number;
+  private size: number;
+  private map: Map<K, [V, number]>;
+  private list: (K | null)[];
+
+  /**
+   * Constructor for the LruCache class. Throws an Error if capacity is not a positive integer.
+   */
+  constructor(capacity: number) {
+    if (!(capacity > 0)) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.size = 0;
+    this.map = new Map();
+    this.list = [];
+  }
+
+  /**
+   * Returns the value associated with the given key, or undefined if no such entry exists.
+   */
+  get(key: K): V | undefined {
+    const [value, index] = this.map.get(key) ?? [undefined, -1];
+    if (value !== undefined) {
+      this.list.splice(index + 1);
+      this.list.push(key);
+      return value;
+    }
+    return undefined;
+  }
+
+  /**
+   * Inserts or updates the given key and value in the cache.
+   */
+  set(key: K, value: V): void {
+    if (this.map.has(key)) {
+      const [oldValue, index] = this.map.get(key);
+      this.list.splice(index + 1);
+      this.list.push(key);
+    }
+    const currentIndex = this.list.indexOf(key) ?? -1;
+    if (currentIndex === -1) {
+      this.list.unshift(key);
+    } else {
+      this.list.splice(currentIndex, 0, key);
+    }
+    this.map.set(key, [value, this.list.length - 1]);
+    if (this.size++ >= this.capacity) {
+      const oldestKey = this.list.shift() as K;
+      this.map.delete(oldestKey);
+    }
+  }
+
+  /**
+   * Returns the number of entries currently in the cache.
+   */
+  get size(): number {
+    return this.size;
+  }
+}
+```

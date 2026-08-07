@@ -1,0 +1,38 @@
+```ts
+interface TemperatureResult {
+  toFahrenheit(celsius: number): number;
+  toKelvin(celsius: number): number;
+}
+
+class TemperatureConverter implements TemperatureResult {
+  private isValidCelsius(celsius: number): boolean {
+    if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+      throw new Error("celsius must be a finite number");
+    }
+    if (celsius < -273.15) {
+      throw new Error("celsius must be at or above absolute zero");
+    }
+    return true;
+  }
+
+  toFahrenheit(celsius: number): number {
+    this.isValidCelsius(celsius);
+    return celsius * 1.8 + 32;
+  }
+
+  toKelvin(celsius: number): number {
+    this.isValidCelsius(celsius);
+    return celsius + 273.15;
+  }
+}
+
+export const temperatureConverter = new TemperatureConverter();
+
+export function celsiusToFahrenheit(celsius: number) {
+  return (temperatureConverter as TemperatureResult).toFahrenheit(celsius);
+}
+
+export function celsiusToKelvin(celsius: number) {
+  return (temperatureConverter as TemperatureResult).toKelvin(celsius);
+}
+```

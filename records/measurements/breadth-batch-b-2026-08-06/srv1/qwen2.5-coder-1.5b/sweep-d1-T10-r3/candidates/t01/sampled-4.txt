@@ -1,0 +1,23 @@
+```ts
+function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') throw new Error('Input must be a string');
+
+  let encoded = '';
+  let count = 1;
+  let previousChar = undefined;
+
+  for (let char of input) {
+    if (char === previousChar) count++;
+    else {
+      if (count > 1 && previousChar !== undefined) encoded += previousChar + count;
+      for (let i = 0; i < count; i++) encoded += char;
+      previousChar = char;
+      count = 1;
+    }
+  }
+
+  if (count > 1 && previousChar !== undefined) encoded += previousChar + count;
+
+  return encoded === '' ? '' : encoded.replace(/\b(\d)\1+/g, (_, digit) => digit.repeat(digit));
+}
+```

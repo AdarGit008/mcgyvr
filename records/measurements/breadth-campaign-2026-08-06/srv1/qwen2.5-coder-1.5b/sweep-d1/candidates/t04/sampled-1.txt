@@ -1,0 +1,60 @@
+```ts
+export class LruCache<K, V> {
+  private cache: Map<K, V>;
+  private capacity: number;
+  private useCounters: Map<V, K>;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.cache = new Map();
+    this.capacity = capacity;
+    this.useCounters = new Map();
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      this.incrementUseCount(value);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.updateUseCount(key, value);
+    } else {
+      this.insertKey(key, value);
+    }
+    if (this.cache.size > this.capacity) {
+      const leastRecentlyUsed = Array.from(this.useCounters.keys()).reduce((a, b) => 
+        this.useCounters.get(a) < this.useCounters.get(b) ? a : b
+      );
+      this.removeKey(leastRecentlyUsed);
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private insertKey(key: K, value: V): void {
+    this.cache.set(key, value);
+    this.useCounters.set(value, key);
+  }
+
+  private updateUseCount(key: K, value: V): void {
+    this.removeKey(value);
+    this.insertKey(key, value);
+  }
+
+  private removeKey(key: V): void {
+    const cachedValue = this.cache.get(key);
+    if (cachedValue !== undefined) {
+      delete this.useCounters[cachedValue];
+      this.cache.delete(key);
+    }
+  }
+}
+```

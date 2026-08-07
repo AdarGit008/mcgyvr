@@ -1,0 +1,35 @@
+```typescript
+/**
+ * Returns a new array with nested arrays flattened up to depth levels,
+ * defaulting to every level.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (!(depth instanceof Number) || isNaN(depth) || depth < 0) {
+    throw Error('Invalid depth');
+  }
+  
+  if (depth === Infinity) {
+    // Flattening infinitely
+    return Array.reduce((acc, item) => {
+      if (Array.isArray(item)) {
+        acc.push(...item);
+      } else {
+        acc.push(item);
+      }
+      return acc;
+    }, []);
+  } else {
+    const result: unknown[] = [];
+    
+    for (const item of items) {
+      if (typeof item === 'string') {
+        result.push(item);
+      } else if (Array.isArray(item)) {
+        result.push(...flatten(item, depth - 1));
+      }
+    }
+    
+    return result;
+  }
+}
+```

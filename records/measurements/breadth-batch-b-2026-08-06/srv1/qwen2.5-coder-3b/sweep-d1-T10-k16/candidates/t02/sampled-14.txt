@@ -1,0 +1,19 @@
+```ts
+
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.some(([start, end]) => start > end)) {
+    throw new Error("Input list contains intervals with invalid start > end");
+  }
+
+  const merged = [...intervals].sort((a, b) => a[0] - b[0]);
+
+  return merged.reduce((acc, current, index) => {
+    if (!index || acc[acc.length - 1][1] >= current[0]) {
+      acc[acc.length - 1][1] = Math.max(acc[acc.length - 1][1], current[1]);
+    } else {
+      acc.push(current);
+    }
+    return acc;
+  }, [] as number[][]);
+}
+```

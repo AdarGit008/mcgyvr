@@ -1,0 +1,6 @@
+```ts
+/**
+ * Performs a topological sort on the given nodes and directed edges.
+ *
+ * @param nodes - An array of node names in their original order.
+ *

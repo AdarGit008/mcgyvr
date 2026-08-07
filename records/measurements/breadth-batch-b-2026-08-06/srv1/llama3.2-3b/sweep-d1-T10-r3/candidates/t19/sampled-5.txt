@@ -1,0 +1,21 @@
+```typescript
+/**
+ * Divides two numbers while ensuring safe division rules are followed.
+ */
+export function safeDivide(a: number, b: number): number {
+  /**
+   * Throws an Error when either argument is not a finite number.
+   */
+  if (a === NaN || a === Infinity || a === -Infinity || typeof a !== 'number' ||
+    b === NaN || b === Infinity || b === -Infinity || typeof b !== 'number')
+    throw new Error('Both arguments must be numbers');
+
+  /**
+   * Throws an Error when the divisor is zero, including zero or negative zero.
+   */
+  if (b === 0)
+    throw new Error('Cannot divide by zero');
+  
+  return a / b;
+}
+```

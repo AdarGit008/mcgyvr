@@ -1,0 +1,59 @@
+```ts
+/**
+ * Performs topological sort on given nodes and edges.
+ *
+ * @param nodes - List of node names.
+ * @param edges - List of edges, where each edge is a pair of node names.
+ * @returns An ordered list of node names satisfying all edges.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    // Create adjacency list representation of the graph
+    const graph: { [node: string]: string[] } = {};
+    for (const node of nodes) {
+        graph[node] = [];
+    }
+    for (const edge of edges) {
+        if (!graph[edge[0]] || !graph[edge[1]]) {
+            throw new Error(`${edge[0]} or ${edge[1]} is not a valid node`);
+        }
+        graph[edge[0]].push(edge[1]);
+    }
+
+    // Create in-degree map
+    const inDegree: { [node: string]: number } = {};
+    for (const node of nodes) {
+        inDegree[node] = 0;
+    }
+    for (const edge of edges) {
+        inDegree[edge[1]]++;
+    }
+
+    // Initialize queue with nodes having no incoming edges
+    const queue: string[] = [];
+    for (const node of nodes) {
+        if (inDegree[node] === 0) {
+            queue.push(node);
+        }
+    }
+
+    // Perform topological sort using in-degree and graph
+    const sortedNodes: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        sortedNodes.push(node);
+        for (const neighbor of graph[node]) {
+            inDegree[neighbor]--;
+            if (inDegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    // Check if any unmet edges exist
+    if (sortedNodes.length !== nodes.length) {
+        throw new Error("Cycle detected");
+    }
+
+    return sortedNodes;
+}
+```

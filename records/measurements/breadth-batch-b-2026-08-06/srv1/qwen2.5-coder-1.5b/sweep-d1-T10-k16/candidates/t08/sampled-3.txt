@@ -1,0 +1,35 @@
+```ts
+import { Queue } from 'forest'
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const inDegrees = new Map(nodes);
+  for (const edge of edges) {
+    const [from, to] = edge;
+    if (!inDegrees.has(from)) inDegrees.set(from, 0);
+    if (!in Degrees.has(to)) inDegrees.set(to, 1);
+    else inDegrees.set(to, inDegrees.get(to)! + 1);
+  }
+
+  const queue = new Queue<string>();
+  nodes.forEach(node => {
+    if (inDegrees.get(node) === 0) queue.enqueue(node);
+  });
+
+  const result: string[] = [];
+  while (!queue.isEmpty()) {
+    const node = queue.dequeue()!;
+    if (result.includes(node)) throw new Error('Cycle detected.');
+    result.push(node);
+    for (const to of edges.filter(edge => edge[0] === node)) {
+      const degree = inDegrees.get(to)! - 1;
+      inDegrees.set(to, degree);
+      if (degree === 0) queue.enqueue(to);
+    }
+  }
+
+  if (nodes.length !== result.length) throw new Error('Graph contains cycles.');
+  return result;
+}
+```
+
+This topological sort implementation uses a queue to process nodes with no incoming edges first. It updates the in-degree of each node as it moves along by decreasing the degree for its neighbors. When the queue is empty and we have processed all nodes, we check if any nodes have remaining incoming edges (this indicates a cycle), or if the number of processed nodes matches the total number of nodes (indicating no cycles). If either condition is true, it throws an error indicating either a cycle or the graph containing cycles.

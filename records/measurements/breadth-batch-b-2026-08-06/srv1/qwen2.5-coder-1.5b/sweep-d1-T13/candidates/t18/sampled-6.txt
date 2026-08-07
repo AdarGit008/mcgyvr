@@ -1,0 +1,35 @@
+```ts
+interface Event {
+  name: string;
+  timestamp: number;
+}
+
+export default class EventLog {
+
+  private readonly #events: Event[] = [];
+
+  public record(event: Event): void {
+    this.#events.push(event);
+  }
+
+  public since(timestamp: number): Event[] {
+    return Array.from({
+      length: this.countUntil(timestamp),
+      fill: (it) => this.#event[it],
+    });
+  }
+  
+  private countUntil(t: number) : number {
+    let r = 0;
+    if ( timestamp >= this.#events[0].timestamp ) { r += 1 }
+    for ( let i in this.#events ) { 
+      if ( (time - this.events[i].timestamp  < (t - time + 1) )) {
+        while (r <= i ) r += 1;
+      } 
+      break; // we're guaranteed to have at least one item in here.
+    };
+    return r;
+  }
+
+}
+```

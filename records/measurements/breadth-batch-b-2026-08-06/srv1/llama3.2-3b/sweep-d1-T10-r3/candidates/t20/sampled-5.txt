@@ -1,0 +1,30 @@
+```typescript
+/**
+ * Parsed configuration from a real config file ignoring blank lines,
+ * lines whose first non-space character is '#', trimming whitespace around
+ * key-value pairs and splitting on the FIRST '=' so a value may contain one.
+ * Throws an Error naming the line for a line with no '=' and for an empty key.
+ * A key must never reach the prototype of the returned object:
+ *
+ * If parsing "__proto__=x" would produce a plain data key, leaving Object.prototype untouched,
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line || line[0] === '#') { // Ignore blank lines and comments
+      continue;
+    }
+    const trimmedLine = line.trim(); // Trim whitespace around key-value pairs
+    const parts = line.split('=', 2); // Split on the FIRST '='
+    if (parts.length !== 2) {
+      throw new Error(`Invalid config line: ${line} - missing '='`, line.indexOf('='));
+    }
+    const key = parts[0].trim(); // Trim whitespace from key
+    if (!key) { // Throw for empty keys
+      throw new Error(`Invalid config line: ${line} - empty key ${parts.join('=').trim()}`, line.indexOf('='));
+    }
+    config[key] = parts[1].trim();
+  }
+  return config;
+}
+```

@@ -1,0 +1,15 @@
+```
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  if (TextDecoder.prototype.encode(text).length > limit) {
+    throw new Error("Limit must be at least 3");
+  }
+  if (!Number.isInteger(limit)) {
+    throw new Error("Limit must be an integer");
+  }
+  if (text.length <= limit) {
+    return text;
+  }
+  return text.slice(0, limit - 3) + "...";
+}
+```

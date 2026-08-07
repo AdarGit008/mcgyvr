@@ -1,0 +1,17 @@
+```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const lines = text.split("\n").filter(Boolean);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let keyValue: [string, string];
+    const match = line.match(/^(\S+)\s*=(.*)/);
+    if (!match || match.length < 2) throw new Error(`Invalid config line: ${line}`);
+    const [key, value] = match.slice(1).split(/\s+/);
+    if (!value.trim()) continue;
+    keyValue = [key.trim(), value.trim()];
+    return keyValue.length === 2 ? keyValue : key of line.split(/=\s*/);
+  }
+  return {};
+}
+```

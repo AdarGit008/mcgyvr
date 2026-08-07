@@ -1,0 +1,22 @@
+```ts
+export interface User {
+  email: string;
+  active: boolean;
+}
+
+/**
+ * The lowercased addresses of the active users, in order.
+ */
+export function activeEmails(users: readonly User[]): string[] {
+  const out = [];
+  if (!Array.isArray(users)) {
+    throw new Error('Input is not an array');
+  }
+  for (const user of users) {
+    if (!(user instanceof Object) || !(user.active instanceof Boolean))
+      continue;
+    out.push((user.email as string).toLowerCase());
+  }
+  return out;
+}
+```

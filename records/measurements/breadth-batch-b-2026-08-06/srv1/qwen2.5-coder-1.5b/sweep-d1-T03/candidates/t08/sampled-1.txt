@@ -1,0 +1,45 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.length === 0) return [];
+
+  const graph = new Map<string, Set<string>>();
+  const indegree = new Map<string, number>();
+
+  for (const edge of edges) {
+    const [from, to] = edge;
+    if (!graph.has(from)) graph.set(from, new Set());
+    if (!graph.has(to)) graph.set(to, new Set());
+    graph.get(from)?.add(to);
+    indegree.set(to, (indegree.get(to) || 0) + 1);
+  }
+
+  const freeNodes = Array.from(nodes).filter(node => indegree.get(node) === 0);
+
+  if (freeNodes.length === 0) throw new Error('Cycle detected');
+
+  const sortedOrder: string[] = [];
+  while (freeNodes.length > 0) {
+    const currentNode = freeNodes.shift()!;
+    sortedOrder.push(currentNode);
+    for (const neighbor of graph.get(currentNode)!) {
+      indegree.set(neighbor, indegree.get(neighbor)! - 1);
+      if (indegree.get(neighbor) === 0) freeNodes.push(neighbor);
+    }
+  }
+
+  return sortedOrder;
+}
+
+// Check function to verify the correctness of the solution
+function checkTopologicalSort() {
+  assert.deepStrictEqual(topologicalSort([], []), []);
+  assert.deepStrictEqual(topologicalSort(['a', 'b', 'c'], [['b', 'c']]), ['b', 'c']);
+  assert.deepStrictEqual(topologicalSort(['a', 'b', 'c'], [['a', 'b'], ['b', 'c']]), ['a', 'b', 'c']);
+  assert.throws(() => topologicalSort(['a', 'b', 'c'], [['a', 'd']]), /Cycle detected/);
+  assert.throws(() => topologicalSort(['a', 'b', 'c'], [['a', 'b'], ['c', 'a']]), /Cycle detected/);
+}
+
+checkTopologicalSort();
+```

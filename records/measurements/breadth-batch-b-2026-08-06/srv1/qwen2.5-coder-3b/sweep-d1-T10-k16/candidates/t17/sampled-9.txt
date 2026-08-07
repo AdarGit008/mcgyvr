@@ -1,0 +1,13 @@
+```
+export function groupByLength(words: readonly string[]): Map<number, readonly string[]> {
+  const groups = new Map();
+  for (const word of words) {
+    if (!groups.has(word.length)) {
+      groups.set(word.length, [word]);
+    } else {
+      groups.get(word.length)?.push(word);
+    }
+  }
+  return groups;
+}
+```

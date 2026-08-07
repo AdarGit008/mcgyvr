@@ -1,0 +1,41 @@
+```typescript
+export function mergeIntervals(intervals: number[][]): number[][] {
+    /**
+     * Merge overlapping intervals in ascending order of start point.
+     *
+     * @param intervals - A list of non-overlapping intervals with a start and end value.
+     */
+    const isInvalidInterval = (interval: number[]) => interval[0] > interval[1];
+
+    // Check if input is valid
+    if (!Array.isArray(intervals) || !intervals.every(isValidInterval)) {
+        throw new Error('Input must be an array of [start, end] pairs');
+    }
+
+    const mergedIntervals = intervals.filter(isValidInterval);
+
+    const result: number[][] = [];
+
+    // Merge overlapping intervals
+    for (const currentInterval of mergedIntervals) {
+        if (!result.length || result[result.length - 1][0] > currentInterval[0]) {
+            result.push(currentInterval);
+        } else {
+            result[result.length - 1][1] = Math.max(result[result.length - 1][1], currentInterval[1]);
+        }
+    }
+
+    // Check if the start of an interval is greater than its end
+    for (const interval of result) {
+        if (interval[0] > interval[1]) {
+            throw new Error(`Invalid interval: ${interval}`);
+        }
+    }
+
+    return result;
+}
+
+function isValidInterval(interval: number[]): boolean {
+    return Array.isArray(interval) && interval.length === 2 && Number.isInteger(interval[0]) && Number.isInteger(interval[1]);
+}
+```

@@ -1,0 +1,80 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]) {
+    throw new Error("Implementing topological sort...");
+}
+
+interface Node {
+    dependencies: Set<string>;
+}
+
+function buildGraph(nodes: readonly string[]): { [node: string]: Set<string> } {
+    const graph: { [node: string]: Set<string> } = {};
+    for (const node of nodes) {
+        graph[node] = new Set();
+    }
+    return graph;
+}
+
+function addEdge(graph: { [node: string]: Set<string> }, edge: readonly [string, string]) {
+    if (!graph[edge[0]] || !graph[edge[1]]) {
+        throw new Error("Invalid node in edge");
+    }
+    graph[edge[0]].add(edge[1]);
+}
+
+function countDependencies(node: string, nodes: readonly string[], graph: { [node: string]: Set<string> }) {
+    let dependencies = 0;
+    for (const dependency of graph[node]) {
+        if (!nodes.includes(dependency)) {
+            throw new Error("Node not in edges");
+        }
+        const count = countDependencies(dependency, nodes, graph);
+        dependencies += count;
+    }
+    return dependencies + 1; // self-dependencies are allowed
+}
+
+function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]) {
+    if (edges.length === 0) {
+        return nodes;
+    }
+
+    const graph = buildGraph(nodes);
+    for (const edge of edges) {
+        addEdge(graph, edge);
+    }
+
+    const freeNodes = new Set(nodes.filter(node => !graph[node].size));
+    const result: string[] = [];
+
+    while (freeNodes.size > 0) {
+        let nextNode = [...freeNodes][0];
+        for (const node of nodes) {
+            if (!graph[node].has(nextNode)) {
+                continue;
+            }
+        }
+        freeNodes.delete(nextNode);
+
+        const dependenciesCount = countDependencies(nextNode, nodes, graph);
+        if (dependenciesCount > 1) {
+            throw new Error("Cycle detected");
+        }
+
+        result.push(nextNode);
+
+        for (const dependency of graph[nextNode]) {
+            graph[dependency].delete(nextNode);
+            if (!graph[dependency].size) {
+                freeNodes.add(dependency);
+            }
+        }
+    }
+
+    if (result.length !== nodes.length) {
+        throw new Error("No ordering exists");
+    }
+
+    return result;
+}
+```

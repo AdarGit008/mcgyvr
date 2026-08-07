@@ -1,0 +1,27 @@
+```ts
+
+import { strict } from "assert"
+
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+    if (typeof size !== 'number' || !Number.isInteger(size) || size <= 0 || isNaN(size)) {
+        throw new Error('Size must be a positive integer.')
+    }
+
+    return items.reduce((result, item, index) => {
+        const currentSize = result[result.length - 1]?.length ?? 0
+        if (currentSize >= size) {
+            result.push([item])
+        } else {
+            result[result.length - 1].push(item)
+        }
+        return result
+    }, []);
+}
+
+// Checks for correctness
+strict.deepStrictEqual(chunk([], 3), [], "Empty array test")
+strict.deepStrictEqual(chunk(['a', 'b', 'c'], 2), [['a', 'b'], ['c']], "Array with exact size chunks")
+strict.deepStrictEqual(chunk(['a', 'b', 'c', 'd'], 3), [['a', 'b' ,'c'], ['d']], "Array where one group is the remainder")
+strict.deepStrictEqual(chunk([0, 'a','b'], -1), [], "Invalid negative size")
+strict.deepStrictEqual(chunk([0, 'a','b'], 0),([], "Invalid zero-size")
+```

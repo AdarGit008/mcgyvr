@@ -1,0 +1,28 @@
+```typescript
+export function parseConfig(text: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  const lines = text.split("\n");
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue;
+    }
+
+    const [key, value] = trimmedLine.split("=", 2);
+    key = typeof key === "string" ? key.trim() : "";
+    value = typeof value === "string" ? value.trim() : "";
+
+    if (key && value) {
+      result[key] = value;
+    } else {
+      if (!key) {
+        throw new Error(`Invalid format: missing key on line "${line}"`);
+      }
+      throw new Error(`Missing '=' after key name "${key}" on line "${line}"`);
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,13 @@
+```ts
+/** Factorial function that accepts a single parameter n (non-negative integer). */
+export function factorial(n: number): number {
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error("Input must be a non-negative integer");
+  }
+  if (n === 1) {
+    return 1;
+  } else {
+    return n * factorial(n - 1);
+  }
+}
+```

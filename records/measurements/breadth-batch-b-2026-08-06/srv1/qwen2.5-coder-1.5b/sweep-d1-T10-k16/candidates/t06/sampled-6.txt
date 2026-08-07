@@ -1,0 +1,41 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  if (!line.trim()) return [];
+
+  const escaped = /(["\']/)\1/g;
+  let lastIndex = 0;
+  const fields: string[] = [];
+
+  for (let i = 0; i <= line.length; i++) {
+    const char = line.charAt(i);
+    if (char === '"') {
+      // Skip the second quote in a pair
+      if (escaped.lastIndex) continue;
+
+      const match = line.slice(lastIndex, i).match(escaped);
+      if (!match) {
+        throw new Error('Field quoted incorrectly');
+      }
+
+      const escapedFieldLength = match.length;
+      fields.push(line.slice(lastIndex + 1, lastIndex + escapedFieldLength - 1).replace(/"/g, '"'));
+      lastIndex = i + escapedFieldLength;
+    } else if (char === ',' && lastChar !== '"' && lastChar !== '\\') {
+      // Unquoted field
+      const unquotedEnd = i - lastIndex;
+      fields.push(line.slice(lastIndex, lastIndex + unquoutedEnd).trim());
+      lastIndex = i + 1;
+    }
+
+    line[i] = char;
+    lastChar = char;
+  }
+
+  if (lastIndex < line.length) {
+    const fieldLength = line.length - lastIndex;
+    fields.push(line.slice(lastIndex, lastIndex + fieldLength).trim());
+  }
+
+  return fields;
+}
+```

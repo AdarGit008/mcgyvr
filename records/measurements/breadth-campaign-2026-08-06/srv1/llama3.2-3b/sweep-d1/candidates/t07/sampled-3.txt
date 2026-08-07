@@ -1,0 +1,16 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (depth === undefined) depth = Infinity;
+    return items.reduce((acc, item) => {
+        const itemValue = item instanceof Array ? [item] : item;
+        switch (typeof itemValue[0]) {
+            case 'string': acc.push(itemValue[0]); break;
+            default: {
+                if (depth === 0 || depth < 1) return acc;
+                if (!Number.isInteger(depth)) throw new Error('Invalid depth');
+                return [...acc, ...flatten(itemValue, Math.max(0, --depth))];
+            }
+        }
+    }, []);
+}
+```

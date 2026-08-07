@@ -1,0 +1,88 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * Performs a topological sort on a directed graph represented by nodes and edges.
+ * If cycles are detected or invalid edges are present, an error is thrown.
+ * 
+ * @param nodes - A read-only array of node names.
+ * @param edges - A read-only array of tuples representing the [from, to] edges.
+ * @returns An ordered array of node names satisfying the edges.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map<string, Set<string>>();
+    
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) {
+            graph.set(from, new Set());
+        }
+        
+        if (!graph.has(to)) {
+            graph.set(to, new Set());
+        }
+        
+        graph.get(from)?.add(to);
+    }
+    
+    
+    const sorted: string[] = [];
+    const inDegree: Map<string, number> = new Map(nodes.map(node => [node, 0]));
+    
+    for (const node of nodes) {
+        if (!inDegree.has(node)) {
+            inDegree.set(node, 1);
+        }
+        
+        for (const adjacent of graph.get(node) || []) {
+            inDegree.set(adjacent, inDegree.get(adjacent)! - 1);
+        }
+    }
+    
+    
+    while (sorted.length < nodes.length) {
+        let current = null;
+
+        for (const node of nodes) {
+            if (!inDegree.has(node)) {
+                current = node;
+                break;
+            }
+        }
+
+        if (current === null || !graph.has(current)) {
+            throw new Error('Cycle detected or invalid edge');
+        }
+        
+        sorted.push(current);
+        inDegree.delete(current);
+
+        for (const adjacent of graph.get(current) || []) {
+            inDegree.set(adjacent, inDegree.get(adjacent)! - 1);
+        }
+
+    }
+
+    return sorted;
+}
+
+// Check function to verify the correctness of the topologicalSort function
+function checkTopologicalSort() {
+    assert.deepStrictEqual(topologicalSort([], []), [], 'Empty graph should be sorted');
+    assert.deepStrictEqual(topologicalSort(['a', 'b'], [['a', 'b']]), ['a', 'b'], 'Single edge with single node');
+    assert.deepStrictEqual(topologicalSort(['a', 'b', 'c'], [['a', 'b'], ['b', 'c'], ['c', 'a']]), ['a', 'b', 'c'], 'Circular graph should throw error');
+    assert.deepStrictEqual(topologicalSort(['x', 'y', 'z'], [['x', 'y'], ['z', 'x'], ['y', 'z']]), ['y', 'x', 'z'], 'Multi-edge between the same nodes');
+    try {
+        topologicalSort(['a', 'b', 'c'], [['a', 'd'], ['b', 'e'], ['c', 'f']]);
+    } catch (error) {
+        assert.equal(error.message, 'Cycle detected or invalid edge', '"a", "d", and "d", and "e" should form a cycle');
+    }
+    try {
+        topologicalSort(['x', 'y'], [['x', 'y']]);
+    } catch (error) {
+        assert.equal(error.message, 'Invalid edge or nodes missing from graph data structure', '"x" should not be an invalid edge');
+    }
+}
+
+// Run the check function to verify the solution
+checkTopologicalSort();
+```

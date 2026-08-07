@@ -1,0 +1,28 @@
+```ts
+/**
+ * Flattens a nested array up to a specified depth level.
+ *
+ * @param items - The input array to be flattened.
+ * @param depth - The maximum number of levels to flatten. Defaults to Infinity, which means every level is flattened.
+ */
+export function flatten(items: readonly unknown[], depth: number = Infinity): unknown[] {
+    if (typeof depth !== 'number' || !Number.isInteger(depth) || depth < 0) {
+        throw new Error('Invalid depth');
+    }
+
+    const result: unknown[] = [];
+    for (const item of items) {
+        if (Array.isArray(item)) {
+            if (depth > 1) {
+                result.push(...flatten(item, depth - 1));
+            } else {
+                result.push(item);
+            }
+        } else {
+            result.push(item);
+        }
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,16 @@
+```ts
+import { isEqual } from "lodash-es";
+
+/**
+ * The values with every negative number removed. 
+ */
+export function removeNegatives(values: readonly number[]): number[] {
+  const nonNegativeValues = [];
+  for (let value of values) {
+    if (value >= 0) {
+      nonNegativeValues.push(value);
+    }
+  }
+  return nonNegativeValues;
+}
+```

@@ -1,0 +1,49 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map<string, Set<string>>();
+    for (const edge of edges) {
+        if (!nodes.includes(edge[0]) || !nodes.includes(edge[1])) {
+            throw new Error('Invalid edge containing a node not in nodes.');
+        }
+        if (graph.has(edge[0])) {
+            graph.get(edge[0]).add(edge[1]);
+        } else {
+            graph.set(edge[0], new Set([edge[1]]));
+        }
+    }
+
+    const indegree = new Map<string, number>();
+    for (const node of nodes) {
+        indegree.set(node, 0);
+    }
+    for (const [from, to] of edges) {
+        indegree.set(to, indegree.get(to)! + 1);
+    }
+
+    const freeNodes: string[] = [];
+    for (const node of nodes) {
+        if (!indegree.has(node)) {
+            freeNodes.push(node);
+        }
+    }
+
+    const result: string[] = [];
+    while (freeNodes.length > 0) {
+        const nextNode = freeNodes.shift() as string;
+        result.push(nextNode);
+        for (const dependent of graph.get(nextNode) ?? new Set()) {
+            indegree.set(dependent, indegree.get(dependent)! - 1);
+            if (indegree.get(dependent)! === 0) {
+                freeNodes.push(dependent);
+            }
+        }
+    }
+
+    const remainingNodes = [...nodes];
+    if (remainingNodes.some((node) => indegree.get(node) !== 0)) {
+        throw new Error('Cycle detected in the graph.');
+    }
+
+    return result;
+}
+```

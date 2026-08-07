@@ -1,0 +1,18 @@
+```typescript
+/**
+ * The KEY=VALUE pairs of a config file, ignoring blank lines and comments.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const trimmedLine = line.trim();
+    if (trimmedLine === "" || trimmedLine.startsWith("#")) continue;
+    const indexOfEquals = trimmedLine.indexOf("=");
+    if (indexOfEquals === -1) throw new Error(`No '=' found in line: ${line}`);
+    const key = trimmedLine.substring(0, indexOfEquals).trim();
+    if (key === "__proto__") throw new Error("__proto__ is not allowed as a key");
+    config[key] = trimmedLine.substring(indexOfEquals + 1).trim();
+  }
+  return config;
+}
+```

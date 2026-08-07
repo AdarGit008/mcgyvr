@@ -1,0 +1,53 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  intervals = intervals.filter(([start]) => start !== undefined); // Throw Error for a pair whose start is greater than its end
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  function merge(range: number[]): number[] {
+    const [mergedStart, mergedEnd] = range;
+    if (range.length === 1) return range;
+
+    let nextRange = intervalPairs.find(r => r[0] > mergedEnd);
+
+    if (!nextRange) {
+      // No overlapping areas found on the right, merge current area with any remaining ones in future
+      const mergedArea = [mergedStart, Math.max(...intervalPairs.map(r => r[1]))];
+      return (intervalPairs.filter(r => r !== range) || []).concat([mergedArea]);
+    }
+
+    let lastRange: number[] | undefined;
+    for (const currentRange of intervalPairs) {
+      if (currentRange[0] <= mergedEnd) { // Found a overlapping area in the right
+        const nextStart = Math.max(mergedEnd, currentRange[0]);
+        const mergedEnd = Math.max(mergedEnd, currentRange[1]);
+
+        lastRange = currentRange;
+      } else {
+        if (lastRange && lastRange !== range) {
+          // Found an overlapping area on the left of current
+          const mergedArea = [Math.min(...intervalPairs.map(r => r[0])), lastRange[1]];
+          intervalPairs.splice(intervalPairs.indexOf(lastRange), 1);
+          return (intervalPairs.filter(r => r !== range) || []).concat([mergedArea]);
+        }
+
+        break;
+      }
+    }
+
+    // No overlapping found to the right, continue with next ones in future
+    const mergedArea = [mergedStart, Math.max(...nextRange.map(r => r[1]))];
+    return (intervalPairs.filter(r => r !== range) || []).concat([mergedArea]);
+  }
+
+  let result: number[][] = [];
+  for (const interval of intervals) {
+    const mergedArea = merge(interval);
+    if (!result.length || mergedArea.some(([start], [existingStart]) => start < existingStart)) {
+      result.push(mergedArea);
+    }
+  }
+
+  return result;
+}
+```

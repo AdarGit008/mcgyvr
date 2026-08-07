@@ -1,0 +1,55 @@
+```typescript
+/**
+ * Splits a CSV line into its fields on commas.
+ * A field wrapped in double quotes may contain commas, and a doubled quote inside such a field means one literal quote character;
+ * the surrounding quotes are not part of the value. Fields that are not quoted are taken literally, including any surrounding spaces.
+ * An empty line is one empty field.
+ */
+export function parseCsvLine(line: string): string[] {
+    const result = [];
+    let currentField = '';
+    let inQuote = false;
+
+    for (const char of line) {
+        if (char === '"') {
+            inQuote = !inQuote;
+        } else if (!inQuote && char === ',') {
+            if (currentField) {
+                result.push(currentField.trim());
+                currentField = '';
+            }
+        } else {
+            currentField += char;
+        }
+    }
+
+    if (currentField) {
+        result.push(currentField.trim());
+    }
+
+    if (result.length < 1 && line !== '') { // empty line
+        return [`''`];
+    }
+
+    const quotedFields: string[] = [];
+    let quoteCount = 0;
+
+    for (const char of line) {
+        if (char === '"') {
+            quoteCount++;
+        } else if (quoteCount > 0 && char === ',') {
+            quotedFields.push(`"${currentField}"`);
+            currentField = '';
+            quoteCount--;
+        } else if (quoteCount > 0 && char !== ',') {
+            currentField += char;
+        }
+    }
+
+    if (quoteCount > 0) { // no matching closing quote
+        throw new Error("Unbalanced quote in the CSV line");
+    }
+
+    return [...result, ...quotedFields];
+}
+```

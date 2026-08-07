@@ -1,0 +1,73 @@
+```ts
+
+// Implement topological sort for given nodes and edges
+
+import { strict as assert } from 'assert';
+
+/**
+ * Returns a topological sorting of nodes satisfying all edge requirements.
+ * @throws Error if any node in an edge does not exist or a cycle is detected
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjacencyList = buildGraph(nodes, edges);
+    const visited = new Set<string>();
+    const stack: string[] = [];
+
+    function dfs(node: string): void {
+        if (!adjacencyList.has(node)) {
+            throw new Error(`Node ${node} not found`);
+        }
+        if (visited.has(node)) return;
+
+        visited.add(node);
+
+        for (const neighbor of adjacencyList.get(node) || []) {
+            dfs(neighbor);
+        }
+
+        stack.push(node);
+    }
+
+    for (const node of nodes) {
+        dfs(node);
+    }
+
+    return stack.reverse();
+}
+
+/**
+ * Builds an adjacency list graph from a given set of nodes and edges.
+ * @returns A Map with nodes as keys and arrays of neighbors as values
+ */
+function buildGraph(nodes: readonly string[], edges: readonly (readonly [string, string])[]): Map<string, Set<string>> {
+    const graph = new Map<string, Set<string>>();
+
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from)) {
+            throw new Error(`Node ${from} not found`);
+        }
+        if (!nodes.includes(to)) {
+            throw new Error(`Node ${to} not found`);
+        }
+
+        if (!graph.has(from)) {
+            graph.set(from, new Set<string>());
+        }
+
+        graph.get(from)!.add(to);
+    }
+
+    return graph;
+}
+
+// Test cases
+assert.deepEqual(topologicalSort(["a", "b"], [["a", "b"]]), ["a", "b"]);
+assert.deepEqual(topologicalSort(["a", "b", "c"], [["a", "b"], ["b", "c"]]), ["a", "b", "c"]);
+assert.throws(() => topologicalSort(["a", "b"], [["a", "b"], ["b", "a"]]), /cycle detected/);
+```
+
+### Note:
+- The provided solution uses a depth-first search (DFS) approach to perform the topological sort and detect cycles.
+- It builds an adjacency list representation of the graph, which helps in identifying dependencies between nodes.
+- The DFS function pushes each node that completes its path into a stack. Finally, it reverses the stack to get the correct order.
+- The `buildGraph` function constructs the graph based on the given nodes and edges, ensuring all nodes are known before attempting any operations.

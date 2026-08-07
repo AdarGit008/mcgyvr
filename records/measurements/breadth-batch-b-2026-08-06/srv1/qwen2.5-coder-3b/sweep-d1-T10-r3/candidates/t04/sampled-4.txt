@@ -1,0 +1,61 @@
+```typescript
+
+
+interface LruCache<K, V> {
+  constructor(capacity: number): void;
+  get(key: K): V | undefined;
+  set(key: K, value: V): void;
+  get size(): number;
+}
+
+class LruCache<K, V> implements LruCache<K, V> {
+  private capacity: number;
+  private map = new Map<K, { key: K; value: V }>();
+  private queue: K[] = [];
+
+  constructor(capacity: number) {
+    if (Number.isInteger(capacity) && capacity > 0) {
+      this.capacity = capacity;
+    } else {
+      throw new Error("Capacity must be a positive integer");
+    }
+  }
+
+  get(key: K): V | undefined {
+    const node = this.map.get(key);
+    if (!node) return undefined;
+
+    // Update the queue to reflect most recently used item
+    this.queue.splice(this.queue.indexOf(node.key), 1);
+    this.queue.push(node.key);
+
+    return node.value;
+  }
+
+  set(key: K, value: V): void {
+    const existingNode = this.map.get(key);
+    if (existingNode) {
+      // Update the queue to reflect most recently used item
+      this.queue.splice(this.queue.indexOf(existingNode.key), 1);
+      this.queue.push(key);
+      // Update the value in the map
+      existingNode.value = value;
+    } else {
+      // Check if adding this key would exceed capacity
+      if (this.map.size >= this.capacity) {
+        // Remove the least recently used item from both the queue and the map
+        const leastRecentlyUsedKey = this.queue.shift();
+        if (!leastRecentlyUsedKey) throw new Error("Cache is full but no keys to remove");
+        this.map.delete(leastRecentlyUsedKey);
+      }
+      // Add the new key-value pair to the queue and map
+      this.queue.push(key);
+      this.map.set(key, { key, value });
+    }
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+}
+```

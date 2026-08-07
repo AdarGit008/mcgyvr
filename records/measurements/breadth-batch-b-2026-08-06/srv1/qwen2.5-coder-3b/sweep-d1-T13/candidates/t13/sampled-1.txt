@@ -1,0 +1,52 @@
+```typescript
+/** The text, cut to limit characters with ellipsis if length exceeds. Does not count astral characters separately. */
+export function truncate(text: string, limit: number): string {
+  if (!Number.isInteger(limit) || limit < 3) {
+    throw new Error("limit must be an integer greater than or equal to 3.");
+  }
+
+  if (text.length <= limit) {
+    return text;
+  }
+  
+  const ellipsis = "...";
+  const charsToCutOff = Ellipsis.length;
+
+  if (text.length + charsToCutOff === limit) {
+    let cutIndex = limit - 1;
+    for (; limit--; cutIndex--) {
+      if (!isLetter(text[cutIndex])) {
+        continue;
+      }  
+      break;
+    }
+  } else {
+    cutIndex = text.lastIndexOf(" ", limit);
+    // If no space in text between (length-limit)+2 and length or all characters have been replaced, end at the (last possible).
+    if (!text.substring(cutIndex).includes(ellipsis) && text.substring(index, limit+1)) {     
+      cutIndex = limit - charsCutOff;
+    }
+  }
+  
+  return text.slice(0, cutIndex) + ellipsis;
+
+}
+
+function isLetter(char: string): boolean {
+  const uChar = char.charCodeAt(0);
+
+  return (uChar in ['A', 'B', 'C', 'D', 'E', 
+                    'F', 'G', 'H', 'I', 'J',
+                    'K', 'L', 'M', 'N', 'O', 'P,',
+                    'Q', 'R', 'S', 'T', 'U', 'V',
+                    'W', 'X', 'Y', 'Z', 
+                     'a', 'b', 'c', 'd', 'f',
+                    'g', 'h', 'i', 'j', 'k',
+                    'l', 'm', 'n', 'o', 'p,',,
+                    'q', 'r', 's', 't', 'u', 'v',
+                    'w', 'x', 'y', 'z']) ||
+        'A' <=  uChar && uChar <= 'Z' ||  
+        'a' <=  uChar && uChar <= ' z';
+}
+
+```

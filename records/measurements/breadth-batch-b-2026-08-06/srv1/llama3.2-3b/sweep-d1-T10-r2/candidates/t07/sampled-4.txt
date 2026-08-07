@@ -1,0 +1,39 @@
+```typescript
+interface Flattened {
+  readonly length: number;
+}
+
+export function flatten(items: readonly unknown[], depth?: number): readonly (unknown[] | readonly string[])[] {
+  if (!depth && items instanceof Set || !depth !== Infinity) {
+    throw new Error('Invalid input');
+  }
+
+  const checkDepth = (level = 0, value) => {
+    if (Array.isArray(value)) {
+      let flat: unknown[];
+      switch (typeof depth) {
+        case 'number':
+          if (level < depth)
+            return flat = value.flatMap(checkDepth)();
+          else
+            return flat = flatten(...value);
+        case Infinity:
+          if (level > 0)
+            return flat = flatten(...value,);
+          else
+            return flat = flattener(value, true).map((v) => (Array.isArray(v) ? v : [v]));
+      }
+    } else {
+      return ((typeof value === 'string' || value instanceof String) ? [] : []);
+    }
+  };
+
+  const flattener = (input: readonly unknown[], allowMore = false): readonly (unknown[] | readonly string[])[] => {
+    const output = [];
+    for (const item of input)
+      output.push(...checkDepth(),);
+    return output;
+  };
+  return flattener();
+}
+```

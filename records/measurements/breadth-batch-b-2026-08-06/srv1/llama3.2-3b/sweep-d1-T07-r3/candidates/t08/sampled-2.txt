@@ -1,0 +1,69 @@
+```typescript
+/**
+ * Performs topological sort on the given nodes and edges.
+ *
+ * @param {readonly string[]} nodes - The names of all nodes involved in the graph.
+ * @param {readonly [string, string][]} edges - All 'from'->'to' directed edges in the graph.
+ * @returns {string[]} An ordering satisfying every edge. When several orderings are valid,
+ *                     we pick the one keeping nodes in their input order.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    // Create a map to store the adjacency list of the graph
+    const graph = new Map<string, readonly string[]>();
+    
+    // Populate the graph with edges
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) {
+            throw new Error(`Node '${from}' not found in nodes`);
+        }
+        if (!graph.has(to)) {
+            graph.set(to, []);
+        }
+        if (!graph.has(from).includes(to)) {
+            throw new Error(`Cycle detected: edge ${from}->${to}`);
+        }
+        graph.get(from)!.push(to);
+    }
+
+    // Create a map to store the in-degree of each node
+    const inDegree = new Map<string, number>();
+    
+    // Calculate the in-degree of each node
+    for (const node of nodes) {
+        inDegree.set(node, 0);
+    }
+    for (const [from, to] of edges) {
+        inDegree.set(to, inDegree.get(to)! + 1);
+    }
+
+    // Create a queue with all nodes having in-degree zero
+    const queue = < readonly string[] >[];
+    for (const node of nodes) {
+        if (inDegree.get(node)! === 0) {
+            queue.push(node);
+        }
+    }
+
+    // Perform DFS to find the ordering
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+        for (const neighbor of graph.get(node)!) {
+            inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+            if (inDegree.get(neighbor)! === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    // If there are still nodes with non-zero in-degree, a cycle exists
+    for (const degree of inDegree.values()) {
+        if (degree !== 0) {
+            throw new Error('Cycle detected: ordering not possible');
+        }
+    }
+
+    return result;
+}
+```

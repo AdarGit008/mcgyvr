@@ -1,0 +1,56 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges) throw new Error("Input must be non-empty arrays");
+    
+    const graph = new Map<string, Set<string>>();
+    const indegree = new Map<string, number>();
+
+    // Build the graph and calculate degrees
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) graph.set(from, new Set());
+        if (!graph.has(to)) graph.set(to, new Set());
+
+        graph.get(from).add(to);
+        indegree.set(to, (indegree.get(to) || 0) + 1);
+    }
+
+    // Get all nodes with no incoming edges
+    const freeNodes = Array.from(nodes).filter(node => !indegree.has(node));
+
+    const result: string[] = [];
+    while (freeNodes.length > 0) {
+        const node = freeNodes.shift()!;
+        result.push(node);
+
+        // If the current node has any outgoing edges, decrease their indegree
+        graph.get(node)?.forEach(toNode => {
+            indegree.set(toNode, indegree.get(toNode)! - 1);
+            if (indegree.get(toNode) === 0) freeNodes.push(toNode);
+        });
+    }
+
+    // Check for cycles
+    const visited = new Set(nodes);
+    const remainingEdges = new Map(edges);
+
+    const dfsCheckCycle = (node: string) => {
+        visited.add(node);
+        graph.get(node)?.forEach(toNode => {
+            if (!visited.has(toNode)) {
+                dfsCheckCycle(toNode);
+            } else if (remainingEdges.get([toNode, node])) {
+                throw new Error("Cycle detected");
+            }
+        });
+    };
+
+    // Perform dfs to detect cycles
+    for (const node of nodes) {
+        if (!visited.has(node)) {
+            dfsCheckCycle(node);
+        }
+    }
+
+    return result;
+}
+```

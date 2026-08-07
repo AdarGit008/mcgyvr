@@ -1,0 +1,19 @@
+```ts
+/** Returns the division of `a` by `b`, throwing an Error if `b` is zero or if either `a` or `b` are non-finite numbers. */
+export function safeDivide(a: number, b: number): number {
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Both arguments must be numbers');
+  }
+  
+  const finite = isFinite(a) && isFinite(b);
+  if (!finite) {
+    throw new Error('At least one of the arguments is not a finite number');
+  }
+  
+  if (b === 0) {
+    throw new Error('Cannot divide by zero');
+  }
+  
+  return a / b;
+}
+```

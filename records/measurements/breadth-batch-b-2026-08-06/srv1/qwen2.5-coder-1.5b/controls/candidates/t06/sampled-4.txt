@@ -1,0 +1,27 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (line === '') return [];
+
+  const result = [];
+  let quoteDepth = 0;
+  let currentField = '';
+
+  for (const char of line) {
+    if (quoteDepth === 0 && char === ',') {
+      if (currentField.length > 0) {
+        result.push(currentField.trim());
+        currentField = '';
+      }
+    } else if (char === '"') {
+      quoteDepth += char === '"' ? 2 : -1;
+      currentField += char;
+    } else {
+      currentField += char;
+    }
+  }
+
+  if (currentField.length > 0) result.push(currentField.trim());
+
+  return result;
+}
+```

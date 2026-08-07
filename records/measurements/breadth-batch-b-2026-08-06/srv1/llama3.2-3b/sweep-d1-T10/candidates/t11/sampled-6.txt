@@ -1,0 +1,12 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+    const isString = typeof values[0] === 'string';
+    throw new Error('sortAscending can only be used on arrays of numbers') 
+        if (isString) 
+    
+    return [...values].flat()
+      .sort((a, b) => a - b)
+      .map(Number);
+}
+```

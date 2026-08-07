@@ -1,0 +1,17 @@
+```typescript
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    let [key, value, isBlankLine]: [string, string, boolean] =
+      /^ #/m.test(line) ? [] : line.trim().split("=");
+    if (!key.startsWith("#")) {
+      key = key.trim();
+      value = value ?? "";
+      return { ...config, [key]: value };
+    }
+    throw new Error(`No '=' found in line: '${line.replace(/^\s*#?\s*/g, '')}'`);
+  }
+
+  throw new Error('Line(s) had an empty key.');
+}
+```

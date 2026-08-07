@@ -1,0 +1,19 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') throw new Error('Input must be a string');
+
+  const result = input.split('').reduce((acc, char, index) => {
+    if (index === 0 || char !== acc[acc.length - 1]) {
+      // If it's the first character or not the same as the last appended character
+      return [...acc, char, '1'];
+    } else {
+      // Increment the count of the last character
+      const lastChar = acc[acc.length - 2];
+      const newCount = parseInt(lastChar, 10) + 1;
+      return [...acc.slice(0, -2), `${lastChar}${newCount}`];
+    }
+  }, [] as string[]);
+
+  return result.join('');
+}
+```

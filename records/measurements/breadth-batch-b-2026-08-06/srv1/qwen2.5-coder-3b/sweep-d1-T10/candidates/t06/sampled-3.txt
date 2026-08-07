@@ -1,0 +1,54 @@
+```
+type QuoteState = "outside" | "inside" | "closing";
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let currentField = "";
+  let quoteState: QuoteState = "outside";
+  let quoteCount = 0;
+
+  for (const char of line) {
+    switch (quoteState) {
+      case "outside":
+        if (char === '"') {
+          quoteState = "inside";
+          quoteCount++;
+          break;
+        }
+        if (char === ",") {
+          result.push(currentField.trim());
+          currentField = "";
+          break;
+        }
+        currentField += char;
+        break;
+      case "inside":
+        if (char === '"') {
+          quoteCount++;
+          currentField += char;
+          break;
+        }
+        currentField += char;
+        break;
+      case "closing":
+        if (char === '"') {
+          quoteState = quoteCount % 2 > 0 ? "inside" : "outside";
+          quoteCount--;
+          break;
+        }
+        // If not closing, it's an invalid CSV line
+        throw new Error("Quoted field is never closed");
+    }
+  }
+
+  if (result.length === 0) {
+    return [currentField.trim()];
+  } else if (quoteState !== "outside" && quoteState !== "closing") {
+    throw new Error("Invalid CSV line");
+  }
+
+  result.push(currentField.trim());
+
+  return result;
+}
+```

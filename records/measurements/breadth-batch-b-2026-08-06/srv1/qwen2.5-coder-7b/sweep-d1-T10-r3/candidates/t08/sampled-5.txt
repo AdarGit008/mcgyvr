@@ -1,0 +1,48 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList: { [key: string]: string[] } = {};
+  const inDegreeCount: { [key: string]: number } = {};
+
+  for (const node of nodes) {
+    adjacencyList[node] = [];
+    inDegreeCount[node] = 0;
+  }
+
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw new Error(`Node ${from} or ${to} not found in nodes`);
+    }
+    adjacencyList[from].push(to);
+    inDegreeCount[to]++;
+  }
+
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if (inDegreeCount[node] === 0) {
+      queue.push(node);
+    }
+  }
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    if (queue.length > 1) {
+      // This ensures that among the earliest nodes, we use the one that appears first in the input nodes
+      queue.sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b));
+    }
+    const node = queue.shift()!;
+    result.push(node);
+    for (const neighbor of adjacencyList[node]) {
+      if (--inDegreeCount[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  if (result.length !== nodes.length) {
+    throw new Error('Cycle detected');
+  }
+
+  return result;
+}
+```

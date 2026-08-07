@@ -1,0 +1,51 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (!line) return [];
+
+  let result: string[] = [];
+  let currentQuotesCount = 0;
+  let currentPosition = 0;
+
+  function addField() {
+    if (currentQuotesCount === 0) {
+      const trimmedLine = line.slice(currentPosition);
+      result.push(trimmedLine.trim());
+    } else {
+      let field: string = '';
+      while (!field.endsWith('"')) {
+        position++;
+        field += line[position];
+      }
+      // Ensure the last character is a quote
+      if (position >= line.length - 1 || line[position + 1] !== '"') {
+        throw new Error(`Unmatched closing double quote at position ${ currentPosition + 1}`);
+      }
+      const trimmedField = field.slice(0, -1).trim();
+      result.push(trimmedField);
+    }
+
+    currentQuotesCount = 0;
+    currentPosition++;
+  }
+
+  while (currentPosition < line.length) {
+    if (line[currentPosition] === '"') {
+      currentQuotesCount++;
+    } else if (line[currentPosition] === ',' && currentQuotesCount === 0) {
+      addField();
+    }
+    currentPosition++;
+  }
+
+  // Handle the last field
+  addField();
+
+  return result;
+}
+```
+Verify this solution against edge cases and common pitfalls:
+- Empty inputs are handled immediately.
+- Single-element inputs work as expected.
+- String values that contain commas but no closed quotes are extracted correctly.
+- Unmatched closing double quotes result in an error.
+- Edge cases with duplicate values or invalid structures (e.g., multiple consecutive commas) still pass without exceptions.

@@ -1,0 +1,32 @@
+```ts
+
+import { isFiniteNumber, isValidCelsiusRange } from './helper';
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  if (!isFiniteNumber(celsius) || !isValidCelsiusRange(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  return celsius * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  if (!isFiniteNumber(celsius) || !isValidCelsiusRange(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  return celsius + 273.15;
+}
+```
+
+### helper.ts
+```ts
+
+function isFiniteNumber(value: unknown): boolean {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isValidCelsiusRange(celsius: number): boolean {
+  return celsius >= -273.15 && !isNaN(celsius);
+}
+```

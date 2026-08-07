@@ -1,0 +1,24 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  const lines = line.split('\n');
+  let acc: string[] = [];
+  let inQuotes = false;
+  let quoteCount = 0;
+
+  for (const char of line) {
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      quoteCount++;
+    } else if (!inQuotes && char === ',') {
+      acc.push(line.slice(0, -quoteCount).trim());
+      line = line.slice(-quoteCount);
+      quoteCount = 0;
+    }
+  }
+
+  // Handle the last field after the loop
+  acc.push(line.trim());
+
+  return acc.filter(field => field.length > 0); // Remove empty fields
+}
+```

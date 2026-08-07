@@ -1,0 +1,10 @@
+```ts
+/** Returns a divided by b. Throws Error if divisor is zero or either input is not finite number. */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(b) || Number.isNaN(b)) {
+    throw new Error("Divisor must be a finite number.");
+  }
+
+  return a / b;
+}
+```

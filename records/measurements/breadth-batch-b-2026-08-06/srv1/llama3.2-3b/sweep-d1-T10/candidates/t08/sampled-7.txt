@@ -1,0 +1,58 @@
+```typescript
+/**
+ * Computes a topological sorting of nodes based on their edges.
+ *
+ * Given node names and [from, to] edges meaning from must come before to,
+ * return an ordering satisfying every edge. When several orderings are valid,
+ * pick the one that keeps nodes in their input order - among the nodes currently
+ * free of unmet dependencies, always take the earliest in nodes.
+ *
+ * Throws an Error naming a cycle when no ordering exists, and an Error for an edge
+ * naming a node not in `nodes`.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    // Create a map of nodes to their dependencies.
+    const nodeDependencies = new Map<readonly string[], boolean>(());
+
+    // Populate the map with the input edges.
+    for (const [from, to] of edges) {
+        if (!nodes.includes(to)) {
+            throw new Error(`Node ${to} is not in ` + ' nodes');
+        }
+        const dependencies = nodeDependencies.get(from) ?? [];
+        dependencies.add(to);
+        nodeDependencies.set(from, dependencies);
+    }
+
+    // Create a set of all nodes that have no dependencies.
+    const freeNodes: readonly Set<readonly string[]> = new Set();
+    for (const [_, dependencies] of nodeDependencies) {
+        if (dependencies.size === 0) {
+            for (const node of dependencies) {
+                freeNodes.add(node);
+            }
+        }
+    }
+
+    // Perform the topological sorting.
+    const ordering: readonly string[] = [];
+    while (freeNodes.size > 0) {
+        const [nextNode] = [...freeNodes][0];
+        ordering.push(nextNode);
+        for (const dependencies of nodeDependencies.get(nextNode)!) {
+            const index = freeNodes.values().indexOf(dependencies);
+            if (index !== -1) {
+                freeNodes.delete(dependencies);
+                freeNodes.add([...freeNodes].slice(0, index).concat([dependencies]).concat([...freeNodes].slice(index + 1)));
+            }
+        }
+    }
+
+    // Check for cycles.
+    if (ordering.length !== nodes.length) {
+        throw new Error(`Cycle detected: ${ordering.join(' -> ' ')}`);
+    }
+
+    return ordering;
+}
+```

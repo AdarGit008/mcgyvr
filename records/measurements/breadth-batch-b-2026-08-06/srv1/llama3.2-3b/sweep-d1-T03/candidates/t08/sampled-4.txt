@@ -1,0 +1,66 @@
+```typescript
+/**
+ * Returns a topological ordering of nodes satisfying all edges.
+ * When several orderings are valid, picks the one that keeps nodes in their input order,
+ * among the nodes currently free of unmet dependencies, always takes the earliest in nodes.
+ *
+ * @param nodes - Names of nodes.
+ * @param edges - [from, to] edges meaning from must come before to.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjacencyList = new Map<string, Set<string>>();
+    for (const node of nodes) {
+        adjacencyList.set(node, new Set());
+    }
+
+    for (const [from, to] of edges) {
+        if (!adjacencyList.has(from)) {
+            throw new Error(`Node '${from}' not in nodes`);
+        }
+        if (!adjacencyList.has(to)) {
+            throw new Error(`Node '${to}' not in nodes`);
+        }
+        adjacencyList.get(from).add(to);
+    }
+
+    const visited = new Set<string>();
+    const currentPath = new Set<string>();
+
+    const result: string[] = [];
+    for (const node of nodes) {
+        if (!visited.has(node)) {
+            visitNode(node, adjacencyList, visited, currentPath, result);
+        }
+    }
+
+    return result;
+}
+
+function visitNode(
+    node: string,
+    adjacencyList: Map<string, Set<string>>,
+    visited: Set<string>,
+    currentPath: Set<string>,
+    result: string[]
+) {
+    if (currentPath.has(node)) {
+        throw new Error(`Cycle detected in edges`);
+    }
+
+    if (!adjacencyList.has(node)) {
+        return;
+    }
+
+    for (const neighbor of adjacencyList.get(node)!) {
+        if (!visited.has(neighbor)) {
+            visitNode(neighbor, adjacencyList, visited, currentPath, result);
+        }
+    }
+
+    currentPath.add(node);
+    visited.add(node);
+    result.push(node);
+
+    currentPath.delete(node);
+}
+```

@@ -1,0 +1,43 @@
+```ts
+/**
+ * Splits an array into consecutive groups of at most size `items` elements.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error('size must be a positive integer');
+  }
+
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+}
+
+// TESTING the chunk function with different edge cases and sizes to verify its correctness.
+() => {
+  try {
+    console.log(chunk([], 2)); // should be([])
+  } catch (err) {
+    console.error(err);
+  }
+
+  try {
+    console.log(chunk([1, 2, 3], 4)); // should be([[1, 2, 3]])
+  } catch (err) {
+    console.error(err);
+  }
+
+  try {
+    console.log(chunk(['Apple', 'Banana', 'Cherry'], 1)); // should be([['Apple'], ['Banana'], ['', 'Cherry']])
+  } catch (err) {
+    console.error(err);
+  }
+
+  try {
+    console.log(chunk([-1, -2, -3, -4, -5], 2)); // should be([[-1, -2], [-3, -4], [-5]])
+  } catch (err) {
+    console.error(err);
+  }
+}
+```

@@ -1,0 +1,29 @@
+```typescript
+/**
+ * Parses a config file into a Record<string, string> with key-value pairs and ignores blank lines,
+ * lines whose first non-space character is #, trims whitespace around keys and values,
+ * splits on the FIRST = only so a value may contain one, throws an Error naming the line for a
+ * line with no = and for an empty key.
+ *
+ * @param text The contents of the config file as a string
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const lines = text.split("\n").filter(line => line.trim());
+  if (lines.length === 0) {
+    throw new Error("Empty config file");
+  }
+  const config:Record<string,string> = {};
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith('#')) continue;
+    let [key, value] = trimmedLine.split('=', 2);
+    key = key.trim();
+    value = value.trim();
+    if (value === '' && !config[key]) {
+      throw new Error(`Empty value for key '${key}' on line ${lines.indexOf(line) + 1}`);
+    }
+    config[key] = value;
+  }
+  return config;
+}
+```

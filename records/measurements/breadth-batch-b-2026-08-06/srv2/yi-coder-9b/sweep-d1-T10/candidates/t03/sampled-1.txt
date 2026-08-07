@@ -1,0 +1,22 @@
+Here's how I would implement parseSemver using TypeScript:
+
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const regex = /^(\d+)\.(\d+)\.(\d+)(-(?<pre>[^+]*))?(\+(?<build>.*))?$/;
+    const parts = version.match(regex);
+
+    if (!parts) throw new Error('Invalid SemVer');
+
+    return {
+        major: parseInt(parts[1], 10),
+        minor: parseInt(parts[2], 10),
+        patch: parseInt(parts[3], 10),
+        prerelease: parts.groups?.['pre'] || null,
+        build: parts.groups?.['build'] || null
+    };
+}
+```
+
+This function firstly uses a semantic versioning regular expression `regex` to match the string against pattern of MAJOR.MINOR.PATCH optionally followed by -PRE and / or +BUID. The groups are as follow: `major`, `minor`, `patch`, `prerelease` (captured in group named `'pre'`), `build` (captured in a group named `'build'`). 
+
+If match is not found i.e. if the version string doesn't follow Semantic Versioning pattern an error 'Invalid SemVer' is thrown. If it does, then groups are used to extract relevant parts which we parse integer values for major, minor and patch parts from respective matched strings using `parseInt()` along with radix 10 (thus achieving proper decimal number parsing instead of potential octal misunderstanding in some environments). The extra groups for prerelease and build version are simply taken as a whole string value if they exist or set to null when they don't.

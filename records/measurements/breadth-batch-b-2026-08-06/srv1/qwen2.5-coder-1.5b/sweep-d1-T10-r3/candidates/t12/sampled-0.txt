@@ -1,0 +1,19 @@
+```ts
+/** The values with every negative number removed. */
+export function removeNegatives(values: readonly number[]): number[] {
+  const negativeIndices = [];
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] < 0) {
+      // If the current index is already shifted, skip it and record the next negative index
+      while (values[i + 1] < 0 || i + 2 >= values.length) {
+        negativeIndices.push(i);
+      }
+      i +=negativeIndices.length > 0 ? negativeIndices.shift() : 0;
+    } else if (negativeIndices.length > 0 && !negativeIndices.includes(i)) {
+      // If we found a new non-negative value after shifting, insert negative indices
+      negativeIndices.forEach(i => values.splice(i + 1, 0, -values[i] if i >= i + negativeIndices.length else NaN)));
+    }
+  }
+  return values.filter(number => !isNaN(number)); // Remove NaN from the array
+}
+```

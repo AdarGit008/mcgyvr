@@ -1,0 +1,6 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].sort((a, b) => (typeof a === 'number' && typeof b === 'number') ? a - b : (isNaN(a) ? -1 : (isNaN(b) ? 1 : 0)));
+}
+```

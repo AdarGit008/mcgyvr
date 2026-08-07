@@ -1,0 +1,60 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+    if (!line.trim()) return [];
+
+    const fields: string[] = [];
+    let currentField = "";
+    let inQuotes = false;
+    let escapeNextCharacter = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (escapeNextCharacter) {
+            escapeNextCharacter = false;
+            currentField += char;
+            continue;
+        }
+
+        if (char === '"') {
+            inQuotes = !inQuotes;
+
+            // Check for the common edge case where quotes are never closed
+            if (!inQuotes && fields.length > 0) {
+                throw new Error(
+                    "Quoted field that is never closed, or incorrect use of double quotes."
+                );
+            }
+
+            currentField += char;
+            continue;
+        }
+
+        if (char === ",") {
+            if (inQuotes) {
+                currentField += char;
+            } else {
+                fields.push(currentField.trim());
+                currentField = "";
+            }
+        } else {
+            currentField += char;
+
+            // Escape the next comma for unquoted fields to handle escaped commas
+            if (!inQuotes && i + 1 < line.length && line[i + 1] === ",") {
+                escapeNextCharacter = true;
+            }
+        }
+    }
+
+    // Add the last field
+    if (currentField.trim() || inQuotes) {
+        throw new Error(
+            "Quoted field that is never closed, or incorrect use of double quotes."
+        );
+    }
+
+    fields.push(currentField.trim());
+    return fields;
+}
+```

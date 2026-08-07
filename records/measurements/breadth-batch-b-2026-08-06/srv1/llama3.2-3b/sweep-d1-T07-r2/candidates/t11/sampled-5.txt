@@ -1,0 +1,10 @@
+```ts
+/**
+ * The numbers, ascending.
+ */
+export function sortAscending(values: readonly number[]): number[] {
+  if (values.length === 0) return values;
+  const numericValues = Array.from(values).map(Number);
+  return numericValues.sort((a, b) => a - b).map(String);
+}
+```

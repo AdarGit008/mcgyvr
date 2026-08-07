@@ -1,0 +1,97 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || nodes.length === 0) throw new Error("Must provide valid node names.");
+  
+  const inDegree = new Map<string, number>();
+  for (const edge of edges) {
+    const [from, to] = edge;
+    if (!inDegree.has(from)) inDegree.set(from, 0);
+    inDegree.set(to, (inDegree.get(to) || 0) + 1);
+  }
+  
+  // Identify nodes with zero in-degree, those start the topological sort.
+  const zeroInDegreeNodes: string[] = [];
+  for (const node of nodes) {
+    if (!inDegree.has(node)) continue;
+    if (inDegree.get(node) === 0) zeroInDegreeNodes.push(node);
+  }
+  
+  // Topological sort using breadth-first search with priority queues.
+  const sortedOrder: string[] = [];
+  for (let node of zeroInDegreeNodes) {
+    queue.enqueue({node, cost: 0}); // Priority queue based on in-degree (lowest first).
+  }
+  
+  while (!queue.isEmpty()) {
+    const {node, cost} = queue.dequeue()!;
+    if (sortedOrder.includes(node)) console.log({message: "Cycle detected:", node});
+    
+    sortedOrder.push(node);
+    
+    for (const [nextNode, dependency] of edges.filter(edge => edge[0] === node)) {
+      inDegree.set(nextNode, inDegree.get(nextNode) - 1);
+      
+      if (!inDegree.has(nextNode)) continue;
+      if (inDegree.get(nextNode) === 0) queue.enqueue({node: nextNode, cost: cost + 1});
+    }
+  }
+
+  return sortedOrder.length >= nodes.length ? sortedOrder : [];
+}
+
+interface QueueItem {
+  node: string;
+  cost: number;
+}
+class PriorityQueueArray implements Queue<Item> {
+  private items: Array<QueueItem>;
+  constructor() {
+    this.items = new Array<QueueItem>();
+  }
+  
+  enqueue(item: Item): void {
+    this.items.push(item);
+    const index = this.items.length - 1;
+    
+    while (index > 0) {
+      const parentIndex = Math.floor((index + 1) / 2 - 1);
+      
+      if (item.cost <= this.items[parentIndex].cost) break;
+      
+      [this.items[index], this.items[parentIndex]] = [
+        this.items[parentIndex],
+        this.items[index]
+      ];
+      
+      index = parentIndex;
+    }
+  }
+  
+  dequeue(): Item | undefined {
+    const lastIndex = this.items.length - 1;
+    
+    if (lastIndex === 0) return this.items.pop();
+    
+    const result = this.items[0];
+    this.items[0] = this.items[lastIndex];
+    this.items.pop();
+    
+    const parentIndex = 0;
+    let leftChildIndex = parentIndex * 2 + 1;
+    let rightChildIndex = leftChildIndex + 1;
+    
+    while (leftChildIndex < lastIndex) {
+      if (rightChildIndex < lastIndex && this.items[rightChildIndex].cost < this.items[leftChildIndex].cost) {
+        leftChildIndex = rightChildIndex;
+      }
+      
+      if (this.items[parentIndex].cost <= this.items[leftChildIndex].cost) break;
+      
+      [this.items[parentIndex], this.items[leftChildIndex]] = [
+        this.items[leftChildIndex],
+        this.items[parentIndex]
+      ];
+      
+      parentIndex = leftChildIndex;
+      leftChildIndex = parentIndex * 2 + 1;
+     

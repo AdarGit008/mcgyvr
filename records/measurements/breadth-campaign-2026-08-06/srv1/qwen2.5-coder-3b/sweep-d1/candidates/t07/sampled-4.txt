@@ -1,0 +1,22 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (!Number.isInteger(depth) && depth !== Infinity && depth !== undefined) {
+    throw new Error("Depth must be a non-negative integer or Infinity.");
+  }
+
+  const defaultDepth = depth === undefined ? Infinity : depth;
+
+  return items.flatMap((item, index, array) => {
+    if (Array.isArray(item) && depth > 0) {
+      // Recursively flatten nested arrays
+      const newItems = item.flatMap((subItem, subIndex) =>
+        flatten(subItem, defaultDepth - 1)
+      );
+      // Insert the flattened items at the same position as the original array
+      return [...array.slice(0, index), ...newItems, ...array.slice(index + 1)];
+    }
+    // Return the item if it's not an array or depth is exhausted
+    return item;
+  });
+}
+```

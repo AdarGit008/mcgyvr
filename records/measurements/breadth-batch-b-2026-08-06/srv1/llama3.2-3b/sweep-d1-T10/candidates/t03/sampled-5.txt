@@ -1,0 +1,53 @@
+```typescript
+/**
+ * Parse a semantic version string into its components, with optional -prerelease and +build suffixes.
+ *
+ * @param version Semantic version string (MAJOR.MINOR.PATCH[-PRERELEASE][-BUILD])
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const matches = version.match(/^(\d+)\.(\d+)\.(\d+)(?:([-\w_]+))?((?:\+|\-)[\w_]+)?$/
+
+    as RegExpExecArray | null) || throw new Error("Invalid semver format");
+
+  if (!matches) {
+    throw new Error("Invalid semver format");
+  }
+
+  const [major, minor, patch] = matches.slice(1).map(Number);
+
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+    throw new Error("Major, minor and patch versions must be digits");
+  }
+
+  const prerelease = matches[5] ? matches[5].slice(1) : null;
+  const build = matches[6];
+
+  return { major, minor, patch, prerelease, build };
+}
+
+/**
+ * Parse a pre-release string into its components. A pre-release is an optional
+ * string that is used to indicate the pre-release version of a project.
+ *
+ * @param preRelease Pre-release string
+ */
+export function parsePreRelease(preRelease: string): string | null {
+  if (preRelease.startsWith('-')) {
+    return null;
+  }
+  return preRelease;
+}
+
+/**
+ * Parse a build suffix into its components. A build is an optional suffix that
+ * is used to indicate the target of a build, such as the architecture or operating system.
+ *
+ * @param build Build suffix string
+ */
+export function parseBuild(build: string): string | null {
+  if (!build.length) {
+    return null;
+  }
+  return build.slice(1);
+}
+```

@@ -1,0 +1,21 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const regex = /^v?(\d+)\.(\d+)\.(\d+)(?:-(\w+))?(?:\+(.*))?$/;
+
+  if (!regex.test(version)) {
+    throw new Error(`Invalid version string: ${version}`);
+  }
+
+  const [, major, minor, patch] = regex.exec(version) as [undefined?, number, number, number];
+  const prerelease = regex[4] ? regex[4].trim() : null;
+  const build = regex[5] ? regex[5].trim() : null;
+
+  return {
+    major: Number.isNaN(Number(major)) || major === "0" ? undefined : parseInt(major, 10),
+    minor: Number.isNaN(Number(minor)) || minor === "0" ? undefined : parseInt(minor, 10),
+    patch: Number.isNaN(Number(patch)) || patch === "0" ? undefined : parseInt(patch, 10),
+    prerelease,
+    build
+  };
+}
+```

@@ -1,0 +1,61 @@
+```ts
+/**
+ * Perform topological sort on a directed graph represented by nodes and edges.
+ * @param nodes An array of unique node names.
+ * @param edges A list of tuples where each tuple represents an edge from one node to another.
+ * @returns An ordering of the nodes satisfying all edge dependencies.
+ * @throws Error if there is a cycle in the graph or a referenced non-existing node.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.length === 0) {
+    return [];
+  }
+
+  // Create an adjacency list representation of the graph
+  const adjacencyList = new Map<string, string[]>();
+  for (const node of nodes) {
+    adjacencyList.set(node, []);
+  }
+
+  // Count the in-degree of each node
+  const inDegree: { [key: string]: number } = {};
+  nodes.forEach(node => inDegree[node] = 0);
+
+  edges.forEach(([from, to]) => {
+    if (adjacencyList.has(from) && adjacencyList.get(from).indexOf(to) === -1) {
+      adjacencyList.get(from)?.push(to);
+    } else if (!adjacencyList.has(from)) {
+      adjacencyList.set(from, [to]);
+    }
+
+    inDegree[to]++;
+  });
+
+  // Find all nodes with zero in-degree (start nodes)
+  const startNodes = Array.from(nodes).filter(node => inDegree[node] === 0);
+
+  // Perform topological sort
+  const sortedOrder: string[] = [];
+  while (startNodes.length > 0) {
+    const node = startNodes.shift() as string;
+    if (!sortedOrder.includes(node)) {
+      sortedOrder.push(node);
+    }
+
+    adjacencyList.get(node)?.forEach(nextNode => {
+      inDegree[nextNode]--;
+      if (inDegree[nextNode] === 0) {
+        startNodes.push(nextNode);
+      }
+    });
+  }
+
+  // Check for cycles
+  const remainingInDegrees = Object.values(inDegree).filter(degree => degree !== 0);
+  if (remainingInDegrees.length > 0) {
+    throw new Error('Cycle detected in the graph');
+  }
+
+  return sortedOrder;
+}
+```

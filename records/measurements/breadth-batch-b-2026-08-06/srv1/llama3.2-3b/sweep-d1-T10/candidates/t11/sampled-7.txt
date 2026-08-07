@@ -1,0 +1,36 @@
+```typescript
+/** The numbers sorted ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  /* guards against shallow arrays/numbers */
+  if (!Array.isArray(values)) {
+    return values === null ? [] : [values];
+  }
+
+  const ordered = [...values.map(x => {
+    /* handle NaN as a special case to avoid misleading sorts */
+    if (isNaN(x)) {
+      return Infinity;
+    }
+    return x;
+  })];
+
+  ordered.sort(
+    (a, b) => a - b
+  );
+
+  for (let i = 0; i < ordered.length; ++i) {
+    /* re-map values since sort can be non-deterministic w.r.t. NaN */
+    if (isNaN(ordered[i])) {
+      ordered[i] = Infinity;
+    } else {
+      ordered[i] = Number(ordered[i]);
+    }
+  }
+
+  return ordered.filter(_x => {
+    /* suppress warning about 'number' is potentially undefined */
+    const x = _x;
+    return !isNaN(x);
+  });
+}
+```

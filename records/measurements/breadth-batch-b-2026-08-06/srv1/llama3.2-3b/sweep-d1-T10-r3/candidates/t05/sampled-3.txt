@@ -1,0 +1,56 @@
+```typescript
+/**
+ * Returns chunks of a given size from an array, preserving order.
+ */
+export function chunk<T extends any[]>(
+  items: readonly T[],
+  size: number
+): ((...args: any[]) => void) {
+  // Check if size is a positive integer
+  if (typeof size !== 'number' || size <= 0) {
+    return () => new Error('Size must be a positive integer.');
+  }
+
+  const result = <T extends any[]>(
+    items: readonly T[],
+    size: number,
+    accumulator = [],
+    chunks?: T[]
+  ): T[][] => {
+    if (items.length === 0) {
+      return accumulator;
+    }
+    
+    // Calculate how many full groups can fit in the array
+    const fullGroupsCount = Math.trunc(items.length / size);
+    
+    for (let i = 0; i < fullGroupsCount; i++) {
+      // Create new chunk and add it to the result
+      const nextBatchSize = size * (i + 1);
+      const currentChunk = accumulator.slice(0, nextBatchSize);
+      if (chunks === undefined) chunks = [...currentChunk];
+    }
+
+    for (; items.length > 0; ) {
+      // Take last 'size' elements into new chunk
+      const newSize = Math.min(items.length, size);
+      const current Chunk = accumulator.concat(items.splice(0, newSize));
+      
+      if (chunks === undefined) chunks = [currentChunk]; 
+      else chunks.push(currentChunk);
+    }
+
+    return result(...args);
+  };
+
+  // Start with an empty chunk
+  const _chunk = result(items, size);
+
+  // If chunks is initially a closure function
+  if ((<any>(_chunk)>).name === '__closure__') {
+    return (/* empty args */);
+  } else {
+    return undefined;
+  }
+}
+```

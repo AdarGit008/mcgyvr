@@ -1,0 +1,23 @@
+```ts
+import { isEmpty } from "./util";
+  
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (isEmpty(intervals)) return [];
+   
+    let newIntervals = intervals.map(i => [...i]).sort((a, b) => a[0] - b[0]);
+  
+    for (let i = 1; i < newIntervals.length; ++i) {
+        if (newIntervals[i][0] > newIntervals[i][1]) throw Error("An interval's start must not be greater than its end.");
+   
+        let prev = newIntervals[i - 1];
+      
+        if (prev[1] >= newIntervals[i][0]) {
+            newIntervals[i-1] = undefined;
+           
+            prev[1] = Math.max(prev[1], newIntervals[i][1]);    // Overlapping intervals: merge the max end.
+        }
+    } 
+  
+    return newIntervals.filter(i => i).sort((a, b) => a[0] - b[0]); // Filter undefined values and re-sort.
+}
+```

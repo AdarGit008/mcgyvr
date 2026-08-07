@@ -1,0 +1,12 @@
+```ts
+/** The values with every negative number removed. */
+export function removeNegatives(values: readonly number[]): number[] {
+  const result = [...values]; // Create a copy of the input array to avoid mutation
+  result.forEach((value, index) => {
+    if (value < 0) {
+      result.splice(index, 1); // Remove negative numbers while maintaining original order
+    }
+  });
+  return result;
+}
+```

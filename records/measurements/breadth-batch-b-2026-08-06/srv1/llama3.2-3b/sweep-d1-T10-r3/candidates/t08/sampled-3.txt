@@ -1,0 +1,84 @@
+```typescript
+/**
+ * Performs a topological sort on a graph given node names and edges.
+ * 
+ * @param nodes - An array of unique node names.
+ * @param edges - An array of pairs [from, to] where from comes before to in the order.
+ * @returns An ordering satisfying every edge, while prioritizing nodes that are already free of unmet dependencies.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    // Create a map to store node in-degree and adjacency list
+    const graph: { [key: string]: Set<string> } = {};
+    for (const node of nodes) {
+        graph[node] = new Set();
+    }
+
+    // Populate the graph with edges
+    for (const [from, to] of edges) {
+        if (!graph[from]) {
+            throw new Error(`Node '${from}' is not in nodes`);
+        }
+        if (!graph[to]) {
+            throw new Error(`Node '${to}' is not in nodes`);
+        }
+
+        // Ignore duplicate edges
+        if (graph[from].has(to)) {
+            continue;
+        }
+        graph[from].add(to);
+    }
+
+    // Initialize the in-degree and adjacency lists for topological sort
+    const queue: Set<string> = new Set();
+    for (const from of nodes) {
+        if (!graph[from].size || graph[from].size === 1) {
+            queue.add(from);
+        }
+    }
+    for (const [from, neighbors] of Object.entries(graph)) {
+        for (const neighbor of neighbors) {
+            inDegreeTo[neighbor] = (inDegreeTo[neighbor] || 0) + 1;
+        }
+    }
+
+    // Perform topological sort
+    const result: string[] = [];
+    while (queue.size) {
+        const node = queue.values().next().value;
+        queue.delete(node);
+
+        if (!(node in inDegreeFrom) && !(node in visited)) {
+            throw new Error('Cycle detected');
+        }
+        
+        // Add node to the order
+        result.push(node);
+
+        for (const neighbor of graph[node]) {
+            --inDegreeTo[neighbor]; // decrease neighbor's in-degree
+            if (!(neighbor in inDegreeFrom)) {  // update neighbor's parent
+                visited[neighbor] = true;
+                queue.add(neighbor);
+            }
+            if (!inDegreeFrom[neighbor] && inDegreeTo[neighbor]) {
+                throw new Error(`Cycle detected`);
+            }
+        }
+
+        // Remove any node with no outgoing edges from the queue
+        for (const [n, deg] of Object.entries(inDegreeFrom)) {
+            if (deg > 0) {
+                continue;
+            }
+            queue.add(n);
+        }
+    }
+
+    return result;
+}
+
+// Initialize variables to memoize in-degree and adjacency from/to values
+const inDegreeFrom: { [key: string]: number } = {};
+const inDegreeTo: { [key: string]: number } = {};
+```

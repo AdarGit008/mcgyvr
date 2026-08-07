@@ -1,0 +1,38 @@
+```ts
+/// <reference types="node" />
+
+type ParseCsvLine = (line: string) => string[];
+
+export const parseCsvLine: ParseCsvLine = (line) => {
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const result: string[] = [];
+  let fieldStart = 0;
+  let inQuotes = false;
+
+  for (let i = 0; i <= line.length; i++) {
+    const char = line[i];
+
+    if (i === line.length || char === ',') {
+      if (inQuotes) {
+        throw new Error('Quoted field is never closed');
+      }
+      result.push(line.slice(fieldStart, i).trim());
+      fieldStart = i + 1;
+    } else if (char === '"') {
+      if (!inQuotes) {
+        inQuotes = true;
+      } else if (i + 1 < line.length && line[i + 1] === '"') {
+        // Escaped double quote
+        i++;
+      } else {
+        inQuotes = false;
+      }
+    }
+  }
+
+  return result;
+};
+```

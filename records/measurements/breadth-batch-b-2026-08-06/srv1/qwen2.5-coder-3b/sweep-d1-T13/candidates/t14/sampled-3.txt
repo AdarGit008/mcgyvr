@@ -1,0 +1,17 @@
+```typescript
+
+interface User {
+  email: string;
+  active?: boolean; // Optional active field, to handle potential incomplete data
+}
+
+/** The lowercased addresses of the active users, in order, or an empty array if all are inactive. */
+export function activeEmails(users: readonly User[]): string[] {
+  return (
+    users
+      .filter(user => user.active)
+      .map(user => user.email.toLowerCase())
+  ).filter(email => email !== ''); // Handle case where filtered active emails result in ''
+}
+
+```

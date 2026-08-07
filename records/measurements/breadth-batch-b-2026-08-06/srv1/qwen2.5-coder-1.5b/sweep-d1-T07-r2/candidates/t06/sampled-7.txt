@@ -1,0 +1,62 @@
+```ts
+/**
+ * Splits a CSV line into its fields on commas. Fields wrapped in double quotes may contain commas,
+ * and a doubled quote inside such a field means one literal quote character; the surrounding
+ * quotes are not part of the value. Fields that are not quoted are taken literally, including any
+ * surrounding spaces. An empty line is one empty field.
+ *
+ * @param line - The CSV line to split.
+ * @returns Array of fields extracted from the CSV line.
+ */
+export function parseCsvLine(line: string): string[] {
+    if (line === "") return [];
+
+    const lines = line.split(/\r\n|\n/g).map((s) => s.trim());
+    const result: string[] = [];
+
+    let inQuotes = false;
+    let currentField = "";
+    for (const char of lines[0]) {
+        if (char === '"') {
+            inQuotes = !inQuotes;
+            continue;
+        }
+        if (char === "," && !inQuotes) {
+            result.push(currentField.trim());
+            currentField = "";
+            continue;
+        }
+        currentField += char;
+    }
+
+    const lastField = currentField.trim();
+    if (lastField !== "") {
+        result.push(lastField);
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+        currentField = "";
+        inQuotes = false;
+
+        for (const char of lines[i]) {
+            if (char === '"') {
+                inQuotes = !inQuotes;
+                continue;
+            }
+            if (char === "," && !inQuotes) {
+                result.push(currentField.trim());
+                currentField = "";
+                continue;
+            }
+            currentField += char;
+        }
+
+        const lastField = currentField.trim();
+        if (lastField !== "") {
+            result.push(lastField);
+        }
+    }
+
+    return result.filter(Boolean); // Remove empty strings
+}
+```

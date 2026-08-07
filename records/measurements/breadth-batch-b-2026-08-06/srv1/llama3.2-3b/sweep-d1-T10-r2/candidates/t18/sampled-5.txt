@@ -1,0 +1,36 @@
+```ts
+/**
+ * An append-only log of timestamped events.
+ */
+export interface Event {
+  /**
+   * The event name.
+   */
+  name: string;
+  /**
+   * The event timestamp in seconds.
+   */
+  timestamp: number;
+}
+
+/**
+ * An append-only log of timestamped events.
+ */
+export class EventLog {
+  #private _events = [];
+
+  /**
+   * Record one event and add it to the log.
+   */
+  record(event: Event): void {
+    this.#_events.push(event);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order. The resulting events are not cloned; they have their original state unchanged.
+   */
+  since(timestamp: number): Event[] {
+    return this.#_events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

@@ -1,0 +1,41 @@
+```typescript
+// https://tools.ietf.org/html/rfc4180
+
+/**
+ * Parses a single line of CSV into its fields on commas, handling quoted fields correctly.
+ *
+ * @param {string} line - The line of CSV to parse.
+ * @returns {string[]} - An array of fields parsed from the CSV line.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (line === '') return [''];
+
+  const result: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (i > 0 && line[i - 1] === '"') {
+        // Double quote inside a quoted field
+        field += char;
+      } else {
+        inQuotes = !inQuotes;
+        // Skip starting or trailing quotes
+        continue;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(field.trim());
+      field = '';
+      continue;
+    }
+    field += char;
+  }
+
+  if (inQuotes) throw new Error('Unquoted double quote');
+
+  result.push(field.trim());
+  return result;
+}
+```

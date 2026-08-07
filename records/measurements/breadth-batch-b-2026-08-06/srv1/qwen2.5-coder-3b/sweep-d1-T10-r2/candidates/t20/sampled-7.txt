@@ -1,0 +1,19 @@
+```typescript
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const parts = line.trim().split("=");
+    if (parts.length < 1 || parts.length > 2) {
+      throw new Error(`Error on line ${lineNumber}: missing or too many '='`);
+    }
+    const [key, value] = parts;
+    if (!key) {
+      throw new Error(`Error on line ${lineNumber}: empty key`);
+    }
+    config[key] = value.trim();
+  }
+  return config;
+}
+```

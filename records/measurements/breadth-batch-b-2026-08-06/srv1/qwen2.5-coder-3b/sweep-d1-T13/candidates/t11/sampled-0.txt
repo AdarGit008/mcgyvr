@@ -1,0 +1,9 @@
+```typescript
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (!Array.isArray(values)) {
+    throw new Error("Input must be an array of numbers");
+  }
+  return values.slice().sort((a, b) => (a - b));
+}
+```

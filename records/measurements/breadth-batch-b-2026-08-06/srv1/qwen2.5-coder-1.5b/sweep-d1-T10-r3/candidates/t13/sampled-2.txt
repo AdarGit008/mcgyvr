@@ -1,0 +1,14 @@
+```ts
+import { ensureIntegerStrictlyGreaterThanThree } from "/path/to/utils"; // You need to implement this utility function
+
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  if (!ensureIntegerStrictlyGreaterThanThree(limit)) {
+    throw new Error("Invalid limit supplied");
+  }
+  if (text.length < limit) {
+    return text;
+  }
+  return text.slice(0, limit - 4) + "...";
+}
+```

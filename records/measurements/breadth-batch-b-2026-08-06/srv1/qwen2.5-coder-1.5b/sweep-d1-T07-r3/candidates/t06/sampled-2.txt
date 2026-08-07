@@ -1,0 +1,21 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (line === "") return [];
+  
+  const fields = line.split(',');
+  
+  for (let i = 0; i < fields.length; i++) {
+    let field = fields[i];
+    
+    // Check for escaped quotes
+    if (/^".*"$/g.test(field)) {
+      const unescapedField = field.slice(1, -1).replace(/""/g, '"');
+      fields[i] = unescapedField;
+    } else if (field.includes(",")) {
+      throw new Error(`Unquoted field ${i} contains a comma: "${field}"`);
+    }
+  }
+  
+  return fields;
+}
+```

@@ -1,0 +1,22 @@
+```typescript
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (size <= 0 || !Number.isInteger(size)) {
+    throw new Error("Size must be a positive integer.");
+  }
+
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+
+  return result;
+}
+```
+
+### Explanation:
+- **Input Validation**: The function first checks if the `size` is a positive integer. If not, it throws an error.
+- **Chunking Logic**: It iterates over the input array in steps of `size`, using `slice` to extract each chunk and pushing it into the result array.
+- **Edge Cases**:
+  - An empty array results in an empty array.
+  - A valid size larger than the array length results in a single group with all remaining elements.
+  - The function does not mutate the input array.

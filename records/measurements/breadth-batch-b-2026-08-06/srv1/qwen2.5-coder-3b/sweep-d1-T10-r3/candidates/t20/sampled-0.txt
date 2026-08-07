@@ -1,0 +1,32 @@
+```typescript
+function stripCommentAndTrim(line: string): [string | null, string | null] {
+  const commentIndex = line.indexOf("#");
+  if (commentIndex !== -1) {
+    return [line.slice(0, commentIndex).trim(), null];
+  }
+  return [line.trim(), null];
+}
+
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (line.length === 0) continue; // Skip blank lines
+
+    const [keyResult, valueResult] = stripCommentAndTrim(line);
+
+    if (keyResult === null || valueResult === null) {
+      throw new Error(`Invalid format on line: "${line}"`);
+    }
+
+    const key = keyResult;
+    if (key in config && key !== "__proto__") {
+      throw new Error(`Key collision while parsing: "${key}" on line: "${line}"`);
+    }
+    
+    const value = valueResult;
+    config[key] = value;
+  }
+
+  return config;
+}
+```

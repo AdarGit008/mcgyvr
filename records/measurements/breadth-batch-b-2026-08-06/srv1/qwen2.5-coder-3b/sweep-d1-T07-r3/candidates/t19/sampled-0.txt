@@ -1,0 +1,17 @@
+```typescript
+/** A safe division function that throws errors for invalid inputs. */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(a) || isNaN(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return NaN;
+
+  // Handle zero division and -0
+  const divisorIsZero = b === 0 || b === -0;
+  if (divisorIsZero && a !== 0) {
+    throw new Error("Cannot divide by zero.");
+  }
+
+  return a / b;
+}
+```

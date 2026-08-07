@@ -1,0 +1,25 @@
+```ts
+function normalizeString(input: string): string {
+  return input.replace(/\W/g, ''); // Remove non-alphanumeric characters
+}
+
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Argument must be a string');
+  }
+
+  const normalized = normalizeString(input).replace(/(.)\1+/g, (_, character) => `${character}${new Set(character.repeat(normalized.length)).size}`);
+  
+  return normalized;
+}
+```
+
+### Explanation:
+1. **normalizeString**: This helper function removes non-alphanumeric characters from the input string. It ensures that characters like spaces, punctuation, and special symbols are ignored when constructing the run-length encoding.
+2. **runLengthEncode**:
+   - Checks if the input is a string, throwing an error if not.
+   - Normalizes the input by removing all non-alphanumeric characters.
+   - Uses a regular expression to encode runs of repeated characters. The `(...)\1+` pattern matches sequences of the same character where `\1` is a backreference to the captured group (i.e., the repeating character).
+     - `${character}${new Set(character.repeat(normalized.length)).size}` constructs the encoded string:
+       - `${character}`: The character itself.
+       - `${new Set(character.repeat(normalized.length)).size}`: The count of unique characters in the run, which is equivalent to the length of the normalized string since all duplicate characters have been replaced by their last occurrence with a corresponding number.

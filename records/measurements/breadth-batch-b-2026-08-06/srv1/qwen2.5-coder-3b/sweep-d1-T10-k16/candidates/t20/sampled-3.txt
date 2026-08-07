@@ -1,0 +1,19 @@
+```ts
+
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  const trimmedLines = text.trim().split("\n").filter(line => line && !line.startsWith("#"));
+  
+  for (const line of trimmedLines) {
+    const [key, value] = line.split("=", 2).map(item => item.trim());
+    
+    if (!key || key === '__proto__') {
+      throw new Error(`Invalid config: empty or '.__proto__' key found on line ${trimmedLines.indexOf(line) + 1}`);
+    }
+    
+    config[key] = value;
+  }
+
+  return config;
+}
+```

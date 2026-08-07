@@ -1,0 +1,47 @@
+```ts
+import { strict as assert } from 'assert';
+
+// Interface as per the task contract
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') throw new Error('Input must be a string');
+  if (!line.trim()) return []; // Empty lines are converted to an empty array
+
+  let result = [];
+  let inQuotes = false;
+  let quoteCount = 0;
+
+  for (let char of line) {
+    switch (char) {
+      case '"':
+        inQuotes = !inQuotes;
+        quoteCount++;
+        break;
+      case ',':
+        if (!inQuotes || quoteCount === 2) result.push(line.trim());
+        result.length = quoteCount !== 0 ? 0 : result.length; // Reset to 0 for the next field
+        break;
+      default:
+        if (quoteCount > 0 && char !== '"') break;
+        result.push(char); // Field is marked as complete, push it to the result
+        quoteCount = 1; // Reset quote count and trigger a new field on the next character
+    }
+  }
+
+  if (!inQuotes && !result || quoteCount >= 2) throw new Error('A quoted field that was never closed');
+
+  return result;
+}
+
+// Test cases to verify correctness
+assert.deepStrictEqual(parseCsvLine('""'), []);
+assert.deepStrictEqual(parseCsvLine(',"a","b",""), ["a", "b", ""]);
+assert.deepStrictEqual(parseCsvLine('"a,b,c"', ['a', 'b', 'c']), [['a, b', 'c']]);
+assert.deepStrictEqual(parseCsvLine('"a    ","b    ,   c"'), ['a    ', 'b    ,   c']);
+try {
+  parseCsvLine(',"a,b,c'); // Missing closing quote
+  assert.fail();
+} catch (error) {
+  assert.strictEqual(error.message, 'A quoted field that was never closed');
+}
+console.log(solution);
+```

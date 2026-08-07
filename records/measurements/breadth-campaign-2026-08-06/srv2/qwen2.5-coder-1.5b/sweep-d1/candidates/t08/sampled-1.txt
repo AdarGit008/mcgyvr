@@ -1,0 +1,47 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges:readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges) throw new Error('Input must be provided');
+  
+  const nodeSet = new Set(nodes);
+  const edgeMap = new Map(edges.map(([from, to])) => [from, to].sort());
+  const inDegreeMap = new Map(nodes.map(node => [node, 0]));
+  
+  for (const [from, to] of edges) {
+    if (!nodeSet.has(from) || !nodeSet.has(to)) throw new Error(`Nodes must be in the set: ${nodes}`);
+    inDegreeMap.set(to, inDegreeMap.get(to)! + 1);
+  }
+  
+  const freeNodes = Array.from(nodeSet).filter(node => inDegreeMap.get(node)! === 0);
+  const result = [];
+  
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    if (!nodeSet.has(node)) continue;
+    result.push(node);
+    
+    for (const [to, _] of edgeMap.get(node)!) {
+      inDegreeMap.set(to, inDegreeMap.get(to)! - 1);
+      if (inDegreeMap.get(to)! === 0) freeNodes.push(to);
+    }
+  }
+  
+  if (result.length !== nodes.length) throw new Error('Cycle detected');
+  
+  return result;
+}
+
+// Example check function to verify the correctness of the solution
+function checkTopologicalSort() {
+  const nodes = ['A', 'B', 'C', 'D'];
+  const edges = [['A', 'B'], ['B', 'C'], ['C', 'D'], ['D', 'B']];
+  
+  try {
+    const sortedNodes = topologicalSort(nodes, edges);
+    console.log(sortedNodes); // Expected: ['A', 'B', 'C', 'D']
+  } catch (error) {
+    console.error(error.message);
+  }
+}
+
+checkTopologicalSort();
+```

@@ -1,0 +1,6 @@
+```ts
+export function sortAscending(values: readonly number[]): number[] {
+  const sortedValues = [...values];
+  return sortedValues.sort((a, b) => a - b);
+}
+```

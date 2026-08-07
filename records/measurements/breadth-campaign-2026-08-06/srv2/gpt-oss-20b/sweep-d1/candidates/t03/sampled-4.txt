@@ -1,0 +1,5 @@
+```ts
+/**
+ * Parses a semantic version string into its components.
+ */
+export

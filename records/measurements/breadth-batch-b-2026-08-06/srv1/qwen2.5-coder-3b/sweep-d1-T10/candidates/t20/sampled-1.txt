@@ -1,0 +1,15 @@
+```
+function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    let trimmedLine = line.trim();
+    if (!trimmedLine) continue; // Skip empty lines
+    const [keyPart, valuePart] = trimmedLine.split("=", 2);
+    if (!keyPart || keyPart.startsWith("#")) throw new Error(`Invalid line: ${line}`);
+    const keyTrimmed = keyPart.trim();
+    if (Object.prototype.hasOwnProperty.call(config, keyTrimmed)) throw new Error(`Duplicate key: ${keyTrimmed}`);
+    config[keyTrimmed] = valuePart;
+  }
+  return config;
+}
+```

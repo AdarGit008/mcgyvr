@@ -1,0 +1,16 @@
+```ts
+
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  if (limit < 3) {
+    throw Error(`Expected limit >= 3, received ${limit}`);
+  }
+
+  if (text.length <= limit) {
+    return text;
+  }
+
+  const cutOffIndex = Math.max(limit - 4, 0); // Ensure we don't cut off a part of an astral character that will look weird.
+  return text.slice(0, cutOffIndex) + "...";
+}
+```

@@ -1,0 +1,23 @@
+```typescript
+export function flatten<T>(items: readonly T[], depth = Infinity): T[] {
+    const isArray = Array.isArray;
+
+    if (!Number.isFinite(depth) || depth < 0) {
+        throw new Error('Depth must be a non-negative integer or Infinity');
+    }
+
+    return items.reduce((acc, item) => {
+        // Check the type of item
+        if (isArray(item)) {
+            // If depth is 0, return only the current level
+            if (depth === 0) {
+                return [...acc, item];
+            }
+            // Recursively flatten nested arrays up to the specified depth
+            return acc.concat(flatten(item, depth - 1));
+        }
+        // If the item is not an array, add it as a single element
+        return [...acc, item];
+    }, [] as T[]);
+}
+```

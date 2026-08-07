@@ -1,0 +1,67 @@
+```ts
+/**
+ * Sorts a graph in such a way that for every directed edge (u -> v), node u comes before v.
+ * If the graph has cycles, the function throws an Error with a descriptive message.
+ *
+ * @param nodes - A list of node names in any order.
+ * @param edges - A list of tuples representing directed edges [from, to].
+ * @returns An ordered list of node names where for all (u, v) in edges, u comes before v.
+ */
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges || nodes.length === 0 || nodes.length > Number.MAX_SAFE_INTEGER || edges.length < nodes.length - 1) {
+        throw new Error('Invalid input parameters.');
+    }
+
+    const graph = new Map(nodes.map(node => [node, []]));
+    for (const [from, to] of edges) {
+        if (graph.has(from) && !graph.get(from).includes(to)) {
+            graph.get(from)?.push(to);
+        } else {
+            throw new Error(`Invalid edge: ${JSON.stringify([from, to])}`);
+        }
+    }
+
+    const sortedOrder = []; // Array to store the sorted order of nodes
+    const inDegree = new Map(nodes.map(node => [node, 0]));
+
+    // Calculate in-degree for each node
+    edges.forEach(([from, to]) => {
+        if (inDegree.has(to)) {
+            inDegree.get(to) += 1;
+        } else {
+            inDegree.set(to, 1);
+        }
+    });
+
+    const free = new Set(nodes); // Nodes with zero in-degree
+
+    while (free.size > 0) {
+        const node = nextNode(free);
+        if (!node) break;
+
+        sortedOrder.push(node);
+
+        graph.get(node)?.forEach(neighbor => {
+            if (inDegree.has(neighbor)) {
+                inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+                free.delete(neighbor);
+            }
+        });
+    }
+
+    if (free.size > 0) {
+        throw new Error('Graph contains a cycle.');
+    }
+
+    return sortedOrder;
+
+    function nextNode(nodes: Set<string>): string | undefined {
+        for (const node of nodes) {
+            if (inDegree.get(node)! === 0) {
+                return node;
+            }
+        }
+        return undefined;
+    }
+}
+```

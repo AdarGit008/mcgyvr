@@ -1,0 +1,40 @@
+```ts
+const __assign = (...args: any[]) => {
+  let result: { [key: string]: any } = {};
+  args.forEach((arg) => Object.assign(result, arg));
+  return result;
+};
+
+function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  /**
+   * Returns a new array with nested arrays flattened up to depth levels.
+   *
+   * Args:
+   *   items (readonly unknown[]): Read-only sequence of elements that may contain nested arrays.
+   *   depth (optional, number | Infinity): Flattening level. Defaults to Infinity for every level.
+   *
+   * Returns:
+   *   readonly unknown[]
+   */
+  if (((depth == null || typeof depth === "number") && isNaN(Number(depth)) &&
+      Object.is(typeof depth, "number")) ||
+    (depth != Infinity))
+    throw new Error('Depth must be a non-negative integer or Infinity.');
+  return items === [] ?
+         items : flattenArray(items);
+}
+
+function flattenArray(arr: readonly unknown[] | readonly undefined[]): readonly unknown[] {
+  const result = new Array(arr.length);
+  arr.forEach((item, index) => {
+    if (Array.isArray(item)) {
+      result[index] = flattenArray(item);
+    } else {
+      result[index] = item;
+    }
+  });
+  return result;
+}
+
+export { flatten };
+```

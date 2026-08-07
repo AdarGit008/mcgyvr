@@ -1,0 +1,16 @@
+```ts
+/**
+ * a divided by b, rounding result to nearest integer if necessary.
+ *
+ * @param {number} a - The numerator (dividend).
+ * @param {number} b - The denominator (divisor).
+ * @throws {Error} If the divisor is zero or if neither argument is finite.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (b === 0 || isNaN(a) || isNaN(b)) {
+    throw new Error('Both arguments must be finite numbers and non-zero.');
+  }
+  const result = a / b;
+  return Math.round(result); // Round to nearest integer
+}
+```

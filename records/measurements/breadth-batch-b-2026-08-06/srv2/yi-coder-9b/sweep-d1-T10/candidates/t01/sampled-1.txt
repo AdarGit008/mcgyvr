@@ -1,0 +1,16 @@
+Here is the implementation based on the above contract:
+```typescript
+// The function 'runLengthEncode' takes in a string and returns encoded version of that string using run-length encoding method 
+export function runLengthEncode(input: string): string {
+  if (typeof input !== "string") throw new Error('Argument must be a string');   // Checks if the argument provided is a string. If not, it throws an error
+  let result = '';                         // Define and initialize the result variable
+  for(let i=0;i<input.length;) {          // Initialize loop to iterate through each character of input string 
+    const currentChar = input[i];        // Define and set a local variable 'currentChar' with the current char at index i
+    let count = 1;                      // Set initial count to 1
+    while(input[++i] === currentChar) { // While next character is also currentChar, increment the counter & move the pointer on
+        count++;                       // Increment the counter by one for each match found  
+    }
+    result+=currentChar+String(count); // Append the current character and its count to result string   
+ }    return result;   // Return encoded output string      
+}; 
+```

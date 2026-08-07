@@ -1,0 +1,57 @@
+```typescript
+/**
+ * Returns an ordering satisfying every edge in the given edges,
+ * keeping nodes in their input order when possible.
+ *
+ * Throws Error if a cycle is detected or if an invalid edge is provided.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjacencyList = Array.from(nodes).reduce((map, node) => {
+        map.set(node, []);
+        return map;
+    }, new Map<string, Set<string>>());
+
+    for (const [from, to] of edges) {
+        if (!adjacencyList.has(from)) {
+            throw new Error(`Invalid edge: ${from} -> ${to}`);
+        }
+        adjacencyList.get(from)!.add(to);
+    }
+
+    const visited = new Set<string>();
+    const currentPath = new Set<string>();
+
+    const sortNodes = (node: string): boolean => {
+        if (currentPath.has(node)) {
+            return false;
+        }
+        if (visited.has(node)) {
+            return true;
+        }
+        currentPath.add(node);
+        try {
+            for (const neighbor of adjacencyList.get(node)!) {
+                if (!sortNodes(neighbor)) {
+                    return false;
+                }
+            }
+        } finally {
+            currentPath.delete(node);
+            visited.add(node);
+        }
+        return true;
+    };
+
+    const sorted = [];
+    for (const node of nodes) {
+        if (adjacencyList.has(node)) {
+            if (!sortNodes(node)) {
+                throw new Error('Cycle detected');
+            }
+            sorted.push(node);
+        }
+    }
+
+    return sorted;
+}
+```

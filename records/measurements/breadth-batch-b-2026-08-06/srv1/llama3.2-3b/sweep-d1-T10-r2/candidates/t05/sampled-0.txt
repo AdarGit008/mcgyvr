@@ -1,0 +1,20 @@
+```typescript
+export function chunk<T extends readonly any[]>(
+  items: Readonly T[],
+  size: number
+): T[] {
+  if (typeof size !== 'number' || !Number.isInteger(size)) {
+    throw new Error('Size must be an integer.');
+  }
+
+  if (size <= 0) {
+    throw new Error('Size must be a positive integer.');
+  }
+
+  const slices = Array(Math.ceil(items.length / size));
+  for (let i = items.length - 1; i >= 0; i -= size) {
+    slices[items.length - i - 2]push items.slice(i, i + size);
+  }
+  return slices;
+}
+```

@@ -1,0 +1,57 @@
+```ts
+/**
+ * Returns a topological ordering of the given nodes and edges.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    // Create a map to store the graph
+    const graph = new Map<string, Set<string>>();
+    
+    // Initialize the graph with empty sets for each node
+    nodes.forEach(node => graph.set(node, new Set()));
+    
+    // Populate the graph with edges
+    edges.forEach(([from, to]) => {
+        if (!graph.has(from)) throw new Error(`Node '${from}' not in nodes`);
+        if (!graph.has(to)) throw new Error(`Node '${to}' not in nodes`);
+        graph.get(from)!.add(to);
+    });
+    
+    // Create a set to store visited nodes
+    const visited = new Set();
+    
+    // Create a set to store nodes that are currently being visited (i.e., in the recursion stack)
+    const visiting = new Set();
+    
+    // Create an array to store the sorted nodes
+    const sorted = [];
+    
+    // Define a recursive function to perform DFS
+    function dfs(node: string): void {
+        // If the node is already in the recursion stack, it means we have a cycle
+        if (visiting.has(node)) throw new Error(`Cycle detected`);
+        
+        // Mark the node as being visited
+        visiting.add(node);
+        
+        // Visit all the neighbors of the current node
+        graph.get(node)!.forEach(neighbor => {
+            if (!visited.has(neighbor)) dfs(neighbor);
+        });
+        
+        // Mark the node as visited and remove it from the recursion stack
+        visiting.delete(node);
+        visited.add(node);
+        
+        // Add the node to the sorted array
+        sorted.push(node);
+    }
+    
+    // Perform DFS on all nodes that are not yet in the recursion stack
+    nodes.forEach(node => {
+        if (!visited.has(node)) dfs(node);
+    });
+    
+    // Return the sorted array
+    return sorted.reverse();
+}
+```

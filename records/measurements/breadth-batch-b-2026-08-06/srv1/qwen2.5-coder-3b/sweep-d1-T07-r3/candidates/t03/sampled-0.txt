@@ -1,0 +1,14 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-(\w+))?(?:\+(\w+))?$/);
+    if (!match) {
+        throw new Error(`Invalid semver format: ${version}`);
+    }
+
+    const [_, major, minor, patch] = match.slice(1).map(Number);
+    const prerelease = match[3] || null;
+    const build = match[4] || null;
+
+    return { major, minor, patch, prerelease, build };
+}
+```

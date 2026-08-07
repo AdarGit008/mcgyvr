@@ -1,0 +1,95 @@
+```ts
+export class LruCache<K, V> {
+  capacity: number;
+  map: Map<K, { value: V, usageTime: number }>;
+  head: { key?: K; next?: Node<K, V> } = { next: undefined };
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = Math.max(1, capacity);
+    this.map = new Map<K, { value: V, usageTime: number }>();
+  }
+
+  get(key: K): V | undefined {
+    if (this.map.has(key)) {
+      const node = this.map.get(key)!;
+      node.usageTime = Date.now();
+      this.moveNodeToHead(node);
+      return node.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    let newNode;
+
+    if (this.map.has(key)) {
+      const node = this.map.get(key)!;
+      node.value = value;
+      node.usageTime = Date.now();
+      this.moveNodeToHead(node);
+    } else {
+      if (this.map.size === this.capacity) {
+        this.evictLeastRecentlyUsed();
+      }
+      newNode = { key, usageTime: Date.now(), value };
+      this.map.set(key, newNode);
+      this.appendToTail(newNode);
+    }
+  }
+
+  evictLeastRecentlyUsed(): void {
+    const nodeToDelete = this.tail;
+    if (nodeToDelete) {
+      this.removeFromList(nodeToDelete);
+      this.map.delete(nodeToDelete.key!);
+    }
+  }
+
+  appendToTail(node: { key?: K; next?: Node<K, V> }): void {
+    let currentTail = this.tail;
+    this.tail = node;
+    if (currentTail) {
+      currentTail.next = node;
+    } else {
+      this.head.next = node;
+    }
+  }
+
+  removeFromList(node: { key?: K; next?: Node<K, V> }): void {
+    let prevNode = this.head;
+    while (prevNode?.next && prevNode.next.key !== node.key) {
+      prevNode = prevNode.next;
+    }
+    if (prevNode) {
+      prevNode.next = node.next;
+      if (!node.next) {
+        this.tail = prevNode;
+      }
+    }
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+
+  private moveNodeToHead(node: { key?: K; next?: Node<K, V> }): void {
+    const previous = this.head;
+    while (previous?.next && previous.next.key !== node.key) {
+      previous = previous.next;
+    }
+    if (previous !== this.head && previous.next) {
+      // Remove from current position
+      previous.next = node.next;
+      // Insert at head
+      node.next = this.head.next;
+      this.head.next = node;
+    }
+  }
+
+}
+
+type Node<K, V> = { key?: K; next?: Node<K, V>; value: V, usageTime: number };
+```

@@ -1,0 +1,36 @@
+```ts
+/**
+ * Flattens a nested array up to the given depth level or indefinitely,
+ * returning all non-string values in a new array.
+ * If `depth` is 0, returns a copy of the input unchanged.
+ * Throws Error if `depth` must be a non-negative integer or Infinity.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    // Check that depth is valid
+    if (typeof depth !== 'number' || Number.isNaN(depth) || depth < 0) {
+        throw new Error('Invalid depth');
+    }
+    
+    const flat = [];
+    for (const item of items) {
+        if (Array.isArray(item)) {
+            // If we've reached array's depth limit, stop
+            if (depth <= 1 && Array.isArray(item[0])) {
+                break;
+            } else if (typeof item === 'string') {
+                continue; // Skip strings, treat as leaf node
+            }
+            
+            // Recursively flatten each element of an item array
+            flat.push(...flatten(item, depth - 1));
+        } else {
+            // If we've reached string's maximum recursion level, stop
+            if (flat.length + 1 >= Math.min(flat.filter(x => typeof x === 'string').length / 10, flat.length)) {
+                break;
+            }
+            flat.push(item);
+        }
+    }
+    return flat;
+}
+```

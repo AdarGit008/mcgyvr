@@ -1,0 +1,28 @@
+```ts
+// flatten.ts
+
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) depth = Infinity;
+
+  const isIterable = (item: unknown): item is Iterable<unknown> => {
+    return Symbol.iterator in item;
+  };
+
+  const isString = (value: unknown): value is string => {
+    return typeof value === 'string';
+  };
+
+  function flattenRecursive(items: readonly unknown[], currentDepth: number): unknown[] {
+    return items.reduce((acc, item) => {
+      if (isIterable(item)) {
+        acc.push(...flattenRecursive(Array.from(item), currentDepth + 1));
+      } else if (!isString(item) && currentDepth < depth) {
+        acc.push(item);
+      }
+      return acc;
+    }, []);
+  }
+
+  return flattenRecursive(items, 0);
+}
+```

@@ -1,0 +1,28 @@
+```ts
+import { isInfinite } from "lodash";
+
+/**
+ * A divided by b where neither divisor nor dividend is NaN, or if both
+ * are finite numbers.
+ *
+ * @param a - The dividend number
+ * @param b - The divisor number
+ * @returns The result of the division, rounded to two decimal places
+ */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(a) || isNaN(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+
+  if (isInfinite(a) || isInfinite(b)) {
+    throw new Error("Infinity is not a valid divisor or dividend.");
+  }
+
+  if (b === 0) {
+    throw new Error("Division by zero is not allowed.");
+  }
+
+  const result = a / b;
+  return parseFloat(result.toFixed(2)); // Return rounded to two decimal places
+}
+```

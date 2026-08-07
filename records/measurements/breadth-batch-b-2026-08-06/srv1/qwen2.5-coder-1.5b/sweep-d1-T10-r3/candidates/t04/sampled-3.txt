@@ -1,0 +1,56 @@
+```ts
+export class LruCache<K, V> {
+  private cache: Map<K, V | undefined>;
+  private capacity: number;
+  private recentUseIndexMap = new Map<V, Set<string>>();
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.cache = new Map();
+    this.capacity = capacity;
+  }
+
+  public get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      this.incUseCount(key);
+    }
+    return value;
+  }
+
+  public set(key: K, value: V): void {
+    while (this.cache.size >= this.capacity) {
+      const leastUsedKey = Array.from(this.recentUseIndexMap.values())
+                  .reduce((a, b) => a.length < b.length ? a : b)[0];
+      this.evictLeastUsedEntry(leastUsedKey);
+    }
+    this.cache.set(key, value);
+    this.incUseCount(key);
+  }
+
+  public get size(): number {
+    return this.cache.size;
+  }
+
+  private incUseCount(key: K): void {
+    const recentUses = this.recentUseIndexMap.get(value as V) || new Set();
+    recentUses.add(this.calcKey(key));
+    this.recentUseIndexMap.set(value, recentUses);
+  }
+
+  private calcKey(key: K): string {
+    return Array.isArray(key) ? key.join(", ") : key.toString();
+  }
+
+  private evictLeastUsedEntry(leastUsedKey: V): void {
+    const mostRecentUses = Array.from(this.recentUseIndexMap.values())[0];
+    this.recentUseIndexMap.delete(value as V);
+    mostRecentUses.delete(this.calcKey(key));
+    if (!mostRecentUses.size) {
+      this.cache.clear();
+    }
+  }
+}
+```

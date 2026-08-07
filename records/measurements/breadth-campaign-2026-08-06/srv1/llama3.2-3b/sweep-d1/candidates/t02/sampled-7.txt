@@ -1,0 +1,27 @@
+```typescript
+/**
+ * Merges overlapping intervals in a sorted list of start-end pairs while preserving sorted order.
+ * Intervals that merely touch (end === next start) do merge. The function must be pure - it
+ * must not mutate the argument array nor any of the inner arrays it was given, and every
+ * returned pair must be a fresh array. Throws an Error for a pair whose start is greater
+ * than its end.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    // Filter out invalid intervals (start >= end) and sort by start value
+    const validInterval = (interval: number[]) => interval.every((_, index, array) => index === 0 || array[index - 1][1] <= array[index][0]);
+    const sortedIntervals = intervals.filter(validInterval).sort((a, b) => a[0] - b[0]);
+
+    // Merge overlapping intervals
+    const merged: number[][][] = [];
+    for (const interval of sortedIntervals) {
+        if (!merged.length || merged[merged.length - 1][1] < interval[0]) {
+            merged.push([interval]);
+        } else {
+            merged[merged.length - 1].push(...interval.slice(1));
+        }
+    }
+
+    // Convert merged intervals back to flat arrays
+    return merged.map(interval => [interval[0], ...interval.slice(1)]);
+}
+```

@@ -1,0 +1,50 @@
+```ts
+const MODULUS = 1000000007;
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function* fibModGenerator(): Generator<number> {
+  /**
+   * Returns the next sequence of Fibonacci numbers modulo 1000000007,
+   * incrementing the counter by each call.
+   */
+  
+  const prev = 0 as number;
+  const curr = 1 as number;
+  let idx = 2;
+
+  while (true) {
+    yield curr;
+    
+    [prev, curr] = [curr, (prev + curr) % MODULUS];
+    if (idx > n) return;
+    idx += 1;
+  }
+}
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  /**
+   * Returns the nth Fibonacci number, modulo 1000000007.
+   *
+   * @param n a non-negative integer
+   * @throws {Error}
+   */
+
+  if (typeof n !== 'number' || isNaN(n) || n < 0) {
+    throw new Error('n must be a non-negative integer.');
+  }
+
+  for (let i = n; i > 1 && !Object.prototype.hasOwnProperty.call(Math, i); i--) {
+    ;
+  }
+  
+  const gen = fibModGenerator();
+  let result;
+  for (let _ = 0; _ < Math.min(n + 1, MODULUS); _++) {
+    result = gen.next().value;
+  }
+
+  return result;
+
+}
+```

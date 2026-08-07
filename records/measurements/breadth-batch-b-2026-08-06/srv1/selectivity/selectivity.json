@@ -1,0 +1,1175 @@
+{
+  "strengths": [
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "sweeps": {
+    "../lane_1/records/measurements/breadth-campaign-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1": {
+      "draws": 8,
+      "model": "qwen2.5-coder:1.5b",
+      "sampled_temperature": 0.7,
+      "assertions": {
+        "t01": 8,
+        "t02": 10,
+        "t03": 7,
+        "t04": 14,
+        "t05": 9,
+        "t06": 12,
+        "t07": 12,
+        "t08": 10,
+        "t09": 6,
+        "t10": 10,
+        "t11": 9,
+        "t12": 9,
+        "t13": 9,
+        "t14": 7,
+        "t15": 9,
+        "t16": 8,
+        "t17": 9,
+        "t18": 11,
+        "t19": 11,
+        "t20": 15
+      },
+      "full_strength_agrees_with_the_sweep": {
+        "agree": 160,
+        "disagree": 0
+      },
+      "cells": {
+        "0.25": [
+          {
+            "k": 1,
+            "won": 14,
+            "true": 6,
+            "false": 8
+          },
+          {
+            "k": 2,
+            "won": 14,
+            "true": 6,
+            "false": 8
+          },
+          {
+            "k": 3,
+            "won": 14,
+            "true": 6,
+            "false": 8
+          },
+          {
+            "k": 4,
+            "won": 15,
+            "true": 6,
+            "false": 9
+          },
+          {
+            "k": 5,
+            "won": 15,
+            "true": 6,
+            "false": 9
+          },
+          {
+            "k": 6,
+            "won": 15,
+            "true": 6,
+            "false": 9
+          },
+          {
+            "k": 7,
+            "won": 15,
+            "true": 6,
+            "false": 9
+          },
+          {
+            "k": 8,
+            "won": 15,
+            "true": 6,
+            "false": 9
+          }
+        ],
+        "0.5": [
+          {
+            "k": 1,
+            "won": 11,
+            "true": 6,
+            "false": 5
+          },
+          {
+            "k": 2,
+            "won": 12,
+            "true": 7,
+            "false": 5
+          },
+          {
+            "k": 3,
+            "won": 13,
+            "true": 8,
+            "false": 5
+          },
+          {
+            "k": 4,
+            "won": 13,
+            "true": 8,
+            "false": 5
+          },
+          {
+            "k": 5,
+            "won": 13,
+            "true": 8,
+            "false": 5
+          },
+          {
+            "k": 6,
+            "won": 13,
+            "true": 8,
+            "false": 5
+          },
+          {
+            "k": 7,
+            "won": 13,
+            "true": 8,
+            "false": 5
+          },
+          {
+            "k": 8,
+            "won": 13,
+            "true": 8,
+            "false": 5
+          }
+        ],
+        "0.75": [
+          {
+            "k": 1,
+            "won": 10,
+            "true": 6,
+            "false": 4
+          },
+          {
+            "k": 2,
+            "won": 11,
+            "true": 7,
+            "false": 4
+          },
+          {
+            "k": 3,
+            "won": 12,
+            "true": 8,
+            "false": 4
+          },
+          {
+            "k": 4,
+            "won": 12,
+            "true": 8,
+            "false": 4
+          },
+          {
+            "k": 5,
+            "won": 12,
+            "true": 8,
+            "false": 4
+          },
+          {
+            "k": 6,
+            "won": 12,
+            "true": 8,
+            "false": 4
+          },
+          {
+            "k": 7,
+            "won": 12,
+            "true": 8,
+            "false": 4
+          },
+          {
+            "k": 8,
+            "won": 12,
+            "true": 8,
+            "false": 4
+          }
+        ],
+        "1.0": [
+          {
+            "k": 1,
+            "won": 6,
+            "true": 6,
+            "false": 0
+          },
+          {
+            "k": 2,
+            "won": 9,
+            "true": 9,
+            "false": 0
+          },
+          {
+            "k": 3,
+            "won": 10,
+            "true": 10,
+            "false": 0
+          },
+          {
+            "k": 4,
+            "won": 10,
+            "true": 10,
+            "false": 0
+          },
+          {
+            "k": 5,
+            "won": 10,
+            "true": 10,
+            "false": 0
+          },
+          {
+            "k": 6,
+            "won": 10,
+            "true": 10,
+            "false": 0
+          },
+          {
+            "k": 7,
+            "won": 10,
+            "true": 10,
+            "false": 0
+          },
+          {
+            "k": 8,
+            "won": 10,
+            "true": 10,
+            "false": 0
+          }
+        ]
+      }
+    },
+    "records/measurements/breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T10": {
+      "draws": 8,
+      "model": "qwen2.5-coder:1.5b",
+      "sampled_temperature": 1.0,
+      "assertions": {
+        "t01": 8,
+        "t02": 10,
+        "t03": 7,
+        "t04": 14,
+        "t05": 9,
+        "t06": 12,
+        "t07": 12,
+        "t08": 10,
+        "t09": 6,
+        "t10": 10,
+        "t11": 9,
+        "t12": 9,
+        "t13": 9,
+        "t14": 7,
+        "t15": 9,
+        "t16": 8,
+        "t17": 9,
+        "t18": 11,
+        "t19": 11,
+        "t20": 15
+      },
+      "full_strength_agrees_with_the_sweep": {
+        "agree": 158,
+        "disagree": 0
+      },
+      "cells": {
+        "0.25": [
+          {
+            "k": 1,
+            "won": 12,
+            "true": 8,
+            "false": 4
+          },
+          {
+            "k": 2,
+            "won": 13,
+            "true": 8,
+            "false": 5
+          },
+          {
+            "k": 3,
+            "won": 13,
+            "true": 8,
+            "false": 5
+          },
+          {
+            "k": 4,
+            "won": 15,
+            "true": 9,
+            "false": 6
+          },
+          {
+            "k": 5,
+            "won": 15,
+            "true": 9,
+            "false": 6
+          },
+          {
+            "k": 6,
+            "won": 16,
+            "true": 10,
+            "false": 6
+          },
+          {
+            "k": 7,
+            "won": 17,
+            "true": 10,
+            "false": 7
+          },
+          {
+            "k": 8,
+            "won": 18,
+            "true": 11,
+            "false": 7
+          }
+        ],
+        "0.5": [
+          {
+            "k": 1,
+            "won": 10,
+            "true": 8,
+            "false": 2
+          },
+          {
+            "k": 2,
+            "won": 10,
+            "true": 8,
+            "false": 2
+          },
+          {
+            "k": 3,
+            "won": 11,
+            "true": 8,
+            "false": 3
+          },
+          {
+            "k": 4,
+            "won": 12,
+            "true": 9,
+            "false": 3
+          },
+          {
+            "k": 5,
+            "won": 12,
+            "true": 9,
+            "false": 3
+          },
+          {
+            "k": 6,
+            "won": 13,
+            "true": 10,
+            "false": 3
+          },
+          {
+            "k": 7,
+            "won": 14,
+            "true": 10,
+            "false": 4
+          },
+          {
+            "k": 8,
+            "won": 15,
+            "true": 11,
+            "false": 4
+          }
+        ],
+        "0.75": [
+          {
+            "k": 1,
+            "won": 9,
+            "true": 8,
+            "false": 1
+          },
+          {
+            "k": 2,
+            "won": 10,
+            "true": 9,
+            "false": 1
+          },
+          {
+            "k": 3,
+            "won": 10,
+            "true": 9,
+            "false": 1
+          },
+          {
+            "k": 4,
+            "won": 11,
+            "true": 10,
+            "false": 1
+          },
+          {
+            "k": 5,
+            "won": 11,
+            "true": 10,
+            "false": 1
+          },
+          {
+            "k": 6,
+            "won": 12,
+            "true": 11,
+            "false": 1
+          },
+          {
+            "k": 7,
+            "won": 14,
+            "true": 12,
+            "false": 2
+          },
+          {
+            "k": 8,
+            "won": 15,
+            "true": 13,
+            "false": 2
+          }
+        ],
+        "1.0": [
+          {
+            "k": 1,
+            "won": 8,
+            "true": 8,
+            "false": 0
+          },
+          {
+            "k": 2,
+            "won": 10,
+            "true": 10,
+            "false": 0
+          },
+          {
+            "k": 3,
+            "won": 10,
+            "true": 10,
+            "false": 0
+          },
+          {
+            "k": 4,
+            "won": 11,
+            "true": 11,
+            "false": 0
+          },
+          {
+            "k": 5,
+            "won": 11,
+            "true": 11,
+            "false": 0
+          },
+          {
+            "k": 6,
+            "won": 12,
+            "true": 12,
+            "false": 0
+          },
+          {
+            "k": 7,
+            "won": 13,
+            "true": 13,
+            "false": 0
+          },
+          {
+            "k": 8,
+            "won": 14,
+            "true": 14,
+            "false": 0
+          }
+        ]
+      }
+    },
+    "../lane_1/records/measurements/breadth-campaign-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1": {
+      "draws": 8,
+      "model": "qwen2.5-coder:3b",
+      "sampled_temperature": 0.7,
+      "assertions": {
+        "t01": 8,
+        "t02": 10,
+        "t03": 7,
+        "t04": 14,
+        "t05": 9,
+        "t06": 12,
+        "t07": 12,
+        "t08": 10,
+        "t09": 6,
+        "t10": 10,
+        "t11": 9,
+        "t12": 9,
+        "t13": 9,
+        "t14": 7,
+        "t15": 9,
+        "t16": 8,
+        "t17": 9,
+        "t18": 11,
+        "t19": 11,
+        "t20": 15
+      },
+      "full_strength_agrees_with_the_sweep": {
+        "agree": 160,
+        "disagree": 0
+      },
+      "cells": {
+        "0.25": [
+          {
+            "k": 1,
+            "won": 15,
+            "true": 10,
+            "false": 5
+          },
+          {
+            "k": 2,
+            "won": 16,
+            "true": 10,
+            "false": 6
+          },
+          {
+            "k": 3,
+            "won": 18,
+            "true": 11,
+            "false": 7
+          },
+          {
+            "k": 4,
+            "won": 18,
+            "true": 11,
+            "false": 7
+          },
+          {
+            "k": 5,
+            "won": 18,
+            "true": 11,
+            "false": 7
+          },
+          {
+            "k": 6,
+            "won": 18,
+            "true": 11,
+            "false": 7
+          },
+          {
+            "k": 7,
+            "won": 18,
+            "true": 11,
+            "false": 7
+          },
+          {
+            "k": 8,
+            "won": 18,
+            "true": 11,
+            "false": 7
+          }
+        ],
+        "0.5": [
+          {
+            "k": 1,
+            "won": 13,
+            "true": 10,
+            "false": 3
+          },
+          {
+            "k": 2,
+            "won": 14,
+            "true": 10,
+            "false": 4
+          },
+          {
+            "k": 3,
+            "won": 17,
+            "true": 12,
+            "false": 5
+          },
+          {
+            "k": 4,
+            "won": 17,
+            "true": 12,
+            "false": 5
+          },
+          {
+            "k": 5,
+            "won": 17,
+            "true": 12,
+            "false": 5
+          },
+          {
+            "k": 6,
+            "won": 17,
+            "true": 12,
+            "false": 5
+          },
+          {
+            "k": 7,
+            "won": 17,
+            "true": 12,
+            "false": 5
+          },
+          {
+            "k": 8,
+            "won": 17,
+            "true": 12,
+            "false": 5
+          }
+        ],
+        "0.75": [
+          {
+            "k": 1,
+            "won": 11,
+            "true": 10,
+            "false": 1
+          },
+          {
+            "k": 2,
+            "won": 13,
+            "true": 11,
+            "false": 2
+          },
+          {
+            "k": 3,
+            "won": 16,
+            "true": 13,
+            "false": 3
+          },
+          {
+            "k": 4,
+            "won": 16,
+            "true": 13,
+            "false": 3
+          },
+          {
+            "k": 5,
+            "won": 16,
+            "true": 13,
+            "false": 3
+          },
+          {
+            "k": 6,
+            "won": 16,
+            "true": 13,
+            "false": 3
+          },
+          {
+            "k": 7,
+            "won": 16,
+            "true": 13,
+            "false": 3
+          },
+          {
+            "k": 8,
+            "won": 16,
+            "true": 13,
+            "false": 3
+          }
+        ],
+        "1.0": [
+          {
+            "k": 1,
+            "won": 10,
+            "true": 10,
+            "false": 0
+          },
+          {
+            "k": 2,
+            "won": 12,
+            "true": 12,
+            "false": 0
+          },
+          {
+            "k": 3,
+            "won": 14,
+            "true": 14,
+            "false": 0
+          },
+          {
+            "k": 4,
+            "won": 14,
+            "true": 14,
+            "false": 0
+          },
+          {
+            "k": 5,
+            "won": 14,
+            "true": 14,
+            "false": 0
+          },
+          {
+            "k": 6,
+            "won": 14,
+            "true": 14,
+            "false": 0
+          },
+          {
+            "k": 7,
+            "won": 14,
+            "true": 14,
+            "false": 0
+          },
+          {
+            "k": 8,
+            "won": 15,
+            "true": 15,
+            "false": 0
+          }
+        ]
+      }
+    },
+    "records/measurements/breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1-T10": {
+      "draws": 8,
+      "model": "qwen2.5-coder:3b",
+      "sampled_temperature": 1.0,
+      "assertions": {
+        "t01": 8,
+        "t02": 10,
+        "t03": 7,
+        "t04": 14,
+        "t05": 9,
+        "t06": 12,
+        "t07": 12,
+        "t08": 10,
+        "t09": 6,
+        "t10": 10,
+        "t11": 9,
+        "t12": 9,
+        "t13": 9,
+        "t14": 7,
+        "t15": 9,
+        "t16": 8,
+        "t17": 9,
+        "t18": 11,
+        "t19": 11,
+        "t20": 15
+      },
+      "full_strength_agrees_with_the_sweep": {
+        "agree": 160,
+        "disagree": 0
+      },
+      "cells": {
+        "0.25": [
+          {
+            "k": 1,
+            "won": 13,
+            "true": 9,
+            "false": 4
+          },
+          {
+            "k": 2,
+            "won": 14,
+            "true": 10,
+            "false": 4
+          },
+          {
+            "k": 3,
+            "won": 18,
+            "true": 11,
+            "false": 7
+          },
+          {
+            "k": 4,
+            "won": 18,
+            "true": 11,
+            "false": 7
+          },
+          {
+            "k": 5,
+            "won": 18,
+            "true": 11,
+            "false": 7
+          },
+          {
+            "k": 6,
+            "won": 19,
+            "true": 11,
+            "false": 8
+          },
+          {
+            "k": 7,
+            "won": 19,
+            "true": 11,
+            "false": 8
+          },
+          {
+            "k": 8,
+            "won": 19,
+            "true": 11,
+            "false": 8
+          }
+        ],
+        "0.5": [
+          {
+            "k": 1,
+            "won": 12,
+            "true": 9,
+            "false": 3
+          },
+          {
+            "k": 2,
+            "won": 13,
+            "true": 10,
+            "false": 3
+          },
+          {
+            "k": 3,
+            "won": 16,
+            "true": 11,
+            "false": 5
+          },
+          {
+            "k": 4,
+            "won": 16,
+            "true": 11,
+            "false": 5
+          },
+          {
+            "k": 5,
+            "won": 16,
+            "true": 11,
+            "false": 5
+          },
+          {
+            "k": 6,
+            "won": 16,
+            "true": 11,
+            "false": 5
+          },
+          {
+            "k": 7,
+            "won": 16,
+            "true": 11,
+            "false": 5
+          },
+          {
+            "k": 8,
+            "won": 16,
+            "true": 11,
+            "false": 5
+          }
+        ],
+        "0.75": [
+          {
+            "k": 1,
+            "won": 12,
+            "true": 10,
+            "false": 2
+          },
+          {
+            "k": 2,
+            "won": 13,
+            "true": 11,
+            "false": 2
+          },
+          {
+            "k": 3,
+            "won": 15,
+            "true": 12,
+            "false": 3
+          },
+          {
+            "k": 4,
+            "won": 15,
+            "true": 12,
+            "false": 3
+          },
+          {
+            "k": 5,
+            "won": 15,
+            "true": 12,
+            "false": 3
+          },
+          {
+            "k": 6,
+            "won": 16,
+            "true": 13,
+            "false": 3
+          },
+          {
+            "k": 7,
+            "won": 16,
+            "true": 13,
+            "false": 3
+          },
+          {
+            "k": 8,
+            "won": 16,
+            "true": 13,
+            "false": 3
+          }
+        ],
+        "1.0": [
+          {
+            "k": 1,
+            "won": 10,
+            "true": 10,
+            "false": 0
+          },
+          {
+            "k": 2,
+            "won": 12,
+            "true": 12,
+            "false": 0
+          },
+          {
+            "k": 3,
+            "won": 14,
+            "true": 14,
+            "false": 0
+          },
+          {
+            "k": 4,
+            "won": 15,
+            "true": 15,
+            "false": 0
+          },
+          {
+            "k": 5,
+            "won": 15,
+            "true": 15,
+            "false": 0
+          },
+          {
+            "k": 6,
+            "won": 16,
+            "true": 16,
+            "false": 0
+          },
+          {
+            "k": 7,
+            "won": 16,
+            "true": 16,
+            "false": 0
+          },
+          {
+            "k": 8,
+            "won": 16,
+            "true": 16,
+            "false": 0
+          }
+        ]
+      }
+    },
+    "../lane_1/records/measurements/breadth-campaign-2026-08-06/srv1/qwen2.5-coder-7b/sweep-d1": {
+      "draws": 8,
+      "model": "qwen2.5-coder:7b",
+      "sampled_temperature": 0.7,
+      "assertions": {
+        "t01": 8,
+        "t02": 10,
+        "t03": 7,
+        "t04": 14,
+        "t05": 9,
+        "t06": 12,
+        "t07": 12,
+        "t08": 10,
+        "t09": 6,
+        "t10": 10,
+        "t11": 9,
+        "t12": 9,
+        "t13": 9,
+        "t14": 7,
+        "t15": 9,
+        "t16": 8,
+        "t17": 9,
+        "t18": 11,
+        "t19": 11,
+        "t20": 15
+      },
+      "full_strength_agrees_with_the_sweep": {
+        "agree": 160,
+        "disagree": 0
+      },
+      "cells": {
+        "0.25": [
+          {
+            "k": 1,
+            "won": 17,
+            "true": 13,
+            "false": 4
+          },
+          {
+            "k": 2,
+            "won": 18,
+            "true": 14,
+            "false": 4
+          },
+          {
+            "k": 3,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          },
+          {
+            "k": 4,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          },
+          {
+            "k": 5,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          },
+          {
+            "k": 6,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          },
+          {
+            "k": 7,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          },
+          {
+            "k": 8,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          }
+        ],
+        "0.5": [
+          {
+            "k": 1,
+            "won": 16,
+            "true": 13,
+            "false": 3
+          },
+          {
+            "k": 2,
+            "won": 17,
+            "true": 14,
+            "false": 3
+          },
+          {
+            "k": 3,
+            "won": 18,
+            "true": 14,
+            "false": 4
+          },
+          {
+            "k": 4,
+            "won": 18,
+            "true": 14,
+            "false": 4
+          },
+          {
+            "k": 5,
+            "won": 18,
+            "true": 14,
+            "false": 4
+          },
+          {
+            "k": 6,
+            "won": 18,
+            "true": 14,
+            "false": 4
+          },
+          {
+            "k": 7,
+            "won": 18,
+            "true": 14,
+            "false": 4
+          },
+          {
+            "k": 8,
+            "won": 18,
+            "true": 14,
+            "false": 4
+          }
+        ],
+        "0.75": [
+          {
+            "k": 1,
+            "won": 14,
+            "true": 13,
+            "false": 1
+          },
+          {
+            "k": 2,
+            "won": 17,
+            "true": 14,
+            "false": 3
+          },
+          {
+            "k": 3,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          },
+          {
+            "k": 4,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          },
+          {
+            "k": 5,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          },
+          {
+            "k": 6,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          },
+          {
+            "k": 7,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          },
+          {
+            "k": 8,
+            "won": 19,
+            "true": 14,
+            "false": 5
+          }
+        ],
+        "1.0": [
+          {
+            "k": 1,
+            "won": 13,
+            "true": 13,
+            "false": 0
+          },
+          {
+            "k": 2,
+            "won": 14,
+            "true": 14,
+            "false": 0
+          },
+          {
+            "k": 3,
+            "won": 14,
+            "true": 14,
+            "false": 0
+          },
+          {
+            "k": 4,
+            "won": 16,
+            "true": 16,
+            "false": 0
+          },
+          {
+            "k": 5,
+            "won": 17,
+            "true": 17,
+            "false": 0
+          },
+          {
+            "k": 6,
+            "won": 17,
+            "true": 17,
+            "false": 0
+          },
+          {
+            "k": 7,
+            "won": 17,
+            "true": 17,
+            "false": 0
+          },
+          {
+            "k": 8,
+            "won": 17,
+            "true": 17,
+            "false": 0
+          }
+        ]
+      }
+    }
+  }
+}

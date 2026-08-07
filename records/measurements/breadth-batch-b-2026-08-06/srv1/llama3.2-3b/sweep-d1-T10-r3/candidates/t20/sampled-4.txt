@@ -1,0 +1,52 @@
+```typescript
+/**
+ * Parses a config file into its KEY=VALUE pairs.
+ *
+ * Ignoring blank lines and lines starting with '#', trimming whitespace from key and value,
+ * and splitting on the first '=' character are also handled. An Error is thrown naming the
+ * line for an empty key or no '=' character, and any repeated keys are left unchanged in the result.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Trim whitespace from start and end of the key
+    let key = line.trim();
+    if (!key.startsWith('=')) { // Ignore lines starting with '#'
+      continue;
+    }
+    while (!(key.length - key.indexOf('=') > 1) && /\s/.test(key[key.indexOf('=') + 1])) {
+      key = key.slice(0, key.indexOf('=')) + key.slice(key.indexOf('=') + 2);
+    }
+
+    // Check for no '=' character
+    if (!key.includes('=')) {
+      throw new Error(`Line ${++lineNum}: No '=' character found in line '${line}'`);
+    }
+    let value = key.split('=', 2).pop();
+    // Trim whitespace from value and check for empty strings
+    while (/^\s+$/.test(value && value.length) && lineNum--) {
+      line.trimEnd('\n');
+      key = line.trim();
+      if (!key.startsWith('=')) { 
+        continue;
+      }
+      let v = line.indexOf('=', 1);
+      if (v === -1 || v > key.length - v) v = key.indexOf('=')
+      value = key.slice(v + 1).trim();
+
+    }
+    while (/^\s+$/.test(value && value.length) && --lineNum--) {
+      line.trimEnd('\n');
+      key = line.trim();
+      if (!key.startsWith('=')) { 
+        continue;
+      }
+      let v = line.indexOf('=', 1);
+      throw new Error(`Line ${++linenr}: Empty key '${key}'`);
+    }
+
+    config[key] = value || '';
+  }
+  return config;
+}
+```

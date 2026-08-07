@@ -1,0 +1,24 @@
+```ts
+/** Checks if a value must be a finite number. */
+function isFiniteNumber(value: any): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  const validCelsius = isFiniteNumber(celsius) && celsius >= -273.15;
+  if (!validCelsius) {
+    throw new Error("celsius must be a finite number");
+  }
+  return celsius * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  const validCelsius = isFiniteNumber(celsius) && celsius >= -273.15;
+  if (!validCelsius) {
+    throw new Error("celsius must be a finite number");
+  }
+  return celsius + 273.15;
+}
+```

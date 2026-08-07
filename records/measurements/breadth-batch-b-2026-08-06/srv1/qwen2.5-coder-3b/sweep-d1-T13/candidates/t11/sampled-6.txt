@@ -1,0 +1,7 @@
+```ts
+
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].map(String).sort((a, b) => a > b ? 1 : -1);
+}
+```

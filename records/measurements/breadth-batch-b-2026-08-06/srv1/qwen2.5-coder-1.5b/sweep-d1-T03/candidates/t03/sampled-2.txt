@@ -1,0 +1,25 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version || !/^\d+\.\d+(\.\d+)?(-[a-zA-Z0-9]+)?(\+[a-zA-Z0-9]+)?$/.test(version)) {
+    throw new Error(`Invalid version format: ${version}`);
+  }
+
+  const parts = version.split('.');
+  const major = parseInt(parts[0], 10);
+  const minor = parseInt(parts[1], 10);
+  const patch = parts.length > 2 ? parseInt(parts[2], 10) : null;
+
+  let prerelease = null;
+  let build = null;
+
+  if (parts.length > 3 && parts[3]) {
+    prerelease = parts[3].startsWith('-') ? parts[3].slice(1) : null;
+  }
+
+  if (parts.length > 4 && parts[4]) {
+    build = parts[4].startsWith('+') ? parts[4].slice(1) : null;
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

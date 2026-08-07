@@ -1,0 +1,49 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  if (!line) return [];
+
+  const result: string[] = [];
+  let currentField = "";
+  let isQuoted = false;
+  let quoteCount = 0;
+
+  for (let i = 0; i < line.length; i++) {
+    if (quoteCount % 2 === 0) { // Unquoted character
+      if (line[i] === '"') {
+        isQuoted = true;
+        currentField += '"';
+      } else if (!currentField && (line[i] === " " || line[i].match(/\n/))) {
+        continue; // Ignore leading or trailing whitespace and newlines if quoted
+      } else if (line[i] === ',' && !currentField) {
+        result.push(""); // Empty field, represented as an empty string
+        continue;
+      } else {
+        currentField += line[i];
+      }
+    } else { // Quoted character
+      if (isQuoted &&	line[i] === '"') {
+        quoteCount++;
+        currentField += '"';
+      } else {
+        isQuoted = false;
+        currentField += line[i];
+
+        // If the character before the last was not a double quote, it's the end of an unquoted quoted field
+        if (!(line[i - 1] || "") === '"') {
+          result.push(currentField.trim());
+          quoteCount++
+          currentField = "";
+          break; // Done parsing this field, move to the next line in case of EOF within a long line
+        }
+      }
+    }
+  }
+
+  // Handle the last field after exiting the loop if not quoted
+  if (currentField) {
+    result.push(currentField.trim());
+  }
+
+  return result;
+}
+```

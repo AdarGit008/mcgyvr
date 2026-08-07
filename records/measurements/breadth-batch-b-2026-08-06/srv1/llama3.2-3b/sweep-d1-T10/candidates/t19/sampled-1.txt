@@ -1,0 +1,22 @@
+```typescript
+/** a divided by b. */
+export function safeDivide(
+  a: number,
+  b: number
+)
+  : number | never {
+  // only divide if both are finite numbers
+  if (!isFinite(a) || !isFinite(b)) {
+
+    throw new Error('Inputs must be finite numbers');
+  }
+
+  // do not divide by zero
+  if (b === 0) {
+
+    throw new Error('Cannot divide by zero');
+  }
+  
+  return a / b;
+}
+```

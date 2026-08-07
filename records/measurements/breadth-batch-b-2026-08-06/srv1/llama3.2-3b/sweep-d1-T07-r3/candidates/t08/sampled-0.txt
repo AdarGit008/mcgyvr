@@ -1,0 +1,36 @@
+```typescript
+/** Returns an ordering satisfying every edge in the given graph. */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const nodeEdges = Array.from({ length: nodes.length }, (_, i) => [nodes[i], []]);
+  for (const [from, to] of edges) {
+    if (!nodeEdges.find(([n]) => n === from)?.[1].includes(to)) {
+      throw new Error(`Edge (${from}, ${to}) names a node not in nodes.`);
+    }
+    nodeEdges.find(([n]) => n === from)[1].push(to);
+  }
+
+  const freeNodes = nodeEdges.filter(([_, edges]) => !edges.length);
+  if (!freeNodes.length) {
+    // No ordering exists because there's no cycle, but the graph isn't acyclic.
+    throw new Error('No ordering exists because there is a cycle.');
+  }
+
+  const result: string[] = [];
+  while (freeNodes.length) {
+    freeNodes.sort((a, b) => nodes.indexOf(a[0]) - nodes.indexOf(b[0]));
+    const [node, edges] = freeNodes.shift()!;
+    if (!edges.length) {
+      // Node has no incoming edges, so it's ready to be added.
+      result.push(node);
+    } else {
+      // Node has incoming edges, so we need to wait for them to resolve.
+      nodeEdges.find(([n]) => n === node)[1] = edges.filter((to) => !result.includes(to));
+      if (nodeEdges.find(([_, edges]) => !edges.length)) {
+        freeNodes.push(nodeEdges.find(([n]) => !edges.length)!);
+      }
+    }
+  }
+
+  return result;
+}
+```

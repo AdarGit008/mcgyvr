@@ -1,0 +1,21 @@
+```typescript
+/**
+ * Returns a new array with nested arrays flattened up to depth levels,
+ * defaulting to every level.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (typeof depth !== 'number' || depth < 0) {
+        throw new Error('depth must be a non-negative integer or Infinity');
+    }
+
+    const result = [];
+    for (const item of items) {
+        if (Array.isArray(item)) {
+            result.push(...flatten(item, Math.min(depth - 1, Infinity)));
+        } else {
+            result.push(item);
+        }
+    }
+    return result;
+}
+```

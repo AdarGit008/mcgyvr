@@ -1,0 +1,33 @@
+```ts
+/**
+ * Parses a configuration string into a key-value object.
+ * @param text - The configuration text to parse.
+ * @returns An object containing the parsed key-value pairs.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Trim whitespace and ignore blank lines
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith("#")) continue;
+
+    // Split on the first occurrence of '=' only
+    const index = trimmedLine.indexOf("=");
+    if (index === -1) {
+      throw new Error(`Invalid line: "${line}"`);
+    }
+
+    const key = trimmedLine.slice(0, index).trim();
+    const value = trimmedLine.slice(index + 1).trim();
+
+    // Ignore lines with an empty key
+    if (!key) {
+      throw new Error(`Empty key on line: "${line}"`);
+    }
+
+    // Use Object.defineProperty to avoid setting __proto__
+    Object.defineProperty(config, key, { value: value, enumerable: true });
+  }
+  return config;
+}
+```

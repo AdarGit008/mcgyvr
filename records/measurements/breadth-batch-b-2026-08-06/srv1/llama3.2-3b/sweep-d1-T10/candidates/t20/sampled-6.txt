@@ -1,0 +1,49 @@
+```typescript
+/**
+ * Returns a Record<string, string> parsed from a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string>[] = text.split("\n").map((line) => line.trim());
+  
+  for (let i = 0; i < config.length; i++) {
+    if (!config[i] || config[i].startsWith('#')) continue;
+    
+    let [key, _, value] = config[i].split('=');
+    const trimmedKey = key.trim();
+    const trimmedValue = value ? value.trim() : '';
+    
+    try {
+      config[i] = [trimmedKey, trimmedValue];
+    } catch (error) {
+      throw new Error(`Invalid line: ${line}`);
+    }
+  }
+  
+  const keys = {};
+  let output: Record<string, string> = {};
+  
+  for (let i = 0; i < config.length; i++) {
+    if (!config[i]) continue;
+    
+    [key, value] = config[i];
+    if (!valuesAreEqual(keys[key], key)) {
+      const trimmedKeyWithoutProtoSymbol = key.substring(0, key.lastIndexOf('_'));
+      delete output[trimmedKeyWithoutProtoSymbol];
+      output[trimmedKeyWithoutProtoSymbol] = value;
+      
+      keys[key] = trimmedKeyWithoutProtoSymbol;
+    } else {
+      keys[key] = key;
+      output[key] = value;
+    }
+  }
+  
+  return output;
+}
+
+function valuesAreEqual(a: string, b: string): boolean {
+  const aTrimmed = typeof a === 'object' ? JSON.stringify(a) : a;
+  const bTrimmed = typeof b === 'object' ? JSON.stringify(b) : b;
+  return aTrimmed === bTrimmed && (typeof a !== 'object' || !aTrimmed.includes('=='));
+}
+```

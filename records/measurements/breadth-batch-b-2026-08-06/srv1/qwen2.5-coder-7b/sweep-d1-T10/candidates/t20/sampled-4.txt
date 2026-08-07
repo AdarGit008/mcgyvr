@@ -1,0 +1,24 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Ignore blank lines and lines starting with #
+    if (line.trim() === "" || line.trimStart().startsWith("#")) continue;
+
+    // Split on the first =
+    const idx = line.indexOf("=");
+    if (idx === -1) throw new Error(`Line "${line}" has no "=" separator`);
+
+    const key = line.slice(0, idx).trim();
+    if (key === "") throw new Error(`Empty key in line "${line}"`);
+
+    // Prevent accessing __proto__ through the config
+    if (key === "__proto__") continue;
+
+    const value = line.slice(idx + 1).trim();
+    config[key] = value;
+  }
+  return config;
+}
+```

@@ -1,0 +1,69 @@
+```ts
+/**
+ * Converts a valid Roman numeral string to its integer value.
+ * Throws an error if the input is invalid or not in canonical form.
+ */
+export function romanToInt(input: string): number {
+    if (typeof input !== 'string' || input.length === 0) {
+        throw new Error('Input must be a non-empty string');
+    }
+
+    const romanValues: Record<string, number> = {
+        I: 1,
+        V: 5,
+        X: 10,
+        L: 50,
+        C: 100,
+        D: 500,
+        M: 1000
+    };
+
+    // Validate all characters are valid Roman numerals (uppercase only)
+    for (let i = 0; i < input.length; i++) {
+        const char = input[i];
+        if (!(char in romanValues)) {
+            throw new Error(`Invalid character: ${char}`);
+        }
+    }
+
+    // Compute the numeric value using subtractive rules
+    let total = 0;
+    for (let i = 0; i < input.length; i++) {
+        const currentVal = romanValues[input[i]];
+        const nextVal = i + 1 < input.length ? romanValues[input[i + 1]] : 0;
+
+        if (currentVal < nextVal) {
+            total -= currentVal;
+        } else {
+            total += currentVal;
+        }
+    }
+
+    // Validate the value is in range
+    if (total < 1 || total > 3999) {
+        throw new Error('Value must be between 1 and 3999');
+    }
+
+    // Convert back to canonical Roman numeral and compare with input
+    function intToRoman(num: number): string {
+        const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+        const symbols = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
+
+        let result = '';
+        for (let i = 0; i < values.length; i++) {
+            while (num >= values[i]) {
+                result += symbols[i];
+                num -= values[i];
+            }
+        }
+        return result;
+    }
+
+    const canonicalForm = intToRoman(total);
+    if (canonicalForm !== input) {
+        throw new Error('Input is not in canonical Roman numeral form');
+    }
+
+    return total;
+}
+```

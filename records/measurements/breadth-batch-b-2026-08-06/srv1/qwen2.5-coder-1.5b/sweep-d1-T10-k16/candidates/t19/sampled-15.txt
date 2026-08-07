@@ -1,0 +1,20 @@
+```typescript
+/**
+ * A safe version of division by b. It throws an Error when the divisor is zero (including -0)
+ * or if both arguments are not finite numbers. If both arguments are valid, it returns the result.
+ *
+ * @param a The numerator.
+ * @param b The denominator.
+ * @returns The result of the division a / b.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (b === 0) {
+    throw new Error("The divisor cannot be zero.");
+  }
+  if (isNaN(a) || isNaN(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+
+  return a / b;
+}
+```

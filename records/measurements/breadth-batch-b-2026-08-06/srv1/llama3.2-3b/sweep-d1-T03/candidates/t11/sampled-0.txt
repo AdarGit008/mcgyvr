@@ -1,0 +1,17 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  /**
+   * Sorts the input array of numbers in ascending order without mutating the original array.
+   *
+   * @param values - The array of numbers to be sorted.
+   * @returns A new array with the numbers sorted in ascending order.
+   */
+  return [...values].sort((a, b) => {
+    if (typeof a !== 'number' || typeof b !== 'number') {
+      throw new Error('Input array must contain only numbers.');
+    }
+    return a - b;
+  });
+}
+```

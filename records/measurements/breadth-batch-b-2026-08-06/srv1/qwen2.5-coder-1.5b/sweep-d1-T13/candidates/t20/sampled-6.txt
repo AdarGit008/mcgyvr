@@ -1,0 +1,80 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const parsedConfig: Record<string, string> = {};
+  if (!text) return {};
+
+  try {
+    for (const line of text.split("\n")) {
+      trimLineAndIgnoreBlankLines(line);
+      fixWhitespaceInParts(trimLineAndIgnoreBlankLines(line));
+      let parts: string[] | null = parseIntoEqualsPair(parseIntoTwoWordsOrArrayOrNothing(trimLineAndIgnoreBlankLines(line)));
+      if (!parts) return {};
+      const [key, value] = parts;
+      checkForKeyAlreadyReachesThePrototype(parts[0], parsedConfig);
+      Object.assign(parsedConfig, { [key]: trimWhitespace(value.trim().replace(/`/g, '') }));
+    }
+  } catch (e: unknown) {
+    throw new Error(`${e}\nAt line ${findFirstFailedLine(text.split("\n"), e as object[])}`);
+  }
+
+  return parsedConfig;
+}
+
+function checkForKeyAlreadyReachesThePrototype(key: string | number): void {
+  if (Object.prototype.hasOwnProperty.call(key)) {
+    throw new Error(`Key '${key}' already reaches the prototype of Object.`);
+  }
+}
+
+function createKeyIfNecessary(config: Record<string, unknown>, newKey: string, index: number): void {
+  const currentValue =config[new] ? config[new].toString() : 'undefined';
+  if (typeof currentValue === 'number') return;
+  const finalNewKey = index === config.length - 1 
+    ? `${newKey}${currentValue !== '' ? '.' + currentValue : ''}`
+    : newKey;
+  config[finalNewKey] = currentValue; 
+}
+
+function trimLineAndIgnoreBlankLines(line: string): string {
+  return trimmedString(line.trim());
+}
+
+function parsedIntoTwoWordsOrArrayOrNothing(trimmedLine: string): string | unknown[]| null {
+  return trimmedString(wordsOrArray(trimlinedLine, { maxCount: 2 }))[0]; 
+}
+
+function trimWhitespace(str: string): string {
+  const regex = /^\s+|\s+$/g;
+  return str.replace(regex, '');
+}
+
+function parsedIntoEqualsPair(unparsedString: string | null): string[] | null {
+  if (!unparsedString) return null;
+
+  if (unparsedString.includes('=')) {
+    const split = unparsedString.split('=');
+    split.forEach(e => checkForKeyAlreadyReachesThePrototype(e, [].push(e)));
+    return [''].concat(unparsedString.replaceFirst('/', '!@#_()&*=:+~_-./').split(/\=/ as never)[0]);
+  }
+  
+  if (unparsedString.includes('--')) return [''].concat(trimmedString(split(trimUnescapedEqualInStrBySplitsAround('--', unparsedString))).slice(0, -1));
+  else throw new Error(`No '=' found in line: "${unparsedString}"`);
+}
+
+function findFirstFailedLine(lines: string[], error: object[]): number {
+  for (let i = 0; i < lines.length; ++i) {
+    try {
+      console.log(trimmedString(partsOrNothingForLine.split('='));
+    } catch(err) {
+      error.push({line: i +1, msg:`Error at line: ${i+1}`, ex: err});
+      continue;
+    }
+  }
+
+  return error.length ? findFirstFailedLine(lines.slice(error[0].line, lines.length), [error[0], ...error.map(e=>e).slice(3)] ) : -1 ;
+}
+
+function trimmedString(str: string) {
+  const regex = /^\s+|\s+$/g;
+  return str

@@ -1,0 +1,35 @@
+Here is the implementation for LruCache:
+
+```ts
+export class LruCache<K, V> {
+  private cache: Map<K, V>;
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.cache = new Map();
+    Object.defineProperty(this, 'size', { get: () => this.cache.size });
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) return undefined;
+      // @ts-ignore
+    const value = this.cache.get(key);
+    this.set(key, value); // Re-insert to move to front of LRU
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) this.cache.delete(key);
+      // If over capacity, remove oldest entry
+    else if (this.size === this.capacity) this.cache.delete(this.firstKey());
+    this.cache.set(key, value); // Insert new or update existing to move to front of LRU
+  }
+
+  private get capacity(): number { return (this as any)._capacity; } 
+  private set capacity(value: number) { (this as any)._capacity = value; }
+
+  // Helper function to get the first key in the Map, which is the oldest entry due to insertion order
+  private firstKey(): K { return this.cache.keys().next().value; } 
+}
+```

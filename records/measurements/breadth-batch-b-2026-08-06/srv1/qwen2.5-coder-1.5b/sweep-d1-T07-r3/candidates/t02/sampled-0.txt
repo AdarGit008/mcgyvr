@@ -1,0 +1,18 @@
+```ts
+function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.some(([start, end]) => start > end)) {
+    throw new Error('Interval must be start <= end');
+  }
+  intervals.sort((a, b) => a[0] - b[0]);
+  const merged = [intervals[0]];
+  for (let i = 1; i < intervals.length; i++) {
+    const current = intervals[i];
+    if (current[0] > merged[merged.length - 1][1]) {
+      merged.push(current);
+    } else {
+      merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], current[1]);
+    }
+  }
+  return merged;
+}
+```

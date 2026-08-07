@@ -1,0 +1,31 @@
+```ts
+/** Merges overlapping intervals in the given list */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  // Validate and sort intervals by start time
+  let sorted = [];
+  for (const interval of intervals) {
+    if (interval[0] > interval[1]) throw Error('Invalid interval');
+    sorted.push([...interval]); // Copy to avoid mutation
+  }
+  sorted.sort((a, b) => a[0]-b[0] || a[1]-b[1]);
+
+  // Merge intervals where possible
+  const result = [];
+  let current: number[] | undefined = sorted[0];
+  for (const interval of sorted.slice(1)) {
+    if (!current) throw Error('Internal error'); // Sanity check for null
+    // If this interval starts after the previous one ends, append a new segment
+    if (interval[0] > current[1]) {
+      result.push(current);
+      current = interval;
+    } 
+    // Otherwise, extend the current segment if needed, to encompass this interval
+    else if (interval[1] > current[1]) {
+      current[1] = interval[1];
+    } // Else, this interval is enclosed within the current one: do nothing.
+  }
+  if (current) result.push(current); 
+
+  return result;
+}
+```

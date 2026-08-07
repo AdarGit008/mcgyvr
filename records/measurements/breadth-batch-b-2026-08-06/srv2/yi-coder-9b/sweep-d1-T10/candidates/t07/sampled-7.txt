@@ -1,0 +1,22 @@
+Here is how you can write function `flatten` in TypeScript according to the task conditions:
+
+```ts
+/**
+ * Flattens array up to a given depth 
+*/
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0) throw new Error('Depth must not be negative')
+  // Do not mutate original input.
+  const flattenedArray = [...items];
+ 
+  for (let i=0; i<flattenedArray.length; ++i) {
+    if ((typeof flattenedArray[i] === 'object' && Array.isArray(flattenedArray[i])) && depth > 0) {
+      // Recursively flatten items, decrementing the depth for each level of recursion.
+      flattenedArray[i] = flatten([].concat(flattenedArray[i]), depth - 1);     
+    }
+  }
+ 
+  return flattenedArray;
+}
+```
+Remember you should return a new array without changing the original one according to pure function paradigm in functional programming and also you don't want to flatten Strings so type assertion is used in condition to make it more specific.

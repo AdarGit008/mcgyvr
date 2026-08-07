@@ -1,0 +1,41 @@
+```ts
+/**
+ * Merge overlapping intervals in ascending order by start value.
+ *
+ * @param intervals - A list of [start, end] pairs to merge.
+ * @returns The smallest list of non-overlapping pairs covering the same points,
+ *          sorted ascending by start. Intervals that merely touch (end === next start)
+ *          do merge. If an interval may be open-ended (has a NaN), it is not merged.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  const isInvalidInterval = (interval: number[]) => {
+    if (!Array.isArray(interval) || interval.length !== 2) {
+      throw new Error('Invalid interval');
+    }
+    return isNaN(interval[0]) || isNaN(interval[1]);
+  };
+
+  const filterOutInvalidIntervals = (intervals: number[][]) => intervals.filter(isInvalidInterval);
+
+  const mergeOverlappingIntervals = (intervals: number[][]): number[][] => {
+    if (!intervals.length) {
+      return [];
+    }
+    intervals.sort((a, b) => a[0] - b[0]);
+    const merged: number[][] = [intervals[0]];
+    for (const current of intervals.slice(1)) {
+      const lastMerged = merged[merged.length - 1];
+      if (!isInvalidInterval(current) && !isInvalidInterval(lastMerged) &&
+          current[0] <= lastMerged[1]) {
+        merged[merged.length - 1] = [lastMerged[0], Math.max(lastMerged[1], current[1])];
+      } else {
+        merged.push(current);
+      }
+    }
+    return merged;
+  };
+
+  const filteredIntervals = filterOutInvalidIntervals(intervals);
+  return mergeOverlappingIntervals(filteredIntervals);
+}
+```

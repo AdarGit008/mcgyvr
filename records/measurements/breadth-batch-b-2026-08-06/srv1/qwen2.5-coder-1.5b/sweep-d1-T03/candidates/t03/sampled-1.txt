@@ -1,0 +1,21 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version.startsWith('v')) version = 'v' + version;
+
+  const parts = version.split('.');
+  if (parts.length < 3) throw new Error(`Invalid version format: ${version}`);
+
+  let major = parseInt(parts[0], 10);
+  let minor = parseInt(parts[1], 10);
+  let patch = parseInt(parts[2], 10);
+
+  if (!Number.isInteger(major) || !Number.isInteger(minor) || !Number.isInteger(patch)) {
+    throw new Error(`Invalid version format: ${version}`);
+  }
+
+  const prerelease = parts.length > 3 ? parts[3] : null;
+  const build = parts.length > 4 ? parts[4] : null;
+
+  return { major, minor, patch, prerelease, build };
+}
+```

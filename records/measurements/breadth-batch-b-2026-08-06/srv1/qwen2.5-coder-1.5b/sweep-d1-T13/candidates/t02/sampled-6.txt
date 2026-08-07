@@ -1,0 +1,51 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * Merges a list of integer pairs (intervals) into non-overlapping intervals.
+ * Each interval includes the start value and ends when the value is the end point.
+ *
+ * @param intervals - An array of arrays, where each inner array represents an interval [start, end].
+ * @returns A new array of unique sorted non-overlapping intervals [[start, end]].
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.some(interval => interval[0] > interval[1])) {
+    throw new Error(`An interval in intervals is not valid`);
+  }
+  intervals.sort((a, b) => a[0] - b[0]); // Sort by start
+
+  const merged: number [][] = [intervals[0]];
+  let currentEnd = intervals[0][1];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const interval = intervals[i];
+    if (currentEnd < interval[0]) {
+      // New interval, create new sub-collection
+      merged.push(interval);
+      currentEnd = interval[1];
+    } else if (currentEnd === interval[0]) {
+      // Touching or overlap with existing interval
+    } else {
+      // Extension to overlapping interval
+      assert(currentEnd <= interval[1]);
+      // Modify the last valid end to include both
+      merged.push([currentStart, Math.max(interval[1], currentEnd)]);
+      currentEnd = interval[1]; // Update maximum end index for next element
+    }
+  }
+
+  return merged;
+}
+
+// Check function with provided data points
+function check() {
+  assert.deepStrictEqual(mergeIntervals([[1,2],[4,5]]), [[1,5]]);
+  assert.deepStrictEqual(mergeIntervals([5,7],[9,10], [7,10], [3,6]]), [
+    [3,6],
+    [9,10]
+  ]);
+}
+
+// Run check function
+check();
+```

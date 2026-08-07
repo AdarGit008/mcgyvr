@@ -1,0 +1,15 @@
+```ts
+import { valid } from 'semver' 
+
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null; }  {
+    if (valid(version) === null){
+        throw new Error('Invalid version input');
+    }else{
+        let splitVersion = version.split(/[-+]/);
+        const [ major , minor, patch] = splitVersion[0].split('.').map(Number);
+        const prerelease = (splitVersion[1] || '').includes('-') ? splitVersion[1].split('+')[0]: null;
+       	const build = (splitVersion[1] || '').includes('+') ?  splitVersion[1].split("-")[1] : null;
+        return{major, minor,patch, prerelease,build}
+    }
+};
+```

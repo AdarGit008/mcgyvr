@@ -1,0 +1,55 @@
+```ts
+/**
+ * Parse a semantic version string of the form MAJOR.MINOR.PATCH with
+ * an optional -prerelease and an optional +build, returning the three numbers
+ * plus the prerelease and build strings, each null when absent.
+ *
+ * @param version The semantic version string to parse.
+ * @returns An object containing the major, minor, patch, prerelease, and build
+ *           values of the semantic version.
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    // Split the version into its parts
+    const parts = version.split('.');
+
+    // Check if there are at least three parts (major, minor, patch)
+    if (parts.length < 3) {
+        throw new Error(`Invalid version format '${version}'; expected 'MAJOR.MINOR.PATCH'`);
+    }
+
+    // Validate the major, minor, and patch numbers
+    const major = parseInt(parts[0], 10);
+    const minor = parseInt(parts[1], 10);
+    const patch = parseInt(parts[2], 10);
+
+    if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+        throw new Error(`Invalid version format '${version}'; expected non-zero numeric values`);
+    }
+
+    // Check for valid digits
+    if (major < 0 || minor < 0 || patch < 0) {
+        throw new Error(`Invalid version format '${version}'; expected non-negative integer values`);
+    }
+    if (major === 0 && parts[0] !== '0') {
+        throw new Error(`Invalid version format '${version}'; expected major number to be zero`);
+    }
+
+    // Initialize the prerelease and build strings
+    let prerelease = null;
+    let build = null;
+
+    // Check for prerelease and build suffixes
+    if (version.includes('-')) {
+        const index = version.indexOf('-');
+        prerelease = version.slice(index + 1);
+        version = version.slice(0, index);
+    }
+    if (version.includes('+')) {
+        const index = version.indexOf('+');
+        build = version.slice(index + 1);
+        version = version.slice(0, index);
+    }
+
+    return { major, minor, patch, prerelease, build };
+}
+```

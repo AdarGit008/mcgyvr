@@ -1,0 +1,29 @@
+```
+export interface Event { name: string; timestamp: number }
+
+export class EventLog {
+  #events: Event[] = [];
+
+  /**
+   * Append one event.
+   *
+   * @param event - The event to record.
+   */
+  record(event: Event): void {
+    this.#events.push({ ...event }); // Create a copy of the event
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   *
+   * @param timestamp - The timestamp to compare events against.
+   * @returns A an array of events that occurred at or later than the specified timestamp.
+   */
+  since(timestamp: number): Event[] {
+    if (!Number.isInteger(timestamp)) {
+      throw new Error("Timestamp must be an integer.");
+    }
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

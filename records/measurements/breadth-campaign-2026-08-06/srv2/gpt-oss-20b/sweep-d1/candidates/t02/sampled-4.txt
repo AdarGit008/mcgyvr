@@ -1,0 +1,40 @@
+```ts
+/**
+ * Merge overlapping or touching intervals into the smallest list of non‑overlapping intervals.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.length === 0) return [];
+
+  // Validate and shallow copy each interval to avoid mutation
+  const sorted = intervals.map(([start, end]) => {
+    if (typeof start !== 'number' || typeof end !== 'number')
+      throw new Error('Interval values must be numbers');
+    if (start > end)
+      throw new Error(`Invalid interval [${start}, ${end}]: start greater than end`);
+    return [start, end];
+  });
+
+  // Sort by start ascending
+  sorted.sort((a, b) => a[0] - b[0]);
+
+  const merged: number[][] = [];
+  for (const [curStart, curEnd] of sorted) {
+    if (merged.length === 0) {
+      merged.push([curStart, curEnd]);
+      continue;
+    }
+
+    const lastIndex = merged.length - 1;
+    const [lastStart, lastEnd] = merged[lastIndex];
+
+    // Merge if intervals overlap or touch
+    if (curStart <= lastEnd) {
+      merged[lastIndex] = [lastStart, Math.max(lastEnd, curEnd)];
+    } else {
+      merged.push([curStart, curEnd]);
+    }
+  }
+
+  return merged;
+}
+```

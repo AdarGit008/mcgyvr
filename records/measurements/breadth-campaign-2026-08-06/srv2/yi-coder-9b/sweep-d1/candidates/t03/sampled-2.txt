@@ -1,0 +1,22 @@
+Here is a TypeScript function that implements parseSemver interface:
+
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const semverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?$/
+    const match = semverPattern.exec(version);
+  
+    if (!match) {
+        throw new Error('Invalid version');
+    }
+     
+    return {
+        major: parseInt(match[1]),
+        minor: parseInt(match[2]),
+        patch: parseInt(match[3]),
+        prerelease: match[5] ?? null,
+        build: match[8] ?? null,
+    }
+}
+```
+
+This function parses a semantic version string and returns an object with the major, minor, patch versions, prereleases, and build metadata. If the string does not match the expected format (MAJOR.MINOR.PATCH[-prerelease][+build]), it throws an error stating "Invalid version". The major, minor, and patch parts must be non-negative integers with no leading zeroes. Prereleases and builds can contain alphanumeric characters as well as hyphen.

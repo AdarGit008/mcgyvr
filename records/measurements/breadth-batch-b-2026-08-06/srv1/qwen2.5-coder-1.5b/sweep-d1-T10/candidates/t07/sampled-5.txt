@@ -1,0 +1,19 @@
+```typescript
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  const isStringArray = (arr: unknown[]): arr is string[] => arr.every(item => typeof item === 'string');
+
+  if (!depth) {
+    return [...items];
+  }
+
+  const go = (acc: unknown[], ele: unknown, d: number): unknown[] => {
+    if (isStringArray(ele as never)) return acc;
+    if (!(Array.isArray(ele)) return acc.concat([ele]);
+    return d < depth
+      ? ele.reduce((acc, it) => go(acc, it, d + 1), [])
+      : acc.concat(it);
+  };
+
+  return items.reduce(go, []);
+}
+```

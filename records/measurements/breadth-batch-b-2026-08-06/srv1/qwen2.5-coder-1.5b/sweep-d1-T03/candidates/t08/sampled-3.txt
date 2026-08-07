@@ -1,0 +1,42 @@
+```ts
+import { Graph } from 'graphology';
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Graph();
+  nodes.forEach(node => graph.addNode(node));
+  edges.forEach(([from, to]) => graph.addEdge(from, to));
+
+  if (!graph.isDirected()) throw Error('Graph must be directed');
+  if (!graph.hasNodes()) throw Error('No nodes in the graph');
+
+  const indegreeMap: Record<string, number> = {};
+  nodes.forEach(node => {
+    indegreeMap[node] = 0;
+    edges.forEach(([from, to]) => {
+      if (from === node) indegreeMap[to]++;
+    });
+  });
+
+  const queue: string[] = [];
+  nodes.forEach(node => {
+    if (indegreeMap[node] === 0) queue.push(node);
+  });
+
+  const sortedNodes: string[] = [];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    sortedNodes.push(current);
+
+    edges.forEach(([from, to]) => {
+      if (to === current) {
+        indegreeMap[from]--;
+        if (indegreeMap[from] === 0) queue.push(from);
+      }
+    });
+  }
+
+  if (sortedNodes.length !== nodes.length) throw Error('Cycle detected');
+
+  return sortedNodes;
+}
+```

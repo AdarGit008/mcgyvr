@@ -1,0 +1,58 @@
+```ts
+/**
+ * Perform a topological sort on a set of nodes with given edges.
+ *
+ * @param nodes - An array of node names.
+ * @param edges - An array of tuples representing directed edges, where each tuple is [from, to].
+ * @returns An array of nodes sorted Topologically.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: { [key: string]: string[] } = {};
+  const indegree: { [key: string]: number } = {};
+
+  // Initialize the graph and indegree count
+  nodes.forEach(node => {
+    graph[node] = [];
+    indegree[node] = 0;
+  });
+
+  // Build the graph and calculate indegrees
+  edges.forEach(([from, to]) => {
+    if (!(from in graph) || !(to in graph)) {
+      throw new Error(`Node not found: ${from} or ${to}`);
+    }
+    graph[from].push(to);
+    indegree[to]++;
+  });
+
+  // Queue for nodes with no incoming edges
+  const queue: string[] = [];
+  Object.keys(indegree).forEach(node => {
+    if (indegree[node] === 0) {
+      queue.push(node);
+    }
+  });
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    // Always take the earliest node currently free of unmet dependencies
+    const currentNode = queue.shift()!;
+    result.push(currentNode);
+
+    for (const neighbor of graph[currentNode]) {
+      indegree[neighbor]--;
+      if (indegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check for cycles
+  if (result.length !== nodes.length) {
+    throw new Error('Cycle detected');
+  }
+
+  return result;
+}
+```

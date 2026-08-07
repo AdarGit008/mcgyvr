@@ -1,0 +1,29 @@
+```typescript
+const MIN_CELSIUS = -273.15;
+
+/**
+ * Validates if the given value is a finite number that is greater than or equal to absolute zero.
+ *
+ * This should help avoid unnecessary checks in other methods, potentially improving performance.
+ *
+ * @param {number} value - The value to validate.
+ * @returns {boolean} True if the value is valid, false otherwise.
+ */
+function isValidCelsius(value: number): boolean {
+  return Number.isFinite(value) && value >= MIN_CELSIUS;
+}
+
+export function celsiusToFahrenheit(celsius: number): number {
+  if (!isValidCelsius(celsius)) {
+    throw new Error("celsius must be a finite number at or above absolute zero");
+  }
+  return celsius * 1.8 + 32;
+}
+
+export function celsiusToKelvin(celsius: number): number {
+  if (!isValidCelsius(celsius)) {
+    throw new Error("celsius must be a finite number at or above absolute zero");
+  }
+  return celsius + 273.15;
+}
+```

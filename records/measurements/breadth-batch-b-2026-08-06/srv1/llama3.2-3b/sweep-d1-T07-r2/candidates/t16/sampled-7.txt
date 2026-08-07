@@ -1,0 +1,54 @@
+```typescript
+const MODULUS = 1000000007;
+
+/**
+ * The nth Fibonacci number, modulo 1000000007.
+ *
+ * @param n - The index of the Fibonacci number to return (0-indexed).
+ * @returns The nth Fibonacci number, modulo 1000000007.
+ */
+export function fibMod(n: number): number {
+  if (typeof n !== 'number' || isNaN(n) || n < 0) {
+    throw new Error('n must be a non-negative integer');
+  }
+
+  const matrix = [
+    [1, 1],
+    [1, 0]
+  ];
+
+  let result = [[1, 0], [0, 1]];
+
+  for (let i = 2; i <= n; i++) {
+    result = multiplyMatrices(result, matrix);
+  }
+
+  return addModulo((result[0][0] * MODULUS) % MODULUS, 0);
+
+  function multiplyMatrices(a: number[][], b: number[][]): number[][] {
+    const result = [[0, 0], [0, 0]];
+
+    for (let i = 0; i < 2; i++) {
+      for (let j = 0; j < 2; j++) {
+        let sum = 0;
+        for (let k = 0; k < 2; k++) {
+          sum += a[i][k] * b[k][j];
+        }
+        result[i][j] = sum % MODULUS;
+      }
+    }
+
+    return result;
+  }
+
+  function addModulo(a: number, b: number): number {
+    const sum = (a + b) % MODULUS;
+
+    if (sum < 0) {
+      sum += MODULUS;
+    }
+
+    return sum;
+  }
+}
+```

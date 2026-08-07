@@ -1,0 +1,15 @@
+```typescript
+/** Safe division handling edge cases such as NaN, Infinity, Zero denominator errors. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error(`Invalid inputs: ${a} and ${b}. Must be finite numbers.`);
+  }
+  
+  if (b === 0) {
+    throw new Error('Cannot divide by zero.');
+  }
+
+  // Handle ±0 division correctly
+  return b !== -0 ? a / b : Number.NEGATIVE_INFINITY;
+}
+```

@@ -1,0 +1,35 @@
+```ts
+import { split } from 'lodash';
+
+export function parseCsvLine(line: string): string[] {
+  if (line === '') throw new Error('Empty line detected');
+
+  const tokens = split(line, /,/, -1);
+  const result: string[] = [];
+  let inQuotes = false;
+  let quoteChar = '';
+  let currentToken = '';
+
+  for (const token of tokens) {
+    if (token.startsWith('"')) {
+      if (quoteChar !== '') throw new Error('Multi-line quoted field detected');
+      inQuotes = true;
+      quoteChar = token.charAt(0);
+      currentToken += token.substr(1);
+    } else if (inQuotes && token.endsWith(quoteChar)) {
+      inQuotes = false;
+      currentToken += token;
+      result.push(currentToken.trim());
+      currentToken = '';
+    } else if (!inQuotes) {
+      const value = currentToken ? `${currentToken},${token.trim()}` : token.trim();
+      result.push(value);
+      currentToken = '';
+    }
+  }
+
+  if (inQuotes) throw new Error('Unmatched quote detected');
+
+  return result;
+}
+```

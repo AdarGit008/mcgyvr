@@ -1,0 +1,24 @@
+Here is one possible implementation for `mergeIntervals` function using TypeScript:
+
+```ts
+export function mergeIntervals(intervals: number[][]): number[][]{
+  if (!Array.isArray(intervals) || (typeof intervals[0][0] !== "number" && typeof intervals[0][1] !== "number")) {
+    throw new Error('Invalid input');
+  }
+  const sortedIntervals = [...intervals].sort((a, b) => a[0] - b[0]);
+  let result: number[][] = [];
+  sortedIntervals.forEach(interval => {
+    if (!Array.isArray(interval) || interval[0] > interval[1]){
+      throw new Error('Invalid Interval');
+    }
+    const lastInterval = result[result.length - 1];
+    // If the current interval does not overlap with the previous one, add it to the resulting array
+    if (!lastInterval || interval[0] > lastInterval[1]) {
+      result.push([...interval]);
+    } else if(interval[1] > lastInterval[1]){ // If it does overlap, merge it with the previous one
+        lastInterval[1] = interval[1];  
+    };
+  }); 
+  return result;
+}
+```

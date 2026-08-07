@@ -1,0 +1,21 @@
+```typescript
+export function runLengthEncode(input: string): string {
+  if (typeof input !== "string") throw new Error("Input must be a string");
+
+  let encoded = "";
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    let count = 1;
+
+    // Count consecutive characters
+    while (i + count < input.length && input[i + count] === char) {
+      count++;
+    }
+
+    encoded += char + count.toString();
+    i += count - 1;
+  }
+
+  return encoded;
+}
+```

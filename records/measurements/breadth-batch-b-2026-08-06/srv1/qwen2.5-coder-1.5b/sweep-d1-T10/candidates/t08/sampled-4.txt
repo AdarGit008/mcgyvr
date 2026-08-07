@@ -1,0 +1,52 @@
+```ts
+// BEGIN SOLUTION
+
+function _findNode(edges: [readonly [string, string]], nodeNames: readonly string[]): string {
+  const nodes = Object.fromEntries(nodeNames.map((node) => [node, false]));
+  for (const [from, to] of edges) {
+    if (!nodes[from]) throw new Error(`Invalid edge: "${to}" points to unvisited node "${from}"`);
+    nodes[from] = true;
+    nodes[to] = true;
+  }
+  return '';
+}
+
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes.length && !edges.length) return [];
+
+  const graph = new Map<string, Set<string>>();
+
+  for (const edge of edges) {
+    // Ensure at least one direction is present in the graph
+    graph.set(edge[0], (graph.get(edge[0]) ?? new Set()).add(edge[1]));
+    graph.set(edge[1], (graph.get(edge[1]) ?? new Set()).add(edge[0]));
+  }
+
+  const stack: string[] = [];
+  const visited: Set<string> = new Set();
+  const topoOrder: string[] = [];
+
+  function dfs(node: string) {
+    if (visited.has(node)) return;
+    if (stack.includes(node)) throw new Error(`Cycle detected in nodes "${node}" and other edges.`);
+    visited.add(node);
+    stack.push(node);
+
+    for (const neighbor of graph.get(node) ?? []) {
+      dfs(neighbor);
+    }
+
+    topoOrder.push(stack.pop()!);
+  }
+
+  for (const node of nodes) {
+    if (!visited.has(node)) {
+      dfs(node);
+    }
+  }
+
+  return topoOrder;
+}
+
+// END SOLUTION
+```

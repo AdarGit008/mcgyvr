@@ -1,0 +1,62 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!Array.isArray(nodes) || !nodes.every(n => typeof n === 'string')) {
+    throw new Error('Invalid nodes: all elements must be strings');
+  }
+  if (
+    !Array.isArray(edges) ||
+    !edges.every((e): e is Readonly<[string, string]> =>
+      Array.isArray(e) && e.length === 2 && (typeof e[0] === 'string' || typeof e[1] === 'string')
+    )
+  ) {
+    throw new Error('Invalid edges: every edge must be an array of two strings');
+  }
+
+  const graph = new Map<string, Set<string>>();
+  const indegreeMap = new Map<string, number>();
+
+  for (const node of nodes) {
+    graph.set(node, new Set<string>());
+    indegreeMap.set(node, 0);
+  }
+
+  // Build the adjacency list and indegree map
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) throw new Error(`Node ${from} not found`);
+    if (!graph.has(to)) throw new Error(`Node ${to} not found`);
+
+    graph.get(from)!.add(to);
+    indegreeMap.set(to, (indegreeMap.get(to)! || 0) + 1);
+  }
+
+  // Find nodes with zero indegree
+  const queue: string[] = [];
+  for (const [node, inDegree] of indegreeMap.entries()) {
+    if (inDegree === 0) {
+      queue.push(node);
+    }
+  }
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const currentNode = queue.shift()!;
+    result.push(currentNode);
+
+    for (const neighbor of graph.get(currentNode) || []) {
+      indegreeMap.set(neighbor, (indegreeMap.get(neighbor)! || 0) - 1);
+      if (indegreeMap.get(neighbor)! === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check if all nodes are in the result
+  const visitedNodes = new Set<string>(result);
+  if (visitedNodes.size !== nodes.length) {
+    throw new Error('No valid topological order exists');
+  }
+
+  return result;
+}
+```

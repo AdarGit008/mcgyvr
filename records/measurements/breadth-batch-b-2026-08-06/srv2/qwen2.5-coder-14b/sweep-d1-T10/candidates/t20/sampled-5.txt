@@ -1,0 +1,33 @@
+```ts
+/**
+ * Parses a configuration string into a record of key-value pairs.
+ * Ignores blank lines and lines starting with #. Trims whitespace around keys and values.
+ * Splits on the first = only, allowing values to contain one. Throws an error for lines without =
+ * or empty keys. Prevents setting Object.prototype properties.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  const lines = text.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const firstEqualsIndex = line.indexOf("=");
+    if (firstEqualsIndex === -1) {
+      throw new Error(`Line ${i + 1} has no = sign.`);
+    }
+
+    const key = line.slice(0, firstEqualsIndex).trim();
+    const value = line.slice(firstEqualsIndex + 1).trim();
+
+    if (!key) {
+      throw new Error(`Line ${i + 1} has an empty key.`);
+    }
+
+    Object.defineProperty(config, key, { value: value, writable: true });
+  }
+
+  return config;
+}
+```

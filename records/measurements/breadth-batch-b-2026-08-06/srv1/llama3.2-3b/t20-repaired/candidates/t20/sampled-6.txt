@@ -1,0 +1,20 @@
+```ts
+/**
+ * The KEY=VALUE pairs of a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    let trimmedLine = line.trim();
+    while (trimmedLine.startsWith("#") || trimmedLine === "") {
+      trimmedLine = "";
+    }
+    if (!trimmedLine) continue;
+    let [key, value] = trimmedLine.split("=", 2);
+    key = key.trim();
+    value = value.trim();
+    config[key] = value;
+  }
+  return config;
+}
+```

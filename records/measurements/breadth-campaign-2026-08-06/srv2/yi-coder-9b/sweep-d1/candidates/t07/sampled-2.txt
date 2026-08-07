@@ -1,0 +1,7 @@
+Here is how you could implement flatten function in TypeScript:
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0 || !Number.isInteger(depth)) throw new Error('Depth must be a non-negative integer or Infinity');
+  return depth === 0 ? [...items] : items.reduce((acc: any, val) => Array.isArray(val) && depth > 1 ? acc.concat(flatten(val, depth - 1)) : acc.concat(val), []);
+}
+```

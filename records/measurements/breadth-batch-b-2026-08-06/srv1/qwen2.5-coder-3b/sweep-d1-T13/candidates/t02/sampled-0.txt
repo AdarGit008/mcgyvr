@@ -1,0 +1,20 @@
+```typescript
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (
+    intervals.some(([start]: [number], _index: number) => start > Infinity)
+  ) {
+    throw new Error('Interval start cannot be an infinite number');
+  }
+
+  const mergedIntervals = intervals.slice().sort((a, b) => a[0] - b[0]);
+
+  return mergedIntervals.reduce<number[]>((acc, curr) => {
+    if (acc.length === 0 || acc[acc.length - 1][1] < curr[0]) {
+      acc.push(curr);
+    } else if (acc[acc.length - 1][1] >= curr[0]) {
+      acc[acc.length - 1][1] = Math.max(acc[acc.length - 1][1]!, curr[1]);
+    }
+    return acc;
+  }, []);
+}
+```

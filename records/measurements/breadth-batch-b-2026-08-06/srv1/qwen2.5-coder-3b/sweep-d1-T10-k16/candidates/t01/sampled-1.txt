@@ -1,0 +1,23 @@
+```ts
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') throw new Error('Input must be a string');
+
+  let encoded = '';
+  let count = 1;
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === input[i + 1]) {
+      count++;
+    } else {
+      const charCode = input.charCodeAt(i);
+      if (charCode >= 48 && charCode <= 57) { // Check if the next character is a digit
+        encoded += `${input[i]}${count}`;
+      } else {
+        encoded += `${input[i]}1`;
+      }
+      count = 1;
+    }
+  }
+
+  return encoded.replace(/1/g, ''); // Remove trailing '1's
+}
+```

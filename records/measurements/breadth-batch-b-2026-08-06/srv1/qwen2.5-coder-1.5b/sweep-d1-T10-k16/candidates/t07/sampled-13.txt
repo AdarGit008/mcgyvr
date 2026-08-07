@@ -1,0 +1,31 @@
+```ts
+import * as assert from 'node:assert';
+
+const flatten = (items: readonly unknown[], depth?: number): unknown[] => {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error('depth must be a non-negative integer or Infinity');
+  }
+  return items.reduce((acc, item) => {
+    if (Array.isArray(item)) {
+      const expandedItems = flatten(item, depth - 1);
+      acc.push(...expandedItems);
+    } else if (item !== null && typeof item === 'object') {
+      for (const key in item) {
+        if (Object.hasOwnProperty.call(item, key)) {
+          acc.push(`${key}: ${flatten([item[key]], depth - 1)[0]}`);
+        }
+      }
+    } else {
+      acc.push(item);
+    }
+    return acc;
+  }, []);
+};
+
+// Test cases
+assert.deepEqual(flatten([]), []);
+assert.deepEqual(flatten([5]), [5]);
+assert.deepEqual(flatten([1, 2, 3], 1), [1, 2, 3]);
+assert.deepEqual(flatten([[1, 2], [3, [4]]], 0), [1, 2, 3, [4]]);
+assert.deepEqual(flatten(['one', ['two', 'three'], 'four'], 1), ['one', 'two', 'three', 'four']);
+```

@@ -1,0 +1,30 @@
+```ts
+/**
+ * Flattens a nested array up to a specified depth.
+ * @param items - The array to flatten.
+ * @param depth - The maximum depth to flatten. Defaults to Infinity.
+ * @returns A new flattened array.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) depth = Infinity;
+  if (!Number.isInteger(depth) || depth < 0 && depth !== Infinity) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  const result: unknown[] = [];
+  const stack: { item: unknown; currentDepth: number }[] = [{ item: items, currentDepth: 0 }];
+
+  while (stack.length > 0) {
+    const { item, currentDepth } = stack.pop()!;
+    if (Array.isArray(item) && currentDepth < depth) {
+      for (let i = item.length - 1; i >= 0; i--) {
+        stack.push({ item: item[i], currentDepth: currentDepth + 1 });
+      }
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result.reverse();
+}
+```

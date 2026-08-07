@@ -1,0 +1,57 @@
+ ```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!Array.isArray(nodes) || !Array.isArray(edges)) {
+        throw new Error("Invalid input");
+    }
+
+    const nodeSet = new Set(nodes);
+    const edgeMap: Map<string, Set<string>> = new Map();
+    const inDegree: Record<string, number> = {};
+    const queue: string[] = [];
+    const result: string[] = [];
+
+    // Initialize the graph
+    for (const node of nodes) {
+        edgeMap.set(node, new Set());
+        inDegree[node] = 0;
+    }
+
+    // Build the graph and compute in-degrees
+    for (const [from, to] of edges) {
+        if (!nodeSet.has(from) || !nodeSet.has(to)) {
+            throw new Error("Invalid edge");
+        }
+        if (!edgeMap.get(from)!.has(to)) {
+            edgeMap.get(from)!.add(to);
+            inDegree[to]++;
+        }
+    }
+
+    // Collect nodes with zero in-degree
+    for (const node of nodes) {
+        if (inDegree[node] === 0) {
+            queue.push(node);
+        }
+    }
+
+    // Topological sort using Kahn's algorithm
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        result.push(current);
+
+        for (const neighbor of edgeMap.get(current)!) {
+            inDegree[neighbor]--;
+            if (inDegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    // Check for cycles
+    if (result.length !== nodes.length) {
+        throw new Error("Cycle detected");
+    }
+
+    return result;
+}
+```

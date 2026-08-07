@@ -1,0 +1,68 @@
+```ts
+/**
+ * Splits one line of CSV into its fields on commas. A field wrapped in double quotes may contain commas,
+ * and a doubled quote inside such a field means one literal quote character; the surrounding quotes are not part of the value.
+ * Fields that are not quoted are taken literally, including any surrounding spaces. An empty line is one empty field.
+ *
+ * @param {string} line The input CSV line
+ * @returns {string[]} The fields in the CSV line
+ */
+export function parseCsvLine(line: string): string[] {
+    // If the line is empty, return an array with a single empty string
+    if (!line) {
+        return [''];
+    }
+
+    const result = [];
+    let currentField = '';
+    let inQuote = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        // If we're not in a quote, we start or end a field
+        if (!inQuote) {
+            // If the character is a comma and there's no current field, add it to the result
+            if (char === ',' && !currentField) {
+                result.push('');
+            }
+            // If the character is a comma and there's a current field, split it from the previous one
+            else if (char === ',') {
+                result.push(currentField);
+                currentField = '';
+            }
+            // Otherwise, add the character to the current field
+            else {
+                currentField += char;
+            }
+
+            // If the character is a double quote, toggle inQuote mode
+            if (char === '"' && !currentField) {
+                inQuote = true;
+            } else if (char === '"') {
+                inQuote = false;
+
+                // Check if we've ended a field; if so, add it to the result and reset currentField
+                if (result.length > 0) {
+                    result.push(currentField);
+                    currentField = '';
+                }
+            }
+        }
+
+        // If we're in a quote, just copy the character to the current field
+        else {
+            currentField += char;
+        }
+    }
+
+    // Check if we ended with a quoted field that was never closed; throw an error if so
+    if (inQuote) {
+        throw new Error('Unbalanced quotes in CSV line');
+    }
+
+    result.push(currentField);
+
+    return result;
+}
+```

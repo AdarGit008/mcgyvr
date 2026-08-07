@@ -1,0 +1,48 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (line === "") {
+    return [];
+  }
+
+  let inQuotes = false;
+  let currentField = "";
+  const fields: string[] = [];
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (!inQuotes) {
+        inQuotes = true;
+      } else {
+        // If the current field ends with a double quote, it's improperly formatted.
+        throw new Error("Empty quoted field");
+      }
+    }
+
+    if (!inQuotes) {
+      // Collect characters until the end of the field or next comma
+      if (char === " ") {
+        continue; // Skip leading space on unquoted fields
+      } else if (char === ",") {
+        // If a commma is encountered, add currentField to results and clear for new
+        fields.push(currentField.trim());
+        currentField = "";
+      } else {
+        currentField += char;
+      }
+    }
+
+    // Keep inQuotes=false on comma, because fields must appear either quoted or bare
+  }
+
+  if (inQuotes) {
+    throw new Error("Quoted field is never closed");
+  }
+
+  // Add the last field
+  fields.push(currentField.trim());
+
+  return fields;
+}
+```

@@ -1,0 +1,20 @@
+```ts
+function validateTemperatureUnit(celsius: number): void {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+}
+
+export function celsiusToFahrenheit(celsius: number): number {
+  validateTemperatureUnit(celsius);
+  return celsius * 1.8 + 32;
+}
+
+export function celsiusToKelvin(celsius: number): number {
+  validateTemperatureUnit(celsius);
+  return celsius + 273.15;
+}
+```

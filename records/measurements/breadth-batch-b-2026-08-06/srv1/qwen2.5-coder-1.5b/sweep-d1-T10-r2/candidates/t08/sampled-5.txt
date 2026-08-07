@@ -1,0 +1,40 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  // Remove duplicates
+  const uniqueEdges = new Set(edges.map(edge => edge.join(',')));
+  
+  // Create a dependency map and check for cycles
+  const graph = {},
+    inDegree = {};
+    
+  for (const [from, to] of uniqueEdges) {
+    if (!graph[from]) graph[from] = [];
+    graph[from].push(to);
+    
+    if (!inDegree[to]) inDegree[to] = 0;
+    inDegree[to]++;
+    
+    if (inDegree[from] >= nodes.length) throw new Error(`Cycle detected containing ${from}`);
+  }
+
+  // Topological sort starting from the nodes with zero indegree
+  const sortedNodes: string[] = [];
+  while (true) {
+    let nextNode = null;
+    
+    for (const node of uniqueEdges.values()) {
+      if (inDegree[node] === 0) {
+        nextNode = node break;
+      }
+    }
+    
+    if (!nextNode) {
+      if (sortedNodes.length === nodes.length) return sortedNodes; // Already sorted
+      throw new Error(`The graph has multiple topological orderings.`);
+    }
+
+    inDegree[nextNode]--;
+    sortedNodes.push(nextNode);
+  }
+}
+```

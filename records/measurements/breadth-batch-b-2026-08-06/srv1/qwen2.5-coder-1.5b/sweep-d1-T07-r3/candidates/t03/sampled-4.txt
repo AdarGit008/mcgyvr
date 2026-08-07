@@ -1,0 +1,13 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const re = /^(v)?(\d+)\.(\d+)\.(\d+)(?:-(\w+))?(?:\+(.*)?)$/;
+  
+  if (!re.test(version)) {
+    throw new Error(version);
+  }
+  
+  const [, major, minor, patch, prerelease, build] = re.exec(version) as [string, string | null, string | null, string | null, string | null, string | null];
+  
+  return { major: parseInt(major), minor: parseInt(minor), patch: parseInt(patch), prerelease, build };
+}
+```

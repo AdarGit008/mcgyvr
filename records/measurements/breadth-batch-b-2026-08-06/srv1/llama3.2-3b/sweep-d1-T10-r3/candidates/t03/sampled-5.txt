@@ -1,0 +1,53 @@
+```
+```ts
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  // Extract semver parts
+  const [numbers, extraneous] = version.split(/[-+]?[^-+\.]+/, 2);
+  if (extraneous) {
+    throw new Error(`Invalid input: "${version}" - "excluded" part not stripped`);
+  }
+
+  const mainParts = numbers
+    .replace(/^-+/', '') // remove leading +
+    .split('.')
+    .map(String)
+    .filter(Boolean); // filter out empty strings
+
+  if (mainParts.length !== 3) {
+    throw new Error(`Invalid input: "${version}" - expected three parts, got ${mainParts.length}`);
+  }
+
+  // Normalize integers by padding with leading zeros
+  mainParts.forEach((part, index) => {
+    const normalized = pad(part);
+    if (normalized !== part) {
+      version = `${String(mainParts[0]).padStart(3, '0')}.${String(mainParts[1]).padStart(3, '0')}.${String(mainParts[2]).padStart(3, '0')}(-prerelease=${String(mainParts[3])})`;
+    }
+  });
+
+  // Add optional prerelease and build
+  const parsed = {
+    major: parseInt(String(mainParts[0]), 10),
+    minor: parseInt(String(mainParts[1]), 10),
+    patch: parseInt(String(mainParts[2]), 10),
+    prerelease: extraneous ? extraneous.slice(1) : null,
+    build: mainParts.length > 3 && extraneous ? extraneous.slice(extraneous.indexOf('-') + 1) : null,
+  };
+
+  if (isNaN(parsed.major) || isNaN(parsed.minor) || isNaN(parsed.patch)) {
+    throw new Error(`Invalid input: "${version}" - numeric part not parsed`);
+  }
+
+  return parsed;
+}
+
+function pad(str: string): string {
+  return str[0] === '0' ? str : '0' + str;
+}
+```

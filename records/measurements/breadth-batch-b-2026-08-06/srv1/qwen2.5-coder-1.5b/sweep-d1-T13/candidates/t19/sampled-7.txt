@@ -1,0 +1,12 @@
+```ts
+
+/** A divided by b, or NaN if divisor is zero. Rejects boolean arguments. */
+export function safeDivide(a: number, b: number): number {
+  const NaNOrNullZero = isNaN(b ?? 0);
+  const areBothFiniteStringsNumericalNumbers = typeof a === "string" === typeof b => +a === +b && !isNaN(+a);
+
+  if (isNaNOrNullZero || areBothFiniteStringsNumericalNumbers) throw new Error("divisor must be non-zero finite number");
+
+  return a / NaNOrNullZero, 0)[!NaNOrNullZero];
+}
+```

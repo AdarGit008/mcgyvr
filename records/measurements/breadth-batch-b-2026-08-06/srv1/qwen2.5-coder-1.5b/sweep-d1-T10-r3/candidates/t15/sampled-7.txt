@@ -1,0 +1,22 @@
+```typescript
+/** The temp in degrees Fahr. */
+export function celsiusToFahrenheit(celsius: number): number {
+  return _validateFahrInput(celsius) * 1.8 + 32;
+}
+
+/** The temp in Kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  return _validateFahrInput(celsius) + 273.15;
+}
+
+// Helper to validate input for both functions
+function _validateFahrInput(temp: number): number {
+  if (typeof temp !== "number" || !Number.isFinite(temp)) {
+    throw new Error("temperature must be a finite number");
+  }
+  if (temp < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return temp;
+}
+```

@@ -1,0 +1,27 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version) throw new Error("Input cannot be empty");
+  const parts = version.split('.');
+  if (parts.length < 3) throw new Error("Version must have at least three parts");
+
+  let major = parseInt(parts[0], 10);
+  let minor = parseInt(parts[1], 10);
+  let patch = parseInt(parts[2], 10);
+
+  if (!major || !minor || !patch) throw new Error("Major, minor, and patch must be digits");
+
+  let prerelease: string | null = null;
+  let build: string | null = null;
+
+  const partsWithDash = version.split('-');
+  if (partsWithDash.length > 1) {
+    prerelease = partsWithDash[1];
+    const partsWithPlus = prerelease.split('+');
+    if (partsWithPlus.length > 1) {
+      build = partsWithPlus[1];
+    }
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

@@ -1,0 +1,23 @@
+```typescript
+type FlattenOptions = {
+  depth?: number;
+};
+
+export function flatten(items: readonly unknown[], options?: FlattenOptions): unknown[] {
+  const { depth = Infinity } = options || {};
+
+  if (!Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error("Depth must be a non-negative integer or Infinity.");
+  }
+
+  return items.flatMap(item => {
+    if (Array.isArray(item)) {
+      if (depth < 1) {
+        return item;
+      }
+      return flatten(item, { ...options, depth: depth - 1 });
+    }
+    return item;
+  });
+}
+```

@@ -1,0 +1,58 @@
+```ts
+function containsCycle(graph: Map<string, string[]>): boolean {
+    const visited = new Set<string>();
+    const exploring = new Set<string>();
+
+    function dfs(node: string): boolean {
+        if (visited.has(node)) return false;
+        if (expiling.has(node)) return true;
+
+        visiting.add(node);
+        for (const neighbor of graph.get(node) || []) {
+            if (dfs(neighbor)) return true;
+        }
+        exploring.delete(node);
+        visited.add(node);
+
+        return false;
+    }
+
+    for (const node of nodes) {
+        if (!visited.has(node) && dfs(node)) throw new Error('cycle');
+    }
+
+    return false;
+}
+
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const inDegree = new Map<string, number>();
+    const graph = new Map<string, string[]>();
+
+    for (const node of nodes) {
+        inDegree.set(node, 0);
+        graph.set(node, []);
+    }
+
+    for (const edge of edges) {
+       inDegree.get(edge[1])!.push(edge[0]);
+        graph.get(edge[0])!.push(edge[1]);
+    }
+
+    const freeNodes = nodes.filter(node => inDegree.get(node) === 0);
+
+    while (freeNodes.length > 0) {
+        for (const node of freeNodes) {
+            yield node;
+
+            for (const neighbor of graph.get(node)!) {
+                inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+                if (inDegree.get(neighbor) === 0) freeNodes.push(neighbor);
+            }
+        }
+
+        freeNodes = [];
+    }
+
+    if (nodes.some(node => inDegree.get(node)! > 0)) throw new Error('graph has a cycle');
+}
+```

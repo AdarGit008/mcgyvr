@@ -1,0 +1,35 @@
+```ts
+
+function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let encodedResult = '';
+  for (let i = 0; i < input.length; i++) {
+    const currentChar = input[i];
+    let count = 1;
+
+    // Check the next character if it is the same
+    while (i + 1 < input.length && input[i] === input[i + 1]) {
+      count++;
+      i++;
+    }
+
+    encodedResult += currentChar + count;
+  }
+
+  return encodedResult;
+}
+
+// Test cases
+console.log(runLengthEncode("aaabbc")); // "a3b2c1"
+console.log(runLengthEncode(" abc"));   // "a1b1c1"
+console.log(runLengthEncode "");       // ""
+
+try {
+  console.log(runLengthEncode(123));      // Throwing Error: Input must be a string
+} catch (error) {
+  console.error(error.message); // "Input must be a string"
+}
+```

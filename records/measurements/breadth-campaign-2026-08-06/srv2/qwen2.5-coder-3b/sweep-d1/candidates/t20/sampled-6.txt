@@ -1,0 +1,40 @@
+```
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Trim leading and trailing whitespace from the line
+    const trimmedLine = line.trim();
+    
+    // Skip empty lines or lines starting with a comment (#)
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue;
+    }
+
+    // Split the line on the first '=' only
+    const [key, value] = trimmedLine.split("=", 2);
+
+    // Check for invalid format where there is no '='
+    if (value === undefined) {
+      throw new Error(`Invalid line in config file: missing '=' at ${lineNumber + 1}`);
+    }
+
+    // Trim whitespace around the key and value
+    const cleanedKey = key.trim();
+    const cleanedValue = value.trim();
+
+    // Check for invalid format where the key is empty
+    if (cleanedKey === "") {
+      throw new Error(`Invalid line in config file: empty key at ${lineNumber + 1}`);
+    }
+
+    // Avoid shadowing Object.prototype by using a temporary variable
+    const tempConfig = { ...config };
+    tempConfig[cleanedKey] = cleanedValue;
+
+    // Update the original config object
+    config = tempConfig;
+  }
+  return config;
+}
+```

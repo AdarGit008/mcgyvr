@@ -1,0 +1,13 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const [, major, minor, patch, prerelease = '', build = ''] =
+    /^(\d+)\.(\d+)\.(\d+)(?:-([^\s]+))?(?:\+(.*))?$/.exec(version) || [];
+
+  if (!major || !minor || !patch || typeof parseInt(major, 10) !== 'number' ||
+      typeof parseInt(minor, 10) !== 'number' || typeof parseInt(patch, 10) !== 'number') {
+    throw new Error(`Invalid version format: "${version}"`);
+  }
+
+  return { major: parseInt(major, 10), minor: parseInt(minor, 10), patch: parseInt(patch, 10), prerelease, build };
+}
+```

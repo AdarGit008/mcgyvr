@@ -1,0 +1,54 @@
+```ts
+import { equals } from "assert";
+
+interface User {
+  email: string;
+  active: boolean;
+}
+
+function equalEmails(a1: readonly User[], a2: readonly User[]) {
+  if (a1.length !== a2.length) return false;
+
+  for (let i = 0; i < a1.length; i++) {
+    const user1 = a1[i];
+    const user2 = a2[i];
+
+    if (!equals(user1, user2)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * A pure version of `activeEmails` that does not mutate the input array.
+ * It returns an array of the lowercased emails of all active users.
+ */
+export function activeEmails(users: readonly User[]): string[] {
+  const out = [];
+  for (const user of users) {
+    if (user.active && user.email.toLowerCase().trim() !== "") {
+      out.push(user.email.toLowerCase());
+    }
+  }
+  return out;
+}
+
+try {
+  equals(activeEmails([
+    { email: "alice@example.com", active: true },
+    { email: "bob@example.com", active: false },
+    { email: "charlie@example.com", active: true },
+  ]), [
+    'alice@example.com',
+    'charlie@example.com',
+  ]);
+
+  equals(activeEmails([]), []);
+
+  equals(activeEmails([{}]), []);
+} catch (error) {
+  throw new Error(`Failed to test: ${error.message}`);
+}
+```

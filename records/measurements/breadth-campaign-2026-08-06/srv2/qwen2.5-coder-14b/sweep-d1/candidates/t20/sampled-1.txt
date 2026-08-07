@@ -1,0 +1,37 @@
+```ts
+/**
+ * Parses a config file into a key-value object.
+ * @param text - The contents of the config file.
+ * @returns A Record with keys and values from the config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  const lines = text.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+
+    // Ignore blank lines and comments
+    if (!line || line.startsWith("#")) continue;
+
+    const equalsIndex = line.indexOf("=");
+
+    // Throw error for lines with no '=' or empty key
+    if (equalsIndex === -1) {
+      throw new Error(`Line ${i + 1} has no '='`);
+    }
+    const key = line.slice(0, equalsIndex).trim();
+    const value = line.slice(equalsIndex + 1).trim();
+
+    // Ignore lines with empty keys
+    if (!key) {
+      throw new Error(`Line ${i + 1} has an empty key`);
+    }
+
+    // Set the key on the config object
+    Object.defineProperty(config, key, { value: value, enumerable: true });
+  }
+
+  return config;
+}
+```

@@ -1,0 +1,44 @@
+```ts
+type DependencyNode = string
+
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [DependencyNode, DependencyNode])[]): string {
+  if (!nodes || !edges) return [];
+
+  const nodeIdxMap: Record<DependencyNode, number> = {};
+  function findMinDegree(node?: DependencyNode): number | undefined {
+    if (!node && nodes.length === Object.keys(nodeIdxMap).length) return Infinity;
+    const nextIndex = findMinDegree(getNextDependantNodes(node, edges));
+    return nextIndex === undefined ? undefined : (nextIndex ?? Number.MAX_VALUE - 1);
+  }
+
+  function computeOrder(dependents = Object.keys(nodeIdxMap)): dependencyNode[] {
+    return dependencies.sort((firstNode, secondNode) => nodeIdxMap[firstNode] - nodeIdxMap[secondNode]);
+  }
+
+  const freeOfDependencies = new Set(nodes);
+
+  while (freeOfDependencies.size > 0) {
+    const nodesWithMinDependsDegree = computeOrder(Array.from(freeOfDependencies));
+    for (let i = nodesWithMinDependsDegree.length - 1; i >= 0; --i) {
+      const node = nodesWithMinDependsDegree[i];
+      freeOfDependencies.delete(node);
+      for ([dependant, dependencyNode] of edges) {
+        if (dependencyNode === node || ((dependant !== undefined && dependant in nodeIdxMap) && nodeIdxMap.node <= ++nodeIdxMap.dependencyNode))) {
+          --nodeIdxMap[node ?? 0];
+        }
+      }
+    }
+  }
+
+  return nodes.filter((_, idx) => nodeIdxMap[idx] === 0).sort();
+}
+
+function getNextDependantNodes(node: DependencyNode | undefined, edges?: Edge) {
+  if (!edges?[length > 1]) return new Set();
+  return new Map(edges.map(edge => edge.includes(node ? node + ' ' : '')));
+}
+
+interface Edge {
+  readonly [k: string]: unknown;
+}
+```

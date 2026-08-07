@@ -1,0 +1,41 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges) {
+    throw new Error('Input must be arrays');
+  }
+  const nodeSet = new Set(nodes);
+  if (nodeSet.size !== nodes.length) {
+    throw new Error('Duplicate nodes found in the list');
+  }
+
+  // Count dependencies for each node
+  const inDegree = edges.reduce((acc, [from, to]) => {
+    acc.set(to, acc.get(to) + 1 || 0);
+    return acc;
+  }, new Map());
+
+  // Topological sort using BFS (Kahn's Algorithm)
+  const queue: string[] = Array.from(nodeSet).filter(n => inDegree.get(n) === 0);
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+
+    edges.forEach(([from, to]) => {
+      if (to === node) {
+        inDegree.set(from, inDegree.get(from)! - 1);
+        if (inDegree.get(from) === 0) {
+          queue.push(from);
+        }
+      }
+    });
+  }
+
+  if (nodeSet.size !== result.length) {
+    throw new Error('Cycle detected in the dependencies');
+  }
+
+  return result;
+}
+```

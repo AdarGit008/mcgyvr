@@ -1,0 +1,49 @@
+```ts
+// mergeIntervals.ts
+
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.length === 0) {
+    return [];
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const mergedIntervals: number[][] = [intervals[0]];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const currentInterval = intervals[i];
+    const lastMerged = mergedIntervals[mergedIntervals.length - 1];
+
+    if (currentInterval[0] <= lastMerged[1]) {
+      // Merge the two intervals
+      mergedIntervals[mergedIntervals.length - 1][1] = Math.max(lastMerged[1], currentInterval[1]);
+    } else {
+      // Add the unmerged interval to the result array
+      mergedIntervals.push(currentInterval);
+    }
+  }
+
+  return mergedIntervals;
+}
+```
+
+**Description of Solution:**
+
+The `mergeIntervals` function takes an array of number arrays (`intervals`) as input. It first checks if the input array is empty and returns it immediately in that case.
+
+Here’s a step-by-step breakdown of how the function works:
+
+1. **Sort Input Intervals:** The function sorts the intervals based on their start values using `Array.prototype.sort()`. This ensures that we process intervals in ascending order, which simplifies merging tasks.
+
+2. **Initialize Result Array:** A variable `mergedIntervals` is initialized with the first interval from the input sorted array. This array will store the merged intervals.
+
+3. **Iterate Through Remaining Intervals:** The function iterates through the sorted array starting from the second interval. For each interval, it checks if it overlaps with the last interval in the `mergedIntervals` array.
+
+   - If an overlap is detected:
+     - It updates the end of the last merged interval to be the maximum of its current end and the end of the current interval.
+   - If no overlap is detected:
+     - It adds the current interval as a new merged interval to the `mergedIntervals` array.
+
+4. **Return Result:** After processing all intervals, the function returns the `mergedIntervals` array containing none overwriting or modifying the input array.
+
+This approach ensures that each interval in `intervals` is processed in constant time (`O(n)`) where `n` is the number of intervals, and the space complexity is also O(n) due to the additional space needed for the `mergedIntervals` array.

@@ -1,0 +1,12 @@
+```ts
+/** a divided by b. Throws Error if divisor is zero or either argument is not a finite number. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+  if (b === 0 || b === -0) {
+    throw new Error("Divisor must not be zero.");
+  }
+  return a / b;
+}
+```

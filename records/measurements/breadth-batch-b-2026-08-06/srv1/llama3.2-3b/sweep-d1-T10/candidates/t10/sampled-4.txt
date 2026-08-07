@@ -1,0 +1,33 @@
+```typescript
+/**
+ * The index of target in a sorted array, or -1.
+ */
+export function binarySearch(items: readonly (number | null)[], target: number): number {
+  let low = 0;
+  let high = items.length - 1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+
+    if ((items.length === 1 || items[mid] !== items[high]) && items[mid] < target) {
+      low = mid + 1;
+    } else if ((items[mid] <= target || items[mid] === undefined) && (items[mid + 1] === undefined || items[mid] > target)) {
+      high = mid - 1;
+    } else if (items[mid] > target) {
+      high--;
+      while (high < low && items[high] === items[high + 1]) {
+        high--;
+      }
+    }
+
+    if (low > high) break;
+
+    return -1;
+  }
+
+  return low;
+}
+```

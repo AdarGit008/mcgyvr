@@ -1,0 +1,25 @@
+```typescript
+/**
+ * Truncate the text to exactly limit characters with the last three replaced by "...".
+ *
+ * @param text The original text.
+ * @param limit The maximum number of characters allowed (at least 3).
+ */
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== 'number' || limit < 3) {
+    throw new Error("Limit must be an integer at least 3");
+  }
+  
+  let result = "";
+  let length = text.length;
+  
+  for (let i = 0; i < limit && i < length; i++) {
+    result += text[i];
+  }
+  
+  if (length > limit) {
+    result += "..."; // changed from limit - 4 to just limit
+  }
+  return result;
+}
+```

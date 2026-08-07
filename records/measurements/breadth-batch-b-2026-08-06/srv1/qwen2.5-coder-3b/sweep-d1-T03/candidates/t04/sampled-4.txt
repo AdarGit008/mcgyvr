@@ -1,0 +1,61 @@
+```ts
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { value: V; timestamp: number }>;
+  private keys: K[];
+
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+    this.keys = [];
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (entry) {
+      // Mark the key as recently used by moving it to the end of the keys array
+      const index = this.keys.indexOf(key);
+      if (index !== -1) {
+        this.keys.splice(index, 1);
+        this.keys.push(key);
+      }
+      entry.timestamp = Date.now();
+    }
+    return entry ? entry.value : undefined;
+  }
+
+  set(key: K, value: V): void {
+    const entry = this.cache.get(key);
+    if (entry) {
+      // Update the existing key's value and timestamp
+      entry.value = value;
+      entry.timestamp = Date.now();
+      // Move the key to the end of the keys array
+      const index = this.keys.indexOf(key);
+      if (index !== -1) {
+        this.keys.splice(index, 1);
+        this.keys.push(key);
+      }
+    } else {
+      // Add a new key-value pair and timestamp
+      this.cache.set(key, { value, timestamp: Date.now() });
+      this.keys.push(key);
+
+      // If the cache exceeds capacity, remove the least recently used entry
+      if (this.keys.length > this.capacity) {
+        const oldestKey = this.keys.shift();
+        if (oldestKey !== undefined) {
+          this.cache.delete(oldestKey);
+        }
+      }
+    }
+  }
+
+  get size(): number {
+    return this.keys.length;
+  }
+}
+```

@@ -1,0 +1,20 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof items !== 'array') throw new Error('Input must be an array');
+  if (!Number.isInteger(depth) && depth !== Infinity) throw new Error('Depth must be a non-negative integer or Infinity');
+
+  if (depth === 0 || !items.some(item => Array.isArray(item))) return [...items];
+
+  const result: unknown[] = [];
+  items.forEach((item, index) => {
+    if (Array.isArray(item)) {
+      const subResult = flatten(item, depth - 1);
+      subResult.forEach(innerItem => result.push(innerItem));
+    } else {
+      result.push(item);
+    }
+  });
+
+  return result;
+}
+```

@@ -1,0 +1,113 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+    private capacity: number;
+    private map: Map<K, { value: V; index: number }>;
+    private head: K | null;
+
+    /**
+     * Creates an LRU Cache with the given capacity.
+     *
+     * @param capacity The maximum size of the cache.
+     */
+    constructor(capacity: number) {
+        if (typeof capacity !== 'number' || capacity <= 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+        this.capacity = capacity;
+        this.map = new Map();
+        this.head = null;
+    }
+
+    /**
+     * Returns the value associated with the given key, or undefined if no such entry exists.
+     *
+     * @param key The key to retrieve the associated value for.
+     */
+    get(key: K): V | undefined {
+        const entry = this.map.get(key);
+        if (!entry) return;
+        // Get current index
+        const currentIndex = entry.index + 1;
+        
+        // update index for least recently viewed entries by moving head before the current key's entry
+        this._updateIndex(currentIndex);
+        
+        const value = entry.value;
+        this.map.set(key, { value, index: currentIndex });
+        return value;
+    }
+
+    /**
+     * Inserts or updates the given key with the given value.
+     *
+     * @param key The key to insert or update.
+     * @param value The value associated with the key.
+     */
+    set(key: K, value: V) {
+        if (this.map.has(key)) {
+            this._remove(this.head);
+        } else if (this.map.size >= this.capacity) {
+            const lruValue = this._getLRU();
+            this.map.delete(lruKey);
+        }
+        
+        const newEntry = { value, index: -1 };
+        const newMap = new Map(this.map.keys().map(([k]) => [k, newEntry]));
+        
+        // set head to key
+        this.head = key;
+        newMap.set(key, newEntry);
+        
+        // merge the updated map back into our main Map
+        this.map = newMap;
+    }
+
+    /**
+     * Reports the current size of the cache.
+     *
+     * @returns The number of entries in the cache.
+     */
+    get size(): number {
+        return this.map.size;
+    }
+    private _getLRU() : K | undefined {
+        const lruKey = this.head;
+        if (lruKey) {
+            this._updateIndex(0);
+        }
+        
+        const entry = this.map.get(lruKey);
+        this.map.delete(this.head);
+        return lruKey;
+    }
+
+    private _remove(head: K | null) {
+        this.map.delete(head as K);
+        // if head is the only element left delete it
+        if (head === null) {
+            return;
+        }
+        
+        this.head = null;
+        const value = this._updateIndex(1);
+        this.set(value.key, value.value);
+    }
+
+    private _updateIndex(index: number): { key : K; value : V } {
+        let k = index > 0 ? this.map.get(`${index-1}`) : undefined;
+        
+        while (k !== undefined && k.index >= index) {
+            const newK = k.key;
+            if (newK === this.head) break;
+            this._remove(this.head);
+            this.head = newK;
+            
+            // keep track of previous value
+            if(k.value){
+              let v = k.value;
+              k =undefined;
+
+              const val= {

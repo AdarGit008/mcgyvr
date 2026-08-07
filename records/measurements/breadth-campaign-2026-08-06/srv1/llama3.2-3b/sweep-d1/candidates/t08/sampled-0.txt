@@ -1,0 +1,38 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    /**
+     * Performs a topological sort on the given nodes and edges.
+     *
+     * @param nodes The names of the nodes.
+     * @param edges The edges, where each edge is represented as an array with two strings, `from` and `to`.
+     */
+    if (edges.some(([_, node]) => !nodes.includes(node))) {
+        throw new Error(`Node ${node} not in nodes`);
+    }
+
+    const graph = {};
+    for (const [from, to] of edges) {
+        graph[from] = graph[from] || [];
+        graph[from].push(to);
+    }
+
+    const visited = { [nodes[0]]: true };
+    const ordering: string[] = [nodes[0]];
+    const queue = [nodes[0]];
+
+    while (queue.length > 0) {
+        const node = queue.shift() as string;
+        for (const neighbor of graph[node] || []) {
+            if (!visited[neighbor]) {
+                visited[neighbor] = true;
+                ordering.push(neighbor);
+                queue.push(neighbor);
+            } else if (ordering.includes(neighbor)) {
+                throw new Error(`Cycle detected: ${neighbor} depends on ${node}`);
+            }
+        }
+    }
+
+    return ordering;
+}
+```

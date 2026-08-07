@@ -1,0 +1,42 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map<string, Set<string>>();
+    const inDegree = new Map<string, number>();
+
+    // Build the graph and calculate indegrees
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from)) throw new Error(`Edge from ${from} not in nodes`);
+        if (!nodes.includes(to)) throw new Error(`Edge to ${to} not in nodes`);
+
+        graph.set(from, (graph.get(from) || new Set<string>()));
+        graph.get(from)?.add(to);
+        inDegree.set(to, (inDegree.get(to) || 0) + 1);
+    }
+
+    const queue: string[] = [];
+    // Add all nodes with zero indegree to the queue
+    for (const node of nodes) {
+        if (!inDegree.has(node)) queue.push(node);
+    }
+
+    const result: string[] = [];
+
+    while (queue.length > 0) {
+        const currentNode = queue.shift()!;
+        result.push(currentNode);
+
+        // Decrease indegree of neighbors and add them to the queue if their indegree becomes zero
+        graph.get(currentNode)?.forEach(neighbor => {
+            inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+            if (inDegree.get(neighbor) === 0) {
+                queue.push(neighbor);
+            }
+        });
+    }
+
+    // Check for cycles
+    if (result.length !== nodes.length) throw new Error("Cycle detected");
+
+    return result;
+}
+```

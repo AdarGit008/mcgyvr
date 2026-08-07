@@ -1,0 +1,40 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    const nodeMap: Map<string, number> = new Map();
+    for (const node of nodes) {
+        nodeMap.set(node, 0);
+    }
+
+    let unmet = 0;
+
+    const edgeCount = edges.length;
+    for (const [from, to] of edges) {
+        if (!nodeMap.has(to)) {
+            throw new Error(`Invalid edge: ${from} -> ${to}`);
+        }
+        nodeMap.set(to, nodeMap.get(to)! + 1);
+        unmet += 1;
+    }
+
+    // Find free nodes
+    const freeNodes = nodes.filter(node => nodeMap.get(node) === 0);
+
+    if (unmet > 0) {
+        throw new Error('Cyclic dependency detected');
+    } else {
+        const order: string[] = [];
+        while (freeNodes.length > 0) {
+            const from = freeNodes.shift();
+            order.push(from);
+            for (const [from, to] of edges) {
+                if (to === from && nodeMap.get(to)! == nodeMap.get(to)!-1 ) {
+                    nodeMap.set(to, nodeMap.get(to)! + 1);
+                    freeNodes.push(to)
+                }
+            }
+        }
+
+        return order;
+    }
+}
+```

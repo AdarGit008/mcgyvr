@@ -1,0 +1,23 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const regExp = /^v?(\d+|0)(\.((\d+|0)\..+(\d+|0)))?-?(prerelease-.+\+releasebuild-.*|)+$/;
+  const parts: (string | number)[] = version.match(regExp);
+
+  if (!parts) throw new Error(`Invalid semver format: ${version}`);
+
+  let i = 3, prerelease = '';
+  for (--i; i >= 1; --i) {
+    const part = parts[i];
+    switch (part.length % 2) {
+      case 4:
+        prerelease += '-' + Array.prototype.join.call(part.match(/\d+/g) || [], '-');
+    }
+  }
+
+  parts.pop();
+  parts.forEach((p, idx) => p === '.' ? parts[idx] = 0 : null);
+  return { major: parseInt(parts[0], 10), minor: parts[1], patch: parseInt(parts[2]), prerelease, build: i < 3 ? (prerelease.length > 2 ? prerelease.slice(2) : null) : null };
+}
+```
+
+This implementation uses a regular expression to validate the semver format and split it into groups. It then parses these groups into numeric values and handles any optional prerelease and build components based on the position in the array.

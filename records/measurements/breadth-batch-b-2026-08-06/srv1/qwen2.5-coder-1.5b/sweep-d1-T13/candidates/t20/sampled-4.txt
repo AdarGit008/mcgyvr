@@ -1,0 +1,77 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * The KEY=VALUE pairs of a config file with specific processing steps:
+ * - Ignore blank lines and lines starting with '#'.
+ * - Trim any surrounding whitespace.
+ * - Split on the first = only, allowing values to include one item if necessary.
+ * - Ensure the key does not reach the prototype of the returned object; `__proto__` must
+ *   lead to a plain data key at all depths.
+ *   Parsing "__proto__=x" must produce a plain data key in the resulting config object,
+ *   leaving Object.prototype intact for deeper levels.
+ * - Throw errors for bad inputs, ensuring consistent behavior across different cases and conditions.
+ *
+ * Example usage:
+ * const parsedConfig = parseConfig('--name=some--123 name=John age=30\n__proto__=proteotypexx');
+ * expect(parsedConfig).toEqual({"name": "some\\-123 name", "age": "30"});
+ * expect(parsedConfig.__proto__).toBe(undefined);
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  // Skip blank lines and comment-starting lines
+  text.split("\n").forEach((line) => {
+    line = line.trimStart(); // Remove leadingWhitespace
+    if (!/^\s*#/i.test(line)) { // Trim whitespace at beginning of line
+      const [key, value] = line.split(/(?<==).+/g); // Split on the first =
+      key = trimAndConvert(key);
+      value = trimAndConvert(value);
+      // Ensure no proto traversal leads to object prototype
+      processPrototyeTraverse(config[key], (val) => val === undefined || val !== Object.prototype ? val : config[key]);
+      if (!/\s=.+/.test(line)) { throw new Error(`${line} has no = sign.`); } // Check for equal-sign position before key
+      config[key] = value;
+    }
+  });
+  return config.trim(); // Remove leading whitespace on output
+}
+
+// Utility functions used in both the algorithm and validation check.
+function trimAndConvert(str) {
+  return str.replace(/^`(.+) `\|?`= /, '');
+}
+
+// This is a utility function to prevent infinite loops that might be caused by recursive property traversal logic.
+function processPrototyeTraverse(valFunc) {
+  for (const key of Object.getOwnPropertyNames(Object.prototype)) {
+    const newVal = valFunc(key);
+    if (newVal !== undefined) {
+      return newVal;
+    }
+  }
+  return undefined;
+}
+
+// Function to test the integrity of the parseConfig function using assert.
+function verifySolution() {
+  // Test case that should produce a regular config object as expected
+  const result1 = Object.freeze(parseConfig(`key=value; anotherKey="another value"`));
+  assert.deepEqual(result1, { key: 'value', anotherKey: "another value" });
+
+  // Test case for a line with no =
+  try {
+    parseConfig('line without =');
+  } catch (e) {
+    assert.equal(e.message, 'line without = has no = sign.');
+  }
+
+  // Test case where multiple keys have the same value:
+  const result2 = Object.freeze(parseConfig(`key=key; key=value`));
+  assert.deepEqual(result2, { key: `key=key; key=value` });
+
+  // Test case for a __proto__ like string assignment.
+  expect(parseConfig('__proto__=proto')).toEqual({ key: '__proto__' });
+  parseConfig('__proto__='); // Tests handling with blank lines and line breaks.
+}
+
+verifySolution();
+```

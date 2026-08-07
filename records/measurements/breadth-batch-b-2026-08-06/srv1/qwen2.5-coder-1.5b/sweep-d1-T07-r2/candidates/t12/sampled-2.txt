@@ -1,0 +1,9 @@
+```ts
+/**
+ * Removes all negative numbers from the input array.
+ * The argument must not be mutated - return a new array.
+ */
+export function removeNegatives(values: readonly number[]): number[] {
+  return values.filter(value => value >= 0);
+}
+```

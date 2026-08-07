@@ -1,0 +1,20 @@
+```ts
+/** The index of target in a sorted array, or -1 for duplicate targets. */
+export function binarySearch(items: readonly number[], target: number): number {
+  if (items.length === 0) return -1; // Check for empty array
+
+  let low = 0;
+  let high = items.length; // Change to non-inclusive high
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] >= target) { // Ensure exclusive low bound for duplicates
+      high = mid; // This keeps the last duplicate in our search range
+    } else {
+      low = mid + 1;
+    }
+  }
+
+  // Check if we've found the exact match or exceeded it to the right or left
+  return items[low - 1] === target ? low - 1 : -1;
+}
+```

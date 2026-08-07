@@ -1,0 +1,29 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (!Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error("Depth must be a non-negative integer or Infinity");
+  }
+
+  const func = (item: unknown, currentLevel: number = 1): unknown => {
+    if (Array.isArray(item)) {
+      return item.flatMap((i) =>
+        i !== null &&
+        typeof i === 'object' &&
+        depth !== 0 &&
+        currentLevel < depth
+          ? func(i as unknown[], currentLevel + 1)
+          : i
+      );
+    } else if (typeof item === "string" || typeof item === "number") {
+      return item;
+    }
+    throw new Error("Invalid input: item must be a non-null object or primitive value");
+  };
+
+  try {
+    return items instanceof Array ? items.map(func) : func(items);
+  } catch (error) {
+    throw error; // Re-throw to maintain the error structure
+  }
+}
+```

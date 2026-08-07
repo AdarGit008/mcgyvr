@@ -1,0 +1,23 @@
+{
+  "endpoint": "http://srv1:11434",
+  "protocol": "openai",
+  "model": "qwen2.5-coder:1.5b",
+  "tier": "d1r",
+  "draws": 8,
+  "greedy_temperature": 0.0,
+  "sampled_temperature": 0.7,
+  "max_output_tokens": 768,
+  "bundle_sha256": "001c23ece0a6297212ba48c18121c3a5dc9b52096ab93f7c8ea3bae05562bd01",
+  "tasks_sha256": {
+    "t20": "ae9b1b417bfd1ac6c037b30a2d6c787b28691832920c202b068af691cf3c908b"
+  },
+  "invocations": [
+    {
+      "started": "2026-08-06T17:06:07+00:00",
+      "tasks": [
+        "t20"
+      ],
+      "rig_revision": "4c1ba4db4300bf4a17832a73b4c92a8c1a105501"
+    }
+  ]
+}

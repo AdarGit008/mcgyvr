@@ -1,0 +1,49 @@
+```ts
+export class LruCache<K, V> {
+  constructor(private capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.cache = new Map<K, { value: V; useCount: number }>();
+    this.useOrder = [];
+  }
+
+  private evictLeastRecentlyUsed() {
+    if (this.size >= this.capacity) {
+      const leastRecentlyUsedKey = this.useOrder.shift();
+      if (leastRecentlyUsedKey !== undefined) {
+        this.cache.delete(leastRecentlyUsedKey);
+      }
+    }
+  }
+
+  public get(key: K): V | undefined {
+    let item = this.cache.get(key);
+    if (item !== undefined) {
+      item.useCount++;
+      const index = this.useOrder.indexOf(key);
+      if (index !== -1) {
+        this.useOrder.splice(index, 1);
+      }
+      this.useOrder.push(key);
+    }
+    return item ? item.value : undefined;
+  }
+
+  public set(key: K, value: V): void {
+    let item = this.cache.get(key);
+    if (item === undefined) {
+      this.size++;
+    } else {
+      // Use count does not change for updates
+    }
+    this.useOrder.push(key);
+    this.cache.set(key, { value, useCount: 0 });
+    this.evictLeastRecentlyUsed();
+  }
+
+  public get size(): number {
+    return this.size;
+  }
+}
+```

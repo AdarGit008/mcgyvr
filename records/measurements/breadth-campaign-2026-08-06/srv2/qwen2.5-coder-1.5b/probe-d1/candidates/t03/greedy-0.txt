@@ -1,0 +1,20 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version) throw new Error("Input cannot be empty");
+  const parts = version.split(/[-+]/);
+  const [major, minor, patch] = parts[0].split('.').map(Number);
+
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) throw new Error("Invalid major, minor, or patch part");
+
+  let prerelease: string | null = null;
+  let build: string | null = null;
+
+  if (parts.length > 1) {
+    const [prereleasePart, buildPart] = parts.slice(1).join('-').split('+');
+    if (prereleasePart) prerelease = prereleasePart.replace(/-/, '');
+    if (buildPart) build = buildPart.replace(/-/g, '');
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

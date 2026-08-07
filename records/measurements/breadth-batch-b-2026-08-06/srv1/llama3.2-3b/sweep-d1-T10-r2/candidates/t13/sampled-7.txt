@@ -1,0 +1,14 @@
+```typescript
+/**
+ * Truncates the input text to exactly `limit` characters or less.
+ * If the resulting string is shorter than the original text without ellipsis,
+ * returns the complete original text. Otherwise, truncates and appends an
+ * ellipsis "...".
+ */
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== 'number' || limit < 3) {
+    throw new Error('Limit must be a positive integer of at least 3');
+  }
+  return text.length <= limit ? text : text.slice(0, limit - 1) + "...";
+}
+```

@@ -1,0 +1,45 @@
+```typescript
+/**
+ * Validates if a given temperature is NaN or non-finite.
+ *
+ * @param {number} value - The temperature value to validate.
+ * @returns {boolean} True if the temperature is valid, false otherwise.
+ */
+function isValidTemperature(value: number): boolean {
+  return typeof value === "number" && !Number.isFinite(value);
+}
+
+/**
+ * Convert a Celsius temperature to Fahrenheit.
+ *
+ * @param {number} celsius - The temperature in Celsius.
+ * @returns {number} The equivalent temperature in Fahrenheit.
+ * Must be a finite number and at or above absolute zero.
+ */
+export function celsiusToFahrenheit(celsius: number): number {
+  if (!isValidTemperature(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return celsius * 1.8 + 32;
+}
+
+/**
+ * Convert a Celsius temperature to Kelvin.
+ *
+ * @param {number} celsius - The temperature in Celsius.
+ * @returns {number} The equivalent temperature in Kelvin.
+ * Must be a finite number and at or above absolute zero.
+ */
+export function celsiusToKelvin(celsius: number): number {
+  if (!isValidTemperature(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return celsius + 273.15;
+}
+```

@@ -1,0 +1,56 @@
+ ```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!Array.isArray(nodes) || !Array.isArray(edges)) {
+        throw new Error("Invalid input");
+    }
+
+    const nodeSet = new Set(nodes);
+    for (const edge of edges) {
+        if (!nodeSet.has(edge[0]) || !nodeSet.has(edge[1])) {
+            throw new Error("Edge contains a node not in nodes");
+        }
+    }
+
+    const graph: Map<string, string[]> = new Map();
+    const inDegree: Record<string, number> = {};
+
+    for (const node of nodes) {
+        graph.set(node, []);
+        inDegree[node] = 0;
+    }
+
+    for (const [from, to] of edges) {
+        if (!graph.has(to)) {
+            throw new Error("Edge contains a node not in nodes");
+        }
+        graph.get(from)!.push(to);
+        inDegree[to]++;
+    }
+
+    const queue: string[] = [];
+    for (const [node, degree] of Object.entries(inDegree)) {
+        if (degree === 0) {
+            queue.push(node);
+        }
+    }
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        for (const neighbor of graph.get(node)!) {
+            inDegree[neighbor]--;
+            if (inDegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    if (result.length !== nodes.length) {
+        throw new Error("Cycle detected");
+    }
+
+    return result;
+}
+```

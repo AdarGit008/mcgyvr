@@ -1,0 +1,18 @@
+```typescript
+/**
+ * Returns consecutive groups of 'size' elements from 'items', preserving order.
+ * The final group has fewer items when 'length' does not divide evenly by 'size'.
+ * An empty array yields an empty array. Array is not mutated.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+    if (typeof size !== 'number' || size <= 0) {
+        throw new Error('Size must be a positive integer');
+    }
+
+    const groups: T[][] = [];
+    for (let i = 0; i < items.length; i += size) {
+        groups.push(items.slice(i, i + size));
+    }
+    return groups;
+}
+```

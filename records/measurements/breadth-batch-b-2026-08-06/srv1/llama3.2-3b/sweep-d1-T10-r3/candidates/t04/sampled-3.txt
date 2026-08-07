@@ -1,0 +1,70 @@
+```typescript
+/**
+ * Expands ArrayCache to include get() and size().
+ */
+export class LruCache<K, V> {
+    /**
+     * Creates a new cache with the specified capacity. The capacity must be positive.
+     *
+     * @param capacity - A positive integer defining the maximum number of items the cache can hold
+     */
+    constructor(capacity: number) {
+        if (capacity <= 0) {
+            throw new Error("Capacity must be a positive integer");
+        }
+
+        this.cache: [K, V][] = [];
+        this.capacity = capacity;
+        this.map: Map<K, any> = new Map();
+    }
+
+    get(key: K): V | undefined {
+        const val = this.map.get(key);
+        if (val === undefined) return val;
+
+        const idx = this.cache.indexOf([key, val]);
+        
+        // Update the LRU entry
+        this.cache.splice(idx, 1);
+        this.cache.push([key, val]);
+
+        return val as V;
+    }
+
+    /**
+     * Stores a new value for the given key in the cache. If the key is already present,
+     * its value will be replaced with the updated value. If the cache reaches capacity,
+     * the oldest item will be evicted before the replacement.
+     *
+     * @param key   - The key of the entry to update
+     * @param value - The new value for the entry
+     */
+    set(key: K, value: V): void {
+        if (this.map.has(key)) {
+            const idx = this.cache.indexOf([key, this.map.get(key)!]);
+            
+            // Update the existing LRU entry
+            this.cache.splice(idx, 1);
+            this.cache.push([key, value]);
+        } else {
+            if (this.cache.length >= this.capacity) {
+                const oldestKey = this.cache[0][0];
+                this.cache.shift();
+                this.map.delete(oldestKey);
+            }
+        }
+
+        this.cache.push([key, value]);
+        this.map.set(key, value);
+    }
+
+    /**
+     * Returns the number of entries in the cache.
+     *
+     * @returns The size of the cache
+     */
+    get size(): number {
+        return this.cache.length as number;
+    }
+}
+```

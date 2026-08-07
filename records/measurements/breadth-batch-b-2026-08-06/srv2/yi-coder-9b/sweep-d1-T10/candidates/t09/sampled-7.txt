@@ -1,0 +1,17 @@
+Your request requires to fix the base case in factorial function so that the function returns 1 when n equals 0. Here is the updated code:
+
+```typescript
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (n < 0 || !Number.isInteger(n)) {
+    throw new Error('The input must be a non-negative integer');
+  }
+
+  // Modify the base case here.
+  if (n === 0) { // New line added to handle cases when n == 0
+    return 1;     // Return 1 for factorial of 0
+  }
+  
+  return n * factorial(n - 1);
+}
+```

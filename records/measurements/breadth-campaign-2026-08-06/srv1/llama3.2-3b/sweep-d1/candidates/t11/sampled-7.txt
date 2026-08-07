@@ -1,0 +1,12 @@
+```typescript
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  /**
+   * Sorts the input array in ascending order, treating NaN as a higher value than any number.
+   */
+
+  return [...values].map((x) => (isNaN(x) ? Number.MAX_SAFE_INTEGER : x)).sort((a, b) =>
+    (isNaN(a) ? Number.MAX_SAFE_INTEGER : a) - (isNaN(b) ? Number.MAX_SAFE_INTEGER : b)
+  );
+}
+```

@@ -1,0 +1,23 @@
+const mergeIntervals = (intervals: number[][]): number[][] => {
+  if(!Array.isArray(intervals) || !intervals.every((pair)=> Array.isArray(pair))) throw new Error('Input is not a list of pairs');
+  for(const pair of intervals){
+    if(pair[0] > pair[1]) throw new Error('Start of an interval cannot be greater than the end')
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]) 
+
+  let result: number[][] = [];
+  for(const currentInterval of intervals){
+    if(!result.length || result[result.length-1][1] < currentInterval[0]){
+        // No overlap with the previous interval
+      result.push([...currentInterval]) 
+    } else {
+       // Overlap exists, so merge last and current
+      let mergedLast = [Math.min(result[result.length-1][0], currentInterval[0]), Math.max(result[result.length-1][1], currentInterval[1])]  
+      result[result.length - 1] = mergedLast;
+    }
+  }
+  return result;
+}
+
+export { mergeIntervals }

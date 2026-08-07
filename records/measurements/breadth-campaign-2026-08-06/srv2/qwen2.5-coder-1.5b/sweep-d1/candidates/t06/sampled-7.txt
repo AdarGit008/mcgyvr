@@ -1,0 +1,57 @@
+```ts
+import assert from 'assert';
+
+function parseCsvLine(line: string): string[] {
+  assert(typeof line === 'string', 'line must be a string');
+  if (line.trim() === '') return [];
+
+  const fields: string[] = [];
+  let inQuotes = false;
+  let currentField = '';
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const prevChar = line[i - 1];
+
+    if (char === '"') {
+      if (inQuotes) {
+        currentField += char;
+      } else {
+        inQuotes = true;
+      }
+    } else if (inQuotes) {
+      currentField += char;
+      if (prevChar === '"' && char === '"') {
+        inQuotes = false;
+      }
+    } else {
+      if (char === ',' && !currentField.trim()) continue;
+
+      if (prevChar !== ' ') currentField += ' ';
+      currentField += char;
+    }
+
+    if (inQuotes && char === '\n' && i < line.length - 1) {
+      throw new Error('Unmatched quote in the CSV line');
+    }
+  }
+
+  fields.push(currentField.trim());
+  return fields;
+}
+
+// Test cases
+assert.deepStrictEqual(parseCsvLine(""), []);
+assert.deepStrictEqual(parseCsvLine("a"), ["a"]);
+assert.deepStrictEqual(parseCsvLine('"a,b"'), ["a,b"]);
+assert.deepStrictEqual(parseCsvLine('""'), []);
+assert.deepStrictEqual(parseCsvLine('"abc,"'), ["abc,"]);
+
+try {
+  parseCsvLine('"a,b,c"');
+} catch (err) {
+  assert(err instanceof Error && err.message === 'Unmatched quote in the CSV line');
+}
+
+console.log("All tests passed!");
+```

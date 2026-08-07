@@ -1,0 +1,19 @@
+```ts
+// a divided by b.
+export function safeDivide(a: number, b: number): number {
+  /**
+   * Divide two numbers safely.
+   *
+   * Returns `undefined` if at least one of the arguments is not a finite number.
+   */
+  if (isNaN(b) || b === -0) {
+    throw new Error('Cannot divide by zero.');
+  }
+  
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Both arguments must be numbers.');
+  }
+  
+  return isNaN(a) ? undefined : a / b;
+}
+```

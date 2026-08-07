@@ -1,0 +1,24 @@
+```typescript
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+export class EventLog {
+  #events: Event[] = [];
+
+  record(event: Event): void {
+    if (!event.name || typeof event.name !== 'string') {
+      throw new Error('Event must have a valid non-empty string name.');
+    }
+    if (typeof event.timestamp !== 'number' || isNaN(event.timestamp)) {
+      throw new Error('Event timestamp must be a number.');
+    }
+    this.#events.push(event);
+  }
+
+  since(timestamp: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

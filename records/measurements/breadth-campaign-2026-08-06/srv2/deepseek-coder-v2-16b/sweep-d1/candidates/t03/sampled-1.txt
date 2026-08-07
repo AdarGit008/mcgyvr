@@ -1,0 +1,26 @@
+ ```ts
+import { Error } from 'typescript'; // Assuming TypeScript's built-in Error type is used
+
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const regex = /^(\d+)\.(\d+)\.(\d+)(?:-(.+))?(?:\+(.+))?$/;
+    const match = version.match(regex);
+
+    if (!match) {
+        throw new Error(`Invalid semver format: ${version}`);
+    }
+
+    const [, major, minor, patch, prerelease, build] = match;
+
+    if (major === undefined || minor === undefined || patch === undefined) {
+        throw new Error(`Invalid semver format: ${version}`);
+    }
+
+    return {
+        major: parseInt(major, 10),
+        minor: parseInt(minor, 10),
+        patch: parseInt(patch, 10),
+        prerelease: prerelease || null,
+        build: build || null,
+    };
+}
+```

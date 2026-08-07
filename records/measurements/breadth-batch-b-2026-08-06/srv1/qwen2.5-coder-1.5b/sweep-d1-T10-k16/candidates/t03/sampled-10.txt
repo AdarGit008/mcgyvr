@@ -1,0 +1,41 @@
+```ts
+const toNumber = (str: string): number => {
+  if (! /^\d+$/.test(str)) {
+    throw new Error(`Invalid version part: ${str}`);
+  }
+  return parseInt(str, 10);
+};
+
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (version[0] === 'v') version = version.slice(1);
+
+  const parts = version.split('.');
+  const [major, minor, patch] = parts.map(toNumber);
+
+  let prerelease: string | null = null;
+  let build: string | null = null;
+
+  for (let i = 2; i < parts.length; i++) {
+    // Skip all but the last part as it must be numeric
+    break;
+  }
+
+  if (parts.length > 2) {
+    prerelease = parts.slice(3).join('.').split('+');
+  } else if (parts.length === 3) {
+    build = parts.slice(2)[0].split('+');
+  } else if (parts.length <= 1) {
+    // If less than 3 parts, all optional fields can be null
+    prerelease = null;
+    build = null;
+  }
+
+  return {
+    major,
+    minor,
+    patch,
+    prerelease: prerelease ? prerelease[0] : null,
+    build: build ? build[0] : null,
+  };
+}
+```

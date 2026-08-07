@@ -1,0 +1,9 @@
+```ts
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (n === 0) {
+    return 1;
+  }
+  throw new Error('Invalid argument for factorial(0)');
+}
+```

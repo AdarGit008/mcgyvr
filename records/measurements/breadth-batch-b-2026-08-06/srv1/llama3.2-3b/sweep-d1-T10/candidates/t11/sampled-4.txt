@@ -1,0 +1,7 @@
+```typescript
+/** The sorted numbers, in ascending order (numerical). */
+export function sortAscending(values: readonly number[]): number[] {
+  // Compare numbers using Number
+  return [...values].sort((a, b) => a - b);
+}
+```

@@ -1,0 +1,22 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    // Regular expression to match the semantic version format: MAJOR.MINOR.PATCH[-prerelease][+build]
+    const regex = /^(\d+)(?:\.(\d+))?(?:\.(\d+))?-?([^\s+]+)?\+(.*)?$/;
+    const match = version.match(regex);
+
+    if (!match) {
+        throw new Error(`Invalid semantic version: ${version}`);
+    }
+
+    // Parse the matched groups. The capture group 5 is optional.
+    const major = parseInt(match[1], 10);
+    const minor = match[2] ? parseInt(match[2], 10) : 0;
+    const patch = match[3] ? parseInt(match[3], 10) : 0;
+
+    // Convert remaining capture groups to strings, or null if empty.
+    const prerelease: string | null = match[4] || null;
+    const build: string | null = match[5] || null;
+
+    return { major, minor, patch, prerelease, build };
+}
+```

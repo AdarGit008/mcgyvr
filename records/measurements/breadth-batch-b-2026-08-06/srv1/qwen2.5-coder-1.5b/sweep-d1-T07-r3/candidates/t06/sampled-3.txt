@@ -1,0 +1,48 @@
+```ts
+function parseCsvLine(line: string): string[] {
+  if (line === "") return [];
+
+  let result = [];
+  let inQuotes = false;
+  let currentField = "";
+  let quoteLevel = 0;
+
+  for (let char of line) {
+    switch (char) {
+      case '"':
+        if (!inQuotes) {
+          inQuotes = true;
+          quoteLevel++;
+        } else {
+          inQuotes = false;
+          quoteLevel--;
+        }
+        currentField += char;
+        break;
+      case ',':
+        if (inQuotes) {
+          currentField += char;
+        } else {
+          result.push(currentField.trim());
+          currentField = "";
+        }
+        break;
+      default:
+        if (!inQuotes) {
+          result.push(currentField.trim());
+          currentField = char;
+        } else {
+          currentField += char;
+        }
+        break;
+    }
+  }
+
+  if (inQuotes) {
+    throw new Error("Quoted field never closed");
+  }
+
+  result.push(currentField.trim());
+  return result;
+}
+```

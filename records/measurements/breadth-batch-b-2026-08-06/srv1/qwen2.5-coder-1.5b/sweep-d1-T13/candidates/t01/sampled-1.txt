@@ -1,0 +1,28 @@
+```ts
+function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw Error("Input must be a string");
+  }
+
+  if (input.length === 0) {
+    return "";
+  }
+
+  let result = '';
+  let countOfCurrentChar = 1;
+
+  for (let i = 0; i < input.length; i++) {
+    // Check if its an empty last element if it's different than the end of string 
+    const nextChar = i + 1 < input.length ? input[i + 1] : input[i];
+    if (input[i] === nextChar && countOfCurrentChar < 9) {
+      countOfCurrentChar++;
+    } else {
+      result += countOfCurrentChar > 1 ? `${countOfCurrentChar}${input[i]}` : input[i];
+      result += i + 1 < input.length ? `${nextChar}` : '';
+      countOfCurrentChar = 1;
+    }
+  }
+
+  return result;
+}
+```

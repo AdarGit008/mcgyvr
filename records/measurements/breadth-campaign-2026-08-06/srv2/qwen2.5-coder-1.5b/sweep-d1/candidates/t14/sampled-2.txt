@@ -1,0 +1,13 @@
+```typescript
+export interface User {
+  email: string;
+  active: boolean;
+}
+
+/** The lowercased addresses of the active users, in order. */
+export function activeEmails(users: readonly User[]): string[] {
+  return users.filter(user => user.active).map(user => user.email.toLowerCase());
+}
+```
+
+This solution uses array methods `filter` and `map` to achieve the desired functionality without the use of explicit loops or manual index manipulation, adhering to the constraints provided.

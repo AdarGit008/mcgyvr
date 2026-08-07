@@ -1,0 +1,15 @@
+```typescript
+/**
+ * Safely divides two numbers. Returns an error if the divisor is zero or non-finite,
+ * and rejects booleans as inputs.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (b === 0 || !Number.isFinite(b)) {
+    throw new Error("Divisor must be a non-zero finite number.");
+  }
+  if (!Number.isFinite(a) || typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+  return a / b;
+}
+```

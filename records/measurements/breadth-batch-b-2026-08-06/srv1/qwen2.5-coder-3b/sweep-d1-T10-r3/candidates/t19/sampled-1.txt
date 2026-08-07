@@ -1,0 +1,18 @@
+```ts
+/** Safely divides two numbers, throwing an error if the divisor is zero or both are not finite numbers. */
+export function safeDivide(a: number, b: number): number {
+  const isValidNumber = (num: any) => typeof num === 'number' && !isNaN(num);
+
+  if (!isValidNumber(a)) {
+    throw new Error('First argument is not a valid number');
+  }
+  if (!isValidNumber(b)) {
+    throw new Error('Second argument is not a valid number');
+  }
+  if (b === 0) {
+    throw new Error('Cannot divide by zero');
+  }
+
+  return a / b;
+}
+```

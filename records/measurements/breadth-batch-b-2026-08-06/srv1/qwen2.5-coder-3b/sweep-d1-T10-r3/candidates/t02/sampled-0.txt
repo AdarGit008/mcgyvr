@@ -1,0 +1,18 @@
+```typescript
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals) || intervals.some(interval => !Array.isArray(interval) || interval.length !== 2)) {
+    throw new Error("Input must be an array of [start, end] pairs");
+  }
+
+  return intervals
+    .sort(([aStart, aEnd], [bStart, bEnd]) => aStart - bStart)
+    .reduce<number[][]>((merged, interval) => {
+      const last = merged[merged.length - 1];
+      if (!last || last[1] < interval[0]) {
+        return [...merged, interval];
+      }
+      last[1] = Math.max(last[1], interval[1]);
+      return merged;
+    }, []);
+}
+```

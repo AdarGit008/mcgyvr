@@ -1,0 +1,45 @@
+```ts
+/** An append-only log of timestamped events. */
+export class EventLog {
+  private #events: Event[] = [];
+
+  record(event: Event) {
+    this.#events.push(event);
+  }
+
+  /** Every event at or after the given timestamp, in insertion order. */
+  since(timestamp: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+
+declare namespace Exports {}
+import { assert } from "assert";
+// @ts-ignore — we are testing private members
+Object.assign(Exports, {
+    ...eval(require('solution')),
+});
+
+function test() {
+    const log = new EventLog();
+    log.record({name: 'Event 1', timestamp: 1 });
+    log.record({name: 'Event 2', timestamp: 33});
+    log.record({name: 'Event 3', timestamp: 834 });
+
+    assert.deepEqual(log.since(0), [ log.events[0] ));
+    assert.deepEqual(log.since('foo'), null);
+    assert.equal(log.record.logEvents.log.length, 3);
+
+     console.error = function(e){throw Error(e)};
+
+    log.record({name: 'Duplicate Event', timestamp: 1 });
+ }
+
+test()
+
+// The "assert" check that the class actually has a field named #events is implicitly testing that
+// TypeScript correctly applies the annotation for private members according to the spec.
+
+// This can give us peace of mind that our type annotations are correct:
+// If Typescript infers this.#events to be `const`, the program will compile and provide an error when someone attempts to overwrite it.
+```

@@ -1,0 +1,22 @@
+```ts
+export function binarySearch(items: readonly number[], target: number): number {
+  if (items.length === 0) return -1;
+
+  let low = 0;
+  let high = items.length; // Changed to include the last element
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid; // Changed to include the middle element
+    }
+  }
+
+  return items[low] === target ? low : -1; // Check the position where low might end up
+}
+```

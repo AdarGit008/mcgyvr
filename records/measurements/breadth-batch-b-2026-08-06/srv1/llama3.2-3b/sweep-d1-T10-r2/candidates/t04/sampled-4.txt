@@ -1,0 +1,113 @@
+```typescript
+/**
+ * A fixed-capacity LRU (Least Recently Used) cache implementation.
+ */
+export class LruCache<K, V> {
+  /**
+   * Creates a new instance of LruCache.
+   *
+   * @param capacity The maximum number of items to store in the cache.
+   */
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+
+    this.map = new Map<K, LruCacheEntry<V>>();
+    this.capacity = capacity;
+  }
+
+  /**
+   * Retrieves the value associated with the given key from the cache.
+   *
+   * @param key The key to look up in the cache.
+   * @returns The value associated with the key, or undefined if it's not present.
+   */
+  get(key: K): V | undefined {
+    const entry = this.map.get(key);
+
+    if (entry && entry.useCount > 0) {
+      // Decrement use count and decrement map position to move closer to cache start
+      entry.useCount--;
+      this.moveEntryToCacheTop(entry);
+    }
+
+    return entry?.value;
+  }
+
+  /**
+   * Inserts or updates the value associated with the given key in the cache.
+   *
+   * @param key The key to insert or update.
+   * @param value The new value to associate with the key.
+   */
+  set(key: K, value: V) {
+    const existingEntry = this.map.get(key);
+
+    if (existingEntry && existingEntry.value === value) {
+      // Only increment use count for existing entries
+      existingEntry.useCount++;
+    } else {
+      // Remove existing entry to avoid duplicate keys
+      this.remove(key);
+
+      // Create a new entry with initial use count and map position
+      const newEntry = {
+        useCount: 1,
+        key,
+        value,
+        mapPosition: this.map.size,
+      };
+
+      if (this.map.size >= this.capacity) {
+        // Evict the least recently used entry if capacity's exceeded
+        const leastRecentlyUsedKey = Array.from(this.map.keys())
+          .pop() as K;
+        this.remove(leastRecentlyUsedKey);
+      }
+
+      this.map.set(key, newEntry);
+    }
+  }
+
+  /**
+   * Reports the current number of items in the cache.
+   *
+   * @returns The number of items currently stored in the cache.
+   */
+  get size(): number {
+    return this.map.size;
+  }
+
+  private remove(key: K) {
+    const entry = this.map.get(key);
+    if (entry) {
+      this.map.delete(key);
+      return true;
+    }
+    return false;
+  }
+
+  private moveEntryToCacheTop(entry: LruCacheEntry<V>) {
+    if (this.map.size > entry.mapPosition + 1) {
+      // Move the entry to a new position one step from cache start in forward direction
+      const prevKey = Array.from(this.map.keys())[entry.key - 1];
+      this.remove(prevKey);
+      this.map.move(entry, { key: prevKey });
+    }
+  }
+
+  private class LruCacheEntry<V> {
+    useCount: number;
+    key: K;
+    value: V;
+    mapPosition: number;
+
+    constructor(key: K, value: V) {
+      Object.assign(this, { key, value });
+      this.useCount = 0;
+      this.mapPosition = -1; // default position for new added keys
+    }
+  }
+}
+```

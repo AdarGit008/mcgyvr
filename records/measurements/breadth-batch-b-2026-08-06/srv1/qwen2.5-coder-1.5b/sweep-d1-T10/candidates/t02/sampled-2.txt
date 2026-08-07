@@ -1,0 +1,16 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (intervals.some(interval => interval[0] > interval[1])) {
+        throw new Error("An interval may be open-ended.");
+    }
+
+    return intervals.sort((a, b) => a[0] - b[0]).reduce((acc, curr) => {
+        if (acc.length === 0 || acc[acc.length - 1][1] < curr[0]) {
+            acc.push(curr);
+        } else {
+            acc[acc.length - 1][1] = Math.max(acc[acc.length - 1][1], curr[1]);
+        }
+        return acc;
+    }, []);
+}
+```

@@ -1,0 +1,25 @@
+```typescript
+/** Helper to validate finite numbers */
+function assertFiniteNumber(value: number): void {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("must be a finite number");
+  }
+  if (value < -273.15) {
+    throw new Error("must be at or above absolute zero");
+  }
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  assertFiniteNumber(celsius);
+
+  return celsius * 1.8 + 32;
+}
+
+/** The temperature in Kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  assertFiniteNumber(celsius);
+
+  return celsius + 273.15;
+}
+```

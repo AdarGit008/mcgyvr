@@ -1,0 +1,39 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes.length || !edges.length) return [];
+
+  const degreeMap = new Map<string, number>();
+  const adjacencyListMap = new Map<string, Set<string>>();
+
+  // Initialize degree map and adjacency list
+  for (const node of nodes) {
+    degreeMap.set(node, 0);
+    adjacencyListMap.set(node, new Set());
+  }
+  for (const [from, to] of edges) {
+    if (!degreeMap.has(from)) throw new Error(`Node '${from}' not found`);
+    if (!degreeMap.has(to)) throw new Error(`Node '${to}' not found`);
+    degreeMap.set(to, degreeMap.get(to)! + 1);
+    adjacencyListMap.get(from)?.add(to);
+  }
+
+  const queue: string[] = [];
+  nodes.forEach(node => {
+    if (degreeMap.get(node) === 0) queue.push(node);
+  });
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+
+    for (const neighbor of adjacencyListMap.get(node) || []) {
+      degreeMap.set(neighbor, degreeMap.get(neighbor)! - 1);
+      if (degreeMap.get(neighbor) === 0) queue.push(neighbor);
+    }
+  }
+
+  return result.length === nodes.length ? result : [];
+}
+```

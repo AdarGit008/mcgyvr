@@ -1,0 +1,47 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    /**
+     * Performs a topological sort on the given nodes and edges.
+     *
+     * Args:
+     *   nodes (readonly string[]): The names of the nodes in the graph.
+     *   edges (readonly [string, string][]): The from-to edges of the graph.
+     *
+     * Returns:
+     *   string[]: An ordering satisfying every edge. When several orderings are valid,
+     *             we pick the one that keeps nodes in their input order - among the nodes
+     *             currently free of unmet dependencies, always take the earliest in nodes.
+     */
+    const visited = new Set<string>();
+    const currentPath = new Set<string>();
+    const result: string[] = [];
+
+    function dfs(node: string) {
+        if (currentPath.has(node)) {
+            throw new Error(`Cycle detected: ${node}`);
+        }
+
+        if (visited.has(node)) {
+            return;
+        }
+
+        visited.add(node);
+        currentPath.add(node);
+
+        for (const [from, to] of edges.filter(edge => edge[0] === node)) {
+            dfs(to);
+        }
+
+        currentPath.delete(node);
+        result.push(node);
+    }
+
+    const freeNodes = nodes.slice();
+    while (freeNodes.length > 0) {
+        const earliestNode = freeNodes.shift() ?? throw new Error("Invalid input");
+        dfs(earliestNode);
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,94 @@
+```ts
+/**
+ * Parses a semantic version string.
+ *
+ * A semantic version string is a string in the format MAJOR.MINOR.PATCH with an optional -
+ * prerelease and an optional +build suffix. The three numeric parts are required and must be
+ * digits with no leading zero (except "0" itself). If any part of the result would otherwise be
+ * null, it will not be included.
+ */
+export function parseSemver(version: string): {
+  /**
+   * The major version number. Must comply with rule: "a digit [0-9]".
+   */
+  major: number;
+  /**
+   * The minor version number. Must comply with rule: "a digit [0-9]".
+   */
+  minor: number;
+  /**
+   * The patch version number. Must comply with rule: "a digit [0-9]".
+   */
+  patch: number;
+  /**
+   * The prerelease label, if present. Must be compliant with vprerelease rule.
+   *
+   * "A string containing non-alphanumeric characters except hyphens. May contain only a hyphen."
+   */
+  prerelease: string | null;
+  /**
+   * The build label, if present. Must comply with vbuild rule.
+   *
+   "a URL or tag"
+   */
+  build: string | null;
+};
+
+/** @throws Error If the input version matches neither v????-??????.??? nor v????? .???-????.???.??/.???.?? */
+export function versionToError(version: string): never {
+  const match = /^v\d+\.\d+\.\d*(?:-(\S+))?(?:\+\S*)?$/.test(version);
+  if (match) {
+    return;
+  }
+  throw new Error(`Invalid semver input ${version}.`);
+}
+
+const versionFrom = ({
+  major: m,
+  minor: mi,
+  patch: p,
+}): void => {
+  throw versionToError(m.toString());
+};
+
+const versionParse = (
+  v: string
+): { major: number; minor: number; patch: number } => {
+  const match = /^v(\d+)\.(\d+)\.(\d+)(?:-(\S+))?(?:\+\S*)?/.exec(v);
+  if (match) {
+    const [_, m$, mi$, p$, pre$, build$] = match;
+    versionFrom({ major: parseInt(m$, 10), minor: parseInt(mi$, 10), patch: parseInt(p$, 10) });
+    return { major: parseInt(m$, 10), minor: parseInt(mi$, 10), patch: parseInt(p$, 10) };
+  }
+
+  versionToError(v);
+
+  throw `Invalid semver input ${v}.`;
+};
+
+const fromVersion = ({
+  major,
+  minor,
+  patch,
+}): {
+  prerelease: string | null;
+  build: string | null;
+} => {
+  const matchRe = /^([-\n+]?[a-zA-Z]/.test(v) ? `[${v}]` : `[]`);
+  
+  const pre$ = (m = ``)[matchRe.test(m)] ? m : `null`;
+  const build$ = (m = ``)[matchRe.test(m)] ? m : `null`;
+
+  versionFrom({ major, minor, patch });
+  return { prerelease: pre$, build };
+};
+
+export const parseSemver = (
+  v: string
+): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} => fromVersion({ major: parseInt(v.split('.')[0], 10), minor: parseInt(v.split

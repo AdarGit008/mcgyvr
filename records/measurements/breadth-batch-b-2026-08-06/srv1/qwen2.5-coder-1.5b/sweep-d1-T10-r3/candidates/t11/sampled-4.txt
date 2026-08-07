@@ -1,0 +1,6 @@
+```ts
+/** This version sorts numerical values numerically, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  return values.sort((a, b) => a - b);
+}
+```

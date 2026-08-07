@@ -1,0 +1,32 @@
+```ts
+
+export class EventLog {
+  #events: Event[];
+
+  constructor() {
+    this.#events = [];
+  }
+
+  record(event: Event) {
+    if (typeof event !== 'object' || event === null) {
+      throw new Error('Event must be an object');
+    }
+    if (typeof event.name !== 'string') {
+      throw new Error('Event name must be a string');
+    }
+    if (typeof event.timestamp !== 'number') {
+      throw new Error('Event timestamp must be a number');
+    }
+
+    this.#events.push(event);
+  }
+
+  since(timestamp: number): Event[] {
+    if (typeof timestamp !== 'number' || isNaN(timestamp)) {
+      throw new Error('Timestamp must be a valid number');
+    }
+
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

@@ -1,0 +1,35 @@
+```ts
+export class LruCache<K, V> {
+  private items: { [key: K]: V } = {};
+  private maxItems: number;
+  private oldestKey: K | undefined;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) throw new Error("Capacity must be a positive integer");
+    this.maxItems = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.items[key];
+    if (value !== undefined) {
+      this.oldestKey = key ?? undefined; // Update oldest when getting an entry
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    this.items[key] = value;
+
+    // If new entry and cache full, remove the oldest
+    if (this.maxItems === Object.keys(this.items).length) {
+      delete this.items[this.oldestKey];
+      this.oldestKey = Object.keys(this.items)[0];
+    }
+  }
+
+  get size(): number {
+    return Object.keys(this.items).length;
+  }
+}
+```
+This solution defines a `LruCache` class that follows the specified interface, ensuring it can handle basic caching operations with proper handling of capacity and eviction.

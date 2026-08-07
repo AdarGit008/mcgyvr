@@ -1,0 +1,26 @@
+The revised `solution.ts` file with types added is shown below:
+
+```typescript 
+/** An append-only log of timestamped events. */
+export class EventLog {
+  #events: Event[] = [];
+
+  /** Append one event. */
+  record(event: Event): void {
+    this.#events.push(event);
+  }
+
+  /** Every event at or after the given timestamp, in insertion order. */
+  since(timestamp: number): Event[] {
+    // If you want to return copies of events rather than references, use this line instead.
+    // return this.#events.filter((event) => event.timestamp >= timestamp).map(e => ({...e}));
+ 
+    return this.#events.filter((event: Event) => event.timestamp >= timestamp);
+  }
+}
+
+export interface Event { 
+  name: string; 
+  timestamp: number; 
+}
+```

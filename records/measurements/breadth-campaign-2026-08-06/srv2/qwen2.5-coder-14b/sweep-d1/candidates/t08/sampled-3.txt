@@ -1,0 +1,43 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const nodeIndex = new Map<string, number>();
+    nodes.forEach((node, index) => nodeIndex.set(node, index));
+
+    const graph: Map<string, Set<string>> = new Map();
+    const inDegree: Map<string, number> = new Map();
+
+    for (const [from, to] of edges) {
+        if (!nodeIndex.has(from)) throw new Error(`Edge references unknown node: ${from}`);
+        if (!nodeIndex.has(to)) throw new Error(`Edge references unknown node: ${to}`);
+
+        graph.setIfAbsent(from, new Set()).add(to);
+        inDegree.set(to, (inDegree.get(to) || 0) + 1);
+    }
+
+    const zeroInDegreeNodes = nodes.filter(node => !inDegree.has(node));
+
+    const sortedOrder: string[] = [];
+    let index = 0;
+
+    while (index < sortedOrder.length) {
+        const currentNode = zeroInDegreeNodes[index];
+        if (!currentNode) throw new Error('Cycle detected in the graph');
+
+        sortedOrder.push(currentNode);
+
+        for (const neighbor of graph.get(currentNode) || []) {
+            inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+            if (inDegree.get(neighbor) === 0) zeroInDegreeNodes.push(neighbor);
+        }
+
+        index++;
+    }
+
+    return sortedOrder;
+}
+
+Map.prototype.setIfAbsent = function(key: string, value: Set<string>): Set<string> {
+    if (!this.has(key)) this.set(key, value);
+    return this.get(key)!;
+};
+```

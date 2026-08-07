@@ -1,0 +1,50 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Map<string, Set<string>> = new Map();
+  const inDegree: Map<string, number> = new Map();
+
+  // Initialize the graph and in-degree map
+  nodes.forEach(node => {
+    graph.set(node, new Set());
+    inDegree.set(node, 0);
+  });
+
+  // Build the graph and calculate in-degrees
+  edges.forEach(([from, to]) => {
+    if (!graph.has(from) || !graph.has(to)) {
+      throw new Error(`Invalid edge: ${from} -> ${to}. Node not found.`);
+    }
+    graph.get(from)?.add(to);
+    inDegree.set(to, (inDegree.get(to) ?? 0) + 1);
+  });
+
+  // Initialize the queue with nodes that have no incoming edges
+  const queue: string[] = [];
+  nodes.forEach(node => {
+    if (inDegree.get(node) === 0) {
+      queue.push(node);
+    }
+  });
+
+  // Perform topological sort
+  const result: string[] = [];
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+
+    graph.get(node)?.forEach(neighbor => {
+      inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+      if (inDegree.get(neighbor) === 0) {
+        queue.push(neighbor);
+      }
+    });
+  }
+
+  // Check for cycles
+  if (result.length !== nodes.length) {
+    throw new Error('Cycle detected. No valid topological order.');
+  }
+
+  return result;
+}
+```

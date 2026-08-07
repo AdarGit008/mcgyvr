@@ -1,0 +1,23 @@
+```ts
+/**
+ * Flattens an array up to a specified depth.
+ * @param items - The array to flatten.
+ * @param depth - The depth to which to flatten the array. Defaults to Infinity.
+ * @returns A new flattened array.
+ * @throws Error if depth is not a non-negative integer or Infinity.
+ */
+export function flatten(items: readonly unknown[], depth: number = Infinity): unknown[] {
+  if (!Number.isInteger(depth) || depth < 0) {
+    throw new Error("Depth must be a non-negative integer or Infinity.");
+  }
+
+  return items.reduce<unknown[]>((acc, item) => {
+    if (Array.isArray(item) && depth > 0) {
+      acc.push(...flatten(item, depth - 1));
+    } else {
+      acc.push(item);
+    }
+    return acc;
+  }, []);
+}
+```

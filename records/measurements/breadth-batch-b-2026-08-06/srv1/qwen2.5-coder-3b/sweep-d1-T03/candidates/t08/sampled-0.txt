@@ -1,0 +1,69 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges) throw new Error("Input cannot be null or undefined");
+
+  const graph = buildGraph(nodes, edges);
+  const indegree = calculateIndegree(graph);
+
+  const result: string[] = [];
+  const queue: string[] = [];
+
+  // Initialize the queue with nodes that have no dependencies
+  for (const node in indegree) {
+    if (indegree[node] === 0) {
+      queue.push(node);
+    }
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    result.push(current);
+
+    // Decrease the indegree of all adjacent nodes
+    for (const neighbor in graph[current]) {
+      indegree[neighbor]--;
+      if (indegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check if there are any cycles
+  if (result.length !== nodes.length) {
+    throw new Error("Cycle detected");
+  }
+
+  return result;
+}
+
+function buildGraph(nodes: readonly string[], edges: readonly (readonly [string, string])[]): Record<string, Set<string>> {
+  const graph: Record<string, Set<string>> = {};
+
+  for (const node of nodes) {
+    graph[node] = new Set();
+  }
+
+  for (const [from, to] of edges) {
+    if (!graph[from] || !graph[to]) throw new Error("Invalid edge");
+    graph[from].add(to);
+  }
+
+  return graph;
+}
+
+function calculateIndegree(graph: Record<string, Set<string>>): Record<string, number> {
+  const indegree: Record<string, number> = {};
+
+  for (const node in graph) {
+    indegree[node] = 0;
+  }
+
+  for (const from in graph) {
+    for (const to of graph[from]) {
+      indegree[to]++;
+    }
+  }
+
+  return indegree;
+}
+```

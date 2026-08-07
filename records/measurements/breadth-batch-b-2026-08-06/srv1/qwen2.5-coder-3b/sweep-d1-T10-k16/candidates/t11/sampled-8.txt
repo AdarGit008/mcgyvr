@@ -1,0 +1,10 @@
+```ts
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].sort((a, b) => a - b);
+}
+```
+The provided code ensures that `sortAscending` correctly sorts an array of numbers in ascending order. Here's the breakdown:
+
+1. **Spread Operator**: The spread operator (`...`) is used to create a shallow copy of the input array `values`. This prevents mutating the original array.
+2. **Sorting Logic**: The `sort()` method is then called with a comparator function that compares two numbers (`a` and `b`). The comparison `(a - b)` ensures that numbers are sorted numerically in ascending order.
+3. **Return Statement**: The sorted array is returned as the result of calling `sort()`.

@@ -1,0 +1,67 @@
+```typescript
+class LruCache<K, V> {
+  private capacity: number;
+  private cacheMap: Map<K, { value: V, timestamp: number }>;
+  private oldestKey: K | null = null;
+
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+    this.cacheMap = new Map();
+    this.oldestKey = null;
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.cacheMap.get(key);
+    if (entry) {
+      // Update the timestamp to mark the item as recently used
+      entry.timestamp = Date.now();
+      this.touchOldestEntry();
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    const entry = this.cacheMap.get(key);
+    if (entry) {
+      // Update the existing item
+      entry.value = value;
+      entry.timestamp = Date.now();
+    } else {
+      // Insert a new item
+      if (this.cacheMap.size === this.capacity) {
+        // Evict the least recently used item if cache is full
+        const oldestEntryKey = this.getOldestKey();
+        if (oldestEntryKey !== null) {
+          this.cacheMap.delete(oldestEntryKey);
+        }
+      }
+      this.cacheMap.set(key, { value, timestamp: Date.now() });
+    }
+    this.touchOldestEntry();
+  }
+
+  private getOldestKey(): K | null {
+    let oldestTimestamp = Infinity;
+    let oldestKey = null;
+    for (const [key, entry] of this.cacheMap.entries()) {
+      if (entry.timestamp < oldestTimestamp) {
+        oldestTimestamp = entry.timestamp;
+        oldestKey = key;
+      }
+    }
+    return oldestKey;
+  }
+
+  private touchOldestEntry(): void {
+    this.oldestKey = Array.from(this.cacheMap.keys()).pop()!;
+  }
+
+  get size(): number {
+    return this.cacheMap.size;
+  }
+}
+```

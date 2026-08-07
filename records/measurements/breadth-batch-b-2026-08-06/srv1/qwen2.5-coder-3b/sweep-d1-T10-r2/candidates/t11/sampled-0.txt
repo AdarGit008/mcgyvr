@@ -1,0 +1,7 @@
+```ts
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].sort((a, b) => a - b);
+}
+```
+
+To ensure that numbers are sorted numerically rather than lexicographically, we use the `sort` method with a comparison function `(a, b) => a - b`. This ensures that each pair of values is compared and sorted accordingly.

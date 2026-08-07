@@ -1,0 +1,35 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (/^$/.test(line)) return [];
+
+  const escapedQuotes = "\\\"";
+  let parsedFields = [];
+
+  // A single comma means no field was split
+  if (!escapeRegExp(escapedQuotes).test(line)) {
+    parsedFields.push(line.trim());
+    return parsedFields;
+  }
+
+  let quoteMode = false;
+  let inField = '';
+
+  for (const char of line) {
+   (inEscapeMode && (!char === '"' || inEscapeMod === true))) ? (inEscapeMoode = true) : null;
+
+    if ((!inEscapeMode && char === "\"")) {
+      inQuoteMode = !quoteMode;
+      inField += '\\'; 
+    } 
+
+    inEscaping = char === '"' && inQuotesMode;
+
+    if (! quoteMode && (!/,\r\n$/i.test(inField)) && !/\s*\\$|\\r|\n|$/.test(str))!{
+      parsedFields.push(inField.trim());
+        inField = '';
+    }
+ }
+ return parsedFields;
+
+}
+```

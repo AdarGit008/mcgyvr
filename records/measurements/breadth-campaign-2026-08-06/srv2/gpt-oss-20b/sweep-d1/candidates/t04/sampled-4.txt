@@ -1,0 +1,3 @@
+```ts
+// BLOCKED: unclear whether a get on a missing key counts as a use.
+```

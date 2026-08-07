@@ -1,0 +1,17 @@
+```ts
+type NumberRange = number[];
+
+/**
+ * The factorial of n.
+ */
+export function factorial(n: number): number {
+  if (typeof n !== 'number' || !Number.isInteger(n)) {
+    throw new Error('Expected a non-negative integer as input');
+  }
+
+  if (n === 0) {
+    return 1;
+  }
+  return n * factorial(n - 1);
+}
+```

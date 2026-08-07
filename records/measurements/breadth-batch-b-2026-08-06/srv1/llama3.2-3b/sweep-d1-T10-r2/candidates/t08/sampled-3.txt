@@ -1,0 +1,102 @@
+```typescript
+export class Solution {
+    /**
+     * Returns an ordering satisfying every edge when several are valid, 
+     * keeping nodes in their input order - among the nodes currently free of unmet dependencies, always 
+     * take the earliest in nodes.
+     * 
+     * @param nodes The names of the nodes
+     * @param edges Edges where from must come before to
+     * @returns An ordering satisfying every edge
+     */
+    topologicalSort(
+        readonly nodes: readonly string[],
+        readonly edges: readonly ([string, string])[]): throws Error {
+        const adj = this.createAdjacencyList(nodes, edges);
+        
+        if (!this.validAndReachable(adj)) {
+            throw new Error("A cycle is present in the graph");
+        }
+        
+        return this.topologicalSortHelper(
+            (node) => !adj[node], 
+            String, nodes, adj);
+    }
+
+    private createAdjacencyList(nodes: readonly string[], edges: readonly [string, string][]): {
+        [key: string]: number;
+    } & { [key: string]: readonly string[] };
+
+    readonly adjacencyList = nodes.reduce((acc: { [key: string]: number; } & { [key: string]: readonly string[] }, str) => {
+        acc[str] = 0;
+        return acc;
+    }, {});
+
+    edges.forEach(([from, to]) => {
+        if (acc.to !== undefined) {
+            throw new Error(`Node '${to}' is not in nodes`);
+        }
+        
+        this.adjacencyList[from]++;
+        if (!acc.from) {
+            acc.from = new Set();
+        } 
+        acc.from.add(from);
+        if (!this.adjacencyList[to]) {
+            this.adjacencyList[to] = String(to);
+        } 
+        if (acc.to) {
+            acc.to.push(to);
+        }
+    });
+
+    private topologicalSortHelper(
+        callback: (...args: readonly string[]) => boolean, 
+        T: typeof Number, nodes: readonly string[], adj: { [key: string]: number; } & { [key: string]: readonly string[] }): readonly (readonly string[])[];
+
+    return nodes.reduce((acc, node) => {
+        
+        if (callback(node)) {
+            acc.push(node);
+            const nextFree = Array.from(adj[node])
+                .find((nextNode) => callback(nextNode));
+            if (nextFree) {
+                adj[node] = Array.from(adj[node]).filter((item) => item !== nextFree);
+                if (!this.nextFreeToBeProcessed(adj, node)) {
+                    return acc;
+                }
+                return this.topologicalSortHelper(callback, nodes, adj);
+            }
+        }
+            
+        return acc;
+    }, []);
+    
+    private nextFree(node: string): throws Error {
+        for (; ; ) {
+            if (adj[node] === 0) {
+                return true;
+            } 
+            node = String(adj.nodeFrom.get(`${node}`));
+        }
+    }
+
+    private nextFreeToBeProcessed(adj: { [key: string]: number; } & { [key: string]: readonly string[] }, node: string): boolean {
+        if (adj[node] !== 0) {
+            return false;
+        }
+        
+        for (; ; ) {
+            if (adj.nodeFrom.get(`${node}`)) {
+                break;
+            } 
+            adj[node] = Number(adj.adj[nodename]);
+            nodename = String(adj.adj[nodename])
+            if (!this.validAndReachable(adj)) {
+                return false;
+            }
+        }
+    }
+    
+    private validAndReachable(adj: { [key: string]: number; } & { [key: string]: readonly string[] }): boolean {
+        const queue

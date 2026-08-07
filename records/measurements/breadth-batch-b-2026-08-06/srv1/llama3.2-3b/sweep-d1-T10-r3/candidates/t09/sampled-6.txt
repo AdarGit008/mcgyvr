@@ -1,0 +1,22 @@
+```ts
+/** Calculates the factorial of a given number. */
+export function factorial(n: number): number {
+  if (typeof n !== 'number' || n < 0) {
+    throw new Error('Input must be a non-negative integer.');
+  }
+  if (!Number.isInteger(n)) {
+    throw new Error('Input must be an integer');
+  }
+
+  const memo: { [key in number]?: number } = { 0: 1 };
+
+  function go(num: number): number {
+    if (num not in memo) {
+      memo[num] = num * go(num - 1);
+    }
+    return memo[num];
+  }
+
+  return go(n);
+}
+```

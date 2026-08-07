@@ -1,0 +1,44 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const fields: string[] = [];
+  let doubleQuotesCount = 0;
+  let currentField = '';
+  let inQuote = false;
+
+  for (const char of line) {
+    if (char === '"') {
+      doubleQuotesCount++;
+      if (doubleQuotesCount % 2 === 1) {
+        inQuote = !inQuote;
+        if (!inQuote && currentField.length > 0) {
+          fields.push(currentField);
+          currentField = '';
+        }
+      }
+    } else if (!inQuote && char.trim() === '') {
+      // Skip consecutive delimiters
+    } else {
+      currentField += char;
+      if (doubleQuotesCount % 2 !== 1) {
+        inQuote = true;
+      }
+    }
+
+    // Handle the last character of the line separately after the loop
+    if (i === line.length - 1) {
+      if (inQuote) {
+        throw new Error('Quoted field is never closed');
+      } else if (currentField.trim() !== '') {
+        fields.push(currentField);
+      }
+    }
+  }
+
+  return fields;
+}
+```
+This implementation parses a single line of CSV into an array of fields, handling quoted fields correctly and returning an error for unclosed quotes. It uses counters to manage nested quoting situations and ensures that empty fields are handled appropriately.

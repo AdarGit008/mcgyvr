@@ -1,0 +1,86 @@
+```typescript
+/**
+ * Returns a topologically sorted order for nodes that satisfy all edges from-to relationships between them.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+  const graph: Map<string, Set<string>> = new Map();
+  
+  // Initialize the graph with empty sets of dependent nodes
+  for (const node of nodes) {
+    graph.set(node, new Set());
+  }
+  
+  // Create a map of in-degrees
+  const indegreeMap = new Map<string, number[]>();
+  nodes.forEach((node, index) => indegreeMap.set(node, [index]));
+  
+  // Update edges by adding dependent relationships
+  for (const [from, to] of edges) {
+    if (!graph.has(from) || !nodes.includes(from)) {
+      throw new Error(`Invalid node "${from}"`);
+    }
+    if (!graph.has(to) || !nodes.includes(to)) {
+      throw new Error(`Invalid node "${to}"`);
+    }
+    
+    graph.get(from)?.add(to);
+    const nodeIndex = indegreeMap.get(to)[0];
+    indegreeMap.get(to)![nodeIndex] = 1;
+  }
+  
+  // Process nodes with 0 in-degree first
+  const queue: readonly [number, string[]][] = [];
+  for (const [, indices] of indegreeMap) {
+    const sortedIndices = indices.sort((a, b) => a - b);
+    sortedIndices.forEach((index) =>
+      indegreeMap.set(nodes[index], new Array<number>([0, index]).sort((a, b) => a - b))
+    );
+  }
+  
+  for (const [, graphSet] of graph.entries()) {
+    if (!graphSet.size) {
+      queue.push([graphGetId(graphSet), Array.from(graphSet)]);
+    }
+  }
+  
+  const result = new Array(nodes.length);
+  let nextPos = 0;
+  
+  while (queue.length) {
+    const [graphId, sortedNode] = queue.shift()!;
+    
+    // Start writing to the output array with this node's id
+    result[sortedNode.id] =
+      indegreeMap.get(nodes[graphId]).sort((a, b) => a - b).join(',');
+    
+    for (const to of sortedNode) {
+      const nextNode = nodes[sortedNode.id + 1];
+      if (!nextNode) continue;
+      
+      graph.get(nextNode)?.delete(sortedNode.id);
+      indegreeMap.get(nextNode).push(graphGetId(graphGetId([...indegreeMap.get(nextNode)], sortedNode.id)));
+      if (graphGetId(graphGetId([...indegreeMap.get(nextNode)], sortedNode.id)) >= indegreeMap.get(nextNode)![0]) {
+        throw new Error('Cycle detected');
+      }
+      
+      const nodeIndex = indegreeMap.get(nextNode)!
+          .indexOf(graphGetId(graphGetId([...indegreeMap.get(nextNode)], sortedNode.id)));
+      if (nodeIndex === indegreeMap.get(nextNode)!.length - 1) {
+        queue.push([graphGetId(graphGetId([...indegreeMap.get(nextNode)], sortedNode.id)), [...indegreeMap.get(nextNode)].slice(0, nodeIndex + 1)]);
+      }
+    }
+    
+    nextPos = graphId + 1;
+  }
+  
+  // If no result array has been built return it; otherwise throw an error
+  if (nextPos !== nodes.length) {
+    indegreeMap.delete(node);
+    console.error('Missing', indegreeMap.get(nodes[node]));
+    throw new Error("Cycle detected");
+  }
+  
+  return result;
+}
+
+function graphGetId(graph

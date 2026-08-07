@@ -1,0 +1,41 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map<string, Set<string>>();
+    const indegree = new Map<string, number>();
+
+    // Build the graph and degree maps
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) graph.set(from, new Set());
+        if (!indegree.has(to)) indegree.set(to, 0);
+
+        graph.get(from)?.add(to);
+        indegree.set(to, indegree.get(to)! + 1);
+    }
+
+    // Find all nodes with no dependencies
+    const freeNodes = [...nodes].filter(node => indegree.get(node) === 0);
+
+    const result: string[] = [];
+
+    while (freeNodes.length > 0) {
+        const node = freeNodes.shift()!;
+        result.push(node);
+
+        for (const child of graph.get(node) || []) {
+            indegree.set(child, indegree.get(child)! - 1);
+            if (indegree.get(child)! === 0) {
+                freeNodes.push(child);
+            }
+        }
+    }
+
+    // Check if there are any cycles or unmet dependencies
+    for (const [node] of nodes) {
+        if (indegree.get(node)! > 0) {
+            throw new Error("Cycle detected");
+        }
+    }
+
+    return result;
+}
+```

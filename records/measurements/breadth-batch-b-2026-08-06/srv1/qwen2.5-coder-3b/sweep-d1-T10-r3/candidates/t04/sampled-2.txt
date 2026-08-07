@@ -1,0 +1,112 @@
+```typescript
+type LruNode<K extends string | number | symbol, V> = {
+  key: K;
+  value: V;
+  next?: LruNode<K, V>;
+  prev?: LruNode<K, V>;
+};
+
+export enum CacheStatus {
+  Success = "success",
+  KeyNotFound = "key_not_found",
+}
+
+class LRUCache<K extends string | number | symbol, V> {
+  public capacity = 0;
+  public size = 0;
+
+  private head: LruNode<K, V> | undefined = undefined;
+  private tail: LruNode<K, V> | undefined = undefined;
+  private cacheMap = new Map<K, LruNode<K, V>>();
+
+  constructor(capacity: number) {
+    if (typeof capacity !== "number" || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    const node = this.cacheMap.get(key);
+    if (!node) return;
+
+    // Move the accessed node to the front
+    if (node !== this.head) {
+      this.remove(node);
+      this.insertHead(node);
+    }
+    return node.value;
+  }
+
+  set(key: K, value: V): void {
+    const existingNode = this.cacheMap.get(key);
+
+    if (existingNode) {
+      // Update the existing node's value
+      existingNode.value = value;
+      // Move it to the front if needed
+      if (existingNode !== this.head) {
+        this.remove(existingNode);
+        this.insertHead(existingNode);
+      }
+    } else {
+      const newNode: LruNode<K, V> = {
+        key,
+        value,
+      };
+
+      this.cacheMap.set(key, newNode);
+
+      // Insert the new node at the front
+      if (this.capacity === 0) {
+        // If there's no space and we're adding, drop the least recently used
+        const evictedNode = this.tail;
+        if (evictedNode) {
+          this.cacheMap.delete(evictedNode.key);
+          if (evictedNode.next) {
+            evictedNode.next.prev = undefined;
+          }
+          if (this.head === evictedNode) {
+            this.head = evictedNode.next;
+          }
+          this.tail = evictedNode ? evictedNode.prev : undefined;
+        }
+      } else {
+        // Otherwise, just add and check if we need to drop an entry
+        this.insertHead(newNode);
+        this.size++;
+        if (this.size > this.capacity) {
+          const evictedNode = this.tail;
+          if (evictedNode) {
+            this.cacheMap.delete(evictedNode.key);
+            if (evictedNode.next) {
+              evictedNode.next.prev = undefined;
+            }
+            if (this.head === evictedNode) {
+              this.head = evictedNode.next;
+            }
+            this.tail = evictedNode ? evictedNode.prev : undefined;
+            this.size--;
+          }
+        }
+      }
+    }
+  }
+
+  get size(): number {
+    return this.size;
+  }
+
+  private insertHead(node: LruNode<K, V>): void {
+    if (node.next) node.next.prev = undefined;
+    if (this.head) this.head.prev = node;
+    node.next = this.head;
+    this.head = node;
+  }
+
+  private remove(node: LruNode<K, V>): void {
+    if (node.prev) node.prev.next = node.next;
+    if (this.tail === node) this.tail = node.prev;
+  }
+}
+```

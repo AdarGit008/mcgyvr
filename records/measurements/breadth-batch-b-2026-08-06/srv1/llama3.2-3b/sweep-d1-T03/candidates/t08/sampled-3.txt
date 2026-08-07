@@ -1,0 +1,58 @@
+```ts
+/**
+ * Returns a topological ordering of nodes satisfying every edge.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    const adjacencyList = new Map<string, Set<string>>();
+    for (const node of nodes) {
+        adjacencyList.set(node, new Set());
+    }
+
+    for (const [from, to] of edges) {
+        if (!adjacencyList.has(from)) {
+            throw new Error(`Node '${from}' not found in the list of nodes.`);
+        }
+        if (!adjacencyList.has(to)) {
+            throw new Error(`Node '${to}' not found in the list of nodes.`);
+        }
+
+        adjacencyList.get(from)!.add(to);
+    }
+
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+    const result: string[] = [];
+
+    for (const node of nodes) {
+        if (!visited.has(node)) {
+            visitNode(node, adjacencyList, visited, visiting, result);
+        }
+    }
+
+    return result;
+}
+
+function visitNode(
+        node: string,
+        adjacencyList: Map<string, Set<string>>,
+        visited: Set<string>,
+        visiting: Set<string>,
+        result: string[]
+): void {
+    if (visiting.has(node)) {
+        throw new Error(`Cycle detected in the graph.`);
+    }
+
+    if (!adjacencyList.has(node)) {
+        return;
+    }
+
+    visiting.add(node);
+    for (const neighbor of adjacencyList.get(node)!) {
+        visitNode(neighbor, adjacencyList, visited, visiting, result);
+    }
+    visiting.delete(node);
+    visited.add(node);
+    result.push(node);
+}
+```

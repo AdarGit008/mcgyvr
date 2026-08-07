@@ -1,0 +1,53 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let currentField = '';
+  let inQuote = false;
+  let escapedChar = false;
+
+  for (const char of line) {
+    if (inQuote && !escapedChar) {
+      // Escaped quote within a quoted field
+      currentField += char;
+      if (char === '"') {
+        escapedChar = true;
+      }
+    } else if (!inQuote && char === '"') {
+      // Start or end of quoted field
+      if (inQuote && escapedChar) {
+        // Double quotes inside an unquoted field: invalid CSV format
+        throw new Error("Unclosed quoted field in CSV line.");
+      }
+      inQuote = !inQuote;
+      if (!inQuote && currentField === '') {
+        // Empty string after an unquoted comma; add empty field to result
+        fields.push('');
+      } else if (currentField.length > 0) {
+        // Reached delimiter or end of line; add completed field to result
+        fields.push(currentField);
+      }
+    } else if (!inQuote && char === ',') {
+      // Comma in unquoted field; treat as a separator
+      if (currentField.length > 0) {
+        fields.push(currentField);
+        currentField = '';
+      }
+    } else {
+      // Add the character to the current field
+      currentField += char;
+    }
+
+    escapedChar = false; // Reset whether an escaped character has been processed
+  }
+
+  // Handle trailing unquoted field or quoted fields without trailing comma
+  if (inQuote || escapedChar) {
+    throw new Error("Unclosed quoted field in CSV line.");
+  }
+  if (currentField.length > 0) {
+    fields.push(currentField);
+  }
+
+  return fields;
+}
+```

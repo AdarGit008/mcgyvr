@@ -1,0 +1,17 @@
+```
+/** Safely divides two numbers, throwing an error if the divisor is zero or non-finite numbers. */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(b)) {
+    throw new Error('Divisor must be a finite number');
+  }
+
+  switch (typeof a) {
+    case 'boolean':
+      throw new Error('Boolean values are not allowed as numbers');
+    case 'object':
+      throw new Error('Objects are not allowed as numbers');
+  }
+
+  return a / b;
+}
+```

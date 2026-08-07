@@ -1,0 +1,14 @@
+```typescript
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a)) {
+    throw new Error('Argument \'a\' must be finite.');
+  }
+  if (isNaN(b) || typeof b !== 'number') {
+    throw new Error('Argument \'b\' must be a finite number.');
+  }
+  if (b === 0 && !Object.is(b, -0)) {
+    throw new Error('Argument \'b\' cannot be zero.');
+  }
+  return a / b;
+}
+```

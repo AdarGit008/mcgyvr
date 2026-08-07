@@ -1,0 +1,50 @@
+```ts
+/**
+ * Sorts nodes topologically based on the given edges.
+ * @param nodes - Names of the nodes required for sorting.
+ * @param edges - Edges representing dependencies between nodes, where `from` comes before `to`.
+ * @returns An array of node names in topological order if a valid ordering exists.
+ * @throws Error when no solution is possible due to cycles in the graph.
+ * @throws Error when an invalid node name is provided in the edges or nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges:readonly (readonly [string, string])[]): string[] {
+    if (!nodes.every(node => !!nodes.includes(node))) {
+        throw new Error("Invalid node name(s)");
+    }
+
+    const nodeInDegree = new Map<string, number>();
+    edges.forEach(edge => {
+        if (!!nodes.includes(edge[0])) {
+            throw new Error(`Edge contains an invalid node: ${edge[0]}`);
+        }
+        if (!!nodes.includes(edge[1])) {
+            throw new Error(`Edge contains an invalid node: ${edge[1]}`);
+        }
+
+        const currentInDegree = nodeInDegree.get(edge[1]) || 0;
+        nodeInDegree.set(edge[1], ...currentInDegree === 0 ? [1] : []);
+    });
+
+    for (const [node, inDegree] of nodeInDegree.entries()) {
+        if (inDegree === 0) {
+            const freeNode = node;
+            nodeInDegree.delete(freeNode);
+
+            const visited: string[] = [];
+            while (visited.length < nodes.length && !!nodes.includes(freeNode)) {
+                visited.push(...edges.filter(edge => edge[1] === freeNode).map(edge => edge[0]));
+                delete nodeInDegree.get(freeNode);
+                if (!nodeInDegree.has(freeNode) && visited.length < nodes.length) {
+                    const freeNodes = Array.from(nodeInDegree.keys()).filter(node => !visited.includes(node));
+                    freeNode = freeNodes.length > 0 ? freeNodes.sort()[0] : null;
+                }
+            }
+            if (visited.length !== nodes.length) {
+                throw new Error("Cycle detected");
+            }
+        }
+    }
+
+    return nodes.slice(0);
+}
+```

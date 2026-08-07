@@ -1,0 +1,52 @@
+```ts
+/**
+ * Performs a topological sort on nodes given directed edges.
+ *
+ * @param {readonly string[]} nodes - An array of node names.
+ * @param {readonly (readonly [string, string])[]} edges - An array of edges in the form of [from, to].
+ * @returns {string[]} A sorted array of node names that satisfies all edges.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: Map<string, string[]> = new Map();
+    const indegree: Map<string, number> = new Map();
+
+    nodes.forEach(node => {
+        graph.set(node, []);
+        indegree.set(node, 0);
+    });
+
+    edges.forEach(([from, to]) => {
+        if (!graph.has(from) || !graph.has(to)) {
+            throw new Error(`Edge contains a node not in nodes: ${from} -> ${to}`);
+        }
+        graph.get(from)!.push(to);
+        indegree.set(to, (indegree.get(to)! + 1));
+    });
+
+    const queue: string[] = [];
+    nodes.forEach(node => {
+        if (indegree.get(node)! === 0) {
+            queue.push(node);
+        }
+    });
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        graph.get(node)!.forEach(neighbor => {
+            indegree.set(neighbor, (indegree.get(neighbor)! - 1));
+            if (indegree.get(neighbor)! === 0) {
+                queue.push(neighbor);
+            }
+        });
+    }
+
+    if (result.length !== nodes.length) {
+        throw new Error('Graph contains a cycle');
+    }
+
+    return result;
+}
+```

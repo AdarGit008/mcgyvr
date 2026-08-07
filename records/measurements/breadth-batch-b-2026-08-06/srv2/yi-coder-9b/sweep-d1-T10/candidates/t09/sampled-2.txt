@@ -1,0 +1,19 @@
+Here is the corrected file's content:
+
+```typescript
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (!Number.isInteger(n)) {
+    throw new Error('factorial requires an integer argument');
+  }
+  else if (n < 0) {
+    throw new Error('factorial argument cannot be negative');
+  }
+  else if (n === 0) {
+    return 1;
+  }
+  else {
+    return n * factorial(n - 1);
+  }
+}
+```

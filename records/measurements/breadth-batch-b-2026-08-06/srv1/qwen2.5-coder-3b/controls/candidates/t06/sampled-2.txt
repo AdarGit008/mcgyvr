@@ -1,0 +1,52 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') throw new Error('Invalid input type');
+
+  const fields: string[] = [];
+  let currentField = '';
+  let isQuoted = false;
+  let escapedQuote = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (escapedQuote) {
+        currentField += '"';
+        escapedQuote = false;
+      } else if (!isQuoted) {
+        isQuoted = true;
+      } else {
+        throw new Error('Unmatched closing quote in CSV field');
+      }
+    } else if (char === ',') {
+      if (isQuoted) {
+        currentField += char;
+      } else {
+        fields.push(currentField.trim());
+        currentField = '';
+      }
+    } else if (char === '\n' || char === '\r') {
+      // End of line, handle the last field
+      if (currentField.trim().length > 0) fields.push(currentField.trim());
+      break;
+    } else {
+      if (isQuoted && !escapedQuote) {
+        currentField += char;
+      } else if (!/[^a-zA-Z0-9\s]/.test(char)) {
+        // Only add non-space characters to the current field
+        currentField += char;
+      }
+    }
+
+    // Handle escaped quotes
+    if (char === '\\' && i < line.length - 1) {
+      escapedQuote = true;
+    } else {
+      escapedQuote = false;
+    }
+  }
+
+  return fields;
+}
+```

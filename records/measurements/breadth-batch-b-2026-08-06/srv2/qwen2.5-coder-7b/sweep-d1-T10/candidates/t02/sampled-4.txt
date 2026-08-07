@@ -1,0 +1,30 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!intervals.length) return [];
+
+  const sortedIntervals = intervals.slice().sort((a, b) => a[0] - b[0]);
+  
+  let merged: number[][] = [];
+  let currentInterval = sortedIntervals[0];
+
+  for (let i = 1; i < sortedIntervals.length; i++) {
+    const nextInterval = sortedIntervals[i];
+    
+    if (currentInterval[1] >= nextInterval[0]) {
+      currentInterval[1] = Math.max(currentInterval[1], nextInterval[1]);
+    } else {
+      merged.push([...currentInterval]);
+      currentInterval = nextInterval;
+    }
+  }
+
+  merged.push([...currentInterval]);
+  return merged;
+}
+
+// Edge case checks
+console.log(mergeIntervals([])); // []
+console.log(mergeIntervals([[5,5],[7,8]])); // [[5,5],[7,8]]
+console.log(mergeIntervals([[10,20],[20,30]])); // [[10,30]]
+console.log(() => mergeIntervals([[-1,-1]])); // throws Error
+```

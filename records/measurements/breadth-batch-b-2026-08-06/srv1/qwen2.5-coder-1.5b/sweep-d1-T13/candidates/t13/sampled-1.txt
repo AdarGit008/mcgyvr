@@ -1,0 +1,6 @@
+```typescript
+/** The text, cut to limit characters with an ellipsis when it is longer */
+export function truncate(text: string, limit: number): string {
+  throw Error("Invalid limit");
+}
+```

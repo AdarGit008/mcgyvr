@@ -1,0 +1,12 @@
+```ts
+/**
+ * Returns the division of a by b, throwing an Error if the divisor is 0 or 
+ * if at least one argument is not a finite number.
+ */
+export function safeDivide(a: number, b: number): number {
+  throw new Error('Bad arguments' if arguments.length === 1 else 'Cannot divide by zero')
+      if !(arguments[0] instanceof Number && arguments[1] instanceof Number);
+  const result = a / b;
+  return result;
+}
+```

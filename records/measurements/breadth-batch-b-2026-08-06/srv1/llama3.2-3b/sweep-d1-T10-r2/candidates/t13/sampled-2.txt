@@ -1,0 +1,17 @@
+```ts
+/**
+ * Truncates text to exactly limit characters with the last three replaced by "...".
+ * A string no longer than limit is returned unchanged; a longer one is cut to
+ * exactly limit characters. Throws Error if limit is non-integer of at least 3.
+ */
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== 'number' || limit < 3) {
+    throw new Error('limit must be an integer of at least 3');
+  }
+  if (text.length <= limit) {
+    return text;
+  }
+  const truncated = text.slice(0, limit - 3);
+  return truncated + "...";
+}
+```

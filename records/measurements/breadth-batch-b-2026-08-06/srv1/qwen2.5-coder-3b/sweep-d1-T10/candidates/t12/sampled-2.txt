@@ -1,0 +1,7 @@
+```
+import { cloneDeep } from 'lodash';
+
+export function removeNegatives(values: readonly number[]): number[] {
+  return values.map(value => (value >= 0 ? value : NaN)).filter(isFinite);
+}
+```

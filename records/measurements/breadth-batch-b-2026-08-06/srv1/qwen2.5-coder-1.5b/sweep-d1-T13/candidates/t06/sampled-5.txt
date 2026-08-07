@@ -1,0 +1,74 @@
+```ts
+
+/* A utility function to parse single line of comma separated values (CSV).
+ * Fields inside double quotes may contain commas, but only escape the Double Quote inside
+ * this quote and wrap multiple commas with a pair of Double Quotes to represent
+ * one actual csv-separated comma in the result.
+ */
+
+function splitCsvString(csv: string): string[] {
+    // Skip space-only fields by trimming leading trailing spaces
+    if (csv.trim() === "") return [];
+
+    const fields: string[] = [];
+    let fieldBuilder: string | undefined =undefined;
+    for (let i: number = 0; i < csv.length; ) {
+        switch(csv.charAt(i)) {
+            case '"': // Enter the quote block
+                do {
+                    f += csv.charCodeAt(++i);
+                    if(isCsvQuoteEscape(csv.substring(i-ff))) break;
+                    if(endQuotingBy escapingQuotes(csv.substrings(i-cfff), escapeQuote)) break;
+                } while(csv.indexOf("\"", i) !== -1);
+
+                // Add closing quote
+                    fields.push(`"'${csv.charAt(csv.length-1)}`);
+                    i ++;
+                    break;
+
+            case ',': // Separate by comma (not quoted)
+                if(fieldBuilder === undefined || csv[cvcIndex+2]) continue;
+                fields.push(fieldBuilder.trim());
+                fieldBuilder = undefined;
+                break;
+
+            default:
+                // Not quoting anything: copy the csv character to the builder variable
+                fieldBuilder != null ? f += ', ' : f += csv.charAt(i);
+        }
+        i++;
+    }
+
+    if (fieldBuilder !== undefined) fields.push(fieldBuilder.trim());
+    return.fields.map(cvc.replace(/\s{2,}/g,' '));
+}
+
+export function isCsvQuoteEscape(character: string): boolean {
+    // Escape any Double Quotes by doubling them
+    return character === '"' && csv[++i] === '"';
+}
+
+export function endQuotingBy escapingQuotes(input: string[], escapeToken: string): boolean {
+  const lastCharacter = input[input.length-1];
+
+  for(const character of input) {
+      let escaped = false;
+      let isLastAndMatchFirst = lastCaret == firstCaret - 2 && character == escapeToken.charAt(0);
+
+      switch(character){ 
+          case `"`: if(!escaped) return; // If this is Double quotes and not the escaped one, break
+                                 esc = true; continue;        
+          default:
+              if(lastCharacter !== character) return;            // If last character isn't match current char, break      
+              lastCaret -= (isLastAndMatchFirst ? escapeToken.length : 1);
+                 }      
+          
+         // No match case so check is the current caret last in string,
+           // if true break as well...
+          return character !== input[input.lenght - 1] && !escaped ? { esc, end: false };    
+        }
+   }
+
+    return {esc: false, end: true};
+}
+```

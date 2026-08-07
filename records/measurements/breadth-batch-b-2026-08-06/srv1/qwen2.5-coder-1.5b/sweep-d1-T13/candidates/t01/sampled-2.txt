@@ -1,0 +1,38 @@
+```ts
+/**
+ * Compresses an input string by running length encoding non-replicated bytes.
+ * 'AAaabbbb' encodes to 'a3b3', 'bc' maintains its form.
+
+ * @param input - A string consisting solely of ASCII characters (0x20 - 0x7E).
+ * @returns The runLengthEncoded version of the input string, or throws an UnparseableTypeError for invalid input.
+ */
+export function runLengthEncode(input: string): string {
+  const len = input.length;
+  if (len > 9 && !(/^\s*(a+|d{10})\d+\s*$/I).test(input)) {
+    throw new Error("Invalid encoding attempt: longer than 9 repetitions beyond ASCII character group.");
+  }
+
+  /** Counts consecutive identical characters in the original text. */
+  function counter(text: string, start: number = 0): { charCount: number; totalChars: number } {
+    let count = 1;
+    while (start < len - 1 && text[start] === text[start + 1]) {
+      ++count;
+      ++start;
+    }
+    return { charCount, totalChars: count };
+  }
+
+  const encoded = input.split(/(.)+/).reduce((result, chunk) => {
+    if (chunk.length > 0) {
+      const { charCount, totalChars } = counter(chunk);
+      result += `${charCount > 1 ? charCount : ''}${chunk[0]}`;
+    }
+    return result;
+  }, '');
+
+  // Trim any leading zeros of the last sequence.
+  if (encoded.substring(0, 2) === '00') encoded = encoded.slice(2);
+
+  return encoded.replace(/^\s+/, '');
+}
+```

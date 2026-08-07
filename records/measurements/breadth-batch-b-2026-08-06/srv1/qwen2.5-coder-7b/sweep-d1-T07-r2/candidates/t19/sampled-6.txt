@@ -1,0 +1,17 @@
+```ts
+/**
+ * a divided by b. Throws Error if b is zero or non-finite, including -0.
+ * @param a - The numerator.
+ * @param b - The denominator.
+ * @returns The result of a / b.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error('Both arguments must be finite numbers.');
+  }
+  if (b === 0 || b === -0) {
+    throw new Error('Divisor cannot be zero.');
+  }
+  return a / b;
+}
+```

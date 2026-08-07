@@ -1,0 +1,64 @@
+```typescript
+export class LruCache<K, V> {
+  private cache: Map<K, { value: V, timestamp: number }>;
+  private capacity: number;
+
+  constructor(capacity: number) {
+    if (isNaN(capacity) || capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  set(key: K, value: V): void {
+    const entry = { value, timestamp: Date.now() };
+    if (this.cache.has(key) && !entryEqual(entry, this.cache.get(key)!)) {
+      // Update existing key or add a new key
+      this.cache.set(key, entry);
+    } else if (this.cache.size < this.capacity) {
+      // Add to cache if capacity allows
+      this.cache.set(key, entry);
+    } else {
+      // Remove least recently used key
+      const lruEntry = getLruEntry(this.cache);
+      if (lruEntry !== undefined && !entryEqual(entry, lruEntry)) {
+        this.cache.delete(lruEntry.key);
+        this.cache.set(key, entry);
+      }
+    }
+  }
+
+  get<K extends keyof T>(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (entry) {
+      // Update timestamp
+      entry.timestamp = Date.now();
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+
+function entryEqual<K, V>(a: { key: K; value: V; timestamp: number }, b: { key: K; value: V; timestamp: number }) {
+  return a.value === b.value;
+}
+
+function getLruEntry<T>(cache: Map<keyof T, T>): { key: keyof T; value: T } | undefined {
+  let lruKey = null;
+  let lruTimestamp = Infinity;
+
+  for (const [key, entry] of cache.entries()) {
+    if (entry.timestamp < lruTimestamp) {
+      lruKey = key;
+      lruTimestamp = entry.timestamp;
+    }
+  }
+
+  return lruKey !== null ? { key: lruKey as keyof T, value: cache.get(lruKey)! } : undefined;
+}
+```

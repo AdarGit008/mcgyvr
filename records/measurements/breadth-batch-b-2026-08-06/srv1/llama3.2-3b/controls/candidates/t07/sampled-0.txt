@@ -1,0 +1,17 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (depth !== undefined && typeof depth === 'number' && isNaN(Number(depth))) {
+        throw new Error('Invalid depth value');
+    }
+
+    return items.reduce((acc, item) => {
+        const flattened = Array.isArray(item) ? item : [item];
+        for (const flattenedItem of flattened) {
+            if (typeof flattenedItem !== 'string') {
+                acc.push(...flatten(flattenedItem, depth === Infinity ? 0 : depth - 1));
+            }
+        }
+        return acc;
+    }, []);
+}
+```

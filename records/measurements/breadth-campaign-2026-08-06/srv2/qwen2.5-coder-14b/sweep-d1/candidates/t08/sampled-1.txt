@@ -1,0 +1,57 @@
+```ts
+/**
+ * Performs topological sorting on a list of nodes given their dependencies.
+ * @param nodes - The list of node names.
+ * @param edges - The list of directed edges [from, to] indicating from must come before to.
+ * @returns An array representing the topologically sorted order of nodes.
+ * @throws Error if there is a cycle in the graph or an edge references a non-existent node.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList = new Map<string, Set<string>>();
+  const inDegreeMap = new Map<string, number>();
+
+  // Initialize adjacency list and in-degree map
+  nodes.forEach(node => {
+    adjacencyList.set(node, new Set());
+    inDegreeMap.set(node, 0);
+  });
+
+  // Build the graph
+  for (const [from, to] of edges) {
+    if (!adjacencyList.has(from) || !adjacencyList.has(to)) {
+      throw new Error(`Node(s) ${[from, to].filter(n => !nodes.includes(n)).join(', ')} not found in nodes list.`);
+    }
+    adjacencyList.get(from)!.add(to);
+    inDegreeMap.set(to, (inDegreeMap.get(to) || 0) + 1);
+  }
+
+  // Initialize the queue with nodes having no incoming edges
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if (inDegreeMap.get(node) === 0) {
+      queue.push(node);
+    }
+  }
+
+  // Process the queue
+  const sortedNodes: string[] = [];
+  while (queue.length > 0) {
+    const currentNode = queue.shift()!;
+    sortedNodes.push(currentNode);
+
+    for (const neighbor of adjacencyList.get(currentNode)!) {
+      inDegreeMap.set(neighbor, inDegreeMap.get(neighbor)! - 1);
+      if (inDegreeMap.get(neighbor) === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check for cycles
+  if (sortedNodes.length !== nodes.length) {
+    throw new Error('Cycle detected in the graph.');
+  }
+
+  return sortedNodes;
+}
+```

@@ -1,0 +1,37 @@
+```ts
+function splitPrereleaseAndBuild(version: string): { versionParts: number[]; prerelease?: string | null; build?: string | null } {
+  const separator = /(-prerelease)|(+-build)/;
+  const parts = version.split(separator);
+  const versionParts = parts.slice(0, -2).map(Number);
+
+  if (parts.length > 1 && parts[partitions.length - 1] === "-prerelease") {
+    return { versionParts: [...versionParts], prerelease: parts[parts.length - 2] };
+  }
+
+  if (parts.length > 1 && parts[parts.length - 1].includes("+")) {
+    return { versionParts: [...versionParts], build: parts[parts.length - 2] };
+  }
+
+  return { versionParts: [...versionParts] };
+}
+
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const separator = /([-.])/;
+  const parts = version.split(separator);
+  const [major, minor, patch] = parts.slice(0, 3).map(Number);
+
+  if (parts.length > 3) {
+    throw new Error("Invalid version structure");
+  }
+
+  const { prerelease, build } = splitPrereleaseAndBuild(version);
+  
+  return {
+    major: Number.isNaN(major) ? null : major,
+    minor: Number.isNaN(minor) ? null : minor,
+    patch: Number.isNaN(patch) ? null : patch,
+    prerelease: prerelease || null,
+    build: build || null,
+  };
+}
+```

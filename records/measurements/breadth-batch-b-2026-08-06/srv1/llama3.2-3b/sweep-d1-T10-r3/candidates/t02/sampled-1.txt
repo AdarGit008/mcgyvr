@@ -1,0 +1,47 @@
+```typescript
+/**
+ * Merge overlapping intervals in a list of [start, end] pairs.
+ *
+ * The function is pure: it doesn't mutate the input array nor any inner arrays.
+ * For each returned pair, every interval is a fresh array.
+ *
+ * @param intervals A list of non-overlapping [start, end] pairs. Intervals that merely
+ *   touch (end === next start) do merge. Each list must have at least one element,
+ *   and the first element's length is not greater than its second's. The result is an
+ *   array of pairs with elements sorted ascending by start.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  // If the input list is empty, return the empty list.
+  if (!intervals || intervals.length === 0) {
+    return [];
+  }
+
+  // Filter out invalid [start, end] pairs because we don't need to worry about
+  // non-integer or negative values now. For each pair, throw an Error when start is
+  // greater than its end.
+  for (const interval of intervals) {
+    if (
+      typeof interval[0] !== 'number' ||
+      typeof interval[1] !== 'number' ||
+      interval[0] >= interval[1]
+    ) {
+      throw new Error(`Invalid [start, end]: ${interval}`);
+    }
+  }
+
+  // Sort the intervals by their first element.
+  const sortedIntervals = [...intervals].sort((a, b) => a[0] - b[0]);
+
+  // Use map() to get all merged interval pairs starting with [smallest_start, new_end].
+  return sortedIntervals.reduce(
+    (merged, cur_interval) =>
+      merged.length === 0
+        ? [[cur_interval]]
+        : merged.map((prev_int) => [
+            Math.min(prev_int[0], cur_interval[0]),
+            Math.max(prev_int[1], cur_interval[1]),
+          ]),
+    []
+  );
+}
+```

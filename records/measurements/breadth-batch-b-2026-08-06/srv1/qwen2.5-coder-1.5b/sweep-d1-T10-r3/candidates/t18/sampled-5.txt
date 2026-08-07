@@ -1,0 +1,26 @@
+```ts
+/**
+ * An append-only log of timestamped events.
+ */
+export class EventLog {
+  #events: Event[] = [];
+
+  /**
+   * Append one event.
+   */
+  record(event: Event): void {
+    this.#events.push(event);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   * @param timestamp The time point to filter by.
+   */
+  since(timestamp: number): Event[] {
+    return [...this.#events].filter((event) => event.timestamp >= timestamp);
+  }
+}
+```
+
+**Explanation**:
+I added explicit TypeScript types to all the necessary variables and parameters. I kept the file structure as-is, only modifying the type definitions for `EventLog` and its methods to strictly declare the expected types. I ensured that the `since` method returns a new copy of the filtered events, following the instruction to return copies of the events and not the original array if possible without mutating them or using recursion.

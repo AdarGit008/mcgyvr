@@ -1,0 +1,33 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    /**
+     * Flattens nested arrays up to specified depth levels, defaulting to every level.
+     *
+     * @param items Input array containing nested elements (strings are not flattened)
+     * @param depth Maximum recursion depth for flattening, defaults to Infinity
+     */
+    
+    if (depth === undefined || typeof depth !== 'number' || Number.isNaN(depth) || depth < 0) {
+        throw new Error('Invalid depth value');
+    }
+    
+    const result = [];
+    const stack: [item: unknown[], level: number][] = [[items, 0]];
+    
+    while (stack.length > 0) {
+        const [item, level] = stack.pop()!;
+        
+        if (typeof item === 'string') {
+            // If the element is already a string, add it to the result
+            result.push(item);
+        } else if (Array.isArray(item)) {
+            for (const nextItem of item) {
+                // Iterate over each nested array or object
+                stack.push([nextItem, level + 1]);
+            }
+        }
+    }
+    
+    return result;
+}
+```

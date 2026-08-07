@@ -1,0 +1,56 @@
+```ts
+/**
+ * Performs topological sort on a directed acyclic graph (DAG).
+ * @param nodes - Array of node names.
+ * @param edges - Array of [from, to] edges where from must come before to.
+ * @returns An array representing the topologically sorted order of nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: { [node: string]: string[] } = {};
+    const inDegree: { [node: string]: number } = {};
+
+    // Initialize the graph and in-degree count
+    nodes.forEach(node => {
+        graph[node] = [];
+        inDegree[node] = 0;
+    });
+
+    // Build the graph and calculate in-degrees
+    edges.forEach(([from, to]) => {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Edge contains a node not in nodes: ${from} -> ${to}`);
+        }
+        graph[from].push(to);
+        inDegree[to]++;
+    });
+
+    // Find all nodes with zero in-degree
+    const queue: string[] = [];
+    nodes.forEach(node => {
+        if (inDegree[node] === 0) {
+            queue.push(node);
+        }
+    });
+
+    // Perform topological sort using Kahn's algorithm
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        graph[node].forEach(neighbor => {
+            inDegree[neighbor]--;
+            if (inDegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        });
+    }
+
+    // Check for cycles
+    if (result.length !== nodes.length) {
+        throw new Error('Cycle detected in the graph');
+    }
+
+    return result;
+}
+```

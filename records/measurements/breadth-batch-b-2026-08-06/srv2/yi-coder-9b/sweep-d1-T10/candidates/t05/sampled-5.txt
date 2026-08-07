@@ -1,0 +1,20 @@
+```typescript
+/**
+ * Splits an array into consecutive groups each of size or less elements, preserving order; 
+the final group is shorter when the length does not divide evenly. Empty arrays yields empty arrays.
+
+  @param items - The input array to be chunked.
+  @param size - Maximum number of elements in each chunk. Must be a positive integer.
+  @returns Array of chunks, where inner arrays are at most `size` elements long. 
+*/
+export function chunk<T>(items: readonly T[], size: number): T[][] {  // type definition for ReadonlyArray items
+    if(size <= 0) throw new Error('Size must be a positive integer'); // argument validity check and Error throwing mechanism specified in TASK prompt.
+   
+    const chunks: T[][] = [];                     // declare result array to hold smaller arrays (chunks)
+  
+    for (let i = 0; i < items.length; i += size) { // iterate using step equivalent to chunk length or total length remainder if present.
+        chunks.push(items.slice(i, i + size));     // push chunks of size `size` each into the result array.  
+    }                            
+    return chunks;                              
+}; 
+```

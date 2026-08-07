@@ -1,0 +1,45 @@
+Here is the implementation for topologicalSort function:
+
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjList = new Map<string, Set<string>>();
+    const inDegree = new Map<string, number>();
+  
+    for (const node of nodes) {
+        adjList.set(node, new Set());
+        inDegree.set(node, 0);
+    }
+  
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error('An edge names a node not in nodes');
+        }
+        if (!adjList.get(from)?.has(to)) {
+            adjList.get(from)?.add(to);
+            inDegree.set(to, inDegree.get(to)! + 1);
+        }
+    }
+  
+    const queue = nodes.filter((node) => inDegree.get(node) === 0);
+    const result: string[] = [];
+  
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+      
+        for (const neighbor of adjList.get(node)?.values() || []) {
+            inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+          
+            if (inDegree.get(neighbor) === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+  
+    if (result.length < nodes.length) {
+        throw new Error('A cycle exists');
+    }
+  
+    return result;
+}
+```

@@ -1,0 +1,17 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))(?:\+(.*))?$/);
+    if (!match) throw new Error(`Invalid input for parseSemver: ${version}`);
+    
+    const [major, minor, patch, prerelease, build] = match.slice(1).map(str => {
+        if (str === '') return null;
+        return parseInt(str, 10);
+    });
+    
+    if (!isNaN(major) && !isNaN(minor) && !isNaN(patch)) {
+        return { major, minor, patch, prerelease, build };
+    }
+    
+    throw new Error(`Invalid input for parseSemver: ${version}`);
+}
+```

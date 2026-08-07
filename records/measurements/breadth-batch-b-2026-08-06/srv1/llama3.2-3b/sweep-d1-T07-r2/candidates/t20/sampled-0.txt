@@ -1,0 +1,21 @@
+```typescript
+/**
+ * Returns the parsed configuration from the given text, ignoring blank lines,
+ * lines starting with '#', trimming whitespace around keys and values, and splitting
+ * on the first '=' to allow for single-valued configurations. Throws an Error for
+ * invalid input.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim()) continue;
+    if (line.startsWith('#')) continue;
+    const [key, value] = line.trim().split("=", 2);
+    if (!key || !value) {
+      throw new Error(`Invalid config line: ${line}`);
+    }
+    config[key.trim()] = value.trim();
+  }
+  return config;
+}
+```

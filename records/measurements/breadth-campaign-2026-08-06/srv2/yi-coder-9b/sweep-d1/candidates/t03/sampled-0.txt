@@ -1,0 +1,20 @@
+Here is how you can implement `parseSemver` function:
+
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const semverPattern = /^0*([1-9][0-9]*)\.0*([1-9][0-9]*)\.0*([1-9][0-9]*)(?:-(?<prerelease>[\da-z-]+(?:\.[\da-z-]+)*))?(?:\+(?<build>[\da-z-]+(?:\.[\da-z-]+)*))?$/i;
+  const matches = semverPattern.exec(version);
+
+  if (matches === null) {
+    throw new Error('Invalid input');
+  }
+
+  return {
+    major: parseInt(matches[1], 10),
+    minor: parseInt(matches[2], 10),
+    patch: parseInt(matches[3], 10),
+    prerelease: matches.groups?.['prerelease'] || null,
+    build: matches.groups?.['build'] || null,
+  };
+}
+```

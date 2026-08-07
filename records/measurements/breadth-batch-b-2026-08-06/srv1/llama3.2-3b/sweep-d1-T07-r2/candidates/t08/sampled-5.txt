@@ -1,0 +1,64 @@
+```ts
+/**
+ * Returns an ordering satisfying every edge in the given edges,
+ * while keeping nodes in their input order. When several orderings are valid,
+ * chooses the one that keeps nodes in their input order and always takes the earliest
+ * unmet dependencies among free nodes.
+ *
+ * Throws an Error if a cycle is detected, or if an edge names a node not in the given nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [readonly string, string][]): string[] {
+    const graph = nodes.reduce((acc, node) => ({ ...acc, [node]: [] }), {});
+
+    for (const [/from/, to], _) of edges) {
+        if (!(to in graph)) {
+            throw new Error(`Edge ${[from, to].join(' -> ')} names a node not in the given nodes.`);
+        }
+        graph[from].push(to);
+    }
+
+    const visited = new Set();
+    const currentPath = new Set();
+
+    const sortNodes = (node: string) => {
+        if (!(node in graph)) {
+            throw new Error(`Edge ${[from, to].join(' -> ')} names a node not in the given nodes.`);
+        }
+        if (currentPath.has(node)) {
+            return null;
+        }
+        if (visited.has(node)) {
+            return node;
+        }
+
+        currentPath.add(node);
+        try {
+            for (const neighbor of graph[node]) {
+                const neighborSort = sortNodes(neighbor);
+                if (!neighborSort) {
+                    return null; // cycle detected
+                }
+            }
+        } finally {
+            currentPath.delete(node);
+        }
+
+        visited.add(node);
+        return node;
+    };
+
+    const freeNodes = nodes.filter((node, index) => nodes.indexOf(node) === index);
+
+    const result: string[] = [];
+    while (freeNodes.length > 0) {
+        const nextNode = sortNodes(freeNodes[0]);
+        if (!nextNode) {
+            throw new Error('No ordering exists due to a cycle.');
+        }
+        result.push(nextNode);
+        freeNodes.shift();
+    }
+
+    return result;
+}
+```

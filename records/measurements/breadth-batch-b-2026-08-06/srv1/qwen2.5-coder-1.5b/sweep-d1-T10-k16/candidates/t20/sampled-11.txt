@@ -1,0 +1,19 @@
+```ts
+/**
+ * The KEY=VALUE pairs of a config file. Ignores blank lines and lines starting with '#'.
+ * Trims whitespace around key and value and splits on the FIRST '=' only. Throws an Error
+ * for lines with no '=', empty keys, or keys referencing prototype.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.trim().split("\n")) {
+    if (!line || line.startsWith("#") || !/^\w+\s*=/.test(line)) continue;
+    const [key, value] = line.match(/\w+ *= .*/)?.slice(1) ?? [];
+    if (!key || Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(config), key)) {
+      throw new Error(`Error on line ${line}. Key ${key} is invalid.`);
+    }
+    config[key] = value;
+  }
+  return config;
+}
+```

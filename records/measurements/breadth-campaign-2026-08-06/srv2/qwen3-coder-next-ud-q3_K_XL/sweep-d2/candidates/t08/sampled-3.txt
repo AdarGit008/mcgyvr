@@ -1,0 +1,101 @@
+```ts
+/**
+ * Parses a single CSV line into its fields.
+ * @param line A string representing one CSV line (no newlines).
+ * @returns An array of strings representing the parsed fields.
+ * @throws Error for invalid arguments or malformed CSV.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('line must be a string');
+  }
+
+  const fields: string[] = [];
+  let i = 0;
+  const len = line.length;
+
+  while (i <= len) {
+    // Skip comma separators between fields
+    if (i > 0 && i < len && line[i] !== ',') {
+      throw new Error('Invalid field separator');
+    }
+    
+    // Move past comma if present (except for first field)
+    if (i > 0 && line[i] === ',') {
+      i++;
+    }
+
+    if (i >= len) {
+      fields.push('');
+      break;
+    }
+
+    if (line[i] === '"') {
+      // Quoted field
+      i++; // Skip opening quote
+      let field = '';
+      
+      while (i < len) {
+        if (line[i] === '"') {
+          // Could be escaped quote or end of quoted section
+          if (i + 1 < len && line[i + 1] === '"') {
+            // Doubled quote ("") -> single quote
+            field += '"';
+            i += 2;
+          } else {
+            // End of quoted section
+            i++; // Skip closing quote
+            
+            // After closing quote, must be end of line or comma
+            if (i < len && line[i] !== ',') {
+              throw new Error('Invalid character after closing quote');
+            }
+            
+            fields.push(field);
+            break;
+          }
+        } else {
+          field += line[i];
+          i++;
+        }
+      }
+      
+      if (i >= len && line[len - 1] !== '"') {
+        // Check if we exited due to end-of-line without closing quote
+        let foundEnd = false;
+        for (let j = 0; j < fields.length; j++) {
+          // We'll only reach here if we didn't break out properly
+        }
+        // Check if the last character was a quote — if not, it's unterminated
+        if (i === len) {
+          throw new Error('Unterminated quoted field');
+        }
+      }
+      
+      if (i < len && line[i] === ',') {
+        i++; // Skip the comma after closing quote
+      }
+    } else {
+      // Unquoted field
+      let field = '';
+      
+      while (i < len && line[i] !== ',') {
+        if (line[i] === '"') {
+          throw new Error('Quote in unquoted field');
+        }
+        field += line[i];
+        i++;
+      }
+      
+      fields.push(field);
+    }
+
+    // Check termination condition
+    if (i >= len) {
+      break;
+    }
+  }
+
+  return fields;
+}
+```

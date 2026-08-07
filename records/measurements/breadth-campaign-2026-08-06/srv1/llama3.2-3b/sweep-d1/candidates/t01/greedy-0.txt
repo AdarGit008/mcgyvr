@@ -1,0 +1,32 @@
+```typescript
+/**
+ * Encodes a string using run-length encoding.
+ *
+ * Replaces every maximal run of one repeated character with that character followed by the run length,
+ * in order: "aaabbc" encodes to "a3b2c1". A run of length one still carries its count, so "abc" encodes to "a1b1c1".
+ *
+ * @param input The string to encode.
+ * @returns The encoded string.
+ */
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') {
+        throw new Error('Input must be a string');
+    }
+
+    const result = [];
+    let currentChar = input[0];
+    let charCount = 1;
+
+    for (let i = 1; i <= input.length; i++) {
+        if (i < input.length && input[i] !== currentChar) {
+            result.push(currentChar + charCount);
+            currentChar = input[i];
+            charCount = 1;
+        } else {
+            charCount++;
+        }
+    }
+
+    return result.join('');
+}
+```

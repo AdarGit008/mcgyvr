@@ -1,0 +1,61 @@
+```ts
+import type { IGraph } from 'path-to-igraph-package';
+
+/**
+ * Applies topological sorting to a given directed acyclic graph (DAG).
+ * @param nodes The node names in the DAG.
+ * @param edges The edge tuples representing directed dependencies.
+ * @returns An array of node names that satisfy the dependencies, maintaining their sequence as given in the input.
+ */
+export function topologicalSort(nodes: readonly string[], edges:readonly (readonly [string, string])[]): string[] {
+    // Check if nodes or edges are null or undefined
+    if (!nodes || !edges) {
+        throw new Error('Input parameters cannot be null or undefined');
+    }
+
+    // Normalize node input to an array for uniform processing
+    const nodesSet = new Set(nodes);
+    for (const edge of edges) {
+        nodesSet.add(edge[0]);
+        nodesSet.add(edge[1]);
+    }
+    if ([...nodesSet]].length !== nodes.length || [..nodesSet].length !== edges.length) {
+        throw new Error('Invalid input: duplicate nodes or edges found');
+    }
+
+    // Build a graph to represent the DAG
+    const g: IGraph = {};
+    for (const node of nodesSet) {
+        g[node] = { inDegree: 0, outEdges: [] };
+    }
+    for (const edge of edges) {
+        g[edge[0]].outEdges.push(edge[1]);
+        g[edge[1]].inDegree++;
+    }
+
+    // Find all nodes with zero in-degree (initially no dependencies)
+    const freeNodes = nodes.filter(node => g[node].inDegree === 0);
+
+    if (freeNodes.length === 0) {
+        throw new Error('Cycle detected: a dependency cannot be met');
+    }
+
+    // Apply topological sort
+    const sortedOrder: string[] = [];
+    while (freeNodes.length > 0) {
+        const freeNode = freeNodes.shift()!;
+        if (!graph[freeNode].outEdges || !graph[freeNode].outEdges.includes(freeNode)) {
+            throw new Error(`Undirected edge detected: ${freeNode} points to itself`);
+        }
+        sortedOrder.push(freeNode);
+        for (const neighbor of graph[freeNode].outEdges) {
+            g[neighbor].inDegree--;
+            if (g[neighbor].inDegree === 0) {
+                freeNodes.push(neighbor);
+            }
+        }
+    }
+
+    return sortedOrder;
+}
+```

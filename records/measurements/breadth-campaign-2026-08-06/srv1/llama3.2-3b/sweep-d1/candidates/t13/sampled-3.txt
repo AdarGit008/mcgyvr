@@ -1,0 +1,21 @@
+```typescript
+/**
+ * Returns a truncated version of the input text with an ellipsis if necessary.
+ * The last three characters of the result are replaced by "...".
+ *
+ * @param text - The original text to be truncated.
+ * @param limit - The maximum number of characters allowed in the result.
+ * @throws {Error} If the limit is not a positive integer.
+ */
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== 'number' || limit < 3 || limit % 1 !== 0) {
+    throw new Error('Limit must be a positive integer.');
+  }
+  
+  if (text.length <= limit) {
+    return text;
+  }
+  
+  return text.slice(0, limit - 2) + '...';
+}
+```

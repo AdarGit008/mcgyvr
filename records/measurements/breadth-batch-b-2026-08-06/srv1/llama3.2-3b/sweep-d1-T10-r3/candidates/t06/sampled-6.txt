@@ -1,0 +1,59 @@
+```typescript
+interface CsvLineResult {
+  (line: string): string[];
+}
+
+const escapeRegex = /[^\w]/g;
+
+function parseCsvLine(line: string): string[] {
+  /**
+   * Split a single line of CSV into its fields on commas, handling quoted and unquoted fields accordingly.
+   */
+
+  const quotedFields: number[] = [];
+  let inQuote = false;
+  for (let idx = 0; idx < line.length; ++idx) {
+    if (line[idx] === '"' && !inQuote) {
+      inQuote = true;
+    } else if (
+      inQuote &&
+      ((line[idx] == '"' || idx + 1 >= line.length) ||
+        line.indexOf(line[idx].toString(), idx + 1) != -1)
+    ) {
+      inQuote = false;
+      quotedFields.push(line.substring(idx));
+      break;
+    }
+    if (!inQuote && line[idx] === ',') {
+      throw new Error(`Comma outside of quoted fields`);
+    } else if (line[idx] == '"') {
+      inQuote = true;
+    }
+  }
+
+  const result: string[] = [];
+
+  for (const fieldIdx of quotedFields) {
+    result.push(fieldIdx);
+  }
+
+  for (let idx = 0; idx < line.length; ++idx) {
+    if (
+      ((line[idx] == ',') || (line[idx] == '"')) &&
+      !quotedFields.some(
+        (fieldIdx, i) =>
+          i <= idx && (line[i] !== '-' && line[i + 1] === '-')
+      )
+    ) {
+      result.push(line.substring(idx));
+      ++idx;
+    }
+  }
+
+  for (let firstIdx = 0; firstIdx < linedesc; ++firstIdx) {
+
+  }
+}
+
+type CsvLineOptions = [string];
+```

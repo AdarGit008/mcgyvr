@@ -1,0 +1,20 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    if (typeof version !== 'string') throw new Error('Input must be a string');
+
+    const parts = /^(\d+)\.(\d+)\.(\d+)(?:-(.*)\+(.*))?$/.exec(version);
+
+    if (!parts) throw new Error(`Invalid semver format: ${version}`);
+
+    const [, major, minor, patch] = parts;
+
+    if (major.startsWith('0')) throw new Error('MAJOR version part must not be zero');
+    if (minor.startsWith('0')) throw new Error('MINOR version part must not be zero');
+    if (patch.startsWith('0')) throw new Error('PATCH version part must not be zero');
+
+    const prerelease = parts[4] || null;
+    const build = parts[5] || null;
+
+    return { major: parseInt(major, 10), minor: parseInt(minor, 10), patch: parseInt(patch, 10), prerelease, build };
+}
+```

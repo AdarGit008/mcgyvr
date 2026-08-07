@@ -1,0 +1,13 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (!Array.isArray(values)) {
+    throw new Error("Input is not an array.");
+  }
+  if (values.some((value) => isNaN(value))) {
+    throw new Error("No sorting can be done with NaN values.");
+  }
+
+  return [...values].sort((a, b) => a - b);
+}
+```

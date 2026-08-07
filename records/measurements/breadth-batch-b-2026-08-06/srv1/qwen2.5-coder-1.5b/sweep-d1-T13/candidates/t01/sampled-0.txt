@@ -1,0 +1,50 @@
+```ts
+/**
+ * @description Encodes a run-length-encoded string where every maximal sequence 
+ * of one repeating character is replaced with that character followed by the count of characters.       
+ * Examples: 
+ *   runLengthEncode("aaabbc") // 'a3b2c1'
+ *   runLengthEncode("abc") // 'a1b1c1'
+ *   runLengthEncode("") // ''
+ *   runLengthEncode("aabcccd") // 'a2b2c4'
+ * 
+ *   runLengthEncode("aaaaabcd") // 'a5babcd'
+ *   runLengthEncode("bba") // 'bb2a'      // Not a valid input.
+ **/
+
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') throw new Error('Input must be a string');
+  return [...input]
+    .reduce((acc, curr, i) => {
+      if(acc.length === 0 || acc[acc.length - 1][0] !== curr) {
+        acc.push([curr])          
+      } else { acc[-1].push(curr) }
+      if(isNaN(Number(acc.at(-2)[acc.at(-2).length-1]))) break;
+      if(acc.join("").length + String(arr[acc.length - 1][arr.at[acc.length - 1].length - 1]).length <= input.length){
+        acc.push(Array(int(acc)).fill(curr))
+      } 
+
+       let output:string=''
+                for(let i=0;i<acc.length;i++){
+                    for(let ch:any of acc[i]){
+                        output+=ch
+                    }
+                  }
+      
+ return output    
+  
+}, []);
+}
+
+// check function to verify the solution with provided data points
+function verify() {
+  // Check individual characters are correctly encoded
+	console.log(runLengthEncode("a") === "b"); // false, should be "b"
+	runLengthEncode("aab");
+
+    runLengthEncode("abcd");
+    runLengthDecode("bb4c") == "bbbc";	
+}
+
+verify(); 
+```

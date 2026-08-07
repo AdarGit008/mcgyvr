@@ -1,0 +1,31 @@
+```ts
+/**
+ * Flattens a given array to a specified level, optionally deeply.
+ *
+ * @param items - The array to be flattened.
+ * @param depth - The number of levels in deeper nesting to flatten. Defaults to 1.
+ * @returns A new array with the values flattened up to the specified depth.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (depth === undefined) return [...items];
+
+    let result = [];
+    const recurse = (item: unknown, currentDepth: number = 0) => {
+        if (typeof item !== 'object' ||(item instanceof Set || item instanceof Map && depth > 1)) {
+            result.push(item);
+            return;
+        }
+        const values = (Array.isArray(item) ? item : Object.values(item));
+        const depthForItems = depth - ++currentDepth;
+        values.forEach(flattenRecursive);
+    };
+
+    const flattenRecursive = (value: unknown, currentDepth: number = 0) => {
+        recurse(value, currentDepth);
+    };
+
+    items.forEach(flattenRecursive);
+
+    return result;
+}
+```

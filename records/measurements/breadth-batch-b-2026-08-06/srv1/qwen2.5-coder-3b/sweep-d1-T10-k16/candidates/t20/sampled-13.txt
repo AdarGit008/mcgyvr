@@ -1,0 +1,20 @@
+```ts
+import { trim } from "lodash";
+
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  text.split("\n")
+    .forEach(line => {
+      line = line.trim();
+      if (line.startsWith("#") || !/=.*/.test(line)) {
+        return; // Ignore comments and missing "="
+      }
+      const [key, value] = line.split("=");
+      if (!key) {
+        throw new Error(`Empty key in config file: ${line}`);
+      }
+      config[key.trim()] = trim(value);
+    });
+  return config;
+}
+```

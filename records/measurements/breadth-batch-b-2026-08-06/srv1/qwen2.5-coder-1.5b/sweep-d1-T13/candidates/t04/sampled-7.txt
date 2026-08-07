@@ -1,0 +1,59 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private size: number;
+  private cache: { [key: K]: V } = {};
+  private keys: K[] = [];
+
+  constructor(capacity: number) {
+    if (capacity < 1 || !Number.isInteger(capacity)) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this.capacity = capacity;
+    this.size = 0;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache[key];
+    value &&
+      this.keys.unshift(value.key);
+    this.removeExcess();
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.size === this.capacity) {
+      this.removeExcess();
+    }
+    key in this.cache
+      ? this.clearUseFrom(keys[0]) // Clear the use of the existing item and update its key
+      : this.pushToEnd({ key, value });
+  }
+
+  get size(): number {
+    return this.size;
+  }
+
+  private clearUseFrom(unused: K): void {
+    if (this.cache[unused] === undefined) return; // Ensure we're not mutating anything during an iteration
+
+    const position = this.keys.indexOf(unused);
+    this.values.slice(position + 1).forEach((v: { key: K; value: V }) => v.used = false); // Set all next references to old unused item to "unused" for evictions later
+    Reflect.deleteProperty(this.cache, unused.key);
+  }
+
+  private insertToEnd({ key, value }: { key: K; value: V }): void {
+    this.keys.unshift(key);
+    this.values[0] = { key, value, used: true }; // If array is full, we overwrite "used" after adding
+  }
+
+  private removeExcess(): void {
+    while (this.size > this.capacity) {
+      const unusedKey = this.keys.pop()!;
+      this.clearUseFrom(unusedKey); // Clean-up other uses associated with same key before evict
+      delete this.cache[unusedKey];
+      this.size--; // Since it is unref'd, "used" for existing items will stay unfilled until next assignment
+    }
+  }
+}
+```

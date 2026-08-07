@@ -1,0 +1,26 @@
+Here is the implementation for flatten function:
+
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0 || typeof depth !== 'number' && depth !== Infinity) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  const result: unknown[] = [];
+
+  function _flatten(arr: readonly unknown[], d: number): void {
+    for (const item of arr) {
+      if (Array.isArray(item) && d > 0) {
+        _flatten(item as readonly unknown[], d - 1);
+      } else {
+        result.push(item);
+      }
+    }
+  }
+
+  _flatten(items, depth);
+
+  return result;
+}
+```
+This function uses a helper recursive function _flatten to flatten the array up to the given depth. It checks if each item is an array and if so, it recursively calls _flatten on that sub-array until the maximum depth has been reached or there are no more nested arrays. The flattened items are then pushed into a new result array which is returned at the end of flatten function.

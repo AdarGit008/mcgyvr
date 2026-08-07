@@ -1,0 +1,12 @@
+```typescript
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (typeof n !== 'number' || n % 1 !== 0 || n < 0) {
+    throw Error("Argument must be a non-negative integer");
+  }
+  if (n === 0) {
+    return 1; // Fixed the base case to return 1
+  }
+  return n * factorial(n - 1); // Recursion remains unchanged, but now there's an Error thrown for invalid inputs.
+}
+```

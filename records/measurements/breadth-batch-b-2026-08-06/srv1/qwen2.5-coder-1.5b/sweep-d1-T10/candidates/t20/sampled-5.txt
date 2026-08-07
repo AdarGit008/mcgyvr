@@ -1,0 +1,33 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.trim().split("\n")) {
+    if (!line || line.startsWith("#") || !/:/.test(line)) continue;
+    const [key, value] = line.split(/=+/).map(TrimString);
+    const finalKey = checkForPrototypeOrThrow(config, key);
+    config[finalKey] = trimAndUnescape(value.trim());
+  }
+  return config;
+}
+
+function TrimString(str: string) {
+  return str.replace(/^\s+|\s+$/g, "");
+}
+
+function checkForPrototypeOrThrow(obj: Record<string, unknown>, key: string) {
+  if (key === "__proto__") throw new Error(`Ignore line "${line}"`);
+  if (Object.prototype.hasOwnProperty.call(obj, key)) throw new Error(`The same key "${key}" should be unique.`);
+  return key;
+}
+
+function trimAndUnescape(value: string) {
+  value = JSON.parse(decodeURIComponent(encodeURIComponent(value)));
+  return typeof value === "string" ? stripQuotesFromStrings(value).replace(/\\d/g, ".") : value;
+}
+
+// Helper function to remove quotes from strings
+function stripQuotesFromStrings(str: string): string {
+  return str.replace(/^["']([^"]+)["']$/g, "$1").replace(/^['"]([^']+)['"]$/g, "$1");
+}
+```

@@ -1,0 +1,15 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (version === "") {
+    throw new Error("version");
+  }
+
+  const [major = NaN, minor = NaN, patch = NaN] = version.match(/^v?(\d+)\.(\d+)\.(\d+)(?:-(\w-*))?(?:\+(.+))?$/) || [];
+
+  if (!major || isNaN(Number(major)) || major.length > 2) {
+    throw new Error("version");
+  }
+
+  return { major: Number(major), minor: Number(minor), patch: Number(patch), prerelease, build };
+}
+```

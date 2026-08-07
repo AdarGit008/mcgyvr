@@ -1,0 +1,87 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+    if (line === "") return []; // Empty line
+
+    const parsed: (string | number)[] = [];
+    let isQuoted = false;
+    let quoteCount = 0;
+
+    for (let i = 0, j = 0; i < line.length; i++, j = i) {
+        switch (line[i]) {
+            case "'": // Start of quoted field
+                if (!isQuoted || line[j - 1] === "\\") {
+                    isQuoted = true;
+                    quoteCount++;
+                }
+                break;
+            case ",":
+                if (isQuoted) {
+                    parsed.push(parseQuotedField(line.slice(j, i)));
+                } else {
+                    let value: string = parseUnquotedField(line.slice(j, i));
+                    while ((i + 1 < line.length && line[i + 1] === ",") || quoteCount > 2) {
+                        value += ",";
+                        i++;
+                        j = i;
+                    }
+                    parsed.push(value);
+                }
+            case " ": // End of field
+                if (isQuoted) {
+                    parsed.push(parseQuotedField(line.slice(j, i)));
+                } else {
+                    let value: string = parseUnquotedField(line.slice(j, i));
+                    while ((i + 1 < line.length && line[i + 1] === " ") || quoteCount > 2) {
+                        value += " ";
+                        i++;
+                        j = i;
+                    }
+                    parsed.push(value);
+                }
+            default:
+                if (!isQuoted) {
+                    let value: string = parseUnquotedField(line.slice(j, i));
+                    while (i + 1 < line.length && !Number.isNaN(Number.parse(value))) {
+                        value += Number.parse(value);
+                        i++;
+                        j = i;
+                    }
+                    parsed.push(value);
+                } else {
+                    break;
+                }
+        }
+    }
+
+    if (isQuoted) throw new Error(`Unmatched quote at end of line`);
+
+    return parsed as string[];
+}
+
+function parseUnquotedField(field: string): string {
+    let i = 0;
+    while (i < field.length && field[i] !== ",") i++;
+    const value = field.slice(0, i).trim();
+    return value;
+}
+
+function parseQuotedField(field: string): string {
+    if (!isQuotedFieldClosed(field)) throw new Error("Unmatched quote");
+    const value = field.slice(1, -1).trim();
+    return value;
+}
+
+function isQuotedFieldClosed(field: string): boolean {
+    let open = 0;
+
+    for (let i = 0; i < field.length; i++) {
+        if (field[i] === "\"") {
+            if (open++ > 1) return false;
+        } else if (field[i] === "\"") {
+            if (--open <= 0) return false;
+        }
+    }
+
+    return true;
+}
+```

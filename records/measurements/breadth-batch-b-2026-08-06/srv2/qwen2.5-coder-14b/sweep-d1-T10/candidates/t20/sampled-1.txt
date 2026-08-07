@@ -1,0 +1,35 @@
+```ts
+/**
+ * Parses a configuration text into a key-value object.
+ * Ignores blank lines and lines starting with #.
+ * Trims whitespace around keys and values.
+ * Splits on the first = only, allowing values to contain one =.
+ * Throws an error for lines without = or empty keys.
+ * Ensures keys do not reach Object.prototype.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  let lineNumber = 0;
+
+  for (const line of text.split("\n")) {
+    lineNumber++;
+    const trimmedLine = line.trim();
+    if (trimmedLine === "" || trimmedLine.startsWith("#")) {
+      continue;
+    }
+
+    const [key, value] = trimmedLine.split("=", 1);
+    if (key === undefined || key.trim() === "") {
+      throw new Error(`Empty key on line ${lineNumber}`);
+    }
+    if (value === undefined) {
+      throw new Error(`No = found on line ${lineNumber}`);
+    }
+
+    const cleanKey = key.trim();
+    config[cleanKey] = value.trim();
+  }
+
+  return config;
+}
+```

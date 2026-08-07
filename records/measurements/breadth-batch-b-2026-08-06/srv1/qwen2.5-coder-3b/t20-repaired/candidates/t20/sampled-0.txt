@@ -1,0 +1,22 @@
+```ts
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Trim leading and trailing whitespace from the line
+    const trimmedLine = line.trim();
+    
+    // Skip blank lines and comments starting with #
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue;
+    }
+    
+    // Split the line on the first occurrence of '='
+    const [key, value] = trimmedLine.split("=", 2);
+    
+    // Trim whitespace around the key and value
+    config[key.trim()] = value?.trim() ?? "";
+  }
+  
+  return config;
+}
+```

@@ -1,0 +1,21 @@
+Here is a TypeScript function that implements recursive flatten up to specified levels of depth:
+
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0 || !Number.isInteger(depth)) throw new Error('Depth must be a non-negative integer or Infinity');
+  const flattened: unknown[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (Array.isArray(item) && depth > 0) {
+      flattened.push(...flatten(item, depth - 1));
+    } else {
+      flattened.push(item);
+    }
+  }
+  return flattened;
+}
+```
+
+This function checks the type of each item in the input array using `Array.isArray()`. If an item is a nested array and we are not at maximum depth (`depth > 0`), it calls itself with the nested array as the new items argument, decreasing depth by one to account for the current level being flattened. The results from recursive call are spread into the `flattened` array using the `Array.push()` method with spread syntax(`...`). If an item is not a nested array or we have reached maximum depth, it simply adds the item to the end of the `flattened` array.
+ 
+Finally, after all items in the input array are processed, this function returns the flattened result as a new array. It does not mutate the original array. If an invalid depth is provided (i.e. negative or non-integer), it throws an Error with a brief message.

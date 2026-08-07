@@ -1,0 +1,33 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version.startsWith('v') && version[0] !== 'v') {
+    throw new Error(`No "v" prefix found in input ${version}`);
+  }
+
+  const parts = (version.replace(/^v/, '').split('.'));
+  
+  if (parts.length < 3) {
+    throw new Error(`Insufficient number of parts: expected 3, got ${parts.length}`);
+  }
+
+  const [major, minor, patch] = parts.map((part, index) => {
+    const parsedPart = parseInt(part, 10);
+    if (isNaN(parsedPart) || parsedPart < 0) {
+      throw new Error(`Invalid numeric part at position ${index + 1}: ${parsedPart}`);
+    }
+    return parsedPart;
+  });
+
+  let prerelease: string | null = null;
+  if (parts.length > 3) {
+    prerelease = parts.slice(3).join('.');
+  }
+
+  let build: string | null = null;
+  if (parts.length === 4 && versions.endsWith('+')) {
+    build = parts.slice(4).join('');
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

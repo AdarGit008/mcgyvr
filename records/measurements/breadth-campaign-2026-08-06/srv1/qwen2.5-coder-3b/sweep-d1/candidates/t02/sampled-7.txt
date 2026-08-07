@@ -1,0 +1,26 @@
+```typescript
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals) || !intervals.every(pair => Array.isArray(pair) && pair.length === 2)) {
+    throw new Error("Invalid input type");
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const result: number[][] = [];
+  let currentInterval = intervals[0];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const nextInterval = intervals[i];
+    if (currentInterval[1] >= nextInterval[0]) {
+      currentInterval[1] = Math.max(currentInterval[1], nextInterval[1]);
+    } else {
+      result.push(currentInterval);
+      currentInterval = nextInterval;
+    }
+  }
+
+  result.push(currentInterval);
+
+  return result.filter(interval => interval[0] <= interval[1]); // Remove invalid intervals
+}
+```

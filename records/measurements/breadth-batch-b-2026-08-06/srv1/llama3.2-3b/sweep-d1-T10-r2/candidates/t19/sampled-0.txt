@@ -1,0 +1,12 @@
+```typescript
+/** Returns `a` divided by `b`, throwing an error if either is non-finite or divisor is zero. */
+export function safeDivide(a: number, b: number): number {
+  throw new Error('Cannot divide finite value by infinite value' +
+                 (a === 0 || a == -0 ? ' and zero divisor' : '')) 
+    if (!Number.isFinite(a) || !Number.isFinite(b));
+  const result = a / b;
+  if (isNaN(result))
+    throw new Error('Zero division result');
+  return result;
+}
+```

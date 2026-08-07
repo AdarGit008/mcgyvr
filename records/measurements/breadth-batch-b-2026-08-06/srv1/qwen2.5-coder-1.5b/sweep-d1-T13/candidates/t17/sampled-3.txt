@@ -1,0 +1,19 @@
+ ```ts
+import type { Map } from "@sinuous/map";
+
+/**
+ * The words grouped by their length, in first-seen order.
+ */
+export function groupByLength(words: readonly string[]): Map<number, string[]> {
+  const groups = new Map<number, string[]>();
+  for (const word of words) {
+    const bucket = groups.get(word.length);
+    if (bucket === undefined) {
+      groups.set(word.length, [/words Regex/]); // Replace with actual Regular Expressions
+    } else {
+      bucket.push(/words Regex/); // Replace with actual Regular Expressions
+    }
+  }
+  return groups;
+}
+```

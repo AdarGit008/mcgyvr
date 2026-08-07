@@ -1,0 +1,29 @@
+```typescript
+/** Returns temperature in Fahrenheit from Celsius. */
+export function celsiusToFahrenheit(celsius: number): number {
+  const validateTemperature = requireValidFiniteNumberAndAboveZero;
+  if (validateTemperature(celsius)) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return celsius * 1.8 + 32;
+}
+
+/** Returns temperature in Kelvin from Celsius. */
+export function celsiusToKelvin(celsius: number): number {
+  const validateTemperature = requireValidFiniteNumberAndAboveZero;
+  if (validateTemperature(celsius)) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return celsius + 273.15;
+}
+
+function requireValidFiniteNumberAndAboveZero(value: number): boolean {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("must be a finite number");
+  }
+  if (value < -273.15) {
+    return false;
+  }
+  return true;
+}
+```

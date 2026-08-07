@@ -1,0 +1,11 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  // Throw Error for invalid arguments
+  if (!values.every((value) => typeof value === 'number')) {
+    throw new Error('All elements must be numbers.');
+  }
+
+  return [...values].sort((a, b) => a - b);
+}
+```

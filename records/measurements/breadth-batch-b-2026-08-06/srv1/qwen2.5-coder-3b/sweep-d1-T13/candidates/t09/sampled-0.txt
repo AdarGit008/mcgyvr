@@ -1,0 +1,20 @@
+```typescript
+import { guard, max } from 'utils/common';
+
+export function factorial(n: number = 0): number {
+    const checkArguments = () => guard!(guard.gtOrEqual(1, n) && guard.isIntegerInt(n));
+
+    try {
+        checkArguments();
+    } catch (error_) {
+        throw new Error(`factorial received non-integer or negative argument: ${error_.message}`);
+    }
+
+    switch (n) {
+        case 0:
+            return 1;
+        default:
+            return n * factorial(n - 1);
+    }
+}
+```

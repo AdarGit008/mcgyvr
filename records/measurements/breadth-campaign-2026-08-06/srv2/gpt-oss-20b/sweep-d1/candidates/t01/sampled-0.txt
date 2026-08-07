@@ -1,0 +1,24 @@
+```ts
+/**
+ * Encodes a string using run-length encoding.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  const length = input.length;
+  if (length === 0) return '';
+  let result = '';
+  let i = 0;
+  while (i < length) {
+    const currentChar = input[i];
+    let count = 1;
+    while (i + count < length && input[i + count] === currentChar) {
+      count++;
+    }
+    result += currentChar + count.toString();
+    i += count;
+  }
+  return result;
+}
+```

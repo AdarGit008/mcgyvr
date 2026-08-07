@@ -1,0 +1,29 @@
+```typescript
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  return convertCelsiusToTemperature(celsius, "F");
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  return convertCelsiusToTemperature(celsius, "K");
+}
+
+function convertCelsiusToTemperature(celsius: number, targetUnit: string): number {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+
+  switch (targetUnit) {
+    case "F":
+      return celsius * 1.8 + 32;
+    case "K":
+      return celsius + 273.15;
+    default:
+      throw new Error(`Unsupported target unit: ${targetUnit}`);
+  }
+}
+```

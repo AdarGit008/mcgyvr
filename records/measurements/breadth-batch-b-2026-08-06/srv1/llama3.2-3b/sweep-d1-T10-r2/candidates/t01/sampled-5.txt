@@ -1,0 +1,36 @@
+```typescript
+/**
+ * Run-length encodes every maximal run of one repeated character in the input string.
+ *
+ * @param input - The input string to encode.
+ * @returns The encoded string with each run's length appended to its symbol.
+ */
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') {
+        throw new Error('Input must be a string.');
+    }
+
+    let output = '';
+    let currentChar = input[0];
+    let charCount = 1;
+
+    for (let i = 1; i <= input.length; i++) {
+        const char = input[i];
+
+        if (char === currentChar) {
+            charCount++;
+        } else {
+            if (currentChar !== '') {
+                output += `${currentChar}${charCount}`;
+            }
+
+            if (input[i - 1] !== '') { // guard clause to prevent off-by-one error
+                currentChar = char;
+                charCount = 1;
+            }
+        }
+    }
+
+    return output || '';
+}
+```

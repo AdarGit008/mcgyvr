@@ -1,0 +1,27 @@
+```typescript
+/**
+ * Returns the run-length encoded string representation of input.
+ * Throws Error if input is not a string.
+ */
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') {
+        throw new Error('Input must be a string');
+    }
+
+    const result = [];
+    let currentChar = input[0];
+    let charCount = 1;
+
+    for (let i = 1; i <= input.length; i++) {
+        if (i < input.length && input[i] !== currentChar) {
+            result.push(`${currentChar}${charCount}`);
+            currentChar = input[i];
+            charCount = 1;
+        } else {
+            charCount++;
+        }
+    }
+
+    return result.join('');
+}
+```

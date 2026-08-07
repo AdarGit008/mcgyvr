@@ -1,0 +1,25 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    /**
+     * Flattens nested arrays up to a given depth level.
+     */
+    
+    // Check if depth is valid, throwing an Error for invalid values
+    if (typeof depth !== 'number' || isNaN(depth) || depth < 0) {
+        throw new Error('Invalid depth value');
+    }
+
+    // If depth is Infinity or 0, return a copy of the input unchanged
+    if (depth <= 0) {
+        return Array.from(items);
+    }
+
+    // Use map to recursively flatten arrays, while ensuring that non-iterable values stay unchanged
+    const flattened = items.map(item => Array.isArray(item) ? 
+        // If item is an array, recursively call flatten with decreased depth and concatenate results
+        flatten(...item.slice(0, depth === Infinity ? Infinity : depth), depth - 1).concat([item]) :
+        [item]);
+
+    return flattened;
+}
+```

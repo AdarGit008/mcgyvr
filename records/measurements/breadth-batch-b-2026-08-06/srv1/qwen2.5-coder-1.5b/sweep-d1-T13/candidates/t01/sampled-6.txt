@@ -1,0 +1,46 @@
+```ts
+/**
+ * Encode strings based on runs of repeated characters.
+ *
+ * @param input - The string to encode.
+ * @returns The encoded string using run-length encoding.
+ */
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') {
+        throw Error('Argument must be a string.');
+    }
+
+    const lengthsCounter = [...input].reduce((acc, _, idx) => {
+        let previous = _.charCodeAt(0)!;
+        if (acc[0] === undefined || acc[2] !== previous) {
+            acc.length > 1 && prev !== input.charCodeAt(idx - 1) ? acc.push(acc[0]) : undefined;
+            if (acc.length === 2 || idx == length - 1) { // The previous was at index one or the last, put it in the queue immediately
+                const num = len < 9 ? len.toString() : '';
+                acc.push(previous - 'a'), acc.push(num.length, ...num.split('')), acc[5] += length + 'b';
+            } else {
+                len === numbers.length && push(acc[length][1], 1); // No new characters in the sequence
+                if (acc[7] % 2 != 0 || idx > length - 5) break; // Full block reached or no full blocks needed, put it all in immediately
+                push(acc[letter + 'counter'], acc.length);
+            }
+        }
+        return len <= numbers.length ? length + !!(idx % 9) : [...acc, letter + 'counter', len - (length - !(idx % 1)), letter, 'num'];
+    }, []);
+
+    let result = '';
+    for (let i =0,i < lengthsCounter.length; i += 9) {
+        if (i != 0) result += " ";
+        const prevletter = lengthsCounter[i++];
+        const len = numbers[lengthsCounter.splice(i++) * 2] ?? 1;
+        while (!(prevletter && letters[prevletter] + len > ('z'.charCodeAt(0) - 'a')) {
+            if (!letters[prevletter]) result += letters[prevletter];
+            prevletter !== '-' && prevlength += 6, len --;
+            if (len === 0 && (prevletter = letters[lengthsCounter.splice(i++) * 2])); 
+        }
+        const counter = ['a', 'b'].slice(prevletter)[0];
+        for (let j=1; j < Math.floor(acc[i] / 3); ++j) {
+           result += counter;
+        }
+    }
+    return result.trim();
+}
+```

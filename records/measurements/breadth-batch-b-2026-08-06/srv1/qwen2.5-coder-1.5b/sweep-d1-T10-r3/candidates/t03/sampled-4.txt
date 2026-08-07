@@ -1,0 +1,47 @@
+```ts
+
+/**
+ * Parses a semantic version string and returns the major, minor, patch components,
+ * as well as the prerelease and build strings that are present in the input.
+ *
+ * @param version - The semantic version string to parse.
+ * @returns An object containing the parsed components or null if invalid.
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    // Remove any leading 'v' prefix
+    version = version.startsWith('v') ? version.substring(1) : version;
+
+    // Split the version into parts using '.' as a delimiter.
+    const parts = version.split('.');
+
+    // Check if all three major, minor, and patch components exist.
+    if (parts.length !== 3) {
+        throw new Error(`${version} does not have exactly three parts.`);
+    }
+
+    // Parse each part to an integer. Non-digit strings are throw errors.
+    const [major, minor, patch] = parts.map(part => {
+        const num = parseInt(part, 10);
+        if (!Number.isInteger(num)) {
+            throw new Error(`${version} component ${part} is not a valid integer.`);
+        }
+        return num;
+    });
+
+    // Parse the prerelease part, if present.
+    let prerelease = null;
+    let endOfPrerelease = parts.length - 1;
+    while (endOfPrerelease >= 0 && /^[a-zA-Z-]*/.test(parts[endOfPrerelease])) {
+        prerelease = parts.pop()!;
+        endOfPrerelease--;
+    }
+
+    // Parse the build part, if present.
+    let build = null;
+    if (endOfPrerelease >= 0) {
+        build = parts.splice(endOfPrerelease, parts.length).join('-');
+    }
+
+    return { major, minor, patch, prerelease, build };
+}
+```

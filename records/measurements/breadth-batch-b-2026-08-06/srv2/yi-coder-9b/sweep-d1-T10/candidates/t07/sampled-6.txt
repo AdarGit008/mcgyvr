@@ -1,0 +1,20 @@
+Here's how you could implement this functionality:
+
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0 || Number.isNaN(depth)) throw new Error('Invalid depth');
+  const flattened: unknown[] = [];
+    for (let item of items) {
+        if (Array.isArray(item) && depth > 0) {
+            flattened.push(...flatten(item, depth - 1));
+        } else {
+            flattened.push(item);
+        }
+    }
+  return flattened;
+}
+```
+This function starts by checking if the depth is invalid (negative or NaN). If it's valid, it defines a new empty array `flattened` and then iterates over each item in the input list: 
+
+If the current item happens to be an array AND we are allowed to flatten nested items (`depth > 0`), this function recursively calls itself with the nested items and decreased depth. The returned flat list is then spread into `flattened` using the `push(...)` method. If not, it just pushes the current item onto the flattened result.
+Finally, the function returns the array of flattened values.

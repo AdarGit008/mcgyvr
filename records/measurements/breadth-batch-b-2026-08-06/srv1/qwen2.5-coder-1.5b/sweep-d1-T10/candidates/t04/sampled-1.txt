@@ -1,0 +1,68 @@
+```ts
+export class LruCache<K, V> {
+    #entries: { [key: K]: V } = {};
+    #capacity: number;
+    #firstKey: K | null = null;
+    #lastKey: K | null = null;
+
+    constructor(capacity: number) {
+        if (typeof capacity !== 'number' || !Number.isInteger(capacity) || capacity <= 0) {
+            throw new Error('Capacity must be a positive integer');
+        }
+        this.#capacity = capacity;
+    }
+
+    get(key: K): V | undefined {
+        const value = this.#entries[key];
+        if (value !== undefined) {
+            // Move the accessed entry to the front of the list
+            if (this.#firstKey === key) {
+                return value;
+            }
+            if (this.#lastKey === key) {
+                this.#lastKey = value[1];
+            } else {
+                delete this.#entries[value[0]];
+            }
+            [value[0], value[1]] = [key, value[1]]; // Update the last key reference
+        }
+        return value;
+    }
+
+    set(key: K, value: V): void {
+        if (this.#capacity === 0) {
+            return; // No capacity to add an entry
+        }
+        if (this.#entries[key] === undefined) {
+            this.insertNewEntry(key, value);
+        } else {
+            this.updateExistingEntry(key, value);
+        }
+    }
+
+    insertNewEntry(key: K, value: V): void {
+        const nextKey = { 0: key, 1: this.#lastKey };
+        delete this.#entries[this.#firstKey!];
+        if (!this.#lastKey) {
+            this.#firstKey = key;
+        }
+        this.#lastKey = nextKey[0];
+        this.#entries[nextKey[0]] = value;
+    }
+
+    updateExistingEntry(key: K, newValue: V): void {
+        const currentEntry = this.#entries[key];
+        const newEntry = { 0: key, 1: this.#lastKey };
+        delete this.#entries[currentEntry[0]];
+        if (!this.#lastKey) {
+            this.#firstKey = key;
+        }
+        this.#lastKey = newEntry[0];
+        this.#entries[newEntry[0]] = newValue;
+    }
+
+    get size(): number {
+        return Object.keys(this.#entries).length;
+    }
+}
+```

@@ -1,0 +1,79 @@
+```ts
+export class LruCache<K, V> {
+  private keyCount: { [key: K]: boolean } = {};
+  private valueList: { [key: K]: V | undefined } = {};
+  private capacity: number;
+  private cacheItems: K[] = [];
+
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error("Invalid capacity. Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.keyCount = {};
+  }
+
+  get(key: K): V | undefined {
+    if(!this.keyCount[key]) return this.valueList[key];
+
+    const currentIndex = this.cacheItems.indexOf(key);
+   this.clearToIndex(currentIndex, true) // Make key new least frequently used by setting it to the end
+    this.keyCount[key] = true;
+
+    return this.valueList[key];
+  }
+
+  set(key: K, value: V): void {
+    if (this.capacity === 0 || key in this.valueList) {
+      if (key == undefined) {
+        throw new Error("Key cannot be undefined when the capacity is zero.");
+      }
+      const leastUsedItem = this.cacheItems[0]; // Find least recently used item by index
+      delete this.keyCount[leastUsedItem];
+      this.clearToIndex(leastUsedItem, true);
+    }
+
+    if (key in this.valueList) {
+        delete this.keyCount[key];
+    } 
+
+    this.keyCount[key] = !this.keyCount[key]; // Toggle use status; 1 for used
+    this.cacheItems.push(key);           // Insert new item at then end of list which is always the most recently used
+    this.valueList[key] = value;
+  }
+
+  get size(): number {
+    return this.cacheItems.length;
+  }
+
+ private clearToIndex(item: K, deleteIfTrue: boolean): void {
+    if (deleteIfTrue === true) {
+      for(let i = 0; i < this.capacity - 1 && this.cacheItems[i] !== item; ++i);
+      if(this.cacheItems[i + 1]){                
+        this.valueList[this.cacheItems[i]] = undefined;
+        this.keyCount[this.cacheItems[i]] = false;          
+      
+        for(let j = i +2 ;j < this.capacity;j++)
+                {
+                    const cacheItem = this.cacheItems[j];
+                  this.keyCount[cacheItem] = true;
+                    
+                  this.valueList[cacheItem] = this.valueList[item];
+                  
+                    
+                    item = cacheItem;
+                
+                }                
+                // Now that we have copied the entire list, with the replaced element at position i + 1, move it to the start of it by swapping
+                 this.cacheItems.splice(i,index+1);
+                
+                }
+
+     
+   } else {
+       console.log("Cannot remove key");        
+     
+    }
+  }
+
+```

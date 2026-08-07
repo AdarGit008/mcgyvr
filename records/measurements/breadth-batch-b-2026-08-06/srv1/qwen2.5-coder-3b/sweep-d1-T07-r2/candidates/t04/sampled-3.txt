@@ -1,0 +1,62 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private map: Map<K, { value: V, timestamp: number }>;
+  private head: { key: K | null; val: V | null } = { key: null, val: null };
+  private tail: { key: K | null; val: V | null } = { key: null, val: null };
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.map = new Map<K, { value: V, timestamp: number }>();
+    this.head.next = this.tail;
+    this.tail.prev = this.head;
+  }
+
+  private addNode(key: K, val: V): void {
+    const newNode: { key: K; val: V; prev: any; next: any } = {
+      key,
+      val,
+      prev: this.tail.prev,
+      next: this.tail,
+    };
+    this.tail.prev.next = newNode;
+    this.tail.prev = newNode;
+  }
+
+  private removeNode(node: { key: K | null; val: V | null }): void {
+    const next = node.next;
+    const prev = node.prev;
+    next.prev = prev;
+    prev.next = next;
+  }
+
+  get(key: K): V | undefined {
+    if (!this.map.has(key)) return undefined;
+
+    const { value } = this.map.get(key)!;
+    this.removeNode(this.map.get(key) as { key: K; val: V; prev: any; next: any });
+    this.addNode(key, value);
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.map.has(key)) {
+      const node = this.map.get(key)!;
+      this.removeNode(node);
+    } else if (this.map.size >= this.capacity) {
+      const leastRecentlyUsedNode = this.head.next!;
+      this.removeNode(leastRecentlyUsedNode);
+      this.map.delete(leastRecentlyUsedNode.key!);
+    }
+    this.addNode(key, value);
+    this.map.set(key, { value, timestamp: Date.now() });
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+}
+```

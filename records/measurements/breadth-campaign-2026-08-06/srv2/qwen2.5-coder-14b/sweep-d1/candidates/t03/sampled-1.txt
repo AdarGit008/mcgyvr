@@ -1,0 +1,27 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const versionPattern = /^(\d+).(\d+).(\d+)(?:-(.+))?(?:\+(.+))?$/;
+  const match = version.match(versionPattern);
+
+  if (!match) {
+    throw new Error(`Invalid semver version: ${version}`);
+  }
+
+  const major = parseInt(match[1], 10);
+  const minor = parseInt(match[2], 10);
+  const patch = parseInt(match[3], 10);
+
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+    throw new Error(`Invalid semver version: ${version}`);
+  }
+
+  if (major < 0 || minor < 0 || patch < 0 || (major === 0 && match[1] !== '0') || (minor === 0 && match[2] !== '0') || (patch === 0 && match[3] !== '0')) {
+    throw new Error(`Invalid semver version: ${version}`);
+  }
+
+  const prerelease = match[4] ?? null;
+  const build = match[5] ?? null;
+
+  return { major, minor, patch, prerelease, build };
+}
+```

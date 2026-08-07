@@ -1,0 +1,29 @@
+```typescript
+/**
+ * Parses KEY=VALUE pairs from a config text, ignoring blank lines,
+ * lines starting with '#', trimming whitespace around keys and values,
+ * splitting on the first '='. If a key appears more than once, the last occurrence wins.
+ * Throws an Error naming the line for a line with no '=' and for an empty key.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n").filter(Boolean)) {
+    if (!line.trim().startsWith('#')) {
+      const match = line.match(/^([^=]+)=(.*)$/);
+      if (match) {
+        const [key, value] = [match[1].trim(), match[2].trim()].map(s => s.replace(/^\s+|\s+$/, ''));
+        if (!value.length || key.length === 0) {
+          throw new Error(`Invalid config line: ${line}`);
+        }
+        config[key] = value;
+      } else {
+        const trimLine = line.trim();
+        if (trimLine && trimLine !== '' && !trimLine.startsWith('=')) {
+          throw new Error(`Invalid config line: ${line}`);
+        }
+      }
+    }
+  }
+  return config;
+}
+```

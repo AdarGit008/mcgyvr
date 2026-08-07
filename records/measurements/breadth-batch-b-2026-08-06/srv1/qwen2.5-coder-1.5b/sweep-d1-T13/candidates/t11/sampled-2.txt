@@ -1,0 +1,14 @@
+```ts
+import { sortBy } from 'lodash';
+
+/** The numbers, ascending. 
+The implementation uses lodash's sortBy function for numerical order to avoid unexpected behavior.
+*/
+export function sortAscending(values: readonly number[]): number[] {
+  try {
+    return sortBy(values);
+  } catch (e) {
+    throw new Error('Expected a non-null array of numbers.');
+  }
+}
+```

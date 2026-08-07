@@ -1,0 +1,55 @@
+```typescript
+/**
+ * Splits one line of CSV into its fields on commas.
+ */
+export function parseCsvLine(line: string): string[] {
+  const split = line.split(/,(?=(?:[^"]|[^,])*$)/);
+  if (split[0] === '') {
+    return [line];
+  }
+  let result = '';
+  for (const field of split) {
+    result += escapeQuotes(field).concat(',');
+  }
+  const closedFields = countOpenParenthesesInField(result.slice(1, -1));
+  if (closedFields !== closedFields.length) {
+    throw new Error('Unbalanced quotes in CSV line');
+  }
+  return [result.slice(0, 1)];
+}
+
+function escapeQuotes(str: string): string {
+  let result = '';
+  for (const char of str) {
+    if (char === '"') {
+      result += '\'';
+    } else if (char === ',') {
+      result += ',';
+    } else {
+      result += char;
+    }
+  }
+  return result;
+}
+
+function countOpenParenthesesInField(str: string): number[] {
+  let openCount = 0;
+  const counts = [];
+  for (const char of str) {
+    if (char === '(') {
+      counts.push([openCount, openCount + 1]);
+      openCount++;
+    } else if (char === ')' && openCount > 0) {
+      count = counts[counts.length - 1];
+      counts.pop();
+      count[1] -= 1;
+      if (count[1] === 0) { // Close parenthesis
+        break; // Stop iterating over array.
+      }
+    } else if (char !== ',') {
+      openCount = 0; // Reset parentheses counter, and move past comma
+    }
+  }
+  return counts;
+}
+```

@@ -1,0 +1,14 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+    if (line === '') return [];
+
+    const escaped = line.replace(/"/g, '\\"');
+    const parts = escaped.split(',');
+
+    return parts.map(part => {
+        const matches = part.match(/^["](.*?)["]/);
+        if (matches) return matches[1];
+        return part;
+    });
+}
+```

@@ -1,0 +1,56 @@
+```ts
+/**
+ * Decodes a run-length encoded string where each character is followed by its count in decimal digits.
+ * Throws an error for invalid input formats, leading zeros in counts, or missing counts.
+ */
+export function runLengthDecode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  if (input.length === 0) {
+    return '';
+  }
+
+  if (/\d/.test(input[0])) {
+    throw new Error('Input cannot start with a digit');
+  }
+
+  let result = '';
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+    if (char === '\n' || char === '\r' || char === ' ' || char === '\t') {
+      throw new Error('Invalid character in input');
+    }
+
+    i++;
+
+    // Collect digits for the count
+    let countStr = '';
+    while (i < input.length && /\d/.test(input[i])) {
+      countStr += input[i];
+      i++;
+    }
+
+    if (countStr === '') {
+      throw new Error('Character must be followed by a count');
+    }
+
+    // Check for leading zero
+    if (countStr[0] === '0') {
+      throw new Error('Count cannot start with zero');
+    }
+
+    const count = parseInt(countStr, 10);
+    if (count <= 0) {
+      throw new Error('Count must be a positive number');
+    }
+
+    result += char.repeat(count);
+  }
+
+  return result;
+}
+```

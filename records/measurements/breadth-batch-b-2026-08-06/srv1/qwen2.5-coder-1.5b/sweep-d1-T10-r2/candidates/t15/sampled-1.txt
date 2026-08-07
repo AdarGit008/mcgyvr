@@ -1,0 +1,13 @@
+```ts
+export function celsiusToFahrenheit(celsius: number): number { this.helperValidation(celsius);  if (celsius < -273.15) {    throw new Error("celsius must be at or above absolute zero");  }  return celsius * 1.8 + 32;
+}
+
+export function celsiusToKelvin(celsius: number): number { this.helperValidation(celsius);  if (celsius < -273.15) {    throw new Error("celsius must be at or above absolute zero");  }  return celsius + 273.15;
+}
+
+function helperValidation(temp) {
+  if (typeof temp !== "number" || !Number.isFinite(temp)) {
+    throw new Error("temp must be a finite number");
+  }
+}
+```

@@ -1,0 +1,29 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== 'undefined' && depth < 0) {
+    throw new Error('depth must be a non-negative integer');
+  }
+  const defaultDepth = depth || Infinity;
+  if (typeof items !== 'object' || !items || Array.isArray(items) === false) {
+    return [...items];
+  }
+
+  return items.flatMap((item, index) => {
+    if (Array.isArray(item)) {
+      return item.map(flatten).reduce(
+        (acc, value) =>
+          Array(isFinite(depth - 1) ? depth - 1 : defaultDepth)
+            .fill(true)
+            .shift() !== true // Only push when depth is greater than 0
+            ? acc.concat(value)
+            : acc,
+        []
+      );
+    }
+    if (item instanceof Error) {
+      return [item]; // Handle errors separately to prevent recursion issues
+    }
+    return [item];
+  });
+}
+```

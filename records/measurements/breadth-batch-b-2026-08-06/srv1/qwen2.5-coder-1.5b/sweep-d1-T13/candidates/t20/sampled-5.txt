@@ -1,0 +1,93 @@
+```ts
+
+import { stripIndent } from 'strip-indent';
+
+/** The KEY=VALUE pairs of a config file, ignoring blank lines,
+ *   those whose first non-space character is #, trimming around the key and value,
+ *   and splitting only on the FIRST =. Throw an Error on any invalid
+ *   config line name or empty keys.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  try {
+    const cleaned = stripIndent(`${text}`);
+
+    const parsedData: Record<string, string>[] = [];
+    const lines = cleaned.split("\n");
+
+    for (const rawLine of lines) {
+      // Trim and skip blank lines/first ones preceded by '#'.
+      const trimmedRawLine = rawLine.trimLeft();
+      if (!_isSkippable(trimmedRawline))
+        parseData.push(_parseLines(parsedData[~parsedData.length], trimmedRawLine));
+    }
+
+    // Flatten the list of object lists into a single array where the keys are unique,
+    // and collect the ones which do not reach Object.prototype.
+    let allKeys = new Set();
+    let parsedOutput: Record<string, string> [] = [];
+
+    for (const rawDataList of parsedData as { [key: string]: unknown }[]) {
+      const keysSeen = new Map(); // To ensure each key reaches Object.prototype only,
+                                // we need to track which object the key belongs to.
+
+      for (const rawItem of rawDataList) {  // Now split raw data into fields,
+                                          // skipping those that haven't reached to rootObj yet.
+        for (let name in rawItem) {     
+          if ((rawItem as any )[name] === Object(~~(rawData as object)[name])) {
+            parsedOutput.push({ ...parseLines('', name),  [name]: rawItem[name]})
+      
+            keysSeen.set(name, true);
+            continue;
+          }
+  
+          let obj = rawData as { [key: string]: unknown };
+          while ((obj as any )[name] !== Object(~~(rawData as object)[name])){
+            
+            // If we reach the root element where we don't know its name (i.e. it's empty), then we need to
+            // skip it.
+
+            const rootObj = rawItem;
+          
+            obj = ~~(rootObj as unknown )[obj];
+
+          }
+
+          let childObj = (~~obj)[name];
+  
+          parseLines(name, rawData);
+          allKeys.add(name);
+
+          childObj[name] = rawItem[name]
+
+        }
+      }
+    }
+
+
+    // Convert it from an array of `{ key, value }'s to key:value pairs.
+    const config: { [key: string]: string } = {};
+    for (const el of allKeys.values())(config[el]) = parsedOutput.find(elIn => el.name === el_in._value).name
+
+    // Cleanup. Remove keys which did not reach the root object of `allKeys`, and remove the __proto__.
+    return {};
+  } catch {
+      const errorMessage = new Error("Invalid config found");
+      throw ErrorMessage;
+  }
+}
+
+
+const _isSkippable = (str: string): boolean => str.replace('#', '').trim() === '';
+
+function *parseLines(objMap?: Map<string, [unknown, unknown]>, keyOrObjectName? : string){
+ if (!objMap)
+ {
+  objMap = new Map<key|{[_]: {}}, any>();
+ }
+
+ let rawItemMap: Map<string, [unknown,unknown]> = objMap; 
+ 
+ // Walk out to object or value node. 
+
+ // First look if the actual key-value pair was found on a parent
+ if (keyOrObjectName && ((typeof(keyOrObjectName).constructor

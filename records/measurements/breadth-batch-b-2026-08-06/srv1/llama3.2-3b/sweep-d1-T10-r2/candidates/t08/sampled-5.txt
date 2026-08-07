@@ -1,0 +1,104 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    const graph = nodes.reduce((acc, node) => {
+        acc[node] = 0;
+        return acc;
+    }, {});
+
+    for (const [from, to] of edges) {
+        if (!graph.fromHasNode(from)) {
+            throw new Error(`${from} is not a valid node in the set of nodes`);
+        }
+        graph[from]++;
+        if (!graph[to]) {
+            graph.addIfNot present(to);
+        }
+        graph[to]--;
+    }
+
+    const queue = [];
+    for (const node of nodes) {
+        if (graph[node] === 0) {
+            queue.push(node);
+        }
+    }
+
+    const order: string[] = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift();
+        order.push(node);
+
+        for (const [from, to] of edges) {
+            if (from === node && graph[to] <= 0) {
+                queue.push(to);
+                graph.remove(to);
+            }
+        }
+
+        for (const neighbor in graph) {
+            if (graph[neighbor] <= 0 && graph.fromHasNode(neighbor)) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    if (order.length !== nodes.length) {
+        throw new Error("Cycle detected. Unable to sort topologically");
+    }
+
+    return order;
+}
+
+class GraphEntry {
+    private _node: string;
+    private _incomes: number;
+
+    constructor(node: readonly string, incomes: number = 0) {
+        this._node = node;
+        this._incomes = incomes;
+    }
+
+    get node(): string {
+        return this._node;
+    }
+
+    get incomes(): number {
+        return this._incomes;
+    }
+
+    public addIncomes(income: number): void {
+        if (this.incomes < 0) {
+            throw new Error('edges cannot have a net income higher than zero');
+        }
+        this._incomes += income;
+    }
+
+    public removeIncomes(income: number): void {
+        if (this.incomes < 0) {
+            throw new Error('edges cannot have a negative income, and edges are expected to have no negative incomes.');
+        }
+        this._incomes -= income;
+    }
+
+    private static fromHasNode(nodeName: string): boolean {
+        return Object.prototype.hasOwnProperty.call(GraphEntry.getNodes(), nodeName);
+    }
+
+    private static getNodes(): { [key in string]: GraphEntry } {
+        if (!GraphEntry.nodes) {
+            GraphEntry.nodes = {};
+        }
+        return GraphEntry.nodes;
+    }
+
+    public static addIfNot present(nodeName: string): void {
+        const node = new GraphEntry(nodeName);
+        GraphEntry.getNodes()[nodeName] = node;
+    }
+
+    public static removeNode(nodeName: string): void {
+        delete GraphEntry.getNodes()[nodeName];
+    }
+}
+```

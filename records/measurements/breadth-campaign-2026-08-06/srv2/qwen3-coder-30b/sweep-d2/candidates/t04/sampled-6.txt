@@ -1,0 +1,55 @@
+```ts
+export function tokenize(input: string): string[] {
+  if (input === "") {
+    return [];
+  }
+
+  const tokens: string[] = [];
+  let currentToken = "";
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+
+    if (char === "\\" && i + 1 < input.length) {
+      const nextChar = input[i + 1];
+      currentToken += nextChar;
+      i += 2;
+      continue;
+    }
+
+    if (char === '"') {
+      if (!inQuotes && currentToken === "") {
+        // Empty token
+        tokens.push("");
+      }
+      inQuotes = !inQuotes;
+      i++;
+      continue;
+    }
+
+    if (!inQuotes && (char === " " || char === "\t")) {
+      if (currentToken !== "") {
+        tokens.push(currentToken);
+        currentToken = "";
+      }
+      i++;
+      continue;
+    }
+
+    currentToken += char;
+    i++;
+  }
+
+  if (inQuotes) {
+    throw new Error("Unterminated quote");
+  }
+
+  if (currentToken !== "") {
+    tokens.push(currentToken);
+  }
+
+  return tokens;
+}
+```

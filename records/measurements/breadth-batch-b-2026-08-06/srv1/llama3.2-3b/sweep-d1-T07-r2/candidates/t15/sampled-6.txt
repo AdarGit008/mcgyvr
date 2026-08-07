@@ -1,0 +1,21 @@
+```ts
+/** Calculates temperature in Fahrenheit from Celsius */
+export function celsiusToFahrenheit(celsius: number): number {
+  return checkTemperature(celsius, (f) => f * 1.8 + 32);
+}
+
+/** Calculates temperature in Kelvin from Celsius */
+export function celsiusToKelvin(celsius: number): number {
+  return checkTemperature(celsius, (f) => f + 273.15);
+}
+
+function checkTemperature(value: number, formula: (value: number) => number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("must be a finite number");
+  }
+  if (value < -273.15) {
+    throw new Error("must be at or above absolute zero");
+  }
+  return formula(value);
+}
+```

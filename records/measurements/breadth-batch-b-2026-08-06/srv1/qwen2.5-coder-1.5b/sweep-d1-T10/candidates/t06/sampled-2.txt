@@ -1,0 +1,50 @@
+```ts
+function parseCsvLine(line: string): string[] {
+  if (!line) return [];
+
+  const escapedQuotes = ['"', '\0'];
+  const fieldStartIndex = 0;
+  const fields: string[] = [];
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === ',') {
+      // We found a comma, add the current field to the results
+      fields.push(line.slice(fieldStartIndex, i).trim());
+      
+      // We're done with the current field, reset the start index for the next one
+      fieldStartIndex = i + 1;
+    } else if (char === '"' && !escapedQuotes.includes(char) && escapedQuotes.indexOf(line[i - 1] || '') !== -1) {
+      // We found a quoted field.
+      let doubleQuoteCount = 0;
+      while (i < line.length && doubleQuoteCount <= 1) {
+        char = line[i++];
+        escapedQuotes.push(char);
+        if (char === '"' && escapedQuotes.indexOf(line[i] || '') !== -1) doubleQuoteCount++; // Count nested quotes
+        else if (doubleQuoteCount === 2) break; // A closing quote found, we can stop parsing the quoted field
+      }
+      
+      let value = '';
+      while (i < line.length && char !== '"') {
+        value += char;
+        char = line[i++];
+      }
+      
+      // Drop the leading and trailing double quotes
+      fields.push(value.substring(1, -1).trim());
+    } else if (char === '"' || char === ' ' || i === line.length - 1) {
+      // We found a delimiter or we're at the end of the line.
+      const quotedField = fields.pop()!; // Ensure it's not undefined
+      if (quotedField.includes('"')) {
+        throw new Error("Unmatched quotation mark in a field.");
+      }
+      
+      if (i < line.length - 1 && char !== ' ') continue;
+      fields.push(...quotedField.split(',').filter(Boolean));
+    }
+  }
+
+  return fields;
+}
+```

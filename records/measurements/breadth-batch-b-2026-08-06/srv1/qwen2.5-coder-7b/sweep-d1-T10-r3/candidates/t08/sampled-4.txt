@@ -1,0 +1,46 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph: { [node: string]: string[] } = {};
+    const inDegree: { [node: string]: number } = {};
+
+    // Initialize graph and in-degree count
+    for (const node of nodes) {
+        graph[node] = [];
+        inDegree[node] = 0;
+    }
+
+    // Build the graph and compute in-degrees
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) throw new Error(`Invalid edge: ${from} -> ${to}`);
+        graph[from].push(to);
+        inDegree[to]++;
+    }
+
+    // Find nodes with zero in-degree
+    const queue: string[] = [];
+    for (const node in inDegree) {
+        if (inDegree[node] === 0) {
+            queue.push(node);
+        }
+    }
+
+    // Perform topological sort
+    const sorted: string[] = [];
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        sorted.push(current);
+
+        for (const neighbor of graph[current]) {
+            inDegree[neighbor]--;
+            if (inDegree[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    // Check for cycles
+    if (sorted.length !== nodes.length) throw new Error('Cycle detected');
+
+    return sorted;
+}
+```

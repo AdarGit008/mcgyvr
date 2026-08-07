@@ -1,0 +1,27 @@
+```ts
+import { Number } from "https://deno.land/std@0.108.0/types/mod.ts";
+
+function validateTemperatureValue(value: number): void {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("must be a finite number");
+  }
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  validateTemperatureValue(celsius);
+  if (celsius < -273.15) {
+    throw new Error("at or above absolute zero");
+  }
+  return celsius * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  validateTemperatureValue(celsius);
+  if (celsius < -273.15) {
+    throw new Error("at or above absolute zero");
+  }
+  return celsius + 273.15;
+}
+```

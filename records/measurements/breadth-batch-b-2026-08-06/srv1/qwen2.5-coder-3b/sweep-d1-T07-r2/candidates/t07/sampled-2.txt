@@ -1,0 +1,30 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (!Number.isInteger(depth) && depth !== Infinity) {
+        throw new Error("Depth must be a non-negative integer or Infinity.");
+    }
+
+    const result: unknown[] = [];
+    const currentDepth = depth ?? 1;
+
+    function traverse(item: unknown, currentLevel: number): void {
+        if (Array.isArray(item)) {
+            for (const element of item) {
+                if (currentLevel > 0) {
+                    traverse(element, currentLevel - 1);
+                } else {
+                    result.push(element);
+                }
+            }
+        } else if (typeof item === 'object' && item !== null) {
+            throw new Error("Object values are not supported for flattening.");
+        } else {
+            result.push(item);
+        }
+    }
+
+    traverse(items, currentDepth);
+
+    return result;
+}
+```

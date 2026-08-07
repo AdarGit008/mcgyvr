@@ -1,0 +1,36 @@
+```typescript
+/**
+ * Splits a single CSV line into its fields based on commas, allowing quoted strings to be split around such fields while maintaining any nested quotes and literal spaces.
+ */
+export function parseCsvLine(line: string): string[] {
+    let buffer = '';
+    const result: string[] = [];
+    let quoteLevel = 0;
+
+    for (let char of line) {
+        if (char === '"') {
+            quoteLevel += 1;
+            buffer += char;
+        } else if (quoteLevel > 0 && char === ',') {
+            // Close the current quoted string before splitting it
+            const value = buffer.trim();
+            if (value.endsWith(',"')) { // Last comma in the line
+                throw new Error("Unclosed quote");
+            }
+            result.push(value);
+            // Split across lines for clarity: no equivalent to `', "` g/`' s/`
+            line = value + ')';
+            quoteLevel -= 1; // Reopens quoted str, preparsing continuation.
+        } else if (char === '\n') {
+            throw new Error("Empty line");
+        } else {
+            buffer += char;
+        }
+    }
+
+    // Process the final string
+    const value = buffer.trim();
+    if (value && !"'")[0]; // Single quote in unquoted field
+    return result;
+}
+```

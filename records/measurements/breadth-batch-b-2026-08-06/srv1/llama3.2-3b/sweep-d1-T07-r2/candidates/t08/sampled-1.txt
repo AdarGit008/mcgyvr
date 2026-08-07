@@ -1,0 +1,60 @@
+```ts
+/**
+ * Returns a topological ordering satisfying every edge in the given graph.
+ * When several orderings are valid, picks the one that keeps nodes in their input order.
+ * Throws an Error naming a cycle when no ordering exists, and an Error for an edge naming a node not in nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+  const adjacencyList: { [node: string]: Set<string> } = {};
+  const inDegree: { [node: string]: number } = {};
+
+  // Initialize the graph and in-degree dictionary
+  for (const node of nodes) {
+    adjacencyList[node] = new Set();
+    inDegree[node] = 0;
+  }
+
+  // Build the adjacency list and update in-degrees
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from)) {
+      throw new Error(`Edge ${[from, to].join(' -> ')}: from node not found`);
+    }
+    if (!nodes.includes(to)) {
+      throw new Error(`Edge ${[from, to].join(' -> ')}: to node not found`);
+    }
+
+    adjacencyList[from].add(to);
+    inDegree[to]++;
+  }
+
+  // Perform topological sorting using Kahn's algorithm
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if (inDegree[node] === 0) {
+      queue.push(node);
+    }
+  }
+
+  const sorted: string[] = [];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    sorted.push(node);
+
+    // Decrease in-degrees and enqueue nodes with no incoming edges
+    for (const neighbor of adjacencyList[node]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check for cycles using the number of remaining nodes
+  if (sorted.length !== nodes.length) {
+    throw new Error('Cycle detected');
+  }
+
+  return sorted;
+}
+```

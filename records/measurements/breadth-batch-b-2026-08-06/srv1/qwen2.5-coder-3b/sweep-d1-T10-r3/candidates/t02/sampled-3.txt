@@ -1,0 +1,27 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals) || intervals.some(pair => !Array.isArray(pair) || pair.length !== 2)) {
+    throw new Error("Input must be an array of [start, end] pairs.");
+  }
+
+  const mergedPairs: number[][] = [];
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  let currentPair = intervals[0];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const nextPair = intervals[i];
+    if (nextPair[0] <= currentPair[1]) { // Merging possible
+      currentPair[1] = Math.max(currentPair[1], nextPair[1]);
+    } else {
+      mergedPairs.push([...currentPair]); // Add the non-overlapping pair to the result
+      currentPair = nextPair; // Start a new non-overlapping interval
+    }
+  }
+
+  mergedPairs.push([...currentPair]); // Add the last non-overlapping pair
+
+  return mergedPairs;
+}
+```

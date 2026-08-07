@@ -1,0 +1,15 @@
+ ```ts
+/** The words grouped by their length, in first-seen order. */
+export function groupByLength(words: readonly string[]): Map<number, readonly string[]> {
+  const groups = new Map<number, Array<readonly string>>(); // Use Array to enforce immutability
+  for (const word of words) {
+    const bucket = groups.get(word.length);
+    if (bucket === undefined) {
+      groups.set(word.length, [word]); // Wrap the array in read-only
+    } else {
+      bucket.push(word, ); // Ensure no mutation and use push to maintain consistency
+    }
+  }
+  return groups;
+}
+```

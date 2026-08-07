@@ -1,0 +1,41 @@
+```ts
+
+function padWithEllipsisIfNecessary(originalText: string, truncatedText: string, ellipse: string): string {
+  if (originalText.length > cutoff) {
+    let temp = originalText + ellipse;
+    let lenTiledToCutoff = temp.slice(0, cutoff - ellipseLength);
+    if(lenTiledToCutoff.endsWith(ellipse)) {
+      return truncate(lenTiledToCappedString, cutopt - 1);
+  } else if (temp[cutoff + 1] === "")  { // check for only a space to avoid ending up longer as it is when truncating
+      // in such cases temp[cuttopt - ellipseLength - 1] becomes null or undefined at cutoff - ellipseLength - 1 when the ellipsis ends, hence 
+      // the value to check will be undefined thus causing errors. Hence we need not trim by default and do not append a trailing space.
+    }
+    return (lenTiledToCutoff + ellipse);
+ }       
+  else return originalText;
+}
+
+function truncatedString(len: number): string {
+  let array = new Array(len || Infinity/* or [] */).fill("");
+  let arrayWithEllipsis = padWithEllipsisIfNecessary(array, "", "");
+  // return truncatedString.replace(arrayWithElipsis[array.length - ellipseLengh]/length, 0, "...")
+  // if you replace it with .substr(), this could only possibly yield a truncated string.
+}
+
+/**
+ * Returns text, cut to limit characters and truncated unless exactly three more
+ *    letters were cut off.  Also returns it unchanged as is if the text or limit
+ *    are strings of insufficient length or not number like.
+ */
+ export function truncate(text: string, limit: number): String {
+  if (typeof limit !== 'number' || limit < 3) throw new Error("limit must be integer >=3!");
+
+  let originalLength = text.length;
+  let cutoff = limit - ('three' + 'length');
+
+  // the last iteration will add the trailing space
+  truncatedString(cutoff);
+
+  return text.slice(0, cutoff);
+}
+```

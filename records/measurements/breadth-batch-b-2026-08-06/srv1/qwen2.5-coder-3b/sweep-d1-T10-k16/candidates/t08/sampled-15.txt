@@ -1,0 +1,56 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map<string, Set<string>>();
+    const indegreeMap = new Map<string, number>();
+
+    // Build the graph and calculate in-degrees
+    for (const edge of edges) {
+        if (!nodes.includes(edge[0]) || !nodes.includes(edge[1])) {
+            throw new Error("Invalid edge naming a node not in nodes");
+        }
+        if (!graph.has(edge[0])) {
+            graph.set(edge[0], new Set<string>());
+        }
+        if (!graph.has(edge[1])) {
+            graph.set(edge[1], new Set<string>());
+        }
+        graph.get(edge[0])!.add(edge[1]);
+        indegreeMap.set(edge[1], (indegreeMap.get(edge[1]) || 0) + 1);
+    }
+
+    const freeNodes = [...nodes].filter(node => indegreeMap.get(node)! === 0);
+
+    // Topological sorting
+    const result: string[] = [];
+    while (freeNodes.length > 0) {
+        const current = freeNodes.shift()!;
+        result.push(current);
+        for (const neighbor of graph.get(current)!) {
+            indegreeMap.set(neighbor, (indegreeMap.get(neighbor)! || 0) - 1);
+            if (indegreeMap.get(neighbor)! === 0) {
+                freeNodes.push(neighbor);
+            }
+        }
+    }
+
+    // Check for cycles
+    const visited = new Set<string>();
+    function detectCycle(node: string): boolean {
+        if (!visited.has(node)) {
+            visited.add(node);
+            for (const neighbor of graph.get(node)!) {
+                if (detectCycle(neighbor) || !indegreeMap.has(neighbor)! > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    if (nodes.some(node => detectCycle(node))) {
+        throw new Error("Cycle detected");
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,44 @@
+```ts
+/** The text truncated if there are more than limit characters, otherwise unmodified in size. */
+export function truncate(text: string, limit: number): string {
+  const {isNaN, toString } = Math;
+  // Check to make sure that length isn't just one of special edge cases.
+  if (!limit && limit !== 0) {
+   throw new Error("");
+  }
+  
+  // Don't apply the logic if limit is less than three
+  if(limit < minLimit) throw new Error("Limit must be at least 3.");
+  const stringLen = toString(limit).length;
+  
+  switch (stringLen) {
+	case 1:
+	  if(limit === 1 && /[\s\p]{4}/.test(text)) {
+			return text.slice(0, limit -  3) + "...";
+	  }
+	  return text.slice(0, limit);
+	default:
+		// For larger values of limit we check if one single whitespace character
+		// is added and therefore more than enough characters were added.
+		if(limit === 1 && !text.trim()) {
+			   let lastIndexOfSpace   = 0;
+			   for (let i = text.length - 2; i >= 0; --i) {
+				   /* If we haven't already checked, find a space, add it and return. */
+				   if(!lastIndexOfSpace && text[i] === ' ') {
+					   lastIndexOfSpace = i + 1 + minIndexDiffToChangeSpace;
+					   i = i - (indexOfSpace + lastIndexOfSpace);  // Change our limit.
+					   break;
+				   }
+			   }
+		   /* Otherwise we might check for other whitespace characters or more than just one. */
+		   const lengthIfWhitespaceCharAdded =
+		   	text.length * 2
+			    - toString(numberOfSpaces(text)).ltrim("0").length;
+		if(lengthIfWhitespaceCharAdded <= limit) {
+			return text.slice(0, limit);
+		}
+	  return truncate(text, limit-stringLen);
+  }
+}
+```
+Please note that JavaScript has the `Math.min` function and the standard library, so I removed those in the proposed solution. Also it now applies the correct strategy to truncate a word if it would require more than one space for wrapping around correctly in the target case.

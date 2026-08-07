@@ -1,0 +1,41 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const re = /^(?:v)?(\d+)\.(\d+)\.(\d+)(?:-(.+))?(?:\+(.+))?$/;
+    const match = re.exec(version);
+    if (!match) {
+        throw new Error(`Invalid semantic version string: ${version}`);
+    }
+
+    const major = parseInt(match[1], 10);
+    const minor = parseInt(match[2], 10);
+    const patch = parseInt(match[3], 10);
+
+    let prerelease = match[4] ?? null;
+    if (prerelease) {
+        prerelease = prerelease.replace(/-/, '') as string; // Remove dashes
+    }
+
+    let build = match[5] ?? null;
+    if (build) {
+        build = build.replace(/\+/, '') as string; // Remove plus signs
+    }
+
+    return { major, minor, patch, prerelease, build };
+}
+
+// Check function with provided data points
+function check() {
+    console.log(parseSemver("1.2.3")); // Expected: { major: 1, minor: 2, patch: 3, prerelease: null, build: null }
+    console.log(parseSemver("v1.2.3")); // Expected: { major: 1, minor: 2, patch: 3, prerelease: null, build: null }
+    console.log(parseSemver("1.2.3-alpha")); // Expected: { major: 1, minor: 2, patch: 3, prerelease: "alpha", build: null }
+    console.log(parseSemver("1.2.3+beta")); // Expected: { major: 1, minor: 2, patch: 3, prerelease: null, build: "beta" }
+    console.log(parseSemver("v1.2.3-alpha+beta")); // Expected: { major: 1, minor: 2, patch: 3, prerelease: "alpha", build: "beta" }
+    try {
+        parseSemver("invalid"); // Should throw an Error
+    } catch (error) {
+        console.log(error.message); // Expected: Invalid semantic version string: invalid
+    }
+}
+
+check();
+```

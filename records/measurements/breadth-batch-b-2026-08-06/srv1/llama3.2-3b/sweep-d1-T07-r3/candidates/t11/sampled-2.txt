@@ -1,0 +1,8 @@
+```typescript
+/** Returns the input numbers in ascending order, numerically. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (values.length === 0) throw new Error('Cannot sort empty array');
+  
+  return [...values].map(Number).sort((a, b) => a - b);
+}
+```

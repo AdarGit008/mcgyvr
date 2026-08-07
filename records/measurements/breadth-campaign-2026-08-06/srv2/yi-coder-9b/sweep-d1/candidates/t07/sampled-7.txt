@@ -1,0 +1,25 @@
+Here's the implementation:
+
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0 || typeof depth !== 'number' || !Number.isFinite(depth)){
+    throw Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  let result: unknown[] = [];
+
+  for (const item of items) {
+    if (Array.isArray(item) && depth > 0){
+      result = [...result, ...flatten(item as readonly unknown[], depth - 1)];
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+```
+
+This implementation checks if the item is an array and whether we have reached our desired depth level before trying to flatten it. The recursion stops when it either reaches a non-array item, the max depth or an invalid depth parameter. 
+
+Please note that this function treats strings as atomic values and does not iterate into them. If you want different behaviour, please provide more details about your requirements.

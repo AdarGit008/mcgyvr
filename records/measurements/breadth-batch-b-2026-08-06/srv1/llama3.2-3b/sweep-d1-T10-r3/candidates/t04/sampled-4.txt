@@ -1,0 +1,81 @@
+```typescript
+export class LruCache<K, V> {
+    /**
+     * Creates a new LRU cache with the specified capacity.
+     */
+
+    private capacity: number;
+    private keyToValueMap: Map<K, [V, number]>;
+    private valueToIndexMap: Map<V, number>;
+
+    constructor(capacity: number) {
+        if (!Number.isInteger(capacity)) {
+            throw new Error("Capacity must be an integer.");
+        }
+        if (capacity <= 0) {
+            throw new Error("Capacity must be a positive integer.");
+        }
+
+        this.capacity = capacity;
+        this.keyToValueMap = new Map();
+        this.valueToIndexMap = new Map();
+    }
+
+    /**
+     * Returns the value for the specified key, or undefined if no such key exists.
+     */
+
+    get(key: K): V | undefined {
+        const [value, index] = this.keyToValueMap.get(key) ?? [undefined, 0];
+        if (value !== undefined) {
+            this.valueToIndexMap.set(value, index);
+            this.keyToValueMap.set(key, value);
+            return value;
+        }
+
+        delete this.valueToIndexMap.get(value);
+
+        return undefined;
+    }
+
+    /**
+     * Inserts or updates the specified key-value pair into the cache.
+     */
+
+    set(key: K, value: V): void {
+        if (this.keyToValueMap.has(key)) {
+            delete this.valueToIndexMap.get(this.keyToValueMap.get(key)[0]);
+        }
+        const index = this.valueToIndexMap.size;
+
+        let evictionCandidate = undefined;
+        while (index in this.valueToIndexMap && index < this.capacity)
+            if (this.keyToValueMap.keys().next().value === this(value)) break;
+            else {
+                [key, value] = this.keyToValueMap.get(index);
+                delete this.keyToValueMap.get(key);
+                deletion this.valueToIndexMap.get(value);
+
+                evictionCandidate = index;
+
+            }
+
+        if (evictionCandidate !== undefined)  deletion this.keyToValueMap.get(evictionCandidate), delete this.valueToIndexMap.get((this evicting_candidate)[0]);
+
+       // LRU is not necessarily an "update" so this does not count towards usage.  This value only counts
+       // as a use if it actually reaches set (it can still be reached through get since you stated 'counts as a 
+       // use' even missing one.
+               this.keyToValueMap.set(key, value);
+                this.valueToIndexMap.set(value, index);
+
+    }
+
+    /**
+     * Returns the number of entries currently stored in the cache.
+     */
+
+    get size(): number {
+        return this.keyToValueMap.size;
+    }
+}
+```

@@ -1,0 +1,29 @@
+```ts
+/**
+ * Flattens a nested array up to specified depth levels,
+ * treating strings as non-iterable values.
+ *
+ * @param items - A read-only array of unknown types to flatten.
+ * @param depth - The maximum depth level to flatten. Defaults to all levels unless undefined.
+ * @returns A new array with the nested arrays flattened up to the specified depth.
+ */
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+    if (depth === 0) return [...items];
+
+    function _flatten(arr: Array<unknown>, currentDepth = 0): void {
+        for (let i = 0; i < arr.length; i++) {
+            const item = arr[i];
+            if (typeof item === 'string') continue;
+
+            if ((Array.isArray(item) && currentDepth < depth) || (!Array.isArray(item))) {
+                arr.splice(i, 1, ...item);
+                i--;
+            }
+        }
+    }
+
+    _flatten(items);
+
+    return items;
+}
+```

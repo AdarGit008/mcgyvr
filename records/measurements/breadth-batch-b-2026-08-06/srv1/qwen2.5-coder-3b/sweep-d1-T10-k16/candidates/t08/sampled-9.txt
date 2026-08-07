@@ -1,0 +1,32 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjacencyMap = new Map<string, Set<string>>();
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Node not in nodes`);
+        }
+        adjacencyMap.set(from, (adjacencyMap.get(from) || new Set()).add(to));
+    }
+
+    let result: string[] = [];
+    const freeNodes = Array.from(nodes);
+
+    while (freeNodes.length > 0) {
+        const earliestFreeNode = freeNodes.shift()!;
+        result.push(earliestFreeNode);
+        for (const to of adjacencyMap.get(earliestFreeNode) || []) {
+            if (!adjacencyMap.has(to)) continue;
+            adjacencyMap.get(to)?.delete(earliestFreeNode);
+            if (adjacencyMap.get(to)?.size === 0) {
+                freeNodes.push(to);
+            }
+        }
+    }
+
+    if (result.length < nodes.length) {
+        throw new Error(`Cyclic dependency`);
+    }
+
+    return result;
+}
+```

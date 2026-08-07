@@ -1,0 +1,59 @@
+```typescript
+/**
+ * Given nodes and [from, to] edges naming from must come before to,
+ * return an ordering satisfying every edge. When several orderings are valid,
+ * pick the one that keeps nodes in their input order - among the nodes currently free of unmet dependencies,
+ * always take the earliest in nodes.
+ *
+ * @param nodes node names
+ * @param edges [from, to] edges naming from must come before to
+ * @returns ordering satisfying every edge
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const dependencies: { [node in string]: Set<string> } = {};
+    for (const node of nodes) {
+        dependencies[node] = new Set();
+    }
+    for (const [from, to] of edges) {
+        if (!dependencies[from]) {
+            throw new Error(`Invalid edge ${[from, to].join(' -> ')}`);
+        }
+        dependencies[from].add(to);
+    }
+
+    const free: { [node in string]: number } = {};
+    for (const node of nodes) {
+        if (!dependencies[node] || dependencies[node].size === 0) {
+            free[node] = nodes.indexOf(node);
+        }
+    }
+
+    const ordering: string[] = [];
+    while (Object.values(free).some((index) => index !== undefined)) {
+        for (const [node, _] of Object.entries(dependencies)) {
+            if (!free[node]) continue;
+            let minFreeNodeIndex: number | null = null;
+
+            for (const dependency of dependencies[node]) {
+                const index = free[dependency];
+                if ([...Object.values(free)].includes(index) && !minFreeNodeIndex) {
+                    minFreeNodeIndex = index;
+                }
+            }
+
+            if (!minFreeNodeIndex || minFreeNodeIndex === undefined) throw new Error(`Cycle detected in edge ${String.fromCodePoint(34)}\x27${[node, ...Object.entries(dependencies[node]).map(([x]) => x)]}\x27${String.fromCharCode(96)})`;
+
+            if (minFreeNodeIndex !== null && dependencies[node].size === 0) {
+                ordering.push(node);
+                free[node] = undefined; // can't have no nodes free at the end with non-empty graph
+            } else {
+                free[node] = minFreeNodeIndex;
+            }
+        }
+    }
+
+    if (ordering.length !== nodes.length) throw new Error("Cycle detected in edges, cannot perform topological sort");
+
+    return ordering.reverse();
+}
+```

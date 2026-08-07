@@ -1,0 +1,70 @@
+```ts
+export class LruCache<K, V> {
+  private _items: Map<K, V>;
+  private _capacity: number;
+  private _useCount: Map<K, number>;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+    this._items = new Map();
+    this._capacity = capacity;
+    this._useCount = new Map();
+  }
+
+  get(key: K): V | undefined {
+    const useCount = this._useCount.get(key);
+    if (useCount !== undefined) {
+      this._useCount.set(key, useCount + 1);
+    } else {
+      this._useCount.set(key, 1);
+    }
+    if (!this._items.has(key)) {
+      throw new Error('Key not found in cache');
+    }
+    const value = this._items.get(key);
+    this._moveToFront(key);
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    this._useCount.set(key, 1);
+    if (!this._items.has(key)) {
+      // If the cache is full, remove the least recently used item
+      if (this._items.size >= this._capacity) {
+        const keyToEvict = this._findLeastRecentlyUsed();
+        this._items.delete(keyToEvict);
+        this._useCount.delete(keyToEvict);
+      }
+    }
+    this._items.set(key, value);
+  }
+
+  size(): number {
+    return this._items.size;
+  }
+
+  private _moveToFront(key: K): void {
+    if (this._useCount.has(key)) {
+      const useCount = this._useCount.get(key) + 1;
+      this._useCount.delete(key);
+      this._useCount.set(key, useCount);
+    }
+    // Since Map maintains insertion order, moving the key to the first position
+    // will automatically update its LRU position.
+  }
+
+  private _findLeastRecentlyUsed(): K {
+    let minUseCount = Infinity;
+    let leastRecentlyUsedKey: K | undefined = undefined;
+    for (const [key] of this._items) {
+      if (this._useCount.get(key)! < minUseCount) {
+        minUseCount = this._useCount.get(key)!;
+        leastRecentlyUsedKey = key;
+      }
+    }
+    return leastRecentlyUsedKey!;
+  }
+}
+```

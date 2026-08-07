@@ -1,0 +1,25 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  const fields = [];
+  let currentField = "";
+  let inQuotes = false;
+  for (let char of line) {
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if ((char === ',' || char === '\n') && !inQuotes) {
+      fields.push(currentField);
+      currentField = "";
+    } else {
+      if (!inQuotes && currentField == '\\') {
+        throw new Error('Quotation error');
+      }
+      currentField += char;
+    }
+  }
+  if (inQuotes) throw new Error("Unclosed quotes");
+  fields.push(currentField);
+ 
+
+  return fields;
+}
+```

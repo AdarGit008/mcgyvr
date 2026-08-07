@@ -1,0 +1,28 @@
+```ts
+/**
+ * Encodes strings using run-length encoding.
+ *
+ * @param {string} input - The string to encode.
+ * @returns {string} - The encoded string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error("Input must be a string.");
+  }
+
+  let result = '';
+  for (let i = 0; i < input.length; i++) {
+    const character = input[i];
+    let count = 1;
+
+    while (i + 1 < input.length && input[i] === input[i + 1]) {
+      i++;
+      count++;
+    }
+
+    result += `${character}${count.toString().padStart(2, '0')}`;
+  }
+
+  return result;
+}
+```

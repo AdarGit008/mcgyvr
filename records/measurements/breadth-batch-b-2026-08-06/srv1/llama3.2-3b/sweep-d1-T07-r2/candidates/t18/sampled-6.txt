@@ -1,0 +1,40 @@
+```typescript
+/** An append-only log of timestamped events. */
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+/**
+ * @param event A new event to record.
+ * @throws {Error} If the input is invalid.
+ */
+export class EventLog {
+  #events = [];
+
+  /**
+   * Append one event.
+   *
+   * @param event The event to append. Must be a valid `Event`.
+   */
+  record(event: Event): void {
+    if (!('name' in event) || !('timestamp' in event)) {
+      throw new Error(`Invalid event: ${JSON.stringify(event)}`);
+    }
+    this.#events.push(event);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   *
+   * @param timestamp The timestamp from which to include events. Must be a non-negative number.
+   * @returns A slice of `#events` containing only events with timestamps greater than or equal to the given timestamp.
+   */
+  since(timestamp: number): Event[] {
+    if (typeof timestamp !== 'number' || timestamp < 0) {
+      throw new Error(`Invalid timestamp: ${timestamp}`);
+    }
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

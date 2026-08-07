@@ -1,0 +1,83 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * Splits a CSV line into its fields by commas, taking into account CSV quoting rules.
+ * A field wrapped in double quotes may contain commas, and double quotes inside such a field mean one literal quote character.
+ * Unquoted fields are taken literally with any surrounding spaces. An empty line is parsed as one field.
+ * This function throws an Error for a quoted field that is never closed.
+ *
+ * @param line The CSV line to parse.
+ * @returns An array of the parsed fields.
+ */
+export function parseCsvLine(line: string): string[] {
+    const lines = line.split(/\r?\n/gm);
+    let currentFieldBuilder = '';
+    const fields: string[] = [];
+
+    for (const line of lines) {
+        if (!currentFieldBuilder.length && !line.trim()) continue; // Skip empty lines
+        if (!line || line.includes('"')) loopThroughLine(line);
+
+        function loopThroughLine(line: string): void {
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+
+                switch (char) {
+                    case '"':
+                        if (!inQuotes) {
+                            inQuotes = true;
+                            currentFieldBuilder += '"';
+                        } else if (line[i + 1] === '"' && !inQuotes) {
+                            // Found a nested quote, skip it by adding two more quotes
+                            currentFieldBuilder += '""';
+                            i += 2;
+                        } else {
+                            inQuotes = false;
+                        }
+                        break;
+                    case ',':
+                        if (inQuotes) {
+                            currentFieldBuilder += char; // Include comma inside quotes
+                        } else {
+                            fields.push(currentFieldBuilder.trim());
+                            currentFieldBuilder = ''; // Start a new field
+                        }
+                        break;
+                    default: // Default case for anything other than spaces, commas, or double quotes
+                        if (!inQuotes) currentFieldBuilder += char;
+                }
+            }
+
+            if (currentFieldBuilder.length > 0 && !inQuotes) {
+                fields.push(currentFieldBuilder.trim());
+            }
+
+            if (!line || currentFieldBuilder.length === line.length) break; // No more parsing needed after the last field
+        }
+    }
+
+    return fields;
+}
+
+// Check function to verify the correctness of the solution
+function checkParseCsvLine(): void {
+    assert.deepEqual(parseCsvLine('a,a,b,c'), ['a', 'a', 'b', 'c']);
+    assert.deepEqual(parseCsvLine(" a , b, c "), ['a', 'b', 'c']);
+    assert.deepEqual(parseCsvLine(), []);
+    assert.deepEqual(parseCsvLine('"a,b"'), ['a,b']);
+    assert.deepEqual(parseCsvLine('a,b,"c,d"'), ['a', 'b', 'c,d']);
+    try {
+        parseCsvLine('"a");
+        console.error('Expected Error for "a");');
+    } catch (e) {
+        if (e instanceof Error && e.message === 'Quoted field never closed.') assert(true, 'Correct error message for missing end quote.');
+        else console.log('Incorrect error handling:', e);
+    }
+}
+
+// Run the check function to verify the solution
+checkParseCsvLine();
+```

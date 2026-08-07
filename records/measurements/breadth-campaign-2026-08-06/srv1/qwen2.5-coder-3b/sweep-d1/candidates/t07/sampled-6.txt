@@ -1,0 +1,30 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined || !Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error("Depth must be a non-negative integer or Infinity.");
+  }
+
+  const result = items.slice(); // Create a shallow copy of the input array
+
+  function flattenArray(arr: unknown[], currentDepth: number): void {
+    for (let i = 0; i < arr.length; i++) {
+      if (Array.isArray(arr[i]) && (depth === Infinity || currentDepth < depth)) {
+        flatItem(arr[i] as unknown[]); // Recursively flatten nested arrays
+        i--; // Adjust index after array is flattened to skip already processed elements
+      }
+    }
+  }
+
+  function flatItem(item: unknown): void {
+    if (Array.isArray(item) && (depth === Infinity || depth > 1)) {
+      flattenArray(item, currentDepth + 1);
+    } else {
+      result.push(item); // Add non-array items to the result
+    }
+  }
+
+  flatItem(result);
+
+  return result;
+}
+```

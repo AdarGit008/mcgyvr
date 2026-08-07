@@ -1,0 +1,23 @@
+Here is implementation in TypeScript that satisfies all given conditions:
+
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+    if (depth < 0 || !Number.isInteger(depth)) {
+        throw new Error('Depth must be a non-negative integer or Infinity');
+    }
+  
+    let result: unknown[] = [];
+
+    for (const item of items) {
+        if (Array.isArray(item) && depth > 0) {
+            result.push(...flatten(item, depth - 1));
+        } else {
+            result.push(item);
+        }
+    }
+  
+    return result;
+}
+```
+
+This implementation follows all the provided coding standards and also checks if the given depth is a non-negative integer or Infinity otherwise it throws an Error. It recursively flattens the array up to the given depth level, treating strings as atomic values that can not be iterated into unlike arrays.

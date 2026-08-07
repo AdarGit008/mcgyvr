@@ -1,0 +1,35 @@
+```typescript
+const MODULUS = 1000000007;
+
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error("n must be a non-negative integer");
+  }
+
+  if (n <= 1) {
+    return numbers[n] ?? n % MODULUS;
+  }
+
+  let first = 0, second = 1;
+
+  for (let i = 2; i <= n; i++) {
+    const current = (first + second) % MODULUS;
+    first = second;
+    second = current;
+  }
+
+  return second % MODULUS;
+}
+
+// Precompute the first 200,001 Fibonacci numbers modulo 1000000007 to keep it fast.
+const numbers: number[] = [];
+for (let i = 0; i < 200_001; i++) {
+  if (i < 2) {
+    numbers.push(i);
+    continue;
+  }
+  const current = (numbers[i - 1] + numbers[i - 2]) % MODULUS;
+  numbers.push(current);
+}
+```

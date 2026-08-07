@@ -1,0 +1,21 @@
+Here is the implementation for parseSemver function:
+
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const semverRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$/;
+    const match = semverRegex.exec(version);
+
+    if (!match) {
+        throw new Error('Invalid version');
+    }
+
+    return {
+        major: parseInt(match[1]),
+        minor: parseInt(match[2]),
+        patch: parseInt(match[3]),
+        prerelease: match[5] ?? null,
+        build: match[7] ?? null,
+    };
+}
+```
+This function uses a regular expression to validate and extract the version parts. If the input does not match the expected format an Error is thrown.

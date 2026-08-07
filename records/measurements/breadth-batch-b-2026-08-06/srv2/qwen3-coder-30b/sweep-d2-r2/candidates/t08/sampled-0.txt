@@ -1,0 +1,55 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const result: string[] = [];
+  let i = 0;
+  let field = '';
+
+  while (i < line.length) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (field !== '') {
+        throw new Error('Quote character found in unquoted field');
+      }
+      
+      i++;
+      while (i < line.length) {
+        if (line[i] === '"') {
+          if (i + 1 < line.length && line[i + 1] === '"') {
+            field += '"';
+            i += 2;
+          } else {
+            i++;
+            break;
+          }
+        } else {
+          field += line[i];
+          i++;
+        }
+      }
+      
+      if (i < line.length && line[i] !== ',' && line[i] !== '\n') {
+        throw new Error('Expected comma or newline after closing quote');
+      }
+      
+      result.push(field);
+      field = '';
+    } else if (char === ',') {
+      result.push(field);
+      field = '';
+    } else {
+      field += char;
+    }
+    
+    i++;
+  }
+  
+  result.push(field);
+  
+  return result;
+}
+```

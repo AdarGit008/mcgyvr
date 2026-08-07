@@ -1,0 +1,24 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!intervals.length) return [];
+  
+  intervals.sort((a, b) => a[0] - b[0]);
+  const merged = [[intervals[0][0], intervals[0][1]]];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const currentStart = intervals[i][0];
+    const currentEnd = intervals[i][1];
+    const lastEnd = merged[merged.length - 1][1];
+
+    if (currentStart <= lastEnd) {
+      // Merge interval
+      merged[merged.length - 1][1] = Math.max(lastEnd, currentEnd);
+    } else {
+      // No merge, add new interval
+      merged.push([currentStart, currentEnd]);
+    }
+  }
+
+  return merged;
+}
+```

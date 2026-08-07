@@ -1,0 +1,15 @@
+```typescript
+const REGEX = /^[ \t]*#|^[ \t]*(\w+)[ \t]*=[ \t]*(.*?)[ \t]*$/;
+
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!REGEX.test(line)) continue; // Skip blank lines and comments
+    const match = REGEX.exec(line);
+    const key = match![1];
+    const value = match![2].trim(); // Trim whitespace around the value
+    config[key] = value;
+  }
+  return config;
+}
+```

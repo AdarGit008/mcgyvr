@@ -1,0 +1,23 @@
+```typescript
+/**
+ * The KEY=VALUE pairs of a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim() || line.startsWith("#")) continue;
+    const parts = line.split("=", 2);
+    if (parts.length !== 2) throw new Error(`Line ${lineNumber} has no '=': "${line}"`);
+    const key = parts[0].trim();
+    if (key === "__proto__") throw new Error(`Line ${lineNumber} contains invalid key: "${key}"`);
+    config[key] = parts[1].trim();
+  }
+  return config;
+}
+
+// Helper to get the line number for error messages
+function lineNumber(line: string, index: number): number {
+  const lines = text.split("\n");
+  return index + 1 <= lines.length ? index + 1 : lines.length;
+}
+```

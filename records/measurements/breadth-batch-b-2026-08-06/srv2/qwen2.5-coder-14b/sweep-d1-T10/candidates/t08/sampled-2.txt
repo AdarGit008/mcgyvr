@@ -1,0 +1,53 @@
+```ts
+/**
+ * Performs topological sorting on a directed acyclic graph (DAG) given nodes and edges.
+ * Throws an error if there is a cycle or an edge references a node not in nodes.
+ * @param nodes - The list of node names.
+ * @param edges - An array of [from, to] tuples representing dependencies.
+ * @returns A topologically sorted array of node names.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const inDegreeMap: Record<string, number> = {};
+    const adjacencyList: Record<string, string[]> = {};
+
+    // Initialize the in-degree map and adjacency list
+    nodes.forEach(node => {
+        inDegreeMap[node] = 0;
+        adjacencyList[node] = [];
+    });
+
+    // Build the graph from edges
+    edges.forEach(([from, to]) => {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Edge references a node not in nodes: [${from}, ${to}]`);
+        }
+        inDegreeMap[to]++;
+        adjacencyList[from].push(to);
+    });
+
+    // Find all nodes with no incoming edges
+    const zeroInDegreeNodes = nodes.filter(node => inDegreeMap[node] === 0);
+
+    const sortedNodes: string[] = [];
+
+    while (zeroInDegreeNodes.length > 0) {
+        const node = zeroInDegreeNodes.shift()!;
+        sortedNodes.push(node);
+
+        // Decrease the in-degree of neighbors and collect new zero-in-degree nodes
+        for (const neighbor of adjacencyList[node]) {
+            inDegreeMap[neighbor]--;
+            if (inDegreeMap[neighbor] === 0) {
+                zeroInDegreeNodes.push(neighbor);
+            }
+        }
+    }
+
+    // Check for cycles
+    if (sortedNodes.length !== nodes.length) {
+        throw new Error('Graph contains a cycle');
+    }
+
+    return sortedNodes;
+}
+```

@@ -1,0 +1,22 @@
+```typescript
+/**
+ * Parse a semantic version string according to MAJOR.MINOR.PATCH convention,
+ * optionally followed by -prerelease and +build strings.
+ *
+ * @param version The semantic version string to parse, e.g. '1.2.3-alpha-0.a25' or '1.2.3'.
+ * @returns Parsed semantic version with major, minor, patch numbers, and optional prerelease and build strings.
+ */
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    const parts = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-(\S+(?:\.\d+)?)?(?:\+\S+)?)/);
+    
+    if (!parts) throw new Error("Invalid semver format");
+    
+    return {
+        major: parseInt(parts[1], 10),
+        minor: parseInt(parts[2], 10),
+        patch: parseInt(parts[3], 10),
+        prerelease: parts[4] || undefined,
+        build: parts[5] || undefined
+    };
+}
+```

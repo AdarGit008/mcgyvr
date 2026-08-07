@@ -1,0 +1,67 @@
+```ts
+/** The factorial of n. */
+export abstract class Factorial {
+  private readonly result: [number, number];
+
+  constructor(n: number) {
+    if (typeof n !== 'number') {
+      throw new Error('n must be an integer');
+    }
+    if (n < 0) {
+      throw new Error('n must be a non-negative integer');
+    }
+
+    this.result = [1];
+    while (this.result[0] <= n) {
+      this._multiplication(this.result[0]);
+    }
+  }
+
+  abstract toResult(): number;
+
+}
+
+export function factorial(n: number): number {
+  return new Factorial(n).toResult();
+}
+
+private static _multiplication(numberToMultiplyBy: number): void {
+  if (numberToMultiplyBy < 1) {
+    throw new Error('Internal error, unbounded growth detected');
+  }
+  const newResult = [numberToMultiplyBy * this.result[0], numberToMultiplyBy];
+  this._addRange(newResult, -this.result[0]);
+}
+
+private static _addRange(addedRange: number[], subtractedValue: number): void {
+  if (addedRange[0] > Infinity || addedRange[1] < 0) {
+    throw new Error('Internal error', 'Out-of-bounds adjustment detected');
+  }
+  const factor = subtractedValue / Math.abs(addedRange[0]) - subtractedValue / Math.trunc(addedRange[1]);
+  for (let i = 0; ; i++) {
+    if (this.result.length === addedRange[1] + i) {
+      this._addRange([addedRange[0], addedRange[1] + i], -subtractedValue);
+      break;
+    } else {
+      const adjustedFactor = factor * Math.pow(10, 9);
+      let k = 0;
+      while (adjustedFactor <= ((i + 1) * addedRange[1]) / this.result.length) {
+        k++;
+        adjustedFactor *= 1000000000;
+      }
+      i += 2 ** k;
+    }
+  }
+
+  if (!Number.isInteger(addedRange[1])) {
+    throw new Error('Internal error', 'Non-integer number resulted, assuming integer');
+  }
+
+  this.result = Math.max(this.result[0], addedRange[1]) + [];
+
+}
+
+export function factorial(n: number): [number, number] {
+  return new Factorial(n);
+}
+```

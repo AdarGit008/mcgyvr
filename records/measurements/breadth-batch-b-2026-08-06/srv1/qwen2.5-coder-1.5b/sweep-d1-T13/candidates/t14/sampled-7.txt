@@ -1,0 +1,19 @@
+```typescript
+
+export interface User {
+  email: string;
+  active: boolean | null; // Allow null to handle absent properties
+}
+
+/**
+ * The lowercased addresses of the active users, in order. Null or undefined values for user.active will be ignored.
+ */
+ export function activeEmails(users: readonly User[]): string[] {
+  if (!users || !Array.isArray(users)) {
+    throw new Error("The parameters must be an object array");
+  }
+
+  return users.filter(user => !!user.active && !!user.email)
+                 .map(user => user.email.toLowerCase()!);
+}
+```

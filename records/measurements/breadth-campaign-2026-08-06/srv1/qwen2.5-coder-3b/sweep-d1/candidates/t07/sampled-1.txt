@@ -1,0 +1,28 @@
+```ts
+// solution.ts
+
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== 'number' || !Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  const result: unknown[] = [];
+  let currentDepth = 0;
+
+  function flattenHelper(item: unknown, _depth?: number): void {
+    if (Array.isArray(item)) {
+      for (const element of item) {
+        flattenHelper(element, depth !== undefined ? currentDepth + 1 : Infinity);
+      }
+    } else if (typeof item === 'string') {
+      result.push(item);
+    } else {
+      throw new Error('Non-string value encountered: ' + String(item));
+    }
+  }
+
+  flattenHelper(items, depth);
+
+  return result;
+}
+```

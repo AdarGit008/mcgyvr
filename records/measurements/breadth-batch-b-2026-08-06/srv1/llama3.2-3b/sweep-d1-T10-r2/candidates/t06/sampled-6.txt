@@ -1,0 +1,52 @@
+```tsx
+export function parseCsvLine(line: string): string[] {
+    /**
+     * Parse a line of CSV into its fields on commas.
+     *
+     * Fields wrapped in double quotes may contain commas. A field wrapped in double quotes
+     * and containing a literal quote inside means one literal quote character.
+     */
+    const result = [line.trim()];
+    let currentField = '';
+    let inQuote = false;
+    let nextQuoteExpected = false;
+
+    for (const char of line) {
+        if (char === '"') {
+            if (!inQuote && !result.includes('"')) {
+                throw new Error("Unclosed quote at the end of line:");
+            }
+            if (inQuote || nextQuoteExpected) {
+                inQuote = !inQuote;
+                result.push(currentField.trim());
+                currentField = '';
+                nextQuoteExpected = false;
+            } else {
+                nextQuoteExpected = true;
+            }
+        } else if (!inQuote && char === ',') {
+            if (!currentField) {
+                const emptyStr = '';
+                if (result.filter(f => f !== '').indexOf(emptyStr) === -1) {
+                    result.push(' , '.repeat(result.length));
+                }
+            } else {
+                result.push(currentField.trim());
+                currentField = '';
+            }
+        } else if (char === ',') {
+            inQuote = false;
+            nextQuoteExpected = true;
+        }
+
+        currentField += char;
+    }
+
+    if (inQuote) {
+        throw new Error("Unclosed quote:");
+    }
+
+    result.push(currentField.trim());
+    return result;
+}
+```

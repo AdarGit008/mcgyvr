@@ -1,0 +1,58 @@
+```ts
+/** Returns a topological sort for the given nodes and edges. */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    const AdjList = new Map<string, string[]>();
+
+    // Construct adjacency list from input edges.
+    for (const edge of edges) {
+        if (!AdjList.has(edge[0])) {
+            AdjList.set(edge[0], []);
+        }
+        if (!AdjList.has(edge[1])) {
+            AdjList.set(edge[1], []);
+        }
+        AdjList.get(edge[0]).push(edge[1]);
+    }
+
+    const visited = new Set<string>();
+    const recursionStack = new Set<string>();
+
+    const order: string[] = [];
+    // Performs DFS for each unvisited node.
+    for (const node of nodes) {
+        if (!visited.has(node)) {
+            dfs(node, AdjList, visited, recursionStack, order);
+        }
+    }
+
+    return order.reverse(); // reverse to maintain the original input order
+}
+
+function dfs(
+    node: string,
+    AdjList: Map<string, string[]>,
+    visited: Set<string>,
+    recursionStack: Set<string>,
+    order: string[]
+): void {
+    if (recursionStack.has(node)) {
+        throw Error("Cycle detected");
+    }
+
+    // Check if node is valid.
+    if (!AdjList.has(node)) {
+        throw Error(`Edge involving node ${node} is invalid`);
+    }
+
+    recursionStack.add(node);
+    for (const neighbour of AdjList.get(node) || []) {
+        dfs(neighbour, AdjList, visited, recursionStack, order);
+    }
+    // Only remove from recursion stack after visiting all neighbors.
+    recursionStack.delete(node);
+    order.push(node);
+    visited.add(node);
+
+    return;
+}
+```

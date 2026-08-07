@@ -1,0 +1,46 @@
+```ts
+/**
+ * Returns an ordering satisfying every edge in the given edges.
+ * When several orderings are valid, picks the one that keeps nodes in their input order.
+ *
+ * @param {readonly string[]} nodes - The node names.
+ * @param {readonly [string, string][]} edges - The from-to edges meaning from must come before to.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]) {
+  const adjacencyList: Map<string, string[]> = new Map();
+  for (const node of nodes) {
+    adjacencyList.set(node, []);
+  }
+
+  for (const edge of edges) {
+    if (!adjacencyList.has(edge[0])) {
+      throw new Error(`Node '${edge[0]}' not in nodes.`);
+    }
+    if (!adjacencyList.has(edge[1])) {
+      throw new Error(`Node '${edge[1]}' not in nodes.`);
+    }
+    adjacencyList.get(edge[0]).push(edge[1]);
+  }
+
+  const freeNodes: string[] = [...nodes];
+  const ordering: string[] = [];
+
+  while (freeNodes.length > 0) {
+    if (!freeNodes.some((node) => adjacencyList.get(node)?.includes(freeNodes[0])))) {
+      throw new Error('Cycle detected, cannot compute topological sort.');
+    }
+
+    const nextNode = freeNodes.shift() as string;
+    ordering.push(nextNode);
+
+    for (const dependent of adjacencyList.get(nextNode) || []) {
+      const index = freeNodes.indexOf(dependent);
+      if (index !== -1) {
+        freeNodes.splice(index, 1);
+      }
+    }
+  }
+
+  return ordering.reverse();
+}
+```

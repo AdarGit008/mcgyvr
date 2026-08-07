@@ -1,0 +1,68 @@
+```typescript
+/**
+ * Parse a semantic version string.
+ *
+ * A semantic version string is in the format MAJOR.MINOR.PATCH with an optional
+ * -prerelease and an optional +build. For example: v1.2.3-alpha-1234+0epona or v2.3.4-rc.1+2021-04.
+ *
+ */
+export interface SemverOutput {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease?: string | null;
+  build?: string | null;
+}
+
+/**
+ * Parse a semantic version string and return its components plus
+ * optional -prerelease and +build suffixes.
+ */
+export function parseSemver(version: string): SemverOutput {
+  if (!version.startsWith("v")) {
+    throw new Error(`Input must start with "v" or nothing; has "${version}"`);
+  }
+
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+))?(?:\+([^)])?$/);
+  if (!match) {
+    throw new Error(`Input does not seem to be a semver string; has "${version}"`);
+  }
+
+  const major = parseInt(match[1], 10);
+  const minor = parseInt(match[2], 10);
+  const patch = parseInt(match[3], 10);
+
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+    throw new Error(`Major, minor and patch numbers must be digits with no leading zero except "0"; has "${version}"`);
+  }
+
+  let prerelease: string | null;
+  const buildIndex = match[6] && buildIndex !== "";
+  if (buildIndex) {
+    match.push(undefined);
+    match[5] = buildIndex;
+  } else {
+    match.pop();
+  }
+  match.shift();
+  match.splice(match.length - 1, 2);
+
+  if (match.length > 3) { // prerelease
+    if (!/^[a-zA-Z0-9.-]+$/.test(match[4])) { // check valid characters in match[4]
+      throw new Error(
+        "Prerelease must be a string with only allowed characters : a-z, A-Z, 0-9 and -,",
+        `prerelease has "${match[3]}"`,
+      );
+    }
+    prerelease = match.pop();
+  }
+
+  return {
+    major,
+    minor,
+    patch,
+    prerelease,
+    build: match[5],
+  };
+}
+```

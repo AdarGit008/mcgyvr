@@ -1,0 +1,30 @@
+```ts
+import { isArray } from './utils';
+
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth !== undefined && !Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error("Depth must be a non-negative integer or Infinity");
+  }
+
+  const flattened = items.flatMap((item, index, array) => {
+    if (isArray(item)) {
+      return flatten(
+        item,
+        depth === 0 ? -Infinity : depth - 1,
+        index,
+        array
+      );
+    } else {
+      return [item];
+    }
+  });
+
+  // Return a copy of the flattened array to avoid mutating the original input
+  return [...flattened] as unknown[];
+}
+
+// Utility function to check if an item is an Array
+function isArray(item: unknown): item is unknown[] {
+  return Object.prototype.toString.call(item) === '[object Array]';
+}
+```

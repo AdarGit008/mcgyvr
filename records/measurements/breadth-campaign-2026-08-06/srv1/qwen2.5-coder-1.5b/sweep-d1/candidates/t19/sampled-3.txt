@@ -1,0 +1,14 @@
+```ts
+/**
+ * A divided by b, rounded to the nearest integer.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (b === 0) {
+    throw new Error("Division by zero");
+  }
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error("Both arguments must be finite numbers");
+  }
+  return Math.round(a / b);
+}
+```

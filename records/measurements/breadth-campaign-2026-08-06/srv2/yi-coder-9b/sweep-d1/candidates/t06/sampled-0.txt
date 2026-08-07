@@ -1,0 +1,38 @@
+Here's a simple implementation in TypeScript:
+
+```ts
+export function parseCsvLine(line: string): string[] {
+  const result = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; ++i) {
+    if (quoted) {
+      while (line[i] === '"' && line[i + 1] === '"') {
+        field += '"';
+        ++i;
+      }
+      if (line[i] === '"') {
+        result.push(field);
+        field = "";
+        quoted = false;
+      } else if (!line[i]) {
+        throw new Error(`Unclosed quoted field at position ${i}`);
+      } else {
+        field += line[i];
+      }
+    } else {
+      if (line[i] === '"') {
+        quoted = true;
+      } else if (line[i] === ",") {
+        result.push(field);
+        field = "";
+      } else {
+        field += line[i];
+      }
+    }
+  }
+  if (quoted) throw new Error(`Unclosed quoted field at position ${line.length}`);
+  result.push(field);
+  return result;
+}
+```

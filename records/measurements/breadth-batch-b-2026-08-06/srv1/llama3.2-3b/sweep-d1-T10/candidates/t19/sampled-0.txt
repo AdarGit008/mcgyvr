@@ -1,0 +1,20 @@
+```ts
+/** Returns the division of a by b. Throws an Error if divisor is zero or non-numeric arguments are provided. */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(b) || !isFinite(b)) {
+    throw new Error("Cannot divide by non-finite or NaN value");
+  }
+  
+  if (!Number.isInteger(Number(a))) {
+    a = Number(a);
+  } else if (a === 0) {
+    throw new Error("Division by zero is not allowed.");
+  }
+  
+  if (!Finite(b)) {
+    return null; // or you can change this to whatever makes sense for your application
+  } else {
+    return a / b;
+  }
+}
+```

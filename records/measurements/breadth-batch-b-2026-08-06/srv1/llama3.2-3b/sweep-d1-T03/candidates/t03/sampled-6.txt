@@ -1,0 +1,52 @@
+```ts
+/**
+ * Parses a semantic version string into its constituent parts.
+ *
+ * @param version - The semantic version string to parse (e.g., "1.2.3" or "1.2.3-abc123")
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const parts = version.split(/[-+]/);
+  
+  if (parts.length !== 3) {
+    throw new Error(`Invalid semver format: ${version}`);
+  }
+  
+  const [major, minorPatch] = parts[0].split('.');
+  const [patch, prereleaseBuild] = minorPatch ? minorPatch.split('.') : ['', ''];
+  
+  if (!/^\d+$/.test(major) || !/^\d+$/.test(minor) || !/^\d+$/.test(patch)) {
+    throw new Error(`Invalid major or minor version: ${version}`);
+  }
+  
+  const majorNumber = parseInt(major, 10);
+  const minorNumber = parseInt(minor, 10);
+  const patchNumber = parseInt(patch, 10);
+  
+  if (isNaN(majorNumber) || isNaN(minorNumber) || isNaN(patchNumber)) {
+    throw new Error(`Invalid version numbers: ${version}`);
+  }
+  
+  let prereleaseString = null;
+  let buildString = null;
+  
+  if (parts[1].startsWith('-')) {
+    prereleaseString = parts[1].slice(1);
+  } else if (parts[1] === '+') {
+    buildString = 'unknown';
+  }
+  
+  return {
+    major: majorNumber,
+    minor: minorNumber,
+    patch: patchNumber,
+    prerelease: prereleaseString,
+    build: buildString,
+  };
+}
+```

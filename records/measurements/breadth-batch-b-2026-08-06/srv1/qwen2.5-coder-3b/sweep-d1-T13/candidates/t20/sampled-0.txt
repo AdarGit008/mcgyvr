@@ -1,0 +1,49 @@
+```
+import { isArray } from "lodash";
+
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  if (typeof text !== "string") throw new Error("Input must be a string");
+
+  const results: Record<string, string> = {};
+  
+  for (const line of text.split("\n")) {
+    // Skip blank lines and comment lines
+    if (!line.trim() || line.startsWith("#")) continue;
+
+    const parts = line.split("=");
+
+    if (parts.length === 0) {
+      throw new Error(`Invalid config line: no key-value pair at Line ${count++}`);
+    }
+
+    if (parts.length !== 2) {
+      throw new Error(
+        `Invalid config line: no = symbol Found at Line ${count++}: '${line}'`
+      );
+    }
+
+    const [originKey, originValue] = parts;
+
+    // Trim and split only the first occurrence of '='
+    const keyParts = originKey.trim().split('=', { keepEmptyValues: false });
+    
+    if (keyParts.length) {
+      throw new Error(
+        `Invalid config line: Key '${originKey}' contains an unescaped '=' which is not supported. Found at Line ${count++}: '$line'`
+      );
+    }
+        
+    const key = keyParts.join('=');
+    const value = originValue.trim() && originValue.trim()[0] === '"' ? 
+                 `"${originValue.trim().slice(1).trimEnd()[0] === '"' ? '` + 
+                       .originValue.replace(/\$\$/g, "\")" : originValue.trim()`}"`
+                       .replace(/\"{2}/g, '"')  // Escape doubles in strings
+                      .trim() : '' // Trim empty string values
+
+    results[key] = value;
+    count++;
+}
+
+
+```

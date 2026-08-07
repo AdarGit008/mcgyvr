@@ -1,0 +1,55 @@
+```typescript
+function ensureCloseMatchedQuotes(commaCount: number): string {
+  if (commaCount % 2 === 0) this.close unmatched '"';
+}
+
+function parseCsvLine(line: string): string[] |null {
+  if (!line.trim()) return null;
+  let openQuoteIndex = -1, commaCount = 0;
+
+  for (let i: number = 0; i < line.length; i++) {
+    switch (true) {
+      case openQuoteIndex >= 0 && line[i] === '"' && openQuoteIndex !== i - 1:
+        endUnmatchedQuotes: while (++i <	line.length && line[i] !== '"');
+        // We don't use line[openQuoteIndex -1] because it's the next
+        // unconfirmed open quote (which will not be used anyway).
+        
+       ensureCloseMatched Quotes(commaCount); // This doesn't change if openQuoteIndex >= 0. 
+       commaCount = -1;
+	break;
+
+      case openQuoteIndex === -1 && line[i] === ',': // This can be the beginning of a new value.
+        commaCount++;
+	if (commaCount %2) this.close unmatched '"' // This only changes if there were an odd count of commas before.
+
+        ensureCloseMatchedQuotes(commaCount);
+	break;
+
+      case openQuoteIndex !== -1 && line[i] !== '"':
+       while (++i < line.length && line[i] !== ',') break;
+   
+       commaCount++;  
+
+       ensureCloseMatchedQuotes(commaCount);
+
+	if(openQuoteIndex){
+	  // if (line[i+1] === '"' || !line.slice(i).trim()) throw new Error(...) // Replace ... with the specific error message.
+	}
+	break;
+
+      default:
+       commaCount++;
+       if (commaCount && !(openQuoteIndex >= 0  or line[i-1] === '\'')) throw new Error(...); 
+	if(openQuoteIndex) ensureCloseMatchedQuotes(commaCount);
+
+	return; // When line[i] is a leading non-alphanumeric character before the end of string without a quote inbetween, or the trailing quote is unclosed,
+	// it should halt parsing and return null.
+    }
+  }
+
+  if (line[openQuoteIndex] === '"') // There was an unmatched quote and the last one wasn't closed properly.
+      throw new Error(...); 
+   
+   ensureCloseMatchedQuotes(commaCount);
+}
+```

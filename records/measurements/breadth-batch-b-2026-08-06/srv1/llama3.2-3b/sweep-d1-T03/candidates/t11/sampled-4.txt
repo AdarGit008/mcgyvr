@@ -1,0 +1,6 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  return [...values].sort((a, b) => (isNaN(a) ? Infinity : a) - (isNaN(b) ? Infinity : b));
+}
+```

@@ -1,0 +1,71 @@
+```ts
+/**
+ * Finds the first and last occurrence of target in a sorted array using binary search.
+ * @param nums - A sorted array of numbers in non-decreasing order
+ * @param target - The number to search for
+ * @returns [firstIndex, lastIndex] or [-1, -1] if target is not found
+ */
+export function searchRange(nums: number[], target: number): [number, number] {
+    // Handle empty array case
+    if (nums.length === 0) {
+        return [-1, -1];
+    }
+
+    // Find first occurrence using modified binary search
+    function findFirst(): number {
+        let left = 0;
+        let right = nums.length - 1;
+        let result = -1;
+
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            
+            if (nums[mid] === target) {
+                result = mid;
+                // Continue searching to the left for earlier occurrence
+                right = mid - 1;
+            } else if (nums[mid] < target) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        return result;
+    }
+
+    // Find last occurrence using modified binary search
+    function findLast(): number {
+        let left = 0;
+        let right = nums.length - 1;
+        let result = -1;
+
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            
+            if (nums[mid] === target) {
+                result = mid;
+                // Continue searching to the right for later occurrence
+                left = mid + 1;
+            } else if (nums[mid] < target) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        return result;
+    }
+
+    const firstIndex = findFirst();
+    
+    // If target not found at all, return [-1, -1]
+    if (firstIndex === -1) {
+        return [-1, -1];
+    }
+
+    const lastIndex = findLast();
+
+    return [firstIndex, lastIndex];
+}
+```

@@ -1,0 +1,64 @@
+```ts
+/**
+ * Decodes a run-length encoded string where each unit is a non-digit character
+ * followed by its count in decimal digits (no leading zeros allowed).
+ * @param input The run-length encoded string.
+ * @returns The decoded string.
+ * @throws Error if the input is invalid.
+ */
+export function runLengthDecode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  if (input.length === 0) {
+    return '';
+  }
+
+  if (/\d/.test(input[0])) {
+    throw new Error('Input cannot start with a digit');
+  }
+
+  let result = '';
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+    
+    // Check that current character is not a digit
+    if (/\d/.test(char)) {
+      throw new Error('Character must be non-digit');
+    }
+
+    i++;
+
+    // Find the end of the count digits
+    let countStart = i;
+    while (i < input.length && /\d/.test(input[i])) {
+      i++;
+    }
+
+    // Check that we found at least one digit for the count
+    if (i === countStart) {
+      throw new Error('Character must be followed by a count');
+    }
+
+    const countStr = input.substring(countStart, i);
+
+    // Check for leading zero (invalid unless count is exactly "0", but counts must be positive)
+    if (countStr[0] === '0') {
+      throw new Error('Count cannot have leading zeros');
+    }
+
+    const count = parseInt(countStr, 10);
+
+    if (count <= 0) {
+      throw new Error('Count must be positive');
+    }
+
+    result += char.repeat(count);
+  }
+
+  return result;
+}
+```

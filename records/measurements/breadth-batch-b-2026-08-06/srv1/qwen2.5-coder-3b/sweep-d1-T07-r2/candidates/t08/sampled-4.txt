@@ -1,0 +1,52 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Map<string, Set<string>>();
+  const inDegree = new Map<string, number>();
+
+  // Build the graph and calculate in-degrees
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) {
+      graph.set(from, new Set());
+    }
+    if (!graph.has(to)) {
+      graph.set(to, new Set());
+    }
+    graph.get(from)?.add(to);
+    inDegree.set(to, (inDegree.get(to) || 0) + 1);
+  }
+
+  const queue: string[] = [];
+  // Add all nodes with in-degree 0 to the queue
+  for (const node of nodes) {
+    if (!inDegree.has(node)) {
+      queue.push(node);
+    }
+  }
+
+  const result: string[] = [];
+
+  while (queue.length > 0) {
+    const currentNode = queue.shift()!;
+    if (result.includes(currentNode)) {
+      throw new Error("Cycle detected");
+    }
+    result.push(currentNode);
+
+    for (const neighbor of graph.get(currentNode) || []) {
+      inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+      if (inDegree.get(neighbor) === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Check if all nodes were processed
+  for (const [node] of graph.entries()) {
+    if (inDegree.get(node)! !== 0) {
+      throw new Error("Invalid edges");
+    }
+  }
+
+  return result;
+}
+```

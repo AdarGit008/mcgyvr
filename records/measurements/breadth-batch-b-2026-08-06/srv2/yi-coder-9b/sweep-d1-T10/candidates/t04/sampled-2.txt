@@ -1,0 +1,33 @@
+Here is a possible implementation of LruCache based on JavaScript's built-in Map type which preserves insertion order. This implementation throws Error if passed negative number or nonpositive integer for capacity.
+
+```ts 
+export class LruCache<K, V> {  
+    private readonly map: Map<K,V>;
+    constructor(private capacity: number) { 
+        if (capacity <= 0 || typeof capacity !== 'number' ) throw Error('Capacity must be a positive integer.');
+        this.map = new Map();         
+    }  
+    get(key: K): V | undefined { 
+        const hasKey = this.map.has(key);
+        if (!hasKey) return undefined; // or null, based on task's requirements       
+      
+        // 'take' the item from the Map and reinsert it so that it is last in queue  
+        const val: V | undefined= this.map.get(key); 
+        this.map.delete(key); 
+        this.map.set(key, val as V);       
+        return val;   
+    }  
+  
+    set(key: K, value: V) {      
+         if (this.map.has(key)) this.map.delete(key);     // 'take' the item so it is last in queue 
+          else if (this.map.size === this.capacity){ // remove the first/oldest item when no space left 
+             const keyToDelete = this.map.keys().next().value;
+             this.map.delete(keyToDelete);      
+         }    
+         // always insert at end since it is a use of the key            
+          this.map.set(key, value);   
+     }  
+  
+    get size(): number { return this.map.size; } 
+}
+```

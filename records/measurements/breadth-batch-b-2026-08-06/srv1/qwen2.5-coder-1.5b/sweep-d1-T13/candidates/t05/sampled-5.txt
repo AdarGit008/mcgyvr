@@ -1,0 +1,51 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * Safely splits an array into consecutive groups where each group has at most `size`
+ * elements in Python, but with the requirement of preserving order within groups.
+ * The splitting does not result in nested or deep arrays. Returns an empty array if the input
+ * is an empty sequence or size is less than 1 by throwing an Error otherwise.
+ *
+ * @param items The array to be chunked.
+ * @param size The maximum number of elements per group.
+ * @returns A list of groups, each containing at most `size` elements.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (!Array.isArray(items) || !item.length || size < 1) {
+    throw new Error('Arguments should be a non-empty array with a positive size');
+  }
+  const len = items.length;
+  const result: T[][] = [];
+
+  // Prevent array mutation during looping
+  const localItems = [...items];
+
+  while (localItems.length > 0) {
+    if (result.length === 0 || result[result.length - 1].length <= size - 1) {
+      result.push(localItems.splice(Math.min(size, len)));
+    } else {
+      break;
+    }
+  }
+
+  return result;
+}
+
+export function runTests(): boolean {
+  assert.deepEqual(chunk([], 0), []);
+  assert.deepEqual(chunk([3, 5], 2), [[3], [5]]);
+  assert.deepEqual(chunk(["this", "is", "an", "array"], 4), [["this"],["is "],[an],[array]]);
+  assert.deepEqual(chunk(["very", "easy", "to", "figure", out"], 0.9), [[very "]], 
+                            `[out, , easy`, `f],`]);
+  try {
+    chunk([], 3); // Should throw an Error
+    chunk([42], -1); // Should throw an Error
+    return null; // No exceptions were thrown, all tests passed
+  } catch (e) { 
+    console.log(`Tests passed: ${e.message}`);
+  }
+}
+
+runTests()!;
+```

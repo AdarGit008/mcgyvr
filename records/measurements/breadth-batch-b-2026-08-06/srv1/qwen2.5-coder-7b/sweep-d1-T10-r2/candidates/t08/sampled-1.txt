@@ -1,0 +1,50 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const nodeInDegrees = new Map<string, number>();
+    const adjacencyList = new Map<string, Set<string>>();
+
+    // Initialize in-degrees and adjacency list
+    for (const node of nodes) {
+        nodeInDegrees.set(node, 0);
+        adjacencyList.set(node, new Set());
+    }
+
+    // Populate adjacency list and in-degrees
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Edge (${from}, ${to}) contains a node not in nodes.`);
+        }
+        adjacencyList.get(from)?.add(to);
+        nodeInDegrees.set(to, (nodeInDegrees.get(to)! + 1));
+    }
+
+    // Initialize queue with nodes having zero in-degree
+    const queue: string[] = [];
+    for (const [node, degree] of nodeInDegrees) {
+        if (degree === 0) {
+            queue.push(node);
+        }
+    }
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        queue.sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b)); // Sort to maintain input order
+        const currentNode = queue.shift()!;
+        result.push(currentNode);
+
+        for (const neighbor of adjacencyList.get(currentNode)!) {
+            const newDegree = nodeInDegrees.get(neighbor)! - 1;
+            nodeInDegrees.set(neighbor, newDegree);
+            if (newDegree === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    if (result.length !== nodes.length) {
+        throw new Error("Cycle detected");
+    }
+
+    return result;
+}
+```

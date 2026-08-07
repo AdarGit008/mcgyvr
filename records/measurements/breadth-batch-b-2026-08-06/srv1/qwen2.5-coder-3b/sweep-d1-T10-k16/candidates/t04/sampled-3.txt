@@ -1,0 +1,111 @@
+```typescript
+type Entry<K, V> = { key: K, value: V, next: Entry<K, V> | null };
+
+export class LruCache<K, V> {
+  private capacity: number;
+  private head: Entry<K, V> | null;
+  private tail: Entry<K, V> | null;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.head = null;
+    this.tail = null;
+  }
+
+  get(key: K): V | undefined {
+    let current = this.head;
+    while (current !== null) {
+      if (current.key === key) {
+        // Move the accessed entry to the front
+        if (current !== this.head) {
+          if (this.tail === current) {
+            this.tail = current.next!;
+          }
+          const previous = current.prev!;
+          previous.next = current.next;
+          if (current.next !== null) {
+            current.next.prev = previous;
+          }
+          current.next = this.head;
+          this.head!.prev = current;
+          this.head = current;
+        }
+        return current.value;
+      }
+      current = current.next;
+    }
+    return undefined;
+  }
+
+  set(key: K, value: V): void {
+    let current = this.head;
+    while (current !== null) {
+      if (current.key === key) {
+        // Existing key found, update the value
+        current.value = value;
+        // Move the accessed entry to the front
+        if (current !== this.head) {
+          const previous = current.prev!;
+          previous.next = current.next;
+          if (current.next !== null) {
+            current.next.prev = previous;
+          }
+          current.next = this.head;
+          this.head!.prev = current;
+          this.head = current;
+        }
+        return;
+      }
+      current = current.next;
+    }
+
+    // Key not found, add a new entry
+    const newEntry: Entry<K, V> = { key, value, next: null };
+    if (this.head === null) {
+      this.head = newEntry;
+      this.tail = newEntry;
+    } else {
+      this tail!.next = newEntry;
+      newEntry.prev = this.tail!;
+      this.tail = newEntry;
+    }
+
+    // Evict the least recently used entry if capacity is exceeded
+    while (this.size() > this.capacity) {
+      const oldHead = this.head!;
+      this.head = oldHead.next!;
+      if (oldHead === this.tail) {
+        this.tail = null;
+      } else {
+        this.head.prev = null;
+      }
+      // Delete the evicted entry from the map
+      delete this.getCacheEntry(oldHead.key)!;
+    }
+
+    function getCacheEntry(key: K): Entry<K, V> | undefined {
+      let current = this.head;
+      while (current !== null) {
+        if (current.key === key) {
+          return current;
+        }
+        current = current.next;
+      }
+      return undefined;
+    }
+  }
+
+  get size(): number {
+    let count = 0;
+    let current = this.head;
+    while (current !== null) {
+      count++;
+      current = current.next;
+    }
+    return count;
+  }
+}
+```

@@ -1,0 +1,60 @@
+```ts
+type QuotedValue = string & { quoted: true };
+const QUOTED_DELIMITER = '"';
+
+function parseCsvLine(line: string): string[] {
+    if (line.trim() === '') return [];
+
+    const fields: string[] = [];
+    let currentField: string | QuotedValue = '';
+    let isQuoting = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === QUOTED_DELIMITER) {
+            if (!isQuoting) {
+                // Start quoting
+                isQuoting = true;
+                currentField += char;
+            } else {
+                // Check if we need to escape the delimiter
+                if (currentField.length > 0 && line[i + 1] === QUOTED_DELIMITER) {
+                    // Escaped delimiter
+                    currentField += QUOTED_DELIMITER;
+                    i++;
+                } else if (line[i + 1] === ',') {
+                    // End quoting
+                    currentField += char;
+                    isQuoting = false;
+
+                    fields.push(currentField as string);
+                    currentField = '';
+                } else {
+                    // Unmatched quote
+                    throw new Error(`Unterminated quoted field at index ${i}`);
+                }
+            }
+        } else if (char === ',') {
+            if (!isQuoting) {
+                if (currentField.trim() !== '') fields.push(currentField as string);
+                currentField = '';
+            } else {
+                // Continue quoting
+                currentField += char;
+            }
+        } else {
+            if (!isQuoting && /\s/.test(char)) continue; // Skip whitespace
+
+            currentField += char;
+        }
+    }
+
+    if (currentField.length > 0) {
+        if (!isQuoting) fields.push(currentField as string);
+        else throw new Error(`Unterminated quoted field at index ${line.length}`);
+    }
+
+    return fields;
+}
+```

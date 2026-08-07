@@ -1,0 +1,75 @@
+```ts
+export function romanToInt(input: string): number {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  
+  if (input.length === 0) {
+    throw new Error('Input cannot be empty');
+  }
+  
+  const validChars = new Set(['I', 'V', 'X', 'L', 'C', 'D', 'M']);
+  for (const char of input) {
+    if (!validChars.has(char)) {
+      throw new Error('Invalid character in input');
+    }
+  }
+  
+  const romanValues: Record<string, number> = {
+    'I': 1,
+    'V': 5,
+    'X': 10,
+    'L': 50,
+    'C': 100,
+    'D': 500,
+    'M': 1000
+  };
+  
+  const subtractivePairs = new Set(['IV', 'IX', 'XL', 'XC', 'CD', 'CM']);
+  
+  let result = 0;
+  let i = 0;
+  
+  while (i < input.length) {
+    if (i + 1 < input.length && subtractivePairs.has(input.substring(i, i + 2))) {
+      result += romanValues[input[i + 1]] - romanValues[input[i]];
+      i += 2;
+    } else {
+      result += romanValues[input[i]];
+      i += 1;
+    }
+  }
+  
+  if (result < 1 || result > 3999) {
+    throw new Error('Number out of range');
+  }
+  
+  // Re-encode the result canonically and compare with input
+  const canonical = numberToRoman(result);
+  if (canonical !== input) {
+    throw new Error('Input is not canonical');
+  }
+  
+  return result;
+}
+
+function numberToRoman(num: number): string {
+  if (num < 1 || num > 3999) {
+    throw new Error('Number out of range');
+  }
+  
+  const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+  const symbols = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
+  
+  let result = '';
+  
+  for (let i = 0; i < values.length; i++) {
+    while (num >= values[i]) {
+      result += symbols[i];
+      num -= values[i];
+    }
+  }
+  
+  return result;
+}
+```

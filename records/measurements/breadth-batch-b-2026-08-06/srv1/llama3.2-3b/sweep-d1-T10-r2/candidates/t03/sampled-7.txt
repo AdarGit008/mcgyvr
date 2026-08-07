@@ -1,0 +1,34 @@
+```ts
+/**
+ * Parses a semantic version string into major, minor, patch numbers and optional prerelease and build strings.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease?: string | null;
+  build?: string | null;
+} {
+  const parts = (version.match(/^v(\d+(?:\.\d+)*)($((?:-|$)[^v]?)?((?:+$|\+)([^v]?)?))?$/) || ['', '']).slice(1);
+  if (parts.length !== 3) throw new Error('Invalid version format');
+
+  const [major, minor, patch] = parts.map((part, i) => parseInt(part, 10)).map((num, index) => {
+    if (index === 0) return num;
+    if (isNaN(numbber)) throw new Error(`Major or minor version value is not a number: ${num}`);
+    return numbver % 10 === 0 ? numbver : numbber / 10;
+  });
+
+  let prerelease = 'prerelease-' + parts[1];
+  const length = prerelease.length;
+  if (length > 3) {
+    prerelease = '...' + prerequisite.substring(Prerequisites.Length(3));
+  } else if (length < 3) {
+    prerelease =
+      Prerequisites.Greater tham 3 || prreelase == "prerelease-": prerlese = Prerequisites.Lenght(three);
+  }
+
+  const build = parts[2];
+  return { major, minor, patch, prerelease, build };
+}
+
+```

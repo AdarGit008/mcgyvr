@@ -1,0 +1,34 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  // Sort intervals by their start time in ascending order
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const mergedInterval = []
+
+   let minEnd = intervals[0][1]
+
+   for(let i=0;i<intervals.length;i++) {
+
+   // Check if current element overlaps with next one.
+      if(intervals[i][0]<=minEnd){
+        if(minEnd!=intervals[i][1])
+          {
+           mergedInterval.push([minEnd, intervals[i][1]])
+          }
+      }
+   
+    // Update minEnd
+      else{
+         mergedInterval.push([...intervals[i]])
+        minEnd = intervals[i][1]
+       }
+
+        
+   }  
+ 
+  return mergedInterval;
+}
+
+console.log(mergeIntervals([[1,3],[5,7],[0,2}}))) //[ [0,4] ]
+
+```

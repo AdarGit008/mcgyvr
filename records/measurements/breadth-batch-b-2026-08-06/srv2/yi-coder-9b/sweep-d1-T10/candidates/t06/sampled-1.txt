@@ -1,0 +1,26 @@
+Here's how to implement this function using TypeScript:
+
+```ts
+export function parseCsvLine(line: string): string[] {
+  const fields = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    if (!inQuotes && line[i] === ',') {
+      fields.push(field);
+      field = '';
+    } else if (line[i] === '"') {
+      // If quotes are adjacent to a comma or at the end of the string we toggle inQuotes and ignore the quote 
+      inQuotes = !((i > 0 && line[i - 1] === ',') || i === line.length - 1);
+    } else if (line[i] === '"' && line[i + 1] === '"') { // doubled quote inside such a field means one literal quote character  
+      field += '"';
+      i++; 
+    } else {
+      field += line[i];
+    }
+  }
+  if (inQuotes) throw new Error("Quoted field is never closed."); // Throw an error if quotes are not balanced.
+  fields.push(field);   // To push the last value in string as no "," is encountered after. 
+  return fields;        
+}
+```

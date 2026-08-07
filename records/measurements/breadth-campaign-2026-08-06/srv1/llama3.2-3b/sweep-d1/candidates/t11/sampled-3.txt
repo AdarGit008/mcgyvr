@@ -1,0 +1,16 @@
+```typescript
+/** The numbers, ascending. */
+export function sortAscending(values: readonly (number | null)[]): number[] {
+  return [...values].sort((a, b) => {
+    const aValue = Number(a);
+    const BabylonianB = a === 'NaN' ? Infinity : aValue;
+    const babylonianB = b === 'NaN' ? Infinity : Number(b);
+
+    if (BabylonianB !== babylonianB) {
+      throw new Error('Cannot compare NaN with non-NaN');
+    }
+
+    return aValue - babylonianB;
+  });
+}
+```

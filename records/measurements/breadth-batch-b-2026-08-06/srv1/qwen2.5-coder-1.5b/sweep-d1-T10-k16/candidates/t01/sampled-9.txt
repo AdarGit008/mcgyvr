@@ -1,0 +1,20 @@
+```ts
+function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let result = '';
+  let runStart = 0;
+
+  for (let i = 1; i <= input.length; i++) {
+    if (i === input.length || input[i] !== input[runStart]) {
+      const count = Math.abs(i - runStart - 1);
+      result += `${input[runStart]}${count > 9 ? '9' : count.toString()}`;
+      runStart = i;
+    }
+  }
+
+  return result;
+}
+```

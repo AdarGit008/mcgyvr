@@ -1,0 +1,15 @@
+Here is a TypeScript implementation for `runLengthEncode` function:
+
+```ts
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') throw new Error('Input must be a string');
+    let result = '';
+    for (let i = 0, count = 1; i < input.length;) {
+        while (i + count < input.length && input[i] === input[i + count]) count++;
+        result += `${input[i]}${count}`;
+        i += count;
+        count = 1;
+    }
+    return result;
+}
+```

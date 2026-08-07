@@ -1,0 +1,31 @@
+```typescript refine solution.ts
+// solution.ts
+
+import { flatten } from './flatten';
+
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined || depth === Infinity || depth >= 0) {
+    return recursiveFlatten(items, depth);
+  }
+
+  throw new Error('Depth should be a non-negative integer or Infinity');
+}
+
+function recursiveFlatten(items: readonly unknown[], depth: number): unknown[] {
+  const result: unknown[] = [];
+
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      if (depth > 0) {
+        result.push(...recursiveFlatten(item, depth - 1));
+      } else {
+        result.push(...item);
+      }
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+```

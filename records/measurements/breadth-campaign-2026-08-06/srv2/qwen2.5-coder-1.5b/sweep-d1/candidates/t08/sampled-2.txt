@@ -1,0 +1,37 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges) throw new Error("Nodes and edges must be provided.");
+
+    // Count the number of dependencies for each node
+    const degree = nodes.reduce((acc, node) => ({ ...acc, [node]: 0 }), {});
+
+    // Build a graph as an adjacency list
+    const graph: Record<string, string[]> = {};
+    edges.forEach(([from, to]) => {
+        if (!graph[from]) graph[from] = [];
+        graph[from].push(to);
+        degree[to]++;
+    });
+
+    // Initialize an array of nodes with no dependencies
+    let freeNodes: string[] = nodes.filter(node => degree[node] === 0);
+
+    // Create a result array for the sorted nodes
+    const result: string[] = [];
+
+    while (freeNodes.length > 0) {
+        const node = freeNodes.shift()!;
+        result.push(node);
+        graph[node].forEach(nextNode => {
+            degree[nextNode]--;
+            if (degree[nextNode] === 0) freeNodes.push(nextNode);
+        });
+    }
+
+    // Check for cycles
+    const remainingDegree = Object.values(degree).reduce((acc, val) => acc + val, 0);
+    if (remainingDegree > 0) throw new Error("A cycle exists in the graph.");
+
+    return result;
+}
+```

@@ -1,0 +1,47 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly [string, string][]): string[] {
+    const adjacencyList = new Map<string, Set<string>>();
+    for (const node of nodes) {
+        adjacencyList.set(node, new Set());
+    }
+
+    const visited = new Set();
+    let inDegree = 0;
+
+    for (const edge of edges) {
+        if (!adjacencyList.has(edge[0]) || !adjacencyList.has(edge[1])) {
+            throw new Error('Invalid nodes: ' + edge.join(', '));
+        }
+        adjacencyList.get(edge[0]).add(edge[1]);
+        inDegree++;
+    }
+
+    const queue: string[] = [];
+    for (const node of nodes) {
+        if (!inDegree-- || inDegree === -1) {
+            visited.add(node);
+        } else {
+            queue.push(node);
+        }
+    }
+
+    const result = new Set<String>();
+    while (queue.length) {
+        const currentNode = queue.shift()!;
+        
+        for (const nextNode of adjacencyList.get(currentNode)) {
+            if (!visited.has(nextNode)) {
+                visited.add(nextNode);
+            } else {
+                throw new Error('Cycle detected: ' + [currentNode, nextNode].join(','));
+        }
+        result.add(currentNode);
+    }
+
+    if (result.size !== nodes.length) {
+        return [];
+    }
+
+    return Array.from(result).sort((a, b) => nodes.indexOf(a) - nodes.indexOf(b));
+}
+```

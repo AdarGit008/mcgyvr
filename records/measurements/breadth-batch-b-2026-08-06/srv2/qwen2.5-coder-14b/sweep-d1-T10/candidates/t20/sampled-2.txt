@@ -1,0 +1,35 @@
+```ts
+/** The KEY=VALUE pairs of a config file, hardening parser logic. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  let lineNumber = 0;
+
+  for (const line of text.split("\n")) {
+    lineNumber++;
+    // Ignore blank lines and lines starting with #
+    if (!line.trim() || line.trimStart().startsWith("#")) continue;
+
+    const firstEqualsIndex = line.indexOf("=");
+    if (firstEqualsIndex === -1) {
+      throw new Error(`Line ${lineNumber} has no '=' character.`);
+    }
+
+    let key = line.slice(0, firstEqualsIndex).trim();
+    let value = line.slice(firstEqualsIndex + 1).trim();
+
+    // Ignore empty keys
+    if (!key) {
+      throw new Error(`Line ${lineNumber} has an empty key.`);
+    }
+
+    // Avoid prototype pollution
+    if (key === "__proto__") {
+      continue;
+    }
+
+    config[key] = value;
+  }
+
+  return config;
+}
+```

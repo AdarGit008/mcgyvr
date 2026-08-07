@@ -1,0 +1,33 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== "number" || depth < 0 && depth !== Infinity) {
+    throw new Error("depth must be a non-negative integer or Infinity");
+  }
+
+  const result: unknown[] = [];
+  const stack = [...items];
+
+  while (stack.length > 0) {
+    const currentItem = stack.pop()!;
+
+    if (Array.isArray(currentItem)) {
+      depth--;
+      Array.prototype.push.apply(stack, currentItem);
+    } else if (
+      typeof currentItem === "object" && currentItem !== null &&
+      !(currentItem instanceof Date) &&
+      !(currentItem instanceof Error)
+    ) { // Assume objects that aren't Dates or Errors are iterable
+      if (depth >= 0) {
+        Object.keys(currentItem).forEach(key => stack.push((currentItem as any)[key]));
+      }
+    } else {
+      result.unshift(currentItem);
+    }
+
+    if (depth === 0) break;
+  }
+
+  return result;
+}
+```

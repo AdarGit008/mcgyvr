@@ -1,0 +1,55 @@
+```ts
+function parseCsvLine(line: string): string[] {
+  if (!line) return [];
+
+  const linesWith Quotes = line.split('"');
+  let parsedElements = [];
+  let quoteLevel = 0;
+  let currentElement = '';
+
+  for (let i = 0; i < linesWithQuotes.length; i++) {
+    const part = linesWithQuotes[i];
+
+    if (!part) continue;
+
+    if (quoteLevel === 0 && part.startsWith('"') || !lastPartEndedWithQuoteLine) {
+      quoteLevel++;
+      currentElement += '"';
+    }
+
+    lastPartEndedWithQuoteLine = false;
+
+    for (let j = 0; j < part.length; j++) {
+      const char = part[j];
+      const nextChar = part[j + 1];
+
+      if (char === '"' && quoteLevel > 0) {
+        // Found another double quote in the same field: close and start a new
+        // element, no matter what follows.
+        currentElement += '"';
+        quoteLevel--;
+        parsedElements.push(currentElement);
+        currentElement = '';
+        break;
+      }
+
+      if (char === '"' && nextChar !== undefined) {
+        // Found a field wrapped in quotes
+        currentElement += '"';
+        break;
+      }
+
+      // Just regular characters, no special characters found: add to the
+      // current element.
+      currentElement += char;
+    }
+
+    if (quoteLevel > 0) continue;
+
+    parsedElements.push(currentElement.trim());
+    currentElement = '';
+  }
+
+  return parsedElements;
+}
+```

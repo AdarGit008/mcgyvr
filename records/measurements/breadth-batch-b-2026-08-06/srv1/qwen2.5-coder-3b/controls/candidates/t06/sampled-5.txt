@@ -1,0 +1,37 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (!line.trim()) return [];
+
+  const result: string[] = [];
+  let currentField = '';
+  let isQuoted = false;
+  let quoteCount = 0;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      quoteCount++;
+      if (quoteCount % 2 === 1) { // Odd number of quotes means start or end an quoted field
+        isQuoted = !isQuoted;
+        currentField += char;
+      } else { // Even number of quotes means add a literal quote to the current field
+        currentField += '"';
+      }
+    } else if (char === ',' && !isQuoted) {
+      result.push(currentField.trim());
+      currentField = '';
+    } else if (i === line.length - 1) { // Handle trailing comma without closing quote
+      result.push(currentField.trim());
+    } else {
+      currentField += char;
+    }
+  }
+
+  if (quoteCount % 2 !== 0) {
+    throw new Error('Quoted field is never closed');
+  }
+
+  return result;
+}
+```

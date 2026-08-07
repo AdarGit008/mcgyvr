@@ -1,0 +1,58 @@
+```ts
+/**
+ * Splits one line of CSV into its fields on commas.
+ *
+ * A field wrapped in double quotes may contain commas, and a doubled quote inside such a field means one literal quote character;
+ * the surrounding quotes are not part of the value. Fields that are not quoted are taken literally, including any surrounding spaces.
+ * An empty line is one empty field.
+ *
+ * Throws an Error for a quoted field that is never closed.
+ */
+export function parseCsvLine(line: string): string[] {
+    const result: string[] = [];
+    let currentField: number;
+    let inQuote: boolean = false;
+
+    for (let i = 0; i < line.length; i++) {
+        if (!inQuote && line[i] === ',') {
+            if (result.length > 0) {
+                result.push('');
+            } else {
+                result.push(line.slice(i));
+                currentField++;
+            }
+            i++;
+        }
+        if (line[i].codePointAt(0) === 34) {
+            inQuote = !inQuote;
+        } else if (!inQuote && line[i] === '"') {
+            const quoteCount: number = 1;
+            let j: number = i + 1;
+
+            while (quoteCount > 0) {
+                if (line[j].codePointAt(0) === 34) {
+                    quoteCount--;
+                }
+                j++;
+            }
+
+            result[currentField] += line.slice(i, j);
+        } else if (!inQuote && !isNaN(Number(line[i]))) {
+            while (i + 1 < line.length && isNaN(parseFloat(line.slice(i + 1)))) {
+                i++;
+            }
+            if (result.length > currentField) {
+                result.push(line.slice(0, i));
+                currentField++;
+        } else {
+            throw new Error(`Invalid character in CSV: "${line[i]}"`);
+        }
+
+        if (i < line.length && !isNaN(Number(line[i]))) {
+            i++;
+        }
+    }
+
+    return result;
+}
+```

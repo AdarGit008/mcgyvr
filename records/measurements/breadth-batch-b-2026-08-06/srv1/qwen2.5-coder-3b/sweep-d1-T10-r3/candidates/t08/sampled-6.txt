@@ -1,0 +1,56 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes.every(String)) { throw new Error("All nodes must be strings.") }
+    if (!edges.every(([from, to]) => from && to && String, edges))) { 
+        throw new Error("Edges must be pairs of non-empty string literals.") 
+    }
+
+    const adjacencyList: Map<string, Set<string>> = new Map();
+    const inDegrees: Map<string, number> = new Map();
+
+    // Build the adjacency list and calculate indegrees
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) { 
+            throw new Error(`Invalid edge involving non-existent node ${from} or ${to}`); 
+        }
+        if (!adjacencyList.has(from)) adjacencyList.set(from, new Set());
+        if (!adjacencyList.has(to)) adjacencyList.set(to, new Set());
+
+        const fromSet = adjacencyList.get(from)!;
+        const toSet = adjacencyList.get(to)!;
+
+        if (fromSet.has(to)) { throw new Error("Duplicate edges are not allowed."); }
+        fromSet.add(to);
+
+        inDegrees.set(from, (inDegrees.get(from) || 0) + 1);
+        inDegrees.set(to, (inDegrees.get(to) || 0));
+    }
+
+    const queue: string[] = [];
+    const result: string[] = [];
+
+    // Find all nodes with zero indegree and add to the queue
+    for (const node of nodes) {
+        if (!inDegrees.has(node)) continue;
+        if (inDegrees.get(node)! === 0) queue.push(node);
+    }
+
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        if (!nodes.includes(node)) throw new Error("Node not found in input list.");
+
+        result.push(node);
+
+        // Decrease the indegree of adjacent nodes
+        for (const neighbor of adjacencyList.get(node)!) {
+            inDegrees.set(neighbor, (inDegrees.get(neighbor)! - 1));
+            if (inDegrees.get(neighbor)! === 0) queue.push(neighbor);
+        }
+    }
+
+    // Check for cycles and return result only if all nodes have been removed from the queue
+    if (nodes.length !== result.length) throw new Error("Cycle detected in the graph.");
+
+    return result;
+}
+```

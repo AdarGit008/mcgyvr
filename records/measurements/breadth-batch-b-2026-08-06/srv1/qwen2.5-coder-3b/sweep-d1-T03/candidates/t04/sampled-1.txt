@@ -1,0 +1,79 @@
+```ts
+class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { key: K; value: V }>;
+  private head: { next?: Node<K, V>, prev?: Node<K, V> };
+  private tail: { next?: Node<K, V>, prev?: Node<K, V> };
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map();
+    this.head = { next: undefined, prev: undefined };
+    this.tail = { next: undefined, prev: this.head };
+  }
+
+  private Node(key: K, value: V): Node<K, V> {
+    return { key, value };
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private moveToHead(node: Node<K, V>): void {
+    if (node === this.head.next) return;
+    const prev = node.prev!;
+    const next = node.next!;
+    prev.next = next;
+    next.prev = prev;
+
+    node.next = this.head.next;
+    node.prev = this.head;
+    this.head.next!.prev = node;
+    this.head.next = node;
+  }
+
+  private evictTail(): void {
+    const tailNode = this.tail.prev!;
+    this.cache.delete(tailNode.key);
+    tailNode.prev!.next = this.tail;
+    this.tail.prev = tailNode.prev;
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) return undefined;
+
+    const node = this.cache.get(key)!;
+    this.moveToHead(node);
+
+    return node.value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      const node = this.cache.get(key)!;
+      node.value = value;
+      this.moveToHead(node);
+    } else {
+      const newNode = this.Node(key, value);
+      this.cache.set(key, newNode);
+
+      if (this.size >= this.capacity) {
+        this.evictTail();
+      }
+
+      this.moveToHead(newNode);
+    }
+  }
+}
+
+interface Node<K, V> {
+  key: K;
+  value: V;
+  next?: Node<K, V>;
+  prev?: Node<K, V>;
+}
+```

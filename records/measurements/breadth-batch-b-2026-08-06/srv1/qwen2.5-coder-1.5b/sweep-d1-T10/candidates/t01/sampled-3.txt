@@ -1,0 +1,32 @@
+```ts
+/**
+ * Encodes consecutive identical characters in a string into a more compact form.
+ * "aaabbc" becomes "a3b2c1".
+ * An empty string remains unchanged, returning "".
+ *
+ * @param input - The string to encode.
+ * @throws Error if the input is not a string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string.');
+  }
+
+  let encoded = '';
+  let count = 0;
+
+  for (let i = 0; i < input.length; i++) {
+    if (i === 0 || input[i] === input[i - 1]) {
+      count++;
+    } else {
+      encoded += `${input[i - 1]}${count > 1 ? count : ''}`;
+      count = 1;
+    }
+  }
+
+  // Add the last character's count if it was not handled in the loop
+  encoded += `${input[input.length - 1]}${count > 1 ? count : ''}`;
+
+  return encoded;
+}
+```

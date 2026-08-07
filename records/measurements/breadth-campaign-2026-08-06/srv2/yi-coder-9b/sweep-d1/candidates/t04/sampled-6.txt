@@ -1,0 +1,31 @@
+Here's how you could implement LruCache in TypeScript:
+
+```ts
+export class LruCache<K, V> {
+  private cache: Map<K, V>; 
+  constructor(private capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) throw new Error('Invalid capacity');
+    this.cache = new Map();
+  }
+  get(key: K): V | undefined {
+    const hasKey = this.cache.has(key);
+    let val;
+    if (hasKey) {
+      val = this.cache.get(key);
+      // The get operation should also count as a use, hence re-set the key
+      this.cache.delete(key);  
+      this.cache.set(key, val!);
+    } 
+    return hasKey? val : undefined;
+  }
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) this.cache.delete(key); // update the existing key's value and re-position it at the end of the list
+    else if (this.cache.size === this.capacity) {   // remove oldest entry when capacity is reached
+      const oldestKey = this.cache.keys().next().value; 
+      this.cache.delete(oldestKey); 
+    }
+    this.cache.set(key, value); // insert new or updated key-value pair
+  }
+  get size(): number { return this.cache.size; }
+}
+```

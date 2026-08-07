@@ -1,0 +1,40 @@
+```typescript
+/**
+ * Parses a semantic version string into its constituent parts.
+ *
+ * @param version The version string to parse, e.g. "1.2.3" or "1.2.3-rc.1".
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const parts = version.split(/(-[^-]+)?(\+[^-]+)?/);
+  if (parts.length !== 3) {
+    throw new Error(`Invalid semver format: ${version}`);
+  }
+
+  let [major, minor, patch] = parts[0].split('.').map((str) => {
+    if (!/^\d+$/.test(str)) {
+      throw new Error(`Major, minor or patch must be digits: ${version}`);
+    }
+    return parseInt(str, 10);
+  });
+
+  const match = parts[1];
+  let prerelease: string | null;
+  if (match) {
+    prerelease = match.slice(1).trim();
+  }
+
+  const buildMatch = parts[2];
+  let build: string | null;
+  if (buildMatch) {
+    build = buildMatch.slice(1).trim();
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

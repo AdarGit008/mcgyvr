@@ -1,0 +1,9 @@
+```typescript
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (values.some(n => isNaN(n))) {
+    throw new Error("Input contains NaN values");
+  }
+  return [...values].sort();
+}
+```

@@ -1,0 +1,14 @@
+```ts
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string {
+  /** Throw Error unless limit is an integer of at least 3. */
+  if (typeof limit === "number" && isNaN(limit) || limit < 3) {
+    throw new Error("Limit must be a positive integer");
+  }
+  if (text.length >= limit) {
+    return text.slice(0, limit - 2) + "...";
+  } else {
+    return text;
+  }
+}
+```

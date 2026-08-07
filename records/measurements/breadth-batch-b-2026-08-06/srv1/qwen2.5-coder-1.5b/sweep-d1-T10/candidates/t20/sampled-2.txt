@@ -1,0 +1,22 @@
+```ts
+/**
+ * The KEY=VALUE pairs of a config file without trimming leading/trailing whitespace around the keys or values.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+
+  for (const line of text.split("\n")) {
+    if (!line || line.startsWith("#")) continue; // Skip blank lines and comments
+
+    const trimmedLine = line.trim();
+    const [key, value] = trimmedLine.split("=");
+    if (!value) throw new Error(`No value found for ${trimmedLine}`); // No key-value separator
+
+    // Ensure the key is an object and doesn't affect prototypes
+    key = key.slice(0, 8); // Trim to avoid prototype collision
+    config[key] = value;
+  }
+
+  return config;
+}
+```

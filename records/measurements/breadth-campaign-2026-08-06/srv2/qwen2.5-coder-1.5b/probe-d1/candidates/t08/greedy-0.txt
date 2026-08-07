@@ -1,0 +1,38 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || !edges) throw new Error('Input cannot be null or undefined');
+  if (nodes.length === 0 || edges.length === 0) return [];
+
+  const graph = new Map<string, Set<string>>();
+  const inDegree = new Map<string, number>();
+
+  for (const node of nodes) {
+    graph.set(node, new Set());
+    inDegree.set(node, 0);
+  }
+
+  for (const [from, to] of edges) {
+    if (!graph.has(from)) throw new Error(`Node ${from} not found`);
+    if (!graph.has(to)) throw new Error(`Node ${to} not found`);
+
+    graph.get(from)?.add(to);
+    inDegree.set(to, inDegree.get(to)! + 1);
+  }
+
+  const freeNodes = Array.from(nodes).filter(node => inDegree.get(node) === 0);
+
+  if (freeNodes.length === 0) throw new Error('Graph has a cycle');
+
+  const sorted: string[] = [];
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    sorted.push(node);
+    for (const neighbor of graph.get(node)!) {
+      inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+      if (inDegree.get(neighbor) === 0) freeNodes.push(neighbor);
+    }
+  }
+
+  return sorted;
+}
+```

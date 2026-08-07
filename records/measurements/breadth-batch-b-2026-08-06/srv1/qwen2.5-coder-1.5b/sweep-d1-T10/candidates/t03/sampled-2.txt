@@ -1,0 +1,12 @@
+```ts
+// Solution to task parseSemver implementation in TypeScript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version) throw new Error("empty version");
+  const [major, minor, patch = "0", prerelease = "", build = "" ] = version.match(/^(\d+)\.(\d+)(?:\.(\d+))?(?:-(.+))?(?:\+(\w+(?!=:)\.?)+)$/);
+
+  if (isNaN(parseInt(major, 10))) throw new Error("invalid major version");
+  if (isNaN(parseInt(minor, 10))) throw new Error("invalid minor version");
+  
+  return { major: parseInt(major, 10), minor: parseInt(minor, 10), patch: parseInt(patch || "0", 10), prerelease: JSON.parse(`"${prerelease}"`), build: JSON.parse(`"${build}"`) };
+}
+```

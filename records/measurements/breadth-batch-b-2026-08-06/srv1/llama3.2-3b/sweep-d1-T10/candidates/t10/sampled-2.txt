@@ -1,0 +1,24 @@
+```typescript
+/** The index of target in a sorted array, or -1. Returns its negative value when
+ *   array is empty */
+export function binarySearch(items: readonly (number | null)[], target: number): number {
+  if (items.length === 0) return -1;
+
+  let low = 0;
+  
+  /** Exclusive upper bound was used on length in the original binarySearch. */
+  let high = items.length - 1;
+  while (low <= high) { // Fix off-by-one issue here.
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid - 1; // Fix off-by-one issue here.
+    }
+  }
+  return -1;
+}
+```

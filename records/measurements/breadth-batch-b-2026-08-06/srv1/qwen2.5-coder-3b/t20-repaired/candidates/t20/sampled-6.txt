@@ -1,0 +1,38 @@
+```
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  
+  for (const line of text.split("\n")) {
+    // Trim leading and trailing whitespace from the line
+    const trimmedLine = line.trim();
+
+    // Skip empty lines or lines starting with a #
+    if (trimmedLine === "" || trimmedLine.startsWith("#")) {
+      continue;
+    }
+
+    // Split on the first occurrence of '=' to separate key and value
+    const [key, ...valueParts] = trimmedLine.split("=", 2);
+
+    // Trim whitespace around the key and value parts
+    const processedKey = key.trim();
+    const processedValue = valueParts.join("=").trim();
+
+    // Check for empty or invalid keys
+    if (processedKey === "" || !/^[a-zA-Z0-9_]+$/.test(processedKey)) {
+      throw new Error(`Invalid key at line: "${trimmedLine}"`);
+    }
+
+    // Avoid adding keys that would override Object.prototype
+    const validKey = processedKey !== "__proto__";
+
+    // Update the configuration object with the processed key and value
+    if (validKey) {
+      config[processedKey] = processedValue;
+    }
+  }
+
+  return config;
+}
+```

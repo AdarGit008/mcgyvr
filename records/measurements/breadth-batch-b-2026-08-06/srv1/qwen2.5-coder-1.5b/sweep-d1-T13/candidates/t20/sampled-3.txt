@@ -1,0 +1,38 @@
+```ts
+/**
+ * Parse key=value pairs from config text ignoring blank lines
+ * and comments. Trim whitespace around `=',` and split on the first=,
+ * throwing errors for empty keys or invalid = patterns but leaving
+ * Object.prototype untouched during parsing, with the KEY always ending on
+ * a whitespace character.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  text.split("\n").forEach(line => {
+    line = line.trimStart(); // left trimming of whitespaces
+                           // will also remove first occurrence of "#",
+                          // as it is considered part of the comment
+    if (line === "" || line.startsWith("#")) return; // skipping line
+
+    try {
+      const [key, valueOrError] = line.split("=", 1);
+      if (!/-/.test(value)) throw new Error(
+        `Expected a value after first '=', but key-value pair '${line}' in text '${text}' has no colon or '='`
+      );
+      const value = valueOrError.trimEnd();
+      if (value) {
+        config[key = key.trim()] = value.trim()!
+      } else {
+        throw new Error(`Expected a value after first '=', but key-value pair '${line}' in text '${text}' is empty`);
+      }
+    } catch(e) {
+      const message = `\nLine:${e.message}:  ${
+        line.split("\n", Infinity)[1]
+      }\n`;
+      console.error(message);
+      throw new Error(`Cannot parse line starting with '#' or whitespace only: ${message}`);
+    }
+  });
+  return config;
+}
+```

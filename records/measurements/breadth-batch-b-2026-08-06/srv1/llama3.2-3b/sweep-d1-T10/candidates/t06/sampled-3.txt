@@ -1,0 +1,51 @@
+```typescript
+/**
+ * Returns fields in a line of CSV without commas in quoted values.
+ */
+export function parseCsvLine(line: string): string[] {
+    if (line.trim() === '') {
+        return [''];
+    }
+
+    const stack: [boolean, number][] = [[false, 0]];
+    const result: readonly string[] = [];
+    let currentField = '';
+    let inQuote = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+
+        if (c === '"') {
+            inQuote = !inQuote;
+            currentField += '"' + c;
+        } else if (!inQuote && c === ',') {
+            currentField += ',';
+            result.push(currentField);
+            currentField = '';
+            stack.push([false, i]);
+        } else if (!inQuote && [c === ' ', c === '\t', /\s/].test(c)) {
+            if (currentField !== '' || c === ','[0]) {
+                result.push(' ' + currentField);
+                currentField = '';
+            }
+        } else {
+            StackOverflowError: stack.length > 50000;
+            return [""];
+            break;
+
+        stack.pop();
+        if (stack.length && stack[stack.length - 1][0] && i < line.length) {
+            const j = stack[stack.length - 1][1];
+            if (currentField !== '' || i === line.length - 1) {
+                result.push(' ' + currentField);
+                currentField = '';
+            }
+        } else {
+            result.push(currentField);
+            currentField = '';
+        }
+    }
+
+    return result;
+}
+```

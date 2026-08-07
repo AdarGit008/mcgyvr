@@ -1,0 +1,38 @@
+```ts
+/**
+ * Merge overlapping intervals in ascending order by start value.
+ *
+ * @param intervals - A list of [start, end] pairs.
+ * @returns The smallest list of non-overlapping pairs covering the same points,
+ *          sorted ascending by start. Intervals that merely touch (end === next start) do merge.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  // Check for invalid intervals
+  if (!intervals.every(([start, end]) => start <= end)) {
+    throw new Error('Invalid interval: start must be less than or equal to end');
+  }
+
+  // Sort the intervals by start value
+  const sortedIntervals = [...intervals].sort((a, b) => a[0] - b[0]);
+
+  // Initialize the result with the first interval
+  const mergedIntervals = [sortedIntervals[0]];
+
+  // Iterate over the remaining intervals
+  for (const currentInterval of sortedIntervals.slice(1)) {
+    // Get the last merged interval
+    const lastMergedInterval = mergedIntervals[mergedIntervals.length - 1];
+
+    // Check if the current interval overlaps with the last merged interval
+    if (currentInterval[0] <= lastMergedInterval[1]) {
+      // Merge the intervals by updating the end value of the last merged interval
+      lastMergedInterval[1] = Math.max(lastMergedInterval[1], currentInterval[1]);
+    } else {
+      // Add the current interval to the result
+      mergedIntervals.push(currentInterval);
+    }
+  }
+
+  return mergedIntervals;
+}
+```

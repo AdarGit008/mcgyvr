@@ -1,0 +1,33 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  // Check if the version string contains exactly three parts separated by dots
+  const parts = version.split('.').map((part) => parseInt(part, 10));
+  
+  // Validate that all parts are numbers and greater than or equal to zero
+  for (const part of parts) {
+    if (isNaN(part) || part < 0) {
+      throw new Error(`Invalid version string: "${version}"`);
+    }
+  }
+
+  const [major, minor, patch] = parts;
+
+  // Split prerelease and build using the hyphen '-' and plus '+' as delimiters
+  let prerelease = null;
+  let build = null;
+  
+  if (version.includes('+')) {
+    [prerelease, build] = version.split('+').slice(1);
+    // Trim leading whitespace from the build string
+    build = build.trim();
+  } else if (version.includes('-')) {
+    prerelease = version.split('-')[1];
+    // Trim leading and trailing whitespace from the prerelease string
+    prerelease = prerelease.trim();
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+
+export default parseSemver;
+```

@@ -1,0 +1,46 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let currentField: string = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes) {
+        // Escaped quote inside a quoted field
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          currentField += '"';
+          i++; // Skip the next character as it's escaped
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        // Start or end of a quoted field
+        if (currentField.trim()) {
+          result.push(currentField);
+        }
+        currentField = '';
+        inQuotes = true;
+      }
+    } else if (char === ',' && !inQuotes) {
+      // Separator between fields when not in quotes
+      if (currentField.trim()) {
+        result.push(currentField);
+      }
+      currentField = '';
+    } else {
+      // Add character to the current field
+      currentField += char;
+    }
+  }
+
+  // Handle the last field if any
+  if (currentField.trim()) {
+    result.push(currentField);
+  }
+
+  return result;
+}
+```

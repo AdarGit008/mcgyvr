@@ -1,0 +1,67 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+  private capacity: number;
+  private maxEntries = Number.MAX_SAFE_INTEGER;
+  private map: Map<K, V>;
+  private counter: number;
+
+  /**
+   * Create a new instance of the LruCache.
+   *
+   * @param capacity - The maximum number of entries in the cache. Must be a positive integer.
+   */
+  constructor(capacity: number) {
+    if (typeof capacity !== 'number' || capacity <= 0 || Number.isInteger(Infinity) && capacity === Infinity) {
+      throw new Error('Capacity must be a positive integer');
+    }
+
+    this.capacity = capacity;
+    this.map = new Map();
+    this.counter = 0;
+  }
+
+  /**
+   * Returns the value associated with the given key, or undefined if no such entry exists in the cache.
+   *
+   * @param key - The key to look up in the cache.
+   */
+  get(key: K): V | undefined {
+    const value = this.map.get(key);
+    if (value) {
+      // Update the counter when we use an existing entry
+      this.counter++;
+      return value;
+    }
+  }
+
+  /**
+   * Adds or updates an entry in the cache.
+   *
+   * @param key - The key for the new or updated entry.
+   */
+  set(key: K, value: V): void {
+    // Update the counter when we add a new entry
+    this.counter++;
+    if (this.map.has(key)) {
+      // Delete and re-add to update the order
+      this.map.delete(key);
+    } else if (this.map.size >= this.capacity) {
+      // Remove least recently used entry if cache is full
+      const lastEntry = Array.from(this.map.keys()).pop() as K;
+      this.map.delete(lastEntry);
+    }
+    this.map.set(key, value);
+  }
+
+  /**
+   * Returns the number of entries currently in the cache.
+   *
+   */
+  get size(): number {
+    return this.map.size;
+  }
+}
+```

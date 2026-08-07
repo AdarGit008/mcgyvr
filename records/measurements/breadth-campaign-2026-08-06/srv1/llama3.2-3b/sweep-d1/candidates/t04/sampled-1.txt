@@ -1,0 +1,71 @@
+```typescript
+export class LruCache<K, V> {
+  private cache: Map<K, { value: V; index: number }>;
+  private capacity: number;
+  private size: number;
+
+  /**
+   * Creates an instance of LruCache.
+   *
+   * @param capacity - The maximum number of entries in the cache.
+   */
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer');
+    }
+
+    this.cache = new Map();
+    this.capacity = capacity;
+    this.size = 0;
+
+    for (let i = 0; i < capacity; i++) {
+      this.cache.set(i, { value: undefined, index: -1 });
+    }
+  }
+
+  /**
+   * Returns the value associated with the given key if it exists in the cache.
+   *
+   * @param key The key to look up in the cache.
+   * @returns The value associated with the key or undefined if not found.
+   */
+  get(key: K): V | undefined {
+    const entry = this.cache.get(key);
+    if (entry) {
+      this.cache.set(key, { ...entry, index: ++this.size });
+      return entry.value;
+    }
+    // Do not count as a use for now
+    throw new Error('Key not found');
+  }
+
+  /**
+   * Inserts or updates the value associated with the given key in the cache.
+   *
+   * @param key The key to insert or update in the cache.
+   * @param value The value to associate with the key.
+   */
+  set(key: K, value: V) {
+    const entry = this.cache.get(key);
+    if (entry) {
+      this.cache.set(key, { ...entry, value, index: ++this.size });
+    } else {
+      if (this.size >= this.capacity) {
+        const oldestKey = Array.from(this.cache.keys()).sort((a, b) => a - b)[0];
+        this.cache.delete(oldestKey);
+        this.size--;
+      }
+      this.cache.set(key, { value, index: ++this.size });
+    }
+  }
+
+  /**
+   * Returns the number of entries in the cache.
+   *
+   * @returns The current size of the cache.
+   */
+  get size(): number {
+    return this.size;
+  }
+}
+```

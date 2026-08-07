@@ -1,0 +1,18 @@
+```ts
+/**
+ * Calculates the division of two numbers safe from division by zero or non-finite values.
+ * @param a The numerator of the division.
+ * @param b The denominator of the division. Must be finite.
+ * @throws Error if b is zero (including -0) or not a finite number.
+ * @returns The quotient of a divided by b, rounded to two decimal places.
+ */
+export function safeDivide(a: number, b: number): number {
+  const numIsFinite = Number.isFinite(a);
+  const denomIsFinite = Number.isFinite(b);
+
+  if (!numIsFinite || !denomIsFinite) throw new Error("Both arguments must be finite numbers.");
+  if (b === 0 && !(a === +0 || a === -0)) throw new Error("Division by zero is not allowed.");
+
+  return +(a / b).toFixed(2);
+}
+```

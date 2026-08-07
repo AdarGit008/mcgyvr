@@ -1,0 +1,19 @@
+```typescript
+
+type _InternalTruncator = {
+  textLimit: number;
+  hasEllipsis: boolean; // true when "...", false otherwise.
+};
+
+function truncate(text: string, limit: number): string {
+  if (typeof limit !== "number" || limit < 3 || !Number.isInteger(limit)) {
+    throw Error("'limit' must be an integer of at least 3");
+  }
+  const truncatedChars = text.length - limit;
+  if (truncatedChars < 0) {
+    return text;
+  }
+
+  return truncate(text.slice(0, limit - 1), limit) + "...";
+}
+```

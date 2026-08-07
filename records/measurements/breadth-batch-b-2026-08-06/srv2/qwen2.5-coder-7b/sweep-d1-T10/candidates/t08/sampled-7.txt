@@ -1,0 +1,50 @@
+```ts
+/**
+ * Performs a topological sort on a directed acyclic graph.
+ * @param nodes An array of node names.
+ * @param edges An array of [from, to] edge arrays where from must come before to.
+ * @returns A valid topological ordering of the nodes.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph: Record<string, Set<string>> = {};
+  const inDegree: Record<string, number> = {};
+
+  // Initialize graph and in-degree count
+  for (const node of nodes) {
+    graph[node] = new Set();
+    inDegree[node] = 0;
+  }
+
+  // Build the graph and populate in-degree counts
+  for (const [from, to] of edges) {
+    if (!nodes.includes(from) || !nodes.includes(to)) {
+      throw new Error(`Invalid edge: ${from} or ${to} is not a node.`);
+    }
+    if (graph[from].has(to)) continue; // Ignore duplicate edges
+    graph[from].add(to);
+    inDegree[to]++;
+  }
+
+  const queue = nodes.filter(node => inDegree[node] === 0);
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const neighbor of graph[current]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  const sortedNodes: string[] = [];
+  for (const node of nodes) {
+    if (inDegree[node] !== 0) {
+      throw new Error('Cycle detected. No valid topological ordering.');
+    }
+    sortedNodes.push(node);
+  }
+
+  return sortedNodes;
+}
+```

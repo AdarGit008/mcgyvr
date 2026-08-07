@@ -1,0 +1,21 @@
+```typescript
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') throw new Error('Input must be a string');
+    if (input === "") return "";
+  
+    let result = '', count = 1, currentChar = input[0];
+  
+    for(let i=1; i<input.length; i++) {
+        if(input[i] == currentChar) {
+            count++;
+        } else {
+            result += `${currentChar}${count}`;
+            currentChar = input[i];
+            count = 1;
+        }
+    }
+    result += `${currentChar}${count}`;  // Add the last run which is still in progress.
+  
+    return result;
+}
+```

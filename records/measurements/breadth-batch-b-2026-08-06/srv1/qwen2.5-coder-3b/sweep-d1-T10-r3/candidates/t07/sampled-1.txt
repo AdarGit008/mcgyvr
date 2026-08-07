@@ -1,0 +1,9 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (!Number.isFinite(depth ?? 0) || depth < 0) {
+        throw new Error("Depth must be a non-negative integer or Infinity");
+    }
+
+    return items.flat(depth);
+}
+```

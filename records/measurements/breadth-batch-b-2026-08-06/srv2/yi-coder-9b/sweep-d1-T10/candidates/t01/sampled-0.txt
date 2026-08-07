@@ -1,0 +1,22 @@
+```typescript
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') throw new Error('Input must be a string');
+  let result = '';
+  let currentChar = '';
+  let currentCount = 0;
+  for (const char of input) {
+    // Each time we see a different character, append the encoding of the previous run
+    if (char !== currentChar) {
+      result += currentChar + currentCount; // note: if currentChar is empty this will add "undefined"
+      currentChar = char;
+      currentCount = 1;
+    } else {
+      // If it's the same character, just increment the count of that run
+      currentCount++;
+    }
+  }
+  // Append the encoding of the last run
+  result += currentChar + currentCount;
+  return result;
+}
+```

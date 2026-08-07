@@ -1,0 +1,19 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith('#')) continue;
+    const [key, value] = trimmedLine.split("=");
+    const normalizedKey = key.replace(/ /g, '_');
+    // Ensure the key is not at the prototype
+    if (normalizedKey === '__proto__') {
+      config[normalizedKey] = 'Object.prototype';
+      continue;
+    }
+    config[normalizedKey] = value.trim();
+  }
+  return config;
+}
+```

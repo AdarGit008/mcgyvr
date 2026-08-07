@@ -1,0 +1,35 @@
+{
+  "record": "claim/1",
+  "id": "CLM-0015",
+  "statement": "Sampling temperature 0.7 was inherited from DEC-6 and never measured; measured now, it is not a lever that generalises — only the weakest model tested gains from raising it, per-draw quality falls in every cell, and no rule predicts the right value from the model. Method: --sampled-temperature became an input on the breadth rig (it was already part of run.json's identity, so a directory measured at one temperature refuses a resume at another), and srv1's four models were swept at T=0.3, 0.7, 1.0 and 1.3 over the pinned 20-task d1 set with a greedy anchor plus eight serial sampled draws, no early exit. The 0.7 and 1.0 cells were run three times each; 0.3 and 1.3 once each and labelled as such. Result: at eight draws qwen2.5-coder:1.5b reaches 12.3 [11-14] at T=1.0 against 10.0 [10-10] at T=0.7 — the only cell whose ranges are disjoint — while qwen2.5-coder:3b shows 14.7 [13-16] against 15.3 [15-16], llama3.2:3b 11.0 [11-11] against 11.0 [10-12] and qwen2.5-coder:7b 16.3 [16-17] against 16.7 [16-17], all overlapping and all flat-to-worse. Mean per-draw pass count falls with temperature in every one of the eight cells (for example 6.83 to 5.58 on the 1.5b, 13.62 to 13.38 on the 7b), so the hot arm buys coverage with reliability wherever it buys anything. llama3.2:3b at T=1.0 is the sharpest case: a single hot draw collapses to 3.0 of 20 against 6.3 cold and eight draws only return to the same 11.0 the cold arm reached. T=1.3 is past the peak on both small models at every draw budget and fails a different way — 7 of 20 tasks lose a draw to a reply the parser refuses, against 0-2 at lower temperatures, so beyond the peak the output stops being code rather than becoming worse code. Scope and limits: a first pass with one run per cell had shown a gain on the 3b as well as the 1.5b, and the repeats dissolved it — the +/-2-task run-to-run spread on this statistic is the reason this claim rests only on the three-run cells. Single-run arms are consistent with 'no rule': T=0.3 was flat-to-worse than 0.7 on all four srv1 models, while on srv2 T=1.0 beat the campaign's 0.7 by 2 tasks on yi-coder:9b and on qwen2.5-coder:14b and lost 1 on the 7b — differences the size of the measured noise, from the middle of the ladder rather than its bottom, which is what rules out 'hot helps the weakest models'. One task-set family, srv1's four models for the repeated cells, one serving stack; 'pass' is the declared acceptance, not Gate.run. Consequence: temperature ships as per-rung configuration beside breadth with 0.7 kept as the default, since no measured value beats it anywhere except one 1.5B rung; raising it for a specific binding is justified only by a repeated measurement of that binding, and CLM-0014's breadth effect is several times larger than anything temperature bought here.",
+  "type": "empirical",
+  "build_state": "shipped-tested",
+  "blast_radius": "recoverable",
+  "confidence": "medium",
+  "citations": [
+    {
+      "url": "records/measurements/breadth-batch-b-2026-08-06/README.md",
+      "supports_because": "The three-runs-per-cell table this claim's numbers are read from, with the single-run arms kept separate, plus the record of the single-run conclusion the repeats overturned."
+    },
+    {
+      "url": "records/measurements/breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T10/results.jsonl",
+      "supports_because": "One of the three hot-arm runs on the only model that gained: 180 rows carrying each draw's temperature, stop reason, parse verdict and acceptance verdict, so the disjoint range can be recomputed from rows rather than trusted."
+    },
+    {
+      "url": "records/measurements/breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T13/results.jsonl",
+      "supports_because": "The T=1.3 arm, where 7 of 20 tasks lose a draw to a parser refusal — the failure mode that distinguishes 'past the peak' from 'merely worse', visible as parse_error codes on the rows themselves."
+    },
+    {
+      "url": "records/measurements/breadth-batch-b-2026-08-06/srv1/llama3.2-3b/sweep-d1-T10/results.jsonl",
+      "supports_because": "The clearest cost of the hot arm: a first-draw pass count of 3 of 20 against 6.3 cold, recovering to the cold arm's own ceiling by eight draws and no further."
+    },
+    {
+      "url": "tools/breadth/measure.py",
+      "supports_because": "The instrument, with sampled temperature as a parameter that reaches every sampled draw and stays in the run identity; tests/test_breadth_rig.py holds both properties, including that a temperature change is refused a resume rather than silently averaged in."
+    },
+    {
+      "url": "docs/decisions/0008-sampling-breadth-is-policy-and-selection-is-the-first-gate-pass.md",
+      "supports_because": "Where 0.7 entered the repository — DEC-6's proposed operating point, adopted as the constant every earlier row was drawn at, and never itself measured until this batch."
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+```typescript
+type Interval = [number, number];
+
+export function mergeIntervals(intervals: Interval[]): Interval[] {
+    if (intervals.some(interval => interval[0] > interval[1])) {
+        throw new Error("Intervals must have a valid start ≤ end");
+    }
+
+    intervals.sort((a, b) => a[0] - b[0]);
+
+    const merged: Interval[] = [];
+    let currentStart = 1e9;
+    let currentEnd = -(1e9);
+
+    for (const [start, end] of intervals) {
+        if (end < newMergeStart) throw new Error("Unexpected interval order in sort");
+        
+        if (mergeEnd <= start && i.start !== mergeEnd) {
+            merged.push([mergeStart + 0.1, (mergeEnd - 1e-2 as number)]);
+        }
+
+        currentEnd = Math.max(currentEnd, end);
+
+        const newMergeStart = Math.min(start, currentStart);
+        let newMergeEnd = Math.min(end, currentEnd + 1e-59);
+
+        sorted.unshift([newMergeStart + (0.1 - newMergeStart) * 1e-8, 
+                      (parseInt(newMergeEnd + (-1e11 - newMergeEnd as number), 10)) ]);
+
+
+    }
+    return []
+}
+```

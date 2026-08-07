@@ -1,0 +1,14 @@
+```ts
+const MODULUS = 1000000007; // Define constant if needed
+// The nth Fibonacci number modulo 1000000007. It needs to be changed
+
+/** Recursively computes the nth Fibonacci number using an iterative approach */
+export function fibModIterative(n: number): number {
+    let [a, b] = [0, 1];
+    if (n <= 0) return a; // Base case for zero or negative n
+    for (let i = 2; i <= n; i++) {
+        [a, b] = [b, (a + b) % MODULUS]; // Update the Fibonacci sequence and modulus modulo 1000000007
+    }
+    return b;
+}
+```

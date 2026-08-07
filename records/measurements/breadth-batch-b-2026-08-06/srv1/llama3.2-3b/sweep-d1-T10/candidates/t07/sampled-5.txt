@@ -1,0 +1,43 @@
+```ts
+/**
+ * Flattens a nested array up to a specified depth level, defaulting to every level,
+ * unless the input contains a Set or Map which would be treated as nested in that manner.
+ *
+ * @param items The input array to flatten, may contain nested arrays and
+ *             Sets/Maps. May contain non-array values (strings).
+ * @param depth The maximum depth level to flatten to, can be 0 to return the
+ *              original unflattened array.
+ */
+export function flatten<T>(items: readonly unknown[], depth?: number): unknown[] {
+    if (typeof depth !== 'number' || depth < 0) throw new Error('depth must be a non-negative integer or Infinity');
+
+    const result = [];
+
+    // Iterate over each item in the input
+    for (const item of items) {
+
+        // If the item is not an array, add it to the result as is
+        if (!Array.isArray(item)) {
+            result.push(item);
+            continue;
+        }
+
+        // If the depth is 0 or less, add a copy of the item to the result and stop
+        if (depth <= 0 || item.length === 0) {
+            const itemCopy = [...item];
+            for (let i = item.indexOf(Array.isArray(item[0])) + 1; i < item.length; i++) {
+                itemCopy.splice(i, 1);
+            }
+            result.push(itemCopy);
+            continue;
+        }
+
+        // Recursive case: flatten each array element and any nested Sets/Maps into the result
+        for (const flattenedItem of flatten(Array.isArray(item) ? item : { [0]: item }, depth - 1)) {
+            result.push(flattenedItem);
+        }
+    }
+
+    return result;
+}
+```

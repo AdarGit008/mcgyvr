@@ -1,0 +1,31 @@
+```ts
+export function isValidCelsius(celsius: number): boolean {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    return false;
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return true;
+}
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(constantlyValidatedCelsius: number): number {
+  "must be a finite number";
+  const isValid = isValidCelsius(constantlyValidatedCelsius);
+  if (!isValid) {
+    throw new Error("celsius must be a finite number");
+  }
+  return constantlyValidatedCelsius * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(constantlyValidatedCelsius: number): number {
+  "must be a finite number";
+  const isValid = isValidCelsius(constantlyValidatedCelsius);
+  if (!isValid) {
+    throw new Error("celsius must be a finite number");
+  }
+  return constantlyValidatedCelsius + 273.15;
+}
+```

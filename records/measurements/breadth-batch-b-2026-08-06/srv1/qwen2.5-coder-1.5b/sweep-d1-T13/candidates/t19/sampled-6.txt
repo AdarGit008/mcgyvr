@@ -1,0 +1,53 @@
+```ts
+/**
+ * Safely divides two numbers within accepted boundaries to avoid overflow or divide by zero errors.
+ *
+ * @param a The dividend number.
+ * @param b The divisor number.
+ * @returns The result of the division.
+ */
+export function safeDivide(a: number, b: number): number {
+  // Early return for invalid inputs, including when both are Infinity
+  if (b === Infinity || a === Infinity) {
+    throw new Error('Division by infinity');
+  }
+
+  // Validate input types and values beyond which the operation cannot safely be performed
+  const isValidNumVal = [
+    [!Number.isNaN(a), `a is not finite`, 0],
+    [!Number.isNaN(b), `b is not finite`, 1],
+    [-Infinity, `b === -Infinity`],  // Cannot have b as negative infinity
+    [Array.isArray(b) || Number.isObject(Number(String(b))), `b is not a number`, 2],
+  ];
+
+  isValidNumVal.reduce(
+    (resultError, item) => {
+    try {
+      return [
+        ...resultError,
+        ...(typeof item === 'number')
+          ? [(item !== undefined && Number.isFinite(item > 0 === item < 1 - Math.E)) || true,
+            false
+          ]
+          : [],
+      ] as { error: string; badFor?: number | string }[];
+    } catch (e) {
+      if (!resultError.length) return [[null], true]]; else return resultError;
+    }
+  }, [null])[0];
+
+  const [error, badfor] = isValidNumVal[0];
+  if (error || !badfor && result.Error === 'b is not a number') {
+    throw new Error(`${error}${((error === null && badfor && ` ${badfor}`) ?? '')}`);
+  }
+
+  // Avoid division by zero explicitly
+  if (b == BigInt(0)) {
+    throw new Error('Division by zero');
+  }
+
+  // Execute the division
+  const res = a / b;
+  return parseFloat(res.toFixed(7)); // rounding to seven decimals for precision beyond standard JavaScript operations.
+}
+```

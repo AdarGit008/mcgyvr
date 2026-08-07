@@ -1,0 +1,32 @@
+```
+/** An append-only log of timestamped events. */
+export class EventLog {
+  #events: Event[] = [];
+
+   /**
+    * Append one event.
+    * @param event The event object to be recorded.
+    *
+    * @throws {Error} - If the provided `event` is not a valid `Event`.
+    */
+  record(event: Event) {
+    if (typeof event.name !== 'string') throw new Error('Event name must be a string.');
+    if (typeof event.timestamp !== 'number') throw new Error('Event timestamp must be a number.');
+
+    this.#events.push(event);
+  }
+
+   /**
+    * Every event at or after the given timestamp, in insertion order.
+    * @param timestamp The starting timestamp for filtering events.
+    *
+    * @returns An array of events whose timestamps are on or after the given timestamp, preserving insertion order.
+    */
+  since(timestamp: number): Event[] {
+    for (let i = 0; i < this.#events.length; i++) {
+      if (this.#events[i].timestamp > timestamp) return [...event, this.#events.slice(i)];
+    }
+    return [];
+  }
+}
+```

@@ -1,0 +1,29 @@
+ ```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (!Array.isArray(intervals) || intervals.some(interval => interval.length !== 2)) {
+        throw new Error("Input must be an array of exactly two-element arrays.");
+    }
+
+    if (intervals.some(([start, end]) => start > end)) {
+        throw new Error("Interval start cannot be greater than its end.");
+    }
+
+    intervals.sort((a, b) => a[0] - b[0]);
+
+    const result: number[][] = [];
+    let currentInterval = intervals[0];
+
+    for (let i = 1; i < intervals.length; i++) {
+        const [start, end] = intervals[i];
+        if (currentInterval[1] >= start) {
+            currentInterval[1] = Math.max(currentInterval[1], end);
+        } else {
+            result.push([...currentInterval]);
+            currentInterval = [start, end];
+        }
+    }
+
+    result.push(currentInterval);
+    return result;
+}
+```

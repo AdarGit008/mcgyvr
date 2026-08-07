@@ -1,0 +1,46 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    if (!inQuotes && line[i] === ',') {
+      fields.push(field);
+      field = '';
+    } else if (line[i] === '"') {
+      inQuotes = !inQuotes;
+      if (inQuotes && i + 1 < line.length && line[i+1] === '"') {  // Escaped quote inside quotes
+        field += '"';
+        i++;
+      } else if (!inQuotes) { // End of field, add it to the list
+        fields.push(field);
+        field = '';
+      } 
+    } else {
+      if (line[i] === '\\' && i + 1 < line.length && line[i+1] === '"') { // Escaped quote outside quotes
+        field += '"';
+        i++;
+      } else if (inQuotes && line[i] === '\\') { // Maybe an escaped character inside quotes
+        if (line[i+1] === '\\') {
+          field += '\\';
+          i++;
+        } else if (line[i+1] === '"') { 
+          inQuotes = false;  // End of field, add it to the list
+          fields.push(field);
+          field = '';
+          i++;
+        } else { // Not an escape character, just add it as is
+          field += line[i];
+        }
+      } else { 
+        field += line[i];  // Normal character, just add to current field
+      }
+    }
+  }
+
+  if (inQuotes) throw new Error('Unclosed quote in CSV line'); // Check for unclosed quotes at end of line
+  fields.push(field);  // Add last field
+  return fields;
+}
+```

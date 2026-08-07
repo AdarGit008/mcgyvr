@@ -1,0 +1,24 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const versionParts = version.split(/\D+/);
+
+  if (versionParts.length !== 3) {
+    throw new Error("Invalid input: format should be MAJOR.MINOR.PATCH");
+  }
+
+  const [major, minor, patch] = versionParts.map(Number);
+
+  if (
+    isNaN(major) || isNaN(minor) || isNaN(patch) ||
+    major < 0 || minor < 0 || patch < 0 ||
+    (major === 0 && minor !== 0)
+  ) {
+    throw new Error("Invalid input: numeric parts must be digits with no leading zero");
+  }
+
+  const prerelease = versionParts[3] ?? null;
+  const build = versionParts[4] ?? null;
+
+  return { major, minor, patch, prerelease, build };
+}
+```

@@ -1,0 +1,18 @@
+```typescript
+/**
+ * Returns the text truncated to exactly limit characters with the last N-4 characters
+ * replaced by "...". Throws Error if limit is not a positive integer.
+ */
+export function truncate(text: string, limit: number): string {
+  if (typeof limit !== "number" || limit < 1 || limit % 1 !== 0) {
+    throw new Error("limit must be an integer >= 3");
+  }
+
+  if (text.length <= limit) {
+    return text;
+  }
+  
+  const truncated = text.substring(0, limit - 3);
+  return truncated + "...";
+}
+```

@@ -1,0 +1,17 @@
+Here is how you can implement flatten function using TypeScript according to provided contract: 
+
+```ts
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth < 0) throw Error('Invalid depth');
+
+  let result = [];
+  for (const item of items) {
+    Array.isArray(item) && depth > 0
+      ? result.push(...flatten(item, depth - 1)) // recurse on arrays up to the depth level
+      : result.push(item); // pass through everything else as a value or string
+  }
+  return result;
+}
+```
+
+You may use this code in your TypeScript app. This function processes each item in input array and checks if it's an array itself by utilizing `Array.isArray()` method. If the item is array, then we recursively call `flatten` on that array to get its elements at appropriate depth level. If not, simply push value into result array. The use of spread operator (`...`) helps in pushing all elements from flattened array into result array.

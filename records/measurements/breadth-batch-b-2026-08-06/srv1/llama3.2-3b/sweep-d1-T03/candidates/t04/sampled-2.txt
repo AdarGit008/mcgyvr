@@ -1,0 +1,81 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+  private capacity: number;
+  private map: Map<K, [V, number]>;
+  private index: Map<K, number>;
+
+  /**
+   * Creates a new LruCache instance.
+   *
+   * @param capacity The maximum number of entries in the cache.
+   */
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Capacity must be a positive integer.');
+    }
+
+    this.capacity = capacity;
+    this.map = new Map();
+    this.index = new Map();
+  }
+
+  /**
+   * Returns the value associated with the given key, or undefined if no such entry exists.
+   *
+   * @param key The key to look up in the cache.
+   * @returns The value associated with the given key, or undefined.
+   */
+  get(key: K): V | undefined {
+    const [value, index] = this.map.get(key) ?? [undefined, -1];
+
+    if (value !== undefined) {
+      this.index.set(key, index);
+      return value;
+    }
+
+    // If the key is not in the cache and we're at capacity, remove the least recently used entry.
+    if (this.map.size === this.capacity) {
+      const lruKey = Array.from(this.index.keys()).sort((a, b) => this.index.get(a) - this.index.get(b))[0];
+      this.map.delete(lruKey);
+      this.index.delete(lruKey);
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Inserts or updates the value associated with the given key in the cache.
+   *
+   * @param key The key to insert or update in the cache.
+   * @param value The new value to associate with the given key.
+   */
+  set(key: K, value: V): void {
+    if (this.map.has(key)) {
+      this.map.delete(key);
+      this.index.delete(key);
+    }
+
+    const entries = Array.from(this.map.keys());
+    if (entries.length >= this.capacity) {
+      const lruKey = entries[0];
+      this.map.delete(lruKey);
+      this.index.delete(lruKey);
+    }
+
+    this.map.set(key, [value, entries.length]);
+    this.index.set(key, entries.length);
+  }
+
+  /**
+   * Returns the number of entries currently in the cache.
+   *
+   * @returns The number of entries in the cache.
+   */
+  get size(): number {
+    return this.map.size;
+  }
+}
+```

@@ -1,0 +1,20 @@
+ ```ts
+/**
+ * Splits an array into consecutive groups of at most size elements, preserving order.
+ * @param items The array to chunk.
+ * @param size The maximum group size.
+ * @throws Will throw an Error if size is not a positive integer.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error("Size must be a positive integer");
+  }
+
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+
+  return result;
+}
+```

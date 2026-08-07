@@ -1,0 +1,42 @@
+```ts
+import { removeNegatives } from './solution';
+
+describe('removeNegatives', () => {
+  const cases: [readonly number[], number[]][] = [
+    [[], []],
+    [[-1, -2, -3], []],
+    [[1, 2, 3], [1, 2, 3]],
+    [[-1, 2, -3, 4], [2, 4]],
+    [[0, -1, -2, 0], [0, 0]],
+    [[-Infinity, 5, NaN, 6], [5, 6]],
+    [[-5.5, -7.7, 8.8], [8.8]],
+    [[-0, 0, -0], [0, 0]],
+    // null and undefined tests
+    [[null as any], []],
+    [[undefined as any], []],
+    // negative zero testing
+    [[0, -0], [0]], // Should treat -0 as non-negative
+  ];
+
+  cases.forEach(([input, expected]) => {
+    it(`removes negatives from ${input}`, () => {
+      expect(removeNegatives(input)).toEqual(expected);
+    });
+  });
+
+  it('does not mutate the input array', () => {
+    const original = [1, -2, 3];
+    removeNegatives(original);
+    expect(original).toEqual([1, -2, 3]);
+  });
+
+  describe('handles invalid inputs gracefully', () => {
+    it('returns an empty array for invalid input with no negatives', () => {
+      expect(removeNegatives("not a number" as any)).toEqual([]);
+    });
+    it('returns an empty array for undefined input types', () => {
+      expect(removeNegatives(undefined as any)).toEqual([]);
+    });
+  });
+});
+```

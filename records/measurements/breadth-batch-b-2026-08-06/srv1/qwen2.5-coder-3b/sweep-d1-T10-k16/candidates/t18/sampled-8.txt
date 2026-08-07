@@ -1,0 +1,40 @@
+```ts
+export interface Event {
+  name: string;
+  timestamp: number;
+}
+
+/**
+ * An append-only log of timestamped events.
+ */
+export class EventLog {
+  #events: Event[] = [];
+  
+  /**
+   * Append one event in the log.
+   *
+   * @param event - The event object to add. Must have `name` and `timestamp`.
+   */
+  record(event: Event): void {
+    if (typeof event.name !== 'string' || typeof event.timestamp !== 'number') {
+      throw new Error('Event name must be a string and timestamp must be a number.');
+    }
+  
+    this.#events.push({...event});
+  }
+
+  /**
+   * Retrieve all events published at or after the given timestamp.
+   *
+   * @param timestamp - The inclusive timestamp to query from.
+   * @returns An array of events that meet the criteria.
+   */
+  since(timestamp: number): Event[] {
+    if (typeof timestamp !== 'number') {
+      throw new Error('Timestamp must be a number.');
+    }
+  
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+```

@@ -1,0 +1,11 @@
+```typescript
+/** safe divided by b. */
+export function safeDivide(a: number, b: number): number {
+  if (arguments.length !== 2) throw new Error('safeDivide expected two arguments');
+  if (!Number.isFinite(a)) throw new Error('safeDivide first argument must be finite');
+  if (!Number.isFinite(b)) throw new Error('safeDivide second argument must be finite');
+  if (b === 0 || b === -0) throw new Error('safeDivide cannot divide by zero');
+
+  return a / b;
+}
+```

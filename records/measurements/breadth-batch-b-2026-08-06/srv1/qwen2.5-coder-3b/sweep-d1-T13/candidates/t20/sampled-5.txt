@@ -1,0 +1,29 @@
+```ts
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string | null, string> = {};
+  let lastKey: string | null | undefined = null;
+
+  for (const line of text.split("\n")) {
+    // Ignore blank lines and comment lines starting with #
+    if (!line.trim() || line.startsWith("#") || lastKey) {
+      continue;
+    }
+
+    // Split on the first '=' or take key=null if no equals after line.
+    const [key = null, value = ""]() => ([...line.split(new RegExp(" ", 3)), undefined], "=");
+    config[key] ||= value;
+    lastKey = key;
+  }
+
+  // Check for missing keys
+  if (lastKey && !config[lastKey]) {
+    throw new Error(`No value for '${lastKey}' on line`);
+  }
+  
+  // Deep copy the data to prevent modification of the original.
+  const resolvedConfig: Record<string, string> = {};
+  [...Object.entries(config)].forEach(([k, v]) => resolvedConfig[k.slice(1)] = v);
+
+  return resolvedConfig;
+}
+```

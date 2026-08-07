@@ -1,0 +1,31 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version) {
+    throw new Error("Invalid input");
+  }
+
+  const parts = version.split('.');
+  const major = parseInt(parts[0], 10);
+  const minor = parseInt(parts[1] || '0', 10);
+  const patch = parseInt(parts[2] || '0', 10);
+
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+    throw new Error("Invalid input");
+  }
+
+  let prerelease: string | null = null;
+  let build: string | null = null;
+
+  const lastPartIndex = version.length - parts[0].length - 1;
+
+  if (lastPartIndex >= 0 && version[lastPartIndex] === '-') {
+    prerelease = version.slice(lastPartIndex + 1);
+  }
+
+  if (lastPartIndex >= 2 && version[lastPartIndex - 2] === '+') {
+    build = version.slice(lastPartIndex - 1);
+  }
+
+  return { major, minor, patch, prerelease, build };
+}
+```

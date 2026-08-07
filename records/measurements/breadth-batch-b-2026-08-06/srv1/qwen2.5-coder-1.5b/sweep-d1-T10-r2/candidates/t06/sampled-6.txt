@@ -1,0 +1,41 @@
+```ts
+function parseCsvLine(line: string): string[] {
+    const escapedQuote = '"';
+    let escaping = false;
+    let buffer = '';
+    const result: string[] = [];
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (escaping) {
+            buffer += char;
+           escaping = false;
+        } else if (char === escapedQuote) {
+            escaping = true;
+        } else if (char === '"' && !escaping) {
+            result.push(buffer.trim());
+            buffer = '';
+        } else if (char === '\r' || char === '\n') {
+            // Handle newline characters as part of the last field
+            if (!escapedQuote && buffer) {
+                result.push(buffer.trim());
+                break;
+            }
+            return result; // End processing if newline is found and escaped
+        } else if (buffer.length > 0 && (char === ',' || char === '\r' || char === '\n')) {
+            result.push(buffer.trim());
+            buffer = '';
+        }
+        buffer += char;
+    }
+
+    // Append the last field after the loop ends
+    if (escapedQuote) {
+        throw new Error('Unmatched quoted character');
+    } else if (buffer.length > 0) {
+        result.push(buffer.trim());
+    }
+
+    return result;
+}
+```

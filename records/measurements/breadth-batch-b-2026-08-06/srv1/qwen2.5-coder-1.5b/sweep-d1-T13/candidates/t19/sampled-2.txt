@@ -1,0 +1,16 @@
+```ts
+/**
+ * A divided by b without throwing errors when divisors are zero or non-numbers.
+ * @param a The dividend, must be finite numbers.
+ * @param b The divisor, must be strictly positive (not 0 or negative) and finite numbers.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a))
+    throw new Error("first argument is Non-number");
+  if (!Number.isFinite(b)) // added check for 0 and less here
+    throw new Error("second argument should be strictly positive (Non-numbers)");
+  if (b <= 0 ||isNaN(b) || !isFinite(b))
+    throw new Error("divide by zero");
+  return a / b;
+}
+```

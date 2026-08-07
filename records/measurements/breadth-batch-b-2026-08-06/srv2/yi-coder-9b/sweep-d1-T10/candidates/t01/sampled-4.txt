@@ -1,0 +1,21 @@
+```TS
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') throw new Error('Input must be a string');
+
+  let encoded = '';
+  let currentRunChar = input[0];
+  let currentRunCount = 1;
+
+  for (let i = 1; i <= input.length; i++) {
+    if (input[i] === currentRunChar) {
+      currentRunCount++;
+    } else {
+      encoded += `${currentRunChar}${currentRunCount}`;
+      currentRunChar = input[i];
+      currentRunCount = 1;
+    }
+  }
+
+  return encoded;
+}
+```

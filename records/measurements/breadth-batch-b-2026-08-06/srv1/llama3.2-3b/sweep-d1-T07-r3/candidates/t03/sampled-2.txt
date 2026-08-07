@@ -1,0 +1,92 @@
+```typescript
+/**
+ * Parse a semantic version string into its components.
+ *
+ * @param version The semantic version string to parse.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  // Check if the input is a string
+  if (typeof version !== "string") {
+    throw new Error("version must be a string");
+  }
+
+  // Remove any leading or trailing whitespace from the input
+  const trimmedVersion = version.trim();
+
+  // Remove the "v" prefix if present, as it's not part of the semantic version
+  // Check for the presence of "v" and remove it only if it exists
+  let parsedVersion = trimmedVersion.startsWith("v") ? trimmedVersion.slice(1) : trimmedVersion;
+
+  // Split the input into its components using "." as the separator
+  const parts = parsedVersion.split(".").filter((part) => !!part);
+
+  // Check if there are exactly three numeric parts (major, minor, patch)
+  if (parts.length !== 3) {
+    throw new Error(
+      `Invalid version string: expected "MAJOR.MINOR.PATCH" but got "${parsedVersion}"`
+    );
+  }
+
+  let [major, minor, patch] = parts.map((part) => parseInt(part, 10));
+
+  // Check if any of the numeric parts are not digits or have leading zero
+  if (isNaN(major) || major.toString().includes("0")) {
+    throw new Error(
+      `Invalid version string: expected "MAJOR.MINOR.PATCH" but got "${parsedVersion}"`
+    );
+  }
+  if (isNaN(minor) || minor.toString().includes("0")) {
+    throw new Error(`Invalid version string: expected "MAJOR.MINOR.PATCH" but got "${parsedVersion}"`);
+  }
+  if (isNaN(patch) || patch.toString().includes("0")) {
+    throw new Error(
+      `Invalid version string: expected "MAJOR.MINOR.PATCH" but got "${parsedVersion}"`
+    );
+  }
+
+  // Find the index of the first "-" or "+" in the input
+  let prereleaseStart = -1;
+  let buildStart = -1;
+  for (let i = 0; i < parsedVersion.length; i++) {
+    if (
+      (i < parsedVersion.length - 1 &&
+        parsedVersion[i] === "-" &&
+        parsedVersion[i + 1] !== "+") ||
+      parsedVersion[i] === "+"
+    ) {
+      prereleaseStart = i;
+      break;
+    }
+  }
+
+  for (let i = 0; i < parsedVersion.length; i++) {
+    if (
+      (i < parsedVersion.length - 1 &&
+        parsedVersion[i] === "+" &&
+        parsedVersion[i + 1] !== "-") ||
+      parsedVersion[i] === "-"
+    ) {
+      buildStart = i;
+      break;
+    }
+  }
+
+  // Extract the prerelease and build strings from the input
+  let prerelease: string | null = null;
+  let build: string | null = null;
+  if (prereleaseStart !== -1) {
+    const prereleaseStr = parsedVersion.slice(
+      prereleaseStart + 1,
+      parsedVersion.indexOf("-") === -1 ? parsedVersion.length : parsedVersion.indexOf("-")
+    );
+    if (
+      !/^[a-zA-Z0-9.-_]+$/.test(prereleaseStr) ||
+      (prereleaseStr.includes(".") && prereleaseStr.split(".").length > 2)
+    ) {
+      throw new Error(

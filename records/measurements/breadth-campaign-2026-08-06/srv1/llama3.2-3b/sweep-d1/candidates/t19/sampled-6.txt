@@ -1,0 +1,16 @@
+```ts
+/** Returns a divided by b. Always returns a finite number. Throws error if divisor is zero or non-number. */
+export function safeDivide(a: (number | null) & { readonly nonzero: boolean }, b: (number | null) & { readonly nonzero: boolean }): (number | null) & { readonly nonzero: boolean } {
+  if (!(a instanceof Number && a !== null)) {
+    throw new Error('First argument must be a number');
+  }
+  if (!(b instanceof Number && b !== null)) {
+    throw new Error('Second argument must be a number');
+  }
+  if (b.nonzero) {
+    return a / b;
+  } else {
+    throw new Error('Cannot divide by zero');
+  }
+}
+```

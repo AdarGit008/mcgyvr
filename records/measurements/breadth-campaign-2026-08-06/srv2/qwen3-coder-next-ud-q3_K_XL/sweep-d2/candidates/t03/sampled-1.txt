@@ -1,0 +1,67 @@
+```ts
+export function topoSort(n: number, edges: [number, number][]): number[] {
+  // Validate n
+  if (n < 0) {
+    throw new Error("n must be non-negative");
+  }
+
+  // Validate edges
+  const inDegree = new Array(n).fill(0);
+  const adjList: number[][] = Array.from({ length: n }, () => []);
+
+  for (const [u, v] of edges) {
+    // Check if endpoints are integers in [0, n)
+    if (!Number.isInteger(u) || !Number.isInteger(v)) {
+      throw new Error("Edge endpoints must be integers");
+    }
+    if (u < 0 || u >= n || v < 0 || v >= n) {
+      throw new Error(`Edge endpoint out of range: [${u}, ${v}]`);
+    }
+
+    // Self-loop is a cycle
+    if (u === v) {
+      throw new Error("Graph contains a cycle (self-loop)");
+    }
+
+    adjList[u].push(v);
+    inDegree[v]++;
+  }
+
+  // Use Kahn's algorithm with a min-heap priority queue to get lexicographically smallest order
+  const result: number[] = [];
+  const queue: number[] = [];
+
+  // Initialize queue with all nodes having in-degree 0
+  for (let i = 0; i < n; i++) {
+    if (inDegree[i] === 0) {
+      queue.push(i);
+    }
+  }
+
+  // Sort queue initially to ensure smallest node first
+  queue.sort((a, b) => a - b);
+
+  while (queue.length > 0) {
+    // Take the smallest node with in-degree 0
+    const u = queue.shift()!;
+    result.push(u);
+
+    // Process all neighbors
+    for (const v of adjList[u]) {
+      inDegree[v]--;
+      if (inDegree[v] === 0) {
+        queue.push(v);
+        // Re-sort to maintain lexicographical order
+        queue.sort((a, b) => a - b);
+      }
+    }
+  }
+
+  // If we couldn't process all nodes, there's a cycle
+  if (result.length !== n) {
+    throw new Error("Graph contains a cycle");
+  }
+
+  return result;
+}
+```

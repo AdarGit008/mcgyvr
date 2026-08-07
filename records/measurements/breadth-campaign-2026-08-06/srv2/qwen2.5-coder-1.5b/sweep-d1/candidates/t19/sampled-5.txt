@@ -1,0 +1,19 @@
+```ts
+
+/**
+ * Safely divides two numbers, throwing errors if division by zero occurs or if either argument is not a finite number.
+ *
+ * @param a The numerator.
+ * @param b The denominator.
+ * @returns The result of the division.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error("Both arguments must be finite numbers.");
+  }
+  if (b === 0) {
+    throw new Error("Division by zero is not allowed.");
+  }
+  return a / b;
+}
+```

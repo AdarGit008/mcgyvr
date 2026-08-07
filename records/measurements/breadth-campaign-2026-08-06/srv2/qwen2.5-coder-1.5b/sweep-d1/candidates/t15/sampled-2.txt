@@ -1,0 +1,25 @@
+```ts
+// import { assert } from "assert";
+
+/** The temperature in degrees Fahrenheit. */
+export function celsiusToFahrenheit(celsius: number): number {
+  const validate = _validateCelsius(celsius);
+  return validate * 1.8 + 32;
+}
+
+/** The temperature in kelvin. */
+export function celsiusToKelvin(celsius: number): number {
+  const validate = _validateCelsius(celsius);
+  return validate + 273.15;
+}
+
+function _validateCelsius(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (value < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+  return value;
+}
+```

@@ -1,0 +1,69 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+    private #cache: { [key: K]: V } = {};
+    private #size: number;
+    private # capacity: number;
+
+    /**
+     * Creates a new LruCache with the given capacity.
+     *
+     * @throws {Error} If the capacity is not a positive integer.
+     */
+    constructor(capacity: number) {
+        if (typeof capacity !== 'number' || capacity <= 0 || capacity % 1 > 0n) {
+            throw new Error('Capacity must be a positive integer.');
+        }
+        this.#capacity = capacity;
+    }
+
+    /**
+     * Returns the value associated with the given key, or undefined if no such key exists,
+     * and counts as a use of the cache.
+     *
+     * @param key The key to look up in the cache.
+     */
+    get(key: K): V | undefined {
+        const cached = this.#cache[key];
+        if (cached) {
+            const value = cached.value;
+            // Swap the entry with itself so it becomes the most recently used
+            this.#cache[key] = { key, value };
+            return value;
+        }
+    }
+
+    /**
+     * Inserts or updates the given key and value in the cache,
+     * counts as a use of the cache, and evicts the least recently used entry if necessary.
+     */
+    set(key: K, value: V) {
+        const cached = this.#cache[key];
+        if (cached) {
+            // Update existing key
+            const { key: cachedKey } = cached;
+            delete this.#cache[cachedKey];
+        }
+        if (Object.keys(this.#cache).length >= this.#capacity) {
+            // Evict the least recently used entry
+            const usedKey = Object.keys(this.#cache)[0];
+            delete this.#cache[usedKey];
+        } else if (cached) {
+            // Update existing key and count it as a use of its access method
+            this.#size++;
+        }
+        this.#cache[key] = { key, value };
+    }
+
+    /**
+     * Returns the number of entries in the cache.
+     *
+     * @returns The size of the cache.
+     */
+    get size(): number {
+        return this.#capacity; // This should be the current entry count at all times
+    }
+}
+```

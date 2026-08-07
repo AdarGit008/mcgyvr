@@ -1,0 +1,58 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+  if (!line) return [];
+
+  let result: string[] = [];
+  let currentField: string[] = [];
+  let inQuotes = false;
+  let escapedQuote = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    // Check for start of quoted field
+    if (!inQuotes && char === '"') {
+      inQuotes = true;
+      escapedQuote = false;
+      continue; // Skip the quote character
+    }
+
+    if (inQuotes) {
+      // Inside a quoted field
+      if (char === '"') {
+        if (escapedQuote) {
+          currentField.push('"'); // Doublequote inside quote is literal
+          escapedQuote = false;
+        } else {
+          escapedQuote = true; // Start of doubled quote, not escaping yet
+          continue;
+        }
+      } else {
+        currentField.push(char);
+      }
+
+      // Check for end of quoted field
+      if (char === '"' && !escapedQuote) {
+        inQuotes = false;
+      }
+    } else {
+      // Not inside a quoted field
+      if (char === ',') {
+        result.push(currentField.join(''));
+        currentField = [];
+      } else if (!/[\s\S]/.test(char)) {
+        throw new Error("Unpaired quote found");
+      } else {
+        currentField.push(char);
+      }
+    }
+  }
+
+  // Add the last field
+  if (currentField.length > 0) {
+    result.push(currentField.join(''));
+  }
+
+  return result;
+}
+```

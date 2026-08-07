@@ -1,0 +1,42 @@
+```ts
+class LruCache<K, V> {
+  #maxCapacity: number;
+  #cacheMap: Map<K, { value: V; lastAccessed: number }>;
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error('Invalid capacity');
+    }
+    this.#maxCapacity = capacity;
+    this.#cacheMap = new Map();
+  }
+
+  get(key: K): V | undefined {
+    const entry = this.#cacheMap.get(key);
+    if (!entry || entry.lastAccessed === -Infinity) {
+      return undefined;
+    }
+    this.#cacheMap.set(key, { ...entry, lastAccessed: Date.now() });
+    return entry.value;
+  }
+
+  set(key: K, value: V): void {
+    const existingEntry = this.#cacheMap.get(key);
+    if (existingEntry) {
+      // Update the existing entry
+      this.#cacheMap.set(key, { ...existingEntry, value, lastAccessed: Date.now() });
+    } else {
+      // Add a new entry
+      this.#cacheMap.set(key, { value, lastAccessed: Date.now() });
+      if (this.#cacheMap.size > this.#maxCapacity) {
+        // Evict the least recently used entry
+        const earliestEntry = Array.from(this.#cacheMap.values()).sort((a, b) => a.lastAccessed - b.lastAccessed)[0];
+        this.#cacheMap.delete(earliestEntry.key);
+      }
+    }
+  }
+
+  get size(): number {
+    return this.#cacheMap.size;
+  }
+}
+```

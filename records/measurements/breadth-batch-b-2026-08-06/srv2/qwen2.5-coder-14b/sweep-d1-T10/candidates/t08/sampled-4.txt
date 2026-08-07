@@ -1,0 +1,49 @@
+```ts
+/**
+ * Perform topological sort on nodes given their edges.
+ * Throws an error if there is a cycle or an invalid edge.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList = new Map<string, Set<string>>();
+  const inDegreeMap = new Map<string, number>();
+
+  // Initialize data structures
+  for (const node of nodes) {
+    adjacencyList.set(node, new Set());
+    inDegreeMap.set(node, 0);
+  }
+
+  // Build adjacency list and in-degree map
+  for (const [from, to] of edges) {
+    if (!adjacencyList.has(from) || !adjacencyList.has(to)) {
+      throw new Error(`Edge references a node not in nodes: (${from}, ${to})`);
+    }
+    adjacencyList.get(from)!.add(to);
+    inDegreeMap.set(to, (inDegreeMap.get(to) ?? 0) + 1);
+  }
+
+  // Queue of nodes with no incoming edges
+  const zeroInDegreeQueue = [...nodes].filter(node => inDegreeMap.get(node)! === 0);
+
+  // Perform topological sort
+  const sortedOrder: string[] = [];
+  while (zeroInDegreeQueue.length > 0) {
+    const node = zeroInDegreeQueue.shift()!;
+    sortedOrder.push(node);
+
+    for (const neighbor of adjacencyList.get(node)!) {
+      inDegreeMap.set(neighbor, inDegreeMap.get(neighbor)! - 1);
+      if (inDegreeMap.get(neighbor)! === 0) {
+        zeroInDegreeQueue.push(neighbor);
+      }
+    }
+  }
+
+  // Check for cycles
+  if (sortedOrder.length !== nodes.length) {
+    throw new Error('Cycle detected in the graph');
+  }
+
+  return sortedOrder;
+}
+```

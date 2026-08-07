@@ -1,0 +1,48 @@
+```ts
+function parseCsvLine(line: string): string[] {
+    let result: string[] = [];
+    const quotesMap: { [key: number]: boolean } = {};
+    let inQuotes = false;
+    let startIndex = 0;
+
+    for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') {
+            inQuotes = !inQuotes;
+            quotesMap[i + 1] = true; // Track the quote occurrence
+        }
+
+        if (inQuotes) {
+            continue;
+        }
+
+        if (line[i] === ',') {
+            const fieldValue = line.slice(startIndex, i).trim();
+            // Check for double quotes enclosed in an unquoted field
+            startQuotes: if (!quotesMap[i + 1]) {
+                let start = i + 1; // Start before the quote
+                while (start < line.length && !inQuotes) {
+                    if (line[start] === ',') {
+                        break; // Stop searching inside a single quote block
+                    }
+                    start++;
+                }
+
+                const value = line.slice(startIndex, start).trim();
+                result.push(value);
+            } else {
+                result.push(fieldValue);
+            }
+
+            startIndex = i + 1;
+        }
+    }
+
+    // Add the last field if there's no comma at the end
+    if (startIndex < line.length) {
+        const value = line.slice(startIndex,).trim();
+        result.push(value);
+    }
+
+    return result;
+}
+```

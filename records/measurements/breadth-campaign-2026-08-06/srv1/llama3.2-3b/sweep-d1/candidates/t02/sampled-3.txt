@@ -1,0 +1,28 @@
+```typescript
+/**
+ * Merge intervals in ascending order without mutating the input array.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  // Check if all intervals are valid
+  for (const interval of intervals) {
+    if (interval[0] > interval[1]) throw new Error('Invalid interval');
+  }
+
+  // Sort intervals by start value
+  const sortedIntervals = [...intervals].sort((a, b) => a[0] - b[0]);
+
+  const merged: number[][] = [];
+  for (const interval of sortedIntervals) {
+    // If the merged array is empty or the current interval does not overlap with the last one in the merged array,
+    // append it to the merged array
+    if (!merged.length || merged[merged.length - 1][1] < interval[0]) {
+      merged.push(interval);
+    } else {
+      // Otherwise, merge the current interval with the last one in the merged array by updating its end value
+      merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], interval[1]);
+    }
+  }
+
+  return merged;
+}
+```

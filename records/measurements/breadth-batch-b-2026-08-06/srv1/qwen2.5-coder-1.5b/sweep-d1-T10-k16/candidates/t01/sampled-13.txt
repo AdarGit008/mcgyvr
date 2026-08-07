@@ -1,0 +1,35 @@
+```typescript
+/**
+ * Encodes a run-length encoded version of the input string.
+ * Every maximal run of characters is replaced with that character followed by the run length.
+ * A run of length one still carries its count, so "abc" encodes to "a1b1c1".
+ *
+ * @param {string} input - The string to encode.
+ * @returns {string} The encoded string.
+ * @throws {Error} Throws an error if the input is not a string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let result = '';
+  let count = 1;
+  const inputArray = Array.from(input);
+
+  for (let i = 0; i < inputArray.length; i++) {
+    if (inputArray[i] === inputArray[i + 1]) {
+      count++;
+    } else {
+      if (count > 1) {
+        result += inputArray[i - 1] + count.toString();
+      } else {
+        result += inputArray[i - 1];
+      }
+      count = 1;
+    }
+  }
+
+  return result;
+}
+```

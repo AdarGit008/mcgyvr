@@ -1,0 +1,74 @@
+```ts
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export declare class LruCache<K, V> {
+    private readonly _capacity: number;
+    private readonly _keyToValue: Map<K, { key: K; value: V; index: number }>;
+    private readonly sizeMap: WeakMap<LruCache<K, V>, number>;
+
+    constructor(capacity: number) {
+        this._capacity = this.checkCapacity(capacity);
+        if (this._capacity <= 0) {
+            throw new Error(`Invalid capacity. It should be a positive integer.`);
+        }
+
+        this._keyToValue = new Map();
+        this.sizeMap = new WeakMap();
+    }
+
+    /**
+     * Returns the value of key if exists or undefined.
+     */
+    get(key: K): V | undefined {
+        const entry = this._keyToValue.get(key);
+        if (entry) {
+            this._keyToValue.delete(entry.key);
+            this.sizeMap.set(this, this.size + 1);
+            return entry.value;
+        }
+
+        // no-op
+    }
+
+    /**
+     * Inserts or updates key-value pair in the cache.
+     */
+    set(key: K, value: V): void {
+        if (!this._keyToValue.has(key)) {
+            const size = this.size + 1;
+            if (size > this._capacity) {
+                // find and remove lru item
+                let lruKey = this._keyToValue.keys().next();
+                while (lruKey && --size === this._capacity);
+                return this._keyToValue.delete(lruKey.value.key);
+            }
+
+            const age = 0;
+            this.sizeMap.set(this, size);
+            this._keyToValue.set(key, { key, value, index: age });
+        } else {
+            // update value
+            const entry = this._keyToValue.get(key);
+            delete this._keyToValue[key];
+            this._keyToValue.set(key, { key, value, index: ++entry.index });
+            this.sizeMap.set(this, ++this(size));
+        }
+    }
+
+    /**
+     * Returns the current number of entries in the cache.
+     */
+    get size(): number {
+        return Math.floor(this.sizeMap.get(this) || 0);
+    }
+
+    private checkCapacity(capacity: number): number {
+        if (typeof capacity !== "number" || isNaN(Number(capacity))) {
+            throw new Error(`Invalid capacity. It should be a positive integer.`);
+        }
+        return capacity;
+    }
+}
+
+```

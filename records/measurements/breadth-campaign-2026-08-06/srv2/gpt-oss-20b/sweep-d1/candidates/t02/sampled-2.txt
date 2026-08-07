@@ -1,0 +1,48 @@
+```ts
+/**
+ * Merge overlapping or touching intervals into the smallest set of non-overlapping intervals.
+ *
+ * @param intervals - Array of [start, end] pairs representing closed intervals.
+ * @returns A new array of merged, sorted intervals with fresh subarrays.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (!Array.isArray(intervals)) {
+        throw new Error('Input must be an array');
+    }
+
+    // Create a shallow copy of each interval to avoid mutating the input
+    const copied = intervals.map((interval, idx) => {
+        if (
+            !Array.isArray(interval) ||
+            interval.length !== 2 ||
+            typeof interval[0] !== 'number' ||
+            typeof interval[1] !== 'number'
+        ) {
+            throw new Error(`Invalid interval at index ${idx}`);
+        }
+        const [start, end] = interval;
+        if (start > end) {
+            throw new Error(`Interval start (${start}) greater than end (${end})`);
+        }
+        return [start, end];
+    });
+
+    // Sort by start value
+    copied.sort((a, b) => a[0] - b[0]);
+
+    const result: number[][] = [];
+    let curStart: number | undefined;
+    let curEnd: number | undefined;
+
+    for (const [start, end] of copied) {
+        if (curStart === undefined) {
+            curStart = start;
+            curEnd = end;
+            continue;
+        }
+        // If intervals overlap or touch
+        if (start <= curEnd!) {
+            curEnd = Math.max(curEnd!, end);
+        } else {
+            result.push([curStart, curEnd!]);
+            curStart = start

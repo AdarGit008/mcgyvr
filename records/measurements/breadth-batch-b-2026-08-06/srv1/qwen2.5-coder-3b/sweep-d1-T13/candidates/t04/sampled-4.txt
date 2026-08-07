@@ -1,0 +1,79 @@
+```ts
+export class LruCache<K, V> {
+    private capacity: number;
+    private cache: Map<K, { value: V, timestamp: number }>;
+    private orderStack: K[];
+
+    constructor(capacity: number) {
+        if (capacity <= 0 || !Number.isInteger(capacity)) {
+            throw new Error("Capacity must be a positive integer.");
+        }
+        this.capacity = capacity;
+        this.cache = new Map<K, { value: V, timestamp: number }>();
+        this.orderStack = [];
+    }
+
+    get(key: K): V | undefined {
+        const item = this.cache.get(key);
+        if (item) {
+            // Update the order so this item is most recently used
+            this.orderStack = this.orderStack.filter((k) => k !== key);
+            this.orderStack.push(key);
+            item.timestamp = Date.now(); // Adjust timestamp for updated use
+            return item.value;
+        }
+        return undefined;
+        // A missing key is not considered a use.
+    }
+
+    set(key: K, value: V): void {
+        if (!this.cache.has(key)) {
+            this.orderStack.push(key);
+        } else {
+            // Reorder the stack to place most recently used item at the end
+            const index = this.orderStack.indexOf(key);
+            this.orderStack.splice(index, 1);
+            this.orderStack.push(key);
+        }
+
+        // Adjust timestamp for updated value
+        if (!this.cache.has(key)) {
+            this.cache.set(key, { value, timestamp: Date.now() });
+        } else {
+            this.cache.get(key).value = value;
+        }
+
+        // Reclaim capacity if overflown
+        let count = Array.from(this.orderStack).length;
+        while (count > this.capacity) {
+            const leastRecentlyUsedKey = this.orderStack.shift();
+            if (!leastRecentlyUsedKey) continue; // Edge case for empty stack
+            this.cache.delete(leastRecentlyUsedKey);
+            count -= 1;
+        }
+    }
+
+    get size(): number {
+        let capacityCheck = 0;
+        while (this.orderStack.length > 0 && !this.capacityCheckHasLruItems()){
+            const itemToRemove = this.orderStack[0];
+            this.orderStack.shift();
+            capacityCheck++;
+            if (capacityCheck >= this.capacity) {
+                break;
+            }
+        }
+
+        let result = capabilityCheck/2 || 0;
+
+        return result;
+    }
+
+    // helper to figure out how many items in the stack can still fit in our container. Essentially 
+    capacityCheckHasLruItems() {
+        if (this.cache.size) return this.capacity !== 1
+    }
+}
+
+// Unit tests would go here, but no requirements were provided.
+```

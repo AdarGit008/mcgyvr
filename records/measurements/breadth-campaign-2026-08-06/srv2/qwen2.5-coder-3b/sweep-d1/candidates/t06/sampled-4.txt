@@ -1,0 +1,19 @@
+```typescript
+export function parseCsvLine(line: string): string[] {
+    if (line.trim() === "") return [];
+
+    const fields = line.split(/,(?=[^"]*(?:[^"]*"[^"]*)*$)/);
+    return fields.map(field => {
+        if (field.startsWith('"') && field.endsWith('"')) {
+            // Unquote the field
+            return field.slice(1, -1).replace(/\\"/g, '"');
+        }
+        // Trim leading and trailing spaces
+        return field.trim();
+    }).filter(field => field !== "");
+}
+
+// Example usage:
+console.log(parseCsvLine('"Hello,"world"!')); // ["Hello,\"world\",!"]
+console.log(parseCsvLine(' "Single quoted",Double quoted,"Trailing quote,","No quote" ')); // ["Single quoted", "Double quoted", "Trailing quote,", "No quote"]
+```

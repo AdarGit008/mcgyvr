@@ -1,0 +1,21 @@
+Here is the full implementation:
+
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null }  {
+    const semverParts = version.split('-')
+    const mainVersionPartAndBuild = semverParts[0].split('+')
+
+    let major, minor, patch
+    try {
+        [major, minor, patch] = mainVersionPartAndBuild[0].split('.').map(Number)
+    } catch (e) {
+       throw new Error(`Invalid version: ${version}`);
+    }
+
+    if ([major, minor, patch].some((n, i) => isNaN(n) || n < 1 && i !=2 || n <= 0)) {
+        throw new Error(`Invalid version: ${version}`);
+    }
+
+    return { major, minor, patch, prerelease: semverParts[1] || null, build: mainVersionPartAndBuild[1] || null };
+};
+```

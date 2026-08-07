@@ -105,8 +105,14 @@ def _join_reply(path: Path, rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _entry(run: Path, path: Path, joined: dict[str, Any]) -> dict[str, Any]:
-    text = path.read_text(encoding="utf-8")
-    sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    # Read bytes, not text: ``read_text`` translates CRLF to LF, so a reply
+    # whose model emitted Windows line endings gets hashed as bytes it never
+    # sent and rejected against its own row — and, worse, reaches the parser
+    # in a shape nobody measured. The row's sha is taken over the raw
+    # completion, so this one must be too.
+    raw = path.read_bytes()
+    sha = hashlib.sha256(raw).hexdigest()
+    text = raw.decode("utf-8")
     if joined["row_sha"] is not None and joined["row_sha"] != sha:
         raise PinError(
             f"{path}: file bytes disagree with the sha its row recorded "

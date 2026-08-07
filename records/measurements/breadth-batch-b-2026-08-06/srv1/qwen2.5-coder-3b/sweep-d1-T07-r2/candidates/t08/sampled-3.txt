@@ -1,0 +1,106 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || nodes.length === 0) return [];
+    
+    const graph = new Map<string, Set<string>>();
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) graph.set(from, new Set());
+        if (!graph.has(to)) graph.set(to, new Set());
+        graph.get(from)?.add(to);
+    }
+
+    const inDegrees = Object.fromEntries(nodes.map(node => [node, 0]));
+    for (const [, neighbors] of graph) {
+        for (const neighbor of neighbors) {
+            inDegrees[neighbor]++;
+        }
+    }
+
+    const queue: string[] = [];
+    for (const node of nodes) {
+        if (inDegrees[node] === 0) queue.push(node);
+    }
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const currentNode = queue.shift()!;
+        result.push(currentNode);
+
+        for (const neighbor of graph.get(currentNode)!) {
+            inDegrees[neighbor]--;
+            if (inDegrees[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    return result.length === nodes.length ? result : [];
+}
+
+function hasCycle(graph: Map<string, Set<string>>, nodes: readonly string[]): boolean {
+    const visited = new Set<string>();
+    const stack = new Set<string>();
+
+    function dfs(node: string): boolean {
+        if (visited.has(node)) return false;
+        if (stack.has(node)) return true;
+
+        visited.add(node);
+        stack.add(node);
+
+        for (const neighbor of graph.get(node)!) {
+            if (dfs(neighbor)) return true;
+        }
+
+        stack.delete(node);
+        return false;
+    }
+
+    for (const node of nodes) {
+        if (dfs(node)) return true;
+    }
+    return false;
+}
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || nodes.length === 0) return [];
+    
+    const graph = new Map<string, Set<string>>();
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) graph.set(from, new Set());
+        if (!graph.has(to)) graph.set(to, new Set());
+        graph.get(from)?.add(to);
+    }
+
+    if (hasCycle(graph, nodes)) {
+        throw new Error("Cycle detected");
+    }
+
+    const inDegrees = Object.fromEntries(nodes.map(node => [node, 0]));
+    for (const [, neighbors] of graph) {
+        for (const neighbor of neighbors) {
+            inDegrees[neighbor]++;
+        }
+    }
+
+    const queue: string[] = [];
+    for (const node of nodes) {
+        if (inDegrees[node] === 0) queue.push(node);
+    }
+
+    const result: string[] = [];
+    while (queue.length > 0) {
+        const currentNode = queue.shift()!;
+        result.push(currentNode);
+
+        for (const neighbor of graph.get(currentNode)!) {
+            inDegrees[neighbor]--;
+            if (inDegrees[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    return result.length === nodes.length ? result : [];
+}
+```

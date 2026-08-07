@@ -1,0 +1,34 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (nodes.length === 0 || nodes.some(node => nodes.includes(node) === false)) throw new Error('Invalid node names');
+
+    // Initialize inDegree map with 0 for all nodes
+    const inDegree = new Map(nodes.map(node => [node, 0]));
+    // Store edges and build the reverse post-order graph
+    const graph: Record<string, string[]> = {};
+    edges.forEach((edge) => {
+        const [from, to] = edge;
+        if (edges.includes([to, from])) throw new Error('Duplicate edge');
+        graph[from] = (graph[from] ?? []).concat(to);
+        inDegree.set(to, (inDegree.get(to) ?? 0) + 1);
+    });
+
+    // Create a queue of nodes with zero in-degree (no predecessors)
+    const queue: string[] = Array.from(nodes).filter(node => inDegree.get(node) === 0);
+    const result: string[] = [];
+
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        if (!graph.hasOwnProperty(current)) continue;
+        // Remove all edges associated with the current node
+        graph[current].forEach(next => inDegree.set(next, (inDegree.get(next) ?? 0) - 1));
+        result.push(current);
+        // Add all the new nodes to the queue that have zero in-degree
+        const newNodes = Array.from(nodes).filter(node => inDegree.get(node) === 0 && graph[current].includes(node)).map(node => node as string);
+        if (newNodes.length > 0)) queue.unshift(...newNodes);
+    }
+
+    // Check for cycles
+    return inDegree.values().some(count => count > 0) ? [] : result;
+}
+```

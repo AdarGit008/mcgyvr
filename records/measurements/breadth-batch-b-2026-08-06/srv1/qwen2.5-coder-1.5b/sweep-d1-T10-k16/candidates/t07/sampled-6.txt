@@ -1,0 +1,28 @@
+```ts
+import { isArray } from 'lodash';
+
+/**
+ * Flattens an array up to a specified depth level.
+ * @param items - The array to flatten.
+ * @param depth - The maximum depth of nesting. Default is Infinity.
+ * @returns A new flattened array with no nested arrays at depths greater than the specified depth.
+ */
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (depth === -Infinity) return [...items]; // Direct copy, keep original items
+
+  const result: unknown[] = [];
+  for (const item of items) {
+    if (isArray(item)) {
+      if (typeof depth === 'number' && depth > 0) {
+        result.push(...flatten(item, depth - 1));
+      } else {
+        result.push(...item);
+      }
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+```

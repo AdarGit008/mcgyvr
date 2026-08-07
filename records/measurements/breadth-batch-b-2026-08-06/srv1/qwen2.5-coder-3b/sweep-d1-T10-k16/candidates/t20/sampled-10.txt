@@ -1,0 +1,33 @@
+```
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const result: Partial<Record<string, string>> = {};
+  for (const line of text.split("\n")) {
+    // Trim whitespace and ignore comments and empty lines.
+    let trimmedLine = line.trimStart();
+    if (!trimmedLine || trimmedLine.startsWith("#")) continue;
+    
+    const [keyPart, valuePart] = trimmedLine.split("=", 2);
+    
+    // Key must not exceed "__proto__".
+    if (keyPart === "__proto__") {
+      throw new Error(`Key "${keyPart}" is reserved and cannot be used.`);
+    }
+    
+    let key = keyPart.trim();
+    if (!key) {
+      throw new Error(`Line with no key: "${line}".`);
+    }
+    
+    // Trim whitespace around the value.
+    let value = (valuePart && valuePart.trim()) || "";
+    
+    if (Object.prototype.hasOwnProperty.call(result, key)) {
+      console.warn(`Overwriting existing key "${key}" in config.`);
+    }
+    result[key] = value;
+  }
+  
+  return result as Record<string, string>;
+}
+```

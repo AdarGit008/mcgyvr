@@ -1,0 +1,27 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  const regex = /"([^"]*(?:\\.")*)"?/;
+  const parts: string[] = [];
+  let match;
+  let lastIndex = 0;
+
+  while ((match = regex.exec(line)) !== null) {
+    parts.push(match[1] || "");
+    lastIndex = regex.lastIndex - match[0].length + regex[1].length;
+  }
+
+  if (line.trim() === "" && parts.length === 1 && parts.at(0).trim() === "") return [];
+
+  const trimmedParts: string[] = [];
+  for (let part of parts.filter(part => part !== "")) {
+    matchedParts.push(
+      // Unify multiple contiguous whitespace tokens to one.
+      part.replace(/\s{2,}/g, " ")
+    );
+  }
+
+  if (/"/.test(trimmedParts.join())) throw new Error('Quote not properly closed');
+
+  return trimmedParts;
+}
+```

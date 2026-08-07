@@ -1,0 +1,10 @@
+```ts
+import { isNaN } from "lodash";
+
+/**
+ * The numbers, ascending, without mutating the argument.
+ */
+export function sortAscending(values: readonly number[]): number[] {
+  return values.map(value => isNaN(value) ? NaN : Number(value)).sort((a, b) => a - b);
+}
+```

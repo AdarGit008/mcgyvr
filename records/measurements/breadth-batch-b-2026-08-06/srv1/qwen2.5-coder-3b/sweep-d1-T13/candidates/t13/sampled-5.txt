@@ -1,0 +1,20 @@
+```typescript
+/**
+ * The text, cut to limit characters with an ellipsis when it is longer; truncates
+ * to fewer than 3 characters with no ellipsis if limit is less than 3.
+ */
+export function truncate(text: string, limit: number): string {
+  // Ensure limit is a valid integer of at least 3
+  if (!Number.isInteger(limit) || limit < 3) {
+    throw new Error("Limit must be an integer of at least 3.");
+  }
+
+  // If text length is less than limit, return text as is
+  if (text.length < limit) {
+    return text;
+  }
+
+  // Truncate to limit - 3 and append "..."; handle case where limit = 3
+  return limit == 3 ? "..." : text.slice(0, limit - 3) + "...";
+}
+```

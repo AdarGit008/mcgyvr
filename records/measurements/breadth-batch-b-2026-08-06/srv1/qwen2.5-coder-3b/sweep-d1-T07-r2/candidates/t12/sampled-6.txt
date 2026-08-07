@@ -1,0 +1,10 @@
+```ts
+/** The values with every negative number removed. */
+export function removeNegatives(values: readonly number[]): number[] {
+  return values.filter(value => value >= 0);
+}
+```
+
+Explanation:
+- The original approach used `splice`, which modifies the array in-place and can lead to unexpected behavior when iterating over it.
+- The new implementation uses `filter`, which creates a new array with all elements that pass the test implemented by the provided function. This approach is pure, does not mutate the input array, and handles edge cases effectively, such as empty arrays, single-element arrays, and zero.

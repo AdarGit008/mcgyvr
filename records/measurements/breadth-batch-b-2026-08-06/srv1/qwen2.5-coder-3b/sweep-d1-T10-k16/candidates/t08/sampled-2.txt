@@ -1,0 +1,59 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map<string, Set<string>>();
+    
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) graph.set(from, new Set());
+        if (!graph.has(to)) graph.set(to, new Set());
+
+        graph.get(from)?.add(to);
+        
+        // Check for cycles
+        const seen = new Set();
+        function dfs(node: string): boolean {
+            if (seen.has(node)) { cycleError(); }
+            seen.add(node);
+
+            const neighbors = graph.get(node);
+            if (!neighbors) return false;
+
+            for (const neighbor of neighbors) {
+                if (dfs(neighbor)) return true;
+            }
+
+            seen.delete(node);
+
+            return false;
+        }
+
+        if (dfs(from)) {
+            cycleError();
+        }
+    }
+
+    // Topological sorting with Kahn's algorithm
+    const queue = new Set<string>();
+    for (const node of nodes) {
+        if (!graph.has(node)) continue; // Nodes not in edges are ignored for sorting
+        graph.get(node)?.clear(); // Clear dependencies
+        if (queue.size === 0 && !graph.get(node)) queue.add(node); // Only add if not a direct dependency
+    }
+
+    const result: string[] = [];
+    while (queue.size > 0) {
+        const node = queue.keys().next().value;
+        result.push(node);
+
+        for (const neighbor of graph.get(node)?.values() ?? []) {
+            graph.get(neighbor)?.delete(node);
+            if (!graph.get(neighbor)?.size) queue.add(neighbor); // Add to queue if no more dependencies
+        }
+    }
+
+    return result;
+
+    function cycleError(message?: string): never {
+        throw new Error(message || 'Cycle detected in the dependency graph');
+    }
+}
+```

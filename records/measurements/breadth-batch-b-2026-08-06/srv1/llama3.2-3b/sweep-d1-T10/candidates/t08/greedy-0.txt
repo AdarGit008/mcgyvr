@@ -1,0 +1,98 @@
+```typescript
+/**
+ * Returns a topological sorting of the given nodes based on the provided edges.
+ * If no ordering exists due to cyclic dependencies, throws an Error.
+ *
+ * @param nodes The names of the nodes in the graph.
+ * @param edges The edges between the nodes, where each edge is represented as [from, to].
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    // Create a map to store the dependencies of each node
+    const dependencies = new Map<string, Set<string>>();
+    
+    // Initialize the dependencies for each node
+    for (const node of nodes) {
+        dependencies.set(node, new Set());
+    }
+    
+    // Populate the dependencies based on the edges
+    for (const [from, to] of edges) {
+        if (!dependencies.has(from)) {
+            throw new Error(`Node '${from}' not found in nodes`);
+        }
+        if (!dependencies.has(to)) {
+            throw new Error(`Node '${to}' not found in nodes`);
+        }
+        dependencies.get(from).add(to);
+    }
+    
+    // Create a queue to store the nodes with no unmet dependencies
+    const queue = new Queue<string>();
+    
+    // Initialize the queue with all nodes that have no dependencies
+    for (const node of nodes) {
+        if (dependencies.get(node).size === 0) {
+            queue.enqueue(node);
+        }
+    }
+    
+    // Create a list to store the sorted nodes
+    const sorted = [];
+    
+    // While there are still nodes in the queue
+    while (!queue.isEmpty()) {
+        // Dequeue a node with no unmet dependencies
+        const node = queue.dequeue();
+        
+        // Add the node to the sorted list
+        sorted.push(node);
+        
+        // For each neighbor of the node that has not been visited yet
+        for (const neighbor of nodes) {
+            if (!dependencies.has(neighbor)) {
+                continue;
+            }
+            if (dependencies.get(neighbor).has(node)) {
+                throw new Error(`Cycle detected: ${node} -> ${neighbor}`);
+            }
+        }
+        
+        // For each neighbor of the node that has not been visited yet
+        for (const neighbor of nodes) {
+            if (!dependencies.has(neighbor)) {
+                continue;
+            }
+            dependencies.get(neighbor).delete(node);
+            
+            // If the neighbor now has no unmet dependencies, add it to the queue
+            if (dependencies.get(neighbor).size === 0) {
+                queue.enqueue(neighbor);
+            }
+        }
+    }
+    
+    // If there are still nodes that have not been visited yet, then a cycle exists
+    if (sorted.length !== nodes.length) {
+        throw new Error('Cycle detected');
+    }
+    
+    return sorted;
+}
+
+// Define the Queue class
+class Queue<T> {
+    private elements: T[] = [];
+    
+    public enqueue(element: T): void {
+        this.elements.push(element);
+    }
+    
+    public dequeue(): T | undefined {
+        return this.elements.shift();
+    }
+    
+    public isEmpty(): boolean {
+        return this.elements.length === 0;
+    }
+}
+```

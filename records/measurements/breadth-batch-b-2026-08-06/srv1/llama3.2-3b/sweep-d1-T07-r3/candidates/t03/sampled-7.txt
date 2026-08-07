@@ -1,0 +1,72 @@
+```ts
+/**
+ * Parse a semantic version string in the format MAJOR.MINOR.PATCH with an optional -prerelease and an optional +build,
+ * returning the three numbers plus the prerelease and build strings, each null when absent.
+ *
+ * @param version The version string to parse.
+ * @throws {Error} If the input does not match the expected format.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const parts = version.split('-');
+  
+  if (parts.length > 2) {
+    throw new Error("Invalid version format");
+  }
+  
+  let baseParts: string[] = parts[0].split('.');
+  
+  if (baseParts.length !== 3) {
+    throw new Error("Invalid version format");
+  }
+  
+  const [major, minor, patch] = baseParts;
+  
+  if (!/^\d+$/.test(major)) {
+    throw new Error(`Major version number '${major}' is not a digit`);
+  }
+  
+  if (!/^\d+$/.test(minor)) {
+    throw new Error(`Minor version number '${minor}' is not a digit`);
+  }
+  
+  if (!/^\d+$/.test(patch)) {
+    throw new Error(`Patch version number '${patch}' is not a digit`);
+  }
+  
+  let prerelease: string | null = null;
+  const hasPrerelease = parts.length > 1;
+  
+  if (hasPrerelease) {
+    if (!/^\w+(-[\da-z.-]+)*$/.test(parts[1])) {
+      throw new Error(`Invalid prerelease format '${parts[1]}'`);
+    }
+    
+    prerelease = parts[1];
+  }
+  
+  let build: string | null = null;
+  const hasBuild = parts.length > 2;
+  
+  if (hasBuild) {
+    if (!/^\w+(-[\da-z.-]+)*$/.test(parts[2])) {
+      throw new Error(`Invalid build format '${parts[2]}'`);
+    }
+    
+    build = parts[2];
+  }
+  
+  return {
+    major: parseInt(major, 10),
+    minor: parseInt(minor, 10),
+    patch: parseInt(patch, 10),
+    prerelease,
+    build
+  };
+}
+```

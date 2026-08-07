@@ -1,0 +1,37 @@
+```ts
+// solution.ts
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges) throw new Error("Input may not be null or undefined");
+    const nodesMap = Object.fromEntries(nodes.map((_, i) => [i, nodes[i]]));
+
+    // Initialize in-degree array
+    let indegrees = Array(nodes.length).fill(0);
+    for (const [, neighbor] of edges) {
+        if (!nodesMap.has(neighbor)) throw new Error("Unrecognized node: " + neighbor);
+        nodesMap.get(neighbor)!.push(nodes[i]);
+        indegrees[i]++;
+    }
+
+    // Topological sort using Kahn's algorithm
+    const sortedNodes = [];
+    const queue = [...nodes.filter(node => indegrees[node] === 0)];
+
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        if (!nodesMap.has(node)) throw new Error("Unrecognized node: " + node);
+        sortedNodes.push(nodes[i]);
+
+        for (const neighbor of nodesMap.get(node)!) {
+            indegrees[neighbor]--;
+            queue.push(neighbor);
+        }
+    }
+
+    // Check for cycles
+    const remaining = [...nodes.filter(node => indegrees[node] !== 0)];
+    if (remaining.length > 0) throw new Error("Cycle detected: " + remaining);
+
+    return sortedNodes;
+}
+```

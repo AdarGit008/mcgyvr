@@ -1,0 +1,19 @@
+```ts
+/**
+ * The KEY=VALUE pairs of a config file. Ignores blank lines and lines whose first non-space character is #,
+ * trims whitespace around the key and the value, splits on the FIRST = only so a value may contain one.
+ * Throws an Error naming the line for a line with no = or for an empty key. A key must never reach the prototype of the returned
+ * object: parsing "__proto__=x" must produce a plain data key, leaving Object.prototype untouched.
+ * Returns the complete fixed file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim() || line.startsWith("#")) continue;
+    const [key, value] = line.split(/(?=[^=])=/);
+    if (!key || !value) throw new Error(`Line ${line.trim()}: no key or value`);
+    config[key.trim()] = value.trim();
+  }
+  return config;
+}
+```

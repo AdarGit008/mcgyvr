@@ -1,0 +1,73 @@
+```ts
+export class LruCache<K, V> {
+  private capacity: number;
+  private cache: Map<K, { value: V, lastAccessed: number }>;
+  private head: { key?: K; next?: INode };
+  private tail: { key?: K; prev?: INode };
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cache = new Map<K, { value: V, lastAccessed: number }>();
+    this.head = { next: this.tail };
+    this.tail = { prev: this.head };
+  }
+
+  private updateNode(node: INode) {
+    node.lastAccessed = Date.now();
+    this.moveToHead(node);
+  }
+
+  private moveToHead(node: INode) {
+    const tempNext = this.head.next;
+    this.head.next = node;
+    node.prev = this.head;
+
+    node.next = tempNext;
+    tempNext!.prev = node;
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) return undefined;
+    const { value } = this.cache.get(key)!;
+    this.updateNode(this.cache.get(key) as INode);
+    return value;
+  }
+
+  set(key: K, value: V) {
+    if (this.capacity === 0) return; // No need to insert/update in an empty cache
+
+    const node = this.cache.get(key);
+
+    if (node) {
+      node.value = value;
+      this.updateNode(node);
+    } else {
+      const newNode: INode = { key, value };
+      this.cache.set(key, newNode);
+      this.moveToHead(newNode);
+
+      if (this.cache.size > this.capacity) {
+        const leastRecentlyUsed = this.tail.prev!;
+        this.cache.delete(leastRecentlyUsed.key!);
+        leastRecentlyUsed.prev!.next = leastRecentlyUsed.next;
+        if (leastRecentlyUsed.next) leastRecentlyUsed.next.prev = leastRecentlyUsed.prev;
+      }
+    }
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+
+interface INode {
+  key?: K;
+  value: V;
+  lastAccessed: number;
+  next?: INode;
+  prev?: INode;
+}
+```

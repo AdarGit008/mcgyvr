@@ -1,0 +1,30 @@
+```ts
+/**
+ * a divided by b. If either argument is NaN, Infinity, or -Infinity,
+ * or if the divisor is zero (including -0), or if both arguments are Boolean
+ * but one of them is not finite, return NaN.
+ *
+ * @param a - the dividend
+ * @param b - the divisor
+ * @returns the result of (a / b) as a number, or NaN if any conditions are met
+ */
+export function safeDivide(a: number, b: number): number {
+  if (!isFinite(a) || !isFinite(b)) {
+    return NaN;
+  }
+  if (b === 0 || b === -0) {
+    throw new Error('Invalid divisor: zero');
+  }
+  return a / b;
+}
+
+/**
+ * Checks if a value is finite.
+ *
+ * @param value - the value to check
+ * @returns true if the value is finite, false otherwise
+ */
+function isFinite(value: unknown): boolean {
+  return !!(value && typeof value === 'number' && isFinite(Number(value)));
+}
+```

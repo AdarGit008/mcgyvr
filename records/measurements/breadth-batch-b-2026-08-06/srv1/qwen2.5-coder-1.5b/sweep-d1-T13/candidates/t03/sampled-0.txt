@@ -1,0 +1,46 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    if (!/^(v?)(0|[1-9]\d*)(\.(0|[1-9]\d*)(\.(0|[1-9]\d*))?(-(?:pre)?(0|[1-9]\d*|\d*\.+\d+))(?:\+([0-9a-zA-Z!_$,.:|-]*))?$/m.test(version)) {
+        throw new Error('invalid version ' + `provided input was "${version}",`);
+    }
+
+    const match = version.match(/^(v?)([1-9]\d*)(\.(0|[1-9]\d*)(\.(0|[1-9]\d*))?-(?:pre)?(0|[1-9a-zA-Z!_$,.:|-]*))?(?:\+([0-9a-zA-Z!_$,.:|-]*)))?$/);
+    const major = parseInt(match[2], 10);
+    const minor = parseInt(match[3] || '0', 10);
+    const patch = parseInt(match[4] || '0', 10);
+
+    const prerelease = match[5] ? match[5].replace(/-pre/, '') : null;
+
+    let buildNum;
+    if (prerelease) {
+        buildNum = 6; // Skip to the first element after the prerelease tag
+        const segments = prerelease.split('.');
+        for (const segment of segments) {
+            if (!(/^\d+/).test(segment)) break; // Stop at the first non-digit segment
+            ++buildNum;
+        }
+        prerelease = seg.pop()!; // The last item of split is the patch/pre version string
+    }
+
+    let build!: string | null;
+    for (const seg of match.slice(buildNum)) {
+        if (/^[0-9]+$/.test(seg || '')) {
+            build = `${build || ''}.${seg}`; // Add leading 0s for one-digit numbers
+        } else break;
+    }
+    return { major, minor, patch, prerelease, build: parseBuildNumber(build)} as any;
+}
+
+function parseBuildNumber(build?: string): NonNullable<{ build: number }>['build'] {
+    let count = 0; // Count of non-zero leading zeros before the dot or numbers
+    for (const char of build ?? '') {
+        if (~-char) { // If a character is not zero, break out
+            break;
+        }
+        ++count; // Count the zeros.
+    }
+
+	// Since a valid semantic version only has either zeroes or letters with one or more digits before them
+    return Math.max(10 ** (build?.startsWith('.') ? -parseInt(count) + 2 : count), parseInt(build));
+}
+```

@@ -1,0 +1,12 @@
+```ts
+/** Computes the factorial of n. Throws if arg is negative or non-integer, returns 1 for 0. */
+export function factorial(n: number): number {
+  // Validate input: throw Error if negative or non-integer
+  if (n < 0 || !Number.isInteger(n)) {
+    throw new Error("Factorial is not defined for negative numbers or non-integers.");
+  }
+
+  // Base case: factorial of 0 is 1
+  return n === 0 ? 1 : n * factorial(n - 1);
+}
+```

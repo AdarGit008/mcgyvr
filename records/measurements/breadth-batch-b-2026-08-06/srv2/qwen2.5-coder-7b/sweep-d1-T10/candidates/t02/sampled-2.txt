@@ -1,0 +1,29 @@
+ ```ts
+/**
+ * Merges overlapping intervals into non-overlapping intervals, sorted by start.
+ * @param intervals - Array of [start, end] pairs.
+ * @returns A new array of merged intervals.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (intervals.length === 0) return [];
+
+    const sortedIntervals = intervals.slice().sort((a, b) => a[0] - b[0]);
+
+    const merged: number[][] = [sortedIntervals[0]];
+
+    for (const interval of sortedIntervals.slice(1)) {
+        if (interval[0] > interval[1]) {
+            throw new Error("Invalid interval where start is greater than end");
+        }
+
+        const lastMerged = merged[merged.length - 1];
+        if (lastMerged[1] >= interval[0]) {
+            merged[merged.length - 1] = [lastMerged[0], Math.max(lastMerged[1], interval[1])];
+        } else {
+            merged.push(interval);
+        }
+    }
+
+    return merged;
+}
+```

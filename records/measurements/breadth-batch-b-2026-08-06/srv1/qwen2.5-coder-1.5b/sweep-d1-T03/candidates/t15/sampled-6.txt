@@ -1,0 +1,25 @@
+```ts
+/**
+ * The temperature in degrees Fahrenheit.
+ */
+export function celsiusToFahrenheit(celsius: number): number {
+  return validateTemperature(celsius, "celsius");
+}
+
+/**
+ * The temperature in kelvin.
+ */
+export function celsiusToKelvin(celsius: number): number {
+  return validateTemperature(celsius, "celsius");
+}
+
+function validateTemperature(celsius: number, unit: string): number {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error(`${unit} must be a finite number`);
+  }
+  if (celsius < -273.15) {
+    throw new Error(`${unit} must be at or above absolute zero`);
+  }
+  return celsius;
+}
+```

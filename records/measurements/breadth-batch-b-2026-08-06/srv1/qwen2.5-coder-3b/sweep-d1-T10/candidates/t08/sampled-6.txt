@@ -1,0 +1,56 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjacencyList = buildAdjacencyList(nodes, edges);
+    const indegreeMap = createIndegreeMap(adjacencyList);
+
+    const result: string[] = [];
+    const queue: string[] = Object.keys(indegreeMap).filter(node => indegreeMap[node] === 0);
+
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+        for (const neighbor of adjacencyList[node]) {
+            indegreeMap[neighbor]--;
+            if (indegreeMap[neighbor] === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    const allVisitedNodes = Object.keys(indegreeMap).length;
+    if (allVisitedNodes !== nodes.length) {
+        throw new Error("Cycle detected in graph");
+    }
+
+    return result;
+}
+
+function buildAdjacencyList(nodes: string[], edges: [string, string][]): { [key: string]: string[] } {
+    const adjacencyList = Object.fromEntries(
+        nodes.map(node => [[node, []]])
+    );
+
+    for (const [from, to] of edges) {
+        if (!adjacencyList[from]) {
+            adjacencyList[from] = [];
+        }
+        adjacencyList[from].push(to);
+    }
+
+    return adjacencyList;
+}
+
+function createIndegreeMap(adjacencyList: { [key: string]: string[] }): { [key: string]: number } {
+    const indegreeMap = Object.fromEntries(
+        nodes.map(node => [[node, 0]])
+    );
+
+    for (const neighbors of Object.values(adjacencyList)) {
+        for (const neighbor of neighbors) {
+            indegreeMap[neighbor]++;
+        }
+    }
+
+    return indegreeMap;
+}
+```

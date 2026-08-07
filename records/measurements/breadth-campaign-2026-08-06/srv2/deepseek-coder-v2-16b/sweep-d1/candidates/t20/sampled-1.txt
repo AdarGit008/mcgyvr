@@ -1,0 +1,33 @@
+ ```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Ignore blank lines and lines whose first non-space character is #
+    if (!line.trim() || line.startsWith("#")) continue;
+
+    const trimmedLine = line.trim();
+    const parts = trimmedLine.split("=", 1);
+    
+    if (parts.length < 2) {
+      throw new Error(`Invalid line: ${trimmedLine}`);
+    }
+
+    let key = parts[0].trim();
+    let value = parts[1].trim();
+
+    // Check for empty key and throw an error
+    if (!key) {
+      throw new Error(`Empty key in line: ${trimmedLine}`);
+    }
+
+    // Prevent keys from reaching Object.prototype
+    if (Object.prototype.hasOwnProperty.call(config, key)) {
+      throw new Error(`Key with prototype pollution detected: ${key}`);
+    }
+
+    config[key] = value;
+  }
+  return config;
+}
+```

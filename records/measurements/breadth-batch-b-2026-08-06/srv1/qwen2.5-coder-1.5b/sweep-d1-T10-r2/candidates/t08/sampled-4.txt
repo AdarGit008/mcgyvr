@@ -1,0 +1,103 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges) {
+        throw new Error('Invalid input: Nodes and edges cannot be empty.');
+    }
+    if (nodes[0] === undefined && nodes.length > 1) {
+        throw new Error(`Node ${nodes[0]} in the first position must be defined to avoid creating a cycle.`);
+    }
+
+    const adjList = new Map<string, Set<string>>();
+    for (const [from, to] of edges) {
+        if (!adjList.has(from)) {
+            adjList.set(from, new Set());
+        }
+        adjList.get(from)!.add(to);
+    }
+
+    const freeNodes = nodes.filter(node => !edges.some(edge => edge[1] === node));
+    const visited = new Map<string, boolean>(freeNodes.map(node => [node, false]));
+    const ordering: string[] = [];
+
+    const visitNode = async (curNode: string): Promise<void> => {
+        if (visited.get(curNode)) {
+            return; // Already visited
+        }
+        visited.set(curNode, true);
+        if (adjList.has(curNode)) {
+            for (const next of adjList.get(curNode)!) {
+                if (!visited.get(next)) {
+                    await visitNode(next);
+                }
+            }
+        }
+        ordering.push(curNode);
+    };
+
+    const checkCycle = async (): Promise<void> => {
+        const visited = new Map<string, boolean>(nodes.map(node => [node, false]));
+        for (const node of nodes) {
+            if (!visited.get(node)) {
+                await visitNode(node);
+            }
+        }
+
+        for (const [node, notVisitedInOrder] of visited) {
+            if (!notVisitedInOrder) {
+                // Found a back edge
+                throw new Error(`Cycle detected: Order might be not topological.`);
+            }
+        }
+    };
+
+    const firstCycle = async (): Promise<void> => {
+        const visited = new Map<string, boolean>(nodes.map(node => [node, false]));
+        for (const node of nodes) {
+            if (!visited.get(node)) {
+                await visitNode(node);
+                break;
+            }
+        }
+
+        const cycleFound = false;
+
+        for (const [node, notVisitedInOrder] of visited) {
+            if (!notVisitedInOrder) {
+                // Found a back edge
+                cycleFound = true;
+                break;
+            }
+        }
+
+        if (!cycleFound) {
+            throw new Error('No cycles detected. Topological sort possible.');
+        }
+    };
+
+    try {
+        const validOrders = [];
+        for (const node of freeNodes) {
+            const orderingWithNode = await visitOrder(node);
+            if (validOrders.length === 0 || !sameOrders(ordering, orderingWithNode)) {
+                validOrders.push(orderingWithNode);
+            }
+        }
+
+        firstCycle();
+
+        return validOrders[0];
+    } catch (error: any) {
+        throw error;
+    }
+}
+
+const sameOrders = (a: string[], b: string[]): boolean => {
+    for (let i = 0; i < a.length; i++) {
+        if (!b.includes(a[i])) {
+            return false;
+        }
+    }
+
+    return true;
+};
+```

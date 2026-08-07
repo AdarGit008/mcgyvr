@@ -1,0 +1,31 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+    if (line.trim() === "") return [];
+
+    const result = line.split(/(?<!"),/).map(field => {
+        if (field.startsWith('"') && field.endsWith('"')) {
+            let insideQuotes = true;
+            let accumulatedValue = "";
+            for (let i = 1; i < field.length - 1; i++) {
+                const char = field[i];
+                if (char === '"') {
+                    if (insideQuotes) {
+                        accumulatedValue += '"';
+                    } else {
+                        insideQuotes = true;
+                    }
+                } else {
+                    accumulatedValue += char;
+                }
+            }
+            if (!insideQuotes) throw new Error("Quoted field is never closed");
+            return accumulatedValue;
+        } else {
+            return field.trim();
+        }
+    });
+
+    const trimmedResult = result.filter(field => field.length > 0);
+    return trimmedResult;
+}
+```

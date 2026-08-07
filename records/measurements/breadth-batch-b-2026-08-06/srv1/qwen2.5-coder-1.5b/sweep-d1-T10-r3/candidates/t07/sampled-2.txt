@@ -1,0 +1,25 @@
+```ts
+function flatten(items: readonly unknown[], depth: number = Infinity): unknown[] {
+  if (depth === 0) return [...items];
+
+  const flatItems: unknown[] = [];
+
+  for (const item of items) {
+    switch (item) {
+      case undefined:
+      case null:
+        continue;
+      case Object(item) && !Array.isArray(item):
+        flatten(Object.values(item), depth - 1).forEach(val => flatItems.push(val));
+        break;
+      case Array.isArray(item):
+        flatten(item, depth - 1).forEach(val => flatItems.push(val));
+        break;
+      default:
+        flatItems.push(item);
+    }
+  }
+
+  return flatItems;
+}
+```

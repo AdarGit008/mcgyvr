@@ -1,0 +1,42 @@
+```ts
+interface Result {
+  toFahrenheit(celsius: number): number;
+  toKelvin(celsius: number);
+}
+
+const validate = (value: any): value is number => typeof value === "number" && Number.isFinite(value);
+
+interface TemperatureConversionResult extends Result {
+  toFahrenheit(celsius: number): number;
+}
+
+const validateAndThrowError<T, U>(val: T | U, msg: string): never {
+  if (!validate(val)) {
+    throw new Error(msg);
+  }
+}
+
+class TemperatureConverter implements TemperatureConversionResult {
+  /**
+   * Converts the temperature in degrees Celsius to Fahrenheit.
+   */
+  toFahrenheit(celsius: number): number {
+    validateAndThrowError(celsius, "celsius must be a finite number");
+    if (celsius < -273.15) {
+      throw new Error("celsius must be at or above absolute zero");
+    }
+    return celsius * 1.8 + 32;
+  }
+
+  /**
+   * Converts the temperature in degrees Celsius to Kelvin.
+   */
+  toKelvin(celsius: number): number {
+    validateAndThrowError(celsius, "celsius must be a finite number");
+    if (celsius < -273.15) {
+      throw new Error("celsius must be at or above absolute zero");
+    }
+    return celsius + 273.15;
+  }
+}
+```

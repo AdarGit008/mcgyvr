@@ -1,0 +1,25 @@
+```typescript
+// solution.ts
+
+/**
+ * Splits an array into consecutive groups of at most size elements while preserving the order.
+ * If the size does not divide evenly, the final group is shorter.
+ * An empty array yields an empty array.
+ * 
+ * @param items The array to be split.
+ * @param size The maximum number of elements in each group.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+    if (!size || typeof size !== 'number' || isNaN(size)) {
+        throw new Error('Size must be a positive integer');
+    }
+
+    const result: T[][] = [];
+
+    for (let i = 0; i < items.length; i += size) {
+        result.push(items.slice(i, Math.min(i + size, items.length)));
+    }
+
+    return result;
+}
+```

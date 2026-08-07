@@ -1,0 +1,8 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  return [ ...values ]
+    .map((n) => Number(n)) // Convert string to number
+    .sort((a, b) => a - b); // Sort numerically
+}
+```

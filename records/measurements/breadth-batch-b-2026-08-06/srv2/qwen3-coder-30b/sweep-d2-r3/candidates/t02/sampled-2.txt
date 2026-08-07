@@ -1,0 +1,48 @@
+```ts
+export function createLruCache(capacity: number): { get: (key: string) => number | undefined; put: (key: string, value: number) => void; size: () => number } {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error('Capacity must be a positive integer');
+  }
+
+  const cache = new Map<string, number>();
+  const order = [] as string[];
+
+  return {
+    get(key: string): number | undefined {
+      if (!cache.has(key)) {
+        return undefined;
+      }
+      
+      // Move key to end (most recently used)
+      const index = order.indexOf(key);
+      order.splice(index, 1);
+      order.push(key);
+      
+      return cache.get(key)!;
+    },
+    
+    put(key: string, value: number): void {
+      if (cache.has(key)) {
+        // Update existing key
+        cache.set(key, value);
+        const index = order.indexOf(key);
+        order.splice(index, 1);
+        order.push(key);
+      } else {
+        // Add new key
+        if (cache.size >= capacity) {
+          // Remove least recently used
+          const oldestKey = order.shift()!;
+          cache.delete(oldestKey);
+        }
+        cache.set(key, value);
+        order.push(key);
+      }
+    },
+    
+    size(): number {
+      return cache.size;
+    }
+  };
+}
+```

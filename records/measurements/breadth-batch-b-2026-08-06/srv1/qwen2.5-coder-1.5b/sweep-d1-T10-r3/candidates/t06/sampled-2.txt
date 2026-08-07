@@ -1,0 +1,59 @@
+```ts
+export namespace CSVParser {
+  export function parseCsvLine(line: string): string[] {
+    const result: string[] = [];
+    let escaped = false;
+    let inQuotes = false;
+    let fieldStartIndex = -1;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if (!escaped) {
+        if (char === '"') {
+          if (!inQuotes) {
+            fieldStartIndex = i;
+            inQuotes = true;
+          } else {
+            throw new Error("Quoted field is never closed.");
+          }
+        } else if (char === ',') {
+          if (inQuotes || (fieldStartIndex >= 0 && i > fieldStartIndex)) {
+            // Unquoted field
+            const startIndex = fieldStartIndex + 1;
+            let endIndex = i - 2; // Adjust for the quotes if any
+
+            while (endIndex < line.length && line[endIndex] === ' ') {
+              endIndex++;
+            }
+
+            result.push(line.substring(startIndex, endIndex).trim());
+          } else {
+            // Comma not in a quoted field, treat as separator between fields
+            result.push("");
+          }
+        }
+      } else if (char === '"') {
+        // Escaped quote inside a quoted field
+        inQuotes = false;
+      }
+
+      escaped = !escaped && char === '\\';
+    }
+
+    // Check for left-over quotes after the last character
+    if (inQuotes || (fieldStartIndex >= 0 && line.length > fieldStartIndex)) {
+      const startIndex = fieldStartIndex + 1;
+      let endIndex = line.length - 2; // Adjust for the quotes if any
+
+      while (endIndex < line.length && line[endIndex] === ' ') {
+        endIndex++;
+      }
+
+      result.push(line.substring(startIndex, endIndex).trim());
+    }
+
+    return result.filter(Boolean); // Remove empty strings if present
+  }
+}
+```

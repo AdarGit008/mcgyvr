@@ -1,0 +1,31 @@
+```ts
+/**
+ * Flattens an array up to specified depth levels.
+ * A string is a value, never something to iterate into.
+ * A depth of 0 returns a copy of the input unchanged.
+ * The input must not be mutated.
+ * Throws an Error unless depth is a non-negative integer or Infinity.
+ */
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  const result: unknown[] = [];
+  const isString = (item: unknown): item is string => typeof item === 'string';
+
+  function flatArray(items: readonly unknown[], currentDepth: number) {
+    for (const item of items) {
+      if (isString(item)) {
+        result.push(item);
+      } else if (Array.isArray(item) && currentDepth < depth) {
+        flatArray(item, currentDepth + 1);
+      }
+    }
+  }
+
+  flatArray(items, 0);
+
+  return result;
+}
+```

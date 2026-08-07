@@ -1,0 +1,39 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (!Array.isArray(intervals) || intervals.length === 0) {
+    return [];
+  }
+
+  // Validate intervals and create a copy of them
+  const validIntervals = intervals.map(([start, end]) => {
+    if (start > end) {
+      throw new Error("Interval start must be less than or equal to end.");
+    }
+    return [start, end];
+  });
+
+  // Sort intervals by start time
+  validIntervals.sort((a, b) => a[0] - b[0]);
+
+  const merged: number[][] = [];
+  let currentInterval = [...validIntervals[0]];
+
+  for (let i = 1; i < validIntervals.length; i++) {
+    const [start, end] = validIntervals[i];
+
+    if (start <= currentInterval[1]) {
+      // Intervals overlap or touch, merge them
+      currentInterval[1] = Math.max(currentInterval[1], end);
+    } else {
+      // No overlap, add the current interval to the merged list
+      merged.push([...currentInterval]);
+      currentInterval = [start, end];
+    }
+  }
+
+  // Add the last interval
+  merged.push([...currentInterval]);
+
+  return merged;
+}
+```

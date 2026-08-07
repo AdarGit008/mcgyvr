@@ -1,0 +1,41 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  /**
+   * Flattens nested arrays up to specified depth levels.
+   *
+   * Args:
+   * items (readonly unknown[]): The input array, possibly containing nested arrays,
+   *                             strings, and other values.
+   * depth (?number): Optional maximum recursion depth. Default is Infinity.
+   *
+   * Returns:
+   * unknown[]: A new array with all nested arrays flattened up to the specified level of
+   *            depth. If depth is 0, returns a copy of the input unchanged. If input contains
+   *            strings, they are preserved in their original form.
+   */
+
+  const result = [...items];
+
+  if (depth === undefined || (typeof depth !== 'number' || Number.isNaN(depth) || depth < 0)) {
+    throw new Error('Invalid argument: depth must be a non-negative integer or Infinity');
+  }
+
+  function recursiveFlatten(arr: unknown[], level: number): unknown[] {
+    return arr.reduce((acc, item) => {
+      if (Array.isArray(item)) {
+        return acc.concat(recursiveFlatten(item as readonly unknown[], level + 1));
+      } else if (typeof item === 'string') {
+        return acc;
+      } else {
+        return [...acc];
+      }
+    }, []);
+  }
+
+  if (depth > 0) {
+    result = recursiveFlatten(result, depth);
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,13 @@
+```ts
+/** The KEY=VALUE pairs of a config file, ignoring blank lines and skipping those whose first non-space character is #. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim().startsWith("#") && line.includes("=")) {
+      const [key, value] = line.split("=");
+      config[key.trim()] = value.trim();
+    }
+  }
+  return config;
+}
+```

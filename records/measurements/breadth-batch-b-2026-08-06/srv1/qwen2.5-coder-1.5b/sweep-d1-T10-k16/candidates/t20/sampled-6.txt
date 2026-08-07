@@ -1,0 +1,15 @@
+```ts
+// The KEY=VALUE pairs of a config file. Allow empty and blank lines
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  text.split("\n").forEach(line => {
+    if (!line || line.startsWith("#")) return;
+    const trimmedLine = line.trim();
+    const [key, ...valueParts] = trimmedLine.split("=");
+    const value = valueParts.join("=");
+    if (!key || key === "prototype") throw new Error(`Invalid config line: ${trimmedLine}`);
+    config[key] = value;
+  });
+  return config;
+}
+```

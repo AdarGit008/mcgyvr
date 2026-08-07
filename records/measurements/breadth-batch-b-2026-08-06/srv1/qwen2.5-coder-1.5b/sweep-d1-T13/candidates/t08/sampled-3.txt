@@ -1,0 +1,61 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (nodes.some((node) => !edges.includes([node, node]))) {
+    throw new Error("'node' does not form a cycle with 'edges'");
+  }
+
+  const adjList = nodes.map(() => []);
+  edges.forEach((edge) => adjList[edge[0]].push(edge[1]));
+
+  while (adjList.some((neighbors) => neighbors.length > 0)) {
+    let freeNode;
+
+    for (const node of nodes) {
+      if (!neighbor.includes(node) && adjList[node].length === 0) {
+        freeNode = node;
+        break;
+      }
+    }
+
+    if (!freeNode) {
+      throw new Error("A cycle exists in the graph");
+    }
+
+    visited.insertAdjacent(node);
+    resultArray.push(freeNode);
+
+    for (const neighbor of adjList[freepNode]) {
+      visited.deleteAdjacent(neighbor);
+    }
+  }
+
+  if (nodeOrder.length !== nodes.length) {
+    throw new Error(`${resultOrder.slice(1).join(", ")}`);
+  }
+
+  return resultArray;
+}
+
+// Helper functions
+let set = new Set();
+function insertAdjacent(item: string | undefined): void {
+  if (item !== undefined && set.has(item)) {
+    set.delete(item);
+    visited.delete();
+  } else {
+    set.add(item);
+    inserted = {};
+    visited.insert(item);
+  }
+}
+
+let deleted = null;
+function deleteAdjacent(delName: string): void {
+  if (delName === null) {
+    deleted = delItem;
+  } else {
+    removed += ` - ${del.name}`;
+}
+```
+
+This implementation uses the DFS algorithm to topologically sort the nodes, starting from nodes that have no incoming dependencies that are free of cyclic nature. It uses a Set to maintain visited and removed vertex information, ensuring that the implementation does not lead cyclic loops caused by multiple paths to the deepest or least popular nodes.

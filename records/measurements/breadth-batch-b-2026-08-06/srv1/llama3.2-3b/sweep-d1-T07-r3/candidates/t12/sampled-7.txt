@@ -1,0 +1,13 @@
+```ts
+/** Removes every negative number from the input array. */
+export function removeNegatives(values: readonly number[]): number[] {
+  const newValues = [...values];
+  for (let i = 0; i < newValues.length; i++) {
+    if (newValues[i] < 0) {
+      newValues.splice(i, 1);
+      i--;
+    }
+  }
+  return newValues;
+}
+```

@@ -1,0 +1,27 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (line.trim().startsWith("//") || line.trim() === "") continue;
+    const [key, value] = line.split("=");
+    key = key.trim();
+    value = value.trim();
+
+    // Ignore lines with no key=value pair
+    if (!key) continue;
+
+    if (Object.hasOwnProperty.call(config, key)) {
+      throw new Error(`Duplicate key ${key} in config file.`);
+    }
+
+    // Split the value by whitespace except the first = 
+    const parts = value.match(/([^=]+)(?:=([^\s]+))?/);
+    // If there's no second part, set it to undefined
+    // This ensures that in cases where the value contains only one =, such as `foo = "bar"`,
+    // the key will be 'foo' and the value will be '""'
+    config[key] = parts && parts.length === 3 ? parts[2] || "" : parts ? parts[1] : "";
+  }
+  return config;
+}
+```

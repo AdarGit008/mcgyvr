@@ -1,0 +1,14 @@
+```tsx
+/** The factorial of n. */
+export function factorial(n: number): number {
+  if (n < 0 || !(typeof n === 'number' && Number.isInteger(n))) {
+    throw new Error('Arg is invalid!');
+  }
+  // Fix recursion to include the base case at depth n - 1.
+  let result = 1;
+  for (let i = 2; i <= n; i++) {
+    result *= i;
+  }
+  return result;
+}
+```

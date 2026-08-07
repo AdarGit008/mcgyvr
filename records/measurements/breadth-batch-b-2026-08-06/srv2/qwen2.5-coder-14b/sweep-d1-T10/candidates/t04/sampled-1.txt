@@ -1,0 +1,48 @@
+```ts
+export class LruCache<K, V> {
+  private readonly capacity: number;
+  private cacheMap: Map<K, V>;
+  private orderList: Array<K>;
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+    this.cacheMap = new Map();
+    this.orderList = [];
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cacheMap.get(key);
+    if (value !== undefined) {
+      // Move the key to the end of the orderList to mark it as recently used
+      this.orderList.push(this.orderList.splice(this.orderList.indexOf(key), 1)[0]);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cacheMap.has(key)) {
+      // Update existing key and move to the end of the order list
+      this.cacheMap.set(key, value);
+      this.orderList.push(this.orderList.splice(this.orderList.indexOf(key), 1)[0]);
+    } else {
+      // Add new key-value pair and check for capacity
+      if (this.size >= this.capacity) {
+        // Evict the least recently used item
+        const lruKey = this.orderList.shift();
+        if (lruKey !== undefined) {
+          this.cacheMap.delete(lruKey);
+        }
+      }
+      this.cacheMap.set(key, value);
+      this.orderList.push(key);
+    }
+  }
+
+  get size(): number {
+    return this.cacheMap.size;
+  }
+}
+```

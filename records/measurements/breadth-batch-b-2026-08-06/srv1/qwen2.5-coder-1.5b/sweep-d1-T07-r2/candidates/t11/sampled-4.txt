@@ -1,0 +1,11 @@
+```ts
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  if (values.some(isNaN)) {
+    throw new Error('Input must contain only numerical values.');
+  }
+
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted;
+}
+```

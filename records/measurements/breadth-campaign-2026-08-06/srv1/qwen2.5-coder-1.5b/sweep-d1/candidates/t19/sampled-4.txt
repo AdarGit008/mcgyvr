@@ -1,0 +1,15 @@
+```ts
+/** a divided by b. */
+export function safeDivide(a: number, b: number): number {
+  if (b === Infinity || b === -Infinity) {
+    throw new Error('Division by infinity not allowed.');
+  }
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error('Both arguments must be finite numbers.');
+  }
+  if (b === 0) {
+    throw new Error('Division by zero not allowed.');
+  }
+  return a / b;
+}
+```

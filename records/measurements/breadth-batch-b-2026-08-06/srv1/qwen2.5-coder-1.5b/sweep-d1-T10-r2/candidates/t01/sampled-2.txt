@@ -1,0 +1,27 @@
+```ts
+function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  if (input === "") return "";
+
+  let encoded = "";
+  let currentChar = input[0];
+  let count = 1;
+
+  for (let i = 1; i < input.length; i++) {
+    if (input[i] !== currentChar) {
+      encoded += `${currentChar}${count}`;
+      currentChar = input[i];
+      count = 1;
+    } else {
+      count++;
+    }
+  }
+
+  encoded += `${currentChar}${count}`;
+
+  return encoded;
+}
+```

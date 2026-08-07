@@ -1,0 +1,92 @@
+```typescript
+const MODULUS = 1000000007;
+
+/**
+ * The nth Fibonacci number, modulo 1000000007.
+ *
+ * @throws {Error} unless n is a non-negative integer.
+ * @param {number} n The index of the Fibonacci number to return (0-indexed).
+ */
+export function fibMod(n: number): number {
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error('n must be a non-negative integer');
+  }
+
+  const MOD = new Modulus(MODULUS);
+  let a = 0n;
+  let b = 1n;
+  let prevMod = 0n;
+
+  if (n === 0n) {
+    return 0n;
+  }
+  if (n === 1n) {
+    return 1n;
+  }
+
+  for (let i = 2; i <= n; i++) {
+    const next = (a + b) % MOD;
+    a = b;
+    b = next;
+    prevMod = (prevMod + next.toString().length) % MOD;
+  }
+
+  return (b + MOD.prevMod) % MOD;
+}
+
+class Modulus {
+  private modulus: number;
+
+  constructor(modulus: number) {
+    this.modulus = modulus;
+    this.nextPow2 = new Array(this.modulus + 1).fill(0);
+    this.nextPowMask = (this.modulus << 1) - 1n;
+  }
+
+  nextPow(current_pow: number): void {
+    if (current_pow < this.nextPow2.length) return;
+    const pow2 = bigInt(current_pow);
+    let cur_pow2 = pow2;
+    let i;
+
+    for (i = this.nextPow2.length - 1; i >= 0 && cur_pow2 <= this.modulus; i--) {
+      if (cur_pow2 <= this.modulus / this.nextPow2[i]) break;
+     [cur_pow2, this.nextPow2[i]] = [this.nextPow2[i] << BigInt(i)];
+    }
+
+    for (; i--;) {
+      if (pow2 - (this.modulus - this.nextPow2[i]) > pow2) break;
+      [cur_pow2, this.nextPowMask] = [pow2 - (this.modulus - this.nextPow2[i]), this.nextPowMask];
+    }
+  }
+
+  private static bigInt(value: number): BigInt {
+    return value * BigInt(10 ** Number.EPSILON);
+  }
+
+  private get prevMod(): number {
+    if (this.nextPow < 1) throw new Error('Modulus has not been precomputed.');
+    const result = modpow(a, n - 2n, this.modulus).toString();
+    return result.length % this.modulus;
+  }
+}
+
+function bigInt(value: number): BigInt {
+  return value * BigInt(10 ** Number.EPSILON);
+}
+
+function modpow(base: number, exponent: number, modulus: number): number {
+  let result = base;
+  const pow2 = new Array(modulus + 1).fill(0);
+
+  for (let i = modulus >>> 1; i > 0; ) {
+    if ((i & 1) === 1) pow2[j] = modmul(j, j, result);
+    result <<= BigInt(i & 0x7fffffff);
+    pow2[i >> 1].j = i || 1000000007;
+    i >>= 1;
+  }
+
+  let n;
+
+  for (n = pow2.length - 1n; exponent > 0n; ) {
+    if ((exponent & 1) === 0n

@@ -1,0 +1,27 @@
+```ts
+
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version || version === 'v0.0.0' && (version.startsWith('v') || version.includes('-'))) {
+    throw new Error(`Invalid input: ${version}`);
+  }
+
+  // Remove leading "v" if it exists
+  version = version.startsWith('v') ? version.slice(1) : version;
+
+  const parts = /^(\d+)\.(\d+)\.(\d+)(?:-(\w+)(?:\.(\d+)*)?)?(?:\+(.+))?$/;
+
+  const match = parts.exec(version);
+
+  if (!match || !match[2] || isNaN(Number(match[1])) || isNaN(Number(match[2])) ||isNaN(Number(match[3]))) {
+    throw new Error(`Invalid input: ${version}`);
+  }
+
+  return {
+    major: parseInt(match[1]),
+    minor: parseInt(match[2]),
+    patch: parseInt(match[3]),
+    prerelease: match[4],
+    build: match[5] ? match[5].split('.').map(Number) : undefined
+  };
+}
+```

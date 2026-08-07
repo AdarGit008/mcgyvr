@@ -1,0 +1,27 @@
+```ts
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (typeof version !== 'string') throw new Error('version must be a string');
+  
+  const parts = version.split('.');
+  const numParts = parts.length;
+  
+  if (numParts < 3) throw new Error('version must have at least three parts: MAJOR.MINOR.PATCH');
+  
+  let major = parseInt(parts[0], 10);
+  let minor = parseInt(parts[1], 10);
+  let patch = parseInt(parts[2], 10);
+  
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) throw new Error('version parts must be digits');
+  
+  const prereleaseIndex = numParts >= 4 ? '+' + parts[3] : null;
+  const buildIndex = numParts >= 5 ? '+' + parts[4] : null;
+  
+  return {
+    major,
+    minor,
+    patch,
+    prerelease: prereleaseIndex !== null ? prereleaseIndex.substring(1) : null,
+    build: buildIndex !== null ? buildIndex.substring(1) : null
+  };
+}
+```

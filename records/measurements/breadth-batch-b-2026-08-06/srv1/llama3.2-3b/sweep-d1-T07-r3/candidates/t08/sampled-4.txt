@@ -1,0 +1,63 @@
+```typescript
+/**
+ * Returns a topological ordering of nodes satisfying every edge,
+ * keeping nodes in their input order when possible.
+ *
+ * @param nodes - The names of the nodes.
+ * @param edges - The [from, to] edges meaning from must come before to.
+ */
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const graph = new Map<string, Set<string>>();
+  for (const node of nodes) {
+    graph.set(node, new Set());
+  }
+  
+  for (const edge of edges) {
+    if (!graph.has(edge[0])) {
+      throw new Error(`Node '${edge[0]}' not in nodes`);
+    }
+    if (!graph.has(edge[1])) {
+      throw new Error(`Node '${edge[1]}' not in nodes`);
+    }
+    graph.get(edge[0]).add(edge[1]);
+  }
+
+  const visited = new Map<string, boolean>();
+  const order = [];
+
+  function dfs(node: string) {
+    if (visited.has(node)) {
+      return;
+    }
+    visited.set(node, true);
+
+    for (const neighbor of graph.get(node)!) {
+      dfs(neighbor);
+    }
+    
+    order.push(node);
+  }
+
+  for (const node of nodes) {
+    if (!visited.has(node)) {
+      dfs(node);
+    }
+  }
+
+  const result = [...order];
+  while (result.length < edges.length) {
+    const lastNode = result[result.length - 1];
+    for (const node of graph.get(lastNode)!.copy()) {
+      const index = result.indexOf(node);
+      if (index !== -1) {
+        order.splice(index, 1);
+      } else {
+        dfs(node);
+        break;
+      }
+    }
+  }
+
+  return order.reverse();
+}
+```

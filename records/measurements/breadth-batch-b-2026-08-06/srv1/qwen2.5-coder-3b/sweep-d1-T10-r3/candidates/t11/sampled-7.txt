@@ -1,0 +1,12 @@
+```
+import { cloneDeep } from 'lodash';
+
+export function sortAscending(values: readonly number[]): number[] {
+  if (!Array.isArray(values)) {
+    throw new Error('Input must be of type Array');
+  }
+  
+  const sortedValues = cloneDeep(values).sort((a, b) => a - b);
+  return [...sortedValues];
+}
+```

@@ -1,0 +1,23 @@
+```ts
+function mergeIntervals(intervals: number[][]): number[][] {
+    // Ensure no mutation by creating a copy of intervals
+    const intervalsCopy = [...intervals];
+
+    for (let i = 0; i < intervalsCopy.length - 1; i++) {
+        let currentInterval: [number, number] = intervalsCopy[i];
+        let nextInterval: [number, number] = intervalsCopy[i + 1];
+
+        // Check if the end of the current interval is greater than or equal to the start of the next interval
+        if (currentInterval[1] >= nextInterval[0]) {
+            // Merge the intervals by updating the end of the current interval
+            currentInterval[1] = Math.max(currentInterval[1], nextInterval[1]);
+            // Remove the next interval from the copy
+            intervalsCopy.splice(i + 1, 1);
+        } else {
+            i++; // Move to the next pair
+        }
+    }
+
+    return intervalsCopy; // Return the sorted list of merged intervals
+}
+```

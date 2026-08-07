@@ -1,0 +1,51 @@
+```ts
+class LruCache<K, V> {
+  private cache: Map<K, V>;
+  private capacity: number;
+  private oldestKey?: K;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+    this.cache = new Map();
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) {
+      return undefined;
+    }
+    const value = this.cache.get(key)!; // Ensure the value exists
+    this.updateLru(key);
+    return value!;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.updateLru(key);
+    } else {
+      if (this.cache.size === this.capacity) {
+        const oldestKey = this.oldestKey!; // Ensure the oldest key exists
+        this.cache.delete(oldestKey);
+        delete this.cache[oldestKey];
+      }
+    }
+    this.cache.set(key, value);
+    this.updateLru(key);
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  private updateLru(key: K) {
+    if (this.oldestKey !== undefined && key !== this.oldestKey) {
+      const oldIndex = Array.from(this.cache.keys()).indexOf(this.oldestKey)!;
+      this.cache.delete(this.oldestKey);
+      this.cache.set(key, this.cache.get(key)!); // Move the new key to the end
+    }
+    this.oldestKey = key;
+  }
+}
+```

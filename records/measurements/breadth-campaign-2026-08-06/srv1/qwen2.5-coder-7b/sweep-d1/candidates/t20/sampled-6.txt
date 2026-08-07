@@ -1,0 +1,30 @@
+```ts
+/**
+ * The KEY=VALUE pairs of a config file.
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Ignore blank lines and comment lines
+    if (/^\s*#/.test(line) || !line.trim()) continue;
+
+    // Split on the first equals sign
+    const [key, value] = line.split("=", 2);
+
+    // Trim whitespace around key and value
+    const trimmedKey = key.trim();
+    const trimmedValue = value ? value.trim() : "";
+
+    // Throw an error for lines with no equals sign
+    if (!trimmedKey) throw new Error(`Invalid config line: '${line}'`);
+
+    // Prevent prototype pollution
+    if (trimmedKey === "__proto__") continue;
+
+    // Assign the key-value pair to the configuration object
+    config[trimmedKey] = trimmedValue;
+  }
+
+  return config;
+}
+```

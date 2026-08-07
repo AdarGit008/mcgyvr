@@ -1,0 +1,15 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease?: string | null }; build?: string | null } {
+    if (typeof version !== 'string') throw new Error('version must be a string');
+    const match = version.match(/^v?(\d+)\.(\d+)\.(\d+)(-(.+))?(+\.(.+))?$/);
+    if (!match) throw new Error('version is not valid');
+
+    const [_, major, minor, patch, prerelease, build] = match;
+    
+    return {
+        major: parseInt(major, 10),
+        minor: parseInt(minor, 10),
+        patch: parseInt(patch, 10)
+    };
+}
+```

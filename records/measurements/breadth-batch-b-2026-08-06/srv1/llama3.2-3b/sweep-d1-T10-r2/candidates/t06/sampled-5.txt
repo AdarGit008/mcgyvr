@@ -1,0 +1,86 @@
+```typescript
+/**
+ * Split one line of CSV into its fields on commas.
+ * A field wrapped in double quotes may contain commas,
+ * and a doubled quote inside such a field means one literal quote character;
+ * the surrounding quotes are not part of the value.
+ * Fields that are not quoted are taken literally, including any surrounding spaces.
+ * An empty line is one empty field.
+ *
+ * @param {string} line
+ */
+export function parseCsvLine(line: string): string[] {
+  const stack = [] as (fieldRegex | RegExpEx)[][];
+  let currentField = '';
+  let isQuote = false;
+
+  for (let i = 0; i < line.length; i++) {
+    if (
+      (line[i] === '"' || line[i] === '\t' || line[i] === ',') &&
+      !stack.includes(currentField)
+    ) {
+      stack.push([
+        isQuote ? (currentField += line[i]) : '',
+        currentField,
+        isQuote,
+      ]);
+      currentField = '';
+      isQuote ^= true; // invert
+
+      if (i < line.length - 1 && line[i + 1] === ',') {
+        i++;
+      }
+    } else {
+      currentField += line[i];
+    }
+
+    while (stack.length > 0) {
+      const [fieldRegex, previousField, isOpen] = stack[stack.length - 1];
+
+      if (
+        isQuote ||
+        ((currentField.length === 0 || !isQuote) && fieldRegex.test(currentField)) // "unmatched" comma case
+      ) {
+        delete stack[stack.length - 1];
+      } else if (isOpen) { // found a matching closing quote
+        if (!fieldRegex.test(previousField + currentField)) {
+          throw new Error(`Closing quote not following opening quote`);
+        }
+        stack[stack.length - 1] = [new RegExp_ex(fieldRegex), previousField];
+        break;
+      } else {
+        if (isQuote) { // closing on "unmatched" comma
+          throw new Error('Comma without quotes');
+        }
+
+        const match = fieldRegex.exec(currentField);
+        if (!match) { // unmatched character at the end of line
+          throw new Error(`Unexpected character at the end of CSV line: ${line}`);
+        }
+        const previousMatch = fieldRegex.exec(previousField);
+        currentField = match[0];
+      }
+    }
+
+    if (isQuote || ((i < line.length - 1 && line[i + 1] === ','))) {
+      isOpen = false;
+    }
+  }
+
+  let outputLine: string[] = [];
+  const regex = /[^\s"],/g;
+
+  while (currentField.length > 0) { // "unmatched" quote character at the end
+    const match = regex.exec(currentField);
+
+    if (match === null) {
+      throw new Error(`Unexpected end-of-line at start`);
+    } else {
+      outputLine.push(match[0]);
+      currentField = currentField.slice(match.index + 1);
+    }
+  }
+
+  return outputLine;
+}
+```

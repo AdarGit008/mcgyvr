@@ -1,0 +1,30 @@
+```typescript
+function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw Error('The argument must be a string.');
+  }
+
+  let result = '';
+  let count = 1;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    if (char === input[i + 1]) {
+      count++;
+    } else {
+      result += char;
+      if (count > 1) {
+        result += count.toString();
+      }
+      count = 1;
+    }
+  }
+
+  // Handle the case where the last character is a run
+  if (count > 1) {
+    result += count.toString();
+  }
+
+  return result;
+}
+```

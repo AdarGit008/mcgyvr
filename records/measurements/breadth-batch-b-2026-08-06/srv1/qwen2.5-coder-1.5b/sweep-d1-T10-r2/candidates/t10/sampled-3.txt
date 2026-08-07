@@ -1,0 +1,45 @@
+```ts
+/**
+ * Helper for binarySearch to prevent infinite loop in case all elements are less than target.
+ */
+function safeBinarySeek(items: readonly number[], target: number): number {
+  let low = 0;
+  let high = items.length - 1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  // Ensure we don't go out of bounds with the upper bound
+  return high <= items.length - 1 ? high + 1 : -1;
+}
+
+/**
+ * The index of target in a sorted array, or -1. */
+export function binarySearchSorted(items: readonly number[], target: number): number {
+  let low = safeBinarySeek(items, target);
+  let high = safeBinarySeek(items, target) !== -1 ? low : items.length;
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return -1;
+}
+```

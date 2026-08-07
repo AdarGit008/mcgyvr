@@ -1,0 +1,19 @@
+```ts
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    line = line.trim();
+    if (!line || line.startsWith("#")) continue;
+    const [key, value] = line.split("=");
+    const trimmedKey = key.trim();
+    const trimmedValue = value.trim();
+    if (!trimmedKey) throw new Error(`Invalid config file: empty key on line ${text.indexOf(line) + 1}`);
+    if (Object.hasOwn(config, trimmedKey)) {
+      throw new Error(`Invalid config file: repeated key "${trimmedKey}"`);
+    }
+    config[trimmedKey] = trimmedValue;
+  }
+  return config;
+}
+```

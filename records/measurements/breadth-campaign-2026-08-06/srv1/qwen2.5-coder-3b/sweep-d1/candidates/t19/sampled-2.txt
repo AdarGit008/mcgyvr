@@ -1,0 +1,16 @@
+```ts
+/** a divided by b. Throws an error if b is zero or not finite, 
+ *  or if either argument is a boolean. */
+export function safeDivide(a: number, b: number): number {
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Both arguments must be numbers.');
+  }
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error('Neither argument can be NaN or infinity.');
+  }
+  if (b === 0 || b === -0) {
+    throw new Error('Division by zero is not allowed.');
+  }
+  return a / b;
+}
+```

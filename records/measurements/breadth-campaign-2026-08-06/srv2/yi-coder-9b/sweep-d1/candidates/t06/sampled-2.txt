@@ -1,0 +1,25 @@
+Here is the implementation for parseCsvLine function:
+
+```ts
+export function parseCsvLine(line: string): string[] {
+    const fields = [];
+    let field = "";
+    let insideQuotes = false;
+    for (let i = 0; i < line.length; ++i) {
+        if (!insideQuotes && line[i] === ',') {
+            fields.push(field.trim());
+            field = "";
+        } else if (line[i] === '"') {
+            insideQuotes = !insideQuotes;
+            if (insideQuotes) field += line[i];
+        } else if (insideQuotes && line[i] === '"' && i + 1 < line.length && line[i+1] === '"') {
+            field += line[i] + line[++i]; // Add the double quote and skip the next char
+        } else {
+            field += line[i];
+        }
+    }
+    if (insideQuotes) throw new Error("A quoted field is never closed.");
+    fields.push(field.trim());
+    return fields;
+}
+```

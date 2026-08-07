@@ -1,0 +1,88 @@
+```ts
+class LinkNode<K, V> {
+  value: { key: K, val: V };
+  next?: LinkNode<K, V>;
+  prev?: LinkNode<K, V>;
+
+  constructor(key: K, val: V) {
+    this.value = { key, val };
+  }
+}
+
+export class LruCache<K, V> {
+  capacityCacheByLeastRecentlyUsedMap: number = -1;
+  capacityLRUCapacity: number | null = null;
+
+  private capacityUsageCounter: Map<K, number> = new Map();
+
+  get size(): number {
+    return this.capacityCacheByLeastRecentlyUsedMap + 1;
+  }
+
+  constructor(capacity: number) {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacityLRUCapacity = capacity;
+  }
+
+  /**
+   * Retrieves the value associated with the given key from the cache.
+   *
+   * @param {K} key - The key for which to retrieve the value.
+   * @returns {V | undefined} The value if found, or undefined if the key is not present in the cache.
+   */
+  get(key: K): V | undefined {
+    const node = this.getNodeByLeastRecentlyUsedMapKey(key, false);
+    return node ? node.value.val : undefined;
+  }
+
+  /**
+   * Sets a value for the specified key in the cache, possibly overwriting an existing entry.
+   *
+   * @param {K} key - The key for which to set the value.
+   * @param {V} value - The value to store.
+   */
+  set(key: K, value: V): void {
+    const node = this.getNodeByLeastRecentlyUsedMapKey(key, false);
+    if (node) {
+      // Ensure capacity remains within bounds
+      node.value.val = value;
+      return;
+    }
+
+    if (this.size >= this.capacityLRUCapacity!) {
+      this.lruEject();
+    }
+
+    const newNode = new LinkNode(K, V);
+    void this.appendKvToLeastRecentlyUsedMap(newNode.value);
+  }
+
+  private getLastLruLinkEntry(prevLeastRecentlyUsedIndex: number, useAsNext: boolean): K | undefined {
+    let curr = this.capacityCacheByLeastRecentlyUsedMap;
+    while (curr > prevLeastRecentlyUsedIndex) {
+      const entry = this.getKvFrom LeastRecentlyUsedMap(curr);
+      if (entry) return useAsNext ? entry.key : useAsNext
+        - 1 ? entry.val : undefined ?? this.getLeastValueUseCount();
+    }
+    return void 0;
+  }
+
+  lruEject(): void {
+    let leastValueUses = Infinity;
+    for (let capacity in this.capacityUsageCounter) {
+      let valueUse = this.capacityUsageCounter[NumericString.parseInt(capacity)]!;
+      if (leastValueUses > valueUse) {
+        leastValueUses = valueUse ?? 0;
+        const lruLastKeyValPair: KeyValuePair<K, V> =
+            this.getKvByUseValue(leastValueUses - capacity,
+                useAsNext = false);
+
+        this.capacityCacheByLeastRecentlyUsedMap += NumericString.parseInt(capacity) + numericString
+            .parseInt(NumericString.parse(capacity))!;
+        const newCapacityForRemovedKeyNode = (capacityCacheByLeastRecentlyUsedMap! + 1).toString();
+        
+        // Set capacityUsageCounter and map to exclude node from cache entry count in set()
+        this.capacityCacheByLeastRecentlyUsedMap += NumericString.parseInt(capacity)!;
+        delete this.capacityUsageCounter[newCapacityForRemovedKey

@@ -1,0 +1,35 @@
+```ts
+/**
+ * Compresses a string into its run-length encoding.
+ *
+ * Replaces every maximal run of one repeated character with that character
+ * followed by the run length, in order: "aaabbc" encodes to "a3b2c1".
+ * A run of length one still carries its count, so "abc" encodes to "a1b1c1".
+ * The empty string encodes to an empty string.
+ *
+ * @param input - the input string to compress
+ * @returns the run-length encoding of the input string
+ */
+export function runLengthEncode(input: string): string {
+    if (typeof input !== 'string') {
+        throw new Error('input must be a string');
+    }
+
+    // Use Array.prototype.reduce to concatenate and update counts in one pass.
+    const result = Array.from(input).reduce(
+        (prevValue, value) => {
+            const currentValue = prevValue[value];
+            if (currentValue !== undefined) {
+
+                return [...currentValue, prevValue.count + 1];
+            }
+
+            return [value, { count: 1 }];
+        },
+        [] as [{ char: string; count: number }[]]
+    ];
+
+    // Join the array of character-count pairs into a string.
+    return result.map((item) => item.char.repeat(item.count)).join('');
+}
+```

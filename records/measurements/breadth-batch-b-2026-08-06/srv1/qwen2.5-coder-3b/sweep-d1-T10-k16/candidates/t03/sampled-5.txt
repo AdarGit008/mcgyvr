@@ -1,0 +1,40 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    // Regular expressions to validate and extract parts of the version string
+    const semverPattern = /^\d+\.\d+\.\d+(\-(.*))?(\+(.*))?$/;
+    const prereleasePattern = /\-([a-zA-Z0-9]+)(.*?)$/;
+    const buildPattern = /\+([b-z0-9]+)$/;
+
+    // Test the input string against the semver pattern
+    if (!semverPattern.test(version)) {
+        throw new Error(`Invalid version format: ${version}`);
+    }
+
+    // Extract major, minor, and patch numbers
+    const [_, majorStr, minorStr, patchStr] = version.match(semverPattern) || [];
+    const major = parseInt(majorStr, 10);
+    const minor = parseInt(minorStr, 10);
+    const patch = parseInt(patchStr, 10);
+
+    // Extract prerelease and build strings if they exist
+    let prerelease: string | null = null;
+    let build: string | null = null;
+
+    if (prereleasePattern.test(version)) {
+        [_, prerelease] = version.match(prereleasePattern) || [];
+    }
+
+    if (buildPattern.test(version)) {
+        [_, build] = version.match(buildPattern) || [];
+    }
+
+    // Validate numeric parts are digits with no leading zero
+    if (!/[1-9]\d*$/.test(majorStr) ||
+        !/[0-9]+$/.test(minorStr) ||
+        !/[0-9]+$/.test(patchStr)) {
+        throw new Error(`Invalid version numbers: ${version}`);
+    }
+
+    return { major, minor, patch, prerelease, build };
+}
+```

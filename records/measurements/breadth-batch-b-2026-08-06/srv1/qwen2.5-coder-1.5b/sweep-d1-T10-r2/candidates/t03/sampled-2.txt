@@ -1,0 +1,13 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const reg = /^v?(\d+)\.(\d+)\.(\d+)(?:-(\S+))?(?:\+(.+))?$/;
+  if (!reg.test(version)) {
+    throw new Error(`Invalid semantic version: ${version}`);
+  }
+
+  // Extract numbers
+  const [, major, minor, patch, prerelease = null, build = null] = reg.exec(version) as [null, ...string[]];
+
+  return { major, minor, patch, prerelease, build };
+}
+```

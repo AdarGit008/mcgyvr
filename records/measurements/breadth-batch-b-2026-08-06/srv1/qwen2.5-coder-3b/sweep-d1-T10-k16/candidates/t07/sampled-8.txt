@@ -1,0 +1,8 @@
+```typescript
+export function flatten(items: readonly unknown[], depth = Infinity): unknown[] {
+  if (!Number.isInteger(depth) || depth < 0) {
+    throw new Error("Depth must be a non-negative integer or Infinity.");
+  }
+
+  
+}

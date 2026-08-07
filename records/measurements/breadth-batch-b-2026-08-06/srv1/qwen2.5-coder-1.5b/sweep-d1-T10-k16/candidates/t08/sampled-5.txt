@@ -1,0 +1,50 @@
+```ts
+import { cloneDeep } from 'lodash';
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes || nodes.length < 1) {
+    throw new Error('no nodes provided');
+  }
+
+  const graph = {};
+  const indegree = {};
+  for (const node of nodes) {
+    graph[node] = [];
+    indegree[node] = 0;
+  }
+
+  for (const [from, to] of edges) {
+    if (!graph[from]) {
+      graph[from] = [];
+    }
+    graph[to].push(from);
+    indegree[from]++;
+  }
+
+  const freeNodes = nodes.filter(node => indegree[node] === 0);
+
+  let result: string[] = [];
+
+  while (freeNodes.length > 0) {
+    const node = freeNodes.shift()!;
+    result.push(node);
+
+    if (!graph[node]) {
+      continue;
+    }
+
+    for (const neighbor of graph[node]) {
+      indegree[neighbor]--;
+      if (indegree[neighbor] === 0) {
+        freeNodes.push(neighbor);
+      }
+    }
+  }
+
+  if (result.length !== nodes.length) {
+    throw new Error('cycle detected');
+  }
+
+  return result;
+}
+```

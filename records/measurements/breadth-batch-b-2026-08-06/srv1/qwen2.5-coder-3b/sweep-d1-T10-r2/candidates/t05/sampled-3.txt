@@ -1,0 +1,17 @@
+```ts
+// solution.ts
+
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error("Size must be a positive integer.");
+  }
+
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+}
+```
+
+This implementation slices the input array `items` into groups of up to `size` elements starting from each index. It checks if a valid positive integer is provided for `size` and throws an error if not. The function returns the list of chunked arrays, which does not modify the original input.

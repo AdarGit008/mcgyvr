@@ -1,0 +1,60 @@
+```ts
+/**
+ * Add two decimal string numbers without using Number, BigInt, or parseInt.
+ * Handles arbitrary-length nonnegative integers with leading zeros,
+ * returning canonical form (no leading zeros, "0" for zero).
+ */
+export function addDecimalStrings(a: string, b: string): string {
+  // Validate inputs
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Inputs must be strings');
+  }
+
+  if (a.length === 0 || b.length === 0) {
+    throw new Error('Inputs cannot be empty');
+  }
+
+  const isValidDigit = (c: string): boolean => c >= '0' && c <= '9';
+
+  if (!Array.from(a).every(isValidDigit) || !Array.from(b).every(isValidDigit)) {
+    throw new Error('Inputs must contain only digits 0-9');
+  }
+
+  // Strip leading zeros for processing, but handle "0" specially
+  const stripLeadingZeros = (s: string): string => {
+    let i = 0;
+    while (i < s.length - 1 && s[i] === '0') i++;
+    return s.slice(i);
+  };
+
+  const numA = stripLeadingZeros(a);
+  const numB = stripLeadingZeros(b);
+
+  // Reverse both strings for digit-by-digit addition from least significant
+  const revA = numA.split('').reverse().join('');
+  const revB = numB.split('').reverse().join('');
+
+  let carry = 0;
+  let result = '';
+
+  const maxLength = Math.max(revA.length, revB.length);
+
+  for (let i = 0; i < maxLength; i++) {
+    const digitA = i < revA.length ? parseInt(revA[i], 10) : 0;
+    const digitB = i < revB.length ? parseInt(revB[i], 10) : 0;
+
+    const sum = digitA + digitB + carry;
+    carry = Math.floor(sum / 10);
+    result += (sum % 10).toString();
+  }
+
+  if (carry > 0) {
+    result += carry.toString();
+  }
+
+  // Reverse back to get final number
+  const finalResult = result.split('').reverse().join('');
+
+  return finalResult === '' ? '0' : finalResult;
+}
+```

@@ -1,0 +1,27 @@
+```typescript
+
+export function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.some(([start, end]) => start > end)) {
+    throw new Error("Invalid interval");
+  }
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const merged = [intervals[0]];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const current = intervals[i];
+    const lastMerged = merged[merged.length - 1];
+
+    if (lastMerged[1] >= current[0]) {
+      // Merge intervals
+      lastMerged[1] = Math.max(lastMerged[1], current[1]);
+    } else {
+      merged.push(current);
+    }
+  }
+
+  return merged;
+}
+
+```

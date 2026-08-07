@@ -1,0 +1,21 @@
+ ```ts
+/**
+ * Encodes a string using run-length encoding.
+ * @param input The string to encode.
+ * @returns The encoded string.
+ */
+export function runLengthEncode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let encoded = '';
+  for (let i = 0; i < input.length; ) {
+    const char = input[i];
+    const count = input.lastIndexOf(char) - i + 1;
+    encoded += `${char}${count}`;
+    i += count;
+  }
+  return encoded;
+}
+```

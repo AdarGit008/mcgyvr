@@ -1,0 +1,30 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+    if (!/^\d+\.\d+(\.\d+)?(-([0-9]{1,}|\d+[a-zA-Z](\.[0-9]*|[a-zA-Z])))*(\+([0-9]+|\+[a-zA-Z0-9]+))?$/.test(version)) {
+        throw new Error(`Invalid input: ${version}`);
+    }
+
+    const [major, minor, patch] = version.match(/\d+/g)!.map(Number);
+    let prerelease = null, build = null;
+
+    while (version.startsWith('-')) {
+        version = version.slice(1);
+        const match = /\d+|[a-zA-Z]/.exec(version);
+        if (!match || !/^[0-9]+|[a-zA-Z](\.[0-9]*|[a-zA-Z])$/.test(match[0])) {
+            throw new Error(`Invalid prerelease: ${match}`);
+        }
+        prerelease = prerelease === null ? match : prerelease + '.' + match;
+    }
+
+    while (version.startsWith('+')) {
+        version = version.slice(1);
+        const match = /\d+|[a-zA-Z]/.exec(version);
+        if (!match || !/^[0-9]+|[a-zA-Z](\.[0-9]*|[a-Z])$/.test(match[0])) {
+            throw new Error(`Invalid build: ${match}`);
+        }
+        build = build === null ? match : build + '.' + match;
+    }
+
+    return { major, minor, patch, prerelease, build };
+}
+```

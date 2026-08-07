@@ -1,0 +1,28 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const [rawMajor, rawMinor, rawPatch, rawPrerelease, rawBuild] = version.trim().split('/');
+  if (!rawMajor || !rawMinor || !rawPatch) {
+    throw new Error(`Invalid semver format in input ${version}`);
+  }
+
+  // Validation of major, minor, and patch numbers
+  const parseNumber = (str: string): number => {
+    if (typeof str !== 'string' || !/^\d+$/.test(str) || Number.isNaN(Number(str)) || Number(str).toString() !== str) {
+      throw new Error(`Invalid number in semver format ${version}`);
+    }
+    return Number(str);
+  };
+
+  const major = parseNumber(rawMajor);
+  const minor = parseNumber(rawMinor);
+  const patch = parseNumber(rawPatch);
+
+  // Handling prerelease and build
+  const prerelease = rawPrerelease ? String(rawPrerelease).replace(/^,|\.$/g, '') : null;
+  const build = rawBuild ? String(rawBuild) : null;
+
+  return { major, minor, patch, prerelease, build };
+}
+```
+
+This implementation fulfills the specified task by parsing a semantic version string according to the given format. It validates the numeric parts and handles the optional prerelease and build identifiers. The function throws an error for invalid input and ensures that all numbers are digits without leading zeros, except for "0".

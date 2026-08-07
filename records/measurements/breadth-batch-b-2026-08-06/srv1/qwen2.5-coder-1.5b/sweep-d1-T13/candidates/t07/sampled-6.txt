@@ -1,0 +1,13 @@
+```ts
+export function flatten(items: readonly unknown[], depth: number = Infinity): unknown[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error('depth must be a non-negative integer or infinity');
+  }
+
+  return go(
+    items,
+    () => [],
+    (x, acc) => Array.isArray(x) ? x.flatMap(val => go(val, acc.append)) : [...acc, x],
+  );
+}
+```

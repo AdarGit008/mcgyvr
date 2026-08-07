@@ -1,0 +1,37 @@
+```ts
+
+function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  // Remove 'v' prefix if it exists
+  version = version.startsWith('v') ? version.slice(1) : version;
+
+  const [major, rest] =/version/.exec(version) ?? ['', version];
+  if (!/^\d+$/.test(major)) throw new Error(`Invalid major version: ${version}`);
+
+  const [, minor = '0', patch = '0'] = /\D*(\d+)\.(\d+)\.(\d+)$/..exec(rest)?.slice(1) ?? ['', '0', '0'];
+
+  let prerelease = null;
+  let build = null;
+
+  let i = rest.indexOf('-');
+  if (i !== -1) {
+    prerelease = rest.substring(i + 1).replace(/^-/, '');
+    i = rest.length - prerelease.indexOf('+');
+    if (i >= 0) {
+      build = rest.substring(i + 1);
+    }
+    rest = rest.substring(0, i);
+  }
+
+  const isValidSemver = /^\d+(\.\d+)*(-[\w-]+)?(\+\w+)?$/.test(version);
+
+  if (!isValidSemver) throw new Error(`Invalid semantic version: ${version}`);
+
+  return {
+    major: parseInt(major, 10),
+    minor: parseInt(minor, 10),
+    patch: parseInt(patch, 10),
+    prerelease,
+    build
+  };
+}
+```

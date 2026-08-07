@@ -1,0 +1,58 @@
+```ts
+import { strict as assert } from 'assert';
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges) throw new Error('Nodes and edges must not be empty');
+
+    const inDegree = nodes.reduce((acc, node) => {
+        acc[node] = 0;
+        return acc;
+    }, {} as { [key: string]: number });
+
+    const adjacencyList = nodes.map(() => []);
+
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) throw new Error(`Node ${from} or node ${to} is not in the list of nodes`);
+        inDegree[to]++;
+        adjacencyList[from].push(to);
+    }
+
+    const freeNodes = nodes.filter(node => inDegree[node] === 0);
+
+    if (freeNodes.length === 0) throw new Error('Cycle exists');
+
+    const result: string[] = [];
+
+    while (freeNodes.length > 0) {
+        const node = freeNodes.shift()!;
+        result.push(node);
+
+        adjacencyList.forEach(list => list.splice(list.indexOf(node), 1));
+
+        inDegree[node]--;
+        if (inDegree[node] === 0) freeNodes.push(node);
+    }
+
+    return result;
+}
+
+// Check function to verify the correctness of the solution
+function checkTopologicalSort() {
+    assert.deepStrictEqual(topologicalSort([], []), []);
+    assert.deepStrictEqual(topologicalSort(['A', 'B', 'C'], [['A', 'B'], ['B', 'C']]), ['A', 'B', 'C']);
+    try {
+        topologicalSort(['A', 'B'], [['A', 'B']]);
+        assert(false, 'Expected an error for duplicate edge');
+    } catch (e) {
+        assert(e.message === 'Edge A-B already exists');
+    }
+    try {
+        topologicalSort(['A', 'B'], [['B', 'A']]);
+        assert(false, 'Expected an error for reverse edge');
+    } catch (e) {
+        assert(e.message === 'Node B is not in the list of nodes');
+    }
+}
+
+checkTopologicalSort();
+```

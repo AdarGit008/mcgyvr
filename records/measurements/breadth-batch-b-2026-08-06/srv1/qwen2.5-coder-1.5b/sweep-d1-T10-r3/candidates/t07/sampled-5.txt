@@ -1,0 +1,17 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined || depth === Infinity) return [...items];
+
+  const output = [];
+
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      output.push(...flatten(item, depth - 1));
+    } else {
+      output.push(item);
+    }
+  }
+
+  return output;
+}
+```

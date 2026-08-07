@@ -1,0 +1,40 @@
+```typescript
+/**
+ * Flattens a given array to the specified depth level. Returns a new array with the input's value type preserved.
+ *
+ * @param items The nested array structure to be flattened.
+ * @param depth The maximum number of nesting levels (default: Infinity).
+ *
+ * @throws {Error} If 'depth' is not a non-negative integer or Infinity.
+ *
+ * @returns A new array with the specified flattening depth applied to the input's value type.
+ */
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (!(depth === null || typeof depth === "number") && (depth !== undefined)) {
+        throw new Error(`Invalid 'depth' argument. It must be a non-negative integer or Infinity.`);
+    }
+
+    const helper = <T>(arr: T[], d: number) => {
+        return arr.reduce((acc, item) => {
+            if (typeof item === "string") {
+                acc.push(item);
+            } else if (Array.isArray(item)) {
+                if (!d || !d-- && item.length > 0) {
+                    return [...acc, ...helper(item as readonly unknown[], d - 1)];
+                } else {
+                    return [...acc];
+                }
+            } else {
+                throw new Error("Cannot iterate into non-array values.");
+            }
+
+        }, [] as unknown[]);
+    };
+
+    if (!depth || depth === Infinity) {
+        return helper(items, depth);
+    } else {
+        return helper(items, depth - 1);
+    }
+}
+```

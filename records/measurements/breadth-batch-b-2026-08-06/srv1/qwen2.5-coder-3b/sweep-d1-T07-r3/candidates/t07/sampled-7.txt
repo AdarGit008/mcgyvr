@@ -1,0 +1,26 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) depth = Infinity;
+
+  if (!Number.isInteger(depth) || depth < 0) {
+    throw new Error("Depth must be a non-negative integer or Infinity.");
+  }
+
+  return items.flatMap((item, index, array) => {
+    if (typeof item !== 'object' || item == null || Array.isArray(item)) {
+      return [item];
+    }
+
+    if ((depth === 0 && index !== 0) || depth <= 1) {
+      return Object.values(item);
+    }
+
+    const flattenedValues = [];
+    for (const key in item) {
+      if (!Object.prototype.hasOwnProperty.call(item, key)) continue;
+      flattenedValues.push(...flatten([item[key]], depth - 1));
+    }
+    return flattenedValues;
+  });
+}
+```

@@ -1,0 +1,39 @@
+```ts
+import { strict as assert } from 'assert';
+
+/**
+ * An append-only log of timestamped events.
+ */
+export class EventLog {
+  #events: Event[] = [];
+
+  /**
+   * Append one event.
+   * @param event An object with a `name` and `timestamp` property.
+   */
+  record(event: Event) {
+    this.#events.push(event);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   * @param timestamp The timestamp to filter events by.
+   * @returns An array of events that occurred on or after the provided timestamp.
+   */
+  since(timestamp: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+
+// Check function to verify the solution
+function check() {
+  const log = new EventLog();
+  log.record({ name: 'Event1', timestamp: 10 });
+  log.record({ name: 'Event2', timestamp: 5 });
+
+  assert.deepStrictEqual(log.since(5), [{ name: 'Event1', timestamp: 10 }, { name: 'Event2', timestamp: 5 }]);
+  assert.deepStrictEqual(log.since(7), [{ name: 'Event2', timestamp: 5 }]);
+}
+
+check();
+```

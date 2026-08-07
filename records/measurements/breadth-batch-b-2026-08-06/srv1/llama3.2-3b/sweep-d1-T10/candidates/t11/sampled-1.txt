@@ -1,0 +1,12 @@
+```typescript
+/** The numbers, ascending. */
+export function sortAscending(values: readonly number[]): number[] {
+  // Create a copy to avoid mutating original input
+  const copied = [...values];
+  
+  // Sort in ascending order
+  copied.sort((a, b) => a - b);
+  
+  return copied;
+}
+```

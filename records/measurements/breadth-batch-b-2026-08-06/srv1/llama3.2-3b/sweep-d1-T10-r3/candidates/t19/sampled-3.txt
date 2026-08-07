@@ -1,0 +1,15 @@
+```ts
+/** Returns the division of `a` by `b`. Throws on attempting to divide by zero, 
+ * or when `a` or `b` is not a finite number. */
+export function safeDivide(a: number, b: number): number {
+  if (isNaN(b)) {
+    throw new Error("zero or negative divisor");
+  }
+
+  if (isFinite(a) && isFinite(b)) {
+    return a / b;
+  } else {
+    throw new Error(`both ${a} and ${b} must be finite numbers`);
+  }
+}
+```

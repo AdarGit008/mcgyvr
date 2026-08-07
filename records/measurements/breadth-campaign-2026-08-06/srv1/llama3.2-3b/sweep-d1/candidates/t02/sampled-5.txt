@@ -1,0 +1,34 @@
+```ts
+export function mergeIntervals(intervals: number[][]): number[][] {
+    /**
+     * Merge overlapping intervals in ascending order.
+     *
+     * @param intervals - List of [start, end] pairs to be merged.
+     */
+    if (intervals.length === 0) {
+        return [];
+    }
+
+    const isInvalidPair = (pair: number[]) => pair[0] > pair[1];
+
+    const intervalsWithLength = intervals.map(([start, end]) => [start, end]);
+    intervalsWithLength.forEach(pair => {
+        if (!Number.isInteger(pair[0]) || !Number.isInteger(pair[1])) {
+            throw new Error('Interval values must be integers.');
+        }
+    });
+
+    intervalsWithLength.sort((a, b) => a[0] - b[0]);
+
+    const mergedIntervals = [intervalsWithLength[0]];
+    for (const currentPair of intervalsWithLength.slice(1)) {
+        if (currentPair[0] <= mergedIntervals[mergedIntervals.length - 1][1]) {
+            mergedIntervals[mergedIntervals.length - 1][1] = Math.max(mergedIntervals[mergedIntervals.length - 1][1], currentPair[1]);
+        } else {
+            mergedIntervals.push(currentPair);
+        }
+    }
+
+    return mergedIntervals;
+}
+```

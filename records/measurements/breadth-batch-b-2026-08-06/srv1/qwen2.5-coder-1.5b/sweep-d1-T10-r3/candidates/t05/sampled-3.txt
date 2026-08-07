@@ -1,0 +1,28 @@
+```ts
+import { strict assert } from 'assert';
+
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (size <= 0) {
+    throw new Error('size must be a positive integer');
+  }
+
+  const result: T[][] = [];
+
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, Math.min(items.length, i + size)));
+  }
+
+  return result;
+}
+
+// Test cases
+function testChunk() {
+  assert.deepStrictEqual(chunk([], 1), []);
+  assert.deepStrictEqual(chunk([1], 2), [[1]]);
+  assert.deepStrictEqual(chunk([1, 2], 2), [[1, 2]]);
+  assert.deepStrictEqual(chunk([7, 8, 9], 3), [[7, 8, 9]]);
+  assert.deepStrictEqual(chunk(['a', 'b', 'c'], 1), [['a']], false);
+}
+
+testChunk();
+```

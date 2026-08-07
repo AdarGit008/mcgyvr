@@ -1,0 +1,64 @@
+```ts
+/**
+ * Parses a single line of CSV into an array of fields.
+ * A field wrapped in double quotes may contain commas,
+ * and a doubled quote inside such a field means one literal quote character.
+ * Fields that are not quoted are taken literally, including any surrounding spaces.
+ * An empty line is one empty field.
+ * Throws an Error for a quoted field that is never closed.
+ *
+ * @param {string} line - The CSV line to be parsed.
+ * @returns {string[]} An array of fields extracted from the CSV line.
+ */
+export function parseCsvLine(line: string): string[] {
+  if (line === "") return [];
+
+  let currentField = "";
+  let fieldMode = false; // true for inside quotes
+  const fields = [];
+
+  for (let char of line) {
+    if (fieldMode) {
+      if (char === '"') {
+        if (currentField.length > 0) {
+          fields.push(currentField);
+          currentField = '';
+        }
+        fieldMode = false;
+      } else if (char === ',') {
+        fields.push(currentField);
+        currentField = '';
+        fieldMode = true;
+      } else {
+        currentField += char;
+      }
+    } else {
+      if (char === '"') {
+        if (currentField.length > 0) {
+          fields.push(currentField);
+          currentField = '';
+        }
+        fieldMode = true;
+      } else if (char === ',') {
+        fields.push(currentField.trim());
+        currentField = '';
+        fieldMode = false;
+      } else if (char === '\n' || char === '\r') {
+        if (currentField.length > 0) {
+          fields.push(currentField);
+          currentField = '';
+        }
+        break; // End of line
+      } else {
+        currentField += char;
+      }
+    }
+  }
+
+  if (fieldMode && currentField.length > 0) {
+    fields.push(currentField.trim());
+  }
+
+  return fields;
+}
+```

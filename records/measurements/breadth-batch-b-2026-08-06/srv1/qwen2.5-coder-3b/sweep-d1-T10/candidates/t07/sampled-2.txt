@@ -1,0 +1,43 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  // Validate that depth is a non-negative integer or Infinity
+  if (depth !== undefined && (!Number.isInteger(depth) || depth < 0)) {
+    throw new Error("Depth must be a non-negative integer or Infinity");
+  }
+
+  // Determine the default depth to flatten
+  const effectiveDepth = depth || Infinity;
+
+  // Helper function to recursively flatten an array at the specified depth
+  function flattenList(items: unknown[], currentDepth: number): unknown[] {
+    if (currentDepth === 0) {
+      return [...items];
+    }
+
+    return items.reduce((acc, item) => {
+      if (Array.isArray(item)) {
+        const nestedFlattened = flattenList(item as unknown[], currentDepth - 1);
+        acc.push(...nestedFlattened);
+      } else {
+        acc.push(item);
+      }
+      return acc;
+    }, [] as unknown[]);
+  }
+
+  // Handle cases where the input is undefined, null, or a primitive value
+  if (items === undefined || items === null) {
+    throw new Error("Input must not be undefined or null");
+  }
+  if (typeof items !== 'object' && typeof items !== 'string') {
+    return [...items];
+  }
+
+  // Start the flattening process with the effective depth
+  return flattenList(items, effectiveDepth);
+}
+
+// Example usage:
+console.log(flatten([[1], [2, [3, 4]]])); // Output: [1, 2, 3, 4]
+console.log(flatten([[[[[]]], []]], 3)); // Output: []
+```

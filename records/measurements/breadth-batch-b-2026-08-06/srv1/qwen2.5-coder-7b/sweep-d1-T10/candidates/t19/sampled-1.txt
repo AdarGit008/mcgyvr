@@ -1,0 +1,10 @@
+```ts
+
+/** A number divided by another number, safely. */
+export function safeDivide(a: number, b: number): number {
+  if (Number.isNaN(a) || Number.isNaN(b)) throw new Error('Both arguments must be finite numbers.');
+  if (b === 0 || b === -0) throw new Error('Cannot divide by zero.');
+  return a / b;
+}
+
+```

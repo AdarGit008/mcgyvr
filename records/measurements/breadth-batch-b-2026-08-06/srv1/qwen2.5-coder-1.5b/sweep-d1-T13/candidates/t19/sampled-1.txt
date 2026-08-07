@@ -1,0 +1,23 @@
+Here's an example safeDivide implementation:
+
+```ts
+
+/**
+ * Calculates `a divided by b`, and returns the result ensuring two things:
+ * 1) If either argument is NaN or infinity, throw an Error with a message showing which
+ *    one is not a number, in English.
+ * 2) If `b` is zero ( including negative zero), throw an Error instructing you to only divide by non-zero values.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (+a !== +a || !Number.isFinite(b)) {
+    throw new Error(`${isFinite(a) ? '' : 'No '}${typeof a} detected ` +
+      (+a === +Infinity || isFinite(a) && a !== + Infinity)
+        ? `${(isFinite(a) ? '+' : '-')}+∞`
+        : (+a < 0 ? '-' : '+')`NaN`;
+  } else if ((b === 0) || b === -0) {
+    throw new Error('Cannot divide by zero');
+  }
+
+  return (+a / +b);
+}
+```

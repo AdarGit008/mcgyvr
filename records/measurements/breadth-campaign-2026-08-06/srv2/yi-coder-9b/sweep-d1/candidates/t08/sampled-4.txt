@@ -1,0 +1,40 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList = new Map<string, Set<string>>();
+  const inDegreeMap = new Map<string, number>();
+  for (let node of nodes) {
+    adjacencyList.set(node, new Set());
+    inDegreeMap.set(node, 0);
+  }
+
+  // Build the graph and calculate indegrees
+  for (let [from, to] of edges) {
+    if (!nodes.includes(to)) throw Error(`Node ${to} not found`);
+    adjacencyList.get(from)?.add(to);
+    inDegreeMap.set(to, inDegreeMap.get(to)! + 1);
+  }
+
+  // Add all nodes with zero indegree to the queue
+  const queue = [...inDegreeMap].filter(([_node, degree]) => degree === 0).map(([node]) => node);
+  let sorted: string[] = [];
+
+  while (queue.length > 0) {
+    // Take the earliest available node and add it to the result
+    const currentNode = queue.shift()!;
+    sorted.push(currentNode);
+
+    // Reduce indegrees of all nodes adjacent to the removed node
+    for (let neighbour of adjacencyList.get(currentNode)!) {
+      inDegreeMap.set(neighbour, inDegreeMap.get(neighbour)! - 1);
+      if (inDegreeMap.get(neighbour) === 0) queue.push(neighbour);
+    }
+  }
+
+  // If there are still nodes with indegree > 0, that means we've found a cycle
+  for (let degree of inDegreeMap.values()) {
+    if (degree > 0) throw Error('Cycle detected');
+  }
+
+  return sorted;
+}
+```

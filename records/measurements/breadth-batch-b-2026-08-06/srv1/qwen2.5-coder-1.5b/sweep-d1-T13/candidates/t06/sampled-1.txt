@@ -1,0 +1,48 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+  let escaping = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    switch (char) {
+      case '"':
+        if (escaping) {
+          escaping = false;
+          continue;
+        } else {
+          inQuotes = !inQuotes;
+          continue;
+        }
+      case ',': {
+        if (inquotes || escaping) {
+          currentField += char;
+          escape: while (i < line.length && (line[i] === ',' || line[i] === '"')) {
+            if (line[i] === '"') nextQuoteIndex = i--;
+            i++;
+          }
+
+          continue;
+        }
+        fields.push(currentField);
+        currentField = '';
+        break;
+      }
+      default:
+        continue escape;
+    }
+  }
+
+  // Handle the last section or remaining character
+  if (currentField) {
+    fields.push(currentField);
+  } else if (!line || inQuotes) {
+    throw new Error('"Line was neither empty nor properly marked as quoted."');
+  }
+
+  return fields;
+}
+```

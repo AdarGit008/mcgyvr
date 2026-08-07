@@ -1,0 +1,64 @@
+```ts
+/**
+ * Decodes a run-length encoded string.
+ * Each unit is a non-digit character followed by its count (1 or more digits, not starting with 0).
+ * @param input The run-length encoded string.
+ * @returns The decoded string.
+ * @throws Error if the input is invalid.
+ */
+export function runLengthDecode(input: string): string {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  if (input.length === 0) {
+    return '';
+  }
+
+  if (/\d/.test(input[0])) {
+    throw new Error('Input cannot start with a digit');
+  }
+
+  let result = '';
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+    
+    // Character must be non-digit
+    if (/\d/.test(char)) {
+      throw new Error('Character cannot be a digit');
+    }
+
+    i++;
+    
+    // Find the start of the count
+    if (i >= input.length) {
+      throw new Error('Missing count for character');
+    }
+
+    // Count must not start with '0'
+    if (input[i] === '0') {
+      throw new Error('Count cannot start with 0');
+    }
+
+    // Extract full numeric count
+    let countStr = '';
+    while (i < input.length && /\d/.test(input[i])) {
+      countStr += input[i];
+      i++;
+    }
+
+    if (countStr === '') {
+      throw new Error('Missing count for character');
+    }
+
+    const count = parseInt(countStr, 10);
+
+    // Append the character 'count' times
+    result += char.repeat(count);
+  }
+
+  return result;
+}
+```

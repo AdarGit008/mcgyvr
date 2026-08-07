@@ -1,0 +1,24 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  /**
+   * Flattens nested arrays up to depth levels, defaulting to every level. A string is a value, never something to iterate into, no matter how deep it appears. A depth of 0 returns a copy of the input unchanged.
+   *
+   * @param items An array containing nested arrays or values. Strings will be returned as-is.
+   * @param depth The maximum depth to recurse. If not provided, every level is flattened. Non-negative integer values default to every level.
+   */
+  if (typeof depth !== 'number' || Number.isNaN(depth) || depth < 0) {
+    throw new Error('Depth must be a non-negative number or Infinity');
+  }
+
+  const _flatten = (arr: readonly unknown[], currentDepth: number): unknown[] => {
+    return arr.reduce((acc, val) => {
+      if (!Array.isArray(val)) return acc;
+      if (typeof val === 'string') return [...acc, val];
+      if (currentDepth < depth && !Array.isArray(val[0])) throw new Error(`Unexpected input at depth ${currentDepth}: ${JSON.stringify(val)}`);
+      return [...acc, ...(typeof val !== 'object' && Array.isArray(val) ? _flatten(val, currentDepth + 1) : val)];
+    }, []);
+  };
+
+  return _flatten(items, depth);
+}
+```

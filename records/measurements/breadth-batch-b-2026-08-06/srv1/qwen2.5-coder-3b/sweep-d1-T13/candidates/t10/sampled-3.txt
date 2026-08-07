@@ -1,0 +1,23 @@
+```ts
+
+
+export function binarySearch(items: readonly number[], target: number): number {
+  let low = 0;
+  let high = items.length + 1; // Changed to high + 1 for inclusive search of last position
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] !== undefined && items[mid] === target) {
+      return mid;
+    }
+    if (items[mid] <= target) { // Adjusted "<=" for inclusive search
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  throw Error("Target not found"); // Fixed missing error message
+}
+
+```

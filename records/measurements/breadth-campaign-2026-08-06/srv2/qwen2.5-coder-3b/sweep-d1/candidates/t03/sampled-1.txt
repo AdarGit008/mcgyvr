@@ -1,0 +1,16 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const regex = /^(\d+)\.(\d+)\.(\d+)(?:-((\d+(\.\d+)*)|(\D+)))?(?:\+(.+))?$/;
+  const match = version.match(regex);
+
+  if (!match) {
+    throw new Error(`Invalid semantic version: ${version}`);
+  }
+
+  const [_, major, minor, patch] = match.slice(1);
+  const prerelease = match[4] || null;
+  const build = match[5] || null;
+
+  return { major: parseInt(major, 10), minor: parseInt(minor, 10), patch: parseInt(patch, 10), prerelease, build };
+}
+```

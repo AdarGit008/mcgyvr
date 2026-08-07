@@ -1,0 +1,54 @@
+```ts
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const adjacencyList = new Map<string, Set<string>>();
+    
+    for (const [from, to] of edges) {
+        if (!nodes.includes(from) || !nodes.includes(to)) {
+            throw new Error(`Node '${from}' or '${to}' not found in nodes.`);
+        }
+        
+        if (!adjacencyList.has(from)) {
+            adjacencyList.set(from, new Set<string>());
+        }
+        adjacencyList.get(from)!.add(to);
+    }
+
+    const indegree = new Map<string, number>();
+    for (const node of nodes) {
+        indegree.set(node, 0);
+        if (!adjacencyList.has(node)) {
+            indegree.set(node, -1); // No outgoing edges
+        } else {
+            for (const neighbor of adjacencyList.get(node)!) {
+                indegree.set(neighbor, (indegree.get(neighbor)! || 0) + 1);
+            }
+        }
+    }
+
+    const queue: string[] = [];
+    for (const [node, count] of indegree) {
+        if (count === 0) {
+            queue.push(node);
+        }
+    }
+
+    let result: string[] = [];
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        result.push(current);
+
+        for (const neighbor of adjacencyList.get(current)!) {
+            indegree.set(neighbor, (indegree.get(neighbor)! || 0) - 1);
+            if (indegree.get(neighbor)! === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    if (result.length !== nodes.length) {
+        throw new Error("Cycle detected in the graph.");
+    }
+
+    return result;
+}
+```

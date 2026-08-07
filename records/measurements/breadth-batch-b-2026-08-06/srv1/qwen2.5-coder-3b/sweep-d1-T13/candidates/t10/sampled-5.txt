@@ -1,0 +1,21 @@
+```typescript
+/**
+ * The index of target in a sorted array, or -1 for not found, including duplicate values.
+ */
+export function binarySearch(items: readonly number[], target: number): number {
+  let low = 0;
+  let high = items.length; // Changed from high <= items.length - 1 to high = items.length
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target || (mid > 0 && items[mid] >= target)) {
+      return mid;
+    }
+    if (items[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid; // Changed from mid - 1 to mid
+    }
+  }
+  return -1;
+}
+```

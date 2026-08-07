@@ -1,0 +1,24 @@
+```typescript
+export function groupByLength(words: readonly string[]): Map<number, string[]> {
+  /**
+   * Groups words by their length in first-seen order.
+   *
+   * @param {readonly string[]} words - Read-only array of strings to be grouped by word length.
+   * @returns {Map<number, string[]>} A map from the length to the words of that length.
+   */
+  const groups = new Map();
+  for (const groupLengthWord of words) {
+    if (!Number.isInteger(groupLengthWord)) {
+      throw new Error('Invalid argument: word lengths must be integers.');
+    }
+    
+    const groupIndex = groups.get(groupLengthWord);
+    if (groupIndex === undefined) {
+      groups.set(groupLengthWord, [groupLengthWord]);
+    } else {
+      groupIndex.push(groupLengthWord);
+    }
+  }
+  return groups;
+}
+```

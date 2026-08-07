@@ -1,0 +1,23 @@
+```typescript
+/**
+ * Merges overlapping intervals in ascending order.
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+    if (!intervals.length) return [];
+
+    const merged: number[][] = [intervals[0]];
+
+    for (const current of intervals.slice(1)) {
+        const last = merged[merged.length - 1];
+        if (current[0] <= last[1]) {
+            // Merge
+            merges.push([...last, ...current]);
+        } else {
+            // Separate
+            merged.push(current);
+        }
+    }
+
+    return merged;
+}
+```

@@ -1,0 +1,15 @@
+```typescript
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    if (depth !== undefined && typeof depth !== 'number' || !Number.isInteger(depth)) {
+        throw new Error('Depth must be a non-negative integer or Infinity');
+    }
+
+    const defaultDepth = depth === 0 ? 0 : depth ?? Infinity;
+    return items.flatMap(item => {
+        if (Array.isArray(item) && defaultDepth > 0) {
+            return flatten(item, defaultDepth - 1);
+        }
+        return item;
+    });
+}
+```

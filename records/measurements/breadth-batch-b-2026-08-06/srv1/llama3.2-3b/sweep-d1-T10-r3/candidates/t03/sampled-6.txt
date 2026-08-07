@@ -1,0 +1,34 @@
+```typescript
+/**
+ * Parses a semantic version string.
+ *
+ * @param version The semantic version string to parse.
+ * @throws Error Invalid semver format.
+ */
+export function parseSemver(version: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string | null;
+  build: string | null;
+} {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-(\S+))?.*(?:+(\S+))?$/);
+  
+  if (!match) {
+    throw new Error(`Invalid semver format: ${version}`);
+  }
+  
+  const [major, minor, patch] = match.slice(1).map(Number);
+  if (isNaN(major) || isNaN(minor) || isNaN(patch)) {
+    throw new Error(`Invalid major/minor/patch version number: ${version}`);
+  }
+  
+  return {
+    major,
+    minor,
+    patch,
+    prerelease: match[2] ? null : match[4]?.replace('-', ''),
+    build: match[5] ? null : match[6]
+  };
+}
+```

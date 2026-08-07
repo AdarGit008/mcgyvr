@@ -1,0 +1,39 @@
+```typescript
+/**
+ * Merges a list of overlapping intervals into the smallest list of non-overlapping pairs,
+ * preserving the ascending order by start time.
+ *
+ * @param intervals - A list of [start, end] pairs
+ * @returns The merged list of non-overlapping [start, end] pairs, sorted ascending by start
+ */
+export function mergeIntervals(intervals: number[][]): number[][] {
+  const isInvalidPair = (pair: number[]) => pair[0] > pair[1];
+
+  // Filter out invalid intervals and convert to [start, end]
+  const validSegments = intervals.filter((interval) => !isInvalidPair(interval)).map(
+    (interval) => [Math.min(...interval), Math.max(...interval)]
+  );
+
+  if (!validSegments.length) return [];
+
+  const mergedSegments = [
+    validSegments[0],
+    // Merge adjacent segments
+    ...validSegments.slice(1).map((segment, index) => {
+      const previousSegment = mergedSegments[index - 1];
+      return (previousSegment[1] >= segment[0])
+        ? [previousSegment[0], Math.max(previousSegment[1], segment[1])]
+        : [...segment];
+    }),
+  ];
+
+  // Sort by start time and eliminate zero-overlapping segments
+  const sortedMergedSegments = mergedSegments.reduce((result, currentSegment) => {
+    if (currentSegment[0] <= result[0][1]) return result;
+    const lastSegment = result[result.length - 1];
+    return [...result.slice(0, -1), [Math.min(currentSegment[0], lastSegment[0]), Math.max(currentSegment[1], lastSegment[1])]];
+  }, mergedSegments);
+
+  return sortedMergedSegments;
+}
+```

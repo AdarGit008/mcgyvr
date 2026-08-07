@@ -1,0 +1,19 @@
+```ts
+function flatten(items: readonly unknown[], depth: number = Infinity): unknown[] {
+  if (depth < 0) throw new Error('Depth must be a non-negative integer or Infinity');
+
+  return items.reduce((flatArray, item) => {
+    if (Array.isArray(item)) {
+      const nested = flatten(item as unknown[], depth - 1);
+      flatArray.push(...nested);
+    } else {
+      flatArray.push(item);
+    }
+    return flatArray;
+  }, []);
+}
+
+// Example usage:
+const data = [1, { a: [2, [3]], b: 4 }];
+console.log(flatten(data)); // Output: [1, 'a', 2, ['b', 4]]
+```

@@ -1,0 +1,33 @@
+```ts
+import { getDependants } from './utils';
+
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  if (!nodes.length) {
+    return [];
+  }
+
+  const adjList = new Map<string, Set<string>>();
+  for (const [from, to] of edges) {
+    if (!adjList.has(from)) adjList.set(from, new Set());
+    if (!adjList.has(to)) adjList.set(to, new Set());
+    adjList.get(from)?.add(to);
+  }
+
+  const nodesWithDependants = Array.from(nodes); // Copy the array to avoid mutation
+  for (const node of nodesWithDependants) {
+    if (!adjList.has(node)) continue;
+
+    const dependentNodes = getDependants(adjList, node);
+    if ((dependentNodes as string[]).length === 0) {
+      adjList.delete(node); // Remove the node and its dependencies
+      nodesWithoutDependants.push(node);
+    }
+  }
+
+  if (nodesWithDependant.length > 0) {
+    throw new Error(`Cycle detected containing nodes: [${nodesWithDependant.join(', ')}]`);
+  }
+
+  return nodesWithoutDependants;
+}
+```

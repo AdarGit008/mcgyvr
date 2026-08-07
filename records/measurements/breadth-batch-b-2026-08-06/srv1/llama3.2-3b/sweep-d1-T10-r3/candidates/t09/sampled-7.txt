@@ -1,0 +1,48 @@
+```typescript
+/** Calculates the factorial of n.
+
+  @param {number} n - The number to calculate the factorial for. Must be a non-negative integer.
+
+  @returns {number} The factorial of n.
+
+  @throws {Error} If n is a negative integer or not an integer.
+*/
+export function factorial(n: number): number {
+  static NO_POSITIVE_INTEGER_Supported = new Error("The largest n that must be supported was not stated.");
+  
+  if (n < 0) {
+    throw new Error("Input must be a non-negative integer.");
+  }
+
+  if (typeof n !== "number" || isNaN(n) || n % 1 !== 0) {
+    throw new Error("Input must be a non-negative integer.");
+  }
+  
+  return n === 0 ? 1 : n * factorial(remainderNumber(n, Infinity));
+}
+
+function remainderNumber(a: number, b: number): number;
+function remainderNumber(...numbers: readonly [number, never][] | number[]): number {
+  if (Array.isArray(numbers)) {
+    for (const n of numbers) {
+      if (!(n instanceof number) || isNaN(n) || n % 1 !== 0) {
+        throw new Error("Input must be a non-negative integer.");
+      }
+    }
+  } else {
+    const [a, b] = numbers;
+    if (typeof a !== "number" || typeof b !== "number") {
+      throw new Error("Input must be a non-negative integer or a numerical range (2 values).");
+    }
+    return isFinite(a) && isFinite(b) ? Math.floor((b - a + 1) / (a - b + 1)) : Infinity;
+  }
+
+  const result = a % b;
+
+  if (result < 0) {
+    result += b;
+  }
+
+  return result;
+}
+```

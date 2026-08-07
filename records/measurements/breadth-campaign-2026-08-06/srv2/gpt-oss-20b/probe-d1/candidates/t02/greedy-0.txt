@@ -1,0 +1,3 @@
+```ts
+/**
+ * Merge overlapping or touching intervals into

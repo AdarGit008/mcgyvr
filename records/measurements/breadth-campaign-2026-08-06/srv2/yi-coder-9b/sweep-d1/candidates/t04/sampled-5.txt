@@ -1,0 +1,34 @@
+Here is the LruCache implementation in TypeScript:
+
+```ts
+export class LruCache<K, V> {
+  private cache: Map<K, V>;
+  constructor(capacity: number) {
+    if (!Number.isInteger(capacity) || capacity <= 0) throw new Error('Capacity must be a positive integer');
+    this.cache = new Map();
+  }
+
+  get size(): number { return this.cache.size; }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) return undefined; // or could throw error, depending on task requirements
+    const val = this.cache.get(key);
+    // move accessed item to the end of cache
+    this.cache.delete(key);
+    this.cache.set(key, val as V); 
+    return val;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) this.cache.delete(key); // ensures new items are put at the end and old ones removed early
+    else if (this.cache.size == this.capacity) { 
+      // evict oldest item when over capacity, start of cache is oldest as Map remembers insertion order
+      const oldestKey = this.cache.keys().next().value; // first key in Map is the oldest one due to LRU policy
+      this.cache.delete(oldestKey);
+    }
+    // add new item or update existing (if capacity not exceeded), putting at end of cache
+    this.cache.set(key, value); 
+  }
+}
+```
+This class uses a Map internally to implement the LRU Cache policy. The keys are used as identifiers and values are what's stored in the cache. A get operation retrieves the item if it exists and moves it to the end of the Map (since it was recently used). A set operation checks for existing key, deletes it if found (to keep the order of insertion), and then adds a new entry at the end of the Map. If the cache is already full, the oldest item in the cache (the first one inserted) is deleted to make room for the new item.

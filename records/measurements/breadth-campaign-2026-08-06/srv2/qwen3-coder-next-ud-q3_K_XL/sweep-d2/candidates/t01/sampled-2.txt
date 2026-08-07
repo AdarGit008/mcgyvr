@@ -1,0 +1,57 @@
+```ts
+/**
+ * Merges overlapping or touching intervals from an array of [start, end] pairs.
+ * Returns a new sorted array of non-overlapping intervals.
+ */
+export function mergeIntervals(intervals: [number, number][]): [number, number][] {
+    if (!Array.isArray(intervals)) {
+        throw new Error("intervals must be an array");
+    }
+
+    // Validate and copy intervals
+    const validatedIntervals: [number, number][] = [];
+    for (let i = 0; i < intervals.length; i++) {
+        const interval = intervals[i];
+        if (!Array.isArray(interval) || interval.length !== 2) {
+            throw new Error(`interval at index ${i} is not a two-number pair`);
+        }
+        const [start, end] = interval;
+        if (typeof start !== 'number' || typeof end !== 'number') {
+            throw new Error(`interval at index ${i} contains non-number values`);
+        }
+        if (!Number.isFinite(start) || !Number.isFinite(end)) {
+            throw new Error(`interval at index ${i} contains non-finite numbers`);
+        }
+        if (start > end) {
+            throw new Error(`interval at index ${i} has start > end`);
+        }
+        validatedIntervals.push([start, end]);
+    }
+
+    // Sort by start value
+    validatedIntervals.sort((a, b) => a[0] - b[0]);
+
+    if (validatedIntervals.length === 0) {
+        return [];
+    }
+
+    const merged: [number, number][] = [];
+    let current = validatedIntervals[0];
+
+    for (let i = 1; i < validatedIntervals.length; i++) {
+        const next = validatedIntervals[i];
+        // Check if intervals overlap or touch
+        if (current[1] >= next[0]) {
+            // Merge intervals
+            current = [Math.min(current[0], next[0]), Math.max(current[1], next[1])] as [number, number];
+        } else {
+            merged.push(current);
+            current = next;
+        }
+    }
+
+    merged.push(current);
+
+    return merged;
+}
+```

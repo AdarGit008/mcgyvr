@@ -1,0 +1,23 @@
+```
+/** The factorial of n. */
+export function factorial(n: number): number {
+  /**
+   * @throws {Error} if n is negative or non-integer
+   */
+  if (typeof n !== 'number' || !Number.isInteger(n) || n < 0) {
+    throw new Error('n must be a non-negative integer');
+  }
+  
+  const memo: { [key in number]: number } = {};
+  
+  function recurse(n: number): number {
+    return n === 1 ? 1 : (memo[n] = n * recurse(n - 1));
+  }
+  
+  if (!memo[n]) {
+    recurse(n);
+  }
+  
+  return memo[n];
+}
+```

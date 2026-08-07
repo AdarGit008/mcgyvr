@@ -1,0 +1,52 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    const graph = new Map<string, Set<string>>();
+
+    // Build the graph from edges
+    for (const [from, to] of edges) {
+        if (!graph.has(from)) graph.set(from, new Set());
+        if (!graph.has(to)) graph.set(to, new Set());
+        graph.get(from)?.add(to);
+    }
+
+    const inDegree = new Map<string, number>();
+    nodes.forEach(node => inDegree.set(node, 0));
+
+    // Calculate in-degrees
+    for (const [from, toSet] of graph.entries()) {
+        for (const to of toSet) {
+            inDegree.set(to, (inDegree.get(to) || 0) + 1);
+        }
+    }
+
+    const queue: string[] = [];
+    // Add nodes with zero in-degree to the queue
+    for (const [node] of nodes.entries()) {
+        if (inDegree.get(node)! === 0) {
+            queue.push(node);
+        }
+    }
+
+    const result: string[] = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        result.push(node);
+
+        // Decrease in-degrees of neighbors
+        for (const neighbor of graph.get(node) || []) {
+            inDegree.set(neighbor, (inDegree.get(neighbor)! - 1));
+            if (inDegree.get(neighbor)! === 0) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    // Check if all nodes are processed
+    if (result.length !== nodes.length) {
+        throw new Error('Cycle detected in the graph');
+    }
+
+    return result;
+}
+```

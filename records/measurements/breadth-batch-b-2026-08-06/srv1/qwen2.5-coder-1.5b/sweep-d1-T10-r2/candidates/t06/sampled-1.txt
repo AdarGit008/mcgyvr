@@ -1,0 +1,36 @@
+```ts
+function parseCsvLine(line: string): string[] {
+    const fields = [];
+    let inDoubleQuote = false;
+    let currentField = '';
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            inDoubleQuote = !inDoubleQuote;
+        } else if (char === ',' && !inDoubleQuote) {
+            fields.push(currentField.trim());
+            currentField = '';
+        } else if (char === '\n') {
+            if (!currentField || inDoubleQuote) {
+                throw new Error('Unmatched quote');
+            }
+            fields.push(currentField);
+            return fields;
+        }
+        
+        currentField += char;
+    }
+    
+    if (currentField && !inDoubleQuote) {
+        fields.push(currentField.trim());
+    }
+    
+    return fields;
+}
+
+// Example usage
+console.log(parseCsvLine(`name,age\nJohn Doe,30`)); // ["name", "age"]
+console.log(parseCsvLine(`name,"John Doe,12"")); // ["name", "John Doe,12"]
+```

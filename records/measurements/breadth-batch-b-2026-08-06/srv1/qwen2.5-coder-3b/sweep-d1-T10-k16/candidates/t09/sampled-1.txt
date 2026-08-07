@@ -1,0 +1,11 @@
+```ts
+export function factorial(n: number): number {
+  if (n < 0 || !Number.isInteger(n)) {
+    throw new Error("Factorial is undefined for negative or non-integer arguments.");
+  }
+  if (n === 0) {
+    return 1;
+  }
+  return n * factorial(n - 1);
+}
+```

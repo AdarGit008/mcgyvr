@@ -1,0 +1,24 @@
+```typescript
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+export type TemperatureConverterFn = (celsius: number) => number;
+
+/** Returns temperature in degrees Fahrenheit from a given celsius. */
+export function celsiusToFahrenheit(celsius: number): number {
+  validateCelsius(celsius);
+  return celsius * 1.8 + 32;
+}
+
+/** Returns temperature in kelvin from a given celsius. */
+export function celsiusToKelvin(celsius: number): number {
+  validateCelsius(celsius);
+  return celsius + 273.15;
+}
+function validateCelsius(celsius: number): never | void {
+  if (typeof celsius !== "number" || !Number.isFinite(celsius)) {
+    throw new Error("celsius must be a finite number");
+  }
+  if (celsius < -273.15) {
+    throw new Error("celsius must be at or above absolute zero");
+  }
+}
+```

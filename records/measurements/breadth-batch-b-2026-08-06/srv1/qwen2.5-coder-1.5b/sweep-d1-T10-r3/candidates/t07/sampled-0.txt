@@ -1,0 +1,39 @@
+```ts
+// Flatten arrays to any depth. Arrays are flat by default. Single-item arrays are kept.
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (depth === undefined) return Array.from(items);
+  let currentDepth = 0;
+  const output = new Map();
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      if (!item.length || !output.has(currentDepth++)) {
+        output.set(currentDepth, []);
+      }
+      output.get(currentDepth).push(...flatten(item));
+    } else if (currentDepth === depth) {
+      output.set(depth, [item]);
+    } else if (output && output.has(currentDepth)) {
+      const existingArray = output.get(currentDepth);
+      if (!existingArray.length || !Array.isArray(existingArray[0])) {
+        existingArray.push([]);
+      }
+      existingArray[0].push(item);
+    } else {
+      output.set(1, [item]);
+    }
+  }
+
+  let result: unknown[] = [];
+  for (const value of output.values()) {
+    if ([] === value) continue;
+    const itemsValue = value as readonly unknown[];
+    if (item as unknown[]) {
+      result.push(...flatten(itemsValue));
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+```

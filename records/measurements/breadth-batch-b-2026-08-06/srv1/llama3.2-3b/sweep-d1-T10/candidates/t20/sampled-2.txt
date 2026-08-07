@@ -1,0 +1,46 @@
+```typescript
+/** The KEY=VALUE pairs of a config file. */
+export function parseConfig(text: string): Promise<Record<string, string>> {
+  /**
+   * Parses a configuration text into an object with strings as values.
+   *
+   * If the input is not a valid configuration file (i.e., it contains blank lines
+   * or lines starting with '#'), an Error is thrown with a message naming the offending line.
+   *
+   * The function ignores lines of any length, and skips over lines which contain only
+   * whitespace. It also trims any leading/trailing whitespace from each key-value pair.
+   *
+   * If the input contains a line with no '=' character, or an empty key value (e.g., 'KEY
+   * ='), an Error is thrown naming the offending line.
+   */
+  return new Promise((resolved, rejected) => {
+    const lines = text.split("\n").filter(line => (!line || line.trim()) && !line.startsWith('#'));
+    if (!lines.length) return resolved({});
+
+    const parsedConfig: Record<string, string> = {};
+    let currentValue: string | null = null;
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
+      if (trimmedLine.startsWith('=')) {
+        const [key] = trimmedLine.split('=', 2);
+        // trim whitespace from both key and value
+        parsedConfig[key.trim()] = currentValue?.trim() ?? '';
+      } else if (line && !currentValue) {
+        if (!trimmedLine) return resolved({}); // empty line
+        currentValue = trimmedLine;
+      } else if (trimmedLine.includes('=')) {
+        const [key, value] = trimmedLine.split('=', 2);
+        parsedConfig[key.trim()] = currentValue.trim() ?? '';
+        currentValue = null; // end of key-value pair
+      } else {
+        const error = new Error(`Invalid config line at pos: ${line}`);
+        rejected(error); // not a real line but throws as if it is for testing
+      }
+    }
+
+    resolved(parsedConfig);
+  });
+}
+```

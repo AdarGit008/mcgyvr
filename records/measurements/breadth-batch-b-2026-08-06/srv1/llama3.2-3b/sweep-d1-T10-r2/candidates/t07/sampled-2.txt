@@ -1,0 +1,15 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+    /**
+     * Returns a new array with nested arrays flattened up to depth levels.
+     *
+     * A string is a value, never something to iterate into, no matter how deep it appears.
+     * A depth of 0 returns a copy of the input unchanged.
+     *
+     * @param items The input array
+     * @param depth The recursion depth (default is Infinity)
+     * @throws {Error} if depth is not a non-negative integer or Infinity
+     */
+    throw new Error("Function not implemented.");
+}
+```

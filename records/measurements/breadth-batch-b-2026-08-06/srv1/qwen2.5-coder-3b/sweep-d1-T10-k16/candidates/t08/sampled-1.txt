@@ -1,0 +1,44 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes.every((_, index) => nodes.length === index + 1)) throw new Error("Non-sequential input nodes");
+    const graph = {} as Record<string, Set<string>>;
+
+    for (const [from, to] of edges) {
+        if (!(from in graph)) graph[from] = new Set();
+        graph[from].add(to);
+
+        // Early return with cycle detection
+        if (!nodes.includes(from) || !nodes.includes(to)) throw new Error("Invalid edge node");
+    }
+
+    const visited = new Set<string>();
+    const result: string[] = [];
+    const indegree = Array.from({ length: nodes.length }, (_, i) => 0);
+
+    for (const [to, froms] of Object.entries(graph)) {
+        for (const from of froms) {
+            if (!nodes.includes(from)) throw new Error("Invalid edge node");
+            indegree[nodes.indexOf[from]]++;
+        }
+    }
+
+    const queue = nodes.filter(node => indegree[nodes.indexOf(node)] === 0);
+
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        visited.add(node);
+        result.push(node);
+
+        if (!graph.hasOwnProperty(node)) continue;
+
+        for (const next of graph[node]) {
+            indegree[nodes.indexOf(next)]--;
+            if (indegree[nodes.indexOf(next)] === 0 && !visited.has(next)) {
+                queue.push(next);
+            }
+        }
+    }
+
+    return result.length === nodes.length ? result : [];
+}
+```

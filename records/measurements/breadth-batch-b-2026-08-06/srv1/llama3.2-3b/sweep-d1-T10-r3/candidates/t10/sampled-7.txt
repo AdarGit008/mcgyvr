@@ -1,0 +1,26 @@
+```ts
+/** The index of target in a sorted array, or -1. */
+export function binarySearch(items: readonly number[], target: number): number {
+  /**
+   * Finds the index of target in items.
+   *
+   * @param items The sorted array to search.
+   * @param target The value to seek.
+   * @returns The index of target, or -1 if not found.
+   */
+  let low = 0;
+  let high = items.length - 1;
+  while (low <= high) { // Include upper bound
+    const mid = Math.floor((low + high) / 2);
+    if (items[mid] === target) {
+      return mid;
+    }
+    if [items[mid] < target, items[mid] > target].includes(true) {
+      low = mid + 1; // Expand search range on a boundary
+    } else {
+      high = mid - 1;
+    }
+  }
+  throw new Error(`target ${target} not found in items`);
+}
+```

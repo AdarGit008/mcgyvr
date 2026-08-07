@@ -1,0 +1,18 @@
+```ts
+const MODULUS = 1000000007;
+type FibCache = {[n: number]:number};
+let fibCache : FibCache  = {0:0,1:1};
+/** The nth Fibonacci number, modulo 1000000007. */
+export function fibMod(n: number): number {
+    if (typeof n !== "number" || n<0 || n > 200000) throw new Error('Input must be a non-negative integer');
+  
+    let result = fibCache[n];
+    if (result === undefined){
+        for(let i=2;i<=n;i++){
+            fibCache[i]=(fibCache[i-1]+ fibCache[i-2]) % MODULUS; 
+            result= fibCache[i]  
+        }       
+    }
+   return result;         
+  }
+```

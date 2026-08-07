@@ -1,0 +1,41 @@
+```ts
+function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+    if (!nodes || !edges) return [];
+
+    const nodeMap = new Map<string, { inDegree: number; children: Set<string> }>();
+    const adjacencyList = new Map<string, Set<string>>();
+
+    for (const edge of edges) {
+        const from = edge[0];
+        const to = edge[1];
+
+        if (!nodeMap.has(from)) nodeMap.set(from, { inDegree: 0, children: new Set() });
+        if (!nodeMap.has(to)) nodeMap.set(to, { inDegree: 0, children: new Set() });
+
+        adjacencyList.set(from, (adjacencyList.get(from) || new Set()).add(to));
+        nodeMap.get(from).inDegree++;
+    }
+
+    const queue = Array.from(nodeMap.keys()).filter(node => nodeMap.get(node)?.inDegree === 0);
+
+    if (!queue.length) {
+        throw new Error('Graph contains a cycle.');
+    }
+
+    const order = [];
+    while (queue.length) {
+        const current = queue.shift()!;
+        order.push(current);
+
+        adjacencyList.get(current)?.forEach(child => {
+            nodeMap.get(child)?.inDegree--;
+
+            if (nodeMap.get(child)?.inDegree === 0) {
+                queue.push(child);
+            }
+        });
+    }
+
+    return order;
+}
+```

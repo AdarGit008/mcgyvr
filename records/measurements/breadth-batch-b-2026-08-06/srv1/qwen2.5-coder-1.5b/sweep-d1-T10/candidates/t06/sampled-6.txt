@@ -1,0 +1,29 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (line === "") return [];
+
+  const fields = [];
+  let inQuotes = false;
+  let lastStartIndex = 0;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (!inQuotes) inQuotes = true;
+      else inQuotes = false;
+      continue;
+    }
+    if (char === "," && !inQuotes) {
+      fields.push(line.slice(lastStartIndex, i).trim());
+      lastStartIndex = i + 1;
+    }
+  }
+
+  fields.push(line.slice(lastStartIndex, line.length).trim()); // Add the last field
+
+  // Validate quote closedness
+  if (inQuotes) throw new Error("Quoted field never closed.");
+
+  return fields;
+}
+```

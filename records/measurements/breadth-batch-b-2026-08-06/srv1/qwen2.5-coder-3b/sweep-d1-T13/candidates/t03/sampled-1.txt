@@ -1,0 +1,30 @@
+```typescript
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  const regex = /^(\d+)\.(\d+)\.(\d+)(?:-(.*))?(?:\+(.*))?$/
+  
+  const match = version.match(regex)
+  
+  if (!match) {
+    throw new Error(`Invalid semver input: ${version}`)
+  }
+  
+  const [, major, minor, patch] = match.slice(1).map(Number);
+  
+  const prereleaseStr = match[4] ?? null;
+  const buildStr = match[5] ?? null;
+  
+  return {
+    major,
+    minor,
+    patch,
+    prerelease: prereleaseStr ? decodeURIComponent(prereleaseStr) : null,
+    build: buildStr ? decodeURIComponent(buildStr) : null
+  }
+}
+
+function decodeURIComponent(str: string): string {
+ try {
+   return decodeURIComponent(str.replace(/\+/g, ' '))
+ } catch {} // No need to do anything more if decoding fails
+}
+```

@@ -1,0 +1,16 @@
+```ts
+export function parseSemver(version: string): { major: number; minor: number; patch: number; prerelease: string | null; build: string | null } {
+  if (!version.startsWith('v')) version = 'v' + version;
+
+  const parts: RegExpMatchArray = version.match(/^(?:v(\d+)\.?)(\d+\.?)?(\d+)?(?:-(.+))?(?:\.(.+))?$/);
+  if (!parts) throw new Error(version);
+
+  return {
+    major: parseInt(parts[1] || '0', 10),
+    minor: parseInt(parts[2] || '0', 10),
+    patch: parseInt(parts[3] || '0', 10),
+    prerelease: parts[4]?.trim() || null,
+    build: parts[5]?.trim() || null
+  };
+}
+```

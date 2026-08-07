@@ -1,0 +1,24 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== 'number' || depth < 0) {
+    throw new Error('Invalid depth');
+  }
+
+  const isFlat = (item: unknown): boolean => item && typeof item === 'object';
+
+  return items.reduce((acc, curr) => {
+    if (!isFlat(curr)) {
+      acc.push(curr);
+      return acc;
+    }
+
+    let flattenedItems: unknown[] = [];
+
+    for (const element of curr as unknown[]) {
+      flattenedItems = [...flattenedItems, ...flatten(element as readonly unknown[], depth - 1)];
+    }
+
+    return acc.concat(flattenedItems);
+  }, [] as unknown[]);
+}
+```

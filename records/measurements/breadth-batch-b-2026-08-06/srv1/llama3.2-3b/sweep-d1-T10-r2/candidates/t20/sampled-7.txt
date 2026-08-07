@@ -1,0 +1,26 @@
+```ts
+/**
+ * Parse KEY=VALUE pairs from a config text, ignoring empty or commented lines
+ * and treating key-value pairs on same line as separate entries.
+ *
+ * @param text The contents of the config file to parse
+ * @returns A new object with the parsed config
+ */
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    if (!line.trim() || line.startsWith('#')) { // ignore blank or commented lines
+      continue;
+    }
+    let [key, value] = line.trim().split("=", 2); // split on first '='
+    key = key.trim(); // trim whitespace from key
+    value = (value += '=').trim(); // handle case where '.' in '='
+    const trimmedKey = `${key}=${value}`.split('=')[0]; 
+    if (!trimmedKey || !trimmedKey.length) { // no = or empty key, throw error
+      throw new Error(`Invalid config line: ${line}`);
+    }
+    config[trimmedKey] = value.trim(); // no prototype pollution by replacing with a key that doesn't exist yet.
+  }
+  return config;
+}
+```

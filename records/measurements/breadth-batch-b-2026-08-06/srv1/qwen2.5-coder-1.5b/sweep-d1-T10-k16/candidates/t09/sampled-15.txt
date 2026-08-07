@@ -1,0 +1,14 @@
+```ts
+/**
+ * The factorial of n.
+ */
+export function factorial(n: number): number {
+  if (typeof n !== 'number' || !Number.isInteger(n) || n < 0) {
+    throw new Error('Invalid input. Arguments must be non-negative integers.');
+  }
+  if (n === 0) {
+    return 1;
+  }
+  return n * factorial(n - 1);
+}
+```

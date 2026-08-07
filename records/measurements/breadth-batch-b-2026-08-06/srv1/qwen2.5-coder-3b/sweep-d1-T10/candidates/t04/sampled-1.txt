@@ -1,0 +1,63 @@
+```typescript
+export class LruCache<K, V> {
+  private capacity: number;
+  private cacheMap: Map<K, { value: V; usageCount: number; timestamp: number }>;
+
+  constructor(capacity: number) {
+    if (typeof capacity !== "number" || capacity <= 0) {
+      throw new Error("Capacity must be a positive integer.");
+    }
+    this.capacity = capacity;
+    this.cacheMap = new Map();
+  }
+
+  private updateTimestampAndUsageCount(key: K): void {
+    const entry = this.cacheMap.get(key);
+    if (entry) {
+      entry.timestamp = Date.now();
+      entry.usageCount++;
+    }
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cacheMap.has(key)) return undefined;
+    
+    this.updateTimestampAndUsageCount(key);
+
+    const { value, usageCount } = this.cacheMap.get(key)!;
+    this.cacheMap.set(key, { value, usageCount, timestamp: Date.now() });
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (!this.cacheMap.has(key)) {
+      while (this.cacheMap.size >= this.capacity) {
+        this.evictLeastRecentlyUsed();
+      }
+    }
+
+    this.updateTimestampAndUsageCount(key);
+
+    const entry = { value, usageCount: 1, timestamp: Date.now() };
+    this.cacheMap.set(key, entry);
+  }
+
+  get size(): number {
+    return this.cacheMap.size;
+  }
+
+  private evictLeastRecentlyUsed(): void {
+    let leastRecentlyUsedEntryKey: K | undefined = undefined;
+
+    for (const [key, entry] of this.cacheMap.entries()) {
+      if (!leastRecentlyUsedEntryKey || entry.timestamp < this.cacheMap.get(leastRecentlyUsedEntryKey)!.timestamp) {
+        leastRecentlyUsedEntryKey = key;
+      }
+    }
+
+    if (leastRecentlyUsedEntryKey !== undefined) {
+      this.cacheMap.delete(leastRecentlyUsedEntryKey);
+    }
+  }
+}
+```

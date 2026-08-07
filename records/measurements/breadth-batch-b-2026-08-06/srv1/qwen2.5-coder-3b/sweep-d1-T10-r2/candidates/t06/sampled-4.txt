@@ -1,0 +1,49 @@
+```ts
+export function parseCsvLine(line: string): string[] {
+  if (!line) return [];
+
+  const result: string[] = [];
+  let currentField = '';
+  let insideQuote = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (insideQuote) {
+        // End of double-quoted field
+        if (result[result.length - 1] !== '') {
+          result.push(currentField);
+        }
+        currentField = '';
+        insideQuote = false;
+      } else {
+        // Start of double-quoted field
+        insideQuote = true;
+      }
+    } else if (char === ',' && !insideQuote) {
+      // End of unquoted field
+      if (result[result.length - 1] !== '') {
+        result.push(currentField);
+      }
+      currentField = '';
+    } else if (char === '\r' || char === '\n') {
+      // End of line
+      if (!insideQuote && currentField.trim()) {
+        result.push(currentField);
+      }
+      return result;
+    } else {
+      // Add character to current field
+      currentField += char;
+    }
+
+    // Handle trailing quote character case
+    if (i === line.length - 1 && insideQuote) {
+      throw new Error('Unmatched quoted field');
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,8 @@
+```ts
+/**
+ * Returns a topological ordering of `nodes` respecting all directed `edges`.
+ * Among nodes that are currently free of unmet dependencies, the earliest
+ * node in the original `nodes` array is chosen first.
+ *
+ * @param nodes - An array of unique node identifiers in desired priority order.
+ * @param edges - An array of `[from, to]` tuples indicating directed

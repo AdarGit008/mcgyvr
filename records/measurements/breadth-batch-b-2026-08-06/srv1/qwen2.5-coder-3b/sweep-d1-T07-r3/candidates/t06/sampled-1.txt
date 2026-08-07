@@ -1,0 +1,43 @@
+```typescript
+
+export function parseCsvLine(line: string): string[] {
+  if (!line) return [];
+  
+  const result: string[] = [];
+  let currentField = '';
+  let isQuoted = false;
+  let quoteCount = 0;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      quoteCount++;
+      if (quoteCount % 2 === 1) {
+        // Found an open quote
+        isQuoted = true;
+      } else {
+        // Found a close quote
+        if (currentField.includes('"')) {
+          throw new Error('Invalid CSV line: Quoted field contains another quote.');
+        }
+        isQuoted = false;
+      }
+    } else if (char === ',' && !isQuoted) {
+      result.push(currentField.trim());
+      currentField = '';
+    } else {
+      currentField += char;
+    }
+
+    // Handle the last character
+    if (i === line.length - 1) {
+      if (currentField.trim()) {
+        result.push(currentField.trim());
+      }
+    }
+  }
+
+  return result;
+}
+```

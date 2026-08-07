@@ -1,0 +1,33 @@
+```ts
+/**
+ * Safely divides two numbers, rounding to 2 decimal places if necessary, and rejecting inputs that are not finite or non-zero.
+ *
+ * @param a The numerator (dividend).
+ * @param b The denominator (divisor).
+ * @returns the result of the division, rounded to 2 decimal places.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (!isFiniteOrNonZero(a) || !isFiniteOrNonZero(b)) {
+    throw new Error('Both numbers must be finite and non-zero');
+  }
+  if (b === 0) {
+    // For -0 division, consider it as a special case where 0 is subtracted from the numerator
+    return Math.round((a > -0 ? a : -a) * 100) / 100;
+  }
+  try {
+    const result = a / b;
+    if (result % 1 === 0) {
+      return result.toFixed(0);
+    } else {
+      return parseFloat(result.toFixed(2));
+    }
+  } catch (e: any) {
+    throw new Error('An error occurred during the division');
+  }
+}
+
+// Helper function to check if a number is finite and non-zero
+function isFiniteOrNonZero(num: number): boolean {
+  return !Number.isNaN(num) && num !== Infinity && num !== -Infinity;
+}
+```

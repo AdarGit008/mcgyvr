@@ -1,0 +1,45 @@
+```typescript
+export function topologicalSort(nodes: readonly string[], edges: readonly (readonly [string, string])[]): string[] {
+  const adjacencyList = new Map<string, Set<string>>();
+  const inDegreeMap = new Map<string, number>();
+
+  // Initialize adjacency list and in-degree map
+  for (const node of nodes) {
+    adjacencyList.set(node, new Set());
+    inDegreeMap.set(node, 0);
+  }
+
+  // Build the graph
+  for (const [from, to] of edges) {
+    if (!adjacencyList.has(from) || !adjacencyList.has(to)) {
+      throw new Error(`Edge references invalid node: [${from}, ${to}]`);
+    }
+    adjacencyList.get(from)!.add(to);
+    inDegreeMap.set(to, (inDegreeMap.get(to) || 0) + 1);
+  }
+
+  // Find all nodes with zero in-degree
+  const zeroInDegreeQueue = nodes.filter(node => inDegreeMap.get(node)! === 0);
+
+  const sortedOrder: string[] = [];
+
+  while (zeroInDegreeQueue.length > 0) {
+    const node = zeroInDegreeQueue.shift()!;
+    sortedOrder.push(node);
+
+    for (const neighbor of adjacencyList.get(node)!) {
+      inDegreeMap.set(neighbor, inDegreeMap.get(neighbor)! - 1);
+      if (inDegreeMap.get(neighbor)! === 0) {
+        zeroInDegreeQueue.push(neighbor);
+      }
+    }
+  }
+
+  // If the sortedOrder length is not equal to nodes, there was a cycle
+  if (sortedOrder.length !== nodes.length) {
+    throw new Error("Cycle detected in the graph");
+  }
+
+  return sortedOrder;
+}
+```

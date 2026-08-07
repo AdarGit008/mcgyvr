@@ -1,0 +1,14 @@
+```ts
+/**
+ * a divided by b.
+ */
+export function safeDivide(a: number, b: number): number {
+  if (typeof a !== 'number' || typeof b !== 'number') {
+    throw new Error('Both arguments must be numbers.');
+  }
+  if (b === 0 || Number.isNaN(b)) {
+    throw new Error('Divisor cannot be zero or NaN.');
+  }
+  return a / b;
+}
+```

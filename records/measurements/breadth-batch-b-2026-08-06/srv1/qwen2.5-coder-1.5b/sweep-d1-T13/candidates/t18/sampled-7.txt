@@ -1,0 +1,77 @@
+```typescript
+/**
+ * An append-only log of timestamped events.
+ */
+export class EventLog {
+  #events: Event[] = [];
+
+  /**
+   * Append one event.
+   */
+  public record(event: Event): void {
+    this.#events.push(event);
+  }
+
+  /**
+   * Every event at or after the given timestamp, in insertion order.
+   */
+  public since(timestamp: number): Event[] {
+    return this.#events.filter((event) => event.timestamp >= timestamp);
+  }
+}
+
+
+
+
+
+type Annotation = `// typeAnnotation: ${string}`;
+
+function validateAnnotations(content: string): void {
+  const annotationsRegex = /\/\/ typeAnnotation: \S+/g;
+  const Annotations = content.match(annotationsRegex);
+
+  if (!annotations) throw new Error("Missing or invalid annotations");
+
+  annotations.forEach(/** Validates each annotation (all must exist). */annotation => {
+    switch (annotation.replace("// typeAnnotation: ", "")) {
+      case "Event": validateInterface(content); break;
+      case "Array<Event>": break; // No further validation needed directly in this file.
+      default:
+        throw new Error(`${annotation} found, but could not be annotated.`);
+    }
+  });
+}
+
+function validateInterface(content: string): void {
+  const interfaceRegex = /export .*? {[\n\r\s.*]+}/gs;
+  const interfaces = content.match(interfaceRegex);
+
+  if (!interfaces) throw new Error("Missing the implementation of Event.");
+
+  for (const iface of arrays as Array<[keyof Event, string]>) {
+    const key = keyFor(field);
+    if (!(`export type ${interfaceName}<${key}> =` in content)) {
+      if (`type [interfaceName]<[key]> = ... interfaceBody.` in content) {
+        throw new Error(`Missing definition for <${key}> on ${interfaceName} interface body.`);
+      } else {
+        throw new Error(`Interface ${interfaceName} and its part definitions are incorrect. Could not locate definition of ${key}.`);
+      }
+    } else removeExportInterface(content, `type [interface name]<[key]>;`); // Skip export declaration.
+  }
+
+function fieldFor([keyA]: any): keyof Event { return { 'name': `EventName${key.toLowerCase()}`, 'timestamp': `EventTimestamp${Number(key)}` }[{ keyA: true; keyB: false }] as keyof Event; }
+
+interfaceName = /export class ([^\n])\{[\n\r\s.*]+/.exec(content)!.result;
+
+function validFieldName(string): boolean {
+  // Implement here, for instance using a regex: [a-z A-Z]
+  return /^[A-Za-z][A-Za-z0-9 \_]+$/.test(string);
+}
+
+function removeExportInterface(text: string, exportAnnotation: string): void {
+    const regexp = new RegExp(`export type ${exportAnnotation};`, 'i');
+    if (regexp.test(text)) text = text.replace(regexp, '');
+}
+
+validateAnnotations(solution.toString());
+```

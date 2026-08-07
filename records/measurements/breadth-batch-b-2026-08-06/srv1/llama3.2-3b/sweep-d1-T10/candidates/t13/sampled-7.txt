@@ -1,0 +1,24 @@
+```ts
+/** The text, cut to limit characters with an ellipsis when it is longer. */
+export function truncate(text: string, limit: number): string;
+export function truncate(text: string, limit: number) {
+  if (LimitRequired(limit)) {
+    throw new Error('Limit must be an integer greater than or equal to 3.');
+  }
+  
+  return text.length <= limit
+    ? text
+    : `${text.substring(0, limit - 2)}...` as never;
+}
+
+function LimitRequired(requires: boolean | number): boolean {
+  const minRequired = 3;
+  if (typeof requires === 'number' && !Number.isInteger(requires) || !(requires >= minRequired)) {
+    return false;
+  }
+  if (requires < 0) {
+    throw new Error('Limit cannot be negative.');
+  }
+  return true;
+}
+```

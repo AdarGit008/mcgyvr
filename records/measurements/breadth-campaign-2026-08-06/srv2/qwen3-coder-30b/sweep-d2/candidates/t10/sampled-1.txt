@@ -1,0 +1,50 @@
+```ts
+export function addDecimalStrings(a: string, b: string): string {
+  // Validate inputs
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+  
+  if (a.length === 0 || b.length === 0) {
+    throw new Error('Both arguments must be non-empty strings');
+  }
+  
+  // Check for invalid characters
+  if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) {
+    throw new Error('Both arguments must contain only digits 0-9');
+  }
+  
+  // Handle leading zeros by converting to number and back to string
+  // This ensures canonical representation (no leading zeros)
+  const numA = BigInt(a);
+  const numB = BigInt(b);
+  
+  // Since we're not allowed to use BigInt for the addition,
+  // we need to implement digit-by-digit addition manually
+  
+  // Convert strings to arrays of digits (reversed for easier processing)
+  const digitsA = a.split('').reverse();
+  const digitsB = b.split('').reverse();
+  
+  // Ensure we process from least significant digit
+  const maxLength = Math.max(digitsA.length, digitsB.length);
+  
+  let carry = 0;
+  const result: string[] = [];
+  
+  for (let i = 0; i < maxLength || carry > 0; i++) {
+    const digitA = i < digitsA.length ? parseInt(digitsA[i]) : 0;
+    const digitB = i < digitsB.length ? parseInt(digitsB[i]) : 0;
+    
+    const sum = digitA + digitB + carry;
+    result.push((sum % 10).toString());
+    carry = Math.floor(sum / 10);
+  }
+  
+  // Reverse back to most significant digit first
+  const finalResult = result.reverse().join('');
+  
+  // Handle the case where result is all zeros
+  return finalResult.replace(/^0+(?=\d)/, '') || '0';
+}
+```

@@ -1,0 +1,51 @@
+```typescript
+function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth === 'undefined') depth = Infinity;
+  if (!Number.isInteger(depth) || depth < 0) throw Error('Depth must be a non-negative integer or Infinity');
+
+  return flattenImpl(items, depth);
+}
+
+function flattenImpl(items: unknown[], depth: number): unknown[] {
+  if (depth === 0) return [...items];
+
+  type RecursiveFlattener = (
+    arr: unknown[],
+    accumulatedDepth: number,
+  ) => unknown[];
+
+  const recursiveFlattener: RecursiveFlattener = (
+    array: unknown[],
+    accumulatedDepth: number,
+  ): unknown[] => {
+    if (typeof Array.isArray(array) && accumulatedDepth > 0) {
+      return array.reduce(
+        (acc, item) =>
+          // Ensure that items that are arrays are flattened to the full depth
+          // before merging the current result and new items.
+          item === Array.isArray(item)
+            ? recursiveFlattener([item], accumulatedDepth - 1).concat(acc)!
+            : acc.concat(item),
+        [],
+      );
+    }
+    return array;
+  };
+
+  const initialFlatItems = [];
+
+  for (const item of items) {
+    if (typeof item !== 'object' || item === null || item instanceof Date) continue;
+
+    try {
+      initialFlatItems.push(JSON.parse(JSON.stringify(item)));
+    } catch {
+      throw Error(
+        `Cannot flatten object "${item}" due to circular references or unsupported type`,
+      );
+    }
+  }
+
+  return recursiveFlattener(initialFlatItems, depth);
+}
+```

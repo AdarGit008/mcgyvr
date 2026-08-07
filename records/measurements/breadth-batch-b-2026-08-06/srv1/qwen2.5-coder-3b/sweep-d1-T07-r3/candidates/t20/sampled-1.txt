@@ -1,0 +1,22 @@
+```ts
+export function parseConfig(text: string): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    // Ignore empty lines or lines starting with #
+    if (!line.trim() || line.startsWith("#")) continue;
+
+    const [key, value] = line.split("=", 2);
+    if (!key) throw new Error(`Empty key on line: ${line}`);
+    if (value === undefined) throw new Error(`Missing '=' on line: ${line}`);
+
+    // Trim whitespace and ensure no prototype pollution
+    const cleanedKey = key.trim();
+    if (cleanedKey.includes("__proto__")) {
+      throw new Error("Invalid key __proto__ found");
+    }
+
+    config[cleanedKey] = value.trim();
+  }
+  return config;
+}
+```

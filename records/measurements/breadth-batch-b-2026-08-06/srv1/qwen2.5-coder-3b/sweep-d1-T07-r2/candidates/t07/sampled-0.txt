@@ -1,0 +1,25 @@
+```ts
+export function flatten(items: readonly unknown[], depth?: number): unknown[] {
+  if (typeof depth !== 'number' || !Number.isInteger(depth) && depth !== Infinity) {
+    throw new Error('Depth must be a non-negative integer or Infinity');
+  }
+
+  const result: unknown[] = [];
+
+  function helper(item: unknown, currentDepth: number): void {
+    if (Array.isArray(item)) {
+      for (const nestedItem of item) {
+        if (currentDepth < depth || depth === Infinity) {
+          helper(nestedItem, currentDepth + 1);
+        }
+      }
+    } else {
+      result.push(item);
+    }
+  }
+
+  helper(items, 0);
+
+  return result;
+}
+```

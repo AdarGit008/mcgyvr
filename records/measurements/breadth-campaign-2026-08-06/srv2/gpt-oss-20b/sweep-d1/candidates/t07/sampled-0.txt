@@ -1,0 +1,8 @@
+```ts
+/**
+ * Flattens an array up to a given depth.
+ * @param items The input array to flatten.
+ * @param depth Optional maximum depth to flatten; defaults to Infinity.
+ * @returns A new flattened array.
+ */
+export function flatten

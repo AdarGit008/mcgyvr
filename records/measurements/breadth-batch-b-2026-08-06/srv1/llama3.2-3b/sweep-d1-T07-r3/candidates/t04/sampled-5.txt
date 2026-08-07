@@ -1,0 +1,79 @@
+```typescript
+/**
+ * A fixed-capacity least-recently-used cache.
+ */
+export class LruCache<K, V> {
+  private capacity: number;
+  private map: Map<K, [V, number]>;
+  private head: { key: K; value: V } | null;
+
+  constructor(capacity: number) {
+    if (capacity <= 0) {
+      throw new Error("Capacity must be a positive integer");
+    }
+
+    this.capacity = capacity;
+    this.map = new Map();
+    this.head = null;
+  }
+
+  /**
+   * Returns the value or undefined for the given key.
+   *
+   * @param key The key to retrieve
+   */
+  get(key: K): V | undefined {
+    const [value, index] = this.map.get(key);
+    if (value === undefined) return undefined;
+
+    // move head forward
+    if (this.head !== null && this.head.key === key) {
+      this.head = { key, value };
+    } else {
+      this.map.set(this.head!.key, this.head!); // move head to last entry
+      const headIndex = this.map.size - 1;
+      this.map.delete(key);
+      this.map.set(headIndex, [this.head!.value, headIndex]);
+      if (this.map.size > this.capacity) {
+        this.map.delete(this.map.keys().next().value);
+      }
+    }
+
+    return value;
+  }
+
+  /**
+   * Inserts or updates the given key with a new value.
+   *
+   * @param key The key to insert
+   * @param value The value to associate with the key
+   */
+  set(key: K, value: V) {
+    const [existingValue] = this.map.get(key);
+    if (existingValue !== undefined) {
+      // update existing value
+      const [oldValue, index] = existingValue;
+      this.map.delete(key);
+      this.map.set(index, [oldValue, index]);
+      this.head = { key, value: oldValue };
+    } else {
+      // add new entry
+      if (this.capacity === 0) return; // nothing to do
+      const newIndex = this.map.size;
+      this.map.set(newIndex, [value, newIndex]);
+      this.head = { key, value };
+      if (this.map.size > this.capacity) {
+        this.map.delete(this.map.keys().next().value);
+        this.head = null; // reset head after eviction
+      }
+    }
+  }
+
+  /**
+   * Returns the current entry count.
+   */
+  get size(): number {
+    return this.map.size;
+  }
+}
+```

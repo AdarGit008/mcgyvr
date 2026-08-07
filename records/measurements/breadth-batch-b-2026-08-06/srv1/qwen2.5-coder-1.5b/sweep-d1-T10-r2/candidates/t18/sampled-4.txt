@@ -1,0 +1,22 @@
+```typescript
+/** An append-only log of timestamped events. */
+export class EventLog {
+  #events: Event[] = [];
+
+  /** Append one event. */
+  record(event) {
+    if (typeof event !== 'object' || event === null || typeof event.name !== 'string'
+      || typeof event.timestamp !== 'number') {
+      throw new Error('Invalid event format');
+    }
+    this.#events.push(event);
+  }
+
+  /** Every event at or after the given timestamp, in insertion order. */
+  since(timestamp) {
+    return this.#events.filter((event: Event) => event.timestamp >= timestamp);
+  }
+}
+
+interface Event { name: string; timestamp: number } export class EventLog { record(event: Event): void; since(timestamp: number): Event[] }
+```
