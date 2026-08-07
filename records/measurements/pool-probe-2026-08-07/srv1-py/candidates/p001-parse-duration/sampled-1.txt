@@ -1,0 +1,29 @@
+```python
+def parse_duration(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    if text == "":
+        raise ValueError("Input cannot be empty")
+
+    units = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}
+    total_seconds = 0
+    i = 0
+
+    while i < len(text):
+        if text[i].isdigit():
+            value_start = i
+            while i + 1 < len(text) and text[i + 1].isdigit():
+                i += 1
+            value = int(text[value_start:i + 1])
+            unit = text[i + 1]
+            if unit not in units:
+                raise ValueError(f"Unknown unit: {unit}")
+            if i > 0 and text[i - 1] not in units:
+                raise ValueError("Units must appear in strictly decreasing size")
+            total_seconds += value * units[unit]
+        else:
+            raise ValueError("Missing value before unit")
+        i += 2
+
+    return total_seconds
+```

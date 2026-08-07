@@ -1,0 +1,40 @@
+```ts
+export function turnCostRoute(grid: number[][], stepCost: number, turnCost: number): number {
+  if (grid.length === 0 || grid.some(row => row.length !== grid[0].length)) throw new Error("Invalid grid dimensions");
+  if (!Number.isInteger(stepCost) || stepCost <= 0) throw new Error("Invalid step cost");
+  if (!Number.isInteger(turnCost) || turnCost < 0) throw new Error("Invalid turn cost");
+
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  if (grid[rows - 1][cols - 1] === 1) return -1;
+
+  const directions = [[0, 1], [1, 0], [-1, 0], [0, -1]];
+  type Cell = { row: number; col: number; prevDirection?: number };
+  const minCosts = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+  minCosts[0][0] = 0;
+
+  const queue: Cell[] = [{ row: 0, col: 0 }];
+
+  while (queue.length > 0) {
+    const { row, col, prevDirection } = queue.shift()!;
+    const currentCost = minCosts[row][col];
+
+    directions.forEach(([dRow, dCol], dirIndex) => {
+      const newRow = row + dRow;
+      const newCol = col + dCol;
+
+      if (newRow < 0 || newRow >= rows || newCol < 0 || newCol >= cols || grid[newRow][newCol] === 1) return;
+
+      const newCost = currentCost + stepCost + (prevDirection !== undefined && prevDirection !== dirIndex ? turnCost : 0);
+
+      if (newCost < minCosts[newRow][newCol]) {
+        minCosts[newRow][newCol] = newCost;
+        queue.push({ row: newRow, col: newCol, prevDirection: dirIndex });
+      }
+    });
+  }
+
+  return minCosts[rows - 1][cols - 1];
+}
+```

@@ -1,0 +1,11 @@
+```python
+def hop_window_sums(values: list[int], size: int, hop: int) -> list[int]:
+    if not isinstance(values, list) or not all(isinstance(x, int) for x in values):
+        raise ValueError("Input must be a list of integers")
+    if not (isinstance(size, int) and size > 0):
+        raise ValueError("Window size must be a positive integer")
+    if not (isinstance(hop, int) and hop > 0):
+        raise ValueError("Hop step must be a positive integer")
+
+    return [sum(values[i:i + size]) for i in range(0, len(values) - size + 1, hop)]
+```

@@ -1,0 +1,19 @@
+```python
+import re
+
+def canonical_stack_mark(mark: str) -> str:
+    if not isinstance(mark, str):
+        raise ValueError("Input must be a string")
+    
+    pattern = r'^(\d{1,2})[ -](n|s|e|w)[ -](\d{1,3})$'
+    match = re.match(pattern, mark)
+    
+    if not match:
+        raise ValueError("Invalid format for stack mark")
+    
+    floor = match.group(1).zfill(2)  # Zero-pad to two digits
+    wing = match.group(2).upper()
+    stack = match.group(3).zfill(3)  # Zero-pad to three digits
+    
+    return f"{floor}{wing}{stack}"
+```

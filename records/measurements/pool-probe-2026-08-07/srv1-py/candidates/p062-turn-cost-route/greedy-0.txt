@@ -1,0 +1,46 @@
+```python
+def turn_cost_route(grid: list, step_cost: int, turn_cost: int) -> int:
+    if not grid or any(len(row) != len(grid[0]) for row in grid):
+        raise ValueError("Grid must be non-empty and rectangular")
+    if not (isinstance(step_cost, int) and step_cost > 0):
+        raise ValueError("Step cost must be a positive integer")
+    if not (isinstance(turn_cost, int) and turn_cost >= 0):
+        raise ValueError("Turn cost must be a non-negative integer")
+    
+    rows, cols = len(grid), len(grid[0])
+    if grid[0][0] == 1 or grid[-1][-1] == 1:
+        return -1
+    
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    
+    def is_valid(x, y):
+        return 0 <= x < rows and 0 <= y < cols and grid[x][y] == 0
+    
+    def get_neighbors(x, y):
+        return [(x + dx, y + dy) for dx, dy in directions if is_valid(x + dx, y + dy)]
+    
+    from heapq import heappop, heappush
+    
+    start = (0, 0)
+    end = (rows - 1, cols - 1)
+    heap = [(0, start, None)]
+    visited = set()
+    
+    while heap:
+        cost, (x, y), prev_direction = heappop(heap)
+        if (x, y) == end:
+            return cost
+        if (x, y, prev_direction) in visited:
+            continue
+        visited.add((x, y, prev_direction))
+        
+        for nx, ny in get_neighbors(x, y):
+            new_cost = cost + step_cost
+            new_prev_direction = None
+            if prev_direction is not None and (nx - x, ny - y) != prev_direction:
+                new_cost += turn_cost
+                new_prev_direction = (nx - x, ny - y)
+            heappush(heap, (new_cost, (nx, ny), new_prev_direction))
+    
+    return -1
+```

@@ -1,0 +1,29 @@
+```python
+from typing import Dict, List
+
+def tree_delta(before: dict, after: dict) -> list:
+    if before['name'] != after['name']:
+        raise ValueError("Root names differ")
+    
+    def compare_nodes(b_node: dict, a_node: dict, path: str) -> List[Dict]:
+        ops = []
+        b_children = {child['name']: child for child in b_node.get('children', [])}
+        a_children = {child['name']: child for child in a_node.get('children', [])}
+        
+        if b_node['value'] != a_node['value']:
+            ops.append({"op": "change", "path": path, "from": b_node['value'], "to": a_node['value']})
+        
+        for a_name, a_child in a_children.items():
+            if a_name not in b_children:
+                ops.extend(compare_nodes(a_child, {}, f"{path}/{a_name}"))
+            else:
+                ops.extend(compare_nodes(b_children[a_name], a_child, f"{path}/{a_name}"))
+        
+        for b_name, b_child in b_children.items():
+            if b_name not in a_children:
+                ops.append({"op": "remove", "path": f"{path}/{b_name}"})
+        
+        return ops
+    
+    return compare_nodes(before, after, "")
+```

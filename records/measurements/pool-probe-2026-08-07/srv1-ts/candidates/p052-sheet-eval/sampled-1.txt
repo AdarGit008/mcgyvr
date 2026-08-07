@@ -1,0 +1,52 @@
+```ts
+export function computeSheet(cells: Record<string, string>): Record<string, number> {
+  const cache = new Map<string, { value: number; depth: number }>();
+
+  function evaluate(cellName: string): number {
+    if (cache.has(cellName)) {
+      if (cache.get(cellName)?.depth > 10) throw new Error("Reference cycle detected");
+      return cache.get(cellName)!.value;
+    }
+
+    const cell = cells[cellName];
+    if (!cell) throw new Error(`Cell ${cellName} not found`);
+
+    let value: number | string = 0;
+
+    if (cell.startsWith("=")) {
+      const terms = cell.substring(1).split(/\s*\+\s*/);
+      for (const term of terms) {
+        if (/^\d+$/.test(term)) {
+          value += parseInt(term, 10);
+        } else if (/^-?\d+$/.test(term)) {
+          value -= parseInt(term, 10);
+        } else {
+          const cellValue = evaluate(term);
+          if (typeof cellValue !== "number") throw new Error(`Invalid term ${term}`);
+          value += cellValue;
+        }
+      }
+    } else if (/^-?\d+$/.test(cell)) {
+      value = parseInt(cell, 10);
+    } else {
+      throw new Error(`Malformed literal or term in cell ${cellName}`);
+    }
+
+    cache.set(cellName, { value, depth: (cache.get(cellName)?.depth || 0) + 1 });
+    return value;
+  }
+
+  const result: Record<string, number> = {};
+  for (const cellName in cells) {
+    if (cells.hasOwnProperty(cellName)) {
+      try {
+        result[cellName] = evaluate(cellName);
+      } catch (error) {
+        throw new Error(`Error evaluating ${cellName}: ${error.message}`);
+      }
+    }
+  }
+
+  return result;
+}
+```

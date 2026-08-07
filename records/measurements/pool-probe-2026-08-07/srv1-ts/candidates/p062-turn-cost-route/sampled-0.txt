@@ -1,0 +1,46 @@
+```ts
+export function turnCostRoute(grid: number[][], stepCost: number, turnCost: number): number {
+    if (grid.length === 0 || grid.some(row => row.length !== grid[0].length)) throw new Error('Grid must be non-empty and rectangular');
+    if (!Number.isInteger(stepCost) || stepCost <= 0) throw new Error('Step cost must be a positive integer');
+    if (!Number.isInteger(turnCost) || turnCost < 0) throw new Error('Turn cost must be a non-negative integer');
+
+    const rows = grid.length;
+    const cols = grid[0].length;
+
+    if (grid[rows - 1][cols - 1] === 1) return -1;
+
+    const directions = [
+        [0, 1], // right
+        [1, 0], // down
+        [0, -1], // left
+        [-1, 0] // up
+    ];
+
+    const minCosts: number[][] = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+    minCosts[0][0] = 0;
+
+    const pq: { row: number; col: number; cost: number }[] = [{ row: 0, col: 0, cost: 0 }];
+
+    while (pq.length > 0) {
+        const { row, col, cost } = pq.shift()!;
+        if (cost > minCosts[row][col]) continue;
+
+        directions.forEach(([dRow, dCol], i) => {
+            const newRow = row + dRow;
+            const newCol = col + dCol;
+            if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols && grid[newRow][newCol] === 1) return;
+
+            const turnPenalty = minCosts[row][col] !== Infinity ? turnCost : 0;
+            const newCost = cost + stepCost + turnPenalty;
+
+            if (newCost < minCosts[newRow][newCol]) {
+                minCosts[newRow][newCol] = newCost;
+                pq.push({ row: newRow, col: newCol, cost: newCost });
+                pq.sort((a, b) => a.cost - b.cost);
+            }
+        });
+    }
+
+    return minCosts[rows - 1][cols - 1];
+}
+```

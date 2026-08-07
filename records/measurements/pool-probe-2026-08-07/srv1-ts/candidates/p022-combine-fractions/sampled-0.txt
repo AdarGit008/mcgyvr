@@ -1,0 +1,31 @@
+```ts
+export function combineFractions(parts: string[]): string {
+  if (parts.length === 0) {
+    throw new Error("Input list is empty");
+  }
+
+  const fractions = parts.map((part) => {
+    const [numerator, denominator] = part.split("/");
+    if (!/^[-+]?\d+$/.test(numerator) || !/^\d+$/.test(denominator)) {
+      throw new Error(`Invalid fraction format: ${part}`);
+    }
+    return { numerator: parseInt(numerator), denominator: parseInt(denominator) };
+  });
+
+  const sum = fractions.reduce((acc, frac) => {
+    acc.numerator *= frac.denominator;
+    frac.numerator *= acc.denominator;
+    acc.numerator += frac.numerator;
+    acc.denominator *= frac.denominator;
+    return acc;
+  }, { numerator: 0, denominator: 1 });
+
+  if (sum.denominator === 0) {
+    throw new Error("Zero denominator");
+  }
+
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  const divisor = gcd(Math.abs(sum.numerator), sum.denominator);
+  return `${sum.numerator / divisor}/${Math.abs(sum.denominator) / divisor}`;
+}
+```

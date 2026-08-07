@@ -1,0 +1,37 @@
+```ts
+export function treeDelta(before: { name: string; value: number; children: unknown[] }, after: { name: string; value: number; children: unknown[] }): Array<Record<string, unknown>> {
+    if (before.name !== after.name) {
+        throw new Error('Root names differ');
+    }
+
+    const result: Array<Record<string, unknown>> = [];
+
+    function walk(beforeNode: { name: string; value: number; children: unknown[] }, afterNode: { name: string; value: number; children: unknown[] }, path: string) {
+        if (beforeNode.value !== afterNode.value) {
+            result.push({ op: 'change', path, from: beforeNode.value, to: afterNode.value });
+        }
+
+        const childNameMapBefore = new Map(beforeNode.children.map(child => [child.name as string, child]));
+        const childNameMapAfter = new Map(afterNode.children.map(child => [child.name as string, child]));
+
+        for (const [name, afterChild] of childNameMapAfter) {
+            if (childNameMapBefore.has(name)) {
+                walk(childNameMapBefore.get(name) as { name: string; value: number; children: unknown[] }, afterChild as { name: string; value: number; children: unknown[] }, `${path}/${name}`);
+            } else {
+                result.push({ op: 'add', path: `${path}/${name}`, value: (afterChild as { name: string; value: number; children: unknown[] }).value });
+                walk(afterChild as { name: string; value: number; children: unknown[] }, afterChild as { name: string; value: number; children: unknown[] }, `${path}/${name}`);
+            }
+        }
+
+        for (const [name, beforeChild] of childNameMapBefore) {
+            if (!childNameMapAfter.has(name)) {
+                result.push({ op: 'remove', path: `${path}/${name}` });
+            }
+        }
+    }
+
+    walk(before as { name: string; value: number; children: unknown[] }, after as { name: string; value: number; children: unknown[] }, before.name);
+
+    return result;
+}
+```

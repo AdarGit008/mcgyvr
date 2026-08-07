@@ -1,0 +1,30 @@
+```typescript
+export function collateFeeds(feeds: number[][][]): number[][] {
+  if (feeds.some(feed => feed.length > 0 && !isValidFeed(feed))) {
+    throw new Error('Invalid feed: ticks must strictly increase');
+  }
+
+  const timeline: [number, number][] = [];
+
+  for (const feed of feeds) {
+    for (const [tick, reading] of feed) {
+      if (!timeline.some(([t, _]) => t === tick)) {
+        timeline.push([tick, reading]);
+      }
+    }
+  }
+
+  return timeline.filter((pair, index, self) => 
+    index === 0 || pair[1] !== self[index - 1][1]
+  );
+}
+
+function isValidFeed(feed: number[][]): boolean {
+  for (let i = 1; i < feed.length; i++) {
+    if (feed[i][0] <= feed[i - 1][0]) {
+      return false;
+    }
+  }
+  return true;
+}
+```

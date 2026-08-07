@@ -1,0 +1,35 @@
+```python
+def turn_cost_route(grid: list, step_cost: int, turn_cost: int) -> int:
+    if not grid or any(len(row) != len(grid[0]) for row in grid):
+        raise ValueError("Grid must be non-empty and rectangular.")
+    if not (isinstance(step_cost, int) and step_cost > 0):
+        raise ValueError("Step cost must be a positive integer.")
+    if not (isinstance(turn_cost, int) and turn_cost >= 0):
+        raise ValueError("Turn cost must be a non-negative integer.")
+    
+    rows, cols = len(grid), len(grid[0])
+    if grid[0][0] == 1 or grid[-1][-1] == 1:
+        return -1
+    
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    start, end = (0, 0), (rows - 1, cols - 1)
+    
+    from collections import deque
+    queue = deque([(start, 0, None)])
+    visited = set()
+    
+    while queue:
+        (x, y), cost, prev_dir = queue.popleft()
+        if (x, y) == end:
+            return cost
+        
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < rows and 0 <= ny < cols and grid[nx][ny] != 1:
+                new_cost = cost + step_cost + (turn_cost if prev_dir != (dx, dy) else 0)
+                if (nx, ny) not in visited:
+                    visited.add((nx, ny))
+                    queue.append(((nx, ny), new_cost, (dx, dy)))
+    
+    return -1
+```

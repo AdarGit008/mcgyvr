@@ -1,0 +1,28 @@
+```python
+def turn_cost_route(grid: list, step_cost: int, turn_cost: int) -> int:
+    if not grid or any(len(row) != len(grid[0]) for row in grid):
+        raise ValueError("Grid must be rectangular")
+    if grid[0][0] == 1 or grid[-1][-1] == 1:
+        return -1
+    if step_cost <= 0 or turn_cost < 0:
+        raise ValueError("Invalid cost values")
+
+    m, n = len(grid), len(grid[0])
+    directions = [(-1, 0, 'U'), (1, 0, 'D'), (0, -1, 'L'), (0, 1, 'R')]
+    dp = [[[float('inf')] * 4 for _ in range(n)] for _ in range(m)]
+    dp[0][0] = [0] * 4
+
+    for i in range(m):
+        for j in range(n):
+            if grid[i][j] == 1:
+                continue
+            for di, dj, _ in directions:
+                ni, nj = i + di, j + dj
+                if 0 <= ni < m and 0 <= nj < n and grid[ni][nj] != 1:
+                    idx = directions.index((di, dj, 'U'))
+                    dp[i][j][idx] = min(dp[i][j][idx], dp[ni][nj][(idx + 1) % 4] + step_cost)
+                    dp[i][j][idx] = min(dp[i][j][idx], dp[ni][nj][(idx - 1) % 4] + step_cost, key=lambda x: (x + turn_cost if x != dp[ni][nj][(idx + 1) % 4] else float('inf'), x))
+                    dp[ni][nj][(idx + 2) % 4] = min(dp[ni][nj][(idx + 2) % 4], dp[i][j][idx] + step_cost, key=lambda x: (x + turn_cost if x != dp[i][j][idx] else float('inf'), x))
+
+    return min(dp[-1][-1], default=-1)
+```

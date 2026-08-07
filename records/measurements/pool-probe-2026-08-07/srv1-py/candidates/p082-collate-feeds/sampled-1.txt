@@ -1,0 +1,20 @@
+```python
+def collate_feeds(feeds: list) -> list:
+    if not feeds:
+        return []
+
+    timeline = []
+    for feed in feeds:
+        if any(tick <= prev_tick for tick, _ in feed for prev_tick, _ in timeline):
+            raise ValueError("Ticks must be strictly increasing within each feed.")
+        if timeline and feed[0][0] == timeline[-1][0]:
+            continue
+        timeline.extend(feed)
+
+    filtered_timeline = [timeline[0]]
+    for pair in timeline[1:]:
+        if pair[1] != filtered_timeline[-1][1]:
+            filtered_timeline.append(pair)
+
+    return filtered_timeline
+```
