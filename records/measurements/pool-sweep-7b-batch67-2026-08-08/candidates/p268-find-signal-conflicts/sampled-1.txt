@@ -1,0 +1,54 @@
+```ts
+export function findSignalConflicts(cycle: number, approaches: object[], pairs: string[][]): string[] {
+  if (cycle < 2 || cycle > 3600) throw new Error('Invalid cycle');
+  if (!Array.isArray(approaches) || approaches.length === 0) throw new Error('Empty or non-list approach list');
+
+  const validKeys = ['name', 'offset', 'green', 'amber'];
+  const approachMap: { [key: string]: { offset: number; green: number; amber: number } } = {};
+
+  for (const approach of approaches) {
+    if (typeof approach !== 'object' || !approach) throw new Error('Invalid approach');
+    if (!Array.isArray(approach)) throw new Error('Approach must be an object');
+
+    const keys = Object.keys(approach);
+    if (keys.length !== validKeys.length || !keys.every(key => validKeys.includes(key))) {
+      throw new Error('Approach must have exactly name, offset, green and amber');
+    }
+
+    const { name, offset, green, amber } = approach;
+    if (typeof name !== 'string' || name.trim() === '') throw new Error('Name must be non-empty text');
+    if (typeof offset !== 'number' || !Number.isInteger(offset) || offset < 0 || offset >= cycle)
+      throw new Error('Offset must be a valid integer within the cycle range');
+    if (typeof green !== 'number' || !Number.isInteger(green) || green < 1 || green > cycle - amber)
+      throw new Error('Green must be at least one second and less than or equal to the remaining cycle time after amber');
+    if (typeof amber !== 'number' || !Number.isInteger(amber) || amber <= 0 || amber >= cycle - green)
+      throw new Error('Amber must be a positive integer and less than or equal to the remaining cycle time after green');
+
+    if (approachMap[name]) throw new Error('Repeated approach name');
+    approachMap[name] = { offset, green, amber };
+  }
+
+  const conflicts: string[] = [];
+  const litApproaches = new Set<string>();
+
+  for (let second = 0; second < cycle; second++) {
+    litApproaches.clear();
+    for (const [name, { offset, green, amber }] of Object.entries(approachMap)) {
+      if (
+        (second >= (offset + green) % cycle && second < ((offset + green + amber) % cycle + 1) % cycle) ||
+        (second >= (offset - amber) % cycle && second < ((offset - amber + green) % cycle + 1) % cycle)
+      ) {
+        litApproaches.add(name);
+      }
+    }
+
+    for (const [first, secondName] of pairs) {
+      if (litApproaches.has(first) && litApproaches.has(secondName)) {
+        conflicts.push(`${first}~${secondName}@${second}`);
+      }
+    }
+  }
+
+  return conflicts.sort();
+}
+```

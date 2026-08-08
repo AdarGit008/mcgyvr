@@ -1,0 +1,68 @@
+```ts
+export function matchStatementRows(book: Array<Record<string, unknown>>, bank: Array<Record<string, unknown>>, tolerance: number): { pairs: string[][]; bookOnly: string[]; bankOnly: string[] } {
+    if (!Array.isArray(book) || !Array.isArray(bank) || typeof tolerance !== 'number') {
+        throw new Error('Invalid arguments');
+    }
+
+    const validateRow = (row: Record<string, unknown>): boolean => {
+        return (
+            typeof row.ref === 'string' &&
+            row.ref.length > 0 &&
+            typeof row.day === 'number' &&
+            Number.isInteger(row.day) &&
+            typeof row.cents === 'number' &&
+            Number.isInteger(row.cents)
+        );
+    };
+
+    if (!book.every(validateRow) || !bank.every(validateRow)) {
+        throw new Error('Invalid arguments');
+    }
+
+    const validateRef = (ref: string): boolean => ref.length > 0;
+    if (!book.every((row) => validateRef(row.ref)) || !bank.every((row) => validateRef(row.ref))) {
+        throw new Error('Invalid arguments');
+    }
+
+    if (tolerance < 0 || !Number.isInteger(tolerance)) {
+        throw new Error('Invalid tolerance');
+    }
+
+    const bookSorted = [...book].sort((a, b) => a.day - b.day || a.ref.localeCompare(b.ref));
+    const bankSorted = [...bank].sort((a, b) => a.day - b.day || a.ref.localeCompare(b.ref));
+
+    const pairs: string[][] = [];
+    const bookOnly: string[] = [];
+    const bankOnly: string[] = new Set<string>();
+
+    let bankIndex = 0;
+
+    for (const bookRow of bookSorted) {
+        while (bankIndex < bankSorted.length && Math.abs(bookRow.day - bankSorted[bankIndex].day) > tolerance) {
+            bankIndex++;
+        }
+
+        if (bankIndex >= bankSorted.length) {
+            bookOnly.push(bookRow.ref);
+            continue;
+        }
+
+        const bankRow = bankSorted[bankIndex];
+        if (bookRow.cents === bankRow.cents && Math.abs(bookRow.day - bankRow.day) <= tolerance) {
+            pairs.push([bookRow.ref, bankRow.ref]);
+            bankOnly.delete(bankRow.ref);
+            bankIndex++;
+        } else {
+            bookOnly.push(bookRow.ref);
+        }
+    }
+
+    for (const row of bankSorted) {
+        if (!bankOnly.has(row.ref)) {
+            bankOnly.add(row.ref);
+        }
+    }
+
+    return { pairs, bookOnly: [...bookOnly].sort(), bankOnly: [...bankOnly].sort() };
+}
+```

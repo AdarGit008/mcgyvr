@@ -1,0 +1,45 @@
+```ts
+/**
+ * Writes the senary tail for a given fraction.
+ * @param numerator The upper reading of the fraction.
+ * @param denominator The lower reading of the fraction.
+ * @returns The spelled-out run of marks or an error message.
+ */
+export function writeSenaryTail(numerator: number, denominator: number): string {
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator)) {
+        throw new Error("Numerator and denominator must be integers.");
+    }
+    if (denominator < 1 || denominator > 10000) {
+        throw new Error("Denominator must be between 1 and 10000.");
+    }
+    if (numerator < 0) {
+        throw new Error("Numerator must not be negative.");
+    }
+    if (numerator >= denominator) {
+        throw new Error("Numerator must be smaller than the denominator.");
+    }
+
+    let result: string[] = [];
+    while (numerator > 0) {
+        result.unshift(numerator % 6);
+        numerator = Math.floor(numerator / 6);
+    }
+    if (result.length === 1 && result[0] === 0) {
+        return "0";
+    }
+
+    let fenceIndex = -1;
+    for (let i = 0; i < result.length - 1; i++) {
+        if (result[i] !== result[i + 1]) {
+            fenceIndex = i + 1;
+            break;
+        }
+    }
+
+    if (fenceIndex === -1) {
+        return `|${result.join('')}|`;
+    } else {
+        return `${result.slice(0, fenceIndex).join('')}|${result.slice(fenceIndex).join('')}`;
+    }
+}
+```

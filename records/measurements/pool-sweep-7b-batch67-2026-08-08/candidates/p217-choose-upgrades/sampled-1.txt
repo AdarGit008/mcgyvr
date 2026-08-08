@@ -1,0 +1,84 @@
+```ts
+/** Where each ruled library should land. */
+export function chooseUpgrades(
+  request: Record<string, unknown>
+): Record<string, unknown> {
+  const installed = request.installed as Record<string, string>;
+  const offers = request.offers as Record<string, string[]>;
+  const rules = request.rules as { package: string; min: string; max: string }[];
+  
+  // Validate input
+  if (typeof installed !== 'object' || installed === null) {
+    throw new Error('installed must be a non-empty mapping');
+  }
+  if (typeof offers !== 'object' || offers === null) {
+    throw new Error('offers must be a non-empty mapping');
+  }
+  if (!Array.isArray(rules)) {
+    throw new Error('rules must be an array of mappings');
+  }
+  
+  const floors = new Map<string, string>();
+  const ceilings = new Map<string, string>();
+  for (const rule of rules) {
+    if (typeof rule !== 'object' || rule === null) {
+      throw new Error('rule must be a mapping');
+    }
+    if (!offers.hasOwnProperty(rule.package)) {
+      throw new Error(`rules bound ${rule.package} the registry does not carry`);
+    }
+    if (semverCompare(rule.min, rule.max) > 0) {
+      throw new Error('rule min is above its max');
+    }
+    const low = floors.get(rule.package);
+    if (low === undefined || semverCompare(rule.min, low) > 0) {
+      floors.set(rule.package, rule.min);
+    }
+    const high = ceilings.get(rule.package);
+    if (high === undefined || semverCompare(rule.max, high) < 0) {
+      ceilings.set(rule.package, rule.max);
+    }
+  }
+
+  function semverCompare(a: string, b: string): number {
+    const aParts = a.split('.').map(Number);
+    const bParts = b.split('.').map(Number);
+    for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+      const aPart = aParts[i] || 0;
+      const bPart = bParts[i] || 0;
+      if (aPart !== bPart) return aPart - bPart;
+    }
+    return 0;
+  }
+
+  const moves: Record<string, string>[] = [];
+  const snags: Record<string, string>[] = [];
+  for (const name of Array.from(floors.keys()).sort()) {
+    const low = floors.get(name) as string;
+    const high = ceilings.get(name) as string;
+    const allowed = offers[name].filter(
+      (release) => semverCompare(release, low) >= 0 && semverCompare(release, high) <= 0
+    );
+    if (allowed.length === 0) {
+      snags.push({ package: name, why: "none" });
+      continue;
+    }
+    
+    const here = installed[name];
+    if (here !== undefined && allowed.includes(here)) {
+      moves.push({ package: name, to: here, action: "hold" });
+      continue;
+    }
+    
+    allowed.sort(semverCompare);
+    const best = allowed[allowed.length - 1];
+    moves.push({
+      package: name,
+      to: best,
+      action: here === undefined ? "fetch" : "lift",
+    });
+  }
+
+  return { moves, snags };
+}
+```

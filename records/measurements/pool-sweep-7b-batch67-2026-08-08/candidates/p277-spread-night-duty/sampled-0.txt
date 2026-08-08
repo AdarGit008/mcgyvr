@@ -1,0 +1,47 @@
+```ts
+export function spreadNightDuty(
+  crew: string[],
+  weights: number[],
+  away: string[][],
+): string[] {
+  if (crew.length === 0) throw new Error("Crew cannot be empty");
+  if (!Array.isArray(away) || away.length !== weights.length) throw new Error("Away must match weights length");
+
+  const stood = new Map<string, { weight: number; restUntil: number }>();
+  crew.forEach(name => {
+    if (typeof name !== 'string' || name.trim() === '') throw new Error("Crew members must be non-empty strings");
+    if (new Set(crew).size !== crew.length) throw new Error("Crew cannot have duplicate names");
+    stood.set(name, { weight: 0, restUntil: -1 });
+  });
+
+  const nights: string[] = [];
+  let previous = "";
+
+  for (let night = 0; night < weights.length; night++) {
+    if (!weights.includes(1) && !weights.includes(2)) throw new Error("Weights must be either 1 or 2");
+    if (!Array.isArray(away[night])) throw new Error("Away entries must be lists");
+
+    const availableCrew = crew.filter(name => !away[night].includes(name) && stood.get(name)!.restUntil < night);
+    if (availableCrew.length === 0) {
+      nights.push("?");
+      previous = "";
+      continue;
+    }
+
+    let chosen = availableCrew[0];
+    for (const name of availableCrew) {
+      const currentWeight = stood.get(name)!.weight;
+      const chosenWeight = stood.get(chosen)!.weight;
+      if (currentWeight < chosenWeight || (currentWeight === chosenWeight && crew.indexOf(name) < crew.indexOf(chosen))) {
+        chosen = name;
+      }
+    }
+
+    stood.set(chosen, { weight: stood.get(chosen)!.weight + weights[night], restUntil: night + 2 });
+    nights.push(chosen);
+    previous = chosen;
+  }
+
+  return nights;
+}
+```

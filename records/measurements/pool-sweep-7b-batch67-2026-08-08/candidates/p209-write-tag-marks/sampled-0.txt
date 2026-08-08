@@ -1,0 +1,24 @@
+```ts
+/** A badge written out from its fields. */
+export function writeTagMarks(label: string, fields: string[][]): string {
+  if (typeof label !== 'string' || !/^[a-z]+[a-z\d]*$/.test(label)) throw new Error("Invalid label");
+  if (!Array.isArray(fields) || !fields.every(([key, text]) => Array.isArray(key) && key.length === 2)) throw new Error("Invalid fields");
+
+  const seenKeys = new Set<string>();
+  for (const [key] of fields) {
+    if (seenKeys.has(key)) throw new Error("Duplicate key");
+    seenKeys.add(key);
+  }
+
+  const parts = fields.map(([key, text]) => {
+    if (typeof key !== 'string' || !/^[a-z]+[a-z\d]*$/.test(key)) throw new Error("Invalid key");
+    if (typeof text !== 'string') throw new Error("Invalid text");
+
+    if (/^[\w-.]+$/.test(text)) return key + "=" + text;
+    const quote = text.includes('"') ? "'" : '"';
+    return key + "=" + quote + text.replace(/\\/g, '\\\\').replace(quote, '\\' + quote) + quote;
+  });
+
+  return "<" + label + " " + parts.join(" ") + ">";
+}
+```

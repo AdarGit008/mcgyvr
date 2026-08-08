@@ -1,0 +1,35 @@
+```ts
+export function tidyShelfMark(raw: string): string {
+  if (typeof raw !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const parts = raw.split('-');
+  if (parts.length !== 3) {
+    throw new Error('Mark must consist of exactly three parts');
+  }
+
+  const [wing, bayPart, pegPart] = parts;
+
+  if (!/^[A-Z]{2}$/.test(wing)) {
+    throw new Error('Wing must be two uppercase letters');
+  }
+
+  const [bay, fractionPart] = bayPart.split('.');
+  if (isNaN(parseInt(bay, 10)) || parseInt(bay, 10) < 1 || parseInt(bay, 10) > 999) {
+    throw new Error('Bay must be a number between 1 and 999');
+  }
+
+  const fraction = fractionPart ? fractionPart.replace(/0+$/, '') : '';
+  if (fraction.length > 2) {
+    throw new Error('Fraction cannot have more than two digits');
+  }
+
+  const [peg, pegDigit] = pegPart.split('');
+  if (!/^[A-Za-z]$/.test(peg) || pegDigit === '0') {
+    throw new Error('Peg must be a letter followed by a non-zero digit');
+  }
+
+  return `${wing}-${bay}${fraction ? `.${fraction}` : ''}-${peg}${pegDigit}`;
+}
+```

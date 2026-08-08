@@ -1,0 +1,68 @@
+```typescript
+export function firstBadMessage(exchange: unknown): number {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid exchange");
+  }
+
+  const expectedKinds = ["HELLO", "OFFER", "CHOOSE", "ACCEPT", "DATA", "BYE"];
+  let state: string | null = null;
+
+  for (let i = 0; i < exchange.length; i++) {
+    const msg = exchange[i];
+    if (typeof msg !== "object" || msg === null) {
+      throw new Error("Invalid message");
+    }
+    if (!msg.hasOwnProperty("from") || !msg.hasOwnProperty("kind")) {
+      throw new Error("Invalid message structure");
+    }
+
+    const { from, kind } = msg;
+    if (from !== "client" && from !== "server") {
+      throw new Error("Invalid 'from' value");
+    }
+    if (!expectedKinds.includes(kind)) {
+      throw new Error("Invalid 'kind' value");
+    }
+
+    switch (kind) {
+      case "HELLO":
+        if (state !== null || i !== 0) {
+          return i;
+        }
+        state = "OFFER";
+        break;
+      case "OFFER":
+        if (state !== "OFFER" || from !== "server") {
+          return i;
+        }
+        state = "CHOOSE";
+        break;
+      case "CHOOSE":
+        if (state !== "CHOOSE" || from !== "client") {
+          return i;
+        }
+        state = "ACCEPT";
+        break;
+      case "ACCEPT":
+        if (state !== "ACCEPT" || from !== "server") {
+          return i;
+        }
+        state = "DATA";
+        break;
+      case "DATA":
+        if (state !== "DATA" || from !== "client") {
+          return i;
+        }
+        break;
+      case "BYE":
+        if (state !== "BYE" || from !== "server" || i < exchange.length - 1) {
+          return i;
+        }
+        state = null;
+        break;
+    }
+  }
+
+  return state === null ? -1 : exchange.length;
+}
+```

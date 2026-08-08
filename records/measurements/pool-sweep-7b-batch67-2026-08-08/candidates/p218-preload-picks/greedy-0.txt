@@ -1,0 +1,34 @@
+```ts
+export function preloadPicks(entries: unknown, room: unknown): string[] {
+  if (!Array.isArray(entries)) throw new Error('Entries must be an array');
+  if (typeof room !== 'number' || room < 0 || !Number.isInteger(room)) throw new Error('Room must be a non-negative whole number');
+
+  const validatedEntries = entries.map((entry, index) => {
+    if (typeof entry !== 'object' || entry === null) throw new Error(`Entry at index ${index} must be an object`);
+    if (typeof entry.key !== 'string' || entry.key.trim() === '') throw new Error(`Key at index ${index} must be a non-empty string`);
+    if (Object.keys(entries).filter(e => e.key === entry.key).length > 1) throw new Error(`Duplicate key found: ${entry.key}`);
+    if (typeof entry.size !== 'number' || entry.size <= 0 || !Number.isInteger(entry.size)) throw new Error(`Size at index ${index} must be a positive whole number`);
+    if (typeof entry.hits !== 'number' || entry.hits < 0 || !Number.isInteger(entry.hits)) throw new Error(`Hits at index ${index} must be a non-negative whole number`);
+
+    return { ...entry, key: entry.key.trim() };
+  });
+
+  validatedEntries.sort((a, b) => {
+    if (b.hits !== a.hits) return b.hits - a.hits;
+    if (a.size !== b.size) return a.size - b.size;
+    return a.key.localeCompare(b.key);
+  });
+
+  const result: string[] = [];
+  let remainingRoom = room;
+
+  for (const entry of validatedEntries) {
+    if (entry.size <= remainingRoom) {
+      result.push(entry.key);
+      remainingRoom -= entry.size;
+    }
+  }
+
+  return result;
+}
+```

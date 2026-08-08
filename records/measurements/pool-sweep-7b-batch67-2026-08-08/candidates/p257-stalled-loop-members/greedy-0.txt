@@ -1,0 +1,43 @@
+```ts
+export function stalledLoopMembers(waits: Record<string, string>): string[] {
+  if (typeof waits !== 'object' || waits === null) {
+    throw new Error('Invalid input: expected a non-null object');
+  }
+
+  const keys = Object.keys(waits);
+  if (keys.length === 0) return [];
+
+  let loopStart: string | undefined;
+  let minLoopNameLength = Infinity;
+
+  for (const start of keys) {
+    if (!start || typeof start !== 'string') continue;
+    if (waits[start] === start) throw new Error('Invalid input: job cannot wait on itself');
+
+    const seen: string[] = [];
+    let current = start;
+    while (waits[current] !== undefined && !seen.includes(current)) {
+      seen.push(current);
+      current = waits[current];
+    }
+
+    if (seen.includes(current)) {
+      if (!loopStart || current.length < minLoopNameLength) {
+        loopStart = current;
+        minLoopNameLength = current.length;
+      }
+    }
+  }
+
+  if (!loopStart) return [];
+
+  const seen: string[] = [];
+  let current = loopStart;
+  while (waits[current] !== undefined && !seen.includes(current)) {
+    seen.push(current);
+    current = waits[current];
+  }
+
+  return seen.sort();
+}
+```

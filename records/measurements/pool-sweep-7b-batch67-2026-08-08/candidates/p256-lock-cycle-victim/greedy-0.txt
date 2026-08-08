@@ -1,0 +1,100 @@
+```ts
+export function lockCycleVictim(holds: string[][], blocked: string[][]): { victim: string; cycle: string[] } {
+  if (!Array.isArray(holds) || !Array.isArray(blocked)) {
+    throw new Error("Both arguments must be arrays.");
+  }
+  if (holds.some(pair => pair.length !== 2) || blocked.some(pair => pair.length !== 2)) {
+    throw new Error("Each pair must contain exactly two elements.");
+  }
+  holds.forEach(([resource, worker]) => {
+    if (typeof resource !== "string" || typeof worker !== "string" || !resource || !worker) {
+      throw new Error("Resource and worker names must be non-empty strings.");
+    }
+  });
+  blocked.forEach(([worker, resource]) => {
+    if (typeof resource !== "string" || typeof worker !== "string" || !resource || !worker) {
+      throw new Error("Resource and worker names must be non-empty strings.");
+    }
+  });
+
+  const graph: { [key: string]: Set<string> } = {};
+  const inDegree: { [key: string]: number } = {};
+
+  holds.forEach(([resource, worker]) => {
+    if (graph[worker] === undefined) {
+      graph[worker] = new Set();
+      inDegree[worker] = 0;
+    }
+    if (graph[resource] === undefined) {
+      graph[resource] = new Set();
+      inDegree[resource] = 0;
+    }
+    if (!graph[worker].has(resource)) {
+      graph[worker].add(resource);
+      inDegree[resource]++;
+    }
+  });
+
+  blocked.forEach(([worker, resource]) => {
+    if (graph[worker] === undefined) {
+      graph[worker] = new Set();
+      inDegree[worker] = 0;
+    }
+    if (graph[resource] === undefined) {
+      graph[resource] = new Set();
+      inDegree[resource] = 0;
+    }
+    if (!graph[worker].has(resource)) {
+      graph[worker].add(resource);
+      inDegree[resource]++;
+    }
+  });
+
+  const queue: string[] = [];
+  for (const worker in inDegree) {
+    if (inDegree[worker] === 0) {
+      queue.push(worker);
+    }
+  }
+
+  while (queue.length > 0) {
+    const worker = queue.shift()!;
+    for (const resource of graph[worker]) {
+      inDegree[resource]--;
+      if (inDegree[resource] === 0) {
+        queue.push(resource);
+      }
+    }
+    delete graph[worker];
+    delete inDegree[worker];
+  }
+
+  const cycles: { [key: string]: Set<string> } = {};
+  for (const worker in graph) {
+    const cycle = new Set<string>();
+    let current = worker;
+    while (!cycle.has(current)) {
+      cycle.add(current);
+      current = Array.from(graph[current])[0];
+    }
+    cycles[worker] = cycle;
+  }
+
+  if (Object.keys(cycles).length === 0) {
+    return { victim: "", cycle: [] };
+  }
+
+  let minLocks = Infinity;
+  let victim = "";
+
+  for (const worker in cycles) {
+    const locks = holds.filter(([resource, w]) => w === worker).length;
+    if (locks < minLocks || (locks === minLocks && worker < victim)) {
+      minLocks = locks;
+      victim = worker;
+    }
+  }
+
+  return { victim, cycle: Array.from(cycles[victim]).sort() };
+}
+```

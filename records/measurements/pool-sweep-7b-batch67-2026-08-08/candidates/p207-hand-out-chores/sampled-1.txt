@@ -1,0 +1,38 @@
+```ts
+/**
+ * The chore board shared out around the crew.
+ */
+export function handOutChores(
+  chores: string[],
+  crew: string[],
+): Record<string, string[]> {
+  if (!Array.isArray(chores) || chores.some(chore => typeof chore !== 'string' || chore === '')) {
+    throw new Error('Invalid chores list');
+  }
+  const uniqueChores = new Set(chores);
+  if (chores.length !== uniqueChores.size) {
+    throw new Error('Duplicate chores found');
+  }
+
+  if (!Array.isArray(crew) || crew.length === 0) {
+    throw new Error('Invalid crew list');
+  }
+  const uniqueCrew = new Set(crew);
+  if (crew.length !== uniqueCrew.size) {
+    throw new Error('Duplicate crew member names found');
+  }
+
+  const share: Record<string, string[]> = {};
+  let markerIndex = 0;
+  chores.forEach(chore => {
+    const who = crew[markerIndex % crew.length];
+    if (!share[who]) {
+      share[who] = [];
+    }
+    share[who].push(chore);
+    markerIndex += chore.length;
+  });
+
+  return share;
+}
+```

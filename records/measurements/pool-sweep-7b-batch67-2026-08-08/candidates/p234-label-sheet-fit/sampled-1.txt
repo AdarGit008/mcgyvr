@@ -1,0 +1,51 @@
+```ts
+/**
+ * Fits labels on a sheet and returns the layout details.
+ *
+ * @param {object} sheet - The sheet object with properties width, height, marginX, and marginY.
+ * @param {object} label - The label object with properties width, height, and turn (boolean).
+ * @returns {object} A record with across, down, total, and turned properties.
+ */
+export function fitLabelSheet(sheet: { width: number; height: number; marginX: number; marginY: number }, label: { width: number; height: number; turn: boolean }): { across: number; down: number; total: number; turned: boolean } {
+    // Validate input
+    if (!Number.isInteger(sheet.width) || sheet.width <= 0 ||
+        !Number.isInteger(sheet.height) || sheet.height <= 0 ||
+        !Number.isInteger(sheet.marginX) || sheet.marginX < 0 ||
+        !Number.isInteger(sheet.marginY) || sheet.marginY < 0 ||
+        !Number.isInteger(label.width) || label.width <= 0 ||
+        !Number.isInteger(label.height) || label.height <= 0 ||
+        typeof label.turn !== 'boolean') {
+        throw new Error('Invalid input measurements');
+    }
+
+    // Calculate usable field dimensions
+    const usableWidth = sheet.width - 2 * sheet.marginX;
+    const usableHeight = sheet.height - 2 * sheet.marginY;
+
+    // Calculate number of labels that can fit in the given orientation (upright)
+    const uprightAcross = Math.floor((usableWidth + label.gapX) / (label.width + label.gapX));
+    const uprightDown = Math.floor((usableHeight + label.gapY) / (label.height + label.gapY));
+    const uprightTotal = uprightAcross * uprightDown;
+
+    // If turn is allowed, calculate number of labels that can fit in the alternative orientation (sideways)
+    let turnedAcross: number;
+    let turnedDown: number;
+    let turnedTotal: number;
+    if (label.turn) {
+        turnedAcross = Math.floor((usableHeight + label.gapX) / (label.width + label.gapX));
+        turnedDown = Math.floor((usableWidth + label.gapY) / (label.height + label.gapY));
+        turnedTotal = turnedAcross * turnedDown;
+    } else {
+        turnedAcross = 0;
+        turnedDown = 0;
+        turnedTotal = 0;
+    }
+
+    // Determine the best orientation
+    if (turnedTotal > uprightTotal || (turnedTotal === uprightTotal && label.turn)) {
+        return { across: turnedAcross, down: turnedDown, total: turnedTotal, turned: true };
+    } else {
+        return { across: uprightAcross, down: uprightDown, total: uprightTotal, turned: false };
+    }
+}
+```

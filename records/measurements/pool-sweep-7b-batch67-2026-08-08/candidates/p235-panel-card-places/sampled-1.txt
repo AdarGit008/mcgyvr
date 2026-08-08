@@ -1,0 +1,59 @@
+```ts
+/**
+ * Places cards on a panel according to the given rules.
+ * @param panel - An object with properties width, height, bleed, cardWidth, cardHeight, and seam.
+ * @param count - The number of cards to place.
+ * @param taken - An array of cell numbers that are already spoken for.
+ * @returns An array of pairs, each representing the top-left corner coordinates of a placed card.
+ */
+export function placeCards(panel: any, count: number, taken: any[]): number[][] {
+    const { width, height, bleed, cardWidth, cardHeight, seam } = panel;
+
+    if (typeof width !== 'number' || typeof height !== 'number' || typeof bleed !== 'number' ||
+        typeof cardWidth !== 'number' || typeof cardHeight !== 'number' || typeof seam !== 'number') {
+        throw new Error('Invalid panel dimensions or bleed.');
+    }
+
+    if (!Number.isInteger(width) || !Number.isInteger(height) || !Number.isInteger(bleed) ||
+        !Number.isInteger(cardWidth) || !Number.isInteger(cardHeight) || !Number.isInteger(seam)) {
+        throw new Error('Panel dimensions and bleed must be integers.');
+    }
+
+    if (width <= 0 || height <= 0 || bleed < 0 || cardWidth <= 0 || cardHeight <= 0 || seam < 0) {
+        throw new Error('Invalid panel dimensions or bleed.');
+    }
+
+    const printableWidth = width - 2 * bleed;
+    const printableHeight = height - 2 * bleed;
+
+    if (printableWidth <= 0 || printableHeight <= 0) {
+        throw new Error('Panel carries no cells at all.');
+    }
+
+    const cols = Math.floor((printableWidth + seam) / (cardWidth + seam));
+    const rows = Math.floor((printableHeight + seam) / (cardHeight + seam));
+
+    if (cols * rows === 0) {
+        throw new Error('Panel carries no cells at all.');
+    }
+
+    const takenCells = new Set(taken);
+    for (const cell of takenCells) {
+        if (cell < 1 || cell > cols * rows) {
+            throw new Error('Invalid spoken-for cell number.');
+        }
+    }
+
+    const freeCells = Array.from({ length: cols * rows }, (_, i) => i + 1).filter(cell => !takenCells.has(cell));
+
+    if (freeCells.length < count) {
+        throw new Error('Free cells cannot cover the count.');
+    }
+
+    return freeCells.slice(0, count).map(cell => {
+        const row = Math.floor((cell - 1) / cols);
+        const col = (cell - 1) % cols;
+        return [bleed + col * (cardWidth + seam), bleed + row * (cardHeight + seam)];
+    });
+}
+```

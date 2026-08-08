@@ -1,0 +1,85 @@
+```typescript
+export function pinPackageSet(plan: Record<string, unknown>): Record<string, unknown> {
+  const { shelf, needs, root } = plan;
+
+  if (typeof shelf !== 'object' || shelf === null || Array.isArray(shelf)) {
+    throw new Error('Invalid shelf');
+  }
+
+  if (typeof needs !== 'object' || needs === null || Array.isArray(needs)) {
+    throw new Error('Invalid needs');
+  }
+
+  if (!Array.isArray(root)) {
+    throw new Error('Invalid root');
+  }
+
+  const versions: Record<string, string[]> = {};
+  Object.keys(shelf).forEach(name => {
+    if (!Array.isArray(shelf[name]) || shelf[name].length === 0) {
+      throw new Error(`Invalid shelf entry for ${name}`);
+    }
+    shelf[name].forEach(version => {
+      if (version !== '0.0.0' && /^0\d|\d{2,}/.test(version)) {
+        throw new Error(`Invalid version ${version} for package ${name}`);
+      }
+    });
+    versions[name] = [...new Set(shelf[name])].sort((a, b) => a.localeCompare(b));
+  });
+
+  const wants: { name: string; from: string; under: string }[] = [];
+  root.forEach(want => {
+    if (typeof want !== 'object' || want === null || !Array.isArray(want)) {
+      throw new Error('Invalid want');
+    }
+    if (!('name' in want) || typeof want.name !== 'string') {
+      throw new Error('Invalid want name');
+    }
+    if (!('from' in want) || typeof want.from !== 'string') {
+      throw new Error('Invalid want from');
+    }
+    if (!('under' in want) || typeof want.under !== 'string') {
+      throw new Error('Invalid want under');
+    }
+    if (want.name === want.from) {
+      throw new Error(`Package ${want.name} cannot declare a want on itself`);
+    }
+    if (!(want.name in shelf)) {
+      throw new Error(`Package ${want.name} not stocked by shelf`);
+    }
+    wants.push(want);
+  });
+
+  const needsMap: Record<string, string[]> = {};
+  Object.keys(needs).forEach(name => {
+    if (!Array.isArray(needs[name]) || needs[name].length === 0) {
+      throw new Error(`Invalid needs entry for ${name}`);
+    }
+    needsMap[name] = [...new Set(needs[name])];
+  });
+
+  const queue: { name: string; wants: typeof wants }[] = [{ name: root[0], wants }];
+  const reached: Set<string> = new Set();
+  const stuck: Set<string> = new Set();
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (!reached.has(current.name)) {
+      reached.add(current.name);
+      needsMap[current.name].forEach(want => {
+        wants.push({ name: want, from: '0.0.0', under: Infinity });
+      });
+      queue.push(...current.wants.map(want => ({ name: want.name, wants: [want] })));
+    }
+  }
+
+  const picked: { name: string; version: string }[] = [];
+  const sortedReached = Array.from(reached).sort();
+
+  for (const name of sortedReached) {
+    const availableVersions = versions[name].filter(version => {
+      return wants.some(want => want.name === name && version >= want.from && version < want.under);
+    });
+
+    if (availableVersions.length > 0) {
+      picked.push({ name, version: availableVersions[

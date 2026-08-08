@@ -1,0 +1,52 @@
+```ts
+function rescaleRecipe(lines: string[], num: number, den: number): string[] {
+    if (!Array.isArray(lines)) throw new Error("Input must be a list");
+    if (num < 1 || den < 1 || !Number.isInteger(num) || !Number.isInteger(den)) throw new Error("Numerator and denominator must be whole numbers above zero");
+
+    const units = ['tsp', 'tbsp', 'cup', 'egg', 'g'];
+    const regex = /^(\d+)\s*(\d+\/\d+)?\s*(.*)$/;
+
+    const scaledLines: string[] = lines.map(line => {
+        const match = line.match(regex);
+        if (!match) throw new Error("Invalid row format");
+        const [_, amount, part, ingredient] = match;
+        if (lines.filter(l => l.includes(ingredient)).length !== 1) throw new Error("Each ingredient must appear exactly once");
+
+        let scaledAmount: number;
+        if (part) {
+            const [numerator, denominator] = part.split('/').map(Number);
+            scaledAmount = num * numerator / den + amount * denominator / den;
+        } else {
+            scaledAmount = Number(amount) * num / den;
+        }
+
+        let wholePart = Math.floor(scaledAmount);
+        let fractionalPart = scaledAmount - wholePart;
+
+        if (fractionalPart === 0) {
+            fractionalPart = 1;
+        } else {
+            switch (ingredient) {
+                case 'tsp': fractionalPart *= 4; break;
+                case 'tbsp': fractionalPart *= 2; break;
+                case 'cup': fractionalPart *= 8; break;
+                default: fractionalPart = Math.round(fractionalPart);
+            }
+        }
+
+        if (fractionalPart === 0) {
+            fractionalPart = 1;
+        } else if (fractionalPart % 1 === 0.5) {
+            fractionalPart = Math.ceil(fractionalPart);
+        } else {
+            fractionalPart = Math.round(fractionalPart);
+        }
+
+        if (fractionalPart < 1 || fractionalPart >= 1) throw new Error("Fraction must be smaller than one");
+
+        return `${wholePart + fractionalPart} ${ingredient}`;
+    });
+
+    return scaledLines;
+}
+```

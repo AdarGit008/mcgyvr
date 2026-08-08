@@ -1,0 +1,38 @@
+```typescript
+/**
+ * Write the senary tail for a given fraction.
+ * @param numerator The upper reading.
+ * @param denominator The lower reading.
+ * @returns The spelled-out run of marks or an error message.
+ */
+export function writeSenaryTail(numerator: number, denominator: number): string {
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator)) {
+        throw new Error('Numerator and denominator must be integers.');
+    }
+    if (denominator < 1 || denominator > 10000) {
+        throw new Error('Denominator must be between 1 and 10000.');
+    }
+    if (numerator < 0 || numerator >= denominator) {
+        throw new Error('Numerator must be greater than or equal to zero and less than the denominator.');
+    }
+
+    const marks: string[] = [];
+    while (numerator > 0) {
+        marks.push((numerator / denominator).toString());
+        numerator %= denominator;
+        denominator /= 6;
+    }
+
+    if (marks.length === 1 && marks[0] === '0') {
+        return '0';
+    }
+
+    const fenceIndex = marks.findIndex(mark => mark.includes('.'));
+    if (fenceIndex === -1) {
+        return marks.join('');
+    }
+
+    const fenceMarks = marks.slice(fenceIndex);
+    return `|${fenceMarks.join('')}|`;
+}
+```

@@ -1,0 +1,42 @@
+```ts
+export function bandParcelCharge(
+  book: Record<string, unknown>,
+  parcel: Record<string, unknown>
+): Record<string, unknown> {
+  const validate = (input: any, type: string) => {
+    if (typeof input !== type) throw new Error(`Invalid ${type}`);
+  };
+
+  validate(book, 'object');
+  validate(parcel, 'object');
+
+  const { zones, steps, extras, round } = book;
+  const { zone, grams, marks } = parcel;
+
+  validate(zones, 'object');
+  validate(steps, 'object');
+  validate(extras, 'object');
+  validate(round, 'number');
+
+  if (zones == null || !Object.keys(zones).every(k => k && typeof k === 'string')) throw new Error('Invalid zones');
+  if (steps == null || steps.length < 1) throw new Error('Invalid bands');
+  if (!marks.every(m => m && typeof m === 'string')) throw new Error('Invalid marks');
+
+  const bandIndex = steps.findIndex(({ upTo }) => upTo === null || grams <= upTo);
+  if (bandIndex < 0) throw new Error('Parcel weight does not match any band');
+  if (bandIndex > 0 && !steps[bandIndex - 1].upTo) throw new Error('Non-open band must be last');
+
+  const base = steps[bandIndex].cents;
+  let extra = 0;
+
+  for (const mark of marks) {
+    const charge = extras.find(({ mark: m }) => m === mark);
+    if (!charge || charge.zones && !charge.zones.includes(zone)) continue;
+    extra += charge.cents;
+  }
+
+  const total = Math.ceil((base + extra) / round) * round;
+
+  return { band: bandIndex, base, extra, total, applied: marks };
+}
+```

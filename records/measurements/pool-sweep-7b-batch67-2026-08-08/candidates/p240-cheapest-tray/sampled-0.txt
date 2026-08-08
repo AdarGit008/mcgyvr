@@ -1,0 +1,70 @@
+```typescript
+export function cheapestTray(items: any[], bundles: any[], needed: any[]): any {
+    if (items.length > 14) throw Error("More than fourteen things on sale.");
+    const itemMap = new Map<string, { code: string; price: number }>();
+    for (const item of items) {
+        if (itemMap.has(item.code)) throw Error("Shared code between item and bundle.");
+        if (item.price < 1) throw Error("Price below one.");
+        itemMap.set(item.code, { code: item.code, price: item.price });
+    }
+    const bundleMap = new Map<string, { code: string; price: number; holds: string[] }>();
+    for (const bundle of bundles) {
+        if (bundleMap.has(bundle.code)) throw Error("Shared code between item and bundle.");
+        if (bundle.holds.length === 0) throw Error("Bundle holding nothing.");
+        const holdSet = new Set<string>(bundle.holds);
+        if (holdSet.size !== bundle.holds.length) throw Error("Duplicate codes in bundle.");
+        for (const hold of bundle.holds) {
+            if (!itemMap.has(hold)) throw Error("Unknown code in bundle.");
+        }
+        bundleMap.set(bundle.code, { code: bundle.code, price: bundle.price, holds: bundle.holds });
+    }
+    const neededSet = new Set<string>(needed);
+    if (neededSet.size !== needed.length) throw Error("Duplicate required codes.");
+    for (const need of needed) {
+        if (!itemMap.has(need)) throw Error("Required code no item sells.");
+    }
+
+    function canMeetRequirement(requirement: Set<string>): boolean {
+        const remaining = new Set([...requirement]);
+        for (const [code, { holds }] of bundleMap) {
+            if (remaining.size === 0) break;
+            const intersection = new Set([...holds].filter(x => remaining.has(x)));
+            if (intersection.size > 0) {
+                remaining.delete(...intersection);
+            }
+        }
+        return remaining.size === 0;
+    }
+
+    if (!canMeetRequirement(neededSet)) throw Error("Cannot meet the requirement with available items and bundles.");
+
+    const dp: { [key: string]: { total: number; picks: string[] } } = {};
+    dp[""] = { total: 0, picks: [] };
+
+    for (const item of [...itemMap.values()]) {
+        for (const code in dp) {
+            if (!dp.hasOwnProperty(code)) continue;
+            const newCode = `${code},${item.code}`;
+            const newTotal = dp[code].total + item.price;
+            const newPicks = [...dp[code].picks, item.code];
+            if (!dp[newCode] || newTotal < dp[newCode].total) {
+                dp[newCode] = { total: newTotal, picks: newPicks };
+            }
+        }
+    }
+
+    for (const [code, { holds }] of bundleMap) {
+        for (const requirement in dp) {
+            if (!dp.hasOwnProperty(requirement)) continue;
+            const newRequirement = [...requirement.split(","), ...holds].filter(Boolean).join(",");
+            if (!dp[newRequirement] || dp[code].total + dp[requirement].total < dp[newRequirement].total) {
+                dp[newRequirement] = { total: dp[code].total + dp[requirement].total, picks: [...dp[code].picks, ...holds] };
+            }
+        }
+    }
+
+    let minTotal = Infinity;
+    let minPicks: string[] = [];
+    for (const requirement in dp) {
+        if (!dp.hasOwnProperty(requirement)) continue;
+        if

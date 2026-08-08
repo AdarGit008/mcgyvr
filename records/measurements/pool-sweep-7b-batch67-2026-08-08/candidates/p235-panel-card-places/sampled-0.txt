@@ -1,0 +1,51 @@
+```ts
+export function placeCards(panel: { width: number; height: number; bleed: number; cardWidth: number; cardHeight: number; seam: number }, count: number, taken: any[]): number[][] {
+    if (typeof panel.width !== 'number' || typeof panel.height !== 'number' || typeof panel.bleed !== 'number' || typeof panel.cardWidth !== 'number' || typeof panel.cardHeight !== 'number' || typeof panel.seam !== 'number') {
+        throw new Error('Invalid panel dimensions');
+    }
+    if (panel.width <= 0 || panel.height <= 0 || panel.bleed < 0 || panel.cardWidth <= 0 || panel.cardHeight <= 0 || panel.seam < 0) {
+        throw new Error('Panel dimensions must be positive or bleed non-negative');
+    }
+    if (!Number.isInteger(count)) {
+        throw new Error('Count must be a whole number');
+    }
+    if (count < 0) {
+        throw new Error('Count cannot be negative');
+    }
+
+    const printableWidth = panel.width - 2 * panel.bleed;
+    const printableHeight = panel.height - 2 * panel.bleed;
+
+    const columnCount = Math.floor((printableWidth + panel.seam) / (panel.cardWidth + panel.seam));
+    const rowCount = Math.floor((printableHeight + panel.seam) / (panel.cardHeight + panel.seam));
+
+    if (columnCount === 0 || rowCount === 0) {
+        throw new Error('Panel carries no cells');
+    }
+
+    const totalCells = columnCount * rowCount;
+    if (taken.some(cell => cell < 1 || cell > totalCells)) {
+        throw new Error('Taken cell number falls outside the grid');
+    }
+    if (new Set(taken).size !== taken.length) {
+        throw new Error('Duplicate values in taken list');
+    }
+
+    const availableCells = Array.from({ length: totalCells }, (_, i) => i + 1).filter(cell => !taken.includes(cell));
+    if (availableCells.length < count) {
+        throw new Error('Free cells cannot cover the count');
+    }
+
+    const placedCards: number[][] = [];
+    let cellIndex = 0;
+    for (let cell of availableCells.slice(0, count)) {
+        const row = Math.floor((cell - 1) / columnCount);
+        const col = (cell - 1) % columnCount;
+        const x = panel.bleed + col * (panel.cardWidth + panel.seam);
+        const y = panel.bleed + row * (panel.cardHeight + panel.seam);
+        placedCards.push([x, y]);
+    }
+
+    return placedCards;
+}
+```

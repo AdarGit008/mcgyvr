@@ -1,0 +1,49 @@
+```ts
+export function nameTriadStack(marks: number[]): { base: number; name: string } {
+  if (!Array.isArray(marks) || marks.length === 0) {
+    throw new Error("Invalid input");
+  }
+
+  const classes = Array.from(new Set(marks.map(mark => mark % 12))).sort((a, b) => a - b);
+
+  if (classes.length < 3) {
+    return { base: -1, name: "unknown" };
+  }
+
+  const shapes = [
+    [0, 4, 7],
+    [0, 3, 7],
+    [0, 3, 6],
+    [0, 4, 8],
+    [0, 5, 7],
+    [0, 2, 6],
+    [0, 4, 7, 11],
+    [0, 4, 7, 10],
+    [0, 3, 7, 10],
+    [0, 3, 6, 9]
+  ];
+
+  const shapeMap = new Map(shapes.map((shape, index) => [JSON.stringify(shape), index]));
+
+  let base = -1;
+  let name = "unknown";
+
+  for (let i = 0; i < classes.length - 2; i++) {
+    for (let j = i + 1; j < classes.length - 1; j++) {
+      for (let k = j + 1; k < classes.length; k++) {
+        const shape = [classes[i], classes[j] - classes[i], classes[k] - classes[j]].map(x => x % 12).sort((a, b) => a - b);
+        if (shapeMap.has(JSON.stringify(shape))) {
+          const index = shapeMap.get(JSON.stringify(shape))!;
+          if (index < shapes.indexOf([0, 4, 7])) {
+            base = classes[i];
+            name = shapes[index][2] === 11 ? "major seventh" : shapes[index][2] === 10 ? "dominant seventh" : shapes[index][2] === 9 ? "minor seventh" : shapes[index][2] === 6 ? "shrunk seventh" : shapes[index][2] === 7 ? "quartal" : shapes[index][2] === 8 ? "augmented" : shapes[index][2] === 5 ? "narrow" : shapes[index][2] === 4 ? "major" : shapes[index][2] === 3 ? "minor" : shapes[index][2] === 2 ? "narrow" : "unknown";
+            return { base, name };
+          }
+        }
+      }
+    }
+  }
+
+  return { base, name };
+}
+```

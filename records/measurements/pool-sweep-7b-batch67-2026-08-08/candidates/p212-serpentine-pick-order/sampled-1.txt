@@ -1,0 +1,37 @@
+```ts
+export function serpentinePickOrder(picks: unknown): string[] {
+  if (!Array.isArray(picks)) {
+    throw new Error('Input must be an array');
+  }
+  const validPicks = picks.filter((pick) => {
+    if (typeof pick !== 'object' || pick === null) return false;
+    const { sku, aisle, bay } = pick as { sku: unknown; aisle: unknown; bay: unknown };
+    if (typeof sku !== 'string' || sku.trim() === '') return false;
+    if (typeof aisle !== 'number' || aisle <= 0 || !Number.isInteger(aisle)) return false;
+    if (typeof bay !== 'number' || bay <= 0 || !Number.isInteger(bay)) return false;
+    return true;
+  });
+  const skuSet = new Set<string>();
+  for (const pick of validPicks) {
+    if (skuSet.has((pick as { sku: string }).sku)) {
+      throw new Error('Duplicate SKU found');
+    }
+    skuSet.add((pick as { sku: string }).sku);
+  }
+  const sortedPicks = [...validPicks].sort((a, b) => a.sku.localeCompare(b.sku));
+  const result: string[] = [];
+  for (const pick of sortedPicks) {
+    const { sku, aisle, bay } = pick as { sku: string; aisle: number; bay: number };
+    if (aisle % 2 === 1) {
+      result.push(sku);
+    }
+  }
+  for (let i = sortedPicks.length - 1; i >= 0; i--) {
+    const { sku, aisle, bay } = sortedPicks[i] as { sku: string; aisle: number; bay: number };
+    if (aisle % 2 === 0) {
+      result.push(sku);
+    }
+  }
+  return result;
+}
+```

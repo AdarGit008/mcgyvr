@@ -1,0 +1,18 @@
+```ts
+export function costBasisReport(events: unknown[][]): { fifoSold: number; averageSold: number; unitsLeft: number; fifoValue: number; averageValue: number } {
+    if (!Array.isArray(events)) throw new Error("Argument must be a list");
+
+    let fifoUnits = 0;
+    let fifoCost = 0;
+    let averageUnits = 0;
+    let averageCost = 0;
+
+    const fifoSold = 0;
+    const averageSold = 0;
+    const unitsLeft = 0;
+    const fifoValue = 0;
+    const averageValue = 0;
+
+    return { fifoSold, averageSold, unitsLeft, fifoValue, averageValue };
+}
+```

@@ -1,0 +1,45 @@
+```ts
+export function routeLogRecords(
+  rules: Array<Record<string, unknown>>,
+  records: Array<Record<string, unknown>>,
+  spare: string,
+): Array<Record<string, unknown>> {
+  const levelOrder = ["trace", "debug", "info", "warn", "error", "fatal"];
+  const validLevels = new Set(levelOrder);
+
+  // Validate input
+  if (!Array.isArray(rules) || !Array.isArray(records)) throw new Error("Rules and records must be arrays.");
+  if (typeof spare !== "string" || spare.trim() === "") throw new Error("Spare sink must be a non-empty string.");
+
+  const ruleSet = rules.map(rule => {
+    if (typeof rule !== "object" || rule === null) throw new Error("Rule must be an object.");
+    const { sink, least, tag, stop } = rule;
+    if (typeof sink !== "string" || sink.trim() === "") throw new Error("Sink must be a non-empty string.");
+    if (!validLevels.has(least)) throw new Error(`Invalid level: ${least}`);
+    if (typeof tag !== "string") throw new Error("Tag must be a string.");
+    if (stop !== true && stop !== false) throw new Error("Stop must be a boolean.");
+    return { sink, least, tag, stop };
+  });
+
+  const result = records.map((record, index) => {
+    if (typeof record !== "object" || record === null) throw new Error("Record must be an object.");
+    const { level, tag } = record;
+    if (!validLevels.has(level)) throw new Error(`Invalid level: ${level}`);
+    if (typeof tag !== "string") throw new Error("Tag must be a string.");
+
+    const addedSinks = new Set<string>();
+    for (const rule of ruleSet) {
+      if (levelOrder.indexOf(rule.least) <= levelOrder.indexOf(level) && (rule.tag === "" || rule.tag === tag)) {
+        if (!addedSinks.has(rule.sink)) {
+          addedSinks.add(rule.sink);
+        }
+        if (rule.stop) break;
+      }
+    }
+
+    return { at: index, sinks: Array.from(addedSinks) };
+  });
+
+  return result;
+}
+```

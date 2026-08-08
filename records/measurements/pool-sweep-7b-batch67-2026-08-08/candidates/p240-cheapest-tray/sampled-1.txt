@@ -1,0 +1,68 @@
+```ts
+export function cheapestTray(items: {code: string, price: number}[], bundles: {code: string, price: number, holds: string[]}[], needed: string[]): {total: number, picks: string[]} {
+  if (needed.length > 14) throw new Error("More than fourteen things on sale");
+
+  const itemMap = new Map<string, {price: number}>();
+  for (const item of items) {
+    if (item.price < 1) throw new Error("Price below one");
+    if (itemMap.has(item.code)) throw new Error("Code shared by two things on sale");
+    itemMap.set(item.code, {price: item.price});
+  }
+
+  const bundleMap = new Map<string, {price: number, holds: Set<string>}>();
+  for (const bundle of bundles) {
+    if (bundle.price < 1) throw new Error("Price below one");
+    if (!bundle.holds.length) throw new Error("Bundle holding nothing");
+    const holdSet = new Set(bundle.holds);
+    for (const code of bundle.holds) {
+      if (!itemMap.has(code)) throw new Error("Bundle holding an unknown code");
+      holdSet.delete(code); // Ensure no duplicate codes in the holds array
+    }
+    if (holdSet.size !== bundle.holds.length - 1) throw new Error("Duplicate codes in the holds array");
+    bundleMap.set(bundle.code, {price: bundle.price, holds: holdSet});
+  }
+
+  const required = new Set(needed);
+  for (const code of needed) {
+    if (!itemMap.has(code)) throw new Error("Required code no item sells");
+    if (required.has(code) && Array.from(required).indexOf(code) !== Array.from(required).lastIndexOf(code)) throw new Error("Code required twice");
+  }
+
+  const dp = Array(needed.length + 1).fill(null).map(() => ({total: Infinity, picks: [] as string[]}));
+  dp[0] = {total: 0, picks: []};
+
+  for (let i = 1; i <= needed.length; i++) {
+    dp[i] = {total: dp[i - 1].total, picks: [...dp[i - 1].picks]};
+    for (const item of items) {
+      if (needed.includes(item.code)) {
+        const cost = dp[i - 1].total + item.price;
+        if (cost < dp[i].total) {
+          dp[i] = {total: cost, picks: [...dp[i - 1].picks, item.code]};
+        }
+      }
+    }
+
+    for (const bundle of bundles) {
+      const holdSet = bundleMap.get(bundle.code).holds;
+      let valid = true;
+      const picksCopy = [...dp[i - 1].picks];
+      for (const code of holdSet) {
+        if (!needed.includes(code)) {
+          valid = false;
+          break;
+        }
+        picksCopy.push(code);
+      }
+
+      if (valid) {
+        const cost = dp[i - 1].total + bundle.price;
+        if (cost < dp[i].total || (cost === dp[i].total && picksCopy.length < dp[i].picks.length)) {
+          dp[i] = {total: cost, picks: [...new Set(picksCopy)].sort()};
+        }
+      }
+    }
+  }
+
+  return dp[needed.length];
+}
+```

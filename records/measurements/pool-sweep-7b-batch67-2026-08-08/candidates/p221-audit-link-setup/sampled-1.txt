@@ -1,0 +1,78 @@
+```ts
+/**
+ * The first record of a link setup that departs from the drill.
+ */
+export function auditLinkSetup(exchange: Record<string, unknown>[]): string {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid input: Must be a non-empty array.");
+  }
+
+  const script = [
+    ["caller", "PROBE"],
+    ["listener", "READY"],
+    ["caller", "KEY"],
+    ["listener", "SEAL"],
+  ];
+  let at = 0;
+  const counterPattern = /^(PING|CLOSE)@(\d+)$/;
+
+  for (const record of exchange) {
+    if (typeof record !== "object" || record === null) {
+      throw new Error("Invalid input: Each item must be a mapping.");
+    }
+
+    const side = record.side as string;
+    const verb = record.verb as string;
+    let seq: number;
+
+    try {
+      seq = Number(record.seq);
+    } catch {
+      throw new Error("Invalid input: Each record must have a whole number for 'seq'.");
+    }
+
+    if (at < script.length) {
+      if (side !== script[at][0] || verb !== script[at][1]) {
+        return verb + "@" + at;
+      }
+      at += 1;
+      continue;
+    }
+
+    const isCaller = side === "caller";
+    const isListener = side === "listener";
+
+    switch (verb) {
+      case "PING":
+      case "CLOSE":
+        if (!isCaller || !counterPattern.test(verb)) {
+          return verb + "@" + at;
+        }
+        break;
+      case "PONG":
+      case "CLOSE":
+        if (!isListener || !counterPattern.test(verb)) {
+          return verb + "@" + at;
+        }
+        break;
+      default:
+        throw new Error("Invalid input: Verb must be one of PROBE, READY, KEY, SEAL, PING, PONG, or CLOSE.");
+    }
+
+    const [, , counterStr] = verb.split("@");
+    const currentCounter = parseInt(counterStr, 10);
+
+    if (isCaller && seq !== currentCounter + 1) {
+      return verb + "@" + at;
+    } else if (isListener && seq !== currentCounter) {
+      return verb + "@" + at;
+    }
+  }
+
+  if (at === script.length) {
+    return "short";
+  }
+
+  return "";
+}
+```

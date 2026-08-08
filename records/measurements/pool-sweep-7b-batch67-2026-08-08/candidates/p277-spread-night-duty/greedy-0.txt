@@ -1,0 +1,53 @@
+```ts
+export function spreadNightDuty(
+  crew: string[],
+  weights: number[],
+  away: string[][],
+): string[] {
+  if (crew.length === 0) throw new Error("Crew cannot be empty");
+  if (new Set(crew).size !== crew.length) throw new Error("Crew must have unique names");
+  for (const name of crew) {
+    if (typeof name !== "string" || name.trim() === "") throw new Error("Crew names must be non-empty strings");
+  }
+  if (weights.length === 0) throw new Error("Weights cannot be empty");
+  for (const weight of weights) {
+    if (weight !== 1 && weight !== 2) throw new Error("Weights must be either 1 or 2");
+  }
+  if (away.length !== weights.length) throw new Error("Away list must match the number of nights");
+  for (const awayList of away) {
+    if (!Array.isArray(awayList)) throw new Error("Each away entry must be a list");
+    for (const name of awayList) {
+      if (typeof name !== "string" || name.trim() === "") throw new Error("Away names must be non-empty strings");
+      if (!crew.includes(name)) throw new Error("Away names must be in the crew");
+    }
+  }
+
+  const stood = new Map<string, { weight: number; nights: number }>();
+  for (const name of crew) {
+    stood.set(name, { weight: 0, nights: 0 });
+  }
+  const nights: string[] = [];
+  let previous = "";
+  for (let night = 0; night < weights.length; night++) {
+    let chosen = "";
+    for (const [name, { weight, nights }] of stood) {
+      if (away[night].includes(name) || name === previous) {
+        continue;
+      }
+      if (chosen === "" || weight < stood.get(chosen)!.weight || (weight === stood.get(chosen)!.weight && crew.indexOf(name) < crew.indexOf(chosen))) {
+        chosen = name;
+      }
+    }
+    if (chosen === "") {
+      nights.push("?");
+      previous = "";
+      continue;
+    }
+    const { weight, nights: workedNights } = stood.get(chosen)!;
+    stood.set(chosen, { weight: weight + weights[night], nights: workedNights + 1 });
+    nights.push(chosen);
+    previous = chosen;
+  }
+  return nights;
+}
+```

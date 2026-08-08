@@ -1,0 +1,43 @@
+```ts
+export function codeOpenAnswers(rules: Array<Record<string, unknown>>, answers: string[]): Record<string, unknown> {
+    // Validate input
+    if (!Array.isArray(rules) || rules.length === 0) throw new Error("Rules must be a non-empty list");
+    for (const rule of rules) {
+        if (typeof rule !== "object" || rule === null) throw new Error("Rule must be a mapping");
+        const { code, phrase } = rule;
+        if (typeof code !== "string" || code.length === 0) throw new Error("Code must be a non-empty string");
+        if (typeof phrase !== "string" || !/^[a-z\d ]+$/.test(phrase)) throw new Error("Phrase must be shaped as described");
+    }
+    const seenPhrases = new Set<string>();
+    for (const rule of rules) {
+        const { phrase } = rule;
+        if (seenPhrases.has(phrase)) throw new Error("Two rules may not share a phrase");
+        seenPhrases.add(phrase);
+    }
+    if (!Array.isArray(answers)) throw new Error("Answers must be a list");
+    for (const answer of answers) {
+        if (typeof answer !== "string") throw new Error("Answer must be a string");
+    }
+
+    // Process rules and answers
+    const tally: Record<string, number> = {};
+    const loose: string[] = [];
+    for (const rule of rules) {
+        const { code, phrase } = rule;
+        const phraseWords = phrase.split(" ").filter(Boolean);
+        for (let i = 0; i < answers.length; i++) {
+            let answer = answers[i];
+            answer = answer.toLowerCase().replace(/[^a-z\d]+/g, " ").trim();
+            if (phraseWords.every(word => answer.includes(word))) {
+                tally[code] = (tally[code] || 0) + 1;
+                answers[i] = "";
+            }
+        }
+    }
+    for (const answer of answers) {
+        if (answer.trim()) loose.push(answer);
+    }
+
+    return { tally, loose };
+}
+```

@@ -1,0 +1,45 @@
+```ts
+interface MealOption {
+  code: string;
+  price: number;
+}
+
+interface SetMealResult {
+  total: number;
+  picks: string[];
+}
+
+export function buildSetMeal(courses: { options: MealOption[] }[], quarrels: [string, string][]): SetMealResult {
+  if (courses.length === 0 || courses.some(course => course.options.length === 0) || courses.length > 6 || courses.some(course => course.options.length > 6)) throw new Error("Invalid courses");
+  const allCodes = new Set(courses.flatMap(course => course.options.map(option => option.code)));
+  if (allCodes.size !== courses.flat().length) throw new Error("Duplicate codes");
+  if (quarrels.some(([code1, code2]) => code1 === code2 || !allCodes.has(code1) || !allCodes.has(code2))) throw new Error("Invalid quarrel");
+
+  const allTrays = generateCombinations(courses.map(course => course.options));
+  const validTrays = allTrays.filter(tray => tray.every((option, index) => !quarrels.some(([code1, code2]) => option.code === code1 && trays[index].find(opt => opt.code === code2))));
+
+  if (validTrays.length === 0) throw new Error("No valid tray");
+
+  const sortedTrays = validTrays.sort((tray1, tray2) => {
+    const priceDiff = tray1.reduce((acc, option) => acc + option.price, 0) - tray2.reduce((acc, option) => acc + option.price, 0);
+    if (priceDiff !== 0) return priceDiff;
+    for (let i = 0; i < tray1.length; i++) {
+      const codeDiff = tray1[i].code.localeCompare(tray2[i].code);
+      if (codeDiff !== 0) return codeDiff;
+    }
+    return 0;
+  });
+
+  const bestTray = sortedTrays[0];
+  return { total: bestTray.reduce((acc, option) => acc + option.price, 0), picks: bestTray.map(option => option.code) };
+}
+
+function generateCombinations(options: MealOption[][]): MealOption[][] {
+  if (options.length === 1) return options[0].map(option => [option]);
+  const combinations = [];
+  for (const option of options[0]) {
+    combinations.push(...generateCombinations(options.slice(1)).map(subCombination => [option, ...subCombination]));
+  }
+  return combinations;
+}
+```

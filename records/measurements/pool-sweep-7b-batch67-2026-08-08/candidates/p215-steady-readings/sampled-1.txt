@@ -1,0 +1,57 @@
+```typescript
+/**
+ * Determines the steady readings from a sequence of gauge readings based on a challenge specification.
+ * @param readings - An array of non-empty list of whole number gauge readings.
+ * @param spec - A mapping with "band" (non-negative whole number) and "hold" (positive whole number).
+ * @returns An object containing the settled steady figure and moved positions where it changed.
+ */
+export function steadyReadings(readings: unknown, spec: unknown): Record<string, any> {
+  if (!Array.isArray(readings) || readings.length === 0) {
+    throw new Error("Readings must be a non-empty list of whole numbers.");
+  }
+  if (typeof spec !== "object" || spec === null) {
+    throw new Error("Spec must be an object.");
+  }
+  const { band, hold } = spec;
+  if (typeof band !== "number" || band < 0 || !Number.isInteger(band)) {
+    throw new Error("Band must be a non-negative whole number.");
+  }
+  if (typeof hold !== "number" || hold <= 0 || !Number.isInteger(hold)) {
+    throw new Error("Hold must be a positive whole number.");
+  }
+
+  const settled: number[] = [];
+  const moved: number[] = [readings[0]];
+  let steady = readings[0];
+  let challengeStart: number | null = null;
+
+  for (let i = 1; i < readings.length; i++) {
+    const reading = readings[i] as number;
+    if (!Number.isInteger(reading)) {
+      throw new Error("All readings must be whole numbers.");
+    }
+
+    if (Math.abs(reading - steady) <= band) {
+      // Quiet reading: drop any open challenge and leave the steady figure alone
+      challengeStart = null;
+    } else {
+      if (challengeStart !== null && Math.abs(reading - challenges[challengeStart]) <= band) {
+        // Noisy reading within band of current challenge: extend the challenge
+      } else {
+        // Noisy reading outside band of current challenge: close old, start new
+        if (challenges[challengeStart] >= hold) {
+          steady = challenges[challengeStart];
+        }
+        challengeStart = i;
+      }
+    }
+
+    settled.push(steady);
+    if (steady !== readings[i]) {
+      moved.push(i);
+    }
+  }
+
+  return { settled, moved };
+}
+```

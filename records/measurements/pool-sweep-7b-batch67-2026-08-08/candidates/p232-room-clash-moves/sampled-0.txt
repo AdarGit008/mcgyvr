@@ -1,0 +1,60 @@
+```typescript
+/**
+ * Moves bookings to minimize overlap with fixed bookings.
+ * @param bookings - List of booking records.
+ * @returns Array of ids of moved bookings.
+ */
+export function planRoomMoves(bookings: any[]): string[] {
+    const errors = [];
+    const result: string[] = [];
+
+    // Validate input
+    for (const [index, booking] of bookings.entries()) {
+        if (
+            typeof booking !== 'object' ||
+            !booking ||
+            typeof booking.id !== 'string' ||
+            typeof booking.start !== 'number' ||
+            typeof booking.end !== 'number' ||
+            typeof booking.fixed !== 'boolean'
+        ) {
+            errors.push(`Invalid booking at index ${index}`);
+        }
+        if (booking.start >= booking.end) {
+            errors.push(`Booking start must be strictly below end at index ${index}`);
+        }
+    }
+
+    if (errors.length > 0) {
+        throw new Error(errors.join(', '));
+    }
+
+    // Separate fixed and movable bookings
+    const fixed = bookings.filter(b => b.fixed);
+    const movable = bookings.filter(b => !b.fixed);
+
+    // Check for overlapping fixed bookings
+    for (const [i, f1] of fixed.entries()) {
+        for (const [j, f2] of fixed.entries()) {
+            if (i !== j && Math.max(f1.start, f2.start) < Math.min(f1.end, f2.end)) {
+                throw new Error('Overlapping fixed bookings detected');
+            }
+        }
+    }
+
+    // Sort movable bookings by end, start, id
+    movable.sort((a, b) => a.end - b.end || a.start - b.start || (a.id < b.id ? -1 : 1));
+
+    // Place each booking and track moved ones
+    let lastEndTime = -Infinity;
+    for (const booking of [...fixed, ...movable]) {
+        if (booking.start >= lastEndTime) {
+            lastEndTime = booking.end;
+        } else {
+            result.push(booking.id);
+        }
+    }
+
+    return result;
+}
+```

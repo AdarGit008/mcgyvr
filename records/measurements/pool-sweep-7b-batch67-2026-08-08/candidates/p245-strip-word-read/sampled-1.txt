@@ -1,0 +1,48 @@
+```ts
+export function decodeBitRun(codebook: any, strip: string): string[] {
+  if (typeof codebook !== 'object' || codebook === null) throw new Error('Codebook must be an object');
+  if (!Object.keys(codebook).length) throw new Error('Codebook cannot be empty');
+  if (typeof strip !== 'string') throw new Error('Strip must be a string');
+
+  const words = Object.keys(codebook);
+  const marks = Object.values(codebook);
+
+  for (const word of words) {
+    if (!/^[a-z]+$/.test(word)) throw new Error('All keys in the codebook must be non-empty strings of lowercase letters');
+  }
+
+  for (const mark of marks) {
+    if (!/^[01]+$/.test(mark)) throw new Error('All values in the codebook must be non-empty strings of 0 and 1 only');
+  }
+
+  const uniqueMarks = new Set(marks);
+  if (uniqueMarks.size !== marks.length) throw new Error('No two words can have the same mark');
+
+  for (let i = 0; i < marks.length; i++) {
+    for (let j = i + 1; j < marks.length; j++) {
+      if (marks[j].startsWith(marks[i])) throw new Error('A word\'s mark cannot be the opening stretch of another word\'s mark');
+    }
+  }
+
+  const result: string[] = [];
+  let index = 0;
+
+  while (index < strip.length) {
+    let matchLength = 0;
+    for (const word of words) {
+      if (strip.startsWith(word, index)) {
+        if (matchLength === 0 || word.length > matchLength) {
+          matchLength = word.length;
+        }
+      }
+    }
+
+    if (matchLength === 0) throw new Error('The reading runs off the end of the strip with characters left over that finish no word\'s mark');
+
+    result.push(words.find(word => strip.startsWith(word, index))!);
+    index += matchLength;
+  }
+
+  return result;
+}
+```

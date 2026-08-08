@@ -1,0 +1,52 @@
+```ts
+/** Codes a sheet of written-in answers against its ordered steps. */
+export function recodeAnswerSheet(sheet: Record<string, unknown>): Record<string, unknown> {
+  // Validate input structure and data types
+  if (typeof sheet !== 'object' || sheet === null) throw new Error('Invalid sheet');
+  if (!Array.isArray(sheet.steps) || sheet.steps.length === 0) throw new Error('Steps must be a non-empty array');
+  if (!Array.isArray(sheet.entries)) throw new Error('Entries must be an array');
+
+  const steps = sheet.steps.map((step: any, index: number) => {
+    if (typeof step !== 'object' || step === null) throw new Error(`Step at index ${index} is invalid`);
+    if (typeof step.label !== 'string' || step.label.trim() === '' || /[^a-z]/.test(step.label)) throw new Error(`Label in step at index ${index} must be a non-empty string with no capital letters`);
+    if (!Array.isArray(step.wanted) || !step.wanted.length) throw new Error(`Wanted fragments in step at index ${index} must be a non-empty array of non-empty strings with no capital letters or duplicates`);
+    if (step.barred && (!Array.isArray(step.barred) || step.barred.some((frag: any) => typeof frag !== 'string' || frag.trim() === '' || /[^a-z]/.test(frag)))) throw new Error(`Barred fragments in step at index ${index} must be an array of non-empty strings with no capital letters or duplicates`);
+    if (typeof step.least !== 'number' || step.least < 1 || !Number.isInteger(step.least) || step.least > step.wanted.length) throw new Error(`Least value in step at index ${index} must be a whole number between 1 and the length of wanted fragments`);
+    return { ...step, label: step.label.toLowerCase() };
+  });
+
+  const entries = sheet.entries.map((entry: any, index: number) => {
+    if (typeof entry !== 'object' || entry === null) throw new Error(`Entry at index ${index} is invalid`);
+    if (typeof entry.id !== 'string' || entry.id.trim() === '') throw new Error(`ID in entry at index ${index} must be a non-empty string`);
+    if (typeof entry.text !== 'string') throw new Error(`Text in entry at index ${index} must be a string`);
+    return { ...entry, id: entry.id.toLowerCase(), text: entry.text.trim().replace(/\s+/g, ' ').toLowerCase() };
+  });
+
+  const coded: any[] = [];
+  const loose: string[] = [];
+  const used = new Set<string>();
+
+  for (const entry of entries) {
+    let label = "";
+    for (const step of steps) {
+      const hits = step.wanted.filter((frag: string) => entry.text.includes(frag));
+      if (hits.length >= step.least && !step.barred.some((frag: any) => entry.text.includes(frag))) {
+        label = step.label;
+        break;
+      }
+    }
+    if (label === "") {
+      loose.push(entry.id);
+    } else {
+      coded.push({ id: entry.id, label });
+      used.add(label);
+    }
+  }
+
+  const unused = steps
+    .map((step: any) => step.label)
+    .filter((label: string) => !used.has(label));
+
+  return { coded, loose, unused };
+}
+```

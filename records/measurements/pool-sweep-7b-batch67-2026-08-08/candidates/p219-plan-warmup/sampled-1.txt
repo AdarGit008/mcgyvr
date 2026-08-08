@@ -1,0 +1,76 @@
+```ts
+export function planWarmup(brief: Record<string, unknown>): Record<string, unknown> {
+  const { budget, slots, caps, items } = brief;
+
+  if (typeof budget !== 'number' || budget < 0 || !Number.isInteger(budget)) {
+    throw new Error('Invalid budget');
+  }
+  if (typeof slots !== 'number' || slots <= 0 || !Number.isInteger(slots)) {
+    throw new Error('Invalid slots');
+  }
+  if (typeof caps !== 'object' || caps === null) {
+    throw new Error('Invalid caps');
+  }
+  if (!Array.isArray(items)) {
+    throw new Error('Invalid items');
+  }
+
+  const itemMap = new Map<string, typeof items[0]>();
+  for (const item of items) {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error('Invalid item');
+    }
+    if (typeof item.name !== 'string' || item.name.trim() === '') {
+      throw new Error('Invalid name');
+    }
+    if (itemMap.has(item.name)) {
+      throw new Error('Duplicate name');
+    }
+    if (typeof item.bytes !== 'number' || item.bytes <= 0 || !Number.isInteger(item.bytes)) {
+      throw new Error('Invalid bytes');
+    }
+    if (typeof item.weight !== 'number' || item.weight < 0 || !Number.isInteger(item.weight)) {
+      throw new Error('Invalid weight');
+    }
+    if (typeof item.family !== 'string' || item.family.trim() === '') {
+      throw new Error('Invalid family');
+    }
+    if (!(item.family in caps) || typeof caps[item.family] !== 'number' || caps[item.family] < 0 || !Number.isInteger(caps[item.family])) {
+      throw new Error('Invalid cap');
+    }
+    itemMap.set(item.name, item);
+  }
+
+  const sortedItems = [...items].sort((a, b) => {
+    if (b.weight !== a.weight) return b.weight - a.weight;
+    if (a.bytes !== b.bytes) return a.bytes - b.bytes;
+    return a.name.localeCompare(b.name);
+  });
+
+  const loaded: string[] = [];
+  const spare: number = budget;
+  const turned: { name: string; why: string }[] = [];
+
+  for (const item of sortedItems) {
+    if (slots === 0) {
+      turned.push({ name: item.name, why: 'slots' });
+      continue;
+    }
+    if (caps[item.family] <= 0) {
+      turned.push({ name: item.name, why: 'family' });
+      continue;
+    }
+    if (item.bytes > spare) {
+      turned.push({ name: item.name, why: 'bytes' });
+      continue;
+    }
+
+    loaded.push(item.name);
+    slots--;
+    caps[item.family]--;
+    spare -= item.bytes;
+  }
+
+  return { loaded, spare, turned };
+}
+```

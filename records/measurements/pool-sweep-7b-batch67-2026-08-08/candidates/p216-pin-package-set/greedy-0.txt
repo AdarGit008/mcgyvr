@@ -1,0 +1,61 @@
+```ts
+export function pinPackageSet(plan: Record<string, unknown>): Record<string, unknown> {
+  const shelf = plan.shelf as Record<string, string[]>;
+  const needs = plan.needs as Record<string, { name: string; from: string; under: string }[]>;
+  const root = plan.root as string[];
+
+  if (typeof shelf !== 'object' || shelf === null) throw new Error('shelf must be a mapping');
+  if (typeof needs !== 'object' || needs === null) throw new Error('needs must be a mapping');
+  if (!Array.isArray(root)) throw new Error('root must be a list');
+
+  for (const [pkg, versions] of Object.entries(shelf)) {
+    if (!Array.isArray(versions) || versions.length === 0) throw new Error(`shelf[${pkg}] must be a non-empty list`);
+    const versionSet = new Set(versions);
+    if (versionSet.size !== versions.length) throw new Error(`shelf[${pkg}] must contain distinct versions`);
+    for (const version of versions) {
+      if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error(`shelf[${pkg}][${version}] is not a well-formed version string`);
+    }
+  }
+
+  for (const [pkg, wants] of Object.entries(needs)) {
+    if (!(pkg in shelf)) throw new Error(`needs[${pkg}] references a package not stocked on the shelf`);
+    if (!Array.isArray(wants)) throw new Error(`needs[${pkg}] must be a list`);
+    for (const want of wants) {
+      if (typeof want !== 'object' || want === null) throw new Error(`needs[${pkg}][${want.name}] must be a mapping`);
+      if (!(want.name in shelf)) throw new Error(`needs[${pkg}][${want.name}] references a package not stocked on the shelf`);
+      if (!/^\d+\.\d+\.\d+$/.test(want.from) || !/^\d+\.\d+\.\d+$/.test(want.under)) {
+        throw new Error(`needs[${pkg}][${want.name}].from and needs[${pkg}][${want.name}].under must be well-formed version strings`);
+      }
+      if (want.from >= want.under) throw new Error(`needs[${pkg}][${want.name}].from must be strictly below needs[${pkg}][${want.name}].under`);
+    }
+  }
+
+  for (const want of root) {
+    if (!(want in shelf)) throw new Error(`root references a package not stocked on the shelf`);
+  }
+
+  const queue: { name: string; from: string; under: string }[] = [...root];
+  const reached = new Set<string>();
+  const picked: Record<string, string> = {};
+  const stuck: string[] = [];
+
+  while (queue.length > 0) {
+    const want = queue.shift()!;
+    if (!reached.has(want.name)) {
+      reached.add(want.name);
+      for (const version of shelf[want.name]) {
+        if (version > want.from && version < want.under) {
+          picked[want.name] = version;
+          break;
+        }
+      }
+      if (!(want.name in needs)) continue;
+      queue.push(...needs[want.name]);
+    } else {
+      stuck.push(want.name);
+    }
+  }
+
+  return { picked, stuck };
+}
+```

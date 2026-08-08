@@ -1,0 +1,94 @@
+```ts
+/** Where each ruled library should land. */
+export function chooseUpgrades(
+  request: Record<string, unknown>
+): Record<string, unknown> {
+  const installed = request.installed as Record<string, string>;
+  const offers = request.offers as Record<string, string[]>;
+  const rules = request.rules as any[];
+  
+  if (typeof installed !== 'object' || installed === null) {
+    throw new Error('installed must be a mapping');
+  }
+  if (typeof offers !== 'object' || offers === null) {
+    throw new Error('offers must be a mapping');
+  }
+  if (!Array.isArray(rules)) {
+    throw new Error('rules must be a list');
+  }
+
+  const floors = new Map<string, string>();
+  const ceilings = new Map<string, string>();
+
+  for (const rule of rules) {
+    if (typeof rule !== 'object' || rule === null) {
+      throw new Error('rule must be a mapping');
+    }
+    if (typeof rule.package !== 'string') {
+      throw new Error('rule.package must be a string');
+    }
+    if (typeof rule.min !== 'string') {
+      throw new Error('rule.min must be a string');
+    }
+    if (typeof rule.max !== 'string') {
+      throw new Error('rule.max must be a string');
+    }
+
+    const low = floors.get(rule.package);
+    if (low === undefined || compareReleases(rule.min, low) > 0) {
+      floors.set(rule.package, rule.min);
+    }
+    const high = ceilings.get(rule.package);
+    if (high === undefined || compareReleases(rule.max, high) < 0) {
+      ceilings.set(rule.package, rule.max);
+    }
+
+    if (!offers[rule.package] || !Array.isArray(offers[rule.package]) || offers[rule.package].length === 0) {
+      throw new Error(`offers for ${rule.package} must be a non-empty list of distinct releases`);
+    }
+    for (const release of offers[rule.package]) {
+      if (typeof release !== 'string') {
+        throw new Error('release must be a string');
+      }
+      if (!isValidRelease(release)) {
+        throw new Error(`invalid release: ${release}`);
+      }
+    }
+
+    const minRelease = offers[rule.package].find(release => compareReleases(release, rule.min) >= 0);
+    if (minRelease === undefined || compareReleases(minRelease, rule.max) > 0) {
+      throw new Error('no valid release within the bounds');
+    }
+  }
+
+  const moves: Record<string, string>[] = [];
+  const snags: Record<string, string>[] = [];
+
+  for (const name of Array.from(floors.keys()).sort()) {
+    const low = floors.get(name) as string;
+    const high = ceilings.get(name) as string;
+    const allowed = offers[name].filter(
+      (release) => compareReleases(release, low) >= 0 && compareReleases(release, high) <= 0
+    );
+
+    if (allowed.length === 0) {
+      snags.push({ package: name, why: "none" });
+      continue;
+    }
+
+    const here = installed[name];
+    if (here !== undefined && allowed.includes(here)) {
+      moves.push({ package: name, to: here, action: "hold" });
+      continue;
+    }
+
+    allowed.sort(compareReleases);
+    const best = allowed[allowed.length - 1];
+    moves.push({
+      package: name,
+      to: best,
+      action: here === undefined ? "fetch" : "lift",
+    });
+  }
+
+  return { moves, snags

@@ -1,0 +1,37 @@
+```ts
+export function writeSenaryTail(numerator: number, denominator: number): string {
+    if (!Number.isInteger(numerator) || numerator <= 0) {
+        throw new Error("Numerator must be a positive integer.");
+    }
+    if (denominator < 1 || denominator > 10000 || !Number.isInteger(denominator)) {
+        throw new Error("Denominator must be an integer between 1 and 10000.");
+    }
+    if (numerator >= denominator) {
+        throw new Error("Numerator must be smaller than the denominator.");
+    }
+
+    let result = [];
+    while (numerator > 0) {
+        numerator *= 6;
+        result.push(numerator % 6);
+    }
+
+    const uniqueMarks = [...new Set(result)].sort((a, b) => a - b);
+    if (uniqueMarks.length === 1) {
+        return "0";
+    }
+
+    let fenceIndex = 0;
+    while (fenceIndex < uniqueMarks.length && result.indexOf(uniqueMarks[fenceIndex]) > 0) {
+        fenceIndex++;
+    }
+    const fenceStart = fenceIndex;
+
+    const marksString = result.map(mark => mark.toString().padStart(2, '0')).join('');
+    if (fenceStart === 0) {
+        return `${marksString}`;
+    } else {
+        return `|${marksString.slice(fenceStart)}|`;
+    }
+}
+```

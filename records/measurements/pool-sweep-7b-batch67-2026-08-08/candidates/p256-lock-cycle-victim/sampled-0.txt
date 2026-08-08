@@ -1,0 +1,91 @@
+```ts
+/**
+ * Determines the deadlock victim and cycle in a lock manager.
+ * @param holds - List of [resource, worker] pairs for granted locks.
+ * @param blocked - List of [worker, resource] pairs for blocked requests.
+ * @returns A record with the victim's name and an array representing the cycle.
+ */
+export function lockCycleVictim(holds: string[][], blocked: string[][]): { victim: string; cycle: string[] } {
+    if (!Array.isArray(holds) || !Array.isArray(blocked)) {
+        throw new Error("Both arguments must be arrays.");
+    }
+
+    const resourceToWorker = new Map<string, string>();
+    const workerBlockedOn = new Map<string, Set<string>>();
+    const workerHolding = new Map<string, Set<string>>();
+
+    // Validate and populate the maps
+    holds.forEach(([resource, worker]) => {
+        if (typeof resource !== 'string' || typeof worker !== 'string') {
+            throw new Error("All names must be strings.");
+        }
+        if (!resource || !worker) {
+            throw new Error("No empty strings allowed.");
+        }
+        if (resourceToWorker.has(resource)) {
+            throw new Error("A resource cannot be held by two workers.");
+        }
+        resourceToWorker.set(resource, worker);
+        workerHolding.set(worker, (workerHolding.get(worker) || new Set()).add(resource));
+    });
+
+    blocked.forEach(([worker, resource]) => {
+        if (typeof resource !== 'string' || typeof worker !== 'string') {
+            throw new Error("All names must be strings.");
+        }
+        if (!resource || !worker) {
+            throw new Error("No empty strings allowed.");
+        }
+        if (workerHolding.has(worker) && workerHolding.get(worker).has(resource)) {
+            throw new Error("A worker cannot be blocked on a resource it already holds.");
+        }
+        if (!blocked.some(([w, r]) => w === worker && r === resource && w !== r)) {
+            throw new Error("Blocked pairs must be exactly two entries.");
+        }
+        workerBlockedOn.set(worker, (workerBlockedOn.get(worker) || new Set()).add(resource));
+    });
+
+    // Find the cycle
+    const visited = new Set<string>();
+    let victim = "";
+    let cycle: string[] = [];
+
+    function dfs(worker: string): boolean {
+        if (!visited.has(worker)) {
+            visited.add(worker);
+            const resource = workerBlockedOn.get(worker)?.values().next().value;
+            if (resource && resourceToWorker.has(resource) && resourceToWorker.get(resource)! === worker) {
+                cycle.push(worker);
+                return true;
+            }
+            for (const nextWorker of workerBlockedOn.get(worker) || []) {
+                if (dfs(nextWorker)) {
+                    cycle.push(worker);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    for (const [worker] of blocked) {
+        if (!visited.has(worker) && dfs(worker)) {
+            break;
+        }
+    }
+
+    // Determine the victim
+    if (cycle.length > 0) {
+        let minLocks = Infinity;
+        cycle.forEach(worker => {
+            const locks = workerHolding.get(worker)?.size || 0;
+            if (locks < minLocks || (locks === minLocks && worker.localeCompare(victim) < 0)) {
+                victim = worker;
+                minLocks = locks;
+            }
+        });
+    }
+
+    return { victim, cycle };
+}
+```

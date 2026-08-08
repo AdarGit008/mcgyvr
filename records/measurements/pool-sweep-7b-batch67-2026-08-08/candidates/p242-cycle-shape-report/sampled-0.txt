@@ -1,0 +1,56 @@
+```ts
+/**
+ * Traces a relay chart into loops and returns various properties of its cycle shape.
+ * @param chart - A list of whole numbers where each entry i names the seat whose occupant i hands its baton to.
+ * @returns An object with keys "loops", "widths", "repeat", and "swing".
+ */
+export function cycleShapeReport(chart: number[]): { loops: number[][], widths: number[], repeat: number, swing: string } {
+    if (!Array.isArray(chart) || chart.length === 0) {
+        throw new Error("Invalid input: Chart must be a non-empty list of whole numbers.");
+    }
+
+    const n = chart.length;
+    const visited = new Array(n).fill(false);
+    let loops: number[][] = [];
+    let widths: number[] = [];
+
+    for (let i = 0; i < n; i++) {
+        if (!visited[i]) {
+            let loop: number[] = [];
+            let current = i;
+
+            while (!visited[current]) {
+                visited[current] = true;
+                loop.push(current);
+                current = chart[current];
+            }
+
+            loops.push(loop);
+            widths.push(loop.length);
+        }
+    }
+
+    loops.sort((a, b) => a[0] - b[0]);
+    widths.sort((a, b) => b - a);
+
+    const repeat = widths.reduce((acc, width) => acc * (width / gcd(acc, width)), 1);
+    const swing = (n - loops.length) % 2 === 0 ? "even" : "odd";
+
+    return { loops, widths, repeat, swing };
+}
+
+/**
+ * Calculates the greatest common divisor of two numbers.
+ * @param a - The first number.
+ * @param b - The second number.
+ * @returns The GCD of a and b.
+ */
+function gcd(a: number, b: number): number {
+    while (b !== 0) {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}
+```

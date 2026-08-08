@@ -1,0 +1,66 @@
+```ts
+export function foldReplyThread(messages: string[][]): string {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    throw new Error("Invalid input: empty batch or not a list");
+  }
+
+  const byId: { [id: string]: { text: string; parent?: string } } = {};
+  const parents: { [id: string]: string[] } = {};
+
+  for (const message of messages) {
+    if (
+      !Array.isArray(message) ||
+      message.length !== 3 ||
+      typeof message[0] !== "string" ||
+      typeof message[1] !== "string" ||
+      typeof message[2] !== "string"
+    ) {
+      throw new Error("Invalid message format");
+    }
+
+    const [id, parent, text] = message;
+
+    if (id === "") {
+      throw new Error("Invalid id: empty string");
+    }
+
+    if (byId[id]) {
+      throw new Error(`Duplicate id: ${id}`);
+    }
+
+    byId[id] = { text, parent };
+    parents[parent] = parents[parent] || [];
+    parents[parent].push(id);
+  }
+
+  const rootIds = Object.keys(parents).filter((id) => !parents[id].length);
+
+  if (!rootIds.length) {
+    throw new Error("Circular parent links detected");
+  }
+
+  function buildThread(id: string, depth: number): string[] {
+    const { text, parent } = byId[id];
+    const quoteMarker = "> ".repeat(depth);
+    const line = `${quoteMarker}${id} ${text}`;
+    const result = [line];
+
+    if (parent && parents[parent].includes(id)) {
+      throw new Error("Circular parent links detected");
+    }
+
+    for (const child of parents[id] || []) {
+      result.push(...buildThread(child, depth + 1));
+    }
+
+    return result;
+  }
+
+  let result: string[] = [];
+  for (const rootId of rootIds) {
+    result.push(...buildThread(rootId, 0));
+  }
+
+  return result.join("\n");
+}
+```

@@ -1,0 +1,38 @@
+```ts
+export function decodeBitRun(codebook: any, strip: string): string[] {
+  if (typeof codebook !== 'object' || codebook === null) {
+    throw new Error('Codebook must be a non-empty object');
+  }
+  if (Object.keys(codebook).length === 0) {
+    throw new Error('Codebook must name at least one word');
+  }
+  for (const key in codebook) {
+    if (typeof key !== 'string' || !/^[a-z]+$/.test(key)) {
+      throw new Error('All keys in the codebook must be non-empty strings of lowercase letters a to z');
+    }
+    const mark = codebook[key];
+    if (typeof mark !== 'string' || !/^[01]+$/.test(mark)) {
+      throw new Error('All marks in the codebook must be non-empty strings of nothing but 0 and 1');
+    }
+  }
+  const words = Object.keys(codebook);
+  const sortedWords = words.sort((a, b) => a.length - b.length);
+  const result: string[] = [];
+  let i = 0;
+  while (i < strip.length) {
+    let found = false;
+    for (const word of sortedWords) {
+      if (strip.startsWith(word, i)) {
+        result.push(word);
+        i += word.length;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      throw new Error('Reading runs off the end of the strip with characters left over that finish no word\'s mark');
+    }
+  }
+  return result;
+}
+```

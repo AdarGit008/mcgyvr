@@ -1,0 +1,51 @@
+```ts
+export function planRoomMoves(bookings: any[]): string[] {
+    const errors = [];
+    const result: string[] = [];
+
+    interface Booking {
+        id: string;
+        start: number;
+        end: number;
+        fixed: boolean;
+    }
+
+    const validBooking = (b: any): b is Booking => {
+        return typeof b === 'object' &&
+               typeof b.id === 'string' && b.id.length > 0 &&
+               typeof b.start === 'number' &&
+               typeof b.end === 'number' &&
+               b.start < b.end &&
+               typeof b.fixed === 'boolean';
+    };
+
+    if (!Array.isArray(bookings)) throw new Error('Input must be an array');
+    if (bookings.some(b => !validBooking(b))) throw new Error('Invalid booking in input');
+
+    const fixedBookings: Booking[] = [];
+    const movableBookings: Booking[] = [];
+
+    bookings.forEach(b => {
+        if (b.fixed) fixedBookings.push(b);
+        else movableBookings.push(b);
+    });
+
+    fixedBookings.sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
+
+    for (const fixed of fixedBookings) {
+        const overlaps = movableBookings.filter(m => m.end > fixed.start && m.start < fixed.end);
+
+        if (overlaps.length > 1) throw new Error('Two fixed bookings overlap each other');
+
+        overlaps.sort((a, b) => a.end - b.end || a.start - b.start || a.id.localeCompare(b.id));
+
+        while (overlaps.length && overlaps[0].end <= fixed.end) {
+            result.push(overlaps.shift()!.id);
+        }
+    }
+
+    movableBookings.forEach(m => m.end > fixedBookings.reduce((end, f) => Math.max(end, f.end), 0) && result.push(m.id));
+
+    return result;
+}
+```

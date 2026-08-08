@@ -1,0 +1,46 @@
+```ts
+import { isPlainObject } from 'lodash';
+
+export function decodeBitRun(codebook: any, strip: string): string[] {
+  if (!isPlainObject(codebook) || Object.keys(codebook).length === 0) {
+    throw new Error('Invalid codebook');
+  }
+
+  const words = Object.keys(codebook);
+  const marks = Object.values(codebook);
+
+  if (new Set(words).size !== words.length || new Set(marks).size !== marks.length) {
+    throw new Error('Duplicate keys or values in codebook');
+  }
+
+  for (const mark of marks) {
+    if (!/^[01]+$/.test(mark)) {
+      throw new Error('Invalid mark in codebook');
+    }
+  }
+
+  if (typeof strip !== 'string') {
+    throw new Error('Invalid strip');
+  }
+
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < strip.length) {
+    let foundWord = false;
+    for (const word of words) {
+      if (strip.startsWith(codebook[word], i)) {
+        result.push(word);
+        i += codebook[word].length;
+        foundWord = true;
+        break;
+      }
+    }
+    if (!foundWord) {
+      throw new Error('Reading runs off the end of the strip');
+    }
+  }
+
+  return result;
+}
+```

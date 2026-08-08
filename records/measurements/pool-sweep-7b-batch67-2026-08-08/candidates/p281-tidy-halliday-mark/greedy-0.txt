@@ -1,0 +1,32 @@
+```ts
+export function tidyShelfMark(raw: string): string {
+  if (typeof raw !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const parts = raw.trim().split('-');
+  if (parts.length !== 3) {
+    throw new Error('Mark must have exactly three parts');
+  }
+
+  const [wing, bayPart, peg] = parts;
+  if (!/^[A-Z]{2}$/.test(wing)) {
+    throw new Error('Wing must be two uppercase letters');
+  }
+
+  let bay = bayPart.replace(/^0+/, '');
+  if (bay.includes('.')) {
+    bay = bay.split('.')[0];
+  }
+  const bayNum = parseInt(bay, 10);
+  if (isNaN(bayNum) || bayNum < 1 || bayNum > 999) {
+    throw new Error('Bay must be a number between 1 and 999');
+  }
+
+  if (!/^[A-Z]0$/.test(peg)) {
+    throw new Error('Peg must be one uppercase letter followed by a non-zero digit');
+  }
+
+  return `${wing}-${bay}-${peg}`;
+}
+```

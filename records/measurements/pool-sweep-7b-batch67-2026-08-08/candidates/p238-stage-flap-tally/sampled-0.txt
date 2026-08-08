@@ -1,0 +1,65 @@
+```ts
+/**
+ * Tally the retries for each stage in a pipeline given the budget.
+ * @param stages - List of stage records with name and outcomes.
+ * @param budget - Maximum number of attempts allowed per stage.
+ * @returns A list of lines with stage details and verdicts, followed by summary.
+ */
+export function tallyStageRetries(stages: any[], budget: number): string[] {
+    const validOutcomes = new Set(['pass', 'flap', 'halt']);
+    const stageNames = new Set<string>();
+
+    // Validate input
+    if (!Array.isArray(stages) || stages.some(stage => typeof stage !== 'object' || !stage)) throw Error('Invalid stages');
+    if (budget < 1 || !Number.isInteger(budget)) throw Error('Invalid budget');
+
+    for (const stage of stages) {
+        const { name, outcomes } = stage;
+        if (!name || typeof name !== 'string' || name.includes(' ')) throw Error('Invalid stage name');
+        if (stageNames.has(name)) throw Error('Repeated stage name');
+        stageNames.add(name);
+
+        if (!Array.isArray(outcomes) || !outcomes.length) throw Error('Missing or empty outcome list');
+        if (outcomes.some(outcome => typeof outcome !== 'string' || !validOutcomes.has(outcome))) throw Error('Invalid outcome');
+
+        const passIndex = outcomes.indexOf('pass');
+        const haltIndex = outcomes.indexOf('halt');
+        if ((passIndex > -1 && haltIndex > -1 && passIndex < haltIndex) || (haltIndex > 0 && outcomes[haltIndex - 1] === 'flap')) {
+            throw Error('Outcome after pass or halt');
+        }
+    }
+
+    let summary: { [key: string]: number } = { attempts: 0, retries: 0, flaps: 0, halts: 0, greens: 0 };
+
+    for (const stage of stages) {
+        const { name, outcomes } = stage;
+        const attemptCount = outcomes.length;
+        const retryCount = attemptCount - 1;
+        const flapCount = outcomes.filter(outcome => outcome === 'flap').length;
+        const haltCount = outcomes.filter(outcome => outcome === 'halt').length;
+
+        let verdict: string;
+        if (haltCount > 0) {
+            verdict = 'dead';
+        } else if (flapCount === attemptCount && flapCount === budget) {
+            verdict = 'spent';
+        } else {
+            verdict = 'open';
+        }
+
+        summary.attempts += attemptCount;
+        summary.retries += retryCount;
+        summary.flaps += flapCount;
+        summary.halts += haltCount;
+
+        if (verdict === 'green') {
+            summary.greens++;
+        }
+
+        console.log(`${name} ${attemptCount} ${retryCount} ${flapCount} ${haltCount} ${verdict}`);
+    }
+
+    const totalSummary = `* ${summary.attempts} ${summary.retries} ${summary.flaps} ${summary.halts} ${summary.greens}`;
+    return Array.from(stages).map(stage => `${stage.name} ${stage.outcomes.length - 1}`).concat([totalSummary]);
+}
+```

@@ -1,0 +1,40 @@
+```ts
+export function fitLabelSheet(sheet: { width: number; height: number; marginX: number; marginY: number; gapX: number; gapY: number }, label: { width: number; height: number; turn: boolean }): { across: number; down: number; total: number; turned: boolean } {
+    const { width, height, marginX, marginY, gapX, gapY } = sheet;
+    const { width: labelWidth, height: labelHeight, turn } = label;
+
+    if (!Number.isInteger(width) || width <= 0) throw new Error('Invalid sheet width');
+    if (!Number.isInteger(height) || height <= 0) throw new Error('Invalid sheet height');
+    if (!Number.isInteger(marginX) || marginX < 0) throw new Error('Invalid marginX');
+    if (!Number.isInteger(marginY) || marginY < 0) throw new Error('Invalid marginY');
+    if (!Number.isInteger(gapX) || gapX < 0) throw new Error('Invalid gapX');
+    if (!Number.isInteger(gapY) || gapY < 0) throw new Error('Invalid gapY');
+    if (typeof turn !== 'boolean') throw new Error('Invalid turn');
+
+    const printableWidth = width - marginX * 2;
+    const printableHeight = height - marginY * 2;
+
+    const uprightAcross = Math.floor((printableWidth + gapX) / (labelWidth + gapX));
+    const uprightDown = Math.floor((printableHeight + gapY) / (labelHeight + gapY));
+    const uprightTotal = uprightAcross * uprightDown;
+
+    let turnedAcross = 0;
+    let turnedDown = 0;
+    let turnedTotal = 0;
+
+    if (turn && labelWidth !== labelHeight) {
+        const turnedLabelWidth = labelHeight;
+        const turnedLabelHeight = labelWidth;
+
+        turnedAcross = Math.floor((printableWidth + gapX) / (turnedLabelWidth + gapX));
+        turnedDown = Math.floor((printableHeight + gapY) / (turnedLabelHeight + gapY));
+        turnedTotal = turnedAcross * turnedDown;
+    }
+
+    if (turnedTotal >= uprightTotal) {
+        return { across: turnedAcross, down: turnedDown, total: turnedTotal, turned: true };
+    } else {
+        return { across: uprightAcross, down: uprightDown, total: uprightTotal, turned: false };
+    }
+}
+```

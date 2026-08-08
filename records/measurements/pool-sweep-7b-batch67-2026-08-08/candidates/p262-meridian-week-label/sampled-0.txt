@@ -1,0 +1,38 @@
+```ts
+/**
+ * Determines the Meridian week label for a given date string in "YYYY-MM-DD" format.
+ * @param date - The input date string.
+ * @returns The Meridian week label as a string.
+ * @throws Error if the input is invalid.
+ */
+export function meridianWeekLabel(date: string): string {
+  const regex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!regex.test(date)) throw new Error("Invalid date format");
+
+  const [year, month, day] = date.split('-').map(Number);
+  if (month < 1 || month > 12) throw new Error("Month out of range");
+  if (day < 1 || day > 31) throw new Error("Day out of range");
+
+  function isLeapYear(year: number): boolean {
+    return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  }
+
+  function getDaysInMonth(year: number, month: number): number {
+    if ([4, 6, 9, 11].includes(month)) return 30;
+    if (month === 2) return isLeapYear(year) ? 29 : 28;
+    return 31;
+  }
+
+  function getWeekNumber(year: number, month: number, day: number): string {
+    const startMonth = 7; // January is 0, so July is 6
+    const startDate = new Date(year, startMonth - 1, 8);
+    const startWeekDay = startDate.getDay();
+    const daysOffset = (day + startWeekDay) % 7;
+    const weekNumber = Math.floor((daysOffset + 29) / 7) + 1;
+
+    return `${year.toString().padStart(4, '0')}-W${weekNumber.toString().padStart(2, '0')}`;
+  }
+
+  return getWeekNumber(year, month, day);
+}
+```

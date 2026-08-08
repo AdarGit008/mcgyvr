@@ -1,0 +1,65 @@
+```ts
+export function spreadNightDuty(
+  crew: string[],
+  weights: number[],
+  away: string[][],
+): string[] {
+  if (crew.length === 0) {
+    throw new Error("Crew cannot be empty");
+  }
+  const nameSet = new Set(crew);
+  for (const name of nameSet) {
+    if (typeof name !== "string" || !name) {
+      throw new Error("Invalid crew member name");
+    }
+  }
+  if (crew.some(name => crew.indexOf(name) !== crew.lastIndexOf(name))) {
+    throw new Error("Crew cannot have duplicate names");
+  }
+  if (!weights.every(weight => weight === 1 || weight === 2)) {
+    throw new Error("Weights must be 1 or 2");
+  }
+  if (away.length !== weights.length) {
+    throw new Error("Away list must match the number of nights");
+  }
+  for (const awayList of away) {
+    if (!Array.isArray(awayList)) {
+      throw new Error("Away entries must be lists");
+    }
+    for (const name of awayList) {
+      if (!nameSet.has(name)) {
+        throw new Error("Away list cannot contain names outside the crew");
+      }
+    }
+  }
+
+  const stood = new Map<string, number>();
+  for (const name of crew) {
+    stood.set(name, 0);
+  }
+  const nights: string[] = [];
+  let previous = "";
+  for (let night = 0; night < weights.length; night++) {
+    let chosen = "";
+    for (const name of crew) {
+      if (away[night].includes(name) || name === previous) {
+        continue;
+      }
+      if (chosen === "" || (stood.get(name) as number) < (stood.get(chosen) as number)) {
+        chosen = name;
+      } else if ((stood.get(name) as number) === (stood.get(chosen) as number)) {
+        chosen = crew.indexOf(name) < crew.indexOf(chosen) ? name : chosen;
+      }
+    }
+    if (chosen === "") {
+      nights.push("?");
+      previous = "";
+      continue;
+    }
+    stood.set(chosen, (stood.get(chosen) as number) + weights[night]);
+    nights.push(chosen);
+    previous = chosen;
+  }
+  return nights;
+}
+```

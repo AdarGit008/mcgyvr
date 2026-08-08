@@ -1,0 +1,85 @@
+```ts
+/**
+ * Reads attributes from a tag in bracket markup format.
+ * @param tag - The tag string to parse.
+ * @returns A mapping with "stem" and "marks" keys.
+ */
+export function readTagAttributes(tag: string): Record<string, unknown> {
+  if (typeof tag !== 'string') {
+    throw new Error('Invalid input: not a string');
+  }
+
+  const result: Record<string, unknown> = { stem: '', marks: {} };
+  let i = 0;
+
+  // Check for opening bracket
+  if (tag[i] !== '[') {
+    throw new Error('Missing opening bracket');
+  }
+  i++;
+
+  // Read stem
+  if (!/^[a-zA-Z]$/.test(tag[i])) {
+    throw new Error('Invalid stem start');
+  }
+  let stem = tag[i];
+  i++;
+  while (/^[a-zA-Z0-9-]*$/.test(tag[i])) {
+    stem += tag[i];
+    i++;
+  }
+
+  // Check for closing bracket
+  if (tag[i] !== ']') {
+    throw new Error('Missing closing bracket');
+  }
+  i++;
+
+  // Read marks
+  const marks: Record<string, string> = {};
+  while (i < tag.length) {
+    if (!/^[a-z]$/.test(tag[i])) {
+      throw new Error('Invalid mark name start');
+    }
+    let name = tag[i];
+    i++;
+    let setting = '';
+    if (tag[i] === '=') {
+      i++;
+      if (i >= tag.length) {
+        throw new Error('Missing setting after equals sign');
+      }
+
+      const fenceMatch = tag.slice(i).match(/^['"]([\\'"].*?['"])['"]|^[^'"\s]*$/);
+      if (!fenceMatch) {
+        throw new Error('Invalid setting format');
+      }
+      if (fenceMatch[0].startsWith("'") || fenceMatch[0].startsWith('"')) {
+        const [_, str] = fenceMatch;
+        i += str.length + 2; // Length of the matched string and fences
+        setting = str.replace(/\\(['"\\])/g, '$1');
+      } else {
+        setting = fenceMatch[0];
+        i += setting.length;
+      }
+    }
+
+    if (marks[name]) {
+      throw new Error('Duplicate mark with different setting');
+    }
+    marks[name] = setting;
+
+    // Skip spaces
+    while (tag[i] === ' ') {
+      i++;
+    }
+
+    // Check for next mark or closing bracket
+    if (i >= tag.length || tag[i] === ']') break;
+  }
+
+  result.stem = stem;
+  result.marks = marks;
+  return result;
+}
+```

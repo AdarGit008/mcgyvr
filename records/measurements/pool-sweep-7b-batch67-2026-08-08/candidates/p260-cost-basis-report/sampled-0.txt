@@ -1,0 +1,57 @@
+```ts
+export function costBasisReport(events: unknown[][]): { fifoSold: number; averageSold: number; unitsLeft: number; fifoValue: number; averageValue: number } {
+    if (!Array.isArray(events)) throw new Error("Invalid input format");
+    
+    let fifoUnits = 0;
+    let fifoCost = 0;
+    let averageUnits = 0;
+    let averageCost = 0;
+
+    const fifoLayers: { units: number; cost: number }[] = [];
+
+    for (const event of events) {
+        if (!Array.isArray(event)) throw new Error("Invalid row format");
+        const action = event[0] as string;
+        const units = Number(event[1]);
+        const unitCents = action === "buy" ? Number(event[2]) : 0;
+
+        if (action !== "buy" && action !== "sell") throw new Error("Invalid action type");
+        if ((action === "buy" && !Number.isInteger(units) || units <= 0) || (!Number.isInteger(units) || units < 0)) throw new Error("Invalid unit count");
+        if (action === "buy" && (!Number.isInteger(unitCents) || unitCents < 0)) throw new Error("Invalid unit price");
+
+        if (action === "buy") {
+            fifoUnits += units;
+            fifoCost += units * unitCents;
+            fifoLayers.push({ units, cost: unitCents });
+        } else if (fifoUnits >= units) {
+            fifoUnits -= units;
+            let sold = 0;
+            for (let i = 0; i < fifoLayers.length && sold < units; i++) {
+                const layer = fifoLayers[i];
+                const toSell = Math.min(layer.units, units - sold);
+                fifoCost -= toSell * layer.cost;
+                fifoUnits -= toSell;
+                fifoLayers[i].units -= toSell;
+                if (fifoLayers[i].units === 0) fifoLayers.splice(i--, 1);
+                sold += toSell;
+            }
+        } else {
+            throw new Error("Insufficient stock for despatch");
+        }
+
+        averageUnits = fifoUnits;
+        averageCost = fifoCost > 0 ? Math.floor(fifoCost / fifoUnits) : 0;
+    }
+
+    const fifoSold = fifoLayers.reduce((acc, layer) => acc + layer.units * layer.cost, 0);
+    const unitsLeft = fifoUnits;
+
+    return {
+        fifoSold,
+        averageSold: Math.floor(averageCost * unitsLeft),
+        unitsLeft,
+        fifoValue: fifoCost,
+        averageValue: Math.floor(averageCost * unitsLeft)
+    };
+}
+```

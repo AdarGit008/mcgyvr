@@ -1,0 +1,87 @@
+```ts
+export function nameKinTie(links: Array<Record<string, unknown>>, one: string, other: string): string {
+  if (!Array.isArray(links) || !links.every(link => typeof link === 'object' && link !== null)) {
+    throw new Error('Invalid links');
+  }
+  if (typeof one !== 'string' || typeof other !== 'string') {
+    throw new Error('Invalid names');
+  }
+
+  const parentMap = new Map<string, string[]>();
+  for (const link of links) {
+    if (!link.hasOwnProperty('child') || !link.hasOwnProperty('parent')) {
+      throw new Error('Invalid link format');
+    }
+    const child = link.child as string;
+    const parent = link.parent as string;
+    if (child === parent) {
+      throw new Error('Self-parenting not allowed');
+    }
+    if (!parentMap.has(child)) {
+      parentMap.set(child, []);
+    }
+    if (parentMap.get(child)?.includes(parent)) {
+      throw new Error('Duplicate link');
+    }
+    if (parentMap.get(child)?.length >= 2) {
+      throw new Error('Too many parents');
+    }
+    parentMap.get(child)?.push(parent);
+  }
+
+  const findAncestors = (name: string): Set<string> => {
+    const ancestors = new Set<string>();
+    let current = name;
+    while (parentMap.has(current)) {
+      for (const parent of parentMap.get(current)!) {
+        if (!ancestors.has(parent)) {
+          ancestors.add(parent);
+          current = parent;
+        }
+      }
+    }
+    return ancestors;
+  };
+
+  const oneAncestors = findAncestors(one);
+  const otherAncestors = findAncestors(other);
+
+  if (oneAncestors.size === 0 || otherAncestors.size === 0) {
+    throw new Error('One or both people not found in links');
+  }
+
+  let u = Infinity;
+  let v = Infinity;
+
+  for (const ancestor of oneAncestors) {
+    if (otherAncestors.has(ancestor)) {
+      const distanceToOne = findAncestors(ancestor).size - 1;
+      const distanceToOther = findAncestors(ancestor).size - 1;
+      if (distanceToOne < u || (distanceToOne === u && distanceToOther < v)) {
+        u = distanceToOne;
+        v = distanceToOther;
+      }
+    }
+  }
+
+  if (u === Infinity || v === Infinity) {
+    return 'unrelated';
+  }
+
+  if (v === 0) {
+    return u === 1 ? 'parent' : `grand${'parent'.repeat(u - 2)}`;
+  } else if (u === 0) {
+    return v === 1 ? 'child' : `grand${'child'.repeat(v - 2)}`;
+  } else if (v === 1 && u >= 2) {
+    return `aunt-or-uncle${'great-'.repeat(u - 2)}`;
+  } else if (u === 1 && v >= 2) {
+    return `niece-or-nephew${'great-'.repeat(v - 2)}`;
+  }
+
+  const degree = Math.min(u, v) - 2;
+  const removal = Math.abs(u - v);
+  const cousinPrefix = `first cousin${removal ? ` ${['once', 'twice', 'three times'].slice(0, removal).join(' ')} removed` : ''}`;
+
+  return cousinPrefix;
+}
+```

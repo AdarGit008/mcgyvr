@@ -1,0 +1,54 @@
+```ts
+/**
+ * Replay Tessel match based on the sequence of rally winners.
+ * @param rallies - List of rally winners each "A" or "B".
+ * @returns A record with winner ("A", "B"), bands, points, and serve side.
+ */
+export function replayTesselMatch(rallies: string[]): { winner: string; bands: number[]; points: number[]; serve: string } {
+    if (!Array.isArray(rallies)) {
+        throw new Error("Argument must be a list of rally winners.");
+    }
+
+    let bandA = 0, bandB = 0;
+    let pointA = 0, pointB = 1; // A serves first
+    let servingSide = "A";
+
+    const score = (side: string) => side === "A" ? [pointA, bandA] : [pointB, bandB];
+    const updateScore = (winner: string, loser: string) => {
+        if (winner === "A") {
+            pointA++;
+        } else {
+            pointB++;
+        }
+        servingSide = winner;
+    };
+
+    for (const rally of rallies) {
+        if (rally !== "A" && rally !== "B") {
+            throw new Error("Invalid rally: must be 'A' or 'B'.");
+        }
+
+        if ((bandA >= 7 || bandB >= 7) && Math.abs(bandA - bandB) >= 2) {
+            break;
+        }
+
+        if (pointA === 10 || pointB === 10) {
+            if (Math.abs(pointA - pointB) >= 2) {
+                break;
+            }
+            updateScore(rally, rally === "A" ? "B" : "A");
+            continue;
+        }
+
+        updateScore(rally, rally === servingSide ? (servingSide === "A" ? "B" : "A") : rally);
+    }
+
+    const winner = bandA >= 7 && Math.abs(bandA - bandB) >= 2 ? "A" : bandB >= 7 && Math.abs(bandB - bandA) >= 2 ? "B" : "";
+    return {
+        winner,
+        bands: [bandA, bandB],
+        points: [pointA, pointB],
+        serve: winner ? "" : servingSide
+    };
+}
+```

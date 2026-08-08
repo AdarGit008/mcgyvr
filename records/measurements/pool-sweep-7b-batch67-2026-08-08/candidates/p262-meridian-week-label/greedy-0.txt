@@ -1,0 +1,46 @@
+```ts
+/**
+ * Returns the Meridian week label for a given date in "YYYY-MM-DD" format.
+ * @param date - The date string to convert.
+ * @returns The Meridian week label in "YYYY-Www" format.
+ */
+export function meridianWeekLabel(date: string): string {
+  const [yearStr, monthStr, dayStr] = date.split('-');
+  if (monthStr.length !== 2 || dayStr.length !== 2) throw new Error('Invalid date format');
+
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const day = parseInt(dayStr, 10);
+
+  if (isNaN(year) || isNaN(month) || isNaN(day)) throw new Error('Invalid date format');
+  if (year < 2 || year > 9999) throw new Error('Year out of range');
+  if (month < 1 || month > 12) throw new Error('Month out of range');
+
+  const isLeapYear = (y: number): boolean => {
+    return y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+  };
+
+  const daysInMonth = [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (day < 1 || day > daysInMonth[month - 1]) throw new Error('Day out of range');
+
+  const isWednesday = (y: number, m: number, d: number): boolean => {
+    const dateObj = new Date(y, m - 1, d);
+    return dateObj.getDay() === 3;
+  };
+
+  const getWeekNumber = (year: number, month: number, day: number): number => {
+    if (isWednesday(year, month, day)) return 1;
+
+    let firstDayOfYear = new Date(year, 0, 1);
+    while (firstDayOfYear.getDay() !== 3) {
+      firstDayOfYear.setDate(firstDayOfYear.getDate() - 1);
+    }
+
+    const daysSinceFirstWednesday = Math.floor((dateObj.getTime() - firstDayOfYear.getTime()) / (24 * 60 * 60 * 1000));
+    return Math.ceil(daysSinceFirstWednesday / 7) + 1;
+  };
+
+  const weekNumber = getWeekNumber(year, month, day);
+  return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
+}
+```

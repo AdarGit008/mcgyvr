@@ -1,0 +1,49 @@
+```ts
+export function tallyHallRows(hall: string[]): string[] {
+  if (!Array.isArray(hall) || hall.length === 0) {
+    throw new Error("Invalid input: Not a non-empty list");
+  }
+
+  let totalHeld = 0;
+  let totalOpen = 0;
+  let widestTierIndex = 0;
+
+  for (let i = 0; i < hall.length; i++) {
+    const tier = hall[i];
+    if (typeof tier !== "string" || tier.length === 0) {
+      throw new Error(`Invalid input: Tier ${i} is not a non-empty string`);
+    }
+
+    if (i > 0 && tier.length !== hall[0].length) {
+      throw new Error("Invalid input: Tiers differ in width");
+    }
+
+    let held = 0;
+    let open = 0;
+
+    for (let j = 0; j < tier.length; j++) {
+      const char = tier[j];
+      if (char === "x") {
+        held++;
+      } else if (char === "o" || char === "=") {
+        open++;
+      } else {
+        throw new Error(`Invalid input: Character ${j} in tier ${i} is invalid`);
+      }
+    }
+
+    totalHeld += held;
+    totalOpen += open;
+
+    if (open > hall[widestTierIndex].split("").filter(c => c === "o").length) {
+      widestTierIndex = i;
+    }
+
+    hall[i] = `tier ${i} held=${held} open=${open}`;
+  }
+
+  hall.push(`hall held=${totalHeld} open=${totalOpen} widest=tier${widestTierIndex}`);
+
+  return hall;
+}
+```

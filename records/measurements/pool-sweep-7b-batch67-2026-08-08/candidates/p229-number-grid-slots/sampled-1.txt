@@ -1,0 +1,47 @@
+```ts
+/**
+ * Number every square that opens at least one slot in a grid, taking squares row by row from the top and left to right within a row, and starting the count at one.
+ * @param rows - A non-empty list of rows, all of one non-empty length, each a string whose characters are either "." for an open square or "#" for a blocked one.
+ * @returns An array of mappings per numbered square in that same order.
+ */
+export function numberGridSlots(rows: string[]): Array<Record<string, number>> {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        throw new Error('Input must be a non-empty list');
+    }
+    const rowLength = rows[0].length;
+    if (rows.some(row => typeof row !== 'string' || row.length !== rowLength)) {
+        throw new Error('All rows must be strings of equal length');
+    }
+
+    const result: Array<Record<string, number>> = [];
+    let slotNumber = 1;
+
+    for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
+        for (let colIdx = 0; colIdx < rowLength; colIdx++) {
+            if (rows[rowIdx][colIdx] === '.') {
+                let acrossSlotLength = 1;
+                while (colIdx + acrossSlotLength < rowLength && rows[rowIdx][colIdx + acrossSlotLength] === '.') {
+                    acrossSlotLength++;
+                }
+                if (acrossSlotLength >= 2) {
+                    result.push({ at: slotNumber, row: rowIdx, col: colIdx, across: acrossSlotLength, down: 0 });
+                    slotNumber++;
+                }
+
+                let downSlotLength = 1;
+                for (let i = rowIdx - 1; i >= 0 && rows[i][colIdx] === '.'; i--) {
+                    downSlotLength++;
+                }
+                if (downSlotLength >= 2) {
+                    result.push({ at: slotNumber, row: rowIdx, col: colIdx, across: 0, down: downSlotLength });
+                    slotNumber++;
+                }
+
+                colIdx += acrossSlotLength - 1;
+            }
+        }
+    }
+
+    return result;
+}
+```

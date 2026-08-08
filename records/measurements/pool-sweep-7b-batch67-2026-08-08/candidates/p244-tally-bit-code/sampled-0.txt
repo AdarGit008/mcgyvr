@@ -1,0 +1,57 @@
+```ts
+export function buildWeightCode(entries: any[]): { codes: Record<string, string>, bits: number, tallest: number } {
+    if (!Array.isArray(entries) || entries.length === 0) {
+        throw new Error("Invalid input");
+    }
+
+    const tokenMap: Map<string, [number, number]> = new Map();
+    for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        if (!Array.isArray(entry) || entry.length !== 2) {
+            throw new Error("Invalid input");
+        }
+        const [token, tallyStr] = entry;
+        if (typeof token !== "string" || !/^[a-z]+$/.test(token)) {
+            throw new Error("Invalid input");
+        }
+        const tally = parseInt(tallyStr, 10);
+        if (!Number.isInteger(tally) || tally < 1) {
+            throw new Error("Invalid input");
+        }
+
+        if (tokenMap.has(token)) {
+            throw new Error("Duplicate token");
+        }
+        tokenMap.set(token, [tally, i]);
+    }
+
+    const buds: { load: number, nearBud?: number, farBud?: number }[] = [];
+    for (const [i] of tokenMap) {
+        buds.push({ load: 1 });
+    }
+
+    while (buds.length > 1) {
+        buds.sort((a, b) => a.load !== b.load ? a.load - b.load : a.nearBud! - b.nearBud!);
+        const near = buds.shift()!;
+        const far = buds.shift()!;
+        buds.push({ load: near.load + far.load, nearBud: near.nearBud ?? near.farBud ?? 0, farBud: near.farBud ?? 0 });
+    }
+
+    const root = buds[0]!;
+    const codes: Record<string, string> = {};
+    function walk(bud: number, bits: string) {
+        if (bud < tokens.length) {
+            codes[tokens[bud]] = bits;
+        } else {
+            walk(buds[bud].nearBud!, bits + "0");
+            walk(buds[bud].farBud!, bits + "1");
+        }
+    }
+    walk(root.nearBud ?? root.farBud ?? 0, "");
+
+    const bits = entries.reduce((acc, [_, tallyStr]) => acc + parseInt(tallyStr, 10) * codes[entries[i][0]].length, 0);
+    const tallest = Math.max(...codes.values().map(bits => bits.length));
+
+    return { codes, bits, tallest };
+}
+```

@@ -1,0 +1,55 @@
+```ts
+export function foldReplyThread(messages: string[][]): string {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    throw new Error("Invalid input: empty batch or not a list");
+  }
+
+  const messageMap = new Map<string, { parent: string; text: string }[]>();
+  const rootMessages = new Set<string>();
+
+  for (const [id, parent, text] of messages) {
+    if (!Array.isArray(messages) || messages.length !== 3) {
+      throw new Error("Invalid input: message is not exactly three strings");
+    }
+    if (!id || id.includes(' ')) {
+      throw new Error("Invalid input: empty or invalid id");
+    }
+    if (messageMap.has(id)) {
+      throw new Error("Invalid input: repeated id");
+    }
+
+    if (parent && !messageMap.has(parent)) {
+      throw new Error("Invalid input: parent naming no message in the batch");
+    }
+
+    if (text.includes('\n')) {
+      throw new Error("Invalid input: text carrying a newline of its own");
+    }
+
+    messageMap.set(id, [{ parent, text }]);
+    rootMessages.add(id);
+  }
+
+  for (const [id, replies] of messageMap) {
+    let currentId = id;
+    while (replies.length > 0 && replies[0].parent !== '') {
+      const reply = replies.shift();
+      if (!reply) break;
+      if (!messageMap.has(reply.parent)) {
+        throw new Error("Invalid input: message that no opening message can ever reach");
+      }
+      messageMap.get(reply.parent)?.push({ parent: '', text: `> ${reply.text}` });
+      currentId = reply.parent;
+    }
+  }
+
+  return Array.from(rootMessages)
+    .map(id => {
+      const replies = messageMap.get(id);
+      if (!replies) return '';
+      return replies.map((_, depth) => `${'>'.repeat(depth)} ${id} ${replies[depth].text}`).join('\n');
+    })
+    .filter(line => line !== '')
+    .join('\n');
+}
+```

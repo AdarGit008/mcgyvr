@@ -1,0 +1,54 @@
+```ts
+/**
+ * Writes out the exact value of numerator over denominator in a chosen base,
+ * using only whole-number arithmetic.
+ *
+ * @param {number} numerator - The numerator of the fraction.
+ * @param {number} denominator - The denominator of the fraction.
+ * @param {number} base - The base for the output, between 3 and 20.
+ * @returns {string} - The expanded fraction digits in the chosen base.
+ */
+export function expandFractionDigits(numerator: number, denominator: number, base: number): string {
+    const glyphMap = "0123456789ABCDEFGHIJ";
+
+    if (!Number.isInteger(numerator)) throw new Error("Numerator must be a whole number");
+    if (numerator < -1000000 || numerator > 1000000) throw new Error("Numerator magnitude must be between -1 and 1 million");
+    if (!Number.isInteger(denominator)) throw new Error("Denominator must be a whole number");
+    if (denominator <= 0) throw new Error("Denominator must be positive");
+    if (base < 3 || base > 20) throw new Error("Base must be between 3 and 20");
+
+    if (numerator === 0) return "0";
+
+    let isNegative = numerator < 0;
+    numerator = Math.abs(numerator);
+
+    const stem = Math.floor(numerator / denominator);
+    numerator %= denominator;
+
+    if (numerator === 0) {
+        return isNegative ? "-" + glyphMap[stem] : glyphMap[stem];
+    }
+
+    const seen = new Map<number, number>();
+    let periodStart = -1;
+    let result: string[] = [];
+
+    while (numerator !== 0) {
+        if (seen.has(numerator)) {
+            periodStart = seen.get(numerator)!;
+            break;
+        }
+        seen.set(numerator, result.length);
+        numerator *= base;
+        result.push(glyphMap[numerator / denominator | 0]);
+        numerator %= base;
+    }
+
+    let fractionPart = result.join("");
+    if (periodStart !== -1) {
+        fractionPart = fractionPart.slice(0, periodStart) + "[" + fractionPart.slice(periodStart) + "]";
+    }
+
+    return isNegative ? "-" + glyphMap[stem] + ";" + fractionPart : glyphMap[stem] + ";" + fractionPart;
+}
+```

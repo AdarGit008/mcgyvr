@@ -1,0 +1,69 @@
+```ts
+/**
+ * Builds a weight code for tokens based on their letter order and tally.
+ * @param entries - An array of token entries, each being a list with the token, a non-empty string,
+ *                 and its tally as a whole number.
+ * @returns A mapping containing the codes, total bits, and tallest bit length.
+ */
+export function buildWeightCode(entries: any[]): any {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error("Invalid input: Expected a non-empty array of token entries.");
+  }
+
+  const tokenMap = new Map();
+  let maxTally = 0;
+
+  for (const entry of entries) {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      throw new Error("Invalid entry format: Each entry must be a list of two things.");
+    }
+
+    const [token, tally] = entry;
+    if (typeof token !== "string" || !/^[a-z]+$/.test(token) || typeof tally !== "number") {
+      throw new Error("Invalid token or tally format.");
+    }
+    if (tally < 1 || !Number.isInteger(tally)) {
+      throw new Error("Tally must be a whole number of one or more.");
+    }
+
+    if (tokenMap.has(token)) {
+      throw new Error(`Duplicate token: ${token}`);
+    }
+
+    tokenMap.set(token, tally);
+    maxTally = Math.max(maxTally, tally);
+  }
+
+  const buds = [...tokenMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const result = { codes: {} as Record<string, string>, bits: 0, tallest: 0 };
+  let budCount = buds.length;
+
+  while (budCount > 1) {
+    const [nearToken, nearTally] = buds.shift()!;
+    const [farToken, farTally] = buds.shift()!;
+    const newLoad = nearTally + farTally;
+    buds.push([`${newLoad}-${budCount}`, newLoad]);
+    buds.sort((a, b) => a[1] - b[1] || parseInt(a[0].split('-')[1], 10) - parseInt(b[0].split('-')[1], 10));
+    budCount--;
+  }
+
+  const crown = buds[0][0];
+  const stack: [string, string][] = [[crown, ""]];
+
+  while (stack.length > 0) {
+    const [bud, path] = stack.pop()!;
+    if (!bud.includes('-')) {
+      result.codes[bud] = path;
+      result.bits += tokenMap.get(bud)! * path.length;
+      result.tallest = Math.max(result.tallest, path.length);
+    } else {
+      const [_, nearFar] = bud.split('-');
+      const parts = nearFar.split(',');
+      stack.push([parts[0], "1" + path]);
+      stack.push([parts[1], "0" + path]);
+    }
+  }
+
+  return result;
+}
+```

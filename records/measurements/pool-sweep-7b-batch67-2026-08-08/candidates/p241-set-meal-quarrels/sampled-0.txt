@@ -1,0 +1,77 @@
+```ts
+/**
+ * Builds the set meal tray with the least total price that breaks no quarrel.
+ *
+ * @param courses - An array of courses, each course is an array of option records.
+ * @param quarrels - An array of quarrels, each is a pair of codes.
+ * @returns A record with total and picks.
+ */
+export function buildSetMeal(courses: { code: string; price: number }[][], quarrels: [string, string][]): { total: number; picks: string[] } {
+    if (courses.length === 0 || courses.some(course => course.length === 0)) {
+        throw new Error('Invalid input: Courses must be non-empty.');
+    }
+    if (courses.length > 6) {
+        throw new Error('Invalid input: Maximum six courses allowed.');
+    }
+
+    const allCodes = new Set<string>();
+    for (const course of courses) {
+        if (course.some(option => option.code.length === 0 || option.price < 1)) {
+            throw new Error('Invalid input: Options must have non-empty codes and positive prices.');
+        }
+        if (new Set(course.map(option => option.code)).size !== course.length) {
+            throw new Error('Invalid input: Duplicate codes within a course.');
+        }
+        for (const code of course.map(option => option.code)) {
+            if (allCodes.has(code)) {
+                throw new Error('Invalid input: Duplicate codes across courses.');
+            }
+            allCodes.add(code);
+        }
+    }
+
+    const validQuarrels = quarrels.filter(([code1, code2]) => allCodes.has(code1) && allCodes.has(code2) && code1 !== code2);
+
+    const backtrack = (index: number, currentPick: string[]): { total: number; picks: string[] } | null => {
+        if (index === courses.length) {
+            return { total: 0, picks: currentPick };
+        }
+
+        for (const option of courses[index]) {
+            const nextPick = [...currentPick, option.code];
+            let isValid = true;
+            for (const [code1, code2] of validQuarrels) {
+                if (nextPick.includes(code1) && nextPick.includes(code2)) {
+                    isValid = false;
+                    break;
+                }
+            }
+            if (isValid) {
+                const result = backtrack(index + 1, nextPick);
+                if (result !== null) {
+                    return { total: result.total + option.price, picks: result.picks };
+                }
+            }
+        }
+
+        return null;
+    };
+
+    let bestMeal: { total: number; picks: string[] } | null = null;
+
+    for (const option of courses[0]) {
+        const result = backtrack(1, [option.code]);
+        if (result !== null) {
+            if (!bestMeal || result.total < bestMeal.total || (result.total === bestMeal.total && result.picks.join('') < bestMeal.picks.join(''))) {
+                bestMeal = result;
+            }
+        }
+    }
+
+    if (bestMeal === null) {
+        throw new Error('No tray avoids every quarrel.');
+    }
+
+    return bestMeal;
+}
+```

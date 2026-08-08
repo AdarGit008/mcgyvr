@@ -1,0 +1,42 @@
+```typescript
+export function stalledLoopMembers(waits: Record<string, string>): string[] {
+  if (typeof waits !== 'object' || waits === null) {
+    throw new Error('Invalid input: expected an object');
+  }
+
+  const keys = Object.keys(waits);
+  if (keys.length === 0) {
+    return [];
+  }
+
+  let loopStart: string | undefined;
+  let loopMembers: string[] = [];
+
+  keys.forEach(key => {
+    if (waits[key] !== key && waits[key]) {
+      const seen: Set<string> = new Set();
+      let current = key;
+      while (waits[current] !== undefined && !seen.has(current)) {
+        seen.add(current);
+        current = waits[current];
+      }
+      if (current === key) {
+        loopStart = key;
+        loopMembers = Array.from(seen).sort();
+        return;
+      }
+    }
+  });
+
+  if (loopStart === undefined || loopMembers.length === 0) {
+    return [];
+  }
+
+  const smallestJobName = Math.min(...loopMembers, (a, b) => a.localeCompare(b));
+  if (smallestJobName !== loopStart) {
+    return [];
+  }
+
+  return loopMembers;
+}
+```

@@ -1,0 +1,61 @@
+```ts
+export function compareRemitLines(ours: unknown[][], theirs: unknown[][]): { agreed: string[]; queried: string[]; ourSide: string[]; theirSide: string[] } {
+    const validate = (label: unknown, amount: unknown) => {
+        if (typeof label !== 'string' || label === '') throw new Error('Invalid label');
+        if (!Number.isInteger(amount)) throw new Error('Invalid amount');
+    };
+
+    const normalizeLabel = (label: string) => label.toLowerCase();
+
+    const validateInput = (lines: unknown[][]) => {
+        for (const line of lines) {
+            if (line.length !== 2) throw new Error('Each line must have exactly two entries');
+            validate(line[0], line[1]);
+        }
+    };
+
+    validateInput(ours);
+    validateInput(theirs);
+
+    const ourLines = new Map<string, number>();
+    const theirLines = new Map<string, number>();
+
+    for (const [label, amount] of ours) {
+        const normalizedLabel = normalizeLabel(label);
+        if (ourLines.has(normalizedLabel)) throw new Error('Duplicate label in ours');
+        ourLines.set(normalizedLabel, amount as number);
+    }
+
+    for (const [label, amount] of theirs) {
+        const normalizedLabel = normalizeLabel(label);
+        if (theirLines.has(normalizedLabel)) throw new Error('Duplicate label in theirs');
+        theirLines.set(normalizedLabel, amount as number);
+    }
+
+    const agreed: string[] = [];
+    const queried: string[] = [];
+    const ourSide: string[] = [];
+    const theirSide: string[] = [];
+
+    for (const [label, oursAmount] of ourLines) {
+        const theirsAmount = theirLines.get(label);
+        if (theirsAmount !== undefined) {
+            if (oursAmount === theirsAmount) agreed.push(label);
+            else queried.push(label);
+        } else {
+            ourSide.push(label);
+        }
+    }
+
+    for (const [label, theirsAmount] of theirLines.entries()) {
+        if (!ourLines.has(label)) theirSide.push(label);
+    }
+
+    return {
+        agreed: agreed.sort(),
+        queried: queried.sort(),
+        ourSide: ourSide.sort(),
+        theirSide: theirSide.sort()
+    };
+}
+```

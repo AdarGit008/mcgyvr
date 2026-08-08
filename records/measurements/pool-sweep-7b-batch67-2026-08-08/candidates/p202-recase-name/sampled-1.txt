@@ -1,0 +1,57 @@
+```ts
+/**
+ * Recases a label into a specified style.
+ * @param label - The label to re-case, built from ASCII letters, digits, underscores, and hyphens.
+ * @param style - The style to write the label in: "snake", "kebab", "shout", "pascal", or "camel".
+ * @returns The recased label.
+ */
+export function recaseName(label: string, style: string): string {
+    if (typeof label !== 'string' || typeof style !== 'string') {
+        throw new Error('Both label and style must be strings');
+    }
+    if (label === '') {
+        throw new Error('Label cannot be empty');
+    }
+    if (!/^[a-z\d\-_]+$/.test(label)) {
+        throw new Error('Label can only contain ASCII letters, digits, underscores, and hyphens');
+    }
+    if (/^[\-_]|[\-_]$|[\-_]{2,}/.test(label)) {
+        throw new Error('Label cannot start or end with a separator or have consecutive separators');
+    }
+
+    const words = label.replace(/[_-]/g, ' ').split(' ');
+    const processedWords = words.map((word) => {
+        if (/^\d+$/.test(word)) {
+            return word;
+        }
+        let result = '';
+        for (let i = 0; i < word.length; i++) {
+            if (i > 0 && word[i - 1] === word[i].toUpperCase()) {
+                result += word[i];
+            } else if (word[i].toUpperCase() === word[i]) {
+                result += word[i].toLowerCase();
+            }
+        }
+        return result;
+    });
+
+    switch (style) {
+        case 'snake':
+            return processedWords.join('_');
+        case 'kebab':
+            return processedWords.join('-');
+        case 'shout':
+            return processedWords.map(word => word.toUpperCase()).join('_');
+        case 'pascal':
+            return processedWords.map((word, index) => 
+                index === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            ).join('');
+        case 'camel':
+            return processedWords[0].toLowerCase() + processedWords.slice(1).map(word =>
+                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            ).join('');
+        default:
+            throw new Error('Invalid style. Must be one of "snake", "kebab", "shout", "pascal", or "camel"');
+    }
+}
+```

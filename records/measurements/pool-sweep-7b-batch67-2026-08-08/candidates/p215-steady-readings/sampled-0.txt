@@ -1,0 +1,55 @@
+```typescript
+export function steadyReadings(readings: unknown, spec: unknown): Record<string, unknown> {
+    if (!Array.isArray(readings) || readings.length === 0) {
+        throw new Error("Invalid reading list");
+    }
+
+    if (typeof spec !== 'object' || spec === null) {
+        throw new Error("Invalid specification object");
+    }
+
+    const { band, hold } = spec as { band: number; hold: number };
+
+    if (!Number.isInteger(band) || band < 0) {
+        throw new Error("Band must be a non-negative whole number");
+    }
+
+    if (!Number.isInteger(hold) || hold <= 0) {
+        throw new Error("Hold must be a positive whole number");
+    }
+
+    const settled: number[] = [];
+    const moved: number[] = [];
+
+    let steady = readings[0];
+    let challengeStart = -1;
+    let challengeLength = 0;
+
+    for (let i = 0; i < readings.length; i++) {
+        const reading = readings[i];
+
+        if (!Number.isInteger(reading)) {
+            throw new Error("Invalid reading");
+        }
+
+        settled.push(steady);
+
+        if (Math.abs(reading - steady) <= band) {
+            challengeLength = 0;
+        } else {
+            if (challengeStart !== -1 && Math.abs(reading - readings[challengeStart]) <= band) {
+                challengeLength++;
+            } else {
+                if (challengeLength >= hold) {
+                    steady = readings[challengeStart];
+                    moved.push(i);
+                }
+                challengeStart = i;
+                challengeLength = 1;
+            }
+        }
+    }
+
+    return { settled, moved };
+}
+```

@@ -1,0 +1,82 @@
+```ts
+/** Codes a sheet of written-in answers against its ordered steps. */
+export function recodeAnswerSheet(sheet: Record<string, unknown>): Record<string, unknown> {
+  if (typeof sheet !== 'object' || sheet === null) {
+    throw new Error('Invalid sheet');
+  }
+
+  const steps = sheet.steps as any[];
+  if (!Array.isArray(steps) || steps.length === 0) {
+    throw new Error('Steps must be a non-empty list');
+  }
+
+  const entries = sheet.entries as any[];
+  if (!Array.isArray(entries)) {
+    throw new Error('Entries must be a list');
+  }
+
+  const coded: { id: string, label: string }[] = [];
+  const loose: string[] = [];
+  const used = new Set<string>();
+
+  for (const entry of entries) {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new Error('Invalid entry');
+    }
+
+    const text = (entry.text as string).toLowerCase().replace(/\s+/g, ' ').trim();
+    let label = "";
+
+    for (const step of steps) {
+      if (typeof step !== 'object' || step === null) {
+        throw new Error('Invalid step');
+      }
+
+      const { label: stepLabel, wanted, barred, least } = step;
+
+      if (typeof stepLabel !== 'string' || stepLabel.trim() === '' || used.has(stepLabel)) {
+        throw new Error('Invalid step label');
+      }
+
+      if (!Array.isArray(wanted) || wanted.length === 0) {
+        throw new Error('Wanted must be a non-empty list');
+      }
+
+      for (const frag of wanted) {
+        if (typeof frag !== 'string' || frag.trim() === '' || /[A-Z]/.test(frag) || new Set(frag).size !== frag.length) {
+          throw new Error('Invalid wanted fragment');
+        }
+      }
+
+      if (!Array.isArray(barred)) {
+        throw new Error('Barred must be a list');
+      }
+
+      for (const frag of barred) {
+        if (typeof frag !== 'string' || frag.trim() === '' || /[A-Z]/.test(frag) || new Set(frag).size !== frag.length) {
+          throw new Error('Invalid barred fragment');
+        }
+      }
+
+      const hits = wanted.filter((frag: string) => text.includes(frag));
+      if (hits.length >= least && !barred.some((frag: string) => text.includes(frag))) {
+        label = stepLabel;
+        break;
+      }
+    }
+
+    if (label === "") {
+      loose.push(entry.id);
+    } else {
+      coded.push({ id: entry.id, label });
+      used.add(label);
+    }
+  }
+
+  const unused = steps
+    .map((step: any) => step.label)
+    .filter((label: string) => !used.has(label));
+
+  return { coded, loose, unused };
+}
+```

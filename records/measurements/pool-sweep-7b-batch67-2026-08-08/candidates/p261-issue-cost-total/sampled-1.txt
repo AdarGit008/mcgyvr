@@ -1,0 +1,47 @@
+```ts
+export function issueCostTotal(moves: Array<Record<string, unknown>>): number {
+  if (!Array.isArray(moves)) {
+    throw new Error("Invalid input: Expected a list of moves");
+  }
+
+  const bin: Array<[number, number]> = [];
+  let charged = 0;
+
+  for (const move of moves) {
+    if (move.kind !== "in" && move.kind !== "out") {
+      throw new Error(`Invalid kind: ${move.kind}`);
+    }
+
+    if (typeof move.units !== "number" || move.units < 1) {
+      throw new Error("Invalid units: Must be a whole number greater than zero");
+    }
+
+    if (move.kind === "in") {
+      if (typeof move.cents !== "number" || move.cents < 0) {
+        throw new Error("Invalid cents for 'in' move: Must be non-negative");
+      }
+      bin.push([move.units, move.cents]);
+    } else {
+      let remainingUnits = move.units;
+      while (remainingUnits > 0 && bin.length > 0) {
+        const consignment = bin[bin.length - 1];
+        if (consignment[0] <= remainingUnits) {
+          charged += consignment[0] * consignment[1];
+          remainingUnits -= consignment[0];
+          bin.pop();
+        } else {
+          charged += remainingUnits * consignment[1];
+          consignment[0] -= remainingUnits;
+          remainingUnits = 0;
+        }
+      }
+
+      if (remainingUnits > 0) {
+        throw new Error("Issue too large for the available consignments");
+      }
+    }
+  }
+
+  return charged;
+}
+```

@@ -1,0 +1,43 @@
+```ts
+export function fillDeskMap(plan: string[], legend: Record<string, string[]>): Record<string, unknown> {
+  if (!Array.isArray(plan) || plan.length === 0) throw new Error("Invalid floor plan");
+  const rowLength = plan[0].length;
+  if (plan.some(row => typeof row !== "string" || row.length !== rowLength)) throw new Error("Invalid floor plan");
+
+  const bankSet = new Set<string>();
+  for (const char of plan.flat()) {
+    if (char >= 'a' && char <= 'z') bankSet.add(char);
+  }
+
+  if (!Object.keys(legend).every(key => key.length === 1 && /^[a-z]$/.test(key) && bankSet.has(key))) throw new Error("Invalid legend");
+  for (const [bank, people] of Object.entries(legend)) {
+    if (!Array.isArray(people) || people.some(name => typeof name !== "string" || !/^[A-Za-z]+$/.test(name))) throw new Error("Invalid legend");
+  }
+
+  const floorMap = plan.map(row => row.split(''));
+  const sat: { [key: string]: string } = {};
+  let spare = 0;
+
+  for (const [bank, people] of Object.entries(legend)) {
+    const bankIndex = Array.from(bankSet).indexOf(bank);
+    const desks = floorMap.flatMap(row => row.filter(char => char === bank));
+    if (desks.length < people.length) throw new Error("Not enough desks for the legend");
+
+    for (const person of people) {
+      const desk = desks.shift();
+      if (!desk) break;
+      const [rowIndex, colIndex] = floorMap.findIndex(row => row.includes(desk)) + ' ' + desk.indexOf(desk);
+      sat[person] = `${person} r${rowIndex} c${colIndex}`;
+    }
+
+    spare += desks.length;
+  }
+
+  for (const person in sat) {
+    const [_, rowIndex, colIndex] = sat[person].split(' ');
+    floorMap[rowIndex][colIndex] = person.toUpperCase();
+  }
+
+  return { floor: floorMap.map(row => row.join('')), sat, spare };
+}
+```

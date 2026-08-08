@@ -1,0 +1,41 @@
+```ts
+export function codeOpenAnswers(rules: Array<Record<string, unknown>>, answers: string[]): Record<string, unknown> {
+  if (!Array.isArray(rules) || rules.length === 0) throw new Error("Rules must be a non-empty list");
+  if (!Array.isArray(answers)) throw new Error("Answers must be a list");
+
+  const ruleMap = new Map<string, { code: string; phrase: string }>();
+  for (const rule of rules) {
+    if (typeof rule !== "object" || rule === null) throw new Error("Each rule must be a mapping");
+    if (!rule.hasOwnProperty("code") || !rule.hasOwnProperty("phrase")) throw new Error("Each rule must have 'code' and 'phrase'");
+    const code = rule.code as string;
+    if (typeof code !== "string" || code.trim() === "") throw new Error("Code must be a non-empty string");
+    const phrase = rule.phrase as string;
+    if (!/^[a-z0-9]+(\s+[a-z0-9]+)*$/.test(phrase)) throw new Error("Phrase must be one or more runs of lowercase letters and digits joined by single spaces");
+    if (ruleMap.has(phrase)) throw new Error("Two rules cannot share the same phrase");
+
+    ruleMap.set(phrase, { code, phrase });
+  }
+
+  const tally: Record<string, number> = {};
+  const loose: string[] = [];
+
+  for (const answer of answers) {
+    if (typeof answer !== "string") throw new Error("Each answer must be a string");
+    let tidiedAnswer = answer.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    let coded = false;
+
+    for (const [phrase, { code }] of ruleMap) {
+      const regex = new RegExp(`\\b${phrase}\\b`, "i");
+      if (regex.test(tidiedAnswer)) {
+        tally[code] = (tally[code] || 0) + 1;
+        coded = true;
+        break;
+      }
+    }
+
+    if (!coded) loose.push(tidiedAnswer);
+  }
+
+  return { tally, loose };
+}
+```

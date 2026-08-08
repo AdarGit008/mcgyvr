@@ -1,0 +1,50 @@
+```ts
+export function labelValueRegions(grid: number[][]): { map: number[][], sizes: number[], values: number[] } {
+  if (!Array.isArray(grid) || grid.length === 0) throw new Error("Grid must be a non-empty list of rows.");
+  const rowCount = grid.length;
+  const colCount = grid[0].length;
+  if (colCount === 0) throw new Error("Rows must be non-empty lists of whole numbers.");
+  for (let row of grid.slice(1)) {
+    if (!Array.isArray(row) || row.length !== colCount) throw new Error("All rows must have the same length.");
+  }
+  for (let row of grid) {
+    for (let val of row) {
+      if (typeof val !== 'number' || !Number.isInteger(val)) throw new Error("Grid must contain whole numbers only.");
+    }
+  }
+
+  const map = Array.from({ length: rowCount }, () => Array(colCount).fill(0));
+  let regionCount = 0;
+  const visit = (r: number, c: number, regionId: number) => {
+    if (r < 0 || r >= rowCount || c < 0 || c >= colCount || map[r][c] !== 0 || grid[r][c] !== grid[row][col]) return;
+    map[r][c] = regionId;
+    visit(r - 1, c, regionId);
+    visit(r + 1, c, regionId);
+    visit(r, c - 1, regionId);
+    visit(r, c + 1, regionId);
+  };
+
+  for (let r = 0; r < rowCount; r++) {
+    for (let c = 0; c < colCount; c++) {
+      if (map[r][c] === 0) {
+        regionCount++;
+        visit(r, c, regionCount);
+      }
+    }
+  }
+
+  const sizes: number[] = Array(regionCount).fill(0);
+  const values: number[] = Array(regionCount);
+
+  for (let r = 0; r < rowCount; r++) {
+    for (let c = 0; c < colCount; c++) {
+      if (map[r][c] !== 0) {
+        sizes[map[r][c] - 1]++;
+        if (!values[map[r][c] - 1]) values[map[r][c] - 1] = grid[r][c];
+      }
+    }
+  }
+
+  return { map, sizes, values };
+}
+```

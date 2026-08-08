@@ -1,0 +1,61 @@
+```ts
+export function buildWeightCode(entries: any[]): { codes: Record<string, string>, bits: number, tallest: number } {
+    if (!Array.isArray(entries) || entries.length === 0) {
+        throw new Error("Invalid input");
+    }
+
+    const tokenMap: Record<string, [string, number]> = {};
+    for (const entry of entries) {
+        if (!Array.isArray(entry) || entry.length !== 2) {
+            throw new Error("Invalid entry format");
+        }
+        const [token, tally] = entry;
+        if (typeof token !== "string" || !/^[a-z]+$/.test(token)) {
+            throw new Error("Invalid token");
+        }
+        if (typeof tally !== "number" || tally < 1) {
+            throw new Error("Invalid tally");
+        }
+        if (tokenMap[token]) {
+            throw new Error("Duplicate token");
+        }
+        tokenMap[token] = [token, tally];
+    }
+
+    const buds: { load: number, near: string | null, far: string | null }[] = [];
+    for (const [token, tally] of Object.values(tokenMap)) {
+        buds.push({ load: tally, near: null, far: null });
+    }
+    buds.sort((a, b) => a.load - b.load || buds.indexOf(a) - buds.indexOf(b));
+
+    let highestNumber = buds.length - 1;
+    while (buds.length > 1) {
+        const nearBud = buds.shift()!;
+        const farBud = buds.shift()!;
+        const newBud: { load: number, near: string | null, far: string | null } = {
+            load: nearBud.load + farBud.load,
+            near: nearBud.near || nearBud.token,
+            far: farBud.far || farBud.token
+        };
+        buds.push(newBud);
+        buds.sort((a, b) => a.load - b.load || buds.indexOf(a) - buds.indexOf(b));
+        highestNumber++;
+    }
+
+    const codes: Record<string, string> = {};
+    function walkBud(bud: { load: number, near: string | null, far: string | null }, path: string): void {
+        if (bud.near === null && bud.far === null) {
+            codes[bud.token] = "0";
+        } else {
+            walkBud(buds.find(b => b.token === bud.near)!, path + "0");
+            walkBud(buds.find(b => b.token === bud.far)!, path + "1");
+        }
+    }
+    walkBud(buds[0], "");
+
+    const bits = Object.values(codes).reduce((acc, code) => acc + code.length * tokenMap[code.split('').pop()!][1], 0);
+    const tallest = Math.max(...Object.values(codes).map(code => code.length));
+
+    return { codes, bits, tallest };
+}
+```

@@ -1,0 +1,43 @@
+```ts
+/**
+ * Determines the base class and name for a stack of pitch marks.
+ * @param {number[]} marks - List of half-tone pitch marks.
+ * @returns {{base: number; name: string}} Object with 'base' and 'name'.
+ */
+export function nameTriadStack(marks: number[]): any {
+  if (!Array.isArray(marks) || marks.length === 0) {
+    throw new Error("Invalid input");
+  }
+
+  const classes = Array.from(new Set(marks.map(mark => mark % 12)))
+    .sort((a, b) => a - b)
+    .filter((_, index, arr) => index === 0 || arr[index] !== arr[index - 1]);
+
+  if (classes.length < 3) {
+    return { base: -1, name: "unknown" };
+  }
+
+  const shapes = [
+    [0, 4, 7],
+    [0, 3, 7],
+    [0, 3, 6],
+    [0, 4, 8],
+    [0, 5, 7],
+    [0, 2, 6],
+    [0, 4, 7, 11],
+    [0, 4, 7, 10],
+    [0, 3, 7, 10],
+    [0, 3, 6, 9]
+  ];
+
+  const shape = classes.map(c => (c - classes[0] + 12) % 12).sort((a, b) => a - b);
+  const knownShapeIndex = shapes.findIndex(s => s.every((v, i) => v === shape[i]));
+
+  if (knownShapeIndex === -1) {
+    return { base: -1, name: "unknown" };
+  }
+
+  const smallestClass = classes.find(c => c % 12 === shapes[knownShapeIndex][0]);
+  return { base: smallestClass || -1, name: shapes[knownShapeIndex].join("-") };
+}
+```

@@ -1,0 +1,65 @@
+```ts
+export function issueCostTotal(moves: Array<Record<string, unknown>>): number {
+  if (!Array.isArray(moves)) {
+    throw new Error("Argument must be a list");
+  }
+
+  const bin: Array<[number, number]> = [];
+  let charged = 0;
+
+  for (const move of moves) {
+    if (typeof move !== "object" || move === null) {
+      throw new Error("Each movement must be an object");
+    }
+
+    if (!move.hasOwnProperty("kind") || !move.hasOwnProperty("units")) {
+      throw new Error("Movement must have 'kind' and 'units'");
+    }
+
+    const kind = move.kind as string;
+    const units = Number(move.units);
+    const cents = move.cents ? Number(move.cents) : undefined;
+
+    if (kind !== "in" && kind !== "out") {
+      throw new Error("Invalid kind: must be 'in' or 'out'");
+    }
+
+    if (!Number.isInteger(units) || units <= 0) {
+      throw new Error("Units must be a positive integer");
+    }
+
+    if (cents !== undefined) {
+      if (!Number.isInteger(cents) || cents < 0) {
+        throw new Error("Cents must be a non-negative integer");
+      }
+    }
+
+    if (kind === "in") {
+      if (cents === undefined) {
+        throw new Error("Arrival must have 'cents'");
+      }
+      bin.push([units, cents]);
+    } else {
+      let remainingUnits = units;
+      while (remainingUnits > 0 && bin.length > 0) {
+        const consignment = bin[bin.length - 1];
+        if (consignment[0] <= remainingUnits) {
+          charged += consignment[0] * consignment[1];
+          remainingUnits -= consignment[0];
+          bin.pop();
+        } else {
+          charged += remainingUnits * consignment[1];
+          consignment[0] -= remainingUnits;
+          remainingUnits = 0;
+        }
+      }
+
+      if (remainingUnits > 0) {
+        throw new Error("Issue larger than everything in the bin");
+      }
+    }
+  }
+
+  return charged;
+}
+```

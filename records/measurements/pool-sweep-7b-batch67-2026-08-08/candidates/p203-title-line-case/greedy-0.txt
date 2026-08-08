@@ -1,0 +1,31 @@
+```ts
+/** A heading dressed for print. */
+export function titleLine(text: string, quiet: string[]): string {
+  if (typeof text !== 'string' || text === '') throw new Error('Invalid heading');
+  if (!Array.isArray(quiet)) throw new Error('Quiet list must be an array');
+
+  const tokens = text.split(" ");
+  for (const token of tokens) {
+    if (/[^a-zA-Z0-9 '-]/.test(token)) throw new Error('Invalid character in heading');
+    if (/^[-']|[-']$/.test(token)) throw new Error('Heading cannot start or end with a hyphen or apostrophe');
+  }
+
+  for (const entry of quiet) {
+    if (typeof entry !== 'string' || !entry.match(/^[a-z]+$/)) throw new Error('Quiet list entries must be lowercase strings');
+  }
+
+  return tokens.map((token, index) => {
+    const lowerToken = token.toLowerCase();
+    if (quiet.includes(lowerToken)) return lowerToken;
+    if (index === 0 || index === tokens.length - 1) return token[0].toUpperCase() + token.slice(1).toLowerCase();
+    if (lowerToken.match(/^[a-z]{2,}$/)) return token;
+
+    const pieces = lowerToken.split(/[-']/);
+    for (let i = 0; i < pieces.length; i++) {
+      pieces[i] = pieces[i][0].toUpperCase() + pieces[i].slice(1).toLowerCase();
+    }
+    if (pieces.length > 1) pieces[pieces.length - 2] += token[token.length - 1];
+    return pieces.join('-');
+  }).join(" ");
+}
+```
