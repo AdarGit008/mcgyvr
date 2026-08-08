@@ -104,6 +104,16 @@ bundle = _bundle_rig()
 # this measures. SAMPLED_TEMPERATURE is likewise DEC-6's 0.7 — the operating
 # point the inherited claim was made at, not a number chosen here. The cap is
 # the bundle sweep's, so "truncated" means the same thing in both instruments.
+#
+# MAX_OUTPUT_TOKENS is inherited three hops and derived at none of them:
+# from tools/bundle/measure.py, which took it from CLM-0004's local-ai
+# instrument (records/evidence/local-ai-2026-08-02/instrument/context_exp.py),
+# where it is a bare `MAX_TOKENS = 768`. It stays the default so every existing
+# run directory keeps its identity, but it is now a parameter: #212 measured 47
+# refusals that were entirely this number, and #216 exists to derive it per task
+# type. Note that contracts carry their own `limits.max_output_tokens` (schema
+# default 1024) which this rig does NOT read — a deliberate choice for a
+# comparative instrument, and one #216 asks to revisit.
 DRAWS = 5
 GREEDY_TEMPERATURE = 0.0
 SAMPLED_TEMPERATURE = 0.7
@@ -253,6 +263,7 @@ def measure_task(
     candidates: Path,
     already: set[tuple[str, str, int]],
     plan: list[tuple[str, int, float]] | None = None,
+    max_output_tokens: int = MAX_OUTPUT_TOKENS,
 ) -> list[dict[str, object]]:
     """Every draw of one task, each a row — and never an early exit.
 
@@ -277,7 +288,7 @@ def measure_task(
         request = Request(
             prompt=prompt.user,
             system=prompt.system,
-            max_output_tokens=MAX_OUTPUT_TOKENS,
+            max_output_tokens=max_output_tokens,
             temperature=temperature,
             quality_sensitive=True,
         )
@@ -353,6 +364,7 @@ def record_run(
     tier: str = "d1",
     draws: int = DRAWS,
     sampled_temperature: float = SAMPLED_TEMPERATURE,
+    max_output_tokens: int = MAX_OUTPUT_TOKENS,
 ) -> None:
     """Write, or extend, the provenance beside the rows.
 
@@ -371,7 +383,7 @@ def record_run(
         "draws": draws,
         "greedy_temperature": GREEDY_TEMPERATURE,
         "sampled_temperature": sampled_temperature,
-        "max_output_tokens": MAX_OUTPUT_TOKENS,
+        "max_output_tokens": max_output_tokens,
         "bundle_sha256": hashlib.sha256(prompt.system.encode("utf-8")).hexdigest(),
         "tasks_sha256": tier_digests(tier),
     }
@@ -554,6 +566,14 @@ def main() -> int:
         "directory measured at one temperature refuses another.",
     )
     parser.add_argument(
+        "--max-output-tokens",
+        type=int,
+        default=MAX_OUTPUT_TOKENS,
+        help=f"hard cap on each reply (default {MAX_OUTPUT_TOKENS}, inherited "
+        "from the bundle sweep and derived nowhere — see #216). Part of the run "
+        "identity: a directory measured at one cap refuses another.",
+    )
+    parser.add_argument(
         "--selftest",
         action="store_true",
         help="run every reference against its own acceptance and stop; needs no worker",
@@ -630,6 +650,7 @@ def main() -> int:
             },
             tier=args.tier,
             draws=args.draws,
+            max_output_tokens=args.max_output_tokens,
             sampled_temperature=args.sampled_temperature,
         )
     except bundle.MeasureError as exc:
@@ -639,7 +660,8 @@ def main() -> int:
     print(
         f"measuring {worker.model} at {bundle.redact(worker.endpoint)} "
         f"({worker.protocol.value}), tier {args.tier}, {args.draws} sampled "
-        f"draws per task at T={args.sampled_temperature}, no early exit",
+        f"draws per task at T={args.sampled_temperature}, "
+        f"cap {args.max_output_tokens}, no early exit",
         file=sys.stderr,
     )
     plan = draw_plan(args.draws, args.sampled_temperature)
@@ -657,6 +679,7 @@ def main() -> int:
                 args.out / "candidates",
                 already,
                 plan=plan,
+                max_output_tokens=args.max_output_tokens,
             )
             for row in rows:
                 handle.write(json.dumps(row) + "\n")
