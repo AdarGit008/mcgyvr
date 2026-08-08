@@ -81,6 +81,39 @@ reference solutions running **98 lines at the median, against 43** for the 243
 that never refused. 25 of those 26 are at or above 50 lines. Below 50 lines,
 in either set, nothing truncates at all.
 
+## The 768 is the rig's number, and the contracts ask for 1024
+
+Every refusal rate on this page was measured at a cap **no pool contract
+declares**. The chain:
+
+| | |
+|---|---|
+| `tools/breadth/measure.py:110` | `MAX_OUTPUT_TOKENS = 768` — "the cap is the bundle sweep's, so *truncated* means the same thing in both instruments" |
+| ← `tools/bundle/measure.py:148` | `768` — "that is what the Python run allowed" |
+| ← `records/evidence/local-ai-2026-08-02/instrument/context_exp.py:39` | `MAX_TOKENS = 768` — a bare constant, no comment, no derivation |
+
+The origin is CLM-0004's local-ai instrument, vendored under #118. Each hop
+adopted the number to keep "truncated" comparable across instruments, which is
+a reason to hold it *fixed* and not a reason it is *right*. Nobody sized it.
+
+Meanwhile the pool contracts declare no `limits.max_output_tokens`, so the
+loader fills the schema default of **1024** (`src/mcgyvr/contract.py:279`),
+and the breadth rig never reads `contract.limits` at all — it sends its own
+constant unconditionally. **A production dispatch of these same contracts gets
+25% more room than any sweep here gave them.**
+
+So the 3.2% / 12.1% refusal rates are properties of the instrument, not of the
+problems, and they are not the rates production would see. **How many of the 47
+would complete under 1024 cannot be read off this data**: a truncated reply's
+true length is censored at the cap, so the distribution above 768 is unobserved.
+Recovering it needs a re-run, not an analysis.
+
+Nothing above depends on this. The pass-gap verdict is already stated on
+complete replies only, and the 7B/14B ratio agreement holds at whatever cap
+both were measured at, because both were measured at the same one. What it
+does bound is the cap-sizing question — which is **#17**, and which this
+record is evidence *for* rather than evidence about.
+
 ## What the cap does *not* explain
 
 Almost none of the pass-rate gap.
@@ -93,7 +126,9 @@ Almost none of the pass-rate gap.
 Discarding every truncated row moves the gap from 18.9pp to 17.5pp. The
 issue's own upper bound says the same thing from the other side: crediting all
 29 refusals as passes still leaves the 80 below the baseline. **Raising the cap
-would recover a few rows and would not make these problems easy.**
+to the 1024 these contracts declare would recover some rows and would not make
+these problems easy** — the ceiling is 31% against a 41% baseline even if every
+refusal is credited as a pass.
 
 ## What size-standardising could not settle, and why it is reported anyway
 
