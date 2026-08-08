@@ -1,0 +1,35 @@
+```ts
+export function preloadPicks(entries: unknown, room: unknown): string[] {
+    if (!Array.isArray(entries)) throw new Error('Entries must be an array');
+    if (typeof room !== 'number' || room < 0 || !Number.isInteger(room)) throw new Error('Room must be a non-negative whole number');
+
+    const candidateMap = new Map<string, { size: number; hits: number }>();
+    for (const entry of entries) {
+        if (typeof entry !== 'object' || entry === null) throw new Error('Each entry must be an object');
+        const { key, size, hits } = entry as { key: unknown; size: unknown; hits: unknown };
+        if (typeof key !== 'string' || key === '') throw new Error('Key must be a non-empty string');
+        if (!candidateMap.has(key)) {
+            candidateMap.set(key, { size, hits });
+        } else {
+            throw new Error('Duplicate key found');
+        }
+        if (typeof size !== 'number' || size <= 0 || !Number.isInteger(size)) throw new Error('Size must be a positive whole number');
+        if (typeof hits !== 'number' || hits < 0 || !Number.isInteger(hits)) throw new Error('Hits must be a non-negative whole number');
+    }
+
+    const sortedCandidates = Array.from(candidateMap.entries())
+        .sort((a, b) => b[1].hits - a[1].hits || a[1].size - b[1].size || a[0].localeCompare(b[0]));
+
+    const takenKeys: string[] = [];
+    for (const [key, { size }] of sortedCandidates) {
+        if (room >= size) {
+            takenKeys.push(key);
+            room -= size;
+        } else {
+            break;
+        }
+    }
+
+    return takenKeys;
+}
+```

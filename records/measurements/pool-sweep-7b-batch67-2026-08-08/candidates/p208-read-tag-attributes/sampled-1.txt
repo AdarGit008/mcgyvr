@@ -1,0 +1,63 @@
+```ts
+export function readTagAttributes(tag: string): Record<string, unknown> {
+  if (typeof tag !== 'string') throw new Error('Input must be a string');
+  if (!tag.startsWith('[') || !tag.endsWith(']')) throw new Error('Invalid tag format');
+
+  const stemEnd = tag.indexOf(' ', 1);
+  if (stemEnd === -1) throw new Error('Missing stem in tag');
+  const stem = tag.slice(1, stemEnd);
+  if (!/^[a-zA-Z][a-zA-Z0-9-]*$/.test(stem)) throw new Error('Invalid stem');
+
+  const marks: { name: string; setting: string }[] = [];
+  let markStart = stemEnd + 1;
+  while (markStart < tag.length) {
+    if (tag[markStart] === ' ') markStart++;
+    else break;
+  }
+
+  for (let i = markStart; i < tag.length - 2; ) {
+    const nameStart = i;
+    while (i < tag.length && /[a-z0-9-]/.test(tag[i])) i++;
+    if (i === nameStart) throw new Error('Invalid mark name');
+    const name = tag.slice(nameStart, i);
+
+    let setting = '';
+    if (tag[i + 1] === '=') {
+      i += 2;
+      if (i >= tag.length) throw new Error('Equals sign with no setting');
+      if (tag[i] === "'" || tag[i] === '"') {
+        const quote = tag[i];
+        i++;
+        let escaped = false;
+        while (i < tag.length && (quote !== tag[i] || escaped)) {
+          if (escaped) {
+            setting += tag[i];
+            escaped = false;
+          } else if (tag[i] === '\\') {
+            escaped = true;
+          } else {
+            setting += tag[i];
+          }
+          i++;
+        }
+        if (!escaped) throw new Error('Unmatched quote');
+      } else {
+        while (i < tag.length && /[a-zA-Z0-9-_./]/.test(tag[i])) {
+          setting += tag[i];
+          i++;
+        }
+        if (!setting) throw new Error('Empty plain setting');
+      }
+    }
+
+    const mark = marks.find(m => m.name === name);
+    if (mark) {
+      if (mark.setting !== setting) throw new Error('Duplicate mark with different setting');
+    } else {
+      marks.push({ name, setting });
+    }
+  }
+
+  return { stem, marks };
+}
+```

@@ -1,0 +1,64 @@
+```typescript
+export function replayTesselMatch(rallies: string[]): { winner: string; bands: number[]; points: number[]; serve: string } {
+    const result = { winner: "", bands: [0, 0], points: [0, 0], serve: "A" };
+    
+    if (!Array.isArray(rallies)) throw new Error("Invalid argument: rallies must be an array");
+    
+    for (const rally of rallies) {
+        if (result.winner !== "") throw new Error("Invalid argument: rally after match is decided");
+        if (rally !== "A" && rally !== "B") throw new Error("Invalid argument: rally must be 'A' or 'B'");
+        
+        const servingSide = result.serve === "A" ? 0 : 1;
+        const receivingSide = 1 - servingSide;
+        
+        if (rallies[rallyIndex] === rallies[0]) {
+            // First rally, A serves
+            result.points[servingSide]++;
+            result.serve = "B";
+        } else {
+            // Subsequent rallies
+            if (rallies[rallyIndex] === rallies[0]) {
+                // Server wins rally
+                result.points[servingSide]++;
+                result.serve = rally;
+            } else {
+                // Receiver wins rally
+                result.serve = rally;
+            }
+        }
+        
+        const [bandA, bandB] = computeBands(result.points);
+        if (bandA >= 3 || bandB >= 3) {
+            result.winner = bandA >= 3 ? "A" : "B";
+            break;
+        }
+    }
+    
+    return result;
+}
+
+function computeBands(points: number[]): [number, number] {
+    let bandA = 0;
+    let bandB = 0;
+    
+    for (let i = 0; i < points.length; i++) {
+        if ((i % 2 === 0 && points[i] >= 7) || (i % 2 !== 0 && points[i] >= 7)) {
+            if (points[i] - points[1 - i] >= 2) {
+                return [bandA + 1, bandB];
+            }
+        } else if (points[i] === 10) {
+            return [bandA + 1, bandB];
+        }
+        
+        if ((i % 2 === 0 && points[1 - i] >= 7) || (i % 2 !== 0 && points[1 - i] >= 7)) {
+            if (points[1 - i] - points[i] >= 2) {
+                return [bandA, bandB + 1];
+            }
+        } else if (points[1 - i] === 10) {
+            return [bandA, bandB + 1];
+        }
+    }
+    
+    return [bandA, bandB];
+}
+```

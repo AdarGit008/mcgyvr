@@ -1,0 +1,45 @@
+```ts
+export function canonicalTagQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Argument must be a string');
+  }
+
+  const items = text.split(';').map(item => item.trim());
+  const decodedItems = items.map(item => {
+    const [key, value] = item.split(':').map(s => s.trim());
+    if (!key || key.includes(':') || !value.includes(':')) {
+      throw new Error('Invalid item format');
+    }
+    return { key: decode(key), value: decode(value) };
+  });
+
+  const uniqueItems = decodedItems.filter((item, index, self) =>
+    index === self.findIndex(t => t.key === item.key && t.value === item.value)
+  );
+
+  uniqueItems.sort((a, b) => {
+    if (a.key !== b.key) return a.key.localeCompare(b.key);
+    return a.value.localeCompare(b.value);
+  });
+
+  const encodedItems = uniqueItems.map(item =>
+    encode(item.key) + ':' + encode(item.value)
+  );
+
+  return encodedItems.join(';');
+}
+
+function decode(encoded: string): string {
+  return encoded.replace(/~([0-9A-F]{2})/g, (match, hex) => {
+    const code = parseInt(hex, 16);
+    if (code < 32 || code > 126) {
+      throw new Error('Invalid escape sequence');
+    }
+    return String.fromCharCode(code);
+  });
+}
+
+function encode(decoded: string): string {
+  return decoded.replace(/[~:;]/g, match => `~${match.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`);
+}
+```

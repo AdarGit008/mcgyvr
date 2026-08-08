@@ -1,0 +1,67 @@
+```ts
+export function numberGridSlots(rows: string[]): Array<Record<string, number>> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("Input must be a non-empty list of rows.");
+  }
+
+  const rowLength = rows[0].length;
+  if (rows.some(row => typeof row !== "string" || row.length !== rowLength)) {
+    throw new Error("All rows must be strings of the same length.");
+  }
+
+  const result: Array<Record<string, number>> = [];
+  let slotNumber = 1;
+
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    for (let colIndex = 0; colIndex < rowLength; colIndex++) {
+      if (rows[rowIndex][colIndex] === ".") {
+        const acrossSlotLength = getAcrossSlotLength(rows, rowIndex, colIndex);
+        const downSlotLength = getDownSlotLength(rows, rowIndex, colIndex);
+
+        if (acrossSlotLength > 0 || downSlotLength > 0) {
+          result.push({
+            at: slotNumber,
+            row: rowIndex + 1,
+            col: colIndex + 1,
+            across: acrossSlotLength,
+            down: downSlotLength
+          });
+          slotNumber++;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+function getAcrossSlotLength(rows: string[], rowIndex: number, colIndex: number): number {
+  if (colIndex > 0 && rows[rowIndex][colIndex - 1] === ".") {
+    return 0; // Not the start of an across slot
+  }
+  let length = 0;
+  for (let i = colIndex; i < rows[rowIndex].length; i++) {
+    if (rows[rowIndex][i] === ".") {
+      length++;
+    } else {
+      break;
+    }
+  }
+  return length >= 2 ? length : 0;
+}
+
+function getDownSlotLength(rows: string[], rowIndex: number, colIndex: number): number {
+  if (rowIndex > 0 && rows[rowIndex - 1][colIndex] === ".") {
+    return 0; // Not the start of a down slot
+  }
+  let length = 0;
+  for (let i = rowIndex; i < rows.length; i++) {
+    if (rows[i][colIndex] === ".") {
+      length++;
+    } else {
+      break;
+    }
+  }
+  return length >= 2 ? length : 0;
+}
+```

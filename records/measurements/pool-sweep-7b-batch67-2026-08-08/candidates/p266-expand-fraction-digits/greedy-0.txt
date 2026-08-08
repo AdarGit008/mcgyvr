@@ -1,0 +1,50 @@
+```ts
+export function expandFractionDigits(numerator: number, denominator: number, base: number): string {
+    const glyphSet = "0123456789ABCDEFGHIJ";
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(base)) {
+        throw new Error("Numerator, denominator, and base must be integers.");
+    }
+    if (base < 3 || base > 20) {
+        throw new Error("Base must be between 3 and 20.");
+    }
+    if (denominator <= 0) {
+        throw new Error("Denominator must be positive.");
+    }
+    if (Math.abs(numerator) > 1_000_000 || Math.abs(denominator) > 1_000_000) {
+        throw new Error("Numerator and denominator magnitudes must not exceed one million.");
+    }
+
+    let result = "";
+    if (numerator < 0) {
+        result += "-";
+        numerator = -numerator;
+    }
+    if (denominator === 1) {
+        return glyphSet[numerator];
+    }
+
+    const stem = Math.floor(numerator / denominator);
+    result += glyphSet[stem];
+
+    let remainder = numerator % denominator;
+    if (remainder === 0) {
+        return result;
+    }
+
+    result += ";";
+    const seenRemainders = new Map<number, number>();
+    while (remainder !== 0) {
+        if (seenRemainders.has(remainder)) {
+            const start = seenRemainders.get(remainder)!;
+            result = result.slice(0, start + 1) + "[" + result.slice(start + 1) + "]";
+            break;
+        }
+        seenRemainders.set(remainder, result.length);
+        remainder *= base;
+        result += glyphSet[Math.floor(remainder / denominator)];
+        remainder %= denominator;
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,71 @@
+```ts
+/**
+ * Rebuilds a conversation from a list of messages.
+ * Each message is represented as a [id, parent, text] tuple.
+ * Returns the rebuilt conversation as a string with each line representing a message.
+ */
+export function foldReplyThread(messages: string[][]): string {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    throw new Error("Empty batch or not a list");
+  }
+
+  const map = new Map<string, { text: string; replies: string[][] }>();
+  const roots: string[] = [];
+
+  for (const [id, parent, text] of messages) {
+    if (!Array.isArray(messages)) {
+      throw new Error("Not a list");
+    }
+    if (messages.length !== 3) {
+      throw new Error("Message is not exactly three strings");
+    }
+    if (id === "" || id.includes(" ")) {
+      throw new Error("Empty or invalid id");
+    }
+    if (map.has(id)) {
+      throw new Error("Repeated id");
+    }
+
+    const message = { text, replies: [] };
+    map.set(id, message);
+
+    if (parent === "") {
+      roots.push(id);
+    } else {
+      const parentMessage = map.get(parent);
+      if (!parentMessage) {
+        throw new Error("Parent naming no message in the batch");
+      }
+      parentMessage.replies.push([id]);
+    }
+
+    if (text.includes("\n")) {
+      throw new Error("Text carrying a newline of its own");
+    }
+  }
+
+  const result: string[] = [];
+
+  const visit = (id: string, depth: number) => {
+    const { text, replies } = map.get(id)!;
+    let prefix = "";
+    for (let i = 0; i < depth; i++) {
+      prefix += "> ";
+    }
+    result.push(`${prefix}${id} ${text}`);
+    for (const reply of replies) {
+      visit(reply[0], depth + 1);
+    }
+  };
+
+  for (const root of roots) {
+    if (map.has(root)) {
+      visit(root, 0);
+    } else {
+      throw new Error("Circular parent links");
+    }
+  }
+
+  return result.join("\n");
+}
+```

@@ -1,0 +1,73 @@
+```ts
+export function fillDeskMap(plan: string[], legend: Record<string, string[]>): Record<string, unknown> {
+  if (!Array.isArray(plan) || plan.length === 0) throw new Error("Invalid floor plan");
+  const rowLength = plan[0].length;
+  if (plan.some(row => typeof row !== "string" || row.length !== rowLength)) throw new Error("Invalid floor plan");
+
+  const bankSet = new Set<string>();
+  for (const char of plan.flat()) {
+    if (char >= 'a' && char <= 'z') bankSet.add(char);
+  }
+
+  if (!Object.keys(legend).every(key => key.length === 1 && key >= 'a' && key <= 'z')) throw new Error("Invalid legend");
+  const legendKeys = Object.keys(legend).sort();
+  for (const bank of legendKeys) {
+    if (!bankSet.has(bank)) throw new Error(`Legend mentions unknown bank ${bank}`);
+  }
+
+  const desks: { [key: string]: string[][] } = {};
+  for (const row of plan) {
+    const rowDesks: string[][] = [];
+    for (let i = 0; i < rowLength; i++) {
+      const char = row[i];
+      if (char === '#') rowDesks.push(['#']);
+      else if (char === '.') rowDesks.push(['.']);
+      else rowDesks.push([char]);
+    }
+    desks[bankSet.values().next().value] = rowDesks;
+  }
+
+  for (const bank of legendKeys) {
+    const people = legend[bank];
+    if (!Array.isArray(people)) throw new Error(`Invalid legend for bank ${bank}`);
+    if (new Set(people).size !== people.length) throw new Error(`Duplicate person in legend for bank ${bank}`);
+
+    if (people.length > desks[bank].flat().filter(d => d.length === 1).length) {
+      throw new Error(`Too many people for bank ${bank}`);
+    }
+  }
+
+  const result: Record<string, unknown> = { floor: [], sat: [], spare: 0 };
+  const assignedDesks: Set<string> = new Set();
+  for (const bank of legendKeys) {
+    const people = legend[bank];
+    const desksList = desks[bank];
+    for (const person of people) {
+      let found = false;
+      for (let r = 0; r < desksList.length && !found; r++) {
+        for (let c = 0; c < desksList[r].length && !found; c++) {
+          if (desksList[r][c].length === 1) {
+            desksList[r][c] = [person.toUpperCase()];
+            assignedDesks.add(`${bank}-${r}-${c}`);
+            result.sat.push(`${person} r${r} c${c}`);
+            found = true;
+          }
+        }
+      }
+    }
+  }
+
+  for (const bank of legendKeys) {
+    for (let r = 0; r < desks[bank].length; r++) {
+      for (let c = 0; c < desks[bank][r].length; c++) {
+        if (!assignedDesks.has(`${bank}-${r}-${c}`)) {
+          result.floor.push(`r${r} c${c}`);
+          result.spare++;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+```

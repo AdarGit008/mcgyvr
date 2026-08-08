@@ -1,0 +1,52 @@
+```ts
+export function slideSessions(
+  sessions: any[],
+  opensAt: number,
+  closesAt: number,
+): string[] {
+  if (!Number.isInteger(opensAt) || !Number.isInteger(closesAt)) {
+    throw new Error("the day's bounds must be integers");
+  }
+  if (opensAt >= closesAt) {
+    throw new Error("the studio must close after it opens");
+  }
+  const seen = new Set<string>();
+  for (const row of sessions) {
+    if (row === null || typeof row !== "object" || Array.isArray(row)) {
+      throw new Error("each request must be a record");
+    }
+    if (typeof row.id !== "string" || row.id === "") {
+      throw new Error("id must be a non-empty string");
+    }
+    if (!Number.isInteger(row.want)) {
+      throw new Error("want must be an integer");
+    }
+    if (!Number.isInteger(row.span) || row.span < 1) {
+      throw new Error("span must be a positive integer");
+    }
+    if (seen.has(row.id)) {
+      throw new Error("repeated request id: " + row.id);
+    }
+    seen.add(row.id);
+  }
+
+  const placed: number[][] = [];
+  for (const row of sessions) {
+    let moment = Math.max(row.want, opensAt);
+    while (moment < closesAt) {
+      const previous = placed.find(p => p[0] <= moment && moment < p[1]);
+      if (!previous || moment + row.span <= previous[1]) {
+        placed.push([moment, moment + row.span]);
+        break;
+      }
+      moment++;
+    }
+    if (moment >= closesAt) {
+      booked.push(row.id + " away");
+    } else {
+      booked.push(row.id + " " + moment);
+    }
+  }
+  return booked;
+}
+```

@@ -1,0 +1,41 @@
+```ts
+const HANDLE = /(?<![a-z0-9_@])@[a-z0-9_]{3,12}(?![a-z0-9_])/g;
+
+export function blotHandles(message: string): string {
+  if (typeof message !== "string") {
+    throw new Error("blotHandles expects a string");
+  }
+
+  let result = '';
+  let inFence = false;
+  let buffer = '';
+
+  for (const char of message) {
+    if (char === '`') {
+      if (inFence) {
+        result += buffer + char;
+        buffer = '';
+      } else {
+        buffer += char;
+        inFence = true;
+      }
+    } else if (!inFence && char === '@' && HANDLE.test(buffer)) {
+      const handleMatch = buffer.match(HANDLE);
+      if (handleMatch) {
+        result += `@${handleMatch[0].charAt(1).repeat(handleMatch[0].length - 2)}.`;
+        buffer = '';
+      } else {
+        buffer += char;
+      }
+    } else {
+      if (!inFence && char === '@' && buffer.length < 3) {
+        buffer = '';
+      } else {
+        buffer += char;
+      }
+    }
+  }
+
+  return result + buffer;
+}
+```

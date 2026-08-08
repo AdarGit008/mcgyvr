@@ -1,0 +1,67 @@
+```typescript
+/**
+ * Writes out the exact value of numerator over denominator in a chosen base,
+ * using only whole-number arithmetic.
+ *
+ * @param numerator - The numerator of the fraction.
+ * @param denominator - The denominator of the fraction.
+ * @param base - The base to use for the output, from 3 to 20.
+ * @returns The expanded fraction as a string.
+ */
+export function expandFractionDigits(numerator: number, denominator: number, base: number): string {
+    const digitMap = "0123456789ABCDEFGHIJ";
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(base)) {
+        throw new Error("Numerator, denominator, and base must be integers.");
+    }
+    if (base < 3 || base > 20) {
+        throw new Error("Base must be between 3 and 20.");
+    }
+    if (denominator <= 0) {
+        throw new Error("Denominator must be positive.");
+    }
+    if (Math.abs(numerator) > 1_000_000 || Math.abs(denominator) > 1_000_000) {
+        throw new Error("Numerator and denominator magnitude cannot exceed one million.");
+    }
+
+    let negative = numerator < 0;
+    numerator = Math.abs(numerator);
+    denominator = Math.abs(denominator);
+
+    if (numerator % denominator === 0) {
+        return negative ? "-" + digitMap[numerator / denominator] : digitMap[numerator / denominator];
+    }
+
+    let stem = "";
+    while (numerator >= denominator) {
+        numerator -= denominator;
+        stem += digitMap[Math.floor(numerator / denominator)];
+        numerator %= denominator;
+    }
+
+    if (numerator === 0) {
+        return negative ? "-" + stem : stem;
+    }
+
+    const seen = new Map<number, number>();
+    let repeatStartIndex = -1;
+    let result: string[] = [];
+
+    while (numerator !== 0 && result.length < 2 * base) {
+        if (seen.has(numerator)) {
+            repeatStartIndex = seen.get(numerator)!;
+            break;
+        }
+        seen.set(numerator, result.length);
+        numerator *= base;
+        result.push(digitMap[numerator / denominator]);
+        numerator %= denominator;
+    }
+
+    let fractionPart = result.join("");
+    if (repeatStartIndex !== -1) {
+        fractionPart = fractionPart.substring(0, repeatStartIndex) + "[" + fractionPart.substring(repeatStartIndex) + "]";
+    }
+
+    return negative ? "-" + stem + ";" + fractionPart : stem + ";" + fractionPart;
+}
+```

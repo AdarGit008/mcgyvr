@@ -1,0 +1,42 @@
+```ts
+export function dealPacket(items: string[], seats: number[], order: string): Record<string, unknown> {
+  if (!Array.isArray(items) || items.some(item => typeof item !== 'string' || item.length === 0)) {
+    throw new Error('Invalid packet');
+  }
+  if (!Array.isArray(seats) || !seats.every(limit => Number.isInteger(limit) && limit > 0)) {
+    throw new Error('Invalid limits');
+  }
+  if (new Set(items).size !== items.length) {
+    throw new Error('Duplicate entries in packet');
+  }
+  if (!(order === 'round' || order === 'reverse' || order === 'snake')) {
+    throw new Error('Invalid turn sequence');
+  }
+
+  const hands: string[][] = Array.from({ length: seats.length }, () => []);
+  let handIndex = 0;
+  let direction = 1;
+
+  for (const item of items) {
+    while (seats[handIndex] <= 0) {
+      handIndex += direction;
+      if (handIndex >= hands.length) {
+        handIndex = 0;
+        direction = -1;
+      } else if (handIndex < 0) {
+        handIndex = hands.length - 1;
+        direction = 1;
+      }
+    }
+    hands[handIndex].push(item);
+    seats[handIndex]--;
+  }
+
+  const result: Record<string, unknown> = {
+    hands,
+    left: items.filter((_, index) => !seats.some(limit => limit < 0)),
+  };
+
+  return result;
+}
+```

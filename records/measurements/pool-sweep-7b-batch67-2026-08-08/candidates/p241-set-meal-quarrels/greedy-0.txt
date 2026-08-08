@@ -1,0 +1,64 @@
+```ts
+export function buildSetMeal(courses: any[], quarrels: any[]): any {
+  if (courses.length === 0) throw new Error("No courses provided");
+  if (courses.some(course => course.length === 0)) throw new Error("Course offers nothing");
+  if (courses.length > 6 || courses.some(course => course.length > 6)) throw new Error("Too many courses or options within one");
+
+  const codeSet = new Set();
+  for (const course of courses) {
+    for (const option of course) {
+      if (codeSet.has(option.code)) throw new Error("Duplicate code");
+      if (option.price < 1) throw new Error("Price below one");
+      codeSet.add(option.code);
+    }
+  }
+
+  const validCodes = Array.from(codeSet).sort();
+  const quarrelMap = new Map(validCodes.map((code, index) => [code, index]));
+  const quarrelMatrix: boolean[][] = Array.from({ length: validCodes.length }, () => Array(validCodes.length).fill(false));
+  for (const [code1, code2] of quarrels) {
+    if (!validCodes.includes(code1) || !validCodes.includes(code2)) throw new Error("Quarrel not a pair of known codes or writes one code twice");
+    const index1 = quarrelMap.get(code1)!;
+    const index2 = quarrelMap.get(code2)!;
+    quarrelMatrix[index1][index2] = true;
+    quarrelMatrix[index2][index1] = true;
+  }
+
+  const dp: number[][] = Array.from({ length: validCodes.length }, () => Array(1 << validCodes.length).fill(Infinity));
+  for (let i = 0; i < validCodes.length; i++) {
+    dp[i][1 << i] = courses[0].find(option => option.code === validCodes[i])!.price;
+  }
+
+  for (let courseIndex = 1; courseIndex < courses.length; courseIndex++) {
+    const options = courses[courseIndex];
+    for (let mask = 1; mask < 1 << validCodes.length; mask++) {
+      if ((mask & (1 << courseIndex)) === 0) continue;
+      for (const option of options) {
+        const codeIndex = validCodes.indexOf(option.code);
+        if ((mask & (1 << codeIndex)) !== 0) {
+          dp[codeIndex][mask] = Math.min(dp[codeIndex][mask], dp[courseIndex - 1][mask ^ (1 << codeIndex)] + option.price);
+        }
+      }
+    }
+  }
+
+  let minPrice = Infinity;
+  let bestMask = 0;
+  for (let mask = 1; mask < 1 << validCodes.length; mask++) {
+    if (dp[validCodes.length - 1][mask] < minPrice) {
+      minPrice = dp[validCodes.length - 1][mask];
+      bestMask = mask;
+    }
+  }
+
+  const picks: string[] = [];
+  for (let i = validCodes.length - 1; i >= 0; i--) {
+    if ((bestMask & (1 << i)) !== 0) {
+      picks.unshift(validCodes[i]);
+      bestMask ^= 1 << i;
+    }
+  }
+
+  return { total: minPrice, picks };
+}
+```

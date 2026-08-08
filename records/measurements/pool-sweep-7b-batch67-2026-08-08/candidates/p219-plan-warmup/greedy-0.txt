@@ -1,0 +1,74 @@
+```ts
+export function planWarmup(brief: Record<string, unknown>): Record<string, unknown> {
+  const { budget, slots, caps, items } = brief;
+
+  if (typeof budget !== 'number' || budget < 0 || !Number.isInteger(budget)) {
+    throw new Error('Invalid budget');
+  }
+  if (typeof slots !== 'number' || slots <= 0 || !Number.isInteger(slots)) {
+    throw new Error('Invalid slots');
+  }
+  if (typeof caps !== 'object' || caps === null) {
+    throw new Error('Invalid caps');
+  }
+  if (!Array.isArray(items)) {
+    throw new Error('Invalid items');
+  }
+
+  const itemMap: Record<string, { bytes: number; weight: number; family: string }> = {};
+  for (const item of items) {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error('Invalid item');
+    }
+    if (typeof item.name !== 'string' || item.name.trim() === '') {
+      throw new Error('Invalid name');
+    }
+    if (itemMap[item.name]) {
+      throw new Error('Duplicate name');
+    }
+    if (typeof item.bytes !== 'number' || item.bytes <= 0 || !Number.isInteger(item.bytes)) {
+      throw new Error('Invalid bytes');
+    }
+    if (typeof item.weight !== 'number' || item.weight < 0 || !Number.isInteger(item.weight)) {
+      throw new Error('Invalid weight');
+    }
+    if (typeof item.family !== 'string' || item.family.trim() === '' || !(item.family in caps)) {
+      throw new Error('Invalid family');
+    }
+
+    itemMap[item.name] = { bytes: item.bytes, weight: item.weight, family: item.family };
+  }
+
+  const orderedItems = Object.values(itemMap).sort((a, b) => {
+    if (b.weight !== a.weight) return b.weight - a.weight;
+    if (a.bytes !== b.bytes) return a.bytes - b.bytes;
+    return a.name.localeCompare(b.name);
+  });
+
+  const loaded: string[] = [];
+  const spare = budget;
+  const turned: { name: string; why: string }[] = [];
+
+  for (const item of orderedItems) {
+    if (loaded.length >= slots) {
+      turned.push({ name: item.name, why: 'slots' });
+      continue;
+    }
+    const familyCap = caps[item.family];
+    if (familyCap <= 0) {
+      turned.push({ name: item.name, why: 'family cap' });
+      continue;
+    }
+    if (item.bytes > spare) {
+      turned.push({ name: item.name, why: 'bytes' });
+      continue;
+    }
+
+    loaded.push(item.name);
+    spare -= item.bytes;
+    caps[item.family]--;
+  }
+
+  return { loaded, spare, turned };
+}
+```

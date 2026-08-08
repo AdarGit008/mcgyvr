@@ -1,0 +1,64 @@
+```ts
+export function fitGridWords(slots: Array<Record<string, unknown>>, words: string[]): Record<string, unknown> {
+    // Validate input
+    if (!Array.isArray(slots) || slots.length === 0) throw new Error("Invalid slots");
+    if (!Array.isArray(words)) throw new Error("Invalid words");
+
+    const usedWords = new Set<string>();
+    const placed: Array<Record<string, string>> = [];
+
+    const slotMap: Record<string, {
+        row: number;
+        col: number;
+        run: "across" | "down";
+        len: number;
+        letters: string[];
+    }> = {};
+
+    for (const slot of slots) {
+        if (typeof slot !== 'object' || slot === null) throw new Error("Invalid slot");
+        const id = slot.id as string;
+        if (!id || typeof id !== 'string') throw new Error("Invalid slot ID");
+        if (slotMap[id]) throw new Error("Duplicate slot ID");
+
+        const row = Number(slot.row);
+        const col = Number(slot.col);
+        if (!Number.isInteger(row) || !Number.isInteger(col) || row < 0 || col < 0) throw new Error("Invalid slot row or column");
+        if (slot.run !== 'across' && slot.run !== 'down') throw new Error("Invalid slot run");
+        const len = Number(slot.len);
+        if (!Number.isInteger(len) || len < 2) throw new Error("Invalid slot length");
+
+        slotMap[id] = { row, col, run, len, letters: new Array(len).fill('') };
+
+        for (let i = 0; i < len; i++) {
+            const rowOffset = slot.run === 'across' ? 0 : i;
+            const colOffset = slot.run === 'across' ? i : 0;
+            if (slotMap[id].letters[rowOffset + (row * 10) + colOffset] !== '') throw new Error("Overlapping slots");
+        }
+    }
+
+    for (const word of words) {
+        if (typeof word !== 'string' || !word) throw new Error("Invalid word");
+        if (!/^[a-z]+$/.test(word)) throw new Error("Invalid word characters");
+        if (usedWords.has(word)) throw new Error("Duplicate word");
+        usedWords.add(word);
+    }
+
+    for (const [id, slot] of Object.entries(slotMap)) {
+        const availableWords = words.filter(w => w.length === slot.len && slot.letters.every((_, i) => !slot.letters[i] || w[i] === slot.letters[i]));
+        if (availableWords.length > 0) {
+            const placedWord = availableWords[0];
+            for (let i = 0; i < slot.len; i++) {
+                const rowOffset = slot.run === 'across' ? 0 : i;
+                const colOffset = slot.run === 'across' ? i : 0;
+                slot.letters[rowOffset + (slot.row * 10) + colOffset] = placedWord[i];
+            }
+            placed.push({ slot: id, word: placedWord });
+        } else {
+            return { placed, stuck: id };
+        }
+    }
+
+    return { placed, stuck: '' };
+}
+```

@@ -1,0 +1,69 @@
+```ts
+export function selectByImpact(imports: Record<string, string[]>, suites: Record<string, string[]>, edited: string[]): string[] {
+    if (typeof imports !== 'object' || imports === null) throw new Error('Invalid imports');
+    if (typeof suites !== 'object' || suites === null) throw new Error('Invalid suites');
+    if (!Array.isArray(edited)) throw new Error('Invalid edited');
+
+    const moduleDisturbance = new Map<string, boolean>();
+    const suiteToModuleMap = new Map<string, string[]>();
+
+    // Validate and process imports
+    for (const [module, importList] of Object.entries(imports)) {
+        if (typeof module !== 'string' || !module) throw new Error('Invalid module name');
+        if (!Array.isArray(importList)) throw new Error('Invalid import list');
+
+        suiteToModuleMap.set(module, []);
+
+        for (const importedModule of importList) {
+            if (importedModule === module) throw new Error('Module imports itself');
+            if (importedModule !== importedModule) throw new Error('Invalid module name in import list');
+            if (!imports[importedModule]) throw new Error(`Importing unknown module: ${importedModule}`);
+        }
+    }
+
+    // Validate and process suites
+    for (const [suiteName, modules] of Object.entries(suites)) {
+        if (typeof suiteName !== 'string' || !suiteName) throw new Error('Invalid suite name');
+        if (!Array.isArray(modules)) throw new Error('Invalid modules list');
+
+        for (const module of modules) {
+            if (!imports[module]) throw new Error(`Suite drives unknown module: ${module}`);
+        }
+    }
+
+    // Process edited modules
+    const visited = new Set<string>();
+    const stack = [...edited];
+
+    while (stack.length > 0) {
+        const currentModule = stack.pop()!;
+        if (visited.has(currentModule)) continue;
+        visited.add(currentModule);
+
+        moduleDisturbance.set(currentModule, true);
+        for (const importer of Object.keys(imports)) {
+            if (imports[importer].includes(currentModule)) {
+                stack.push(importer);
+            }
+        }
+    }
+
+    // Determine running suites
+    const runningSuites = new Set<string>();
+
+    for (const [module, importedModules] of Object.entries(imports)) {
+        if (moduleDisturbance.get(module) === true) {
+            for (const suiteName of suiteToModuleMap.get(module)!) {
+                runningSuites.add(suiteName);
+            }
+        }
+    }
+
+    // Handle override
+    if (runningSuites.size > Math.floor(Object.keys(suites).length / 2)) {
+        return ["ALL"];
+    }
+
+    return Array.from(runningSuites.values()).sort();
+}
+```

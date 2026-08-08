@@ -1,0 +1,74 @@
+```ts
+/** How far apart two people stand in a register of forebears. */
+export function kinshipDegree(
+  register: Record<string, string[]>,
+  one: string,
+  other: string,
+): Record<string, unknown> {
+  if (typeof register !== 'object' || register === null) {
+    throw new Error('Register must be an object');
+  }
+  if (typeof one !== 'string' || one.trim() === '') {
+    throw new Error('One must be a non-empty string');
+  }
+  if (typeof other !== 'string' || other.trim() === '') {
+    throw new Error('Other must be a non-empty string');
+  }
+
+  const validateForebears = (forebears: string[]): void => {
+    if (!Array.isArray(forebears) || forebears.length > 2) {
+      throw new Error('Forebear list must be an array of at most two elements');
+    }
+    const seen = new Set<string>();
+    for (const name of forebears) {
+      if (typeof name !== 'string' || name.trim() === '') {
+        throw new Error('Forebear must be a non-empty string');
+      }
+      if (name === one || name === other) {
+        throw new Error('Forebear cannot be the same as one or other');
+      }
+      if (seen.has(name)) {
+        throw new Error('Forebear list cannot contain duplicates');
+      }
+      seen.add(name);
+    }
+  };
+
+  for (const [name, forebears] of Object.entries(register)) {
+    validateForebears(forebears);
+  }
+
+  const climb = (start: string): Map<string, number> => {
+    const seen = new Map<string, number>();
+    let frontier = register[start] ?? [];
+    let step = 1;
+    while (frontier.length > 0) {
+      const next: string[] = [];
+      for (const name of frontier) {
+        if (!seen.has(name)) {
+          seen.set(name, step);
+          next.push(...(register[name] ?? []));
+        }
+      }
+      frontier = next;
+      step += 1;
+    }
+    return seen;
+  };
+
+  const mine = climb(one);
+  const theirs = climb(other);
+
+  for (const [name, up] of mine) {
+    if (theirs.has(name)) {
+      return { steps: up + theirs.get(name)!, line: "collateral", meet: name };
+    }
+  }
+
+  if (one === other) {
+    return { steps: 0, line: "direct", meet: one };
+  }
+
+  return { steps: 0, line: "apart", meet: "" };
+}
+```

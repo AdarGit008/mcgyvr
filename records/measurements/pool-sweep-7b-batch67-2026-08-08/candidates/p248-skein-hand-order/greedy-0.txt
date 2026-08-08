@@ -1,0 +1,44 @@
+```ts
+export function orderSkeinHands(hands: any[]): { grades: string[], order: number[] } {
+    if (!Array.isArray(hands) || hands.length === 0) {
+        throw new Error("Invalid input");
+    }
+
+    const gradeHand = (hand: string[]): string => {
+        const pips = Array.from(new Set(hand.map(card => card[0])));
+        const houses = Array.from(new Set(hand.map(card => card[1])));
+
+        if (pips.length === 2) return "monolith";
+        if (pips.length === 5 && houses.length === 4) return "prism";
+        if (pips.length === 5 && parseInt(pips[pips.length - 1]) - parseInt(pips[0]) === 4) return "chain";
+        if (pips.length === 3) return "echo";
+        if (pips.length === 4) return "twin";
+        return "drift";
+    };
+
+    const compareHands = (hand1: string[], hand2: string[]): number => {
+        const grade1 = gradeHand(hand1);
+        const grade2 = gradeHand(hand2);
+
+        if (grade1 !== grade2) return grade1 === "monolith" ? -1 : 1;
+
+        const ladder1 = Array.from(new Set(hand1.map(card => card[0]))).sort((a, b) => hand1.filter(card => card[0] === a).length - hand1.filter(card => card[0] === b).length || a.localeCompare(b));
+        const ladder2 = Array.from(new Set(hand2.map(card => card[0]))).sort((a, b) => hand2.filter(card => card[0] === a).length - hand2.filter(card => card[0] === b).length || a.localeCompare(b));
+
+        for (let i = 0; i < ladder1.length; i++) {
+            if (ladder1[i] !== ladder2[i]) return ladder1[i] > ladder2[i] ? -1 : 1;
+        }
+
+        const weights = { m: 4, r: 3, s: 2, v: 1 };
+        const weight1 = hand1.map(card => weights[card[1]]).reduce((a, b) => a + b, 0);
+        const weight2 = hand2.map(card => weights[card[1]]).reduce((a, b) => a + b, 0);
+
+        return weight1 > weight2 ? -1 : 1;
+    };
+
+    const grades = hands.map(gradeHand);
+    const order = [...hands.entries()].sort(([, hand1], [, hand2]) => compareHands(hand1, hand2)).map(([index]) => index);
+
+    return { grades, order };
+}
+```

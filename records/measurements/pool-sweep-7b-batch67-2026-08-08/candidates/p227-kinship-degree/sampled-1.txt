@@ -1,0 +1,84 @@
+```ts
+/** How far apart two people stand in a register of forebears. */
+export function kinshipDegree(
+  register: Record<string, string[]>,
+  one: string,
+  other: string,
+): Record<string, unknown> {
+  if (typeof register !== 'object' || register === null) {
+    throw new Error('Register must be a mapping.');
+  }
+  if (typeof one !== 'string' || one.trim() === '') {
+    throw new Error('First person name must be a non-empty string.');
+  }
+  if (typeof other !== 'string' || other.trim() === '') {
+    throw new Error('Second person name must be a non-empty string.');
+  }
+
+  const people = new Set<string>(Object.keys(register));
+  if (!people.has(one)) {
+    throw new Error('First person name is not a key in the register.');
+  }
+  if (!people.has(other)) {
+    throw new Error('Second person name is not a key in the register.');
+  }
+
+  const validateForebears = (forebears: string[]): void => {
+    if (!Array.isArray(forebears) || forebears.length > 2) {
+      throw new Error('Forebear list must be a list of at most two names.');
+    }
+    for (const name of forebears) {
+      if (typeof name !== 'string' || name.trim() === '') {
+        throw new Error('Forebear name must be a non-empty string.');
+      }
+      if (!people.has(name)) {
+        throw new Error('Forebear must be a key in the register.');
+      }
+      if (name === one || name === other) {
+        throw new Error('Nobody may be listed as their own forebear.');
+      }
+    }
+    const uniqueForebears = new Set(forebears);
+    if (uniqueForebears.size !== forebears.length) {
+      throw new Error('Forebear list must not name the same forebear twice.');
+    }
+  };
+
+  for (const forebears of Object.values(register)) {
+    validateForebears(forebears);
+  }
+
+  const climb = (start: string): Map<string, number> => {
+    const seen = new Map<string, number>();
+    let frontier = register[start] ?? [];
+    let step = 1;
+    while (frontier.length > 0) {
+      const next: string[] = [];
+      for (const name of frontier) {
+        if (!seen.has(name)) {
+          seen.set(name, step);
+          next.push(...(register[name] ?? []));
+        }
+      }
+      frontier = next;
+      step += 1;
+    }
+    return seen;
+  };
+
+  const mine = climb(one);
+  const theirs = climb(other);
+
+  for (const [name, up] of mine) {
+    if (name === other || name === one) {
+      return { steps: up, line: "direct", meet: name };
+    }
+    const down = theirs.get(name);
+    if (down !== undefined) {
+      return { steps: up + down, line: "collateral", meet: name };
+    }
+  }
+
+  return { steps: 0, line: "apart", meet: "" };
+}
+```

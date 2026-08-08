@@ -1,0 +1,83 @@
+```
+type Crossing = {
+  name: string;
+  start: number;
+  walk: number;
+  clear: number;
+};
+
+function whole(value: unknown): boolean {
+  return typeof value === "number" && Number.isInteger(value);
+}
+
+export function readCrossingStates(
+  period: number,
+  crossings: Crossing[],
+  moments: number[]
+): string[] {
+  if (!whole(period) || period < 1 || period > 86400) {
+    throw new Error("period must be a whole number of seconds in 1..86400");
+  }
+  if (!Array.isArray(crossings) || crossings.length === 0) {
+    throw new Error("crossings must be a non-empty list");
+  }
+  const seen = new Set();
+  for (const crossing of crossings) {
+    if (
+      crossing === null ||
+      typeof crossing !== "object" ||
+      Array.isArray(crossing)
+    ) {
+      throw new Error("each crossing must be a record");
+    }
+    if (Object.keys(crossing).sort().join(",") !== "clear,name,start,walk") {
+      throw new Error("each crossing carries exactly name, start, walk, clear");
+    }
+    if (typeof crossing.name !== "string" || crossing.name.length === 0) {
+      throw new Error("a crossing name must be non-empty text");
+    }
+    if (
+      !whole(crossing.start) ||
+      !whole(crossing.walk) ||
+      !whole(crossing.clear)
+    ) {
+      throw new Error("start, walk and clear must be whole numbers");
+    }
+    if (crossing.start < 0 || crossing.start >= period) {
+      throw new Error("start must lie in 0..period-1");
+    }
+    if (crossing.walk < 1 || crossing.clear < 0) {
+      throw new Error("walk must be at least one second and clear at least none");
+    }
+    if (crossing.walk + crossing.clear > period) {
+      throw new Error("walk plus clear must not outrun the period");
+    }
+    if (seen.has(crossing.name)) {
+      throw new Error("crossing names must not repeat");
+    }
+    seen.add(crossing.name);
+  }
+  if (!Array.isArray(moments)) {
+    throw new Error("moments must be a list");
+  }
+  const out: string[] = [];
+  for (const moment of moments) {
+    if (!whole(moment) || moment < 0 || moment > 1000000) {
+      throw new Error("each moment must be a whole number in 0..1000000");
+    }
+    let line = "";
+    for (const crossing of crossings) {
+      const local = ((moment - crossing.start) % period + period) % period;
+      if (local < crossing.walk) {
+        line += "W";
+      } else if (local < crossing.walk + crossing.clear) {
+        line += "C";
+      } else {
+        line += "S";
+      }
+    }
+    out.push(line);
+  }
+  return out;
+}
+```

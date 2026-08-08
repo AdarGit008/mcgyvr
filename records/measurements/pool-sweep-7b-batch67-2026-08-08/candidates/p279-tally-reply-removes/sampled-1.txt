@@ -1,0 +1,59 @@
+```typescript
+export function tallyReplyRemoves(links: string[][]): number[] {
+  if (!Array.isArray(links) || links.length === 0) {
+    throw new Error('Empty batch');
+  }
+
+  const idToAnswer = new Map<string, string>();
+  const removeCount = new Map<number, number>();
+
+  for (const [id, answer] of links) {
+    if (typeof id !== 'string' || typeof answer !== 'string') {
+      throw new Error('Link is not exactly two strings');
+    }
+    if (!id) {
+      throw new Error('Empty id');
+    }
+    if (answer && !answer) {
+      throw new Error('Answers field naming no note in the batch');
+    }
+
+    idToAnswer.set(id, answer);
+  }
+
+  const visited = new Set<string>();
+
+  function traverse(id: string): number {
+    if (visited.has(id)) {
+      throw new Error('Circular answering detected');
+    }
+    visited.add(id);
+
+    let removeLevel = 0;
+    const answerId = idToAnswer.get(id);
+    if (answerId !== undefined) {
+      removeLevel = 1 + traverse(answerId);
+    }
+
+    removeCount.set(removeLevel, (removeCount.get(removeLevel) || 0) + 1);
+    visited.delete(id);
+
+    return removeLevel;
+  }
+
+  for (const id of idToAnswer.keys()) {
+    if (!idToAnswer.has(id)) {
+      throw new Error('Note cannot be traced back to a starting note');
+    }
+  }
+
+  let maxRemove = 0;
+  for (const [remove, count] of removeCount.entries()) {
+    if (count > 0) {
+      maxRemove = Math.max(maxRemove, remove);
+    }
+  }
+
+  return Array.from(removeCount.keys()).sort((a, b) => a - b).map(remove => removeCount.get(remove)!);
+}
+```

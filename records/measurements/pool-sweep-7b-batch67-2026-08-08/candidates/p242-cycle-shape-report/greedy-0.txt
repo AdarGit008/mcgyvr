@@ -1,0 +1,55 @@
+```ts
+/**
+ * Analyzes a relay chart to report on its cycle shape.
+ * @param chart - A list of whole numbers representing the seat each occupant hands the baton to.
+ * @returns An object with properties "loops", "widths", "repeat", and "swing".
+ */
+export function cycleShapeReport(chart: number[]): any {
+  if (!Array.isArray(chart) || chart.length === 0) {
+    throw new Error("Invalid input: Chart must be a non-empty array of whole numbers.");
+  }
+
+  const n = chart.length;
+  const visited = new Array(n).fill(false);
+  let loops: number[][] = [];
+  let widths: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    if (!visited[i]) {
+      let loop: number[] = [];
+      let j = i;
+      while (!visited[j]) {
+        visited[j] = true;
+        loop.push(j);
+        j = chart[j];
+      }
+      loops.push(loop);
+      widths.push(loop.length);
+    }
+  }
+
+  loops.sort((a, b) => a[0] - b[0]);
+  widths.sort((a, b) => b - a);
+
+  const repeat = widths.reduce((acc, width) => acc * (width / gcd(acc, width)), 1);
+
+  const swing = (n - loops.length) % 2 === 0 ? "even" : "odd";
+
+  return { loops, widths, repeat, swing };
+}
+
+/**
+ * Calculates the greatest common divisor of two numbers.
+ * @param a - The first number.
+ * @param b - The second number.
+ * @returns The greatest common divisor of a and b.
+ */
+function gcd(a: number, b: number): number {
+  while (b !== 0) {
+    let temp = b;
+    b = a % b;
+    a = temp;
+  }
+  return a;
+}
+```

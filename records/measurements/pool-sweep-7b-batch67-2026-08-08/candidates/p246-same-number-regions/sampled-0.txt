@@ -1,0 +1,63 @@
+```ts
+/**
+ * Labels regions in a grid and returns their details.
+ *
+ * @param grid - A non-empty list of rows, each row a non-empty list of whole numbers.
+ * @returns An object with "map", "sizes", and "values" properties.
+ */
+export function labelValueRegions(grid: number[][]): { map: number[][], sizes: number[], values: number[] } {
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+  const resultMap = Array.from({ length: numRows }, () => Array(numCols).fill(0));
+  const regionStack: [number, number][] = [];
+  let regionCount = 1;
+
+  for (let row = 0; row < numRows; row++) {
+    for (let col = 0; col < numCols; col++) {
+      if (resultMap[row][col] !== 0) continue;
+      const value = grid[row][col];
+      resultMap[row][col] = regionCount;
+      regionStack.push([row, col]);
+
+      while (regionStack.length > 0) {
+        const [currentRow, currentCol] = regionStack.pop()!;
+        for (const [newRow, newCol] of [
+          [currentRow + 1, currentCol],
+          [currentRow - 1, currentCol],
+          [currentRow, currentCol + 1],
+          [currentRow, currentCol - 1]
+        ]) {
+          if (
+            newRow >= 0 && newRow < numRows &&
+            newCol >= 0 && newCol < numCols &&
+            grid[newRow][newCol] === value &&
+            resultMap[newRow][newCol] === 0
+          ) {
+            resultMap[newRow][newCol] = regionCount;
+            regionStack.push([newRow, newCol]);
+          }
+        }
+      }
+
+      regionCount++;
+    }
+  }
+
+  const sizes: number[] = [];
+  const values: number[] = [];
+
+  for (let row = 0; row < numRows; row++) {
+    for (let col = 0; col < numCols; col++) {
+      const regionId = resultMap[row][col];
+      if (!sizes.includes(regionId)) {
+        sizes.push(1);
+        values.push(grid[row][col]);
+      } else {
+        sizes[regionId - 1]++;
+      }
+    }
+  }
+
+  return { map: resultMap, sizes, values };
+}
+```

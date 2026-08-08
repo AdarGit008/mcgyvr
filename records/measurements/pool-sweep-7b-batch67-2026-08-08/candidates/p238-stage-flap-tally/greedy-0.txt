@@ -1,0 +1,77 @@
+```ts
+export function tallyStageRetries(stages: any[], budget: number): string[] {
+  if (budget < 1) throw new Error("Budget must be at least one");
+  
+  const stageMap = new Map<string, { outcomes: string[], attempts: number }>();
+  
+  for (const stage of stages) {
+    if (!stage || typeof stage !== 'object' || !('name' in stage) || !('outcomes' in stage)) {
+      throw new Error("Invalid stage format");
+    }
+    
+    const { name, outcomes } = stage;
+    
+    if (typeof name !== 'string' || name.trim() === '' || name.includes(' ')) {
+      throw new Error("Invalid stage name");
+    }
+    
+    if (!Array.isArray(outcomes) || outcomes.length === 0) {
+      throw new Error("Stage must have at least one outcome");
+    }
+    
+    for (const outcome of outcomes) {
+      if (outcome !== 'pass' && outcome !== 'flap' && outcome !== 'halt') {
+        throw new Error("Invalid outcome word");
+      }
+      
+      if ((outcome === 'pass' || outcome === 'halt') && outcomes.indexOf('flap', outcomes.indexOf(outcome) + 1) !== -1) {
+        throw new Error("Outcome standing after a pass or halt");
+      }
+    }
+    
+    if (outcomes.length > budget) {
+      throw new Error("Stage over budget");
+    }
+    
+    if (stageMap.has(name)) {
+      throw new Error("Repeated stage name");
+    }
+    
+    stageMap.set(name, { outcomes, attempts: outcomes.length });
+  }
+  
+  const results = [];
+  let totalAttempts = 0;
+  let totalRetries = 0;
+  let totalFlaps = 0;
+  let totalHalts = 0;
+  let greenStages = 0;
+  
+  for (const [name, { outcomes, attempts }] of stageMap) {
+    const retries = attempts - 1;
+    const flaps = outcomes.filter(outcome => outcome === 'flap').length;
+    const halts = outcomes.filter(outcome => outcome === 'halt').length;
+    
+    totalAttempts += attempts;
+    totalRetries += retries;
+    totalFlaps += flaps;
+    totalHalts += halts;
+    
+    let verdict: string;
+    if (outcomes[outcomes.length - 1] === 'pass') {
+      verdict = 'green';
+      greenStages++;
+    } else if (outcomes[outcomes.length - 1] === 'halt') {
+      verdict = 'dead';
+    } else {
+      verdict = 'spent';
+    }
+    
+    results.push(`${name} ${attempts} ${retries} ${flaps} ${halts} ${verdict}`);
+  }
+  
+  results.push(`* ${totalAttempts} ${totalRetries} ${totalFlaps} ${totalHalts} ${greenStages}`);
+  
+  return results;
+}
+```

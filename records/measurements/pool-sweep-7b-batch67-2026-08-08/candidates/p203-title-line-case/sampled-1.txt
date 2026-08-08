@@ -1,0 +1,29 @@
+```ts
+/**
+ * A heading dressed for print.
+ */
+export function titleLine(text: string, quiet: string[]): string {
+  if (typeof text !== 'string' || text.trim() === '') {
+    throw new Error('Invalid input: text must be a non-empty string.');
+  }
+  if (!Array.isArray(quiet)) {
+    throw new Error('Invalid input: quiet must be an array of strings.');
+  }
+
+  const tokens = text.split(' ');
+  const quietSet = new Set(quiet.map(q => q.toLowerCase()));
+
+  return tokens.map(token => {
+    const lowerToken = token.toLowerCase();
+    if (lowerToken.replace(/[-']+/g, '').length >= 2) {
+      return token;
+    }
+    if (!quietSet.has(lowerToken)) {
+      return token.split(/[-']/).map((piece, index) =>
+        piece.length === 1 && index === token.split(/[-']/).length - 1 ? piece.toLowerCase() : piece.charAt(0).toUpperCase() + piece.slice(1).toLowerCase()
+      ).join('');
+    }
+    return lowerToken;
+  }).join(' ');
+}
+```

@@ -1,0 +1,84 @@
+```ts
+/** The first record of a link setup that departs from the drill. */
+export function auditLinkSetup(exchange: Record<string, unknown>[]): string {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid input: must be a non-empty array.");
+  }
+
+  const script = [
+    ["caller", "PROBE"],
+    ["listener", "READY"],
+    ["caller", "KEY"],
+    ["listener", "SEAL"],
+  ];
+  let at = 0;
+  let callerCounter = 1;
+  let listenerCounter = 0;
+
+  for (const record of exchange) {
+    if (typeof record !== 'object' || record === null) {
+      throw new Error("Invalid input: each element must be a mapping.");
+    }
+
+    const side = record.side as string;
+    const verb = record.verb as string;
+    const seq = Number(record.seq);
+
+    if (isNaN(seq)) {
+      throw new Error("Invalid input: 'seq' must be a whole number.");
+    }
+
+    if (side !== "caller" && side !== "listener") {
+      throw new Error("Invalid input: 'side' must be either 'caller' or 'listener'.");
+    }
+
+    if (verb !== "PROBE" && verb !== "READY" && verb !== "KEY" && verb !== "SEAL" && verb !== "PING" && verb !== "PONG" && verb !== "CLOSE") {
+      throw new Error("Invalid input: 'verb' must be one of the seven specified values.");
+    }
+
+    if (at < script.length) {
+      if (side !== script[at][0] || verb !== script[at][1]) {
+        return verb + "@" + at;
+      }
+      at += 1;
+      continue;
+    }
+
+    if (side === "caller") {
+      if (verb === "PROBE") {
+        if (seq !== callerCounter) {
+          return verb + "@" + at;
+        }
+        callerCounter += 1;
+      } else if (verb === "PING" || verb === "CLOSE") {
+        if (seq !== callerCounter) {
+          return verb + "@" + at;
+        }
+        callerCounter += 1;
+      }
+    } else if (side === "listener") {
+      if (verb === "READY") {
+        if (seq !== listenerCounter) {
+          return verb + "@" + at;
+        }
+        listenerCounter = seq;
+      } else if (verb === "SEAL" || verb === "CLOSE") {
+        if (seq !== listenerCounter) {
+          return verb + "@" + at;
+        }
+        listenerCounter += 1;
+      } else if (verb === "PONG") {
+        if (seq !== callerCounter - 1) {
+          return verb + "@" + at;
+        }
+      }
+    }
+  }
+
+  if (at < script.length) {
+    return "short";
+  }
+
+  return "";
+}
+```

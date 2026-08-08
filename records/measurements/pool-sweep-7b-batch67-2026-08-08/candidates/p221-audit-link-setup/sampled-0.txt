@@ -1,0 +1,56 @@
+```ts
+export function auditLinkSetup(exchange: Record<string, unknown>[]): string {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid input: list must be non-empty");
+  }
+  
+  const script = [
+    ["caller", "PROBE"],
+    ["listener", "READY"],
+    ["caller", "KEY"],
+    ["listener", "SEAL"],
+  ];
+  let at = 0;
+  for (const record of exchange) {
+    if (typeof record !== "object" || record === null) {
+      throw new Error("Invalid input: all elements must be records");
+    }
+    
+    const side = record.side as string | undefined;
+    const verb = record.verb as string | undefined;
+    const seq = record.seq as number | undefined;
+    
+    if (side !== "caller" && side !== "listener") {
+      throw new Error("Invalid input: record must have a valid 'side'");
+    }
+    if (!["PROBE", "READY", "KEY", "SEAL", "PING", "PONG", "CLOSE"].includes(verb as string)) {
+      throw new Error("Invalid input: record must have a valid 'verb'");
+    }
+    if (typeof seq !== "number" || !Number.isInteger(seq) || isNaN(seq)) {
+      throw new Error("Invalid input: record must have a valid 'seq' number");
+    }
+    
+    if (at < script.length) {
+      if (side !== script[at][0] || verb !== script[at][1]) {
+        return verb + "@" + at;
+      }
+      at += 1;
+      continue;
+    }
+    
+    if (side === "caller" && (verb === "PING" || verb === "CLOSE")) {
+      continue;
+    }
+    if (side === "listener" && (verb === "PONG" || verb === "CLOSE")) {
+      continue;
+    }
+    return verb + "@" + at;
+  }
+  
+  if (at < script.length) {
+    return "short";
+  }
+  
+  return "";
+}
+```

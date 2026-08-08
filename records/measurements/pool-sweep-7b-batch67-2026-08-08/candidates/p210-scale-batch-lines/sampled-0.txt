@@ -1,0 +1,40 @@
+```ts
+export function scaleBatchLines(items: string[], want: number, base: number): string[] {
+  const measures = new Map<string, number>([['g', 1], ['ml', 5], ['each', 1]]);
+  
+  if (!Array.isArray(items)) throw new Error('items must be an array');
+  if (typeof want !== 'number' || want <= 0 || !Number.isInteger(want)) throw new Error('want must be a whole number above zero');
+  if (typeof base !== 'number' || base <= 0 || !Number.isInteger(base)) throw new Error('base must be a whole number above zero');
+
+  const result = items.map((item) => {
+    const parts = item.split(' ');
+    if (parts.length !== 3) throw new Error('Each line must have the format "quantity measure name"');
+    
+    const quantityStr = parts[0];
+    if (!/^\d+$/.test(quantityStr)) throw new Error('Quantity must be a whole number above zero without leading zeros');
+    const quantity = parseInt(quantityStr, 10);
+    if (quantity <= 0) throw new Error('Quantity must be a whole number above zero');
+
+    const measure = parts[1];
+    if (!measures.has(measure)) throw new Error('Invalid measure. Must be "g", "ml", or "each"');
+
+    const name = parts[2];
+    if (!/^[a-zA-Z]+(?: [a-zA-Z]+)*$/.test(name)) throw new Error('Name must be words of letters separated by single spaces');
+
+    const baseQuantity = measures.get(measure)! * quantity;
+    const scaledQuantity = Math.round(baseQuantity * want / base);
+
+    return `${scaledQuantity} ${measure} ${name}`;
+  });
+
+  const stuffCounts = new Map<string, number>();
+  for (const line of result) {
+    const parts = line.split(' ');
+    const name = parts[2];
+    if (stuffCounts.has(name)) throw new Error('Duplicate stuff names found');
+    stuffCounts.set(name, 1);
+  }
+
+  return result;
+}
+```

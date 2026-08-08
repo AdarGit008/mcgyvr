@@ -1,0 +1,69 @@
+```ts
+/**
+ * Compares our remittance advice with that of a counterparty and categorizes the results.
+ * @param ours - Our list of [label, cents] pairs.
+ * @param theirs - Their list of [label, cents] pairs.
+ * @returns A record with four lists: agreed, queried, ourSide, theirSide.
+ */
+export function compareRemitLines(ours: unknown[][], theirs: unknown[][]): { agreed: string[]; queried: string[]; ourSide: string[]; theirSide: string[] } {
+    if (!Array.isArray(ours) || !Array.isArray(theirs)) throw new Error('Both arguments must be arrays.');
+    
+    const validPair = (pair: unknown[]): boolean => Array.isArray(pair) && pair.length === 2;
+    const validLabelAndCents = (label: any, cents: any): boolean => typeof label === 'string' && label !== '' && Number.isInteger(cents);
+    
+    ours.forEach(pair => {
+        if (!validPair(pair)) throw new Error('Both elements of our advice must be pairs.');
+        const [label, cents] = pair;
+        if (!validLabelAndCents(label, cents)) throw new Error('Invalid label or cents in our advice.');
+    });
+    
+    theirs.forEach(pair => {
+        if (!validPair(pair)) throw new Error('Both elements of their advice must be pairs.');
+        const [label, cents] = pair;
+        if (!validLabelAndCents(label, cents)) throw new Error('Invalid label or cents in their advice.');
+    });
+
+    const ourMap: { [key: string]: number } = {};
+    const theirMap: { [key: string]: number } = {};
+
+    ours.forEach(([label, cents]) => {
+        if (ourMap[label] !== undefined) throw new Error(`Duplicate label "${label}" in our advice.`);
+        ourMap[label.toLowerCase()] = cents;
+    });
+
+    theirs.forEach(([label, cents]) => {
+        if (theirMap[label] !== undefined) throw new Error(`Duplicate label "${label}" in their advice.`);
+        theirMap[label.toLowerCase()] = cents;
+    });
+
+    const agreed: string[] = [];
+    const queried: string[] = [];
+    const ourSide: string[] = [];
+    const theirSide: string[] = [];
+
+    Object.keys(ourMap).forEach(label => {
+        if (theirMap.hasOwnProperty(label)) {
+            if (ourMap[label] === theirMap[label]) {
+                agreed.push(label);
+            } else {
+                queried.push(label);
+            }
+        } else {
+            ourSide.push(label);
+        }
+    });
+
+    Object.keys(theirMap).forEach(label => {
+        if (!ourMap.hasOwnProperty(label)) {
+            theirSide.push(label);
+        }
+    });
+
+    return {
+        agreed: agreed.sort(),
+        queried: queried.sort(),
+        ourSide: ourSide.sort(),
+        theirSide: theirSide.sort()
+    };
+}
+```

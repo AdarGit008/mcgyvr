@@ -1,0 +1,42 @@
+```ts
+/**
+ * Decodes escape sequences, sorts keys and values, removes duplicates,
+ * and encodes the result.
+ * @param text - The tag query to canonicalize.
+ * @returns The canonicalized tag query string.
+ */
+export function canonicalTagQuery(text: string): string {
+    if (typeof text !== 'string') {
+        throw new Error('Argument must be a string');
+    }
+
+    const decode = (s: string) => {
+        return s.replace(/~([0-9A-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    };
+
+    const encode = (s: string) => {
+        return s.replace(/[~;:/]/g, match => `~${match.charCodeAt(0).toString(16).toUpperCase()}`);
+    };
+
+    const items = text.split(';').map(item => item.trim());
+    const decodedItems = items.map(item => {
+        const [key, value] = item.split(':').map(decode);
+        if (!key || key.includes(':') || (value && value.includes(':'))) {
+            throw new Error('Invalid item format');
+        }
+        return { key, value };
+    });
+
+    const uniqueItems = decodedItems.filter((item, index, self) =>
+        index === self.findIndex(t => t.key === item.key && t.value === item.value)
+    );
+
+    uniqueItems.sort((a, b) => {
+        if (a.key !== b.key) return a.key.localeCompare(b.key);
+        return a.value.localeCompare(b.value);
+    });
+
+    const encodedItems = uniqueItems.map(item => `${encode(item.key)}:${encode(item.value)}`);
+    return encodedItems.join(';');
+}
+```

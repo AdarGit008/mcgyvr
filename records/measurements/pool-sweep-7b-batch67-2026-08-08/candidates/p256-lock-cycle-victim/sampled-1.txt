@@ -1,0 +1,94 @@
+```ts
+/**
+ * Detects a deadlock cycle in a lock manager and returns the victim worker.
+ *
+ * @param holds - An array of [resource, worker] pairs representing granted locks.
+ * @param blocked - An array of [worker, resource] pairs representing blocked requests.
+ * @returns A record with the victim worker's name and the cycle list.
+ */
+export function lockCycleVictim(holds: string[][], blocked: string[][]): { victim: string; cycle: string[] } {
+    if (!Array.isArray(holds) || !Array.isArray(blocked)) {
+        throw new Error('Invalid arguments: both parameters must be arrays.');
+    }
+    for (const pair of [...holds, ...blocked]) {
+        if (!Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== 'string' || pair[0].length === 0 || typeof pair[1] !== 'string' || pair[1].length === 0) {
+            throw new Error('Invalid arguments: each element must be a [resource, worker] pair with non-empty string values.');
+        }
+    }
+
+    const resourceOwners = new Map<string, Set<string>>();
+    for (const [resource, worker] of holds) {
+        if (!resourceOwners.has(resource)) {
+            resourceOwners.set(resource, new Set());
+        }
+        resourceOwners.get(resource)?.add(worker);
+    }
+
+    blocked.forEach(([worker, resource]) => {
+        if (resourceOwners.has(resource) && !resourceOwners.get(resource)?.has(worker)) {
+            throw new Error('Invalid arguments: a worker cannot be blocked on a resource they do not hold.');
+        }
+    });
+
+    const inDegree = new Map<string, number>();
+    const graph = new Map<string, Set<string>>();
+
+    for (const [worker, resource] of holds) {
+        if (!graph.has(resource)) {
+            graph.set(resource, new Set());
+        }
+    }
+
+    for (const [worker, resource] of blocked) {
+        inDegree.set(worker, (inDegree.get(worker) || 0) + 1);
+        if (!graph.has(resource)) {
+            graph.set(resource, new Set());
+        }
+        graph.get(resource)?.add(worker);
+
+        const owners = resourceOwners.get(resource);
+        if (owners && owners.size > 1) {
+            throw new Error('Invalid arguments: a resource cannot be granted to two workers.');
+        }
+    }
+
+    const queue: string[] = [];
+    for (const worker of inDegree.keys()) {
+        if (!inDegree.has(worker)) {
+            queue.push(worker);
+        }
+    }
+
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        const nextWorkers = graph.get(current)!;
+        for (const next of nextWorkers) {
+            inDegree.set(next, inDegree.get(next)! - 1);
+            if (!inDegree.has(next)) {
+                queue.push(next);
+            }
+        }
+    }
+
+    const unblockedWorkers = new Set<string>(inDegree.keys());
+    const blockedWorkers = [...unblockedWorkers].filter(worker => !queue.includes(worker));
+
+    for (const resource of graph.keys()) {
+        const owners = resourceOwners.get(resource);
+        if (owners && owners.size === 1) {
+            const owner = owners.values().next().value;
+            if (!unblockedWorkers.has(owner)) {
+                blockedWorkers.push(owner);
+            }
+        }
+    }
+
+    let cycle: string[] = [];
+    for (const worker of blockedWorkers) {
+        if (!cycle.includes(worker)) {
+            let current = worker;
+            while (true) {
+                cycle.push(current);
+                const nextWorkers = graph.get(current)!;
+                if (nextWorkers.size !== 1) {
+                    break;

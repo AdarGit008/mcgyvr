@@ -1,0 +1,65 @@
+```ts
+export function fitLabelSheet(sheet: { width: number; height: number; marginX: number; marginY: number; gapX: number; gapY: number }, label: { width: number; height: number; turn?: boolean }): { across: number; down: number; total: number; turned: boolean } {
+    if (!Number.isInteger(sheet.width) || sheet.width <= 0 ||
+        !Number.isInteger(sheet.height) || sheet.height <= 0 ||
+        !Number.isInteger(sheet.marginX) || sheet.marginX < 0 ||
+        !Number.isInteger(sheet.marginY) || sheet.marginY < 0 ||
+        !Number.isInteger(sheet.gapX) || sheet.gapX < 0 ||
+        !Number.isInteger(sheet.gapY) || sheet.gapY < 0) {
+        throw new Error("Invalid sheet dimensions or margins");
+    }
+
+    if (!Number.isInteger(label.width) || label.width <= 0 ||
+        !Number.isInteger(label.height) || label.height <= 0 ||
+        (label.turn !== undefined && typeof label.turn !== 'boolean')) {
+        throw new Error("Invalid label dimensions or turn flag");
+    }
+
+    const printableWidth = sheet.width - 2 * sheet.marginX;
+    const printableHeight = sheet.height - 2 * sheet.marginY;
+
+    const uprightAcross = Math.floor((printableWidth + sheet.gapX) / (label.width + sheet.gapX));
+    const uprightDown = Math.floor((printableHeight + sheet.gapY) / (label.height + sheet.gapY));
+    const uprightTotal = uprightAcross * uprightDown;
+
+    let turnedAcross = 0;
+    let turnedDown = 0;
+    let turnedTotal = 0;
+
+    if (label.turn) {
+        const turnedWidth = label.width;
+        const turnedHeight = label.height;
+        turnedAcross = Math.floor((printableWidth + sheet.gapX) / (turnedWidth + sheet.gapX));
+        turnedDown = Math.floor((printableHeight + sheet.gapY) / (turnedHeight + sheet.gapY));
+        turnedTotal = turnedAcross * turnedDown;
+
+        if (turnedTotal > uprightTotal) {
+            across = turnedAcross;
+            down = turnedDown;
+            total = turnedTotal;
+            turned = true;
+        } else if (turnedTotal === uprightTotal) {
+            across = turnedAcross;
+            down = turnedDown;
+            total = turnedTotal;
+            turned = true;
+        } else {
+            across = uprightAcross;
+            down = uprightDown;
+            total = uprightTotal;
+            turned = false;
+        }
+    } else {
+        across = uprightAcross;
+        down = uprightDown;
+        total = uprightTotal;
+        turned = false;
+    }
+
+    if (total === 0) {
+        throw new Error("No label fits on the sheet");
+    }
+
+    return { across, down, total, turned };
+}
+```

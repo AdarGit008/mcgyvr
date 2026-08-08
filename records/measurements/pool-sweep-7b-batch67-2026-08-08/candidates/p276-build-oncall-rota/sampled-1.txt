@@ -1,0 +1,39 @@
+```ts
+export function buildOnCallRota(roster: string[], blocked: string[][]): string[] {
+    if (roster.length === 0) throw new Error("Roster cannot be empty");
+    if (!Array.isArray(blocked)) throw new Error("Blocked must be an array");
+    if (blocked.some(entry => !Array.isArray(entry))) throw new Error("Each blocked entry must be an array");
+
+    const rosterSet = new Set(roster);
+    if (roster.length !== rosterSet.size) throw new Error("Roster contains duplicate names");
+    for (const name of blocked.flat()) {
+        if (!rosterSet.has(name)) throw new Error(`Blocked name ${name} is not in the roster`);
+    }
+
+    const shiftCount = Math.ceil(blocked.length / roster.length);
+    const rota: string[] = [];
+    let lastPersonIndex = -1;
+
+    for (let i = 0; i < blocked.length; i++) {
+        const validPeople = roster.filter((_, index) => 
+            !blocked[i].includes(roster[index]) && 
+            index !== lastPersonIndex &&
+            rota.filter(name => name === roster[index]).length < shiftCount
+        );
+
+        if (validPeople.length === 0) throw new Error("No one available to stand this shift");
+
+        const person = validPeople.sort((a, b) => {
+            const aShifts = rota.filter(name => name === a).length;
+            const bShifts = rota.filter(name => name === b).length;
+            if (aShifts === bShifts) return roster.indexOf(a) - roster.indexOf(b);
+            return aShifts - bShifts;
+        })[0];
+
+        rota.push(person);
+        lastPersonIndex = roster.indexOf(person);
+    }
+
+    return rota;
+}
+```

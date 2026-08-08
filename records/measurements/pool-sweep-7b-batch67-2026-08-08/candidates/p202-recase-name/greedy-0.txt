@@ -1,0 +1,59 @@
+```ts
+/**
+ * Recases a label into the specified style.
+ * @param label - The label to recase.
+ * @param style - The style to write the label in ("snake", "kebab", "shout", "pascal", "camel").
+ * @returns The recased label.
+ */
+export function recaseName(label: string, style: string): string {
+  if (typeof label !== 'string' || typeof style !== 'string') {
+    throw new Error('Both label and style must be strings.');
+  }
+  if (label === '') {
+    throw new Error('Label cannot be empty.');
+  }
+  if (/[^a-zA-Z0-9_-]/.test(label)) {
+    throw new Error('Label contains invalid characters.');
+  }
+  if (/[-_]{2,}/.test(label) || /^[-_]$/.test(label) || /[-_]$/.test(label)) {
+    throw new Error('Label cannot start or end with a separator or have consecutive separators.');
+  }
+
+  const words = label.split(/[-_]/).flatMap(word => {
+    if (/^\d+$/.test(word)) {
+      return word;
+    }
+    let result: string[] = [];
+    for (let i = 0; i < word.length; ) {
+      if (i + 1 < word.length && word[i] === word[i + 1].toUpperCase()) {
+        const runEnd = word.indexOf(/[^A-Z]/, i);
+        const run = word.slice(i, runEnd).toLowerCase();
+        result.push(run);
+        i = runEnd;
+      } else if (word[i] >= 'A' && word[i] <= 'Z') {
+        result.push(word[i].toLowerCase());
+        i++;
+      } else {
+        result.push(word[i]);
+        i++;
+      }
+    }
+    return result.filter(Boolean).join('');
+  });
+
+  switch (style) {
+    case 'snake':
+      return words.join('_');
+    case 'kebab':
+      return words.join('-');
+    case 'shout':
+      return words.map(word => word.toUpperCase()).join('_');
+    case 'pascal':
+      return words.map((word, index) => index === 0 ? word : word[0].toUpperCase() + word.slice(1)).join('');
+    case 'camel':
+      return words.map((word, index) => index === 0 ? word.toLowerCase() : word[0].toUpperCase() + word.slice(1)).join('');
+    default:
+      throw new Error('Invalid style.');
+  }
+}
+```

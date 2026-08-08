@@ -1,0 +1,79 @@
+```ts
+export function rescaleRecipe(lines: string[], num: number, den: number): string[] {
+  if (!Array.isArray(lines) || !Number.isInteger(num) || !Number.isInteger(den) || num <= 0 || den <= 0) {
+    throw new Error('Invalid input');
+  }
+
+  const units = ['tsp', 'tbsp', 'cup', 'egg', 'g'];
+  const fractions = [new Fraction(1, 4), new Fraction(1, 2), new Fraction(1, 8), new Fraction(1), new Fraction(1)];
+  const regex = /^(\d+|\d+\s\d+\/\d+)\s([tsp|tbsp|cup|egg|g])\s(.*)$/;
+
+  const scaledLines = lines.map(line => {
+    const match = line.match(regex);
+    if (!match) throw new Error('Invalid row format');
+
+    const [amountStr, unit, ingredient] = match.slice(1);
+    const amount = parseAmount(amountStr);
+
+    if (units.indexOf(unit) === -1 || !/^[a-zA-Z\s]+$/.test(ingredient)) {
+      throw new Error('Invalid unit or ingredient');
+    }
+
+    const scaledAmount = amount.mul(new Fraction(num, den)).round();
+    return `${scaledAmount.toString()} ${unit} ${ingredient}`;
+  }).filter((_, index, self) => self.indexOf(self[index]) === index);
+
+  if (scaledLines.length !== lines.length) {
+    throw new Error('Duplicate ingredient');
+  }
+
+  return scaledLines;
+}
+
+class Fraction {
+  numerator: number;
+  denominator: number;
+
+  constructor(numerator: number, denominator: number) {
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || numerator <= 0 || denominator <= 0) {
+      throw new Error('Invalid fraction');
+    }
+    const gcd = this.gcd(numerator, denominator);
+    this.numerator = numerator / gcd;
+    this.denominator = denominator / gcd;
+  }
+
+  mul(other: Fraction): Fraction {
+    return new Fraction(this.numerator * other.numerator, this.denominator * other.denominator);
+  }
+
+  round(): Fraction {
+    const grains = [0.25, 0.5, 0.125, 1, 1];
+    let roundedNumerator = Math.round(this.numerator / this.denominator * grains.indexOf(this.denominator) + 0.5);
+    if (roundedNumerator === 0) roundedNumerator = 1;
+    return new Fraction(roundedNumerator, 1);
+  }
+
+  toString(): string {
+    if (this.numerator % this.denominator === 0) return this.numerator.toString();
+    const whole = Math.floor(this.numerator / this.denominator);
+    const part = new Fraction(this.numerator - whole * this.denominator, this.denominator).toString();
+    return `${whole > 0 ? whole + ' ' : ''}${part}`;
+  }
+
+  private gcd(a: number, b: number): number {
+    while (b !== 0) {
+      [a, b] = [b, a % b];
+    }
+    return a;
+  }
+}
+
+function parseAmount(amountStr: string): Fraction {
+  if (/^\d+$/.test(amountStr)) return new Fraction(parseInt(amountStr), 1);
+  const [whole, part] = amountStr.split(' ');
+  const numeratorPart = parseInt(part.split('/')[0]);
+  const denominatorPart = parseInt(part.split('/')[1]);
+  return new Fraction(whole * denominatorPart + numeratorPart, denominatorPart);
+}
+```

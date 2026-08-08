@@ -1,0 +1,46 @@
+```ts
+export function foldHalyardQuery(text: string): string {
+    if (typeof text !== 'string') {
+        throw new Error('Argument must be a string');
+    }
+
+    const params = text.split('&').map(param => param.trim());
+    const bareNames: { [name: string]: true } = {};
+    const namedParams: { [name: string]: Set<string> } = {};
+
+    for (const param of params) {
+        if (!param) continue;
+
+        const [name, payload] = param.split('=');
+        if (payload && name.includes('=')) {
+            throw new Error('Parameter cannot carry a second bare equals sign');
+        }
+
+        if (name === '') {
+            throw new Error('Name cannot be empty');
+        }
+
+        if (/_[^a-f0-9]{2}/.test(name) || /[^ -~]/.test(name)) {
+            throw new Error('Invalid name or payload');
+        }
+
+        const decodedName = decodeURIComponent(name.replace(/_/g, (match) => String.fromCharCode(parseInt(match.slice(1), 16))));
+        if (payload) {
+            namedParams[decodedName] = (namedParams[decodedName] || new Set()).add(payload);
+        } else {
+            bareNames[decodedName] = true;
+        }
+    }
+
+    const sortedBareNames = Object.keys(bareNames).sort();
+    const sortedNamedParams: string[] = [];
+    for (const name in namedParams) {
+        if (namedParams.hasOwnProperty(name)) {
+            const payloads = Array.from(namedParams[name]).sort((a, b) => a.localeCompare(b));
+            sortedNamedParams.push(`${name}=${payloads.join(',')}`);
+        }
+    }
+
+    return [...sortedBareNames, ...sortedNamedParams].join('&');
+}
+```

@@ -1,0 +1,73 @@
+```ts
+export function rescaleRecipe(lines: string[], num: number, den: number): string[] {
+  if (!Array.isArray(lines) || !Number.isInteger(num) || !Number.isInteger(den)) {
+    throw new Error('Invalid input');
+  }
+
+  const units = ['tsp', 'tbsp', 'cup', 'egg', 'g'];
+  const fractions = [1/4, 1/2, 1/8, 1, 1];
+  const regex = /^(\d+|\d+\s\d+\/\d+)\s(tsp|tbsp|cup|egg|g)\s(.+)$/;
+
+  const scaledLines: string[] = [];
+
+  for (const line of lines) {
+    if (typeof line !== 'string') {
+      throw new Error('Invalid row');
+    }
+
+    const match = line.match(regex);
+    if (!match) {
+      throw new Error('Invalid recipe format');
+    }
+
+    const [amount, unit, ingredient] = match.slice(1);
+
+    if (!units.includes(unit)) {
+      throw new Error('Invalid unit');
+    }
+
+    let scaledAmount: number;
+    if (amount.includes('/')) {
+      const [numerator, denominator] = amount.split('/').map(Number);
+      if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || numerator <= 0 || denominator <= 0 || numerator >= denominator) {
+        throw new Error('Invalid fraction');
+      }
+      scaledAmount = (numerator * num + denominator * den) / (denominator * den);
+    } else if (amount.includes(' ')) {
+      const [whole, part] = amount.split(' ');
+      const wholeNum = Number(whole);
+      const [numerator, denominator] = part.split('/').map(Number);
+      if (!Number.isInteger(wholeNum) || !Number.isInteger(numerator) || !Number.isInteger(denominator) || numerator <= 0 || denominator <= 0 || numerator >= denominator) {
+        throw new Error('Invalid fraction');
+      }
+      scaledAmount = (wholeNum * den + numerator * num) / (denominator * den);
+    } else {
+      const wholeNum = Number(amount);
+      if (!Number.isInteger(wholeNum) || wholeNum <= 0) {
+        throw new Error('Invalid amount');
+      }
+      scaledAmount = wholeNum * num / den;
+    }
+
+    const grains = Math.round(scaledAmount / fractions[units.indexOf(unit)]);
+    const resultGrains = grains === 0 ? 1 : grains;
+
+    let resultAmount: string;
+    if (resultGrains % 4 === 0) {
+      resultAmount = `${resultGrains / 4}`;
+    } else if (resultGrains % 2 === 0) {
+      resultAmount = `${resultGrains / 2} tbsp`;
+    } else if (resultGrains % 8 === 0) {
+      resultAmount = `${resultGrains / 8} cup`;
+    } else {
+      const whole = Math.floor(resultGrains);
+      const part = resultGrains - whole;
+      resultAmount = `${whole} ${part * fractions[units.indexOf(unit)]}`;
+    }
+
+    scaledLines.push(`${resultAmount} ${unit} ${ingredient}`);
+  }
+
+  return scaledLines;
+}
+```

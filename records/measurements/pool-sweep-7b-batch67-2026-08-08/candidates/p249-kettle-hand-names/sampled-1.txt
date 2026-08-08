@@ -1,0 +1,45 @@
+export function nameKettleHands(hands: any[]): any {
+  if (!Array.isArray(hands) || hands.length === 0) {
+    throw new Error("the argument must be a list holding at least one hand");
+  }
+  const names: string[] = [];
+  const totals: number[] = [];
+  for (const hand of hands) {
+    if (!Array.isArray(hand) || hand.length !== 4) {
+      throw new Error("a hand must be a list of exactly four cards");
+    }
+    const heats: number[] = [];
+    const flues: string[] = [];
+    const written = new Set<string>();
+    for (const card of hand) {
+      if (typeof card !== "string" || !/^[ghjk][1-8]$/.test(card)) {
+        throw new Error("a card must be one flue letter and one heat from 1 to 8");
+      }
+      if (written.has(card)) {
+        throw new Error("a card is written twice inside a hand");
+      }
+      written.add(card);
+      flues.push(card.slice(0, 1));
+      heats.push(Number(card.slice(1)));
+    }
+    const total = heats.reduce((sum, heat) => sum + heat, 0);
+    const spread = Math.max(...heats) - Math.min(...heats);
+    const flueCount = new Map<string, number>();
+    for (const flue of flues) flueCount.set(flue, (flueCount.get(flue) ?? 0) + 1);
+    const twoEach =
+      flueCount.size === 2 && [...flueCount.values()].every((count) => count === 2);
+    let name = "cold";
+    if (spread === 3 && flueCount.size === 4 && new Set(heats).size === 4) {
+      name = "kiln-run";
+    } else if (twoEach) {
+      name = "double-flue";
+    } else if (total % 7 === 0) {
+      name = "banked";
+    } else if (spread >= 6) {
+      name = "draught";
+    }
+    names.push(name);
+    totals.push(total);
+  }
+  return { names, totals };
+}

@@ -1,0 +1,48 @@
+```ts
+export function bandParcelCharge(book: Record<string, unknown>, parcel: Record<string, unknown>): Record<string, unknown> {
+    const validate = (obj: any, schema: { [key: string]: (value: any) => boolean }) => {
+        for (const key in schema) {
+            if (!schema[key](obj[key])) throw new Error(`Invalid ${key}`);
+        }
+    };
+
+    const isNonEmptyString = (value: any): value is string => typeof value === 'string' && value.length > 0;
+    const isPositiveWholeNumber = (value: any): value is number => Number.isInteger(value) && value > 0;
+    const isNonNegativeWholeNumber = (value: any): value is number => Number.isInteger(value) && value >= 0;
+
+    validate(book, {
+        zones: (zones: any) => Array.isArray(zones) && zones.every(isNonEmptyString) && new Set(zones).size === zones.length,
+        steps: (steps: any) => Array.isArray(steps) && steps.length > 0 && steps.every((step: any) => step.upTo === null || (isPositiveWholeNumber(step.upTo) && step.cents instanceof Array)),
+        extras: (extras: any) => Array.isArray(extras) && extras.every((extra: any) => extra.mark !== undefined && isNonEmptyString(extra.mark) && extra.cents >= 0 && (extra.zones === null || Array.isArray(extra.zones) && extra.zones.every(isNonEmptyString))),
+        round: (round: any) => isPositiveWholeNumber(round)
+    });
+
+    validate(parcel, {
+        zone: (zone: any) => typeof zone === 'string' && book.zones.includes(zone),
+        grams: (grams: any) => isPositiveWholeNumber(grams),
+        marks: (marks: any) => Array.isArray(marks) && marks.every(isNonEmptyString) && new Set(marks).size === marks.length
+    });
+
+    const steps = book.steps;
+    const extras = book.extras;
+    const round = book.round;
+
+    let bandIndex = 0;
+    for (; bandIndex < steps.length; ++bandIndex) {
+        if (steps[bandIndex].upTo === null || parcel.grams <= steps[bandIndex].upTo) break;
+    }
+
+    const base = steps[bandIndex].cents[book.zones.indexOf(parcel.zone)];
+    let extra = 0;
+    for (const mark of parcel.marks) {
+        const extraCharge = extras.find(e => e.mark === mark);
+        if (extraCharge && (extraCharge.zones === null || extraCharge.zones.includes(book.zones.indexOf(parcel.zone)))) {
+            extra += extraCharge.cents;
+        }
+    }
+
+    let total = Math.ceil((base + extra) / round) * round;
+
+    return { band: bandIndex, base, extra, total, applied: parcel.marks };
+}
+```

@@ -1,0 +1,71 @@
+```ts
+export function fitGridWords(slots: Array<Record<string, unknown>>, words: string[]): Record<string, unknown> {
+  if (!Array.isArray(slots) || slots.length === 0) throw new Error("Invalid slots");
+  if (!Array.isArray(words)) throw new Error("Invalid words");
+
+  const placed = new Map<string, { slot: string; word: string }>();
+  const usedWords = new Set<string>();
+
+  for (const slot of slots) {
+    if (typeof slot !== "object" || slot === null) throw new Error("Invalid slot");
+    if (!slot.id || typeof slot.id !== "string" || slot.id.trim() === "") throw new Error("Invalid slot id");
+    if (usedWords.has(slot.id)) throw new Error("Duplicate slot id");
+    usedWords.add(slot.id);
+
+    if (typeof slot.row !== "number" || !Number.isInteger(slot.row) || slot.row < 0) throw new Error("Invalid row");
+    if (typeof slot.col !== "number" || !Number.isInteger(slot.col) || slot.col < 0) throw new Error("Invalid col");
+
+    const run = slot.run as string;
+    if (run !== "across" && run !== "down") throw new Error("Invalid run");
+
+    if (typeof slot.len !== "number" || !Number.isInteger(slot.len) || slot.len < 2) throw new Error("Invalid len");
+
+    let word: string | undefined = undefined;
+
+    for (const candidate of words) {
+      if (!usedWords.has(candidate)) {
+        const candidateWord = candidate.slice(0, slot.len);
+        if (candidateWord.length === slot.len && /^[a-z]+$/.test(candidateWord)) {
+          let valid = true;
+          if (run === "across") {
+            for (let i = 0; i < slot.len; i++) {
+              const row = slot.row + i;
+              const col = slot.col + i;
+              if (placed.has(`${row}-${col}`) && placed.get(`${row}-${col}`).word[i] !== candidateWord[i]) {
+                valid = false;
+                break;
+              }
+            }
+          } else {
+            for (let i = 0; i < slot.len; i++) {
+              const row = slot.row + i;
+              const col = slot.col + i;
+              if (placed.has(`${row}-${col}`) && placed.get(`${row}-${col}`).word[i] !== candidateWord[i]) {
+                valid = false;
+                break;
+              }
+            }
+          }
+          if (valid) {
+            word = candidateWord;
+            usedWords.add(candidate);
+            break;
+          }
+        }
+      }
+    }
+
+    if (!word) {
+      return { placed: Object.fromEntries(placed), stuck: slot.id };
+    }
+
+    for (let i = 0; i < slot.len; i++) {
+      const row = run === "across" ? slot.row : slot.row + i;
+      const col = run === "across" ? slot.col + i : slot.col;
+      placed.set(`${row}-${col}`, { slot: slot.id, word });
+    }
+  }
+
+  return { placed: Object.fromEntries(placed), stuck: "" };
+}
+```

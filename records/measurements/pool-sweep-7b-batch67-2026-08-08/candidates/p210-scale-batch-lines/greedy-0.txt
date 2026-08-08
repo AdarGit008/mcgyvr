@@ -1,0 +1,32 @@
+```ts
+export function scaleBatchLines(items: string[], want: number, base: number): string[] {
+  if (!Array.isArray(items)) throw new Error("Input must be a list");
+  if (want <= 0 || !Number.isInteger(want)) throw new Error("Wanted portions must be a whole number above zero");
+  if (base <= 0 || !Number.isInteger(base)) throw new Error("Base portions must be a whole number above zero");
+
+  const measures = new Map<string, number>([["g", 1], ["ml", 5], ["each", 1]]);
+  const usedNames = new Set<string>();
+
+  return items.map(line => {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length !== 3) throw new Error("Each line must have exactly three parts");
+
+    const quantityStr = parts[0];
+    const measure = parts[1];
+    const name = parts.slice(2).join(" ");
+
+    if (!/^\d+$/.test(quantityStr)) throw new Error("Quantity must be a whole number without leading zero");
+    const quantity = parseInt(quantityStr, 10);
+    if (quantity <= 0) throw new Error("Quantity must be above zero");
+
+    if (!measures.has(measure)) throw new Error("Invalid measure. Must be 'g', 'ml', or 'each'");
+    if (usedNames.has(name)) throw new Error("Duplicate stuff name found");
+    usedNames.add(name);
+
+    const newQuantity = Math.round((quantity * want) / base);
+    if (newQuantity === 0 && quantity !== 0) newQuantity = 1;
+
+    return `${newQuantity} ${measure} ${name}`;
+  });
+}
+```

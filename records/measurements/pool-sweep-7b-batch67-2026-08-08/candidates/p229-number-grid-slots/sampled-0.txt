@@ -1,0 +1,65 @@
+```ts
+/**
+ * Number every square that opens at least one slot in a grid, starting from the top-left corner.
+ * @param rows - A non-empty list of rows, each a string of "." (open) and "#" (blocked).
+ * @returns An array of objects mapping each numbered square to its properties.
+ */
+export function numberGridSlots(rows: string[]): Array<Record<string, number>> {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        throw new Error("Input must be a non-empty list of rows.");
+    }
+
+    const rowCount = rows.length;
+    const colCount = rows[0].length;
+
+    for (const row of rows) {
+        if (typeof row !== "string" || row.length !== colCount) {
+            throw new Error("Each row must be a string of equal length.");
+        }
+        for (let char of row) {
+            if (char !== "." && char !== "#") {
+                throw new Error("Row characters must be either '.' or '#'.");
+            }
+        }
+    }
+
+    const result: Array<Record<string, number>> = [];
+    let slotCount = 0;
+
+    for (let i = 0; i < rowCount; i++) {
+        for (let j = 0; j < colCount; j++) {
+            if (rows[i][j] === ".") {
+                let acrossLength = 1;
+                let downLength = 1;
+
+                // Check across
+                while (j + acrossLength < colCount && rows[i][j + acrossLength] === ".") {
+                    acrossLength++;
+                }
+
+                // Check down
+                if (i > 0) {
+                    while (i - downLength >= 0 && rows[i - downLength][j] === ".") {
+                        downLength++;
+                    }
+                } else {
+                    downLength = 0;
+                }
+
+                if (acrossLength >= 2 || downLength >= 2) {
+                    slotCount++;
+                    result.push({
+                        at: slotCount,
+                        row: i + 1,
+                        col: j + 1,
+                        across: acrossLength,
+                        down: downLength
+                    });
+                }
+            }
+        }
+    }
+
+    return result;
+}
+```

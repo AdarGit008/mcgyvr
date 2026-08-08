@@ -1,0 +1,59 @@
+```ts
+export function orderSkeinHands(hands: string[][]): { grades: string[], order: number[] } {
+    if (!Array.isArray(hands) || hands.length === 0) {
+        throw new Error("Invalid input: expected a non-empty array of hands");
+    }
+
+    const handGrades = hands.map(hand => {
+        if (!Array.isArray(hand) || hand.length !== 5) {
+            throw new Error("Invalid input: each hand must be an array of exactly five cards");
+        }
+
+        const cardSet = new Set<string>();
+        for (const card of hand) {
+            if (typeof card !== 'string' || !/^[1-9]\w$/.test(card)) {
+                throw new Error(`Invalid input: "${card}" is not a valid card`);
+            }
+            if (!cardSet.add(card)) {
+                throw new Error("Invalid input: hands must contain no duplicate cards");
+            }
+        }
+
+        const pips = Array.from(new Set(card.map(card => card[0]))).map(pip => parseInt(pip));
+        const houses = Array.from(new Set(card.map(card => card[1])));
+
+        if (pips.length === 2) return "monolith";
+        if (pips.length === 5 && houses.length === 4) return "prism";
+        if (pips.length === 5 && Math.max(...pips) - Math.min(...pips) === 4) return "chain";
+        if (pips.length === 3) return "echo";
+        if (pips.length === 4) return "twin";
+
+        return "drift";
+    });
+
+    const gradeOrder = ["monolith", "prism", "chain", "echo", "twin", "drift"];
+    const gradedHands = handGrades.map((grade, index) => ({ grade, index }));
+    gradedHands.sort((a, b) => {
+        if (a.grade !== b.grade) return gradeOrder.indexOf(a.grade) - gradeOrder.indexOf(b.grade);
+        const pipsA = Array.from(new Set(hands[a.index].map(card => card[0]))).map(pip => parseInt(pip));
+        const pipsB = Array.from(new Set(hands[b.index].map(card => card[0]))).map(pip => parseInt(pip));
+        if (pipsA.length !== pipsB.length) return pipsA.length - pipsB.length;
+        for (let i = 0; i < Math.min(pipsA.length, pipsB.length); i++) {
+            const diff = pipsB[i] - pipsA[i];
+            if (diff !== 0) return diff;
+        }
+        const housesA = Array.from(new Set(hands[a.index].map(card => card[1])));
+        const housesB = Array.from(new Set(hands[b.index].map(card => card[1])));
+        for (let i = 0; i < Math.min(housesA.length, housesB.length); i++) {
+            const houseDiff = [4, 3, 2, 1][housesB[i].charCodeAt(0) - 'm'.charCodeAt(0)] - [4, 3, 2, 1][housesA[i].charCodeAt(0) - 'm'.charCodeAt(0)];
+            if (houseDiff !== 0) return houseDiff;
+        }
+        return a.index - b.index;
+    });
+
+    const grades = gradedHands.map(hand => hand.grade);
+    const order = gradedHands.map(hand => hand.index);
+
+    return { grades, order };
+}
+```

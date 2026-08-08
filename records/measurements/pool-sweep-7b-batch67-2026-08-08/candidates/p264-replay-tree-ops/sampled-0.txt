@@ -1,0 +1,99 @@
+```typescript
+export function replayTreeOps(steps: string[]): number[] {
+  if (!Array.isArray(steps)) throw new Error("steps must be an array");
+
+  class TreeNode {
+    value: number;
+    left: TreeNode | null = null;
+    right: TreeNode | null = null;
+
+    constructor(value: number) {
+      this.value = value;
+    }
+  }
+
+  let root: TreeNode | null = null;
+
+  for (const step of steps) {
+    if (!/^(add|drop):-?\d+$/.test(step)) throw new Error("invalid step");
+
+    const [op, numStr] = step.split(":");
+    const num = parseInt(numStr, 10);
+
+    if (isNaN(num)) throw new Error("step number must be a valid integer");
+
+    if (op === "add") {
+      if (!root) root = new TreeNode(num);
+      else insert(root, num);
+    } else if (op === "drop" && root) {
+      const found = findAndRemove(root, num);
+      if (!found) throw new Error("value not found to drop");
+    }
+  }
+
+  return collectValues(root);
+
+  function insert(node: TreeNode, value: number): void {
+    if (value < node.value) {
+      if (node.left) insert(node.left, value);
+      else node.left = new TreeNode(value);
+    } else if (value > node.value) {
+      if (node.right) insert(node.right, value);
+      else node.right = new TreeNode(value);
+    }
+  }
+
+  function findAndRemove(node: TreeNode, value: number): boolean {
+    if (value < node.value) {
+      if (node.left) {
+        return findAndRemove(node.left, value);
+      } else {
+        throw new Error("value not found to drop");
+      }
+    } else if (value > node.value) {
+      if (node.right) {
+        return findAndRemove(node.right, value);
+      } else {
+        throw new Error("value not found to drop");
+      }
+    } else {
+      if (!node.left && !node.right) {
+        node = null;
+      } else if (node.left && !node.right) {
+        node = node.left;
+      } else if (!node.left && node.right) {
+        node = node.right;
+      } else {
+        const maxInLeft = findMax(node.left);
+        node.value = maxInLeft;
+        removeMaxFromLeft(node.left);
+      }
+      return true;
+    }
+  }
+
+  function findMax(node: TreeNode): number {
+    while (node.right) {
+      node = node.right;
+    }
+    return node.value;
+  }
+
+  function removeMaxFromLeft(node: TreeNode | null): void {
+    if (!node || !node.right) {
+      node.left = null;
+    } else {
+      removeMaxFromLeft(node.right);
+    }
+  }
+
+  function collectValues(node: TreeNode | null, values: number[] = []): number[] {
+    if (node) {
+      collectValues(node.left, values);
+      values.push(node.value);
+      collectValues(node.right, values);
+    }
+    return values;
+  }
+}
+```

@@ -1,0 +1,49 @@
+```ts
+/**
+ * Calculate the overlap ratio between two passages using shingles.
+ *
+ * @param left - The first passage as a string.
+ * @param right - The second passage as a string.
+ * @param width - The window width for shingle calculation as a positive integer.
+ * @returns A two-slot list of numerator and denominator representing the exact reduced fraction of overlap.
+ */
+export function shingleOverlapRatio(left: string, right: string, width: number): number[] {
+  if (width <= 0 || !Number.isInteger(width)) throw new Error("Window width must be a positive whole number.");
+  if (typeof left !== 'string' || typeof right !== 'string') throw new Error("Both passages must be strings.");
+  if (left.trim() === "" || right.trim() === "") throw new Error("Neither passage can be empty or contain only spaces.");
+  if (left.split(/\s+/).filter(Boolean).length < width || right.split(/\s+/).filter(Boolean).length < width) {
+    throw new Error("Both passages must have at least as many tokens as the window width.");
+  }
+
+  const leftShingles = getUniqueShingles(left, width);
+  const rightShingles = getUniqueShingles(right, width);
+
+  const intersectionSize = intersection(leftShingles, rightShingles).length;
+  const unionSize = leftShingles.length + rightShingles.length - intersectionSize;
+
+  return [intersectionSize, unionSize];
+}
+
+function getUniqueShingles(text: string, width: number): Set<string> {
+  const tokens = text.split(/\s+/).filter(Boolean);
+  const shingles = new Set<string>();
+
+  for (let i = 0; i <= tokens.length - width; i++) {
+    shingles.add(tokens.slice(i, i + width).join(' '));
+  }
+
+  return shingles;
+}
+
+function intersection<T>(set1: Set<T>, set2: Set<T>): Set<T> {
+  const result = new Set<T>();
+
+  for (const item of set1) {
+    if (set2.has(item)) {
+      result.add(item);
+    }
+  }
+
+  return result;
+}
+```

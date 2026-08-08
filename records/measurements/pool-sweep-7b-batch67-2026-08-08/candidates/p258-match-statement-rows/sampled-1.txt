@@ -1,0 +1,54 @@
+```ts
+export function matchStatementRows(book: Array<Record<string, unknown>>, bank: Array<Record<string, unknown>>, tolerance: number): { pairs: string[][]; bookOnly: string[]; bankOnly: string[] } {
+    if (!Array.isArray(book) || !book.every(row => typeof row === 'object' && row !== null)) throw new Error('Invalid book rows');
+    if (!Array.isArray(bank) || !bank.every(row => typeof row === 'object' && row !== null)) throw new Error('Invalid bank rows');
+    if (typeof tolerance !== 'number' || !Number.isInteger(tolerance) || tolerance < 0) throw new Error('Invalid tolerance');
+
+    const bookRows = book.filter(row => {
+        if (typeof row.ref !== 'string' || row.ref === '') throw new Error('Invalid book ref');
+        if (typeof row.day !== 'number' || !Number.isInteger(row.day)) throw new Error('Invalid book day');
+        if (typeof row.cents !== 'number' || !Number.isInteger(row.cents)) throw new Error('Invalid book cents');
+        if (row.cents === 0) throw new Error('Book cent value cannot be zero');
+        return true;
+    }).sort((a, b) => a.day - b.day || a.ref.localeCompare(b.ref));
+
+    const bankRows = bank.filter(row => {
+        if (typeof row.ref !== 'string' || row.ref === '') throw new Error('Invalid bank ref');
+        if (typeof row.day !== 'number' || !Number.isInteger(row.day)) throw new Error('Invalid bank day');
+        if (typeof row.cents !== 'number' || !Number.isInteger(row.cents)) throw new Error('Invalid bank cents');
+        return true;
+    }).sort((a, b) => a.day - b.day || a.ref.localeCompare(b.ref));
+
+    const pairs: string[][] = [];
+    const bookOnly: string[] = [];
+    const bankOnly: string[] = [];
+
+    for (const bookRow of bookRows) {
+        let closestBankRow: Record<string, unknown> | null = null;
+        let minDistance = Infinity;
+
+        for (const bankRow of bankRows) {
+            if (bankRow.ref === bookRow.ref || bankOnly.includes(bankRow.ref)) continue;
+
+            const distance = Math.abs(bookRow.day - bankRow.day);
+            if (distance <= tolerance && distance < minDistance) {
+                closestBankRow = bankRow;
+                minDistance = distance;
+            }
+        }
+
+        if (closestBankRow) {
+            pairs.push([bookRow.ref, closestBankRow.ref]);
+            bankOnly.push(closestBankRow.ref);
+        } else {
+            bookOnly.push(bookRow.ref);
+        }
+    }
+
+    for (const bankRow of bankRows.filter(row => !bankOnly.includes(row.ref))) {
+        bankOnly.push(bankRow.ref);
+    }
+
+    return { pairs, bookOnly, bankOnly };
+}
+```

@@ -1,0 +1,29 @@
+```ts
+export function stalledLoopMembers(waits: Record<string, string>): string[] {
+  if (typeof waits !== 'object' || waits === null) {
+    throw new Error('Input must be a non-null object');
+  }
+
+  for (const start of Object.keys(waits)) {
+    if (start === '') {
+      throw new Error('Job names cannot be empty strings');
+    }
+
+    const seen: string[] = [];
+    let current = start;
+    while (waits[current] !== undefined && !seen.includes(current)) {
+      if (typeof waits[current] !== 'string' || waits[current].trim() === '') {
+        throw new Error('Waited-for value must be a non-empty string');
+      }
+      seen.push(current);
+      current = waits[current];
+    }
+
+    if (seen.includes(current) && current !== start) {
+      const loopMembers = seen.filter(member => waits[member] === current).sort();
+      return loopMembers;
+    }
+  }
+  return [];
+}
+```

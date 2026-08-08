@@ -1,0 +1,99 @@
+```ts
+/**
+ * Where each ruled library should land.
+ */
+export function chooseUpgrades(
+  request: Record<string, unknown>
+): Record<string, unknown> {
+  const installed = request.installed as Record<string, string>;
+  if (typeof installed !== 'object' || installed === null) {
+    throw new Error('installed must be a mapping');
+  }
+  
+  const offers = request.offers as Record<string, string[]>;
+  if (typeof offers !== 'object' || offers === null) {
+    throw new Error('offers must be a mapping');
+  }
+
+  const rules = request.rules as any[];
+  if (!Array.isArray(rules)) {
+    throw new Error('rules must be a list');
+  }
+  
+  for (const rule of rules) {
+    if (typeof rule !== 'object' || rule === null) {
+      throw new Error('rule must be a mapping');
+    }
+    
+    const { package: pkg, min, max } = rule;
+    if (typeof pkg !== 'string' || typeof min !== 'string' || typeof max !== 'string') {
+      throw new Error('rule must have package, min, and max as strings');
+    }
+    
+    if (!offers[pkg]) {
+      throw new Error(`library ${pkg} is not carried by the registry`);
+    }
+    
+    const [minMajor, minMinor] = min.split('.').map(Number);
+    const [maxMajor, maxMinor] = max.split('.').map(Number);
+    if (isNaN(minMajor) || isNaN(minMinor) || isNaN(maxMajor) || isNaN(maxMinor)) {
+      throw new Error('release numbers must be valid');
+    }
+    
+    if (minMajor > maxMajor || (minMajor === maxMajor && minMinor > maxMinor)) {
+      throw new Error(`rule bounds for ${pkg} are invalid`);
+    }
+  }
+
+  const floors = new Map<string, string>();
+  const ceilings = new Map<string, string>();
+  for (const rule of rules) {
+    const low = floors.get(rule.package);
+    if (low === undefined || rule.min > low) {
+      floors.set(rule.package, rule.min);
+    }
+    const high = ceilings.get(rule.package);
+    if (high === undefined || rule.max < high) {
+      ceilings.set(rule.package, rule.max);
+    }
+  }
+
+  const moves: Record<string, string>[] = [];
+  const snags: Record<string, string>[] = [];
+
+  for (const name of Array.from(floors.keys()).sort()) {
+    const low = floors.get(name) as string;
+    const high = ceilings.get(name) as string;
+    const allowed = offers[name].filter(
+      (release) => release >= low && release <= high
+    );
+
+    if (allowed.length === 0) {
+      snags.push({ package: name, why: "none" });
+      continue;
+    }
+
+    const here = installed[name];
+    if (here !== undefined && allowed.includes(here)) {
+      moves.push({ package: name, to: here, action: "hold" });
+      continue;
+    }
+
+    allowed.sort((a, b) => {
+      const [aMajor, aMinor] = a.split('.').map(Number);
+      const [bMajor, bMinor] = b.split('.').map(Number);
+      if (aMajor !== bMajor) return aMajor - bMajor;
+      return aMinor - bMinor;
+    });
+
+    const best = allowed[allowed.length - 1];
+    moves.push({
+      package: name,
+      to: best,
+      action: here === undefined ? "fetch" : "lift",
+    });
+  }
+
+  return { moves, snags };
+}
+```

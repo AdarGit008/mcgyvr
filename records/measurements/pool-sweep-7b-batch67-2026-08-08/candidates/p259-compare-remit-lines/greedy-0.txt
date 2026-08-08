@@ -1,0 +1,53 @@
+```ts
+export function compareRemitLines(ours: unknown[][], theirs: unknown[][]): { agreed: string[]; queried: string[]; ourSide: string[]; theirSide: string[] } {
+    const validate = (lines: unknown[][]) => {
+        for (const line of lines) {
+            if (!Array.isArray(line) || line.length !== 2) throw new Error('Invalid pair');
+            const [label, amount] = line;
+            if (typeof label !== 'string' || !label) throw new Error('Invalid label');
+            if (!Number.isInteger(amount)) throw new Error('Invalid amount');
+        }
+    };
+
+    validate(ours);
+    validate(theirs);
+
+    const ourMap = new Map<string, number>();
+    const theirMap = new Map<string, number>();
+
+    for (const [label, amount] of ours) {
+        if (ourMap.has(label.toLowerCase())) throw new Error('Duplicate label in our advice');
+        ourMap.set(label.toLowerCase(), amount);
+    }
+
+    for (const [label, amount] of theirs) {
+        if (theirMap.has(label.toLowerCase())) throw new Error('Duplicate label in their advice');
+        theirMap.set(label.toLowerCase(), amount);
+    }
+
+    const agreed: string[] = [];
+    const queried: string[] = [];
+    const ourSide: string[] = [];
+    const theirSide: string[] = [];
+
+    for (const [label, amount] of ours) {
+        const lowerLabel = label.toLowerCase();
+        if (theirMap.has(lowerLabel)) {
+            const theirAmount = theirMap.get(lowerLabel)!;
+            if (amount === theirAmount) agreed.push(label);
+            else queried.push(label);
+        } else ourSide.push(label);
+    }
+
+    for (const [label, amount] of theirs) {
+        if (!ourMap.has(label.toLowerCase())) theirSide.push(label);
+    }
+
+    return {
+        agreed: agreed.sort(),
+        queried: queried.sort(),
+        ourSide: ourSide.sort(),
+        theirSide: theirSide.sort()
+    };
+}
+```

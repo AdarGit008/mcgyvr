@@ -1,0 +1,77 @@
+```typescript
+export function foldHalyardQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Argument must be a text string.');
+  }
+
+  const decodeEscape = (escape: string): string => {
+    if (!/^_([0-9a-fA-F]{2})$/.test(escape)) {
+      throw new Error(`Invalid escape sequence: ${escape}`);
+    }
+    return String.fromCharCode(parseInt(escape.slice(1), 16));
+  };
+
+  const decodePayload = (payload: string): string => {
+    return payload.replace(/_/g, decodeEscape);
+  };
+
+  const parseParameter = (param: string): [string, string | undefined] => {
+    if (/^$/.test(param)) {
+      throw new Error('Empty name is not allowed.');
+    }
+    const parts = param.split('=');
+    if (parts.length > 2) {
+      throw new Error(`Too many equals signs in parameter: ${param}`);
+    }
+    return [parts[0], parts.length === 2 ? decodePayload(parts[1]) : undefined];
+  };
+
+  const isValidNameChar = (char: string): boolean => {
+    return char >= '!' && char <= '~';
+  };
+
+  const isValidPayloadChar = (char: string): boolean => {
+    return isValidNameChar(char) || char === ',';
+  };
+
+  const validateParameter = (name: string, payload?: string): void => {
+    if (!/^[!-~]*$/.test(name)) {
+      throw new Error(`Invalid name: ${name}`);
+    }
+    if (payload && !/^([!-~,]+)?$/i.test(payload)) {
+      throw new Error(`Invalid payload: ${payload}`);
+    }
+  };
+
+  const parameters = text.split('&').map(parseParameter);
+  parameters.forEach(([name, payload]) => validateParameter(name, payload));
+
+  const groups = new Map<string, Set<string>>();
+  for (const [name, payload] of parameters) {
+    if (!groups.has(name)) {
+      groups.set(name, new Set());
+    }
+    if (payload) {
+      payload.split(',').forEach(p => groups.get(name)?.add(decodePayload(p)));
+    } else {
+      groups.get(name)?.add('');
+    }
+  }
+
+  const sortedNames = Array.from(groups.keys()).sort();
+  const result: string[] = [];
+
+  for (const name of sortedNames) {
+    if (groups.get(name)?.size === 1 && groups.get(name)?.has('')) {
+      result.push(name.toLowerCase());
+    } else {
+      const payloads = Array.from(groups.get(name)!)
+        .filter(p => p !== '')
+        .sort((a, b) => a.codePointAt(0)! - b.codePointAt(0)!);
+      result.push(`${name.toLowerCase()}=${payloads.join(',')}`);
+    }
+  }
+
+  return result.join('&');
+}
+```

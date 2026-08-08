@@ -1,0 +1,36 @@
+```typescript
+export function stepAccrualLedger(opening: number, steps: number[][]): number[][] {
+    if (steps.length === 0) throw new Error("Schedule cannot be empty.");
+    if (!Array.isArray(steps)) throw new Error("Schedule must be a list.");
+    for (const step of steps) {
+        if (!Array.isArray(step) || step.length !== 3) throw new Error("Each schedule item must be a list of three values.");
+    }
+    if (opening < 0) throw new Error("Opening balance cannot be below zero.");
+    if (!Number.isInteger(opening)) throw new Error("Opening balance must be a whole number.");
+
+    let result: [number, number, number][] = [];
+    let principal = opening;
+    let heap = 0;
+    let leftover = 0;
+
+    for (const [dayCount, tenThousandths, capitalise] of steps) {
+        if (dayCount < 1) throw new Error("Day count must be at least one.");
+        if (tenThousandths < 0) throw new Error("Rate cannot be below zero.");
+        if (!Number.isInteger(tenThousandths)) throw new Error("Rate must be a whole number.");
+        if (capitalise !== 0 && capitalise !== 1) throw new Error("Capitalise must be either 0 or 1.");
+
+        const earnings = Math.floor((principal * tenThousandths * dayCount + leftover) / 3650000);
+        leftover = (principal * tenThousandths * dayCount + leftover) % 3650000;
+
+        if (capitalise === 0) {
+            heap += earnings;
+        } else {
+            principal += earnings;
+        }
+
+        result.push([earnings, principal, heap]);
+    }
+
+    return result;
+}
+```

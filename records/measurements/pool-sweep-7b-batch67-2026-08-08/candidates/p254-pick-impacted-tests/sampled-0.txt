@@ -1,0 +1,37 @@
+```ts
+export function pickImpactedTests(coverage: Record<string, string[]>, edited: string[]): string[] {
+    if (typeof coverage !== 'object' || coverage === null) {
+        throw new Error('First argument must be an object');
+    }
+    if (!Array.isArray(edited)) {
+        throw new Error('Second argument must be an array');
+    }
+
+    const impactedTests = new Set<string>();
+
+    for (const [testName, paths] of Object.entries(coverage)) {
+        if (typeof testName !== 'string' || !testName) {
+            throw new Error('Test names must be non-empty strings');
+        }
+        if (!Array.isArray(paths)) {
+            throw new Error(`Coverage for ${testName} must be an array`);
+        }
+
+        if (paths.includes('*')) {
+            impactedTests.add(testName);
+        } else {
+            for (const path of paths) {
+                if (typeof path !== 'string') {
+                    throw new Error('Paths must be strings');
+                }
+                if (edited.some(editedPath => editedPath === path)) {
+                    impactedTests.add(testName);
+                    break;
+                }
+            }
+        }
+    }
+
+    return Array.from(impactedTests).sort();
+}
+```

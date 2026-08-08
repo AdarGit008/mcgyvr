@@ -1,0 +1,67 @@
+```ts
+export function fitGridWords(slots: Array<Record<string, unknown>>, words: string[]): Record<string, unknown> {
+  if (!Array.isArray(slots) || slots.length === 0) throw new Error("Invalid slots");
+  if (!Array.isArray(words)) throw new Error("Invalid words");
+
+  const slotMap = new Map();
+  for (const slot of slots) {
+    if (typeof slot !== "object" || slot === null) throw new Error("Invalid slot object");
+    if (typeof slot.id !== "string" || slot.id.trim() === "" || slotMap.has(slot.id)) throw new Error("Invalid or duplicate slot id");
+    const row = Number(slot.row);
+    const col = Number(slot.col);
+    if (!Number.isInteger(row) || !Number.isInteger(col) || row < 0 || col < 0) throw new Error("Invalid row or column");
+    if (slot.run !== "across" && slot.run !== "down") throw new Error("Invalid run direction");
+    const len = Number(slot.len);
+    if (!Number.isInteger(len) || len < 2) throw new Error("Invalid length");
+
+    slotMap.set(slot.id, { ...slot, row, col });
+  }
+
+  const placed = [];
+  let stuckAt = "";
+
+  for (const slot of slots) {
+    if (stuckAt !== "") break;
+
+    const usedChars = Array(100).fill(null); // Assuming a max grid size of 10x10
+    for (let i = slot.row; i < slot.row + (slot.run === "across" ? slot.len : 1); i++) {
+      for (let j = slot.col; j < slot.col + (slot.run === "down" ? slot.len : 1); j++) {
+        usedChars[i * 10 + j] = true;
+      }
+    }
+
+    const availableWords = words.filter(word => word.length === slot.len);
+    for (const word of availableWords) {
+      let fits = true;
+      let filledLetters = Array(26).fill(false);
+
+      for (let i = slot.row; i < slot.row + (slot.run === "across" ? slot.len : 1); i++) {
+        for (let j = slot.col; j < slot.col + (slot.run === "down" ? slot.len : 1); j++) {
+          const charIndex = i * 10 + j;
+          if (usedChars[charIndex] && ((slotMap.get(stuckAt) as any).row === i && (slotMap.get(stuckAt) as any).col === j)) {
+            fits = false;
+            break;
+          }
+          filledLetters[word.charCodeAt(j - slot.col) - 97] = true;
+        }
+      }
+
+      if (!fits) continue;
+
+      placed.push({ slot: slot.id, word });
+      for (let i = slot.row; i < slot.row + (slot.run === "across" ? slot.len : 1); i++) {
+        for (let j = slot.col; j < slot.col + (slot.run === "down" ? slot.len : 1); j++) {
+          const charIndex = i * 10 + j;
+          usedChars[charIndex] = true;
+        }
+      }
+
+      words = words.filter(w => w !== word);
+    }
+
+    if (availableWords.length > 0 && !fits) stuckAt = slot.id;
+  }
+
+  return { placed, stuck: stuckAt };
+}
+```

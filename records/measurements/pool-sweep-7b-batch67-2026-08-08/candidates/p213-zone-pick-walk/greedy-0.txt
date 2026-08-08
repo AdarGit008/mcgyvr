@@ -1,0 +1,76 @@
+```ts
+/** One line per row of a zoned pick walk. */
+export function zonePickWalk(plan: Record<string, unknown>): string[] {
+  if (typeof plan !== 'object' || plan === null) {
+    throw new Error('Invalid argument: plan must be an object');
+  }
+  const { zoneOrder, picks } = plan;
+  if (!Array.isArray(zoneOrder) || zoneOrder.length === 0) {
+    throw new Error('Invalid argument: zoneOrder must be a non-empty array of strings');
+  }
+  if (new Set(zoneOrder).size !== zoneOrder.length) {
+    throw new Error('Invalid argument: zoneOrder must contain distinct zones');
+  }
+  for (const zone of zoneOrder) {
+    if (typeof zone !== 'string' || zone.trim() === '') {
+      throw new Error('Invalid argument: zoneOrder must contain non-empty strings');
+    }
+  }
+  if (!Array.isArray(picks)) {
+    throw new Error('Invalid argument: picks must be an array');
+  }
+  const codeSet = new Set<string>();
+  for (const pick of picks) {
+    if (typeof pick !== 'object' || pick === null) {
+      throw new Error('Invalid argument: each pick must be an object');
+    }
+    if (!pick.code || typeof pick.code !== 'string' || pick.code.trim() === '') {
+      throw new Error('Invalid argument: each pick must have a non-empty string code');
+    }
+    if (codeSet.has(pick.code)) {
+      throw new Error('Invalid argument: each pick must have a unique code');
+    }
+    codeSet.add(pick.code);
+    if (!zoneOrder.includes(pick.zone)) {
+      throw new Error('Invalid argument: each pick must be in a zone listed in zoneOrder');
+    }
+    if (typeof pick.row !== 'number' || pick.row <= 0 || !Number.isInteger(pick.row)) {
+      throw new Error('Invalid argument: each pick must have a positive whole number row');
+    }
+    if (typeof pick.slot !== 'number' || pick.slot <= 0 || !Number.isInteger(pick.slot)) {
+      throw new Error('Invalid argument: each pick must have a positive whole number slot');
+    }
+  }
+
+  const byZone = new Map<string, any[]>();
+  for (const pick of picks) {
+    if (!byZone.has(pick.zone)) {
+      byZone.set(pick.zone, []);
+    }
+    (byZone.get(pick.zone) as any[]).push(pick);
+  }
+
+  const lines: string[] = [];
+  for (const zone of zoneOrder) {
+    const group = byZone.get(zone)!;
+    const rows = Array.from(new Set(group.map((pick) => pick.row))).sort(
+      (a, b) => a - b
+    );
+    let facingUp = true;
+    for (const row of rows) {
+      const here = group.filter((pick) => pick.row === row);
+      if (facingUp) {
+        here.sort((a, b) => a.slot - b.slot);
+      } else {
+        here.sort((a, b) => b.slot - a.slot);
+      }
+      lines.push(
+        zone + "/" + row + ":" + here.map((pick) => pick.code).join("|")
+      );
+      facingUp = !facingUp;
+    }
+  }
+
+  return lines;
+}
+```

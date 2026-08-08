@@ -1,0 +1,74 @@
+```ts
+export function firstBadMessage(exchange: unknown): number {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Exchange must be a non-empty list");
+  }
+
+  const validFrom = ["client", "server"];
+  const validKind = ["HELLO", "OFFER", "CHOOSE", "ACCEPT", "DATA", "BYE"];
+
+  let state: "beforeHello" | "afterHello" | "afterChoose" | "done" = "beforeHello";
+
+  for (let i = 0; i < exchange.length; i++) {
+    const msg = exchange[i];
+    if (typeof msg !== "object" || msg === null) {
+      throw new Error("Each message must be a mapping");
+    }
+
+    if (!msg.hasOwnProperty("from") || !msg.hasOwnProperty("kind")) {
+      throw new Error("Message must have 'from' and 'kind'");
+    }
+
+    const { from, kind } = msg;
+    if (!validFrom.includes(from)) {
+      throw new Error(`Invalid 'from': ${from}`);
+    }
+    if (!validKind.includes(kind as string)) {
+      throw new Error(`Invalid 'kind': ${kind}`);
+    }
+
+    switch (state) {
+      case "beforeHello":
+        if (from === "client" && kind === "HELLO") {
+          state = "afterHello";
+        } else {
+          return i;
+        }
+        break;
+      case "afterHello":
+        if (from === "server" && kind === "OFFER") {
+          state = "afterChoose";
+        } else {
+          return i;
+        }
+        break;
+      case "afterChoose":
+        if (from === "client" && kind === "CHOOSE") {
+          state = "done";
+        } else if (from === "server" && kind === "ACCEPT") {
+          state = "waitingForData";
+        } else {
+          return i;
+        }
+        break;
+      case "waitingForData":
+        if (from === "client" && kind === "DATA") {
+          // Stay in this state
+        } else if (from === "server" && kind === "DATA") {
+          // Stay in this state
+        } else if (from === "client" && kind === "BYE") {
+          state = "done";
+        } else if (from === "server" && kind === "BYE") {
+          return -1;
+        } else {
+          return i;
+        }
+        break;
+      case "done":
+        return i;
+    }
+  }
+
+  return state === "done" ? -1 : exchange.length;
+}
+```

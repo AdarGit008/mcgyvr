@@ -1,0 +1,28 @@
+```ts
+export function quoteFreightRun(bands: Array<Record<string, unknown>>, kilos: number): Record<string, unknown> {
+  if (!Array.isArray(bands) || bands.length === 0) throw new Error("Bands must be a non-empty list");
+  if (typeof kilos !== "number" || kilos <= 0 || !Number.isInteger(kilos)) throw new Error("Kilos must be a whole number of one or more");
+
+  const result: Record<string, unknown> = { split: [], cents: 0 };
+
+  for (let i = 0; i < bands.length; i++) {
+    const band = bands[i];
+    if (typeof band !== "object" || band === null) throw new Error("Band must be a mapping");
+    if (typeof band.from !== "number" || band.from < 0 || !Number.isInteger(band.from)) throw new Error("Starting weight must be a whole number of nought or more");
+    if (i === 0 && band.from !== 0) throw new Error("First band must start at nought");
+    if (i > 0 && band.from <= bands[i - 1].from) throw new Error("Starting weights must climb strictly");
+    if (typeof band.perKilo !== "number" || band.perKilo < 0 || !Number.isInteger(band.perKilo)) throw new Error("Rate must be a non-negative whole number");
+
+    const from = Math.max(0, i === 0 ? 0 : bands[i - 1].from);
+    const to = i === bands.length - 1 ? Infinity : band.from;
+    const stretch = Math.min(kilos, to) - from;
+
+    if (stretch > 0) {
+      result.split.push(stretch * band.perKilo);
+      result.cents += stretch * band.perKilo;
+    }
+  }
+
+  return result;
+}
+```

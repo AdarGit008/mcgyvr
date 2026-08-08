@@ -1,0 +1,46 @@
+```ts
+export function buildOnCallRota(roster: string[], blocked: string[][]): string[] {
+  if (roster.length === 0) throw new Error("Roster cannot be empty");
+  if (!Array.isArray(blocked)) throw new Error("Blocked must be an array");
+  if (blocked.some(entry => !Array.isArray(entry))) throw new Error("All entries in blocked must be arrays");
+
+  const shiftCount = Math.ceil(blocked.length / roster.length);
+  const rota: string[] = [];
+  const available: { [name: string]: number } = {};
+  let lastStood: { [name: string]: number } = {};
+
+  for (const name of roster) {
+    if (typeof name !== "string" || name.trim() === "") throw new Error("Roster must contain non-empty strings");
+    available[name] = 0;
+    lastStood[name] = -1;
+  }
+
+  for (let i = 0; i < blocked.length; i++) {
+    const shiftBlocked: Set<string> = new Set(blocked[i]);
+    if (!shiftBlocked.has(roster[rota.length % roster.length])) {
+      let minShifts = Infinity;
+      let earliestName = "";
+
+      for (const name of roster) {
+        if (!shiftBlocked.has(name) && lastStood[name] !== i - 1 && available[name] < shiftCount) {
+          const shiftsSoFar = available[name];
+          if (shiftsSoFar < minShifts || (shiftsSoFar === minShifts && roster.indexOf(name) < earliestName)) {
+            minShifts = shiftsSoFar;
+            earliestName = name;
+          }
+        }
+      }
+
+      if (earliestName === "") return [];
+
+      rota.push(earliestName);
+      available[earliestName]++;
+      lastStood[earliestName] = i;
+    } else {
+      return [];
+    }
+  }
+
+  return rota;
+}
+```

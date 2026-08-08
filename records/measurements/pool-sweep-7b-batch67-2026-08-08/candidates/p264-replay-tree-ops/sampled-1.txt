@@ -1,0 +1,93 @@
+```ts
+export function replayTreeOps(steps: string[]): number[] {
+  if (!Array.isArray(steps)) throw new Error("steps must be an array");
+  
+  class TreeNode {
+    value: number;
+    left: TreeNode | null = null;
+    right: TreeNode | null = null;
+
+    constructor(value: number) {
+      this.value = value;
+    }
+
+    add(num: number): void {
+      if (num < this.value) {
+        if (this.left === null) this.left = new TreeNode(num);
+        else this.left.add(num);
+      } else if (num > this.value) {
+        if (this.right === null) this.right = new TreeNode(num);
+        else this.right.add(num);
+      }
+    }
+
+    drop(): number {
+      if (this.left === null && this.right === null) {
+        return this.value;
+      } else if (this.left === null) {
+        const value = this.value;
+        this.value = this.right!.value;
+        this.right = this.right!.right;
+        return value;
+      } else if (this.right === null) {
+        const value = this.value;
+        this.value = this.left!.value;
+        this.left = this.left!.left;
+        return value;
+      } else {
+        let current = this.left;
+        while (current!.right !== null) {
+          current = current.right;
+        }
+        const value = current.value;
+        current.value = this.left!.drop();
+        return value;
+      }
+    }
+
+    toSortedArray(): number[] {
+      const result: number[] = [];
+      if (this.left !== null) result.push(...this.left.toSortedArray());
+      result.push(this.value);
+      if (this.right !== null) result.push(...this.right.toSortedArray());
+      return result;
+    }
+  }
+
+  let root: TreeNode | null = null;
+  
+  for (const step of steps) {
+    const parts = step.split(":");
+    if (parts.length !== 2) throw new Error("invalid step format");
+    const action = parts[0];
+    const numStr = parts[1];
+    
+    if (action === "add") {
+      const num = parseInt(numStr, 10);
+      if (isNaN(num)) throw new Error("invalid number");
+      if (root === null) root = new TreeNode(num);
+      else root.add(num);
+    } else if (action === "drop") {
+      if (root === null) throw new Error("cannot drop from empty tree");
+      const num = parseInt(numStr, 10);
+      if (isNaN(num)) throw new Error("invalid number");
+      let found = false;
+      function dropFromNode(node: TreeNode): boolean {
+        if (node.value < num && node.right !== null) return dropFromNode(node.right);
+        else if (node.value > num && node.left !== null) return dropFromNode(node.left);
+        else if (node.value === num) {
+          root = node.drop() === num ? null : node;
+          found = true;
+          return true;
+        }
+        return false;
+      }
+      if (!dropFromNode(root)) throw new Error("value not found");
+    } else {
+      throw new Error("invalid action type");
+    }
+  }
+
+  return root === null ? [] : root.toSortedArray();
+}
+```

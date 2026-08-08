@@ -1,0 +1,47 @@
+```ts
+export function findSignalConflicts(cycle: number, approaches: object[], pairs: string[][]): string[] {
+  if (cycle < 2 || cycle > 3600) throw new Error('Invalid cycle');
+  if (!Array.isArray(approaches) || approaches.length === 0) throw new Error('Empty or non-list approach list');
+
+  const validApproachKeys = ['name', 'offset', 'green', 'amber'];
+  const approachMap: { [key: string]: { offset: number; green: number; amber: number } } = {};
+
+  for (const approach of approaches) {
+    if (typeof approach !== 'object' || !approach || Array.isArray(approach)) throw new Error('Invalid approach format');
+    const keys = Object.keys(approach);
+    if (keys.length !== validApproachKeys.length || !keys.every(key => validApproachKeys.includes(key))) throw new Error('Invalid approach format');
+
+    const { name, offset, green, amber } = approach;
+    if (typeof name !== 'string' || name.trim() === '') throw new Error('Invalid approach name');
+    if (typeof offset !== 'number' || offset < 0 || offset >= cycle) throw new Error('Invalid offset');
+    if (typeof green !== 'number' || green < 1) throw new Error('Invalid green time');
+    if (typeof amber !== 'number' || amber < 0) throw new Error('Invalid amber time');
+    if (green + amber > cycle) throw new Error('Green and amber together outrunning the cycle');
+
+    if (approachMap[name]) throw new Error('Repeated approach name');
+    approachMap[name] = { offset, green, amber };
+  }
+
+  const conflicts: string[] = [];
+
+  for (const [name1, name2] of pairs) {
+    if (!approachMap[name1] || !approachMap[name2]) throw new Error('Pair does not name exactly two declared approaches');
+    if (name1 === name2) throw new Error('Pair naming one approach twice');
+
+    const { offset: offset1, green: green1, amber: amber1 } = approachMap[name1];
+    const { offset: offset2, green: green2, amber: amber2 } = approachMap[name2];
+
+    for (let second = 0; second < cycle; second++) {
+      const lit1 = (second - offset1) % cycle >= 0 && (second - offset1) % cycle < green1 + amber1;
+      const lit2 = (second - offset2) % cycle >= 0 && (second - offset2) % cycle < green2 + amber2;
+
+      if (lit1 && lit2) {
+        conflicts.push(`${name1}~${name2}@${second}`);
+        break;
+      }
+    }
+  }
+
+  return conflicts.sort();
+}
+```

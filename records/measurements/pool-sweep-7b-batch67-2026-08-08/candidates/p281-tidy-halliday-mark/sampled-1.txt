@@ -1,0 +1,39 @@
+```ts
+export function tidyShelfMark(raw: string): string {
+  if (typeof raw !== 'string') {
+    throw new Error('Invalid input: must be a string');
+  }
+
+  const parts = raw.split("-");
+  if (parts.length !== 3) {
+    throw new Error('Invalid mark format: must have exactly three parts');
+  }
+
+  const [wing, bayPart, peg] = parts;
+  if (!/^[A-Za-z]{2}$/.test(wing)) {
+    throw new Error('Invalid wing: must be two letters');
+  }
+  const wing = wing.toUpperCase();
+
+  const [bay, fractionPart] = bayPart.split('.');
+  if (fractionPart && fractionPart.length > 4) {
+    throw new Error('Invalid mark format: fraction part too long');
+  }
+  let bay = parseInt(bay, 10);
+  if (isNaN(bay) || bay < 1 || bay > 999) {
+    throw new Error('Invalid bay: must be between 1 and 999');
+  }
+
+  const fraction = fractionPart ? parseInt(fractionPart, 10).toString().padStart(4, '0') : '';
+  if (fraction.length > 2) {
+    throw new Error('Invalid mark format: fraction part too long after padding');
+  }
+
+  if (!/^[A-Za-z]$/.test(peg[0]) || peg[1] !== '0' || peg[1] < '1' || peg[1] > '9') {
+    throw new Error('Invalid peg: must be one letter followed by a non-zero digit');
+  }
+  const peg = peg[0].toLowerCase() + peg[1];
+
+  return `${wing}-${bay.toString().padStart(3, '0')}${fraction ? `.${fraction}` : ''}-${peg}`;
+}
+```

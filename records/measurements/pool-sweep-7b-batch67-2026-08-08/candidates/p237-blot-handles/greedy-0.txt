@@ -1,0 +1,14 @@
+```ts
+const HANDLE = /(?<![a-z0-9_@])@[a-z0-9_]{3,12}(?![a-z0-9_])/g;
+const FENCE_OPEN = /(```[\s\S]*?```)/gs;
+
+export function blotHandles(message: string): string {
+  if (typeof message !== "string") {
+    throw new Error("blotHandles expects a string");
+  }
+
+  return message.replace(FENCE_OPEN, (fence) => {
+    return fence.replace(HANDLE, (found) => "@" + ".".repeat(found.length - 1));
+  });
+}
+```

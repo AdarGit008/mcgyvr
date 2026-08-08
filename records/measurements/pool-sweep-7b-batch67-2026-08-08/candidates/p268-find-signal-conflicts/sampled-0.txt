@@ -1,0 +1,45 @@
+```ts
+/**
+ * Finds conflicts in traffic signal configurations.
+ * @param cycle - The cycle length in seconds (2-3600).
+ * @param approaches - An array of approach records.
+ * @param pairs - A list of conflicting pairs of approach names.
+ * @returns An array of conflict reports sorted by second and text.
+ */
+export function findSignalConflicts(cycle: number, approaches: { name: string; offset: number; green: number; amber: number }[], pairs: [string, string][]): string[] {
+    // Validate cycle
+    if (cycle < 2 || cycle > 3600 || cycle % 1 !== 0) throw new Error("Invalid cycle length");
+
+    // Validate approaches
+    const approachSet = new Set<string>();
+    for (const approach of approaches) {
+        if (!approach.name || typeof approach.name !== 'string' || !approach.name.trim()) throw new Error("Invalid approach name");
+        if (typeof approach.offset !== 'number' || approach.offset < 0 || approach.offset >= cycle || approach.offset % 1 !== 0) throw new Error("Invalid approach offset");
+        if (typeof approach.green !== 'number' || approach.green <= 0 || approach.green + approach.amber > cycle) throw new Error("Invalid approach green or amber");
+        if (approachSet.has(approach.name)) throw new Error("Duplicate approach name");
+    }
+
+    // Validate pairs
+    const pairSet = new Set<string>();
+    for (const [name1, name2] of pairs) {
+        if (!approachSet.has(name1) || !approachSet.has(name2)) throw new Error("Invalid pair member");
+        if (name1 === name2) throw new Error("Pair with same approach twice");
+        const key = `${name1},${name2}`;
+        if (pairSet.has(key)) throw new Error("Duplicate pair");
+        pairSet.add(key);
+    }
+
+    // Find conflicts
+    const conflicts: string[] = [];
+    for (let second = 0; second < cycle; second++) {
+        const litApproaches = approaches.filter(approach => approach.offset <= second && second < approach.offset + approach.green || approach.offset <= second - cycle && second - cycle < approach.offset + approach.green);
+        for (const [name1, name2] of pairs) {
+            if (litApproaches.some(approach => approach.name === name1) && litApproaches.some(approach => approach.name === name2)) {
+                conflicts.push(`${name1}~${name2}@${second}`);
+            }
+        }
+    }
+
+    return conflicts.sort();
+}
+```

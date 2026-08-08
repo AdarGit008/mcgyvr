@@ -1,0 +1,65 @@
+```ts
+/**
+ * Label regions in a grid based on connected squares with the same value.
+ * @param grid - A non-empty list of rows, each row a non-empty list of whole numbers.
+ * @returns An object with "map", "sizes", and "values" properties.
+ */
+export function labelValueRegions(grid: number[][]): { map: number[][], sizes: number[], values: number[] } {
+    if (!Array.isArray(grid) || grid.length === 0) throw new Error("Grid must be a non-empty list of rows.");
+    const numRows = grid.length;
+    const numCols = grid[0].length;
+    if (numCols === 0) throw new Error("Rows must be non-empty lists of whole numbers.");
+    for (let row of grid) {
+        if (!Array.isArray(row) || row.length !== numCols) throw new Error("All rows must have the same length.");
+        for (let cell of row) {
+            if (!Number.isInteger(cell)) throw new Error("All cells must be whole numbers.");
+        }
+    }
+
+    const result = { map: grid.map(row => row.slice()), sizes: [], values: [] };
+    let regionCount = 0;
+
+    function dfs(r: number, c: number, regionId: number) {
+        if (r < 0 || r >= numRows || c < 0 || c >= numCols || result.map[r][c] !== grid[r][c]) return;
+        result.map[r][c] = regionId;
+        dfs(r - 1, c, regionId);
+        dfs(r + 1, c, regionId);
+        dfs(r, c - 1, regionId);
+        dfs(r, c + 1, regionId);
+    }
+
+    for (let r = 0; r < numRows; r++) {
+        for (let c = 0; c < numCols; c++) {
+            if (result.map[r][c] === grid[r][c]) {
+                regionCount++;
+                dfs(r, c, regionCount);
+            }
+        }
+    }
+
+    for (let r = 0; r < numRows; r++) {
+        for (let c = 0; c < numCols; c++) {
+            if (result.map[r][c] !== grid[r][c]) throw new Error("Grid contains disconnected regions.");
+        }
+    }
+
+    const regionMap = new Map<number, { size: number, value: number }>();
+    for (let r = 0; r < numRows; r++) {
+        for (let c = 0; c < numCols; c++) {
+            const regionId = result.map[r][c];
+            if (!regionMap.has(regionId)) {
+                regionMap.set(regionId, { size: 1, value: grid[r][c] });
+            } else {
+                regionMap.get(regionId)!.size++;
+            }
+        }
+    }
+
+    for (let [regionId, { size, value }] of regionMap) {
+        result.sizes.push(size);
+        result.values.push(value);
+    }
+
+    return result;
+}
+```

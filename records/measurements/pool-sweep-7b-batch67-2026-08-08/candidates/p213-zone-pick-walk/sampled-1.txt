@@ -1,0 +1,91 @@
+```ts
+/** One line per row of a zoned pick walk. */
+export function zonePickWalk(plan: Record<string, unknown>): string[] {
+  if (typeof plan !== 'object' || plan === null) {
+    throw new Error('Invalid argument');
+  }
+
+  const zoneOrder = plan.zoneOrder as any[];
+  if (!Array.isArray(zoneOrder) || zoneOrder.length === 0) {
+    throw new Error('Invalid zoneOrder');
+  }
+  const seenZones = new Set<string>();
+  for (const zone of zoneOrder) {
+    if (typeof zone !== 'string' || zone.trim() === '' || seenZones.has(zone)) {
+      throw new Error('Invalid zoneOrder');
+    }
+    seenZones.add(zone);
+  }
+
+  const picks = plan.picks as any[];
+  if (!Array.isArray(picks)) {
+    throw new Error('Invalid picks');
+  }
+  const codeSet = new Set<string>();
+  for (const pick of picks) {
+    if (
+      typeof pick !== 'object' ||
+      !pick ||
+      typeof pick.code !== 'string' ||
+      pick.code.trim() === '' ||
+      codeSet.has(pick.code)
+    ) {
+      throw new Error('Invalid pick');
+    }
+    codeSet.add(pick.code);
+    if (typeof pick.zone !== 'string' || pick.zone.trim() === '') {
+      throw new Error('Invalid pick');
+    }
+    if (!zoneOrder.includes(pick.zone)) {
+      throw new Error('Invalid pick');
+    }
+    if (
+      typeof pick.row !== 'number' ||
+      pick.row <= 0 ||
+      !Number.isInteger(pick.row)
+    ) {
+      throw new Error('Invalid pick');
+    }
+    if (
+      typeof pick.slot !== 'number' ||
+      pick.slot <= 0 ||
+      !Number.isInteger(pick.slot)
+    ) {
+      throw new Error('Invalid pick');
+    }
+  }
+
+  const byZone = new Map<string, any[]>();
+  for (const pick of picks) {
+    if (!byZone.has(pick.zone)) {
+      byZone.set(pick.zone, []);
+    }
+    (byZone.get(pick.zone) as any[]).push(pick);
+  }
+
+  const lines: string[] = [];
+  let direction = -1;
+  for (const zone of zoneOrder) {
+    if (!byZone.has(zone)) {
+      continue;
+    }
+    const group = byZone.get(zone) as any[];
+    const rows = Array.from(new Set(group.map((pick) => pick.row))).sort(
+      (a, b) => a - b
+    );
+    for (const row of rows) {
+      if (direction === 1) {
+        group.sort((a, b) => b.slot - a.slot);
+      } else {
+        group.sort((a, b) => a.slot - b.slot);
+      }
+      lines.push(
+        zone + "/" + row + ":" + group.map((pick) => pick.code).join("|")
+      );
+      direction *= -1;
+    }
+  }
+
+  return lines;
+}
+```

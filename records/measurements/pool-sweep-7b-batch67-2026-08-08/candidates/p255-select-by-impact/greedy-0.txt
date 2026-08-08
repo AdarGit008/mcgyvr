@@ -1,0 +1,51 @@
+```ts
+export function selectByImpact(imports: Record<string, string[]>, suites: Record<string, string[]>, edited: string[]): string[] {
+  if (typeof imports !== 'object' || imports === null) throw new Error('Invalid imports argument');
+  if (typeof suites !== 'object' || suites === null) throw new Error('Invalid suites argument');
+  if (!Array.isArray(edited)) throw new Error('Invalid edited argument');
+
+  const allModules = new Set([...Object.keys(imports), ...Object.values(suites).flat()]);
+  for (const module of [...allModules, ...edited]) {
+    if (typeof module !== 'string' || !module) throw new Error(`Invalid module name: ${module}`);
+  }
+
+  const visited = new Map<string, boolean>();
+  function isModuleDisturbed(module: string): boolean {
+    if (visited.has(module)) return visited.get(module)!;
+    visited.set(module, true);
+    for (const importer of imports[module] || []) {
+      if (!isModuleDisturbed(importer)) {
+        visited.set(module, false);
+        return false;
+      }
+    }
+    visited.set(module, false);
+    return true;
+  }
+
+  const disturbedModules = new Set<string>();
+  for (const module of edited) {
+    if (imports[module]?.includes(module)) throw new Error(`Module ${module} imports itself`);
+    if (new Set(imports[module] || []).size !== (imports[module] || []).length) throw new Error(`Duplicate import in module ${module}`);
+    disturbedModules.add(module);
+    for (const importer of imports[module] || []) {
+      disturbedModules.add(importer);
+    }
+  }
+
+  const runningSuites = new Set<string>();
+  for (const [suite, drivenModules] of Object.entries(suites)) {
+    if (!drivenModules.length) throw new Error(`Suite ${suite} drives no modules`);
+    if (new Set(drivenModules).size !== drivenModules.length) throw new Error(`Duplicate driven module in suite ${suite}`);
+    for (const module of drivenModules) {
+      if (disturbedModules.has(module)) {
+        runningSuites.add(suite);
+        break;
+      }
+    }
+  }
+
+  const result = Array.from(runningSuites).sort();
+  return result.length > Math.floor(Object.keys(suites).length / 2) ? ['ALL'] : result;
+}
+```

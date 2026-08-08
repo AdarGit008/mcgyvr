@@ -1,0 +1,60 @@
+```ts
+/**
+ * Pairs rows from a cash book against a bank statement based on matching cents and day proximity within a tolerance.
+ *
+ * @param {Array<Record<string, unknown>>} book - Rows of the cash book to pair with the bank statement.
+ * @param {Array<Record<string, unknown>>} bank - Rows of the bank statement to pair with the cash book.
+ * @param {number} tolerance - Maximum number of days a row can be off from its match.
+ * @returns {{ pairs: string[][]; bookOnly: string[]; bankOnly: string[] }} A record containing the pairs, unpaired rows from each list.
+ */
+export function matchStatementRows(book: Array<Record<string, unknown>>, bank: Array<Record<string, unknown>>, tolerance: number): { pairs: string[][]; bookOnly: string[]; bankOnly: string[] } {
+  if (!Array.isArray(book) || !Array.isArray(bank) || typeof tolerance !== 'number') throw new Error('Invalid arguments');
+
+  const isValidRow = (row: Record<string, unknown>): boolean => {
+    return (
+      typeof row.ref === 'string' &&
+      row.ref.length > 0 &&
+      Number.isInteger(row.day) &&
+      Number.isInteger(row.cents) &&
+      row.cents !== 0
+    );
+  };
+
+  if (!book.every(isValidRow) || !bank.every(isValidRow)) throw new Error('Invalid arguments');
+  if (tolerance < 0 || !Number.isInteger(tolerance)) throw new Error('Invalid tolerance');
+
+  const sortedBook = book.sort((a, b) => a.day - b.day || a.ref.localeCompare(b.ref));
+  const sortedBank = bank.slice().sort((a, b) => a.day - b.day || a.ref.localeCompare(b.ref));
+
+  const pairs: string[][] = [];
+  const bookOnly: string[] = [];
+  const bankOnly: string[] = [];
+
+  let bankIndex = 0;
+
+  for (const bookRow of sortedBook) {
+    while (bankIndex < sortedBank.length) {
+      const bankRow = sortedBank[bankIndex];
+      if (Math.abs(bookRow.day - bookRow.day) <= tolerance && Math.abs(bookRow.cents - bookRow.cents) === 0) {
+        pairs.push([bookRow.ref, bankRow.ref]);
+        bankIndex++;
+        break;
+      } else if (bookRow.day < bookRow.day) {
+        bankOnly.push(bankRow.ref);
+        bankIndex++;
+      } else {
+        break;
+      }
+    }
+    if (bankIndex === sortedBank.length) {
+      bookOnly.push(bookRow.ref);
+    }
+  }
+
+  for (; bankIndex < sortedBank.length; bankIndex++) {
+    bankOnly.push(sortedBank[bankIndex].ref);
+  }
+
+  return { pairs, bookOnly, bankOnly };
+}
+```

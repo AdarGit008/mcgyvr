@@ -1,0 +1,37 @@
+```ts
+export function shingleOverlapRatio(left: string, right: string, width: number): number[] {
+  if (typeof left !== 'string' || typeof right !== 'string') {
+    throw new Error('Passages must be strings.');
+  }
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error('Width must be a positive whole number.');
+  }
+
+  const tokenize = (text: string): string[] => text.split(/\s+/).filter(Boolean);
+  const toShingles = (tokens: string[], width: number): Set<string> => {
+    if (tokens.length < width) {
+      throw new Error('Passage has fewer tokens than the width.');
+    }
+    return new Set(tokens.map((_, i) => tokens.slice(i, i + width).join(' ')));
+  };
+
+  const leftTokens = tokenize(left);
+  const rightTokens = tokenize(right);
+  const leftShingles = toShingles(leftTokens, width);
+  const rightShingles = toShingles(rightTokens, width);
+
+  const intersectionSize = new Set([...leftShingles].filter(shingle => rightShingles.has(shingle))).size;
+  const unionSize = leftShingles.size + rightShingles.size - intersectionSize;
+
+  if (unionSize === 0) {
+    return [0, 1];
+  }
+
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  const ratioNumerator = intersectionSize;
+  const ratioDenominator = unionSize;
+  const greatestCommonDivisor = gcd(ratioNumerator, ratioDenominator);
+
+  return [ratioNumerator / greatestCommonDivisor, ratioDenominator / greatestCommonDivisor];
+}
+```

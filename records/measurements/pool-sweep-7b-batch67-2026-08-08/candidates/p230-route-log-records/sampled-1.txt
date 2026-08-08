@@ -1,0 +1,71 @@
+```ts
+import { isObject } from "lodash";
+
+export function routeLogRecords(
+  rules: Array<Record<string, unknown>>,
+  records: Array<Record<string, unknown>>,
+  spare: string
+): Array<Record<string, unknown>> {
+  const levels = ["trace", "debug", "info", "warn", "error", "fatal"];
+  const levelOrder = new Map(levels.map((level, index) => [level, index]));
+
+  if (!Array.isArray(rules) || !Array.isArray(records) || typeof spare !== "string") {
+    throw new Error("Invalid input types");
+  }
+
+  if (spare.trim() === "") {
+    throw new Error("Spare sink name must be non-empty");
+  }
+
+  const result: Array<Record<string, unknown>> = [];
+
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i];
+    if (!isObject(record) || !record.level || !record.tag) {
+      throw new Error("Invalid record format");
+    }
+    if (typeof record.level !== "string" || typeof record.tag !== "string") {
+      throw new Error("Record level and tag must be strings");
+    }
+
+    const recordLevel = levelOrder.get(record.level);
+    if (!recordLevel) {
+      throw new Error(`Unknown record level: ${record.level}`);
+    }
+
+    const matchedRule = rules.find(rule => {
+      if (!isObject(rule) || !rule.sink || !rule.least || typeof rule.tag !== "string" || typeof rule.stop !== "boolean") {
+        throw new Error("Invalid rule format");
+      }
+      if (typeof rule.sink !== "string" || rule.sink.trim() === "") {
+        throw new Error("Rule sink name must be non-empty");
+      }
+
+      const ruleLevel = levelOrder.get(rule.least);
+      if (!ruleLevel) {
+        throw new Error(`Unknown rule least level: ${rule.least}`);
+      }
+
+      return recordLevel >= ruleLevel && (rule.tag === "" || record.tag === rule.tag);
+    });
+
+    if (matchedRule) {
+      result.push({ at: i, sinks: [matchedRule.sink] });
+      if (matchedRule.stop) {
+        continue;
+      }
+    } else {
+      result.push({ at: i, sinks: [spare] });
+    }
+
+    for (let j = 0; j < rules.length; j++) {
+      const rule = rules[j];
+      if (rule.sink !== matchedRule?.sink && recordLevel >= levelOrder.get(rule.least)!) {
+        result[i].sinks.push(rule.sink);
+      }
+    }
+  }
+
+  return result;
+}
+```

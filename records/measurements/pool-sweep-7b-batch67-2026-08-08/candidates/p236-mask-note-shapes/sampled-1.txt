@@ -1,0 +1,31 @@
+```ts
+/**
+ * Masks badges and vault keys in a note.
+ *
+ * @param {string} note - The input note to be masked.
+ * @returns {{ text: string; badges: number; vaults: number }} An object containing the masked note, count of badges, and count of vaults.
+ */
+export function maskSensitive(note: string): { text: string; badges: number; vaults: number } {
+  if (typeof note !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const badgeRegex = /[A-Z]-\d{4,8}/g;
+  const vaultKeyRegex = /vk[a-z0-9]{6,10}/g;
+
+  let maskedNote = note.replace(badgeRegex, match => {
+    return match[0] + '-'.repeat(match.length - 2) + match.slice(-1);
+  });
+
+  let badgesMasked = (note.match(badgeRegex) || []).length;
+  const vaultsMasked = (note.match(vaultKeyRegex) || []).length;
+
+  maskedNote = maskedNote.replace(vaultKeyRegex, '[vault]');
+
+  return {
+    text: maskedNote,
+    badges: badgesMasked,
+    vaults: vaultsMasked,
+  };
+}
+```

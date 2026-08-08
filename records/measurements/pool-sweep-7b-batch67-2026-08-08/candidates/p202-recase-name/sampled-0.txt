@@ -1,0 +1,47 @@
+```ts
+/**
+ * Recases a label based on the given style.
+ * @param label - The label to recase.
+ * @param style - The style to use for recasing.
+ * @returns The recased label.
+ */
+export function recaseName(label: string, style: string): string {
+  if (typeof label !== 'string' || typeof style !== 'string') {
+    throw new Error('Label and style must be strings.');
+  }
+  if (!label) {
+    throw new Error('Label cannot be empty.');
+  }
+
+  const words = label.split(/[-_]/).flatMap(segment => {
+    return segment.match(/[a-z]+|[A-Z]{2,}/g)?.map(word =>
+      word.replace(/[A-Z]/g, (char, index) =>
+        index === 0 ? char.toLowerCase() : char.toUpperCase()
+      )
+    ) || [];
+  });
+
+  switch (style) {
+    case 'snake':
+      return words.join('_').toLowerCase();
+    case 'kebab':
+      return words.join('-').toLowerCase();
+    case 'shout':
+      return words.map(word => word[0].toUpperCase() + word.slice(1).toLowerCase()).join('_');
+    case 'pascal':
+      return words.map((word, index) =>
+        index === 0 ? word.toLowerCase() : capitalizeFirstLetter(word)
+      ).join('');
+    case 'camel':
+      return words.map((word, index) =>
+        index === 0 ? word.toLowerCase() : capitalizeFirstLetter(word)
+      ).join('');
+    default:
+      throw new Error('Invalid style.');
+  }
+}
+
+function capitalizeFirstLetter(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+```

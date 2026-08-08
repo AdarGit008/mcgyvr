@@ -1,0 +1,31 @@
+```ts
+export function quoteFreightRun(bands: Array<Record<string, unknown>>, kilos: number): Record<string, unknown> {
+    if (!Array.isArray(bands) || bands.length === 0) throw new Error("Invalid bands");
+    if (typeof kilos !== 'number' || !Number.isInteger(kilos) || kilos <= 0) throw new Error("Invalid kilos");
+
+    for (let i = 0; i < bands.length; i++) {
+        const band = bands[i];
+        if (typeof band !== 'object' || band === null) throw new Error(`Invalid band at index ${i}`);
+        if (!Number.isInteger(band.from) || band.from < 0) throw new Error(`Invalid from value for band at index ${i}`);
+        if (!Number.isInteger(band.perKilo) || band.perKilo < 0) throw new Error(`Invalid perKilo value for band at index ${i}`);
+
+        if (i === 0 && band.from !== 0) throw new Error("First band must start at nought");
+        if (i > 0 && bands[i - 1].from >= band.from) throw new Error("Starting weights must climb strictly");
+    }
+
+    const charges = [];
+    let cents = 0;
+
+    for (let i = 0; i < kilos; i++) {
+        for (const band of bands) {
+            if (i >= band.from && i < (bands.indexOf(band) === bands.length - 1 ? Infinity : bands[i + 1].from)) {
+                charges.push({ band, charge: band.perKilo });
+                cents += band.perKilo;
+                break;
+            }
+        }
+    }
+
+    return { split: charges, cents };
+}
+```

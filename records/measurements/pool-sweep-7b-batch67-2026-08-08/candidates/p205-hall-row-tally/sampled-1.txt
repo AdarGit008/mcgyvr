@@ -1,0 +1,54 @@
+```ts
+export function tallyHallRows(hall: string[]): string[] {
+  if (!Array.isArray(hall) || hall.length === 0) {
+    throw new Error("Invalid input");
+  }
+
+  const width = hall[0].length;
+  let totalHeld = 0;
+  let totalOpen = 0;
+  let widestTierIndex = -1;
+  let maxOpenInWidestTier = -1;
+
+  for (let i = 0; i < hall.length; i++) {
+    const tier = hall[i];
+    if (typeof tier !== "string" || tier.length === 0) {
+      throw new Error("Invalid input");
+    }
+    if (tier.length !== width) {
+      throw new Error("Invalid input");
+    }
+
+    let heldCount = 0;
+    let openCount = 0;
+
+    for (const char of tier) {
+      switch (char) {
+        case "x":
+          heldCount++;
+          break;
+        case "o":
+          openCount++;
+          break;
+        case "=":
+          break;
+        default:
+          throw new Error("Invalid input");
+      }
+    }
+
+    totalHeld += heldCount;
+    totalOpen += openCount;
+
+    if (maxOpenInWidestTier < openCount) {
+      maxOpenInWidestTier = openCount;
+      widestTierIndex = i;
+    }
+  }
+
+  return [
+    ...hall.map((tier, index) => `tier ${index} held=${held} open=${open}`),
+    `hall held=${totalHeld} open=${totalOpen} widest=tier${widestTierIndex}`,
+  ];
+}
+```

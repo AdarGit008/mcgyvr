@@ -1,0 +1,63 @@
+```ts
+export function tallyReplyRemoves(links: string[][]): number[] {
+  if (!Array.isArray(links) || links.length === 0) {
+    throw new Error("Invalid input: batch must be a non-empty list");
+  }
+
+  const idSet = new Set<string>();
+  const answerMap = new Map<string, string>();
+
+  for (const link of links) {
+    if (!Array.isArray(link) || link.length !== 2) {
+      throw new Error("Invalid input: each link must be exactly two strings");
+    }
+    const [id, answers] = link;
+    if (!id || !answers) {
+      throw new Error("Invalid input: id and answers cannot be empty");
+    }
+    if (idSet.has(id)) {
+      throw new Error("Invalid input: duplicate id found");
+    }
+    idSet.add(id);
+    if (answers !== "") {
+      if (!idSet.has(answers)) {
+        throw new Error("Invalid input: answers field naming no note in the batch");
+      }
+      answerMap.set(id, answers);
+    }
+  }
+
+  const removeCount = new Map<number, number>();
+  const visited = new Set<string>();
+
+  function dfs(currentId: string, currentRemove: number): void {
+    if (visited.has(currentId)) {
+      throw new Error("Invalid input: answering runs in a circle");
+    }
+    visited.add(currentId);
+    removeCount.set(currentRemove, (removeCount.get(currentRemove) || 0) + 1);
+    const nextId = answerMap.get(currentId);
+    if (nextId !== undefined) {
+      dfs(nextId, currentRemove + 1);
+    }
+    visited.delete(currentId);
+  }
+
+  for (const id of idSet) {
+    if (!answerMap.has(id)) {
+      dfs(id, 0);
+    }
+  }
+
+  const result: number[] = [];
+  let maxRemove = -1;
+  for (const [remove, count] of removeCount.entries()) {
+    if (remove > maxRemove) {
+      maxRemove = remove;
+    }
+    result[remove] = count;
+  }
+
+  return result.slice(0, maxRemove + 1);
+}
+```

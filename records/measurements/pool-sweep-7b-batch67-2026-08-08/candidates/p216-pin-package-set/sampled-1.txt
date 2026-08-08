@@ -1,0 +1,52 @@
+```ts
+export function pinPackageSet(plan: Record<string, unknown>): Record<string, unknown> {
+    const shelf = plan['shelf'] as Record<string, string[]> | undefined;
+    const needs = plan['needs'] as Record<string, { name: string, from: string, under: string }[]> | undefined;
+    const root = plan['root'] as string[] | undefined;
+
+    if (typeof shelf !== 'object' || shelf === null) {
+        throw new Error('Invalid shelf');
+    }
+    if (typeof needs !== 'object' || needs === null) {
+        throw new Error('Invalid needs');
+    }
+    if (!Array.isArray(root)) {
+        throw new Error('Invalid root');
+    }
+
+    const picked: Record<string, string> = {};
+    const stuck: string[] = [];
+    const queue: { name: string, from: string, under: string }[] = [...root];
+
+    while (queue.length > 0) {
+        const want = queue.shift()!;
+        const packageName = want.name;
+        if (!(packageName in shelf)) {
+            throw new Error(`Package ${packageName} not stocked`);
+        }
+        if (!shelf[packageName].every(version => /^\d+\.\d+\.\d+$/.test(version))) {
+            throw new Error('Invalid version format');
+        }
+        if (want.from >= want.under) {
+            throw new Error('Invalid from and under values');
+        }
+
+        const versions = shelf[packageName].filter(version => version > want.from && version < want.under);
+        if (versions.length === 0) {
+            stuck.push(packageName);
+            continue;
+        }
+
+        const selectedVersion = versions.sort((a, b) => a.localeCompare(b))[0];
+        picked[packageName] = selectedVersion;
+
+        if (!(packageName in needs)) {
+            continue;
+        }
+        queue.push(...needs[packageName].map(want => ({ ...want, name: packageName })));
+    }
+
+    const sortedPicked = Object.keys(picked).sort().reduce((acc, key) => ({ ...acc, [key]: picked[key] }), {});
+    return { picked: sortedPicked, stuck };
+}
+```

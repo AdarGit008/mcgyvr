@@ -1,0 +1,31 @@
+```ts
+/**
+ * Masks sensitive information in a note according to specific rules.
+ * @param {string} note - The input note potentially containing sensitive information.
+ * @returns {{ text: string; badges: number; vaults: number }} - An object containing the masked note and counts of masked badges and vault keys.
+ */
+export function maskSensitive(note: string): { text: string; badges: number; vaults: number } {
+    if (typeof note !== 'string') {
+        throw new Error('Invalid argument: input must be a string');
+    }
+
+    let text = note;
+    let badges = 0;
+    let vaults = 0;
+
+    const badgePattern = /(?<!\p{L})[A-Z]{2,4}-\d{4,8}(?!\p{N})/gu;
+    const vaultKeyPattern = /vk=[a-z\d]{6,10}/g;
+
+    text = text.replace(badgePattern, () => {
+        badges++;
+        return '****-####';
+    });
+
+    text = text.replace(vaultKeyPattern, () => {
+        vaults++;
+        return '[vault]';
+    });
+
+    return { text, badges, vaults };
+}
+```

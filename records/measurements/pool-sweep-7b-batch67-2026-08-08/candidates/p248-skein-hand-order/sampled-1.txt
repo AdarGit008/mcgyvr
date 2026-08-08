@@ -1,0 +1,66 @@
+```ts
+type Card = string;
+type Hand = [Card, Card, Card, Card, Card];
+type Grade = 'monolith' | 'prism' | 'chain' | 'echo' | 'twin' | 'drift';
+type Ladder = number[];
+type Weight = 4 | 3 | 2 | 1;
+type Result = { grades: Grade[], order: number[] };
+
+export function orderSkeinHands(hands: any[]): Result {
+    if (!Array.isArray(hands) || hands.length === 0) {
+        throw new Error('Invalid input: expected a non-empty list of hands');
+    }
+
+    const validateHand = (hand: Hand): void => {
+        if (!Array.isArray(hand) || hand.length !== 5) {
+            throw new Error('Invalid hand: must be exactly five cards');
+        }
+        const cardSet = new Set<Card>();
+        for (const card of hand) {
+            if (typeof card !== 'string' || !/^(\d{1,2}[mrvs])$/.test(card)) {
+                throw new Error('Invalid card: must be a string of pip followed by house letter');
+            }
+            if (!cardSet.add(card)) {
+                throw new Error('Invalid hand: duplicate cards are not allowed');
+            }
+        }
+    };
+
+    hands.forEach(validateHand);
+
+    const gradeHand = (hand: Hand): Grade => {
+        const pips = Array.from(new Set(hand.map(card => parseInt(card.charAt(0), 10))));
+        const houses = [...new Set(hand.map(card => card.charAt(1)))].sort().map(house => 'mrvs'.indexOf(house) as Weight);
+        if (pips.length === 2) return 'monolith';
+        if (pips.length === 5 && houses.length === 4) return 'prism';
+        if (pips.length === 5 && pips[pips.length - 1] - pips[0] === 4) return 'chain';
+        if (pips.length === 3) return 'echo';
+        if (pips.length === 4) return 'twin';
+        return 'drift';
+    };
+
+    const ladderHand = (hand: Hand): Ladder => {
+        const pipsMap = new Map<number, number>();
+        for (const card of hand) {
+            const pip = parseInt(card.charAt(0), 10);
+            pipsMap.set(pip, (pipsMap.get(pip) || 0) + 1);
+        }
+        return Array.from(pipsMap.entries()).sort((a, b) => a[1] - b[1] || b[0] - a[0]).map(([pip]) => pip);
+    };
+
+    const results: { hand: Hand; grade: Grade; ladder: Ladder }[] = hands.map(hand => ({
+        hand,
+        grade: gradeHand(hand),
+        ladder: ladderHand(hand)
+    }));
+
+    results.sort((a, b) => {
+        if (a.grade !== b.grade) return ['drift', 'twin', 'echo', 'chain', 'prism', 'monolith'].indexOf(b.grade) - ['drift', 'twin', 'echo', 'chain', 'prism', 'monolith'].indexOf(a.grade);
+        for (let i = 0; i < a.ladder.length && i < b.ladder.length; i++) {
+            if (a.ladder[i] !== b.ladder[i]) return b.ladder[i] - a.ladder[i];
+        }
+        return 0;
+    });
+
+    return {
+        grades: results.map(result => result.grade),

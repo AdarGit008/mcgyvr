@@ -1,0 +1,91 @@
+```ts
+export function planWarmup(brief: Record<string, unknown>): Record<string, unknown> {
+  const { budget, slots, caps, items } = brief;
+
+  if (typeof budget !== 'number' || budget < 0 || !Number.isInteger(budget)) {
+    throw new Error('budget must be a non-negative whole number');
+  }
+  if (typeof slots !== 'number' || slots <= 0 || !Number.isInteger(slots)) {
+    throw new Error('slots must be a positive whole number');
+  }
+  if (typeof caps !== 'object' || caps === null) {
+    throw new Error('caps must be a mapping');
+  }
+  if (!Array.isArray(items)) {
+    throw new Error('items must be a list');
+  }
+
+  const itemMap: Record<string, { bytes: number; weight: number; family: string }> = {};
+  const itemNames: string[] = [];
+
+  for (const item of items) {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error('each item must be a mapping');
+    }
+    const { name, bytes, weight, family } = item;
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new Error('name must be a non-empty string');
+    }
+    if (!itemNames.includes(name)) {
+      itemNames.push(name);
+    } else {
+      throw new Error(`duplicate name: ${name}`);
+    }
+    if (typeof bytes !== 'number' || bytes <= 0 || !Number.isInteger(bytes)) {
+      throw new Error('bytes must be a positive whole number');
+    }
+    if (typeof weight !== 'number' || weight < 0 || !Number.isInteger(weight)) {
+      throw new Error('weight must be a non-negative whole number');
+    }
+    if (typeof family !== 'string' || family.trim() === '' || caps[family] === undefined) {
+      throw new Error(`family ${family} must be a non-empty string that caps mentions`);
+    }
+
+    itemMap[name] = { bytes, weight, family };
+  }
+
+  const orderedItems: string[] = Object.keys(itemMap).sort((a, b) => {
+    const diffWeight = itemMap[b].weight - itemMap[a].weight;
+    if (diffWeight === 0) {
+      const diffBytes = itemMap[a].bytes - itemMap[b].bytes;
+      if (diffBytes === 0) {
+        return a.localeCompare(b);
+      }
+      return diffBytes;
+    }
+    return diffWeight;
+  });
+
+  const loaded: string[] = [];
+  const spare: number = budget;
+  const turned: { name: string; why: string }[] = [];
+
+  for (const itemName of orderedItems) {
+    const item = itemMap[itemName];
+    if (loaded.length >= slots) {
+      turned.push({ name: itemName, why: 'slots' });
+      continue;
+    }
+    const familyCap = caps[item.family]!;
+    let familyUsed = 0;
+    for (const loadedItem of loaded) {
+      if (itemMap[loadedItem].family === item.family) {
+        familyUsed++;
+      }
+    }
+    if (familyUsed >= familyCap) {
+      turned.push({ name: itemName, why: 'family' });
+      continue;
+    }
+    if (spare < item.bytes) {
+      turned.push({ name: itemName, why: 'bytes' });
+      continue;
+    }
+
+    loaded.push(itemName);
+    spare -= item.bytes;
+  }
+
+  return { loaded, spare, turned };
+}
+```

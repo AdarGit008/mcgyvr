@@ -1,0 +1,87 @@
+```ts
+export function nameKinTie(links: Array<Record<string, unknown>>, one: string, other: string): string {
+    if (!Array.isArray(links) || !typeof one === 'string' || !typeof other === 'string') {
+        throw new Error('Invalid input');
+    }
+
+    const linkMap = new Map<string, Set<string>>();
+    for (const link of links) {
+        if (typeof link !== 'object' || link === null || !link.hasOwnProperty('child') || !link.hasOwnProperty('parent')) {
+            throw new Error('Invalid link format');
+        }
+        const child = link.child as string;
+        const parent = link.parent as string;
+
+        if (!child || !parent || typeof child !== 'string' || typeof parent !== 'string' || child === '' || parent === '') {
+            throw new Error('Empty or invalid name in link');
+        }
+
+        if (linkMap.has(child)) {
+            const parents = linkMap.get(child)!;
+            if (parents.size >= 2) {
+                throw new Error('Too many parents for a single child');
+            }
+            if (parents.has(parent)) {
+                throw new Error('Loop detected in links');
+            }
+        } else {
+            linkMap.set(child, new Set([parent]));
+        }
+
+        if (!linkMap.has(parent)) {
+            linkMap.set(parent, new Set());
+        }
+    }
+
+    if (!linkMap.has(one) || !linkMap.has(other)) {
+        throw new Error('One or both people are not mentioned in the links');
+    }
+
+    const findAncestors = (name: string): Map<string, number> => {
+        const ancestors = new Map<string, number>();
+        const queue = [[name, 0]];
+        while (queue.length > 0) {
+            const [current, distance] = queue.shift()!;
+            if (!ancestors.has(current)) {
+                ancestors.set(current, distance);
+                for (const parent of linkMap.get(current)!.values()) {
+                    queue.push([parent, distance + 1]);
+                }
+            }
+        }
+        return ancestors;
+    };
+
+    const oneAncestors = findAncestors(one);
+    const otherAncestors = findAncestors(other);
+
+    let u = Infinity, v = Infinity;
+    for (const [ancestor, count] of oneAncestors.entries()) {
+        if (otherAncestors.has(ancestor)) {
+            u = Math.min(u, count);
+            v = Math.min(v, otherAncestors.get(ancestor)!);
+        }
+    }
+
+    if (u === Infinity || v === Infinity) {
+        return 'unrelated';
+    }
+
+    const cousinDegree = Math.max(0, Math.min(u, v) - 1);
+    const removal = u - v;
+    if (cousinDegree > 0) {
+        const cousinPrefixes: { [key: number]: string } = {
+            1: 'first cousin',
+            2: 'second cousin',
+            3: 'third cousin',
+            4: 'fourth cousin',
+            5: 'fifth cousin',
+            6: 'sixth cousin',
+            7: 'seventh cousin',
+            8: 'eighth cousin',
+            9: 'ninth cousin',
+            10: 'tenth cousin'
+        };
+        const prefix = cousinPrefixes[cousinDegree];
+        if (removal !== 0) {
+            return `${prefix} ${['once', 'twice', 'three times', 'four times', 'five times', 'six times', 'seven times', 'eight times', 'nine times', 'ten times'].slice(0, removal

@@ -1,0 +1,26 @@
+```ts
+export function quoteFreightRun(bands: Array<Record<string, unknown>>, kilos: number): Record<string, unknown> {
+  if (!Array.isArray(bands) || bands.length === 0) throw new Error('Invalid bands');
+  if (typeof kilos !== 'number' || kilos < 1 || !Number.isInteger(kilos)) throw new Error('Invalid kilos');
+
+  const result: { split: number[]; cents: number } = { split: [], cents: 0 };
+
+  for (let i = 0; i < bands.length; i++) {
+    if (typeof bands[i] !== 'object' || bands[i] === null) throw new Error('Invalid band');
+    const band = bands[i];
+    const from = typeof band.from === 'number' && Number.isInteger(band.from) ? band.from : -1;
+    const perKilo = typeof band.perKilo === 'number' && Number.isInteger(band.perKilo) && band.perKilo >= 0 ? band.perKilo : -1;
+
+    if (i === 0 && from !== 0) throw new Error('First band must start at nought');
+    if (i > 0 && from !== bands[i - 1].from + 1) throw new Error('Band starting weights must climb strictly');
+    if (perKilo < 0) throw new Error('Invalid rate');
+
+    const to = i === bands.length - 1 ? Infinity : bands[i + 1].from;
+    const bandKilos = Math.min(kilos, to - from);
+    result.split.push(bandKilos * perKilo);
+    result.cents += bandKilos * perKilo;
+  }
+
+  return result;
+}
+```

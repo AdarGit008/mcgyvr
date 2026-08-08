@@ -1,0 +1,67 @@
+```ts
+export function nameKinTie(links: Array<Record<string, unknown>>, one: string, other: string): string {
+    if (!Array.isArray(links)) throw new Error("links must be an array");
+    if (typeof one !== "string" || typeof other !== "string") throw new Error("one and other must be strings");
+
+    const graph = new Map<string, Set<string>>();
+
+    for (const link of links) {
+        if (typeof link !== "object" || link === null || !link.hasOwnProperty("child") || !link.hasOwnProperty("parent")) {
+            throw new Error("each link must be a record with child and parent keys");
+        }
+        const { child, parent } = link;
+        if (typeof child !== "string" || typeof parent !== "string" || child.length === 0 || parent.length === 0) {
+            throw new Error("child and parent must be non-empty strings");
+        }
+        if (child === parent) throw new Error("nobody may stand as their own parent");
+
+        if (!graph.has(child)) graph.set(child, new Set());
+        if (!graph.has(parent)) graph.set(parent, new Set());
+
+        const childSet = graph.get(child)!;
+        const parentSet = graph.get(parent)!;
+
+        if (childSet.has(parent) || parentSet.has(child)) throw new Error("links must not close a loop");
+        if (childSet.size > 1 || parentSet.size > 1) throw new Error("nobody may be given more than two parents");
+
+        childSet.add(parent);
+    }
+
+    if (!graph.has(one) || !graph.has(other)) throw new Error("both one and other must appear somewhere in the links");
+
+    const findAncestors = (name: string): Map<string, number> => {
+        const ancestors = new Map<string, number>();
+        const queue: [string, number][] = [[name, 0]];
+        while (queue.length > 0) {
+            const [current, distance] = queue.shift()!;
+            if (!ancestors.has(current)) {
+                ancestors.set(current, distance);
+                for (const parent of graph.get(current)! values) {
+                    queue.push([parent, distance + 1]);
+                }
+            }
+        }
+        return ancestors;
+    };
+
+    const oneAncestors = findAncestors(one);
+    const otherAncestors = findAncestors(other);
+
+    let u = Infinity, v = Infinity;
+
+    for (const [ancestor, count] of oneAncestors.entries()) {
+        if (otherAncestors.has(ancestor) && count < u) {
+            u = count;
+            v = otherAncestors.get(ancestor)!;
+        }
+    }
+
+    const degree = Math.min(u, v);
+    const removal = Math.abs(u - v);
+
+    if (u === 0) return v === 0 ? "self" : `${["parent", ...Array(v - 1).fill("great-")].join("")}grandparent`;
+    if (v === 0) return u === 0 ? "self" : `${["child", ...Array(u - 1).fill("great-")].join("")}grandchild`;
+
+    const cousinPrefix = `${["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"].slice(0, degree - 1).join(" ")}cousin`;
+    if (removal === 0) return cousinPrefix;
+    const removalPrefix = `${["once", "twice", "three times", "four times", "five times", "six

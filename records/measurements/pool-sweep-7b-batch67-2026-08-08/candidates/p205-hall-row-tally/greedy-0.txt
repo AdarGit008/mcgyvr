@@ -1,0 +1,60 @@
+```ts
+export function tallyHallRows(hall: string[]): string[] {
+  if (!Array.isArray(hall) || hall.length === 0) {
+    throw new Error("Invalid input: must be a non-empty list of tiers.");
+  }
+
+  const width = hall[0].length;
+  let totalHeld = 0;
+  let totalOpen = 0;
+  let widestTierIndex = 0;
+
+  for (let i = 0; i < hall.length; i++) {
+    const tier = hall[i];
+    if (typeof tier !== "string" || tier.length === 0) {
+      throw new Error("Invalid input: each tier must be a non-empty string.");
+    }
+    if (tier.length !== width) {
+      throw new Error("Invalid input: all tiers must have the same width.");
+    }
+
+    let held = 0;
+    let open = 0;
+
+    for (const char of tier) {
+      switch (char) {
+        case "x":
+          held++;
+          break;
+        case "o":
+          open++;
+          break;
+        case "=":
+          // Step, no chair
+          break;
+        default:
+          throw new Error("Invalid input: characters must be 'x', 'o', or '='.");
+      }
+    }
+
+    if (open === 0) {
+      throw new Error("Invalid input: a tier must offer at least one chair.");
+    }
+
+    totalHeld += held;
+    totalOpen += open;
+
+    if (open > hall[widestTierIndex].split("").filter(c => c === "o").length) {
+      widestTierIndex = i;
+    }
+  }
+
+  const result: string[] = [];
+  for (let i = 0; i < hall.length; i++) {
+    result.push(`tier ${i} held=${hall[i].split("").filter(c => c === "x").length} open=${hall[i].split("").filter(c => c === "o").length}`);
+  }
+  result.push(`hall held=${totalHeld} open=${totalOpen} widest=tier${widestTierIndex}`);
+
+  return result;
+}
+```

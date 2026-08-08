@@ -1,0 +1,39 @@
+```ts
+/**
+ * Sifts events into lanes by channel prefix and severity ceiling.
+ */
+export function siftEventStreams(
+  lanes: Array<Record<string, unknown>>,
+  events: Array<Record<string, unknown>>,
+): Record<string, unknown> {
+  const RANK = ["chatter", "notice", "alarm", "panic"];
+  if (!Array.isArray(lanes) || !Array.isArray(events)) {
+    throw new Error("Invalid input: lanes and events must be arrays.");
+  }
+  const gathered: { [name: string]: { name: string; took: number[] } } = {};
+  const dropped: number[] = [];
+  lanes.forEach((lane: any, which: number) => {
+    if (typeof lane !== "object" || !lane || typeof lane.name !== "string") {
+      throw new Error("Invalid input: each lane must be an object with a non-empty string name.");
+    }
+    if (!gathered[lane.name]) {
+      gathered[lane.name] = { name: lane.name, took: [] };
+    }
+  });
+  events.forEach((event: any, at: number) => {
+    if (typeof event !== "object" || !event || typeof event.channel !== "string") {
+      throw new Error("Invalid input: each event must be an object with a non-empty string channel.");
+    }
+    let caught = false;
+    Object.values(gathered).forEach((lane, which) => {
+      if (!event.channel.startsWith(lane.name)) return;
+      if (RANK.indexOf(event.severity) >= RANK.indexOf(lane.upTo)) return;
+      lane.took.push(at);
+      caught = true;
+    });
+    if (!caught) dropped.push(at);
+  });
+  const result: Record<string, unknown> = { lanes: Object.values(gathered), dropped };
+  return result;
+}
+```

@@ -1,0 +1,37 @@
+```typescript
+/** A heading dressed for print. */
+export function titleLine(text: string, quiet: string[]): string {
+  if (typeof text !== 'string' || text.trim() === '') {
+    throw new Error('Invalid heading: must be a non-empty string.');
+  }
+
+  const tokens = text.split(" ");
+
+  if (!Array.isArray(quiet)) {
+    throw new Error('Invalid quiet list: must be an array of strings.');
+  }
+
+  quiet.forEach(item => {
+    if (typeof item !== 'string' || !/^[a-z]+$/.test(item)) {
+      throw new Error('Invalid quiet list entry: must be a string of small letters.');
+    }
+  });
+
+  return tokens.map((token) => {
+    const lowerToken = token.toLowerCase();
+    if (quiet.includes(lowerToken)) {
+      return lowerToken;
+    } else if (tokens.indexOf(token) === 0 || tokens.indexOf(token) === tokens.length - 1) {
+      return token[0].toUpperCase() + token.slice(1).toLowerCase();
+    } else if (/^[a-z]{2,}$/.test(lowerToken)) {
+      return token.toLowerCase();
+    } else {
+      const parts = lowerToken.split(/[-']/);
+      const capitalizedParts = parts.map((part, index) => 
+        index === parts.length - 2 ? part : part.charAt(0).toUpperCase() + part.slice(1)
+      );
+      return capitalizedParts.join('');
+    }
+  }).join(" ");
+}
+```

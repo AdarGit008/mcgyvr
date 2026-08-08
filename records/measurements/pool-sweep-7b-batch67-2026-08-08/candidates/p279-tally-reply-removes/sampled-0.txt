@@ -1,0 +1,51 @@
+```ts
+export function tallyReplyRemoves(links: string[][]): number[] {
+  if (!Array.isArray(links) || links.length === 0) {
+    throw new Error("Empty input");
+  }
+
+  const idCounts = new Map<string, number>();
+  const parentMap = new Map<string, string>();
+
+  for (const [id, parentId] of links) {
+    if (typeof id !== "string" || typeof parentId !== "string") {
+      throw new Error("Invalid link format");
+    }
+    if (!id || !parentId) {
+      throw new Error("Empty id");
+    }
+
+    if (parentMap.has(id)) {
+      throw new Error("Duplicate id");
+    }
+    parentMap.set(id, parentId);
+
+    if (idCounts.has(parentId)) {
+      idCounts.set(parentId, idCounts.get(parentId)! + 1);
+    } else {
+      idCounts.set(parentId, 1);
+    }
+
+    if (!parentMap.has(parentId) && parentId !== "") {
+      throw new Error("Invalid answer link");
+    }
+  }
+
+  const removeLevels: number[] = [];
+  for (const [id, count] of idCounts.entries()) {
+    let level = 0;
+    let currentId = id;
+    while (parentMap.has(currentId)) {
+      currentId = parentMap.get(currentId)!;
+      level++;
+    }
+    if (!removeLevels[level]) {
+      removeLevels[level] = 1;
+    } else {
+      throw new Error("Cyclic answer chain detected");
+    }
+  }
+
+  return removeLevels;
+}
+```

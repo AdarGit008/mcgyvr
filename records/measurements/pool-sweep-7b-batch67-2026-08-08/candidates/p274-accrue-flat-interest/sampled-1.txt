@@ -1,0 +1,11 @@
+```ts
+export function accrueFlatInterest(principalCents: number, rateBasisPoints: number, days: number, yearBasis: number): number {
+  if (!Number.isInteger(principalCents) || principalCents < 0) throw new Error('Principal must be a non-negative integer.');
+  if (!Number.isInteger(rateBasisPoints) || rateBasisPoints < 0) throw new Error('Rate must be a non-negative integer.');
+  if (!Number.isInteger(days) || days < 0) throw new Error('Days must be a non-negative integer.');
+  if (![360, 365].includes(yearBasis)) throw new Error('Year basis must be either 360 or 365.');
+
+  const earnedCents = Math.ceil((principalCents * rateBasisPoints * days) / (10000 * yearBasis));
+  return earnedCents;
+}
+```

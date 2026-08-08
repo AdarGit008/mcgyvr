@@ -1,0 +1,54 @@
+```ts
+export function readTagAttributes(tag: string): Record<string, unknown> {
+  if (typeof tag !== 'string') throw new Error('Invalid input: must be a string');
+  if (!tag.startsWith('[') || !tag.endsWith(']')) throw new Error('Invalid tag format: missing opening or closing bracket');
+
+  const stemEnd = tag.indexOf(' ', 1);
+  if (stemEnd === -1) throw new Error('Invalid tag format: missing stem');
+
+  const stem = tag.substring(1, stemEnd);
+  if (!/^[a-zA-Z][a-zA-Z0-9-]*$/.test(stem)) throw new Error('Invalid stem format');
+
+  const marksStart = stemEnd + 1;
+  if (marksStart >= tag.length - 1) return { stem, marks: {} };
+
+  const markPairs = tag.substring(marksStart, tag.length - 1).split(' ');
+  const marks: Record<string, string> = {};
+
+  for (const pair of markPairs) {
+    if (!pair) throw new Error('Invalid mark format: empty mark');
+
+    const [name, setting] = pair.split('=');
+    if (!/^[a-z][a-z0-9-]*$/.test(name)) throw new Error('Invalid name format');
+
+    if (setting === undefined) {
+      marks[name] = '';
+    } else if (setting.startsWith("'") || setting.startsWith('"')) {
+      const quote = setting[0];
+      const end = setting.indexOf(quote, 1);
+      if (end === -1) throw new Error('Invalid fenced setting format: unclosed fence');
+
+      let decodedSetting = '';
+      for (let i = 1; i < end; i++) {
+        if (setting[i] === '\\') {
+          if (i + 1 >= end) throw new Error('Invalid escaped character in fenced setting');
+          decodedSetting += setting[++i];
+        } else if (setting[i] === quote) {
+          decodedSetting += quote;
+        } else {
+          decodedSetting += setting[i];
+        }
+      }
+
+      marks[name] = decodedSetting;
+    } else {
+      if (/[^a-zA-Z0-9._]/.test(setting)) throw new Error('Invalid plain setting format: contains invalid characters');
+      marks[name] = setting;
+    }
+
+    if (marks.hasOwnProperty(name) && marks[name] !== '') throw new Error('Duplicate mark with different setting');
+  }
+
+  return { stem, marks };
+}
+```

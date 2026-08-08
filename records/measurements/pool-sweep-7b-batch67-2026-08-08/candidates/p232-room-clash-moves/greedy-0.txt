@@ -1,0 +1,67 @@
+```ts
+export function planRoomMoves(bookings: any[]): string[] {
+  const errors = [];
+
+  // Validate input
+  bookings.forEach((booking, index) => {
+    if (typeof booking !== 'object' || !booking) {
+      errors.push(`Invalid booking at index ${index}`);
+      return;
+    }
+    if (typeof booking.id !== 'string' || booking.id.trim() === '') {
+      errors.push(`Missing or invalid id at index ${index}`);
+      return;
+    }
+    if (typeof booking.start !== 'number' || typeof booking.end !== 'number') {
+      errors.push(`Invalid start or end at index ${index}`);
+      return;
+    }
+    if (booking.start >= booking.end) {
+      errors.push(`Start not strictly below end at index ${index}`);
+      return;
+    }
+    if (typeof booking.fixed !== 'boolean') {
+      errors.push(`Missing or invalid fixed status at index ${index}`);
+      return;
+    }
+  });
+
+  if (errors.length > 0) {
+    throw new Error(errors.join(', '));
+  }
+
+  // Separate fixed and movable bookings
+  const fixedBookings = bookings.filter(b => b.fixed);
+  const movableBookings = bookings.filter(b => !b.fixed);
+
+  // Check for overlapping fixed bookings
+  for (let i = 0; i < fixedBookings.length; i++) {
+    for (let j = i + 1; j < fixedBookings.length; j++) {
+      if (fixedBookings[i].start < fixedBookings[j].end && fixedBookings[j].start < fixedBookings[i].end) {
+        throw new Error('Overlapping fixed bookings found');
+      }
+    }
+  }
+
+  // Sort movable bookings by end, then start, then id
+  movableBookings.sort((a, b) => {
+    if (a.end !== b.end) return a.end - b.end;
+    if (a.start !== b.start) return a.start - b.start;
+    return a.id.localeCompare(b.id);
+  });
+
+  // Plan moves
+  const movedBookings = [];
+  let lastEnd = -1;
+
+  for (const booking of movableBookings) {
+    if (booking.start < lastEnd) {
+      movedBookings.push(booking.id);
+    } else {
+      lastEnd = booking.end;
+    }
+  }
+
+  return movedBookings;
+}
+```

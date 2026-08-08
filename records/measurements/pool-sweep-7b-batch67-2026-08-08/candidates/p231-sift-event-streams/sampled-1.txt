@@ -1,0 +1,57 @@
+```ts
+/** Sifts events into lanes by channel prefix and severity ceiling. */
+export function siftEventStreams(
+  lanes: Array<Record<string, unknown>>,
+  events: Array<Record<string, unknown>>,
+): Record<string, unknown> {
+  const RANK = ["chatter", "notice", "alarm", "panic"];
+  if (!Array.isArray(lanes) || !Array.isArray(events)) {
+    throw new Error("Lanes and events must be arrays.");
+  }
+  const gathered: { name: string; took: number[] }[] = lanes.map((lane: any) => ({
+    name: lane.name as string,
+    took: [] as number[],
+  }));
+  if (gathered.some(lane => typeof lane.name !== "string" || lane.name.trim() === "")) {
+    throw new Error("Lane names must be non-empty strings.");
+  }
+  const dropped: number[] = [];
+  events.forEach((event: any, at: number) => {
+    if (typeof event !== "object" || event === null) {
+      throw new Error("Event must be an object.");
+    }
+    if (typeof event.channel !== "string" || event.channel.trim() === "") {
+      throw new Error("Event channel must be a non-empty string.");
+    }
+    if (!RANK.includes(event.severity as string)) {
+      throw new Error("Event severity must be one of 'chatter', 'notice', 'alarm', or 'panic'.");
+    }
+    let caught = false;
+    lanes.forEach((lane: any, which: number) => {
+      if (typeof lane !== "object" || lane === null) {
+        throw new Error("Lane must be an object.");
+      }
+      if (typeof lane.prefix !== "string") {
+        throw new Error("Lane prefix must be a string.");
+      }
+      if (typeof lane.upTo !== "string" || !RANK.includes(lane.upTo)) {
+        throw new Error("Lane upTo must be one of 'chatter', 'notice', 'alarm', or 'panic'.");
+      }
+      if (typeof lane.last !== "boolean") {
+        throw new Error("Lane last must be a boolean.");
+      }
+      if (!event.channel.startsWith(lane.prefix)) return;
+      if (RANK.indexOf(event.severity) >= RANK.indexOf(lane.upTo)) return;
+      gathered[which].took.push(at);
+      caught = true;
+      if (lane.last) {
+        return false; // Break the lanes.forEach loop
+      }
+    });
+    if (!caught) dropped.push(at);
+  });
+  const result: Record<string, unknown> = { lanes: gathered, dropped };
+  result.lanes.sort((a, b) => lanes.findIndex(lane => lane.name === a.name) - lanes.findIndex(lane => lane.name === b.name));
+  return result;
+}
+```

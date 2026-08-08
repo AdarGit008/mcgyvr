@@ -1,0 +1,71 @@
+```ts
+export function foldHalyardQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Argument must be a string');
+  }
+
+  const parseEscape = (escape: string): string => {
+    const code = parseInt(escape.slice(2, 4), 16);
+    if (code < 0x21 || code > 0x7E) {
+      throw new Error(`Invalid escape sequence ${escape}`);
+    }
+    return String.fromCharCode(code);
+  };
+
+  const parseParameter = (param: string): [string, Set<string>] => {
+    let name = '';
+    let payload: string[] = [];
+    let inPayload = false;
+
+    for (let i = 0; i < param.length; i++) {
+      if (param[i] === '_') {
+        if (i + 3 > param.length || !/^[a-f0-9]{2}$/.test(param.slice(i + 1, i + 3))) {
+          throw new Error(`Invalid escape sequence ${param.slice(i, i + 4)}`);
+        }
+        payload.push(parseEscape(param.slice(i, i + 4)));
+        i += 3;
+      } else if (param[i] === '=') {
+        if (!inPayload) {
+          inPayload = true;
+        } else {
+          throw new Error('Second bare equals sign in parameter');
+        }
+      } else {
+        if (inPayload) {
+          payload.push(param[i]);
+        } else {
+          name += param[i];
+        }
+      }
+    }
+
+    if (name === '') {
+      throw new Error('Empty name in parameter');
+    }
+    if (!inPayload && param.includes('=')) {
+      throw new Error('Name carrying a payload without an equals sign');
+    }
+
+    return [name, new Set(payload)];
+  };
+
+  const parameters = text.split('&').filter(Boolean).map(parseParameter);
+
+  const bareNames = Array.from(new Set(parameters.filter(([name]) => name !== '').map(([name]) => name)).values()).sort();
+  const payloadParameters: { [key: string]: Set<string> } = {};
+
+  for (const [name, payload] of parameters) {
+    if (name !== '') {
+      payloadParameters[name] = payloadParameters[name] || new Set();
+      payloadParameters[name].addAll(payload);
+    }
+  }
+
+  const foldedPayloads = Object.entries(payloadParameters).map(([name, payload]) => {
+    const sortedPayload = Array.from(payload).sort((a, b) => a.charCodeAt(0) - b.charCodeAt(0));
+    return `${name}=${sortedPayload.filter((p, index, arr) => index === 0 || p !== arr[index - 1]).join(',')}`;
+  });
+
+  return [...bareNames, ...foldedPayloads].join('&');
+}
+```

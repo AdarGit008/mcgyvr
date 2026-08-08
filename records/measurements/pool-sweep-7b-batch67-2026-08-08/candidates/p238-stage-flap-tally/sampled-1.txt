@@ -1,0 +1,50 @@
+```ts
+export function tallyStageRetries(stages: any[], budget: number): string[] {
+    if (!Array.isArray(stages)) throw new Error('Invalid stages input');
+    if (typeof budget !== 'number' || budget < 1) throw new Error('Invalid budget input');
+
+    const stageMap = new Map<string, { attempts: number; retries: number; flaps: number; halts: number }>();
+    let totalAttempts = 0;
+    let totalRetries = 0;
+    let totalFlaps = 0;
+    let totalHalts = 0;
+    let greenStages = 0;
+
+    for (const stage of stages) {
+        if (typeof stage !== 'object' || !stage || Array.isArray(stage)) throw new Error('Invalid stage in pipeline');
+        const { name, outcomes } = stage;
+        if (typeof name !== 'string' || name.trim() === '' || outcome.length === 0) throw new Error('Invalid stage properties');
+        if (stageMap.has(name)) throw new Error('Duplicate stage name');
+
+        let attempts = 0;
+        let retries = 0;
+        let flaps = 0;
+        let halts = 0;
+
+        for (const outcome of outcomes) {
+            if (typeof outcome !== 'string' || !['pass', 'flap', 'halt'].includes(outcome)) throw new Error('Invalid outcome');
+            attempts++;
+            if (outcome === 'flap') flaps++;
+            else if (outcome === 'halt') halts++;
+        }
+
+        if (outcomes.length > budget) throw new Error('Stage over budget');
+
+        if (halts === 0 && retries === outcomes.length - halts) retries--;
+        stageMap.set(name, { attempts, retries, flaps, halts });
+        totalAttempts += attempts;
+        totalRetries += retries;
+        totalFlaps += flaps;
+        totalHalts += halts;
+
+        if (outcome === 'pass') greenStages++;
+    }
+
+    const results = Array.from(stageMap.entries()).map(([name, { attempts, retries, flaps, halts }]) => 
+        `${name} ${attempts} ${retries} ${flaps} ${halts} ${halts === 0 ? 'green' : halts + retries === budget ? 'spent' : 'open'}`
+    );
+
+    results.push(`* ${totalAttempts} ${totalRetries} ${totalFlaps} ${totalHalts} ${greenStages}`);
+    return results;
+}
+```

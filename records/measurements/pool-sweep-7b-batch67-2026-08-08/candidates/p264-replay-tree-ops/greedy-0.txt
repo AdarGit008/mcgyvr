@@ -1,0 +1,79 @@
+```ts
+export function replayTreeOps(steps: string[]): number[] {
+  if (!Array.isArray(steps)) throw new Error("Steps must be an array");
+  const root: { value?: number; left?: typeof root; right?: typeof root } = {};
+
+  for (const step of steps) {
+    const [op, numStr] = step.split(":");
+    const num = parseInt(numStr, 10);
+    if (isNaN(num)) throw new Error("Invalid step format");
+
+    if (op === "add") {
+      let current = root;
+      while (true) {
+        if (!current.value) {
+          current.value = num;
+          break;
+        } else if (num < current.value) {
+          if (!current.left) {
+            current.left = { value: num };
+            break;
+          }
+          current = current.left;
+        } else {
+          if (!current.right) {
+            current.right = { value: num };
+            break;
+          }
+          current = current.right;
+        }
+      }
+    } else if (op === "drop") {
+      let current = root;
+      while (true) {
+        if (!current.value) throw new Error("Value not found");
+        if (num < current.value) {
+          if (!current.left) throw new Error("Value not found");
+          current = current.left;
+        } else if (num > current.value) {
+          if (!current.right) throw new Error("Value not found");
+          current = current.right;
+        } else {
+          if (!current.left && !current.right) {
+            delete current.value;
+            break;
+          } else if (!current.left || !current.right) {
+            const child = current.left ? current.left : current.right!;
+            Object.assign(current, child);
+            break;
+          } else {
+            let maxLeft = current.left;
+            while (maxLeft.right) maxLeft = maxLeft.right;
+            current.value = maxLeft.value;
+            if (!maxLeft.left && !maxLeft.right) {
+              delete maxLeft.value;
+            } else if (!maxLeft.left || !maxLeft.right) {
+              const child = maxLeft.left ? maxLeft.left : maxLeft.right!;
+              Object.assign(maxLeft, child);
+            }
+            break;
+          }
+        }
+      }
+    } else {
+      throw new Error("Invalid operation");
+    }
+  }
+
+  const result: number[] = [];
+  function traverse(node: typeof root | undefined) {
+    if (node) {
+      traverse(node.left);
+      if (node.value !== undefined) result.push(node.value);
+      traverse(node.right);
+    }
+  }
+  traverse(root);
+  return result;
+}
+```

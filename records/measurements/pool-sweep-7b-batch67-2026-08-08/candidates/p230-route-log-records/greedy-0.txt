@@ -1,0 +1,65 @@
+```ts
+export function routeLogRecords(
+  rules: Array<Record<string, unknown>>,
+  records: Array<Record<string, unknown>>,
+  spare: string
+): Array<Record<string, unknown>> {
+  const levels = ["trace", "debug", "info", "warn", "error", "fatal"];
+  const levelOrder = new Map<string, number>(levels.map((level, index) => [level, index]));
+
+  if (!Array.isArray(rules) || !Array.isArray(records)) {
+    throw new Error("Rules and records must be arrays.");
+  }
+
+  if (typeof spare !== "string" || spare.trim() === "") {
+    throw new Error("Spare sink must be a non-empty string.");
+  }
+
+  const result: Array<Record<string, unknown>> = [];
+
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i];
+    if (typeof record !== "object" || record === null) {
+      throw new Error("Each record must be an object.");
+    }
+
+    const level = record.level as string;
+    const tag = record.tag as string;
+
+    if (!levels.includes(level)) {
+      throw new Error(`Invalid level: ${level}`);
+    }
+
+    if (typeof tag !== "string") {
+      throw new Error("Tag must be a string.");
+    }
+
+    let sinks: Set<string> = new Set();
+
+    for (const rule of rules) {
+      if (
+        typeof rule !== "object" ||
+        rule === null ||
+        typeof rule.sink !== "string" ||
+        rule.sink.trim() === "" ||
+        !levels.includes(rule.least as string) ||
+        (typeof rule.tag !== "string" && rule.tag !== undefined)
+      ) {
+        throw new Error("Invalid rule.");
+      }
+
+      if (
+        levelOrder.get(level)! >= levelOrder.get(rule.least!)! &&
+        (rule.tag === "" || rule.tag === tag)
+      ) {
+        sinks.add(rule.sink);
+        if (rule.stop) break;
+      }
+    }
+
+    result.push({ at: i, sinks: Array.from(sinks) });
+  }
+
+  return result;
+}
+```

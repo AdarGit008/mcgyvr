@@ -1,0 +1,96 @@
+```ts
+export function bandParcelCharge(book: Record<string, unknown>, parcel: Record<string, unknown>): Record<string, unknown> {
+  if (typeof book !== 'object' || book === null || typeof parcel !== 'object' || parcel === null) {
+    throw new Error('Invalid arguments');
+  }
+
+  const { zones = [], steps = [], extras = [], round = 0 } = book;
+  const { zone: parcelZone, grams = 0, marks = [] } = parcel;
+
+  if (!Array.isArray(zones) || zones.some(zone => typeof zone !== 'string' || zone.trim() === '')) {
+    throw new Error('Invalid zones');
+  }
+
+  if (!Array.isArray(steps) || steps.length === 0) {
+    throw new Error('Invalid steps');
+  }
+
+  for (let i = 0; i < steps.length - 1; i++) {
+    const { upTo, cents } = steps[i];
+    if (upTo !== null && (typeof upTo !== 'number' || upTo <= 0) || !Array.isArray(cents) || cents.some((c: any) => typeof c !== 'number' || c < 0)) {
+      throw new Error('Invalid step');
+    }
+  }
+
+  const openBandIndex = steps.findIndex(({ upTo }) => upTo === null);
+  if (openBandIndex === -1 || openBandIndex !== steps.length - 1) {
+    throw new Error('Invalid open band');
+  }
+
+  if (!Array.isArray(extras)) {
+    throw new Error('Invalid extras');
+  }
+
+  const extraNames = new Set<string>();
+  for (const { mark, cents = 0, zones } of extras) {
+    if (typeof mark !== 'string' || mark.trim() === '') {
+      throw new Error('Invalid extra mark');
+    }
+    if (extraNames.has(mark)) {
+      throw new Error('Duplicate extra mark');
+    }
+    extraNames.add(mark);
+
+    if (!Array.isArray(zones)) {
+      throw new Error('Invalid extra zones');
+    }
+
+    for (const zone of zones) {
+      if (!zones.includes(zone)) {
+        throw new Error('Unknown extra zone');
+      }
+    }
+  }
+
+  const roundCents = Math.round(round / 0.01);
+  if (typeof roundCents !== 'number' || roundCents <= 0) {
+    throw new Error('Invalid round');
+  }
+
+  if (!zones.includes(parcelZone)) {
+    throw new Error('Unknown parcel zone');
+  }
+
+  if (!Array.isArray(marks) || marks.some(mark => typeof mark !== 'string' || mark.trim() === '')) {
+    throw new Error('Invalid marks');
+  }
+
+  const uniqueMarks = [...new Set(marks)];
+  if (uniqueMarks.length !== marks.length) {
+    throw new Error('Duplicate marks');
+  }
+
+  for (const mark of uniqueMarks) {
+    if (!extraNames.has(mark)) {
+      throw new Error('Unknown extra mark');
+    }
+  }
+
+  let bandIndex = -1;
+  for (let i = 0; i < steps.length; i++) {
+    const { upTo } = steps[i];
+    if (upTo === null || grams <= upTo) {
+      bandIndex = i;
+      break;
+    }
+  }
+
+  if (bandIndex === -1) {
+    throw new Error('No matching band');
+  }
+
+  const baseCents = steps[bandIndex].cents[zones.indexOf(parcelZone)];
+  let extraCents = 0;
+  for (const mark of uniqueMarks) {
+    const extra = extras.find(({ mark: m }) => m === mark);
+    if

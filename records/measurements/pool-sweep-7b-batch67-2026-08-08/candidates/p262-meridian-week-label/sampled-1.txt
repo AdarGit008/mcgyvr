@@ -1,0 +1,38 @@
+```ts
+export function meridianWeekLabel(date: string): string {
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error('Invalid input format');
+  }
+
+  const [year, month, day] = date.split('-').map(Number);
+
+  if (month < 1 || month > 12) {
+    throw new Error('Month out of range');
+  }
+
+  if (day < 1 || day > [31, 28 + isLeapYear(year), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]) {
+    throw new Error('Day out of range');
+  }
+
+  const firstWednesday = getFirstWednesdayOfJanuary(year);
+  const daysOffset = (new Date(date).getTime() - firstWednesday.getTime()) / (24 * 60 * 60 * 1000);
+
+  const weekNumber = Math.floor((daysOffset + 5) / 7) + 1;
+
+  return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
+}
+
+function isLeapYear(year: number): boolean {
+  if (year % 4 !== 0) return false;
+  if (year % 100 !== 0) return true;
+  return year % 400 === 0;
+}
+
+function getFirstWednesdayOfJanuary(year: number): Date {
+  const firstDay = new Date(year, 0, 8);
+  while (firstDay.getDay() !== 3) {
+    firstDay.setDate(firstDay.getDate() + 1);
+  }
+  return firstDay;
+}
+```

@@ -1,0 +1,81 @@
+```ts
+export function selectByImpact(imports: Record<string, string[]>, suites: Record<string, string[]>, edited: string[]): string[] {
+    if (
+        typeof imports !== 'object' ||
+        imports === null ||
+        Array.isArray(imports) ||
+        typeof suites !== 'object' ||
+        suites === null ||
+        Array.isArray(suites) ||
+        !Array.isArray(edited)
+    ) {
+        throw new Error('Invalid argument shape');
+    }
+
+    const moduleSet = new Set(Object.keys(imports));
+    for (const [module, importList] of Object.entries(imports)) {
+        if (!moduleSet.has(module)) {
+            throw new Error(`Module '${module}' not declared in imports`);
+        }
+        if (new Set(importList).size !== importList.length) {
+            throw new Error(`Duplicate imports for module '${module}'`);
+        }
+        if (importList.includes(module)) {
+            throw new Error(`Module '${module}' imports itself`);
+        }
+    }
+
+    const suiteSet = new Set(Object.keys(suites));
+    for (const [suite, drivenModules] of Object.entries(suites)) {
+        if (!suite) {
+            throw new Error('Empty suite name');
+        }
+        if (!suiteSet.has(suite)) {
+            throw new Error(`Suite '${suite}' not declared in suites`);
+        }
+        for (const module of drivenModules) {
+            if (!moduleSet.has(module)) {
+                throw new Error(`Module '${module}' not declared in imports by suite '${suite}'`);
+            }
+        }
+    }
+
+    const editedSet = new Set(edited);
+    for (const module of editedSet) {
+        if (!moduleSet.has(module)) {
+            throw new Error(`Edited module '${module}' not declared in imports`);
+        }
+    }
+
+    const getDependentModules = (module: string): Set<string> => {
+        const dependentModules = new Set<string>();
+        const queue = [module];
+        while (queue.length > 0) {
+            const currentModule = queue.shift()!;
+            if (!dependentModules.has(currentModule)) {
+                dependentModules.add(currentModule);
+                for (const importedModule of imports[currentModule]!) {
+                    queue.push(importedModule);
+                }
+            }
+        }
+        return dependentModules;
+    };
+
+    let disturbedSuites = new Set<string>();
+    editedSet.forEach(editedModule => {
+        const dependentModules = getDependentModules(editedModule);
+        for (const [suite, drivenModules] of Object.entries(suites)) {
+            if (drivenModules.some(module => dependentModules.has(module))) {
+                disturbedSuites.add(suite);
+            }
+        }
+    });
+
+    if (disturbedSuites.size > Math.floor(Object.keys(suites).length / 2) + 1) {
+        return ["ALL"];
+    }
+
+    return Array.from(disturbedSuites).sort();
+}
+```

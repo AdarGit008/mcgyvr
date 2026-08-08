@@ -1,0 +1,50 @@
+```ts
+export function cheapestTray(items: any[], bundles: any[], needed: any[]): any {
+  if (needed.length > 14) throw new Error("More than fourteen things on sale in all");
+
+  const itemMap = new Map<string, { code: string; price: number }>();
+  for (const item of items) {
+    if (item.code in itemMap) throw new Error("A code shared by two things on sale");
+    itemMap.set(item.code, item);
+  }
+
+  const bundleMap = new Map<string, { code: string; price: number; holds: string[] }>();
+  for (const bundle of bundles) {
+    if (bundle.code in bundleMap) throw new Error("A code shared by two things on sale");
+    if (!bundle.holds.length) throw new Error("A bundle holding nothing");
+    for (const hold of bundle.holds) {
+      if (!(hold in itemMap)) throw new Error("A bundle holding an unknown code");
+    }
+    bundleMap.set(bundle.code, bundle);
+  }
+
+  const required = new Set(needed);
+  if (required.size !== needed.length) throw new Error("A required code no item sells");
+
+  const dp: { [key: string]: { total: number; picks: string[] } } = {};
+  dp[""] = { total: 0, picks: [] };
+
+  for (const code of [...itemMap.keys(), ...bundleMap.keys()]) {
+    if (!dp[code]) continue;
+    for (const req of required) {
+      if (code.includes(req)) {
+        const newPicks = [...dp[code].picks, code];
+        const newTotal = dp[code].total + itemMap.get(code)?.price || bundleMap.get(code)?.price;
+        if (!dp[newPicks.join(",")]) {
+          dp[newPicks.join(",")] = { total: newTotal, picks: newPicks };
+        } else {
+          dp[newPicks.join(",")] = {
+            total: Math.min(dp[newPicks.join(",")].total, newTotal),
+            picks: newTotal < dp[newPicks.join(",")].total ? newPicks : dp[newPicks.join(",")].picks,
+          };
+        }
+      }
+    }
+  }
+
+  const result = dp[needed.join(",")];
+  if (!result) throw new Error("An internal error occurred");
+
+  return { total: result.total, picks: result.picks.sort() };
+}
+```

@@ -1,0 +1,44 @@
+```ts
+export function nameTriadStack(marks: number[]): { base: number; name: string } {
+  if (!Array.isArray(marks) || marks.length === 0) {
+    throw new Error("Argument must be a non-empty list of numbers.");
+  }
+
+  const classes = Array.from(new Set(marks.map(mark => mark % 12).filter(num => Number.isInteger(num))));
+  if (classes.length < 3) {
+    throw new Error("Stack must contain at least three distinct classes.");
+  }
+
+  const shapes: { [key: string]: string } = {
+    "0-4-7": "major",
+    "0-3-7": "minor",
+    "0-3-6": "diminished",
+    "0-4-8": "augmented",
+    "0-5-7": "quartal",
+    "0-2-6": "narrow",
+    "0-4-7-11": "major seventh",
+    "0-4-7-10": "dominant seventh",
+    "0-3-7-10": "minor seventh",
+    "0-3-6-9": "shrunk seventh"
+  };
+
+  const shapeClasses = classes.map(c => c.toString());
+  let baseClass = -1;
+  let shapeName: string | undefined;
+
+  for (let i = 0; i < shapes.length; i++) {
+    const shape = shapes[i];
+    const shapeArray = shape.split('-').map(Number);
+    if (shapeArray.length === 3) {
+      const sortedShape = Array.from(new Set(shapeArray.sort((a, b) => a - b)));
+      if (sortedShape.every(c => classes.includes(c))) {
+        baseClass = Math.min(baseClass, ...sortedShape);
+        shapeName = shape;
+        break;
+      }
+    }
+  }
+
+  return { base: baseClass, name: shapeName || "unknown" };
+}
+```

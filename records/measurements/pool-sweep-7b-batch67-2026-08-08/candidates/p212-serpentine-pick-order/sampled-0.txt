@@ -1,0 +1,46 @@
+```ts
+/**
+ * Returns the skus in the order the picker grabs them according to serpentine pick order rules.
+ * @param picks - An array of pick mappings with "sku", "aisle", and "bay".
+ * @returns An array of skus in the order picked.
+ */
+export function serpentinePickOrder(picks: unknown): string[] {
+  if (!Array.isArray(picks)) throw new Error("Input must be an array");
+
+  const validPicks = picks.filter((pick: any) => {
+    if (typeof pick !== "object" || pick === null) return false;
+    if (typeof pick.sku !== "string" || pick.sku === "") return false;
+    if (!Number.isInteger(pick.aisle) || pick.aisle <= 0) return false;
+    if (!Number.isInteger(pick.bay) || pick.bay <= 0) return false;
+    return true;
+  });
+
+  const skuSet = new Set<string>();
+  for (const pick of validPicks) {
+    if (skuSet.has(pick.sku)) throw new Error("Duplicate sku found");
+    skuSet.add(pick.sku);
+  }
+
+  const skuOrder: string[] = [];
+  const pickMap: { [aisle: number]: Pick[] } = {};
+
+  for (const pick of validPicks) {
+    if (!pickMap[pick.aisle]) pickMap[pick.aisle] = [];
+    pickMap[pick.aisle].push(pick);
+  }
+
+  const sortedAisles = Object.keys(pickMap).map(Number).sort((a, b) => a - b);
+
+  for (const aisle of sortedAisles) {
+    const picks = pickMap[aisle];
+    if (aisle % 2 === 1) picks.sort((a, b) => a.bay - b.bay);
+    else picks.sort((a, b) => b.bay - a.bay);
+
+    for (const pick of picks) {
+      skuOrder.push(pick.sku);
+    }
+  }
+
+  return skuOrder;
+}
+```

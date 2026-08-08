@@ -1,0 +1,45 @@
+```ts
+/**
+ * Places cards on a panel according to the given rules.
+ * @param panel - An object with properties width, height, bleed, cardWidth, cardHeight, and seam.
+ * @param count - The number of cards to place.
+ * @param taken - An array of cell numbers that are already spoken for.
+ * @returns An array of pairs indicating the top-left corner coordinates of each placed card.
+ */
+export function placeCards(panel: { width: number; height: number; bleed: number; cardWidth: number; cardHeight: number; seam: number }, count: number, taken: any[]): number[][] {
+    const { width, height, bleed, cardWidth, cardHeight, seam } = panel;
+
+    if (width <= 0 || height <= 0 || bleed < 0 || cardWidth <= 0 || cardHeight <= 0 || seam < 0) {
+        throw new Error("Invalid panel dimensions");
+    }
+
+    const printableWidth = width - 2 * bleed;
+    const printableHeight = height - 2 * bleed;
+
+    const columnCount = Math.floor((printableWidth + seam) / (cardWidth + seam));
+    const rowCount = Math.floor((printableHeight + seam) / (cardHeight + seam));
+
+    if (columnCount <= 0 || rowCount <= 0) {
+        throw new Error("No cells available on the panel");
+    }
+
+    const totalCells = columnCount * rowCount;
+    if (taken.some(cell => cell < 1 || cell > totalCells)) {
+        throw new Error("Invalid taken cell number");
+    }
+
+    const freeCells = Array.from({ length: totalCells }, (_, i) => i + 1).filter(cell => !taken.includes(cell));
+
+    if (freeCells.length < count) {
+        throw new Error("Not enough free cells to place all cards");
+    }
+
+    return freeCells.slice(0, count).map((cell, index) => {
+        const row = Math.floor((cell - 1) / columnCount);
+        const col = (cell - 1) % columnCount;
+        const x = bleed + col * (cardWidth + seam);
+        const y = bleed + row * (cardHeight + seam);
+        return [x, y];
+    });
+}
+```

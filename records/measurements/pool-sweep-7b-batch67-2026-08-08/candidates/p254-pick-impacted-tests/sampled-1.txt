@@ -1,0 +1,38 @@
+```ts
+export function pickImpactedTests(coverage: Record<string, string[]>, edited: string[]): string[] {
+  if (typeof coverage !== 'object' || coverage === null) {
+    throw new Error('Coverage must be an object');
+  }
+  if (!Array.isArray(edited)) {
+    throw new Error('Edited paths must be an array');
+  }
+
+  const impactedTests = new Set<string>();
+
+  for (const [test, paths] of Object.entries(coverage)) {
+    if (typeof test !== 'string' || test === '') {
+      throw new Error('Test names must be non-empty strings');
+    }
+    if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) {
+      throw new Error('Coverage list for each test must be an array of strings');
+    }
+
+    if (paths.length === 0) {
+      throw new Error('Coverage list cannot be empty');
+    }
+    if (new Set(paths).size !== paths.length) {
+      throw new Error('Coverage list cannot contain duplicate paths');
+    }
+
+    const isBlanketTest = paths.includes('*');
+    for (const path of edited) {
+      if (paths.includes(path) || (isBlanketTest && path.startsWith('./'))) {
+        impactedTests.add(test);
+        break;
+      }
+    }
+  }
+
+  return Array.from(impactedTests).sort();
+}
+```

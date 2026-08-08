@@ -1,0 +1,45 @@
+```typescript
+export function nameStepDistances(steps: any[]): { names: string[], lifts: number[], colours: string[], tally: { [key: string]: number }, widest: number } {
+    if (!Array.isArray(steps) || steps.length === 0) {
+        throw new Error('Invalid input: expected a non-empty array of steps.');
+    }
+
+    const names = [];
+    const lifts = [];
+    const colours = [];
+    const tally: { [key: string]: number } = {};
+    let widestReach = -1;
+    let widestIndex = -1;
+
+    for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        if (!Array.isArray(step) || step.length !== 2) {
+            throw new Error('Invalid input: expected each step to be a list of exactly two pitch marks.');
+        }
+
+        const [mark1, mark2] = step;
+        if (typeof mark1 !== 'number' || typeof mark2 !== 'number' || !Number.isInteger(mark1) || !Number.isInteger(mark2)) {
+            throw new Error('Invalid input: expected each pitch mark to be a whole number.');
+        }
+
+        const reach = Math.abs(mark2 - mark1);
+        const lift = Math.floor(reach / 12);
+        const leftover = reach % 12;
+        const name = ['unison', 'minor second', 'major second', 'minor third', 'major third', 'perfect fourth', 'tritone', 'perfect fifth', 'minor sixth', 'major sixth', 'minor seventh', 'major seventh'][leftover];
+        const colour = [0, 3, 4, 5, 7, 8, 9].includes(leftover) ? 'sweet' : 'sharp';
+
+        names.push(name);
+        lifts.push(lift);
+        colours.push(colour);
+
+        tally[name] = (tally[name] || 0) + 1;
+
+        if (reach > widestReach) {
+            widestReach = reach;
+            widestIndex = i;
+        }
+    }
+
+    return { names, lifts, colours, tally, widest: widestIndex };
+}
+```
