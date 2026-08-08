@@ -1,0 +1,27 @@
+```ts
+export function gappedMatch(needle: string, haystack: string, gap: number): boolean {
+  if (needle.length === 0) {
+    throw new Error("Empty needle is not allowed");
+  }
+  if (!Number.isInteger(gap) || gap < 0) {
+    throw new Error("Gap must be a non-negative integer");
+  }
+
+  let needleIndex = 0;
+  for (let i = 0; i < haystack.length; i++) {
+    if (haystack[i] === needle[needleIndex]) {
+      needleIndex++;
+      if (needleIndex === needle.length) {
+        return true;
+      }
+    } else if (i > 0 && haystack[i] === needle[needleIndex] && i - haystack.lastIndexOf(needle[needleIndex - 1], i - 1) <= gap + 1) {
+      needleIndex++;
+      if (needleIndex === needle.length) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+```

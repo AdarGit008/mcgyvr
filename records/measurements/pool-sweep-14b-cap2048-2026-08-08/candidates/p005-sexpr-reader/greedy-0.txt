@@ -1,0 +1,60 @@
+```ts
+export function readSexpr(text: string): number | string | any[] {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const tokens = tokenize(text);
+  if (tokens.length === 0) {
+    throw new Error('Empty input or only whitespace');
+  }
+
+  const [result, remainingTokens] = parse(tokens);
+  if (remainingTokens.length !== 0) {
+    throw new Error('Extra characters after the first expression');
+  }
+
+  return result;
+}
+
+function tokenize(text: string): string[] {
+  const tokenRegex = /[\s()]+|[+-]?[0-9]+|[a-zA-Z0-9+*/!?-]+/g;
+  const tokens = text.match(tokenRegex);
+  if (!tokens) {
+    throw new Error('Invalid input');
+  }
+  return tokens.filter(token => !token.trim().isEmpty());
+}
+
+function parse(tokens: string[]): [any, string[]] {
+  const token = tokens[0];
+  if (token === '(') {
+    return parseList(tokens.slice(1));
+  } else if (token === ')') {
+    throw new Error('Stray closing parenthesis');
+  } else if (/^[+-]?[0-9]+$/.test(token)) {
+    return [parseInt(token, 10), tokens.slice(1)];
+  } else if (/^[a-zA-Z+*/!?-]+$/g.test(token) && !/^\d/.test(token)) {
+    return [token, tokens.slice(1)];
+  } else {
+    throw new Error('Invalid atom');
+  }
+}
+
+function parseList(tokens: string[]): [any[], string[]] {
+  const result: any[] = [];
+  let remainingTokens = tokens;
+
+  while (remainingTokens.length > 0 && remainingTokens[0] !== ')') {
+    const [element, nextTokens] = parse(remainingTokens);
+    result.push(element);
+    remainingTokens = nextTokens;
+  }
+
+  if (remainingTokens.length === 0) {
+    throw new Error('Unclosed list');
+  }
+
+  return [result, remainingTokens.slice(1)];
+}
+```

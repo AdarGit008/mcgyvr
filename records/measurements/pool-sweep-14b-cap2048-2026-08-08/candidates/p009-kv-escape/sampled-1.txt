@@ -1,0 +1,27 @@
+```ts
+/**
+ * One line of key=value pairs, joined by &. Validates that keys are non-empty strings
+ * and both keys and values are strings. Escapes special characters %, &, and = in
+ * keys and values to ensure correct serialization and reversibility.
+ */
+export function encodePairs(pairs: [string, string][]): string {
+  const parts: string[] = [];
+  for (const [key, value] of pairs) {
+    if (typeof key !== "string" || typeof value !== "string") {
+      throw new Error("Both keys and values must be strings.");
+    }
+    if (key === "") {
+      throw new Error("Keys must not be empty strings.");
+    }
+
+    const escape = (str: string): string => {
+      return str.replace(/%/g, "%25").replace(/&/g, "%26").replace(/=/g, "%3D");
+    };
+
+    const k = escape(key);
+    const v = escape(value);
+    parts.push(k + "=" + v);
+  }
+  return parts.join("&");
+}
+```

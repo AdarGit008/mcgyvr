@@ -1,0 +1,75 @@
+```ts
+export function replayRingLog(capacity: number, policy: string, operations: string[][]): { contents: string[]; journal: string[]; lost: number } {
+  if (capacity <= 0 || !Number.isInteger(capacity)) {
+    throw new Error("Capacity must be a positive whole number");
+  }
+  if (policy !== "overwrite" && policy !== "refuse") {
+    throw new Error("Policy must be either 'overwrite' or 'refuse'");
+  }
+  if (!Array.isArray(operations)) {
+    throw new Error("Operations must be a list");
+  }
+
+  const journal: string[] = [];
+  let contents: string[] = [];
+  let lost = 0;
+
+  for (const operation of operations) {
+    if (!Array.isArray(operation) || operation.length < 1) {
+      throw new Error("Each operation must be a non-empty list");
+    }
+    const [name, ...args] = operation;
+
+    switch (name) {
+      case "push":
+        if (args.length !== 1 || typeof args[0] !== "string" || args[0].trim() === "") {
+          throw new Error("A push must carry exactly one non-empty label string");
+        }
+        const label = args[0];
+        if (contents.length < capacity) {
+          contents.push(label);
+          journal.push(`stored ${label}`);
+        } else {
+          lost++;
+          if (policy === "overwrite") {
+            const evicted = contents.shift();
+            if (evicted !== undefined) {
+              journal.push(`evicted ${evicted} ${label}`);
+            }
+            contents.push(label);
+          } else {
+            journal.push("refused");
+          }
+        }
+        break;
+      case "pop":
+        if (args.length > 0) {
+          throw new Error("A pop carries anything past its own name");
+        }
+        if (contents.length > 0) {
+          const removed = contents.shift();
+          if (removed !== undefined) {
+            journal.push(`took ${removed}`);
+          }
+        } else {
+          journal.push("bare");
+        }
+        break;
+      case "peek":
+        if (args.length > 0) {
+          throw new Error("A peek carries anything past its own name");
+        }
+        if (contents.length > 0) {
+          journal.push(`front ${contents[0]}`);
+        } else {
+          journal.push("bare");
+        }
+        break;
+      default:
+        throw new Error("Operation name is outside the three allowed names");
+    }
+  }
+
+  return { contents, journal, lost };
+}
+```

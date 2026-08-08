@@ -1,0 +1,71 @@
+```ts
+export function compareRemitLines(ours: unknown[][], theirs: unknown[][]): { agreed: string[]; queried: string[]; ourSide: string[]; theirSide: string[] } {
+  if (!Array.isArray(ours) || !Array.isArray(theirs)) {
+    throw new Error("Both arguments must be lists.");
+  }
+
+  const validatePair = (pair: unknown[], source: string): void => {
+    if (!Array.isArray(pair) || pair.length !== 2) {
+      throw new Error(`Each entry in ${source} must be a pair.`);
+    }
+    const [label, cents] = pair;
+    if (typeof label !== "string" || !label) {
+      throw new Error("Label must be a non-empty string.");
+    }
+    if (!Number.isInteger(cents)) {
+      throw new Error("Amount must be a whole number.");
+    }
+  };
+
+  const validateAdvice = (advice: unknown[][], source: string): void => {
+    const seenLabels = new Set<string>();
+    advice.forEach(pair => {
+      validatePair(pair, source);
+      const label = pair[0] as string;
+      if (seenLabels.has(label)) {
+        throw new Error(`Label "${label}" repeated in ${source}.`);
+      }
+      seenLabels.add(label);
+    });
+  };
+
+  validateAdvice(ours, "ours");
+  validateAdvice(theirs, "theirs");
+
+  const ourMap = new Map<string, number>(ours);
+  const theirMap = new Map<string, number>(theirs);
+
+  const agreed: string[] = [];
+  const queried: string[] = [];
+  const ourSide: string[] = [];
+  const theirSide: string[] = [];
+
+  ourMap.forEach((ourCents, label) => {
+    if (theirMap.has(label)) {
+      const theirCents = theirMap.get(label)!;
+      if (ourCents === theirCents) {
+        agreed.push(label);
+      } else {
+        queried.push(label);
+      }
+    } else {
+      ourSide.push(label);
+    }
+  });
+
+  theirMap.forEach((theirCents, label) => {
+    if (!ourMap.has(label)) {
+      theirSide.push(label);
+    }
+  });
+
+  const sortLabels = (labels: string[]): string[] => labels.sort();
+
+  return {
+    agreed: sortLabels(agreed),
+    queried: sortLabels(queried),
+    ourSide: sortLabels(ourSide),
+    theirSide: sortLabels(theirSide),
+  };
+}
+```

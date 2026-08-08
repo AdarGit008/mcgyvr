@@ -1,0 +1,47 @@
+```ts
+export function resolveAccess(
+  rules: Array<{ effect: string; action: string; path: string[] }>,
+  request: { action: string; path: string[] }
+): { decision: string; rule: number } {
+  if (request.action === "") {
+    throw new Error("Request action cannot be empty");
+  }
+
+  let bestDecision = "deny";
+  let bestRuleIndex = -1;
+  let bestPathLength = -1;
+  let bestActionMatch = false;
+
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
+
+    if (rule.effect !== "allow" && rule.effect !== "deny") {
+      throw new Error(`Invalid effect: ${rule.effect}`);
+    }
+    if (rule.action === "") {
+      throw new Error("Rule action cannot be empty");
+    }
+
+    const isActionMatch = rule.action === "any" || rule.action === request.action;
+    const isPathPrefix = rule.path.every((segment, j) => segment === request.path[j]);
+
+    if (isPathPrefix && isActionMatch) {
+      if (
+        rule.path.length > bestPathLength ||
+        (rule.path.length === bestPathLength &&
+          (rule.action !== "any" || !bestActionMatch)) ||
+        (rule.path.length === bestPathLength &&
+          rule.action === bestActionMatch &&
+          rule.effect === "deny")
+      ) {
+        bestDecision = rule.effect;
+        bestRuleIndex = i;
+        bestPathLength = rule.path.length;
+        bestActionMatch = rule.action !== "any";
+      }
+    }
+  }
+
+  return { decision: bestDecision, rule: bestRuleIndex };
+}
+```

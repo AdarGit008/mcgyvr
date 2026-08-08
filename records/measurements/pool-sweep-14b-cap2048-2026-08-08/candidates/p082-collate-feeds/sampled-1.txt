@@ -1,0 +1,32 @@
+```ts
+export function collateFeeds(feeds: number[][][]): number[][] {
+  const timeline: number[][] = [];
+
+  for (const feed of feeds) {
+    let prevTick = -Infinity;
+    for (const [tick, reading] of feed) {
+      if (tick <= prevTick) {
+        throw new Error("Ticks must strictly increase within each feed.");
+      }
+      prevTick = tick;
+
+      const existingIndex = timeline.findIndex(entry => entry[0] === tick);
+      if (existingIndex === -1) {
+        timeline.push([tick, reading]);
+      } else if (timeline[existingIndex][1] !== reading) {
+        // Replace the existing entry with the new one if readings differ
+        timeline[existingIndex] = [tick, reading];
+      }
+    }
+  }
+
+  const result: number[][] = [];
+  for (let i = 0; i < timeline.length; i++) {
+    if (i === 0 || timeline[i][1] !== timeline[i - 1][1]) {
+      result.push(timeline[i]);
+    }
+  }
+
+  return result;
+}
+```

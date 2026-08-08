@@ -1,0 +1,141 @@
+```ts
+export function orderSkeinHands(hands: any[]): { grades: string[], order: number[] } {
+    if (!Array.isArray(hands) || hands.length === 0) {
+        throw new Error("Invalid input: hands must be a non-empty array.");
+    }
+
+    const handGrades = hands.map(hand => gradeHand(hand));
+    const handOrders = stableSortIndices(hands, (a, b) => compareHands(a, b));
+
+    return { grades: handGrades, order: handOrders };
+}
+
+/**
+ * Grades a single hand based on the Skein rules.
+ * @param hand - An array of five cards represented as strings.
+ */
+function gradeHand(hand: any[]): string {
+    if (!Array.isArray(hand) || hand.length !== 5) {
+        throw new Error("Invalid input: each hand must be an array of exactly five cards.");
+    }
+
+    const cardSet = new Set(hand);
+    if (cardSet.size !== 5) {
+        throw new Error("Invalid input: a hand cannot contain duplicate cards.");
+    }
+
+    const pips = hand.map(card => getCardPip(card));
+    const houses = hand.map(card => getCardHouse(card));
+
+    const uniquePips = Array.from(new Set(pips)).sort((a, b) => a - b);
+    const uniqueHouses = Array.from(new Set(houses));
+
+    if (uniquePips.length === 2) {
+        return "monolith";
+    } else if (uniquePips.length === 5 && uniqueHouses.length === 4 && pips.every(pip => pip >= 1 && pip <= 10)) {
+        const maxPip = Math.max(...pips);
+        const minPip = Math.min(...pips);
+        if (maxPip - minPip === 4) {
+            return "chain";
+        }
+    } else if (uniquePips.length === 5 && uniqueHouses.length === 4) {
+        return "prism";
+    } else if (uniquePips.length === 3) {
+        return "echo";
+    } else if (uniquePips.length === 4) {
+        return "twin";
+    }
+
+    return "drift";
+}
+
+/**
+ * Compares two hands based on their grades and ladders.
+ * @param handA - The first hand to compare.
+ * @param handB - The second hand to compare.
+ */
+function compareHands(handA: any[], handB: any[]): number {
+    const gradeA = gradeHand(handA);
+    const gradeB = gradeHand(handB);
+
+    if (gradeA !== gradeB) {
+        return gradesOrder.indexOf(gradeA) - gradesOrder.indexOf(gradeB);
+    }
+
+    const ladderA = getLadder(handA);
+    const ladderB = getLadder(handB);
+
+    for (let i = 0; i < ladderA.length; i++) {
+        if (ladderA[i] !== ladderB[i]) {
+            return ladderB[i] - ladderA[i];
+        }
+    }
+
+    const weightA = handA.map(card => houseWeights[getCardHouse(card)]).sort((a, b) => a - b);
+    const weightB = handB.map(card => houseWeights[getCardHouse(card)]).sort((a, b) => a - b);
+
+    for (let i = 0; i < weightA.length; i++) {
+        if (weightA[i] !== weightB[i]) {
+            return weightB[i] - weightA[i];
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * Generates the ladder for a hand.
+ * @param hand - The hand to generate the ladder for.
+ */
+function getLadder(hand: any[]): number[] {
+    const pipCounts = hand.reduce((acc, card) => {
+        const pip = getCardPip(card);
+        acc[pip] = (acc[pip] || 0) + 1;
+        return acc;
+    }, {} as Record<number, number>);
+
+    const ladder = Object.keys(pipCounts)
+        .map(Number)
+        .sort((a, b) => pipCounts[b] - pipCounts[a] || a - b);
+
+    return ladder;
+}
+
+/**
+ * Extracts the pip from a card.
+ * @param card - The card to extract the pip from.
+ */
+function getCardPip(card: string): number {
+    const match = card.match(/^(\d+)/);
+    if (!match) {
+        throw new Error("Invalid input: card must have a valid pip followed by a house letter.");
+    }
+    return parseInt(match[1], 10);
+}
+
+/**
+ * Extracts the house from a card.
+ * @param card - The card to extract the house from.
+ */
+function getCardHouse(card: string): string {
+    const match = card.match(/[mrsv]$/);
+    if (!match) {
+        throw new Error("Invalid input: card must have a valid pip followed by a house letter.");
+    }
+    return match[0];
+}
+
+/**
+ * Performs a stable sort on indices based on a comparator.
+ * @param array - The array to sort.
+ * @param compareFn - The comparator function.
+ */
+function stableSortIndices(array: any[], compareFn: (a: any, b: any) => number): number[] {
+    const indices = Array.from({ length: array.length }, (_, i) => i);
+    indices.sort((a, b) => compareFn(array[a], array[b]) || a - b);
+    return indices;
+}
+
+const gradesOrder = ["monolith", "prism", "chain", "echo", "twin", "drift"];
+const houseWeights: Record<string, number> = { m: 4, r: 3, s: 2, v: 1 };
+```

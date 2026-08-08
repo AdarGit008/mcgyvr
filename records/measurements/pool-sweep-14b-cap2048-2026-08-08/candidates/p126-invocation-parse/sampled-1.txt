@@ -1,0 +1,56 @@
+```ts
+export function parseInvocation(
+  catalogue: Array<{ name: string; kind: string; alias?: string }>,
+  tokens: string[]
+): { options: Record<string, unknown>; operands: string[] } {
+  const options: Record<string, unknown> = {};
+  const operands: string[] = [];
+  let seenEndOfOptions = false;
+
+  catalogue.forEach(option => {
+    options[option.name] =
+      option.kind === 'toggle' ? false : option.kind === 'repeat' ? [] : null;
+  });
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+
+    if (token === '--') {
+      seenEndOfOptions = true;
+      continue;
+    }
+
+    if (!seenEndOfOptions && token.startsWith('--')) {
+      const [name, value] = token.split('=');
+
+      const option = catalogue.find(
+        o => o.name === name.slice(2) || o.alias === name.slice(2)
+      );
+
+      if (!option) {
+        throw new Error(`Unknown option: ${token}`);
+      }
+
+      if (option.kind === 'toggle') {
+        if (value !== undefined) {
+          throw new Error(`Toggle option cannot have a value: ${token}`);
+        }
+        options[option.name] = true;
+      } else if (option.kind === 'single') {
+        if (options[option.name] !== null) {
+          throw new Error(`Single option mentioned twice: ${token}`);
+        }
+        options[option.name] = value !== undefined ? value : tokens[++i];
+      } else if (option.kind === 'repeat') {
+        (options[option.name] as string[]).push(
+          value !== undefined ? value : tokens[++i]
+        );
+      }
+    } else {
+      operands.push(token);
+    }
+  }
+
+  return { options, operands };
+}
+```

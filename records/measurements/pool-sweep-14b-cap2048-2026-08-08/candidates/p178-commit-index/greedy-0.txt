@@ -1,0 +1,52 @@
+```ts
+export function commitIndex(log: number[], matches: number[], currentTerm: number): { commit: number; safe: number; behind: number[] } {
+  if (!Array.isArray(log) || !Array.isArray(matches)) {
+    throw new Error("log and matches must be arrays");
+  }
+  if (currentTerm < 1 || !Number.isInteger(currentTerm)) {
+    throw new Error("current term must be a whole number of one or more");
+  }
+
+  const n = log.length;
+  for (let i = 0; i < n; i++) {
+    if (log[i] < 1 || !Number.isInteger(log[i])) {
+      throw new Error("term in log must be a whole number of one or more");
+    }
+    if (i > 0 && log[i] < log[i - 1]) {
+      throw new Error("terms never fall as the log grows");
+    }
+    if (log[i] > currentTerm) {
+      throw new Error("no entry may be stamped above the leader's current term");
+    }
+  }
+
+  for (let copied of matches) {
+    if (copied < 0 || copied > n || !Number.isInteger(copied)) {
+      throw new Error("copied number must be a whole number between zero and the log's length");
+    }
+  }
+
+  const quorumSize = Math.floor(matches.length / 2) + 1;
+  let commit = 0;
+  let safe = n;
+
+  for (let i = n - 1; i >= 0; i--) {
+    if (log[i] !== currentTerm) break;
+    const count = matches.filter(copied => copied >= i + 1).length + 1; // +1 for the leader
+    if (count >= quorumSize) {
+      commit = i + 1;
+      break;
+    }
+  }
+
+  if (matches.length > 0) {
+    safe = Math.min(...matches, n);
+  } else {
+    safe = commit;
+  }
+
+  const behind = matches.map((copied, index) => copied < commit ? index : -1).filter(index => index !== -1);
+
+  return { commit, safe, behind };
+}
+```

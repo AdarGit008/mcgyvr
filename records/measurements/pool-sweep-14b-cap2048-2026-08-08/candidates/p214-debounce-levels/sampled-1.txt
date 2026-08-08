@@ -1,0 +1,32 @@
+```ts
+export function debounceLevels(samples: unknown, hold: unknown): number[] {
+  if (!Array.isArray(samples) || samples.length === 0) {
+    throw new Error("Invalid samples input");
+  }
+  if (typeof hold !== "number" || hold <= 0 || !Number.isInteger(hold)) {
+    throw new Error("Invalid hold value");
+  }
+  if (samples.some(sample => typeof sample !== "number" || (sample !== 0 && sample !== 1))) {
+    throw new Error("Invalid sample values");
+  }
+
+  const report: number[] = [];
+  let settledLevel = samples[0] as number;
+  let tally = 0;
+
+  for (const sample of samples) {
+    if (sample === settledLevel) {
+      tally = 0;
+    } else {
+      tally++;
+      if (tally >= hold) {
+        settledLevel = sample;
+        tally = 0;
+      }
+    }
+    report.push(settledLevel);
+  }
+
+  return report;
+}
+```

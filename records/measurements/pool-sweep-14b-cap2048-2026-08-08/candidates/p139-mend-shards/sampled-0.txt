@@ -1,0 +1,40 @@
+```ts
+export function mendShards(copies: Array<Array<number | null>>): number[] {
+  if (copies.length === 0) {
+    throw new Error("List of copies cannot be empty");
+  }
+
+  const firstCopyLength = copies[0].length;
+  for (const copy of copies) {
+    if (copy.length !== firstCopyLength) {
+      throw new Error("All copies must have the same length");
+    }
+  }
+
+  const mended: number[] = [];
+  for (let position = 0; position < firstCopyLength; position++) {
+    const counts = new Map<number, number>();
+    for (const copy of copies) {
+      const value = copy[position];
+      if (value !== null && typeof value === "number" && value >= 0) {
+        counts.set(value, (counts.get(value) ?? 0) + 1);
+      } else if (value !== null) {
+        throw new Error("Slot must be a non-negative integer or null");
+      }
+    }
+
+    let best: number | null = null;
+    let bestCount = 0;
+    for (const [value, count] of counts) {
+      if (count > bestCount || (count === bestCount && value < best!)) {
+        best = value;
+        bestCount = count;
+      }
+    }
+
+    mended.push(best === null ? -1 : best);
+  }
+
+  return mended;
+}
+```

@@ -1,0 +1,35 @@
+```ts
+export function truncatedProduct(left: number[], right: number[], cap: number): number[] {
+  if (!Array.isArray(left) || !Array.isArray(right)) {
+    throw new Error("Both arguments must be arrays.");
+  }
+  if (left.some(c => !Number.isInteger(c)) || right.some(c => !Number.isInteger(c))) {
+    throw new Error("Coefficients must be whole numbers.");
+  }
+  if (cap < 0 || !Number.isInteger(cap)) {
+    throw new Error("Cap must be a whole number of at least zero.");
+  }
+  if (left.length > 0 && left[left.length - 1] === 0) {
+    throw new Error("Left polynomial cannot have a trailing zero coefficient.");
+  }
+  if (right.length > 0 && right[right.length - 1] === 0) {
+    throw new Error("Right polynomial cannot have a trailing zero coefficient.");
+  }
+
+  const result: number[] = new Array(cap + 1).fill(0);
+
+  for (let i = 0; i < left.length; i++) {
+    for (let j = 0; j < right.length; j++) {
+      if (i + j <= cap) {
+        result[i + j] += left[i] * right[j];
+      }
+    }
+  }
+
+  while (result.length > 1 && result[result.length - 1] === 0) {
+    result.pop();
+  }
+
+  return result;
+}
+```

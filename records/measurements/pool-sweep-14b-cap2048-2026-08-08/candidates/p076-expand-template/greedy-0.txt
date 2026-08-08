@@ -1,0 +1,66 @@
+```ts
+export function expandTemplate(template: string, context: Record<string, unknown>, missing: string): string {
+  if (missing !== 'error' && missing !== 'keep' && missing !== 'blank') {
+    throw new Error('Invalid missing-path policy');
+  }
+
+  let result = '';
+  let i = 0;
+  const length = template.length;
+
+  while (i < length) {
+    if (template[i] === '$') {
+      if (i + 1 < length && template[i + 1] === '$') {
+        // Literal dollar sign
+        result += '$';
+        i += 2;
+      } else if (i + 1 < length && template[i + 1] === '{') {
+        // Placeholder
+        let j = i + 2;
+        while (j < length && template[j] !== '}') {
+          j++;
+        }
+        if (j === length) {
+          throw new Error('Unclosed placeholder');
+        }
+
+        const path = template.slice(i + 2, j);
+        if (!path || path.includes('..')) {
+          throw new Error('Invalid placeholder path');
+        }
+
+        let value: unknown = context;
+        for (const segment of path.split('.')) {
+          if (segment === '') {
+            throw new Error('Empty segment in placeholder path');
+          }
+          if (typeof value !== 'object' || value === null) {
+            break;
+          }
+          value = (value as Record<string, unknown>)[segment];
+        }
+
+        if (typeof value === 'string') {
+          result += value;
+        } else if (typeof value === 'number' && Number.isInteger(value)) {
+          result += value.toString();
+        } else if (missing === 'error') {
+          throw new Error('Path not found');
+        } else if (missing === 'keep') {
+          result += template.slice(i, j + 1);
+        }
+        // missing === 'blank', do nothing
+
+        i = j + 1;
+      } else {
+        throw new Error('Invalid dollar sign usage');
+      }
+    } else {
+      result += template[i];
+      i++;
+    }
+  }
+
+  return result;
+}
+```

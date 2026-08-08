@@ -1,0 +1,17 @@
+```ts
+export function sealSerial(serial: string): string {
+  if (typeof serial !== 'string' || !/^\d{8}$/.test(serial)) {
+    throw new Error('Invalid serial');
+  }
+
+  const weights = [3, 7, 1, 3, 7, 1, 3, 7];
+  const sum = serial.split('').reduce((acc, digit, index) => {
+    return acc + (parseInt(digit) * weights[index]);
+  }, 0);
+
+  const remainder = sum % 11;
+  const seal = remainder === 10 ? 'K' : remainder.toString();
+
+  return serial + seal;
+}
+```

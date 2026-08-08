@@ -1,0 +1,68 @@
+```ts
+export function foldHalyardQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Invalid input: argument must be a string');
+  }
+
+  const ESCAPE_REGEX = /_([0-9a-fA-F]{2})/g;
+  const VALID_CODE_REGEX = /^([!-~])$/;
+
+  function unescape(value: string): string {
+    return value.replace(ESCAPE_REGEX, (_, hex) => {
+      const code = parseInt(hex, 16);
+      if (!VALID_CODE_REGEX.test(String.fromCharCode(code))) {
+        throw new Error('Invalid escape sequence');
+      }
+      return String.fromCharCode(code);
+    });
+  }
+
+  function escape(value: string): string {
+    return value.replace(/[\x26\x2c\x3d\x5f]/g, (char) => `_${char.charCodeAt(0).toString(16)}`);
+  }
+
+  const parameters = text.split('&').map((param) => param.trim()).filter(Boolean);
+
+  const result: { [key: string]: Set<string> } = {};
+
+  for (const param of parameters) {
+    const equalsIndex = param.indexOf('=');
+    if (equalsIndex === -1) {
+      // Bare name
+      const name = unescape(param);
+      if (!name) {
+        throw new Error('Invalid parameter: empty name');
+      }
+      result[name.toLowerCase()] ??= new Set();
+    } else {
+      // Name with payload
+      const namePart = param.slice(0, equalsIndex).trim();
+      let payloadPart = param.slice(equalsIndex + 1).trim();
+
+      if (namePart.includes('=')) {
+        throw new Error('Invalid parameter: second equals sign in name');
+      }
+
+      const name = unescape(namePart);
+      const payload = unescape(payloadPart);
+
+      if (!name) {
+        throw new Error('Invalid parameter: empty name');
+      }
+
+      result[name.toLowerCase()] ??= new Set();
+      result[name.toLowerCase()].add(payload);
+    }
+  }
+
+  const bareNames = Object.keys(result).filter((key) => !result[key].size).sort();
+  const namedParameters = Object.entries(result)
+    .filter(([_, payloads]) => payloads.size > 0)
+    .map(([name, payloads]) => {
+      return `${escape(name)}=${escape(Array.from(payloads).sort().join(','))}`;
+    })
+    .sort();
+
+  return [...bareNames, ...namedParameters].join('&');
+}
+```

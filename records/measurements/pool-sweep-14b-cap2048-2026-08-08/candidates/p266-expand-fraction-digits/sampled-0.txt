@@ -1,0 +1,59 @@
+```ts
+export function expandFractionDigits(numerator: number, denominator: number, base: number): string {
+  if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(base)) {
+    throw new Error("All inputs must be whole numbers.");
+  }
+  if (base < 3 || base > 20) {
+    throw new Error("Base must be between 3 and 20.");
+  }
+  if (denominator <= 0) {
+    throw new Error("Denominator must be positive.");
+  }
+  if (Math.abs(numerator) > 1_000_000 || Math.abs(denominator) > 1_000_000) {
+    throw new Error("Numerator and denominator must be at most one million in magnitude.");
+  }
+
+  const glyphs = "0123456789ABCDEFGHIJ";
+  let result = "";
+  let negative = numerator < 0;
+  numerator = Math.abs(numerator);
+
+  const wholePart = Math.floor(numerator / denominator);
+  if (negative) {
+    result += "-";
+  }
+  result += glyphs[wholePart];
+
+  const remainder = numerator % denominator;
+  if (remainder === 0) {
+    return result; // No fractional part
+  }
+
+  const seenRemainders: { [key: number]: number } = {};
+  let fractionPart = "";
+  let repeatingStartIndex = -1;
+
+  for (let i = 0; remainder !== 0; i++) {
+    if (seenRemainders[remainder] !== undefined) {
+      repeatingStartIndex = seenRemainders[remainder];
+      break;
+    }
+    seenRemainders[remainder] = i;
+    remainder *= base;
+    fractionPart += glyphs[Math.floor(remainder / denominator)];
+    remainder %= denominator;
+  }
+
+  if (repeatingStartIndex === -1) {
+    // No repeating part
+    result += `;${fractionPart}`;
+  } else {
+    // Repeating part found
+    const nonRepeating = fractionPart.substring(0, repeatingStartIndex);
+    const repeating = fractionPart.substring(repeatingStartIndex);
+    result += `;${nonRepeating}[${repeating}]`;
+  }
+
+  return result;
+}
+```

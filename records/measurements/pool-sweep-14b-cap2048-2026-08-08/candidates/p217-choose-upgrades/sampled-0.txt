@@ -1,0 +1,107 @@
+```ts
+/** Where each ruled library should land. */
+export function chooseUpgrades(
+  request: Record<string, unknown>
+): Record<string, unknown> {
+  const installed = request.installed as Record<string, string>;
+  const offers = request.offers as Record<string, string[]>;
+  const rules = request.rules as any[];
+
+  // Validate input types
+  if (typeof installed !== "object" || installed === null) {
+    throw new Error("installed must be a mapping");
+  }
+  if (typeof offers !== "object" || offers === null) {
+    throw new Error("offers must be a mapping");
+  }
+  if (!Array.isArray(rules)) {
+    throw new Error("rules must be a list");
+  }
+
+  const floors = new Map<string, string>();
+  const ceilings = new Map<string, string>();
+
+  // Validate rules and populate floors and ceilings
+  for (const rule of rules) {
+    if (typeof rule !== "object" || rule === null) {
+      throw new Error("rule must be a mapping");
+    }
+    if (typeof rule.package !== "string") {
+      throw new Error("rule must have a 'package' string");
+    }
+    if (typeof rule.min !== "string" || typeof rule.max !== "string") {
+      throw new Error("rule must have 'min' and 'max' strings");
+    }
+
+    const low = floors.get(rule.package);
+    if (low === undefined || compareReleases(rule.min, low) > 0) {
+      floors.set(rule.package, rule.min);
+    }
+    const high = ceilings.get(rule.package);
+    if (high === undefined || compareReleases(rule.max, high) < 0) {
+      ceilings.set(rule.package, rule.max);
+    }
+
+    // Check if min is above max
+    if (compareReleases(rule.min, rule.max) > 0) {
+      throw new Error(`rule for ${rule.package} has min above max`);
+    }
+  }
+
+  const moves: { package: string; to: string; action: string }[] = [];
+  const snags: { package: string; why: string }[] = [];
+
+  // Process each library with rules
+  for (const name of Array.from(floors.keys()).sort()) {
+    if (!(name in offers)) {
+      throw new Error(`rule for ${name} bounds a library not carried by the registry`);
+    }
+
+    const low = floors.get(name) as string;
+    const high = ceilings.get(name) as string;
+    const allowed = offers[name].filter(
+      (release) => compareReleases(release, low) >= 0 && compareReleases(release, high) <= 0
+    );
+
+    if (allowed.length === 0) {
+      snags.push({ package: name, why: "none" });
+      continue;
+    }
+
+    const here = installed[name];
+    if (here !== undefined) {
+      if (!offers[name].includes(here)) {
+        throw new Error(`installed release for ${name} is not carried by the registry`);
+      }
+      if (allowed.includes(here)) {
+        moves.push({ package: name, to: here, action: "hold" });
+        continue;
+      }
+    }
+
+    allowed.sort(compareReleases);
+    const best = allowed[0];
+    const action = here === undefined ? "fetch" : "lift";
+
+    // Check if there's a permitted release above the current one
+    if (here !== undefined && compareReleases(here, best) >= 0) {
+      snags.push({ package: name, why: "drop" });
+    } else {
+      moves.push({ package: name, to: best, action });
+    }
+  }
+
+  return { moves, snags };
+}
+
+// Helper function to compare two release strings
+function compareReleases(a: string, b: string): number {
+  const [aMajor, aMinor] = a.split(".").map(Number);
+  const [bMajor, bMinor] = b.split(".").map(Number);
+
+  if (aMajor !== bMajor) {
+    return aMajor - bMajor;
+  }
+  return aMinor - bMinor;
+}
+```

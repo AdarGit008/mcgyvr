@@ -1,0 +1,64 @@
+```ts
+export function decodeBitRun(codebook: any, strip: string): string[] {
+  if (typeof codebook !== 'object' || Array.isArray(codebook)) {
+    throw new Error('Codebook must be a mapping.');
+  }
+  if (Object.keys(codebook).length === 0) {
+    throw new Error('Codebook names no words.');
+  }
+
+  const isLowerCaseLetters = (str: string): boolean =>
+    /^[a-z]+$/.test(str);
+
+  const isBinaryString = (str: string): boolean =>
+    /^[01]+$/.test(str);
+
+  for (const [key, value] of Object.entries(codebook)) {
+    if (!isLowerCaseLetters(key) || key.length === 0) {
+      throw new Error('A key must be a non-empty string of lowercase letters.');
+    }
+    if (!isBinaryString(value) || value.length === 0) {
+      throw new Error('A mark must be a non-empty string of nothing but 0 and 1.');
+    }
+  }
+
+  const marks = Object.values(codebook);
+  for (let i = 0; i < marks.length; i++) {
+    for (let j = i + 1; j < marks.length; j++) {
+      if (marks[i] === marks[j]) {
+        throw new Error('Two words carry the very same mark.');
+      }
+      if (marks[i].startsWith(marks[j])) {
+        throw new Error("One word's mark is the opening stretch of another word's mark.");
+      }
+    }
+  }
+
+  if (typeof strip !== 'string') {
+    throw new Error('The strip must be a string.');
+  }
+  if (!isBinaryString(strip)) {
+    throw new Error('The strip holds a character that is neither 0 nor 1.');
+  }
+
+  const decodedWords: string[] = [];
+  let index = 0;
+
+  while (index < strip.length) {
+    let foundMatch = false;
+    for (const [word, mark] of Object.entries(codebook)) {
+      if (strip.startsWith(mark, index)) {
+        decodedWords.push(word);
+        index += mark.length;
+        foundMatch = true;
+        break;
+      }
+    }
+    if (!foundMatch) {
+      throw new Error('The reading runs off the end of the strip with characters left over that finish no word\'s mark.');
+    }
+  }
+
+  return decodedWords;
+}
+```

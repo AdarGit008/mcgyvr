@@ -1,0 +1,38 @@
+```ts
+/**
+ * Ranks completion candidates against a typed query.
+ * @param candidates - Array of candidate strings to rank.
+ * @param query - The query string to compare against.
+ * @param limit - The maximum number of candidates to return.
+ * @returns An array of ranked candidate strings.
+ */
+export function rankCandidates(candidates: string[], query: string, limit: number): string[] {
+  if (typeof query !== 'string' || query.length === 0) {
+    throw new Error('Invalid query');
+  }
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error('Invalid limit');
+  }
+
+  const lowerQuery = query.toLowerCase();
+
+  const rankedCandidates = candidates
+    .filter(candidate => typeof candidate === 'string')
+    .map(candidate => ({
+      original: candidate,
+      lower: candidate.toLowerCase(),
+      isExact: candidate.toLowerCase() === lowerQuery,
+      isPrefix: candidate.toLowerCase().startsWith(lowerQuery),
+      length: candidate.length
+    }))
+    .sort((a, b) => {
+      if (a.isExact !== b.isExact) return a.isExact ? -1 : 1;
+      if (a.isPrefix !== b.isPrefix) return a.isPrefix ? -1 : 1;
+      if (a.length !== b.length) return a.length - b.length;
+      return 0;
+    })
+    .map(item => item.original);
+
+  return rankedCandidates.slice(0, limit);
+}
+```

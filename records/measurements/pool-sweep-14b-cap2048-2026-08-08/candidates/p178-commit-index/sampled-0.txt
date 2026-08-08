@@ -1,0 +1,66 @@
+```ts
+/**
+ * Determines the commit index for a leader in a distributed system.
+ * @param log - An array of terms stamped on each entry in the leader's log.
+ * @param matches - An array of numbers representing the highest entry copied by each follower.
+ * @param currentTerm - The term the leader is currently serving.
+ * @returns An object with commit, safe, and behind fields.
+ */
+export function commitIndex(log: number[], matches: number[], currentTerm: number): { commit: number; safe: number; behind: number[] } {
+  if (!Array.isArray(log) || !Array.isArray(matches)) {
+    throw new Error("Log and matches must be arrays.");
+  }
+
+  if (log.length === 0) {
+    return { commit: 0, safe: 0, behind: [] };
+  }
+
+  for (let i = 0; i < log.length; i++) {
+    const term = log[i];
+    if (!Number.isInteger(term) || term < 1) {
+      throw new Error("Log terms must be whole numbers of one or more.");
+    }
+    if (i > 0 && term < log[i - 1]) {
+      throw new Error("Terms never fall as the log grows.");
+    }
+    if (term > currentTerm) {
+      throw new Error("No entry may be stamped above the leader's current term.");
+    }
+  }
+
+  for (let copied of matches) {
+    if (!Number.isInteger(copied) || copied < 0 || copied > log.length) {
+      throw new Error("Copied numbers must be whole numbers between zero and the log's length.");
+    }
+  }
+
+  if (!Number.isInteger(currentTerm) || currentTerm < 1) {
+    throw new Error("Current term must be a whole number of one or more.");
+  }
+
+  const quorumSize = Math.floor((matches.length + 1) / 2);
+  let commit = 0;
+  let safe = 0;
+
+  for (let i = log.length - 1; i >= 0; i--) {
+    if (log[i] === currentTerm) {
+      const count = matches.filter(copied => copied >= i + 1).length + 1; // +1 for the leader itself
+      if (count > quorumSize) {
+        commit = i + 1;
+        break;
+      }
+    }
+  }
+
+  safe = Math.min(commit, ...matches);
+
+  const behind = matches.reduce((acc, copied, index) => {
+    if (copied < commit) {
+      acc.push(index);
+    }
+    return acc;
+  }, [] as number[]);
+
+  return { commit, safe, behind };
+}
+```

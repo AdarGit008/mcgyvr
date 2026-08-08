@@ -1,0 +1,88 @@
+```ts
+export function costBasisReport(events: unknown[][]): { fifoSold: number; averageSold: number; unitsLeft: number; fifoValue: number; averageValue: number } {
+    if (!Array.isArray(events)) {
+        throw new Error("Argument must be a list of events.");
+    }
+
+    let fifoSold = 0;
+    let averageSold = 0;
+    let unitsLeft = 0;
+    let fifoValue = 0;
+    let averageValue = 0;
+
+    const fifoLayers: { units: number; unitCents: number }[] = [];
+    let totalUnits = 0;
+    let totalCost = 0;
+
+    for (const event of events) {
+        if (!Array.isArray(event)) {
+            throw new Error("Each event must be an array.");
+        }
+
+        const [action, unitsRaw, unitCentsRaw] = event;
+
+        const units = Number(unitsRaw);
+        const unitCents = unitCentsRaw !== undefined ? Number(unitCentsRaw) : 0;
+
+        if (isNaN(units) || isNaN(unitCents)) {
+            throw new Error("Units and unitCents must be numbers.");
+        }
+
+        if (units <= 0) {
+            throw new Error("Units must be above zero.");
+        }
+
+        if (action === "buy") {
+            if (unitCents < 0) {
+                throw new Error("Unit price must be at or above zero.");
+            }
+
+            fifoLayers.push({ units, unitCents });
+            totalUnits += units;
+            totalCost += units * unitCents;
+
+            fifoValue += units * unitCents;
+            averageValue = totalUnits > 0 ? Math.floor(totalCost / totalUnits) : 0;
+        } else if (action === "sell") {
+            if (units > totalUnits) {
+                throw new Error("Despatch cannot be larger than stock on hand.");
+            }
+
+            // FIFO
+            let fifoUnitsSold = 0;
+            while (fifoUnitsSold < units) {
+                const layer = fifoLayers[0];
+                if (!layer) break;
+
+                const sellFromLayer = Math.min(layer.units, units - fifoUnitsSold);
+                fifoSold += sellFromLayer * layer.unitCents;
+                fifoUnitsSold += sellFromLayer;
+
+                if (sellFromLayer === layer.units) {
+                    fifoLayers.shift();
+                } else {
+                    fifoLayers[0].units -= sellFromLayer;
+                }
+            }
+
+            // Weighted Average
+            averageSold += Math.floor((totalCost / totalUnits) * units);
+            totalUnits -= units;
+            totalCost -= Math.floor((totalCost / totalUnits) * units);
+
+            fifoValue = fifoValue - fifoSold;
+            averageValue = totalUnits > 0 ? Math.floor(totalCost / totalUnits) : 0;
+        } else {
+            throw new Error("Each event must start with 'buy' or 'sell'.");
+        }
+    }
+
+    return {
+        fifoSold,
+        averageSold,
+        unitsLeft: totalUnits,
+        fifoValue,
+        averageValue
+    };
+}
+```

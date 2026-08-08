@@ -1,0 +1,77 @@
+```ts
+export function expandSpanGrammar(pattern: string): string[] {
+  if (typeof pattern !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const groups = [];
+  let currentGroup = '';
+  let inGroup = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i];
+
+    if (escapeNext) {
+      currentGroup += char;
+      escapeNext = false;
+    } else if (char === '~') {
+      escapeNext = true;
+    } else if (char === '<') {
+      if (inGroup) {
+        throw new Error('Unclosed group');
+      }
+      inGroup = true;
+    } else if (char === '>') {
+      if (!inGroup) {
+        throw new Error('Bare > outside a group');
+      }
+      groups.push(currentGroup);
+      currentGroup = '';
+      inGroup = false;
+    } else {
+      currentGroup += char;
+    }
+  }
+
+  if (escapeNext || inGroup) {
+    throw new Error('Lone trailing tilde or unclosed group');
+  }
+
+  const expandGroup = (group: string): string[] => {
+    if (/\.\./.test(group)) {
+      const [start, end] = group.split('..').map(Number);
+      if (isNaN(start) || isNaN(end) || start > end) {
+        throw new Error('Invalid numeric span');
+      }
+      const width = start.toString().length;
+      return Array.from({ length: end - start + 1 }, (_, i) =>
+        (start + i).toString().padStart(width, '0')
+      );
+    } else {
+      return group.split('|').filter(choice => choice.length > 0);
+    }
+  };
+
+  const combinations: string[] = [pattern.replace(/<[^>]*>/g, '{}')];
+
+  for (const group of groups) {
+    const expandedGroup = expandGroup(group);
+    const newCombinations: string[] = [];
+
+    for (const combination of combinations) {
+      for (const choice of expandedGroup) {
+        newCombinations.push(combination.replace('{}', choice));
+      }
+    }
+
+    if (newCombinations.length > 500) {
+      throw new Error('Too many combinations');
+    }
+
+    combinations.splice(0, combinations.length, ...newCombinations);
+  }
+
+  return combinations.sort((a, b) => a.localeCompare(b));
+}
+```

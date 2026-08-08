@@ -1,0 +1,51 @@
+```ts
+export function orderRelation(pairs: [string, string][], x: string, y: string): string {
+  if (x === y) {
+    throw new Error("Query items must be different");
+  }
+
+  const graph: { [key: string]: Set<string> } = {};
+
+  pairs.forEach(([a, b]) => {
+    if (!graph[a]) {
+      graph[a] = new Set();
+    }
+    if (!graph[b]) {
+      graph[b] = new Set();
+    }
+    graph[a].add(b);
+  });
+
+  const visited: { [key: string]: boolean } = {};
+
+  function dfs(current: string, target: string): boolean {
+    if (current === target) return true;
+    if (visited[current]) return false;
+    visited[current] = true;
+
+    for (const neighbor of graph[current] || []) {
+      if (dfs(neighbor, target)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  const xReachableY = dfs(x, y);
+  const yReachableX = dfs(y, x);
+
+  visited[x] = false; // Reset visitation for the other check
+  visited[y] = false;
+
+  if (xReachableY && !yReachableX) {
+    return "before";
+  } else if (!xReachableY && yReachableX) {
+    return "after";
+  } else if (xReachableY && yReachableX) {
+    return "both";
+  } else {
+    return "unordered";
+  }
+}
+```

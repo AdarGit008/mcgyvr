@@ -1,0 +1,57 @@
+```ts
+export function placeDonations(
+  requests: Array<{ id: string; kind: string; from: number; to: number; urgent: boolean }>,
+  lots: Array<{ id: string; kind: string; day: number }>
+): Array<[string, string]> {
+  if (!requests || !lots) {
+    throw new Error("Invalid input");
+  }
+
+  const requestMap = new Map<string, { kind: string; from: number; to: number; urgent: boolean }>();
+  for (const request of requests) {
+    if (requestMap.has(request.id)) {
+      throw new Error("Duplicate request id");
+    }
+    if (!Number.isInteger(request.from) || !Number.isInteger(request.to) || request.from > request.to) {
+      throw new Error("Invalid span in request");
+    }
+    requestMap.set(request.id, { ...request });
+  }
+
+  const lotMap = new Map<string, { kind: string; day: number }>();
+  for (const lot of lots) {
+    if (lotMap.has(lot.id)) {
+      throw new Error("Duplicate lot id");
+    }
+    if (!Number.isInteger(lot.day)) {
+      throw new Error("Invalid day in lot");
+    }
+    lotMap.set(lot.id, { ...lot });
+  }
+
+  const placedPairs: Array<[string, string]> = [];
+
+  for (const lot of lots) {
+    let matchedRequest: { id: string; kind: string; from: number; to: number; urgent: boolean } | null = null;
+
+    for (const [requestId, request] of requestMap.entries()) {
+      if (
+        (lot.kind === request.kind || lot.kind === "ANY") &&
+        request.from <= lot.day &&
+        lot.day <= request.to
+      ) {
+        if (!matchedRequest || request.urgent || (!matchedRequest.urgent && request.to < matchedRequest.to)) {
+          matchedRequest = { ...request, id: requestId };
+        }
+      }
+    }
+
+    if (matchedRequest) {
+      placedPairs.push([lot.id, matchedRequest.id]);
+      requestMap.delete(matchedRequest.id);
+    }
+  }
+
+  return placedPairs;
+}
+```

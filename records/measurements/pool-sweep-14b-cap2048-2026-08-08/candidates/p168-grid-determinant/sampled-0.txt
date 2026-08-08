@@ -1,0 +1,32 @@
+```ts
+export function gridDeterminant(grid: number[][]): number {
+    if (!Array.isArray(grid) || !grid.every(row => Array.isArray(row))) {
+        throw new Error("Input must be a list of lists.");
+    }
+    const n = grid.length;
+    if (n === 0 || n > 3) {
+        throw new Error("Grid must have one, two, or three rows.");
+    }
+    if (!grid.every(row => row.length === n)) {
+        throw new Error("Each row must have the same number of elements as the number of rows.");
+    }
+    if (grid.some(row => !row.every(cell => Number.isInteger(cell)))) {
+        throw new Error("All cells must be whole numbers.");
+    }
+
+    switch (n) {
+        case 1:
+            return grid[0][0];
+        case 2:
+            return grid[0][0] * grid[1][1] - grid[0][1] * grid[1][0];
+        case 3:
+            return (
+                grid[0][0] * (grid[1][1] * grid[2][2] - grid[1][2] * grid[2][1]) -
+                grid[0][1] * (grid[1][0] * grid[2][2] - grid[1][2] * grid[2][0]) +
+                grid[0][2] * (grid[1][0] * grid[2][1] - grid[1][1] * grid[2][0])
+            );
+        default:
+            throw new Error("Invalid number of rows.");
+    }
+}
+```

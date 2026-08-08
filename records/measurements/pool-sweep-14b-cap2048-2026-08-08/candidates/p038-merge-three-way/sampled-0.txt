@@ -1,0 +1,50 @@
+```ts
+export function mergeThreeWay(base: Record<string, string>, ours: Record<string, string>, theirs: Record<string, string>): { merged: Record<string, string>; conflicts: string[] } {
+    const validateMapping = (mapping: Record<string, string>) => {
+        if (typeof mapping !== 'object' || mapping === null) {
+            throw new Error('Invalid argument: not a mapping of strings to strings');
+        }
+        for (const key in mapping) {
+            if (typeof key !== 'string' || typeof mapping[key] !== 'string') {
+                throw new Error('Invalid argument: not a mapping of strings to strings');
+            }
+        }
+    };
+
+    validateMapping(base);
+    validateMapping(ours);
+    validateMapping(theirs);
+
+    const allKeys = Array.from(new Set([...Object.keys(base), ...Object.keys(ours), ...Object.keys(theirs)]));
+    allKeys.sort();
+
+    const merged: Record<string, string> = {};
+    const conflicts: string[] = [];
+
+    for (const key of allKeys) {
+        const baseValue = base[key];
+        const ourValue = ours[key];
+        const theirValue = theirs[key];
+
+        if (ourValue === undefined && theirValue === undefined) {
+            continue; // Key not present in either ours or theirs
+        }
+
+        if (ourValue === theirValue) {
+            merged[key] = ourValue; // Both sides made the same change
+        } else if (baseValue === ourValue && baseValue !== theirValue) {
+            conflicts.push(key); // They changed what we didn't
+        } else if (baseValue === theirValue && baseValue !== ourValue) {
+            conflicts.push(key); // We changed what they didn't
+        } else if (ourValue === undefined || theirValue === undefined) {
+            merged[key] = ourValue ?? theirValue; // One side added or removed a key
+        } else if (baseValue === undefined && ourValue !== theirValue) {
+            conflicts.push(key); // Both sides added with different values
+        } else {
+            conflicts.push(key); // Different new values for the same key
+        }
+    }
+
+    return { merged, conflicts };
+}
+```

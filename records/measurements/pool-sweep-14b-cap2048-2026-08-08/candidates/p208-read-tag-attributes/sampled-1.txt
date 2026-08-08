@@ -1,0 +1,94 @@
+```ts
+/**
+ * Parses a small bracket markup tag and returns its attributes.
+ * @param tag - The tag string to parse.
+ * @returns A record with "stem" and "marks" keys.
+ */
+export function readTagAttributes(tag: string): Record<string, unknown> {
+  if (typeof tag !== 'string') {
+    throw new Error('Invalid input: tag must be a string');
+  }
+
+  const stemPattern = /^[a-zA-Z][a-zA-Z0-9-]*$/;
+  const namePattern = /^[a-z][a-z0-9-]*$/;
+
+  if (!tag.startsWith('[') || !tag.endsWith(']')) {
+    throw new Error('Invalid tag: missing opening or closing bracket');
+  }
+
+  const content = tag.slice(1, -1);
+  const parts = content.split(' ');
+
+  if (parts.length === 0) {
+    throw new Error('Invalid tag: no content between brackets');
+  }
+
+  const stem = parts[0];
+  if (!stemPattern.test(stem)) {
+    throw new Error(`Invalid stem: ${stem}`);
+  }
+
+  const marks: Record<string, { name: string; setting: string }> = {};
+  let currentName = '';
+  let currentSetting = '';
+
+  for (let i = 1; i < parts.length; i++) {
+    if (parts[i] === '') {
+      throw new Error('Invalid tag: two spaces running');
+    }
+
+    const part = parts[i];
+
+    if (namePattern.test(part)) {
+      if (currentName !== '') {
+        marks[currentName] = { name: currentName, setting: currentSetting };
+      }
+      currentName = part;
+      currentSetting = '';
+    } else if (part.startsWith('=')) {
+      if (currentName === '') {
+        throw new Error('Invalid tag: equals sign with no setting after it');
+      }
+
+      const settingPart = part.slice(1);
+      if (settingPart.startsWith('"') || settingPart.startsWith("'")) {
+        const quote = settingPart[0];
+        let j = 1;
+        while (j < settingPart.length) {
+          if (settingPart[j] === '\\') {
+            if (j + 1 >= settingPart.length || settingPart[j + 1] !== quote) {
+              throw new Error('Invalid tag: backslash standing before anything else');
+            }
+            j += 2;
+          } else if (settingPart[j] === quote) {
+            break;
+          } else {
+            j++;
+          }
+        }
+
+        if (j >= settingPart.length || settingPart[j] !== quote) {
+          throw new Error('Invalid tag: fence never closed');
+        }
+
+        currentSetting = settingPart.slice(1, j);
+      } else if (/^[a-zA-Z0-9-.]+$/.test(settingPart)) {
+        currentSetting = settingPart;
+        if (i + 1 < parts.length && /^[a-zA-Z0-9-.]+$/.test(parts[i + 1])) {
+          throw new Error('Invalid tag: plain setting followed by a stray character');
+        }
+      } else {
+        throw new Error(`Invalid setting: ${settingPart}`);
+      }
+    } else {
+      throw new Error(`Invalid part: ${part}`);
+    }
+  }
+
+  if (currentName !== '') {
+    marks[currentName] = { name: currentName, setting: currentSetting };
+  }
+
+  return { stem, marks };
+}
+```

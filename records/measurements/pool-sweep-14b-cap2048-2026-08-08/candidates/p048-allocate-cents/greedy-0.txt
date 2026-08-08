@@ -1,0 +1,43 @@
+```ts
+/**
+ * Allocates a total amount of cents among parties based on given weights.
+ * @param total - The total number of cents to allocate.
+ * @param weights - An array of positive integer weights for each party.
+ * @returns An array of integers representing the allocated cents for each party.
+ */
+export function allocateCents(total: number, weights: number[]): number[] {
+  if (weights.length === 0) {
+    throw new Error("Weights list cannot be empty.");
+  }
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error("Total must be a non-negative integer.");
+  }
+  for (const weight of weights) {
+    if (!Number.isInteger(weight) || weight <= 0) {
+      throw new Error("All weights must be positive integers.");
+    }
+  }
+
+  const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+  const baseAmounts = weights.map(weight => Math.floor((total * weight) / weightSum));
+  let remainingCents = total - baseAmounts.reduce((sum, amount) => sum + amount, 0);
+
+  const remainders = weights.map((weight, index) => ({
+    index,
+    remainder: (total * weight) % weightSum
+  }));
+
+  remainders.sort((a, b) => {
+    if (b.remainder === a.remainder) {
+      return a.index - b.index;
+    }
+    return b.remainder - a.remainder;
+  });
+
+  for (let i = 0; i < remainingCents; i++) {
+    baseAmounts[remainders[i].index]++;
+  }
+
+  return baseAmounts;
+}
+```

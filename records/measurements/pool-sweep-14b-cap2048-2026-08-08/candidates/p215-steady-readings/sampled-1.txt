@@ -1,0 +1,74 @@
+```ts
+/**
+ * Calculates the steady readings based on the given list of gauge readings and specification.
+ * @param readings - A non-empty list of whole number gauge readings.
+ * @param spec - An object with "band" (a non-negative whole number) and "hold" (a positive whole number).
+ * @returns An object with "settled", an array of steady figures at every reading, and "moved", an array of indices where the steady figure changed.
+ */
+export function steadyReadings(readings: unknown, spec: unknown): Record<string, unknown> {
+  if (!Array.isArray(readings) || readings.length === 0) {
+    throw new Error("Invalid readings: must be a non-empty list.");
+  }
+  if (typeof spec !== 'object' || spec === null) {
+    throw new Error("Invalid specification: must be a mapping.");
+  }
+
+  const { band, hold } = spec as { band: number; hold: number };
+
+  if (!Number.isInteger(band) || band < 0) {
+    throw new Error("Invalid band: must be a non-negative whole number.");
+  }
+  if (!Number.isInteger(hold) || hold <= 0) {
+    throw new Error("Invalid hold: must be a positive whole number.");
+  }
+
+  readings.forEach(reading => {
+    if (!Number.isInteger(reading)) {
+      throw new Error("Invalid reading: all readings must be whole numbers.");
+    }
+  });
+
+  const settled: number[] = [];
+  const moved: number[] = [];
+  let steadyFigure = readings[0] as number;
+  let challengeStart: number | null = null;
+  let challengeLength = 0;
+
+  readings.forEach((reading, index) => {
+    const distance = Math.abs(reading - steadyFigure);
+
+    if (distance <= band) {
+      // Quiet reading
+      if (challengeStart !== null) {
+        challengeStart = null;
+        challengeLength = 0;
+      }
+    } else {
+      // Noisy reading
+      if (challengeStart === null) {
+        challengeStart = index;
+        challengeLength = 1;
+      } else {
+        const distanceFromChallengeStart = Math.abs(reading - readings[challengeStart]);
+        if (distanceFromChallengeStart <= band) {
+          challengeLength++;
+        } else {
+          challengeStart = index;
+          challengeLength = 1;
+        }
+      }
+
+      if (challengeLength >= hold) {
+        steadyFigure = readings[challengeStart];
+        moved.push(index);
+        challengeStart = null;
+        challengeLength = 0;
+      }
+    }
+
+    settled.push(steadyFigure);
+  });
+
+  return { settled, moved };
+}
+```

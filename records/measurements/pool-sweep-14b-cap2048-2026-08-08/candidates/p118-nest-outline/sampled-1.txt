@@ -1,0 +1,44 @@
+```ts
+export function nestOutline(text: string): any[] {
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error('Input must be a non-empty string.');
+  }
+  if (/\t/.test(text)) {
+    throw new Error('Input must not contain tab characters.');
+  }
+
+  const lines = text.split('\n');
+  const outline: any[] = [];
+  let stack: any[] = [];
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) {
+      continue;
+    }
+
+    const leadingSpaces = line.length - trimmedLine.length;
+    if (leadingSpaces % 2 !== 0) {
+      throw new Error('Leading spaces must be a multiple of two.');
+    }
+    if (outline.length === 0 && leadingSpaces > 0) {
+      throw new Error('The first line must not be indented.');
+    }
+
+    const currentLevel = leadingSpaces / 2;
+    while (stack.length > currentLevel) {
+      stack.pop();
+    }
+
+    const item = { text: trimmedLine, children: [] };
+    if (stack.length > 0) {
+      stack[stack.length - 1].children.push(item);
+    } else {
+      outline.push(item);
+    }
+    stack.push(item);
+  }
+
+  return outline;
+}
+```

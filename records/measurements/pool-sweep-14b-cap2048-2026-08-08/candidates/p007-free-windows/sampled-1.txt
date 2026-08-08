@@ -1,0 +1,48 @@
+```ts
+/**
+ * The free stretches of a working window, given its busy intervals.
+ */
+export function freeWindows(
+  windowStart: number,
+  windowEnd: number,
+  busy: number[][],
+): number[][] {
+  if (!Number.isInteger(windowStart) || !Number.isInteger(windowEnd)) {
+    throw new Error("Window bounds must be integers.");
+  }
+  if (windowStart >= windowEnd) {
+    throw new Error("Window start must precede its end.");
+  }
+
+  const validBusyIntervals = busy
+    .filter(([start, end]) => {
+      if (!Number.isInteger(start) || !Number.isInteger(end)) {
+        throw new Error("Busy interval endpoints must be integers.");
+      }
+      return start < end;
+    })
+    .map(([start, end]) => [
+      Math.max(start, windowStart),
+      Math.min(end, windowEnd),
+    ])
+    .filter(([start, end]) => start < end);
+
+  validBusyIntervals.sort((a, b) => a[0] - b[0]);
+
+  const gaps: number[][] = [];
+  let cursor = windowStart;
+
+  for (const [start, end] of validBusyIntervals) {
+    if (start > cursor) {
+      gaps.push([cursor, start]);
+    }
+    cursor = Math.max(cursor, end);
+  }
+
+  if (cursor < windowEnd) {
+    gaps.push([cursor, windowEnd]);
+  }
+
+  return gaps;
+}
+```

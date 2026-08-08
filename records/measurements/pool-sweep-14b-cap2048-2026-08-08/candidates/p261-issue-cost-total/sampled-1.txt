@@ -1,0 +1,51 @@
+```ts
+export function issueCostTotal(moves: Array<Record<string, unknown>>): number {
+  if (!Array.isArray(moves)) {
+    throw new Error("Invalid input: moves must be an array");
+  }
+
+  const bin: Array<[number, number]> = [];
+  let charged = 0;
+
+  for (const move of moves) {
+    if (typeof move.kind !== "string" || typeof move.units !== "number") {
+      throw new Error("Invalid move: kind and units must be present and valid");
+    }
+
+    if (move.kind === "in") {
+      if (typeof move.cents !== "number" || move.cents < 0 || !Number.isInteger(move.cents)) {
+        throw new Error("Invalid arrival: cents must be a non-negative integer");
+      }
+      bin.push([move.units, move.cents]);
+    } else if (move.kind === "out") {
+      if (move.cents !== undefined) {
+        throw new Error("Invalid issue: issues should not carry cents");
+      }
+      let unitsToIssue = move.units;
+      while (unitsToIssue > 0 && bin.length > 0) {
+        const [units, cents] = bin[0];
+        if (units <= unitsToIssue) {
+          charged += units * cents;
+          unitsToIssue -= units;
+          bin.shift();
+        } else {
+          charged += unitsToIssue * cents;
+          bin[0][0] -= unitsToIssue;
+          unitsToIssue = 0;
+        }
+      }
+      if (unitsToIssue > 0) {
+        throw new Error("Invalid issue: more units issued than available in the bin");
+      }
+    } else {
+      throw new Error("Invalid move kind: must be 'in' or 'out'");
+    }
+
+    if (!Number.isInteger(move.units) || move.units <= 0) {
+      throw new Error("Invalid move: units must be a positive integer");
+    }
+  }
+
+  return charged;
+}
+```

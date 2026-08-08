@@ -1,0 +1,63 @@
+```ts
+export function runLoom(program: (string | number)[][]): { status: string; output: number[]; step?: number } {
+  const stack: number[] = [];
+  const wovenOutput: number[] = [];
+
+  for (let step = 0; step < program.length; step++) {
+    const instruction = program[step];
+
+    if (!Array.isArray(instruction) || instruction.length !== 2) {
+      return { status: 'lost', output: wovenOutput, step };
+    }
+
+    const [command, arg] = instruction;
+
+    switch (command) {
+      case 'put':
+        if (typeof arg !== 'number') {
+          return { status: 'lost', output: wovenOutput, step };
+        }
+        stack.push(arg);
+        break;
+      case 'twin':
+        if (stack.length < 1) {
+          return { status: 'starved', output: wovenOutput, step };
+        }
+        stack.push(stack[stack.length - 1]);
+        break;
+      case 'flip':
+        if (stack.length < 2) {
+          return { status: 'starved', output: wovenOutput, step };
+        }
+        [stack[stack.length - 2], stack[stack.length - 1]] = [stack[stack.length - 1], stack[stack.length - 2]];
+        break;
+      case 'fuse':
+        if (stack.length < 2) {
+          return { status: 'starved', output: wovenOutput, step };
+        }
+        const a = stack.pop()!;
+        const b = stack.pop()!;
+        stack.push(a + b);
+        break;
+      case 'scale':
+        if (stack.length < 2) {
+          return { status: 'starved', output: wovenOutput, step };
+        }
+        const x = stack.pop()!;
+        const y = stack.pop()!;
+        stack.push(x * y);
+        break;
+      case 'weave':
+        if (stack.length < 1) {
+          return { status: 'starved', output: wovenOutput, step };
+        }
+        wovenOutput.push(stack.pop()!);
+        break;
+      default:
+        return { status: 'lost', output: wovenOutput, step };
+    }
+  }
+
+  return { status: 'done', output: wovenOutput };
+}
+```

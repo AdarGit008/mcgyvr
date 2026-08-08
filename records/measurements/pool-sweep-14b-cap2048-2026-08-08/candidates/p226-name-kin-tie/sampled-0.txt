@@ -1,0 +1,176 @@
+```ts
+export function nameKinTie(links: Array<Record<string, unknown>>, one: string, other: string): string {
+    if (!Array.isArray(links)) {
+        throw new Error("Links must be an array");
+    }
+
+    const parentMap: Record<string, Set<string>> = {};
+    const childMap: Record<string, Set<string>> = {};
+
+    const validateName = (name: string) => {
+        if (typeof name !== "string" || name.trim() === "") {
+            throw new Error("Invalid name");
+        }
+    };
+
+    links.forEach(link => {
+        if (typeof link !== "object" || !link) {
+            throw new Error("Link must be an object");
+        }
+
+        const child = link.child as string;
+        const parent = link.parent as string;
+
+        validateName(child);
+        validateName(parent);
+
+        if (child === parent) {
+            throw new Error("A person cannot be their own parent");
+        }
+
+        if (!parentMap[child]) {
+            parentMap[child] = new Set();
+        }
+        if (!childMap[parent]) {
+            childMap[parent] = new Set();
+        }
+
+        if (parentMap[child].size >= 2) {
+            throw new Error("A person cannot have more than two parents");
+        }
+
+        parentMap[child].add(parent);
+        childMap[parent].add(child);
+    });
+
+    const detectCycle = (name: string, path: Set<string>): boolean => {
+        if (path.has(name)) {
+            return true;
+        }
+        path.add(name);
+
+        const parents = parentMap[name];
+        if (!parents) {
+            return false;
+        }
+
+        for (const parent of parents) {
+            if (detectCycle(parent, new Set(path))) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    for (const link of links) {
+        const child = link.child as string;
+        const parent = link.parent as string;
+
+        if (detectCycle(child, new Set()) || detectCycle(parent, new Set())) {
+            throw new Error("Links close a loop");
+        }
+    }
+
+    if (!parentMap[one] || !parentMap[other]) {
+        throw new Error("Either person is named nowhere in the links");
+    }
+
+    const findDistance = (start: string, target: string): number => {
+        let queue = [start];
+        let distance = 0;
+        const visited = new Set<string>(queue);
+
+        while (queue.length > 0) {
+            if (visited.has(target)) {
+                return distance;
+            }
+
+            const nextQueue: string[] = [];
+            for (const name of queue) {
+                const parents = parentMap[name];
+                if (parents) {
+                    for (const parent of parents) {
+                        if (!visited.has(parent)) {
+                            nextQueue.push(parent);
+                            visited.add(parent);
+                        }
+                    }
+                }
+            }
+
+            queue = nextQueue;
+            distance++;
+        }
+
+        return -1; // No path found
+    };
+
+    const oneAncestors: Record<string, number> = {};
+    const otherAncestors: Record<string, number> = {};
+
+    const findAncestors = (name: string, ancestors: Record<string, number>, depth: number) => {
+        if (ancestors[name] !== undefined) {
+            return;
+        }
+        ancestors[name] = depth;
+
+        const parents = parentMap[name];
+        if (parents) {
+            for (const parent of parents) {
+                findAncestors(parent, ancestors, depth + 1);
+            }
+        }
+    };
+
+    findAncestors(one, oneAncestors, 0);
+    findAncestors(other, otherAncestors, 0);
+
+    let minU = Infinity;
+    let minV = Infinity;
+    let result: string = "unrelated";
+
+    for (const [ancestor, u] of Object.entries(oneAncestors)) {
+        if (otherAncestors[ancestor] !== undefined) {
+            const v = otherAncestors[ancestor];
+
+            if (u < minU || (u === minU && v < minV)) {
+                minU = u;
+                minV = v;
+
+                if (u === 0 && v === 0) {
+                    result = "self";
+                } else if (v === 0) {
+                    switch (u) {
+                        case 1: result = "parent"; break;
+                        case 2: result = "grandparent"; break;
+                        default: result = `great-grandparent`.padStart(u + 8, 'g'); break;
+                    }
+                } else if (u === 0) {
+                    switch (v) {
+                        case 1: result = "child"; break;
+                        case 2: result = "grandchild"; break;
+                        default: result = `great-grandchild`.padStart(v + 8, 'g'); break;
+                    }
+                } else if (u === 1 && v >= 2) {
+                    switch (v - u) {
+                        case 1: result = "aunt-or-uncle"; break;
+                        default: result = `great-aunt-or-uncle`.padStart(v + 8, 'g'); break;
+                    }
+                } else if (u >= 2 && v === 1) {
+                    switch (u - v) {
+                        case 1: result = "niece-or-nephew"; break;
+                        default: result = `great-niece-or-nephew`.padStart(u + 8, 'g'); break;
+                    }
+                } else if (u >= 2 && v >= 2) {
+                    const degree = Math.min(u, v) - 1;
+                    const removal = Math.abs(u - v);
+                    result = `${degree === 0 ? "" : degree + " "}cousin${removal === 0 ? "" : " " + removal + " times removed"}`;
+                }
+            }
+        }
+    }
+
+    return result;
+}
+```

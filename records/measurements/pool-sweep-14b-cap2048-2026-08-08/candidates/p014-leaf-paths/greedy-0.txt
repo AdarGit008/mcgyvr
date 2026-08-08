@@ -1,0 +1,53 @@
+```ts
+export function leafPaths(rows: [string, string][]): string[] {
+  if (rows.length === 0) {
+    throw new Error("Input cannot be empty");
+  }
+
+  const idToParent = new Map<string, string>();
+  const parentToChildren = new Map<string, Set<string>>();
+
+  for (const [id, parentId] of rows) {
+    if (idToParent.has(id)) {
+      throw new Error(`Duplicate id: ${id}`);
+    }
+    idToParent.set(id, parentId);
+
+    if (!parentToChildren.has(parentId)) {
+      parentToChildren.set(parentId, new Set());
+    }
+    parentToChildren.get(parentId)!.add(id);
+  }
+
+  const rootRows = rows.filter(([_, parentId]) => parentId === "");
+  if (rootRows.length !== 1) {
+    throw new Error("Input must have exactly one root row");
+  }
+
+  const [rootId] = rootRows[0];
+
+  const allIds = new Set(idToParent.keys());
+  for (const id of idToParent.values()) {
+    if (!allIds.has(id)) {
+      throw new Error(`Parent id ${id} is not a valid node id`);
+    }
+  }
+
+  const leafPaths: string[] = [];
+
+  function dfs(currentId: string, path: string[]) {
+    if (!parentToChildren.has(currentId)) {
+      leafPaths.push(path.join("/"));
+      return;
+    }
+
+    for (const childId of parentToChildren.get(currentId)!) {
+      dfs(childId, [...path, childId]);
+    }
+  }
+
+  dfs(rootId, [rootId]);
+
+  return leafPaths.sort();
+}
+```

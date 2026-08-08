@@ -1,0 +1,34 @@
+```ts
+/**
+ * Normalizes a given hostname by converting it to lowercase,
+ * removing a trailing dot if present, and validating the format.
+ * Throws an error if the hostname does not meet the DNS rules.
+ */
+export function normalizeHostname(hostname: string): string {
+  if (typeof hostname !== 'string') {
+    throw new Error('Invalid input: hostname must be a string');
+  }
+
+  // Convert to lowercase
+  const lowerCaseHostname = hostname.toLowerCase();
+
+  // Remove trailing dot if present
+  const normalizedHostname = lowerCaseHostname.endsWith('.') ? lowerCaseHostname.slice(0, -1) : lowerCaseHostname;
+
+  // Validate the hostname format
+  const labelPattern = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+  const labels = normalizedHostname.split('.');
+
+  if (labels.length === 0 || normalizedHostname.length > 253) {
+    throw new Error('Invalid hostname: does not meet DNS rules');
+  }
+
+  for (const label of labels) {
+    if (!labelPattern.test(label)) {
+      throw new Error('Invalid hostname: does not meet DNS rules');
+    }
+  }
+
+  return normalizedHostname;
+}
+```

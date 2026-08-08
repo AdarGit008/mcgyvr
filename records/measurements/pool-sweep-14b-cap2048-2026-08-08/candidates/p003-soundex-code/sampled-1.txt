@@ -1,0 +1,41 @@
+```typescript
+/**
+ * Computes the American Soundex code for a given word.
+ * @param word - The input string to compute the Soundex code for.
+ * @returns The computed Soundex code as a string.
+ * @throws Error if the input is invalid (empty, non-string, or contains non-ASCII letters).
+ */
+export function soundexCode(word: string): string {
+    if (typeof word !== 'string' || !/^[A-Za-z]+$/.test(word)) {
+        throw new Error('Invalid input: must be a non-empty string with only ASCII letters.');
+    }
+
+    const firstLetter = word[0].toUpperCase();
+    const soundexMap: { [key: string]: number } = {
+        b: 1, f: 1, p: 1, v: 1,
+        c: 2, g: 2, j: 2, k: 2, q: 2, s: 2, x: 2, z: 2,
+        d: 3, t: 3,
+        l: 4,
+        m: 5, n: 5,
+        r: 6
+    };
+
+    const digits = word.slice(1).split('').reduce((acc: number[], char) => {
+        const lowerChar = char.toLowerCase();
+        const digit = soundexMap[lowerChar];
+        if (digit !== undefined) {
+            if (!acc.length || acc[acc.length - 1] !== digit) {
+                acc.push(digit);
+            }
+        } else if (lowerChar === 'h' || lowerChar === 'w') {
+            if (acc.length && soundexMap[word[i + 1].toLowerCase()] === acc[acc.length - 1]) {
+                continue;
+            }
+        }
+        return acc;
+    }, []);
+
+    const paddedDigits = digits.slice(0, 3).join('').padEnd(3, '0');
+    return firstLetter + paddedDigits;
+}
+```

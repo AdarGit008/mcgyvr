@@ -1,0 +1,131 @@
+```ts
+/**
+ * Folds a machine to its minimal equivalent by removing unreachable states
+ * and merging indistinguishable states.
+ * @param machine - The input machine description.
+ */
+export function foldMachine(machine: Record<string, unknown>): Record<string, unknown> {
+  const validateNonEmptyStringList = (list: any[], name: string): string[] => {
+    if (!Array.isArray(list) || list.length === 0) {
+      throw new Error(`${name} must be a non-empty array.`);
+    }
+    return list.map((item, index) => {
+      if (typeof item !== 'string' || item.trim() === '') {
+        throw new Error(`${name}[${index}] must be a non-empty string.`);
+      }
+      return item;
+    });
+  };
+
+  const validateDistinctStringList = (list: any[], name: string): string[] => {
+    const uniqueItems = new Set(validateNonEmptyStringList(list, name));
+    if (uniqueItems.size !== list.length) {
+      throw new Error(`${name} must contain distinct elements.`);
+    }
+    return Array.from(uniqueItems);
+  };
+
+  const alphabet = validateDistinctStringList(machine['alphabet'], 'alphabet');
+  const states = validateDistinctStringList(machine['states'], 'states');
+  const start = machine['start'] as string;
+  if (typeof start !== 'string' || !states.includes(start)) {
+    throw new Error('start must be a valid state.');
+  }
+  const accepting = validateDistinctStringList(
+    Array.isArray(machine['accepting']) ? machine['accepting'] : [],
+    'accepting'
+  ).filter((state) => states.includes(state));
+
+  const moves = (machine['moves'] as any[][]).map((move, index) => {
+    if (!Array.isArray(move) || move.length !== 3) {
+      throw new Error(`moves[${index}] must be a three-element array.`);
+    }
+    const [fromState, symbol, toState] = move;
+    if (
+      typeof fromState !== 'string' ||
+      typeof symbol !== 'string' ||
+      typeof toState !== 'string'
+    ) {
+      throw new Error(`moves[${index}] elements must be strings.`);
+    }
+    if (!states.includes(fromState) || !states.includes(toState)) {
+      throw new Error(`moves[${index}] states must be valid.`);
+    }
+    if (!alphabet.includes(symbol)) {
+      throw new Error(`moves[${index}] symbol must be in the alphabet.`);
+    }
+    return move;
+  });
+
+  const reachableStates = new Set<string>();
+  const visitQueue = [start];
+  while (visitQueue.length > 0) {
+    const state = visitQueue.shift()!;
+    if (!reachableStates.has(state)) {
+      reachableStates.add(state);
+      moves.forEach(([fromState, , toState]) => {
+        if (fromState === state && !reachableStates.has(toState)) {
+          visitQueue.push(toState);
+        }
+      });
+    }
+  }
+
+  const prunedMoves = moves.filter(
+    ([fromState, , ]) => reachableStates.has(fromState)
+  );
+
+  const groupMap: Record<string, number> = {};
+  const groupOrder: string[] = [];
+  let currentGroup = 0;
+
+  const bfsGroups = (startState: string) => {
+    const queue = [startState];
+    const visited = new Set([startState]);
+    while (queue.length > 0) {
+      const state = queue.shift()!;
+      groupMap[state] = currentGroup;
+      prunedMoves.forEach(([fromState, , toState]) => {
+        if (
+          fromState === state &&
+          !visited.has(toState) &&
+          reachableStates.has(toState)
+        ) {
+          visited.add(toState);
+          queue.push(toState);
+        }
+      });
+    }
+  };
+
+  bfsGroups(start);
+
+  const groupAccepting = Array.from(reachableStates).filter(
+    (state) => accepting.includes(state)
+  ).map((state) => groupMap[state]).sort((a, b) => a - b);
+
+  const groupedMoves: [number, string, number][] = [];
+  reachableStates.forEach((fromState) => {
+    alphabet.forEach((symbol) => {
+      const toState = prunedMoves
+        .find(
+          ([moveFromState, moveSymbol]) =>
+            moveFromState === fromState && moveSymbol === symbol
+        )?.[2];
+      if (toState) {
+        groupedMoves.push([groupMap[fromState], symbol, groupMap[toState]]);
+      }
+    });
+  });
+
+  return {
+    size: currentGroup + 1,
+    start: 0,
+    accepting: groupAccepting,
+    moves: groupedMoves.sort(
+      ([fromGroupA, symbolA], [fromGroupB, symbolB]) =>
+        fromGroupA - fromGroupB || alphabet.indexOf(symbolA) - alphabet.indexOf(symbolB)
+    ),
+  };
+}
+```

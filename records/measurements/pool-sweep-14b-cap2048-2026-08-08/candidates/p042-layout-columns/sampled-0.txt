@@ -1,0 +1,54 @@
+```ts
+export function layoutColumns(rows: string[][], aligns: string): string[] {
+  if (rows.length === 0) {
+    throw new Error("Table cannot be empty");
+  }
+
+  const columnWidths = Array(rows[0].length).fill(0);
+
+  // Validate rows and calculate column widths
+  for (const row of rows) {
+    if (row.length !== aligns.length) {
+      throw new Error("Row length must match alignment spec length");
+    }
+    for (let i = 0; i < row.length; i++) {
+      if (typeof row[i] !== "string") {
+        throw new Error("Cell must be a string");
+      }
+      columnWidths[i] = Math.max(columnWidths[i], row[i].length);
+    }
+  }
+
+  // Validate alignment spec
+  for (const align of aligns) {
+    if (!["l", "r", "c"].includes(align)) {
+      throw new Error("Alignment spec must contain only 'l', 'r', or 'c'");
+    }
+  }
+
+  // Create formatted lines
+  const lines: string[] = rows.map(row =>
+    row
+      .map((cell, index) => {
+        const width = columnWidths[index];
+        const align = aligns[index];
+        switch (align) {
+          case "l":
+            return cell.padEnd(width);
+          case "r":
+            return cell.padStart(width);
+          case "c":
+            const padLeft = Math.floor((width - cell.length) / 2);
+            const padRight = width - cell.length - padLeft;
+            return " ".repeat(padLeft) + cell + " ".repeat(padRight);
+          default:
+            throw new Error("Invalid alignment character");
+        }
+      })
+      .join("  ")
+      .trim()
+  );
+
+  return lines;
+}
+```

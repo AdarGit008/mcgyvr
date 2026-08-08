@@ -1,0 +1,34 @@
+```ts
+/**
+ * One line of key=value pairs, joined by &. Each pair is serialized with special
+ * characters escaped: % as %25, & as %26, = as %3D. An empty input list produces
+ * the empty string. Rejects an empty key or non-string key/value.
+ */
+export function encodePairs(pairs: [string, string][]): string {
+  if (!Array.isArray(pairs)) {
+    throw new Error("Input must be an array of pairs.");
+  }
+
+  const parts: string[] = [];
+  for (const [key, value] of pairs) {
+    if (typeof key !== "string" || typeof value !== "string") {
+      throw new Error("Both key and value must be strings.");
+    }
+    if (key === "") {
+      throw new Error("Key cannot be an empty string.");
+    }
+
+    const escape = (str: string): string => {
+      return str
+        .replace(/%/g, "%25")
+        .replace(/&/g, "%26")
+        .replace(/=/g, "%3D");
+    };
+
+    const k = escape(key);
+    const v = escape(value);
+    parts.push(k + "=" + v);
+  }
+  return parts.join("&");
+}
+```

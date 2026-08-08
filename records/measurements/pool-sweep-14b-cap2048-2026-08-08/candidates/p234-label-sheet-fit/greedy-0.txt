@@ -1,0 +1,51 @@
+```ts
+export function fitLabelSheet(sheet: any, label: any): any {
+  // Validate sheet dimensions
+  if (!Number.isInteger(sheet.width) || sheet.width <= 0) throw new Error("Invalid sheet width");
+  if (!Number.isInteger(sheet.height) || sheet.height <= 0) throw new Error("Invalid sheet height");
+
+  // Validate margins and gaps
+  if (!Number.isInteger(sheet.marginX) || sheet.marginX < 0) throw new Error("Invalid marginX");
+  if (!Number.isInteger(sheet.marginY) || sheet.marginY < 0) throw new Error("Invalid marginY");
+  if (!Number.isInteger(sheet.gapX) || sheet.gapX < 0) throw new Error("Invalid gapX");
+  if (!Number.isInteger(sheet.gapY) || sheet.gapY < 0) throw new Error("Invalid gapY");
+
+  // Validate label dimensions
+  if (!Number.isInteger(label.width) || label.width <= 0) throw new Error("Invalid label width");
+  if (!Number.isInteger(label.height) || label.height <= 0) throw new Error("Invalid label height");
+
+  // Validate turn property
+  if (typeof label.turn !== "boolean") throw new Error("Invalid turn property");
+
+  // Calculate printable field dimensions
+  const printableWidth = sheet.width - 2 * sheet.marginX;
+  const printableHeight = sheet.height - 2 * sheet.marginY;
+
+  // Function to calculate labels that fit in a given orientation
+  function calculateFit(width: number, height: number): { across: number, down: number } {
+    return {
+      across: Math.max(0, Math.floor((printableWidth + sheet.gapX) / (width + sheet.gapX)) - 1),
+      down: Math.max(0, Math.floor((printableHeight + sheet.gapY) / (height + sheet.gapY)) - 1)
+    };
+  }
+
+  // Calculate fit for upright and turned labels
+  const uprightFit = calculateFit(label.width, label.height);
+  const turnedFit = label.turn ? calculateFit(label.height, label.width) : { across: 0, down: 0 };
+
+  // Determine the best fit
+  const totalUpright = uprightFit.across * uprightFit.down;
+  const totalTurned = turnedFit.across * turnedFit.down;
+
+  if (totalUpright === 0 && totalTurned === 0) throw new Error("Not one label fits");
+
+  let result: any;
+  if (totalUpright >= totalTurned) {
+    result = { ...uprightFit, total: totalUpright, turned: false };
+  } else {
+    result = { ...turnedFit, total: totalTurned, turned: true };
+  }
+
+  return result;
+}
+```

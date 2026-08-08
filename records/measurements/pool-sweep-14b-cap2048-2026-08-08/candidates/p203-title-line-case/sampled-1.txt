@@ -1,0 +1,48 @@
+```ts
+/**
+ * A heading dressed for print.
+ */
+export function titleLine(text: string, quiet: string[]): string {
+  if (typeof text !== "string" || text.length === 0) {
+    throw new Error("Heading must be a non-empty string.");
+  }
+  if (!Array.isArray(quiet)) {
+    throw new Error("Quiet list must be an array.");
+  }
+  if (!quiet.every((item) => typeof item === "string" && /^[a-z]+$/.test(item))) {
+    throw new Error("Quiet list must contain strings of small letters only.");
+  }
+
+  const tokens = text.split(" ");
+  if (tokens.some((token) => token.length === 0 || /[^a-zA-Z0-9'-]+/.test(token))) {
+    throw new Error("Tokens must be non-empty and contain only ASCII letters, digits, hyphens, or apostrophes.");
+  }
+  if (/^\s+|\s+$|\s{2,}/.test(text)) {
+    throw new Error("Heading must not start, end, or have consecutive spaces.");
+  }
+
+  return tokens
+    .map((token) => {
+      if (quiet.includes(token.toLowerCase()) && token.length > 1) {
+        return token.toLowerCase();
+      } else if (
+        token !== tokens[0] &&
+        token !== tokens[tokens.length - 1] &&
+        quiet.includes(token.toLowerCase())
+      ) {
+        return token.toLowerCase();
+      } else {
+        return token
+          .split(/(['-])/)
+          .map((piece, index, pieces) => {
+            if (index === 0 || index === pieces.length - 1) {
+              return piece.toLowerCase();
+            }
+            return piece[0].toUpperCase() + piece.slice(1).toLowerCase();
+          })
+          .join("");
+      }
+    })
+    .join(" ");
+}
+```

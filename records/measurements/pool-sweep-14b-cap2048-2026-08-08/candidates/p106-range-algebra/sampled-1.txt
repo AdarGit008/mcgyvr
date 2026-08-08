@@ -1,0 +1,107 @@
+```ts
+export function rangeAlgebra(a: number[][], b: number[][], op: string): number[][] {
+  if (op !== "union" && op !== "intersect" && op !== "subtract") {
+    throw new Error("Invalid operation");
+  }
+
+  const normalize = (ranges: number[][]): number[][] => {
+    return ranges
+      .filter(([lo, hi]) => lo < hi)
+      .sort((r1, r2) => r1[0] - r2[0])
+      .reduce<number[][]>((acc, [lo, hi]) => {
+        if (acc.length === 0 || acc[acc.length - 1][1] <= lo) {
+          acc.push([lo, hi]);
+        } else {
+          acc[acc.length - 1][1] = Math.max(acc[acc.length - 1][1], hi);
+        }
+        return acc;
+      }, []);
+  };
+
+  const aNormalized = normalize(a);
+  const bNormalized = normalize(b);
+
+  let result: number[][] = [];
+
+  if (op === "union") {
+    const mergeRanges = (r1: number[], r2: number[]): number[] | null => {
+      if (r1[1] <= r2[0]) return r1;
+      if (r2[1] <= r1[0]) return r2;
+      return [Math.min(r1[0], r2[0]), Math.max(r1[1], r2[1])];
+    };
+
+    const merge = (acc: number[][], current: number[]): number[][] => {
+      let last = acc.length > 0 ? acc[acc.length - 1] : null;
+      if (last) {
+        const merged = mergeRanges(last, current);
+        if (merged) {
+          acc.pop();
+          acc.push(merged);
+        } else {
+          acc.push(current);
+        }
+      } else {
+        acc.push(current);
+      }
+      return acc;
+    };
+
+    result = aNormalized.concat(bNormalized).reduce(merge, []);
+  } else if (op === "intersect") {
+    let i = 0, j = 0;
+
+    while (i < aNormalized.length && j < bNormalized.length) {
+      const [aLo, aHi] = aNormalized[i];
+      const [bLo, bHi] = bNormalized[j];
+
+      if (bHi <= aLo) {
+        j++;
+      } else if (aHi <= bLo) {
+        i++;
+      } else {
+        result.push([Math.max(aLo, bLo), Math.min(aHi, bHi)]);
+        if (aHi < bHi) {
+          i++;
+        } else {
+          j++;
+        }
+      }
+    }
+  } else if (op === "subtract") {
+    let i = 0, j = 0;
+
+    while (i < aNormalized.length && j < bNormalized.length) {
+      const [aLo, aHi] = aNormalized[i];
+      const [bLo, bHi] = bNormalized[j];
+
+      if (bHi <= aLo) {
+        j++;
+        continue;
+      }
+
+      if (aHi <= bLo) {
+        i++;
+        result.push([aLo, aHi]);
+        continue;
+      }
+
+      if (aLo < bLo) {
+        result.push([aLo, bLo]);
+      }
+
+      if (bHi < aHi) {
+        aNormalized[i][0] = bHi;
+      } else {
+        i++;
+      }
+    }
+
+    while (i < aNormalized.length) {
+      result.push(aNormalized[i]);
+      i++;
+    }
+  }
+
+  return normalize(result);
+}
+```

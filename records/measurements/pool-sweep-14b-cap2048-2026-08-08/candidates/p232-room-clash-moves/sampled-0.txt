@@ -1,0 +1,53 @@
+```ts
+export function planRoomMoves(bookings: any[]): string[] {
+  if (!Array.isArray(bookings)) {
+    throw new Error("Invalid input: bookings must be an array");
+  }
+
+  const validateBooking = (booking: any) => {
+    if (
+      typeof booking.id !== "string" ||
+      booking.id.trim() === "" ||
+      typeof booking.start !== "number" ||
+      typeof booking.end !== "number" ||
+      typeof booking.fixed !== "boolean"
+    ) {
+      throw new Error("Invalid booking fields");
+    }
+    if (booking.start >= booking.end) {
+      throw new Error("Invalid booking: start must be strictly below end");
+    }
+  };
+
+  const uniqueIds = new Set<string>();
+  bookings.forEach((booking) => {
+    validateBooking(booking);
+    if (uniqueIds.has(booking.id)) {
+      throw new Error("Repeated booking id");
+    }
+    uniqueIds.add(booking.id);
+  });
+
+  const fixedBookings = bookings.filter((b) => b.fixed).sort((a, b) => a.start - b.start || a.end - b.end || a.id.localeCompare(b.id));
+  for (let i = 1; i < fixedBookings.length; i++) {
+    if (fixedBookings[i].start < fixedBookings[i - 1].end) {
+      throw new Error("Overlapping fixed bookings");
+    }
+  }
+
+  const movableBookings = bookings.filter((b) => !b.fixed).sort((a, b) => a.end - b.end || a.start - b.start || a.id.localeCompare(b.id));
+
+  const movedBookings: string[] = [];
+  let lastEndTime = 0;
+
+  for (const booking of movableBookings) {
+    if (booking.start < lastEndTime) {
+      movedBookings.push(booking.id);
+    } else {
+      lastEndTime = booking.end;
+    }
+  }
+
+  return movedBookings;
+}
+```

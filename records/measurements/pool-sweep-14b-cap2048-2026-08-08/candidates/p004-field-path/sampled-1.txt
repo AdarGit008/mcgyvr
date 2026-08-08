@@ -1,0 +1,32 @@
+```ts
+export function splitFieldPath(path: string): (string | number)[] {
+  if (typeof path !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  if (!path || /^\s|\s$|^\.$|\.\s*$|[\[\]]/.test(path)) {
+    throw new Error('Invalid field path');
+  }
+
+  const parts: (string | number)[] = [];
+  const regex = /([a-zA-Z_][a-zA-Z0-9_]*)|\[(\d+)\]/g;
+  let match;
+
+  while ((match = regex.exec(path)) !== null) {
+    if (match[1]) {
+      parts.push(match[1]);
+    } else if (match[2]) {
+      const index = parseInt(match[2], 10);
+      if (isNaN(index) || match[2][0] === '0') {
+        throw new Error('Invalid index');
+      }
+      parts.push(index);
+    }
+  }
+
+  if (!parts.length || regex.lastIndex !== path.length) {
+    throw new Error('Invalid field path');
+  }
+
+  return parts;
+}
+```

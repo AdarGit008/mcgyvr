@@ -1,0 +1,42 @@
+```ts
+export function foldParcels(events: Array<{ type: string; parcel: string }>): Record<string, string> {
+  const PARCEL_STATES = ['accepted', 'in_transit', 'delivered', 'returned', 'lost'];
+  const TRANSITION_MAP: { [key: string]: string[] } = {
+    accepted: ['in_transit'],
+    in_transit: ['delivered', 'lost'],
+    delivered: ['returned'],
+    returned: [],
+    lost: []
+  };
+
+  const depot: Record<string, string> = {};
+
+  for (let i = 0; i < events.length; i++) {
+    const { type, parcel } = events[i];
+
+    if (!parcel) {
+      throw new Error(`Event at index ${i} is missing the parcel key.`);
+    }
+
+    if (type === 'accept') {
+      if (depot[parcel]) {
+        throw new Error(`Parcel ${parcel} was already accepted or in another state at index ${i}.`);
+      }
+      depot[parcel] = 'accepted';
+    } else if (TRANSITION_MAP[type]) {
+      const currentState = depot[parcel];
+      if (!currentState) {
+        throw new Error(`Parcel ${parcel} has never been accepted at index ${i}.`);
+      }
+      if (!TRANSITION_MAP[currentState].includes(type)) {
+        throw new Error(`Invalid transition from ${currentState} to ${type} for parcel ${parcel} at index ${i}.`);
+      }
+      depot[parcel] = type;
+    } else {
+      throw new Error(`Unknown event type ${type} at index ${i}.`);
+    }
+  }
+
+  return depot;
+}
+```

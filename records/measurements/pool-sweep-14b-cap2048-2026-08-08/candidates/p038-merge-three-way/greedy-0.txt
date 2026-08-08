@@ -1,0 +1,37 @@
+```ts
+export function mergeThreeWay(base: Record<string, string>, ours: Record<string, string>, theirs: Record<string, string>): { merged: Record<string, string>; conflicts: string[] } {
+  // Validate input
+  if (typeof base !== 'object' || typeof ours !== 'object' || typeof theirs !== 'object') {
+    throw new Error('All inputs must be objects');
+  }
+
+  const keys = new Set([...Object.keys(base), ...Object.keys(ours), ...Object.keys(theirs)]);
+  const merged: Record<string, string> = {};
+  const conflicts: string[] = [];
+
+  keys.forEach(key => {
+    const baseValue = base[key];
+    const ourValue = ours[key];
+    const theirValue = theirs[key];
+
+    if (ourValue === baseValue && theirValue === baseValue) {
+      // No change on either side
+      merged[key] = baseValue;
+    } else if (ourValue === theirValue && ourValue !== baseValue) {
+      // Both sides made the same change
+      merged[key] = ourValue;
+    } else if (ourValue === baseValue || theirValue === baseValue) {
+      // One side changed, the other didn't
+      merged[key] = ourValue ?? theirValue;
+    } else {
+      // Conflict: different changes on both sides
+      conflicts.push(key);
+      if (baseValue !== undefined) {
+        merged[key] = baseValue;
+      }
+    }
+  });
+
+  return { merged, conflicts };
+}
+```

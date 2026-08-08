@@ -1,0 +1,75 @@
+```ts
+export function fillDeskMap(plan: string[], legend: Record<string, string[]>): Record<string, unknown> {
+  if (!Array.isArray(plan) || plan.length === 0) {
+    throw new Error("Invalid floor plan");
+  }
+
+  const rowLength = plan[0].length;
+  for (const row of plan) {
+    if (typeof row !== "string" || row.length === 0 || row.length !== rowLength) {
+      throw new Error("Invalid row in floor plan");
+    }
+    for (const char of row) {
+      if (!/^[a-z.|]$/.test(char)) {
+        throw new Error("Invalid character in floor plan");
+      }
+    }
+  }
+
+  if (typeof legend !== "object" || legend === null) {
+    throw new Error("Invalid legend");
+  }
+
+  const deskAssignments: Record<string, { name: string; row: number; col: number }[]> = {};
+  const floorMap: string[][] = plan.map(row => row.split(''));
+  let spareDesks = 0;
+
+  for (const [bank, people] of Object.entries(legend)) {
+    if (!/^[a-z]$/.test(bank) || bank.length !== 1) {
+      throw new Error("Invalid bank key in legend");
+    }
+    if (!plan.some(row => row.includes(bank))) {
+      throw new Error(`Bank ${bank} not present in floor plan`);
+    }
+    if (!Array.isArray(people)) {
+      throw new Error(`Legend value for bank ${bank} is not a list`);
+    }
+
+    const deskCount = plan.reduce((count, row) => count + (row.split(bank).length - 1), 0);
+    if (deskCount < people.length) {
+      throw new Error(`More people than desks for bank ${bank}`);
+    }
+
+    let personIndex = 0;
+    for (let row = 0; row < plan.length; row++) {
+      for (let col = 0; col < rowLength; col++) {
+        if (floorMap[row][col] === bank) {
+          if (personIndex >= people.length) {
+            spareDesks++;
+          } else {
+            const name = people[personIndex];
+            if (!/^[a-zA-Z]+$/.test(name)) {
+              throw new Error(`Invalid person name in legend for bank ${bank}`);
+            }
+            floorMap[row][col] = name[0].toUpperCase();
+            deskAssignments[name] = { name, row, col };
+            personIndex++;
+          }
+        }
+      }
+    }
+  }
+
+  const sat: string[] = [];
+  for (const [name, { row, col }] of Object.entries(deskAssignments)) {
+    sat.push(`${name} r${row} c${col}`);
+  }
+  sat.sort();
+
+  return {
+    floor: floorMap.map(row => row.join('')),
+    sat,
+    spare: spareDesks
+  };
+}
+```

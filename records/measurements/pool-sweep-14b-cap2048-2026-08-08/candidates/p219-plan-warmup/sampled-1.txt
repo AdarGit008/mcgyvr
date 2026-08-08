@@ -1,0 +1,98 @@
+```ts
+export function planWarmup(brief: Record<string, unknown>): Record<string, unknown> {
+  const { budget, slots, caps, items } = brief;
+
+  if (typeof budget !== 'number' || budget < 0 || !Number.isInteger(budget)) {
+    throw new Error('Invalid budget');
+  }
+  if (typeof slots !== 'number' || slots <= 0 || !Number.isInteger(slots)) {
+    throw new Error('Invalid slots');
+  }
+  if (typeof caps !== 'object' || caps === null) {
+    throw new Error('Invalid caps');
+  }
+  if (!Array.isArray(items)) {
+    throw new Error('Invalid items');
+  }
+
+  const familyCaps = new Map<string, number>();
+  for (const [family, cap] of Object.entries(caps)) {
+    if (typeof family !== 'string' || family === '') {
+      throw new Error('Invalid family name');
+    }
+    if (typeof cap !== 'number' || cap < 0 || !Number.isInteger(cap)) {
+      throw new Error('Invalid cap');
+    }
+    familyCaps.set(family, cap);
+  }
+
+  const itemMap = new Map<string, { bytes: number; weight: number; family: string }>();
+  for (const item of items) {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error('Invalid item');
+    }
+    const { name, bytes, weight, family } = item as Record<string, unknown>;
+    if (typeof name !== 'string' || name === '') {
+      throw new Error('Invalid item name');
+    }
+    if (itemMap.has(name)) {
+      throw new Error('Duplicate item name');
+    }
+    if (typeof bytes !== 'number' || bytes <= 0 || !Number.isInteger(bytes)) {
+      throw new Error('Invalid item bytes');
+    }
+    if (typeof weight !== 'number' || weight < 0 || !Number.isInteger(weight)) {
+      throw new Error('Invalid item weight');
+    }
+    if (typeof family !== 'string' || family === '') {
+      throw new Error('Invalid item family');
+    }
+    if (!familyCaps.has(family)) {
+      throw new Error('Item family not in caps');
+    }
+    itemMap.set(name, { bytes, weight, family });
+  }
+
+  const itemsSorted = Array.from(itemMap.entries()).sort((a, b) => {
+    if (b[1].weight !== a[1].weight) {
+      return b[1].weight - a[1].weight;
+    }
+    if (a[1].bytes !== b[1].bytes) {
+      return a[1].bytes - b[1].bytes;
+    }
+    return a[0].localeCompare(b[0]);
+  });
+
+  const loaded: string[] = [];
+  const turned: { name: string; why: string }[] = [];
+  let remainingSlots = slots;
+  let remainingBudget = budget;
+  const familyUsage = new Map<string, number>();
+
+  for (const [name, item] of itemsSorted) {
+    if (remainingSlots <= 0) {
+      turned.push({ name, why: 'slots' });
+      continue;
+    }
+    if ((familyUsage.get(item.family) || 0) >= familyCaps.get(item.family)! ) {
+      turned.push({ name, why: 'family' });
+      continue;
+    }
+    if (item.bytes > remainingBudget) {
+      turned.push({ name, why: 'bytes' });
+      continue;
+    }
+
+    loaded.push(name);
+    remainingSlots--;
+    familyUsage.set(item.family, (familyUsage.get(item.family) || 0) + 1);
+    remainingBudget -= item.bytes;
+  }
+
+  return {
+    loaded,
+    spare: remainingBudget,
+    turned
+  };
+}
+```

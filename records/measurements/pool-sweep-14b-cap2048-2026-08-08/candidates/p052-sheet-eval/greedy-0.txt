@@ -1,0 +1,66 @@
+```ts
+export function computeSheet(cells: Record<string, string>): Record<string, number> {
+  const cellValues = new Map<string, number>();
+  const visited = new Set<string>();
+  const recursionStack = new Set<string>();
+
+  function evaluateCell(cellName: string): number {
+    if (recursionStack.has(cellName)) {
+      throw new Error("Reference cycle detected");
+    }
+    if (visited.has(cellName)) {
+      return cellValues.get(cellName)!;
+    }
+
+    const cellText = cells[cellName];
+    if (!cellText) {
+      throw new Error(`Cell ${cellName} not found`);
+    }
+
+    recursionStack.add(cellName);
+    visited.add(cellName);
+
+    let value: number;
+
+    if (cellText.startsWith("=")) {
+      if (cellText.length === 1) {
+        throw new Error("Empty formula");
+      }
+      const terms = cellText.slice(1).split("+").map(term => term.trim());
+      try {
+        value = terms.reduce((sum, term) => sum + parseTerm(term), 0);
+      } catch (e) {
+        recursionStack.delete(cellName);
+        throw e;
+      }
+    } else {
+      value = parseInt(cellText, 10);
+      if (isNaN(value)) {
+        throw new Error(`Malformed literal in cell ${cellName}`);
+      }
+    }
+
+    recursionStack.delete(cellName);
+    cellValues.set(cellName, value);
+    return value;
+  }
+
+  function parseTerm(term: string): number {
+    if (/^[A-Z]+\d+$/.test(term)) {
+      return evaluateCell(term);
+    } else {
+      const value = parseInt(term, 10);
+      if (isNaN(value)) {
+        throw new Error(`Malformed term ${term}`);
+      }
+      return value;
+    }
+  }
+
+  for (const cellName in cells) {
+    evaluateCell(cellName);
+  }
+
+  return Object.fromEntries(cellValues.entries());
+}
+```

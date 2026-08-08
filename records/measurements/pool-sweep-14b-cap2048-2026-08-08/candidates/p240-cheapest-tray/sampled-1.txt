@@ -1,0 +1,132 @@
+```ts
+type Item = {
+  code: string;
+  price: number;
+};
+
+type Bundle = {
+  code: string;
+  price: number;
+  holds: string[];
+};
+
+type Result = {
+  total: number;
+  picks: string[];
+};
+
+export function cheapestTray(items: any[], bundles: any[], needed: any[]): any {
+  if (items.length + bundles.length > 14) {
+    throw new Error("More than fourteen things on sale in all");
+  }
+
+  const itemMap = new Map<string, Item>();
+  for (const item of items) {
+    if (item.price < 1) {
+      throw new Error("Price below one");
+    }
+    if (itemMap.has(item.code)) {
+      throw new Error("Code shared by two things on sale");
+    }
+    itemMap.set(item.code, { code: item.code, price: item.price });
+  }
+
+  const bundleMap = new Map<string, Bundle>();
+  for (const bundle of bundles) {
+    if (bundle.price < 1) {
+      throw new Error("Price below one");
+    }
+    if (itemMap.has(bundle.code)) {
+      throw new Error("Code shared by two things on sale");
+    }
+    if (bundle.holds.length === 0) {
+      throw new Error("Bundle holding nothing");
+    }
+    for (const code of bundle.holds) {
+      if (!itemMap.has(code)) {
+        throw new Error("Bundle holding an unknown code");
+      }
+    }
+    bundleMap.set(bundle.code, { code: bundle.code, price: bundle.price, holds: bundle.holds });
+  }
+
+  const neededSet = new Set<string>(needed);
+  for (const code of needed) {
+    if (!itemMap.has(code)) {
+      throw new Error("Required code no item sells");
+    }
+  }
+  if (new Set(needed).size !== needed.length) {
+    throw new Error("Code required twice");
+  }
+
+  const allItems = Array.from(itemMap.values());
+  const allBundles = Array.from(bundleMap.values());
+
+  function isSubset(a: string[], b: string[]): boolean {
+    return a.every(code => b.includes(code));
+  }
+
+  function solve(
+    items: Item[],
+    bundles: Bundle[],
+    needed: Set<string>
+  ): { total: number; picks: string[] } | null {
+    if (needed.size === 0) {
+      return { total: 0, picks: [] };
+    }
+
+    let best = null;
+
+    for (const item of items) {
+      if (needed.has(item.code)) {
+        const newNeeded = new Set(needed);
+        newNeeded.delete(item.code);
+        const result = solve(items.filter(i => i !== item), bundles, newNeeded);
+        if (result) {
+          const total = result.total + item.price;
+          const picks = [...result.picks, item.code].sort();
+          if (!best || total < best.total || (total === best.total && compareArrays(picks, best.picks) < 0)) {
+            best = { total, picks };
+          }
+        }
+      }
+    }
+
+    for (const bundle of bundles) {
+      if (isSubset(bundle.holds, Array.from(needed))) {
+        const newNeeded = new Set(needed);
+        for (const code of bundle.holds) {
+          newNeeded.delete(code);
+        }
+        const result = solve(items, bundles.filter(b => b !== bundle), newNeeded);
+        if (result) {
+          const total = result.total + bundle.price;
+          const picks = [...result.picks, bundle.code].sort();
+          if (!best || total < best.total || (total === best.total && compareArrays(picks, best.picks) < 0)) {
+            best = { total, picks };
+          }
+        }
+      }
+    }
+
+    return best;
+  }
+
+  function compareArrays(a: string[], b: string[]): number {
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      if (a[i] !== b[i]) {
+        return a[i] < b[i] ? -1 : 1;
+      }
+    }
+    return a.length === b.length ? 0 : a.length < b.length ? -1 : 1;
+  }
+
+  const result = solve(allItems, allBundles, neededSet);
+  if (!result) {
+    throw new Error("No solution found");
+  }
+
+  return { total: result.total, picks: result.picks };
+}
+```

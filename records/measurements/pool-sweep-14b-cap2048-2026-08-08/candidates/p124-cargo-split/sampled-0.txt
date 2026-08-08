@@ -1,0 +1,48 @@
+```ts
+export function splitCargo(weights: number[]): number[] {
+    if (weights.length === 0) {
+        throw new Error("Empty manifest");
+    }
+    if (weights.length > 16) {
+        throw new Error("More than sixteen items");
+    }
+    if (weights.some(weight => weight < 1)) {
+        throw new Error("Weight below one");
+    }
+
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    const targetWeight = Math.floor(totalWeight / 2);
+
+    // Start with item 0 in the forward hold
+    let forwardHold = [0];
+    let remainingWeights = weights.slice(1).map((weight, index) => ({ weight, index }));
+    remainingWeights.sort((a, b) => a.weight - b.weight);
+
+    const dp: boolean[][] = Array.from({ length: targetWeight + 1 }, () => Array(weights.length).fill(false));
+    dp[0].fill(true);
+
+    for (let i = 1; i <= targetWeight; i++) {
+        for (let j = 0; j < remainingWeights.length; j++) {
+            if (i >= remainingWeights[j].weight) {
+                dp[i][j] = dp[i][j] || dp[i - remainingWeights[j].weight][j - 1];
+            }
+        }
+    }
+
+    let closestWeight = targetWeight;
+    while (!dp[closestWeight][remainingWeights.length - 1]) {
+        closestWeight--;
+    }
+
+    const forwardHoldItems: number[] = [0];
+    let currentWeight = closestWeight;
+    for (let j = remainingWeights.length - 1; j >= 0 && currentWeight > 0; j--) {
+        if (dp[currentWeight][j] !== dp[currentWeight][j - 1]) {
+            forwardHoldItems.push(remainingWeights[j].index + 1);
+            currentWeight -= remainingWeights[j].weight;
+        }
+    }
+
+    return forwardHoldItems.sort((a, b) => a - b);
+}
+```

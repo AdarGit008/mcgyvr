@@ -1,0 +1,36 @@
+```ts
+/**
+ * Counts the ordered sequences of exactly parts integers, each one at least lo and at most hi,
+ * whose sum is exactly total. Sequences differing only in order are counted separately.
+ */
+export function cappedCompositions(total: number, parts: number, lo: number, hi: number): number {
+  if (!Number.isInteger(parts) || parts <= 0) {
+    throw new Error("parts must be a positive integer");
+  }
+  if (!Number.isInteger(lo) || lo < 0) {
+    throw new Error("lo must be a non-negative integer");
+  }
+  if (!Number.isInteger(hi) || hi < 0) {
+    throw new Error("hi must be a non-negative integer");
+  }
+  if (lo > hi) {
+    throw new Error("lo must not be greater than hi");
+  }
+  if (!Number.isInteger(total)) {
+    throw new Error("total must be an integer");
+  }
+
+  const dp: number[][] = Array.from({ length: parts + 1 }, () => Array(total + 1).fill(0));
+  dp[0][0] = 1;
+
+  for (let p = 1; p <= parts; p++) {
+    for (let t = 0; t <= total; t++) {
+      for (let i = lo; i <= hi && t >= i; i++) {
+        dp[p][t] += dp[p - 1][t - i];
+      }
+    }
+  }
+
+  return dp[parts][total];
+}
+```

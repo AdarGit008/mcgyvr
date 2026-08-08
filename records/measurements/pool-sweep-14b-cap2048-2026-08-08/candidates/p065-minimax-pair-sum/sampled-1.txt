@@ -1,0 +1,32 @@
+```ts
+export function minimaxPairSum(first: number[], second: number[]): number {
+  if (first.length !== second.length || first.length === 0) {
+    throw new Error("Input lists must be non-empty and of equal length.");
+  }
+
+  for (const num1 of first) {
+    if (!Number.isInteger(num1)) {
+      throw new Error("All entries in the first list must be integers.");
+    }
+  }
+
+  for (const num2 of second) {
+    if (!Number.isInteger(num2)) {
+      throw new Error("All entries in the second list must be integers.");
+    }
+  }
+
+  first.sort((a, b) => a - b);
+  second.sort((a, b) => b - a);
+
+  let maxPairSum = -Infinity;
+  for (let i = 0; i < first.length; i++) {
+    const pairSum = first[i] + second[i];
+    if (pairSum > maxPairSum) {
+      maxPairSum = pairSum;
+    }
+  }
+
+  return maxPairSum;
+}
+```

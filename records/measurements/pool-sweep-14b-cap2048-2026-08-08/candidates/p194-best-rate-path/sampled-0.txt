@@ -1,0 +1,83 @@
+```ts
+export function bestRatePath(quotes: unknown[][], amount: number, source: string, destination: string): Record<string, unknown> {
+  if (!Array.isArray(quotes) || quotes.length === 0) {
+    throw new Error("Quotes list is empty");
+  }
+
+  const parsedQuotes = quotes.map((quote, index) => {
+    if (!Array.isArray(quote) || quote.length !== 3) {
+      throw new Error(`Quote at index ${index} is not three elements`);
+    }
+    const [base, counter, micro] = quote;
+    if (typeof base !== "string" || typeof counter !== "string") {
+      throw new Error(`Base and counter in quote at index ${index} must be strings`);
+    }
+    if (base.length === 0 || counter.length === 0) {
+      throw new Error(`Base or counter in quote at index ${index} is an empty string`);
+    }
+    if (typeof micro !== "number" || !Number.isInteger(micro) || micro <= 0) {
+      throw new Error(`Micro value in quote at index ${index} must be a positive whole number`);
+    }
+    if (base === counter) {
+      throw new Error(`Base and counter in quote at index ${index} are the same`);
+    }
+    return { base, counter, micro };
+  });
+
+  const codeSet = new Set<string>();
+  const quoteMap = new Map<string, { counter: string; micro: number }[]>();
+
+  for (const { base, counter, micro } of parsedQuotes) {
+    codeSet.add(base);
+    codeSet.add(counter);
+    if (!quoteMap.has(base)) {
+      quoteMap.set(base, []);
+    }
+    quoteMap.get(base)!.push({ counter, micro });
+  }
+
+  if (!codeSet.has(source) || !codeSet.has(destination)) {
+    throw new Error("Source or destination is named by no quote");
+  }
+
+  if (source === destination) {
+    throw new Error("Source and destination are the same code");
+  }
+
+  let bestAmount = 0;
+  let bestPath: string[] | null = null;
+
+  function dfs(currentCode: string, path: string[], currentAmount: number): void {
+    if (currentCode === destination) {
+      if (
+        currentAmount > bestAmount ||
+        (currentAmount === bestAmount && path.length < bestPath!.length) ||
+        (currentAmount === bestAmount && path.length === bestPath!.length && path.join(",") < bestPath!.join(","))
+      ) {
+        bestAmount = currentAmount;
+        bestPath = [...path];
+      }
+      return;
+    }
+
+    const nextQuotes = quoteMap.get(currentCode);
+    if (!nextQuotes) {
+      return;
+    }
+
+    for (const { counter, micro } of nextQuotes) {
+      if (!path.includes(counter)) {
+        dfs(counter, [...path, counter], Math.floor((currentAmount * micro) / 1_000_000));
+      }
+    }
+  }
+
+  dfs(source, [source], amount);
+
+  if (!bestPath) {
+    throw new Error("No run connects source to destination");
+  }
+
+  return { amount: bestAmount, path: bestPath };
+}
+```

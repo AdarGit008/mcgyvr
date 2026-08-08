@@ -1,0 +1,56 @@
+```ts
+export function claimZone(claims: string[], where: string): string {
+  // Helper function to parse a post into its components
+  const parsePost = (post: string): number[] => {
+    const parts = post.split('.');
+    if (parts.length !== 3) throw new Error('Invalid post format');
+    return parts.map(Number);
+  };
+
+  // Helper function to validate and parse a claim
+  const parseClaim = (claim: string): { stencil: string; depth: number; name: string } => {
+    const [stencilPart, name] = claim.split(' ');
+    if (!name || name.includes(' ')) throw new Error('Invalid name in claim');
+    if (!stencilPart.includes('/')) throw new Error('Stencil must contain a slash');
+
+    const [post, depthStr] = stencilPart.split('/');
+    const depth = Number(depthStr);
+    if (depth < 0 || depth > 3) throw new Error('Depth must be between 0 and 3');
+    const postNumbers = parsePost(post);
+
+    // Validate numbers after the fixed ones
+    for (let i = depth; i < postNumbers.length; i++) {
+      if (postNumbers[i] !== 0) throw new Error('Numbers after fixed ones must be zero');
+    }
+
+    return { stencil: stencilPart, depth, name };
+  };
+
+  // Validate claims
+  const claimMap = new Map<string, { depth: number; name: string }>();
+  for (const claim of claims) {
+    if (typeof claim !== 'string') throw new Error('Claim must be a string');
+    const parsedClaim = parseClaim(claim);
+    if (claimMap.has(parsedClaim.stencil)) throw new Error('Duplicate stencil in claims');
+    claimMap.set(parsedClaim.stencil, { depth: parsedClaim.depth, name: parsedClaim.name });
+  }
+
+  // Validate where
+  const whereNumbers = parsePost(where);
+
+  // Find the deepest matching claim
+  let bestName = '';
+  for (const [stencil, { depth, name }] of claimMap.entries()) {
+    const [post] = stencil.split('/');
+    const postNumbers = parsePost(post);
+    if (
+      depth <= whereNumbers.length &&
+      postNumbers.every((num, i) => i < depth || num === whereNumbers[i])
+    ) {
+      bestName = name;
+    }
+  }
+
+  return bestName;
+}
+```

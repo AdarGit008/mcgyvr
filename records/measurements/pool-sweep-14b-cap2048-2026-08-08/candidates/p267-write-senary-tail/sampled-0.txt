@@ -1,0 +1,42 @@
+```ts
+/**
+ * Converts a fraction to its senary representation as described in the Loomis gauge system.
+ * @param numerator - The upper reading of the fraction.
+ * @param denominator - The lower reading of the fraction, representing the quotient.
+ * @returns The senary tail representation of the fraction.
+ */
+export function writeSenaryTail(numerator: number, denominator: number): string {
+  if (!Number.isInteger(numerator)) {
+    throw new Error("Numerator must be a whole number.");
+  }
+  if (denominator < 1 || denominator > 10000) {
+    throw new Error("Denominator must be between 1 and 10000.");
+  }
+  if (numerator < 0) {
+    throw new Error("Numerator must not be below zero.");
+  }
+  if (numerator >= denominator) {
+    throw new Error("Numerator must be smaller than the denominator.");
+  }
+
+  const marks = ["0", "1", "2", "3", "4", "5"];
+  let result = "";
+  let seenRemainders: { [key: number]: number } = {};
+
+  while (numerator > 0) {
+    const remainder = numerator % denominator;
+    if (seenRemainders[remainder] !== undefined) {
+      const start = seenRemainders[remainder];
+      const repeatingPart = result.slice(start);
+      return result.slice(0, start) + "|" + repeatingPart + "|";
+    }
+    seenRemainders[remainder] = result.length;
+    numerator *= 6;
+    const digitIndex = Math.floor(numerator / denominator);
+    result += marks[digitIndex];
+    numerator %= denominator;
+  }
+
+  return result || "0";
+}
+```

@@ -1,0 +1,53 @@
+```ts
+export function sieveReport(items: Array<Record<string, unknown>>, rules: Array<Record<string, unknown>>): string[] {
+  const ops = new Set(['eq', 'ne', 'gt', 'lt', 'present', 'absent']);
+  const ruleNames = new Set<string>();
+
+  for (const rule of rules) {
+    if (typeof rule.name !== 'string' || rule.name.trim() === '') {
+      throw new Error('Rule name must be a non-empty string');
+    }
+    if (!ops.has(rule.op as string)) {
+      throw new Error(`Unsupported op: ${rule.op}`);
+    }
+    if (ruleNames.has(rule.name)) {
+      throw new Error(`Duplicate rule name: ${rule.name}`);
+    }
+    ruleNames.add(rule.name);
+  }
+
+  return items.map(item => {
+    for (const rule of rules) {
+      const { name, field, op, value } = rule as { name: string; field: string; op: string; value?: unknown };
+
+      if (!item.hasOwnProperty(field)) {
+        if (op === 'present') continue;
+        return name;
+      }
+
+      const itemValue = item[field];
+
+      switch (op) {
+        case 'eq':
+          if (itemValue !== value) return name;
+          break;
+        case 'ne':
+          if (itemValue === value) return name;
+          break;
+        case 'gt':
+          if (typeof itemValue !== 'number' || typeof value !== 'number' || itemValue <= value) return name;
+          break;
+        case 'lt':
+          if (typeof itemValue !== 'number' || typeof value !== 'number' || itemValue >= value) return name;
+          break;
+        case 'present':
+          continue;
+        case 'absent':
+          return name;
+      }
+    }
+
+    return 'pass';
+  });
+}
+```

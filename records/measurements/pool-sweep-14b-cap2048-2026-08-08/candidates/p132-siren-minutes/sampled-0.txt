@@ -1,0 +1,68 @@
+```ts
+export function sirenMinutes(events: Array<Record<string, unknown>>, horizon: number): Array<[string, number]> {
+  if (!Number.isInteger(horizon) || horizon < 0) {
+    throw new Error("Non-integer or negative horizon");
+  }
+
+  const activeAlerts = new Map<string, { id: string; severity: number; start: number }>();
+  const alertTimes = new Map<string, number>();
+
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i] as { at: number; kind: "raise" | "clear"; id?: string; channel?: string; severity?: number };
+
+    if (typeof event.at !== "number" || typeof event.kind !== "string") {
+      throw new Error("Malformed event");
+    }
+
+    if (i > 0 && event.at <= events[i - 1].at) {
+      throw new Error("Event times do not strictly increase");
+    }
+
+    if (event.kind === "raise") {
+      if (typeof event.id !== "string" || typeof event.channel !== "string" || typeof event.severity !== "number") {
+        throw new Error("Malformed raise event");
+      }
+
+      if (activeAlerts.has(event.channel)) {
+        const current = activeAlerts.get(event.channel)!;
+        if (current.severity >= event.severity) {
+          throw new Error("Raise of an id already active");
+        }
+        alertTimes.set(current.id, alertTimes.get(current.id)! + event.at - current.start);
+      }
+
+      activeAlerts.set(event.channel, { id: event.id, severity: event.severity, start: event.at });
+    } else if (event.kind === "clear") {
+      if (typeof event.id !== "string") {
+        throw new Error("Malformed clear event");
+      }
+
+      let cleared = false;
+      for (const [channel, alert] of activeAlerts.entries()) {
+        if (alert.id === event.id) {
+          alertTimes.set(alert.id, (alertTimes.get(alert.id) || 0) + event.at - alert.start);
+          activeAlerts.delete(channel);
+          cleared = true;
+          break;
+        }
+      }
+
+      if (!cleared) {
+        throw new Error("Clear of an id not active");
+      }
+    } else {
+      throw new Error("Unknown event kind");
+    }
+
+    if (event.at > horizon) {
+      throw new Error("Event time exceeds horizon");
+    }
+  }
+
+  for (const [id, alert] of activeAlerts.entries()) {
+    alertTimes.set(alert.id, (alertTimes.get(alert.id) || 0) + horizon - alert.start);
+  }
+
+  return Array.from(alertTimes.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

@@ -1,0 +1,76 @@
+```ts
+export function cheapestTray(items: { code: string, price: number }[], bundles: { code: string, price: number, holds: string[] }[], needed: string[]): { total: number, picks: string[] } {
+    if (items.length + bundles.length > 14) {
+        throw new Error("More than fourteen things on sale in all");
+    }
+
+    const itemMap = new Map<string, { code: string, price: number }>();
+    items.forEach(item => {
+        if (item.price < 1) {
+            throw new Error("Price below one");
+        }
+        if (itemMap.has(item.code)) {
+            throw new Error("Code shared by two things on sale");
+        }
+        itemMap.set(item.code, item);
+    });
+
+    bundles.forEach(bundle => {
+        if (bundle.price < 1) {
+            throw new Error("Price below one");
+        }
+        if (bundle.holds.length === 0) {
+            throw new Error("Bundle holding nothing");
+        }
+        bundle.holds.forEach(code => {
+            if (!itemMap.has(code)) {
+                throw new Error("Bundle holding an unknown code");
+            }
+        });
+        if (bundleMap.has(bundle.code)) {
+            throw new Error("Code shared by two things on sale");
+        }
+        bundleMap.set(bundle.code, { ...bundle, items: bundle.holds.map(code => itemMap.get(code)!) });
+    });
+
+    const bundleMap = new Map<string, { code: string, price: number, holds: string[], items: { code: string, price: number }[] }>();
+
+    const neededSet = new Set(needed);
+    if (needed.some(code => !itemMap.has(code))) {
+        throw new Error("Required code no item sells");
+    }
+    if (new Set(needed).size !== needed.length) {
+        throw new Error("Code required twice");
+    }
+
+    function getCombinations(items: { code: string, price: number }[], target: Set<string>): { total: number, picks: string[] }[] {
+        const results: { total: number, picks: string[] }[] = [{ total: 0, picks: [] }];
+        items.forEach(item => {
+            if (target.has(item.code)) {
+                const newResults = results.map(result => ({
+                    total: result.total + item.price,
+                    picks: [...result.picks, item.code]
+                }));
+                results.push(...newResults);
+            }
+        });
+        return results.filter(result => Array.from(target).every(code => result.picks.includes(code)));
+    }
+
+    const allItems = [...items, ...Array.from(bundleMap.values())];
+    const combinations = getCombinations(allItems, neededSet);
+
+    if (combinations.length === 0) {
+        throw new Error("No valid combination found");
+    }
+
+    combinations.sort((a, b) => {
+        if (a.total !== b.total) return a.total - b.total;
+        if (a.picks.length !== b.picks.length) return a.picks.length - b.picks.length;
+        return a.picks.join(',').localeCompare(b.picks.join(','));
+    });
+
+    const cheapest = combinations[0];
+    return { total: cheapest.total, picks: cheapest.picks.sort() };
+}
+```

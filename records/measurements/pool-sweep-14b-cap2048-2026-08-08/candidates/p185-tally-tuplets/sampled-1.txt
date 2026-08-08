@@ -1,0 +1,47 @@
+```ts
+/**
+ * Parses and tallies tuplets in a musical score based on given meter.
+ * @param score - A string representing musical measures separated by semicolons.
+ * @param meter - A string representing the meter of each measure.
+ * @returns An array of numbers, each representing the difference between actual units and meter units for each measure.
+ */
+export function tallyTuplets(score: string, meter: string): number[] {
+  if (typeof score !== 'string') throw new Error('Score must be a string');
+  if (typeof meter !== 'string') throw new Error('Meter must be a string');
+
+  const parseSpan = (span: string): number => {
+    const [numerator, denominator] = span.split('/').map(Number);
+    if (!denominator || ![1, 2, 4, 8, 16, 32, 64].includes(denominator)) throw new Error('Invalid denominator');
+    if (numerator <= 0 || numerator.toString() !== span.split('/')[0]) throw new Error('Invalid numerator');
+    return (numerator * 64) / denominator;
+  };
+
+  const parseSqueeze = (squeeze: string): number => {
+    const figureMatch = squeeze.match(/^(\d+)(\{[^}]+\})$/);
+    if (!figureMatch) throw new Error('Malformed squeeze');
+    const figure = Number(figureMatch[1]);
+    if (figure < 2) throw new Error('Squeeze figure must be at least two');
+    const innerSpans = figureMatch[2].slice(1, -1).split('+').map(parseSpan);
+    const totalUnits = innerSpans.reduce((acc, unit) => acc + unit, 0);
+    const squeezedUnits = (totalUnits * (figure - 1)) / figure;
+    if (squeezedUnits % 1 !== 0) throw new Error('Squeeze worth must be a whole number of units');
+    return squeezedUnits;
+  };
+
+  const parseEntry = (entry: string): number => {
+    if (entry.includes('{')) return parseSqueeze(entry);
+    else return parseSpan(entry);
+  };
+
+  const parseMeasure = (measure: string): number => {
+    const entries = measure.split(' ');
+    if (entries.length === 0) throw new Error('Measure has no entries');
+    const totalUnits = entries.reduce((acc, entry) => acc + parseEntry(entry), 0);
+    const meterUnits = parseSpan(meter);
+    return Math.round(totalUnits - meterUnits);
+  };
+
+  const measures = score.split(';').map(parseMeasure);
+  return measures;
+}
+```

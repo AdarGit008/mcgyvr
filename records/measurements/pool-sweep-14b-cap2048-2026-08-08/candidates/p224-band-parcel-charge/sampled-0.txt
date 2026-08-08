@@ -1,0 +1,105 @@
+```ts
+export function bandParcelCharge(book: Record<string, unknown>, parcel: Record<string, unknown>): Record<string, unknown> {
+    // Validate book and parcel types
+    if (typeof book !== 'object' || typeof parcel !== 'object') {
+        throw new Error('Invalid input type');
+    }
+
+    // Validate zones
+    const zones = book.zones as string[];
+    if (!Array.isArray(zones) || zones.length === 0 || zones.some(zone => typeof zone !== 'string' || zone.trim() === '')) {
+        throw new Error('Invalid zones');
+    }
+    if (new Set(zones).size !== zones.length) {
+        throw new Error('Duplicate zones');
+    }
+
+    // Validate steps
+    const steps = book.steps as { upTo: number | null, cents: number[] }[];
+    if (!Array.isArray(steps) || steps.length === 0) {
+        throw new Error('Invalid steps');
+    }
+    for (const step of steps) {
+        if (typeof step.upTo !== 'number' && step.upTo !== null || !Array.isArray(step.cents) || step.cents.length !== zones.length) {
+            throw new Error('Invalid step');
+        }
+        if (step.upTo !== null && (step.upTo <= 0 || !Number.isInteger(step.upTo))) {
+            throw new Error('Invalid weight in steps');
+        }
+    }
+    for (let i = 1; i < steps.length; i++) {
+        if (steps[i - 1].upTo === null || steps[i].upTo === null) {
+            throw new Error('Open band must be last');
+        }
+        if (steps[i - 1].upTo >= steps[i].upTo!) {
+            throw new Error('Steps do not climb strictly');
+        }
+    }
+
+    // Validate extras
+    const extras = book.extras as { mark: string, cents: number, zones: string[] | null }[];
+    if (!Array.isArray(extras)) {
+        throw new Error('Invalid extras');
+    }
+    for (const extra of extras) {
+        if (typeof extra.mark !== 'string' || typeof extra.cents !== 'number' || !Array.isArray(extra.zones) && extra.zones !== null) {
+            throw new Error('Invalid extra');
+        }
+        if (extra.zones !== null && extra.zones.some(zone => !zones.includes(zone))) {
+            throw new Error('Extra names unknown zone');
+        }
+    }
+
+    // Validate round
+    const round = book.round as number;
+    if (typeof round !== 'number' || round <= 0 || !Number.isInteger(round)) {
+        throw new Error('Invalid round');
+    }
+
+    // Validate parcel
+    const parcelZone = parcel.zone as string;
+    const parcelGrams = parcel.grams as number;
+    const parcelMarks = parcel.marks as string[];
+    if (typeof parcelZone !== 'string' || typeof parcelGrams !== 'number' || !Array.isArray(parcelMarks)) {
+        throw new Error('Invalid parcel');
+    }
+    if (!zones.includes(parcelZone) || parcelGrams <= 0 || !Number.isInteger(parcelGrams)) {
+        throw new Error('Parcel names unknown zone or invalid grams');
+    }
+    if (new Set(parcelMarks).size !== parcelMarks.length) {
+        throw new Error('Duplicate marks in parcel');
+    }
+
+    // Find the band
+    let bandIndex = 0;
+    while (bandIndex < steps.length - 1 && parcelGrams > steps[bandIndex].upTo!) {
+        bandIndex++;
+    }
+    const baseCents = steps[bandIndex].cents[zones.indexOf(parcelZone)];
+    if (baseCents === undefined) {
+        throw new Error('Invalid zone in steps');
+    }
+
+    // Calculate extras
+    let extraCents = 0;
+    const appliedMarks: string[] = [];
+    for (const extra of extras) {
+        if (parcelMarks.includes(extra.mark) && (extra.zones === null || extra.zones.includes(parcelZone))) {
+            extraCents += extra.cents;
+            appliedMarks.push(extra.mark);
+        }
+    }
+
+    // Calculate total
+    const totalCents = baseCents + extraCents;
+    const roundedTotal = Math.ceil(totalCents / round) * round;
+
+    return {
+        band: bandIndex,
+        base: baseCents,
+        extra: extraCents,
+        total: roundedTotal,
+        applied: appliedMarks
+    };
+}
+```

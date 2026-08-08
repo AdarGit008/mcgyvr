@@ -1,0 +1,33 @@
+```ts
+export function stalledLoopMembers(waits: Record<string, string>): string[] {
+  if (typeof waits !== 'object' || Object.keys(waits).length === 0) {
+    throw new Error('Invalid input');
+  }
+
+  const loops: string[][] = [];
+  const visited: Set<string> = new Set();
+
+  for (const start of Object.keys(waits)) {
+    if (visited.has(start)) continue;
+    const seen: string[] = [];
+    let current = start;
+
+    while (waits[current] !== undefined && !seen.includes(current)) {
+      if (!visited.has(current)) {
+        visited.add(current);
+        seen.push(current);
+      }
+      current = waits[current];
+    }
+
+    if (seen.includes(current)) {
+      loops.push(seen.slice(seen.indexOf(current)));
+    }
+  }
+
+  if (loops.length === 0) return [];
+
+  const smallestLoop = loops.reduce((a, b) => a[0] < b[0] ? a : b);
+  return smallestLoop.sort();
+}
+```

@@ -1,0 +1,63 @@
+```ts
+export function cycleShapeReport(chart: number[]): any {
+    if (!Array.isArray(chart) || chart.length === 0) {
+        throw new Error("Invalid chart");
+    }
+
+    const visited = new Set<number>();
+    const loops: number[][] = [];
+    const loopWidths: number[] = [];
+
+    for (let i = 0; i < chart.length; i++) {
+        if (visited.has(i)) continue;
+
+        if (!Number.isInteger(chart[i]) || chart[i] < 0 || chart[i] >= chart.length) {
+            throw new Error("Invalid seat reference");
+        }
+
+        const loop: number[] = [];
+        let current = i;
+        do {
+            if (loop.includes(current)) {
+                throw new Error("Duplicate seat in loop");
+            }
+            loop.push(current);
+            visited.add(current);
+            current = chart[current];
+        } while (current !== i);
+
+        loops.push(loop);
+    }
+
+    loops.sort((a, b) => a[0] - b[0]);
+    loopWidths.push(...loops.map(loop => loop.length));
+    loopWidths.sort((a, b) => b - a);
+
+    const lcm = (a: number, b: number): number => {
+        return Math.abs(a * b) / gcd(a, b);
+    };
+
+    const gcd = (a: number, b: number): number => {
+        while (b !== 0) {
+            const temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
+    };
+
+    let repeat = loopWidths[0];
+    for (let i = 1; i < loopWidths.length; i++) {
+        repeat = lcm(repeat, loopWidths[i]);
+    }
+
+    const swing = (chart.length - loops.length) % 2 === 0 ? "even" : "odd";
+
+    return {
+        loops,
+        widths: loopWidths,
+        repeat,
+        swing
+    };
+}
+```

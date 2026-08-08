@@ -1,0 +1,61 @@
+```ts
+export function tallyTuplets(score: string, meter: string): number[] {
+  if (typeof score !== 'string') {
+    throw new Error('Score must be a string');
+  }
+
+  const validDenominators = new Set([1, 2, 4, 8, 16, 32, 64]);
+
+  function parseSpan(span: string): number {
+    const [numerator, denominator] = span.split('/').map(Number);
+    if (!validDenominators.has(denominator)) {
+      throw new Error('Invalid denominator');
+    }
+    if (numerator <= 0 || numerator.toString() !== span.split('/')[0]) {
+      throw new Error('Invalid numerator');
+    }
+    return (numerator * 64) / denominator;
+  }
+
+  function parseSqueeze(squeeze: string): number {
+    const [figure, inner] = squeeze.match(/\d+\{(.+)\}/)?.slice(1) as [string, string];
+    if (!inner || Number(figure) < 2) {
+      throw new Error('Invalid squeeze');
+    }
+    const totalUnits = inner.split('+').reduce((acc, span) => acc + parseSpan(span), 0);
+    const worth = (totalUnits * (Number(figure) - 1)) / Number(figure);
+    if (!Number.isInteger(worth)) {
+      throw new Error('Squeeze worth must be a whole number');
+    }
+    return worth;
+  }
+
+  function parseEntry(entry: string): number {
+    if (entry.includes('{')) {
+      return parseSqueeze(entry);
+    } else if (entry.includes('/')) {
+      return parseSpan(entry);
+    } else {
+      throw new Error('Invalid entry');
+    }
+  }
+
+  function parseMeasure(measure: string, meterUnits: number): number {
+    const entries = measure.split(' ').filter(Boolean);
+    if (entries.length === 0) {
+      throw new Error('Measure with no entries');
+    }
+    const totalUnits = entries.reduce((acc, entry) => acc + parseEntry(entry), 0);
+    return Math.round(totalUnits - meterUnits);
+  }
+
+  function parseMeter(meter: string): number {
+    return parseSpan(meter);
+  }
+
+  const measures = score.split(';').map(measure => measure.trim());
+  const meterUnits = parseMeter(meter);
+
+  return measures.map(measure => parseMeasure(measure, meterUnits));
+}
+```

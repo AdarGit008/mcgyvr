@@ -1,0 +1,99 @@
+```ts
+export function parseInvocation(
+  catalogue: Array<{ name: string; kind: string; alias?: string }>,
+  tokens: string[]
+): { options: Record<string, unknown>; operands: string[] } {
+  const options: Record<string, unknown> = {};
+  const operands: string[] = [];
+  let i = 0;
+  const tokenCount = tokens.length;
+
+  while (i < tokenCount) {
+    const token = tokens[i];
+
+    if (token === "--") {
+      // Everything after a bare "--" is an operand
+      operands.push(...tokens.slice(i + 1));
+      break;
+    }
+
+    let optionName: string | null = null;
+    let value: string | null = null;
+
+    if (token.startsWith("--")) {
+      const [name, inlineValue] = token.split("=");
+      optionName = name.slice(2);
+      if (inlineValue !== undefined) {
+        value = inlineValue;
+      }
+    } else if (token.length === 2 && token[0] === "-") {
+      const alias = token[1];
+      const option = catalogue.find((opt) => opt.alias === alias);
+      if (option) {
+        optionName = option.name;
+      } else {
+        throw new Error(`Unknown alias: ${alias}`);
+      }
+    }
+
+    if (optionName !== null) {
+      const option = catalogue.find((opt) => opt.name === optionName);
+      if (!option) {
+        throw new Error(`Unknown option: --${optionName}`);
+      }
+
+      switch (option.kind) {
+        case "toggle":
+          if (value !== null) {
+            throw new Error(`Toggle option --${optionName} should not have a value`);
+          }
+          options[option.name] = true;
+          break;
+        case "single":
+          if (options[option.name] !== undefined) {
+            throw new Error(`Option --${optionName} mentioned twice`);
+          }
+          if (value === null && i + 1 < tokenCount) {
+            value = tokens[++i];
+          }
+          options[option.name] = value;
+          break;
+        case "repeat":
+          if (!Array.isArray(options[option.name])) {
+            options[option.name] = [];
+          }
+          if (value === null && i + 1 < tokenCount) {
+            value = tokens[++i];
+          }
+          (options[option.name] as string[]).push(value);
+          break;
+        default:
+          throw new Error(`Unknown kind: ${option.kind}`);
+      }
+    } else {
+      operands.push(token);
+    }
+
+    i++;
+  }
+
+  // Initialize options that were not mentioned
+  catalogue.forEach((opt) => {
+    if (options[opt.name] === undefined) {
+      switch (opt.kind) {
+        case "toggle":
+          options[opt.name] = false;
+          break;
+        case "single":
+          options[opt.name] = null;
+          break;
+        case "repeat":
+          options[opt.name] = [];
+          break;
+      }
+    }
+  });
+
+  return { options, operands };
+}
+```

@@ -1,0 +1,20 @@
+```ts
+export function clipLabel(label: string, budget: number): string {
+  if (typeof label !== 'string') {
+    throw new Error('Label must be a string');
+  }
+  if (!Number.isInteger(budget)) {
+    throw new Error('Budget must be an integer');
+  }
+  if (budget < 4) {
+    throw new Error('Budget must be at least 4');
+  }
+
+  if (label.length <= budget) {
+    return label;
+  }
+
+  const clipped = label.slice(0, budget - 3).trimEnd();
+  return `${clipped}...`;
+}
+```

@@ -1,0 +1,57 @@
+```ts
+export function cycleShapeReport(chart: number[]): any {
+  if (!Array.isArray(chart) || chart.length === 0) {
+    throw new Error("Invalid chart");
+  }
+
+  const n = chart.length;
+  const visited = new Array(n).fill(false);
+  const loops: number[][] = [];
+  const widths: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    if (!visited[i]) {
+      const loop: number[] = [];
+      let j = i;
+
+      do {
+        visited[j] = true;
+        loop.push(j);
+        j = chart[j];
+      } while (j !== i);
+
+      loops.push(loop);
+      widths.push(loop.length);
+    }
+  }
+
+  widths.sort((a, b) => b - a);
+
+  const lcm = (a: number, b: number): number => {
+    return (a * b) / gcd(a, b);
+  };
+
+  const gcd = (a: number, b: number): number => {
+    while (b !== 0) {
+      const t = b;
+      b = a % b;
+      a = t;
+    }
+    return a;
+  };
+
+  let repeat = 1;
+  for (const width of widths) {
+    repeat = lcm(repeat, width);
+  }
+
+  const swing = (n - loops.length) % 2 === 0 ? "even" : "odd";
+
+  return {
+    loops,
+    widths,
+    repeat,
+    swing,
+  };
+}
+```

@@ -1,0 +1,77 @@
+```ts
+export function foldHalyardQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const validHex = /^[0-9a-f]{2}$/;
+  const escapeRegex = /_([0-9a-f]{2})/g;
+
+  function unescape(value: string): string {
+    return value.replace(escapeRegex, (match, hex) => {
+      const code = parseInt(hex, 16);
+      if (code < 33 || code > 126) {
+        throw new Error('Invalid escape sequence');
+      }
+      return String.fromCharCode(code);
+    });
+  }
+
+  function escape(value: string): string {
+    return value.replace(/[\x20\x26\x2c\x3d\x5f]/g, (char) => `_${char.charCodeAt(0).toString(16)}`);
+  }
+
+  const params = text.split('&').map((param) => param.trim()).filter(Boolean);
+
+  const result: { [key: string]: string[] } = {};
+
+  for (const param of params) {
+    const equalsIndex = param.indexOf('=');
+    if (equalsIndex === -1) {
+      // Bare name
+      const name = unescape(param).toLowerCase();
+      if (!name) {
+        throw new Error('Empty name is not allowed');
+      }
+      result[name] = [];
+    } else {
+      // Name with payload
+      const namePart = param.slice(0, equalsIndex);
+      const payloadPart = param.slice(equalsIndex + 1);
+
+      const name = unescape(namePart).toLowerCase();
+      const payload = unescape(payloadPart);
+
+      if (!name) {
+        throw new Error('Empty name is not allowed');
+      }
+      if (payload.includes('=')) {
+        throw new Error('Payload cannot contain an equals sign');
+      }
+
+      if (!result[name]) {
+        result[name] = [];
+      }
+      result[name].push(payload);
+    }
+  }
+
+  const sortedNames = Object.keys(result).sort();
+
+  const foldedParams: string[] = [];
+
+  for (const name of sortedNames) {
+    if (result[name].length === 0) {
+      // Bare name
+      foldedParams.push(escape(name));
+    } else {
+      // Name with payloads
+      const uniquePayloads = Array.from(new Set(result[name])).sort((a, b) => a.localeCompare(b));
+      const payloadString = uniquePayloads.join(',');
+      foldedParams.push(`${escape(name)}=${escape(payloadString)}`);
+    }
+  }
+
+  return foldedParams.join('&');
+}
+```

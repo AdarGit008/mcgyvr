@@ -1,0 +1,89 @@
+```ts
+export function costBasisReport(events: unknown[][]): { fifoSold: number; averageSold: number; unitsLeft: number; fifoValue: number; averageValue: number } {
+  if (!Array.isArray(events)) {
+    throw new Error("Invalid input: events must be an array");
+  }
+
+  let fifoSold = 0;
+  let averageSold = 0;
+  let unitsLeft = 0;
+  let fifoValue = 0;
+  let averageCost = 0;
+
+  const fifoStack: { units: number; unitCents: number }[] = [];
+
+  for (const event of events) {
+    if (!Array.isArray(event)) {
+      throw new Error("Invalid input: each event must be an array");
+    }
+
+    const [action, ...rest] = event;
+
+    if (action === "buy") {
+      if (rest.length !== 3) {
+        throw new Error("Invalid input: buy event must have three entries");
+      }
+      const [units, unitCents] = rest as [number, number];
+
+      if (!Number.isInteger(units) || units <= 0) {
+        throw new Error("Invalid input: units must be a whole number above zero");
+      }
+      if (!Number.isInteger(unitCents) || unitCents < 0) {
+        throw new Error("Invalid input: unitCents must be a whole number of cents at or above zero");
+      }
+
+      fifoStack.push({ units, unitCents });
+      unitsLeft += units;
+      fifoValue += units * unitCents;
+      averageCost = fifoValue / unitsLeft;
+    } else if (action === "sell") {
+      if (rest.length !== 2) {
+        throw new Error("Invalid input: sell event must have two entries");
+      }
+      const [units] = rest as [number];
+
+      if (!Number.isInteger(units) || units <= 0) {
+        throw new Error("Invalid input: units must be a whole number above zero");
+      }
+
+      if (units > unitsLeft) {
+        throw new Error("Invalid input: despatch larger than stock on hand");
+      }
+
+      let fifoUnitsSold = 0;
+      while (fifoUnitsSold < units) {
+        const { units: stackUnits, unitCents } = fifoStack[0];
+        const sellUnits = Math.min(stackUnits, units - fifoUnitsSold);
+
+        fifoSold += sellUnits * unitCents;
+        fifoUnitsSold += sellUnits;
+
+        if (sellUnits === stackUnits) {
+          fifoStack.shift();
+        } else {
+          fifoStack[0].units -= sellUnits;
+        }
+      }
+
+      averageSold += Math.floor(averageCost * units);
+      unitsLeft -= units;
+      fifoValue -= fifoSold;
+      if (unitsLeft > 0) {
+        averageCost = fifoValue / unitsLeft;
+      } else {
+        averageCost = 0;
+      }
+    } else {
+      throw new Error("Invalid input: event action must be either 'buy' or 'sell'");
+    }
+  }
+
+  return {
+    fifoSold,
+    averageSold,
+    unitsLeft,
+    fifoValue,
+    averageValue: Math.floor(averageCost * unitsLeft),
+  };
+}
+```

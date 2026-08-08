@@ -1,0 +1,93 @@
+```ts
+export function runTransactions(commands: string[]): Record<string, string> {
+  const store: Record<string, string> = {};
+  const transactions: Array<Record<string, string>> = [];
+
+  for (const command of commands) {
+    const parts = command.split(' ');
+
+    if (parts.length < 2 || parts.length > 3) {
+      throw new Error('Invalid command format');
+    }
+
+    const [verb, key] = parts;
+    let value: string | undefined;
+
+    if (parts.length === 3) {
+      value = parts[2];
+    }
+
+    switch (verb) {
+      case 'set':
+        if (value === undefined) {
+          throw new Error('Set command requires a value');
+        }
+        setKey(key, value);
+        break;
+      case 'unset':
+        unsetKey(key);
+        break;
+      case 'begin':
+        beginTransaction();
+        break;
+      case 'commit':
+        commitTransaction();
+        break;
+      case 'rollback':
+        rollbackTransaction();
+        break;
+      default:
+        throw new Error('Unknown command');
+    }
+  }
+
+  if (transactions.length !== 0) {
+    throw new Error('Transaction still open after the last command');
+  }
+
+  return store;
+
+  function setKey(key: string, value: string): void {
+    const currentTransaction = getCurrentTransaction();
+    currentTransaction[key] = value;
+  }
+
+  function unsetKey(key: string): void {
+    const currentTransaction = getCurrentTransaction();
+    delete currentTransaction[key];
+  }
+
+  function beginTransaction(): void {
+    transactions.push({});
+  }
+
+  function commitTransaction(): void {
+    if (transactions.length === 0) {
+      throw new Error('No open transaction to commit');
+    }
+    const innermostTransaction = transactions.pop()!;
+    mergeTransaction(innermostTransaction);
+  }
+
+  function rollbackTransaction(): void {
+    if (transactions.length === 0) {
+      throw new Error('No open transaction to rollback');
+    }
+    transactions.pop();
+  }
+
+  function getCurrentTransaction(): Record<string, string> {
+    return transactions[transactions.length - 1] || store;
+  }
+
+  function mergeTransaction(transaction: Record<string, string>): void {
+    for (const [key, value] of Object.entries(transaction)) {
+      if (value === undefined) {
+        delete store[key];
+      } else {
+        store[key] = value;
+      }
+    }
+  }
+}
+```

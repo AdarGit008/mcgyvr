@@ -1,0 +1,67 @@
+```ts
+export function weighUnit(spec: string, masses: Record<string, number>): number {
+  if (typeof spec !== "string") {
+    throw new Error("Spec must be a string");
+  }
+  if (spec.length === 0) {
+    throw new Error("Spec cannot be empty");
+  }
+
+  let at = 0;
+  const outer: { sum: number; bracket: string }[] = [];
+  let sum = 0;
+
+  const readCount = (): number => {
+    let digits = "";
+    while (at < spec.length && spec[at] >= "0" && spec[at] <= "9") {
+      if (digits === "0") {
+        throw new Error("Count cannot start with zero");
+      }
+      digits += spec[at];
+      at += 1;
+    }
+    return digits === "" ? 1 : Number(digits);
+  };
+
+  while (at < spec.length) {
+    const ch = spec[at];
+    if (ch === "(" || ch === "[") {
+      outer.push({ sum, bracket: ch });
+      sum = 0;
+      at += 1;
+    } else if (ch === ")" || ch === "]") {
+      at += 1;
+      const count = readCount();
+      const last = outer.pop();
+      if (!last) {
+        throw new Error("Closing bracket with nothing open");
+      }
+      if ((ch === ")" && last.bracket !== "(") || (ch === "]" && last.bracket !== "[")) {
+        throw new Error("Mismatched brackets");
+      }
+      sum = last.sum * count + sum;
+    } else {
+      let name = ch;
+      at += 1;
+      while (at < spec.length && spec[at] >= "a" && spec[at] <= "z") {
+        name += spec[at];
+        at += 1;
+      }
+      if (!/^[A-Z][a-z]{0,2}$/.test(name)) {
+        throw new Error("Invalid core name");
+      }
+      const mass = masses[name];
+      if (mass === undefined) {
+        throw new Error(`Unknown name: ${name}`);
+      }
+      sum += mass * readCount();
+    }
+  }
+
+  if (outer.length !== 0) {
+    throw new Error("Unmatched opening bracket");
+  }
+
+  return sum;
+}
+```

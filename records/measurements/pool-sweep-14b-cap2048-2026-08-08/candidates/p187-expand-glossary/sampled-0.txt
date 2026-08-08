@@ -1,0 +1,85 @@
+```ts
+export function expandGlossary(script: string[]): string {
+  if (!Array.isArray(script)) {
+    throw new Error("Script is not a list");
+  }
+
+  const slots: Record<string, string> = {};
+  const sent: string[] = [];
+
+  for (const line of script) {
+    if (typeof line !== "string") {
+      throw new Error("Line is not a string");
+    }
+
+    if (line.startsWith("!")) {
+      const slotNumber = line.slice(1);
+      if (!/\d+/.test(slotNumber) || parseInt(slotNumber, 10) <= 0) {
+        throw new Error("Invalid slot number in send line");
+      }
+      sent.push(slots[slotNumber] ?? "");
+    } else {
+      const cut = line.indexOf("=");
+      if (cut === -1) {
+        throw new Error("Line is neither store nor send");
+      }
+      const slotNumber = line.slice(0, cut);
+      const body = line.slice(cut + 1);
+
+      if (!/\d+/.test(slotNumber) || parseInt(slotNumber, 10) <= 0) {
+        throw new Error("Invalid slot number in store line");
+      }
+      if (slotNumber in slots) {
+        throw new Error(`Slot ${slotNumber} stored more than once`);
+      }
+
+      const settledBody = body.replace(/\{(\d+)\}/g, (_whole, n) => {
+        if (!(n in slots)) {
+          throw new Error(`Splice references slot ${n} which is not stored yet`);
+        }
+        return slots[n];
+      });
+
+      slots[slotNumber] = settleBraces(settledBody);
+    }
+  }
+
+  return sent.join("");
+}
+
+function settleBraces(body: string): string {
+  let openCount = 0;
+  let result = "";
+  let current = "";
+
+  for (const char of body) {
+    if (char === "{") {
+      openCount++;
+      if (openCount === 2) {
+        result += "{";
+        openCount = 1;
+      } else {
+        current += char;
+      }
+    } else if (char === "}") {
+      if (openCount === 0) {
+        throw new Error("Closing brace with nothing open");
+      }
+      openCount--;
+      if (openCount === 0) {
+        result += "}";
+      } else {
+        current += char;
+      }
+    } else {
+      current += char;
+    }
+  }
+
+  if (openCount !== 0) {
+    throw new Error("Brace opened and never closed");
+  }
+
+  return result;
+}
+```

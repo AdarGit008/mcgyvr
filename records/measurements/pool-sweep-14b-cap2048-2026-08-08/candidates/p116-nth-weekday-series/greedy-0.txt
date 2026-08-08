@@ -1,0 +1,83 @@
+```ts
+/**
+ * Expands a monthly recurrence rule over a span of months using only integer arithmetic.
+ * @param ordinal - The ordinal-th occurrence of a weekday (1 through 5, or -1 for the final occurrence).
+ * @param weekday - The weekday to pick (0 is Monday through 6 for Sunday).
+ * @param start - The starting month in "YYYY-MM" format.
+ * @param months - The number of consecutive months to cover.
+ * @returns An array of selected dates as zero-padded "YYYY-MM-DD" strings in chronological order.
+ */
+export function expandNthWeekday(ordinal: number, weekday: number, start: string, months: number): string[] {
+    if (![-1, 1, 2, 3, 4, 5].includes(ordinal)) throw new Error("Invalid ordinal");
+    if (weekday < 0 || weekday > 6) throw new Error("Invalid weekday");
+    if (!/^\d{4}-\d{2}$/.test(start) || parseInt(start.slice(0, 4)) < 1 || parseInt(start.slice(0, 4)) > 9999) {
+        throw new Error("Invalid start month");
+    }
+    if (months <= 0 || months > 240) throw new Error("Invalid number of months");
+
+    const [startYear, startMonth] = start.split("-").map(Number);
+    const result: string[] = [];
+
+    for (let i = 0; i < months; i++) {
+        const year = startYear + Math.floor((startMonth - 1 + i) / 12);
+        const month = ((startMonth - 1 + i) % 12) + 1;
+        const daysInMonth = [31, (isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+
+        let targetDate: number | null = null;
+        if (ordinal > 0) {
+            for (let day = 1; day <= daysInMonth; day++) {
+                if (getWeekday(year, month, day) === weekday) {
+                    ordinal--;
+                    if (ordinal === 0) {
+                        targetDate = day;
+                        break;
+                    }
+                }
+            }
+        } else {
+            for (let day = daysInMonth; day >= 1; day--) {
+                if (getWeekday(year, month, day) === weekday) {
+                    ordinal++;
+                    if (ordinal === 0) {
+                        targetDate = day;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (targetDate !== null) {
+            result.push(`${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${targetDate.toString().padStart(2, '0')}`);
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Determines if a given year is a leap year.
+ * @param year - The year to check.
+ * @returns True if the year is a leap year, false otherwise.
+ */
+function isLeapYear(year: number): boolean {
+    return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+}
+
+/**
+ * Calculates the weekday of a given date using Zeller's Congruence.
+ * @param year - The year of the date.
+ * @param month - The month of the date (1-12).
+ * @param day - The day of the date (1-31).
+ * @returns The weekday as an integer (0 for Monday through 6 for Sunday).
+ */
+function getWeekday(year: number, month: number, day: number): number {
+    if (month < 3) {
+        year--;
+        month += 12;
+    }
+    const k = year % 100;
+    const j = Math.floor(year / 100);
+    const f = day + Math.floor((13 * (month + 1)) / 5) + k + Math.floor(k / 4) + Math.floor(j / 4) - 2 * j;
+    return (f % 7 + 7) % 7; // Adjust to 0 for Monday through 6 for Sunday
+}
+```

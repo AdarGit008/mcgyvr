@@ -1,0 +1,68 @@
+```ts
+/**
+ * Processes a log of events to determine the order in which callers are served based on their age and rank.
+ * @param events - An array of log entries, each with a "kind" and "tick". "join" entries have additional "who" and "rank".
+ * @param step - A positive whole number representing the aging step interval.
+ * @returns An array of names in the order they were served.
+ */
+export function agedServiceOrder(events: Array<Record<string, unknown>>, step: number): string[] {
+    if (step <= 0 || !Number.isInteger(step)) {
+        throw new Error("Step must be a positive whole number.");
+    }
+    if (events.length === 0) {
+        throw new Error("Log cannot be empty.");
+    }
+
+    const waitingRoom: { name: string, rank: number, joinTick: number }[] = [];
+    const servedNames: string[] = [];
+
+    for (const event of events) {
+        const kind = event.kind as string;
+        const tick = event.tick as number;
+
+        if (typeof kind !== "string" || !["join", "call"].includes(kind)) {
+            throw new Error("Event kind must be either 'join' or 'call'.");
+        }
+        if (!Number.isInteger(tick) || tick < 0) {
+            throw new Error("Tick must be a non-negative whole number.");
+        }
+
+        if (kind === "join") {
+            const who = event.who as string;
+            const rank = event.rank as number;
+
+            if (typeof who !== "string" || who.length === 0) {
+                throw new Error("Joiner's name must be a non-empty string.");
+            }
+            if (!Number.isInteger(rank) || rank < 0) {
+                throw new Error("Rank must be a non-negative whole number.");
+            }
+
+            if (waitingRoom.some(entry => entry.name === who)) {
+                throw new Error("A caller cannot join again while already in the waiting room.");
+            }
+
+            waitingRoom.push({ name: who, rank, joinTick: tick });
+        } else if (kind === "call") {
+            if (waitingRoom.length === 0) {
+                throw new Error("Cannot call from an empty waiting room.");
+            }
+
+            let callerToServe = waitingRoom[0];
+            for (let i = 1; i < waitingRoom.length; i++) {
+                const currentCaller = waitingRoom[i];
+                const ageDiff = Math.floor((tick - currentCaller.joinTick) / step) - Math.floor((tick - callerToServe.joinTick) / step);
+                if (ageDiff > 0 || (ageDiff === 0 && (currentCaller.rank < callerToServe.rank || (currentCaller.rank === callerToServe.rank && currentCaller.name < callerToServe.name)))) {
+                    callerToServe = currentCaller;
+                }
+            }
+
+            const indexToRemove = waitingRoom.indexOf(callerToServe);
+            waitingRoom.splice(indexToRemove, 1);
+            servedNames.push(callerToServe.name);
+        }
+    }
+
+    return servedNames;
+}
+```

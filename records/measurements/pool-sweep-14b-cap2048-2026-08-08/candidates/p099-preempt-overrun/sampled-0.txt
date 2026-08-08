@@ -1,0 +1,93 @@
+```ts
+export function preemptFirstOverrun(jobs: Array<Record<string, unknown>>): string {
+  const seen = new Set<string>();
+  for (const job of jobs) {
+    if (typeof job.name !== "string" || job.name === "") {
+      throw new Error("name must be a non-empty string");
+    }
+    if (seen.has(job.name)) {
+      throw new Error(`name repeated: ${job.name}`);
+    }
+    seen.add(job.name);
+    if (!Number.isInteger(job.at) || (job.at as number) < 0) {
+      throw new Error("at must be a non-negative integer");
+    }
+    if (!Number.isInteger(job.work) || (job.work as number) <= 0) {
+      throw new Error("work must be a positive integer");
+    }
+    if (!Number.isInteger(job.due) || (job.due as number) <= 0) {
+      throw new Error("due must be a positive integer");
+    }
+  }
+
+  type Job = {
+    name: string;
+    at: number;
+    work: number;
+    due: number;
+  };
+
+  const jobList: Job[] = jobs.map((job) => ({
+    name: job.name as string,
+    at: job.at as number,
+    work: job.work as number,
+    due: job.due as number,
+  }));
+
+  let clock = 0;
+  let currentJob: Job | null = null;
+  let remainingWork = 0;
+
+  const missedJobs: Job[] = [];
+
+  while (jobList.length > 0 || currentJob !== null) {
+    if (currentJob === null) {
+      // Find the earliest available job
+      jobList.sort((a, b) => a.at - b.at || (a.name < b.name ? -1 : 1));
+      if (jobList[0].at > clock) {
+        clock = jobList[0].at;
+      }
+    }
+
+    const readyJobs = jobList.filter((job) => job.at <= clock);
+    if (readyJobs.length === 0) {
+      // No jobs are available, move to the next available time
+      clock = Math.min(...jobList.map((job) => job.at));
+      continue;
+    }
+
+    // Sort by due time and then by name
+    readyJobs.sort((a, b) => a.due - b.due || (a.name < b.name ? -1 : 1));
+
+    if (currentJob !== null && readyJobs[0].due < currentJob.due) {
+      // Preempt the current job
+      missedJobs.push(currentJob);
+      remainingWork = currentJob.work;
+      currentJob = null;
+    }
+
+    if (currentJob === null) {
+      // Start a new job
+      const nextJob = readyJobs.shift()!;
+      currentJob = nextJob;
+      remainingWork = nextJob.work - (clock - nextJob.at);
+      clock += clock - nextJob.at; // Move the clock to the start of the job
+    }
+
+    if (remainingWork > 0) {
+      const workToComplete = Math.min(remainingWork, readyJobs[0]?.due - clock ?? Infinity);
+      clock += workToComplete;
+      remainingWork -= workToComplete;
+
+      if (remainingWork === 0) {
+        // Job is finished
+        currentJob = null;
+      }
+    }
+  }
+
+  missedJobs.sort((a, b) => a.due - b.due || (a.name < b.name ? -1 : 1));
+
+  return missedJobs.length > 0 ? missedJobs[0].name : "";
+}
+```

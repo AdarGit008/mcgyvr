@@ -1,0 +1,64 @@
+```ts
+export function pickBuild(gate: string, offers: number[]): number {
+  if (typeof gate !== 'string') {
+    throw new Error('Gate must be a string');
+  }
+  if (!gate) {
+    throw new Error('Gate must contain at least one clause');
+  }
+
+  const clauses = gate.split(',').map(clause => {
+    const [range, carveOutsStr] = clause.split('^');
+    let lo: number | null = null;
+    let hi: number | null = null;
+
+    if (range === ':') {
+      lo = null;
+      hi = null;
+    } else {
+      const [loStr, hiStr] = range.split(':');
+      if (loStr) {
+        lo = parseInt(loStr, 10);
+        if (isNaN(lo) || lo < 0) {
+          throw new Error('Invalid lower bound in clause');
+        }
+      }
+      if (hiStr) {
+        hi = parseInt(hiStr, 10);
+        if (isNaN(hi) || hi < 0) {
+          throw new Error('Invalid upper bound in clause');
+        }
+      }
+    }
+
+    if (lo !== null && hi !== null && lo > hi) {
+      throw new Error('Lower bound cannot be greater than upper bound');
+    }
+
+    const carveOuts = carveOutsStr ? carveOutsStr.split('').map(Number) : [];
+
+    return { lo, hi, carveOuts };
+  });
+
+  offers.sort((a, b) => b - a);
+
+  for (const offer of offers) {
+    if (!Number.isInteger(offer) || offer < 0) {
+      throw new Error('Offer must be a non-negative integer');
+    }
+
+    const admitted = clauses.some(({ lo, hi, carveOuts }) => {
+      if ((lo === null || offer >= lo) && (hi === null || offer <= hi)) {
+        return !carveOuts.includes(offer);
+      }
+      return false;
+    });
+
+    if (admitted) {
+      return offer;
+    }
+  }
+
+  return -1;
+}
+```

@@ -1,0 +1,87 @@
+```ts
+export function orderSkeinHands(hands: any[]): any {
+  if (!Array.isArray(hands) || hands.length === 0) {
+    throw new Error("Invalid input: hands must be a non-empty array.");
+  }
+
+  const grades = [];
+  const orders = [];
+
+  for (const hand of hands) {
+    if (!Array.isArray(hand) || hand.length !== 5) {
+      throw new Error("Invalid hand: each hand must be an array of exactly five cards.");
+    }
+
+    const cardSet = new Set<string>();
+    const pipCounts = new Map<number, number>();
+    const houseWeights = { m: 4, r: 3, s: 2, v: 1 };
+    let minPip = Infinity;
+    let maxPip = -Infinity;
+
+    for (const card of hand) {
+      if (typeof card !== "string" || !/^[1-9]|10[mrsv]$/.test(card)) {
+        throw new Error("Invalid card: each card must be a string in the format 'pip[house]'.");
+      }
+
+      const [pipStr, house] = [card.slice(0, -1), card.slice(-1)];
+      const pip = parseInt(pipStr, 10);
+
+      if (cardSet.has(card)) {
+        throw new Error("Invalid hand: each hand must contain unique cards.");
+      }
+
+      cardSet.add(card);
+      pipCounts.set(pip, (pipCounts.get(pip) || 0) + 1);
+      minPip = Math.min(minPip, pip);
+      maxPip = Math.max(maxPip, pip);
+    }
+
+    const pips = Array.from(pipCounts.keys()).sort((a, b) => {
+      if (pipCounts.get(b)! === pipCounts.get(a)!) {
+        return a - b;
+      }
+      return pipCounts.get(b)! - pipCounts.get(a)!;
+    });
+
+    let grade: string;
+
+    if (pips.length === 2) {
+      grade = "monolith";
+    } else if (pips.length === 5 && new Set(hand.map(card => card[1])).size === 4) {
+      grade = "prism";
+    } else if (pips.length === 5 && maxPip - minPip === 4) {
+      grade = "chain";
+    } else if (pips.length === 3) {
+      grade = "echo";
+    } else if (pips.length === 4) {
+      grade = "twin";
+    } else {
+      grade = "drift";
+    }
+
+    grades.push(grade);
+    orders.push({ hand, grade, pips, weights: hand.map(card => houseWeights[card[1]]) });
+  }
+
+  const sortedOrders = orders.slice().sort((a, b) => {
+    if (grades.indexOf(a.grade) !== grades.indexOf(b.grade)) {
+      return grades.indexOf(a.grade) - grades.indexOf(b.grade);
+    }
+    for (let i = 0; i < a.pips.length; i++) {
+      if (a.pips[i] !== b.pips[i]) {
+        return b.pips[i] - a.pips[i];
+      }
+    }
+    for (let i = 0; i < a.weights.length; i++) {
+      if (a.weights[i] !== b.weights[i]) {
+        return b.weights[i] - a.weights[i];
+      }
+    }
+    return hands.indexOf(a.hand) - hands.indexOf(b.hand);
+  });
+
+  const finalOrder = sortedOrders.map(({ hand }) => hands.indexOf(hand));
+
+  return { grades, order: finalOrder };
+}
+```

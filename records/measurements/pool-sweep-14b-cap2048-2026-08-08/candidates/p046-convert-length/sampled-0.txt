@@ -1,0 +1,45 @@
+```ts
+export function convertLength(quantity: string, goal: string): number {
+  if (!quantity.trim()) {
+    throw new Error("Empty quantity");
+  }
+
+  const units = ["mm", "cm", "m", "km"];
+  const conversionFactors: { [key: string]: number } = {
+    mm: 1,
+    cm: 10,
+    m: 1000,
+    km: 1000000
+  };
+
+  if (!units.includes(goal)) {
+    throw new Error("Unknown target unit");
+  }
+
+  const parts = quantity.split(" ");
+  let totalMillimeters = 0;
+
+  for (const part of parts) {
+    const match = part.match(/^(\d+)(mm|cm|m|km)$/);
+    if (!match) {
+      throw new Error("Malformed part");
+    }
+
+    const [_, numberStr, unit] = match;
+    const number = parseInt(numberStr, 10);
+
+    if (isNaN(number)) {
+      throw new Error("Invalid number in part");
+    }
+
+    totalMillimeters += number * conversionFactors[unit];
+  }
+
+  const targetFactor = conversionFactors[goal];
+  if (totalMillimeters % targetFactor !== 0) {
+    throw new Error("Cannot convert without rounding");
+  }
+
+  return totalMillimeters / targetFactor;
+}
+```

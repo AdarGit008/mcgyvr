@@ -1,0 +1,142 @@
+```typescript
+/**
+ * Pins the package set based on the given plan.
+ * @param plan - The plan containing shelf, needs, and root.
+ * @returns A record with "picked" and "stuck".
+ */
+export function pinPackageSet(plan: Record<string, unknown>): Record<string, unknown> {
+  const { shelf: rawShelf, needs: rawNeeds, root: rawRoot } = plan;
+
+  if (typeof rawShelf !== 'object' || typeof rawNeeds !== 'object') {
+    throw new Error('Invalid argument: shelf and needs must be mappings.');
+  }
+  if (!Array.isArray(rawRoot)) {
+    throw new Error('Invalid argument: root must be a list.');
+  }
+
+  const shelf = rawShelf as Record<string, string[]>;
+  const needs = rawNeeds as Record<string, { name: string; from: string; under: string }[]>;
+
+  for (const packageName in shelf) {
+    if (!Array.isArray(shelf[packageName]) || !shelf[packageName].length) {
+      throw new Error('Invalid argument: shelf entry must be a non-empty list of distinct version strings.');
+    }
+    const versions = shelf[packageName];
+    if (versions.some(v => !isValidVersion(v))) {
+      throw new Error('Invalid argument: shelf entry must be well-formed version strings.');
+    }
+  }
+
+  for (const packageName in needs) {
+    if (!(packageName in shelf)) {
+      throw new Error('Invalid argument: needs is keyed by a package the shelf does not stock.');
+    }
+    const wants = needs[packageName];
+    if (!Array.isArray(wants)) {
+      throw new Error('Invalid argument: declared want list must be a list.');
+    }
+    for (const want of wants) {
+      if (typeof want !== 'object' || typeof want.name !== 'string' || typeof want.from !== 'string' || typeof want.under !== 'string') {
+        throw new Error('Invalid argument: want must be a mapping with name, from, and under.');
+      }
+      if (!(want.name in shelf)) {
+        throw new Error('Invalid argument: want names a package the shelf does not stock.');
+      }
+      if (!isVersionBelow(want.from, want.under)) {
+        throw new Error('Invalid argument: want\'s "from" must be strictly below its "under".');
+      }
+    }
+  }
+
+  const queue = [...rawRoot];
+  const reached: Record<string, boolean> = {};
+  const picked: { name: string; version: string }[] = [];
+  const stuck: string[] = [];
+
+  while (queue.length > 0) {
+    const want = queue.shift() as { name: string; from: string; under: string };
+    const packageName = want.name;
+
+    if (!reached[packageName]) {
+      reached[packageName] = true;
+      if (needs[packageName]) {
+        queue.push(...needs[packageName]);
+      }
+    }
+
+    const versions = shelf[packageName];
+    const validVersions = versions.filter(v => isVersionAboveOrEqual(v, want.from) && isVersionBelow(v, want.under));
+    if (validVersions.length > 0) {
+      picked.push({ name: packageName, version: sortVersions(validVersions)[0] });
+    } else {
+      stuck.push(packageName);
+    }
+  }
+
+  const sortedPicked = picked.sort((a, b) => a.name.localeCompare(b.name));
+
+  return { picked: sortedPicked, stuck: stuck.sort() };
+}
+
+/**
+ * Validates if a version string is well-formed.
+ * @param version - The version string to validate.
+ * @returns True if valid, false otherwise.
+ */
+function isValidVersion(version: string): boolean {
+  const regex = /^(\d+)\.(\d+)\.(\d+)$/;
+  return regex.test(version) && !version.startsWith('0') || version === '0.0.0';
+}
+
+/**
+ * Compares two versions to check if the first is above or equal to the second.
+ * @param v1 - The first version string.
+ * @param v2 - The second version string.
+ * @returns True if v1 is above or equal to v2, false otherwise.
+ */
+function isVersionAboveOrEqual(v1: string, v2: string): boolean {
+  const [major1, minor1, patch1] = v1.split('.').map(Number);
+  const [major2, minor2, patch2] = v2.split('.').map(Number);
+
+  if (major1 > major2 || (major1 === major2 && minor1 > minor2) || (major1 === major2 && minor1 === minor2 && patch1 >= patch2)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Compares two versions to check if the first is below the second.
+ * @param v1 - The first version string.
+ * @param v2 - The second version string.
+ * @returns True if v1 is below v2, false otherwise.
+ */
+function isVersionBelow(v1: string, v2: string): boolean {
+  const [major1, minor1, patch1] = v1.split('.').map(Number);
+  const [major2, minor2, patch2] = v2.split('.').map(Number);
+
+  if (major1 < major2 || (major1 === major2 && minor1 < minor2) || (major1 === major2 && minor1 === minor2 && patch1 < patch2)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Sorts version strings in ascending order.
+ * @param versions - The array of version strings to sort.
+ * @returns A new array with sorted version strings.
+ */
+function sortVersions(versions: string[]): string[] {
+  return versions.sort((a, b) => {
+    const [major1, minor1, patch1] = a.split('.').map(Number);
+    const [major2, minor2, patch2] = b.split('.').map(Number);
+
+    if (major1 !== major2) {
+      return major1 - major2;
+    }
+    if (minor1 !== minor2) {
+      return minor1 - minor2;
+    }
+    return patch1 - patch2;
+  });
+}
+```

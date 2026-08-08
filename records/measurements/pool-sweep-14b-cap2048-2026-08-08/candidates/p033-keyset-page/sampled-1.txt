@@ -1,0 +1,35 @@
+```ts
+export function keysetPage(ids: number[], cursor: number, limit: number): { items: number[]; done: boolean } {
+  // Validate input
+  if (!Array.isArray(ids) || !ids.every(Number.isInteger)) {
+    throw new Error("Invalid ids: must be an array of integers");
+  }
+  if (ids.length > 0 && !ids.slice(1).every((id, i) => id > ids[i])) {
+    throw new Error("Invalid ids: must be strictly increasing");
+  }
+  if (!Number.isInteger(cursor)) {
+    throw new Error("Invalid cursor: must be an integer");
+  }
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error("Invalid limit: must be a positive integer");
+  }
+
+  // Find the starting index using binary search
+  let left = 0;
+  let right = ids.length;
+  while (left < right) {
+    const mid = Math.floor((left + right) / 2);
+    if (ids[mid] <= cursor) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+
+  // Slice the array to get the page items
+  const items = ids.slice(left, left + limit);
+  const done = left + limit >= ids.length;
+
+  return { items, done };
+}
+```

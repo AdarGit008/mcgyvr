@@ -1,0 +1,39 @@
+```ts
+/**
+ * Bins readings into specified bands and counts those below and above the edges.
+ * @param readings - List of integer readings to bin.
+ * @param edges - List of edge values in strictly increasing order, at least two of them.
+ * @returns An object with 'bands' array for each band count, 'below' for counts below first edge, and 'above' for counts at or past last edge.
+ */
+export function binTallies(readings: number[], edges: number[]): { bands: number[]; below: number; above: number } {
+  if (edges.length < 2) {
+    throw new Error("At least two edges are required.");
+  }
+  for (let i = 1; i < edges.length; i++) {
+    if (edges[i] <= edges[i - 1]) {
+      throw new Error("Edges must be in strictly increasing order.");
+    }
+  }
+
+  const bands: number[] = new Array(edges.length - 1).fill(0);
+  let below = 0;
+  let above = 0;
+
+  for (const reading of readings) {
+    if (reading < edges[0]) {
+      below++;
+    } else if (reading >= edges[edges.length - 1]) {
+      above++;
+    } else {
+      for (let i = 0; i < bands.length; i++) {
+        if (edges[i] <= reading && reading < edges[i + 1]) {
+          bands[i]++;
+          break;
+        }
+      }
+    }
+  }
+
+  return { bands, below, above };
+}
+```

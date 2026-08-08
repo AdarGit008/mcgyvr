@@ -1,0 +1,75 @@
+```ts
+export function findSignalConflicts(cycle: number, approaches: object[], pairs: string[][]): string[] {
+  if (cycle < 2 || cycle > 3600 || !Number.isInteger(cycle)) {
+    throw new Error("Cycle must be a whole number between 2 and 3600.");
+  }
+  if (!Array.isArray(approaches) || approaches.length === 0) {
+    throw new Error("Approach list must be a non-empty array.");
+  }
+
+  const approachMap: { [key: string]: { offset: number, green: number, amber: number } } = {};
+
+  for (const approach of approaches) {
+    if (
+      typeof approach !== 'object' ||
+      !('name' in approach) || !('offset' in approach) || !('green' in approach) || !('amber' in approach) ||
+      typeof approach.name !== 'string' || approach.name.trim() === '' ||
+      typeof approach.offset !== 'number' || approach.offset < 0 || approach.offset >= cycle ||
+      typeof approach.green !== 'number' || approach.green < 1 ||
+      typeof approach.amber !== 'number' || approach.amber < 0 ||
+      approach.green + approach.amber > cycle
+    ) {
+      throw new Error("Invalid approach record.");
+    }
+
+    const { name, offset, green, amber } = approach;
+    if (approachMap[name]) {
+      throw new Error("Repeated approach name.");
+    }
+    approachMap[name] = { offset, green, amber };
+  }
+
+  for (const pair of pairs) {
+    if (!Array.isArray(pair) || pair.length !== 2) {
+      throw new Error("Pair must be an array of exactly two elements.");
+    }
+    const [name1, name2] = pair;
+    if (typeof name1 !== 'string' || typeof name2 !== 'string' || name1.trim() === '' || name2.trim() === '') {
+      throw new Error("Invalid approach name in pair.");
+    }
+    if (name1 === name2) {
+      throw new Error("Pair must not name the same approach twice.");
+    }
+    if (!approachMap[name1] || !approachMap[name2]) {
+      throw new Error("Pair must name exactly two declared approaches.");
+    }
+  }
+
+  const conflicts: string[] = [];
+
+  for (const pair of pairs) {
+    const [name1, name2] = pair;
+    const { offset: offset1, green: green1, amber: amber1 } = approachMap[name1];
+    const { offset: offset2, green: green2, amber: amber2 } = approachMap[name2];
+
+    for (let second = 0; second < cycle; second++) {
+      const isName1Lit = (second - offset1) % cycle >= 0 && (second - offset1) % cycle < green1 + amber1;
+      const isName2Lit = (second - offset2) % cycle >= 0 && (second - offset2) % cycle < green2 + amber2;
+
+      if (isName1Lit && isName2Lit) {
+        conflicts.push(`${name1}~${name2}@${second}`);
+        break;
+      }
+    }
+  }
+
+  return conflicts.sort((a, b) => {
+    const [timeA] = a.split('@').slice(-1);
+    const [timeB] = b.split('@').slice(-1);
+    if (timeA === timeB) {
+      return a.localeCompare(b);
+    }
+    return parseInt(timeA) - parseInt(timeB);
+  });
+}
+```

@@ -1,0 +1,37 @@
+```ts
+export function normalizePartCode(code: string): string {
+  if (typeof code !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  // Remove spaces and hyphens, and convert to uppercase
+  const cleaned = code.replace(/[-\s]/g, '').toUpperCase();
+
+  // Validate characters
+  if (!/^[0-9A-Z]+$/.test(cleaned)) {
+    throw new Error('Invalid characters in input');
+  }
+
+  // Check length
+  if (cleaned.length !== 9) {
+    throw new Error('Input must contain exactly nine characters');
+  }
+
+  // Calculate the check character
+  const weights = [3, 5, 7];
+  let sum = 0;
+  for (let i = 0; i < 8; i++) {
+    const charValue = cleaned.charCodeAt(i) - (charCodeAt('0') ? '0'.charCodeAt(0) : 'A'.charCodeAt(0)) + (charCodeAt('0') ? 0 : 10);
+    sum += charValue * weights[i % weights.length];
+  }
+  const calculatedCheckChar = String.fromCharCode(((sum % 36) + (charCodeAt('0') ? '0'.charCodeAt(0) : 'A'.charCodeAt(0))));
+
+  // Verify check character
+  if (calculatedCheckChar !== cleaned[8]) {
+    throw new Error('Invalid check character');
+  }
+
+  // Return canonical format
+  return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}-${cleaned[8]}`;
+}
+```

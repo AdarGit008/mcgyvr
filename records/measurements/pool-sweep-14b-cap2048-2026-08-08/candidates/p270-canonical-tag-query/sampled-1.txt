@@ -1,0 +1,66 @@
+```ts
+export function canonicalTagQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  // Helper to decode escaped glyphs
+  const decodeEscape = (esc: string): string => {
+    if (!/^~([0-9A-F]{2})$/.test(esc)) {
+      throw new Error('Invalid escape sequence');
+    }
+    const code = parseInt(esc.slice(1), 16);
+    if (code < 32 || code > 126) {
+      throw new Error('Escape code out of valid range');
+    }
+    return String.fromCharCode(code);
+  };
+
+  // Helper to encode glyphs that need escaping
+  const encodeSpecial = (char: string): string => {
+    const code = char.charCodeAt(0);
+    if (code === 58 || code === 59 || code === 126) {
+      return `~${code.toString(16).toUpperCase()}`;
+    }
+    return char;
+  };
+
+  // Split the text into items
+  const items = text.split(';').map(item => item.trim());
+  if (items.some(item => !item.includes(':'))) {
+    throw new Error('Item must contain a colon');
+  }
+
+  // Parse each item into key and value
+  const parsedItems: { key: string; value: string }[] = items.map(item => {
+    const [key, value] = item.split(':').map(decodeEscape);
+    if (!key || value === undefined) {
+      throw new Error('Invalid key or value');
+    }
+    return { key, value };
+  });
+
+  // Sort items by key and then by value
+  parsedItems.sort((a, b) => {
+    if (a.key < b.key) return -1;
+    if (a.key > b.key) return 1;
+    return a.value < b.value ? -1 : a.value > b.value ? 1 : 0;
+  });
+
+  // Remove duplicates
+  const uniqueItems: { key: string; value: string }[] = [];
+  for (const item of parsedItems) {
+    if (!uniqueItems.some(u => u.key === item.key && u.value === item.value)) {
+      uniqueItems.push(item);
+    }
+  }
+
+  // Encode special characters in keys and values
+  const encodedItems = uniqueItems.map(({ key, value }) => {
+    return [key, value].map(part => part.split('').map(encodeSpecial).join('')).join(':');
+  });
+
+  // Join items with semicolons
+  return encodedItems.join(';');
+}
+```

@@ -1,0 +1,39 @@
+```ts
+export function decodeFrames(stream: number[]): number[][] {
+  const frames: number[][] = [];
+  let index = 0;
+
+  while (index < stream.length) {
+    if (index + 2 > stream.length) {
+      throw new Error("Stream ends inside a header");
+    }
+
+    const payloadLength = (stream[index] << 8) | stream[index + 1];
+    index += 2;
+
+    if (payloadLength < 0 || payloadLength > 65535) {
+      throw new Error("Invalid payload length");
+    }
+
+    if (index + payloadLength + 1 > stream.length) {
+      throw new Error("Stream ends inside a payload or before a frame's trailing byte");
+    }
+
+    const payload = stream.slice(index, index + payloadLength);
+    index += payloadLength;
+
+    const trailingByte = stream[index];
+    index++;
+
+    const xorResult = payload.reduce((acc, byte) => acc ^ byte, 0);
+
+    if (xorResult !== trailingByte) {
+      throw new Error("Trailing byte disagrees with its payload");
+    }
+
+    frames.push(payload);
+  }
+
+  return frames;
+}
+```

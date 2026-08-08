@@ -1,0 +1,69 @@
+```ts
+export function plotterPose(program: string): { x: number; y: number; facing: string } {
+  if (typeof program !== 'string') {
+    throw new Error('Invalid program');
+  }
+
+  const directions = ['N', 'E', 'S', 'W'];
+  let x = 0;
+  let y = 0;
+  let facingIndex = 0;
+
+  for (let i = 0; i < program.length; ) {
+    const command = program[i];
+    if (command === 'L') {
+      facingIndex = (facingIndex + 3) % 4;
+      i++;
+    } else if (command === 'R') {
+      facingIndex = (facingIndex + 1) % 4;
+      i++;
+    } else if (command === 'F' || command === 'B') {
+      const match = program.slice(i).match(/^[FB](\d+)/);
+      if (!match) {
+        throw new Error('Invalid program');
+      }
+      const distance = parseInt(match[1], 10);
+      if (distance === 0) {
+        throw new Error('Distance cannot be zero');
+      }
+      i += match[0].length;
+
+      if (command === 'F') {
+        switch (directions[facingIndex]) {
+          case 'N':
+            y += distance;
+            break;
+          case 'E':
+            x += distance;
+            break;
+          case 'S':
+            y -= distance;
+            break;
+          case 'W':
+            x -= distance;
+            break;
+        }
+      } else {
+        switch (directions[facingIndex]) {
+          case 'N':
+            y -= distance;
+            break;
+          case 'E':
+            x -= distance;
+            break;
+          case 'S':
+            y += distance;
+            break;
+          case 'W':
+            x += distance;
+            break;
+        }
+      }
+    } else {
+      throw new Error('Invalid program');
+    }
+  }
+
+  return { x, y, facing: directions[facingIndex] };
+}
+```

@@ -1,0 +1,93 @@
+```ts
+/**
+ * Builds weight codes based on the given entries.
+ * @param entries - An array of token entries, each containing a token and its tally.
+ * @returns An object with "codes", "bits", and "tallest" keys.
+ */
+export function buildWeightCode(entries: any[]): any {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error("Invalid input: entries must be a non-empty array.");
+  }
+
+  const tokens = entries.map((entry, index) => {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      throw new Error(`Invalid entry at index ${index}: must be an array of two elements.`);
+    }
+    const [token, tally] = entry;
+    if (typeof token !== "string" || !/^[a-z]+$/.test(token)) {
+      throw new Error(`Invalid token at index ${index}: must be a non-empty string of lowercase letters.`);
+    }
+    if (!Number.isInteger(tally) || tally < 1) {
+      throw new Error(`Invalid tally at index ${index}: must be a whole number of one or more.`);
+    }
+    return { token, tally };
+  });
+
+  tokens.sort((a, b) => a.token.localeCompare(b.token));
+
+  interface Bud {
+    load: number;
+    number: number;
+    near?: Bud;
+    far?: Bud;
+  }
+
+  const buds: Bud[] = tokens.map(({ token, tally }, index) => ({
+    load: tally,
+    number: index,
+  }));
+
+  while (buds.length > 1) {
+    let nearBudIndex = 0;
+    for (let i = 1; i < buds.length; i++) {
+      if (
+        buds[i].load < buds[nearBudIndex].load ||
+        (buds[i].load === buds[nearBudIndex].load && buds[i].number < buds[nearBudIndex].number)
+      ) {
+        nearBudIndex = i;
+      }
+    }
+
+    const nearBud = buds.splice(nearBudIndex, 1)[0];
+    let farBudIndex = 0;
+    for (let i = 0; i < buds.length; i++) {
+      if (
+        buds[i].load < buds[farBudIndex].load ||
+        (buds[i].load === buds[farBudIndex].load && buds[i].number < buds[farBudIndex].number)
+      ) {
+        farBudIndex = i;
+      }
+    }
+
+    const farBud = buds.splice(farBudIndex, 1)[0];
+    const newBud: Bud = {
+      load: nearBud.load + farBud.load,
+      number: buds.length,
+      near: nearBud,
+      far: farBud,
+    };
+    buds.push(newBud);
+  }
+
+  const codes: { [key: string]: string } = {};
+  const bits = tokens.reduce((totalBits, token) => {
+    let currentBud = buds[0];
+    let bitString = "";
+    while (currentBud.near || currentBud.far) {
+      if (currentBud === currentBud.far) {
+        bitString += "1";
+        currentBud = currentBud.near!;
+      } else {
+        bitString += "0";
+        currentBud = currentBud.far!;
+      }
+    }
+    codes[token.token] = bitString;
+    return totalBits + token.tally * bitString.length;
+  }, 0);
+
+  const tallest = Math.max(...Object.values(codes).map(code => code.length));
+
+  return { codes, bits, tallest };
+}
+```

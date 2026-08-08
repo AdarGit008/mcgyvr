@@ -1,0 +1,92 @@
+```ts
+/**
+ * Shifts a date by a specified number of days.
+ * @param date - A string representing a date in "YYYY-MM-DD" format.
+ * @param days - An integer representing the number of days to shift.
+ * @returns A new date string shifted by the specified number of days.
+ */
+export function shiftCivilDate(date: string, days: number): string {
+    // Validate input
+    if (!/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)) {
+        throw new Error("Invalid date format");
+    }
+    const [year, month, day] = date.split("-").map(Number);
+
+    if (days !== Math.floor(days)) {
+        throw new Error("Day count must be an integer");
+    }
+
+    // Check for valid day in the given month and year
+    const daysInMonth = [31, (isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (day < 1 || day > daysInMonth[month - 1]) {
+        throw new Error("Invalid day for the given month and year");
+    }
+
+    // Calculate the total number of days from year 0001 to the given date
+    let totalDays = yearToDays(year) + daysOfYear(year, month, day);
+
+    // Shift the total number of days by the specified amount
+    totalDays += days;
+
+    if (totalDays < 1 || totalDays > 3652059) { // Days from year 0001 to year 9999
+        throw new Error("Resulting date out of bounds");
+    }
+
+    // Convert the total number of days back to a date
+    let shiftedYear = Math.floor((totalDays - 1) / 365.2425) + 1;
+    let remainingDays = (totalDays - 1) % 365;
+
+    if (!isLeapYear(shiftedYear)) {
+        remainingDays++;
+    }
+
+    for (let m = 0; m < daysInMonth.length; m++) {
+        if (remainingDays < daysInMonth[m]) {
+            const shiftedMonth = m + 1;
+            const shiftedDay = remainingDays + 1;
+            return `${shiftedYear.toString().padStart(4, '0')}-${shiftedMonth.toString().padStart(2, '0')}-${shiftedDay.toString().padStart(2, '0')}`;
+        }
+        remainingDays -= daysInMonth[m];
+    }
+
+    throw new Error("Failed to calculate the shifted date");
+}
+
+/**
+ * Checks if a given year is a leap year.
+ * @param year - The year to check.
+ * @returns True if the year is a leap year, false otherwise.
+ */
+function isLeapYear(year: number): boolean {
+    return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+}
+
+/**
+ * Converts a year to the total number of days since year 0001.
+ * @param year - The year to convert.
+ * @returns The total number of days from year 0001 to the given year.
+ */
+function yearToDays(year: number): number {
+    let days = 0;
+    for (let y = 1; y < year; y++) {
+        days += isLeapYear(y) ? 366 : 365;
+    }
+    return days;
+}
+
+/**
+ * Calculates the total number of days in a given year, month, and day.
+ * @param year - The year part of the date.
+ * @param month - The month part of the date.
+ * @param day - The day part of the date.
+ * @returns The total number of days from the start of the year to the given date.
+ */
+function daysOfYear(year: number, month: number, day: number): number {
+    const daysInMonth = [31, (isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let days = day;
+    for (let m = 0; m < month - 1; m++) {
+        days += daysInMonth[m];
+    }
+    return days;
+}
+```

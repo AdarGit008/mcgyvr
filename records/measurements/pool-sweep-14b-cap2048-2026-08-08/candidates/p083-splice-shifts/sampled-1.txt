@@ -1,0 +1,21 @@
+```ts
+/**
+ * Merges multiple sign-in sheets into a single sorted roster of unique badge numbers.
+ * @param sheets - An array of arrays, where each inner array contains integer badge numbers in non-decreasing order.
+ * @returns A sorted array of unique badge numbers found across all sheets.
+ */
+export function spliceShifts(sheets: number[][]): number[] {
+  const mergedSet = new Set<number>();
+
+  for (const sheet of sheets) {
+    for (const badge of sheet) {
+      mergedSet.add(badge);
+    }
+  }
+
+  const roster = Array.from(mergedSet);
+  roster.sort((a, b) => a - b);
+
+  return roster;
+}
+```

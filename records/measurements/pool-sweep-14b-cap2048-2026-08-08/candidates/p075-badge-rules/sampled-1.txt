@@ -1,0 +1,25 @@
+```ts
+/**
+ * Evaluates whether a badge may open a door based on given rules and request.
+ * @param rules - Array of rule mappings with "effect", "role", and "door".
+ * @param request - Request mapping with "role" and "door".
+ * @returns The effect ("allow" or "deny") of the first matching rule, or "deny" if no rule matches.
+ */
+export function evaluateRules(
+  rules: Array<Record<string, string>>,
+  request: Record<string, string>
+): string {
+  for (const rule of rules) {
+    const { effect, role, door } = rule;
+    if (!effect || !role || !door) {
+      throw new Error("Rule is missing one or more required keys: effect, role, door");
+    }
+    const roleOk = rule.role === request.role || rule.role === "everyone";
+    const doorOk = rule.door === request.door || rule.door === "all";
+    if (roleOk && doorOk) {
+      return rule.effect;
+    }
+  }
+  return "deny";
+}
+```

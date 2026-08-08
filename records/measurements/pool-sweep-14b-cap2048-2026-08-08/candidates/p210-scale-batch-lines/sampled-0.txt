@@ -1,0 +1,40 @@
+```ts
+export function scaleBatchLines(items: string[], want: number, base: number): string[] {
+  if (!Array.isArray(items)) throw new Error("Items must be an array.");
+
+  const measures = new Set(['g', 'ml', 'each']);
+  const itemMap = new Map<string, { quantity: number, measure: string }>();
+
+  for (const line of items) {
+    if (typeof line !== 'string') throw new Error("Each item must be a string.");
+    
+    const parts = line.split(' ');
+    if (parts.length < 3) throw new Error("Line does not match the required format.");
+
+    const quantityStr = parts[0];
+    const measure = parts[1];
+    const name = parts.slice(2).join(' ');
+
+    if (!/^\d+$/.test(quantityStr) || +quantityStr <= 0) throw new Error("Quantity must be a positive integer.");
+    if (!measures.has(measure)) throw new Error("Measure must be one of 'g', 'ml', or 'each'.");
+    if (!/^[a-zA-Z\s]+$/.test(name)) throw new Error("Name must contain only letters and spaces.");
+
+    if (itemMap.has(name)) throw new Error("Duplicate stuff name found.");
+
+    itemMap.set(name, { quantity: +quantityStr, measure });
+  }
+
+  const tickSize = (measure: string): number => measure === 'ml' ? 5 : 1;
+
+  return items.map(line => {
+    const parts = line.split(' ');
+    const name = parts.slice(2).join(' ');
+    const item = itemMap.get(name)!;
+
+    const newQuantity = Math.round((item.quantity * want) / base);
+    const settledQuantity = Math.max(Math.ceil(newQuantity / tickSize(item.measure)) * tickSize(item.measure), 1);
+
+    return `${settledQuantity} ${item.measure} ${name}`;
+  });
+}
+```

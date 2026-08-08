@@ -1,0 +1,68 @@
+```ts
+export function unspoolText(spool: string): string {
+    if (typeof spool !== 'string') {
+        throw new Error('Input must be a string');
+    }
+
+    let output = '';
+    let i = 0;
+
+    while (i < spool.length) {
+        const char = spool[i];
+
+        if (char === '<') {
+            if (spool[i + 1] === '<') {
+                // Double less-than sign, append one less-than sign
+                output += '<';
+                i += 2;
+                continue;
+            }
+
+            // Find the position of the next '>'
+            let endPos = spool.indexOf('>', i);
+            if (endPos === -1) {
+                throw new Error('Pointer must be closed with a greater-than sign');
+            }
+
+            // Extract the pointer content
+            const pointerContent = spool.slice(i + 1, endPos);
+            const commaIndex = pointerContent.indexOf(',');
+
+            if (commaIndex === -1 || commaIndex === 0 || commaIndex === pointerContent.length - 1) {
+                throw new Error('Pointer must have a non-zero reach and haul');
+            }
+
+            const reachStr = pointerContent.slice(0, commaIndex);
+            const haulStr = pointerContent.slice(commaIndex + 1);
+
+            if (!/^\d+$/.test(reachStr) || !/^\d+$/.test(haulStr)) {
+                throw new Error('Reach and haul must be non-zero digits');
+            }
+
+            const reach = parseInt(reachStr, 10);
+            const haul = parseInt(haulStr, 10);
+
+            if (reach === 0 || haul === 0) {
+                throw new Error('Reach and haul must be non-zero');
+            }
+
+            if (reach > output.length) {
+                throw new Error('Reach cannot exceed the length of the current output');
+            }
+
+            // Append the haul from the reach
+            for (let j = 0; j < haul; j++) {
+                output += output[output.length - reach];
+            }
+
+            i = endPos + 1;
+        } else {
+            // Append normal character
+            output += char;
+            i++;
+        }
+    }
+
+    return output;
+}
+```

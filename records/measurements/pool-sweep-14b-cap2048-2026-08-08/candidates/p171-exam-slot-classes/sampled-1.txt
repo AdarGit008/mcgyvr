@@ -1,0 +1,51 @@
+```ts
+export function examSlotClasses(conflicts: number[][]): number[][] {
+  // Validate input
+  if (!Array.isArray(conflicts) || conflicts.length === 0) {
+    throw new Error("Invalid input: not a list of lists or no exams at all");
+  }
+
+  const numExams = conflicts.length;
+
+  for (let i = 0; i < conflicts.length; i++) {
+    const examConflicts = conflicts[i];
+    if (!Array.isArray(examConflicts)) {
+      throw new Error("Invalid input: not a list of lists");
+    }
+    if (examConflicts.includes(i)) {
+      throw new Error("An exam cannot share students with itself");
+    }
+    for (const conflict of examConflicts) {
+      if (conflict < 0 || conflict >= numExams) {
+        throw new Error("Invalid exam reference");
+      }
+      if (examConflicts.indexOf(conflict) !== examConflicts.lastIndexOf(conflict)) {
+        throw new Error("Duplicate exam in the same list");
+      }
+    }
+  }
+
+  // Sort exams by number of conflicts, busiest first
+  const sortedExams = conflicts.map((_, index) => index);
+  sortedExams.sort((a, b) => conflicts[b].length - conflicts[a].length);
+
+  const sittings: number[][] = [];
+
+  for (const exam of sortedExams) {
+    let placed = false;
+    for (let i = 0; i < sittings.length; i++) {
+      const sitting = sittings[i];
+      if (!sitting.some(conflictedExam => conflicts[exam].includes(conflictedExam))) {
+        sitting.push(exam);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      sittings.push([exam]);
+    }
+  }
+
+  return sittings.map(sitting => sitting.sort((a, b) => a - b));
+}
+```

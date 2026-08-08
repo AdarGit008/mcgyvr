@@ -1,0 +1,84 @@
+```ts
+export function fillDeskMap(plan: string[], legend: Record<string, string[]>): Record<string, unknown> {
+  if (!Array.isArray(plan) || plan.length === 0) {
+    throw new Error("Plan must be a non-empty list of rows.");
+  }
+
+  const rowLength = plan[0].length;
+  if (rowLength === 0) {
+    throw new Error("Rows cannot be empty.");
+  }
+
+  for (const row of plan) {
+    if (typeof row !== 'string' || row.length !== rowLength) {
+      throw new Error("All rows must be strings of the same length as the first row.");
+    }
+    for (const char of row) {
+      if (!['#', '.', /[a-z]/].some(pattern => pattern.test(char))) {
+        throw new Error("Each character in the plan must be a hash, full stop, or lowercase letter.");
+      }
+    }
+  }
+
+  if (typeof legend !== 'object' || legend === null) {
+    throw new Error("Legend must be a mapping.");
+  }
+
+  for (const [key, value] of Object.entries(legend)) {
+    if (key.length !== 1 || !/[a-z]/.test(key)) {
+      throw new Error("Keys in legend must be exactly one lowercase letter.");
+    }
+    if (!plan.some(row => row.includes(key))) {
+      throw new Error("Legend key does not correspond to any bank on the floor plan.");
+    }
+    if (!Array.isArray(value)) {
+      throw new Error("Each legend value must be a list.");
+    }
+    for (const name of value) {
+      if (typeof name !== 'string' || !/^[a-zA-Z]+$/.test(name)) {
+        throw new Error("Names must be non-empty strings of letters.");
+      }
+    }
+  }
+
+  const floorMap: string[][] = plan.map(row => row.split(''));
+  const satMap: { [key: string]: string[] } = {};
+  let spareCount = 0;
+
+  for (const key of Object.keys(legend).sort()) {
+    satMap[key] = [];
+  }
+
+  for (let r = 0; r < plan.length; r++) {
+    for (let c = 0; c < rowLength; c++) {
+      const char = floorMap[r][c];
+      if (/[a-z]/.test(char)) {
+        const bankKey = char;
+        const people = legend[bankKey];
+        if (people.length === 0) {
+          throw new Error("Bank has more desks than available people.");
+        }
+        const personName = people.shift()!;
+        floorMap[r][c] = personName.toUpperCase();
+        satMap[bankKey].push(`${personName} r${r} c${c}`);
+      } else if (char !== '#' && char !== '.') {
+        throw new Error("Invalid character in the plan.");
+      }
+    }
+  }
+
+  for (const key of Object.keys(legend)) {
+    const remainingPeople = legend[key];
+    if (remainingPeople.length > 0) {
+      throw new Error("Bank has more people than available desks.");
+    }
+    spareCount += remainingPeople.length;
+  }
+
+  return {
+    floor: floorMap.map(row => row.join('')),
+    sat: Object.entries(satMap).flatMap(([bank, entries]) => entries),
+    spare: spareCount
+  };
+}
+```

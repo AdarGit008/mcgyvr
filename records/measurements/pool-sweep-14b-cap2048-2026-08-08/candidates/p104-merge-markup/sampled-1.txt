@@ -1,0 +1,57 @@
+```ts
+export function mergeMarkup(spans: Array<{ start: number; end: number; tag: string }>): Array<[number, number, string]> {
+  // Validate input spans
+  for (const span of spans) {
+    if (!Number.isInteger(span.start) || !Number.isInteger(span.end)) {
+      throw new Error("Start and end must be integers.");
+    }
+    if (span.start < 0) {
+      throw new Error("Start must not be negative.");
+    }
+    if (span.start >= span.end) {
+      throw new Error("Start must be strictly below end.");
+    }
+    if (typeof span.tag !== "string" || span.tag.trim() === "") {
+      throw new Error("Tag must be a non-empty string.");
+    }
+  }
+
+  // Sort spans by start position
+  spans.sort((a, b) => a.start - b.start);
+
+  const mergedSpans: Array<[number, number, string]> = [];
+
+  for (const span of spans) {
+    let added = false;
+    for (let i = 0; i < mergedSpans.length; i++) {
+      const [start, end, tag] = mergedSpans[i];
+      if (tag === span.tag && start <= span.end && span.start <= end) {
+        // Merge overlapping or touching spans
+        mergedSpans[i] = [
+          Math.min(start, span.start),
+          Math.max(end, span.end),
+          tag,
+        ];
+        added = true;
+        break;
+      }
+    }
+    if (!added) {
+      mergedSpans.push([span.start, span.end, span.tag]);
+    }
+  }
+
+  // Check for overlapping tags
+  for (let i = 0; i < mergedSpans.length - 1; i++) {
+    const [start1, end1] = mergedSpans[i];
+    for (let j = i + 1; j < mergedSpans.length; j++) {
+      const [start2, end2] = mergedSpans[j];
+      if (start1 < end2 && start2 < end1) {
+        throw new Error("Spans with different tags must not overlap.");
+      }
+    }
+  }
+
+  return mergedSpans;
+}
+```

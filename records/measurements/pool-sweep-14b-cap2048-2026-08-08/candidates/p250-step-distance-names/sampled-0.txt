@@ -1,0 +1,67 @@
+```ts
+export function nameStepDistances(steps: any[]): any {
+  if (!Array.isArray(steps) || steps.length === 0) {
+    throw new Error("Invalid input: steps must be a non-empty array.");
+  }
+
+  const names = [];
+  const lifts = [];
+  const colours = [];
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (!Array.isArray(step) || step.length !== 2) {
+      throw new Error("Invalid step: each step must be an array of exactly two elements.");
+    }
+
+    const [mark1, mark2] = step;
+    if (!Number.isInteger(mark1) || !Number.isInteger(mark2)) {
+      throw new Error("Invalid pitch mark: both marks must be whole numbers.");
+    }
+
+    const reach = Math.abs(mark1 - mark2);
+    const lift = Math.floor(reach / 12);
+    const leftover = reach % 12;
+
+    const nameMap = [
+      "unison", "minor second", "major second", "minor third", "major third",
+      "perfect fourth", "tritone", "perfect fifth", "minor sixth", "major sixth",
+      "minor seventh", "major seventh"
+    ];
+    const name = nameMap[leftover];
+
+    const colour = ["unison", "minor third", "major third", "perfect fourth", "perfect fifth", "minor sixth", "major sixth"].includes(name) ? "sweet" : "sharp";
+
+    names.push(name);
+    lifts.push(lift);
+    colours.push(colour);
+  }
+
+  const tally: Record<string, number> = {};
+  for (const name of names) {
+    if (tally[name]) {
+      tally[name]++;
+    } else {
+      tally[name] = 1;
+    }
+  }
+
+  let widestIndex = 0;
+  let maxReach = Math.abs(steps[0][0] - steps[0][1]);
+  for (let i = 1; i < steps.length; i++) {
+    const reach = Math.abs(steps[i][0] - steps[i][1]);
+    if (reach > maxReach) {
+      maxReach = reach;
+      widestIndex = i;
+    }
+  }
+
+  return {
+    names,
+    lifts,
+    colours,
+    tally,
+    widest: widestIndex
+  };
+}
+```

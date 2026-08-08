@@ -1,0 +1,78 @@
+```ts
+export function assignBerths(
+  berths: Array<{ id: string; size: number }>,
+  quota: Record<string, number>,
+  requests: Array<Record<string, unknown>>
+): string[] {
+  const results: string[] = [];
+  const boatToBerth: Record<string, string> = {};
+  const ownerToCount: Record<string, number> = {};
+
+  // Validate berth ids for uniqueness
+  const seenIds = new Set<string>();
+  for (const berth of berths) {
+    if (seenIds.has(berth.id)) {
+      throw new Error("Duplicate berth id");
+    }
+    seenIds.add(berth.id);
+  }
+
+  for (const request of requests) {
+    const op = request.op as string;
+    const boat = request.boat as string;
+    const owner = request.owner as string | undefined;
+    const size = request.size as number | undefined;
+
+    if (op === "dock") {
+      if (!size || !owner) {
+        throw new Error("Invalid dock request");
+      }
+
+      if (boatToBerth[boat]) {
+        results.push("rejected:already_docked");
+        continue;
+      }
+
+      const quotaLimit = quota[owner] ?? Infinity;
+      if (ownerToCount[owner] >= quotaLimit) {
+        results.push("rejected:over_quota");
+        continue;
+      }
+
+      const availableBerth = berths.find(
+        (berth) => !boatToBerth[berth.id] && berth.size >= size
+      );
+
+      if (!availableBerth) {
+        results.push("rejected:no_berth");
+        continue;
+      }
+
+      boatToBerth[boat] = availableBerth.id;
+      ownerToCount[owner] = (ownerToCount[owner] || 0) + 1;
+      results.push(availableBerth.id);
+    } else if (op === "leave") {
+      if (!boatToBerth[boat]) {
+        results.push("rejected:not_docked");
+        continue;
+      }
+
+      const berthId = boatToBerth[boat];
+      delete boatToBerth[boat];
+      const owner = Object.keys(ownerToCount).find(
+        (key) => ownerToCount[key] > 0
+      ) as string | undefined;
+
+      if (owner) {
+        ownerToCount[owner]--;
+      }
+
+      results.push("left");
+    } else {
+      throw new Error(`Unknown operation: ${op}`);
+    }
+  }
+
+  return results;
+}
+```

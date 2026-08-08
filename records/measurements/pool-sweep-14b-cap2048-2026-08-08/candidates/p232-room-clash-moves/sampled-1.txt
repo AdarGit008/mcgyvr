@@ -1,0 +1,58 @@
+```ts
+export function planRoomMoves(bookings: any[]): string[] {
+    // Validate input
+    const validatedBookings = bookings.map((booking, index) => {
+        if (
+            typeof booking.id !== 'string' || booking.id.trim() === '' ||
+            typeof booking.start !== 'number' || !Number.isInteger(booking.start) ||
+            typeof booking.end !== 'number' || !Number.isInteger(booking.end) ||
+            typeof booking.fixed !== 'boolean'
+        ) {
+            throw new Error(`Invalid booking at index ${index}`);
+        }
+        if (booking.start >= booking.end) {
+            throw new Error(`Booking at index ${index} has invalid start and end times`);
+        }
+        return booking;
+    });
+
+    // Check for duplicate ids
+    const idSet = new Set<string>();
+    validatedBookings.forEach(booking => {
+        if (idSet.has(booking.id)) {
+            throw new Error(`Duplicate booking id: ${booking.id}`);
+        }
+        idSet.add(booking.id);
+    });
+
+    // Separate fixed and movable bookings
+    const fixedBookings = validatedBookings.filter(booking => booking.fixed);
+    const movableBookings = validatedBookings.filter(booking => !booking.fixed);
+
+    // Check for overlapping fixed bookings
+    fixedBookings.sort((a, b) => a.start - b.start || a.end - b.end || a.id.localeCompare(b.id));
+    for (let i = 0; i < fixedBookings.length - 1; i++) {
+        if (fixedBookings[i].end > fixedBookings[i + 1].start) {
+            throw new Error(`Overlapping fixed bookings: ${fixedBookings[i].id} and ${fixedBookings[i + 1].id}`);
+        }
+    }
+
+    // Sort movable bookings by end, start, then id
+    movableBookings.sort((a, b) => a.end - b.end || a.start - b.start || a.id.localeCompare(b.id));
+
+    // Greedily keep non-overlapping movable bookings
+    const keptMovable: { id: string; end: number }[] = [];
+    for (const booking of movableBookings) {
+        if (!keptMovable.some(kb => kb.end > booking.start)) {
+            keptMovable.push({ id: booking.id, end: booking.end });
+        }
+    }
+
+    // Identify moved bookings
+    const movedBookingIds = validatedBookings
+        .filter(booking => !keptMovable.some(kb => kb.id === booking.id))
+        .map(booking => booking.id);
+
+    return movedBookingIds;
+}
+```

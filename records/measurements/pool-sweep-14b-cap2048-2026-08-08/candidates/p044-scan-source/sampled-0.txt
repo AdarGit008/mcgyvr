@@ -1,0 +1,57 @@
+```ts
+export function scanSource(line: string): [string, string][] {
+    const tokens: [string, string][] = [];
+    let i = 0;
+
+    while (i < line.length) {
+        const char = line[i];
+
+        if (/\s/.test(char)) {
+            // Skip spaces and tabs
+            i++;
+            continue;
+        }
+
+        if (/[0-9]/.test(char)) {
+            // Lex a number
+            let numText = '';
+            while (i < line.length && /[0-9]/.test(line[i])) {
+                numText += line[i];
+                i++;
+            }
+            tokens.push(['num', numText]);
+            continue;
+        }
+
+        if (/[_a-zA-Z]/.test(char)) {
+            // Lex an identifier
+            let idText = '';
+            while (i < line.length && /[_a-zA-Z0-9]/.test(line[i])) {
+                idText += line[i];
+                i++;
+            }
+            tokens.push(['id', idText]);
+            continue;
+        }
+
+        if (/[\(\)=<>+\-*/]/.test(char)) {
+            // Lex a single character operator
+            tokens.push(['op', char]);
+            i++;
+            continue;
+        }
+
+        if (i + 1 < line.length && /==|!=|<=|>=|&&|\|\|/.test(line.substring(i, i + 2))) {
+            // Lex a two-character operator
+            tokens.push(['op', line.substring(i, i + 2)]);
+            i += 2;
+            continue;
+        }
+
+        // Unrecognized character
+        throw new Error(`Invalid character: ${char}`);
+    }
+
+    return tokens;
+}
+```

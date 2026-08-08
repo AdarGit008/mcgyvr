@@ -1,0 +1,78 @@
+```ts
+export function shiftCivilDate(date: string, days: number): string {
+  // Validate input date format
+  const dateRegex = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+  if (!dateRegex.test(date)) {
+    throw new Error("Invalid date format");
+  }
+
+  // Parse the date
+  const [yearStr, monthStr, dayStr] = date.split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const day = parseInt(dayStr, 10);
+
+  // Validate month and day
+  if (month < 1 || month > 12) {
+    throw new Error("Invalid month");
+  }
+  const daysInMonth = [31, (isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (day < 1 || day > daysInMonth[month - 1]) {
+    throw new Error("Invalid day");
+  }
+
+  // Validate day count
+  if (!Number.isInteger(days)) {
+    throw new Error("Day count must be an integer");
+  }
+  if (Math.abs(days) > 1000000) {
+    throw new Error("Day count magnitude exceeds one million");
+  }
+
+  // Function to determine if a year is a leap year
+  function isLeapYear(y: number): boolean {
+    return (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+  }
+
+  // Calculate the total days from year 0001-01-01
+  let totalDays = 0;
+  for (let y = 1; y < year; y++) {
+    totalDays += isLeapYear(y) ? 366 : 365;
+  }
+  for (let m = 1; m < month; m++) {
+    totalDays += daysInMonth[m - 1];
+  }
+  totalDays += day - 1;
+
+  // Add the days
+  totalDays += days;
+
+  // Validate the resulting year is within bounds
+  if (totalDays < 0 || totalDays > 3652059) { // 365 * 9999 + 999 leap years = 3652059
+    throw new Error("Resulting date out of valid range");
+  }
+
+  // Convert back to year, month, day
+  let remainingDays = totalDays;
+  for (let y = 1; y <= 9999; y++) {
+    const daysInYear = isLeapYear(y) ? 366 : 365;
+    if (remainingDays < daysInYear) {
+      year = y;
+      break;
+    }
+    remainingDays -= daysInYear;
+  }
+
+  let monthIndex = 0;
+  while (remainingDays >= daysInMonth[monthIndex]) {
+    remainingDays -= daysInMonth[monthIndex];
+    monthIndex++;
+  }
+  month = monthIndex + 1;
+
+  day = remainingDays + 1;
+
+  // Return the formatted date
+  return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+}
+```

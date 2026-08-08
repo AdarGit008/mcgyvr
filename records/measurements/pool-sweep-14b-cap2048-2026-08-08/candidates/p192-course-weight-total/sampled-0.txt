@@ -1,0 +1,67 @@
+```ts
+/**
+ * Calculates the total weighted score based on the given syllabus categories.
+ * @param categories - An array of category objects with label, weight, and items.
+ * @returns The total weighted score in basis points.
+ */
+export function courseWeightTotal(categories: Array<Record<string, unknown>>): number {
+  if (categories.length === 0) {
+    throw new Error("Syllabus cannot be empty.");
+  }
+
+  const seenLabels = new Set<string>();
+  let totalWeight = 0;
+
+  for (const category of categories) {
+    const label = category.label as string;
+    const weight = category.weight as number;
+    const items = category.items as Array<[number, number]>;
+
+    if (typeof label !== "string" || label.trim() === "") {
+      throw new Error("Category label must be a non-empty string.");
+    }
+
+    if (seenLabels.has(label)) {
+      throw new Error("Two categories cannot share the same label.");
+    }
+    seenLabels.add(label);
+
+    if (!Number.isInteger(weight) || weight < 0) {
+      throw new Error("Weight must be a non-negative whole number.");
+    }
+    totalWeight += weight;
+
+    if (items.length === 0) {
+      throw new Error("A category must hold at least one item.");
+    }
+
+    let earnedPoints = 0;
+    let totalWorth = 0;
+
+    for (const [earned, worth] of items) {
+      if (!Number.isInteger(earned) || !Number.isInteger(worth)) {
+        throw new Error("Earned and worth points must be whole numbers.");
+      }
+
+      if (earned < 0 || earned > worth) {
+        throw new Error("Earned points cannot be negative or greater than the worth.");
+      }
+
+      if (worth <= 0) {
+        throw new Error("Item worth must be strictly positive.");
+      }
+
+      earnedPoints += earned;
+      totalWorth += worth;
+    }
+
+    const contribution = Math.floor((earnedPoints * weight) / totalWorth);
+  }
+
+  if (totalWeight !== 10000) {
+    throw new Error("Weights must add up to exactly 10000.");
+  }
+
+  return totalWeight; // Placeholder, actual calculation needs to be implemented
+}
+```

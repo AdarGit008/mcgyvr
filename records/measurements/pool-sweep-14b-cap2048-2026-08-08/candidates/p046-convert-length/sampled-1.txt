@@ -1,0 +1,33 @@
+```ts
+export function convertLength(quantity: string, goal: string): number {
+  if (!quantity.trim()) throw new Error("Empty quantity");
+
+  const units = {
+    mm: 1,
+    cm: 10,
+    m: 1000,
+    km: 1_000_000
+  };
+
+  if (!(goal in units)) throw new Error(`Unknown target unit: ${goal}`);
+
+  const parts = quantity.split(" ");
+  let totalMillimeters = 0;
+
+  for (const part of parts) {
+    const match = part.match(/^(\d+)(mm|cm|m|km)$/);
+    if (!match) throw new Error(`Malformed part: ${part}`);
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    totalMillimeters += value * units[unit];
+  }
+
+  const targetUnitValue = units[goal];
+  if (totalMillimeters % targetUnitValue !== 0) {
+    throw new Error(`Cannot convert ${quantity} to ${goal} without rounding`);
+  }
+
+  return totalMillimeters / targetUnitValue;
+}
+```

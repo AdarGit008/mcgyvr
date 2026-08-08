@@ -1,0 +1,50 @@
+```ts
+export function newerRelease(a: string, b: string): number {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+
+  const parseVersion = (version: string): [number, number, string | null, number | null] => {
+    const versionRegex = /^(\d+)\.(\d+)(?:-(dev|alpha|beta|rc)\.(\d+))?$/;
+    const match = version.match(versionRegex);
+    if (!match) {
+      throw new Error('Invalid version format');
+    }
+    const major = parseInt(match[1], 10);
+    const minor = parseInt(match[2], 10);
+    const channel = match[3] || null;
+    const build = match[4] ? parseInt(match[4], 10) : null;
+    return [major, minor, channel, build];
+  };
+
+  const [aMajor, aMinor, aChannel, aBuild] = parseVersion(a);
+  const [bMajor, bMinor, bChannel, bBuild] = parseVersion(b);
+
+  if (aMajor !== bMajor) {
+    return aMajor > bMajor ? 1 : -1;
+  }
+  if (aMinor !== bMinor) {
+    return aMinor > bMinor ? 1 : -1;
+  }
+
+  const channelOrder: { [key: string]: number } = { dev: 0, alpha: 1, beta: 2, rc: 3 };
+
+  if (aChannel === null && bChannel !== null) {
+    return 1;
+  }
+  if (aChannel !== null && bChannel === null) {
+    return -1;
+  }
+  if (aChannel && bChannel) {
+    const channelComparison = channelOrder[aChannel] - channelOrder[bChannel];
+    if (channelComparison !== 0) {
+      return channelComparison > 0 ? 1 : -1;
+    }
+    if (aBuild !== null && bBuild !== null) {
+      return aBuild > bBuild ? 1 : -1;
+    }
+  }
+
+  return 0;
+}
+```

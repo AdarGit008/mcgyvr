@@ -1,0 +1,35 @@
+```ts
+export function cloakDecode(keyword: string, text: string): string {
+  if (typeof keyword !== "string" || keyword.length === 0) {
+    throw new Error("keyword must be a non-empty string");
+  }
+  if (!/^[a-z]+$/.test(keyword)) {
+    throw new Error("keyword must be lowercase a-z only");
+  }
+  if (typeof text !== "string") {
+    throw new Error("text must be a string");
+  }
+  if (!/^[a-z ]*$/.test(text)) {
+    throw new Error("text must be lowercase a-z and spaces only");
+  }
+
+  const cloak: string[] = [];
+  for (const ch of keyword + "abcdefghijklmnopqrstuvwxyz") {
+    if (!cloak.includes(ch)) {
+      cloak.push(ch);
+    }
+  }
+
+  let decodedText = "";
+  for (const ch of text) {
+    if (ch === " ") {
+      decodedText += " ";
+    } else {
+      const index = cloak.indexOf(ch);
+      decodedText += String.fromCharCode(index + 97);
+    }
+  }
+
+  return decodedText;
+}
+```

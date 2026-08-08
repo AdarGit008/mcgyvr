@@ -1,0 +1,60 @@
+```ts
+export function nameTriadStack(marks: number[]): { base: number; name: string } {
+  if (!Array.isArray(marks) || marks.length === 0) {
+    throw new Error("Invalid input: must be a non-empty array of numbers.");
+  }
+
+  const stack = Array.from(new Set(marks.map(mark => (mark % 12 + 12) % 12))).sort((a, b) => a - b);
+
+  if (stack.length < 3) {
+    throw new Error("Invalid input: stack must contain at least three unique classes.");
+  }
+
+  const shapes = [
+    [0, 4, 7], // major
+    [0, 3, 7], // minor
+    [0, 3, 6], // diminished
+    [0, 4, 8], // augmented
+    [0, 5, 7], // quartal
+    [0, 2, 6], // narrow
+    [0, 4, 7, 11], // major seventh
+    [0, 4, 7, 10], // dominant seventh
+    [0, 3, 7, 10], // minor seventh
+    [0, 3, 6, 9] // shrunk seventh
+  ];
+
+  const shapeNames = [
+    "major",
+    "minor",
+    "diminished",
+    "augmented",
+    "quartal",
+    "narrow",
+    "major seventh",
+    "dominant seventh",
+    "minor seventh",
+    "shrunk seventh"
+  ];
+
+  let bestBase = -1;
+  let bestShape: number[] | null = null;
+
+  for (const base of stack) {
+    const shape = stack.map(mark => ((mark - base + 12) % 12)).sort((a, b) => a - b);
+
+    for (let i = 0; i < shapes.length; i++) {
+      if (shapes[i].length === shape.length && shapes[i].every((val, index) => val === shape[index])) {
+        if (bestShape === null || i < bestShape[0]) {
+          bestBase = base;
+          bestShape = [i];
+        } else if (i === bestShape[0] && base < bestBase) {
+          bestBase = base;
+        }
+        break;
+      }
+    }
+  }
+
+  return { base: bestBase, name: bestShape !== null ? shapeNames[bestShape[0]] : "unknown" };
+}
+```

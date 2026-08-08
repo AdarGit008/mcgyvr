@@ -1,0 +1,59 @@
+```ts
+export function crateOverflowPath(root: Record<string, unknown>): string {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root is not a mapping');
+  }
+
+  const validateCrate = (crate: any, path: string[]): void => {
+    if (typeof crate.tag !== 'string' || crate.tag.includes('.') || crate.tag.trim() === '') {
+      throw new Error(`Invalid tag at ${path.join('.')}`);
+    }
+    if (!Number.isInteger(crate.weight) || crate.weight < 0) {
+      throw new Error(`Invalid weight at ${path.join('.')}`);
+    }
+    if (!Number.isInteger(crate.cap) || crate.cap <= 0) {
+      throw new Error(`Invalid cap at ${path.join('.')}`);
+    }
+    if (!Array.isArray(crate.inside)) {
+      throw new Error(`Invalid inside at ${path.join('.')}`);
+    }
+  };
+
+  const calculateGross = (crate: any, path: string[]): number => {
+    validateCrate(crate, path);
+    let gross = crate.weight;
+    for (const [index, innerCrate] of crate.inside.entries()) {
+      if (typeof innerCrate !== 'object' || innerCrate === null) {
+        throw new Error(`Invalid crate at ${path.join('.')}.inside[${index}]`);
+      }
+      validateCrate(innerCrate, [...path, innerCrate.tag]);
+      gross += calculateGross(innerCrate, [...path, innerCrate.tag]);
+    }
+    return gross;
+  };
+
+  const findSpillingCrate = (crate: any, path: string[]): string => {
+    validateCrate(crate, path);
+    let gross = crate.weight;
+    for (const [index, innerCrate] of crate.inside.entries()) {
+      if (typeof innerCrate !== 'object' || innerCrate === null) {
+        throw new Error(`Invalid crate at ${path.join('.')}.inside[${index}]`);
+      }
+      validateCrate(innerCrate, [...path, innerCrate.tag]);
+      gross += calculateGross(innerCrate, [...path, innerCrate.tag]);
+    }
+    if (gross > crate.cap) {
+      return path.join('.');
+    }
+    for (const innerCrate of crate.inside) {
+      const result = findSpillingCrate(innerCrate, [...path, innerCrate.tag]);
+      if (result) {
+        return result;
+      }
+    }
+    return '';
+  };
+
+  return findSpillingCrate(root, []);
+}
+```

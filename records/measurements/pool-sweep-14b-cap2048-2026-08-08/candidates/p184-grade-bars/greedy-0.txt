@@ -1,0 +1,48 @@
+```ts
+export function gradeBars(line: string, beats: number, unit: number): string[] {
+  if (typeof line !== 'string') {
+    throw new Error('Line must be a string');
+  }
+  if (!Array.includes([1, 2, 4, 8, 16], unit)) {
+    throw new Error('Unit must be one of 1, 2, 4, 8, or 16');
+  }
+  if (beats < 1) {
+    throw new Error('Beats must be at least 1');
+  }
+
+  const barDuration = (beats * 64) / unit;
+  const noteValues: { [key: string]: number } = {
+    w: 64,
+    h: 32,
+    q: 16,
+    e: 8,
+    s: 4,
+  };
+
+  return line.split('|').map(bar => {
+    if (bar.trim() === '') {
+      throw new Error('Bar must contain notes');
+    }
+
+    const notes = bar.split(' ');
+    let totalTicks = 0;
+
+    for (const note of notes) {
+      if (!note.match(/^[whqes](\.)?$/)) {
+        throw new Error('Invalid note');
+      }
+      const baseValue = noteValues[note[0]];
+      const isDotted = note.length === 2;
+      totalTicks += baseValue + (isDotted ? baseValue / 2 : 0);
+    }
+
+    if (totalTicks < barDuration) {
+      return 'short';
+    } else if (totalTicks > barDuration) {
+      return 'long';
+    } else {
+      return 'exact';
+    }
+  });
+}
+```

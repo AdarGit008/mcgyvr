@@ -1,0 +1,78 @@
+```ts
+export function latticeInverse(frame: number[][]): number[][] {
+  if (!Array.isArray(frame) || frame.length !== 2 && frame.length !== 3) {
+    throw new Error("Frame must be a list of lists with exactly two or three rows");
+  }
+
+  for (const row of frame) {
+    if (!Array.isArray(row) || row.length !== frame.length) {
+      throw new Error("Each row must match the frame's height and contain whole numbers");
+    }
+    for (const num of row) {
+      if (!Number.isInteger(num)) {
+        throw new Error("Each entry must be a whole number");
+      }
+    }
+  }
+
+  const determinant = calculateDeterminant(frame);
+  if (determinant !== 1 && determinant !== -1) {
+    return [];
+  }
+
+  return findInverse(frame);
+}
+
+function calculateDeterminant(frame: number[][]): number {
+  if (frame.length === 2) {
+    return frame[0][0] * frame[1][1] - frame[0][1] * frame[1][0];
+  } else {
+    // For a 3x3 matrix, use the rule of Sarrus
+    const [a, b, c] = frame[0];
+    const [d, e, f] = frame[1];
+    const [g, h, i] = frame[2];
+    return (
+      a * e * i +
+      b * f * g +
+      c * d * h -
+      c * e * g -
+      b * d * i -
+      a * f * h
+    );
+  }
+}
+
+function findInverse(frame: number[][]): number[][] {
+  const size = frame.length;
+  let inverse: number[][];
+  
+  if (size === 2) {
+    const [a, b] = frame[0];
+    const [c, d] = frame[1];
+    inverse = [
+      [d, -b],
+      [-c, a]
+    ];
+  } else {
+    // For a 3x3 matrix, find the adjugate and divide by determinant
+    const [a, b, c] = frame[0];
+    const [d, e, f] = frame[1];
+    const [g, h, i] = frame[2];
+
+    inverse = [
+      [(e * i - f * h), -(b * i - c * h), (b * f - c * e)],
+      [-(d * i - f * g), (a * i - c * g), -(a * f - c * d)],
+      [(d * h - e * g), -(a * h - b * g), (a * e - b * d)]
+    ];
+  }
+
+  const determinant = calculateDeterminant(frame);
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size; j++) {
+      inverse[i][j] /= determinant;
+    }
+  }
+
+  return inverse;
+}
+```

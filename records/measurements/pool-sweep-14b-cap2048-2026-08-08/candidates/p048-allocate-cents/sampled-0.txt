@@ -1,0 +1,36 @@
+```ts
+export function allocateCents(total: number, weights: number[]): number[] {
+    if (weights.length === 0) {
+        throw new Error("Weights list cannot be empty");
+    }
+    if (!Number.isInteger(total) || total < 0) {
+        throw new Error("Total must be a non-negative integer");
+    }
+
+    const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+    if (weightSum <= 0) {
+        throw new Error("Weights must be positive integers");
+    }
+
+    const baseAmounts = weights.map(weight => Math.floor((total * weight) / weightSum));
+    const remainingCents = total - baseAmounts.reduce((sum, amount) => sum + amount, 0);
+
+    const remainderPairs = weights.map((weight, index) => ({
+        index,
+        remainder: (total * weight) % weightSum
+    }));
+
+    remainderPairs.sort((a, b) => {
+        if (b.remainder === a.remainder) {
+            return a.index - b.index;
+        }
+        return b.remainder - a.remainder;
+    });
+
+    for (let i = 0; i < remainingCents; i++) {
+        baseAmounts[remainderPairs[i].index]++;
+    }
+
+    return baseAmounts;
+}
+```

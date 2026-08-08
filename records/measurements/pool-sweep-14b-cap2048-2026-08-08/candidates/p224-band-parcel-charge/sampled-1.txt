@@ -1,0 +1,144 @@
+```ts
+export function bandParcelCharge(book: Record<string, unknown>, parcel: Record<string, unknown>): Record<string, unknown> {
+  // Validate book structure
+  if (typeof book !== 'object' || book === null) {
+    throw new Error('Invalid rate book');
+  }
+
+  const zones = book['zones'];
+  if (!Array.isArray(zones) || zones.length === 0) {
+    throw new Error('Invalid zones');
+  }
+  for (const zone of zones) {
+    if (typeof zone !== 'string' || zone.trim() === '') {
+      throw new Error('Invalid zone name');
+    }
+  }
+
+  const steps = book['steps'];
+  if (!Array.isArray(steps) || steps.length === 0) {
+    throw new Error('Invalid steps');
+  }
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (typeof step !== 'object' || step === null) {
+      throw new Error('Invalid band');
+    }
+    const upTo = step['upTo'];
+    if (upTo !== null && (!Number.isInteger(upTo) || upTo <= 0)) {
+      throw new Error('Invalid weight in band');
+    }
+    const cents = step['cents'];
+    if (!Array.isArray(cents) || cents.length !== zones.length) {
+      throw new Error('Invalid cents in band');
+    }
+    for (const cent of cents) {
+      if (!Number.isInteger(cent) || cent < 0) {
+        throw new Error('Invalid price in band');
+      }
+    }
+    if (i > 0 && upTo !== null && steps[i - 1]['upTo'] !== null && upTo <= steps[i - 1]['upTo']) {
+      throw new Error('Bands do not climb strictly');
+    }
+  }
+
+  const openBand = steps.find(step => step['upTo'] === null);
+  if (openBand === undefined || steps.length > 1 && steps[steps.length - 1] !== openBand) {
+    throw new Error('Invalid open band');
+  }
+
+  const extras = book['extras'];
+  if (!Array.isArray(extras)) {
+    throw new Error('Invalid extras');
+  }
+  for (const extra of extras) {
+    if (typeof extra !== 'object' || extra === null) {
+      throw new Error('Invalid handling charge');
+    }
+    const mark = extra['mark'];
+    if (typeof mark !== 'string' || mark.trim() === '') {
+      throw new Error('Invalid mark name');
+    }
+    const cents = extra['cents'];
+    if (!Number.isInteger(cents) || cents < 0) {
+      throw new Error('Invalid price in charge');
+    }
+    const zonesExtra = extra['zones'];
+    if (zonesExtra !== null && !Array.isArray(zonesExtra)) {
+      throw new Error('Invalid zones in charge');
+    }
+    for (const zone of zonesExtra || []) {
+      if (!zones.includes(zone) || typeof zone !== 'string') {
+        throw new Error('Invalid zone in charge');
+      }
+    }
+  }
+
+  const round = book['round'];
+  if (!Number.isInteger(round) || round <= 0) {
+    throw new Error('Invalid round value');
+  }
+
+  // Validate parcel structure
+  if (typeof parcel !== 'object' || parcel === null) {
+    throw new Error('Invalid parcel');
+  }
+  const parcelZone = parcel['zone'];
+  if (typeof parcelZone !== 'string' || !zones.includes(parcelZone)) {
+    throw new Error('Invalid parcel zone');
+  }
+  const grams = parcel['grams'];
+  if (!Number.isInteger(grams) || grams <= 0) {
+    throw new Error('Invalid parcel grams');
+  }
+  const marks = parcel['marks'];
+  if (!Array.isArray(marks)) {
+    throw new Error('Invalid parcel marks');
+  }
+  for (const mark of marks) {
+    if (typeof mark !== 'string' || mark.trim() === '') {
+      throw new Error('Invalid parcel mark');
+    }
+  }
+
+  // Calculate band charge
+  let bandIndex = -1;
+  let baseCharge = 0;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (grams <= (step['upTo'] || Infinity)) {
+      bandIndex = i;
+      baseCharge = step['cents'][zones.indexOf(parcelZone)];
+      break;
+    }
+  }
+
+  // Calculate extra charges
+  let extraCharge = 0;
+  let appliedMarks: string[] = [];
+  for (const extra of extras) {
+    const mark = extra['mark'];
+    if (marks.includes(mark)) {
+      if (!extra['zones'] || extra['zones'].includes(parcelZone)) {
+        extraCharge += extra['cents'];
+        appliedMarks.push(mark);
+      }
+    }
+  }
+
+  // Calculate total charge
+  let totalCharge = baseCharge + extraCharge;
+  const remainder = totalCharge % round;
+  if (remainder !== 0) {
+    totalCharge += round - remainder;
+  }
+
+  return {
+    band: bandIndex,
+    base: baseCharge,
+    extra: extraCharge,
+    total: totalCharge,
+    applied: appliedMarks,
+  };
+}
+```

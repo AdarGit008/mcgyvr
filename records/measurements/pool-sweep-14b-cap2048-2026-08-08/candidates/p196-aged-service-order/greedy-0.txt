@@ -1,0 +1,65 @@
+```ts
+export function agedServiceOrder(events: Array<Record<string, unknown>>, step: number): string[] {
+  if (step <= 0 || !Number.isInteger(step)) {
+    throw new Error("Step must be a positive whole number.");
+  }
+  if (events.length === 0) {
+    throw new Error("Log is empty.");
+  }
+
+  const waitingRoom: { name: string; rank: number; joinTick: number }[] = [];
+  const calledNames: string[] = [];
+
+  for (const event of events) {
+    const kind = event.kind as string;
+    const tick = event.tick as number;
+
+    if (typeof kind !== "string" || !["join", "call"].includes(kind)) {
+      throw new Error("Invalid moment kind.");
+    }
+    if (typeof tick !== "number" || tick < 0 || !Number.isInteger(tick)) {
+      throw new Error("Tick must be a non-negative whole number.");
+    }
+
+    if (kind === "join") {
+      const name = event.who as string;
+      const rank = event.rank as number;
+
+      if (typeof name !== "string" || name.length === 0) {
+        throw new Error("Joining caller must have a non-empty name.");
+      }
+      if (typeof rank !== "number" || rank < 0 || !Number.isInteger(rank)) {
+        throw new Error("Rank must be a non-negative whole number.");
+      }
+
+      if (waitingRoom.some(w => w.name === name)) {
+        throw new Error("Name already in the waiting room cannot join again.");
+      }
+
+      waitingRoom.push({ name, rank, joinTick: tick });
+    } else if (kind === "call") {
+      if (waitingRoom.length === 0) {
+        throw new Error("Call found the waiting room empty.");
+      }
+
+      const caller = waitingRoom.reduce((a, b) => {
+        const standingA = a.rank + Math.floor((tick - a.joinTick) / step);
+        const standingB = b.rank + Math.floor((tick - b.joinTick) / step);
+
+        if (standingA !== standingB) {
+          return standingA > standingB ? a : b;
+        } else if (a.joinTick !== b.joinTick) {
+          return a.joinTick < b.joinTick ? a : b;
+        } else {
+          return a.name < b.name ? a : b;
+        }
+      });
+
+      calledNames.push(caller.name);
+      waitingRoom.splice(waitingRoom.indexOf(caller), 1);
+    }
+  }
+
+  return calledNames;
+}
+```

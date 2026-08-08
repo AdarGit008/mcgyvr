@@ -1,0 +1,67 @@
+```ts
+export function expandTemplate(template: string, context: Record<string, unknown>, missing: string): string {
+  if (missing !== "error" && missing !== "keep" && missing !== "blank") {
+    throw new Error("Invalid missing-path policy");
+  }
+
+  let result = "";
+  let i = 0;
+  const length = template.length;
+
+  while (i < length) {
+    if (template[i] === "$") {
+      if (i + 1 < length && template[i + 1] === "$") {
+        // Literal dollar sign
+        result += "$";
+        i += 2;
+        continue;
+      } else if (i + 1 < length && template[i + 1] === "{") {
+        // Placeholder start
+        let j = i + 2;
+        while (j < length && template[j] !== "}") {
+          j++;
+        }
+        if (j === length) {
+          throw new Error("Missing closing '}' for placeholder");
+        }
+
+        const path = template.slice(i + 2, j);
+        if (path.length === 0 || path.split(".").includes("")) {
+          throw new Error("Empty segment in path");
+        }
+
+        let value: unknown = context;
+        try {
+          for (const segment of path.split(".")) {
+            if (typeof value !== "object" || value === null) {
+              throw new Error("Path does not resolve to a valid object");
+            }
+            value = (value as Record<string, unknown>)[segment];
+          }
+        } catch {
+          if (missing === "error") {
+            throw new Error(`Missing path: ${path}`);
+          } else if (missing === "keep") {
+            result += template.slice(i, j + 1);
+          }
+          // missing === "blank", do nothing
+        }
+
+        if (value !== undefined && typeof value !== "string" && typeof value !== "number") {
+          throw new Error("Path resolves to an invalid type");
+        }
+
+        result += String(value ?? "");
+        i = j + 1;
+      } else {
+        throw new Error("Invalid '$' in template");
+      }
+    } else {
+      result += template[i];
+      i++;
+    }
+  }
+
+  return result;
+}
+```

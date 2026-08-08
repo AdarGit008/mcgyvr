@@ -1,0 +1,54 @@
+```ts
+/**
+ * Checks if a frog can hop from the from square to the to square on the pond.
+ * @param pond - A 5x5 grid of strings representing the pond.
+ * @param from - The starting position [row, column] of the frog.
+ * @param to - The target position [row, column] for the frog to hop to.
+ * @returns True if the move is allowed, false otherwise.
+ */
+export function canHop(pond: string[], from: number[], to: number[]): boolean {
+  // Validate pond dimensions
+  if (!Array.isArray(pond) || pond.length !== 5 || !pond.every(row => typeof row === 'string' && row.length === 5)) {
+    throw new Error('Pond must be a 5x5 grid of strings.');
+  }
+
+  // Validate from and to positions
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+  if (!Number.isInteger(fromRow) || !Number.isInteger(fromCol) || fromRow < 0 || fromRow > 4 || fromCol < 0 || fromCol > 4) {
+    throw new Error('From position must be integers between 0 and 4.');
+  }
+  if (!Number.isInteger(toRow) || !Number.isInteger(toCol) || toRow < 0 || toRow > 4 || toCol < 0 || toCol > 4) {
+    throw new Error('To position must be integers between 0 and 4.');
+  }
+
+  // Check if from square is occupied by a frog
+  if (pond[fromRow][fromCol] !== 'F') {
+    return false;
+  }
+
+  // Check if to square is open water
+  if (pond[toRow][toCol] !== '.') {
+    return false;
+  }
+
+  // Calculate the absolute differences in row and column
+  const dRow = Math.abs(toRow - fromRow);
+  const dCol = Math.abs(toCol - fromCol);
+
+  // Check for step move
+  if ((dRow === 1 && dCol === 0) || (dRow === 0 && dCol === 1)) {
+    return true;
+  }
+
+  // Check for vault move
+  if ((dRow === 2 && dCol === 0) || (dRow === 0 && dCol === 2) || (dRow === 2 && dCol === 2)) {
+    const midRow = Math.floor((fromRow + toRow) / 2);
+    const midCol = Math.floor((fromCol + toCol) / 2);
+    return pond[midRow][midCol] !== '.';
+  }
+
+  // If none of the conditions are met, the move is not allowed
+  return false;
+}
+```

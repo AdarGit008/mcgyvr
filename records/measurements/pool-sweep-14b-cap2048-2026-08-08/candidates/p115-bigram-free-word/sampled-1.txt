@@ -1,0 +1,57 @@
+```ts
+export function smallestFreeWord(n: number, k: number, banned: string[]): string {
+  if (!Number.isInteger(n) || n <= 0 || n > 12) {
+    throw new Error("n must be a positive integer of at most 12");
+  }
+  if (!Number.isInteger(k) || k < 1 || k > 6) {
+    throw new Error("k must be an integer from 1 to 6");
+  }
+  if (!Array.isArray(banned)) {
+    throw new Error("banned must be a list");
+  }
+  for (const combo of banned) {
+    if (typeof combo !== "string" || combo.length !== 2 || !/^[a-z]{2}$/.test(combo)) {
+      throw new Error("each banned entry must be a two-character string of letters");
+    }
+    const [first, second] = combo;
+    const firstCharCode = first.charCodeAt(0) - 'a'.charCodeAt(0);
+    const secondCharCode = second.charCodeAt(0) - 'a'.charCodeAt(0);
+    if (firstCharCode >= k || secondCharCode >= k) {
+      throw new Error("banned entries must contain letters within the first k");
+    }
+  }
+
+  const alphabet = Array.from({ length: k }, (_, i) => String.fromCharCode('a'.charCodeAt(0) + i));
+
+  function isValid(word: string): boolean {
+    for (let i = 0; i < word.length - 1; i++) {
+      if (banned.includes(word[i] + word[i + 1])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function backtrack(word: string): string | null {
+    if (word.length === n) {
+      return isValid(word) ? word : null;
+    }
+    for (const letter of alphabet) {
+      const candidate = word + letter;
+      if (isValid(candidate)) {
+        const result = backtrack(candidate);
+        if (result) {
+          return result;
+        }
+      }
+    }
+    return null;
+  }
+
+  const result = backtrack("");
+  if (!result) {
+    throw new Error("No valid word found");
+  }
+  return result;
+}
+```

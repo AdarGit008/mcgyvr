@@ -1,0 +1,45 @@
+```ts
+/** A heading dressed for print. */
+export function titleLine(text: string, quiet: string[]): string {
+  if (typeof text !== "string" || text.trim() === "") {
+    throw new Error("Invalid heading");
+  }
+  if (!Array.isArray(quiet)) {
+    throw new Error("Invalid quiet list");
+  }
+  const tokens = text.split(" ");
+  if (tokens.some((token) => token === "" || /[^a-zA-Z0-9'-]/.test(token))) {
+    throw new Error("Invalid token in heading");
+  }
+  if (tokens[0] === "" || tokens[tokens.length - 1] === "") {
+    throw new Error("Heading cannot start or end with a space");
+  }
+  if (quiet.some((item) => typeof item !== "string" || /[A-Z]/.test(item))) {
+    throw new Error("Invalid quiet list entry");
+  }
+
+  return tokens
+    .map((token, index) => {
+      const isAllCaps = /^[A-Z]+$/.test(token);
+      const isLongAndAllCaps = isAllCaps && token.length > 1;
+      const isQuiet = quiet.includes(token.toLowerCase());
+      const isFirstOrLast = index === 0 || index === tokens.length - 1;
+
+      if (isLongAndAllCaps) {
+        return token;
+      } else if (!isFirstOrLast && isQuiet) {
+        return token.toLowerCase();
+      } else {
+        return token
+          .split(/(['-])/)
+          .map((piece, i, pieces) =>
+            i === 0 || i === pieces.length - 1
+              ? piece.toLowerCase()
+              : piece[0].toUpperCase() + piece.slice(1).toLowerCase(),
+          )
+          .join("");
+      }
+    })
+    .join(" ");
+}
+```

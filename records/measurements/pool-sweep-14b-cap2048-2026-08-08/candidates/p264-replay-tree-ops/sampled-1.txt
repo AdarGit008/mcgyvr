@@ -1,0 +1,113 @@
+```ts
+export function replayTreeOps(steps: string[]): number[] {
+  if (!Array.isArray(steps)) throw new Error("Steps must be an array");
+
+  interface TreeNode {
+    value: number;
+    left?: TreeNode | null;
+    right?: TreeNode | null;
+  }
+
+  class BinarySearchTree {
+    private root?: TreeNode | null = null;
+
+    add(value: number): void {
+      const newNode: TreeNode = { value };
+
+      if (!this.root) {
+        this.root = newNode;
+        return;
+      }
+
+      let current = this.root;
+      while (true) {
+        if (value < current.value) {
+          if (!current.left) {
+            current.left = newNode;
+            break;
+          }
+          current = current.left;
+        } else if (value > current.value) {
+          if (!current.right) {
+            current.right = newNode;
+            break;
+          }
+          current = current.right;
+        } else {
+          // Value already exists, ignore
+          break;
+        }
+      }
+    }
+
+    drop(value: number): void {
+      const removeNode = (node: TreeNode | null, value: number): TreeNode | null => {
+        if (!node) throw new Error("Value not found in the tree");
+
+        if (value < node.value) {
+          node.left = removeNode(node.left, value);
+        } else if (value > node.value) {
+          node.right = removeNode(node.right, value);
+        } else {
+          if (!node.left && !node.right) return null;
+          if (!node.left) return node.right;
+          if (!node.right) return node.left;
+
+          const minValue = this.findMinValue(node.right);
+          node.value = minValue!;
+          node.right = removeNode(node.right, minValue!);
+        }
+        return node;
+      };
+
+      try {
+        this.root = removeNode(this.root, value);
+      } catch (error) {
+        throw new Error("Value not found in the tree");
+      }
+    }
+
+    private findMinValue(node: TreeNode): number | null {
+      let current = node;
+      while (current.left) {
+        current = current.left;
+      }
+      return current.value;
+    }
+
+    inOrderTraversal(node: TreeNode | null, result: number[]): void {
+      if (node) {
+        this.inOrderTraversal(node.left, result);
+        result.push(node.value);
+        this.inOrderTraversal(node.right, result);
+      }
+    }
+
+    getValuesInOrder(): number[] {
+      const result: number[] = [];
+      this.inOrderTraversal(this.root, result);
+      return result;
+    }
+  }
+
+  const bst = new BinarySearchTree();
+
+  for (const step of steps) {
+    if (typeof step !== "string") throw new Error("Each step must be a string");
+
+    const match = step.match(/^add:(-?\d+)$|^drop:(-?\d+)$/);
+    if (!match) throw new Error("Invalid step format");
+
+    const [, operation, valueStr] = match;
+    const value = parseInt(valueStr, 10);
+
+    if (operation === "add") {
+      bst.add(value);
+    } else if (operation === "drop") {
+      bst.drop(value);
+    }
+  }
+
+  return bst.getValuesInOrder();
+}
+```

@@ -1,0 +1,106 @@
+```ts
+export function cheapestTray(items: { code: string, price: number }[], bundles: { code: string, price: number, holds: string[] }[], needed: string[]): { total: number, picks: string[] } {
+    if (items.length + bundles.length > 14) {
+        throw new Error("More than fourteen things on sale in all");
+    }
+
+    const itemMap = new Map<string, { code: string, price: number }>();
+    const bundleMap = new Map<string, { code: string, price: number, holds: string[] }>();
+
+    for (const item of items) {
+        if (item.price < 1) {
+            throw new Error("Price below one");
+        }
+        if (itemMap.has(item.code)) {
+            throw new Error("Code shared by two things on sale");
+        }
+        itemMap.set(item.code, item);
+    }
+
+    for (const bundle of bundles) {
+        if (bundle.price < 1) {
+            throw new Error("Price below one");
+        }
+        if (bundle.holds.length === 0) {
+            throw new Error("Bundle holding nothing");
+        }
+        for (const hold of bundle.holds) {
+            if (!itemMap.has(hold)) {
+                throw new Error("Bundle holding an unknown code");
+            }
+        }
+        if (bundleMap.has(bundle.code)) {
+            throw new Error("Code shared by two things on sale");
+        }
+        bundleMap.set(bundle.code, bundle);
+    }
+
+    const neededSet = new Set(needed);
+    for (const code of needed) {
+        if (!itemMap.has(code)) {
+            throw new Error("Required code no item sells");
+        }
+        if (needed.filter(c => c === code).length > 1) {
+            throw new Error("Code required twice");
+        }
+    }
+
+    const allItems = [...items, ...bundles.map(b => ({ code: b.code, price: b.price }))];
+
+    function isSubset(a: Set<string>, b: Set<string>): boolean {
+        for (const item of a) {
+            if (!b.has(item)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    const dp: { total: number, picks: string[] }[][] = Array.from({ length: neededSet.size + 1 }, () =>
+        Array.from({ length: allItems.length + 1 }, () => ({ total: Infinity, picks: [] }))
+    );
+
+    dp[0][0] = { total: 0, picks: [] };
+
+    for (let i = 1; i <= neededSet.size; i++) {
+        const currentNeeded = Array.from(neededSet).slice(0, i);
+        const currentNeededSet = new Set(currentNeeded);
+
+        for (let j = 1; j <= allItems.length; j++) {
+            const item = allItems[j - 1];
+            const withoutItem = dp[i][j - 1];
+
+            if (itemMap.has(item.code) && currentNeededSet.has(item.code)) {
+                const withItem = { total: item.price, picks: [item.code] };
+                if (isSubset(currentNeededSet, new Set(withItem.picks))) {
+                    dp[i][j] = withItem;
+                } else {
+                    dp[i][j] = withoutItem;
+                }
+            } else if (bundleMap.has(item.code)) {
+                const bundle = bundleMap.get(item.code)!;
+                const bundleItems = bundle.holds.filter(code => currentNeededSet.has(code));
+                if (bundleItems.length > 0) {
+                    const withBundle = { total: bundle.price, picks: bundleItems };
+                    if (isSubset(currentNeededSet, new Set(withBundle.picks))) {
+                        dp[i][j] = withBundle;
+                    } else {
+                        dp[i][j] = withoutItem;
+                    }
+                } else {
+                    dp[i][j] = withoutItem;
+                }
+            } else {
+                dp[i][j] = withoutItem;
+            }
+
+            if (dp[i][j].total > withoutItem.total) {
+                dp[i][j] = withoutItem;
+            }
+        }
+    }
+
+    const result = dp[neededSet.size].reduce((a, b) => a.total < b.total ? a : a.total === b.total && a.picks.length <= b.picks.length ? a : b);
+    return { total: result.total, picks: result.picks.sort() };
+}
+```

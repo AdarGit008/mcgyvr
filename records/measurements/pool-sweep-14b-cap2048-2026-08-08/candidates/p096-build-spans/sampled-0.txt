@@ -1,0 +1,106 @@
+```ts
+/**
+ * Intersects build spans and returns the resulting set of builds.
+ * @param spans - A non-empty list of span strings.
+ * @returns A string representing the canonical intersection of the spans.
+ */
+export function intersectBuildSpans(spans: string[]): string {
+  if (spans.length === 0) {
+    throw new Error("Empty list of spans");
+  }
+
+  const parseSpan = (span: string): { lo?: number, hi?: number, strikes: Set<number> } => {
+    const [range, strikePart] = span.split('!');
+    let lo: number | undefined;
+    let hi: number | undefined;
+    const strikes = new Set<number>();
+
+    if (range === '..') {
+      // No limits
+    } else if (range.startsWith('..')) {
+      hi = parseInt(range.slice(2), 10);
+      if (isNaN(hi) || range.length > 3 || (range.length === 3 && range[2] === '0')) {
+        throw new Error("Malformed span");
+      }
+    } else if (range.endsWith('..')) {
+      lo = parseInt(range.slice(0, -2), 10);
+      if (isNaN(lo) || range.length > 3 || (range.length === 3 && range[0] === '0')) {
+        throw new Error("Malformed span");
+      }
+    } else {
+      const [loStr, hiStr] = range.split('..');
+      lo = parseInt(loStr, 10);
+      hi = parseInt(hiStr, 10);
+      if (isNaN(lo) || isNaN(hi) || lo > hi || loStr.length > 1 || hiStr.length > 1 || loStr.startsWith('0') || hiStr.startsWith('0')) {
+        throw new Error("Malformed span");
+      }
+    }
+
+    if (strikePart) {
+      const strikesArray = strikePart.split(',').map(num => parseInt(num, 10));
+      for (const strike of strikesArray) {
+        if (isNaN(strike) || strike < (lo ?? -Infinity) || strike > (hi ?? Infinity)) {
+          throw new Error("Strike outside its own span");
+        }
+        strikes.add(strike);
+      }
+    }
+
+    return { lo, hi, strikes };
+  };
+
+  const initialSpan = parseSpan(spans[0]);
+  let resultLo = initialSpan.lo;
+  let resultHi = initialSpan.hi;
+  let resultStrikes = new Set(initialSpan.strikes);
+
+  for (let i = 1; i < spans.length; i++) {
+    const currentSpan = parseSpan(spans[i]);
+
+    if ((resultLo !== undefined && currentSpan.hi !== undefined && resultLo > currentSpan.hi) ||
+        (resultHi !== undefined && currentSpan.lo !== undefined && resultHi < currentSpan.lo)) {
+      return "empty";
+    }
+
+    if (resultLo === undefined || currentSpan.lo !== undefined) {
+      resultLo = Math.max(resultLo ?? -Infinity, currentSpan.lo ?? -Infinity);
+    }
+    if (resultHi === undefined || currentSpan.hi !== undefined) {
+      resultHi = Math.min(resultHi ?? Infinity, currentSpan.hi ?? Infinity);
+    }
+
+    const newStrikes = new Set<number>();
+    for (const strike of resultStrikes) {
+      if (currentSpan.strikes.has(strike)) {
+        newStrikes.add(strike);
+      }
+    }
+    resultStrikes = newStrikes;
+  }
+
+  // Remove strikes that are on the limits
+  if (resultLo !== undefined && resultStrikes.has(resultLo)) {
+    resultStrikes.delete(resultLo);
+  }
+  if (resultHi !== undefined && resultStrikes.has(resultHi)) {
+    resultStrikes.delete(resultHi);
+  }
+
+  const sortedStrikes = Array.from(resultStrikes).sort((a, b) => a - b);
+
+  let result = '';
+  if (resultLo !== undefined) {
+    result += resultLo;
+  }
+  result += '..';
+  if (resultHi !== undefined) {
+    result += resultHi;
+  }
+
+  if (sortedStrikes.length > 0) {
+    result += '!' + sortedStrikes.join(',');
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,77 @@
+```ts
+/**
+ * Compare two trees and return a flat list of operations to transform the before tree into the after tree.
+ * @param before - The initial tree node.
+ * @param after - The target tree node.
+ * @returns A list of operation mappings.
+ */
+export function treeDelta(before: { name: string; value: number; children: unknown[] }, after: { name: string; value: number; children: unknown[] }): Array<Record<string, unknown>> {
+    const operations: Array<Record<string, unknown>> = [];
+
+    if (before.name !== after.name) {
+        throw new Error("Root names differ");
+    }
+
+    const checkForDuplicateNames = (nodes: unknown[]) => {
+        const seenNames = new Set<string>();
+        for (const node of nodes) {
+            if (typeof node !== 'object' || !node || typeof (node as any).name !== 'string') {
+                throw new Error("Invalid node structure");
+            }
+            if (seenNames.has((node as any).name)) {
+                throw new Error("Duplicate name found among siblings");
+            }
+            seenNames.add((node as any).name);
+        }
+    };
+
+    checkForDuplicateNames(before.children);
+    checkForDuplicateNames(after.children);
+
+    const beforeChildrenMap = new Map<string, { name: string; value: number; children: unknown[] }>();
+    for (const child of before.children) {
+        beforeChildrenMap.set((child as any).name, child as { name: string; value: number; children: unknown[] });
+    }
+
+    const afterChildrenMap = new Map<string, { name: string; value: number; children: unknown[] }>();
+    for (const child of after.children) {
+        afterChildrenMap.set((child as any).name, child as { name: string; value: number; children: unknown[] });
+    }
+
+    const processNode = (beforeNode: { name: string; value: number; children: unknown[] }, afterNode: { name: string; value: number; children: unknown[] }, path: string) => {
+        if (beforeNode.value !== afterNode.value) {
+            operations.push({ op: "change", path, from: beforeNode.value, to: afterNode.value });
+        }
+
+        const afterNamesSet = new Set<string>();
+        for (const afterChild of afterNode.children) {
+            afterNamesSet.add((afterChild as any).name);
+        }
+
+        for (const afterChild of afterNode.children) {
+            const afterChildName = (afterChild as any).name;
+            const beforeChild = beforeChildrenMap.get(afterChildName);
+
+            if (beforeChild) {
+                processNode(beforeChild, afterChild, `${path}/${afterChildName}`);
+            } else {
+                operations.push({ op: "add", path: `${path}/${afterChildName}`, value: (afterChild as any).value });
+                for (const grandchild of (afterChild as any).children) {
+                    processNode(grandchild, grandchild, `${path}/${afterChildName}/${(grandchild as any).name}`);
+                }
+            }
+        }
+
+        for (const beforeChild of beforeNode.children) {
+            const beforeChildName = (beforeChild as any).name;
+            if (!afterNamesSet.has(beforeChildName)) {
+                operations.push({ op: "remove", path: `${path}/${beforeChildName}` });
+            }
+        }
+    };
+
+    processNode(before, after, "");
+
+    return operations;
+}
+```

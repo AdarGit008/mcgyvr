@@ -1,0 +1,36 @@
+```ts
+/**
+ * Calculates the jar's contents at the close of every month based on topup, lid, and outflows.
+ * @param topup - The amount added to the jar each month.
+ * @param lid - The maximum amount that can be retained in the jar after spillage.
+ * @param outflows - An array of non-negative integers representing the outflow each month.
+ * @returns An array of integers representing the jar's contents at the end of each month.
+ * @throws Error if topup, lid, or any element in outflows is not a non-negative integer.
+ */
+export function jarBalances(topup: number, lid: number, outflows: number[]): number[] {
+  if (typeof topup !== 'number' || topup < 0 || !Number.isInteger(topup)) {
+    throw new Error('Topup must be a non-negative integer.');
+  }
+  if (typeof lid !== 'number' || lid < 0 || !Number.isInteger(lid)) {
+    throw new Error('Lid must be a non-negative integer.');
+  }
+  if (!Array.isArray(outflows) || outflows.some(o => typeof o !== 'number' || o < 0 || !Number.isInteger(o))) {
+    throw new Error('Outflows must be an array of non-negative integers.');
+  }
+
+  const balances: number[] = [];
+  let balance = 0;
+
+  for (const outflow of outflows) {
+    balance += topup;
+    if (outflow > balance) {
+      throw new Error('Outflow exceeds the available balance.');
+    }
+    balance -= outflow;
+    balance = Math.min(balance, lid);
+    balances.push(balance);
+  }
+
+  return balances;
+}
+```

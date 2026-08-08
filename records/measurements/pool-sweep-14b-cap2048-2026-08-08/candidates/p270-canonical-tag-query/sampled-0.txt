@@ -1,0 +1,51 @@
+```ts
+export function canonicalTagQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const escapeRegex = /~([0-9A-F]{2})/g;
+  const unescape = (str: string) => str.replace(escapeRegex, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+
+  const escapeSpecialCharacters = (str: string) => {
+    return str
+      .replace(/:/g, '~3A')
+      .replace(/;/g, '~3B')
+      .replace(/~/g, '~7E');
+  };
+
+  const items = text.split(';').map(item => item.trim());
+
+  const parsedItems: { key: string, value: string }[] = [];
+
+  for (const item of items) {
+    if (!item.includes(':') || item.indexOf(':') !== item.lastIndexOf(':')) {
+      throw new Error('Item must contain exactly one colon');
+    }
+
+    const [key, value] = item.split(':').map(unescape);
+
+    if (key === '') {
+      throw new Error('Key cannot be empty');
+    }
+
+    parsedItems.push({ key, value });
+  }
+
+  const sortedUniqueItems = parsedItems
+    .sort((a, b) => {
+      if (a.key !== b.key) {
+        return a.key.localeCompare(b.key);
+      }
+      return a.value.localeCompare(b.value);
+    })
+    .filter((item, index, self) =>
+      index === 0 ||
+      item.key !== self[index - 1].key || item.value !== self[index - 1].value
+    );
+
+  const result = sortedUniqueItems.map(({ key, value }) => `${escapeSpecialCharacters(key)}:${escapeSpecialCharacters(value)}`).join(';');
+
+  return result;
+}
+```

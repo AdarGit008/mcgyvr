@@ -1,0 +1,51 @@
+```ts
+/**
+ * Applies a series of add and cut operations to a set of integers and returns the resulting intervals.
+ * @param steps - An array of instructions where each instruction is a tuple ["add", lo, hi] or ["cut", lo, hi].
+ */
+export function carveSet(steps: Array<[string, number, number]>): number[][] {
+    const resultSet = new Set<number>();
+
+    for (const [verb, lo, hi] of steps) {
+        if (!["add", "cut"].includes(verb)) {
+            throw Error(`Invalid verb: ${verb}`);
+        }
+        if (!Number.isInteger(lo) || !Number.isInteger(hi)) {
+            throw Error("Bounds must be integers");
+        }
+        if (lo >= hi) {
+            throw Error("lo must be strictly less than hi");
+        }
+
+        for (let i = lo; i < hi; i++) {
+            if (verb === "add") {
+                resultSet.add(i);
+            } else if (verb === "cut") {
+                resultSet.delete(i);
+            }
+        }
+    }
+
+    const intervals: number[][] = [];
+    let currentInterval: [number, number] | null = null;
+
+    for (const num of Array.from(resultSet).sort((a, b) => a - b)) {
+        if (!currentInterval) {
+            currentInterval = [num, num + 1];
+        } else {
+            if (num === currentInterval[1]) {
+                currentInterval[1]++;
+            } else {
+                intervals.push(currentInterval);
+                currentInterval = [num, num + 1];
+            }
+        }
+    }
+
+    if (currentInterval) {
+        intervals.push(currentInterval);
+    }
+
+    return intervals;
+}
+```

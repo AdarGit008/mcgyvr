@@ -1,0 +1,54 @@
+```ts
+export function nestOutline(text: string): any[] {
+  if (typeof text !== 'string' || text.trim().length === 0) {
+    throw new Error('Input must be a non-empty string');
+  }
+
+  if (text.includes('\t')) {
+    throw new Error('Input must not contain tab characters');
+  }
+
+  const lines = text.split('\n').map(line => line.trimEnd());
+  const result: any[] = [];
+  const stack: any[] = [];
+
+  for (const line of lines) {
+    if (line.length === 0) {
+      throw new Error('Input must not contain blank or all-space lines');
+    }
+
+    const indentLevel = Math.floor(line.search(/\S|$/));
+    if (indentLevel % 2 !== 0) {
+      throw new Error('Leading spaces must be a multiple of two');
+    }
+
+    if (stack.length > 0 && indentLevel > stack[stack.length - 1].indentLevel + 2) {
+      throw new Error('A line cannot be more than one level deeper than its predecessor');
+    }
+
+    while (stack.length > 0 && indentLevel <= stack[stack.length - 1].indentLevel) {
+      const last = stack.pop();
+      if (stack.length === 0) {
+        result.push(last.item);
+      } else {
+        stack[stack.length - 1].item.children.push(last.item);
+      }
+    }
+
+    const textContent = line.slice(indentLevel);
+    const item = { text: textContent, children: [] };
+    stack.push({ indentLevel, item });
+  }
+
+  while (stack.length > 0) {
+    const last = stack.pop();
+    if (stack.length === 0) {
+      result.push(last.item);
+    } else {
+      stack[stack.length - 1].item.children.push(last.item);
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,52 @@
+```ts
+export function stripComments(source: string): string {
+  const stateMachine = {
+    normal: (char: string) => {
+      if (char === '"') return { nextState: "string", buffer: char };
+      if (char === "/") return { nextState: "potentialComment", buffer: "" };
+      return { nextState: "normal", buffer: char };
+    },
+    string: (char: string) => {
+      if (char === '"' && source[source.indexOf(char, 1)] !== "\\")
+        return { nextState: "normal", buffer: char };
+      return { nextState: "string", buffer: char };
+    },
+    potentialComment: (char: string) => {
+      if (char === "/") return { nextState: "lineComment", buffer: "" };
+      if (char === "*") return { nextState: "blockComment", buffer: "" };
+      return { nextState: "normal", buffer: "/" + char };
+    },
+    lineComment: (char: string) => {
+      if (char === "\n") return { nextState: "normal", buffer: char };
+      return { nextState: "lineComment", buffer: "" };
+    },
+    blockComment: (char: string) => {
+      if (char === "*" && source[source.indexOf(char, 1)] === "/")
+        return { nextState: "normal", buffer: "" };
+      return { nextState: "blockComment", buffer: "" };
+    }
+  };
+
+  let currentState = "normal";
+  let buffer = "";
+  let result = "";
+
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
+    const transition = stateMachine[currentState](char);
+    if (transition.buffer !== "") buffer += transition.buffer;
+    currentState = transition.nextState;
+
+    if (currentState === "normal") {
+      result += buffer;
+      buffer = "";
+    }
+  }
+
+  if (currentState === "blockComment" || currentState === "string") {
+    throw new Error("Unterminated comment or string literal");
+  }
+
+  return result;
+}
+```

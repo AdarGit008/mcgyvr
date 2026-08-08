@@ -1,0 +1,160 @@
+```ts
+/**
+ * Replays a day at a lending desk based on given stock, loan cap, and event list.
+ * @param stock - A record mapping each title to its copy count.
+ * @param cap - The per-member loan cap.
+ * @param events - An array of events, each a triple [action, member, title].
+ * @returns An array of answers for each event, either "ok" or "no:<reason>".
+ */
+export function replayLoanDesk(stock: Record<string, number>, cap: number, events: Array<[string, string, string]>): string[] {
+    if (cap <= 0) {
+        throw new Error("Cap must be a positive integer.");
+    }
+
+    const membersLoans: Record<string, Set<string>> = {};
+    const membersHolds: Record<string, { title: string; member: string }[]> = {};
+    const answers: string[] = [];
+
+    for (const event of events) {
+        if (!Array.isArray(event) || event.length !== 3) {
+            throw new Error("Event must be a triple.");
+        }
+
+        const [action, member, title] = event;
+
+        switch (action) {
+            case "borrow":
+                answers.push(handleBorrow(stock, membersLoans, membersHolds, cap, member, title));
+                break;
+            case "return":
+                answers.push(handleReturn(membersLoans, member, title));
+                break;
+            case "renew":
+                answers.push(handleRenew(membersLoans, membersHolds, member, title));
+                break;
+            case "hold":
+                answers.push(handleHold(stock, membersLoans, membersHolds, member, title));
+                break;
+            default:
+                throw new Error("Invalid action.");
+        }
+    }
+
+    return answers;
+}
+
+/**
+ * Handles the borrow action.
+ * @param stock - A record mapping each title to its copy count.
+ * @param membersLoans - A record tracking loans for each member.
+ * @param membersHolds - A record tracking holds for each title.
+ * @param cap - The per-member loan cap.
+ * @param member - The member name.
+ * @param title - The book title.
+ * @returns "ok" or "no:<reason>".
+ */
+function handleBorrow(stock: Record<string, number>, membersLoans: Record<string, Set<string>>, membersHolds: Record<string, { title: string; member: string }[]>, cap: number, member: string, title: string): string {
+    if (!stock[title]) {
+        return "no:unknown-title";
+    }
+    if (membersLoans[member]?.has(title)) {
+        return "no:already-out";
+    }
+    if ((membersLoans[member]?.size || 0) >= cap) {
+        return "no:member-cap";
+    }
+    if (stock[title] === 0 && membersHolds[title]?.length > 0) {
+        return "no:none-left";
+    }
+    if (membersHolds[title]?.some(hold => hold.member !== member)) {
+        return "no:queued-ahead";
+    }
+
+    // Process the loan
+    stock[title]--;
+    if (!membersLoans[member]) {
+        membersLoans[member] = new Set();
+    }
+    membersLoans[member].add(title);
+
+    // Remove head from hold queue if applicable
+    if (membersHolds[title]?.length > 0 && membersHolds[title][0].member === member) {
+        membersHolds[title].shift();
+    }
+
+    return "ok";
+}
+
+/**
+ * Handles the return action.
+ * @param membersLoans - A record tracking loans for each member.
+ * @param member - The member name.
+ * @param title - The book title.
+ * @returns "ok" or "no:<reason>".
+ */
+function handleReturn(membersLoans: Record<string, Set<string>>, member: string, title: string): string {
+    if (!membersLoans[member] || !membersLoans[member].has(title)) {
+        return "no:not-out";
+    }
+
+    membersLoans[member].delete(title);
+    return "ok";
+}
+
+/**
+ * Handles the renew action.
+ * @param membersLoans - A record tracking loans for each member.
+ * @param membersHolds - A record tracking holds for each title.
+ * @param member - The member name.
+ * @param title - The book title.
+ * @returns "ok" or "no:<reason>".
+ */
+function handleRenew(membersLoans: Record<string, Set<string>>, membersHolds: Record<string, { title: string; member: string }[]>, member: string, title: string): string {
+    if (!membersLoans[member] || !membersLoans[member].has(title)) {
+        return "no:not-out";
+    }
+    if (membersHolds[title]?.length > 0) {
+        return "no:on-hold";
+    }
+
+    // Assume renewals are tracked elsewhere, for simplicity
+    return "ok";
+}
+
+/**
+ * Handles the hold action.
+ * @param stock - A record mapping each title to its copy count.
+ * @param membersLoans - A record tracking loans for each member.
+ * @param membersHolds - A record tracking holds for each title.
+ * @param member - The member name.
+ * @param title - The book title.
+ * @returns "ok" or "no:<reason>".
+ */
+function handleHold(stock: Record<string, number>, membersLoans: Record<string, Set<string>>, membersHolds: Record<string, { title: string; member: string }[]>, member: string, title: string): string {
+    if (!stock[title]) {
+        return "no:unknown-title";
+    }
+    if (membersLoans[member]?.has(title)) {
+        return "no:own-loan";
+    }
+    if (membersHolds[title]?.some(hold => hold.member === member)) {
+        return "no:in-queue";
+    }
+
+    // Process the hold
+    if (stock[title] > 0) {
+        stock[title]--;
+        if (!membersLoans[member]) {
+            membersLoans[member] = new Set();
+        }
+        membersLoans[member].add(title);
+        return "ok";
+    } else {
+        if (!membersHolds[title]) {
+            membersHolds[title] = [];
+        }
+        membersHolds[title].push({ title, member });
+        return "ok";
+    }
+}
+```

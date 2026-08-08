@@ -1,0 +1,71 @@
+```ts
+export function fillDeskMap(plan: string[], legend: Record<string, string[]>): Record<string, unknown> {
+  if (!Array.isArray(plan) || plan.length === 0) {
+    throw new Error("Invalid floor plan");
+  }
+
+  const rowLength = plan[0].length;
+  for (const row of plan) {
+    if (typeof row !== "string" || row.length !== rowLength || row.length === 0) {
+      throw new Error("Invalid row in floor plan");
+    }
+  }
+
+  const allowedChars = new Set([...Object.keys(legend), ".", "#"]);
+  for (const row of plan) {
+    for (const char of row) {
+      if (!allowedChars.has(char)) {
+        throw new Error("Invalid character in floor plan");
+      }
+    }
+  }
+
+  const deskMap: Record<string, unknown> = {
+    floor: [],
+    sat: [],
+    spare: 0,
+  };
+
+  const takenDesks = new Set<string>();
+  let spareCount = 0;
+
+  for (const [rowIndex, row] of plan.entries()) {
+    const newRow = Array.from(row);
+    deskMap.floor.push(newRow);
+
+    for (const [colIndex, char] of row.entries()) {
+      if (char >= "a" && char <= "z") {
+        const bankLegend = legend[char];
+        if (!bankLegend || !Array.isArray(bankLegend)) {
+          throw new Error("Invalid legend for bank");
+        }
+
+        const person = bankLegend.shift();
+        if (!person || typeof person !== "string" || !/^[a-zA-Z]+$/.test(person)) {
+          throw new Error("Invalid name in legend");
+        }
+
+        if (takenDesks.has(person[0])) {
+          throw new Error("Person assigned multiple desks");
+        }
+        takenDesks.add(person[0]);
+
+        newRow[colIndex] = person[0].toUpperCase();
+        deskMap.sat.push(`${person} r=${rowIndex} c=${colIndex}`);
+      } else if (char === ".") {
+        spareCount++;
+      }
+    }
+  }
+
+  deskMap.spare = spareCount;
+
+  for (const [bank, people] of Object.entries(legend)) {
+    if (people.length > 0) {
+      throw new Error("Bank has more people than desks");
+    }
+  }
+
+  return deskMap;
+}
+```

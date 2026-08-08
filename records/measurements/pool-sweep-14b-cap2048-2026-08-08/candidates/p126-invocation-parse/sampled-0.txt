@@ -1,0 +1,77 @@
+```ts
+export function parseInvocation(catalogue: Array<{ name: string; kind: string; alias?: string }>, tokens: string[]): { options: Record<string, unknown>; operands: string[] } {
+  const options: Record<string, unknown> = {};
+  const operands: string[] = [];
+
+  catalogue.forEach(({ name }) => {
+    options[name] = false;
+  });
+
+  let i = 0;
+  while (i < tokens.length) {
+    const token = tokens[i];
+
+    if (token === '--') {
+      operands.push(...tokens.slice(i + 1));
+      break;
+    }
+
+    if (token.startsWith('--')) {
+      const [name, value] = token.split('=');
+      const option = catalogue.find(o => o.name === name);
+
+      if (!option) {
+        throw new Error(`Unknown option: ${name}`);
+      }
+
+      if (option.kind === 'toggle') {
+        if (value !== undefined) {
+          throw new Error(`Toggle option ${name} does not take a value`);
+        }
+        options[name] = true;
+      } else if (option.kind === 'single') {
+        if (options[name] !== false) {
+          throw new Error(`Single option ${name} mentioned more than once`);
+        }
+        options[name] = value || tokens[++i];
+      } else if (option.kind === 'repeat') {
+        options[name] = [...(options[name] as string[]), value || tokens[++i]];
+      }
+    } else if (token.startsWith('-')) {
+      if (token.length !== 2) {
+        throw new Error(`Invalid alias token: ${token}`);
+      }
+
+      const alias = token[1];
+      const option = catalogue.find(o => o.alias === alias);
+
+      if (!option) {
+        throw new Error(`Unknown alias: ${alias}`);
+      }
+
+      if (option.kind === 'toggle') {
+        options[option.name] = true;
+      } else if (option.kind === 'single') {
+        if (options[option.name] !== false) {
+          throw new Error(`Single option with alias ${alias} mentioned more than once`);
+        }
+        options[option.name] = tokens[++i];
+      } else if (option.kind === 'repeat') {
+        options[option.name] = [...(options[option.name] as string[]), tokens[++i]];
+      }
+    } else {
+      operands.push(token);
+    }
+
+    i++;
+  }
+
+  catalogue.forEach(({ name, kind }) => {
+    if (kind === 'single' && options[name] === false) {
+      options[name] = null;
+    }
+  });
+
+  return { options, operands };
+}
+```

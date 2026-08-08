@@ -1,0 +1,58 @@
+```ts
+export function crateOverflowPath(root: Record<string, unknown>): string {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Invalid root: not a mapping');
+  }
+
+  const validateCrate = (crate: any): boolean => {
+    if (typeof crate.tag !== 'string' || !crate.tag || crate.tag.includes('.')) {
+      return false;
+    }
+    if (!Number.isInteger(crate.weight) || crate.weight < 0) {
+      return false;
+    }
+    if (!Number.isInteger(crate.cap) || crate.cap <= 0) {
+      return false;
+    }
+    if (!Array.isArray(crate.inside)) {
+      return false;
+    }
+    return true;
+  };
+
+  const calculateGross = (crate: any): number => {
+    let gross = crate.weight;
+    for (const innerCrate of crate.inside) {
+      gross += calculateGross(innerCrate);
+    }
+    return gross;
+  };
+
+  const findSpillingCrate = (
+    crate: any,
+    path: string[]
+  ): string | undefined => {
+    if (!validateCrate(crate)) {
+      throw new Error('Invalid crate structure');
+    }
+
+    const { tag, cap } = crate;
+    const gross = calculateGross(crate);
+
+    if (gross > cap) {
+      return [...path, tag].join('.');
+    }
+
+    for (const innerCrate of crate.inside) {
+      const result = findSpillingCrate(innerCrate, [...path, tag]);
+      if (result) {
+        return result;
+      }
+    }
+
+    return undefined;
+  };
+
+  return findSpillingCrate(root, []) || '';
+}
+```

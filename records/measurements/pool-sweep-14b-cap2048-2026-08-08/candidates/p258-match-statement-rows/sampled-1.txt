@@ -1,0 +1,77 @@
+```ts
+export function matchStatementRows(book: Array<Record<string, unknown>>, bank: Array<Record<string, unknown>>, tolerance: number): { pairs: string[][]; bookOnly: string[]; bankOnly: string[] } {
+  if (!Array.isArray(book) || !Array.isArray(bank)) {
+    throw new Error("First two arguments must be arrays.");
+  }
+  if (typeof tolerance !== 'number' || tolerance < 0 || !Number.isInteger(tolerance)) {
+    throw new Error("Tolerance must be a non-negative integer.");
+  }
+
+  const validateRow = (row: Record<string, unknown>, source: string) => {
+    if (typeof row.ref !== 'string' || row.ref.trim() === '') {
+      throw new Error(`Row in ${source} has an invalid or missing ref.`);
+    }
+    if (typeof row.day !== 'number' || !Number.isInteger(row.day)) {
+      throw new Error(`Row in ${source} has an invalid or missing day.`);
+    }
+    if (typeof row.cents !== 'number' || !Number.isInteger(row.cents) || row.cents === 0) {
+      throw new Error(`Row in ${source} has an invalid or missing cents, or cents is zero.`);
+    }
+  };
+
+  book.forEach(row => validateRow(row, "book"));
+  bank.forEach(row => validateRow(row, "bank"));
+
+  const uniqueRefs = (rows: Array<Record<string, unknown>>, field: string) => {
+    const refs = new Set();
+    for (const row of rows) {
+      if (refs.has(row[field])) {
+        throw new Error(`Duplicate ${field} found.`);
+      }
+      refs.add(row[field]);
+    }
+  };
+
+  uniqueRefs(book, "ref");
+  uniqueRefs(bank, "ref");
+
+  const sortedBook = [...book].sort((a, b) => a.day - b.day || a.ref.localeCompare(b.ref));
+  const sortedBank = [...bank].sort((a, b) => a.day - b.day || a.ref.localeCompare(b.ref));
+
+  const pairs: string[][] = [];
+  const bookOnly: string[] = [];
+  const bankOnly: string[] = [];
+
+  let bankIndex = 0;
+
+  for (const bookRow of sortedBook) {
+    let bestBankRow: Record<string, unknown> | null = null;
+    let minDayDiff = Infinity;
+
+    while (bankIndex < sortedBank.length && sortedBank[bankIndex].day <= bookRow.day + tolerance) {
+      const bankRow = sortedBank[bankIndex];
+      if (bankRow.cents === bookRow.cents) {
+        const dayDiff = Math.abs(bankRow.day - bookRow.day);
+        if (dayDiff < minDayDiff || (dayDiff === minDayDiff && bankRow.ref.localeCompare(bestBankRow!.ref) < 0)) {
+          bestBankRow = bankRow;
+          minDayDiff = dayDiff;
+        }
+      }
+      bankIndex++;
+    }
+
+    if (bestBankRow) {
+      pairs.push([bookRow.ref as string, bestBankRow.ref as string]);
+    } else {
+      bookOnly.push(bookRow.ref as string);
+    }
+  }
+
+  while (bankIndex < sortedBank.length) {
+    bankOnly.push(sortedBank[bankIndex].ref as string);
+    bankIndex++;
+  }
+
+  return { pairs, bookOnly, bankOnly };
+}
+```

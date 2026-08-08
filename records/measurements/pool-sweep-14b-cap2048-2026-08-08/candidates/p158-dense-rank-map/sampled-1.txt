@@ -1,0 +1,26 @@
+```ts
+export function denseRankMap(values: number[], order: string): number[] {
+  if (values.length === 0) {
+    throw new Error("Input list cannot be empty");
+  }
+  if (!values.every(Number.isInteger)) {
+    throw new Error("All elements must be integers");
+  }
+  if (order !== "asc" && order !== "desc") {
+    throw new Error("Order must be either 'asc' or 'desc'");
+  }
+
+  const sorted = [...values].sort((a, b) => order === "asc" ? a - b : b - a);
+  const rankMap = new Map<number, number>();
+  let currentRank = 0;
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (!rankMap.has(sorted[i])) {
+      currentRank++;
+      rankMap.set(sorted[i], currentRank);
+    }
+  }
+
+  return values.map(v => rankMap.get(v)!);
+}
+```

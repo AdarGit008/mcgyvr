@@ -1,0 +1,51 @@
+```ts
+export function tidyShelfMark(raw: string): string {
+  if (typeof raw !== "string") {
+    throw new Error("Input must be a string");
+  }
+
+  const parts = raw.trim().split("-");
+  if (parts.length !== 3) {
+    throw new Error("Mark must have exactly three parts");
+  }
+
+  const [wing, bayRaw, peg] = parts;
+
+  if (!/^[A-Za-z]{2}$/.test(wing)) {
+    throw new Error("Wing must be exactly two letters");
+  }
+
+  const wingTidy = wing.toUpperCase();
+
+  const bayMatch = bayRaw.match(/^(\d+)(?:\.(\d*))?$/);
+  if (!bayMatch) {
+    throw new Error("Bay is malformed");
+  }
+
+  let [_, bayNumber, bayFraction] = bayMatch;
+  bayNumber = String(parseInt(bayNumber, 10));
+
+  if (bayNumber.length > 3 || (bayNumber === "0" && bayFraction)) {
+    throw new Error("Bay number must be between 1 and 999");
+  }
+
+  if (bayFraction) {
+    bayFraction = bayFraction.replace(/0+$/, "");
+    if (bayFraction.length > 2) {
+      throw new Error("Fraction must be one or two digits");
+    }
+  }
+
+  const bayTidy = bayNumber + (bayFraction ? `.${bayFraction}` : "");
+
+  const pegMatch = /^([A-Za-z])(\d)$/i;
+  if (!pegMatch.test(peg)) {
+    throw new Error("Peg must be one letter followed by a non-zero digit");
+  }
+
+  const [, pegLetter, pegDigit] = peg.match(pegMatch)!;
+  const pegTidy = pegLetter.toLowerCase() + pegDigit;
+
+  return `${wingTidy}-${bayTidy}-${pegTidy}`;
+}
+```

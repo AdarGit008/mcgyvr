@@ -1,0 +1,82 @@
+```ts
+/**
+ * Implements an expiry cache that processes a list of operations against a bounded key-value cache.
+ * @param capacity - The maximum number of entries the cache can hold.
+ * @param ops - An array of operations, each represented as an array of strings and numbers.
+ * @returns An array of results from read operations in order.
+ */
+export function expiryCache(capacity: number, ops: (string | number)[][]): number[] {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+
+  const cache = new Map<string, { value: number; expiry: number }>();
+  const results: number[] = [];
+
+  for (const op of ops) {
+    if (op.length < 4) {
+      throw new Error("Invalid operation format.");
+    }
+
+    const [operation, time, key] = op.slice(0, 3);
+    const valueOrTtl = op[3];
+
+    if (time !== Math.floor(time)) {
+      throw new Error("Time must be an integer.");
+    }
+
+    if (operation === "set") {
+      if (op.length !== 5) {
+        throw new Error("Set operation must have exactly 5 arguments.");
+      }
+      const ttl = valueOrTtl as number;
+      if (!Number.isInteger(ttl) || ttl <= 0) {
+        throw new Error("TTL must be a positive integer.");
+      }
+
+      // Remove expired entries
+      for (const [k, entry] of cache.entries()) {
+        if (entry.expiry < time) {
+          cache.delete(k);
+        }
+      }
+
+      // If the cache is at capacity, evict the earliest expiring entry
+      if (cache.size >= capacity) {
+        let toEvict: string | null = null;
+        let minExpiry = Infinity;
+        for (const [k, entry] of cache.entries()) {
+          if (entry.expiry < minExpiry || (entry.expiry === minExpiry && k < key)) {
+            minExpiry = entry.expiry;
+            toEvict = k;
+          }
+        }
+        if (toEvict !== null) {
+          cache.delete(toEvict);
+        }
+      }
+
+      // Set or update the entry
+      cache.set(key as string, { value: op[4] as number, expiry: time + ttl });
+    } else if (operation === "get") {
+      if (op.length !== 3) {
+        throw new Error("Get operation must have exactly 3 arguments.");
+      }
+
+      // Remove expired entries
+      for (const [k, entry] of cache.entries()) {
+        if (entry.expiry < time) {
+          cache.delete(k);
+        }
+      }
+
+      const result = cache.has(key as string) ? cache.get(key as string)?.value : -1;
+      results.push(result ?? -1);
+    } else {
+      throw new Error("Unknown operation.");
+    }
+  }
+
+  return results;
+}
+```

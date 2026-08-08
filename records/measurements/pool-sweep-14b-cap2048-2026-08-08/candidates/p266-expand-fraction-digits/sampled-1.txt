@@ -1,0 +1,65 @@
+```ts
+/**
+ * Expands a fraction into its exact representation in a given base.
+ * @param numerator - The numerator of the fraction.
+ * @param denominator - The denominator of the fraction.
+ * @param base - The base to represent the fraction in, from 3 to 20.
+ * @returns The string representation of the fraction in the specified base.
+ */
+export function expandFractionDigits(numerator: number, denominator: number, base: number): string {
+  if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(base)) {
+    throw new Error("All arguments must be integers.");
+  }
+  if (base < 3 || base > 20) {
+    throw new Error("Base must be between 3 and 20.");
+  }
+  if (denominator <= 0) {
+    throw new Error("Denominator must be positive.");
+  }
+  if (Math.abs(numerator) > 1_000_000 || denominator > 1_000_000) {
+    throw new Error("Numerator magnitude or denominator must not exceed one million.");
+  }
+
+  const glyphs = "0123456789ABCDEFGHIJ";
+  let result = "";
+  let remainderMap = new Map<number, number>();
+  let recurringStart = -1;
+
+  if (numerator < 0) {
+    result += "-";
+    numerator = Math.abs(numerator);
+  }
+
+  const stem = Math.floor(numerator / denominator);
+  result += glyphs[stem];
+  let remainder = numerator % denominator;
+
+  if (remainder === 0) {
+    return result;
+  }
+
+  result += ";";
+
+  while (remainder !== 0) {
+    if (remainderMap.has(remainder)) {
+      recurringStart = remainderMap.get(remainder)!;
+      break;
+    }
+    remainderMap.set(remainder, result.length);
+    remainder *= base;
+    const digit = Math.floor(remainder / denominator);
+    result += glyphs[digit];
+    remainder %= denominator;
+  }
+
+  if (recurringStart !== -1) {
+    result =
+      result.substring(0, recurringStart) +
+      "[" +
+      result.substring(recurringStart) +
+      "]";
+  }
+
+  return result;
+}
+```

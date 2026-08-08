@@ -1,0 +1,76 @@
+```ts
+export function rescaleRecipe(lines: string[], num: number, den: number): string[] {
+  if (!Array.isArray(lines)) throw new Error("Invalid recipe format");
+  if (num <= 0 || !Number.isInteger(num) || den <= 0 || !Number.isInteger(den)) {
+    throw new Error("Invalid ratio");
+  }
+
+  const units = ["tsp", "tbsp", "cup", "egg", "g"];
+  const grains: { [unit: string]: number } = {
+    tsp: 4,
+    tbsp: 2,
+    cup: 8,
+    egg: 1,
+    g: 1,
+  };
+
+  function parseAmount(amount: string): [number, number | null] {
+    if (amount.includes("/")) {
+      const [numerator, denominator] = amount.split("/").map(Number);
+      if (denominator <= numerator) throw new Error("Invalid part");
+      return [numerator, denominator];
+    } else if (amount.includes(" ")) {
+      const [whole, part] = amount.split(" ");
+      const [numerator, denominator] = part.split("/").map(Number);
+      if (denominator <= numerator) throw new Error("Invalid part");
+      return [(Number(whole) * denominator + numerator), denominator];
+    } else {
+      return [Number(amount), null];
+    }
+  }
+
+  function formatAmount(amount: number, denominator: number | null): string {
+    if (denominator !== null) {
+      const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
+      const divisor = gcd(amount, denominator);
+      amount /= divisor;
+      denominator /= divisor;
+      return whole > 0 ? `${whole} ${amount}/${denominator}` : `${amount}/${denominator}`;
+    } else {
+      return amount.toString();
+    }
+  }
+
+  function rescaleAmount(amount: string, unit: string): string {
+    const [whole, part] = parseAmount(amount);
+    const scaledWhole = Math.round((whole * num) / den);
+    const scaledPart = part ? Math.round(((part as number) * num) / den) : null;
+    let totalGrains = (scaledWhole * grains[unit]) + ((scaledPart || 0) * (grains[unit] / (part as number)));
+    if (totalGrains === 0) totalGrains = 1;
+    const roundedGrains = Math.round(totalGrains);
+    const grainsPerUnit = grains[unit];
+    const newWhole = Math.floor(roundedGrains / grainsPerUnit);
+    const newPart = roundedGrains % grainsPerUnit;
+    return formatAmount(newWhole, newPart ? (grainsPerUnit / newPart) : null);
+  }
+
+  const parsedLines: { amount: string, unit: string, ingredient: string }[] = [];
+
+  for (const line of lines) {
+    if (typeof line !== "string") throw new Error("Invalid recipe format");
+    const match = line.match(/^(\S+) (\w+) (.+)$/);
+    if (!match) throw new Error("Invalid row shape");
+    const [_, amount, unit, ingredient] = match;
+    if (!units.includes(unit)) throw new Error("Invalid unit");
+    if (!/^[a-zA-Z\s]+$/.test(ingredient)) throw new Error("Invalid ingredient");
+    if (parsedLines.some(({ ingredient: ingr }) => ingr === ingredient)) {
+      throw new Error("Duplicate ingredient");
+    }
+    parsedLines.push({ amount, unit, ingredient });
+  }
+
+  return parsedLines.map(({ amount, unit, ingredient }) => 
+    `${rescaleAmount(amount, unit)} ${unit} ${ingredient}`
+  );
+}
+```
