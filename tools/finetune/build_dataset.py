@@ -19,10 +19,33 @@ Curation, all deterministic:
 
 - dedup by reply sha across the whole set — the same solution drawn twice is
   one example;
-- per-task cap (``--cap``, default 40), selected round-robin across models so
-  no single model's phrasing dominates a task;
-- validation split by reply-sha bucket (``sha % 10 == 0``), so membership is a
-  property of the reply, not of the run order.
+- per-``(problem, language)`` cap (``--cap``, default 40), selected round-robin
+  across models so no single model's phrasing dominates;
+- validation split by problem (``--split-by``, default ``problem``), so both
+  language arms of a problem land on the same side.
+
+**Two senses of "arm" meet in this file, and they are not the same thing.** The
+``arm`` field in a run's ``results.jsonl`` — and the ``arm`` group of a
+candidate path — is the *sampling* arm (``greedy``, ``t07``…): how the reply
+was drawn. It is called ``sample`` throughout this module. #197's arm is the
+*language* (``jsts``/``python``): two contracts, one problem id, one directory
+name in each of ``tools/problems/tasks/ts`` and ``…/py``. It is called
+``language`` here, and it is read off the resolved contract rather than guessed
+from the tier name.
+
+Why the cap and the split key on those things:
+
+- A problem's two language arms are separate training material — separate
+  prompts, separate solutions — so they get separate cap budgets. Keyed on the
+  bare problem id (as this tool did before #197 landed paired arms) one arm
+  could consume the whole cap and the other contribute nothing. Keyed on the
+  *tier* instead, the same contract served by two tiers of one language would
+  get two budgets, which is the opposite error.
+- A problem's two language arms are near-translations of each other. Bucketing
+  the split per reply put one arm in train and its pair in val for roughly 18%
+  of problems, so val measured recall of a solution already seen in the other
+  language. Holding out the *problem* is what makes val a generalisation
+  measure — the property #113's held-out set exists for.
 """
 
 from __future__ import annotations
@@ -43,7 +66,28 @@ GOLDEN = REPO / "records" / "corpora" / "worker-replies" / "golden.json"
 
 sys.path.insert(0, str(REPO / "src"))
 
-_CANDIDATE = re.compile(r"^candidates/(?P<task>[^/]+)/(?P<arm>.+)-(?P<draw>\d+)\.txt$")
+_CANDIDATE = re.compile(
+    r"^candidates/(?P<task>[^/]+)/(?P<sample>.+)-(?P<draw>\d+)\.txt$"
+)
+
+#: One in this many buckets goes to validation.
+_VAL_BUCKET = 10
+
+SPLIT_MODES = ("problem", "reply")
+
+
+def _in_validation(mode: str, task: str, sha: str) -> bool:
+    """Whether an example is held out, under the selected split rule.
+
+    ``reply`` is #189's original rule byte for byte — the sha read as an
+    integer — so a dataset built before paired arms still reproduces. ``problem``
+    hashes the id instead, because a problem id is not hex, and puts both
+    language arms of a problem on the same side.
+    """
+    if mode == "reply":
+        return int(sha, 16) % _VAL_BUCKET == 0
+    digest = hashlib.sha256(task.encode("utf-8")).hexdigest()
+    return int(digest, 16) % _VAL_BUCKET == 0
 
 
 def _load_breadth() -> Any:
@@ -68,11 +112,18 @@ def _results_index(run_dir: Path) -> dict[tuple[str, str, int], dict[str, Any]]:
     return index
 
 
-def build(cap: int, out_dir: Path) -> dict[str, Any]:
+def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
+    if split_by not in SPLIT_MODES:
+        raise SystemExit(
+            f"unknown --split-by {split_by!r}: expected one of {SPLIT_MODES}"
+        )
     breadth = _load_breadth()
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))
 
-    prompts: dict[tuple[str, str], tuple[str, str]] = {}
+    #: (tier, task) -> (system, user, language). Keyed on the tier because that
+    #: is what resolves a contract; the language it yields is what the cap and
+    #: the manifest actually key on.
+    prompts: dict[tuple[str, str], tuple[str, str, str]] = {}
     verified_bundles: set[str] = set()
     results: dict[str, dict[tuple[str, str, int], dict[str, Any]]] = {}
     dropped = collections.Counter[str]()
@@ -90,7 +141,7 @@ def build(cap: int, out_dir: Path) -> dict[str, Any]:
         run_dir = MEASUREMENTS / run
         if run not in results:
             results[run] = _results_index(run_dir)
-        row = results[run].get((task, match.group("arm"), int(match.group("draw"))))
+        row = results[run].get((task, match.group("sample"), int(match.group("draw"))))
         if row is None:
             dropped["no-results-row"] += 1
             continue
@@ -108,8 +159,15 @@ def build(cap: int, out_dir: Path) -> dict[str, Any]:
         if (tier, task) not in prompts:
             tasks = {t.id: t for t in breadth.load_tier_tasks(tier, (task,))}
             prompt = breadth.build_prompt(tasks[task].contract)
-            prompts[(tier, task)] = (prompt.system, prompt.user)
-        system, user = prompts[(tier, task)]
+            # The language arm comes off the resolved contract, not off the
+            # tier name: load_tier_tasks is what decides it, and a tier is free
+            # to change which arm it serves without renaming itself.
+            prompts[(tier, task)] = (
+                prompt.system,
+                prompt.user,
+                tasks[task].language.name,
+            )
+        system, user, language = prompts[(tier, task)]
 
         pinned = run_meta.get("bundle_sha256")
         rebuilt = hashlib.sha256(system.encode("utf-8")).hexdigest()
@@ -122,12 +180,10 @@ def build(cap: int, out_dir: Path) -> dict[str, Any]:
         verified_bundles.add(run)
 
         sha = entry["sha256"]
-        if sha in candidates:
-            dropped["duplicate-reply"] += 1
-            continue
-        candidates[sha] = {
+        item = {
             "task": task,
             "tier": tier,
+            "language": language,
             "model": entry["model"],
             "run": run,
             "file": entry["file"],
@@ -136,14 +192,27 @@ def build(cap: int, out_dir: Path) -> dict[str, Any]:
             "user": user,
             "assistant": reply.decode("utf-8"),
         }
+        seen = candidates.get(sha)
+        if seen is not None:
+            dropped["duplicate-reply"] += 1
+            # Identical bytes, so the example is the same either way — but the
+            # attribution differs, and `model` steers the round-robin below.
+            # Keep the lexicographically first (run, file) rather than whichever
+            # the corpus happened to list first, so the output does not depend
+            # on golden.json's entry order.
+            if (seen["run"], seen["file"]) <= (run, entry["file"]):
+                continue
+        candidates[sha] = item
 
-    by_task: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
+    # The cap's unit is the (problem, language) pair — one problem id names two
+    # contracts, and each is its own training material.
+    by_arm: dict[tuple[str, str], list[dict[str, Any]]] = collections.defaultdict(list)
     for item in candidates.values():
-        by_task[item["task"]].append(item)
+        by_arm[(item["task"], item["language"])].append(item)
 
     kept: list[dict[str, Any]] = []
-    for task in sorted(by_task):
-        pool = by_task[task]
+    for key in sorted(by_arm):
+        pool = by_arm[key]
         by_model: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
         for item in pool:
             by_model[item["model"]].append(item)
@@ -155,13 +224,14 @@ def build(cap: int, out_dir: Path) -> dict[str, Any]:
             for model in order:
                 if by_model[model] and len(chosen) < cap:
                     chosen.append(by_model[model].pop(0))
-        dropped["over-task-cap"] += len(pool) - len(chosen)
+        dropped["over-arm-cap"] += len(pool) - len(chosen)
         kept.extend(chosen)
 
-    kept.sort(key=lambda i: (str(i["task"]), str(i["sha256"])))
+    kept.sort(key=lambda i: (str(i["task"]), str(i["language"]), str(i["sha256"])))
     train, val = [], []
     for item in kept:
-        (val if int(str(item["sha256"]), 16) % 10 == 0 else train).append(item)
+        held_out = _in_validation(split_by, str(item["task"]), str(item["sha256"]))
+        (val if held_out else train).append(item)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     for name, split in (("train", train), ("val", val)):
@@ -180,19 +250,27 @@ def build(cap: int, out_dir: Path) -> dict[str, Any]:
                     + "\n"
                 )
 
+    by_language = collections.Counter(str(item["language"]) for item in kept)
     manifest = {
-        "record": "finetune-dataset/1",
-        "issue": 189,
+        # /2: the cap and the split became arm-aware (#210), so counts carry a
+        # language breakdown and `tasks` no longer doubles as an example unit.
+        "record": "finetune-dataset/2",
         "source": "records/corpora/worker-replies/golden.json",
-        "cap_per_task": cap,
+        "cap_per_arm": cap,
+        "split_by": split_by,
         "counts": {
             "train": len(train),
             "val": len(val),
-            "tasks": len(by_task),
-            "dropped": dict(dropped),
+            "problems": len({str(item["task"]) for item in kept}),
+            "arms": len(by_arm),
+            "by_language": dict(sorted(by_language.items())),
+            "dropped": dict(sorted(dropped.items())),
         },
         "examples": [
-            {k: item[k] for k in ("task", "tier", "model", "run", "file", "sha256")}
+            {
+                k: item[k]
+                for k in ("task", "tier", "language", "model", "run", "file", "sha256")
+            }
             for item in kept
         ],
     }
@@ -204,14 +282,29 @@ def build(cap: int, out_dir: Path) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cap", type=int, default=40, help="max examples per task")
+    parser.add_argument(
+        "--cap",
+        type=int,
+        default=40,
+        help="max examples per (problem, language) arm",
+    )
     parser.add_argument("--out", type=Path, required=True, help="output directory")
+    parser.add_argument(
+        "--split-by",
+        choices=SPLIT_MODES,
+        default="problem",
+        help=(
+            "hold out whole problems (default, keeps paired arms together) or "
+            "individual replies (#189's original rule)"
+        ),
+    )
     args = parser.parse_args()
-    manifest = build(args.cap, args.out)
+    manifest = build(args.cap, args.out, args.split_by)
     counts = manifest["counts"]
     print(
-        f"train={counts['train']} val={counts['val']} tasks={counts['tasks']} "
-        f"dropped={counts['dropped']}"
+        f"train={counts['train']} val={counts['val']} "
+        f"problems={counts['problems']} arms={counts['arms']} "
+        f"by_language={counts['by_language']} dropped={counts['dropped']}"
     )
 
 

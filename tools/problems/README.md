@@ -24,8 +24,8 @@ tools/problems/tasks/py/p001-<slug>/  contract.yaml  reference.py  accept.py
 
 - **Directory name and contract `id` are identical** (`p001-<slug>`), unlike
   d1/d2/d3 where `d2/t01` and `d3/t01` collide on the bare name —
-  `tools/finetune/build_dataset.py` keys on the task id, and the pool makes
-  that key globally unique by construction rather than by care.
+  `tools/finetune/build_dataset.py` keys on `(task id, language)`, and the
+  pool makes the id half globally unique by construction rather than by care.
 - **Both arms state the same problem.** The `task:` prose is shared;
   `interface`, `target` and (for `bug_fix`) `target_content` are the
   language-specific rendering. A problem admitted in one language only is not
@@ -121,10 +121,12 @@ under `records/measurements/` feeds the corpus exactly the way ADR-0016
 already works.
 
 ## What the pool does not do (yet)
-- **`build_dataset.py` predates paired arms.** Both arms of `p001` share an
-  id, so the per-task cap would pool their replies and the prompt-rebuild
-  step needs the arm's contract, not "the" contract. That consumer change
-  belongs to the lane that first builds a dataset from pool runs.
+- ~~**`build_dataset.py` predates paired arms.**~~ Fixed in #210: the cap and
+  the validation split now key on the `(problem, language)` arm, and the
+  prompt rebuild resolves the arm's own contract through the tier. The
+  prediction here was half right — the shared cap was real but *latent* on
+  the corpus as it stood (no problem had both a capped arm and a Python arm),
+  while the split was actively straddling 18 of 48 paired problems.
 - **Absence caveat.** The near-dup screen is lexical; the HumanEval screen is
   item-level. Neither claims the pool is free of problems resembling
   something, somewhere — only free of the specific overlaps named above.
