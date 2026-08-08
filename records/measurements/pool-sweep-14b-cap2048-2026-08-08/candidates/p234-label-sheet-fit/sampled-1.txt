@@ -1,0 +1,56 @@
+```ts
+/**
+ * Fits labels on a sheet given constraints.
+ * @param sheet - Sheet dimensions and margins.
+ * @param label - Label dimensions and turn option.
+ * @returns Object with fit details.
+ */
+export function fitLabelSheet(sheet: any, label: any): any {
+  // Validate sheet dimensions
+  if (!Number.isInteger(sheet.width) || sheet.width <= 0) throw new Error("Invalid sheet width");
+  if (!Number.isInteger(sheet.height) || sheet.height <= 0) throw new Error("Invalid sheet height");
+
+  // Validate margins and gaps
+  if (!Number.isInteger(sheet.marginX) || sheet.marginX < 0) throw new Error("Invalid marginX");
+  if (!Number.isInteger(sheet.marginY) || sheet.marginY < 0) throw new Error("Invalid marginY");
+  if (!Number.isInteger(sheet.gapX) || sheet.gapX < 0) throw new Error("Invalid gapX");
+  if (!Number.isInteger(sheet.gapY) || sheet.gapY < 0) throw new Error("Invalid gapY");
+
+  // Validate label dimensions
+  if (!Number.isInteger(label.width) || label.width <= 0) throw new Error("Invalid label width");
+  if (!Number.isInteger(label.height) || label.height <= 0) throw new Error("Invalid label height");
+
+  // Validate turn option
+  if (typeof label.turn !== "boolean") throw new Error("Invalid turn option");
+
+  // Calculate printable area
+  const printableWidth = sheet.width - 2 * sheet.marginX;
+  const printableHeight = sheet.height - 2 * sheet.marginY;
+
+  // Function to calculate fit for a given label orientation
+  function calculateFit(labelWidth: number, labelHeight: number): { across: number, down: number, total: number } {
+    const across = Math.max(0, Math.floor((printableWidth + sheet.gapX) / (labelWidth + sheet.gapX))) - 1;
+    const down = Math.max(0, Math.floor((printableHeight + sheet.gapY) / (labelHeight + sheet.gapY))) - 1;
+    return { across, down, total: across * down };
+  }
+
+  // Calculate fit for upright and turned labels
+  const uprightFit = calculateFit(label.width, label.height);
+  const turnedFit = label.turn ? calculateFit(label.height, label.width) : { across: 0, down: 0, total: 0 };
+
+  // Choose the best fit
+  let result;
+  if (uprightFit.total > turnedFit.total) {
+    result = { ...uprightFit, turned: false };
+  } else if (turnedFit.total > uprightFit.total) {
+    result = { ...turnedFit, turned: true };
+  } else {
+    result = { ...uprightFit, turned: false }; // Prefer upright when equal
+  }
+
+  // Ensure at least one label fits
+  if (result.total < 1) throw new Error("Not enough space for even one label");
+
+  return result;
+}
+```

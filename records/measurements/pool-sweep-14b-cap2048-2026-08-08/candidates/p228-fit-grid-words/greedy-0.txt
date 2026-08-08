@@ -1,0 +1,133 @@
+```ts
+export function fitGridWords(slots: Array<Record<string, unknown>>, words: string[]): Record<string, unknown> {
+  if (!Array.isArray(slots) || slots.length === 0) {
+    throw new Error("Slots must be a non-empty list.");
+  }
+
+  const slotMap = new Map<string, { row: number; col: number; run: "across" | "down"; len: number }>();
+  const grid: (string | null)[][] = [];
+  const placed: { slot: string; word: string }[] = [];
+  let stuck = "";
+
+  slots.forEach(slot => {
+    if (typeof slot !== 'object' || slot === null) {
+      throw new Error("Each slot must be a mapping.");
+    }
+
+    const id = slot.id as string;
+    const row = Number(slot.row);
+    const col = Number(slot.col);
+    const run = slot.run as "across" | "down";
+    const len = Number(slot.len);
+
+    if (typeof id !== 'string' || id.trim() === '') {
+      throw new Error("Each slot must have a non-empty string id.");
+    }
+
+    if (slotMap.has(id)) {
+      throw new Error("Slot ids must be unique.");
+    }
+
+    if (!Number.isInteger(row) || row < 0 || !Number.isInteger(col) || col < 0) {
+      throw new Error("Row and column must be whole numbers of nought or more.");
+    }
+
+    if (run !== "across" && run !== "down") {
+      throw new Error("Run must be either 'across' or 'down'.");
+    }
+
+    if (!Number.isInteger(len) || len < 2) {
+      throw new Error("Length must be a whole number of two or more.");
+    }
+
+    slotMap.set(id, { row, col, run, len });
+
+    for (let i = 0; i < len; i++) {
+      if (run === "across") {
+        grid[row] = grid[row] || [];
+        grid[row][col + i] = null;
+      } else {
+        grid[row + i] = grid[row + i] || [];
+        grid[row + i][col] = null;
+      }
+    }
+  });
+
+  const checkOverlap = (row: number, col: number, run: "across" | "down", len: number) => {
+    for (let i = 0; i < len; i++) {
+      if (run === "across") {
+        if (grid[row][col + i] !== null && grid[row][col + i] !== undefined) {
+          return true;
+        }
+      } else {
+        if (grid[row + i][col] !== null && grid[row + i][col] !== undefined) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  slots.forEach(slot => {
+    const { id, row, col, run, len } = slotMap.get(slot.id as string)!;
+
+    if (checkOverlap(row, col, run, len)) {
+      throw new Error("Two slots running the same way may never cover a square in common.");
+    }
+  });
+
+  const validWords = words.filter(word => /^[a-z]+$/.test(word) && word.length > 0);
+
+  if (!Array.isArray(words) || validWords.length !== words.length) {
+    throw new Error("Words must be a list of non-empty strings of lowercase letters a to z.");
+  }
+
+  if (new Set(words).size !== words.length) {
+    throw new Error("A word is offered twice.");
+  }
+
+  const placeWord = (word: string, row: number, col: number, run: "across" | "down", len: number) => {
+    for (let i = 0; i < len; i++) {
+      if (run === "across") {
+        grid[row][col + i] = word[i];
+      } else {
+        grid[row + i][col] = word[i];
+      }
+    }
+  };
+
+  const checkWordFit = (word: string, row: number, col: number, run: "across" | "down", len: number) => {
+    for (let i = 0; i < len; i++) {
+      if (run === "across") {
+        if (grid[row][col + i] !== null && grid[row][col + i] !== word[i]) {
+          return false;
+        }
+      } else {
+        if (grid[row + i][col] !== null && grid[row + i][col] !== word[i]) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  slots.forEach(slot => {
+    const { id, row, col, run, len } = slotMap.get(slot.id as string)!;
+
+    for (const word of validWords) {
+      if (word.length === len && checkWordFit(word, row, col, run, len)) {
+        placeWord(word, row, col, run, len);
+        placed.push({ slot: id, word });
+        break;
+      }
+    }
+
+    if (!grid[row][col]) {
+      stuck = id;
+      return;
+    }
+  });
+
+  return { placed, stuck };
+}
+```

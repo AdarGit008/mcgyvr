@@ -1,0 +1,18 @@
+```ts
+const HANDLE = /(?<![a-z0-9_@])@[a-z0-9_]{3,12}(?![a-z0-9_])/g;
+
+export function blotHandles(message: string): string {
+  if (typeof message !== "string") {
+    throw new Error("blotHandles expects a string");
+  }
+
+  const parts = message.split(/(`)/);
+  return parts.map((part, index) => {
+    // Only process plain parts, skip fenced parts
+    if (index % 2 === 1) {
+      return part;
+    }
+    return part.replace(HANDLE, (found) => "@" + ".".repeat(found.length - 1));
+  }).join('');
+}
+```

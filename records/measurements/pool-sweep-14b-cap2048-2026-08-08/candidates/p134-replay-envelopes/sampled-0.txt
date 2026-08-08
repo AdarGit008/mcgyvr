@@ -1,0 +1,68 @@
+```ts
+/**
+ * Replays budget envelopes over a series of months, applying monthly deposits,
+ * outlays, and caps to determine final balances and total forfeitures.
+ * @param envelopes - Array of envelope configurations with name, monthly deposit, and cap.
+ * @param months - Array of monthly outlays as [name, amount] pairs.
+ * @returns An object containing the final balances and total forfeited amount.
+ */
+export function replayEnvelopes(
+  envelopes: Array<{ name: string; monthly: number; cap: number }>,
+  months: Array<Array<[string, number]>>
+): { balances: Array<[string, number]>; forfeited: number } {
+  // Validate envelopes
+  const envelopeMap = new Map<string, { monthly: number; cap: number }>();
+  for (const { name, monthly, cap } of envelopes) {
+    if (typeof name !== 'string' || !name) {
+      throw Error('Envelope name must be a non-empty string');
+    }
+    if (!Number.isInteger(monthly) || monthly < 0) {
+      throw Error('Monthly deposit must be a non-negative integer');
+    }
+    if (!Number.isInteger(cap) || cap < 0) {
+      throw Error('Cap must be a non-negative integer');
+    }
+    if (envelopeMap.has(name)) {
+      throw Error('Duplicate envelope name');
+    }
+    envelopeMap.set(name, { monthly, cap });
+  }
+
+  // Initialize balances and forfeited
+  const balances: Map<string, number> = new Map();
+  let forfeited = 0;
+
+  for (const month of months) {
+    // Apply monthly deposits
+    for (const [name] of envelopeMap) {
+      balances.set(name, (balances.get(name) || 0) + envelopeMap.get(name)!.monthly);
+    }
+
+    // Apply outlays
+    for (const [name, amount] of month) {
+      if (!envelopeMap.has(name)) {
+        throw Error('Outlay names an unknown envelope');
+      }
+      if (!Number.isInteger(amount) || amount <= 0) {
+        throw Error('Outlay amount must be a positive integer');
+      }
+      balances.set(name, (balances.get(name) || 0) - amount);
+    }
+
+    // Apply caps
+    for (const [name] of envelopeMap) {
+      const balance = balances.get(name)!;
+      if (balance > envelopeMap.get(name)!.cap) {
+        forfeited += balance - envelopeMap.get(name)!.cap;
+        balances.set(name, envelopeMap.get(name)!.cap);
+      }
+    }
+  }
+
+  // Prepare final result
+  return {
+    balances: Array.from(balances.entries()),
+    forfeited,
+  };
+}
+```

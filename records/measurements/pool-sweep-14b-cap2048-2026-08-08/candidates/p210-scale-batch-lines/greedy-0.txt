@@ -1,0 +1,41 @@
+```ts
+export function scaleBatchLines(items: string[], want: number, base: number): string[] {
+  if (!Array.isArray(items)) throw new Error("Items must be an array");
+  if (want <= 0 || !Number.isInteger(want)) throw new Error("Wanted portions must be a whole number above zero");
+  if (base <= 0 || !Number.isInteger(base)) throw new Error("Written portions must be a whole number above zero");
+
+  const measures = new Set(['g', 'ml', 'each']);
+  const seenNames = new Set<string>();
+
+  return items.map(line => {
+    const parts = line.split(' ');
+    if (parts.length !== 3) throw new Error("Line does not match the required format");
+
+    const [quantityStr, measure, name] = parts;
+    const quantity = parseInt(quantityStr, 10);
+
+    if (isNaN(quantity) || quantity <= 0 || quantityStr !== quantity.toString()) {
+      throw new Error("Quantity must be a whole number above zero without leading zeros");
+    }
+    if (!measures.has(measure)) throw new Error("Measure must be one of 'g', 'ml', or 'each'");
+    if (!/^[a-zA-Z]+(\s[a-zA-Z]+)*$/.test(name)) throw new Error("Name must be words of letters separated by single spaces");
+    if (seenNames.has(name)) throw new Error("Duplicate name found in the sheet");
+
+    seenNames.add(name);
+
+    const scaledQuantity = Math.round((quantity * want) / base);
+    const settledQuantity = settleToTick(scaledQuantity, measure);
+
+    return `${settledQuantity} ${measure} ${name}`;
+  });
+}
+
+function settleToTick(quantity: number, measure: string): number {
+  if (measure === 'g' || measure === 'each') {
+    return Math.max(1, Math.round(quantity));
+  } else if (measure === 'ml') {
+    return Math.max(5, Math.ceil(quantity / 5) * 5);
+  }
+  throw new Error("Invalid measure");
+}
+```

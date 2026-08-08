@@ -1,0 +1,28 @@
+```ts
+export function quarterSpin(grid: number[][], turns: number): number[][] {
+  // Normalize turns to be within 0-3
+  const effectiveTurns = turns % 4;
+  
+  if (effectiveTurns === 0) {
+    return grid.map(row => [...row]); // Return a deep copy of the original grid
+  }
+
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const newGrid: number[][] = Array.from({ length: cols }, () => Array(rows).fill(0));
+
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      if (effectiveTurns === 1) { // 90 degrees clockwise
+        newGrid[j][cols - 1 - i] = grid[i][j];
+      } else if (effectiveTurns === 2) { // 180 degrees clockwise
+        newGrid[rows - 1 - i][cols - 1 - j] = grid[i][j];
+      } else if (effectiveTurns === 3) { // 270 degrees clockwise
+        newGrid[cols - 1 - j][i] = grid[i][j];
+      }
+    }
+  }
+
+  return newGrid;
+}
+```

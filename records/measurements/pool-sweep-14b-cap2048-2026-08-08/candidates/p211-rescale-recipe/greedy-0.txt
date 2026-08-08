@@ -1,0 +1,79 @@
+```ts
+export function rescaleRecipe(lines: string[], num: number, den: number): string[] {
+  if (!Array.isArray(lines)) throw new Error("Invalid recipe format");
+  if (num <= 0 || !Number.isInteger(num)) throw new Error("Invalid ratio numerator");
+  if (den <= 0 || !Number.isInteger(den)) throw new Error("Invalid ratio denominator");
+
+  const units = new Set(["tsp", "tbsp", "cup", "egg", "g"]);
+  const grains: { [key: string]: number } = {
+    tsp: 4,
+    tbsp: 2,
+    cup: 8,
+    egg: 1,
+    g: 1,
+  };
+
+  const parsedLines: { amount: string; unit: string; ingredient: string }[] = [];
+
+  for (const line of lines) {
+    if (typeof line !== "string") throw new Error("Invalid recipe row format");
+    const parts = line.match(/^(\d+|\d+\s\d+\/\d+|\d+\/\d+)\s([a-z]+)\s(.+)$/);
+    if (!parts) throw new Error("Invalid recipe row shape");
+
+    const [_, amountStr, unit, ingredient] = parts;
+    if (!units.has(unit)) throw new Error("Invalid unit");
+    if (!/^[a-zA-Z\s]+$/.test(ingredient)) throw new Error("Invalid ingredient");
+
+    parsedLines.push({ amount: amountStr, unit, ingredient });
+  }
+
+  const uniqueIngredients = new Set(parsedLines.map((line) => line.ingredient));
+  if (uniqueIngredients.size !== lines.length) throw new Error("Duplicate ingredients");
+
+  return parsedLines.map(({ amount, unit, ingredient }) => {
+    const [wholePart, fractionPart] = amount.split(/\s/);
+    let numerator: number;
+    let denominator: number;
+
+    if (fractionPart) {
+      const [numStr, denStr] = fractionPart.split("/");
+      numerator = parseInt(numStr, 10);
+      denominator = parseInt(denStr, 10);
+    } else {
+      numerator = parseInt(wholePart, 10);
+      denominator = 1;
+    }
+
+    const totalNumerator = (numerator * num) + (denominator * wholePart * num);
+    const totalDenominator = denominator * den;
+
+    let newWhole = Math.floor(totalNumerator / totalDenominator);
+    let newFractionNumerator = totalNumerator % totalDenominator;
+
+    if (newFractionNumerator === 0) {
+      newFractionNumerator = grains[unit];
+    } else {
+      const gcd = (a: number, b: number): number => b ? gcd(b, a % b) : a;
+      const commonDivisor = gcd(newFractionNumerator, totalDenominator);
+      newFractionNumerator /= commonDivisor;
+      totalDenominator /= commonDivisor;
+    }
+
+    if (newFractionNumerator >= grains[unit]) {
+      newWhole += 1;
+      newFractionNumerator -= grains[unit];
+    }
+
+    let newAmount: string;
+    if (newWhole > 0 && newFractionNumerator > 0) {
+      newAmount = `${newWhole} ${newFractionNumerator}/${totalDenominator}`;
+    } else if (newWhole > 0) {
+      newAmount = `${newWhole}`;
+    } else {
+      newAmount = `1/${Math.floor(grains[unit] / newFractionNumerator)}`;
+    }
+
+    return `${newAmount} ${unit} ${ingredient}`;
+  });
+}
+```

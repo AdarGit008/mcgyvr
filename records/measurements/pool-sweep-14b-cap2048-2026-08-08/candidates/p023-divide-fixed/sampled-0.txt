@@ -1,0 +1,45 @@
+```ts
+export function divideFixed(numerator: number, denominator: number, places: number): string {
+  if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(places)) {
+    throw new Error("All arguments must be integers.");
+  }
+  if (denominator === 0) {
+    throw new Error("Denominator cannot be zero.");
+  }
+  if (places < 0 || places > 6) {
+    throw new Error("Places must be between 0 and 6.");
+  }
+  if (Math.abs(numerator) > 1_000_000 || Math.abs(denominator) > 1_000_000) {
+    throw new Error("Numerator and denominator magnitudes must be 1,000,000 or less.");
+  }
+
+  let isNegative = (numerator < 0) !== (denominator < 0);
+  numerator = Math.abs(numerator);
+  denominator = Math.abs(denominator);
+
+  let quotient = Math.floor(numerator / denominator);
+  let remainder = numerator % denominator;
+
+  const scale = Math.pow(10, places);
+  remainder *= scale;
+  quotient *= scale;
+
+  while (remainder !== 0) {
+    const nextDigit = Math.floor((remainder * 10) / denominator);
+    quotient += nextDigit;
+    remainder = (remainder * 10) % denominator;
+  }
+
+  let result = quotient.toString();
+  if (places > 0) {
+    const decimalIndex = result.length - places;
+    result = result.slice(0, decimalIndex) + "." + result.slice(decimalIndex);
+  }
+
+  if (isNegative && quotient !== 0) {
+    result = "-" + result;
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,32 @@
+```ts
+export function postingLists(documents: string[]): Record<string, number[]> {
+  if (!Array.isArray(documents)) {
+    throw new Error("Input must be an array of strings.");
+  }
+
+  const index: Record<string, number[]> = {};
+
+  documents.forEach((document, docIndex) => {
+    if (typeof document !== "string") {
+      throw new Error("All elements in the input array must be strings.");
+    }
+
+    const terms = document.match(/\b[a-zA-Z0-9]+\b/g);
+
+    if (terms) {
+      const uniqueTerms = Array.from(new Set(terms.map(term => term.toLowerCase())));
+
+      for (const term of uniqueTerms) {
+        if (!/^\d+$/.test(term) && term.length > 1) {
+          if (!index[term]) {
+            index[term] = [];
+          }
+          index[term].push(docIndex);
+        }
+      }
+    }
+  });
+
+  return index;
+}
+```

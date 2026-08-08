@@ -1,0 +1,26 @@
+```ts
+export function wrapCost(words: string[], width: number): number {
+  if (words.length === 0) {
+    throw new Error("Empty word list");
+  }
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error("Width must be a positive whole number");
+  }
+
+  const n = words.length;
+  const dp: number[] = new Array(n + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= n; i++) {
+    let lineLength = 0;
+    for (let j = i; j > 0 && words[j - 1].length + lineLength <= width; j--) {
+      const wordLength = words[j - 1].length;
+      lineLength += wordLength + (lineLength === 0 ? 0 : 1);
+      const unusedSpace = width - lineLength;
+      dp[i] = Math.min(dp[i], dp[j - 1] + unusedSpace * unusedSpace);
+    }
+  }
+
+  return dp[n];
+}
+```

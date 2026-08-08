@@ -1,0 +1,76 @@
+```ts
+export function numberGridSlots(rows: string[]): Array<Record<string, number>> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("Rows must be a non-empty list.");
+  }
+
+  const rowLength = rows[0].length;
+  if (rowLength === 0) {
+    throw new Error("Each row must be a non-empty string.");
+  }
+
+  for (const row of rows) {
+    if (typeof row !== "string" || row.length !== rowLength) {
+      throw new Error("All rows must be strings of the same length.");
+    }
+    for (const char of row) {
+      if (char !== "." && char !== "#") {
+        throw new Error("Each character in a row must be either '.' or '#'.");
+      }
+    }
+  }
+
+  const slots: Array<Record<string, number>> = [];
+  let currentNumber = 1;
+
+  for (let row = 0; row < rows.length; row++) {
+    for (let col = 0; col < rowLength; col++) {
+      if (rows[row][col] === ".") {
+        const isStartOfAcross = col === 0 || rows[row][col - 1] === "#";
+        const acrossLength = getSlotLength(rows, row, col, "across");
+
+        const isStartOfDown = row === 0 || rows[row - 1][col] === "#";
+        const downLength = getSlotLength(rows, row, col, "down");
+
+        if (isStartOfAcross && acrossLength >= 2) {
+          slots.push({ at: currentNumber, row, col, across: acrossLength, down: 0 });
+          currentNumber++;
+        } else if (isStartOfDown && downLength >= 2) {
+          slots.push({ at: currentNumber, row, col, across: 0, down: downLength });
+          currentNumber++;
+        }
+      }
+    }
+  }
+
+  return slots;
+}
+
+function getSlotLength(
+  rows: string[],
+  startRow: number,
+  startCol: number,
+  direction: "across" | "down"
+): number {
+  let length = 0;
+  let row = startRow;
+  let col = startCol;
+
+  while (
+    row >= 0 &&
+    row < rows.length &&
+    col >= 0 &&
+    col < rows[0].length &&
+    rows[row][col] === "."
+  ) {
+    length++;
+    if (direction === "across") {
+      col++;
+    } else {
+      row++;
+    }
+  }
+
+  return length;
+}
+```

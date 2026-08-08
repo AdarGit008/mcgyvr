@@ -1,0 +1,139 @@
+```ts
+export function foldMachine(machine: Record<string, unknown>): Record<string, unknown> {
+  const { alphabet, states, start, accepting, moves } = machine as {
+    alphabet: string[];
+    states: string[];
+    start: string;
+    accepting: string[];
+    moves: [string, string, string][];
+  };
+
+  if (alphabet.length === 0) throw new Error("Alphabet cannot be empty");
+  if (states.length === 0) throw new Error("States cannot be empty");
+
+  const validateList = (list: string[], type: string): void => {
+    for (const item of list) {
+      if (typeof item !== "string" || item.trim() === "") {
+        throw new Error(`${type} must be a non-empty string`);
+      }
+    }
+  };
+
+  validateList(alphabet, "Symbol");
+  validateList(states, "State");
+
+  if (!states.includes(start)) throw new Error("Start state is not in states list");
+
+  const uniqueItems = (arr: string[]): boolean => arr.length === new Set(arr).size;
+  if (!uniqueItems(alphabet)) throw new Error("Alphabet must have distinct symbols");
+  if (!uniqueItems(states)) throw new Error("States must have distinct names");
+
+  for (const accept of accepting) {
+    if (!states.includes(accept)) throw new Error(`Accepting state ${accept} is not in states list`);
+  }
+
+  const moveMap = new Map<string, Map<string, string>>();
+  for (const [from, symbol, to] of moves) {
+    if (!states.includes(from) || !states.includes(to)) {
+      throw new Error("Move references undefined state");
+    }
+    if (!alphabet.includes(symbol)) {
+      throw new Error("Move references undefined symbol");
+    }
+    if (!moveMap.has(from)) moveMap.set(from, new Map());
+    const fromMoves = moveMap.get(from)!;
+    if (fromMoves.has(symbol)) {
+      throw new Error("Duplicate move for state-symbol pair");
+    }
+    fromMoves.set(symbol, to);
+  }
+
+  // Step 1: Remove unreachable states
+  const reachableStates = new Set<string>();
+  const visit = (state: string): void => {
+    if (!reachableStates.has(state)) {
+      reachableStates.add(state);
+      const movesFromState = moveMap.get(state);
+      if (movesFromState) {
+        for (const symbol of alphabet) {
+          const nextState = movesFromState.get(symbol);
+          if (nextState) visit(nextState);
+        }
+      }
+    }
+  };
+
+  visit(start);
+
+  const reachableAlphabet = Array.from(reachableStates).flatMap((state) =>
+    Array.from(moveMap.get(state)?.keys() || [])
+  );
+  const uniqueReachableAlphabet = [...new Set(reachableAlphabet)].sort(
+    (a, b) => alphabet.indexOf(a) - alphabet.indexOf(b)
+  );
+
+  // Step 2: Merge indistinguishable states
+  const groupMap = new Map<string, number>();
+  const groups: string[][] = [];
+
+  const findGroup = (state: string): number | undefined => {
+    for (let i = 0; i < groups.length; i++) {
+      if (groups[i].includes(state)) return i;
+    }
+    return undefined;
+  };
+
+  const addToGroup = (state: string, groupIndex: number): void => {
+    if (!groups[groupIndex]) groups[groupIndex] = [];
+    groups[groupIndex].push(state);
+    groupMap.set(state, groupIndex);
+  };
+
+  const visitGroup = (state: string, groupIndex: number): void => {
+    addToGroup(state, groupIndex);
+    const movesFromState = moveMap.get(state);
+    if (!movesFromState) return;
+    for (const symbol of uniqueReachableAlphabet) {
+      const nextState = movesFromState.get(symbol);
+      if (nextState && !findGroup(nextState)) {
+        visitGroup(nextState, groupIndex);
+      }
+    }
+  };
+
+  let currentGroupIndex = 0;
+  for (let state of reachableStates) {
+    if (!groupMap.has(state)) {
+      visitGroup(state, currentGroupIndex++);
+    }
+  }
+
+  // Step 3: Determine accepting groups
+  const acceptingGroups = new Set<number>();
+  for (const accept of accepting) {
+    const groupIndex = findGroup(accept);
+    if (groupIndex !== undefined) acceptingGroups.add(groupIndex);
+  }
+
+  const sortedAcceptingGroups = Array.from(acceptingGroups).sort((a, b) => a - b);
+
+  // Step 4: Build the folded machine
+  const newMoves: [number, string, number][] = [];
+  for (let i = 0; i < groups.length; i++) {
+    for (const symbol of uniqueReachableAlphabet) {
+      const firstStateInGroup = groups[i][0];
+      const nextState = moveMap.get(firstStateInGroup)?.get(symbol);
+      if (!nextState) throw new Error("Unexpected missing move");
+      const nextGroupIndex = findGroup(nextState)!;
+      newMoves.push([i, symbol, nextGroupIndex]);
+    }
+  }
+
+  return {
+    size: groups.length,
+    start: 0,
+    accepting: sortedAcceptingGroups,
+    moves: newMoves.sort((a, b) => a[0] - b[0] || alphabet.indexOf(a[1]) - alphabet.indexOf(b[1])),
+  };
+}
+```

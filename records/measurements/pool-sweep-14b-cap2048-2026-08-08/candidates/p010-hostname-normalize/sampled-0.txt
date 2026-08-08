@@ -1,0 +1,33 @@
+```ts
+export function normalizeHostname(hostname: string): string {
+  if (typeof hostname !== 'string') {
+    throw new Error('Invalid argument: hostname must be a string');
+  }
+
+  const normalized = hostname.toLowerCase().replace(/\.$/, '');
+
+  if (normalized.length > 253) {
+    throw new Error('Hostname is too long (max 253 characters)');
+  }
+
+  const labels = normalized.split('.');
+  if (!labels.every(isValidLabel)) {
+    throw new Error('Invalid hostname label');
+  }
+
+  return normalized;
+}
+
+function isValidLabel(label: string): boolean {
+  if (label.length < 1 || label.length > 63) {
+    return false;
+  }
+  if (/[^a-z0-9-]/.test(label)) {
+    return false;
+  }
+  if (/^-|-$/.test(label)) {
+    return false;
+  }
+  return true;
+}
+```

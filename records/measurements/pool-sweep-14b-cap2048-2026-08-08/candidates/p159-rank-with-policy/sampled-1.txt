@@ -1,0 +1,66 @@
+```ts
+export function rankWithPolicy(scores: number[], policy: string, direction: string): number[] {
+  if (scores.length === 0) {
+    throw new Error("Scores list cannot be empty");
+  }
+
+  scores.forEach(score => {
+    if (!Number.isInteger(score)) {
+      throw new Error("All scores must be integers");
+    }
+  });
+
+  const validPolicies = ["dense", "gapped", "entry"];
+  if (!validPolicies.includes(policy)) {
+    throw new Error("Invalid policy. Must be one of: dense, gapped, entry");
+  }
+
+  const validDirections = ["asc", "desc"];
+  if (!validDirections.includes(direction)) {
+    throw new Error("Invalid direction. Must be one of: asc, desc");
+  }
+
+  const sortedScores = [...scores];
+  if (direction === "asc") {
+    sortedScores.sort((a, b) => a - b);
+  } else {
+    sortedScores.sort((a, b) => b - a);
+  }
+
+  const ranks: number[] = [];
+  for (let i = 0; i < sortedScores.length; i++) {
+    if (policy === "dense") {
+      let rank = 1;
+      for (let j = 0; j < i; j++) {
+        if (sortedScores[j] !== sortedScores[i]) {
+          rank++;
+        }
+      }
+      ranks.push(rank);
+    } else if (policy === "gapped") {
+      let rank = 1;
+      for (let j = 0; j < scores.length; j++) {
+        if (direction === "asc" && scores[j] < sortedScores[i]) {
+          rank++;
+        } else if (direction === "desc" && scores[j] > sortedScores[i]) {
+          rank++;
+        }
+      }
+      ranks.push(rank);
+    } else if (policy === "entry") {
+      ranks.push(i + 1);
+    }
+  }
+
+  const originalIndexRanks = scores.map(score => {
+    for (let i = 0; i < sortedScores.length; i++) {
+      if (sortedScores[i] === score) {
+        return ranks[i];
+      }
+    }
+    return -1; // This line should never be reached
+  });
+
+  return originalIndexRanks;
+}
+```

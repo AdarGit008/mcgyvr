@@ -1,0 +1,54 @@
+```ts
+/**
+ * The chore board shared out around the crew.
+ */
+export function handOutChores(chores: string[], crew: string[]): Record<string, string[]> {
+  // Validate chores input
+  if (!Array.isArray(chores)) {
+    throw new Error("Chore board must be a list.");
+  }
+  const uniqueChores = new Set(chores);
+  if (uniqueChores.size !== chores.length) {
+    throw new Error("Each chore must be listed only once.");
+  }
+  for (const chore of chores) {
+    if (typeof chore !== "string" || chore.trim() === "") {
+      throw new Error("Each chore must be a non-empty string.");
+    }
+  }
+
+  // Validate crew input
+  if (!Array.isArray(crew) || crew.length === 0) {
+    throw new Error("Crew must be a non-empty list.");
+  }
+  const uniqueCrewNames = new Set(crew);
+  if (uniqueCrewNames.size !== crew.length) {
+    throw new Error("Each crew member's name must be unique.");
+  }
+  for (const name of crew) {
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error("Each crew member's name must be a non-empty string.");
+    }
+  }
+
+  const share: Record<string, string[]> = {};
+  let markerPosition = 0;
+
+  for (const chore of chores) {
+    const currentCrewMember = crew[markerPosition % crew.length];
+    if (!share[currentCrewMember]) {
+      share[currentCrewMember] = [];
+    }
+    share[currentCrewMember].push(chore);
+    markerPosition += chore.trim().length;
+  }
+
+  for (const name of crew) {
+    if (!share[name]) {
+      share[name] = [];
+    }
+  }
+
+  return share;
+}
+```

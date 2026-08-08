@@ -1,0 +1,92 @@
+```ts
+export function costBasisReport(events: unknown[][]): { fifoSold: number; averageSold: number; unitsLeft: number; fifoValue: number; averageValue: number } {
+  if (!Array.isArray(events)) {
+    throw new Error("Invalid input: events must be an array");
+  }
+
+  let fifoSold = 0;
+  let averageSold = 0;
+  let unitsLeft = 0;
+  let fifoValue = 0;
+  let totalCost = 0;
+
+  const fifoStack: { units: number; unitCents: number }[] = [];
+
+  for (const event of events) {
+    if (!Array.isArray(event)) {
+      throw new Error("Invalid input: each event must be an array");
+    }
+
+    const [type, ...rest] = event;
+
+    if (type === "buy") {
+      if (rest.length !== 3) {
+        throw new Error("Invalid receipt: must have three entries");
+      }
+      const [units, unitCents] = rest as [number, number];
+
+      if (!Number.isInteger(units) || units <= 0) {
+        throw new Error("Invalid receipt: units must be a whole number above zero");
+      }
+
+      if (!Number.isInteger(unitCents) || unitCents < 0) {
+        throw new Error("Invalid receipt: unitCents must be a whole number at or above zero");
+      }
+
+      fifoStack.push({ units, unitCents });
+      unitsLeft += units;
+      totalCost += units * unitCents;
+      fifoValue += units * unitCents;
+    } else if (type === "sell") {
+      if (rest.length !== 2) {
+        throw new Error("Invalid despatch: must have two entries");
+      }
+      const [units] = rest as [number];
+
+      if (!Number.isInteger(units) || units <= 0) {
+        throw new Error("Invalid despatch: units must be a whole number above zero");
+      }
+
+      if (units > unitsLeft) {
+        throw new Error("Invalid despatch: cannot dispatch more units than are in stock");
+      }
+
+      // FIFO
+      let remainingUnits = units;
+      while (remainingUnits > 0) {
+        const { units: stackUnits, unitCents } = fifoStack[0];
+        if (stackUnits <= remainingUnits) {
+          fifoSold += stackUnits * unitCents;
+          remainingUnits -= stackUnits;
+          fifoValue -= stackUnits * unitCents;
+          unitsLeft -= stackUnits;
+          fifoStack.shift();
+        } else {
+          fifoSold += remainingUnits * unitCents;
+          fifoValue -= remainingUnits * unitCents;
+          unitsLeft -= remainingUnits;
+          fifoStack[0].units -= remainingUnits;
+          remainingUnits = 0;
+        }
+      }
+
+      // Weighted Average
+      averageSold += Math.floor((totalCost / unitsLeft) * units);
+      totalCost -= (totalCost / unitsLeft) * units;
+      unitsLeft -= units;
+    } else {
+      throw new Error("Invalid event type: must be 'buy' or 'sell'");
+    }
+  }
+
+  const averageValue = fifoStack.reduce((acc, { units, unitCents }) => acc + units * unitCents, 0);
+
+  return {
+    fifoSold,
+    averageSold,
+    unitsLeft,
+    fifoValue,
+    averageValue,
+  };
+}
+```

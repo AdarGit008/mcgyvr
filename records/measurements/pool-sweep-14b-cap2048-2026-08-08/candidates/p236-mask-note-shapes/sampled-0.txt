@@ -1,0 +1,27 @@
+```ts
+export function maskSensitive(note: string): { text: string; badges: number; vaults: number } {
+  if (typeof note !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let text = note;
+  let badges = 0;
+  let vaults = 0;
+
+  const badgePattern = /(?<![A-Z])[A-Z]{2,4}-\d{4,8}(?!\d)/g;
+  const vaultPattern = /(?<![a-z\d])vk=\w{6,10}(?![a-z\d])/g;
+
+  text = text.replace(vaultPattern, (match) => {
+    vaults++;
+    return '[vault]';
+  });
+
+  text = text.replace(badgePattern, (match) => {
+    badges++;
+    const [letters, hyphen] = match.split('-');
+    return `${letters}${hyphen}${'#'.repeat(match.length - letters.length - 1)}`;
+  });
+
+  return { text, badges, vaults };
+}
+```

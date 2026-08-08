@@ -1,0 +1,29 @@
+```ts
+/**
+ * Assigns chargers to devices based on their plug compatibility and current draw requirements.
+ * @param chargers - Array of charger records with plug type, low, and high current limits.
+ * @param devices - Array of device records with plug type and required current draw.
+ * @returns An array where each element is the index of the charger assigned to the corresponding device, or -1 if no suitable charger is found.
+ */
+export function fitChargers(chargers: Array<{ plug: string; low: number; high: number }>, devices: Array<{ plug: string; draw: number }>): number[] {
+  const handed: number[] = [];
+  const usedChargers = new Set<number>();
+
+  for (const device of devices) {
+    let pick = -1;
+    for (let i = 0; i < chargers.length; i++) {
+      const charger = chargers[i];
+      if (!usedChargers.has(i) && charger.plug === device.plug && charger.low <= device.draw && device.draw <= charger.high) {
+        pick = i;
+        break;
+      }
+    }
+    handed.push(pick);
+    if (pick !== -1) {
+      usedChargers.add(pick);
+    }
+  }
+
+  return handed;
+}
+```

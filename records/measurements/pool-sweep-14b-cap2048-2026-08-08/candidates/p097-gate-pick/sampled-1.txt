@@ -1,0 +1,47 @@
+```ts
+export function pickBuild(gate: string, offers: number[]): number {
+  if (typeof gate !== 'string') throw new Error('Invalid gate');
+  if (!gate) throw new Error('Gate has no clauses');
+
+  const clauses = gate.split(',').map(clause => {
+    const [range, carveOutsStr] = clause.split('^');
+    let [loStr, hiStr] = range.split(':');
+
+    let lo: number | null = null;
+    let hi: number | null = null;
+
+    if (loStr) {
+      lo = parseInt(loStr, 10);
+      if (isNaN(lo) || lo < 0) throw new Error('Invalid low end in clause');
+    }
+
+    if (hiStr) {
+      hi = parseInt(hiStr, 10);
+      if (isNaN(hi) || hi < 0) throw new Error('Invalid high end in clause');
+    }
+
+    if (lo !== null && hi !== null && lo > hi) throw new Error('Low end greater than high end in clause');
+
+    const carveOuts = carveOutsStr ? carveOutsStr.split('').map(Number).filter(n => n >= 0) : [];
+
+    return { lo, hi, carveOuts };
+  });
+
+  const validOffers = offers.filter(offer => {
+    if (isNaN(offer) || offer < 0) throw new Error('Invalid build number in offers');
+
+    for (const clause of clauses) {
+      const { lo, hi, carveOuts } = clause;
+
+      const withinRange = (lo === null || offer >= lo) && (hi === null || offer <= hi);
+      const notCarvedOut = !carveOuts.includes(offer);
+
+      if (withinRange && notCarvedOut) return true;
+    }
+
+    return false;
+  });
+
+  return validOffers.length > 0 ? Math.max(...validOffers) : -1;
+}
+```

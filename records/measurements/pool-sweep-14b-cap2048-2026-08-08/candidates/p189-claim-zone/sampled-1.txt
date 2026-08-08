@@ -1,0 +1,69 @@
+```ts
+/**
+ * Determines the name on the deepest stencil covering the given post.
+ * @param claims - An array of claim strings.
+ * @param where - The target post to check coverage against.
+ * @returns The name of the deepest claim covering the post, or an empty string if none cover it.
+ */
+export function claimZone(claims: string[], where: string): string {
+    const validatePost = (post: string): boolean => {
+        if (!/^\d+\.\d+\.\d+$/.test(post)) return false;
+        const parts = post.split('.');
+        if (parts.length !== 3) return false;
+        return parts.every(part => /^\d+$/.test(part) && parseInt(part, 10) >= 0 && parseInt(part, 10) <= 15);
+    };
+
+    const validateStencil = (stencil: string): boolean => {
+        const parts = stencil.split('/');
+        if (parts.length !== 2) return false;
+        const [postPart, depthStr] = parts;
+        const depth = parseInt(depthStr, 10);
+        if (depth < 0 || depth > 3) return false;
+        if (!validatePost(postPart)) return false;
+        const [fixedPart, restPart] = postPart.split('.');
+        if (restPart !== '0.0.0') return false;
+        return true;
+    };
+
+    const validateClaim = (claim: string): boolean => {
+        const parts = claim.split(' ');
+        if (parts.length !== 2) return false;
+        const [stencil, name] = parts;
+        if (!validateStencil(stencil)) return false;
+        if (name.trim() === '' || name.includes(' ')) return false;
+        return true;
+    };
+
+    const parseClaim = (claim: string): { stencil: string, name: string, depth: number } => {
+        const [stencil, name] = claim.split(' ');
+        const parts = stencil.split('/');
+        const depth = parseInt(parts[1], 10);
+        return { stencil, name, depth };
+    };
+
+    if (!Array.isArray(claims)) throw new Error('Claims must be an array');
+    for (const claim of claims) {
+        if (typeof claim !== 'string') throw new Error('Each claim must be a string');
+        if (!validateClaim(claim)) throw new Error('Invalid claim format');
+    }
+
+    if (!validatePost(where)) throw new Error('Invalid where post format');
+
+    let bestClaim = '';
+    let bestDepth = -1;
+
+    for (const claim of claims) {
+        const { stencil, name, depth } = parseClaim(claim);
+        const [stencilPost, _] = stencil.split('/');
+        const parts = stencilPost.split('.');
+        const whereParts = where.split('.');
+
+        if (depth > bestDepth && parts.every((part, index) => part === '0' || part === whereParts[index])) {
+            bestClaim = name;
+            bestDepth = depth;
+        }
+    }
+
+    return bestClaim;
+}
+```

@@ -1,0 +1,65 @@
+```ts
+export function foldFormula(recipe: string): string {
+  if (typeof recipe !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  if (recipe.length === 0) {
+    throw new Error('Empty input');
+  }
+
+  const stack: { tags: Map<string, number>, repeat: number }[] = [{ tags: new Map(), repeat: 1 }];
+  let currentTag = '';
+  let currentRepeat = '';
+
+  for (let i = 0; i < recipe.length; i++) {
+    const char = recipe[i];
+
+    if (char === '(') {
+      stack.push({ tags: new Map(), repeat: 1 });
+    } else if (char === ')') {
+      if (stack.length === 1) {
+        throw new Error('Closing parenthesis with no opener');
+      }
+      const last = stack.pop()!;
+      const parent = stack[stack.length - 1];
+      for (const [tag, count] of last.tags) {
+        parent.tags.set(tag, (parent.tags.get(tag) || 0) + count * last.repeat);
+      }
+    } else if (/[A-Z]/.test(char)) {
+      if (currentTag !== '') {
+        throw new Error('Item starts with a lowercase letter');
+      }
+      currentTag = char;
+      i++;
+      while (i < recipe.length && /[a-z]/.test(recipe[i])) {
+        currentTag += recipe[i];
+        i++;
+      }
+      i--;
+      if (currentTag.length > 3) {
+        throw new Error('Tag carrying three lowercase letters');
+      }
+      stack[stack.length - 1].tags.set(currentTag, (stack[stack.length - 1].tags.get(currentTag) || 0) + (currentRepeat === '' ? 1 : parseInt(currentRepeat)));
+      currentTag = '';
+    } else if (/\d/.test(char)) {
+      if (currentRepeat !== '') {
+        throw new Error('Repeat that begins with the digit zero');
+      }
+      currentRepeat += char;
+    } else {
+      throw new Error('Invalid character in recipe');
+    }
+  }
+
+  if (stack.length > 1) {
+    throw new Error('Parenthesis left open');
+  }
+
+  const result: string[] = [];
+  for (const [tag, count] of Array.from(stack[0].tags.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+    result.push(tag + (count === 1 ? '' : count.toString()));
+  }
+
+  return result.join('');
+}
+```

@@ -1,0 +1,41 @@
+```ts
+export function tallyBallots(events: Array<Record<string, string>>): Record<string, number> {
+  const voteCounts: Record<string, number> = {};
+  const voterVotes: Record<string, string> = {};
+  let electionClosed = false;
+
+  for (const event of events) {
+    if (electionClosed) {
+      throw new Error("Cannot process events after election is closed");
+    }
+
+    switch (event.type) {
+      case "cast":
+        if (voterVotes[event.voter]) {
+          throw new Error("Voter already has a standing vote");
+        }
+        voterVotes[event.voter] = event.option;
+        voteCounts[event.option] = (voteCounts[event.option] || 0) + 1;
+        break;
+
+      case "retract":
+        if (!voterVotes[event.voter]) {
+          throw new Error("Voter has no standing vote to retract");
+        }
+        const optionToRetract = voterVotes[event.voter];
+        delete voterVotes[event.voter];
+        voteCounts[optionToRetract] -= 1;
+        break;
+
+      case "close":
+        electionClosed = true;
+        break;
+
+      default:
+        throw new Error("Invalid event type");
+    }
+  }
+
+  return voteCounts;
+}
+```

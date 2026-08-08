@@ -1,0 +1,42 @@
+```ts
+export function layoutColumns(rows: string[][], aligns: string): string[] {
+  if (rows.length === 0) {
+    throw new Error("Table cannot be empty.");
+  }
+
+  const columnWidths = rows[0].map((_, index) => {
+    return Math.max(...rows.map(row => row[index]?.length ?? 0));
+  });
+
+  if (columnWidths.length !== aligns.length) {
+    throw new Error("Alignment spec length must match the number of columns.");
+  }
+
+  if (!/^[lrc]+$/.test(aligns)) {
+    throw new Error("Alignment spec must contain only 'l', 'r', or 'c'.");
+  }
+
+  const paddedRows = rows.map(row => {
+    return row.map((cell, index) => {
+      if (typeof cell !== "string") {
+        throw new Error("All cells must be strings.");
+      }
+      const width = columnWidths[index];
+      switch (aligns[index]) {
+        case 'l':
+          return cell.padEnd(width);
+        case 'r':
+          return cell.padStart(width);
+        case 'c':
+          const leftPadding = Math.floor((width - cell.length) / 2);
+          const rightPadding = width - cell.length - leftPadding;
+          return " ".repeat(leftPadding) + cell + " ".repeat(rightPadding);
+        default:
+          throw new Error("Invalid alignment character.");
+      }
+    });
+  });
+
+  return paddedRows.map(row => row.join("  ").trim());
+}
+```

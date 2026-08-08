@@ -1,0 +1,44 @@
+```ts
+export function divideFixed(numerator: number, denominator: number, places: number): string {
+  if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(places)) {
+    throw new Error("All arguments must be integers.");
+  }
+  if (Math.abs(numerator) > 1000000 || Math.abs(denominator) > 1000000) {
+    throw new Error("Magnitude of numerator and denominator must not exceed one million.");
+  }
+  if (denominator === 0) {
+    throw new Error("Denominator cannot be zero.");
+  }
+  if (places < 0 || places > 6) {
+    throw new Error("Places must be between 0 and 6.");
+  }
+
+  const isNegative = (numerator < 0) !== (denominator < 0);
+  numerator = Math.abs(numerator);
+  denominator = Math.abs(denominator);
+
+  let quotient = "";
+  let remainder = numerator;
+
+  for (let i = 0; i <= places; i++) {
+    if (i === places && remainder === 0) {
+      break;
+    }
+    const digit = Math.floor((remainder * 10) / denominator);
+    quotient += digit.toString();
+    remainder = (remainder * 10) % denominator;
+
+    if (i === 0 && quotient !== "0") {
+      quotient = "-" + quotient;
+    }
+  }
+
+  if (places > 0) {
+    const integerPart = quotient.slice(0, -places);
+    const decimalPart = quotient.slice(-places).padEnd(places, '0');
+    return `${integerPart}.${decimalPart}`;
+  }
+
+  return quotient;
+}
+```

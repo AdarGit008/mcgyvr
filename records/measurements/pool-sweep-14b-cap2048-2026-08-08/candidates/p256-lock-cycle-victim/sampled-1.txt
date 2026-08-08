@@ -1,0 +1,94 @@
+```ts
+export function lockCycleVictim(holds: string[][], blocked: string[][]): { victim: string; cycle: string[] } {
+  // Validate input
+  if (!Array.isArray(holds) || !Array.isArray(blocked)) {
+    throw Error("Invalid input");
+  }
+  holds.forEach(pair => {
+    if (pair.length !== 2 || typeof pair[0] !== "string" || typeof pair[1] !== "string") {
+      throw Error("Invalid holds list");
+    }
+  });
+  blocked.forEach(pair => {
+    if (pair.length !== 2 || typeof pair[0] !== "string" || typeof pair[1] !== "string") {
+      throw Error("Invalid blocked list");
+    }
+  });
+
+  // Build the graph
+  const graph: Record<string, string[]> = {};
+  const resourceHolders: Record<string, string> = {};
+
+  holds.forEach(([resource, worker]) => {
+    if (resourceHolders[resource]) {
+      throw Error("Resource granted to two workers");
+    }
+    resourceHolders[resource] = worker;
+  });
+
+  blocked.forEach(([worker, resource]) => {
+    const holder = resourceHolders[resource];
+    if (!holder) {
+      // No one holds this resource, no arrow
+      return;
+    }
+    if (holder === worker || !graph[holder]) {
+      graph[holder] = [worker];
+    } else {
+      throw Error("Worker blocked on more than one resource");
+    }
+  });
+
+  // Find cycles
+  const visited: Record<string, boolean> = {};
+  const recStack: Record<string, boolean> = {};
+  let cycle: string[] = [];
+
+  function detectCycle(node: string): boolean {
+    if (!visited[node]) {
+      visited[node] = true;
+      recStack[node] = true;
+
+      for (const neighbor of graph[node] || []) {
+        if (!visited[neighbor] && detectCycle(neighbor)) {
+          return true;
+        } else if (recStack[neighbor]) {
+          cycle.push(node, neighbor);
+          return true;
+        }
+      }
+    }
+    recStack[node] = false;
+    return false;
+  }
+
+  for (const node in graph) {
+    if (!visited[node] && detectCycle(node)) {
+      break;
+    }
+  }
+
+  // If no cycle found
+  if (cycle.length === 0) {
+    return { victim: "", cycle: [] };
+  }
+
+  // Find the smallest lock holder in the cycle
+  const lockCounts: Record<string, number> = {};
+  holds.forEach(([resource, worker]) => {
+    lockCounts[worker] = (lockCounts[worker] || 0) + 1;
+  });
+
+  let victim = cycle[0];
+  for (const worker of cycle.slice(1)) {
+    if (
+      !lockCounts[victim] ||
+      (lockCounts[worker] && (lockCounts[worker] < lockCounts[victim] || (lockCounts[worker] === lockCounts[victim] && worker < victim)))
+    ) {
+      victim = worker;
+    }
+  }
+
+  return { victim, cycle };
+}
+```

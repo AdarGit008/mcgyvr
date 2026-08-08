@@ -1,0 +1,53 @@
+```ts
+/**
+ * Encodes a message using a veil alphabet derived from a keyword.
+ * @param keyword - The keyword to generate the veil alphabet.
+ * @param message - The message to encode.
+ * @returns The encoded message.
+ */
+export function veilEncode(keyword: string, message: string): string {
+    if (!/^[a-z]+$/.test(keyword)) {
+        throw new Error("Keyword must be a non-empty string of lowercase a-z.");
+    }
+    if (typeof message !== 'string') {
+        throw new Error("Message must be a string.");
+    }
+    if (!/^([a-z ])*$/.test(message)) {
+        throw new Error("Message must be made of lowercase a-z and spaces.");
+    }
+
+    const alphabet = "abcdefghijklmnopqrstuvwxyz";
+    const usedLetters = new Set<string>();
+    const veilAlphabet: string[] = [];
+
+    // Build the veil alphabet from the keyword
+    for (const char of keyword) {
+        if (!usedLetters.has(char)) {
+            veilAlphabet.push(char);
+            usedLetters.add(char);
+        }
+    }
+
+    // Append unused letters in reverse alphabetical order
+    for (let i = alphabet.length - 1; i >= 0; i--) {
+        const char = alphabet[i];
+        if (!usedLetters.has(char)) {
+            veilAlphabet.push(char);
+            usedLetters.add(char);
+        }
+    }
+
+    // Encode the message
+    let encodedMessage = '';
+    for (const char of message) {
+        if (char === ' ') {
+            encodedMessage += ' ';
+        } else {
+            const index = alphabet.indexOf(char);
+            encodedMessage += veilAlphabet[index];
+        }
+    }
+
+    return encodedMessage;
+}
+```

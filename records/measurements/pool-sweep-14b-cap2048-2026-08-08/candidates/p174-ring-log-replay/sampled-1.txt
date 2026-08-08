@@ -1,0 +1,72 @@
+```ts
+export function replayRingLog(capacity: number, policy: string, operations: string[][]): { contents: string[]; journal: string[]; lost: number } {
+    if (capacity <= 0 || !Number.isInteger(capacity)) {
+        throw new Error("Capacity must be a positive whole number.");
+    }
+    if (policy !== "overwrite" && policy !== "refuse") {
+        throw new Error("Policy must be either 'overwrite' or 'refuse'.");
+    }
+    if (!Array.isArray(operations)) {
+        throw new Error("Operations must be a list.");
+    }
+
+    const ring: string[] = [];
+    const journal: string[] = [];
+    let lost = 0;
+
+    for (const operation of operations) {
+        if (!Array.isArray(operation) || operation.length < 1) {
+            throw new Error("Each operation must be a non-empty list.");
+        }
+        const opName = operation[0];
+
+        switch (opName) {
+            case "push":
+                if (operation.length !== 2 || typeof operation[1] !== "string" || operation[1].trim() === "") {
+                    throw new Error("A push must carry exactly one non-empty label string.");
+                }
+                const label = operation[1];
+                if (ring.length < capacity) {
+                    ring.push(label);
+                    journal.push(`stored ${label}`);
+                } else {
+                    if (policy === "overwrite") {
+                        lost++;
+                        const evicted = ring.shift()!;
+                        ring.push(label);
+                        journal.push(`evicted ${evicted}, stored ${label}`);
+                    } else if (policy === "refuse") {
+                        journal.push("refused");
+                    }
+                }
+                break;
+            case "pop":
+                if (operation.length !== 1) {
+                    throw new Error("A pop carries anything past its own name.");
+                }
+                if (ring.length > 0) {
+                    const removed = ring.shift()!;
+                    journal.push(`took ${removed}`);
+                } else {
+                    journal.push("bare");
+                }
+                break;
+            case "peek":
+                if (operation.length !== 1) {
+                    throw new Error("A peek carries anything past its own name.");
+                }
+                if (ring.length > 0) {
+                    const oldest = ring[0];
+                    journal.push(`front ${oldest}`);
+                } else {
+                    journal.push("bare");
+                }
+                break;
+            default:
+                throw new Error(`Operation name must be one of 'push', 'pop', or 'peek'.`);
+        }
+    }
+
+    return { contents: ring, journal, lost };
+}
+```

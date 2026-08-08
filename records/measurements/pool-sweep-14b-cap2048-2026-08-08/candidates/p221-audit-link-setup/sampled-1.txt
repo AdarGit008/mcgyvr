@@ -1,0 +1,77 @@
+```ts
+/**
+ * The first record of a link setup that departs from the drill.
+ */
+export function auditLinkSetup(exchange: Record<string, unknown>[]): string {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid input: exchange must be a non-empty array.");
+  }
+
+  let expectedSeq = 1;
+  let phase = 0;
+
+  const phases = [
+    { caller: "PROBE", listener: "READY" },
+    { caller: "KEY", listener: "SEAL" },
+    { caller: "PING", listener: "PONG" },
+  ];
+
+  for (let i = 0; i < exchange.length; i++) {
+    const record = exchange[i];
+
+    if (
+      typeof record !== "object" ||
+      !("side" in record) ||
+      !("verb" in record) ||
+      !("seq" in record)
+    ) {
+      throw new Error("Invalid input: each record must have 'side', 'verb', and 'seq'.");
+    }
+
+    const side = record.side as string;
+    const verb = record.verb as string;
+    const seq = Number(record.seq);
+
+    if (isNaN(seq) || !Number.isInteger(seq)) {
+      throw new Error("Invalid input: 'seq' must be a whole number.");
+    }
+
+    if (side !== "caller" && side !== "listener") {
+      throw new Error("Invalid input: 'side' must be either 'caller' or 'listener'.");
+    }
+
+    const validVerbs = ["PROBE", "READY", "KEY", "SEAL", "PING", "PONG", "CLOSE"];
+    if (!validVerbs.includes(verb)) {
+      throw new Error("Invalid input: 'verb' must be one of PROBE, READY, KEY, SEAL, PING, PONG, or CLOSE.");
+    }
+
+    if (seq !== expectedSeq) {
+      return verb + "@" + (i + 1);
+    }
+
+    const currentPhase = phases[phase];
+
+    if (side === "caller" && verb === currentPhase.caller) {
+      expectedSeq += 1;
+      continue;
+    }
+
+    if (side === "listener" && verb === currentPhase.listener) {
+      expectedSeq += 1;
+
+      if (verb === "SEAL") {
+        phase += 1;
+      }
+      continue;
+    }
+
+    return verb + "@" + (i + 1);
+  }
+
+  if (phase < 2 || exchange[exchange.length - 1].verb !== "CLOSE") {
+    return "short";
+  }
+
+  return "";
+}
+```

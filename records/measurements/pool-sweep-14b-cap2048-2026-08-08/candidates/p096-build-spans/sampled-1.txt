@@ -1,0 +1,99 @@
+```ts
+export function intersectBuildSpans(spans: string[]): string {
+  if (spans.length === 0) {
+    throw new Error("Empty list of spans");
+  }
+
+  const parseSpan = (span: string): { lo?: number, hi?: number, strikes: Set<number> } => {
+    const [range, strikeStr] = span.split('!');
+    const [loPart, hiPart] = range.split('..');
+
+    let lo: number | undefined;
+    let hi: number | undefined;
+
+    if (loPart === '') {
+      lo = -Infinity;
+    } else if (loPart.startsWith('0') || isNaN(Number(loPart))) {
+      throw new Error(`Malformed span: ${span}`);
+    } else {
+      lo = Number(loPart);
+    }
+
+    if (hiPart === '') {
+      hi = Infinity;
+    } else if (hiPart.startsWith('0') || isNaN(Number(hiPart))) {
+      throw new Error(`Malformed span: ${span}`);
+    } else {
+      hi = Number(hiPart);
+    }
+
+    if (lo !== undefined && hi !== undefined && lo > hi) {
+      throw new Error(`Reversed limits in span: ${span}`);
+    }
+
+    const strikes = new Set<number>();
+    for (const strike of strikeStr.split('!').filter(s => s)) {
+      if (strike.startsWith('0') || isNaN(Number(strike))) {
+        throw new Error(`Malformed strike in span: ${span}`);
+      }
+      const strikeNum = Number(strike);
+      if ((lo !== undefined && strikeNum < lo) || (hi !== undefined && strikeNum > hi)) {
+        throw new Error(`Strike outside its own span in span: ${span}`);
+      }
+      strikes.add(strikeNum);
+    }
+
+    return { lo, hi, strikes };
+  };
+
+  const spansInfo = spans.map(parseSpan);
+
+  let finalLo: number | undefined = -Infinity;
+  let finalHi: number | undefined = Infinity;
+  const finalStrikes = new Set<number>();
+
+  for (const { lo, hi, strikes } of spansInfo) {
+    if (finalLo === -Infinity && lo !== undefined) {
+      finalLo = lo;
+    }
+    if (finalHi === Infinity && hi !== undefined) {
+      finalHi = hi;
+    }
+
+    if (lo !== undefined && finalLo < lo) {
+      finalLo = lo;
+    }
+    if (hi !== undefined && finalHi > hi) {
+      finalHi = hi;
+    }
+
+    for (const strike of strikes) {
+      if (strike >= finalLo && strike <= finalHi) {
+        finalStrikes.add(strike);
+      }
+    }
+  }
+
+  if (finalLo !== -Infinity && finalHi !== undefined && finalLo > finalHi) {
+    return "empty";
+  }
+
+  const strikesArray = Array.from(finalStrikes).sort((a, b) => a - b);
+
+  let result = '';
+  if (finalLo === -Infinity) {
+    result += '..';
+  } else {
+    result += finalLo;
+  }
+  if (finalHi !== Infinity) {
+    result += `..${finalHi}`;
+  }
+
+  for (const strike of strikesArray) {
+    result += `!${strike}`;
+  }
+
+  return result;
+}
+```

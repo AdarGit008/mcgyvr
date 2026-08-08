@@ -1,0 +1,49 @@
+```ts
+export function rankWithPolicy(scores: number[], policy: string, direction: string): number[] {
+  if (scores.length === 0) {
+    throw new Error("Scores list cannot be empty");
+  }
+
+  scores.forEach(score => {
+    if (!Number.isInteger(score)) {
+      throw new Error("All scores must be integers");
+    }
+  });
+
+  const validPolicies = ["dense", "gapped", "entry"];
+  if (!validPolicies.includes(policy)) {
+    throw new Error(`Invalid policy: ${policy}. Must be one of ${validPolicies.join(", ")}`);
+  }
+
+  const validDirections = ["asc", "desc"];
+  if (!validDirections.includes(direction)) {
+    throw new Error(`Invalid direction: ${direction}. Must be one of ${validDirections.join(", ")}`);
+  }
+
+  const sortedScores = [...scores].sort((a, b) => direction === "asc" ? a - b : b - a);
+
+  const rankMap = new Map<number, number>();
+  let currentRank = 1;
+
+  for (let i = 0; i < sortedScores.length; i++) {
+    if (!rankMap.has(sortedScores[i])) {
+      switch (policy) {
+        case "dense":
+          rankMap.set(sortedScores[i], currentRank);
+          break;
+        case "gapped":
+          rankMap.set(sortedScores[i], i + 1);
+          break;
+        case "entry":
+          rankMap.set(sortedScores[i], currentRank);
+          break;
+      }
+    }
+    if (policy === "dense" || policy === "entry") {
+      currentRank++;
+    }
+  }
+
+  return scores.map(score => rankMap.get(score)!);
+}
+```

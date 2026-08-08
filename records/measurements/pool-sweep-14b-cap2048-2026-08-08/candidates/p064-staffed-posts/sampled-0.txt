@@ -1,0 +1,42 @@
+```ts
+/**
+ * Determines the greatest number of posts that can be staffed simultaneously.
+ * @param wanted - A list of applicants, each giving the post numbers they are qualified to hold.
+ * @param posts - The total number of posts available.
+ * @returns The maximum number of posts that can be staffed.
+ */
+export function staffedPosts(wanted: number[][], posts: number): number {
+  if (!Number.isInteger(posts) || posts <= 0) {
+    throw new Error("Invalid number of posts");
+  }
+
+  const postAssignments = new Map<number, number>();
+
+  for (const applicant of wanted) {
+    for (const post of applicant) {
+      if (!Number.isInteger(post) || post < 0 || post >= posts) {
+        throw new Error("Invalid post number");
+      }
+
+      if (!postAssignments.has(post)) {
+        postAssignments.set(post, applicant.indexOf(post));
+        break;
+      } else {
+        const currentApplicantIndex = postAssignments.get(post)!;
+        const currentApplicantPosts = wanted[currentApplicantIndex];
+        const nextAvailablePost = currentApplicantPosts.slice(currentApplicantIndex + 1).find(p =>
+          !postAssignments.has(p) && p >= 0 && p < posts
+        );
+
+        if (nextAvailablePost !== undefined) {
+          postAssignments.set(nextAvailablePost, applicant.indexOf(post));
+          postAssignments.delete(post);
+          break;
+        }
+      }
+    }
+  }
+
+  return postAssignments.size;
+}
+```

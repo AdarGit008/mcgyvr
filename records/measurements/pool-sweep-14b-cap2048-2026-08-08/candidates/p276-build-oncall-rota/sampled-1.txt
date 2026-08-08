@@ -1,0 +1,78 @@
+```ts
+export function buildOnCallRota(roster: string[], blocked: string[][]): string[] {
+  if (roster.length === 0) {
+    throw new Error("Roster cannot be empty");
+  }
+  if (!Array.isArray(blocked)) {
+    throw new Error("Blocked list must be an array");
+  }
+
+  const uniqueNames = new Set(roster);
+  if (uniqueNames.size !== roster.length) {
+    throw new Error("Roster cannot contain duplicates");
+  }
+
+  for (const name of roster) {
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error("Roster names must be non-empty strings");
+    }
+  }
+
+  const shifts = blocked.length;
+  if (shifts === 0) {
+    return [];
+  }
+
+  const ceiling = Math.ceil(shifts / roster.length);
+  const shiftCounts: { [key: string]: number } = {};
+  let lastPerson = "";
+
+  const validShiftsForRosterEntry = (
+    rosterIndex: number,
+    blockedNames: Set<string>
+  ): string[] => {
+    return roster
+      .filter(
+        (name) =>
+          !blockedNames.has(name) &&
+          name !== lastPerson &&
+          (shiftCounts[name] || 0) < ceiling
+      )
+      .sort((a, b) => {
+        const countDiff = (shiftCounts[a] || 0) - (shiftCounts[b] || 0);
+        return countDiff === 0 ? rosterIndex - roster.indexOf(b) : countDiff;
+      });
+  };
+
+  const rota: string[] = [];
+
+  for (let shiftIndex = 0; shiftIndex < shifts; shiftIndex++) {
+    if (!Array.isArray(blocked[shiftIndex])) {
+      throw new Error("Each entry in blocked list must be an array");
+    }
+
+    const blockedNames = new Set(blocked[shiftIndex]);
+    for (const name of blockedNames) {
+      if (!roster.includes(name)) {
+        throw new Error(`Blocked name ${name} is not in the roster`);
+      }
+    }
+
+    if (blockedNames.size !== new Set(blockedNames).size) {
+      throw new Error("A single entry cannot block a name twice");
+    }
+
+    const validShifts = validShiftsForRosterEntry(shiftIndex, blockedNames);
+    if (validShifts.length === 0) {
+      return [];
+    }
+
+    const nextPerson = validShifts[0];
+    rota.push(nextPerson);
+    lastPerson = nextPerson;
+    shiftCounts[nextPerson] = (shiftCounts[nextPerson] || 0) + 1;
+  }
+
+  return rota;
+}
+```

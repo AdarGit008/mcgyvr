@@ -1,0 +1,59 @@
+```ts
+export function treeDelta(before: { name: string; value: number; children: unknown[] }, after: { name: string; value: number; children: unknown[] }): Array<Record<string, unknown>> {
+  if (before.name !== after.name) {
+    throw new Error("Root names differ");
+  }
+
+  const operations: Array<Record<string, unknown>> = [];
+
+  function walk(beforeNode: { name: string; value: number; children: unknown[] }, afterNode: { name: string; value: number; children: unknown[] }, path: string) {
+    if (beforeNode.value !== afterNode.value) {
+      operations.push({ op: "change", path, from: beforeNode.value, to: afterNode.value });
+    }
+
+    const beforeChildrenMap = new Map<string, { name: string; value: number; children: unknown[] }>();
+    for (const child of beforeNode.children) {
+      if (typeof child !== 'object' || !child || typeof child.name !== 'string') {
+        throw new Error("Invalid node structure");
+      }
+      if (beforeChildrenMap.has(child.name)) {
+        throw new Error("Duplicate child name in before tree");
+      }
+      beforeChildrenMap.set(child.name, child as { name: string; value: number; children: unknown[] });
+    }
+
+    const afterChildrenMap = new Map<string, { name: string; value: number; children: unknown[] }>();
+    for (const child of afterNode.children) {
+      if (typeof child !== 'object' || !child || typeof child.name !== 'string') {
+        throw new Error("Invalid node structure");
+      }
+      if (afterChildrenMap.has(child.name)) {
+        throw new Error("Duplicate child name in after tree");
+      }
+      afterChildrenMap.set(child.name, child as { name: string; value: number; children: unknown[] });
+    }
+
+    for (const [name, afterChild] of afterChildrenMap) {
+      const beforeChild = beforeChildrenMap.get(name);
+      if (beforeChild) {
+        walk(beforeChild, afterChild, `${path}/${name}`);
+      } else {
+        operations.push({ op: "add", path: `${path}/${name}`, value: afterChild.value });
+        for (const grandchild of afterChild.children) {
+          walk(grandchild as { name: string; value: number; children: unknown[] }, grandchild as { name: string; value: number; children: unknown[] }, `${path}/${name}`);
+        }
+      }
+    }
+
+    for (const [name, beforeChild] of beforeChildrenMap) {
+      if (!afterChildrenMap.has(name)) {
+        operations.push({ op: "remove", path: `${path}/${name}` });
+      }
+    }
+  }
+
+  walk(before, after, "");
+
+  return operations;
+}
+```

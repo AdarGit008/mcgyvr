@@ -1,0 +1,38 @@
+```ts
+/**
+ * Applies a list of configuration layers onto an initially empty result.
+ * Each key in a layer can delete a key from the result, recursively merge mappings,
+ * or replace existing entries wholesale with scalars or arrays.
+ * @param layers - An ordered list of configuration layers.
+ * @returns The accumulated result of applying all layers.
+ * @throws Error if the input is not a list or any layer is not a mapping.
+ */
+export function layerConfigs(layers: Array<Record<string, unknown>>): Record<string, unknown> {
+  if (!Array.isArray(layers)) {
+    throw new Error("Input must be an array of configuration layers.");
+  }
+
+  const result: Record<string, unknown> = {};
+
+  for (const layer of layers) {
+    if (typeof layer !== 'object' || layer === null) {
+      throw new Error("Each layer must be a mapping.");
+    }
+
+    for (const key in layer) {
+      if (layer.hasOwnProperty(key)) {
+        const value = layer[key];
+        if (value === null) {
+          delete result[key];
+        } else if (typeof value === 'object' && typeof result[key] === 'object' && result[key] !== null) {
+          result[key] = layerConfigs([result[key], value]);
+        } else {
+          result[key] = value;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+```

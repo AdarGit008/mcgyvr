@@ -1,0 +1,53 @@
+```ts
+export function tallyReplyRemoves(links: string[][]): number[] {
+    if (!Array.isArray(links) || links.length === 0) {
+        throw new Error("Invalid input: batch must be a non-empty list.");
+    }
+
+    const idToAnswersMap = new Map<string, string>();
+    const idToDepthMap = new Map<string, number>();
+
+    for (const link of links) {
+        if (!Array.isArray(link) || link.length !== 2 || typeof link[0] !== 'string' || typeof link[1] !== 'string') {
+            throw new Error("Invalid input: each link must be an array of exactly two strings.");
+        }
+        const [id, answers] = link;
+
+        if (id === '' || answers === '') {
+            throw new Error("Invalid input: id and answers field cannot be empty strings.");
+        }
+
+        if (idToAnswersMap.has(id)) {
+            throw new Error("Invalid input: id used twice.");
+        }
+
+        if (!idToDepthMap.has(answers) && answers !== '') {
+            throw new Error("Invalid input: answers field naming a note not in the batch.");
+        }
+
+        idToAnswersMap.set(id, answers);
+    }
+
+    const depthCounts: number[] = [];
+
+    for (const [id] of idToAnswersMap.entries()) {
+        let currentId = id;
+        let depth = 0;
+
+        while (currentId !== '') {
+            if (!idToDepthMap.has(currentId)) {
+                throw new Error("Invalid input: note cannot be traced back to a starting note due to circular references.");
+            }
+            depth++;
+            currentId = idToAnswersMap.get(currentId)!;
+        }
+
+        if (depth > depthCounts.length) {
+            depthCounts.length = depth;
+        }
+        depthCounts[depth - 1]++;
+    }
+
+    return depthCounts;
+}
+```

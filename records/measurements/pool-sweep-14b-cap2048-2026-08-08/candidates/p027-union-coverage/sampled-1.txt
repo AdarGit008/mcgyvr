@@ -1,0 +1,70 @@
+```ts
+export function unionCoverage(rects: number[][]): number {
+  if (!Array.isArray(rects)) {
+    throw new Error("Input must be an array of rectangles.");
+  }
+
+  const isWithinRange = (num: number) => num >= -10000 && num <= 10000;
+  const isValidRectangle = ([x1, y1, x2, y2]: number[]): boolean =>
+    Array.isArray(rects) &&
+    rects.length === 4 &&
+    [x1, y1, x2, y2].every(Number.isInteger) &&
+    isWithinRange(x1) &&
+    isWithinRange(y1) &&
+    isWithinRange(x2) &&
+    isWithinRange(y2) &&
+    x1 < x2 &&
+    y1 < y2;
+
+  if (!rects.every(isValidRectangle)) {
+    throw new Error("Invalid rectangle provided.");
+  }
+
+  const events: { x: number; type: "start" | "end"; y1: number; y2: number }[] = [];
+
+  rects.forEach(([x1, y1, x2, y2]) => {
+    events.push({ x: x1, type: "start", y1, y2 });
+    events.push({ x: x2, type: "end", y1, y2 });
+  });
+
+  events.sort((a, b) => a.x - b.x || (b.type === "start" ? 1 : -1));
+
+  let totalArea = 0;
+  let currentX = events[0]?.x ?? 0;
+  let activeIntervals: { y1: number; y2: number }[] = [];
+
+  const calculateOverlap = () => {
+    const sortedYs = [...activeIntervals].sort((a, b) => a.y1 - b.y1);
+    let overlapArea = 0;
+    let currentY = -Infinity;
+
+    for (const { y1, y2 } of sortedYs) {
+      if (y1 > currentY) {
+        currentY = y1;
+      }
+      if (y2 > currentY) {
+        overlapArea += y2 - currentY;
+        currentY = y2;
+      }
+    }
+
+    return overlapArea;
+  };
+
+  for (const event of events) {
+    const overlapArea = calculateOverlap();
+    totalArea += overlapArea * (event.x - currentX);
+    currentX = event.x;
+
+    if (event.type === "start") {
+      activeIntervals.push({ y1: event.y1, y2: event.y2 });
+    } else {
+      activeIntervals = activeIntervals.filter(
+        (interval) => interval.y1 !== event.y1 || interval.y2 !== event.y2
+      );
+    }
+  }
+
+  return totalArea;
+}
+```

@@ -1,0 +1,33 @@
+```ts
+export function seatParties(rows: number[], parties: number[]): string[] {
+  const results: string[] = [];
+  const rowFreeSeats = [...rows];
+
+  for (const partySize of parties) {
+    if (partySize < 1) {
+      throw new Error("Party size must be at least 1");
+    }
+
+    let seated = false;
+    for (let i = 0; i < rows.length; i++) {
+      if (rowFreeSeats[i] >= partySize) {
+        const seatNumber = rows[i] - rowFreeSeats[i] + 1;
+        results.push(`${i + 1}-${seatNumber}`);
+        rowFreeSeats[i] -= partySize;
+        seated = true;
+        break;
+      }
+    }
+
+    if (!seated) {
+      if (parties.length === 0 || partySize > rows.reduce((max, row) => Math.max(max, row), 0)) {
+        results.push("rejected:too_big");
+      } else {
+        results.push("rejected:full");
+      }
+    }
+  }
+
+  return results;
+}
+```

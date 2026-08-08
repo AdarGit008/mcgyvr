@@ -1,0 +1,69 @@
+```ts
+export function plotterPose(program: string): { x: number; y: number; facing: string } {
+  if (typeof program !== 'string') {
+    throw new Error('Invalid program type');
+  }
+
+  const directions = ['N', 'E', 'S', 'W'];
+  let x = 0;
+  let y = 0;
+  let facingIndex = 0;
+
+  for (let i = 0; i < program.length; ) {
+    const command = program[i];
+
+    if (command === 'L') {
+      facingIndex = (facingIndex + 3) % 4;
+      i++;
+    } else if (command === 'R') {
+      facingIndex = (facingIndex + 1) % 4;
+      i++;
+    } else if (command === 'F' || command === 'B') {
+      const match = program.matchAt(i, /([FB])(\d+)/);
+      if (!match) {
+        throw new Error('Invalid command format');
+      }
+
+      const [, direction, distanceStr] = match;
+      const distance = parseInt(distanceStr, 10);
+
+      if (isNaN(distance) || distance <= 0) {
+        throw new Error('Invalid distance');
+      }
+
+      let dx = 0;
+      let dy = 0;
+
+      switch (directions[facingIndex]) {
+        case 'N':
+          dy = command === 'F' ? distance : -distance;
+          break;
+        case 'E':
+          dx = command === 'F' ? distance : -distance;
+          break;
+        case 'S':
+          dy = command === 'F' ? -distance : distance;
+          break;
+        case 'W':
+          dx = command === 'F' ? -distance : distance;
+          break;
+      }
+
+      x += dx;
+      y += dy;
+
+      i += match[0].length;
+    } else {
+      throw new Error('Invalid command');
+    }
+  }
+
+  return { x, y, facing: directions[facingIndex] };
+}
+
+String.prototype.matchAt = function (pos: number, regex: RegExp) {
+  const match = this.slice(pos).match(regex);
+  if (!match) return null;
+  return [match[0], ...match.slice(1)].map((m, i) => m === undefined ? this.slice(pos + (match as any).index, pos + (match as any).index + (match[i] as string).length) : m);
+};
+```

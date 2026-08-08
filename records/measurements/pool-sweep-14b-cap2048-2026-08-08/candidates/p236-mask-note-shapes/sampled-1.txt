@@ -1,0 +1,35 @@
+```ts
+export function maskSensitive(note: string): { text: string; badges: number; vaults: number } {
+  if (typeof note !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let badges = 0;
+  let vaults = 0;
+  let maskedText = '';
+
+  const badgePattern = /([^A-Z])([A-Z]{2,4})-([0-9]{4,8})(?![0-9])/g;
+  const vaultPattern = /([^a-z0-9])(vk=[a-z0-9]{6,10})(?![a-z0-9])/g;
+
+  let lastIndex = 0;
+  let match;
+
+  while ((match = badgePattern.exec(note)) !== null) {
+    const [fullMatch, prefix, letters, digits] = match;
+    badges++;
+    maskedText += note.slice(lastIndex, match.index + prefix.length) + letters + '-' + '#'.repeat(digits.length);
+    lastIndex = match.index + fullMatch.length;
+  }
+
+  while ((match = vaultPattern.exec(note)) !== null) {
+    const [fullMatch, prefix] = match;
+    vaults++;
+    maskedText += note.slice(lastIndex, match.index + prefix.length) + '[vault]';
+    lastIndex = match.index + fullMatch.length;
+  }
+
+  maskedText += note.slice(lastIndex);
+
+  return { text: maskedText, badges, vaults };
+}
+```

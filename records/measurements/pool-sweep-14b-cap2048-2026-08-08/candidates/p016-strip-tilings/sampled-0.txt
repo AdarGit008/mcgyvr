@@ -1,0 +1,21 @@
+```ts
+export function countStripTilings(width: number): number {
+  if (!Number.isInteger(width) || width < 0) {
+    throw new Error("Width must be a non-negative integer.");
+  }
+
+  // Base cases
+  if (width === 0) return 1;
+  if (width === 1) return 1;
+
+  // Dynamic programming array to store the number of ways to tile up to width i
+  const dp = [1, 1];
+
+  // Fill the dp array using the recurrence relation
+  for (let i = 2; i <= width; i++) {
+    dp[i] = dp[i - 1] + dp[i - 2] + 2 * dp[i - 3];
+  }
+
+  return dp[width];
+}
+```

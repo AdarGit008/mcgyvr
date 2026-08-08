@@ -1,0 +1,62 @@
+```ts
+export function splitFieldPath(path: string): (string | number)[] {
+  if (typeof path !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  if (!path || path.startsWith('.') || path.endsWith('.')) {
+    throw new Error('Invalid path format');
+  }
+
+  const parts: (string | number)[] = [];
+  let currentSegment = '';
+  let bracketDepth = 0;
+  let indexBuffer = '';
+
+  for (let i = 0; i < path.length; i++) {
+    const char = path[i];
+
+    if (char === '.') {
+      if (!currentSegment || bracketDepth > 0) {
+        throw new Error('Invalid path format');
+      }
+      parts.push(currentSegment);
+      currentSegment = '';
+    } else if (char === '[') {
+      if (bracketDepth > 0 || !currentSegment || !/^[a-zA-Z_]\w*$/.test(currentSegment)) {
+        throw new Error('Invalid path format');
+      }
+      bracketDepth++;
+      indexBuffer = '';
+    } else if (char === ']') {
+      if (bracketDepth === 0) {
+        throw new Error('Invalid path format');
+      }
+      bracketDepth--;
+      if (!indexBuffer || /^\d+$/.test(indexBuffer)) {
+        parts.push(Number(indexBuffer));
+      } else {
+        throw new Error('Index must be a non-negative integer');
+      }
+      currentSegment = '';
+    } else if (bracketDepth > 0) {
+      if (/^\d$/.test(char)) {
+        indexBuffer += char;
+      } else {
+        throw new Error('Index must be a non-negative integer');
+      }
+    } else {
+      if (!currentSegment && !/^[a-zA-Z_]\w*$/.test(char)) {
+        throw new Error('Identifier must start with a letter or underscore');
+      }
+      currentSegment += char;
+    }
+  }
+
+  if (bracketDepth > 0 || currentSegment.endsWith('[') || indexBuffer) {
+    throw new Error('Invalid path format');
+  }
+  parts.push(currentSegment);
+
+  return parts.filter(part => part !== '');
+}
+```

@@ -1,0 +1,39 @@
+```ts
+/**
+ * Expands a pattern containing a single square-bracketed group into distinct results.
+ * @param pattern - The pattern to expand.
+ * @returns An array of expanded strings sorted in ascending order.
+ */
+export function expandRunTag(pattern: string): string[] {
+  if (typeof pattern !== 'string') {
+    throw new Error('Pattern must be a string');
+  }
+
+  const match = pattern.match(/^([^[]*)\[(.*?)\](.*)$/);
+  if (!match) {
+    throw new Error('Pattern must contain exactly one square-bracketed group');
+  }
+
+  const [, stem, body, tail] = match;
+  let results: string[];
+
+  if (/^\d+-\d+(\/\d+)?$/.test(body)) {
+    // Run pattern
+    const [startStr, endStr, stepStr = '/1'] = body.split(/[-/]/).map(Number);
+    if (startStr > endStr || stepStr === 0) {
+      throw new Error('Invalid run pattern');
+    }
+    results = [];
+    for (let i = startStr; i <= endStr; i += stepStr) {
+      results.push(stem + i + tail);
+    }
+  } else if (/^([^,]+)(,[^,]+)*$/.test(body)) {
+    // List pattern
+    results = body.split(',').map(item => stem + item + tail);
+  } else {
+    throw new Error('Invalid group body');
+  }
+
+  return Array.from(new Set(results)).sort();
+}
+```

@@ -1,0 +1,58 @@
+```ts
+export function divideFixed(numerator: number, denominator: number, places: number): string {
+  if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(places)) {
+    throw new Error("All arguments must be integers.");
+  }
+  if (denominator === 0) {
+    throw new Error("Denominator cannot be zero.");
+  }
+  if (places < 0 || places > 6) {
+    throw new Error("Places must be between 0 and 6.");
+  }
+
+  const isNegative = (numerator < 0) !== (denominator < 0);
+  numerator = Math.abs(numerator);
+  denominator = Math.abs(denominator);
+
+  let quotient = "";
+  let remainder = numerator;
+
+  for (let i = 0; i <= places; i++) {
+    if (i === 0 && quotient === "") {
+      quotient += Math.floor(remainder / denominator).toString();
+      remainder %= denominator;
+    } else {
+      remainder *= 10;
+      const digit = Math.floor(remainder / denominator);
+      quotient += digit.toString();
+      remainder %= denominator;
+    }
+
+    if (i === places - 1 && remainder * 2 >= denominator) {
+      // Round up if halfway or more
+      let lastDigitIndex = quotient.length - 1;
+      while (lastDigitIndex >= 0) {
+        const lastDigit = parseInt(quotient[lastDigitIndex], 10);
+        if (lastDigit % 2 === 1 || lastDigit + 1 < 10) {
+          quotient = quotient.slice(0, lastDigitIndex) + (lastDigit + 1).toString() + quotient.slice(lastDigitIndex + 1);
+          break;
+        } else {
+          quotient = quotient.slice(0, lastDigitIndex) + "0" + quotient.slice(lastDigitIndex + 1);
+          if (lastDigitIndex === 0) {
+            quotient = "1" + quotient;
+          }
+          lastDigitIndex--;
+        }
+      }
+    }
+  }
+
+  if (places > 0) {
+    const integerPart = quotient.slice(0, -places);
+    const decimalPart = quotient.slice(-places).replace(/0+$/, "");
+    quotient = integerPart + "." + decimalPart;
+  }
+
+  return isNegative && quotient !== "0" ? "-" + quotient : quotient;
+}
+```

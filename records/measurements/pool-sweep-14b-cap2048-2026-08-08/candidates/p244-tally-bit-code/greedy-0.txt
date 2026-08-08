@@ -1,0 +1,88 @@
+```ts
+export function buildWeightCode(entries: any[]): any {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error("Invalid input");
+  }
+
+  const tokens = entries.map((entry, index) => {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      throw new Error(`Entry at index ${index} is invalid`);
+    }
+    const [token, tally] = entry;
+    if (typeof token !== "string" || !/^[a-z]+$/.test(token)) {
+      throw new Error(`Token at index ${index} is invalid`);
+    }
+    if (typeof tally !== "number" || tally < 1) {
+      throw new Error(`Tally at index ${index} is invalid`);
+    }
+    return { token, tally };
+  });
+
+  tokens.sort((a, b) => a.token.localeCompare(b.token));
+
+  interface Bud {
+    number: number;
+    load: number;
+    near?: Bud;
+    far?: Bud;
+  }
+
+  const buds: Bud[] = tokens.map((token, index) => ({
+    number: index,
+    load: token.tally,
+  }));
+
+  while (buds.length > 1) {
+    buds.sort((a, b) => a.load - b.load || a.number - b.number);
+    const nearBud = buds.shift()!;
+    const farBud = buds.shift()!;
+    const newBud: Bud = {
+      number: buds.length,
+      load: nearBud.load + farBud.load,
+      near: nearBud,
+      far: farBud,
+    };
+    buds.push(newBud);
+  }
+
+  const crown = buds[0];
+
+  function getBits(bud: Bud, path: string): Record<string, string> {
+    if (!bud.near && !bud.far) {
+      return {};
+    }
+    const result: Record<string, string> = {};
+    if (bud.near) {
+      Object.entries(getBits(bud.near, path + "0")).forEach(([token, bits]) => {
+        result[token] = bits;
+      });
+    }
+    if (bud.far) {
+      Object.entries(getBits(bud.far, path + "1")).forEach(([token, bits]) => {
+        result[token] = bits;
+      });
+    }
+    return result;
+  }
+
+  const codes = getBits(crown, "");
+
+  let totalBits = 0;
+  let tallestBits = 0;
+
+  tokens.forEach((token) => {
+    if (!codes[token.token]) {
+      throw new Error(`Token ${token.token} not found in codes`);
+    }
+    const bitsLength = codes[token.token].length;
+    totalBits += token.tally * bitsLength;
+    tallestBits = Math.max(tallestBits, bitsLength);
+  });
+
+  return {
+    codes,
+    bits: totalBits,
+    tallest: tallestBits,
+  };
+}
+```

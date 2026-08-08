@@ -1,0 +1,53 @@
+```ts
+export function newerRelease(a: string, b: string): number {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+
+  const parseVersion = (version: string) => {
+    const [base, prerelease] = version.split('-');
+    const [major, minor] = base.split('.').map(Number);
+    if (isNaN(major) || isNaN(minor)) {
+      throw new Error('Invalid version format');
+    }
+    return { major, minor, prerelease };
+  };
+
+  const aVersion = parseVersion(a);
+  const bVersion = parseVersion(b);
+
+  if (aVersion.major !== bVersion.major) {
+    return aVersion.major > bVersion.major ? 1 : -1;
+  }
+
+  if (aVersion.minor !== bVersion.minor) {
+    return aVersion.minor > bVersion.minor ? 1 : -1;
+  }
+
+  if (!aVersion.prerelease && !bVersion.prerelease) {
+    return 0;
+  }
+
+  if (!aVersion.prerelease) {
+    return 1;
+  }
+
+  if (!bVersion.prerelease) {
+    return -1;
+  }
+
+  const channelOrder = { dev: 0, alpha: 1, beta: 2, rc: 3 };
+  const [aChannel, aBuild] = aVersion.prerelease.split('.').map((part, index) => (index === 0 ? part : Number(part)));
+  const [bChannel, bBuild] = bVersion.prerelease.split('.').map((part, index) => (index === 0 ? part : Number(part)));
+
+  if (channelOrder[aChannel as keyof typeof channelOrder] !== channelOrder[bChannel as keyof typeof channelOrder]) {
+    return channelOrder[aChannel as keyof typeof channelOrder] > channelOrder[bChannel as keyof typeof channelOrder] ? 1 : -1;
+  }
+
+  if (isNaN(aBuild) || isNaN(bBuild)) {
+    throw new Error('Invalid prerelease format');
+  }
+
+  return aBuild > bBuild ? 1 : -1;
+}
+```

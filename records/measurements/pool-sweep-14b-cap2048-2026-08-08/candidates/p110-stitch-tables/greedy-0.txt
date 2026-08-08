@@ -1,0 +1,56 @@
+```ts
+export function stitchTables(left: Array<Record<string, unknown>>, right: Array<Record<string, unknown>>, key: string, mode: string): Array<Record<string, unknown>> {
+  if (mode !== "inner" && mode !== "left") {
+    throw new Error("Invalid mode. Only 'inner' and 'left' modes are supported.");
+  }
+
+  const rightMap = new Map<string, Record<string, unknown>>();
+  for (const record of right) {
+    if (typeof record[key] !== "string") {
+      throw new Error(`Right table record must have a string value for key "${key}".`);
+    }
+    if (rightMap.has(record[key] as string)) {
+      throw new Error(`Duplicate key value "${record[key]}" found in the right table.`);
+    }
+    rightMap.set(record[key] as string, { ...record });
+  }
+
+  const leftColumns = new Set<string>();
+  for (const record of left) {
+    if (typeof record[key] !== "string") {
+      throw new Error(`Left table record must have a string value for key "${key}".`);
+    }
+    for (const column in record) {
+      if (column !== key && right.some(r => r.hasOwnProperty(column))) {
+        throw new Error(`Non-key column "${column}" present in both left and right tables.`);
+      }
+      leftColumns.add(column);
+    }
+  }
+
+  const result: Array<Record<string, unknown>> = [];
+  for (const record of left) {
+    const keyVal = record[key] as string;
+    const matchedRightRecord = rightMap.get(keyVal);
+
+    if (matchedRightRecord) {
+      result.push({ ...record, ...matchedRightRecord });
+    } else if (mode === "left") {
+      const nullRecord: Record<string, unknown> = {};
+      for (const column of leftColumns) {
+        nullRecord[column] = record[column];
+      }
+      right.forEach(r => {
+        for (const column in r) {
+          if (column !== key) {
+            nullRecord[column] = null;
+          }
+        }
+      });
+      result.push(nullRecord);
+    }
+  }
+
+  return result;
+}
+```

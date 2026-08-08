@@ -1,0 +1,62 @@
+```ts
+export function runTransactions(commands: string[]): Record<string, string> {
+  const store: Record<string, string> = {};
+  const transactionStack: Record<string, string>[] = [];
+
+  for (const command of commands) {
+    const parts = command.split(" ");
+    if (parts.length < 2) {
+      throw new Error("Invalid command format");
+    }
+
+    const [verb, key] = parts;
+    const value = parts.length > 2 ? parts.slice(2).join(" ") : undefined;
+
+    switch (verb) {
+      case "set":
+        if (value === undefined) {
+          throw new Error("Set command requires a value");
+        }
+        if (transactionStack.length > 0) {
+          transactionStack[transactionStack.length - 1][key] = value;
+        } else {
+          store[key] = value;
+        }
+        break;
+      case "unset":
+        if (transactionStack.length > 0) {
+          delete transactionStack[transactionStack.length - 1][key];
+        } else {
+          delete store[key];
+        }
+        break;
+      case "begin":
+        transactionStack.push({});
+        break;
+      case "commit":
+        if (transactionStack.length === 0) {
+          throw new Error("No open transaction to commit");
+        }
+        const lastTransaction = transactionStack.pop();
+        for (const [k, v] of Object.entries(lastTransaction || {})) {
+          store[k] = v;
+        }
+        break;
+      case "rollback":
+        if (transactionStack.length === 0) {
+          throw new Error("No open transaction to rollback");
+        }
+        transactionStack.pop();
+        break;
+      default:
+        throw new Error(`Unknown command: ${verb}`);
+    }
+  }
+
+  if (transactionStack.length > 0) {
+    throw new Error("Transaction still open after the last command");
+  }
+
+  return store;
+}
+```

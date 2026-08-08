@@ -1,0 +1,53 @@
+```ts
+export function decodeBitRun(codebook: any, strip: string): string[] {
+  if (typeof codebook !== 'object' || codebook === null) {
+    throw new Error('Codebook must be a non-null object');
+  }
+
+  const words = Object.keys(codebook);
+  if (words.length === 0) {
+    throw new Error('Codebook must name at least one word');
+  }
+
+  const marks = new Map<string, string>();
+  for (const word of words) {
+    if (typeof word !== 'string' || !/^[a-z]+$/.test(word)) {
+      throw new Error('Each key in codebook must be a non-empty string of lowercase letters');
+    }
+    const mark = codebook[word];
+    if (typeof mark !== 'string' || !/^[01]+$/.test(mark)) {
+      throw new Error('Each value in codebook must be a non-empty string of 0s and 1s');
+    }
+    if (marks.has(mark)) {
+      throw new Error('Two words cannot carry the very same mark');
+    }
+    marks.set(mark, word);
+  }
+
+  if (typeof strip !== 'string') {
+    throw new Error('Strip must be a string');
+  }
+  if (!/^[01]+$/.test(strip)) {
+    throw new Error('Strip must hold only characters that are either 0 or 1');
+  }
+
+  const result: string[] = [];
+  let index = 0;
+  while (index < strip.length) {
+    let foundMatch = false;
+    for (const [mark, word] of marks.entries()) {
+      if (strip.startsWith(mark, index)) {
+        result.push(word);
+        index += mark.length;
+        foundMatch = true;
+        break;
+      }
+    }
+    if (!foundMatch) {
+      throw new Error('Reading runs off the end of the strip with characters left over that finish no word\'s mark');
+    }
+  }
+
+  return result;
+}
+```

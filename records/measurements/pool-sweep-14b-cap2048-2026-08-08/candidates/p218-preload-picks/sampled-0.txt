@@ -1,0 +1,47 @@
+```ts
+export function preloadPicks(entries: unknown, room: unknown): string[] {
+  if (!Array.isArray(entries)) {
+    throw new Error("Entries must be an array.");
+  }
+  if (typeof room !== "number" || room < 0) {
+    throw new Error("Room must be a non-negative whole number.");
+  }
+
+  const candidates = entries.map((entry, index) => {
+    if (
+      typeof entry !== "object" ||
+      entry === null ||
+      typeof entry.key !== "string" ||
+      entry.key.trim() === "" ||
+      typeof entry.size !== "number" ||
+      entry.size <= 0 ||
+      typeof entry.hits !== "number" ||
+      entry.hits < 0
+    ) {
+      throw new Error(`Invalid candidate at index ${index}.`);
+    }
+    return entry as { key: string; size: number; hits: number };
+  });
+
+  const uniqueKeys = new Set(candidates.map((c) => c.key));
+  if (uniqueKeys.size !== candidates.length) {
+    throw new Error("Candidates must have unique keys.");
+  }
+
+  candidates.sort((a, b) => {
+    if (b.hits !== a.hits) return b.hits - a.hits;
+    if (a.size !== b.size) return a.size - b.size;
+    return a.key.localeCompare(b.key);
+  });
+
+  const selectedKeys: string[] = [];
+  for (const candidate of candidates) {
+    if (candidate.size <= room) {
+      selectedKeys.push(candidate.key);
+      room -= candidate.size;
+    }
+  }
+
+  return selectedKeys;
+}
+```

@@ -1,0 +1,82 @@
+```ts
+export function printOperatorTree(node: unknown): string {
+  if (typeof node === 'number') {
+    if (!Number.isInteger(node) || node < 0) {
+      throw new Error('Invalid number');
+    }
+    return node.toString();
+  }
+
+  if (typeof node === 'string') {
+    if (node === '') || !/^[a-z]+$/.test(node)) {
+      throw new Error('Invalid word');
+    }
+    return node;
+  }
+
+  if (typeof node !== 'object' || node === null) {
+    throw new Error('Invalid node');
+  }
+
+  const { op, left, right, negate, call } = node as Record<string, unknown>;
+
+  if (op !== undefined) {
+    if (typeof left !== 'object' || typeof right !== 'object') {
+      throw new Error('Invalid op node');
+    }
+    const ops = ['or', 'and', '+', '-', '*', '/', '^'];
+    if (!ops.includes(op as string)) {
+      throw new Error('Invalid operator');
+    }
+    return printWithBindingPower(left, op as string) + ' ' + op + ' ' + printWithBindingPower(right, op as string);
+  }
+
+  if (negate !== undefined) {
+    if (typeof negate !== 'object') {
+      throw new Error('Invalid negate node');
+    }
+    const bindingPower = getBindingPower('negate');
+    return '-' + (getBindingPower(negate) < bindingPower ? '(' + printOperatorTree(negate) + ')' : printOperatorTree(negate));
+  }
+
+  if (call !== undefined) {
+    const [func, args] = call as [unknown, unknown];
+    if (typeof func !== 'string' || !/^[a-z]+$/.test(func) || !Array.isArray(args)) {
+      throw new Error('Invalid call node');
+    }
+    return func + '(' + args.map(printOperatorTree).join(', ') + ')';
+  }
+
+  throw new Error('Invalid node');
+}
+
+function printWithBindingPower(node: unknown, parentOp: string): string {
+  const bindingPower = getBindingPower(parentOp);
+  const nodeString = printOperatorTree(node);
+  if (node instanceof Object && getBindingPower(node) < bindingPower) {
+    return '(' + nodeString + ')';
+  }
+  return nodeString;
+}
+
+function getBindingPower(op: string): number {
+  switch (op) {
+    case 'or':
+      return 1;
+    case 'and':
+      return 2;
+    case '+':
+    case '-':
+      return 3;
+    case '*':
+    case '/':
+      return 4;
+    case 'negate':
+      return 5;
+    case '^':
+      return 6;
+    default:
+      throw new Error('Unknown operator');
+  }
+}
+```

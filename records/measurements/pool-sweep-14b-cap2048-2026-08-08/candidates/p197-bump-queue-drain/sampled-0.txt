@@ -1,0 +1,85 @@
+```ts
+/**
+ * The order a crew works through a batch of graded tickets.
+ */
+export function bumpQueueDrain(
+  tickets: Array<Record<string, unknown>>,
+  start: number,
+  bumpEvery: number
+): string[] {
+  if (tickets.length === 0) {
+    throw new Error("Batch is empty");
+  }
+
+  const ticketMap = new Map<string, { id: string; filed: number; grade: number }>();
+  for (const ticket of tickets) {
+    if (
+      typeof ticket !== "object" ||
+      !ticket ||
+      typeof ticket.id !== "string" ||
+      typeof ticket.filed !== "number" ||
+      typeof ticket.grade !== "number"
+    ) {
+      throw new Error("Invalid ticket format");
+    }
+
+    const { id, filed, grade } = ticket;
+    if (id.trim() === "") {
+      throw new Error("Ticket ID cannot be empty");
+    }
+    if (ticketMap.has(id)) {
+      throw new Error("Duplicate ticket ID");
+    }
+    if (!Number.isInteger(filed) || filed < 0) {
+      throw new Error("Filed minute must be a non-negative whole number");
+    }
+    if (!Number.isInteger(grade) || grade < 0 || grade > 9) {
+      throw new Error("Grade must be a whole number between 0 and 9");
+    }
+
+    ticketMap.set(id, { id, filed, grade });
+  }
+
+  const pending = Array.from(ticketMap.values()).sort((a, b) => {
+    if (a.filed !== b.filed) {
+      return a.filed - b.filed;
+    }
+    if (a.grade !== b.grade) {
+      return b.grade - a.grade;
+    }
+    return a.id.localeCompare(b.id);
+  });
+
+  const handled: string[] = [];
+  let currentMinute = start;
+
+  while (pending.length > 0) {
+    const eligibleTickets = pending.filter(ticket => ticket.filed <= currentMinute);
+
+    if (eligibleTickets.length > 0) {
+      let pick = eligibleTickets[0];
+      for (let i = 1; i < eligibleTickets.length; i++) {
+        const here =
+          eligibleTickets[i].grade +
+          Math.min(
+            Math.floor((currentMinute - eligibleTickets[i].filed) / bumpEvery),
+            9
+          );
+        const held =
+          pick.grade +
+          Math.min(Math.floor((currentMinute - pick.filed) / bumpEvery), 9);
+        if (here > held || (here === held && eligibleTickets[i].id < pick.id)) {
+          pick = eligibleTickets[i];
+        }
+      }
+
+      handled.push(pick.id);
+      pending.splice(pending.indexOf(pick), 1);
+    }
+
+    currentMinute++;
+  }
+
+  return handled;
+}
+```

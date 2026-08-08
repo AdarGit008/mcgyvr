@@ -1,0 +1,80 @@
+```ts
+export function foldReplyThread(messages: string[][]): string {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    throw new Error("Invalid input: batch must be a non-empty list of messages.");
+  }
+
+  const messageMap = new Map<string, { id: string; parent: string; text: string; depth: number }>();
+  const rootMessages: string[] = [];
+
+  for (const message of messages) {
+    if (!Array.isArray(message) || message.length !== 3) {
+      throw new Error("Invalid input: each message must be an array of exactly three strings.");
+    }
+
+    const [id, parent, text] = message;
+
+    if (typeof id !== "string" || typeof parent !== "string" || typeof text !== "string") {
+      throw new Error("Invalid input: all elements of a message must be strings.");
+    }
+
+    if (id.trim() === "") {
+      throw new Error("Invalid input: id cannot be empty.");
+    }
+
+    if (text.includes("\n")) {
+      throw new Error("Invalid input: text cannot contain newlines.");
+    }
+
+    if (messageMap.has(id)) {
+      throw new Error("Invalid input: repeated id found.");
+    }
+
+    messageMap.set(id, { id, parent, text, depth: 0 });
+
+    if (parent === "") {
+      rootMessages.push(id);
+    }
+  }
+
+  for (const message of messages) {
+    const [id, parent] = message;
+
+    if (parent !== "" && !messageMap.has(parent)) {
+      throw new Error("Invalid input: parent message not found.");
+    }
+  }
+
+  const visited = new Set<string>();
+  const result: string[] = [];
+
+  function dfs(id: string, depth: number): void {
+    if (visited.has(id)) {
+      throw new Error("Invalid input: circular reference detected.");
+    }
+
+    visited.add(id);
+    const message = messageMap.get(id)!;
+    message.depth = depth;
+
+    for (const child of messages) {
+      const [childId, parentId] = child;
+      if (parentId === id) {
+        dfs(childId, depth + 1);
+      }
+    }
+  }
+
+  for (const rootId of rootMessages) {
+    dfs(rootId, 0);
+  }
+
+  const sortedMessages = Array.from(messageMap.values()).sort((a, b) => a.depth - b.depth);
+
+  for (const message of sortedMessages) {
+    result.push(`${"> ".repeat(message.depth)}${message.id} ${message.text}`);
+  }
+
+  return result.join("\n");
+}
+```

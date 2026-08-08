@@ -1,0 +1,67 @@
+```ts
+/**
+ * Determines the Meridian week label for a given date.
+ * @param date - A zero-padded "YYYY-MM-DD" date string.
+ * @returns The Meridian week label in the format "YYYY-WNN".
+ */
+export function meridianWeekLabel(date: string): string {
+  const regex = /^(\d{4})-(\d{2})-(\d{2})$/;
+  const match = date.match(regex);
+
+  if (!match) {
+    throw new Error("Invalid date format");
+  }
+
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+
+  if (year < 2 || year > 9999) {
+    throw new Error("Year out of range");
+  }
+
+  if (month < 1 || month > 12) {
+    throw new Error("Month out of range");
+  }
+
+  const daysInMonth = [31, (isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  if (day < 1 || day > daysInMonth[month - 1]) {
+    throw new Error("Day out of range");
+  }
+
+  const startOfYear = getStartOfYear(year);
+  const daysSinceStartOfYear = daysBetween(startOfYear, { year, month, day });
+
+  const meridianWeekNumber = Math.floor((daysSinceStartOfYear + 2) / 7) + 1;
+
+  return `${year.toString().padStart(4, '0')}-W${meridianWeekNumber.toString().padStart(2, '0')}`;
+}
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+}
+
+function getStartOfYear(year: number): { year: number; month: number; day: number } {
+  const firstDayOfYear = new Date(year, 0, 1).getDay();
+  const daysToWednesday = (3 - firstDayOfYear + 7) % 7;
+  return {
+    year,
+    month: 1,
+    day: 1 + daysToWednesday
+  };
+}
+
+function daysBetween(start: { year: number; month: number; day: number }, end: { year: number; month: number; day: number }): number {
+  let days = 0;
+  for (let y = start.year; y < end.year; y++) {
+    days += isLeapYear(y) ? 366 : 365;
+  }
+  const daysInMonth = [31, (isLeapYear(end.year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  for (let m = start.month; m < end.month; m++) {
+    days += daysInMonth[m - 1];
+  }
+  days += end.day - start.day;
+  return days;
+}
+```

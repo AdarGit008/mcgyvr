@@ -1,0 +1,34 @@
+```ts
+export function traceTeleports(pads: number[], start: number): number[] {
+  if (pads.length === 0) {
+    throw new Error("Empty hall");
+  }
+  if (!pads.every((pad) => pad >= 0 && pad < pads.length)) {
+    throw new Error("Destination outside the hall");
+  }
+  if (start < 0 || start >= pads.length) {
+    throw new Error("Start index outside the hall");
+  }
+
+  const visited = new Set<number>();
+  let rides = 0;
+  let current = start;
+
+  while (!visited.has(current)) {
+    visited.add(current);
+    current = pads[current];
+    rides++;
+  }
+
+  const circuitStart = current;
+  let circuitSize = 1;
+  current = pads[current];
+
+  while (current !== circuitStart) {
+    circuitSize++;
+    current = pads[current];
+  }
+
+  return [rides - circuitSize, circuitSize, circuitStart];
+}
+```

@@ -1,0 +1,20 @@
+```ts
+export function bracketSeedOrder(count: number): number[] {
+  if (!Number.isInteger(count) || count < 2 || (count & (count - 1)) !== 0) {
+    throw new Error("count must be a power of two, at least 2");
+  }
+
+  const generateBracket = (size: number): number[] => {
+    if (size === 1) return [1];
+    const halfSize = size / 2;
+    const previousRound = generateBracket(halfSize);
+    const currentRound: number[] = [];
+    for (let i = 0; i < halfSize; i++) {
+      currentRound.push(previousRound[i], size + 1 - previousRound[i]);
+    }
+    return currentRound;
+  };
+
+  return generateBracket(count);
+}
+```

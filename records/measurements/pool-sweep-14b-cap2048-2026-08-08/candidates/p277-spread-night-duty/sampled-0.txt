@@ -1,0 +1,67 @@
+```ts
+export function spreadNightDuty(crew: string[], weights: number[], away: string[][]): string[] {
+  if (crew.length === 0) {
+    throw new Error("Crew must not be empty");
+  }
+  if (new Set(crew).size !== crew.length) {
+    throw new Error("Crew must contain unique names");
+  }
+  for (const name of crew) {
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error("Crew names must be non-empty strings");
+    }
+    if (name === "?") {
+      throw new Error("Crew names must not contain the mark ?");
+    }
+  }
+  for (const weight of weights) {
+    if (weight !== 1 && weight !== 2) {
+      throw new Error("Weights must be either 1 or 2");
+    }
+  }
+  if (weights.length !== away.length) {
+    throw new Error("Away list must have the same length as weights");
+  }
+  for (let i = 0; i < away.length; i++) {
+    if (!Array.isArray(away[i])) {
+      throw new Error("Each entry in away must be a list");
+    }
+    for (const name of away[i]) {
+      if (!crew.includes(name)) {
+        throw new Error("Away names must be part of the crew");
+      }
+    }
+  }
+
+  const stood = new Map<string, number>();
+  for (const name of crew) {
+    stood.set(name, 0);
+  }
+  const nights: string[] = [];
+  let previous1 = "";
+  let previous2 = "";
+
+  for (let night = 0; night < weights.length; night++) {
+    let chosen = "";
+    for (const name of crew) {
+      if (away[night].includes(name) || name === previous1 || name === previous2) {
+        continue;
+      }
+      const currentLoad = stood.get(name)! + weights[night];
+      if (chosen === "" || currentLoad < stood.get(chosen)! || (currentLoad === stood.get(chosen)! && crew.indexOf(name) < crew.indexOf(chosen))) {
+        chosen = name;
+      }
+    }
+    if (chosen === "") {
+      nights.push("?");
+    } else {
+      stood.set(chosen, stood.get(chosen)! + weights[night]);
+      nights.push(chosen);
+      previous2 = previous1;
+      previous1 = chosen;
+    }
+  }
+
+  return nights;
+}
+```

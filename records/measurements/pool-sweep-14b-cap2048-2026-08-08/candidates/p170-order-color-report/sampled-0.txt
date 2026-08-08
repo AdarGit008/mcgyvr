@@ -1,0 +1,48 @@
+```ts
+export function orderColorReport(
+  neighbours: number[][],
+  visitOrder: number[],
+): number[][] {
+  if (neighbours.length === 0) {
+    throw new Error("No transmitters provided");
+  }
+
+  const channel: number[] = new Array(neighbours.length).fill(-1);
+  const visited: boolean[] = new Array(neighbours.length).fill(false);
+
+  for (const node of visitOrder) {
+    if (node < 0 || node >= neighbours.length) {
+      throw new Error(`Invalid transmitter index in visitOrder: ${node}`);
+    }
+    if (visited[node]) {
+      throw new Error(`Transmitter ${node} visited more than once`);
+    }
+    visited[node] = true;
+
+    const usedChannels = new Set<number>();
+    for (const other of neighbours[node]) {
+      if (other === node) {
+        throw new Error(`Transmitter ${node} clashes with itself`);
+      }
+      if (other < 0 || other >= neighbours.length) {
+        throw new Error(`Invalid clash reference: transmitter ${node} clashing with non-existent transmitter ${other}`);
+      }
+      if (!visited[other] && !neighbours[other].includes(node)) {
+        throw new Error(`Clash not recorded on both sides: transmitter ${node} does not clash back with ${other}`);
+      }
+      if (channel[other] !== -1) {
+        usedChannels.add(channel[other]);
+      }
+    }
+
+    let channelNumber = 0;
+    while (usedChannels.has(channelNumber)) {
+      channelNumber++;
+    }
+    channel[node] = channelNumber;
+  }
+
+  const distinctChannels = new Set(channel);
+  return [channel, [distinctChannels.size]];
+}
+```

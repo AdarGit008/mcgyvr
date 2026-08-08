@@ -1,0 +1,46 @@
+```ts
+export function firstDeadlineMiss(jobs: Array<Record<string, unknown>>): string {
+  if (!Array.isArray(jobs)) {
+    throw new Error("Invalid input: jobs must be an array");
+  }
+
+  const validatedJobs = jobs.map((job, index) => {
+    const name = job.name as string;
+    const work = job.work as number;
+    const due = job.due as number;
+
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error(`Invalid job at index ${index}: name must be a non-empty string`);
+    }
+    if (!Number.isInteger(work) || work <= 0) {
+      throw new Error(`Invalid job at index ${index}: work must be a positive integer`);
+    }
+    if (!Number.isInteger(due) || due <= 0) {
+      throw new Error(`Invalid job at index ${index}: due must be a positive integer`);
+    }
+
+    return { name, work, due };
+  });
+
+  const seenNames = new Set<string>();
+  for (const job of validatedJobs) {
+    if (seenNames.has(job.name)) {
+      throw new Error(`Duplicate job name: ${job.name}`);
+    }
+    seenNames.add(job.name);
+  }
+
+  validatedJobs.sort((a, b) => a.due - b.due);
+
+  let currentTime = 0;
+  for (const job of validatedJobs) {
+    const finishTime = currentTime + job.work;
+    if (finishTime > job.due) {
+      return job.name;
+    }
+    currentTime = finishTime;
+  }
+
+  return "";
+}
+```

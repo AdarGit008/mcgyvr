@@ -1,0 +1,43 @@
+```ts
+export function orderColorReport(
+  neighbours: number[][],
+  visitOrder: number[]
+): number[][] {
+  if (neighbours.length === 0) {
+    throw new Error("No transmitters provided");
+  }
+
+  const channel: number[] = new Array(neighbours.length).fill(-1);
+  const uniqueChannels = new Set<number>();
+
+  for (const node of visitOrder) {
+    if (node < 0 || node >= neighbours.length) {
+      throw new Error(`Invalid transmitter index in visit order: ${node}`);
+    }
+    if (neighbours[node].includes(node)) {
+      throw new Error(`Transmitter ${node} clashes with itself`);
+    }
+    for (const other of neighbours[node]) {
+      if (other < 0 || other >= neighbours.length) {
+        throw new Error(`Invalid clash reference: ${other}`);
+      }
+      if (!neighbours[other].includes(node)) {
+        throw new Error(`Clash not recorded on both sides for transmitters ${node} and ${other}`);
+      }
+    }
+
+    let lowestFreeChannel = 0;
+    while (neighbours[node].some(other => channel[other] === lowestFreeChannel)) {
+      lowestFreeChannel++;
+    }
+    channel[node] = lowestFreeChannel;
+    uniqueChannels.add(lowestFreeChannel);
+  }
+
+  if (uniqueChannels.size !== new Set(visitOrder).size) {
+    throw new Error("Visit order does not include every transmitter exactly once");
+  }
+
+  return [channel, [uniqueChannels.size]];
+}
+```

@@ -1,0 +1,111 @@
+```ts
+export function lockCycleVictim(holds: string[][], blocked: string[][]): { victim: string; cycle: string[] } {
+  // Validate input
+  if (!Array.isArray(holds) || !Array.isArray(blocked)) {
+    throw new Error("Invalid input: holds and blocked must be arrays");
+  }
+
+  const validatePair = (pair: any, description: string) => {
+    if (!Array.isArray(pair) || pair.length !== 2) {
+      throw new Error(`Invalid ${description}: must be a two-element array`);
+    }
+    const [a, b] = pair;
+    if (typeof a !== "string" || typeof b !== "string" || a === "" || b === "") {
+      throw new Error(`Invalid ${description}: both elements must be non-empty strings`);
+    }
+  };
+
+  holds.forEach(pair => validatePair(pair, "hold"));
+  blocked.forEach(pair => validatePair(pair, "blocked"));
+
+  // Check for invalid states
+  const holdMap = new Map<string, Set<string>>();
+  holds.forEach(([resource, worker]) => {
+    if (!holdMap.has(resource)) {
+      holdMap.set(resource, new Set());
+    }
+    const workers = holdMap.get(resource)!;
+    if (workers.has(worker)) {
+      throw new Error("Invalid state: a resource cannot be granted to two workers");
+    }
+    workers.add(worker);
+  });
+
+  const blockedMap = new Map<string, Set<string>>();
+  blocked.forEach(([worker, resource]) => {
+    if (!blockedMap.has(worker)) {
+      blockedMap.set(worker, new Set());
+    }
+    const resources = blockedMap.get(worker)!;
+    if (resources.has(resource)) {
+      throw new Error("Invalid state: a worker cannot be blocked on two resources at once");
+    }
+    resources.add(resource);
+  });
+
+  // Build the graph
+  const graph: Record<string, string[]> = {};
+  holds.forEach(([resource, worker]) => {
+    graph[worker] = [];
+  });
+  blocked.forEach(([worker, resource]) => {
+    if (holdMap.has(resource)) {
+      holdMap.get(resource)!.forEach(holdingWorker => {
+        graph[holdingWorker].push(worker);
+      });
+    }
+  });
+
+  // Find cycles
+  const findCycles = (node: string, visited: Set<string>, path: string[]): string[] | null => {
+    if (visited.has(node)) {
+      return path.includes(node) ? [...path.slice(path.indexOf(node)), node] : null;
+    }
+    visited.add(node);
+    path.push(node);
+    for (const neighbor of graph[node] || []) {
+      const cycle = findCycles(neighbor, visited, path);
+      if (cycle) {
+        return cycle;
+      }
+    }
+    path.pop();
+    return null;
+  };
+
+  let cycles: string[][] = [];
+  holds.forEach(([resource, worker]) => {
+    const cycle = findCycles(worker, new Set(), []);
+    if (cycle) {
+      cycles.push(cycle);
+    }
+  });
+
+  // If no cycles, return empty result
+  if (cycles.length === 0) {
+    return { victim: "", cycle: [] };
+  }
+
+  // Find the ring with the fewest locks held and lexicographically smallest worker name
+  let minCycle = cycles[0];
+  for (const cycle of cycles) {
+    const minCycleLocks = holdMap.get(cycle[0]) ? holdMap.get(cycle[0])!.size : 0;
+    const cycleLocks = holdMap.get(cycle[0]) ? holdMap.get(cycle[0])!.size : 0;
+    if (cycleLocks < minCycleLocks || (cycleLocks === minCycleLocks && cycle[0] < minCycle[0])) {
+      minCycle = cycle;
+    }
+  }
+
+  // Find the worker with the fewest locks held and lexicographically smallest name
+  let victim = minCycle[0];
+  let minLocks = holdMap.get(victim) ? holdMap.get(victim)!.size : 0;
+  for (const worker of minCycle) {
+    const locks = holdMap.get(worker) ? holdMap.get(worker)!.size : 0;
+    if (locks < minLocks || (locks === minLocks && worker < victim)) {
+      victim = worker;
+    }
+  }
+
+  return { victim, cycle: minCycle };
+}
+```

@@ -1,0 +1,78 @@
+```ts
+export function foldReplyThread(messages: string[][]): string {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    throw new Error("Invalid input: messages must be a non-empty array");
+  }
+
+  const messageMap = new Map<string, { parent: string; text: string; children: string[] }>();
+  const rootMessages: string[] = [];
+
+  for (const [id, parent, text] of messages) {
+    if (!Array.isArray(id) && typeof id === "string" && !Array.isArray(parent) && typeof parent === "string" && !Array.isArray(text) && typeof text === "string") {
+      if (id.trim() === "") {
+        throw new Error("Invalid message: id cannot be empty");
+      }
+      if (text.includes("\n")) {
+        throw new Error("Invalid message: text cannot contain a newline");
+      }
+      if (messageMap.has(id)) {
+        throw new Error(`Invalid message: duplicate id found - ${id}`);
+      }
+
+      const message = { parent, text, children: [] };
+      messageMap.set(id, message);
+
+      if (parent.trim() === "") {
+        rootMessages.push(id);
+      } else {
+        const parentMessage = messageMap.get(parent);
+        if (!parentMessage) {
+          throw new Error(`Invalid message: parent ${parent} does not exist`);
+        }
+        parentMessage.children.push(id);
+      }
+    } else {
+      throw new Error("Invalid message format");
+    }
+  }
+
+  const detectCycles = (id: string, currentPath: Set<string>): boolean => {
+    if (currentPath.has(id)) {
+      return true;
+    }
+    currentPath.add(id);
+    const children = messageMap.get(id)?.children || [];
+    for (const child of children) {
+      if (detectCycles(child, new Set(currentPath))) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  for (const rootId of rootMessages) {
+    if (detectCycles(rootId, new Set())) {
+      throw new Error("Invalid message: circular parent references detected");
+    }
+  }
+
+  const buildThread = (id: string, depth: number): string[] => {
+    const message = messageMap.get(id);
+    if (!message) return [];
+    const { text } = message;
+    const quoteMarker = "> ".repeat(depth);
+    const lines: string[] = [`${quoteMarker}${id} ${text}`];
+    for (const child of message.children) {
+      lines.push(...buildThread(child, depth + 1));
+    }
+    return lines;
+  };
+
+  const resultLines: string[] = [];
+  for (const rootId of rootMessages) {
+    resultLines.push(...buildThread(rootId, 0));
+  }
+
+  return resultLines.join("\n");
+}
+```

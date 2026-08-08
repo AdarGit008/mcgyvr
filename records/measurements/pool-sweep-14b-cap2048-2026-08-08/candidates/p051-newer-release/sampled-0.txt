@@ -1,0 +1,55 @@
+```ts
+export function newerRelease(a: string, b: string): number {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+
+  const regex = /^(\d+)\.(\d+)(?:-(dev|alpha|beta|rc)\.(\d+))?$/;
+  const matchA = a.match(regex);
+  const matchB = b.match(regex);
+
+  if (!matchA || !matchB) {
+    throw new Error('Invalid release string format');
+  }
+
+  const [_, majorA, minorA, channelA, buildA] = matchA;
+  const [__, majorB, minorB, channelB, buildB] = matchB;
+
+  const majorDiff = parseInt(majorA, 10) - parseInt(majorB, 10);
+  if (majorDiff !== 0) {
+    return majorDiff > 0 ? 1 : -1;
+  }
+
+  const minorDiff = parseInt(minorA, 10) - parseInt(minorB, 10);
+  if (minorDiff !== 0) {
+    return minorDiff > 0 ? 1 : -1;
+  }
+
+  if (!channelA && !channelB) {
+    return 0;
+  }
+
+  if (!channelA) {
+    return 1;
+  }
+
+  if (!channelB) {
+    return -1;
+  }
+
+  const channelOrder = ['dev', 'alpha', 'beta', 'rc'];
+  const channelIndexA = channelOrder.indexOf(channelA);
+  const channelIndexB = channelOrder.indexOf(channelB);
+
+  if (channelIndexA !== channelIndexB) {
+    return channelIndexA > channelIndexB ? 1 : -1;
+  }
+
+  if (!buildA || !buildB) {
+    throw new Error('Invalid build number format');
+  }
+
+  const buildDiff = parseInt(buildA, 10) - parseInt(buildB, 10);
+  return buildDiff > 0 ? 1 : -1;
+}
+```

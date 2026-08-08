@@ -1,0 +1,42 @@
+```ts
+export function serpentinePickOrder(picks: unknown): string[] {
+  if (!Array.isArray(picks)) {
+    throw new Error("pick list is not a list");
+  }
+
+  const pickMap = new Map<string, { aisle: number; bay: number }>();
+  picks.forEach((pick, index) => {
+    if (typeof pick !== "object" || pick === null) {
+      throw new Error(`pick at index ${index} is not a mapping`);
+    }
+    const { sku, aisle, bay } = pick as Record<string, unknown>;
+    if (
+      typeof sku !== "string" ||
+      sku.trim() === "" ||
+      typeof aisle !== "number" ||
+      typeof bay !== "number"
+    ) {
+      throw new Error(`pick at index ${index} has invalid sku, aisle or bay`);
+    }
+    if (pickMap.has(sku)) {
+      throw new Error(`sku "${sku}" is repeated`);
+    }
+    if (!Number.isSafeInteger(aisle) || aisle <= 0 || !Number.isSafeInteger(bay) || bay <= 0) {
+      throw new Error(`pick at index ${index} has invalid aisle or bay number`);
+    }
+    pickMap.set(sku, { aisle, bay });
+  });
+
+  return picks
+    .map((pick) => pick as Record<string, string>)
+    .sort((a, b) => {
+      const { aisle: aisleA, bay: bayA } = pickMap.get(a.sku)!;
+      const { aisle: aisleB, bay: bayB } = pickMap.get(b.sku)!;
+      if (aisleA !== aisleB) {
+        return aisleA - aisleB;
+      }
+      return aisleA % 2 === 0 ? bayB - bayA : bayA - bayB;
+    })
+    .map((pick) => pick.sku);
+}
+```

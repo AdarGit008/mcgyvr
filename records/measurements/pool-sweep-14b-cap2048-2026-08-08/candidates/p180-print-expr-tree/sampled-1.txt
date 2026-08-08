@@ -1,0 +1,60 @@
+```ts
+export function printExprTree(node: unknown): string {
+  if (typeof node === 'number') {
+    if (!Number.isInteger(node) || node < 0) {
+      throw new Error('Invalid literal');
+    }
+    return node.toString();
+  }
+
+  if (typeof node === 'string') {
+    if (node.length === 0 || !/^[a-zA-Z]+$/.test(node)) {
+      throw new Error('Invalid name');
+    }
+    return node;
+  }
+
+  if (typeof node !== 'object' || node === null) {
+    throw new Error('Invalid node type');
+  }
+
+  const { op, left, right } = node as Record<string, unknown>;
+
+  if (typeof op !== 'string' || typeof left === undefined || typeof right === undefined) {
+    throw new Error('Invalid record');
+  }
+
+  if (!['+', '-', '*', '/'].includes(op)) {
+    throw new Error('Invalid operator');
+  }
+
+  const bindStrength: { [key: string]: number } = { '+': 1, '-': 1, '*': 2, '/': 2 };
+
+  const leftStr = printExprTree(left);
+  const rightStr = printExprTree(right);
+
+  const needsLeftParen = shouldWrap(left, op, bindStrength);
+  const needsRightParen = shouldWrap(right, op, bindStrength);
+
+  return `${needsLeftParen ? '(' : ''}${leftStr} ${op} ${rightStr}${needsRightParen ? ')' : ''}`;
+}
+
+function shouldWrap(node: unknown, parentOp: string, bindStrength: { [key: string]: number }): boolean {
+  if (typeof node !== 'object' || node === null) {
+    return false;
+  }
+
+  const child = node as Record<string, unknown>;
+  const childOp = child.op;
+
+  if (typeof childOp !== 'string') {
+    return false;
+  }
+
+  if (!bindStrength.hasOwnProperty(childOp)) {
+    return false;
+  }
+
+  return bindStrength[childOp] < bindStrength[parentOp] || (bindStrength[childOp] === bindStrength[parentOp] && (childOp === '+' || childOp === '-'));
+}
+```

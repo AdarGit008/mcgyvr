@@ -1,0 +1,62 @@
+```ts
+/**
+ * Builds an on-call rota based on the given roster and blocked shifts.
+ * @param roster - The list of names who may stand a shift.
+ * @param blocked - The list of blocked names for each shift.
+ * @returns The list of names standing each shift, in shift order.
+ */
+export function buildOnCallRota(roster: string[], blocked: string[][]): string[] {
+  if (roster.length === 0) {
+    throw new Error("Roster cannot be empty.");
+  }
+  if (!Array.isArray(blocked)) {
+    throw new Error("Blocked shifts must be a list.");
+  }
+
+  const uniqueNames = new Set(roster);
+  if (uniqueNames.size !== roster.length) {
+    throw new Error("Roster contains duplicate names.");
+  }
+
+  for (const name of roster) {
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error("Roster must contain non-empty strings.");
+    }
+  }
+
+  const shiftCount = blocked.length;
+  const rosterSize = roster.length;
+  const ceiling = Math.ceil(shiftCount / rosterSize);
+  const rota: string[] = [];
+  const shiftCounts: { [key: string]: number } = {};
+  let previousName = "";
+
+  for (let i = 0; i < shiftCount; i++) {
+    if (!Array.isArray(blocked[i])) {
+      throw new Error("Each blocked entry must be a list.");
+    }
+
+    const validNames = roster
+      .filter(name => !blocked[i].includes(name))
+      .filter(name => name !== previousName)
+      .filter(name => (shiftCounts[name] || 0) < ceiling);
+
+    if (validNames.length === 0) {
+      return [];
+    }
+
+    let nextName = validNames[0];
+    for (const name of validNames.slice(1)) {
+      if ((shiftCounts[name] || 0) < shiftCounts[nextName]) {
+        nextName = name;
+      }
+    }
+
+    rota.push(nextName);
+    previousName = nextName;
+    shiftCounts[nextName] = (shiftCounts[nextName] || 0) + 1;
+  }
+
+  return rota;
+}
+```

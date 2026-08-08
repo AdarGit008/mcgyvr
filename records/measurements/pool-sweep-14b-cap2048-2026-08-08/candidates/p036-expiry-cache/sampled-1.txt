@@ -1,0 +1,92 @@
+```ts
+export function expiryCache(capacity: number, ops: (string | number)[][]): number[] {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+
+  const cache = new Map<string, { value: number; expiry: number }>();
+  const results: number[] = [];
+
+  for (const op of ops) {
+    if (op.length < 3) {
+      throw new Error("Invalid operation format.");
+    }
+
+    const [operation, time, key] = op;
+    let [ttl, value]: [number | undefined, number | undefined] = [undefined, undefined];
+
+    if (typeof operation !== "string" || typeof time !== "number") {
+      throw new Error("Operation must be a string and time must be a number.");
+    }
+
+    if (operation === "set") {
+      if (op.length !== 5) {
+        throw new Error("Set operation must have five elements.");
+      }
+      [, , key, value, ttl] = op;
+
+      if (
+        typeof key !== "string" ||
+        typeof value !== "number" ||
+        !Number.isInteger(value) ||
+        value <= 0 ||
+        typeof ttl !== "number" ||
+        !Number.isInteger(ttl) ||
+        ttl <= 0
+      ) {
+        throw new Error("Invalid set operation arguments.");
+      }
+    } else if (operation === "get") {
+      if (op.length !== 3) {
+        throw new Error("Get operation must have three elements.");
+      }
+
+      if (typeof key !== "string") {
+        throw new Error("Key must be a string for get operation.");
+      }
+    } else {
+      throw new Error("Unknown operation.");
+    }
+
+    if (time < 0) {
+      throw new Error("Time must be a non-negative integer.");
+    }
+
+    // Purge dead entries
+    for (const [k, entry] of cache.entries()) {
+      if (entry.expiry <= time) {
+        cache.delete(k);
+      }
+    }
+
+    if (operation === "set") {
+      const expiry = time + ttl;
+      cache.set(key, { value: value!, expiry });
+
+      // Evict entries if over capacity
+      if (cache.size > capacity) {
+        let toEvict: string | null = null;
+        for (const [k, entry] of cache.entries()) {
+          if (!toEvict || entry.expiry < cache.get(toEvict)!.expiry) {
+            toEvict = k;
+          } else if (
+            entry.expiry === cache.get(toEvict)!.expiry &&
+            k < toEvict
+          ) {
+            toEvict = k;
+          }
+        }
+
+        if (toEvict) {
+          cache.delete(toEvict);
+        }
+      }
+    } else if (operation === "get") {
+      const entry = cache.get(key);
+      results.push(entry && entry.expiry > time ? entry.value : -1);
+    }
+  }
+
+  return results;
+}
+```

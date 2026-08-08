@@ -1,0 +1,53 @@
+```ts
+export function foldParcels(events: Array<{ type: string; parcel: string }>): Record<string, string> {
+  const states: Record<string, string> = {};
+
+  for (let i = 0; i < events.length; i++) {
+    const { type, parcel } = events[i];
+
+    if (!parcel) {
+      throw new Error(`Event at index ${i} is missing a parcel key.`);
+    }
+
+    if (type === 'accept') {
+      if (states[parcel]) {
+        throw new Error(`Parcel "${parcel}" was already processed. Event at index ${i}.`);
+      }
+      states[parcel] = 'accepted';
+    } else if (type === 'load') {
+      if (states[parcel] !== 'accepted') {
+        throw new Error(`Invalid transition for parcel "${parcel}". Event at index ${i}.`);
+      }
+      states[parcel] = 'in_transit';
+    } else if (type === 'deliver') {
+      if (states[parcel] !== 'in_transit') {
+        throw new Error(`Invalid transition for parcel "${parcel}". Event at index ${i}.`);
+      }
+      states[parcel] = 'delivered';
+    } else if (type === 'bounce') {
+      if (states[parcel] !== 'delivered') {
+        throw new Error(`Invalid transition for parcel "${parcel}". Event at index ${i}.`);
+      }
+      states[parcel] = 'returned';
+    } else if (type === 'lose') {
+      if (states[parcel] !== 'accepted' && states[parcel] !== 'in_transit') {
+        throw new Error(`Invalid transition for parcel "${parcel}". Event at index ${i}.`);
+      }
+      states[parcel] = 'lost';
+    } else {
+      throw new Error(`Unknown event type "${type}" at index ${i}.`);
+    }
+
+    if (states[parcel] === 'returned' || states[parcel] === 'lost') {
+      // No further events allowed for these states
+      Object.keys(states).forEach(id => {
+        if (id !== parcel && states[id] === states[parcel]) {
+          throw new Error(`Parcel "${id}" is in the same final state as "${parcel}". Event at index ${i}.`);
+        }
+      });
+    }
+  }
+
+  return states;
+}
+```

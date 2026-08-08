@@ -1,0 +1,32 @@
+```ts
+export function canonicalStackMark(mark: string): string {
+  if (typeof mark !== 'string') {
+    throw new Error('Invalid input: argument must be a string');
+  }
+
+  const regex = /^(\d+)[-\s]*(n|s|e|w|N|S|E|W)[-\s]*(\d+)$/;
+  const match = mark.match(regex);
+
+  if (!match) {
+    throw new Error('Invalid format: stack mark does not match the expected pattern');
+  }
+
+  const floor = parseInt(match[1], 10);
+  const wing = match[2].toUpperCase();
+  const stackNumber = parseInt(match[3], 10);
+
+  if (floor < 1 || floor > 9) {
+    throw new Error('Invalid floor: must be a digit from 1 to 9');
+  }
+
+  if (![ 'N', 'S', 'E', 'W' ].includes(wing)) {
+    throw new Error('Invalid wing: must be one of n, s, e, w, either case');
+  }
+
+  if (stackNumber < 1 || stackNumber > 999) {
+    throw new Error('Invalid stack number: must be from 1 to 999');
+  }
+
+  return `${floor}${wing}${stackNumber.toString().padStart(3, '0')}`;
+}
+```

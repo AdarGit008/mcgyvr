@@ -1,0 +1,53 @@
+```ts
+/**
+ * Resizes a batch sheet by scaling quantities based on the desired number of portions.
+ * @param items - The list of sheet lines to be scaled.
+ * @param want - The number of portions wanted.
+ * @param base - The number of portions the sheet was written for.
+ * @returns A new list of sheet lines with updated quantities.
+ */
+export function scaleBatchLines(items: string[], want: number, base: number): string[] {
+  if (!Array.isArray(items)) {
+    throw new Error("Sheet is not a list.");
+  }
+  if (want <= 0 || !Number.isInteger(want)) {
+    throw new Error("Wanted portions must be a whole number above zero.");
+  }
+  if (base <= 0 || !Number.isInteger(base)) {
+    throw new Error("Written portions must be a whole number above zero.");
+  }
+
+  const measures = new Set(['g', 'ml', 'each']);
+  const seenNames = new Set<string>();
+
+  return items.map(line => {
+    const parts = line.split(' ');
+    if (parts.length !== 3) {
+      throw new Error("Line breaks the three part shape.");
+    }
+
+    const [quantityStr, measure, name] = parts;
+    if (!/^\d+$/.test(quantityStr) || quantityStr === '0') {
+      throw new Error("Quantity must be a whole number above zero and not padded.");
+    }
+    const quantity = parseInt(quantityStr, 10);
+
+    if (!measures.has(measure)) {
+      throw new Error("Measure must be one of 'g', 'ml', or 'each'.");
+    }
+    if (!/^[a-zA-Z]+(\s[a-zA-Z]+)*$/.test(name)) {
+      throw new Error("Name must be words of letters.");
+    }
+    if (seenNames.has(name)) {
+      throw new Error("Two lines name the same stuff.");
+    }
+    seenNames.add(name);
+
+    const newQuantity = Math.round((quantity * want) / base);
+    const tickSize = measure === 'ml' ? 5 : 1;
+    const settledQuantity = Math.max(1, Math.round(newQuantity / tickSize)) * tickSize;
+
+    return `${settledQuantity} ${measure} ${name}`;
+  });
+}
+```

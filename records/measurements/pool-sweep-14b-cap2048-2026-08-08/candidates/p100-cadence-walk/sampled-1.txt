@@ -1,0 +1,70 @@
+```ts
+export function labelCadenceWalk(edges: string[][], cadence: string[], start: string, goal: string): number {
+    if (cadence.length === 0) {
+        throw new Error("Cadence list cannot be empty");
+    }
+    cadence.forEach(label => {
+        if (typeof label !== 'string' || label.trim().length === 0) {
+            throw new Error("Cadence entry must be a non-empty string");
+        }
+    });
+
+    edges.forEach(edge => {
+        if (edge.length !== 3) {
+            throw new Error("Each edge must be a triple of non-empty strings");
+        }
+        edge.forEach(nodeOrLabel => {
+            if (typeof nodeOrLabel !== 'string' || nodeOrLabel.trim().length === 0) {
+                throw new Error("Edge elements must be non-empty strings");
+            }
+        });
+    });
+
+    const nodes = new Set<string>();
+    const graph: { [key: string]: { to: string, label: string }[] } = {};
+
+    edges.forEach(([from, to, label]) => {
+        nodes.add(from);
+        nodes.add(to);
+        if (!graph[from]) {
+            graph[from] = [];
+        }
+        graph[from].push({ to, label });
+    });
+
+    if (!nodes.has(start) || !nodes.has(goal)) {
+        throw new Error("Start or goal node must appear in at least one edge");
+    }
+
+    const queue: { currentNode: string, currentCadenceIndex: number, steps: number }[] = [
+        { currentNode: start, currentCadenceIndex: 0, steps: 0 }
+    ];
+    const visited = new Set<string>();
+
+    while (queue.length > 0) {
+        const { currentNode, currentCadenceIndex, steps } = queue.shift()!;
+        if (currentNode === goal) {
+            return steps;
+        }
+
+        const key = `${currentNode}-${currentCadenceIndex}`;
+        if (!visited.has(key)) {
+            visited.add(key);
+            const expectedLabel = cadence[currentCadenceIndex];
+            const nextEdges = graph[currentNode] || [];
+
+            nextEdges.forEach(({ to, label }) => {
+                if (label === expectedLabel) {
+                    queue.push({
+                        currentNode: to,
+                        currentCadenceIndex: (currentCadenceIndex + 1) % cadence.length,
+                        steps: steps + 1
+                    });
+                }
+            });
+        }
+    }
+
+    return -1;
+}
+```

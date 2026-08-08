@@ -1,0 +1,93 @@
+```ts
+export function expandSpanGrammar(pattern: string): string[] {
+  if (typeof pattern !== 'string') {
+    throw new Error('Pattern must be a string');
+  }
+
+  const spans = [];
+  const alternations = [];
+  let currentSpan = '';
+  let currentAlternation = '';
+  let inSpan = false;
+  let inGroup = false;
+
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i];
+
+    if (char === '<') {
+      if (inSpan || inGroup) {
+        throw new Error('Invalid pattern');
+      }
+      inGroup = true;
+    } else if (char === '>') {
+      if (!inGroup) {
+        throw new Error('Invalid pattern');
+      }
+      inGroup = false;
+
+      if (currentSpan) {
+        spans.push(currentSpan);
+        currentSpan = '';
+      } else {
+        alternations.push(currentAlternation.split('|'));
+        currentAlternation = '';
+      }
+    } else if (char === '~') {
+      if (i + 1 >= pattern.length || '<>|~'.includes(pattern[i + 1])) {
+        throw new Error('Invalid pattern');
+      }
+      i++;
+    } else if (inGroup) {
+      if (char === '..') {
+        if (currentSpan) {
+          throw new Error('Invalid pattern');
+        }
+        currentSpan = char;
+      } else if (/[0-9]/.test(char)) {
+        if (!currentSpan && alternations.length > 0) {
+          throw new Error('Invalid pattern');
+        }
+        currentSpan += char;
+      } else {
+        currentAlternation += char;
+      }
+    } else {
+      // Outside group, just collect the characters
+      // No special handling needed for ~ outside of a group
+    }
+  }
+
+  if (inGroup || currentSpan) {
+    throw new Error('Invalid pattern');
+  }
+
+  const expandSpan = (span: string): string[] => {
+    const [startStr, endStr] = span.split('..').map(Number);
+    const width = startStr.toString().length;
+    const result: string[] = [];
+
+    for (let i = startStr; i <= endStr; i++) {
+      result.push(i.toString().padStart(width, '0'));
+    }
+
+    return result;
+  };
+
+  let expansions: string[] = [''];
+
+  for (const part of [...spans, ...alternations]) {
+    if (typeof part === 'string') {
+      const spanExpansions = expandSpan(part);
+      expansions = expansions.flatMap(prefix => spanExpansions.map(suffix => prefix + suffix));
+    } else {
+      expansions = expansions.flatMap(prefix => part.map(suffix => prefix + suffix));
+    }
+
+    if (expansions.length > 500) {
+      throw new Error('Expansion count exceeds limit');
+    }
+  }
+
+  return expansions.sort();
+}
+```

@@ -1,0 +1,30 @@
+```ts
+export function resolveProfile(profiles: Record<string, Record<string, unknown>>, wanted: string): Record<string, unknown> {
+  const visited = new Set<string>();
+
+  function resolve(name: string): Record<string, unknown> {
+    if (!profiles[name]) {
+      throw new Error(`Profile "${name}" does not exist.`);
+    }
+
+    if (visited.has(name)) {
+      throw new Error(`Circular inheritance detected for profile "${name}".`);
+    }
+
+    visited.add(name);
+
+    const currentProfile = { ...profiles[name] };
+    const extendsName = currentProfile.extends as string | undefined;
+
+    if (extendsName) {
+      delete currentProfile.extends;
+      const parentProfile = resolve(extendsName);
+      return { ...parentProfile, ...currentProfile };
+    }
+
+    return currentProfile;
+  }
+
+  return resolve(wanted);
+}
+```

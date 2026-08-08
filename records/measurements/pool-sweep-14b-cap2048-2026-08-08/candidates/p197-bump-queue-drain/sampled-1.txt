@@ -1,0 +1,77 @@
+```ts
+/**
+ * The order a crew works through a batch of graded tickets.
+ */
+export function bumpQueueDrain(
+  tickets: Array<Record<string, unknown>>,
+  start: number,
+  bumpEvery: number
+): string[] {
+  if (tickets.length === 0) {
+    throw new Error("Batch is empty.");
+  }
+
+  const validTickets = tickets.map((ticket, index) => {
+    if (
+      typeof ticket !== "object" ||
+      ticket === null ||
+      !(typeof ticket.id === "string" && ticket.id.trim() !== "") ||
+      !Number.isInteger(ticket.grade) || 
+      ticket.grade < 0 || 
+      ticket.grade > 9 ||
+      !Number.isInteger(ticket.filed) || 
+      ticket.filed < 0
+    ) {
+      throw new Error(`Invalid ticket at index ${index}.`);
+    }
+    return {
+      id: ticket.id as string,
+      grade: ticket.grade as number,
+      filed: ticket.filed as number,
+    };
+  });
+
+  const uniqueIds = new Set(validTickets.map(ticket => ticket.id));
+  if (uniqueIds.size !== validTickets.length) {
+    throw new Error("Duplicate ids found.");
+  }
+
+  if (!Number.isInteger(start) || start < 0) {
+    throw new Error("Start minute must be a non-negative whole number.");
+  }
+
+  if (!Number.isInteger(bumpEvery) || bumpEvery <= 0) {
+    throw new Error("Bump interval must be a positive whole number.");
+  }
+
+  const pending = [...validTickets];
+  const handled: string[] = [];
+  let currentMinute = start;
+
+  while (pending.length > 0) {
+    const eligibleTickets = pending.filter(ticket => ticket.filed <= currentMinute);
+
+    if (eligibleTickets.length > 0) {
+      let pick = 0;
+      for (let i = 1; i < eligibleTickets.length; i++) {
+        const here =
+          Math.min(eligibleTickets[i].grade + Math.floor((currentMinute - eligibleTickets[i].filed) / bumpEvery), 9);
+        const held =
+          Math.min(eligibleTickets[pick].grade + Math.floor((currentMinute - eligibleTickets[pick].filed) / bumpEvery), 9);
+        if (here > held || 
+            (here === held && eligibleTickets[i].filed < eligibleTickets[pick].filed) ||
+            (here === held && eligibleTickets[i].filed === eligibleTickets[pick].filed && eligibleTickets[i].id < eligibleTickets[pick].id)) {
+          pick = i;
+        }
+      }
+
+      handled.push(eligibleTickets[pick].id);
+      pending.splice(pending.indexOf(eligibleTickets[pick]), 1);
+    }
+
+    currentMinute++;
+  }
+
+  return handled;
+}
+```

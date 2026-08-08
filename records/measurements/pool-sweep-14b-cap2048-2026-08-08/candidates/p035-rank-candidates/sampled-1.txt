@@ -1,0 +1,47 @@
+```ts
+/**
+ * Ranks completion candidates against a typed query.
+ * @param candidates - Array of candidate strings to rank.
+ * @param query - The string query to match against candidates.
+ * @param limit - The maximum number of candidates to return.
+ * @returns A ranked array of candidate strings, or throws an error for invalid input.
+ */
+export function rankCandidates(candidates: string[], query: string, limit: number): string[] {
+  if (typeof query !== 'string' || query.length === 0) {
+    throw new Error('Invalid query: must be a non-empty string');
+  }
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error('Invalid limit: must be a positive integer');
+  }
+
+  const lowerQuery = query.toLowerCase();
+
+  return candidates
+    .filter(candidate => typeof candidate === 'string' && candidate.length > 0)
+    .map(candidate => ({
+      original: candidate,
+      lower: candidate.toLowerCase(),
+    }))
+    .sort((a, b) => {
+      const aExact = a.lower === lowerQuery;
+      const bExact = b.lower === lowerQuery;
+      if (aExact !== bExact) return bExact ? 1 : -1;
+
+      const aPrefix = a.lower.startsWith(lowerQuery);
+      const bPrefix = b.lower.startsWith(lowerQuery);
+      if (aPrefix !== bPrefix) return bPrefix ? 1 : -1;
+
+      const aInfix = a.lower.includes(lowerQuery);
+      const bInfix = b.lower.includes(lowerQuery);
+      if (aInfix !== bInfix) return bInfix ? 1 : -1;
+
+      if (a.original.length !== b.original.length) {
+        return a.original.length - b.original.length;
+      }
+
+      return 0;
+    })
+    .map(candidate => candidate.original)
+    .slice(0, limit);
+}
+```

@@ -1,0 +1,62 @@
+```ts
+/**
+ * Returns the alphabetically least word of exactly n letters drawn from the first k lowercase letters
+ * in which no banned combination occurs as adjacent characters.
+ * @param n - The length of the word to generate.
+ * @param k - The size of the alphabet.
+ * @param banned - A list of banned two-letter combinations.
+ * @returns The smallest free word.
+ */
+export function smallestFreeWord(n: number, k: number, banned: string[]): string {
+    if (!Number.isInteger(n) || n <= 0 || n > 12) {
+        throw new Error("Invalid length n");
+    }
+    if (!Number.isInteger(k) || k < 1 || k > 6) {
+        throw new Error("Invalid alphabet size k");
+    }
+    if (!Array.isArray(banned)) {
+        throw new Error("Invalid banned list");
+    }
+    for (const ban of banned) {
+        if (typeof ban !== "string" || ban.length !== 2 || !/^[a-z]{2}$/.test(ban)) {
+            throw new Error("Invalid banned entry");
+        }
+    }
+
+    const alphabet = Array.from({ length: k }, (_, i) => String.fromCharCode(i + 97));
+    let bestWord: string | null = null;
+
+    function backtrack(word: string): boolean {
+        if (word.length === n) {
+            if (bestWord === null || word < bestWord) {
+                bestWord = word;
+            }
+            return true;
+        }
+
+        for (const letter of alphabet) {
+            const candidate = word + letter;
+            let isValid = true;
+            for (const ban of banned) {
+                if (candidate.endsWith(ban)) {
+                    isValid = false;
+                    break;
+                }
+            }
+            if (isValid && backtrack(candidate)) {
+                return true; // Stop if a valid solution is found
+            }
+        }
+
+        return false;
+    }
+
+    backtrack("");
+
+    if (bestWord === null) {
+        throw new Error("No valid word can be formed");
+    }
+
+    return bestWord;
+}
+```

@@ -1,0 +1,60 @@
+```ts
+/**
+ * Examines the conflicts between exams and returns the sittings for each exam.
+ * @param conflicts - A 2D array where conflicts[i] is a list of exams that share students with exam i.
+ * @returns A 2D array where each sub-array represents a sitting containing exam numbers in ascending order.
+ */
+export function examSlotClasses(conflicts: number[][]): number[][] {
+    if (!Array.isArray(conflicts) || conflicts.length === 0) {
+        throw new Error("Invalid input: conflicts must be a non-empty list of lists.");
+    }
+
+    const n = conflicts.length;
+    for (let i = 0; i < n; i++) {
+        if (!Array.isArray(conflicts[i])) {
+            throw new Error(`Invalid input: conflicts[${i}] must be an array.`);
+        }
+        if (conflicts[i].includes(i)) {
+            throw new Error(`Exam ${i} cannot share students with itself.`);
+        }
+        for (const exam of conflicts[i]) {
+            if (exam < 0 || exam >= n) {
+                throw new Error(`Invalid input: Exam ${exam} does not exist.`);
+            }
+            if (conflicts[i].indexOf(exam) !== conflicts[i].lastIndexOf(exam)) {
+                throw new Error(`Exam ${i} is listed more than once with exam ${exam}.`);
+            }
+        }
+    }
+
+    const conflictCounts = conflicts.map((sharedExams, index) => ({
+        exam: index,
+        count: sharedExams.length
+    }));
+
+    conflictCounts.sort((a, b) => {
+        if (b.count === a.count) {
+            return a.exam - b.exam;
+        }
+        return b.count - a.count;
+    });
+
+    const sittings: number[][] = [];
+
+    for (const { exam } of conflictCounts) {
+        let placed = false;
+        for (let i = 0; i < sittings.length; i++) {
+            if (!sittings[i].some(sharedExam => conflicts[exam].includes(sharedExam))) {
+                sittings[i].push(exam);
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            sittings.push([exam]);
+        }
+    }
+
+    return sittings.map(sitting => sitting.sort((a, b) => a - b));
+}
+```

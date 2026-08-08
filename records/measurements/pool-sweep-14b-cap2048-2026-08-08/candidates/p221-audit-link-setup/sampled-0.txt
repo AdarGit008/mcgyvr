@@ -1,0 +1,70 @@
+```ts
+/** The first record of a link setup that departs from the drill. */
+export function auditLinkSetup(exchange: Record<string, unknown>[]): string {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid input");
+  }
+
+  const script = [
+    ["caller", "PROBE"],
+    ["listener", "READY"],
+    ["caller", "KEY"],
+    ["listener", "SEAL"],
+  ];
+
+  let at = 0;
+  let expectedSeq = 1;
+
+  for (const record of exchange) {
+    if (typeof record !== "object" || record === null) {
+      throw new Error("Invalid record");
+    }
+
+    const side = record.side as string | undefined;
+    const verb = record.verb as string | undefined;
+    const seq = record.seq as number | undefined;
+
+    if (side !== "caller" && side !== "listener") {
+      throw new Error("Invalid side");
+    }
+    if (!["PROBE", "READY", "KEY", "SEAL", "PING", "PONG", "CLOSE"].includes(verb)) {
+      throw new Error("Invalid verb");
+    }
+    if (typeof seq !== "number" || !Number.isInteger(seq)) {
+      throw new Error("Invalid sequence number");
+    }
+
+    if (at < script.length) {
+      if (side !== script[at][0] || verb !== script[at][1]) {
+        return verb + "@" + (at + 1);
+      }
+      expectedSeq = seq;
+      at += 1;
+      continue;
+    }
+
+    if (side === "caller" && (verb === "PING" || verb === "CLOSE")) {
+      if (seq !== expectedSeq) {
+        return verb + "@" + (at + 1);
+      }
+      expectedSeq += 1;
+      continue;
+    }
+
+    if (side === "listener" && (verb === "PONG" || verb === "CLOSE")) {
+      if (seq !== expectedSeq) {
+        return verb + "@" + (at + 1);
+      }
+      if (verb === "CLOSE") {
+        return "";
+      }
+      expectedSeq += 1;
+      continue;
+    }
+
+    return verb + "@" + (at + 1);
+  }
+
+  return "short";
+}
+```

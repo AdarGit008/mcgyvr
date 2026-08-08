@@ -1,0 +1,104 @@
+```ts
+/**
+ * Codes a sheet of written-in answers against its ordered steps.
+ */
+export function recodeAnswerSheet(sheet: Record<string, unknown>): Record<string, unknown> {
+  if (typeof sheet !== 'object' || sheet === null) {
+    throw new Error('Sheet must be a non-null object.');
+  }
+
+  const steps = sheet.steps as any[];
+  const entries = sheet.entries as any[];
+
+  if (!Array.isArray(steps) || steps.length === 0) {
+    throw new Error('Steps must be a non-empty array.');
+  }
+  if (!Array.isArray(entries)) {
+    throw new Error('Entries must be an array.');
+  }
+
+  const coded: { id: string, label: string }[] = [];
+  const loose: string[] = [];
+  const used = new Set<string>();
+  const labels = new Set<string>();
+  const ids = new Set<string>();
+
+  for (const step of steps) {
+    if (typeof step !== 'object' || step === null) {
+      throw new Error('Each step must be a non-null object.');
+    }
+    const { label, wanted, barred, least } = step;
+
+    if (typeof label !== 'string' || label.trim() === '') {
+      throw new Error('Step label must be a non-empty string.');
+    }
+    if (labels.has(label)) {
+      throw new Error('Step labels must not be shared.');
+    }
+    labels.add(label);
+
+    if (!Array.isArray(wanted) || wanted.length === 0) {
+      throw new Error('Wanted fragments must be a non-empty array.');
+    }
+    if (!Array.isArray(barred)) {
+      throw new Error('Barred fragments must be an array.');
+    }
+
+    const fragmentSet = new Set<string>();
+    for (const frag of [...wanted, ...barred]) {
+      if (typeof frag !== 'string' || frag.trim() === '' || /[A-Z]/.test(frag) || fragmentSet.has(frag)) {
+        throw new Error('Fragments must be non-empty strings with no capital letters and must not repeat within the same step.');
+      }
+      fragmentSet.add(frag);
+    }
+
+    if (typeof least !== 'number' || least < 1 || least > wanted.length) {
+      throw new Error('Least must be a whole number from one up to the number of fragments in "wanted".');
+    }
+  }
+
+  for (const entry of entries) {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new Error('Each entry must be a non-null object.');
+    }
+    const { id, text } = entry;
+
+    if (typeof id !== 'string' || id.trim() === '') {
+      throw new Error('Entry ID must be a non-empty string.');
+    }
+    if (ids.has(id)) {
+      throw new Error('Entry IDs must not be shared.');
+    }
+    ids.add(id);
+
+    if (typeof text !== 'string') {
+      throw new Error('Entry text must be a string.');
+    }
+
+    const foldedText = text.toLowerCase().replace(/\s+/g, ' ').trim();
+    let label = "";
+
+    for (const step of steps) {
+      const { wanted, barred, least } = step;
+      const hits = wanted.filter((frag: string) => foldedText.includes(frag));
+      if (hits.length >= least && !barred.some((frag: string) => foldedText.includes(frag))) {
+        label = step.label;
+        break;
+      }
+    }
+
+    if (label === "") {
+      loose.push(id);
+    } else {
+      coded.push({ id, label });
+      used.add(label);
+    }
+  }
+
+  const unused = steps
+    .map((step: any) => step.label)
+    .filter((label: string) => !used.has(label));
+
+  return { coded, loose, unused };
+}
+```

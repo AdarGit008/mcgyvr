@@ -1,0 +1,88 @@
+```ts
+export function printOperatorTree(node: unknown): string {
+  if (typeof node === 'number') {
+    if (!Number.isInteger(node) || node < 0) {
+      throw new Error('Invalid number');
+    }
+    return node.toString();
+  }
+
+  if (typeof node === 'string') {
+    if (node.length === 0 || !/^[a-z]+$/.test(node)) {
+      throw new Error('Invalid word');
+    }
+    return node;
+  }
+
+  if (typeof node !== 'object' || node === null) {
+    throw new Error('Invalid node type');
+  }
+
+  const { op, negate, call, left, right, args } = node as Record<string, unknown>;
+
+  if (negate !== undefined) {
+    if (typeof left !== 'undefined') {
+      throw new Error('Negate record cannot have both negate and left');
+    }
+    return `-${printWithBindingPower(negate!, 3)}`;
+  }
+
+  if (call !== undefined) {
+    if (typeof call !== 'string' || !/^[a-z]+$/.test(call)) {
+      throw new Error('Invalid function name in call');
+    }
+    if (!Array.isArray(args)) {
+      throw new Error('Invalid arguments in call');
+    }
+    return `${call}(${args.map(arg => printOperatorTree(arg)).join(', ')})`;
+  }
+
+  if (op !== undefined) {
+    if (typeof left === 'undefined' || typeof right === 'undefined') {
+      throw new Error('Op record must have both left and right');
+    }
+    const validOps = ['or', 'and', '+', '-', '*', '/', '^'];
+    if (!validOps.includes(op)) {
+      throw new Error('Invalid operator');
+    }
+    const opPower = getBindingPower(op);
+    return `${printWithBindingPower(left, opPower)} ${op} ${printWithBindingPower(right, opPower)}`;
+  }
+
+  throw new Error('Invalid node structure');
+}
+
+function printWithBindingPower(node: unknown, parentPower: number): string {
+  const bindingPower = getBindingPower(getOpFromNode(node));
+  if (bindingPower < parentPower || (bindingPower === parentPower && isRightAssociative(getOpFromNode(node)))) {
+    return `(${printOperatorTree(node)})`;
+  }
+  return printOperatorTree(node);
+}
+
+function getOpFromNode(node: unknown): string | null {
+  if (typeof node !== 'object' || node === null) {
+    return null;
+  }
+  const { op, negate } = node as Record<string, unknown>;
+  return op ?? (negate !== undefined ? '-' : null);
+}
+
+function getBindingPower(op: string | null): number {
+  switch (op) {
+    case 'or': return 1;
+    case 'and': return 2;
+    case '+': return 3;
+    case '-': return 3;
+    case '*': return 4;
+    case '/': return 4;
+    case '^': return 5;
+    case '-': return 6; // negate
+    default: return 0;
+  }
+}
+
+function isRightAssociative(op: string | null): boolean {
+  return op === '^';
+}
+```

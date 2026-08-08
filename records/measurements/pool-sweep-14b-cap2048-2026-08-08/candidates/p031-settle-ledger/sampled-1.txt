@@ -1,0 +1,56 @@
+```ts
+export function settleLedger(entries: Array<Record<string, unknown>>): Array<[string, number]> {
+  // Validate entries
+  for (const entry of entries) {
+    if (
+      typeof entry.account !== 'string' || entry.account.trim() === '' ||
+      typeof entry.amount !== 'number' || !Number.isInteger(entry.amount) ||
+      typeof entry.seq !== 'number' || !Number.isInteger(entry.seq)
+    ) {
+      throw new Error('Invalid ledger entry');
+    }
+  }
+
+  // Sort entries by seq
+  entries.sort((a, b) => (a as any).seq - (b as any).seq);
+
+  // Check for duplicate seq values
+  const seenSeqs = new Set<number>();
+  for (const entry of entries) {
+    if (seenSeqs.has((entry as any).seq)) {
+      throw new Error('Duplicate sequence number');
+    }
+    seenSeqs.add((entry as any).seq);
+  }
+
+  // Apply transactions in order
+  const accountBalances: Record<string, number> = {};
+  for (const entry of entries) {
+    const account = entry.account as string;
+    const amount = entry.amount as number;
+
+    if (!accountBalances[account]) {
+      accountBalances[account] = 0;
+    }
+
+    accountBalances[account] += amount;
+
+    if (accountBalances[account] < 0) {
+      throw new Error('Insufficient funds');
+    }
+  }
+
+  // Prepare result
+  const result: Array<[string, number]> = [];
+  for (const [account, balance] of Object.entries(accountBalances)) {
+    if (balance !== 0) {
+      result.push([account, balance]);
+    }
+  }
+
+  // Sort by account name
+  result.sort((a, b) => a[0].localeCompare(b[0]));
+
+  return result;
+}
+```

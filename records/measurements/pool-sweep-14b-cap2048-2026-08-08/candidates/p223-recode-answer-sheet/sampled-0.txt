@@ -1,0 +1,109 @@
+```ts
+/**
+ * Codes a sheet of written-in answers against its ordered steps.
+ */
+export function recodeAnswerSheet(sheet: Record<string, unknown>): Record<string, unknown> {
+  if (typeof sheet !== 'object' || sheet === null) {
+    throw new Error('Invalid sheet');
+  }
+
+  const { steps, entries } = sheet as { steps?: any[]; entries?: any[] };
+
+  if (!Array.isArray(steps) || steps.length === 0) {
+    throw new Error('Steps must be a non-empty list');
+  }
+
+  if (!Array.isArray(entries)) {
+    throw new Error('Entries must be a list');
+  }
+
+  const coded: { id: string; label: string }[] = [];
+  const loose: string[] = [];
+  const used = new Set<string>();
+  const labelsSet = new Set<string>();
+
+  for (const step of steps) {
+    if (typeof step !== 'object' || step === null) {
+      throw new Error('Step must be a mapping');
+    }
+
+    const { label, wanted, barred, least } = step as { label?: string; wanted?: any[]; barred?: any[]; least?: number };
+
+    if (typeof label !== 'string' || label.trim() === '' || labelsSet.has(label)) {
+      throw new Error('Invalid or duplicate step label');
+    }
+
+    labelsSet.add(label);
+
+    if (!Array.isArray(wanted) || wanted.length === 0) {
+      throw new Error('Wanted fragments must be a non-empty list');
+    }
+
+    if (!Array.isArray(barred)) {
+      throw new Error('Barred fragments must be a list');
+    }
+
+    const uniqueFragments = new Set<string>();
+
+    for (const frag of [...wanted, ...barred]) {
+      if (typeof frag !== 'string' || frag.trim() === '' || /[^a-z\s]/.test(frag) || uniqueFragments.has(frag)) {
+        throw new Error('Invalid or duplicate fragment');
+      }
+      uniqueFragments.add(frag);
+    }
+
+    if (typeof least !== 'number' || least < 1 || least > wanted.length) {
+      throw new Error('Least must be a whole number in range');
+    }
+  }
+
+  const idsSet = new Set<string>();
+
+  for (const entry of entries) {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new Error('Entry must be a mapping');
+    }
+
+    const { id, text } = entry as { id?: string; text?: unknown };
+
+    if (typeof id !== 'string' || id.trim() === '' || idsSet.has(id)) {
+      throw new Error('Invalid or duplicate entry id');
+    }
+
+    idsSet.add(id);
+
+    if (typeof text !== 'string') {
+      throw new Error('Entry text must be a string');
+    }
+
+    const foldedText = text.toLowerCase().replace(/\s+/g, ' ').trim();
+
+    let label = '';
+
+    for (const step of steps) {
+      const { wanted, barred, least } = step as { wanted: string[]; barred: string[]; least: number };
+
+      const hits = wanted.filter(frag => foldedText.includes(frag));
+      const bars = barred.some(frag => foldedText.includes(frag));
+
+      if (hits.length >= least && !bars) {
+        label = step.label!;
+        break;
+      }
+    }
+
+    if (label === '') {
+      loose.push(id);
+    } else {
+      coded.push({ id, label });
+      used.add(label);
+    }
+  }
+
+  const unused = steps
+    .map(step => step.label!)
+    .filter(label => !used.has(label));
+
+  return { coded, loose, unused };
+}
+```

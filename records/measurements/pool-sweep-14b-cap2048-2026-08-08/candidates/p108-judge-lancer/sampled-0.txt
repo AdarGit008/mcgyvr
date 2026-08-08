@@ -1,0 +1,74 @@
+```ts
+/**
+ * Judges a move in the Lancers game according to the given rules.
+ * @param board - The current state of the board represented as 7 strings of 7 characters.
+ * @param side - The acting side, either "W" or "B".
+ * @param from - The starting position [row, column] of the move.
+ * @param to - The ending position [row, column] of the move.
+ * @returns A verdict string indicating the outcome of the move.
+ */
+export function judgeLancer(board: string[], side: string, from: number[], to: number[]): string {
+  // Validate board
+  if (!Array.isArray(board) || board.length !== 7 || !board.every(row => typeof row === 'string' && row.length === 7)) {
+    throw new Error('Invalid board');
+  }
+  if (['W', 'B'].includes(side) === false) {
+    throw new Error('Invalid side');
+  }
+  if (!Array.isArray(from) || from.length !== 2 || !from.every(coord => Number.isInteger(coord) && coord >= 0 && coord < 7)) {
+    throw new Error('Invalid from square');
+  }
+  if (!Array.isArray(to) || to.length !== 2 || !to.every(coord => Number.isInteger(coord) && coord >= 0 && coord < 7)) {
+    throw new Error('Invalid to square');
+  }
+
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+
+  // Check if the move is off the board
+  if (board[fromRow][fromCol] === undefined || board[toRow][toCol] === undefined) {
+    return 'off_board';
+  }
+
+  // Check if the from square has the acting side's lancer
+  if (board[fromRow][fromCol] !== side) {
+    return 'no_piece';
+  }
+
+  // Check if the move is along a rank or file
+  const rowDiff = Math.abs(fromRow - toRow);
+  const colDiff = Math.abs(fromCol - toCol);
+  if ((rowDiff === 0 && colDiff < 1) || (colDiff === 0 && rowDiff < 1) || (rowDiff !== 0 && colDiff !== 0)) {
+    return 'bad_line';
+  }
+
+  // Check if the move distance is valid
+  const moveDistance = Math.max(rowDiff, colDiff);
+  if (moveDistance < 2 || moveDistance > 3) {
+    return 'bad_line';
+  }
+
+  // Check for blocked squares
+  let directionRow = rowDiff === 0 ? 0 : fromRow < toRow ? 1 : -1;
+  let directionCol = colDiff === 0 ? 0 : fromCol < toCol ? 1 : -1;
+  for (let step = 1; step < moveDistance; step++) {
+    const row = fromRow + step * directionRow;
+    const col = fromCol + step * directionCol;
+    if (board[row][col] !== '.') {
+      return 'blocked';
+    }
+  }
+
+  // Check if the to square holds the acting side's own lancer
+  if (board[toRow][toCol] === side) {
+    return 'own_piece';
+  }
+
+  // Check if the to square holds an adjacent enemy
+  if (moveDistance === 2 && board[toRow][toCol] !== '.') {
+    return 'too_close';
+  }
+
+  return 'ok';
+}
+```

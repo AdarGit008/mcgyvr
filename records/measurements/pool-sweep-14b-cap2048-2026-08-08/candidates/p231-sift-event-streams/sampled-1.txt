@@ -1,0 +1,54 @@
+```ts
+/**
+ * Sifts events into lanes by channel prefix and severity ceiling.
+ */
+export function siftEventStreams(
+  lanes: Array<Record<string, unknown>>,
+  events: Array<Record<string, unknown>>
+): Record<string, unknown> {
+  const RANK = ["chatter", "notice", "alarm", "panic"];
+  
+  // Validate input types
+  if (!Array.isArray(lanes)) throw new Error("Lanes must be an array.");
+  if (!Array.isArray(events)) throw new Error("Events must be an array.");
+
+  lanes.forEach((lane) => {
+    if (typeof lane !== 'object' || lane === null) throw new Error("Lane must be a mapping.");
+    if (typeof lane.name !== 'string' || lane.name.trim() === '') throw new Error("Name must be a non-empty string.");
+    if (typeof lane.prefix !== 'string') throw new Error("Prefix must be a string.");
+    if (!RANK.includes(lane.upTo)) throw new Error("Severity must be one of the four words.");
+    if (lane.last !== true && lane.last !== false) throw new Error("Last must be true or false.");
+  });
+
+  events.forEach((event) => {
+    if (typeof event !== 'object' || event === null) throw new Error("Event must be a mapping.");
+    if (typeof event.channel !== 'string' || event.channel.trim() === '') throw new Error("Channel must be a non-empty string.");
+    if (!RANK.includes(event.severity)) throw new Error("Severity must be one of the four words.");
+  });
+
+  const gathered = lanes.map((lane: any) => ({
+    name: lane.name as string,
+    took: [] as number[],
+  }));
+  const dropped: number[] = [];
+
+  events.forEach((event: any, at: number) => {
+    let caught = false;
+    for (const lane of lanes) {
+      if (!caught || !lane.last) {
+        if (
+          event.channel.startsWith(lane.prefix) &&
+          RANK.indexOf(event.severity) <= RANK.indexOf(lane.upTo)
+        ) {
+          gathered.find((g) => g.name === lane.name).took.push(at);
+          caught = true;
+          if (lane.last) break;
+        }
+      }
+    }
+    if (!caught) dropped.push(at);
+  });
+
+  return { lanes: gathered, dropped };
+}
+```

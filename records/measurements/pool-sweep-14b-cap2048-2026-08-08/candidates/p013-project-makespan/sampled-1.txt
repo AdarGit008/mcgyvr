@@ -1,0 +1,81 @@
+```ts
+export function projectMakespan(durations: Record<string, number>, deps: [string, string][]): number {
+  // Validate durations
+  for (const task in durations) {
+    const duration = durations[task];
+    if (!Number.isInteger(duration) || duration <= 0) {
+      throw new Error(`Invalid duration for task ${task}: ${duration}`);
+    }
+  }
+
+  // Validate dependencies
+  const allTasks = new Set<string>(Object.keys(durations));
+  const adjacencyList: Record<string, string[]> = {};
+
+  for (const [from, to] of deps) {
+    if (!allTasks.has(from)) throw new Error(`Dependency task ${from} not found in durations`);
+    if (!allTasks.has(to)) throw new Error(`Dependency task ${to} not found in durations`);
+    if (from === to) throw new Error(`Self-dependency detected for task ${from}`);
+    if (!adjacencyList[from]) adjacencyList[from] = [];
+    adjacencyList[from].push(to);
+  }
+
+  // Detect cycles
+  const visited: Record<string, boolean> = {};
+  const recursionStack: Record<string, boolean> = {};
+
+  function hasCycle(node: string): boolean {
+    if (recursionStack[node]) return true;
+    if (visited[node]) return false;
+
+    visited[node] = true;
+    recursionStack[node] = true;
+
+    if (adjacencyList[node]) {
+      for (const neighbor of adjacencyList[node]) {
+        if (hasCycle(neighbor)) return true;
+      }
+    }
+
+    recursionStack[node] = false;
+    return false;
+  }
+
+  for (const task of allTasks) {
+    if (hasCycle(task)) throw new Error(`Cyclic dependency detected`);
+  }
+
+  // Calculate in-degrees
+  const inDegrees: Record<string, number> = {};
+  for (const task of allTasks) {
+    inDegrees[task] = 0;
+  }
+
+  for (const [from, to] of deps) {
+    inDegrees[to]++;
+  }
+
+  // Topological sort using Kahn's algorithm
+  const queue: string[] = [];
+  for (const task of allTasks) {
+    if (inDegrees[task] === 0) {
+      queue.push(task);
+    }
+  }
+
+  let makespan = 0;
+  while (queue.length > 0) {
+    const currentTask = queue.shift()!;
+    makespan = Math.max(makespan, durations[currentTask]);
+
+    for (const neighbor of adjacencyList[currentTask] || []) {
+      inDegrees[neighbor]--;
+      if (inDegrees[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return makespan;
+}
+```

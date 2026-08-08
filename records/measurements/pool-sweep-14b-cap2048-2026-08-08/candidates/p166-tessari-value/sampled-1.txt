@@ -1,0 +1,32 @@
+```ts
+/**
+ * Converts a Tessari numeral to its decimal value.
+ * @param text - The Tessari numeral string.
+ * @returns The decimal value of the Tessari numeral.
+ */
+export function tessariValue(text: string): number {
+  if (typeof text !== 'string' || !text.length) {
+    throw new Error('Invalid input: must be a non-empty string.');
+  }
+
+  const tessariGlyphs = 'KLMNPQRST';
+  const glyphValues = new Map<string, number>();
+  tessariGlyphs.split('').forEach((glyph, index) => {
+    glyphValues.set(glyph, index);
+  });
+
+  if (text.startsWith('K') && text.length > 1) {
+    throw new Error('Invalid numeral: leading K is not allowed unless the numeral is "K".');
+  }
+
+  let value = 0;
+  for (const char of text) {
+    if (!tessariGlyphs.includes(char) || char !== char.toUpperCase()) {
+      throw new Error(`Invalid glyph: ${char}. Only uppercase glyphs K-LMNPQRST are allowed.`);
+    }
+    value = value * 9 + glyphValues.get(char)!;
+  }
+
+  return value;
+}
+```

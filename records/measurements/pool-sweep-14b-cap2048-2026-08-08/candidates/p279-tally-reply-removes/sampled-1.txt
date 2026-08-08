@@ -1,0 +1,55 @@
+```ts
+export function tallyReplyRemoves(links: string[][]): number[] {
+  if (!Array.isArray(links) || links.length === 0) {
+    throw new Error("Batch must be a non-empty list of links.");
+  }
+
+  const idToAnswer = new Map<string, string>();
+  const idToRemove = new Map<string, number>();
+  const removeCounts: number[] = [];
+
+  for (const link of links) {
+    if (!Array.isArray(link) || link.length !== 2) {
+      throw new Error("Each link must be a pair of strings.");
+    }
+
+    const [id, answer] = link;
+
+    if (typeof id !== "string" || typeof answer !== "string") {
+      throw new Error("Both id and answers must be strings.");
+    }
+
+    if (id === "" || answer === "") {
+      throw new Error("Neither id nor answers can be empty.");
+    }
+
+    if (idToAnswer.has(id)) {
+      throw new Error("Each id must be used only once.");
+    }
+
+    idToAnswer.set(id, answer);
+
+    if (!answer) {
+      idToRemove.set(id, 0);
+    }
+  }
+
+  for (const [id, answer] of idToAnswer.entries()) {
+    if (!idToRemove.has(answer)) {
+      throw new Error("Some note cannot be traced back to a starting note.");
+    }
+
+    const parentRemove = idToRemove.get(answer)!;
+    idToRemove.set(id, parentRemove + 1);
+  }
+
+  for (const remove of idToRemove.values()) {
+    if (remove >= removeCounts.length) {
+      removeCounts.push(0);
+    }
+    removeCounts[remove]++;
+  }
+
+  return removeCounts;
+}
+```

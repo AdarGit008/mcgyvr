@@ -1,0 +1,63 @@
+```ts
+/**
+ * Determines the greatest number of posts that can be staffed simultaneously.
+ * @param wanted - A list of applicants, each giving the post numbers they are qualified to hold.
+ * @param posts - The total number of posts available.
+ * @returns The maximum number of posts that can be staffed.
+ */
+export function staffedPosts(wanted: number[][], posts: number): number {
+  if (!Number.isInteger(posts) || posts <= 0) {
+    throw new Error("Invalid posts count");
+  }
+
+  const postAssignments = new Array(posts).fill(null);
+
+  for (const applicant of wanted) {
+    let assigned = false;
+    for (const post of applicant) {
+      if (!Number.isInteger(post) || post < 0 || post >= posts) {
+        throw new Error("Invalid post number");
+      }
+      if (postAssignments[post] === null) {
+        postAssignments[post] = applicant;
+        assigned = true;
+        break;
+      }
+    }
+
+    if (!assigned) {
+      for (let i = 0; i < posts; i++) {
+        if (postAssignments[i] !== applicant && applicant.includes(i)) {
+          const previousApplicant = postAssignments[i];
+          postAssignments[i] = applicant;
+          assigned = true;
+          break;
+        }
+      }
+    }
+
+    if (!assigned) {
+      for (let i = 0; i < posts; i++) {
+        if (postAssignments[i] !== null && applicant.includes(i)) {
+          const previousApplicant = postAssignments[i];
+          let newPostFound = false;
+          for (const otherPost of previousApplicant) {
+            if (otherPost !== i && !postAssignments.includes(otherPost)) {
+              postAssignments[otherPost] = previousApplicant;
+              postAssignments[i] = applicant;
+              newPostFound = true;
+              break;
+            }
+          }
+          if (newPostFound) {
+            assigned = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return postAssignments.filter(post => post !== null).length;
+}
+```

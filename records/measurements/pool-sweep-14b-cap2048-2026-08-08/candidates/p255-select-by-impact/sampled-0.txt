@@ -1,0 +1,86 @@
+```ts
+/**
+ * Selects suites to run based on the impact of edited modules.
+ * @param imports - A record mapping each module to its direct importers.
+ * @param suites - A record mapping each suite to the modules it drives.
+ * @param edited - An array of module names that were edited.
+ * @returns An array of suite names to run, or ["ALL"] if more than half would run.
+ */
+export function selectByImpact(imports: Record<string, string[]>, suites: Record<string, string[]>, edited: string[]): string[] {
+    // Validate input shapes
+    if (typeof imports !== 'object' || imports === null || Array.isArray(imports)) {
+        throw new Error('Invalid imports argument');
+    }
+    if (typeof suites !== 'object' || suites === null || Array.isArray(suites)) {
+        throw new Error('Invalid suites argument');
+    }
+    if (!Array.isArray(edited)) {
+        throw new Error('Invalid edited argument');
+    }
+
+    // Validate module names in imports
+    for (const [module, importList] of Object.entries(imports)) {
+        if (!Array.isArray(importList) || importList.some(m => typeof m !== 'string')) {
+            throw new Error(`Invalid import list for module ${module}`);
+        }
+        if (importList.includes(module)) {
+            throw new Error(`Module ${module} imports itself`);
+        }
+    }
+
+    // Validate suite names and modules in suites
+    for (const [suite, moduleList] of Object.entries(suites)) {
+        if (!Array.isArray(moduleList) || moduleList.some(m => typeof m !== 'string')) {
+            throw new Error(`Invalid module list for suite ${suite}`);
+        }
+        if (suite === '') {
+            throw new Error('Suite name cannot be empty');
+        }
+    }
+
+    // Validate edited modules
+    for (const module of edited) {
+        if (typeof module !== 'string') {
+            throw new Error('Edited module must be a string');
+        }
+    }
+
+    // Find all disturbed modules
+    const disturbedModules = new Set<string>();
+    const visited = new Set<string>();
+
+    function markDisturbed(module: string): void {
+        if (!visited.has(module)) {
+            visited.add(module);
+            for (const importer of imports[module] || []) {
+                markDisturbed(importer);
+            }
+            disturbedModules.add(module);
+        }
+    }
+
+    for (const module of edited) {
+        if (!(module in imports)) {
+            throw new Error(`Edited module ${module} not found in imports`);
+        }
+        markDisturbed(module);
+    }
+
+    // Find all affected suites
+    const affectedSuites = new Set<string>();
+    for (const [suite, modules] of Object.entries(suites)) {
+        if (modules.some(module => disturbedModules.has(module))) {
+            affectedSuites.add(suite);
+        }
+    }
+
+    // Check if more than half of the suites would run
+    const allSuiteNames = Object.keys(suites);
+    if (affectedSuites.size > allSuiteNames.length / 2) {
+        return ['ALL'];
+    }
+
+    // Return affected suites in ascending order
+    return Array.from(affectedSuites).sort();
+}
+```

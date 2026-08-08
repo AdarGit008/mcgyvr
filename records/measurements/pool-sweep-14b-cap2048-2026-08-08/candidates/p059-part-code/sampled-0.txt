@@ -1,0 +1,38 @@
+```ts
+export function normalizePartCode(code: string): string {
+  if (typeof code !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  // Remove spaces and hyphens, and convert to uppercase
+  const cleanedCode = code.replace(/[-\s]/g, '').toUpperCase();
+
+  // Validate characters
+  if (!/^[0-9A-Z]{9}$/.test(cleanedCode)) {
+    throw new Error('Invalid characters or length');
+  }
+
+  // Extract payload and check character
+  const payload = cleanedCode.slice(0, 8);
+  const checkChar = cleanedCode[8];
+
+  // Calculate the weighted sum
+  const weights = [3, 5, 7];
+  let weightedSum = 0;
+  for (let i = 0; i < payload.length; i++) {
+    const charValue = parseInt(payload[i], 36);
+    weightedSum += charValue * weights[i % weights.length];
+  }
+
+  // Calculate the expected check character
+  const expectedCheckChar = String.fromCharCode(((weightedSum % 36) + 10).toString(36).toUpperCase().charCodeAt(0));
+
+  // Verify the check character
+  if (checkChar !== expectedCheckChar) {
+    throw new Error('Invalid check character');
+  }
+
+  // Return the canonical rendering
+  return `${payload.slice(0, 4)}-${payload.slice(4)}-${checkChar}`;
+}
+```

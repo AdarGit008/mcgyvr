@@ -1,0 +1,54 @@
+```ts
+/**
+ * Plans the retry window based on the given policy and outcomes.
+ * @param policy - The policy record carrying base, factor, ceiling, tries, and deadline.
+ * @param outcomes - The list of outcomes observed in order.
+ * @returns A record with times and verdict.
+ */
+export function planRetryWindow(policy: { base: number; factor: number; ceiling: number; tries: number; deadline: number }, outcomes: string[]): { times: number[]; verdict: string } {
+  const { base, factor, ceiling, tries, deadline } = policy;
+
+  // Validate policy
+  if (typeof base !== 'number' || base < 1) throw new Error('Invalid base');
+  if (typeof factor !== 'number' || factor < 1) throw new Error('Invalid factor');
+  if (typeof ceiling !== 'number' || ceiling < base) throw new Error('Invalid ceiling');
+  if (typeof tries !== 'number' || tries < 1) throw new Error('Invalid tries');
+  if (typeof deadline !== 'number') throw new Error('Invalid deadline');
+
+  // Validate outcomes
+  if (!Array.isArray(outcomes)) throw new Error('Invalid outcomes');
+  for (const outcome of outcomes) {
+    if (outcome !== 'won' && outcome !== 'lost' && outcome !== 'held') throw new Error('Invalid outcome');
+  }
+
+  const times: number[] = [];
+  let nextTime = 0;
+  let consecutiveLost = 0;
+
+  for (let i = 0; i < outcomes.length; i++) {
+    if (outcomes[i] === 'won') {
+      return { times, verdict: 'succeeded' };
+    }
+
+    if (i >= tries) {
+      return { times, verdict: 'exhausted' };
+    }
+
+    times.push(nextTime);
+
+    if (outcomes[i] === 'lost') {
+      consecutiveLost++;
+      nextTime += Math.min(base * Math.pow(factor, consecutiveLost - 1), ceiling);
+    } else if (outcomes[i] === 'held') {
+      consecutiveLost = 0;
+      nextTime += ceiling;
+    }
+
+    if (nextTime >= deadline) {
+      return { times, verdict: 'expired' };
+    }
+  }
+
+  throw new Error('Outcomes list ran out while the plan is still going');
+}
+```

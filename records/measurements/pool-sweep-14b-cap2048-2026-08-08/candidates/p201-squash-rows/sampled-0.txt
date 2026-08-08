@@ -1,0 +1,72 @@
+```ts
+/**
+ * A chart with its twin rows squashed together.
+ */
+export function squashRows(chart: Record<string, unknown>): Record<string, unknown> {
+  const signals = chart.signals as string[];
+  if (!signals || signals.length === 0) {
+    throw new Error("Signals list is empty or invalid.");
+  }
+  if (new Set(signals).size !== signals.length) {
+    throw new Error("Signals list contains duplicates or is invalid.");
+  }
+
+  const rows = chart.rows as any[];
+  if (!rows || rows.length === 0) {
+    throw new Error("Rows list is empty.");
+  }
+
+  const headLabel = chart.head as string;
+  if (typeof headLabel !== "string" || headLabel.trim() === "") {
+    throw new Error("Head label is not a non-empty string.");
+  }
+  const headRow = rows.find(row => row.label === headLabel);
+  if (!headRow) {
+    throw new Error("Head row does not exist.");
+  }
+
+  const groupOf = new Map<string, number>();
+  const chosen: any[] = [];
+  const seen = new Map<string, number>();
+
+  for (const row of rows) {
+    const label = row.label as string;
+    if (typeof label !== "string" || label.trim() === "") {
+      throw new Error("Row label is not a non-empty string.");
+    }
+    if (seen.has(label)) {
+      throw new Error("Two rows share the same label.");
+    }
+
+    const mark = row.mark as string;
+    if (typeof mark !== "string" || mark.trim() === "") {
+      throw new Error("Row mark is not a non-empty string.");
+    }
+
+    const next = row.next as string[];
+    if (!Array.isArray(next) || next.length !== signals.length) {
+      throw new Error("Row's next list does not hold exactly one entry per signal.");
+    }
+    for (const label of next) {
+      if (typeof label !== "string" || label.trim() === "" || !rows.some(r => r.label === label)) {
+        throw new Error("Next entry names no row or is invalid.");
+      }
+    }
+
+    const key = mark + "|" + next.join(",");
+    if (!seen.has(key)) {
+      seen.set(key, chosen.length);
+      chosen.push(row);
+    }
+    groupOf.set(label, seen.get(key) as number);
+  }
+
+  const folded = chosen.map((row, at) => ({
+    at,
+    mark: row.mark,
+    next: row.next.map((label: string) => groupOf.get(label) as number),
+  }));
+
+  return { entry: groupOf.get(headLabel) as number, rows: folded };
+}
+```

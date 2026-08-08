@@ -1,0 +1,74 @@
+```ts
+export function selectByImpact(imports: Record<string, string[]>, suites: Record<string, string[]>, edited: string[]): string[] {
+  // Helper to detect cycles in the graph
+  function hasCycle(graph: Record<string, string[]>): boolean {
+    const visited = new Set<string>();
+    const recursionStack = new Set<string>();
+
+    function dfs(node: string): boolean {
+      if (recursionStack.has(node)) return true;
+      if (visited.has(node)) return false;
+
+      visited.add(node);
+      recursionStack.add(node);
+
+      for (const neighbor of graph[node] || []) {
+        if (!graph[neighbor]) throw new Error(`Module ${neighbor} is not declared`);
+        if (dfs(neighbor)) return true;
+      }
+
+      recursionStack.delete(node);
+      return false;
+    }
+
+    for (const node in graph) {
+      if (dfs(node)) return true;
+    }
+    return false;
+  }
+
+  // Validate inputs
+  if (hasCycle(imports)) throw new Error(`Import graph contains a cycle`);
+  for (const moduleName of Object.keys(suites)) {
+    if (!moduleName) throw new Error(`Suite name cannot be empty`);
+    for (const moduleDriven of suites[moduleName]) {
+      if (!imports[moduleDriven]) throw new Error(`Suite ${moduleName} drives undeclared module ${moduleDriven}`);
+    }
+  }
+  for (const editedModule of edited) {
+    if (!imports[editedModule]) throw new Error(`Edited module ${editedModule} is not declared`);
+  }
+
+  // Determine disturbed modules
+  const disturbed = new Set<string>();
+  const queue = [...edited];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    disturbed.add(current);
+
+    for (const [module, imported] of Object.entries(imports)) {
+      if (!disturbed.has(module) && imported.includes(current)) {
+        queue.push(module);
+      }
+    }
+  }
+
+  // Determine which suites need to run
+  const runningSuites = new Set<string>();
+  for (const [suiteName, modulesDriven] of Object.entries(suites)) {
+    if (modulesDriven.some(module => disturbed.has(module))) {
+      runningSuites.add(suiteName);
+    }
+  }
+
+  const result = Array.from(runningSuites).sort();
+
+  // Check the override condition
+  if (result.length > Object.keys(suites).length / 2) {
+    return ["ALL"];
+  }
+
+  return result;
+}
+```

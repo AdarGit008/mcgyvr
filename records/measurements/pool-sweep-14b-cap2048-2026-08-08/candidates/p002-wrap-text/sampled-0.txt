@@ -1,0 +1,47 @@
+```ts
+/**
+ * Wraps the given text into lines with a maximum width.
+ * @param text - The input text to wrap.
+ * @param width - The maximum width of each line.
+ * @returns An array of wrapped lines.
+ */
+export function wrapText(text: string, width: number): string[] {
+  if (typeof text !== 'string') {
+    throw new Error('Text must be a string.');
+  }
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error('Width must be a positive integer.');
+  }
+  if (/^\s|\s$|\s{2,}/.test(text)) {
+    throw new Error('Text cannot have leading, trailing, or doubled spaces.');
+  }
+
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    if (word.length > width) {
+      // Word longer than width gets its own line
+      if (currentLine.length > 0) {
+        lines.push(currentLine);
+      }
+      lines.push(word);
+      currentLine = '';
+    } else if (currentLine.length + word.length + (currentLine.length > 0 ? 1 : 0) <= width) {
+      // Add word to current line
+      currentLine += (currentLine.length > 0 ? ' ' : '') + word;
+    } else {
+      // Move to a new line
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+```

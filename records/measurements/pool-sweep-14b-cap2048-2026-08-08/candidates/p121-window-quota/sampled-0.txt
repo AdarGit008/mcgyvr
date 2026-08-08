@@ -1,0 +1,40 @@
+```ts
+export function windowQuota(limit: number, width: number, calls: (string | number)[][]): string[] {
+  if (!Number.isPositiveInteger(limit)) throw new Error("limit must be a positive integer");
+  if (!Number.isPositiveInteger(width)) throw new Error("width must be a positive integer");
+
+  const results: string[] = [];
+  const frameCalls: Map<number, Record<string, number>> = new Map();
+
+  let previousTime = -1;
+
+  for (const call of calls) {
+    if (call.length !== 2) throw new Error("each call must have exactly two elements");
+    
+    const [time, name] = call;
+    if (!Number.isInteger(time) || time < 0) throw new Error("time must be a non-negative integer");
+    if (typeof name !== "string" || name.length === 0) throw new Error("name must be a non-empty string");
+    
+    if (time < previousTime) throw new Error("calls must arrive in non-decreasing time order");
+
+    const frame = Math.floor(time / width);
+
+    if (!frameCalls.has(frame)) {
+      frameCalls.set(frame, {});
+    }
+
+    const frameData = frameCalls.get(frame)!;
+    frameData[name] = (frameData[name] || 0) + 1;
+
+    if (frameData[name] <= limit) {
+      results.push("ok");
+    } else {
+      results.push("over");
+    }
+
+    previousTime = time;
+  }
+
+  return results;
+}
+```

@@ -1,0 +1,41 @@
+```ts
+/**
+ * Writes the senary tail for a given numerator and denominator.
+ * @param numerator - The upper reading of the Loomis gauge.
+ * @param denominator - The lower reading of the Loomis gauge.
+ * @returns The spelled out run of marks as per the Loomis gauge rules.
+ */
+export function writeSenaryTail(numerator: number, denominator: number): string {
+  if (!Number.isInteger(numerator)) {
+    throw new Error("Numerator must be a whole number.");
+  }
+  if (denominator < 1 || denominator > 10000) {
+    throw new Error("Denominator must be between 1 and 10000.");
+  }
+  if (numerator < 0) {
+    throw new Error("Numerator must not be below zero.");
+  }
+  if (numerator >= denominator) {
+    throw new Error("Numerator must be smaller than the denominator.");
+  }
+
+  const marks = ["0", "1", "2", "3", "4", "5"];
+  let result = "";
+  let remainder = numerator;
+  let seenRemainders: { [key: number]: number } = {};
+
+  while (remainder > 0) {
+    if (seenRemainders[remainder] !== undefined) {
+      const start = seenRemainders[remainder];
+      return `${result.slice(0, start)}|${result.slice(start)}|`;
+    }
+    seenRemainders[remainder] = result.length;
+    remainder *= 6;
+    const digit = Math.floor(remainder / denominator);
+    result += marks[digit];
+    remainder %= denominator;
+  }
+
+  return result || "0";
+}
+```

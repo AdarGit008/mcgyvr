@@ -1,0 +1,39 @@
+```ts
+/**
+ * Returns the length in days of the longest stretch of consecutive days
+ * that starts on a kept day, ends on a kept day, and holds at most grace
+ * unkept days in between. A single kept day is a stretch of length 1.
+ */
+export function graceWindow(counts: number[], goal: number, grace: number): number {
+    if (goal <= 0) {
+        throw new Error("Goal must be positive");
+    }
+    if (grace < 0) {
+        throw new Error("Grace must not be negative");
+    }
+
+    const isKeptDay = (count: number): boolean => count >= goal;
+    let maxStretch = 0;
+    let currentStretch = 0;
+    let unkeptDays = 0;
+
+    for (const count of counts) {
+        if (isKeptDay(count)) {
+            maxStretch = Math.max(maxStretch, currentStretch + 1);
+            currentStretch = 0;
+            unkeptDays = 0;
+        } else {
+            if (unkeptDays < grace) {
+                unkeptDays++;
+                currentStretch++;
+            } else {
+                maxStretch = Math.max(maxStretch, currentStretch);
+                currentStretch = 0;
+                unkeptDays = 0;
+            }
+        }
+    }
+
+    return maxStretch;
+}
+```

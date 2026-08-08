@@ -1,0 +1,50 @@
+```ts
+/**
+ * Returns every cell standing exactly radius steps from the centre, laid out as one closed walk.
+ * @param center - The axial address [q, r] of the centre.
+ * @param radius - The radius from the centre.
+ * @returns An array of axial addresses [q, r] forming a closed walk around the centre at the given radius.
+ */
+export function hexRingWalk(center: number[], radius: number): number[][] {
+  if (!Array.isArray(center) || center.length !== 2) {
+    throw new Error("Centre must be a two-element address.");
+  }
+  if (typeof center[0] !== 'number' || typeof center[1] !== 'number') {
+    throw new Error("Centre coordinates must be numbers.");
+  }
+  if (!Number.isInteger(radius)) {
+    throw new Error("Radius must be a whole number.");
+  }
+  if (radius < 0) {
+    throw new Error("Radius cannot be negative.");
+  }
+
+  const [q, r] = center;
+  const directions = [
+    [1, 0],     // east
+    [1, -1],    // northeast
+    [0, -1],    // northwest
+    [-1, 0],    // west
+    [-1, 1],   // southwest
+    [0, 1]      // southeast
+  ];
+
+  if (radius === 0) {
+    return [[q, r]];
+  }
+
+  const walk: number[][] = [];
+  let currentQ = q - radius;
+  let currentR = r + radius;
+
+  for (const [dq, dr] of directions) {
+    for (let i = 0; i < radius; i++) {
+      walk.push([currentQ, currentR]);
+      currentQ += dq;
+      currentR += dr;
+    }
+  }
+
+  return walk;
+}
+```

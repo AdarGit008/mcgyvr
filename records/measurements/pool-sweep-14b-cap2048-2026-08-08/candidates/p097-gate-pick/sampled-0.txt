@@ -1,0 +1,45 @@
+```ts
+export function pickBuild(gate: string, offers: number[]): number {
+  if (typeof gate !== 'string') throw new Error('Gate must be a string');
+  if (!gate) throw new Error('Gate must contain at least one clause');
+
+  const clauses = gate.split(',').map(clause => {
+    const [range, carveOutsStr] = clause.split('^');
+    let lo: number | null = null;
+    let hi: number | null = null;
+
+    if (range === ':') {
+      lo = -1;
+      hi = Infinity;
+    } else {
+      const [loPart, hiPart] = range.split(':').map(Number);
+      if (isNaN(loPart) || isNaN(hiPart)) throw new Error('Malformed clause');
+      if (loPart > hiPart) throw new Error('Clause ends out of order');
+
+      lo = loPart;
+      hi = hiPart === Infinity ? null : hiPart;
+    }
+
+    const carveOuts = carveOutsStr ? carveOutsStr.split('').map(Number) : [];
+    if (!carveOuts.every(build => (lo === -1 || build >= lo) && (hi === null || build <= hi))) {
+      throw new Error('Carve-out naming a build the clause does not cover');
+    }
+
+    return { lo, hi, carveOuts };
+  });
+
+  const validOffers = offers.filter(offer => {
+    if (!Number.isInteger(offer) || offer < 0) throw new Error('Offer must be a non-negative integer');
+
+    for (const { lo, hi, carveOuts } of clauses) {
+      if ((lo === -1 || offer >= lo) && (hi === null || offer <= hi) && !carveOuts.includes(offer)) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+
+  return validOffers.length > 0 ? Math.max(...validOffers) : -1;
+}
+```

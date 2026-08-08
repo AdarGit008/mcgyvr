@@ -1,0 +1,96 @@
+```ts
+export function recaseName(label: string, style: string): string {
+  if (typeof label !== 'string' || typeof style !== 'string') {
+    throw new Error('Label and style must be strings');
+  }
+  if (label.length === 0) {
+    throw new Error('Label cannot be empty');
+  }
+  const allowedChars = /^[a-zA-Z0-9_-]+$/;
+  if (!allowedChars.test(label)) {
+    throw new Error('Label contains invalid characters');
+  }
+  if (/^[-_]|[-_]$|[_-]{2,}/.test(label)) {
+    throw new Error('Label cannot start or end with a separator or have consecutive separators');
+  }
+  const styles = ['snake', 'kebab', 'shout', 'pascal', 'camel'];
+  if (!styles.includes(style)) {
+    throw new Error('Invalid style');
+  }
+
+  const words: string[] = [];
+  let currentWord = '';
+  let i = 0;
+
+  while (i < label.length) {
+    const char = label[i];
+
+    if (char === '_' || char === '-') {
+      if (currentWord.length > 0) {
+        words.push(currentWord);
+        currentWord = '';
+      }
+    } else if (/[a-z]/.test(char)) {
+      if (i === 0 || /[A-Z0-9_-]/.test(label[i - 1])) {
+        // Start of a new word
+        words.push(currentWord);
+        currentWord = char;
+      } else {
+        currentWord += char;
+      }
+    } else if (/[A-Z]/.test(char)) {
+      if (i > 0 && /[a-z]/.test(label[i - 1])) {
+        // Hand over the last capital to the next word
+        words.push(currentWord);
+        currentWord = char;
+      } else {
+        currentWord += char;
+      }
+    } else if (/[0-9]/.test(char)) {
+      if (i === 0 || /[a-zA-Z_-]/.test(label[i - 1])) {
+        // Start of a new word
+        words.push(currentWord);
+        currentWord = char;
+      } else if (currentWord.length > 0 && /[A-Za-z]/.test(currentWord[currentWord.length - 1])) {
+        // End the current word and start a new one with digits
+        words.push(currentWord);
+        currentWord = char;
+      } else {
+        currentWord += char;
+      }
+    }
+
+    i++;
+  }
+
+  if (currentWord.length > 0) {
+    words.push(currentWord);
+  }
+
+  const recasedWords: string[] = words.map(word => {
+    if (word === word.toUpperCase() && word.length >= 2) {
+      return word; // Keep all capitals for two-letter or longer words
+    }
+    if (/^\d+$/.test(word)) {
+      return word; // Copy digits unchanged
+    }
+    switch (style) {
+      case 'snake':
+        return word.toLowerCase();
+      case 'kebab':
+        return word.toLowerCase();
+      case 'shout':
+        return word.toUpperCase();
+      case 'pascal':
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      case 'camel':
+        return word === words[0] ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      default:
+        throw new Error('Invalid style');
+    }
+  });
+
+  const separator = style === 'snake' ? '_' : style === 'kebab' ? '-' : '_';
+  return recasedWords.join(separator);
+}
+```

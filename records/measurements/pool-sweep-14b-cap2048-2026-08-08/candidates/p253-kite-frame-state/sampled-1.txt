@@ -1,0 +1,26 @@
+```ts
+export function kiteFrameState(
+  rallies: string[],
+): { left: number; right: number; winner: string } {
+  const score: Record<string, number> = { left: 0, right: 0 };
+  let winner = "";
+
+  for (const rally of rallies) {
+    if (rally !== "left" && rally !== "right") {
+      throw new Error("Invalid rally side");
+    }
+
+    score[rally] += 1;
+
+    if (winner === "") {
+      if (score.left >= 20 || score.right >= 20) {
+        winner = score.left > score.right ? "left" : "right";
+      } else if (Math.abs(score.left - score.right) >= 2 && (score.left >= 15 || score.right >= 15)) {
+        winner = score.left > score.right ? "left" : "right";
+      }
+    }
+  }
+
+  return { left: score.left, right: score.right, winner };
+}
+```

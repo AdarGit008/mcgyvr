@@ -1,0 +1,63 @@
+```ts
+export function cycleShapeReport(chart: number[]): any {
+  if (!Array.isArray(chart) || chart.length === 0) {
+    throw new Error("Invalid chart");
+  }
+
+  const n = chart.length;
+  const visited = new Set<number>();
+  const loops: number[][] = [];
+  const widths: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    if (!visited.has(i)) {
+      const loop: number[] = [];
+      let current = i;
+
+      do {
+        if (typeof chart[current] !== "number" || !Number.isInteger(chart[current]) || chart[current] < 0 || chart[current] >= n) {
+          throw new Error("Invalid chart");
+        }
+        if (visited.has(current)) {
+          throw new Error("Invalid chart");
+        }
+        visited.add(current);
+        loop.push(current);
+        current = chart[current];
+      } while (current !== i);
+
+      loops.push(loop);
+    }
+  }
+
+  loops.sort((a, b) => a[0] - b[0]);
+  widths.push(...loops.map(loop => loop.length));
+
+  const gcd = (a: number, b: number): number => {
+    while (b !== 0) {
+      const temp = b;
+      b = a % b;
+      a = temp;
+    }
+    return a;
+  };
+
+  const lcm = (a: number, b: number): number => {
+    return Math.abs(a * b) / gcd(a, b);
+  };
+
+  let repeat = widths[0];
+  for (let i = 1; i < widths.length; i++) {
+    repeat = lcm(repeat, widths[i]);
+  }
+
+  const swing = (n - loops.length) % 2 === 0 ? "even" : "odd";
+
+  return {
+    loops,
+    widths: widths.sort((a, b) => b - a),
+    repeat,
+    swing
+  };
+}
+```

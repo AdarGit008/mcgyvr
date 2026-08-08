@@ -1,0 +1,38 @@
+```ts
+export function chainTransforms(grid: number[][], steps: string[]): number[][] {
+  if (grid.length === 0) {
+    throw new Error("Grid must have at least one row.");
+  }
+  if (!grid.every(row => row.length === grid[0].length)) {
+    throw new Error("All rows in the grid must have the same length.");
+  }
+
+  const cw = (g: number[][]): number[][] =>
+    g[0].map((_, col) => g.map(row => row[col])).reverse();
+
+  const ccw = (g: number[][]): number[][] =>
+    g[0].map((_, col) => g.map(row => row[col])).map(row => row.reverse());
+
+  const mirror = (g: number[][]): number[][] => g.map(row => [...row].reverse());
+
+  const flip = (g: number[][]): number[][] => [...g].reverse();
+
+  const diag = (g: number[][]): number[][] =>
+    g[0].map((_, col) => g.map(row => row[col]));
+
+  const transformations: { [key: string]: (g: number[][]) => number[][] } = {
+    cw,
+    ccw,
+    mirror,
+    flip,
+    diag
+  };
+
+  return steps.reduce((acc, step) => {
+    if (!transformations[step]) {
+      throw new Error(`Invalid step name: ${step}`);
+    }
+    return transformations[step](acc);
+  }, grid);
+}
+```

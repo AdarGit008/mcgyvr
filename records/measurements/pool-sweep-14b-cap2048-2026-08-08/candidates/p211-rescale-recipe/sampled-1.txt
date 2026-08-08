@@ -1,0 +1,94 @@
+```ts
+export function rescaleRecipe(lines: string[], num: number, den: number): string[] {
+  if (!Array.isArray(lines)) throw new Error("Invalid recipe format");
+  if (num <= 0 || !Number.isInteger(num) || den <= 0 || !Number.isInteger(den))
+    throw new Error("Ratio must be positive integers");
+
+  const units = new Set(["tsp", "tbsp", "cup", "egg", "g"]);
+
+  const parseAmount = (amount: string): [number, number | null] => {
+    const parts = amount.split(" ");
+    if (parts.length === 1) {
+      return [parseInt(parts[0], 10), null];
+    } else if (parts.length === 2 && parts[0].includes("/")) {
+      const [numerator, denominator] = parts[0].split("/").map(Number);
+      return [0, numerator / denominator];
+    } else if (parts.length === 3 && parts[1].includes("/")) {
+      const whole = parseInt(parts[0], 10);
+      const [numerator, denominator] = parts[1].split("/").map(Number);
+      return [whole, numerator / denominator];
+    }
+    throw new Error("Invalid amount format");
+  };
+
+  const roundAmount = (amount: number, unit: string): string => {
+    let grains: number;
+    switch (unit) {
+      case "tsp":
+        grains = Math.round(amount * 4);
+        break;
+      case "tbsp":
+        grains = Math.round(amount * 2);
+        break;
+      case "cup":
+        grains = Math.round(amount * 8);
+        break;
+      case "egg":
+      case "g":
+        grains = Math.round(amount);
+        break;
+      default:
+        throw new Error("Invalid unit");
+    }
+
+    if (grains === 0) grains = 1;
+
+    const whole = Math.floor(grains / 8);
+    const remainder = grains % 8;
+
+    if (whole > 0 && remainder === 0) {
+      return `${whole}`;
+    } else if (remainder === 0) {
+      return "1/8";
+    } else if (remainder === 2) {
+      return "1/4";
+    } else if (remainder === 4) {
+      return "1/2";
+    } else if (remainder === 6) {
+      return "3/4";
+    } else {
+      return `${whole} ${remainder}/8`;
+    }
+  };
+
+  const result: string[] = [];
+  const seenIngredients = new Set<string>();
+
+  for (const line of lines) {
+    if (typeof line !== "string") throw new Error("Invalid recipe format");
+
+    const parts = line.split(" ");
+    if (parts.length < 3) throw new Error("Invalid row format");
+
+    const amountStr = parts.slice(0, -2).join(" ");
+    const unit = parts[parts.length - 2];
+    const ingredient = parts.slice(-1)[0];
+
+    if (!units.has(unit)) throw new Error("Invalid unit");
+    if (!/^[a-zA-Z\s]+$/.test(ingredient)) throw new Error("Invalid ingredient");
+    if (seenIngredients.has(ingredient)) throw new Error("Duplicate ingredient");
+
+    seenIngredients.add(ingredient);
+
+    const [whole, part] = parseAmount(amountStr);
+    const totalAmount = whole + (part ?? 0);
+
+    const scaledAmount = totalAmount * (num / den);
+    const roundedAmount = roundAmount(scaledAmount, unit);
+
+    result.push(`${roundedAmount} ${unit} ${ingredient}`);
+  }
+
+  return result;
+}
+```

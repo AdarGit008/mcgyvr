@@ -1,0 +1,92 @@
+```ts
+/**
+ * How far apart two people stand in a register of forebears.
+ */
+export function kinshipDegree(
+  register: Record<string, string[]>,
+  one: string,
+  other: string,
+): Record<string, unknown> {
+  // Validate the register
+  if (typeof register !== 'object' || register === null) {
+    throw new Error('Register must be a non-null object.');
+  }
+
+  for (const [name, forebears] of Object.entries(register)) {
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new Error('Keys in the register must be non-empty strings.');
+    }
+    if (!Array.isArray(forebears) || forebears.length > 2) {
+      throw new Error('Forebear list must be an array with at most two elements.');
+    }
+    for (const forebear of forebears) {
+      if (typeof forebear !== 'string' || forebear.trim() === '') {
+        throw new Error('Forebears must be non-empty strings.');
+      }
+      if (!register.hasOwnProperty(forebear)) {
+        throw new Error('Every forebear must be a key in the register.');
+      }
+      if (forebear === name) {
+        throw new Error('Nobody may be listed as their own forebear.');
+      }
+    }
+  }
+
+  // Validate the input names
+  if (typeof one !== 'string' || typeof other !== 'string') {
+    throw new Error('Both names must be strings.');
+  }
+  if (!register.hasOwnProperty(one) || !register.hasOwnProperty(other)) {
+    throw new Error('Both names must be keys in the register.');
+  }
+
+  const climb = (start: string): Map<string, number> => {
+    const seen = new Map<string, number>();
+    let frontier = [start];
+    let step = 0;
+    while (frontier.length > 0) {
+      const next: string[] = [];
+      for (const name of frontier) {
+        if (!seen.has(name)) {
+          seen.set(name, step);
+          next.push(...(register[name] ?? []));
+        }
+      }
+      frontier = next.filter(name => !seen.has(name));
+      step += 1;
+    }
+    return seen;
+  };
+
+  const mine = climb(one);
+  const theirs = climb(other);
+
+  if (mine.has(other)) {
+    return { steps: mine.get(other)!, line: "direct", meet: other };
+  }
+  if (theirs.has(one)) {
+    return { steps: theirs.get(one)!, line: "direct", meet: one };
+  }
+
+  let minSteps = Infinity;
+  let meetingPoint = '';
+
+  for (const [name, up] of mine) {
+    const down = theirs.get(name);
+    if (down !== undefined) {
+      const totalSteps = up + down;
+      if (
+        totalSteps < minSteps ||
+        (totalSteps === minSteps && name < meetingPoint)
+      ) {
+        minSteps = totalSteps;
+        meetingPoint = name;
+      }
+    }
+  }
+
+  return minSteps === Infinity
+    ? { steps: 0, line: "apart", meet: "" }
+    : { steps: minSteps, line: "collateral", meet: meetingPoint };
+}
+```

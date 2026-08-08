@@ -1,0 +1,30 @@
+```ts
+export function orderSections(labels: string[]): string[] {
+  const validateLabel = (label: string): boolean => {
+    const components = label.split('.');
+    return components.every((component) => /^\d+$/.test(component) && component !== '0' && !/^\D*0\d+\D*$/.test(component));
+  };
+
+  if (labels.length !== new Set(labels).size) {
+    throw new Error('Duplicate labels found');
+  }
+
+  const invalidLabel = labels.find((label) => typeof label !== 'string' || !validateLabel(label));
+  if (invalidLabel) {
+    throw new Error(`Invalid label: ${invalidLabel}`);
+  }
+
+  return labels.sort((a, b) => {
+    const aComponents = a.split('.').map(Number);
+    const bComponents = b.split('.').map(Number);
+
+    for (let i = 0; i < Math.min(aComponents.length, bComponents.length); i++) {
+      if (aComponents[i] !== bComponents[i]) {
+        return aComponents[i] - bComponents[i];
+      }
+    }
+
+    return aComponents.length - bComponents.length;
+  });
+}
+```

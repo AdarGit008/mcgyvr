@@ -1,0 +1,138 @@
+```ts
+export function planWarmup(brief: Record<string, unknown>): Record<string, unknown> {
+  if (typeof brief !== 'object' || brief === null) {
+    throw new Error('Invalid argument: brief must be a mapping');
+  }
+
+  const { budget, slots, caps, items } = brief;
+
+  if (
+    typeof budget !== 'number' ||
+    budget < 0 ||
+    !Number.isInteger(budget)
+  ) {
+    throw new Error('Invalid argument: budget must be a non-negative whole number');
+  }
+
+  if (
+    typeof slots !== 'number' ||
+    slots <= 0 ||
+    !Number.isInteger(slots)
+  ) {
+    throw new Error('Invalid argument: slots must be a positive whole number');
+  }
+
+  if (typeof caps !== 'object' || caps === null) {
+    throw new Error('Invalid argument: caps must be a mapping');
+  }
+
+  if (!Array.isArray(items)) {
+    throw new Error('Invalid argument: items must be a list');
+  }
+
+  const loadedNames: string[] = [];
+  let remainingSlots = slots;
+  let remainingBudget = budget;
+  const turnedAwayItems: { name: string; why: string }[] = {};
+
+  const validatedCaps: Record<string, number> = {};
+  for (const [family, cap] of Object.entries(caps)) {
+    if (
+      typeof family !== 'string' ||
+      family === '' ||
+      typeof cap !== 'number' ||
+      cap < 0 ||
+      !Number.isInteger(cap)
+    ) {
+      throw new Error('Invalid argument: caps must be a mapping from non-empty strings to non-negative whole numbers');
+    }
+    validatedCaps[family] = cap;
+  }
+
+  const validatedItems: { name: string; bytes: number; weight: number; family: string }[] = [];
+  const seenNames = new Set<string>();
+
+  for (const item of items) {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error('Invalid argument: each item must be a mapping');
+    }
+
+    const { name, bytes, weight, family } = item as Record<string, unknown>;
+
+    if (
+      typeof name !== 'string' ||
+      name === '' ||
+      seenNames.has(name)
+    ) {
+      throw new Error('Invalid argument: each item must have a unique non-empty string name');
+    }
+
+    if (
+      typeof bytes !== 'number' ||
+      bytes <= 0 ||
+      !Number.isInteger(bytes)
+    ) {
+      throw new Error('Invalid argument: each item must have a positive whole number of bytes');
+    }
+
+    if (
+      typeof weight !== 'number' ||
+      weight < 0 ||
+      !Number.isInteger(weight)
+    ) {
+      throw new Error('Invalid argument: each item must have a non-negative whole number weight');
+    }
+
+    if (
+      typeof family !== 'string' ||
+      family === '' ||
+      !(family in validatedCaps)
+    ) {
+      throw new Error('Invalid argument: each item must belong to a family mentioned in caps');
+    }
+
+    seenNames.add(name);
+    validatedItems.push({ name, bytes, weight, family });
+  }
+
+  validatedItems.sort((a, b) => {
+    if (b.weight !== a.weight) {
+      return b.weight - a.weight;
+    }
+    if (a.bytes !== b.bytes) {
+      return a.bytes - b.bytes;
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  for (const item of validatedItems) {
+    const { name, bytes, family } = item;
+
+    if (remainingSlots === 0) {
+      turnedAwayItems[name] = { name, why: 'slots' };
+      continue;
+    }
+
+    if (validatedCaps[family] === 0) {
+      turnedAwayItems[name] = { name, why: 'family' };
+      continue;
+    }
+
+    if (bytes > remainingBudget) {
+      turnedAwayItems[name] = { name, why: 'bytes' };
+      continue;
+    }
+
+    loadedNames.push(name);
+    remainingSlots -= 1;
+    validatedCaps[family] -= 1;
+    remainingBudget -= bytes;
+  }
+
+  return {
+    loaded: loadedNames,
+    spare: remainingBudget,
+    turned: turnedAwayItems,
+  };
+}
+```

@@ -1,0 +1,45 @@
+```ts
+export function orderSections(labels: string[]): string[] {
+  const validateLabel = (label: string): boolean => {
+    const components = label.split('.');
+    return (
+      components.length > 0 &&
+      components.every(
+        (component) =>
+          component === '0' || (component.match(/^\d+$/) && component[0] !== '0')
+      )
+    );
+  };
+
+  const normalizeLabel = (label: string): number[] => {
+    return label.split('.').map(Number);
+  };
+
+  const compareLabels = (a: string, b: string): number => {
+    const aComponents = normalizeLabel(a);
+    const bComponents = normalizeLabel(b);
+
+    for (let i = 0; i < Math.min(aComponents.length, bComponents.length); i++) {
+      if (aComponents[i] !== bComponents[i]) {
+        return aComponents[i] - bComponents[i];
+      }
+    }
+
+    return aComponents.length - bComponents.length;
+  };
+
+  const uniqueLabels = new Set(labels);
+
+  if (uniqueLabels.size !== labels.length) {
+    throw new Error('Duplicate label found');
+  }
+
+  for (const label of labels) {
+    if (typeof label !== 'string' || !validateLabel(label)) {
+      throw new Error('Invalid label format');
+    }
+  }
+
+  return [...uniqueLabels].sort(compareLabels);
+}
+```

@@ -1,0 +1,52 @@
+```ts
+export function foldAttempts(records: string[]): string[] {
+  if (!Array.isArray(records)) {
+    throw new Error("Input must be an array of strings.");
+  }
+
+  const cases: Record<string, { tries: Set<number>; outcomes: Set<'pass' | 'fail'> }> = {};
+
+  for (const record of records) {
+    if (typeof record !== 'string') {
+      throw new Error("Each record must be a string.");
+    }
+
+    const parts = record.split(' ');
+    if (parts.length !== 3) {
+      throw new Error("Each record must have exactly three pieces: name, try number, and outcome.");
+    }
+
+    const [name, tryNumStr, outcome] = parts;
+    if (!name || !tryNumStr || ![ 'pass', 'fail' ].includes(outcome)) {
+      throw new Error("Invalid record format.");
+    }
+
+    const tryNum = parseInt(tryNumStr, 10);
+    if (isNaN(tryNum) || tryNum <= 0 || !/^\d+$/.test(tryNumStr)) {
+      throw new Error("Try number must be a positive integer with no padding zeros.");
+    }
+
+    if (!cases[name]) {
+      cases[name] = { tries: new Set(), outcomes: new Set() };
+    }
+
+    const testCase = cases[name];
+    if (testCase.tries.has(tryNum)) {
+      throw new Error(`Duplicate try number for case ${name}.`);
+    }
+    testCase.tries.add(tryNum);
+    testCase.outcomes.add(outcome as 'pass' | 'fail');
+  }
+
+  const results: string[] = [];
+  for (const [ name, { outcomes } ] of Object.entries(cases)) {
+    if (outcomes.size === 1) {
+      results.push(`${name}=${outcomes.values().next().value}`);
+    } else if (outcomes.has('pass') && outcomes.has('fail')) {
+      results.push(`${name}=flake`);
+    }
+  }
+
+  return results.sort((a, b) => a.localeCompare(b));
+}
+```

@@ -1,0 +1,82 @@
+```ts
+export function bestRatePath(quotes: unknown[][], amount: number, source: string, destination: string): Record<string, unknown> {
+  if (!Array.isArray(quotes) || quotes.length === 0) {
+    throw new Error("Quotes list is empty");
+  }
+
+  const parsedQuotes = quotes.map((quote, index) => {
+    if (!Array.isArray(quote) || quote.length !== 3) {
+      throw new Error(`Quote at index ${index} is not three elements`);
+    }
+    const [base, counter, micro] = quote;
+    if (typeof base !== "string" || typeof counter !== "string" || typeof micro !== "number") {
+      throw new Error(`Invalid types in quote at index ${index}`);
+    }
+    if (base === "" || counter === "") {
+      throw new Error(`Empty string code in quote at index ${index}`);
+    }
+    if (base === counter) {
+      throw new Error(`Same code on both sides in quote at index ${index}`);
+    }
+    if (!Number.isInteger(micro) || micro <= 0) {
+      throw new Error(`Micro is not a positive whole number in quote at index ${index}`);
+    }
+    return { base, counter, micro };
+  });
+
+  const currencyCodes = new Set<string>();
+  parsedQuotes.forEach(({ base, counter }) => {
+    currencyCodes.add(base);
+    currencyCodes.add(counter);
+  });
+
+  if (!currencyCodes.has(source) || !currencyCodes.has(destination)) {
+    throw new Error("Source or destination is named by no quote");
+  }
+
+  if (source === destination) {
+    throw new Error("Source and destination are the same code");
+  }
+
+  const graph: Record<string, { [key: string]: number }> = {};
+  parsedQuotes.forEach(({ base, counter, micro }) => {
+    if (!graph[base]) graph[base] = {};
+    graph[base][counter] = micro;
+  });
+
+  const paths: { path: string[], amount: number }[] = [];
+
+  function dfs(current: string, path: string[], visited: Set<string>, currentAmount: number) {
+    if (current === destination) {
+      paths.push({ path, amount: currentAmount });
+      return;
+    }
+
+    for (const next of Object.keys(graph[current])) {
+      if (!visited.has(next)) {
+        const newVisited = new Set(visited);
+        newVisited.add(next);
+        dfs(next, [...path, next], newVisited, Math.floor(currentAmount * graph[current][next] / 1_000_000));
+      }
+    }
+  }
+
+  dfs(source, [source], new Set([source]), amount);
+
+  if (paths.length === 0) {
+    throw new Error("No run connects source to destination");
+  }
+
+  paths.sort((a, b) => {
+    if (b.amount !== a.amount) return b.amount - a.amount;
+    if (a.path.length !== b.path.length) return a.path.length - b.path.length;
+    for (let i = 0; i < a.path.length; i++) {
+      if (a.path[i] !== b.path[i]) return a.path[i].localeCompare(b.path[i]);
+    }
+    return 0;
+  });
+
+  const bestPath = paths[0];
+  return { amount: bestPath.amount, path: bestPath.path };
+}
+```

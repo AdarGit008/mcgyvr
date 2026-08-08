@@ -1,0 +1,57 @@
+```ts
+/**
+ * Parses a single s-expression from the input text.
+ * @param text - The input string containing the s-expression.
+ * @returns The parsed s-expression as number, string, or array.
+ * @throws Error if the input is invalid.
+ */
+export function readSexpr(text: string): number | string | any[] {
+    const tokens = tokenize(text);
+    const result = parse(tokens);
+    if (tokens.length > 0) {
+        throw new Error("Trailing characters after expression");
+    }
+    return result;
+}
+
+function tokenize(input: string): (number | string)[] {
+    const tokenRegex = /\s*([-+*/!?a-zA-Z]+|[0-9-]+|\(|\))/g;
+    let match;
+    const tokens: (number | string)[] = [];
+    while ((match = tokenRegex.exec(input)) !== null) {
+        if (match[1] === "(" || match[1] === ")") {
+            tokens.push(match[1]);
+        } else if (/^[0-9]+$/.test(match[1])) {
+            tokens.push(parseInt(match[1], 10));
+        } else if (/^-?[0-9]+$/.test(match[1])) {
+            tokens.push(parseInt(match[1], 10));
+        } else {
+            tokens.push(match[1]);
+        }
+    }
+    return tokens;
+}
+
+function parse(tokens: (number | string)[]): number | string | any[] {
+    if (tokens.length === 0) {
+        throw new Error("Empty input");
+    }
+    const token = tokens.shift();
+    if (token === "(") {
+        const list: any[] = [];
+        while (tokens[0] !== ")") {
+            list.push(parse(tokens));
+        }
+        tokens.shift(); // Remove the closing parenthesis
+        return list;
+    } else if (token === ")") {
+        throw new Error("Stray closing parenthesis");
+    } else if (typeof token === "number") {
+        return token;
+    } else if (typeof token === "string" && /^[+*/!?a-zA-Z]+$/.test(token)) {
+        return token;
+    } else {
+        throw new Error("Invalid atom");
+    }
+}
+```

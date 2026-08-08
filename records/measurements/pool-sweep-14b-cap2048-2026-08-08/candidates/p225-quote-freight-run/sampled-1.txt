@@ -1,0 +1,66 @@
+```ts
+/**
+ * Quotes a freight run based on given rate bands and consignment weight.
+ * @param bands - A non-empty list of rate bands with "from" and "perKilo" properties.
+ * @param kilos - The consignment weight in whole kilos, one or more.
+ * @returns An object with "split", an array of charges for each band, and "cents", the total charge.
+ */
+export function quoteFreightRun(bands: Array<Record<string, unknown>>, kilos: number): Record<string, unknown> {
+  if (!Array.isArray(bands) || bands.length === 0) {
+    throw new Error("Bands must be a non-empty list.");
+  }
+
+  if (typeof kilos !== 'number' || kilos < 1 || !Number.isInteger(kilos)) {
+    throw new Error("Consignment weight must be a whole number of one or more.");
+  }
+
+  const validatedBands = bands.map((band, index) => {
+    if (typeof band !== 'object' || band === null) {
+      throw new Error(`Band at index ${index} is not a mapping.`);
+    }
+
+    const from = band['from'];
+    const perKilo = band['perKilo'];
+
+    if (typeof from !== 'number' || from < 0 || !Number.isInteger(from)) {
+      throw new Error(`"from" in band at index ${index} must be a whole number of nought or more.`);
+    }
+
+    if (typeof perKilo !== 'number' || perKilo < 0 || !Number.isInteger(perKilo)) {
+      throw new Error(`"perKilo" in band at index ${index} must be a non-negative whole number.`);
+    }
+
+    return { from, perKilo };
+  });
+
+  if (validatedBands[0].from !== 0) {
+    throw new Error("The first band must start at nought.");
+  }
+
+  for (let i = 1; i < validatedBands.length; i++) {
+    if (validatedBands[i].from <= validatedBands[i - 1].from) {
+      throw new Error(`Starting weights do not climb strictly from index ${i - 1} to index ${i}.`);
+    }
+  }
+
+  const splitCharges = [];
+  let totalCents = 0;
+  let remainingKilos = kilos;
+
+  for (const band of validatedBands) {
+    const startWeight = band.from;
+    const ratePerKilo = band.perKilo;
+    const nextStartWeight = validatedBands.length > 1 ? validatedBands[validatedBands.indexOf(band) + 1].from : Infinity;
+
+    const bandKilos = Math.min(remainingKilos, nextStartWeight - startWeight);
+    const chargeForBand = bandKilos * ratePerKilo;
+    splitCharges.push(chargeForBand);
+    totalCents += chargeForBand;
+
+    remainingKilos -= bandKilos;
+    if (remainingKilos <= 0) break;
+  }
+
+  return { split: splitCharges, cents: totalCents };
+}
+```

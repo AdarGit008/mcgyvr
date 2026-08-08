@@ -1,0 +1,81 @@
+```ts
+export function latticeInverse(frame: number[][]): number[][] {
+  if (!Array.isArray(frame) || frame.length !== 2 && frame.length !== 3) {
+    throw new Error("Invalid frame dimensions");
+  }
+
+  for (const row of frame) {
+    if (!Array.isArray(row) || row.length !== frame.length) {
+      throw new Error("Invalid row dimensions");
+    }
+    for (const num of row) {
+      if (!Number.isInteger(num)) {
+        throw new Error("Frame entries must be whole numbers");
+      }
+    }
+  }
+
+  const determinant = calculateDeterminant(frame);
+  if (determinant !== 1 && determinant !== -1) {
+    return [];
+  }
+
+  return findInverse(frame, determinant);
+}
+
+function calculateDeterminant(frame: number[][]): number {
+  switch (frame.length) {
+    case 2:
+      return frame[0][0] * frame[1][1] - frame[0][1] * frame[1][0];
+    case 3:
+      return (
+        frame[0][0] * (frame[1][1] * frame[2][2] - frame[1][2] * frame[2][1]) -
+        frame[0][1] * (frame[1][0] * frame[2][2] - frame[1][2] * frame[2][0]) +
+        frame[0][2] * (frame[1][0] * frame[2][1] - frame[1][1] * frame[2][0])
+      );
+    default:
+      throw new Error("Invalid frame dimensions");
+  }
+}
+
+function findInverse(frame: number[][], determinant: number): number[][] {
+  const inverse: number[][] = [];
+
+  switch (frame.length) {
+    case 2:
+      inverse[0] = [frame[1][1], -frame[0][1]];
+      inverse[1] = [-frame[1][0], frame[0][0]];
+      break;
+    case 3:
+      const cofactorMatrix = [
+        [
+          frame[1][1] * frame[2][2] - frame[1][2] * frame[2][1],
+          -(frame[1][0] * frame[2][2] - frame[1][2] * frame[2][0]),
+          frame[1][0] * frame[2][1] - frame[1][1] * frame[2][0]
+        ],
+        [
+          -(frame[0][1] * frame[2][2] - frame[0][2] * frame[2][1]),
+          frame[0][0] * frame[2][2] - frame[0][2] * frame[2][0],
+          -(frame[0][0] * frame[2][1] - frame[0][1] * frame[2][0])
+        ],
+        [
+          frame[0][1] * frame[1][2] - frame[0][2] * frame[1][1],
+          -(frame[0][0] * frame[1][2] - frame[0][2] * frame[1][0]),
+          frame[0][0] * frame[1][1] - frame[0][1] * frame[1][0]
+        ]
+      ];
+
+      for (let i = 0; i < 3; i++) {
+        inverse[i] = [];
+        for (let j = 0; j < 3; j++) {
+          inverse[i][j] = cofactorMatrix[i][j] / determinant;
+        }
+      }
+      break;
+    default:
+      throw new Error("Invalid frame dimensions");
+  }
+
+  return inverse.map(row => row.map(num => Math.round(num)));
+}
+```

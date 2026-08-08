@@ -1,0 +1,127 @@
+```ts
+/**
+ * Finds the first node that breaks any of the three rules: order, balance, or count.
+ * @param root - The root node of the tree.
+ */
+export function firstBrokenRule(root: Record<string, unknown>): Record<string, string> {
+  if (!root || typeof root !== 'object') {
+    throw new Error('Root must be a non-null object');
+  }
+
+  const validateNode = (
+    node: Record<string, unknown>,
+    path: string
+  ): { path: string; rule: string } => {
+    if (typeof node.key !== 'number' || !Number.isInteger(node.key)) {
+      throw new Error('Key must be a whole number');
+    }
+    if (typeof node.count !== 'number' || !Number.isInteger(node.count) || node.count <= 0) {
+      throw new Error('Count must be a positive whole number');
+    }
+
+    const left = node.left as Record<string, unknown> | undefined;
+    const right = node.right as Record<string, unknown> | undefined;
+
+    if (left && typeof left !== 'object') {
+      throw new Error('Left must be a non-null object or nothing');
+    }
+    if (right && typeof right !== 'object') {
+      throw new Error('Right must be a non-null object or nothing');
+    }
+
+    const checkOrder = () => {
+      if (left) {
+        if (
+          typeof left.key !== 'number' ||
+          !Number.isInteger(left.key) ||
+          left.key >= node.key
+        ) {
+          return { path: `${path}/L`, rule: 'order' };
+        }
+        if (typeof left.right === 'object') {
+          const rightmostLeft = findRightmost(left);
+          if (rightmostLeft.key >= node.key) {
+            return { path: `${path}/L`, rule: 'order' };
+          }
+        }
+      }
+      if (right) {
+        if (
+          typeof right.key !== 'number' ||
+          !Number.isInteger(right.key) ||
+          right.key <= node.key
+        ) {
+          return { path: `${path}/R`, rule: 'order' };
+        }
+        if (typeof right.left === 'object') {
+          const leftmostRight = findLeftmost(right);
+          if (leftmostRight.key <= node.key) {
+            return { path: `${path}/R`, rule: 'order' };
+          }
+        }
+      }
+    };
+
+    const checkBalance = () => {
+      const leftDepth = left ? getDepth(left) : 0;
+      const rightDepth = right ? getDepth(right) : 0;
+      if (Math.abs(leftDepth - rightDepth) > 1) {
+        return { path, rule: 'balance' };
+      }
+    };
+
+    const checkCount = () => {
+      const expectedCount =
+        (left ? left.count : 0) + (right ? right.count : 0) + 1;
+      if (node.count !== expectedCount) {
+        return { path, rule: 'count' };
+      }
+    };
+
+    const result = checkOrder() || checkBalance() || checkCount();
+    if (result) {
+      return result;
+    }
+
+    if (left) {
+      const leftResult = validateNode(left, `${path}/L`);
+      if (leftResult.path) {
+        return leftResult;
+      }
+    }
+    if (right) {
+      const rightResult = validateNode(right, `${path}/R`);
+      if (rightResult.path) {
+        return rightResult;
+      }
+    }
+
+    return { path: '', rule: 'sound' };
+  };
+
+  const getDepth = (node: Record<string, unknown>): number => {
+    if (!node.left && !node.right) {
+      return 1;
+    }
+    const leftDepth = node.left ? getDepth(node.left as Record<string, unknown>) : 0;
+    const rightDepth = node.right ? getDepth(node.right as Record<string, unknown>) : 0;
+    return Math.max(leftDepth, rightDepth) + 1;
+  };
+
+  const findRightmost = (node: Record<string, unknown>): Record<string, unknown> => {
+    if (!node.right) {
+      return node;
+    }
+    return findRightmost(node.right as Record<string, unknown>);
+  };
+
+  const findLeftmost = (node: Record<string, unknown>): Record<string, unknown> => {
+    if (!node.left) {
+      return node;
+    }
+    return findLeftmost(node.left as Record<string, unknown>);
+  };
+
+  return validateNode(root, 'root');
+}
+```

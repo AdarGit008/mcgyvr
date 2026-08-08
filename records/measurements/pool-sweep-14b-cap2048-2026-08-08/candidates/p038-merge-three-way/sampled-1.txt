@@ -1,0 +1,53 @@
+```ts
+/**
+ * Merges three string-to-string mappings into a single mapping.
+ * @param base - The original ancestor mapping.
+ * @param ours - One edited copy of the ancestor.
+ * @param theirs - Another edited copy of the ancestor.
+ * @returns An object with "merged" and "conflicts".
+ */
+export function mergeThreeWay(base: Record<string, string>, ours: Record<string, string>, theirs: Record<string, string>): { merged: Record<string, string>; conflicts: string[] } {
+    // Validate inputs
+    if (typeof base !== 'object' || typeof ours !== 'object' || typeof theirs !== 'object') {
+        throw new Error('All arguments must be objects.');
+    }
+    for (const key in base) {
+        if (typeof base[key] !== 'string' || typeof ours[key] !== 'string' || typeof theirs[key] !== 'string') {
+            throw new Error('All keys and values must be strings.');
+        }
+    }
+
+    const merged: Record<string, string> = {};
+    const conflicts: string[] = [];
+
+    // Get all unique keys from base, ours, and theirs
+    const allKeys = new Set([...Object.keys(base), ...Object.keys(ours), ...Object.keys(theirs)]);
+
+    for (const key of Array.from(allKeys).sort()) {
+        const baseValue = base[key];
+        const ourValue = ours[key];
+        const theirValue = theirs[key];
+
+        if (ourValue === theirValue) {
+            // If both sides agree, take the value
+            merged[key] = ourValue;
+        } else if (baseValue === ourValue && theirValue !== undefined) {
+            // If we didn't change it and they did, take their value
+            merged[key] = theirValue;
+        } else if (baseValue === theirValue && ourValue !== undefined) {
+            // If they didn't change it and we did, take our value
+            merged[key] = ourValue;
+        } else if (ourValue === undefined || theirValue === undefined) {
+            // If one side removed the key and the other changed it, conflict
+            conflicts.push(key);
+            merged[key] = baseValue ?? '';
+        } else {
+            // If both sides made different changes, conflict
+            conflicts.push(key);
+            merged[key] = baseValue ?? '';
+        }
+    }
+
+    return { merged, conflicts };
+}
+```

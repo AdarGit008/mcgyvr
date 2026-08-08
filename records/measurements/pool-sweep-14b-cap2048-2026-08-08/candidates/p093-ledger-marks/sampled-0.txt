@@ -1,0 +1,67 @@
+```ts
+/**
+ * Validates and processes ledger marks according to specified rules.
+ * @param marks - Array of ledger mark strings to process.
+ * @param aliases - Mapping of retired house codes to their replacements.
+ * @returns An array of [canonical, raws] pairs.
+ */
+export function linkLedgerMarks(marks: string[], aliases: Record<string, string>): [string, string[]][] {
+    const validateAndParseMark = (mark: string): { houseCode: string, serial: number, checkLetter: string } => {
+        const regex = /^([a-zA-Z]{2,3})[-/ ](\d+)([a-zA-Z])$/;
+        const match = mark.match(regex);
+        if (!match) {
+            throw new Error("Malformed mark");
+        }
+
+        const houseCode = match[1].toUpperCase();
+        const serial = parseInt(match[2], 10);
+        const checkLetter = match[3].toUpperCase();
+
+        if (serial < 1 || !/^[A-Z]$/.test(checkLetter)) {
+            throw new Error("Invalid mark");
+        }
+
+        const expectedCheckLetter = String.fromCharCode(((serial - 1) % 26) + 65);
+        if (checkLetter !== expectedCheckLetter) {
+            throw new Error("Wrong check letter");
+        }
+
+        return { houseCode, serial, checkLetter };
+    };
+
+    const resolveHouseCode = (houseCode: string): string => {
+        const alias = aliases[houseCode];
+        if (alias && alias !== houseCode) {
+            if (aliases[alias]) {
+                throw new Error("Alias table contains cycles");
+            }
+            return alias;
+        }
+        return houseCode;
+    };
+
+    const entries: Map<string, { canonical: string, raws: string[] }> = new Map();
+
+    for (const mark of marks) {
+        if (typeof mark !== "string") {
+            throw new Error("Non-string mark");
+        }
+
+        try {
+            const parsed = validateAndParseMark(mark);
+            const resolvedHouseCode = resolveHouseCode(parsed.houseCode);
+            const canonical = `${resolvedHouseCode}-${parsed.serial.toString().padStart(2, '0')}-${parsed.checkLetter}`;
+            const key = `${resolvedHouseCode}-${parsed.serial}-${parsed.checkLetter}`;
+
+            if (!entries.has(key)) {
+                entries.set(key, { canonical, raws: [] });
+            }
+            entries.get(key)!.raws.push(mark);
+        } catch (error) {
+            throw new Error(`Invalid mark: ${mark}`);
+        }
+    }
+
+    return Array.from(entries.values()).map(({ canonical, raws }) => [canonical, raws]);
+}
+```

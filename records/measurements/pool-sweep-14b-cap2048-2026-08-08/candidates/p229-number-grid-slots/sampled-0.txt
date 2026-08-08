@@ -1,0 +1,61 @@
+```ts
+/**
+ * Parses a grid of slots and numbers each slot that opens at least one across or down slot.
+ * @param rows - A non-empty list of rows, all of one non-empty length, with characters "." or "#".
+ * @returns An array of records for each numbered square, including its row, column, and slot lengths.
+ */
+export function numberGridSlots(rows: string[]): Array<Record<string, number>> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("Rows must be a non-empty list.");
+  }
+
+  const rowLength = rows[0].length;
+  if (rowLength === 0) {
+    throw new Error("Rows must contain non-empty strings.");
+  }
+
+  for (const row of rows) {
+    if (typeof row !== 'string' || row.length !== rowLength) {
+      throw new Error("All rows must be strings of the same non-zero length.");
+    }
+    for (const char of row) {
+      if (char !== '.' && char !== '#') {
+        throw new Error("Each character in the rows must be either '.' or '#'.");
+      }
+    }
+  }
+
+  const result: Array<Record<string, number>> = [];
+  let slotNumber = 1;
+
+  for (let row = 0; row < rows.length; row++) {
+    for (let col = 0; col < rowLength; col++) {
+      if (rows[row][col] === '.') {
+        const isAcrossStart = (col === 0 || rows[row][col - 1] === '#') && (col + 1 >= rowLength || rows[row][col + 1] === '.');
+        const isDownStart = (row === 0 || rows[row - 1][col] === '#') && (row + 1 >= rows.length || rows[row + 1][col] === '.');
+
+        let acrossLength = 0;
+        if (isAcrossStart) {
+          for (let c = col; c < rowLength && rows[row][c] === '.'; c++) {
+            acrossLength++;
+          }
+        }
+
+        let downLength = 0;
+        if (isDownStart) {
+          for (let r = row; r < rows.length && rows[r][col] === '.'; r++) {
+            downLength++;
+          }
+        }
+
+        if (acrossLength >= 2 || downLength >= 2) {
+          result.push({ at: slotNumber, row, col, across: acrossLength, down: downLength });
+          slotNumber++;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+```

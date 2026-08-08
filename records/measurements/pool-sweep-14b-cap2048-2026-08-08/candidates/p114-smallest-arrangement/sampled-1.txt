@@ -1,0 +1,48 @@
+```ts
+/**
+ * Produces the alphabetically least string that uses every letter exactly its counted number of times
+ * while never letting three identical letters stand consecutively.
+ * @param counts - A list of one to four integer counts, each between 0 and 12, at least one positive.
+ */
+export function smallestArrangement(counts: number[]): string {
+    if (counts.length !== 4) {
+        throw new Error("Input must be a list of exactly four counts.");
+    }
+
+    for (const count of counts) {
+        if (!Number.isInteger(count)) {
+            throw new Error("All counts must be integers.");
+        }
+        if (count < 0 || count > 12) {
+            throw new Error("Counts must be between 0 and 12.");
+        }
+    }
+
+    const total = counts.reduce((sum, count) => sum + count, 0);
+    if (total === 0) {
+        throw new Error("At least one count must be positive.");
+    }
+
+    const letters = "abcd";
+    const result: string[] = [];
+    let previousLetter = '';
+
+    while (result.length < total) {
+        for (let i = 0; i < counts.length; i++) {
+            if (counts[i] > 0 && letters[i] !== previousLetter) {
+                result.push(letters[i]);
+                counts[i]--;
+                previousLetter = letters[i];
+                break;
+            }
+        }
+
+        // If no letter was added, it means we're stuck in a loop
+        if (result.length === total - 1) {
+            throw new Error("No valid arrangement exists.");
+        }
+    }
+
+    return result.join('');
+}
+```

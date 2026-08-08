@@ -1,0 +1,87 @@
+```ts
+export function findSignalConflicts(cycle: number, approaches: object[], pairs: string[][]): string[] {
+  if (cycle < 2 || cycle > 3600 || !Number.isInteger(cycle)) {
+    throw new Error("Cycle must be a whole number between 2 and 3600.");
+  }
+  if (!Array.isArray(approaches) || approaches.length === 0) {
+    throw new Error("Approach list must be a non-empty array.");
+  }
+
+  const approachMap: Map<string, { offset: number; green: number; amber: number }> = new Map();
+
+  for (const approach of approaches) {
+    if (
+      typeof approach !== "object" ||
+      !approach ||
+      typeof (approach as any).name !== "string" ||
+      typeof (approach as any).offset !== "number" ||
+      typeof (approach as any).green !== "number" ||
+      typeof (approach as any).amber !== "number"
+    ) {
+      throw new Error("Each approach must be a record with name, offset, green, and amber.");
+    }
+
+    const { name, offset, green, amber } = approach as any;
+
+    if (!name || !name.trim()) {
+      throw new Error("Name must be non-empty text.");
+    }
+    if (offset < 0 || offset >= cycle) {
+      throw new Error("Offset must be between 0 and cycle - 1.");
+    }
+    if (green < 1) {
+      throw new Error("Green must be at least one second.");
+    }
+    if (amber < 0) {
+      throw new Error("Amber must be at least zero seconds.");
+    }
+    if (offset + green + amber > cycle) {
+      throw new Error("Green and amber together must not exceed the cycle length.");
+    }
+
+    if (approachMap.has(name)) {
+      throw new Error("Approach names must be unique.");
+    }
+
+    approachMap.set(name, { offset, green, amber });
+  }
+
+  for (const pair of pairs) {
+    if (!Array.isArray(pair) || pair.length !== 2) {
+      throw new Error("Each pair must name exactly two distinct approaches.");
+    }
+    const [first, second] = pair;
+    if (first === second || !approachMap.has(first) || !approachMap.has(second)) {
+      throw new Error("Pairs must name exactly two declared approaches and cannot be the same approach twice.");
+    }
+  }
+
+  const conflicts: string[] = [];
+
+  for (let second = 0; second < cycle; second++) {
+    let litApproaches: string[] = [];
+
+    for (const [name, { offset, green, amber }] of approachMap.entries()) {
+      if ((second - offset) % cycle >= 0 && (second - offset) % cycle < green + amber) {
+        litApproaches.push(name);
+      }
+    }
+
+    for (const pair of pairs) {
+      const [first, second] = pair;
+      if (litApproaches.includes(first) && litApproaches.includes(second)) {
+        conflicts.push(`${first}~${second}@${second}`);
+      }
+    }
+  }
+
+  return conflicts.sort((a, b) => {
+    const [, timeA] = a.split("@");
+    const [, timeB] = b.split("@");
+    if (timeA === timeB) {
+      return a.localeCompare(b);
+    }
+    return parseInt(timeA) - parseInt(timeB);
+  });
+}
+```

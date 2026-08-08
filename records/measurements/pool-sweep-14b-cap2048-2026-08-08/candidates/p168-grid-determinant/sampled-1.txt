@@ -1,0 +1,40 @@
+```ts
+export function gridDeterminant(grid: number[][]): number {
+  // Check if input is a list of lists
+  if (!Array.isArray(grid) || !grid.every(Array.isArray)) {
+    throw new Error("Input must be a list of lists");
+  }
+
+  const numRows = grid.length;
+
+  // Reject grids holding no rows or more than three rows
+  if (numRows === 0 || numRows > 3) {
+    throw new Error("Grid must have one, two, or three rows");
+  }
+
+  // Check each row's length and cell values
+  for (const row of grid) {
+    if (row.length !== numRows) {
+      throw new Error("Each row's length must match the number of rows");
+    }
+    if (!row.every(Number.isInteger)) {
+      throw new Error("All cells must be whole numbers");
+    }
+  }
+
+  // Calculate determinant based on the number of rows
+  switch (numRows) {
+    case 1:
+      return grid[0][0];
+    case 2:
+      return grid[0][0] * grid[1][1] - grid[0][1] * grid[1][0];
+    case 3:
+      const [a, b, c] = grid[0];
+      const [d, e, f] = grid[1];
+      const [g, h, i] = grid[2];
+      return a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+    default:
+      throw new Error("Invalid number of rows");
+  }
+}
+```

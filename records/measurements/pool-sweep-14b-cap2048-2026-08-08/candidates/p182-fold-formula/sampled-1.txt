@@ -1,0 +1,87 @@
+```ts
+export function foldFormula(recipe: string): string {
+  if (typeof recipe !== 'string') {
+    throw new Error('Invalid argument');
+  }
+  if (recipe === '') {
+    throw new Error('Empty argument');
+  }
+
+  const stack: { tags: Record<string, number>; repeats: number[] }[] = [
+    { tags: {}, repeats: [1] },
+  ];
+
+  let i = 0;
+  while (i < recipe.length) {
+    const char = recipe[i];
+
+    if (/[A-Z]/.test(char)) {
+      let tag = char;
+      for (let j = 1; j <= 2 && /[a-z]/.test(recipe[i + j]); j++) {
+        tag += recipe[i + j];
+        i++;
+      }
+
+      const currentTags = stack[stack.length - 1].tags;
+      currentTags[tag] = (currentTags[tag] || 0) + 1;
+    } else if (char === '(') {
+      stack.push({ tags: {}, repeats: [1] });
+    } else if (char === ')') {
+      const group = stack.pop();
+      if (!group) {
+        throw new Error('Closing parenthesis with no opener');
+      }
+
+      const repeatStr = '';
+      while (/[0-9]/.test(recipe[i + 1])) {
+        repeatStr += recipe[i + 1];
+        i++;
+      }
+      if (repeatStr === '') {
+        throw new Error('Repeat missing after parentheses');
+      }
+      const repeat = parseInt(repeatStr, 10);
+      if (repeat <= 0) {
+        throw new Error('Repeat that begins with the digit zero');
+      }
+
+      for (const [tag, count] of Object.entries(group.tags)) {
+        group.tags[tag] *= repeat;
+      }
+
+      const parentGroup = stack[stack.length - 1];
+      for (const [tag, count] of Object.entries(group.tags)) {
+        parentGroup.tags[tag] = (parentGroup.tags[tag] || 0) + count;
+      }
+    } else if (/[0-9]/.test(char)) {
+      let repeatStr = char;
+      while (/[0-9]/.test(recipe[i + 1])) {
+        repeatStr += recipe[i + 1];
+        i++;
+      }
+      const repeat = parseInt(repeatStr, 10);
+      if (repeat <= 0) {
+        throw new Error('Repeat that begins with the digit zero');
+      }
+
+      stack[stack.length - 1].repeats.push(repeat);
+    } else {
+      throw new Error('Invalid character in recipe');
+    }
+    i++;
+  }
+
+  if (stack.length !== 1) {
+    throw new Error('Parenthesis left open');
+  }
+
+  const finalTags = stack[0].tags;
+  const result: string[] = [];
+  for (const tag of Object.keys(finalTags).sort()) {
+    const count = finalTags[tag];
+    result.push(tag + (count > 1 ? count.toString() : ''));
+  }
+
+  return result.join('');
+}
+```

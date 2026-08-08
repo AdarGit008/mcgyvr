@@ -1,0 +1,61 @@
+```ts
+/**
+ * Rebuilds the true array from replica arrays by determining the strict majority value at each position.
+ * @param replicas - An array of replica arrays, each containing integers or null values.
+ * @returns The rebuilt array with integers at positions where a strict majority exists.
+ * @throws Error if any input condition is violated.
+ */
+export function repairReplicas(replicas: Array<Array<number | null>>): number[] {
+  if (replicas.length === 0) {
+    throw new Error("Replica list cannot be empty.");
+  }
+
+  const replicaLength = replicas[0].length;
+  for (const replica of replicas) {
+    if (replica.length !== replicaLength) {
+      throw new Error("All replicas must have the same length.");
+    }
+  }
+
+  const result: number[] = [];
+  for (let i = 0; i < replicaLength; i++) {
+    const values: Map<number, number> = new Map();
+    let validCount = 0;
+
+    for (const replica of replicas) {
+      const value = replica[i];
+      if (value !== null) {
+        if (typeof value !== "number") {
+          throw new Error("Replicas must contain only integers or null.");
+        }
+        values.set(value, (values.get(value) || 0) + 1);
+        validCount++;
+      }
+    }
+
+    if (validCount === 0) {
+      throw new Error("Every position must have at least one non-null value.");
+    }
+
+    const majorityThreshold = Math.floor(validCount / 2);
+    let majorityValue: number | null = null;
+
+    for (const [value, count] of values.entries()) {
+      if (count > majorityThreshold) {
+        if (majorityValue !== null) {
+          throw new Error("No value reaches a strict majority at some position.");
+        }
+        majorityValue = value;
+      }
+    }
+
+    if (majorityValue === null) {
+      throw new Error("No value reaches a strict majority at some position.");
+    }
+
+    result.push(majorityValue);
+  }
+
+  return result;
+}
+```

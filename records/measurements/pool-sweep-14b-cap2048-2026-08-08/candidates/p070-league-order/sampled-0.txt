@@ -1,0 +1,81 @@
+```ts
+/**
+ * Calculates the final standings of a league season based on match results.
+ * @param matches - An array of 4-item lists representing each match:
+ *                  [home team, away team, home goals, away goals].
+ * @returns An array of team names sorted by their standing in the league.
+ */
+export function leagueOrder(matches: (string | number)[][]): string[] {
+    if (!Array.isArray(matches)) {
+        throw new Error("Invalid input: matches must be an array.");
+    }
+
+    const teams = new Set<string>();
+    const results: { [key: string]: { points: number, goalDifference: number, goalsFor: number } } = {};
+
+    for (const match of matches) {
+        if (!Array.isArray(match) || match.length !== 4) {
+            throw new Error("Invalid input: each match entry must be a 4-item list.");
+        }
+
+        const [homeTeam, awayTeam, homeGoals, awayGoals] = match;
+
+        if (typeof homeTeam !== 'string' || typeof awayTeam !== 'string') {
+            throw new Error("Invalid input: team names must be strings.");
+        }
+        if (typeof homeGoals !== 'number' || typeof awayGoals !== 'number') {
+            throw new Error("Invalid input: goal figures must be numbers.");
+        }
+        if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals)) {
+            throw new Error("Invalid input: goal figures must be integers.");
+        }
+        if (homeGoals < 0 || awayGoals < 0) {
+            throw new Error("Invalid input: goal figures must be non-negative.");
+        }
+        if (homeTeam === awayTeam) {
+            throw new Error("Invalid input: a team cannot play against itself.");
+        }
+
+        teams.add(homeTeam);
+        teams.add(awayTeam);
+
+        const updateScores = (team: string, points: number, goalsFor: number, goalsAgainst: number) => {
+            if (!results[team]) {
+                results[team] = { points: 0, goalDifference: 0, goalsFor: 0 };
+            }
+            results[team].points += points;
+            results[team].goalDifference += goalsFor - goalsAgainst;
+            results[team].goalsFor += goalsFor;
+        };
+
+        if (homeGoals > awayGoals) {
+            updateScores(homeTeam, 3, homeGoals, awayGoals);
+            updateScores(awayTeam, 0, awayGoals, homeGoals);
+        } else if (homeGoals < awayGoals) {
+            updateScores(awayTeam, 3, awayGoals, homeGoals);
+            updateScores(homeTeam, 0, homeGoals, awayGoals);
+        } else {
+            updateScores(homeTeam, 1, homeGoals, awayGoals);
+            updateScores(awayTeam, 1, awayGoals, homeGoals);
+        }
+    }
+
+    const teamList = Array.from(teams);
+
+    teamList.sort((a, b) => {
+        if (results[b].points !== results[a].points) {
+            return results[b].points - results[a].points;
+        }
+        // Group recount logic would go here if needed
+        if (results[b].goalDifference !== results[a].goalDifference) {
+            return results[b].goalDifference - results[a].goalDifference;
+        }
+        if (results[b].goalsFor !== results[a].goalsFor) {
+            return results[b].goalsFor - results[a].goalsFor;
+        }
+        return a.localeCompare(b);
+    });
+
+    return teamList;
+}
+```

@@ -1,0 +1,40 @@
+```ts
+export function shingleOverlapRatio(left: string, right: string, width: number): number[] {
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error("Width must be a positive whole number.");
+  }
+  if (typeof left !== 'string' || typeof right !== 'string') {
+    throw new Error("Both passages must be strings.");
+  }
+
+  const tokensLeft = left.split(/\s+/).filter(token => token.length > 0);
+  const tokensRight = right.split(/\s+/).filter(token => token.length > 0);
+
+  if (tokensLeft.length < width || tokensRight.length < width) {
+    throw new Error("A passage must contain at least as many tokens as the window width.");
+  }
+
+  const getShingles = (tokens: string[], width: number): Set<string> => {
+    const shingles = new Set<string>();
+    for (let i = 0; i <= tokens.length - width; i++) {
+      shingles.add(tokens.slice(i, i + width).join(' '));
+    }
+    return shingles;
+  };
+
+  const shinglesLeft = getShingles(tokensLeft, width);
+  const shinglesRight = getShingles(tokensRight, width);
+
+  const intersectionSize = [...shinglesLeft].filter(shingle => shinglesRight.has(shingle)).length;
+  const unionSize = shinglesLeft.size + shinglesRight.size - intersectionSize;
+
+  if (unionSize === 0) {
+    return [0, 1];
+  }
+
+  const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
+  const greatestCommonDivisor = gcd(intersectionSize, unionSize);
+
+  return [intersectionSize / greatestCommonDivisor, unionSize / greatestCommonDivisor];
+}
+```

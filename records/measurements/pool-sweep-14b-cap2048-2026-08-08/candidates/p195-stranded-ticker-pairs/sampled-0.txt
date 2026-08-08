@@ -1,0 +1,85 @@
+```ts
+/**
+ * Finds all ordered pairs of distinct tickers with no route between them.
+ * @param legs - An array of legs, where each leg is a two-element list naming the ticker it sells out of and the ticker it buys into.
+ * @returns A sorted array of strings representing ticker pairs that cannot reach each other.
+ */
+export function strandedTickerPairs(legs: unknown[][]): string[] {
+  if (!Array.isArray(legs) || legs.length === 0) {
+    throw new Error("No legs are published.");
+  }
+
+  const tickers = new Set<string>();
+  const graph: Record<string, string[]> = {};
+
+  for (const leg of legs) {
+    if (!Array.isArray(leg) || leg.length !== 2) {
+      throw new Error("A leg is not exactly two elements.");
+    }
+
+    const [sell, buy] = leg;
+
+    if (typeof sell !== "string" || typeof buy !== "string") {
+      throw new Error("A ticker is not a non-empty string.");
+    }
+
+    if (sell === "" || buy === "") {
+      throw new Error("A ticker is not a non-empty string.");
+    }
+
+    if (sell === buy) {
+      throw new Error("A leg sells and buys the same ticker.");
+    }
+
+    tickers.add(sell);
+    tickers.add(buy);
+
+    if (!graph[sell]) {
+      graph[sell] = [];
+    }
+
+    if (!graph[buy]) {
+      graph[buy] = [];
+    }
+
+    if (graph[sell].includes(buy)) {
+      throw new Error("The identical leg is published twice.");
+    }
+
+    graph[sell].push(buy);
+  }
+
+  const allTickers = Array.from(tickers).sort();
+
+  const canReach: Record<string, Set<string>> = {};
+
+  function dfs(start: string, current: string): void {
+    if (!canReach[start]) {
+      canReach[start] = new Set([start]);
+    }
+
+    for (const neighbor of graph[current]) {
+      if (!canReach[start].has(neighbor)) {
+        canReach[start].add(neighbor);
+        dfs(start, neighbor);
+      }
+    }
+  }
+
+  for (const ticker of allTickers) {
+    dfs(ticker, ticker);
+  }
+
+  const strandedPairs: string[] = [];
+
+  for (let i = 0; i < allTickers.length; i++) {
+    for (let j = i + 1; j < allTickers.length; j++) {
+      if (!canReach[allTickers[i]].has(allTickers[j])) {
+        strandedPairs.push(`${allTickers[i]}>${allTickers[j]}`);
+      }
+    }
+  }
+
+  return strandedPairs;
+}
+```

@@ -1,0 +1,33 @@
+```ts
+/**
+ * Renders a byte count into a human-readable compound string using binary prefixes.
+ * @param total - The number of bytes to render.
+ * @returns A string representing the size with binary prefixes (KiB, MiB, GiB) and no padding.
+ * @throws Error if the input is negative or not an integer.
+ */
+export function renderDataSize(total: number): string {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error("Invalid byte count");
+  }
+
+  const ladder: [string, number][] = [
+    ["GiB", 1 << 30],
+    ["MiB", 1 << 20],
+    ["KiB", 1 << 10],
+    ["B", 1],
+  ];
+
+  const parts: string[] = [];
+  let rest = total;
+
+  for (const [suffix, size] of ladder) {
+    if (rest >= size) {
+      const count = Math.floor(rest / size);
+      parts.push(`${count}${suffix}`);
+      rest -= count * size;
+    }
+  }
+
+  return parts.join(" ") || "0B";
+}
+```

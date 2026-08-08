@@ -1,0 +1,35 @@
+```ts
+export function postingLists(documents: string[]): Record<string, number[]> {
+  if (!Array.isArray(documents)) {
+    throw new Error("Input must be an array of strings");
+  }
+
+  const index: Record<string, number[]> = {};
+
+  documents.forEach((doc, docIndex) => {
+    if (typeof doc !== "string") {
+      throw new Error("All documents must be strings");
+    }
+
+    // Match terms: maximal runs of ASCII letters and digits
+    const terms = doc.match(/\b[a-zA-Z0-9]+\b/g);
+    if (!terms) return;
+
+    terms.forEach((term) => {
+      const lowerTerm = term.toLowerCase();
+      // Ignore terms made only of digits or a single character
+      if (/^\d+$/.test(lowerTerm) || lowerTerm.length === 1) return;
+
+      if (!index[lowerTerm]) {
+        index[lowerTerm] = [];
+      }
+
+      if (!index[lowerTerm].includes(docIndex)) {
+        index[lowerTerm].push(docIndex);
+      }
+    });
+  });
+
+  return index;
+}
+```

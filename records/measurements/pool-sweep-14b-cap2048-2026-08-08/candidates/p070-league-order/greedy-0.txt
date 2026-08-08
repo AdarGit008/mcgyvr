@@ -1,0 +1,83 @@
+```ts
+export function leagueOrder(matches: (string | number)[][]): string[] {
+  // Validate matches
+  for (const match of matches) {
+    if (!Array.isArray(match) || match.length !== 4) {
+      throw new Error("Invalid match format");
+    }
+    const [homeTeam, awayTeam, homeGoals, awayGoals] = match;
+    if (typeof homeTeam !== "string" || typeof awayTeam !== "string") {
+      throw new Error("Team names must be strings");
+    }
+    if (homeTeam === awayTeam) {
+      throw new Error("A team cannot play against itself");
+    }
+    if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals) || homeGoals < 0 || awayGoals < 0) {
+      throw new Error("Goal figures must be non-negative integers");
+    }
+  }
+
+  // Initialize standings
+  const standings: { [key: string]: { points: number; goalDifference: number; goalsScored: number } } = {};
+
+  // Calculate initial standings
+  for (const match of matches) {
+    const [homeTeam, awayTeam, homeGoals, awayGoals] = match;
+    standings[homeTeam] = standings[homeTeam] || { points: 0, goalDifference: 0, goalsScored: 0 };
+    standings[awayTeam] = standings[awayTeam] || { points: 0, goalDifference: 0, goalsScored: 0 };
+
+    if (homeGoals > awayGoals) {
+      standings[homeTeam].points += 3;
+    } else if (homeGoals < awayGoals) {
+      standings[awayTeam].points += 3;
+    } else {
+      standings[homeTeam].points += 1;
+      standings[awayTeam].points += 1;
+    }
+
+    standings[homeTeam].goalDifference += homeGoals - awayGoals;
+    standings[awayTeam].goalDifference -= homeGoals - awayGoals;
+    standings[homeTeam].goalsScored += homeGoals;
+    standings[awayTeam].goalsScored += awayGoals;
+  }
+
+  // Sort teams
+  const sortedTeams = Object.keys(standings).sort((a, b) => {
+    if (standings[b].points !== standings[a].points) {
+      return standings[b].points - standings[a].points;
+    }
+    const headToHeadMatches = matches.filter(
+      ([homeTeam, awayTeam]) => (homeTeam === a && awayTeam === b) || (homeTeam === b && awayTeam === a)
+    );
+    let headToHeadPointsA = 0;
+    let headToHeadPointsB = 0;
+    for (const match of headToHeadMatches) {
+      const [homeTeam, awayTeam, homeGoals, awayGoals] = match;
+      if (homeTeam === a && homeGoals > awayGoals) {
+        headToHeadPointsA += 3;
+      } else if (homeTeam === b && homeGoals < awayGoals) {
+        headToHeadPointsB += 3;
+      } else if (awayTeam === a && awayGoals > homeGoals) {
+        headToHeadPointsA += 3;
+      } else if (awayTeam === b && awayGoals < homeGoals) {
+        headToHeadPointsB += 3;
+      } else {
+        headToHeadPointsA += 1;
+        headToHeadPointsB += 1;
+      }
+    }
+    if (headToHeadPointsB !== headToHeadPointsA) {
+      return headToHeadPointsB - headToHeadPointsA;
+    }
+    if (standings[b].goalDifference !== standings[a].goalDifference) {
+      return standings[b].goalDifference - standings[a].goalDifference;
+    }
+    if (standings[b].goalsScored !== standings[a].goalsScored) {
+      return standings[b].goalsScored - standings[a].goalsScored;
+    }
+    return a.localeCompare(b);
+  });
+
+  return sortedTeams;
+}
+```

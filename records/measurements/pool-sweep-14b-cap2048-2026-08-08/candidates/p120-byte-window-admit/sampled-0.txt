@@ -1,0 +1,41 @@
+```ts
+export function admitBytes(perKey: number, total: number, span: number, entries: (string | number)[][]): string[] {
+  if (!Number.isInteger(perKey) || perKey <= 0) throw Error("perKey must be a positive integer");
+  if (!Number.isInteger(total) || total <= 0) throw Error("total must be a positive integer");
+  if (!Number.isInteger(span) || span <= 0) throw Error("span must be a positive integer");
+
+  const result: string[] = [];
+  let currentTotal = 0;
+  const keyTotals: { [key: string]: number } = {};
+  const carriedEntries: { time: number, key: string, size: number }[] = [];
+
+  for (const entry of entries) {
+    if (entry.length !== 3) throw Error("Each entry must have exactly three elements");
+    const [time, key, size] = entry;
+
+    if (!Number.isInteger(time) || time < 0) throw Error("Time must be a non-negative integer");
+    if (typeof key !== "string" || key === "") throw Error("Key must be a non-empty string");
+    if (!Number.isInteger(size) || size <= 0) throw Error("Size must be a positive integer");
+
+    // Remove expired entries
+    const now = time;
+    while (carriedEntries.length > 0 && carriedEntries[0].time + span <= now) {
+      const expiredEntry = carriedEntries.shift()!;
+      currentTotal -= expiredEntry.size;
+      keyTotals[expiredEntry.key] -= expiredEntry.size;
+    }
+
+    // Check if the entry can be carried
+    if (currentTotal + size <= total && (keyTotals[key] || 0) + size <= perKey) {
+      result.push("pass");
+      currentTotal += size;
+      keyTotals[key] = (keyTotals[key] || 0) + size;
+      carriedEntries.push({ time: now, key, size });
+    } else {
+      result.push("drop");
+    }
+  }
+
+  return result;
+}
+```

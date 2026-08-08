@@ -1,0 +1,39 @@
+```ts
+export function pickImpactedTests(coverage: Record<string, string[]>, edited: string[]): string[] {
+  // Validate arguments
+  if (typeof coverage !== 'object' || Array.isArray(coverage) || coverage === null) {
+    throw new Error('Invalid coverage table');
+  }
+  if (!Array.isArray(edited)) {
+    throw new Error('Invalid edited paths list');
+  }
+
+  // Validate edited paths
+  for (const path of edited) {
+    if (typeof path !== 'string') {
+      throw new Error('Edited path must be a string');
+    }
+  }
+
+  const impactedTests = new Set<string>();
+
+  for (const [testName, paths] of Object.entries(coverage)) {
+    if (testName === '') {
+      throw new Error('Test name cannot be an empty string');
+    }
+    if (!Array.isArray(paths)) {
+      throw new Error('Coverage entry must be a list of strings');
+    }
+    const uniquePaths = new Set(paths);
+    if (uniquePaths.size !== paths.length) {
+      throw new Error('Coverage list contains duplicate paths');
+    }
+
+    if (paths.includes('*') || edited.some(path => uniquePaths.has(path))) {
+      impactedTests.add(testName);
+    }
+  }
+
+  return Array.from(impactedTests).sort();
+}
+```

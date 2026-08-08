@@ -1,0 +1,61 @@
+```typescript
+export function judgeLancer(board: string[], side: string, from: number[], to: number[]): string {
+  if (board.length !== 7 || board.some(row => row.length !== 7)) {
+    throw new Error("Invalid board size");
+  }
+  if (!["W", "B"].includes(side)) {
+    throw new Error("Invalid side");
+  }
+  if (!Array.isArray(from) || from.length !== 2 || !from.every(Number.isInteger)) {
+    throw new Error("Invalid from square");
+  }
+  if (!Array.isArray(to) || to.length !== 2 || !to.every(Number.isInteger)) {
+    throw new Error("Invalid to square");
+  }
+
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+
+  if (fromRow < 0 || fromRow >= 7 || fromCol < 0 || fromCol >= 7) {
+    return "off_board";
+  }
+  if (toRow < 0 || toRow >= 7 || toCol < 0 || toCol >= 7) {
+    return "off_board";
+  }
+
+  const piece = board[fromRow][fromCol];
+  if (piece !== side) {
+    return "no_piece";
+  }
+
+  const rowDiff = Math.abs(toRow - fromRow);
+  const colDiff = Math.abs(toCol - fromCol);
+
+  if ((rowDiff === 0 || colDiff === 0) && (rowDiff > 3 || colDiff > 3)) {
+    return "bad_line";
+  }
+
+  if (rowDiff !== 0 && colDiff !== 0) {
+    return "bad_line";
+  }
+
+  const stepRow = rowDiff > 0 ? Math.sign(toRow - fromRow) : 0;
+  const stepCol = colDiff > 0 ? Math.sign(toCol - fromCol) : 0;
+
+  for (let i = 1; i < rowDiff || i < colDiff; i++) {
+    if (board[fromRow + i * stepRow][fromCol + i * stepCol] !== ".") {
+      return "blocked";
+    }
+  }
+
+  const toPiece = board[toRow][toCol];
+  if (toPiece === side) {
+    return "own_piece";
+  }
+  if (toPiece === "." || Math.abs(rowDiff) === 1 || Math.abs(colDiff) === 1) {
+    return "ok";
+  }
+
+  return "too_close";
+}
+```

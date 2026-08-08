@@ -1,0 +1,47 @@
+```ts
+export function variedLabelWalk(edges: string[][], start: string, goal: string): number {
+  const nodes = new Set<string>();
+  for (const edge of edges) {
+    if (
+      !Array.isArray(edge) ||
+      edge.length !== 3 ||
+      edge.some((part) => typeof part !== "string" || part === "")
+    ) {
+      throw new Error("each edge must be a [from, to, label] triple of non-empty strings");
+    }
+    nodes.add(edge[0]);
+    nodes.add(edge[1]);
+  }
+  if (!nodes.has(start)) {
+    throw new Error("start appears in no edge");
+  }
+  if (!nodes.has(goal)) {
+    throw new Error("goal appears in no edge");
+  }
+  if (start === goal) {
+    return 0;
+  }
+
+  const queue: [string, string, number][] = [[start, "", 0]];
+  const visited = new Set<string>();
+
+  while (queue.length > 0) {
+    const [node, lastLabel, steps] = queue.shift()!;
+    for (const [from, to, label] of edges) {
+      if (from !== node || label === lastLabel) {
+        continue;
+      }
+      const key = `${to}-${label}`;
+      if (to === goal) {
+        return steps + 1;
+      }
+      if (!visited.has(key)) {
+        visited.add(key);
+        queue.push([to, label, steps + 1]);
+      }
+    }
+  }
+
+  return -1;
+}
+```

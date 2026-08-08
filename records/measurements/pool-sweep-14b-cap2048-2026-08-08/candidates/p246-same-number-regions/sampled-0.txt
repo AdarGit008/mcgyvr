@@ -1,0 +1,56 @@
+```ts
+/**
+ * Labels regions in a grid based on connected components of equal values.
+ * @param grid - A non-empty list of rows, each row a non-empty list of whole numbers.
+ */
+export function labelValueRegions(grid: number[][]): any {
+  if (!Array.isArray(grid) || grid.length === 0) {
+    throw new Error("Grid must be a non-empty array of arrays.");
+  }
+
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+
+  for (let row of grid) {
+    if (!Array.isArray(row) || row.length !== numCols) {
+      throw new Error("Each row must be a non-empty array with the same length as the first row.");
+    }
+    for (let value of row) {
+      if (!Number.isInteger(value)) {
+        throw new Error("All squares must contain whole numbers.");
+      }
+    }
+  }
+
+  const map: number[][] = grid.map(row => row.map(() => 0));
+  const sizes: number[] = [];
+  const values: number[] = [];
+  let regionLabel = 1;
+
+  for (let r = 0; r < numRows; r++) {
+    for (let c = 0; c < numCols; c++) {
+      if (map[r][c] === 0) {
+        const value = grid[r][c];
+        sizes.push(0);
+        values.push(value);
+        dfs(r, c, regionLabel);
+        regionLabel++;
+      }
+    }
+  }
+
+  function dfs(row: number, col: number, label: number): void {
+    if (row < 0 || row >= numRows || col < 0 || col >= numCols || map[row][col] !== 0 || grid[row][col] !== values[label - 1]) {
+      return;
+    }
+    map[row][col] = label;
+    sizes[label - 1]++;
+    dfs(row - 1, col, label);
+    dfs(row + 1, col, label);
+    dfs(row, col - 1, label);
+    dfs(row, col + 1, label);
+  }
+
+  return { map, sizes, values };
+}
+```
