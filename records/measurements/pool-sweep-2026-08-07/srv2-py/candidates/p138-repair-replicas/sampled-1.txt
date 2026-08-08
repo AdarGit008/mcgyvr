@@ -1,0 +1,30 @@
+```python
+from typing import List
+
+def repair_replicas(replicas: List[List[int]]) -> List[int]:
+    if not replicas:
+        raise ValueError("Replica list is empty")
+    
+    length = len(replicas[0])
+    for replica in replicas:
+        if len(replica) != length:
+            raise ValueError("Replica arrays differ in length")
+    
+    rebuilt_array = []
+    for i in range(length):
+        counts = {}
+        for replica in replicas:
+            value = replica[i]
+            if value is not None:
+                counts[value] = counts.get(value, 0) + 1
+        
+        majority_count = len(replicas) // 2 + 1
+        for value, count in counts.items():
+            if count >= majority_count:
+                rebuilt_array.append(value)
+                break
+        else:
+            raise ValueError("No value reaches a strict majority of the surviving slots at position")
+    
+    return rebuilt_array
+```

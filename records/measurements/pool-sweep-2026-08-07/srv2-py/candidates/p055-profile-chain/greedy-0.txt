@@ -1,0 +1,31 @@
+```python
+def resolve_profile(profiles: dict, wanted: str) -> dict:
+    if wanted not in profiles:
+        raise ValueError(f"Profile '{wanted}' not found")
+
+    visited = set()
+    current = wanted
+
+    while True:
+        if current in visited:
+            raise ValueError(f"Inheritance cycle detected for profile '{current}'")
+        visited.add(current)
+
+        settings = profiles[current].copy()
+        extends = settings.pop('extends', None)
+        if extends is None:
+            break
+        if extends not in profiles:
+            raise ValueError(f"Profile '{extends}' referenced by '{current}' not found")
+
+        current = extends
+
+    while current:
+        settings.update(profiles[current])
+        extends = profiles[current].get('extends')
+        if extends is None:
+            break
+        current = extends
+
+    return settings
+```

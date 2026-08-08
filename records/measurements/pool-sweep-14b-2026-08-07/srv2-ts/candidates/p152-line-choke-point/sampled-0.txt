@@ -1,0 +1,35 @@
+```ts
+export function lineChokePoint(stations: Array<[string, number, number]>): { station: string; output: number } {
+  if (stations.length === 0) {
+    throw new Error("Station list cannot be empty.");
+  }
+
+  const seenNames = new Set<string>();
+  let chokePointStation = "";
+  let minOutput = Infinity;
+
+  for (const [name, machines, rate] of stations) {
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error("Station name must be a non-empty string.");
+    }
+    if (!Number.isInteger(machines) || machines <= 0) {
+      throw new Error("Machine count must be a positive integer.");
+    }
+    if (!Number.isInteger(rate) || rate <= 0) {
+      throw new Error("Rate per machine must be a positive integer.");
+    }
+    if (seenNames.has(name)) {
+      throw new Error("Station name cannot appear twice.");
+    }
+    seenNames.add(name);
+
+    const capacity = machines * rate;
+    if (capacity < minOutput) {
+      minOutput = capacity;
+      chokePointStation = name;
+    }
+  }
+
+  return { station: chokePointStation, output: minOutput };
+}
+```

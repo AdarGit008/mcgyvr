@@ -1,0 +1,24 @@
+```python
+def first_deadline_miss(jobs: list[dict]) -> str:
+    if not all(isinstance(job, dict) for job in jobs):
+        raise ValueError("All items in the jobs list must be dictionaries.")
+    
+    required_keys = {"name", "work", "due"}
+    if any(not (required_keys.issubset(job.keys()) and
+                isinstance(job["name"], str) and len(job["name"]) > 0 and
+                isinstance(job["work"], int) and job["work"] > 0 and
+                isinstance(job["due"], int) and job["due"] > 0)
+            for job in jobs):
+        raise ValueError("Invalid job format: name must be a non-empty string, work and due must be positive integers.")
+    
+    if len(jobs) != len(set(job["name"] for job in jobs)):
+        raise ValueError("All job names must be unique.")
+    
+    jobs.sort(key=lambda x: (x["due"], jobs.index(x)))
+    total_time = 0
+    for job in jobs:
+        total_time += job["work"]
+        if total_time > job["due"]:
+            return job["name"]
+    return ""
+```

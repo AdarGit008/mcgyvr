@@ -1,0 +1,53 @@
+```ts
+export function orderRelation(pairs: [string, string][], x: string, y: string): string {
+  if (x === y) {
+    throw new Error("Query items must be distinct.");
+  }
+
+  const graph: { [key: string]: Set<string> } = {};
+  for (const [a, b] of pairs) {
+    if (!graph[a]) {
+      graph[a] = new Set();
+    }
+    graph[a].add(b);
+  }
+
+  if (!graph[x] && !graph[y]) {
+    throw new Error("Query items must appear in at least one pair.");
+  }
+
+  const dfs = (node: string, visited: Set<string>, stack: Set<string>): void => {
+    visited.add(node);
+    stack.add(node);
+    for (const neighbor of graph[node] || []) {
+      if (!visited.has(neighbor)) {
+        dfs(neighbor, visited, stack);
+      } else if (stack.has(neighbor)) {
+        throw new Error("Cycle detected in the precedence pairs.");
+      }
+    }
+    stack.delete(node);
+  };
+
+  const visit = (node: string): void => {
+    graph[node]?.forEach((neighbor) => visit(neighbor));
+  };
+
+  try {
+    dfs(x, new Set(), new Set());
+    visit(y);
+  } catch (error) {
+    return "both";
+  }
+
+  if (graph[x]?.has(y)) {
+    return "before";
+  }
+
+  if (graph[y]?.has(x)) {
+    return "after";
+  }
+
+  return "unordered";
+}
+```

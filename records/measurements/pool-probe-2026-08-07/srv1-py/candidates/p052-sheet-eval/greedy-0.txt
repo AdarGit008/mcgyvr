@@ -1,0 +1,38 @@
+```python
+def compute_sheet(cells: dict[str, str]) -> dict[str, int]:
+    def parse_literal(s: str) -> int:
+        if s.startswith('-'):
+            return -int(s[1:])
+        else:
+            return int(s)
+
+    def parse_term(term: str) -> int:
+        if term.isdigit():
+            return parse_literal(term)
+        elif term.isalpha() and term in cells:
+            return compute_sheet_helper(term, seen)
+        else:
+            raise ValueError(f"Malformed literal or term: {term}")
+
+    def parse_formula(formula: str) -> int:
+        terms = formula.split('+')
+        return sum(parse_term(term.strip()) for term in terms)
+
+    def compute_sheet_helper(cell_name: str, seen: set[str]) -> int:
+        if cell_name in seen:
+            raise ValueError(f"Reference cycle detected involving {cell_name}")
+        seen.add(cell_name)
+        try:
+            formula = cells[cell_name]
+            if not formula.startswith('='):
+                return parse_literal(formula)
+            else:
+                return parse_formula(formula[1:].strip())
+        finally:
+            seen.remove(cell_name)
+
+    result: dict[str, int] = {}
+    for cell in cells:
+        result[cell] = compute_sheet_helper(cell, set())
+    return result
+```

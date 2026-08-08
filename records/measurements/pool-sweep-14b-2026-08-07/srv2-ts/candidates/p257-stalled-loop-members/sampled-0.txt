@@ -1,0 +1,42 @@
+```ts
+/**
+ * Finds jobs caught in a closed loop of waiting in a batch scheduler's stall table.
+ * @param waits - A record where each key is a stalled job and each value is the one job it is waiting to finish.
+ * @returns An array of job names that are part of a loop, sorted in ascending order. If no loops exist, returns an empty list.
+ */
+export function stalledLoopMembers(waits: Record<string, string>): string[] {
+  if (typeof waits !== 'object' || waits === null) {
+    throw new Error('Invalid input: argument must be a record');
+  }
+
+  const jobs = Object.keys(waits);
+  const loops: string[][] = [];
+
+  for (const start of jobs) {
+    if (waits[start] === '' || typeof waits[start] !== 'string') {
+      throw new Error(`Invalid input: job "${start}" waits on an invalid value`);
+    }
+    if (waits[start] === start) {
+      throw new Error(`Invalid input: job "${start}" cannot wait on itself`);
+    }
+
+    const seen: string[] = [];
+    let current = start;
+    while (waits[current] !== undefined && !seen.includes(current)) {
+      seen.push(current);
+      current = waits[current];
+    }
+    if (seen.includes(current)) {
+      const loopIndex = seen.indexOf(current);
+      loops.push(seen.slice(loopIndex));
+    }
+  }
+
+  if (loops.length === 0) {
+    return [];
+  }
+
+  const smallestLoop = loops.reduce((a, b) => a[0] < b[0] ? a : b);
+  return smallestLoop.sort();
+}
+```

@@ -1,0 +1,92 @@
+```ts
+export function lockCycleVictim(holds: string[][], blocked: string[][]): { victim: string; cycle: string[] } {
+  // Validate input
+  if (!Array.isArray(holds) || !Array.isArray(blocked)) {
+    throw new Error("Invalid input: holds and blocked must be arrays");
+  }
+
+  const validatePair = (pair: any, name: string) => {
+    if (!Array.isArray(pair) || pair.length !== 2) {
+      throw new Error(`Invalid ${name}: each entry must be a two-element array`);
+    }
+    const [resource, worker] = pair;
+    if (typeof resource !== "string" || typeof worker !== "string" || resource === "" || worker === "") {
+      throw new Error(`Invalid ${name}: both elements must be non-empty strings`);
+    }
+  };
+
+  holds.forEach(pair => validatePair(pair, "holds entry"));
+  blocked.forEach(pair => validatePair(pair, "blocked entry"));
+
+  // Build adjacency list for the graph
+  const adjList: Record<string, string[]> = {};
+  const resourceHolders: Record<string, Set<string>> = {};
+
+  holds.forEach(([resource, worker]) => {
+    if (!resourceHolders[resource]) {
+      resourceHolders[resource] = new Set();
+    }
+    if (resourceHolders[resource].has(worker)) {
+      throw new Error("Invalid input: a resource cannot be granted to two workers");
+    }
+    resourceHolders[resource].add(worker);
+  });
+
+  blocked.forEach(([worker, resource]) => {
+    if (!adjList[worker]) {
+      adjList[worker] = [];
+    }
+    if (adjList[worker].includes(resource)) {
+      throw new Error("Invalid input: a worker cannot be blocked on two resources at once");
+    }
+    if (resourceHolders[resource]?.has(worker)) {
+      throw new Error("Invalid input: a worker cannot block on a resource it already holds");
+    }
+    adjList[worker].push(resource);
+  });
+
+  // Find cycles in the graph
+  const findCycles = (worker: string, path: string[], visited: Set<string>): string[] => {
+    if (visited.has(worker)) {
+      return path.slice(path.indexOf(worker));
+    }
+    visited.add(worker);
+    for (const resource of adjList[worker] || []) {
+      const nextWorker = Array.from(resourceHolders[resource] || []).find(w => w !== worker);
+      if (nextWorker) {
+        const cycle = findCycles(nextWorker, [...path, worker], visited);
+        if (cycle.length > 0) {
+          return cycle;
+        }
+      }
+    }
+    return [];
+  };
+
+  let cycles: string[][] = [];
+  for (const worker in adjList) {
+    const cycle = findCycles(worker, [], new Set());
+    if (cycle.length > 0) {
+      cycles.push(cycle);
+    }
+  }
+
+  // Select the victim from the smallest cycle
+  let victimCycle: string[] | null = null;
+  for (const cycle of cycles) {
+    if (!victimCycle || cycle.length < victimCycle.length || 
+        (cycle.length === victimCycle.length && cycle[0] < victimCycle[0])) {
+      victimCycle = cycle;
+    }
+  }
+
+  // Determine the victim worker
+  let victim: string = "";
+  if (victimCycle) {
+    const lockCounts: Record<string, number> = {};
+    holds.forEach(([resource, worker]) => {
+      lockCounts[worker] = (lockCounts[worker] || 0) + 1;
+    });
+
+    victim = victimCycle.reduce((a, b) => {
+      if

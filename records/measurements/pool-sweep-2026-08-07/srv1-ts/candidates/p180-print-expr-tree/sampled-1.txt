@@ -1,0 +1,26 @@
+```typescript
+export function printExprTree(node: unknown): string {
+    if (typeof node === 'number') {
+        if (!Number.isInteger(node) || node < 0) throw new Error('Invalid literal');
+        return node.toString();
+    }
+    if (typeof node === 'string' && /^[a-zA-Z]+$/.test(node)) return node;
+    if (typeof node !== 'object' || node === null) throw new Error('Invalid node type');
+
+    const { op, left, right } = node as { op: string; left: unknown; right: unknown };
+    if (!['+', '-', '*', '/'].includes(op)) throw new Error('Invalid operator');
+    if (left === undefined || right === undefined) throw new Error('Missing children');
+
+    const leftStr = printExprTree(left);
+    const rightStr = printExprTree(right);
+
+    const precedence = (op: string) => op === '*' || op === '/';
+    const needsBrackets = (parentOp: string, childOp: string) =>
+        precedence(childOp) < precedence(parentOp) || (precedence(childOp) === precedence(parentOp) && parentOp !== '+');
+
+    if (needsBrackets(op, leftStr)) leftStr;
+    if (needsBrackets(op, rightStr)) rightStr;
+
+    return `${leftStr} ${op} ${rightStr}`;
+}
+```

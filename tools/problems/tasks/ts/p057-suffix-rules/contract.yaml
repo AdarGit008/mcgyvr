@@ -1,0 +1,37 @@
+id: p057-suffix-rules
+task_type: bug_fix
+task: >-
+  Fix applyInflections. The second argument is an ordered rule table: pairs
+  of a non-empty suffix and a replacement. Scanning the table top to
+  bottom, the first rule whose suffix matches the tail of the word is the
+  only rule applied — that tail is removed and the replacement takes its
+  place. A word no rule matches comes back unchanged. The current code
+  instead asks whether a rule's suffix occurs anywhere inside the word and
+  rewrites its earliest occurrence, so a suffix that also shows up early in
+  the word corrupts the middle of it, and a rule can fire on a word whose
+  ending it does not match at all. Make matching and rewriting happen at
+  the end of the word only. Keep rejecting a rule whose suffix is empty
+  with an error, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function applyInflections(
+    word: string,
+    rules: Array<[string, string]>,
+  ): string {
+    for (const [suffix, replacement] of rules) {
+      if (suffix === "") {
+        throw new Error("empty suffix in rule table");
+      }
+      if (word.includes(suffix)) {
+        return word.replace(suffix, replacement);
+      }
+    }
+    return word;
+  }
+interface: "export function applyInflections(word: string, rules: Array<[string, string]>): string"
+stop_conditions:
+  - Whether a suffix may match case-insensitively is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

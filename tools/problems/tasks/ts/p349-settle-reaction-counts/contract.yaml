@@ -1,0 +1,70 @@
+id: p349-settle-reaction-counts
+task_type: bug_fix
+task: >-
+  settleReactionCounts should hand back the multipliers that make a reaction
+  add up, but the version below looks only at symbols the left-hand side
+  mentions and will never reach past a multiplier of five. Fix it. The two
+  arguments are the left-hand and right-hand species of a reaction, each
+  species given as a mapping from a symbol to how many of that symbol it
+  holds. A multiplier is a whole number from 1 to 10, one per species, and
+  a set of multipliers settles the reaction when every symbol mentioned on
+  either side carries the same weighted total on both sides. Hand back the
+  settling set with the least total, and among ties the one reading
+  smallest from left to right, as one list holding the left-hand
+  multipliers followed by the right-hand ones; hand back an empty list when
+  nothing in range settles the reaction. The version below also skips
+  validation, which must raise an error when either argument is not a list,
+  when either argument is empty, when a species is not a plain mapping,
+  when a species mentions no symbol, when a symbol is not one capital
+  letter followed by at most one small letter, when a holding is not a
+  whole number of one or more, and when the two sides name more than five
+  species between them. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function settleReactionCounts(
+    left: Record<string, number>[],
+    right: Record<string, number>[],
+  ): number[] {
+    const names = [...left, ...right];
+    const symbols: string[] = [];
+    for (const species of left) {
+      for (const symbol of Object.keys(species)) {
+        if (!symbols.includes(symbol)) {
+          symbols.push(symbol);
+        }
+      }
+    }
+    const size = names.length;
+    const choice = new Array(size).fill(1);
+    const walk = (index: number): number[] | null => {
+      if (index === size) {
+        for (const symbol of symbols) {
+          let total = 0;
+          for (let i = 0; i < size; i += 1) {
+            const held = names[i][symbol] ?? 0;
+            total += held * choice[i] * (i < left.length ? 1 : -1);
+          }
+          if (total !== 0) {
+            return null;
+          }
+        }
+        return choice.slice();
+      }
+      for (let take = 1; take <= 5; take += 1) {
+        choice[index] = take;
+        const found = walk(index + 1);
+        if (found !== null) {
+          return found;
+        }
+      }
+      return null;
+    };
+    return walk(0) ?? [];
+  }
+interface: "export function settleReactionCounts(left: Record<string, number>[], right: Record<string, number>[]): number[]"
+stop_conditions:
+  - Whether a species may legitimately appear on both sides at once is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

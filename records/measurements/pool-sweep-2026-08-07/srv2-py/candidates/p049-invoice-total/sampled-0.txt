@@ -1,0 +1,35 @@
+```python
+def invoice_total(lines: list[dict], rate: int) -> dict[str, int]:
+    if not lines:
+        raise ValueError("No invoice lines provided")
+
+    subtotal = 0
+
+    for line in lines:
+        qty = line.get('qty')
+        unit = line.get('unit')
+        discount = line.get('discount')
+
+        # Validate line items
+        if not isinstance(qty, int) or qty <= 0:
+            raise ValueError("Invalid quantity")
+        if not isinstance(unit, int) or unit < 0:
+            raise ValueError("Invalid unit price")
+        if not isinstance(discount, int) or discount < 0 or discount > 10000:
+            raise ValueError("Invalid discount rate")
+
+        gross = qty * unit
+        rebate = round(gross * discount / 10000)
+        net = gross - rebate
+
+        subtotal += net
+
+    tax = round(subtotal * rate / 10000)
+    total = subtotal + tax
+
+    return {
+        'subtotal': subtotal,
+        'tax': tax,
+        'total': total
+    }
+```

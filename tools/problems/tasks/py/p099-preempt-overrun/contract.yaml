@@ -1,0 +1,70 @@
+id: p099-preempt-overrun
+task_type: bug_fix
+task: >-
+  preempt_first_overrun simulates one machine under earliest-deadline-first
+  scheduling with preemption. Each job mapping has a "name", an "at" (the
+  minute it becomes available), a "work" (minutes of processing) and a
+  "due". At every moment the machine runs, among available unfinished jobs,
+  the one with the earliest due minute, taking the alphabetically smallest
+  name on a tie; a newly available job with an earlier due minute takes the
+  machine over at once, and the machine sits idle until the next arrival
+  when nothing is available. Report the name of the job whose due minute is
+  the earliest to pass with the job still unfinished (alphabetically
+  smallest on a tie), or the empty string when every job finishes by its
+  due minute, a finish exactly on the due minute being fine. The current
+  code never preempts: once it picks a job it runs it to the end, so a
+  short urgent arrival waits behind a long job and an overrun is reported
+  that a preempting machine would avoid. Fix the simulation to preempt as
+  specified, keep the idle handling and both tie rules, and keep rejecting
+  with an error a repeated name, a name that is not a non-empty string, an
+  "at" that is not a non-negative integer, and a "work" or "due" that is
+  not a positive integer. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def _validate(jobs: list[dict]) -> None:
+      seen = set()
+      for job in jobs:
+          name = job.get("name")
+          if not isinstance(name, str) or name == "":
+              raise ValueError("name must be a non-empty string")
+          if name in seen:
+              raise ValueError(f"name repeated: {name}")
+          seen.add(name)
+          at = job.get("at")
+          if not isinstance(at, int) or isinstance(at, bool) or at < 0:
+              raise ValueError("at must be a non-negative integer")
+          for key in ("work", "due"):
+              value = job.get(key)
+              if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                  raise ValueError(f"{key} must be a positive integer")
+
+
+  def preempt_first_overrun(jobs: list[dict]) -> str:
+      _validate(jobs)
+      remaining = {job["name"]: job["work"] for job in jobs}
+      at = {job["name"]: job["at"] for job in jobs}
+      due = {job["name"]: job["due"] for job in jobs}
+      finish = {}
+      clock = 0
+      while len(finish) < len(jobs):
+          ready = [n for n in remaining if n not in finish and at[n] <= clock]
+          if not ready:
+              clock = min(at[n] for n in remaining if n not in finish)
+              continue
+          ready.sort(key=lambda n: (due[n], n))
+          run = ready[0]
+          clock += remaining[run]
+          remaining[run] = 0
+          finish[run] = clock
+      missed = [job for job in jobs if finish[job["name"]] > job["due"]]
+      if not missed:
+          return ""
+      missed.sort(key=lambda job: (job["due"], job["name"]))
+      return missed[0]["name"]
+interface: "def preempt_first_overrun(jobs: list[dict]) -> str"
+stop_conditions:
+  - How large the minute values may grow within the time limit is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,21 @@
+id: p124-cargo-split
+task_type: function_implementation
+task: >-
+  Implement split_cargo. Freight items with positive integer weights, at
+  most sixteen of them, must all be stowed into two holds so that the
+  weight totals of the holds differ as little as possible. Item 0 is
+  bolted into the forward hold by convention, which settles the mirror
+  symmetry between the holds. Among stowages achieving the least
+  possible difference, prefer the one giving the forward hold fewer
+  items; if that still ties, the forward hold whose ascending index list
+  compares lexicographically smallest wins. Return the ascending list of
+  item indices assigned to the forward hold. Reject an empty manifest
+  and any weight below one with an error.
+target: solution.py
+interface: "def split_cargo(weights: list[int]) -> list[int]"
+stop_conditions:
+  - Behavior for more than sixteen items is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

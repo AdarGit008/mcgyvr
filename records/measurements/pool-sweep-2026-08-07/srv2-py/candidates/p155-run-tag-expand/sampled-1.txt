@@ -1,0 +1,39 @@
+```python
+def expand_run_tag(pattern: str) -> list:
+    if not isinstance(pattern, str):
+        raise ValueError("pattern must be a string")
+    
+    if '[' not in pattern or ']' not in pattern:
+        raise ValueError("pattern must contain exactly one pair of square brackets")
+    
+    stem, group = pattern.split('[')
+    tail = group.split(']')[1]
+    
+    if len(group) == 1 or group[0] != '[' or group[-1] != ']':
+        raise ValueError("pattern must contain exactly one pair of square brackets")
+    
+    body = group[1:-1]
+    
+    if '/' in body:
+        start, end_step = body.split('/')
+        step = int(end_step)
+        end = int(start)
+        start = int(body.split('/')[0])
+    else:
+        start, end = map(int, body.split('-'))
+        step = 1
+    
+    if start > end or step == 0:
+        raise ValueError("run must have a non-zero positive step and start before end")
+    
+    runs = []
+    for num in range(start, end + 1, step):
+        runs.append(f"{num}")
+    
+    items = tail.split(',')
+    if any(not item.strip() for item in items):
+        raise ValueError("items in listing may not be empty")
+    
+    results = sorted([f"{stem}{item}" for run in runs for item in items])
+    return results
+```

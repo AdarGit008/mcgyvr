@@ -1,0 +1,29 @@
+```python
+import re
+
+def word_span_starts(passage: str, query: str) -> list:
+    if not isinstance(passage, str) or not isinstance(query, str):
+        raise ValueError("Both passage and query must be strings.")
+    
+    if not query.strip():
+        raise ValueError("Query cannot be empty.")
+    
+    # Normalize words to lower case for case-insensitive comparison
+    normalized_passage = re.sub(r'[^a-zA-Z0-9]+', ' ', passage).lower()
+    normalized_query = query.lower()
+    
+    # Split the normalized passage and query into words
+    passage_words = normalized_passage.split()
+    query_words = normalized_query.split()
+    
+    if not query_words:
+        raise ValueError("Query must contain at least one word.")
+    
+    # Find all starting indices of the query in the passage
+    start_indices = []
+    for i in range(len(passage_words) - len(query_words) + 1):
+        if passage_words[i:i+len(query_words)] == query_words:
+            start_indices.append(i * (len(passage.split()[0]) + 1))
+    
+    return start_indices
+```

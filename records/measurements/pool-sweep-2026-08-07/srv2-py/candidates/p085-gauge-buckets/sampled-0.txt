@@ -1,0 +1,13 @@
+```python
+def gauge_buckets(pulses: list, base: int, width: int, pockets: int) -> list:
+    tallies = [0] * (pockets + 2)
+    for pulse in pulses:
+        if pulse < base:
+            tallies[0] += 1
+        elif pulse >= base + pockets * width:
+            tallies[-1] += 1
+        else:
+            slot = int((pulse - base) / width)
+            tallies[slot + 1] += 1
+    return tallies
+```

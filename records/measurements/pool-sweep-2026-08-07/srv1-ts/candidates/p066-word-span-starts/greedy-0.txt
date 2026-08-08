@@ -1,0 +1,22 @@
+```ts
+export function wordSpanStarts(passage: string, query: string): number[] {
+  if (typeof passage !== 'string' || typeof query !== 'string') {
+    throw new Error('Both passage and query must be strings');
+  }
+
+  const words = query.split(/\W+/).filter(Boolean);
+  if (words.length === 0) {
+    throw new Error('Query must contain at least one word');
+  }
+
+  const regex = new RegExp(`\\b(${words.join('|')})\\b`, 'gi');
+  const matches: number[] = [];
+
+  passage.replace(regex, (match, p1, offset) => {
+    matches.push(offset);
+    return match;
+  });
+
+  return matches;
+}
+```

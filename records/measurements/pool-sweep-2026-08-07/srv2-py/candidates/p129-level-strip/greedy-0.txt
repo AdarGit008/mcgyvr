@@ -1,0 +1,13 @@
+```python
+def level_strip(readings: list[int], low: int, high: int, ramp: str) -> str:
+    if len(ramp) == 0:
+        raise ValueError("empty ramp")
+    if high <= low:
+        raise ValueError("span must rise")
+    out = []
+    for r in readings:
+        index = (r - low) * len(ramp) // (high - low)
+        index = max(0, min(index, len(ramp) - 1))
+        out.append(ramp[index])
+    return "".join(out)
+```

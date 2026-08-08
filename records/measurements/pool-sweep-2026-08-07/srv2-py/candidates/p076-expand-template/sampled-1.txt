@@ -1,0 +1,57 @@
+```python
+def expand_template(template: str, context: dict, missing: str) -> str:
+    """
+    Expand placeholders in a template string based on a context mapping.
+
+    :param template: The string containing placeholders to be expanded.
+    :param context: A dictionary representing the context for placeholder resolution.
+    :param missing: Policy for handling missing paths ('error', 'keep', 'blank').
+    :return: The expanded template string.
+    """
+    def resolve_path(path, context):
+        segments = path.split('.')
+        try:
+            value = context
+            for segment in segments:
+                if segment not in value:
+                    return None
+                value = value[segment]
+            return value
+        except (KeyError, AttributeError):
+            return None
+
+    result = []
+    i = 0
+    while i < len(template):
+        if template[i:i+2] == "$$":
+            result.append("$")
+            i += 2
+        elif template[i:i+2] == "${":
+            j = template.find("}", i + 2)
+            if j == -1:
+                raise ValueError("Unmatched '${'")
+            path = template[i + 2:j]
+            if not path or "." in path and "" in path.split("."):
+                raise ValueError("Invalid placeholder path")
+            value = resolve_path(path, context)
+            if value is None:
+                if missing == "error":
+                    raise ValueError(f"Missing path: {path}")
+                elif missing == "keep":
+                    result.append("${" + path + "}")
+                elif missing == "blank":
+                    continue
+                else:
+                    raise ValueError(f"Invalid missing policy: {missing}")
+            elif isinstance(value, str):
+                result.append(value)
+            elif isinstance(value, int):
+                result.append(str(value))
+            else:
+                raise TypeError(f"Unsupported value type for path {path}: {type(value)}")
+            i = j + 1
+        else:
+            result.append(template[i])
+            i += 1
+    return "".join(result)
+```

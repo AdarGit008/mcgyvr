@@ -1,0 +1,24 @@
+id: p157-hold-shelf
+task_type: function_implementation
+task: >-
+  Implement holdShelfReplay. A reading room keeps one reserve queue for a
+  single popular title, and the function replays a day of desk slips.
+  Each slip is a string. "join <name>" puts the person at the back of the
+  queue and answers "at:<position>" with their 1-based place, unless they
+  already stand somewhere in it, which answers "no:again". "leave <name>"
+  removes the person from wherever they stand and answers "out", or
+  "no:absent" when they are not queued. The bare word "serve" hands the
+  copy to the person at the front and answers "take:<name>", or "idle"
+  when nobody waits; a served person may join again later. Answers line
+  up with slips one to one; return them as a list. Throw an error for a
+  slip that is not a string, a verb outside these three, a join or leave
+  slip whose name part is empty or missing, and a serve slip carrying
+  anything after the word.
+target: solution.ts
+interface: "export function holdShelfReplay(slips: string[]): string[]"
+stop_conditions:
+  - Whether a name may itself contain a space is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,40 @@
+```typescript
+export function bestRatePath(quotes: unknown[][], amount: number, source: string, destination: string): Record<string, unknown> {
+  if (quotes.length === 0) throw new Error("Empty quote list");
+  for (const quote of quotes) {
+    if (quote.length !== 3) throw new Error("Invalid quote format");
+    const [base, counter, micro] = quote;
+    if (
+      typeof base !== "string" ||
+      typeof counter !== "string" ||
+      typeof micro !== "number"
+    ) throw new Error("Invalid quote types");
+    if (base === counter) throw new Error("Same code on both sides of a quote");
+    if (!Number.isInteger(micro) || micro <= 0) throw new Error("Non-positive micro value");
+  }
+  if (typeof amount !== "number" || amount <= 0) throw new Error("Invalid amount");
+  if (source === destination) throw new Error("Source and destination are the same code");
+  const quoteMap = new Map<string, [string, number]>();
+  for (const [base, counter, micro] of quotes) {
+    if (quoteMap.has(base)) throw new Error("Duplicate base in quotes");
+    quoteMap.set(base, [counter, micro]);
+  }
+  if (!quoteMap.has(source) || !quoteMap.has(destination)) throw new Error("Source or destination code not found");
+
+  const paths = new Map<string, { path: string[], amount: number }>();
+  function findPaths(current: string, path: string[]): void {
+    if (current === destination) {
+      const currentAmount = paths.get(path.join())?.amount ?? 0;
+      if (Math.floor(amount / 1e6 * micro) > currentAmount || (Math.floor(amount / 1e6 * micro) === currentAmount && path.length < (paths.get(path.join())?.path.length ?? Infinity))) {
+        paths.set(path.join(), { path, amount: Math.floor(amount / 1e6 * micro) });
+      }
+    } else if (quoteMap.has(current)) {
+      const [next, micro] = quoteMap.get(current)!;
+      findPaths(next, [...path, next]);
+    }
+  }
+  findPaths(source, [source]);
+
+  return paths.size > 0 ? { path: paths.values().next().value.path, amount: paths.values().next().value.amount } : { path: [], amount: 0 };
+}
+```

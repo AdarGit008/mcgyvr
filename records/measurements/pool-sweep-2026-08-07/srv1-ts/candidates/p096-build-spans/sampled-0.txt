@@ -1,0 +1,55 @@
+```typescript
+export function intersectBuildSpans(spans: string[]): string {
+  if (spans.length === 0) throw new Error("Empty list");
+
+  const parseSpan = (span: string): [number | null, number | null, Set<number>] => {
+    const parts = span.split("..");
+    if (parts.length !== 2) throw new Error("Malformed span");
+    const lo = parts[0] === "" ? null : parseInt(parts[0], 10);
+    const hi = parts[1] === "" ? null : parseInt(parts[1], 10);
+    if (isNaN(lo) || isNaN(hi)) throw new Error("Leading zero or invalid number");
+    if (lo !== null && hi !== null && lo > hi) throw new Error("Reversed limits");
+
+    const strikes = new Set<number>();
+    for (const strike of span.match(/!(\d+)/g) || []) {
+      const n = parseInt(strike.slice(1), 10);
+      if (isNaN(n)) throw new Error("Invalid strike");
+      if ((lo === null ? 0 : lo) > n || (hi === null ? Infinity : hi) < n) throw new Error("Strike outside span");
+      strikes.add(n);
+    }
+
+    return [lo, hi, strikes];
+  };
+
+  const spansParsed = spans.map(parseSpan);
+
+  let resultLo: number | null = null;
+  let resultHi: number | null = null;
+  const resultStrikes = new Set<number>();
+
+  for (const [lo, hi, strikes] of spansParsed) {
+    if (resultLo === null || lo !== null && (resultLo === null || lo > resultLo)) {
+      resultLo = lo !== null ? lo : resultLo;
+    }
+    if (resultHi === null || hi !== null && (resultHi === null || hi < resultHi)) {
+      resultHi = hi !== null ? hi : resultHi;
+    }
+    strikes.forEach(strike => resultStrikes.add(strike));
+  }
+
+  if (resultLo !== null && resultHi !== null && resultLo > resultHi) return "empty";
+
+  const strikesSorted = [...resultStrikes].sort((a, b) => a - b);
+  const strikesText = strikesSorted.length > 0 ? `!${strikesSorted.join("!")}` : "";
+
+  if (resultLo === null && resultHi === null) {
+    return strikesText;
+  } else if (resultLo === null) {
+    return `..${resultHi}${strikesText}`;
+  } else if (resultHi === null) {
+    return `${resultLo}..${strikesText}`;
+  } else {
+    return `${resultLo}..${resultHi}${strikesText}`;
+  }
+}
+```

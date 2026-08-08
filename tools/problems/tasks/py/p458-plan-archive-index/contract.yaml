@@ -1,0 +1,35 @@
+id: p458-plan-archive-index
+task_type: function_implementation
+task: >-
+  Implement plan_archive_index. An archive of total bytes, total being a whole
+  number of nought or more, carries an index of members. Each entry is a [name,
+  offset, length] triple, the name a non-empty string no other entry carries and
+  the offset and length whole numbers of nought or more. Read the index in layout
+  order: rising offset first, then rising length, then rising name. A member of
+  length nought holds no bytes at all; it keeps its place in the layout order but
+  it is set aside when clashes are looked for, so it may share an offset with
+  anything. Look first for a member that runs off the end, meaning its offset plus
+  its length is beyond total; the earliest such member in layout order is the
+  fault, named truncated. Failing that, look for two members holding bytes that
+  are neighbours in layout order and share a byte, meaning the earlier one's
+  offset plus its length is beyond the later one's offset; a member that ends
+  exactly where the next begins shares nothing. The earliest such pair in layout
+  order is the fault, named overlap. Give back a record whose fault is truncated,
+  overlap or an empty string, whose blame lists the member at fault, both members
+  of a clashing pair in layout order, or nothing at all, and whose order is always
+  the names in layout order. When a fault was found, gaps is empty and slack and
+  used are nought. When none was found, gaps lists every stretch of the archive no
+  member holds up to the far end of the last member, each as a pair of its first
+  byte and its size, slack is how many bytes are left between that far end and
+  total, and used is the lengths added up. Raise an error when entries is not a
+  list, when total is not a whole number of nought or more, when an entry is not
+  a triple, when a name is empty or not a string, when two entries carry one name,
+  and when an offset or a length is not a whole number of nought or more.
+target: solution.py
+interface: "def plan_archive_index(entries: list, total: int) -> dict"
+stop_conditions:
+  - Whether a member of length nought sitting inside a gap should itself close that gap is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

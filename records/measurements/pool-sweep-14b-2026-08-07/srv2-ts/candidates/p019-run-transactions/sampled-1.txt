@@ -1,0 +1,59 @@
+```ts
+export function runTransactions(commands: string[]): Record<string, string> {
+  const store: Record<string, string> = {};
+  const transactions: Array<Record<string, string>> = [];
+
+  for (const command of commands) {
+    const parts = command.split(' ');
+
+    if (parts.length < 2) {
+      throw new Error(`Invalid command: ${command}`);
+    }
+
+    const [verb, key, value] = parts;
+
+    switch (verb) {
+      case 'set':
+        if (transactions.length > 0) {
+          transactions[transactions.length - 1][key] = value;
+        } else {
+          store[key] = value;
+        }
+        break;
+      case 'unset':
+        if (transactions.length > 0) {
+          delete transactions[transactions.length - 1][key];
+        } else {
+          delete store[key];
+        }
+        break;
+      case 'begin':
+        transactions.push({});
+        break;
+      case 'commit':
+        if (transactions.length === 0) {
+          throw new Error('Commit without open transaction');
+        }
+        const lastTransaction = transactions.pop()!;
+        for (const [k, v] of Object.entries(lastTransaction)) {
+          store[k] = v;
+        }
+        break;
+      case 'rollback':
+        if (transactions.length === 0) {
+          throw new Error('Rollback without open transaction');
+        }
+        transactions.pop();
+        break;
+      default:
+        throw new Error(`Unknown command: ${command}`);
+    }
+  }
+
+  if (transactions.length > 0) {
+    throw new Error('Transaction still open after the last command');
+  }
+
+  return store;
+}
+```

@@ -1,0 +1,21 @@
+id: p050-order-sections
+task_type: function_implementation
+task: >-
+  Implement order_sections. A document's section labels use dotted outline
+  numbering: "3", "3.1", "3.1.10". Given the labels in arbitrary order,
+  return a new list sorted the way a table of contents reads: compare
+  component by component numerically, so "1.2.10" comes after "1.2.9"
+  despite the lexicographic order, and a label that is a prefix of another
+  comes first, so "2" precedes "2.1". A component is a digit sequence with
+  no leading zero (a lone "0" is fine, "01" is not). Reject a label
+  appearing twice, a label with an empty or zero-padded component, a label
+  that is not a string, and anything else that fails the format, with an
+  error. An empty input list yields an empty list.
+target: solution.py
+interface: "def order_sections(labels: list[str]) -> list[str]"
+stop_conditions:
+  - Whether the input list itself may be mutated in place is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

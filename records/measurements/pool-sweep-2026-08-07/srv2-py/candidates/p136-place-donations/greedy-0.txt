@@ -1,0 +1,51 @@
+```python
+def place_donations(requests: list, lots: list) -> list:
+    if any(not isinstance(req['id'], str) or not req['id'] for req in requests):
+        raise ValueError("Request IDs must be strings")
+    if any(not isinstance(lot['id'], str) or not lot['id'] for lot in lots):
+        raise ValueError("Lot IDs must be strings")
+    if any(not isinstance(req['kind'], str) or not req['kind'] for req in requests):
+        raise ValueError("Request kinds must be non-empty strings")
+    if any(not isinstance(lot['kind'], str) or not lot['kind'] for lot in lots):
+        raise ValueError("Lot kinds must be non-empty strings")
+    if any(not isinstance(req['from'], int) or not isinstance(req['to'], int) for req in requests):
+        raise ValueError("Request days must be integers")
+    if any(not isinstance(lot['day'], int) for lot in lots):
+        raise ValueError("Lot day must be an integer")
+    if any(req['from'] > req['to'] for req in requests):
+        raise ValueError("Request span from cannot be greater than to")
+
+    request_dict = {req['id']: req for req in requests}
+    lot_dict = {lot['id']: lot for lot in lots}
+
+    if len(request_dict) != len(requests) or len(lot_dict) != len(lots):
+        raise ValueError("Duplicate IDs found among requests or lots")
+
+    placed_donations = []
+    open_requests = sorted(
+        (req for req in requests if not req['urgent']),
+        key=lambda x: (x['to'], x['id'])
+    )
+
+    for lot in lots:
+        suitable_requests = [
+            req for req in open_requests
+            if req['from'] <= lot['day'] <= req['to']
+            and (req['kind'] == lot['kind'] or req['kind'] == 'ANY')
+        ]
+        if not suitable_requests:
+            continue
+
+        urgent_request = next((req for req in suitable_requests if req['urgent']), None)
+        if urgent_request:
+            request_dict[urgent_request['id']]['urgent'] = False
+            placed_donations.append([lot['id'], urgent_request['id']])
+            open_requests.remove(urgent_request)
+        else:
+            sorted_requests = sorted(suitable_requests, key=lambda x: (x['to'], x['id']))
+            request_dict[sorted_requests[0]['id']]['urgent'] = False
+            placed_donations.append([lot['id'], sorted_requests[0]['id']])
+            open_requests.remove(sorted_requests[0])
+
+    return placed_donations
+```

@@ -1,0 +1,42 @@
+```ts
+export function writeSenaryTail(numerator: number, denominator: number): string {
+  if (!Number.isInteger(numerator) || !Number.isInteger(denominator)) {
+    throw new Error("Both numerator and denominator must be whole numbers.");
+  }
+  if (denominator < 1 || denominator > 10000) {
+    throw new Error("Denominator must be between 1 and 10000.");
+  }
+  if (numerator < 0) {
+    throw new Error("Numerator must not be below zero.");
+  }
+  if (numerator >= denominator) {
+    throw new Error("Numerator must be smaller than the denominator.");
+  }
+
+  const marks = "012345";
+  let result = "";
+  let remainder = numerator;
+
+  while (remainder > 0) {
+    remainder *= 6;
+    const digit = Math.floor(remainder / denominator);
+    result += marks[digit];
+    remainder %= denominator;
+  }
+
+  const firstRepetitionIndex = result.indexOf(result[0], 1);
+  if (firstRepetitionIndex === -1) {
+    return result;
+  }
+
+  const cycleStart = firstRepetitionIndex;
+  const cycleEnd = result.indexOf(marks[remainder % 6], cycleStart + 1);
+
+  return (
+    result.slice(0, cycleStart) +
+    "|" +
+    result.slice(cycleStart, cycleEnd) +
+    "|"
+  );
+}
+```

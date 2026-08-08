@@ -1,0 +1,16 @@
+```python
+def keyset_page(ids: list[int], cursor: int, limit: int) -> dict:
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Limit must be a positive integer")
+    if not isinstance(cursor, int):
+        raise ValueError("Cursor must be an integer")
+    if ids and any(x >= y for x, y in zip(ids, ids[1:])):
+        raise ValueError("Ids must be strictly increasing")
+
+    start_index = bisect.bisect_right(ids, cursor)
+    end_index = min(start_index + limit, len(ids))
+    return {
+        "items": ids[start_index:end_index],
+        "done": end_index == len(ids),
+    }
+```

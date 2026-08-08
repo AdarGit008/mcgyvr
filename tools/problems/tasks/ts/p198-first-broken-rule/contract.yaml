@@ -1,0 +1,30 @@
+id: p198-first-broken-rule
+task_type: function_implementation
+task: >-
+  Implement firstBrokenRule. A node is a mapping with "key" (a whole
+  number), "count" (a positive whole number the node claims for the size of
+  the subtree it heads, itself included), and "left" and "right", each
+  either another node or nothing at all. Three rules bind every node. The
+  order rule: every key anywhere below and to the left is strictly smaller
+  than the node's own key, and every key anywhere below and to the right is
+  strictly larger. The balance rule: the depths of the node's two sides,
+  counting a missing side as zero and a childless node as one, are within
+  one of each other. The count rule: the claimed count equals how many nodes
+  the subtree really holds. Walk the tree from the root, a node before its
+  left side and its left side before its right, and report the first node
+  breaking any rule, testing order, then balance, then count at each node. A
+  node's location is written as "root" for the root and then a slash and L
+  or R for each step down. Return a mapping with "path", the location, and
+  "rule", the word order, balance or count; when nothing is broken return an
+  empty location and the word sound. Raise an error when the root is nothing
+  at all, when a node is not a mapping, when a node lacks any of the four
+  entries, when a key is not a whole number, when a count is not a positive
+  whole number, and when a side is neither a node nor nothing.
+target: solution.ts
+interface: "export function firstBrokenRule(root: Record<string, unknown>): Record<string, string>"
+stop_conditions:
+  - Whether a node may carry entries beyond the four named ones is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

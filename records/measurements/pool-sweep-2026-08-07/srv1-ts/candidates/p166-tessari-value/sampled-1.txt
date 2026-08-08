@@ -1,0 +1,22 @@
+```ts
+export function tessariValue(text: string): number {
+    if (typeof text !== 'string' || text === '') throw new Error('Invalid input');
+    if (!/^[KLMPQRST]+$/.test(text)) throw new Error('Invalid glyph');
+
+    const glyphToValue: { [key: string]: number } = {
+        K: 0, L: 1, M: 2, N: 3, P: 4, Q: 5, R: 6, S: 7, T: 8
+    };
+
+    let value = 0;
+    let multiplier = 1;
+
+    for (let i = text.length - 1; i >= 0; i--) {
+        const glyphValue = glyphToValue[text[i]];
+        if (i === 0 && text[i] === 'K' || glyphValue > multiplier) throw new Error('Invalid numeral');
+        value += glyphValue * multiplier;
+        multiplier *= 9;
+    }
+
+    return value;
+}
+```

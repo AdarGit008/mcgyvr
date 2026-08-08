@@ -1,0 +1,102 @@
+```ts
+/** Codes a sheet of written-in answers against its ordered steps. */
+export function recodeAnswerSheet(sheet: Record<string, unknown>): Record<string, unknown> {
+  if (typeof sheet !== 'object' || sheet === null) {
+    throw new Error('Invalid sheet');
+  }
+
+  const steps = Array.isArray(sheet.steps) ? sheet.steps : [];
+  const entries = Array.isArray(sheet.entries) ? sheet.entries : [];
+
+  if (steps.length === 0) {
+    throw new Error('Steps must be a non-empty list');
+  }
+
+  const coded: { id: string, label: string }[] = [];
+  const loose: string[] = [];
+  const used = new Set<string>();
+
+  // Validate steps
+  for (const step of steps) {
+    if (typeof step !== 'object' || step === null) {
+      throw new Error('Step must be a mapping');
+    }
+
+    const { label, wanted, barred, least } = step;
+
+    if (typeof label !== 'string' || label.trim() === '') {
+      throw new Error('Label must be a non-empty string');
+    }
+
+    if (Array.isArray(wanted) && wanted.length > 0) {
+      for (const frag of wanted) {
+        if (typeof frag !== 'string' || frag.trim() === '' || /[A-Z]/.test(frag)) {
+          throw new Error('Wanted fragment must be a non-empty string with no capital letter');
+        }
+      }
+    } else {
+      throw new Error('Wanted must be a non-empty list of fragments');
+    }
+
+    if (!Array.isArray(barred)) {
+      throw new Error('Barred must be a list');
+    }
+
+    for (const frag of barred) {
+      if (typeof frag !== 'string' || frag.trim() === '' || /[A-Z]/.test(frag)) {
+        throw new Error('Barred fragment must be a non-empty string with no capital letter');
+      }
+    }
+
+    if (typeof least !== 'number' || least < 1 || least > wanted.length) {
+      throw new Error('Least must be a whole number in range');
+    }
+  }
+
+  // Validate entries
+  for (const entry of entries) {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new Error('Entry must be a mapping');
+    }
+
+    const { id, text } = entry;
+
+    if (typeof id !== 'string' || id.trim() === '') {
+      throw new Error('Id must be a non-empty string');
+    }
+
+    if (typeof text !== 'string') {
+      throw new Error('Text must be a string');
+    }
+  }
+
+  for (const entry of entries) {
+    const text = entry.text.toLowerCase().replace(/\s+/g, ' ').trim();
+    let label = "";
+
+    for (const step of steps) {
+      const { wanted, barred, least } = step;
+      const hits = wanted.filter((frag: string) => text.includes(frag));
+      const misses = barred.some((frag: string) => text.includes(frag));
+
+      if (hits.length >= least && !misses) {
+        label = step.label;
+        break;
+      }
+    }
+
+    if (label === "") {
+      loose.push(entry.id);
+    } else {
+      coded.push({ id: entry.id, label });
+      used.add(label);
+    }
+  }
+
+  const unused = steps
+    .map((step: any) => step.label)
+    .filter((label: string) => !used.has(label));
+
+  return { coded, loose, unused };
+}
+```

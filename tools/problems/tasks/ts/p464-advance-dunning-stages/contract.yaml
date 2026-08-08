@@ -1,0 +1,44 @@
+id: p464-advance-dunning-stages
+task_type: function_implementation
+task: >-
+  Implement advanceDunningStages. The first argument is the invoices, a list of
+  mappings each carrying exactly the three keys id (a non-empty string, no two
+  alike), due (the whole-numbered day the invoice fell due, at nought or above)
+  and cents (a whole number above nought). The second argument is the events, a
+  list of mappings dealt with in the order given, whose day never steps
+  backwards and never runs past the reporting day; the third argument is that
+  reporting day, a whole number at nought or above. A payment event carries
+  exactly kind (the word payment), day, invoice (an id the first argument
+  lists) and cents (a whole number above nought). A dispute event carries
+  exactly kind (the word dispute), day and invoice, and opens a freeze on that
+  invoice; a release event carries those same three keys with kind reading
+  release and shuts one. An invoice may not be disputed while already frozen,
+  nor released while it is not. What an invoice owes on the reporting day is
+  its cents less every payment made against it, never falling under nought, and
+  an invoice owing nothing stands at the stage settled whatever its age.
+  Otherwise its anchor is the later of its due day and the day of the payment
+  most recently made against it, and its held span is how many days its freezes
+  cover inside the stretch running from that anchor to the reporting day, a
+  freeze still open on the reporting day counting all the way to that day. Its
+  age is the reporting day less the anchor less that held span, and the age
+  alone names the stage: nought or under is current, one through fourteen is
+  reminder, fifteen through twenty-nine is notice, thirty through fifty-nine is
+  final, and sixty or more is collections. Return one mapping per invoice, each
+  carrying id, stage and owed, in ascending id order. Raise an error when
+  either of the first two arguments is not a list, when the reporting day is
+  not whole or falls under nought, when an invoice or an event is not a
+  mapping, when an invoice or an event fails to carry exactly the keys its
+  shape calls for, when an id is not a non-empty string or two invoices share
+  one, when a due day, an event day or an amount of cents is not whole or falls
+  outside its stated range, when an event day steps backwards or runs past the
+  reporting day, when an event names an invoice the book does not hold, when a
+  kind falls outside payment, dispute and release, when a frozen invoice is
+  disputed again, and when an unfrozen invoice is released.
+target: solution.ts
+interface: "export function advanceDunningStages(invoices: Record<string, unknown>[], events: Record<string, unknown>[], reportDay: number): Record<string, unknown>[]"
+stop_conditions:
+  - Whether a freeze may be opened on an invoice that already owes nothing is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

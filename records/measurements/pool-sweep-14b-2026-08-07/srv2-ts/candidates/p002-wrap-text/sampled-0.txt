@@ -1,0 +1,44 @@
+```ts
+export function wrapText(text: string, width: number): string[] {
+  if (typeof text !== 'string') {
+    throw new Error('Text must be a string');
+  }
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error('Width must be a positive integer');
+  }
+  if (/^\s|\s$|\s{2,}/.test(text)) {
+    throw new Error('Text cannot have leading, trailing, or doubled spaces');
+  }
+
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    if (word.length > width) {
+      // Word longer than width gets its own line
+      if (currentLine.length > 0) {
+        lines.push(currentLine);
+        currentLine = '';
+      }
+      lines.push(word);
+    } else if ((currentLine + word).length <= width) {
+      // Word fits in the current line
+      if (currentLine.length > 0) {
+        currentLine += ' ';
+      }
+      currentLine += word;
+    } else {
+      // Word does not fit, start a new line
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+```

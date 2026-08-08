@@ -1,0 +1,23 @@
+```ts
+export function printExprTree(node: unknown): string {
+  if (typeof node === 'number') {
+    if (!Number.isInteger(node) || node < 0) throw new Error('Invalid literal');
+    return node.toString();
+  }
+  if (typeof node === 'string' && /^[a-zA-Z]+$/.test(node)) return node;
+  if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+
+  const { op, left, right } = node as { op: string; left: unknown; right: unknown };
+  if (!op || !left || !right) throw new Error('Incomplete record');
+  if (!['+', '-', '*', '/'].includes(op)) throw new Error('Invalid operator');
+
+  const precedence = (o: string) => o === '*' || o === '/' ? 2 : 1;
+  const leftNeedsWrap = precedence(left as { op?: string }) < precedence(op);
+  const rightNeedsWrap = precedence(right as { op?: string }) <= precedence(op);
+
+  const printLeft = leftNeedsWrap ? `(${printExprTree(left)})` : printExprTree(left);
+  const printRight = rightNeedsWrap ? `(${printExprTree(right)})` : printExprTree(right);
+
+  return `${printLeft} ${op} ${printRight}`;
+}
+```

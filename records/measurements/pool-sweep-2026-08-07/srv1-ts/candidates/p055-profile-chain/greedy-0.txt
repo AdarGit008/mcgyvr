@@ -1,0 +1,17 @@
+```ts
+export function resolveProfile(profiles: Record<string, Record<string, unknown>>, wanted: string): Record<string, unknown> {
+    const visited = new Set<string>();
+
+    function resolve(name: string): Record<string, unknown> {
+        if (!profiles[name]) throw new Error(`No profile named ${name}`);
+        if (visited.has(name)) throw new Error(`Inheritance cycle detected for ${name}`);
+
+        visited.add(name);
+        const settings = { ...resolve(profiles[name].extends) };
+        delete profiles[name].extends;
+        return { ...settings, ...profiles[name] };
+    }
+
+    return resolve(wanted);
+}
+```

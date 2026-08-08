@@ -1,0 +1,59 @@
+```ts
+/**
+ * Calculates the total sounding time for each alert id based on the given events and horizon.
+ * @param events - List of event objects with fields {at, kind: "raise"|"clear", id, channel, severity}.
+ * @param horizon - The integer moment accounting stops.
+ * @returns An array of [id, total sounding time] pairs sorted by id ascending.
+ */
+export function sirenMinutes(events: Array<Record<string, unknown>>, horizon: number): Array<[string, number]> {
+    if (!Array.isArray(events) || typeof horizon !== 'number' || !Number.isInteger(horizon)) {
+        throw new Error('Invalid input');
+    }
+
+    let lastTime = 0;
+    const activeAlerts: Map<string, { severity: number, at: number }> = new Map();
+    const soundingTimes: Map<string, number> = new Map();
+
+    for (const event of events) {
+        const { at, kind, id, channel, severity } = event as { at: number; kind: string; id: string; channel?: string; severity?: number };
+
+        if (typeof at !== 'number' || typeof kind !== 'string' || typeof id !== 'string') {
+            throw new Error('Invalid event format');
+        }
+
+        if (at <= lastTime) {
+            throw new Error('Event times must strictly increase');
+        }
+        if (at > horizon) {
+            break;
+        }
+
+        lastTime = at;
+
+        if (kind === 'raise') {
+            if (!channel || typeof channel !== 'string' || !severity || typeof severity !== 'number' || severity < 1 || severity > 5) {
+                throw new Error('Invalid raise event');
+            }
+            if (activeAlerts.has(id)) {
+                throw new Error('Id already active');
+            }
+            activeAlerts.set(id, { severity, at });
+        } else if (kind === 'clear') {
+            if (!activeAlerts.has(id)) {
+                throw new Error('Id not active');
+            }
+            const { at: raiseTime } = activeAlerts.get(id)!;
+            soundingTimes.set(id, (soundingTimes.get(id) || 0) + (at - raiseTime));
+            activeAlerts.delete(id);
+        } else {
+            throw new Error('Invalid event kind');
+        }
+    }
+
+    for (const [id, { at }] of activeAlerts.entries()) {
+        soundingTimes.set(id, (soundingTimes.get(id) || 0) + (horizon - at));
+    }
+
+    return Array.from(soundingTimes.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

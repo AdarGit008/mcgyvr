@@ -1,0 +1,29 @@
+id: p436-mark-break-points
+task_type: function_implementation
+task: >-
+  Implement hyphenate_word. The word is a non-empty run of lowercase letters a
+  to z. The rules argument is a table of permitted break patterns, each a
+  string carrying exactly one hyphen with a non-empty run of lowercase
+  letters on either side of it, as in "d-g" or "a-tion". A pattern permits a
+  break at a place inside the word when the pattern's left part ends the
+  letters standing before that place and its right part begins the letters
+  standing after it; the place before the first letter and the place after
+  the last letter are never breaks. No piece of the broken word may be
+  shorter than min_piece letters, and the pieces are settled by walking the
+  permitted places from left to right, taking a place only when the piece it
+  would close and the letters still to come both measure at least min_piece,
+  and passing over it otherwise. Return the pieces in order, so a word taking
+  no break at all comes back as a single piece. Raise an error when the word
+  is not a string, is empty, or holds anything but lowercase letters, when
+  the rules are not a list, when a pattern is not a string, does not carry
+  exactly one hyphen, leaves either side of its hyphen empty, or holds
+  anything but lowercase letters beside that hyphen, and when min_piece is not
+  a whole number of one or more.
+target: solution.py
+interface: "def hyphenate_word(word: str, rules: list, min_piece: int) -> list"
+stop_conditions:
+  - Whether two patterns in the table may repeat one another is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

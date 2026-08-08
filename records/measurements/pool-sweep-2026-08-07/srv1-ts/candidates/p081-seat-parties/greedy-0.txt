@@ -1,0 +1,20 @@
+```ts
+export function seatParties(rows: number[], parties: number[]): string[] {
+  const result: string[] = [];
+  let availableSeats = rows.map(row => row);
+
+  for (const party of parties) {
+    if (party < 1) throw new Error("Party size must be at least 1");
+
+    const suitableRow = availableSeats.findIndex(seats => seats >= party);
+    if (suitableRow === -1) {
+      result.push(party > Math.max(...rows) ? "rejected:too_big" : "rejected:full");
+    } else {
+      availableSeats[suitableRow] -= party;
+      result.push(`${suitableRow + 1}-${availableSeats[suitableRow] + 1}`);
+    }
+  }
+
+  return result;
+}
+```

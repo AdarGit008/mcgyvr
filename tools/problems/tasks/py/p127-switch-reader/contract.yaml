@@ -1,0 +1,47 @@
+id: p127-switch-reader
+task_type: bug_fix
+task: >-
+  Fix read_switches. The first argument classifies long option names:
+  each maps to either switch or value. Walking the token list, "--name"
+  where name is a switch records true for it; where name is a value
+  option, the very next token is recorded as its text; and the inline
+  form "--name=text" records everything after the first "=", so later
+  "=" signs belong to the text. A name the classification does not know
+  must raise an error, as must a value option standing last with
+  nothing following it, and a switch handed an inline "=" form. When
+  the same name is recorded twice the later recording stands. Tokens
+  that do not begin with "--" pass through untouched, in order, under
+  the key extra; recorded options sit under the key found. The current
+  code silently invents entries for unknown names, chops recorded text
+  at every "=", accepts a dangling value option, and lets a switch
+  swallow an inline form. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def read_switches(kinds: dict, tokens: list[str]) -> dict:
+      found = {}
+      extra = []
+      i = 0
+      while i < len(tokens):
+          token = tokens[i]
+          if token.startswith("--"):
+              parts = token[2:].split("=")
+              name = parts[0]
+              if kinds.get(name) == "value":
+                  if len(parts) > 1:
+                      found[name] = parts[1]
+                  else:
+                      i += 1
+                      found[name] = tokens[i]
+              else:
+                  found[name] = True
+          else:
+              extra.append(token)
+          i += 1
+      return {"found": found, "extra": extra}
+interface: "def read_switches(kinds: dict, tokens: list[str]) -> dict"
+stop_conditions:
+  - What a bare "--" token means is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

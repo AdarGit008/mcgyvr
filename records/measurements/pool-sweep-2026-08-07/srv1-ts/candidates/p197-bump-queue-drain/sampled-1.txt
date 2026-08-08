@@ -1,0 +1,50 @@
+```ts
+/** The order a crew works through a batch of graded tickets. */
+export function bumpQueueDrain(
+  tickets: Array<Record<string, unknown>>,
+  start: number,
+  bumpEvery: number
+): string[] {
+  // Validate input
+  if (tickets.length === 0) throw new Error("Batch is empty");
+  if (!Array.isArray(tickets)) throw new Error("Tickets must be an array");
+  const idSet = new Set<string>();
+  for (const ticket of tickets) {
+    if (typeof ticket !== "object" || ticket === null) throw new Error("Ticket must be a mapping");
+    if (typeof ticket.id !== "string" || ticket.id.trim() === "") throw new Error("Ticket id is missing or invalid");
+    if (idSet.has(ticket.id)) throw new Error("Duplicate ticket id found");
+    idSet.add(ticket.id);
+    if (typeof ticket.filed !== "number" || !Number.isInteger(ticket.filed) || ticket.filed < 0) throw new Error("Filed minute must be a non-negative whole number");
+    if (typeof ticket.grade !== "number" || !Number.isInteger(ticket.grade) || ticket.grade < 0 || ticket.grade > 9) throw new Error("Grade must be a whole number between 0 and 9");
+  }
+  if (typeof start !== "number" || !Number.isInteger(start) || start < 0) throw new Error("Start minute must be a non-negative whole number");
+  if (typeof bumpEvery !== "number" || !Number.isInteger(bumpEvery) || bumpEvery <= 0) throw new Error("Bump interval must be a positive whole number");
+
+  const pending = [...tickets].sort((a, b) => {
+    if (a.filed !== b.filed) return a.filed - b.filed;
+    if (a.id < b.id) return -1;
+    if (a.id > b.id) return 1;
+    return 0;
+  });
+
+  const handled: string[] = [];
+  while (pending.length > 0) {
+    let pick = 0;
+    for (let i = 1; i < pending.length; i++) {
+      const here =
+        pending[i].grade + Math.floor((start - pending[i].filed) / bumpEvery);
+      const held =
+        pending[pick].grade +
+        Math.floor((start - pending[pick].filed) / bumpEvery);
+      if (here > held || (here === held && pending[i].id < pending[pick].id)) {
+        pick = i;
+      }
+    }
+    handled.push(pending[pick].id);
+    pending.splice(pick, 1);
+    start++;
+  }
+
+  return handled;
+}
+```

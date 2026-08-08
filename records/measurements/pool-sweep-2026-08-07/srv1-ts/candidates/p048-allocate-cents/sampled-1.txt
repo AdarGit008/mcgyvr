@@ -1,0 +1,57 @@
+```typescript
+export function allocateCents(total: number, weights: number[]): number[] {
+  if (total < 0 || !Number.isInteger(total)) {
+    throw new Error("Total must be a non-negative integer");
+  }
+  if (weights.length === 0) {
+    throw new Error("Weights list cannot be empty");
+  }
+  for (const weight of weights) {
+    if (!Number.isInteger(weight) || weight <= 0) {
+      throw new Error("All weights must be positive integers");
+    }
+  }
+
+  const weightSum = weights.reduce((acc, w) => acc + w, 0);
+  let remainingCents = total;
+  const allocations = Array(weights.length).fill(0);
+
+  for (let i = 0; i < weights.length; i++) {
+    allocations[i] = Math.floor(total * weights[i] / weightSum);
+    remainingCents -= allocations[i];
+  }
+
+  const remainderTiesBreaker = new Map<number, number[]>();
+  for (let i = 0; i < weights.length; i++) {
+    if (weights[i] % total !== 0) {
+      remainderTiesBreaker.set(weights[i], []);
+    }
+  }
+
+  for (let i = 0; i < weights.length; i++) {
+    const remainder = weights[i] % total;
+    if (remainder > 0 && !remainderTiesBreaker.has(remainder)) {
+      throw new Error("Remainder ties breaker logic not implemented");
+    }
+    remainderTiesBreaker.get(remainder)!.push(i);
+  }
+
+  let sortedWeights = Array.from(remainderTiesBreaker.keys()).sort((a, b) => b - a);
+  for (let i = 0; i < sortedWeights.length; i++) {
+    const indices = remainderTiesBreaker.get(sortedWeights[i])!;
+    for (const index of indices) {
+      if (remainingCents > 0) {
+        allocations[index]++;
+        remainingCents--;
+      } else {
+        break;
+      }
+    }
+    if (remainingCents === 0) {
+      break;
+    }
+  }
+
+  return allocations;
+}
+```

@@ -1,0 +1,50 @@
+```python
+def sieve_report(items: list[dict], rules: list[dict]) -> list[str]:
+    def apply_rule(item, rule):
+        field = rule.get("field")
+        op = rule.get("op")
+        value = rule.get("value")
+
+        if not field or not op:
+            raise ValueError("Invalid rule: missing 'name', 'field', or 'op'")
+
+        item_value = item.get(field)
+
+        if op == "eq":
+            return item_value == value
+        elif op == "ne":
+            return item_value != value
+        elif op == "gt":
+            if not isinstance(item_value, (int, float)):
+                return False
+            return item_value > value
+        elif op == "lt":
+            if not isinstance(item_value, (int, float)):
+                return False
+            return item_value < value
+        elif op == "present":
+            return item_value is not None
+        elif op == "absent":
+            return item_value is None
+        else:
+            raise ValueError(f"Invalid operator: {op}")
+
+    result = []
+    used_names = set()
+
+    for rule in rules:
+        name = rule.get("name")
+        if not name or name in used_names:
+            raise ValueError(f"Invalid rule: duplicate 'name': {name}")
+        used_names.add(name)
+
+    for item in items:
+        failing_rule = None
+        for rule in rules:
+            if not apply_rule(item, rule):
+                failing_rule = rule["name"]
+                break
+        result.append("pass" if failing_rule is None else failing_rule)
+
+    return result
+```

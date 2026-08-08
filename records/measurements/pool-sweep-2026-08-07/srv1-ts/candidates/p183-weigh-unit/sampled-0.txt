@@ -1,0 +1,66 @@
+```ts
+export function weighUnit(
+  spec: string,
+  masses: Record<string, number>,
+): number {
+  if (typeof spec !== "string" || spec.length === 0) {
+    throw new Error("Invalid input");
+  }
+
+  let at = 0;
+  const outer: number[] = [];
+  let sum = 0;
+
+  const readCount = (): number => {
+    if (at >= spec.length) {
+      throw new Error("Unexpected end of string");
+    }
+    let digits = "";
+    while (at < spec.length && /\d/.test(spec[at])) {
+      digits += spec[at];
+      at += 1;
+    }
+    if (digits === "") {
+      return 1;
+    } else if (Number(digits) === 0 || !Number.isInteger(Number(digits))) {
+      throw new Error("Invalid count");
+    }
+    return Number(digits);
+  };
+
+  while (at < spec.length) {
+    const ch = spec[at];
+    at += 1;
+
+    if (ch === "(" || ch === "[") {
+      outer.push(sum);
+      sum = 0;
+    } else if (ch === ")" || ch === "]") {
+      if (outer.length === 0) {
+        throw new Error("Unmatched closer");
+      }
+      const count = readCount();
+      sum = (outer.pop() ?? 0) * count + sum;
+    } else if (/[A-Z]/.test(ch)) {
+      let name = ch;
+      while (at < spec.length && /[a-z]/.test(spec[at])) {
+        name += spec[at];
+        at += 1;
+      }
+      const mass = masses[name] ?? 0;
+      if (mass === 0) {
+        throw new Error(`Unknown mass for ${name}`);
+      }
+      sum += mass * readCount();
+    } else {
+      throw new Error("Invalid character");
+    }
+  }
+
+  if (outer.length > 0 || at !== spec.length) {
+    throw new Error("Unmatched opener or extra characters");
+  }
+
+  return sum;
+}
+```

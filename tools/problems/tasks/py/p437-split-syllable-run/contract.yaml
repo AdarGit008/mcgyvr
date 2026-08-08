@@ -1,0 +1,58 @@
+id: p437-split-syllable-run
+task_type: bug_fix
+task: >-
+  split_syllables cuts a word into syllables and cuts nearly every one of them
+  in the wrong place. Repair it. The word is a non-empty run of lowercase
+  letters. The letters a, e, i, o and u always count as vowels, and y counts
+  as a vowel everywhere except as the very first letter of the word, where it
+  counts as a consonant; every other letter is a consonant. A nucleus is a
+  longest unbroken run of vowels, and a word carrying fewer than two nuclei
+  stands as one syllable whatever its length. Otherwise every neighbouring
+  pair of nuclei is parted by a run of one or more consonants, and such a run
+  is dealt out like this: a run of one consonant joins the syllable after it;
+  a run of two or more consonants gives its first letter to the syllable
+  before it and all the rest to the syllable after it, except that when its
+  first two letters spell one of the pairs ch, ph, sh, th and wh the whole
+  run joins the syllable after it instead. Consonants standing ahead of the
+  first nucleus belong to the first syllable and consonants standing beyond
+  the last nucleus belong to the last. Finally no syllable may be shorter
+  than min_letters letters: while more than one syllable stands and one of
+  them is too short, take the leftmost too-short syllable and join it to the
+  syllable before it, or to the syllable after it when the too-short one
+  leads. The code below counts y as a vowel wherever it stands, hands every
+  parting consonant run whole to the syllable after it, and never applies
+  min_letters at all. Mend those three faults and add the checks it lacks:
+  raise an error when the word is not a string, is empty, or holds anything
+  but lowercase letters, and when min_letters is not a whole number of one or
+  more. Return the syllables in order, and return the complete fixed file.
+target: solution.py
+target_content: |
+  def split_syllables(word: str, min_letters: int) -> list:
+      vowels = "aeiouy"
+      nuclei: list = []
+      at = 0
+      while at < len(word):
+          if word[at] in vowels:
+              start = at
+              while at < len(word) and word[at] in vowels:
+                  at += 1
+              nuclei.append((start, at - 1))
+          else:
+              at += 1
+      if len(nuclei) <= 1:
+          return [word]
+      syllables: list = []
+      start = 0
+      for index in range(1, len(nuclei)):
+          cut = nuclei[index - 1][1] + 1
+          syllables.append(word[start:cut])
+          start = cut
+      syllables.append(word[start:])
+      return syllables
+interface: "def split_syllables(word: str, min_letters: int) -> list"
+stop_conditions:
+  - Whether a word may be spelled with no vowel at all beyond y is not stated to change the counting.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

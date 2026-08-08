@@ -1,0 +1,79 @@
+```ts
+export function readTagAttributes(tag: string): Record<string, unknown> {
+  if (typeof tag !== 'string') {
+    throw new Error('Invalid input: tag must be a string');
+  }
+
+  const regex = /^\[([a-zA-Z][a-zA-Z0-9-]*)\]$/;
+  const match = tag.match(regex);
+  if (!match) {
+    throw new Error('Invalid tag format');
+  }
+
+  const stem = match[1];
+  const marks: Record<string, string> = {};
+  let remaining = tag.slice(stem.length + 2, -1).trim();
+
+  while (remaining.length > 0) {
+    const markRegex = /^([a-z][a-z0-9-]*)=?/;
+    const markMatch = remaining.match(markRegex);
+    if (!markMatch) {
+      throw new Error('Invalid mark format');
+    }
+
+    const name = markMatch[1];
+    let setting = '';
+    let settingType: 'plain' | 'fenced' | null = null;
+
+    if (remaining.length > name.length && remaining[name.length] === '=') {
+      remaining = remaining.slice(name.length + 1);
+      if (remaining.length === 0) {
+        throw new Error('Missing setting after equals sign');
+      }
+
+      if (remaining[0] === '"' || remaining[0] === "'") {
+        const quote = remaining[0];
+        settingType = 'fenced';
+        let escaped = false;
+        for (let i = 1; i < remaining.length; i++) {
+          if (escaped) {
+            escaped = false;
+          } else if (remaining[i] === quote) {
+            setting = remaining.slice(1, i);
+            remaining = remaining.slice(i + 1).trim();
+            break;
+          } else if (remaining[i] === '\\') {
+            escaped = true;
+          }
+        }
+
+        if (!settingType) {
+          throw new Error('Unclosed fenced setting');
+        }
+      } else {
+        settingType = 'plain';
+        const settingMatch = remaining.match(/^[a-zA-Z0-9._-]+/);
+        if (settingMatch) {
+          setting = settingMatch[0];
+          remaining = remaining.slice(setting.length).trim();
+        } else {
+          throw new Error('Invalid plain setting');
+        }
+      }
+    }
+
+    if (marks[name] !== undefined && marks[name] !== setting) {
+      throw new Error(`Duplicate name with different setting: ${name}`);
+    }
+
+    marks[name] = setting;
+
+    if (remaining.length > 0 && remaining[0] !== ' ') {
+      throw new Error('Expected space after mark');
+    }
+    remaining = remaining.replace(/^ +/, '');
+  }
+
+  return { stem, marks };
+}
+```

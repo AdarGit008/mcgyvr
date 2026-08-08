@@ -1,0 +1,30 @@
+```python
+def exam_slot_classes(conflicts: list[list[int]]) -> list[list[int]]:
+    if not isinstance(conflicts, list) or not all(isinstance(c, list) for c in conflicts):
+        raise ValueError("Invalid input: must be a list of lists")
+    if not conflicts:
+        raise ValueError("Invalid input: no exams provided")
+    
+    n = len(conflicts)
+    if any(not (0 <= x < n) for exam_set in conflicts for x in exam_set):
+        raise ValueError("Invalid input: exam number out of range")
+    if any(len(set(exam_set)) != len(exam_set) for exam_set in conflicts):
+        raise ValueError("Invalid input: duplicate exam numbers within a list")
+    
+    exam_counts = [(i, sum(1 for j in range(i + 1, n) if j in conflicts[i])) for i in range(n)]
+    exam_counts.sort(key=lambda x: (-x[1], x[0]))
+    
+    sittings = []
+    sitting_assignments = [set() for _ in range(n)]
+    
+    for exam, count in exam_counts:
+        for s, assigned_exams in enumerate(sitting_assignments):
+            if not any(exam in conflicts[i] for i in assigned_exams if i != exam):
+                sitting_assignments[s].add(exam)
+                break
+        else:
+            sittings.append([exam])
+            sitting_assignments.append({exam})
+    
+    return sittings
+```

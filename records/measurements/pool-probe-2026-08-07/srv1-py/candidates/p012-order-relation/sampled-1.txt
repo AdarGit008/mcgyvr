@@ -1,0 +1,37 @@
+```python
+from typing import List
+
+def order_relation(pairs: List[List[str]], x: str, y: str) -> str:
+    if x == y:
+        raise ValueError("Query items must be distinct")
+
+    graph = {}
+    for a, b in pairs:
+        if a not in graph:
+            graph[a] = set()
+        if b not in graph:
+            graph[b] = set()
+        graph[a].add(b)
+
+    def can_reach(start: str, target: str) -> bool:
+        seen = set()
+        stack = [start]
+        while stack:
+            node = stack.pop()
+            if node == target:
+                return True
+            if node not in seen:
+                seen.add(node)
+                stack.extend(graph.get(node,()))
+        return False
+
+    if can_reach(x, y):
+        if can_reach(y, x):
+            return "both"
+        else:
+            return "before"
+    elif can_reach(y, x):
+        return "after"
+    else:
+        return "unordered"
+```

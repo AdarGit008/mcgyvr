@@ -1,0 +1,18 @@
+id: p034-kth-distinct
+task_type: function_implementation
+task: >-
+  Implement kth_distinct. Given a list of integers and a rank k, return the
+  k-th smallest distinct value in the list: duplicates collapse before
+  ranking, so in [7, 3, 3, 9] the value of rank 1 is 3, rank 2 is 7, and
+  rank 3 is 9. The list itself arrives in no particular order and must not
+  be assumed sorted. Reject a rank that is not a positive integer, a rank
+  exceeding the count of distinct values, an empty input list, and an
+  element that is not an integer, with an error.
+target: solution.py
+interface: "def kth_distinct(values: list[int], k: int) -> int"
+stop_conditions:
+  - How large the input list may grow is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

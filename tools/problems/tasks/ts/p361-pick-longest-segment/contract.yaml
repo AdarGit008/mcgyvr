@@ -1,0 +1,33 @@
+id: p361-pick-longest-segment
+task_type: function_implementation
+task: >-
+  Implement pickLongestSegment. A strand is a non-empty string over the
+  symbols W, X, Y and Z, standing for 0, 1, 2 and 3. Codons are three
+  symbols long, and one strand can be read in three frames: the frame
+  numbered 0, 1 or 2 begins that many symbols in and takes codons three at
+  a time onward from there, leaving unread any tail too short to fill a
+  codon. A codon's residue is settled by its opening pair alone — multiply
+  the first symbol's value by four, add the second symbol's value, and
+  count that many steps on from a through the sixteen letters a to p — so
+  the closing symbol of a codon is free. ZWX is the opening marker; ZZW and
+  ZZX are the two closing markers. A segment opens at every codon equal to
+  ZWX, wherever it falls and in whichever frame: its residues begin with m,
+  the opening marker's own residue, and carry on with the residue of each
+  later codon of that same frame until a closing marker turns up, which
+  shuts the segment and adds nothing to it. A segment whose frame runs out
+  before any closing marker turns up is thrown away. Return the longest
+  segment that shut, under three keys: frame, its frame number; start, the
+  place in the strand where its opening marker begins, counted from zero;
+  and residues, its residue string. More residues beats fewer, between
+  equals the smaller frame number wins, and between those the smaller start
+  wins. When nothing shuts anywhere, answer frame -1, start -1 and an empty
+  residue string. Raise an error when the strand is not a string, when it
+  is empty, and when it holds a symbol outside W, X, Y and Z.
+target: solution.ts
+interface: "export function pickLongestSegment(strand: string): { frame: number; start: number; residues: string }"
+stop_conditions:
+  - Whether a segment opening inside another segment should be suppressed rather than weighed on its own is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

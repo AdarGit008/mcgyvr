@@ -1,0 +1,63 @@
+```python
+def range_algebra(a: list, b: list, op: str) -> list:
+    if op not in {"union", "intersect", "subtract"}:
+        raise ValueError("Invalid operation")
+
+    def merge_intervals(intervals):
+        intervals.sort(key=lambda x: x[0])
+        merged = []
+        for interval in intervals:
+            if not merged or merged[-1][1] < interval[0]:
+                merged.append(interval)
+            else:
+                merged[-1][1] = max(merged[-1][1], interval[1])
+        return merged
+
+    def apply_operation(a, b, op):
+        i, j = 0, 0
+        result = []
+        while i < len(a) and j < len(b):
+            if a[i][1] <= b[j][0]:
+                if op == "union":
+                    result.append(a[i])
+                i += 1
+            elif b[j][1] <= a[i][0]:
+                if op == "union" or op == "subtract":
+                    result.append(b[j])
+                j += 1
+            else:
+                lo = max(a[i][0], b[j][0])
+                hi = min(a[i][1], b[j][1])
+                if op == "union":
+                    result.append([lo, hi])
+                elif op == "subtract":
+                    if a[i][0] < lo:
+                        result.append([a[i][0], lo])
+                    if hi < a[i][1]:
+                        result.append([hi, a[i][1]])
+                i += 1
+                j += 1
+
+        while i < len(a):
+            if op == "union":
+                result.append(a[i])
+            i += 1
+
+        while j < len(b):
+            if op == "union" or op == "subtract":
+                result.append(b[j])
+            j += 1
+
+        return merge_intervals(result)
+
+    for interval in a + b:
+        if not isinstance(interval, list) or len(interval) != 2:
+            raise ValueError("Invalid interval")
+        lo, hi = interval
+        if not isinstance(lo, int) or not isinstance(hi, int):
+            raise ValueError("Interval bounds must be integers")
+        if lo >= hi:
+            raise ValueError("Invalid interval: lo must be strictly below hi")
+
+    return apply_operation(a, b, op)
+```

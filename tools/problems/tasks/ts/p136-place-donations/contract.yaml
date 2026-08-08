@@ -1,0 +1,27 @@
+id: p136-place-donations
+task_type: function_implementation
+task: >-
+  Implement placeDonations. A relief depot pairs arriving donation lots with
+  standing requests. Each request is a record with id (a string, unique
+  among requests), kind (a non-empty string), from and to (integers, the
+  inclusive span of days on which it can receive, from never greater than
+  to) and urgent (a boolean). Each lot is a record with id (a string, unique
+  among lots), kind (a non-empty string) and day (an integer). Scan the lots
+  in the order given. A lot can serve a still-open request when its day lies
+  inside the request's span and the kinds are identical — except a lot of
+  kind "ANY", which fits every kind. When several open requests qualify,
+  hand the lot to an urgent one before any non-urgent one, then to the
+  request whose span closes soonest, and on a remaining tie to the request
+  listed earliest. A served request closes for good; a lot fitting no open
+  request is discarded. Return one [lot id, request id] pair per placed lot,
+  in scan order. Raise an error for a repeated id among the requests or
+  among the lots, a span with from greater than to, and a day, from or to
+  that is not an integer.
+target: solution.ts
+interface: "export function placeDonations(requests: Array<{ id: string; kind: string; from: number; to: number; urgent: boolean }>, lots: Array<{ id: string; kind: string; day: number }>): Array<[string, string]>"
+stop_conditions:
+  - Whether a request may itself carry the kind "ANY" is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

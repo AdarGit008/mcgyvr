@@ -1,0 +1,47 @@
+```ts
+export function leagueOrder(matches: (string | number)[][]): string[] {
+  if (!Array.isArray(matches)) throw new Error("Input must be an array");
+  for (const match of matches) {
+    if (!Array.isArray(match) || match.length !== 4) throw new Error("Each match must be a 4-item list");
+    const [homeTeam, awayTeam, homeGoals, awayGoals] = match;
+    if (typeof homeTeam !== "string" || typeof awayTeam !== "string") throw new Error("Team names must be strings");
+    if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals) || homeGoals < 0 || awayGoals < 0) {
+      throw new Error("Goal figures must be non-negative integers");
+    }
+    if (homeTeam === awayTeam) throw new Error("Teams cannot play against themselves");
+  }
+
+  const teamStats: { [team: string]: { points: number; goalsFor: number; goalsAgainst: number } } = {};
+
+  for (const match of matches) {
+    const [homeTeam, awayTeam, homeGoals, awayGoals] = match;
+    if (!teamStats[homeTeam]) teamStats[homeTeam] = { points: 0, goalsFor: 0, goalsAgainst: 0 };
+    if (!teamStats[awayTeam]) teamStats[awayTeam] = { points: 0, goalsFor: 0, goalsAgainst: 0 };
+
+    teamStats[homeTeam].goalsFor += homeGoals;
+    teamStats[homeTeam].goalsAgainst += awayGoals;
+    teamStats[awayTeam].goalsFor += awayGoals;
+    teamStats[awayTeam].goalsAgainst += homeGoals;
+
+    if (homeGoals > awayGoals) {
+      teamStats[homeTeam].points += 3;
+    } else if (homeGoals < awayGoals) {
+      teamStats[awayTeam].points += 3;
+    } else {
+      teamStats[homeTeam].points += 1;
+      teamStats[awayTeam].points += 1;
+    }
+  }
+
+  const sortedTeams = Object.keys(teamStats).sort((a, b) => {
+    if (teamStats[b].points !== teamStats[a].points) return teamStats[b].points - teamStats[a].points;
+    if (teamStats[b].goalsFor - teamStats[b].goalsAgainst !== teamStats[a].goalsFor - teamStats[a].goalsAgainst) {
+      return (teamStats[b].goalsFor - teamStats[b].goalsAgainst) - (teamStats[a].goalsFor - teamStats[a].goalsAgainst);
+    }
+    if (teamStats[b].goalsFor !== teamStats[a].goalsFor) return teamStats[b].goalsFor - teamStats[a].goalsFor;
+    return a.localeCompare(b);
+  });
+
+  return sortedTeams;
+}
+```

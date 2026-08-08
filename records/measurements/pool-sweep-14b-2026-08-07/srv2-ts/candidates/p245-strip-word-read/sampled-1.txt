@@ -1,0 +1,71 @@
+```ts
+/**
+ * Decodes a bit run using a given codebook.
+ * @param codebook - A mapping of words to their corresponding binary marks.
+ * @param strip - The binary string to be decoded.
+ * @returns An array of words decoded from the strip.
+ */
+export function decodeBitRun(codebook: any, strip: string): string[] {
+    if (typeof codebook !== 'object' || codebook === null) {
+        throw new Error('Codebook must be a non-null object.');
+    }
+    if (Object.keys(codebook).length === 0) {
+        throw new Error('Codebook must contain at least one word.');
+    }
+
+    const words = Object.keys(codebook);
+    const marks = Object.values(codebook);
+
+    for (const word of words) {
+        if (typeof word !== 'string' || !/^[a-z]+$/.test(word)) {
+            throw new Error('Each key in codebook must be a non-empty string of lowercase letters.');
+        }
+    }
+
+    for (const mark of marks) {
+        if (typeof mark !== 'string' || !/^[01]+$/.test(mark)) {
+            throw new Error('Each value in codebook must be a non-empty string of 0s and 1s.');
+        }
+    }
+
+    if (new Set(marks).size !== marks.length) {
+        throw new Error('No two words can have the same mark.');
+    }
+
+    for (let i = 0; i < marks.length - 1; i++) {
+        for (let j = i + 1; j < marks.length; j++) {
+            if (marks[i].startsWith(marks[j]) || marks[j].startsWith(marks[i])) {
+                throw new Error('No word\'s mark can be the prefix of another word\'s mark.');
+            }
+        }
+    }
+
+    if (typeof strip !== 'string') {
+        throw new Error('Strip must be a string.');
+    }
+    if (!/^[01]+$/.test(strip)) {
+        throw new Error('Strip must contain only 0s and 1s.');
+    }
+
+    const decodedWords: string[] = [];
+    let index = 0;
+
+    while (index < strip.length) {
+        let foundMatch = false;
+        for (let i = 0; i < words.length; i++) {
+            if (strip.startsWith(marks[i], index)) {
+                decodedWords.push(words[i]);
+                index += marks[i].length;
+                foundMatch = true;
+                break;
+            }
+        }
+
+        if (!foundMatch) {
+            throw new Error('Reading runs off the end of the strip with characters left over that finish no word\'s mark.');
+        }
+    }
+
+    return decodedWords;
+}
+```

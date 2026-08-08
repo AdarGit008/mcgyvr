@@ -1,0 +1,22 @@
+```python
+def order_sections(labels: list[str]) -> list[str]:
+    def parse_label(label: str) -> tuple[int]:
+        if not isinstance(label, str):
+            raise ValueError("Invalid label type")
+        components = label.split('.')
+        if any(c == '' or (c[0] == '0' and len(c) > 1) for c in components):
+            raise ValueError("Invalid component format")
+        return tuple(int(c) for c in components)
+
+    def compare_labels(label1: str, label2: str) -> int:
+        parsed1 = parse_label(label1)
+        parsed2 = parse_label(label2)
+        for c1, c2 in zip(parsed1, parsed2):
+            if c1 != c2:
+                return c1 - c2
+        return len(parsed1) - len(parsed2)
+
+    if not all(labels[i] != labels[i + 1] for i in range(len(labels) - 1)):
+        raise ValueError("Duplicate labels found")
+    return sorted(labels, key=parse_label)
+```

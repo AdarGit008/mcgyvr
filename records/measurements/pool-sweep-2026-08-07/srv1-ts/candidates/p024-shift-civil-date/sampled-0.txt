@@ -1,0 +1,38 @@
+```ts
+/**
+ * Shifts a civil date by a given number of days.
+ *
+ * @param {string} date - The input date in "YYYY-MM-DD" format.
+ * @param {number} days - The number of days to shift, may be negative.
+ * @returns {string} - The shifted date in "YYYY-MM-DD" format.
+ */
+export function shiftCivilDate(date: string, days: number): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid date format");
+  if (typeof days !== 'number' || !Number.isInteger(days)) throw new Error("Invalid day count");
+
+  const [year, month, day] = date.split('-').map(Number);
+  if (month < 1 || month > 12) throw new Error("Invalid month");
+  if ((month === 4 || month === 6 || month === 9 || month === 11) && day > 30) throw new Error("Day out of range for month");
+  if (month === 2 && day > ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28)) throw new Error("Day out of range for February");
+
+  let newYear = year + Math.floor((day + days - 1) / 365);
+  if (newYear < 1 || newYear > 9999) throw new Error("Date out of valid range");
+
+  const isLeapYear = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  let daysInMonth = [31, isLeapYear(newYear) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let newDay = (day + days - 1) % 365;
+  for (let m = 0; m < 12; m++) {
+    if (newDay < daysInMonth[m]) {
+      newYear += Math.floor(newDay / 365);
+      if (m === 1 && isLeapYear(newYear)) newDay++;
+      break;
+    }
+    newDay -= daysInMonth[m];
+  }
+
+  const newMonth = Math.floor((newDay + 28) / 30) + 1;
+  newDay = ((newDay + 28) % 30) + 1;
+
+  return `${String(newYear).padStart(4, '0')}-${String(newMonth).padStart(2, '0')}-${String(newDay).padStart(2, '0')}`;
+}
+```

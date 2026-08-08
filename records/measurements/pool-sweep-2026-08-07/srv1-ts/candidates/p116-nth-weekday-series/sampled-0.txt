@@ -1,0 +1,38 @@
+```typescript
+export function expandNthWeekday(ordinal: number, weekday: number, start: string, months: number): string[] {
+    if (ordinal < -1 || ordinal > 5 || weekday < 0 || weekday > 6) {
+        throw new Error("Invalid ordinal or weekday");
+    }
+    if (!/^\d{4}-\d{2}$/.test(start) || parseInt(start.split('-')[0]) < 1 || parseInt(start.split('-')[1]) < 1 || parseInt(start.split('-')[1]) > 12) {
+        throw new Error("Invalid start date");
+    }
+    if (!Number.isInteger(months) || months <= 0 || months > 240) {
+        throw new Error("Invalid number of months");
+    }
+
+    const startDate = new Date(parseInt(start.split('-')[0]), parseInt(start.split('-')[1]) - 1, 1);
+    const result: string[] = [];
+
+    for (let i = 0; i < months; i++) {
+        const year = startDate.getFullYear();
+        const month = startDate.getMonth() + 1;
+        let daysInMonth = new Date(year, month, 0).getDate();
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month - 1, day);
+            if (date.getDay() === weekday) {
+                result.push(`${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`);
+                if (ordinal !== 5) break;
+            }
+        }
+
+        if (ordinal === 1 && result.length > 0) {
+            break;
+        }
+
+        startDate.setMonth(startDate.getMonth() + 1);
+    }
+
+    return result.filter((value, index, self) => self.indexOf(value) === index);
+}
+```

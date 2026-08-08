@@ -1,0 +1,50 @@
+```ts
+export function issueCostTotal(moves: Array<Record<string, unknown>>): number {
+  if (!Array.isArray(moves)) {
+    throw new Error("Argument must be a list of movements");
+  }
+
+  const bin: Array<[number, number]> = [];
+  let charged = 0;
+
+  for (const move of moves) {
+    if (typeof move.kind !== "string" || (move.kind !== "in" && move.kind !== "out")) {
+      throw new Error("Invalid movement kind");
+    }
+
+    const units = move.units as unknown;
+    if (typeof units !== "number" || !Number.isInteger(units) || units <= 0) {
+      throw new Error("Units must be a whole number above zero");
+    }
+
+    if (move.kind === "in") {
+      const cents = move.cents as unknown;
+      if (typeof cents !== "number" || !Number.isInteger(cents) || cents < 0) {
+        throw new Error("Cents must be a non-negative integer for 'in' movements");
+      }
+      bin.push([units, cents]);
+    } else if (move.kind === "out") {
+      let remainingUnits = units;
+
+      while (remainingUnits > 0) {
+        if (bin.length === 0) {
+          throw new Error("Issue larger than everything in the bin");
+        }
+
+        const [consignmentUnits, consignmentCents] = bin[0];
+        if (remainingUnits <= consignmentUnits) {
+          charged += remainingUnits * consignmentCents;
+          bin[0][0] -= remainingUnits;
+          remainingUnits = 0;
+        } else {
+          charged += consignmentUnits * consignmentCents;
+          bin.shift();
+          remainingUnits -= consignmentUnits;
+        }
+      }
+    }
+  }
+
+  return charged;
+}
+```

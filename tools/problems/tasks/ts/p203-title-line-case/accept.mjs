@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import { titleLine } from "./solution.ts";
+
+assert.equal(titleLine("the moon and the stars", ["and", "the"]), "The Moon and the Stars", "quiet words stay quiet in the middle");
+assert.equal(titleLine("a NASA report", ["a"]), "A NASA Report", "capitals throughout survive");
+assert.equal(titleLine("don't stop", []), "Don't Stop", "a one letter tail stays small");
+assert.equal(titleLine("o'brien of x-ray", ["of"]), "O'Brien of X-Ray", "longer tails and hyphen pieces are raised");
+assert.equal(titleLine("and", ["and"]), "And", "a lone token is both front and back");
+assert.equal(titleLine("war of the WORLDS", ["of", "the"]), "War of the WORLDS", "an untouched token can close the heading");
+assert.equal(titleLine("mixED cASe", []), "Mixed Case", "stray capitals are lowered");
+assert.equal(titleLine("route 66 north", []), "Route 66 North", "a digit token is copied through");
+assert.equal(titleLine("the end of the", ["of", "the"]), "The End of The", "the closing token is never quiet");
+assert.equal(titleLine("rock'n'roll", []), "Rock'N'Roll", "every inner piece is raised");
+assert.equal(titleLine("HR-2 draft", ["of"]), "Hr-2 Draft", "a hyphen keeps a token off the untouched path");
+assert.throws(() => titleLine("", []), Error, "an empty heading is rejected");
+assert.throws(() => titleLine(" lead", []), Error, "a leading space is rejected");
+assert.throws(() => titleLine("trail ", []), Error, "a trailing space is rejected");
+assert.throws(() => titleLine("two  gaps", []), Error, "a doubled space is rejected");
+assert.throws(() => titleLine("bad.token", []), Error, "a stray character is rejected");
+assert.throws(() => titleLine("-lead", []), Error, "a token opening with a hyphen is rejected");
+assert.throws(() => titleLine("trail'", []), Error, "a token closing with an apostrophe is rejected");
+assert.throws(() => titleLine(7, []), Error, "a non-string heading is rejected");
+assert.throws(() => titleLine("ok", "and"), Error, "a quiet list that is not a list is rejected");
+assert.throws(() => titleLine("ok", ["The"]), Error, "a quiet entry with a capital is rejected");
+assert.throws(() => titleLine("ok", [5]), Error, "a non-string quiet entry is rejected");
+console.log("ok");

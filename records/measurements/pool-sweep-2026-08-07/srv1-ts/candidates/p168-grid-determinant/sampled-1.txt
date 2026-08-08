@@ -1,0 +1,16 @@
+```ts
+export function gridDeterminant(grid: number[][]): number {
+  if (!Array.isArray(grid)) throw new Error("Input must be a list of lists");
+  if (grid.length === 0) throw new Error("Grid cannot be empty");
+  if (grid.some(row => !Array.isArray(row))) throw new Error("All elements must be lists");
+  if (grid.some(row => row.length !== grid.length)) throw new Error("Rows must have the same length");
+  if (grid.length > 3) throw new Error("Grid cannot have more than three rows");
+
+  const n = grid.length;
+  return n === 1
+    ? grid[0][0]
+    : n === 2
+    ? grid[0][0] * grid[1][1] - grid[0][1] * grid[1][0]
+    : grid[0].reduce((det, val, col) => det + ((col % 2 === 0 ? 1 : -1) * val * gridDeterminant(grid.slice(1).map(row => row.filter((_, i) => i !== col)))), 0);
+}
+```

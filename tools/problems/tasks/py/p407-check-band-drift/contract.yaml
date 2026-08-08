@@ -1,0 +1,61 @@
+id: p407-check-band-drift
+task_type: bug_fix
+task: >-
+  check_band_drift audits last season's shelf classes against this season's
+  counts and files the movements, and it files most of them wrongly. Repair
+  it. Every entry is a record with code, with hits — this season's count,
+  never under nothing — and with was, the class letter A, B or C the code
+  carried before. Sweep the entries by hits, heaviest first, settling a tie
+  of hits in favour of the smaller code. Pile up the hits as the sweep goes,
+  counting the entry in hand into the pile before that entry is weighed, and
+  weigh the pile against the season's hits altogether in permille: the entry
+  earns class A if the pile is at most the first mark of every thousand,
+  class B if it is at most the second mark, and class C otherwise. The two
+  marks are whole permille figures, the first under the second, each of them
+  from 1 to 999, and the weighing must be done without dividing anything.
+  Report a record whose up lists the codes that have moved to a nearer
+  class, whose down lists the codes that have moved to a further one, both
+  of them in sweep order, and whose steady counts the codes that did not
+  move; A counts as nearer than B and B as nearer than C. Raise an error for
+  entries that are not a list, entries holding nothing, an entry that is not
+  a record, a code that is not a non-empty string, one code appearing twice,
+  hits that are not a whole number of nothing or more, a season whose hits
+  come to nothing, a was outside the three letters, and marks that break any
+  rule above. Return the whole repaired file.
+target: solution.py
+target_content: |
+  """Which shelf classes moved between seasons."""
+
+  NEARNESS = {"A": 0, "B": 1, "C": 2}
+
+
+  def check_band_drift(entries, marks):
+      grand = sum(entry["hits"] for entry in entries)
+      sweep = sorted(entries, key=lambda entry: -entry["hits"])
+      up = []
+      down = []
+      steady = 0
+      piled = 0
+      for entry in sweep:
+          weighed = piled * 1000
+          if weighed <= marks[0] * grand:
+              now = "A"
+          elif weighed <= marks[1] * grand:
+              now = "B"
+          else:
+              now = "C"
+          piled += entry["hits"]
+          if NEARNESS[now] < NEARNESS[entry["was"]]:
+              down.append(entry["code"])
+          elif NEARNESS[now] > NEARNESS[entry["was"]]:
+              up.append(entry["code"])
+          else:
+              steady += 1
+      return {"up": up, "down": down, "steady": steady}
+interface: "def check_band_drift(entries: list, marks: list) -> dict"
+stop_conditions:
+  - Whether a code absent from last season's list can appear at all is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

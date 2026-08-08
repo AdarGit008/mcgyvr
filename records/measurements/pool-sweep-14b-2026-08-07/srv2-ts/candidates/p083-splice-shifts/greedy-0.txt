@@ -1,0 +1,13 @@
+```ts
+export function spliceShifts(sheets: number[][]): number[] {
+  const mergedSet = new Set<number>();
+
+  for (const sheet of sheets) {
+    for (const badge of sheet ?? []) {
+      mergedSet.add(badge);
+    }
+  }
+
+  return Array.from(mergedSet).sort((a, b) => a - b);
+}
+```

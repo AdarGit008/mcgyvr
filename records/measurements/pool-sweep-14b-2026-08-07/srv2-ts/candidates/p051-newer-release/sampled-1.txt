@@ -1,0 +1,40 @@
+```ts
+export function newerRelease(a: string, b: string): number {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+
+  const versionRegex = /^(\d+)\.(\d+)(?:-(dev|alpha|beta|rc)\.(\d+))?$/;
+  const matchA = a.match(versionRegex);
+  const matchB = b.match(versionRegex);
+
+  if (!matchA || !matchB) {
+    throw new Error('Invalid version string');
+  }
+
+  const [majorA, minorA, channelA, buildA] = matchA.slice(1).map(Number);
+  const [majorB, minorB, channelB, buildB] = matchB.slice(1).map(Number);
+
+  if (majorA !== majorB) {
+    return majorA > majorB ? 1 : -1;
+  }
+  if (minorA !== minorB) {
+    return minorA > minorB ? 1 : -1;
+  }
+
+  const channelOrder: { [key: string]: number } = { dev: 0, alpha: 1, beta: 2, rc: 3 };
+
+  if (channelA && channelB) {
+    if (channelOrder[channelA] !== channelOrder[channelB]) {
+      return channelOrder[channelA] < channelOrder[channelB] ? 1 : -1;
+    }
+    if (buildA !== buildB) {
+      return buildA > buildB ? 1 : -1;
+    }
+  } else if (channelA || channelB) {
+    return channelA ? -1 : 1; // Bare release beats any prerelease
+  }
+
+  return 0;
+}
+```

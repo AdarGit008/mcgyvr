@@ -1,0 +1,39 @@
+```ts
+export function lineChokePoint(stations: Array<[string, number, number]>): { station: string; output: number } {
+  if (stations.length === 0) {
+    throw new Error("Empty station list");
+  }
+
+  let chokePointStation = "";
+  let slowestCapacity = Infinity;
+  const seenNames = new Set<string>();
+
+  for (const [name, machines, rate] of stations) {
+    if (!seenNames.has(name)) {
+      seenNames.add(name);
+    } else {
+      throw new Error(`Duplicate station name: ${name}`);
+    }
+
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error(`Invalid station name: ${name}`);
+    }
+
+    if (!Number.isInteger(machines) || machines <= 0) {
+      throw new Error(`Invalid machine count: ${machines}`);
+    }
+
+    if (!Number.isInteger(rate) || rate <= 0) {
+      throw new Error(`Invalid rate per machine: ${rate}`);
+    }
+
+    const capacity = machines * rate;
+    if (capacity <= slowestCapacity) {
+      slowestCapacity = capacity;
+      chokePointStation = name;
+    }
+  }
+
+  return { station: chokePointStation, output: slowestCapacity };
+}
+```

@@ -1,0 +1,66 @@
+```ts
+export function latticeInverse(frame: number[][]): number[][] {
+  if (!Array.isArray(frame) || frame.length !== 2 && frame.length !== 3) {
+    throw new Error("Invalid frame dimensions");
+  }
+
+  for (const row of frame) {
+    if (!Array.isArray(row) || row.length !== frame.length) {
+      throw new Error("Invalid row dimensions");
+    }
+    for (const num of row) {
+      if (!Number.isInteger(num)) {
+        throw new Error("Non-integer entry found");
+      }
+    }
+  }
+
+  const determinant = calculateDeterminant(frame);
+  if (determinant !== 1 && determinant !== -1) {
+    return [];
+  }
+
+  return findInverseFrame(frame, determinant);
+}
+
+function calculateDeterminant(frame: number[][]): number {
+  if (frame.length === 2) {
+    return frame[0][0] * frame[1][1] - frame[0][1] * frame[1][0];
+  } else { // frame.length === 3
+    return (
+      frame[0][0] * (frame[1][1] * frame[2][2] - frame[1][2] * frame[2][1]) -
+      frame[0][1] * (frame[1][0] * frame[2][2] - frame[1][2] * frame[2][0]) +
+      frame[0][2] * (frame[1][0] * frame[2][1] - frame[1][1] * frame[2][0])
+    );
+  }
+}
+
+function findInverseFrame(frame: number[][], determinant: number): number[][] {
+  const inverseFrame = Array.from({ length: frame.length }, () => Array(frame.length).fill(0));
+
+  for (let i = 0; i < frame.length; i++) {
+    for (let j = 0; j < frame.length; j++) {
+      let cofactor = calculateCofactor(frame, i, j);
+      if ((i + j) % 2 !== 0) {
+        cofactor *= -1;
+      }
+      inverseFrame[j][i] = cofactor / determinant;
+    }
+  }
+
+  return inverseFrame;
+}
+
+function calculateCofactor(frame: number[][], row: number, col: number): number {
+  const submatrix = frame.slice(0).map(r => r.filter((_, index) => index !== col));
+  if (submatrix.length === 2) {
+    return submatrix[0][0] * submatrix[1][1] - submatrix[0][1] * submatrix[1][0];
+  } else { // submatrix.length === 3
+    return (
+      submatrix[0][0] * (submatrix[1][1] * submatrix[2][2] - submatrix[1][2] * submatrix[2][1]) -
+      submatrix[0][1] * (submatrix[1][0] * submatrix[2][2] - submatrix[1][2] * submatrix[2][0]) +
+      submatrix[0][2] * (submatrix[1][0] * submatrix[2][1] - submatrix[1][1] * submatrix[2][0])
+    );
+  }
+}
+```

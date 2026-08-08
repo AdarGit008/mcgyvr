@@ -1,0 +1,28 @@
+id: p337-rebuild-from-terms
+task_type: function_implementation
+task: >-
+  Implement rebuild_from_terms. A run of whole numbers spells a quotient that
+  is read from the back: [4, 2, 6, 7] stands for 4 plus one over the quantity
+  2 plus one over the quantity 6 plus one over 7. Give back the pair
+  [numerator, denominator] naming that quotient, already in lowest terms and
+  with a positive denominator, and reach it by the forward recurrence rather
+  than by unwinding the run from its tail: carry two running numerators seeded
+  1 and 0 and two running denominators seeded 0 and 1, then for each entry a
+  the freshest numerator is a times the previous numerator plus the one before
+  that, with the denominators marching in lockstep. What the recurrence leaves
+  is reduced already, so no common-divisor step belongs at the end. Every step
+  is exact whole-number work. Reject with an error a run that is not a list,
+  an empty run, a run longer than 64 entries, an entry that is not a whole
+  number, a leading entry whose magnitude passes 1000000, an entry behind the
+  leading one lying outside 1 through 1000, a run of more than one entry whose
+  final entry is 1 because that spelling is not the canonical one, and any run
+  whose numerator or denominator swells past 1000000000 in magnitude along
+  the way.
+target: solution.py
+interface: "def rebuild_from_terms(run: list) -> list"
+stop_conditions:
+  - Whether a caller may rely on the pair being freshly built rather than shared is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

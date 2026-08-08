@@ -1,0 +1,40 @@
+id: p471-report-lock-changes
+task_type: function_implementation
+task: >-
+  Implement reportLockChanges. Both arguments are lock records, each a list of
+  entries in no particular order; an entry is a mapping carrying exactly the
+  four keys name (a non-empty string, no two entries of one record alike),
+  version, source (a non-empty string naming where the artefact was fetched
+  from) and needs (a list of non-empty strings, none repeated inside one
+  entry). A version is one or more groups of digits split by full stops, no
+  group carrying a leading nought unless the group is a lone nought, and it may
+  then carry a plus sign followed by a build tag of one or more pieces split by
+  full stops, each piece one or more lowercase letters and digits. Standing is
+  decided by the digit groups alone, the shorter of two padded out with noughts
+  on the right, so 2.1 and 2.1.0 stand level and a build tag never shifts
+  anything. A name only the second record carries is added and a name only the
+  first carries is dropped, each reported with the version written beside it. A
+  name both carry whose second standing is higher is lifted, and whose second
+  standing is lower is lowered, each reported with the version it came from and
+  the version it went to, and such a name is reported nowhere else. A name
+  whose two standings are level is examined three further ways, and may show up
+  in any, all or none of them: it is rebuilt when the two versions are written
+  differently, reported from and to; it is moved when the two sources differ,
+  reported from and to those sources; and it is rewired when the two need lists
+  hold different names, reported with gained, the names only the second lists,
+  and lost, the names only the first lists, each in ascending order. Return a
+  mapping carrying added, dropped, lifted, lowered, rebuilt, moved and rewired,
+  every one of them a list ordered by name ascending. Raise an error when
+  either argument is not a list, when an entry is not a mapping or fails to
+  carry exactly those four keys, when a name or a source is not a non-empty
+  string, when two entries of one record share a name, when a version is not a
+  string or is not written in the stated shape, when the needs are not a list,
+  when a need is not a non-empty string, and when one entry names a need twice.
+target: solution.ts
+interface: "export function reportLockChanges(before: Record<string, unknown>[], after: Record<string, unknown>[]): Record<string, Record<string, unknown>[]>"
+stop_conditions:
+  - Whether a need must itself be a name some record carries is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

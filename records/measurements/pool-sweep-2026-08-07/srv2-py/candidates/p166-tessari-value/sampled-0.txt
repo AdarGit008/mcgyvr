@@ -1,0 +1,23 @@
+```python
+def tessari_value(text: str) -> int:
+    if not text or text.islower() or (text.startswith('k') and len(text) > 1):
+        raise ValueError("Invalid Tessari numeral")
+    
+    glyph_values = {'K': 0, 'L': 1, 'M': 2, 'N': 3, 'P': 4, 'Q': 5, 'R': 6, 'S': 7, 'T': 8}
+    
+    total = 0
+    prev_value = 0
+    
+    for glyph in reversed(text):
+        if glyph not in glyph_values:
+            raise ValueError("Invalid Tessari numeral")
+        
+        value = glyph_values[glyph]
+        if value > prev_value:
+            raise ValueError("Invalid Tessari numeral order")
+        
+        total += value * (9 ** text[::-1].index(glyph))
+        prev_value = value
+    
+    return total
+```

@@ -1,0 +1,35 @@
+id: p439-scan-picket-widths
+task_type: function_implementation
+task: >-
+  Implement read_scanned_bars. A scanner sweeps a printed strip and reports the
+  measure of every bar it crossed, one whole number of one or more per bar,
+  left to right. Each bar was printed either thin or fat, and which it was is
+  recovered from the measures alone: let the least measure reported anywhere
+  in the sweep be the thin measure; a bar reads thin when twice its measure
+  falls under three times the thin measure, and fat when twice its measure
+  passes three times the thin measure while its own measure stays at or under
+  three times the thin measure. A bar sitting exactly on that mark cannot be
+  told apart and spoils the sweep, and so does a bar measuring more than
+  three times the thin measure. Once every bar is read, the sweep must show
+  two thin bars as its opening mark, a fat bar and then a thin bar as its
+  closing mark, and between the marks a run of bars dividing into groups of
+  five, one group at the least, every group carrying exactly two fat bars. A
+  group names a digit by which pair of its five places is fat: the pairs rank
+  by the earlier fat place and then by the later one, so places one and two
+  rank first and stand for 0, places one and three stand for 1, and so on
+  down to places four and five, which stand for 9. Return a mapping under
+  "digits", the digits the strip carries as a string in reading order, and
+  "thin", the thin measure. Raise an error when the sweep is not a list, when
+  it reports fewer than nine bars, when a measure is not a whole number of
+  one or more, when a bar cannot be told apart or measures too fat, when
+  either mark is not printed as stated, when the bars between the marks do
+  not divide into groups of five, and when a group does not carry exactly two
+  fat bars.
+target: solution.py
+interface: "def read_scanned_bars(sweep: list) -> dict"
+stop_conditions:
+  - Whether the scanner may report the gaps between bars as well is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

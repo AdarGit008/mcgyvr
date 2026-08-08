@@ -1,0 +1,33 @@
+id: p368-split-address-tracts
+task_type: function_implementation
+task: >-
+  Implement split_address_tracts. In this invented estate an address is
+  exactly five letters drawn from a, b, c and d, which stand for the digits
+  zero through three of a base-four numeral, so "aaaaa" is the first of 1024
+  addresses. A tract is written as an address, a slash, and a pinned count
+  from 0 to 5 saying how many leading letters are held fixed; every letter
+  past the pinned ones must be written as a, and the tract stands for the run
+  of four raised to the number of unpinned letters addresses starting at that
+  address. Given a root tract and a list of wanted capacities, grant each
+  want the smallest tract that holds it, which is its capacity rounded up to
+  a power of four. Grant the roomiest want first, and among wants of one
+  length the one listed earlier; each grant takes the lowest free run of its
+  own length lying wholly inside the root, and a run may only begin at an
+  address its own length divides. Return a mapping with "refused" holding
+  false, "tracts" holding one tract string per want in the order the wants
+  were listed, and "spare" holding the count of addresses inside the root
+  that no grant covers. When some want cannot be granted at all, return
+  "refused" holding true, an empty "tracts" and "spare" holding the root's
+  whole span. Raise an error when the root is not a string carrying an
+  address and a slash and a pinned count, when the pinned count falls outside
+  0 to 5, when a letter past the pinned ones is not a, when an address is not
+  five letters from a to d, when the wants are not a list or the list is
+  empty, and when a want is not a whole number above zero.
+target: solution.py
+interface: "def split_address_tracts(root: str, wants: list) -> dict"
+stop_conditions:
+  - Whether two wants may be granted the very same tract when one of them asks for nothing more than the other is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

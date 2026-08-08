@@ -1,0 +1,31 @@
+```ts
+export function seatParties(rows: number[], parties: number[]): string[] {
+  const results: string[] = [];
+  const freeSeats = rows.map(row => row);
+
+  for (const party of parties) {
+    if (party < 1) throw new Error("Party size must be at least 1");
+    let seated = false;
+
+    for (let i = 0; i < freeSeats.length; i++) {
+      if (freeSeats[i] >= party) {
+        results.push(`${i + 1}-${freeSeats[i] - party + 2}`);
+        freeSeats[i] -= party;
+        seated = true;
+        break;
+      }
+    }
+
+    if (!seated) {
+      const largestRow = Math.max(...rows);
+      if (party > largestRow) {
+        results.push("rejected:too_big");
+      } else {
+        results.push("rejected:full");
+      }
+    }
+  }
+
+  return results;
+}
+```

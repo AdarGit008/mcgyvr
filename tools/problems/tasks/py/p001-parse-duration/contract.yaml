@@ -1,0 +1,18 @@
+id: p001-parse-duration
+task_type: function_implementation
+task: >-
+  Implement parse_duration. The input is a compact duration string of one or
+  more value-unit pairs, where a value is a non-negative integer and the
+  units are d, h, m and s: "1h30m" is 5400 seconds, "90s" is 90, "1d2h3m4s"
+  is 93784. Units must appear in strictly decreasing size, each unit at most
+  once. Return the total number of seconds. Reject the empty string, an
+  unknown unit, a repeated unit, units out of order, a missing value, and a
+  non-string argument with an error.
+target: solution.py
+interface: "def parse_duration(text: str) -> int"
+stop_conditions:
+  - Whether whitespace anywhere in the input is accepted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

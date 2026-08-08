@@ -1,0 +1,22 @@
+```python
+def hex_ring_walk(center: list, radius: int) -> list:
+    if len(center) != 2 or not all(isinstance(x, int) for x in center):
+        raise ValueError("Center must be a two-element list of integers.")
+    if not isinstance(radius, int):
+        raise ValueError("Radius must be an integer.")
+    if radius < 0:
+        raise ValueError("Radius cannot be negative.")
+
+    steps = [
+        [-1, 1], [0, 1], [1, 0], [1, -1], [0, -1], [-1, 0]
+    ]
+    walk = []
+    current = center
+
+    for _ in range(radius):
+        current = [current[0] + step[0], current[1] + step[1]]
+        walk.append(current)
+        steps.append(steps.pop(0))  # Rotate steps to the right
+
+    return walk
+```

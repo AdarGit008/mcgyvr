@@ -1,0 +1,24 @@
+id: p336-fold-fraction-terms
+task_type: function_implementation
+task: >-
+  Implement foldFractionTerms. Any quotient of whole numbers can be folded
+  into a leading whole part and a shrinking tail: 415 over 93 equals 4 plus
+  one over the quantity 2 plus one over the quantity 6 plus one over 7, which
+  this routine reports as the run [4, 2, 6, 7]. Fold it by repeated flooring —
+  take the floor of numerator over denominator as the next entry, always
+  rounding downward so that -7 over 2 floors to -4, subtract it off, then flip
+  what is left over and carry on, halting the moment nothing is left over.
+  Only the leading entry may be zero or negative; every entry behind it is 1
+  or more, and whenever the run is longer than one entry its final one is 2 or
+  more, which is what pins each quotient to a single run. Do the whole fold in
+  exact whole-number steps. Reject with an error a numerator or denominator
+  that is not a whole number, a denominator smaller than 1, a denominator
+  above 1000000000, and a numerator whose magnitude passes 1000000000.
+target: solution.ts
+interface: "export function foldFractionTerms(numerator: number, denominator: number): number[]"
+stop_conditions:
+  - Whether the caller may hand over a quotient that is not already in lowest terms is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

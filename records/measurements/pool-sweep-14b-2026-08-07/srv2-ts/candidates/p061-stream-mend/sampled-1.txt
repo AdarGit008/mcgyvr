@@ -1,0 +1,37 @@
+```ts
+/**
+ * Reassembles a message from a list of fragments.
+ * @param total - The exact length of the original message.
+ * @param fragments - A list of fragments, each a pair of a character offset and a piece of text.
+ * @returns The complete reassembled message.
+ */
+export function reassembleStream(
+  total: number,
+  fragments: Array<[number, string]>,
+): string {
+  if (total < 0) {
+    throw new Error("Invalid total length");
+  }
+
+  const message = new Array(total).fill("");
+
+  for (const [offset, text] of fragments) {
+    if (offset < 0 || offset + text.length > total) {
+      throw new Error("Fragment out of bounds");
+    }
+    for (let i = 0; i < text.length; i++) {
+      const pos = offset + i;
+      if (message[pos] !== "" && message[pos] !== text[i]) {
+        throw new Error("Disagreement on shared position");
+      }
+      message[pos] = text[i];
+    }
+  }
+
+  if (message.some((char) => char === "")) {
+    throw new Error("Uncovered position");
+  }
+
+  return message.join("");
+}
+```

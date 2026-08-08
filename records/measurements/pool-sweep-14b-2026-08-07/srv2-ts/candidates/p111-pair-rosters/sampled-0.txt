@@ -1,0 +1,45 @@
+```ts
+/** Inner-join two rosters on a key column. */
+export function pairRosters(
+  left: Array<Record<string, unknown>>,
+  right: Array<Record<string, unknown>>,
+  key: string,
+): Array<Record<string, unknown>> {
+  const where: Record<string, number[]> = {};
+  right.forEach((row, index) => {
+    const value = row[key];
+    if (typeof value !== "string") {
+      throw new Error("bad key value");
+    }
+    if (!where[value]) {
+      where[value] = [];
+    }
+    where[value].push(index);
+  });
+
+  Object.keys(where).forEach((value) => {
+    if (where[value].length > 1) {
+      throw new Error(`duplicate key value: ${value}`);
+    }
+  });
+
+  const joined: Array<Record<string, unknown>> = [];
+  for (const row of left) {
+    const value = row[key];
+    if (typeof value !== "string") {
+      throw new Error("bad key value");
+    }
+    if (where[value] && where[value].length > 0) {
+      const partner = right[where[value][0]];
+      const merged: Record<string, unknown> = { ...row };
+      for (const name of Object.keys(partner)) {
+        if (name !== key) {
+          merged[name] = partner[name];
+        }
+      }
+      joined.push(merged);
+    }
+  }
+  return joined;
+}
+```

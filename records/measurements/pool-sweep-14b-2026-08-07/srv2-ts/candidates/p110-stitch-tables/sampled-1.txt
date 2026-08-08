@@ -1,0 +1,73 @@
+```ts
+export function stitchTables(
+  left: Array<Record<string, unknown>>,
+  right: Array<Record<string, unknown>>,
+  key: string,
+  mode: string
+): Array<Record<string, unknown>> {
+  if (mode !== "inner" && mode !== "left") {
+    throw new Error("Invalid mode. Must be 'inner' or 'left'.");
+  }
+
+  const rightMap = new Map<string, Record<string, unknown>>();
+  for (const record of right) {
+    if (typeof record[key] !== "string") {
+      throw new Error(`Right table record missing key column: ${key}`);
+    }
+    const keyValue = record[key] as string;
+    if (rightMap.has(keyValue)) {
+      throw new Error(`Duplicate key value in right table: ${keyValue}`);
+    }
+    rightMap.set(keyValue, record);
+  }
+
+  const leftColumns = new Set<string>();
+  for (const record of left) {
+    if (typeof record[key] !== "string") {
+      throw new Error(`Left table record missing key column: ${key}`);
+    }
+    for (const column of Object.keys(record)) {
+      if (column !== key) {
+        leftColumns.add(column);
+      }
+    }
+  }
+
+  const rightColumns = new Set<string>();
+  for (const record of right) {
+    for (const column of Object.keys(record)) {
+      if (column !== key) {
+        rightColumns.add(column);
+      }
+    }
+  }
+
+  if (leftColumns.size > 0 && leftColumns.hasIntersection(rightColumns)) {
+    throw new Error("Non-key column name collision between tables.");
+  }
+
+  const result: Array<Record<string, unknown>> = [];
+
+  for (const leftRecord of left) {
+    const keyValue = leftRecord[key] as string;
+    const rightRecord = rightMap.get(keyValue);
+    const joinedRecord: Record<string, unknown> = { ...leftRecord };
+
+    if (rightRecord) {
+      for (const [column, value] of Object.entries(rightRecord)) {
+        if (column !== key) {
+          joinedRecord[column] = value;
+        }
+      }
+    } else if (mode === "left") {
+      for (const column of rightColumns) {
+        joinedRecord[column] = null;
+      }
+    }
+
+    result.push(joinedRecord);
+  }
+
+  return result;
+}
+```

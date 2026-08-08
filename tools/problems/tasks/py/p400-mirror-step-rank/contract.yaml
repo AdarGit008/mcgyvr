@@ -1,0 +1,24 @@
+id: p400-mirror-step-rank
+task_type: function_implementation
+task: >-
+  Implement mirror_step_rank. A dial is engraved with mirror-step words:
+  strings of the marks 0 and 1, all of the same length, laid round the dial
+  so that a single notch of turn alters exactly one mark. The word standing
+  at position nought is all 0s. For three marks the engraving reads 000, 001,
+  011, 010, 110, 111, 101, 100, standing at positions nought through seven.
+  Given one such word, give back the position it stands at, counted from
+  nought. The reading rule is this: sweep the word from its left end and keep
+  a running tally of how many 1 marks have gone by, the present one counted
+  in; that tally taken modulo two is the plain binary digit belonging to the
+  same column, and the plain binary number so assembled is the position.
+  Raise an error for an argument that is not text, for an empty word, for a
+  word carrying any mark other than 0 and 1, and for a word longer than
+  thirty marks.
+target: solution.py
+interface: "def mirror_step_rank(word: str) -> int"
+stop_conditions:
+  - Whether words of differing lengths should be told apart rather than each read on its own is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

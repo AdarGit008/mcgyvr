@@ -1,0 +1,53 @@
+id: p483-lay-shot-shelves
+task_type: bug_fix
+task: >-
+  lay_shot_shelves works out how tall a strip of prints will run once the shop
+  fits every frame to one cell width, and it gets the numbers wrong. Each shot
+  is a record with name (a non-empty string, no two shots answering to the same
+  one) and with across and down, whole numbers above nought for the frame's two
+  sides as shot. The strip record carries per_row (a whole number above nought,
+  how many frames stand side by side before the next row starts), cell (a whole
+  number above nought, the width every frame is fitted to) and lead (a whole
+  number of nought or more, the clear depth insisted on between one row and the
+  row beneath it). A frame fitted to the cell width runs down times cell divided
+  by across deep, and any remainder pushes that up to the next whole number. The
+  shots are taken in arrival order, per_row of them to a row, so only the final
+  row may be short. A row runs as deep as its deepest frame, and the strip runs
+  as deep as its rows together plus one lead for each join between two rows, so
+  a strip of one row carries no lead at all. Give back a record whose rows lists
+  one record per row in order, each carrying names, the frame names on that row
+  in order, and deep, that row's depth, and whose deep is the strip's own depth.
+  The code below divides without pushing the remainder up, reads a row's depth
+  off its first frame instead of its deepest, and adds a lead beneath the final
+  row as well. Repair all three, add the missing checks so that it throws an
+  error when shots is not a list or holds nothing, when a shot is not a record,
+  when a name is not a non-empty string, when two shots answer to one name, when
+  across or down is not a whole number above nought, when strip is not a record,
+  when per_row or cell is not a whole number above nought, and when lead is not
+  a whole number of nought or more, and return the complete fixed file.
+target: solution.py
+target_content: |
+  """How deep a strip of fitted prints runs."""
+
+
+  def lay_shot_shelves(shots: list, strip: dict) -> dict:
+      rows = []
+      for start in range(0, len(shots), strip["per_row"]):
+          chunk = shots[start : start + strip["per_row"]]
+          rows.append(
+              {
+                  "names": [shot["name"] for shot in chunk],
+                  "deep": (chunk[0]["down"] * strip["cell"]) // chunk[0]["across"],
+              }
+          )
+      deep = 0
+      for row in rows:
+          deep += row["deep"] + strip["lead"]
+      return {"rows": rows, "deep": deep}
+interface: "def lay_shot_shelves(shots: list, strip: dict) -> dict"
+stop_conditions:
+  - Whether the lead also applies above the first row when the strip is mounted is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

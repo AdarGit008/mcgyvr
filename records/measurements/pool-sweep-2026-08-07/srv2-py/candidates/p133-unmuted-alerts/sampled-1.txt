@@ -1,0 +1,24 @@
+```python
+def unmuted_alerts(alerts: list) -> list:
+    if not alerts:
+        return []
+
+    for alert in alerts:
+        if not isinstance(alert["id"], str):
+            raise ValueError("Alert id must be a string")
+        if not isinstance(alert["resource"], str):
+            raise ValueError("Alert resource must be a string")
+        if not isinstance(alert["severity"], int) or alert["severity"] <= 0:
+            raise ValueError("Alert severity must be a positive integer")
+
+    muted = set()
+    for i, alert1 in enumerate(alerts):
+        for j, alert2 in enumerate(alerts):
+            if i != j and alert1["resource"] == alert2["resource"] and alert1["severity"] < alert2["severity"]:
+                muted.add(alert1["id"])
+                break
+
+    unmuted = [alert["id"] for alert in alerts if alert["id"] not in muted]
+    unmuted.sort(key=lambda x: (-alerts[alerts.index({"id": x})]["severity"], x))
+    return unmuted
+```

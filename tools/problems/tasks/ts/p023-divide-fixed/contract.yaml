@@ -1,0 +1,24 @@
+id: p023-divide-fixed
+task_type: function_implementation
+task: >-
+  Implement divideFixed. Given an integer numerator, an integer denominator
+  and an integer places, return the quotient numerator/denominator as a
+  decimal string rounded to exactly places digits after the decimal point,
+  computed with integer arithmetic only — no floating-point anywhere.
+  Rounding is round-half-to-even: when the exact quotient sits exactly
+  halfway between two representable results, pick the one whose final digit
+  is even, so 1/8 at two places is "0.12" and 3/8 at two places is "0.38",
+  while 7/2 at zero places is "4". With places 0 the result has no decimal
+  point; otherwise it carries exactly places digits, zero-padded. A negative
+  quotient gets a leading minus sign, but a result that rounds to zero is
+  written without one — never "-0.00". Numerator and denominator magnitudes
+  stay at or below one million. Reject a zero denominator, a places value
+  outside 0 through 6, and any non-integer argument with an error.
+target: solution.ts
+interface: "export function divideFixed(numerator: number, denominator: number, places: number): string"
+stop_conditions:
+  - Whether arguments with magnitude above one million must be rejected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,32 @@
+id: p372-apply-schema-steps
+task_type: function_implementation
+task: >-
+  Implement apply_schema_steps. The first argument describes a table as a
+  non-empty list of columns, each a mapping carrying a name and a kind; a name
+  is a lowercase word of letters, digits and underscores that starts with a
+  letter, no two columns share one, and a kind is one of int, long and text.
+  The second argument is a list of migration steps carried out in the order
+  given, each a mapping whose op reads add, drop, rename or retype. An add
+  carries a name and a kind and puts a fresh column at the end of the table. A
+  drop carries a name and takes that column out, closing the gap behind it. A
+  rename carries a name and a to, and the column keeps both its place and its
+  kind under the new name. A retype carries a name and a kind and may only
+  widen: int may become long or text and long may become text, never the other
+  way about and never the kind the column already holds. Return the table as it
+  stands after the last step, a list of mappings carrying name and kind, and
+  leave both arguments untouched. Raise an error when either argument is not a
+  list, when the table starts out empty, when a column or a step is not a
+  mapping, when a name is not a lowercase word of that shape or a kind is not
+  one of the three, when two columns start out sharing a name, when a step
+  gives an op outside the four, when an add or a rename asks for a name the
+  table already carries, when a drop, a rename or a retype points at a column
+  that is not there, when a drop would empty the table, and when a retype fails
+  to widen.
+target: solution.py
+interface: "def apply_schema_steps(columns: list, steps: list) -> list"
+stop_conditions:
+  - Whether a step that fails should leave the earlier steps applied is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

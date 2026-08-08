@@ -1,0 +1,24 @@
+id: p109-frog-hop
+task_type: function_implementation
+task: >-
+  Implement canHop. A pond is a five-by-five grid given as five strings
+  of five characters, where "." is open water and any other character is
+  a lily pad bearing a frog. A frog on the from square, [row, column]
+  counted from zero at the top left, wants the to square. The move is
+  allowed in exactly two shapes: a step, where the to square is
+  horizontally or vertically adjacent to the from square; or a vault,
+  where the to square lies exactly two squares away in a straight
+  horizontal, vertical or diagonal line and the square midway between
+  the two is occupied. In every shape the from square must be occupied
+  and the to square must be open water. Return true when the move is
+  allowed and false otherwise. Reject with an error a pond that is not
+  five strings of five characters, and a square that is not a pair of
+  integers each between 0 and 4.
+target: solution.ts
+interface: "export function canHop(pond: string[], from: number[], to: number[]): boolean"
+stop_conditions:
+  - Whether a vault may also cross open water when a longer route exists is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,35 @@
+```ts
+export function firstDeadlineMiss(jobs: Array<Record<string, unknown>>): string {
+  const jobSchema = { name: 'string', work: 'number', due: 'number' };
+  const validateJob = (job: Record<string, unknown>): void => {
+    if (typeof job.name !== jobSchema.name || typeof job.work !== jobSchema.work || typeof job.due !== jobSchema.due) {
+      throw new Error('Invalid job format');
+    }
+    if (!Number.isInteger(job.work) || !Number.isInteger(job.due) || job.work <= 0 || job.due <= 0) {
+      throw new Error('Work and due must be positive integers');
+    }
+  };
+
+  const validateJobs = (jobs: Array<Record<string, unknown>>): void => {
+    const names = new Set<string>();
+    for (const job of jobs) {
+      validateJob(job);
+      if (names.has(job.name)) {
+        throw new Error('Duplicate job name');
+      }
+      names.add(job.name);
+    }
+  };
+
+  validateJobs(jobs);
+
+  const sortedJobs = jobs.sort((a, b) => a.due - b.due || jobs.indexOf(a) - jobs.indexOf(b));
+  for (const [index, job] of sortedJobs.entries()) {
+    if (job.work > job.due - index) {
+      return job.name;
+    }
+  }
+
+  return '';
+}
+```

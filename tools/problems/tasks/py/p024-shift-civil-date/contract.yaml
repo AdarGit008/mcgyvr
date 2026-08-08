@@ -1,0 +1,22 @@
+id: p024-shift-civil-date
+task_type: function_implementation
+task: >-
+  Implement shift_civil_date. Given a proleptic Gregorian calendar date as a
+  "YYYY-MM-DD" string (zero-padded, year 0001 through 9999) and an integer
+  count of days that may be negative, return the date that many days away in
+  the same zero-padded format. Work entirely by calendar arithmetic on the
+  digits — leap years are those divisible by 4, except centuries, which must
+  be divisible by 400 — and do not use any built-in date or calendar
+  facility. The day count magnitude stays at or below one million. Reject a
+  string that is not zero-padded "YYYY-MM-DD", a month outside 01..12, a day
+  that does not exist in its month (February 29 outside a leap year
+  included), a non-integer day count, and a result falling before year 0001
+  or after year 9999, all with an error.
+target: solution.py
+interface: "def shift_civil_date(date: str, days: int) -> str"
+stop_conditions:
+  - Behaviour for a day-count magnitude above one million is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

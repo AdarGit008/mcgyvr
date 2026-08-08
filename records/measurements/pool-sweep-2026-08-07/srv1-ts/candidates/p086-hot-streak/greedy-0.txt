@@ -1,0 +1,31 @@
+```ts
+/**
+ * Finds the longest streak of consecutive games scoring strictly more than the bar.
+ * @param scores - List of integer scores in the order they were played.
+ * @param bar - Integer bar that must be exceeded to count a game in a streak.
+ * @returns A pair [start, length] describing the longest streak. If no streak is found, returns [-1, 0].
+ */
+export function hotStreak(scores: number[], bar: number): number[] {
+    if (scores.length === 0) return [-1, 0];
+
+    let maxLength = 0;
+    let maxStartIndex = -1;
+
+    for (let i = 0; i < scores.length; ) {
+        if (scores[i] > bar) {
+            const start = i;
+            while (i + 1 < scores.length && scores[i + 1] > bar) {
+                i++;
+            }
+            const length = i - start + 1;
+            if (length > maxLength) {
+                maxLength = length;
+                maxStartIndex = start;
+            }
+        }
+        i++;
+    }
+
+    return [maxStartIndex, maxLength];
+}
+```

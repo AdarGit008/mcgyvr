@@ -1,0 +1,21 @@
+id: p069-capped-compositions
+task_type: function_implementation
+task: >-
+  Implement cappedCompositions. Count the ordered sequences of exactly
+  parts integers, each one at least lo and at most hi, whose sum is exactly
+  total; sequences differing only in order are counted separately. Two
+  parts between 1 and 6 reach a total of 7 in 6 ways, and four parts
+  between 0 and 3 reach 6 in 44 ways. Return 0 when no sequence fits. The
+  count must be exact, so build it by dynamic programming over partial
+  sums rather than by enumeration or any closed-form approximation. Reject
+  with an error a parts count that is not a positive integer, a bound that
+  is not a non-negative integer, bounds with lo above hi, and a total that
+  is not an integer.
+target: solution.ts
+interface: "export function cappedCompositions(total: number, parts: number, lo: number, hi: number): number"
+stop_conditions:
+  - Whether a negative total must be rejected or merely counts zero is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,35 @@
+id: p207-hand-out-chores
+task_type: bug_fix
+task: >-
+  hand_out_chores shares a chore board around a crew and shares it wrongly.
+  Repair it. Nothing is drawn at random; a marker walks the crew by a stated
+  step. The crew stand in a ring in the order given, and the marker begins
+  on the crew member standing first. Take the chores in the order listed:
+  the chore goes to whoever the marker stands on, and then the marker walks
+  forward around the ring by as many places as that chore's name has
+  characters, so a three character chore moves the marker three places on.
+  Return a mapping from each crew member's name to the chores that fell to
+  them, kept in the order they fell; a crew member who never drew a chore
+  still gets a key with an empty list under it. Raise an error when the
+  chore board is not a list, when a chore is not a non-empty string, when a
+  chore is listed twice, when the crew is not a list or nobody is on it,
+  when a crew member's name is not a non-empty string, and when two crew
+  members share a name. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """The chore board shared out around the crew."""
+
+
+  def hand_out_chores(chores: list, crew: list) -> dict:
+      share = {}
+      for at, chore in enumerate(chores):
+          who = crew[at % len(crew)]
+          share.setdefault(who, []).append(chore)
+      return share
+interface: "def hand_out_chores(chores: list, crew: list) -> dict"
+stop_conditions:
+  - Whether a chore name may carry spaces, and how those would count, is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

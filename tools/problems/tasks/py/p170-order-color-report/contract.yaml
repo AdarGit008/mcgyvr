@@ -1,0 +1,41 @@
+id: p170-order-color-report
+task_type: bug_fix
+task: >-
+  order_color_report hands back the wrong channel plan. Transmitters are
+  numbered from zero and the first argument lists, for each transmitter,
+  every transmitter whose signal clashes with it; a clash is always recorded
+  on both sides. Channels are numbered from zero as well. Walk the
+  transmitters in exactly the sequence the second argument gives, and hand
+  each one the lowest channel that none of its already-tuned clashing
+  transmitters is sitting on — a clashing transmitter not yet reached
+  constrains nothing. The answer is two rows: the channel of every
+  transmitter, indexed by transmitter number, and then a single count of how
+  many distinct channels the plan used. The present code ignores the given
+  sequence and marches from transmitter zero upward; it hands out one more
+  than the largest channel already taken by a clashing transmitter instead
+  of the lowest free one; and it returns a bare row of channels with no
+  count beside it. Repair all three and add the missing guards: throw an
+  error when there are no transmitters, when a clash names a transmitter
+  that does not exist, when a transmitter clashes with itself, when a clash
+  is recorded on one side only, and when the walking sequence is not every
+  transmitter exactly once.
+target: solution.py
+target_content: |
+  def order_color_report(
+      neighbours: list[list[int]], visit_order: list[int]
+  ) -> list[list[int]]:
+      channel = [-1] * len(neighbours)
+      for node in range(len(neighbours)):
+          highest = -1
+          for other in neighbours[node]:
+              if channel[other] > highest:
+                  highest = channel[other]
+          channel[node] = highest + 1
+      return channel
+interface: "def order_color_report(neighbours: list[list[int]], visit_order: list[int]) -> list[list[int]]"
+stop_conditions:
+  - Nothing is stated about a clash recorded twice on the same side.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

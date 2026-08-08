@@ -1,0 +1,30 @@
+```ts
+export function countPhrase(tokens: string[], phrase: string): number {
+  if (phrase.trim() === "") {
+    throw new Error("Phrase cannot be empty or only spaces");
+  }
+
+  const phraseTokens = phrase.split(/\s+/);
+  let count = 0;
+  let tokenIndex = 0;
+
+  while (tokenIndex <= tokens.length - phraseTokens.length) {
+    let match = true;
+    for (let i = 0; i < phraseTokens.length; i++) {
+      if (tokens[tokenIndex + i].toLowerCase() !== phraseTokens[i].toLowerCase()) {
+        match = false;
+        break;
+      }
+    }
+
+    if (match) {
+      count += 1;
+      tokenIndex += phraseTokens.length;
+    } else {
+      tokenIndex += 1;
+    }
+  }
+
+  return count;
+}
+```

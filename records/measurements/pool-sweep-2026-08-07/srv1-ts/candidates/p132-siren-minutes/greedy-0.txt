@@ -1,0 +1,71 @@
+```ts
+export function sirenMinutes(events: Array<Record<string, unknown>>, horizon: number): Array<[string, number]> {
+  if (!Number.isInteger(horizon) || horizon < 0) {
+    throw new Error("Invalid horizon");
+  }
+
+  const activeAlerts = new Map<string, { id: string; severity: number; at: number }>();
+  const result = new Map<string, number>();
+
+  events.forEach(event => {
+    if (typeof event !== "object" || event === null) {
+      throw new Error("Invalid event");
+    }
+
+    const { at, kind, id, channel, severity } = event;
+
+    if (typeof at !== "number" || !Number.isInteger(at) || at < 0) {
+      throw new Error("Invalid event time");
+    }
+    if (kind !== "raise" && kind !== "clear") {
+      throw new Error("Invalid event kind");
+    }
+    if (kind === "raise") {
+      if (typeof id !== "string" || id.trim() === "") {
+        throw new Error("Invalid alert ID");
+      }
+      if (typeof channel !== "string" || channel.trim() === "") {
+        throw new Error("Invalid channel");
+      }
+      if (typeof severity !== "number" || !Number.isInteger(severity) || severity < 1 || severity > 5) {
+        throw new Error("Invalid severity");
+      }
+
+      if (activeAlerts.has(id)) {
+        throw new Error(`Duplicate raise for ID ${id}`);
+      }
+
+      activeAlerts.set(id, { id, severity, at });
+    } else if (kind === "clear") {
+      if (typeof id !== "string" || id.trim() === "") {
+        throw new Error("Invalid alert ID");
+      }
+
+      const alert = activeAlerts.get(id);
+      if (!alert) {
+        throw new Error(`Clear for non-active ID ${id}`);
+      }
+
+      activeAlerts.delete(id);
+
+      if (result.has(id)) {
+        result.set(id, result.get(id)! + at - alert.at);
+      } else {
+        result.set(id, at - alert.at);
+      }
+    }
+  });
+
+  const now = Math.min(horizon, events.length > 0 ? events[events.length - 1].at : 0);
+
+  activeAlerts.forEach(alert => {
+    if (result.has(alert.id)) {
+      result.set(alert.id, result.get(alert.id)! + now - alert.at);
+    } else {
+      result.set(alert.id, now - alert.at);
+    }
+  });
+
+  return Array.from(result.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

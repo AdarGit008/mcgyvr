@@ -1,0 +1,38 @@
+id: p303-first-rotation-breach
+task_type: bug_fix
+task: >-
+  first_rotation_breach audits a finished rotation record. log holds one row per
+  plot, each row that plot's crops season by season, oldest first, and every row
+  runs the same number of seasons. permits is a table of pairs — the crop coming
+  off, then the crop the estate lets go in behind it. From the second season
+  onward a plot stands in breach when the table does not license its crop behind
+  the one lifted the season before, or when that very crop already occupied the
+  plot in either of the two seasons directly before. Sweep season by season, and
+  within a season plot by plot, then hand back the earliest breach written
+  "plot P season S" with plots and seasons counted from one, or the word
+  "clear" when nothing offends. The present code sweeps plot by plot instead, so
+  it announces a late breach ahead of an early one; it consults the table alone
+  and never notices a crop coming back too soon; and it numbers from nought.
+  Repair those three and add the absent guards: throw an error when the record
+  is not a list or is empty, when a row is not a list or is empty, when the rows
+  run to unequal lengths, when an entry is not a non-empty string, when the
+  table is not a list, and when a table row is not a pair of non-empty strings.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  def first_rotation_breach(log: list[list[str]], permits: list[list[str]]) -> str:
+      licensed = set()
+      for row in permits:
+          licensed.add((row[0], row[1]))
+      for plot, record in enumerate(log):
+          for season in range(1, len(record)):
+              if (record[season - 1], record[season]) not in licensed:
+                  return f"plot {plot} season {season}"
+      return "clear"
+interface: "def first_rotation_breach(log: list[list[str]], permits: list[list[str]]) -> str"
+stop_conditions:
+  - Whether a table row may license a crop behind itself is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

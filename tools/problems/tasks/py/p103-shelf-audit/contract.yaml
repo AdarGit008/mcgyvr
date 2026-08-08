@@ -1,0 +1,33 @@
+id: p103-shelf-audit
+task_type: bug_fix
+task: |
+  shelf_count misreads outgoing stock. It folds a list of two-element
+  entries over one shelf that starts at zero: ["add", n] raises the count
+  by n, ["fix", n] overwrites the count with n, and ["take", n] lowers it
+  by n — but a take asking for more than the shelf currently holds must
+  be skipped entirely and tallied, never applied. The current code drives
+  the count negative on an oversized take and always reports a tally of
+  zero. It also validates nothing, where it must reject a kind other
+  than "add", "take" and "fix", and an amount that is negative or not an
+  integer, with an error. Return the pair [finalCount, skippedTakes],
+  and return the complete fixed file.
+target: solution.py
+target_content: |
+  def shelf_count(entries: list) -> list:
+      """Fold shelf entries into a final count and a skipped-take tally."""
+      count = 0
+      for kind, amount in entries:
+          if kind == "add":
+              count += amount
+          elif kind == "take":
+              count -= amount
+          else:
+              count = amount
+      return [count, 0]
+interface: "def shelf_count(entries: list) -> list"
+stop_conditions:
+  - Whether a take of exactly zero should count as skipped is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

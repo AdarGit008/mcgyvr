@@ -1,0 +1,88 @@
+id: p470-summarise-lock-diff
+task_type: bug_fix
+task: >-
+  summariseLockDiff sets two lock records side by side and reports the wrong
+  direction of travel. Each argument is a mapping from a package name, a
+  non-empty string, to the release pinned for it: one or more groups of digits
+  split by full stops, no group carrying a leading nought unless the group is a
+  lone nought. Releases rank group by group as numbers, the shorter of the two
+  padded out with noughts on the right, so 1.10 outranks 1.9 and 1.2 names the
+  very same release as 1.2.0. A package the second record pins and the first
+  does not is added; one the first pins and the second does not is dropped; one
+  both pin, with the second record's release outranking the first's, is lifted,
+  and one where it is outranked is lowered. A package pinned to the same
+  release under both records goes into none of the four. Give back a mapping
+  whose added, dropped, lifted and lowered each hold their package names in
+  ascending order. The code below ranks the releases as plain text, so 1.9 is
+  read as outranking 1.10 and a package merely rewritten from 1.2 to 1.2.0 is
+  reported as having moved, and it puts each list out in whatever order the
+  mappings happen to hold their names rather than in ascending order. Repair
+  both, keep raising an error for an argument that is not a mapping, a package
+  name that is not a non-empty string, and a release that is not a string or is
+  not written in the stated shape, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  const SHAPE = /^(0|[1-9]\d*)(\.(0|[1-9]\d*))*$/;
+
+  function check(name: string, raw: unknown): string {
+    if (typeof raw !== "string" || !SHAPE.test(raw)) {
+      throw new Error("a release is not written in the stated shape: " + name);
+    }
+    return raw;
+  }
+
+  function read(book: unknown): Map<string, string> {
+    if (typeof book !== "object" || book === null || Array.isArray(book)) {
+      throw new Error("a lock record is not a mapping");
+    }
+    const held = new Map<string, string>();
+    for (const [name, raw] of Object.entries(book)) {
+      if (typeof name !== "string" || name.length === 0) {
+        throw new Error("a package name is not a non-empty string");
+      }
+      held.set(name, check(name, raw));
+    }
+    return held;
+  }
+
+  export function summariseLockDiff(
+    before: Record<string, string>,
+    after: Record<string, string>,
+  ): Record<string, string[]> {
+    const was = read(before);
+    const now = read(after);
+    const added: string[] = [];
+    const dropped: string[] = [];
+    const lifted: string[] = [];
+    const lowered: string[] = [];
+
+    for (const name of now.keys()) {
+      if (!was.has(name)) {
+        added.push(name);
+      }
+    }
+    for (const name of was.keys()) {
+      if (!now.has(name)) {
+        dropped.push(name);
+        continue;
+      }
+      const old = was.get(name);
+      const fresh = now.get(name);
+      if (old === fresh) {
+        continue;
+      }
+      if (old !== undefined && fresh !== undefined && old < fresh) {
+        lifted.push(name);
+      } else {
+        lowered.push(name);
+      }
+    }
+    return { added, dropped, lifted, lowered };
+  }
+interface: "export function summariseLockDiff(before: Record<string, string>, after: Record<string, string>): Record<string, string[]>"
+stop_conditions:
+  - Whether a release may carry more than three groups of digits is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

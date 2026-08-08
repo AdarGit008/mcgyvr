@@ -1,0 +1,91 @@
+```ts
+export function projectMakespan(durations: Record<string, number>, deps: [string, string][]): number {
+  // Validate durations
+  for (const task in durations) {
+    if (typeof durations[task] !== 'number' || durations[task] <= 0) {
+      throw new Error(`Invalid duration for task ${task}: must be a positive whole number.`);
+    }
+  }
+
+  // Validate dependencies
+  const tasks = new Set<string>(Object.keys(durations));
+  for (const [a, b] of deps) {
+    if (!tasks.has(a)) {
+      throw new Error(`Task ${a} in dependency pair [${a}, ${b}] is not defined.`);
+    }
+    if (!tasks.has(b)) {
+      throw new Error(`Task ${b} in dependency pair [${a}, ${b}] is not defined.`);
+    }
+    if (a === b) {
+      throw new Error(`Dependency pair [${a}, ${b}] has identical tasks.`);
+    }
+  }
+
+  // Detect cycles
+  const graph: Record<string, string[]> = {};
+  for (const task of tasks) {
+    graph[task] = [];
+  }
+  for (const [a, b] of deps) {
+    graph[a].push(b);
+  }
+
+  const visited: Record<string, boolean> = {};
+  const recStack: Record<string, boolean> = {};
+
+  function isCyclic(node: string): boolean {
+    if (!visited[node]) {
+      visited[node] = true;
+      recStack[node] = true;
+
+      for (const neighbor of graph[node]) {
+        if (!visited[neighbor] && isCyclic(neighbor)) {
+          return true;
+        } else if (recStack[neighbor]) {
+          return true;
+        }
+      }
+    }
+    recStack[node] = false;
+    return false;
+  }
+
+  for (const task of tasks) {
+    if (isCyclic(task)) {
+      throw new Error('Dependencies form a cycle.');
+    }
+  }
+
+  // Topological sort
+  const inDegree: Record<string, number> = {};
+  for (const task of tasks) {
+    inDegree[task] = 0;
+  }
+
+  for (const [a, b] of deps) {
+    inDegree[b]++;
+  }
+
+  const queue: string[] = [];
+  for (const task of tasks) {
+    if (inDegree[task] === 0) {
+      queue.push(task);
+    }
+  }
+
+  let totalMakespan = 0;
+  while (queue.length > 0) {
+    const currentTask = queue.shift()!;
+    totalMakespan += durations[currentTask];
+
+    for (const neighbor of graph[currentTask]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return totalMakespan;
+}
+```

@@ -1,0 +1,46 @@
+```ts
+export function newerRelease(a: string, b: string): number {
+  if (a === b) {
+    return 0;
+  }
+
+  const parseVersion = (version: string): [number, number, string | null, number] => {
+    const parts = version.split('-');
+    const versionParts = parts[0].split('.');
+    const major = parseInt(versionParts[0], 10);
+    const minor = parseInt(versionParts[1], 10);
+    const prerelease = parts.length > 1 ? parts[1].split('.') : [null, 0];
+    const channel = prerelease[0] === null ? null : prerelease[0];
+    const build = prerelease[0] === null ? 0 : parseInt(prerelease[1], 10);
+    return [major, minor, channel, build];
+  };
+
+  const [aMajor, aMinor, aChannel, aBuild] = parseVersion(a);
+  const [bMajor, bMinor, bChannel, bBuild] = parseVersion(b);
+
+  if (aMajor !== bMajor) {
+    return aMajor > bMajor ? 1 : -1;
+  }
+  if (aMinor !== bMinor) {
+    return aMinor > bMinor ? 1 : -1;
+  }
+
+  if (aChannel === null && bChannel !== null) {
+    return 1;
+  }
+  if (aChannel !== null && bChannel === null) {
+    return -1;
+  }
+  if (aChannel !== null && bChannel !== null) {
+    const channelOrder: { [key: string]: number } = { dev: 0, alpha: 1, beta: 2, rc: 3 };
+    if (channelOrder[aChannel] !== channelOrder[bChannel]) {
+      return channelOrder[aChannel] > channelOrder[bChannel] ? 1 : -1;
+    }
+    if (aBuild !== bBuild) {
+      return aBuild > bBuild ? 1 : -1;
+    }
+  }
+
+  throw new Error('Invalid release format');
+}
+```

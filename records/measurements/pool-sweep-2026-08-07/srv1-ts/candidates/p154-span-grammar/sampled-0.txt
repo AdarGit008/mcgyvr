@@ -1,0 +1,34 @@
+```typescript
+export function expandSpanGrammar(pattern: string): string[] {
+    if (typeof pattern !== 'string') throw new Error('Invalid input');
+
+    const groups = pattern.split('<').slice(1).map(group => group.split('>')[0]);
+    if (groups.some(g => g.includes('~<') || g.includes('~>') || g.includes('|~'))) throw new Error('Invalid group body');
+
+    let expansions: string[] = [''];
+
+    for (const group of groups) {
+        if (group.includes '..')) {
+            const [start, end] = group.split('..').map(Number);
+            if (!Number.isInteger(start) || !Number.isInteger(end) || start > end) throw new Error('Invalid numeric span');
+            const width = Math.max((start.toString().length), (end.toString().length));
+            const newExpansions = [];
+            for (let i = start; i <= end; i++) {
+                newExpansions.push(i.toString().padStart(width, '0'));
+            }
+            expansions = flatten(expansions.map(e => newExpansions.map(n => e + n)));
+        } else {
+            const choices = group.split('|').map(choice => choice.trim());
+            if (choices.some(c => !/^[a-zA-Z\d]+$/.test(c))) throw new Error('Invalid alternation choice');
+            expansions = flatten(expansions.flatMap(e => choices.map(c => e + c)));
+        }
+        if (expansions.length > 500) throw new Error('Too many expansions');
+    }
+
+    return Array.from(new Set(expansions)).sort();
+}
+
+function flatten(arr: string[][]): string[] {
+    return arr.reduce((acc, val) => acc.concat(val), []);
+}
+```

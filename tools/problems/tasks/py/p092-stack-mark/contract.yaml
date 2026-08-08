@@ -1,0 +1,22 @@
+id: p092-stack-mark
+task_type: function_implementation
+task: >-
+  Implement canonical_stack_mark. A stack mark names a shelf location as three
+  parts: a floor digit from 1 to 9, a wing letter (n, s, e or w, either
+  case), and a stack number from 1 to 999 written with at most three digits,
+  leading zeros allowed. Adjacent parts may be joined directly, by a single
+  hyphen, or by one or more spaces: "3n17", "3-N-17" and "3 n 017" all name
+  the same place. Return the canonical spelling: floor digit, wing letter
+  uppercased, stack number zero-padded to exactly three digits, no
+  separators — "3N017" for each example above. Reject with an error a
+  non-string argument, a floor of 0, a letter outside the four wings, a
+  stack number of value 0 or written with more than three digits, and
+  anything else departing from the format.
+target: solution.py
+interface: "def canonical_stack_mark(mark: str) -> str"
+stop_conditions:
+  - Whether tab characters may stand in for spaces between parts is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

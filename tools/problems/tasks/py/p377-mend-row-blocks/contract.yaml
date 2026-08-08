@@ -1,0 +1,88 @@
+id: p377-mend-row-blocks
+task_type: bug_fix
+task: >-
+  mend_row_blocks lays a run of blocks over a sheet of rows. The first argument
+  is the sheet, a list of strings; the second is the blocks, each a mapping
+  carrying start (the number of the row it begins at, counting from one), drop
+  (how many rows it lifts out, never fewer than none), insert (the rows it puts
+  in their place) and guard (either the row it expects to find sitting at
+  start, or the language's null value when it will settle for whatever is
+  there). Every start is read against the sheet as it was handed in. A block is
+  turned away, and its position among the blocks noted in the rejected list,
+  when its reach passes the end of the sheet or when its guard names something
+  other than the row actually sitting at start; the rest are laid down. The
+  laying is wrong: each block is cut into the growing sheet at its own start,
+  taking no account of the rows earlier blocks have added or lifted out, so
+  once a block changes the row count every block behind it lands somewhere
+  other than where it was meant to. Carry the running difference between what
+  has been inserted and what has been dropped, and offset each later cut by it.
+  Leave everything else where it stands: the guard and reach tests being read
+  against the sheet as handed in, the ordering of the rejected list, the keys
+  rows and rejected of the returned mapping, and the errors raised for a sheet
+  that is not a list of strings, blocks that are not a list, a block that is
+  not a mapping, a start that is not a whole number of one or more, a drop that
+  is not a whole number of none or more, an insert that is not a list of
+  strings, a guard that is neither null nor a string, starts that fail to climb
+  strictly, and a block whose start and drop reach into the one behind it.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  def _read_rows(value, what):
+      if not isinstance(value, list):
+          raise ValueError("the " + what + " must be a list of strings")
+      for row in value:
+          if not isinstance(row, str):
+              raise ValueError("the " + what + " must be a list of strings")
+      return list(value)
+
+
+  def mend_row_blocks(rows: list, blocks: list) -> dict:
+      sheet = _read_rows(rows, "sheet")
+      if not isinstance(blocks, list):
+          raise ValueError("the blocks must be a list")
+      parsed = []
+      for block in blocks:
+          if not isinstance(block, dict):
+              raise ValueError("every block must be a mapping")
+          start = block.get("start")
+          if not isinstance(start, int) or isinstance(start, bool) or start < 1:
+              raise ValueError("start must be a whole number of one or more")
+          drop = block.get("drop")
+          if not isinstance(drop, int) or isinstance(drop, bool) or drop < 0:
+              raise ValueError("drop must be a whole number of none or more")
+          held = block.get("guard")
+          if held is not None and not isinstance(held, str):
+              raise ValueError("guard must be a string or null")
+          parsed.append(
+              {
+                  "start": start,
+                  "drop": drop,
+                  "insert": _read_rows(block.get("insert"), "insert"),
+                  "guard": held,
+              }
+          )
+      for earlier, later in zip(parsed, parsed[1:]):
+          if later["start"] <= earlier["start"]:
+              raise ValueError("the starts must climb strictly")
+          if earlier["start"] + earlier["drop"] > later["start"]:
+              raise ValueError("one block reaches into the next")
+
+      out = list(sheet)
+      rejected = []
+      for position, block in enumerate(parsed):
+          at = block["start"] - 1
+          refused = at > len(sheet) or at + block["drop"] > len(sheet)
+          if not refused and block["guard"] is not None:
+              refused = sheet[at] != block["guard"]
+          if refused:
+              rejected.append(position)
+              continue
+          out[at : at + block["drop"]] = block["insert"]
+      return {"rows": out, "rejected": rejected}
+interface: "def mend_row_blocks(rows: list, blocks: list) -> dict"
+stop_conditions:
+  - Whether a block that neither drops nor inserts anything is worth refusing is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

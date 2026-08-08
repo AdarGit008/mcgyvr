@@ -1,0 +1,28 @@
+id: p083-splice-shifts
+task_type: bug_fix
+task: >-
+  splice_shifts merges the day's sign-in sheets into one roster, and the
+  current code gets almost everything about that wrong. Fix it: each sheet
+  is a list of integer badge numbers in non-decreasing order, and there may
+  be any number of sheets, including none. The returned roster lists every
+  badge that appears on at least one sheet in increasing numeric order,
+  each badge exactly once no matter how many sheets carry it or how often
+  one sheet repeats it. Empty sheets contribute nothing, and with no
+  sheets, or only empty ones, the roster is empty.
+target: solution.py
+target_content: |
+  def splice_shifts(sheets):
+      merged = []
+      for badge in sheets[0] if sheets else []:
+          merged.append(badge)
+      for badge in sheets[1] if len(sheets) > 1 else []:
+          merged.append(badge)
+      merged.sort()
+      return merged
+interface: "def splice_shifts(sheets: list) -> list"
+stop_conditions:
+  - Whether badge numbers can be negative is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

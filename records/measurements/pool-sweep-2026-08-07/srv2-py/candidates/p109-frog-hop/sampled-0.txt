@@ -1,0 +1,32 @@
+```python
+def can_hop(pond: list, origin: list, dest: list) -> bool:
+    if len(pond) != 5 or any(len(row) != 5 for row in pond):
+        raise ValueError("Pond must be a five-by-five grid")
+    if not (isinstance(origin, list) and isinstance(dest, list)):
+        raise ValueError("Origin and destination must be lists of two integers each")
+    if not all(isinstance(x, int) and 0 <= x < 5 for coord in origin + dest):
+        raise ValueError("Coordinates must be integers between 0 and 4")
+
+    from_row, from_col = origin
+    to_row, to_col = dest
+
+    def is_open(row: int, col: int) -> bool:
+        return pond[row][col] == "."
+
+    if not (is_open(from_row, from_col) and not is_open(to_row, to_col)):
+        return False
+
+    # Step check
+    step_directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    if any(from_row + dr == to_row and from_col + dc == to_col for dr, dc in step_directions):
+        return True
+
+    # Vault check
+    vault_directions = [(-2, -2), (-2, 0), (-2, 2), (0, -2), (0, 2), (2, -2), (2, 0), (2, 2)]
+    for dr, dc in vault_directions:
+        mid_row, mid_col = from_row + dr // 2, from_col + dc // 2
+        if is_open(mid_row, mid_col) and is_open(to_row, to_col):
+            return True
+
+    return False
+```

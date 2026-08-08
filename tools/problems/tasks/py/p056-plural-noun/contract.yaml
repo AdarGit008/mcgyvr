@@ -1,0 +1,20 @@
+id: p056-plural-noun
+task_type: function_implementation
+task: >-
+  Implement plural_noun. The input is a singular English noun written in
+  lowercase letters a to z only. Apply exactly the first matching rule from
+  this ordered table: the irregulars child to children, person to people,
+  foot to feet, mouse to mice, and sheep to sheep; a noun ending in s, x,
+  z, ch or sh gains es; a noun ending in y preceded by a letter other than
+  a, e, i, o or u drops the y and gains ies; a noun ending in fe drops fe
+  and gains ves; a noun ending in f drops f and gains ves; anything else
+  gains s. Return the plural form. Raise an error for an empty string, for
+  any character outside lowercase a to z, and for a non-string argument.
+target: solution.py
+interface: "def plural_noun(word: str) -> str"
+stop_conditions:
+  - Whether the irregular table will ever grow beyond the five pairs listed is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

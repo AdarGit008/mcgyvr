@@ -1,0 +1,59 @@
+id: p397-loop-turn-sense
+task_type: bug_fix
+task: >-
+  loop_turn_sense reads a loop of studs — a list of at least three studs, each
+  stud a pair of two whole numbers, no two studs alike, the loop understood to
+  close back onto its opening stud without that stud being written out a
+  second time — and reports two things at once. Under "doubled" it puts twice
+  the ground the loop pens in, a count of nothing or more. Under "sense" it
+  puts the word "counter" when the studs were listed anticlockwise,
+  "clockwise" when they were listed the other way about, and "flat" when the
+  studs all fall along one line and pen in no ground at all. Two faults spoil
+  it. It steps only from each stud to the stud after it, so the side that
+  closes the loop never contributes to the total; and it strips the sign off
+  its running total before choosing the word, so it announces "counter" no
+  matter which way the listing runs. Repair both. Go on raising an error for
+  an argument that is not a list, for fewer than three studs, for a stud that
+  is not a pair of exactly two whole numbers, for a stud that shows up more
+  than once, and for a measure whose magnitude passes ten thousand. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  def _whole(value) -> bool:
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def loop_turn_sense(studs: list) -> dict:
+      if not isinstance(studs, list):
+          raise ValueError("loop_turn_sense expects a list of studs")
+      if len(studs) < 3:
+          raise ValueError("a loop carries at least three studs")
+      loop = []
+      seen = set()
+      for stud in studs:
+          if (
+              not isinstance(stud, list)
+              or len(stud) != 2
+              or not _whole(stud[0])
+              or not _whole(stud[1])
+          ):
+              raise ValueError("a stud must be a pair of two whole numbers")
+          if abs(stud[0]) > 10000 or abs(stud[1]) > 10000:
+              raise ValueError("a measure magnitude passes ten thousand")
+          key = (stud[0], stud[1])
+          if key in seen:
+              raise ValueError("a stud shows up more than once")
+          seen.add(key)
+          loop.append([stud[0], stud[1]])
+      sweep = 0
+      for here, following in zip(loop, loop[1:]):
+          sweep += here[0] * following[1] - following[0] * here[1]
+      sweep = abs(sweep)
+      return {"doubled": sweep, "sense": "counter" if sweep > 0 else "flat"}
+interface: "def loop_turn_sense(studs: list) -> dict"
+stop_conditions:
+  - Whether a loop that crosses over itself should be refused rather than measured is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

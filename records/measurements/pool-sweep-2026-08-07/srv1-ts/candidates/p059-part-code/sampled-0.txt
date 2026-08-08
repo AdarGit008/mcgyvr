@@ -1,0 +1,30 @@
+```typescript
+export function normalizePartCode(code: string): string {
+  if (typeof code !== 'string') {
+    throw new Error('Invalid argument: input must be a string');
+  }
+
+  const cleaned = code.replace(/[- ]/g, '').toUpperCase();
+  if (cleaned.length !== 9) {
+    throw new Error('Invalid argument: input must contain exactly nine characters after cleaning');
+  }
+
+  if (/[^0-9A-Z]/.test(cleaned)) {
+    throw new Error('Invalid argument: input contains invalid characters');
+  }
+
+  const weightCycle = [3, 5, 7];
+  let sum = 0;
+  for (let i = 0; i < 8; i++) {
+    const charValue = cleaned.charCodeAt(i) - (charCode >= 'A' ? 55 : 48);
+    sum += charValue * weightCycle[i % weightCycle.length];
+  }
+
+  const checkDigit = String.fromCharCode((sum % 36) + 55);
+  if (checkDigit !== cleaned[8]) {
+    throw new Error('Invalid argument: check character does not verify');
+  }
+
+  return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}-${checkDigit}`;
+}
+```

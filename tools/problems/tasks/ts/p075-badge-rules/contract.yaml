@@ -1,0 +1,36 @@
+id: p075-badge-rules
+task_type: bug_fix
+task: >-
+  evaluateRules answers whether a badge may open a door. Rules are meant to
+  be scanned strictly top to bottom, with the FIRST matching rule deciding,
+  and the answer is "deny" when nothing matches. Each rule mapping has
+  "effect" ("allow" or "deny"), "role" and "door"; it matches a request
+  mapping (keys "role" and "door") when the rule's role equals the
+  request's role or is the word "everyone", and the rule's door equals the
+  request's door or is the word "all". The current code scans every rule
+  so the LAST match decides, and it answers "allow" when no rule matches
+  at all. Fix both faults and return the deciding rule's effect as a
+  string.
+target: solution.ts
+target_content: |
+  export function evaluateRules(
+    rules: Array<Record<string, string>>,
+    request: Record<string, string>
+  ): string {
+    let verdict = "allow";
+    for (const rule of rules) {
+      const roleOk = rule.role === request.role || rule.role === "everyone";
+      const doorOk = rule.door === request.door || rule.door === "all";
+      if (roleOk && doorOk) {
+        verdict = rule.effect;
+      }
+    }
+    return verdict;
+  }
+interface: "export function evaluateRules(rules: Array<Record<string, string>>, request: Record<string, string>): string"
+stop_conditions:
+  - What evaluateRules does with a rule missing one of its three keys is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

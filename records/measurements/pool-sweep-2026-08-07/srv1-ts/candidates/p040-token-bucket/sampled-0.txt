@@ -1,0 +1,25 @@
+```ts
+export function tokenBucket(capacity: number, refill: number, requests: number[][]): string[] {
+    if (!Number.isInteger(capacity) || capacity <= 0) throw new Error('Invalid capacity');
+    if (!Number.isInteger(refill) || refill < 0) throw new Error('Invalid refill rate');
+    if (requests.some(([_, cost]) => !Number.isInteger(cost) || cost <= 0)) throw new Error('Invalid request cost');
+    if (requests.some(([time]) => time < 0)) throw new Error('Negative arrival time');
+    if (!requests.every((r, i, a) => i === 0 || r[0] >= a[i - 1][0])) throw new Error('Backwards arrival times');
+
+    const labels: string[] = [];
+    let tokens = capacity;
+
+    for (const [time, cost] of requests) {
+        const elapsed = time > 0 ? time : refill;
+        tokens = Math.min(capacity, tokens + Math.floor(elapsed / refill));
+        if (tokens >= cost) {
+            tokens -= cost;
+            labels.push('grant');
+        } else {
+            labels.push('refuse');
+        }
+    }
+
+    return labels;
+}
+```

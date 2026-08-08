@@ -1,0 +1,53 @@
+```ts
+export function firstBrokenRule(root: Record<string, unknown>): Record<string, string> {
+  if (root === null || root === undefined) {
+    throw new Error("Root cannot be null or undefined");
+  }
+
+  const checkNode = (node: Record<string, unknown>, path: string): Record<string, string> => {
+    if (typeof node !== 'object' || node === null) {
+      throw new Error(`Invalid node at ${path}`);
+    }
+
+    const keys = Object.keys(node);
+    if (keys.length !== 4) {
+      throw new Error(`Node at ${path} must have exactly four entries`);
+    }
+
+    const { key, count, left, right } = node;
+
+    if (typeof key !== 'number' || !Number.isInteger(key)) {
+      throw new Error(`Key at ${path} must be a whole number`);
+    }
+
+    if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) {
+      throw new Error(`Count at ${path} must be a positive whole number`);
+    }
+
+    const leftDepth = left === null ? 0 : checkNode(left, `${path}/L`).rule === 'sound' ? 1 + Math.max(0, checkNode(left, `${path}/L`).depth) : Infinity;
+    const rightDepth = right === null ? 0 : checkNode(right, `${path}/R`).rule === 'sound' ? 1 + Math.max(0, checkNode(right, `${path}/R`).depth) : Infinity;
+
+    if (Math.abs(leftDepth - rightDepth) > 1) {
+      return { path, rule: 'balance' };
+    }
+
+    const leftCount = left === null ? 0 : checkNode(left, `${path}/L`).rule === 'sound' ? checkNode(left, `${path}/L`).count : Infinity;
+    const rightCount = right === null ? 0 : checkNode(right, `${path}/R`).rule === 'sound' ? checkNode(right, `${path}/R`).count : Infinity;
+
+    if (leftCount + rightCount + 1 !== count) {
+      return { path, rule: 'count' };
+    }
+
+    const leftOrder = left === null || checkNode(left, `${path}/L`).rule === 'sound';
+    const rightOrder = right === null || checkNode(right, `${path}/R`).rule === 'sound';
+
+    if (!leftOrder || !rightOrder) {
+      return { path, rule: 'order' };
+    }
+
+    return { path: '', rule: 'sound' };
+  };
+
+  return checkNode(root, 'root');
+}
+```

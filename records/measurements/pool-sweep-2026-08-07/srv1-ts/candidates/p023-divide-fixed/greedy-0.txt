@@ -1,0 +1,30 @@
+```ts
+export function divideFixed(numerator: number, denominator: number, places: number): string {
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(places)) {
+        throw new Error("All arguments must be integers.");
+    }
+    if (denominator === 0) {
+        throw new Error("Denominator cannot be zero.");
+    }
+    if (places < 0 || places > 6) {
+        throw new Error("Places must be between 0 and 6.");
+    }
+
+    const isNegative = numerator * denominator < 0;
+    let result = Math.abs(numerator) * 10 ** (places + 1);
+    let quotient = Math.floor(result / Math.abs(denominator));
+
+    if ((result % Math.abs(denominator)) >= Math.abs(denominator) / 2) {
+        quotient += 1;
+    }
+
+    if (quotient % 10 === 5) {
+        quotient -= 1;
+    }
+
+    result = quotient / 10 ** places;
+
+    const roundedResult = isNegative ? -result : result;
+    return roundedResult.toFixed(places).replace(/^-0\./, '.');
+}
+```

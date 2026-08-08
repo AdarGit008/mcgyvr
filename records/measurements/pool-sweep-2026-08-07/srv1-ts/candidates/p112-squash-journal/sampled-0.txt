@@ -1,0 +1,42 @@
+```typescript
+export function squashJournal(ops: (string | number)[][]): (string | number)[][] {
+  const keyMap = new Map<string, { value: number; lastPutIndex: number }>();
+  const result: (string | number)[][] = [];
+
+  for (let i = ops.length - 1; i >= 0; i--) {
+    const [op, ...args] = ops[i];
+    if (!Array.isArray(args) || args.some(arg => typeof arg !== 'number')) throw new Error('Invalid operation arguments');
+    switch (op) {
+      case 'put':
+        if (typeof args[1] !== 'string' || !args[1]) throw new Error('Invalid key');
+        if (typeof args[2] !== 'number' || args[2] <= 0) throw new Error('Invalid value');
+        if (!keyMap.has(args[1])) {
+          result.push(['put', ...args]);
+          keyMap.set(args[1], { value: args[2], lastPutIndex: i });
+        }
+        break;
+      case 'del':
+        if (typeof args[0] !== 'string' || !args[0]) throw new Error('Invalid key');
+        if (!keyMap.has(args[0])) throw new Error('Deleting absent key');
+        const { value, lastPutIndex } = keyMap.get(args[0])!;
+        result.push(['put', args[0], value]);
+        keyMap.delete(args[0]);
+        break;
+      case 'ren':
+        if (typeof args[0] !== 'string' || !args[0]) throw new Error('Invalid old key');
+        if (typeof args[1] !== 'string' || !args[1]) throw new Error('Invalid new key');
+        if (!keyMap.has(args[0])) throw new Error('Renaming absent key');
+        if (keyMap.has(args[1])) throw new Error('Renaming onto existing key');
+        const { value: oldValue, lastPutIndex: oldLastPutIndex } = keyMap.get(args[0])!;
+        result.push(['put', args[1], oldValue]);
+        keyMap.delete(args[0]);
+        keyMap.set(args[1], { value: oldValue, lastPutIndex: i });
+        break;
+      default:
+        throw new Error('Unknown operation');
+    }
+  }
+
+  return result.reverse();
+}
+```

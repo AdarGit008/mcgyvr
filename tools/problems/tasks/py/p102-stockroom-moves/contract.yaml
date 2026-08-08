@@ -1,0 +1,25 @@
+id: p102-stockroom-moves
+task_type: function_implementation
+task: >-
+  Implement process_stock_moves. A stockroom starts empty; the input is a
+  list of move mappings applied in order. {"op": "receive", "item": ...,
+  "qty": ...} adds qty to the item's on-hand count, creating the item at
+  zero first when needed. {"op": "issue", "item": ..., "qty": ...}
+  subtracts qty, but is refused — skipped, not an error — with reason
+  "unknown_item" when the item has never appeared, or "short" when its
+  on-hand count is below qty. {"op": "recount", "item": ..., "qty": ...}
+  overwrites the item's on-hand count with qty, creating the item when
+  needed. Raise an error for an op outside these three, an item that is
+  not a non-empty string, a qty that is not an integer, a receive or
+  issue qty below 1, and a recount qty below 0. Return a mapping with
+  "levels", the on-hand count of every item ever created (zeros
+  included), and "refused", the refusals in order as [index, reason]
+  pairs using each refused move's zero-based position in the input.
+target: solution.py
+interface: "def process_stock_moves(moves: list) -> dict"
+stop_conditions:
+  - Whether an item refused as unknown should be created afterwards is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,21 @@
+id: p044-scan-source
+task_type: function_implementation
+task: >-
+  Implement scanSource. It lexes one line of a small programming language
+  into a list of [kind, text] pairs. Three kinds exist: num is a run of one
+  or more digits; id starts with a letter or underscore and continues with
+  letters, digits and underscores; op is one of the two-character operators
+  ==, !=, <=, >=, && and || or one of the single characters = < > + - * /
+  ( ). Two-character operators win over their one-character prefixes, so
+  <= is a single op, and a digit run followed directly by letters is a num
+  then an id. Spaces and tabs between tokens are skipped. Scanning "" gives
+  the empty list. Reject any character that fits no rule, such as a lone !
+  or an @, with an error naming nothing more than the offense.
+target: solution.ts
+interface: "export function scanSource(line: string): [string, string][]"
+stop_conditions:
+  - Whether the error message must mention the offending position is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

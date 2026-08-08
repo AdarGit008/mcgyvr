@@ -1,0 +1,40 @@
+```python
+def fold_parcels(events: list) -> dict:
+    states = {}
+    for i, event in enumerate(events):
+        parcel_id = event.get("parcel")
+        if parcel_id is None:
+            raise ValueError(f"Event at index {i} is missing the 'parcel' key.")
+        if parcel_id not in states:
+            if event["type"] == "accept":
+                states[parcel_id] = "accepted"
+            else:
+                raise ValueError(f"Invalid transition for new parcel at index {i}.")
+        else:
+            current_state = states[parcel_id]
+            if current_state == "returned" or current_state == "lost":
+                raise ValueError(f"Parcel {parcel_id} is already in a terminal state at index {i}.")
+            if event["type"] == "load":
+                if current_state == "accepted":
+                    states[parcel_id] = "in_transit"
+                else:
+                    raise ValueError(f"Invalid transition from {current_state} to 'in_transit' at index {i}.")
+            elif event["type"] == "deliver":
+                if current_state == "in_transit":
+                    states[parcel_id] = "delivered"
+                else:
+                    raise ValueError(f"Invalid transition from {current_state} to 'delivered' at index {i}.")
+            elif event["type"] == "bounce":
+                if current_state == "delivered":
+                    states[parcel_id] = "returned"
+                else:
+                    raise ValueError(f"Invalid transition from {current_state} to 'returned' at index {i}.")
+            elif event["type"] == "lose":
+                if current_state in ["accepted", "in_transit"]:
+                    states[parcel_id] = "lost"
+                else:
+                    raise ValueError(f"Invalid transition from {current_state} to 'lost' at index {i}.")
+            else:
+                raise ValueError(f"Unknown event type '{event['type']}' at index {i}.")
+    return states
+```

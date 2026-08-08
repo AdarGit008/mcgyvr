@@ -1,0 +1,24 @@
+```ts
+export function keysetPage(ids: number[], cursor: number, limit: number): { items: number[]; done: boolean } {
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error("Limit must be a positive integer.");
+  }
+  if (!Number.isInteger(cursor)) {
+    throw new Error("Cursor must be an integer.");
+  }
+
+  for (let i = 1; i < ids.length; i++) {
+    if (ids[i] <= ids[i - 1]) {
+      throw new Error("Ids must be strictly increasing.");
+    }
+  }
+
+  const startIndex = ids.findIndex(id => id > cursor);
+  const items = ids.slice(startIndex, startIndex + limit);
+
+  return {
+    items: items,
+    done: startIndex + limit >= ids.length
+  };
+}
+```

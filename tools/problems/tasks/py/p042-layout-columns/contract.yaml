@@ -1,0 +1,21 @@
+id: p042-layout-columns
+task_type: function_implementation
+task: >-
+  Implement layout_columns. The input is a table given as a list of rows,
+  every row a list of string cells, plus an alignment spec: one character
+  per column, l, r or c. Render the table as lines of text. Each column is
+  as wide as its widest cell; within a column, l pads a cell with spaces on
+  the right, r on the left, and c centers it, giving the right side the odd
+  space when the padding is uneven. Adjacent columns are separated by two
+  spaces, and whatever whitespace ends up at the end of a line is trimmed
+  away. Return the lines in row order. Reject an empty table, a row whose
+  cell count differs from the spec length, a spec with a character other
+  than l, r or c, and a cell that is not a string, with an error.
+target: solution.py
+interface: "def layout_columns(rows: list[list[str]], aligns: str) -> list[str]"
+stop_conditions:
+  - Whether a cell may itself contain a space character is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

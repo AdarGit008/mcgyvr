@@ -1,0 +1,67 @@
+id: p397-loop-turn-sense
+task_type: bug_fix
+task: >-
+  loopTurnSense reads a loop of studs — a list of at least three studs, each
+  stud a pair of two whole numbers, no two studs alike, the loop understood to
+  close back onto its opening stud without that stud being written out a
+  second time — and reports two things at once. Under "doubled" it puts twice
+  the ground the loop pens in, a count of nothing or more. Under "sense" it
+  puts the word "counter" when the studs were listed anticlockwise,
+  "clockwise" when they were listed the other way about, and "flat" when the
+  studs all fall along one line and pen in no ground at all. Two faults spoil
+  it. It steps only from each stud to the stud after it, so the side that
+  closes the loop never contributes to the total; and it strips the sign off
+  its running total before choosing the word, so it announces "counter" no
+  matter which way the listing runs. Repair both. Go on raising an error for
+  an argument that is not a list, for fewer than three studs, for a stud that
+  is not a pair of exactly two whole numbers, for a stud that shows up more
+  than once, and for a measure whose magnitude passes ten thousand. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  export function loopTurnSense(studs: number[][]): any {
+    if (!Array.isArray(studs)) {
+      throw new Error("loopTurnSense expects a list of studs");
+    }
+    if (studs.length < 3) {
+      throw new Error("a loop carries at least three studs");
+    }
+    const whole = (value: any) =>
+      typeof value === "number" && Number.isInteger(value);
+    const loop: number[][] = [];
+    const seen = new Set<string>();
+    for (const stud of studs) {
+      if (
+        !Array.isArray(stud) ||
+        stud.length !== 2 ||
+        !whole(stud[0]) ||
+        !whole(stud[1])
+      ) {
+        throw new Error("a stud must be a pair of two whole numbers");
+      }
+      if (Math.abs(stud[0]) > 10000 || Math.abs(stud[1]) > 10000) {
+        throw new Error("a measure magnitude passes ten thousand");
+      }
+      const key = `${stud[0]},${stud[1]}`;
+      if (seen.has(key)) {
+        throw new Error("a stud shows up more than once");
+      }
+      seen.add(key);
+      loop.push([stud[0] + 0, stud[1] + 0]);
+    }
+    let sweep = 0;
+    for (let i = 0; i < loop.length - 1; i++) {
+      const here = loop[i];
+      const next = loop[i + 1];
+      sweep += here[0] * next[1] - next[0] * here[1];
+    }
+    sweep = Math.abs(sweep);
+    return { doubled: sweep, sense: sweep > 0 ? "counter" : "flat" };
+  }
+interface: "export function loopTurnSense(studs: number[][]): any"
+stop_conditions:
+  - Whether a loop that crosses over itself should be refused rather than measured is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

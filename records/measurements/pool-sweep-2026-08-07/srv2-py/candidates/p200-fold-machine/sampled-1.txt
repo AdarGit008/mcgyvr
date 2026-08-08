@@ -1,0 +1,86 @@
+```python
+def fold_machine(machine: dict) -> dict:
+    alphabet = machine["alphabet"]
+    states = machine["states"]
+    start = machine["start"]
+    accepting = machine["accepting"]
+    moves = machine["moves"]
+
+    # Validate input
+    if not alphabet or len(set(alphabet)) != len(alphabet):
+        raise ValueError("Alphabet must be a non-empty list of distinct non-empty strings")
+    if not states or len(set(states)) != len(states):
+        raise ValueError("States must be a non-empty list of distinct non-empty strings")
+    if start not in states:
+        raise ValueError("Start state must be one of the listed states")
+    if not all(state in states for state in accepting) or len(accepting) > len(set(accepting)):
+        raise ValueError("Accepting states must be a list of distinct names drawn from the states")
+    if not all(isinstance(move, list) and len(move) == 3 for move in moves):
+        raise ValueError("Moves must be a list of three-element lists")
+    for state, symbol, next_state in moves:
+        if state not in states or symbol not in alphabet or next_state not in states:
+            raise ValueError("Move names must refer to valid states and symbols")
+
+    # Determine reachable and distinguishable states
+    from collections import defaultdict, deque
+
+    def is_reachable(state):
+        visited = {state}
+        queue = deque([state])
+        while queue:
+            current = queue.popleft()
+            for s in alphabet:
+                next_state = next((m[2] for m in moves if m[0] == current and m[1] == s), None)
+                if next_state not in visited:
+                    visited.add(next_state)
+                    queue.append(next_state)
+        return visited
+
+    reachable_states = is_reachable(start)
+
+    def can_distinguish(state1, state2):
+        for symbol in alphabet:
+            next_state1 = next((m[2] for m in moves if m[0] == state1 and m[1] == symbol), None)
+            next_state2 = next((m[2] for m in moves if m[0] == state2 and m[1] == symbol), None)
+            if (next_state1 in accepting) != (next_state2 in accepting):
+                return True
+        return False
+
+    from itertools import combinations
+
+    distinguishable_states = reachable_states.copy()
+    for state1, state2 in combinations(reachable_states, 2):
+        if can_distinguish(state1, state2):
+            distinguishable_states.remove(state2)
+
+    # Merge distinguishable states
+    group_map = {}
+    group_number = 0
+
+    def get_group(state):
+        if state not in group_map:
+            nonlocal group_number
+            group_map[state] = group_number
+            group_number += 1
+        return group_map[state]
+
+    for state in reachable_states:
+        if state in distinguishable_states:
+            get_group(state)
+
+    # Adjust moves to new groups
+    new_moves = []
+    for state, symbol, next_state in moves:
+        if state in reachable_states and next_state in reachable_states:
+            new_moves.append((get_group(state), symbol, get_group(next_state)))
+
+    # Prepare result
+    result = {
+        "size": group_number,
+        "start": 0,
+        "accepting": sorted(get_group(state) for state in accepting if state in reachable_states),
+        "moves": sorted(new_moves, key=lambda x: (x[0], alphabet.index(x[1])))
+    }
+
+    return result
+```

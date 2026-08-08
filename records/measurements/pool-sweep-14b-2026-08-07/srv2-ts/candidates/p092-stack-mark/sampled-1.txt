@@ -1,0 +1,32 @@
+```ts
+export function canonicalStackMark(mark: string): string {
+  if (typeof mark !== 'string') {
+    throw new Error('Invalid input: not a string');
+  }
+
+  const parts = mark.replace(/-/g, ' ').split(/\s+/);
+
+  if (parts.length !== 3) {
+    throw new Error('Invalid format: incorrect number of parts');
+  }
+
+  const [floorPart, wingPart, stackPart] = parts;
+
+  const floor = parseInt(floorPart, 10);
+  if (isNaN(floor) || floor < 1 || floor > 9) {
+    throw new Error('Invalid floor: must be a digit from 1 to 9');
+  }
+
+  const wing = wingPart.toUpperCase();
+  if (!['N', 'S', 'E', 'W'].includes(wing)) {
+    throw new Error('Invalid wing: must be one of N, S, E, W');
+  }
+
+  const stack = parseInt(stackPart, 10);
+  if (isNaN(stack) || stack < 1 || stack > 999) {
+    throw new Error('Invalid stack number: must be a number from 1 to 999');
+  }
+
+  return `${floor}${wing}${stack.toString().padStart(3, '0')}`;
+}
+```

@@ -1,0 +1,48 @@
+```python
+from typing import Dict, List
+
+def run_transactions(commands: List[str]) -> Dict[str, str]:
+    def parse_command(cmd: str) -> tuple:
+        parts = cmd.split()
+        if len(parts) < 2:
+            raise ValueError("Command must have at least two parts")
+        return parts[0], parts[1:]
+
+    def execute(command: str, args: List[str], store: Dict[str, str], transactions: List[Dict[str, str]]):
+        if command == "k":
+            if len(args) != 2:
+                raise ValueError("Set command must have exactly two arguments")
+            key, value = args
+            current_store = transactions[-1] if transactions else store
+            current_store[key] = value
+        elif command == "unset":
+            if len(args) != 1:
+                raise ValueError("Unset command must have exactly one argument")
+            key = args[0]
+            current_store = transactions[-1] if transactions else store
+            if key in current_store:
+                del current_store[key]
+        elif command == "begin":
+            transactions.append({})
+        elif command == "commit":
+            if not transactions:
+                raise ValueError("No open transaction to commit")
+            inner_changes = transactions.pop()
+            current_store = transactions[-1] if transactions else store
+            current_store.update(inner_changes)
+        elif command == "rollback":
+            if not transactions:
+                raise ValueError("No open transaction to rollback")
+            transactions.pop()
+        else:
+            raise ValueError(f"Unknown command: {command}")
+
+    store: Dict[str, str] = {}
+    transactions: List[Dict[str, str]] = []
+    
+    for cmd in commands:
+        action, params = parse_command(cmd)
+        execute(action, params, store, transactions)
+
+    return store
+```

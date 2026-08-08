@@ -1,0 +1,94 @@
+id: p427-coupon-slip-redeem
+task_type: bug_fix
+task: >-
+  redeem_coupon_slips settles a visit's tickets against a run of coupon slips. The
+  tickets are [label, cents] pairs, each label a non-empty string appearing once
+  and each price a whole number of cents at nought or above. The slips are [tag,
+  label, share] triples taken in the order given: tag is the slip's own non-empty
+  name, appearing once across the run, label names the ticket the slip strikes,
+  and share is a whole number from 1 through 100. A slip's saving is share
+  hundredths of what its ticket still stands at, with any part of a cent dropped,
+  so a second slip on one ticket bites into what the first left behind. No more
+  than two slips may strike one ticket. A slip is passed over whole — never
+  trimmed — when its label matches no ticket, when its ticket has already been
+  struck twice, or when its saving would carry the visit's running saving past
+  the ceiling, itself a whole number of cents at nought or above; slips behind a
+  passed-over one are still weighed, and a slip passed over never counts as a
+  strike. Give back a mapping whose due is the sum of what the tickets still
+  stand at, whose saved is the running saving, and whose ignored lists the tags
+  passed over in the order they were passed over. The code below works each
+  saving out from the ticket's opening price rather than from what the ticket
+  still stands at, so a second slip on one ticket never compounds. Repair that,
+  keep raising an error for a ticket that is not a pair, a label or tag that is
+  empty or not a string, two tickets sharing a label, two slips sharing a tag, a
+  price that is not whole or falls below nought, a slip that is not three parts,
+  a share that is not whole or falls outside 1 through 100, and a ceiling that is
+  not whole or falls below nought, and return the complete fixed file.
+target: solution.py
+target_content: |
+  def _whole(value) -> bool:
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def redeem_coupon_slips(
+      tickets: list[list], slips: list[list], ceiling: int
+  ) -> dict:
+      if not _whole(ceiling) or ceiling < 0:
+          raise ValueError("the ceiling must be whole and at nought or above")
+      if not isinstance(tickets, list) or not isinstance(slips, list):
+          raise ValueError("tickets and slips must be lists")
+
+      standing: dict[str, int] = {}
+      opening: dict[str, int] = {}
+      for ticket in tickets:
+          if not isinstance(ticket, (list, tuple)) or len(ticket) != 2:
+              raise ValueError("a ticket is a [label, cents] pair")
+          label, cents = ticket
+          if not isinstance(label, str) or not label:
+              raise ValueError("a label must be a non-empty string")
+          if label in standing:
+              raise ValueError(f"two tickets share the label {label}")
+          if not _whole(cents) or cents < 0:
+              raise ValueError("a price must be whole and at nought or above")
+          standing[label] = cents
+          opening[label] = cents
+
+      tags: set[str] = set()
+      for slip in slips:
+          if not isinstance(slip, (list, tuple)) or len(slip) != 3:
+              raise ValueError("a slip is a [tag, label, share] triple")
+          tag, label, share = slip
+          if not isinstance(tag, str) or not tag:
+              raise ValueError("a tag must be a non-empty string")
+          if tag in tags:
+              raise ValueError(f"two slips share the tag {tag}")
+          tags.add(tag)
+          if not isinstance(label, str) or not label:
+              raise ValueError("a label must be a non-empty string")
+          if not _whole(share) or share < 1 or share > 100:
+              raise ValueError("a share runs from 1 through 100")
+
+      struck: dict[str, int] = {}
+      ignored: list[str] = []
+      saved = 0
+      for slip in slips:
+          tag, label, share = slip
+          if label not in standing or struck.get(label, 0) >= 2:
+              ignored.append(tag)
+              continue
+          saving = opening[label] * share // 100
+          if saved + saving > ceiling:
+              ignored.append(tag)
+              continue
+          standing[label] = standing[label] - saving
+          saved += saving
+          struck[label] = struck.get(label, 0) + 1
+
+      return {"due": sum(standing.values()), "saved": saved, "ignored": ignored}
+interface: "def redeem_coupon_slips(tickets: list[list], slips: list[list], ceiling: int) -> dict"
+stop_conditions:
+  - Whether a ticket's standing price may be driven below nought by a slip is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

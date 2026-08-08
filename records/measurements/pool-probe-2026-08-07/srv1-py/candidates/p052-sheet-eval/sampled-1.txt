@@ -1,0 +1,48 @@
+```python
+def compute_sheet(cells: dict[str, str]) -> dict[str, int]:
+    def parse_value(value: str) -> int:
+        if value.startswith('='):
+            return evaluate_formula(value[1:].strip())
+        try:
+            return int(value)
+        except ValueError:
+            raise ValueError(f"Malformed literal or term: {value}")
+
+    def evaluate_formula(formula: str) -> int:
+        terms = formula.split('+')
+        result = 0
+        for term in terms:
+            term = term.strip()
+            if not term:
+                raise ValueError("Empty formula")
+            if term[0].isalpha():
+                if term not in cells:
+                    raise ValueError(f"Reference to absent name: {term}")
+                result += evaluate_formula(cells[term])
+            else:
+                result += parse_value(term)
+        return result
+
+    def detect_cycles(cell: str, visited: set[str]) -> None:
+        if cell in visited:
+            raise ValueError("Reference cycle detected")
+        visited.add(cell)
+
+    results = {}
+    for cell, value in cells.items():
+        detected_cycle = False
+        try:
+            detected_cycle = True
+            evaluate_formula(value)
+        except ValueError as e:
+            pass
+        finally:
+            if not detected_cycle and cell not in results:
+                raise ValueError(f"Cell {cell} does not participate in any formula")
+        visited = set()
+        detect_cycles(cell, visited)
+
+    for cell, value in cells.items():
+        results[cell] = evaluate_formula(value)
+    return results
+```

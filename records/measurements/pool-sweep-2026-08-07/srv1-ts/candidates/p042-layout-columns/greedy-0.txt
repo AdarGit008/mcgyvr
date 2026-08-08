@@ -1,0 +1,28 @@
+```ts
+export function layoutColumns(rows: string[][], aligns: string): string[] {
+  if (rows.length === 0) throw new Error("Empty table");
+  if (!Array.isArray(aligns) || aligns.some(a => !['l', 'r', 'c'].includes(a))) throw new Error("Invalid alignment spec");
+
+  const numCols = rows[0].length;
+  if (numCols !== aligns.length) throw new Error("Row length mismatch with alignment spec");
+  if (!rows.every(row => Array.isArray(row) && row.length === numCols)) throw new Error("Non-string cell in table");
+  if (!rows.every(row => row.every(cell => typeof cell === 'string'))) throw new Error("Non-string cell in table");
+
+  const colWidths = rows[0].map((_, i) => Math.max(...rows.map(row => row[i].length)));
+
+  return rows.map(row => {
+    return row.map((cell, i) => {
+      const width = colWidths[i];
+      switch (aligns[i]) {
+        case 'l': return cell.padEnd(width);
+        case 'r': return cell.padStart(width);
+        case 'c': {
+          const leftPad = Math.floor((width - cell.length) / 2);
+          const rightPad = width - cell.length - leftPad;
+          return ' '.repeat(leftPad) + cell + ' '.repeat(rightPad);
+        }
+      }
+    }).join('  ').trimEnd();
+  });
+}
+```

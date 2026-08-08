@@ -1,0 +1,18 @@
+id: p125-van-loading
+task_type: function_implementation
+task: >-
+  Implement load_vans. Parcels arrive as a list of positive integer
+  weights and are dispatched onto two vans by a fixed drill: consider
+  parcels from heaviest to lightest, equal weights in their original
+  order, and hand each parcel to whichever van currently carries less
+  total weight, the first van when the two are even. Return the pair
+  [first van total, second van total] once every parcel is aboard.
+  Reject an empty parcel list and any weight below one with an error.
+target: solution.py
+interface: "def load_vans(parcels: list[int]) -> list[int]"
+stop_conditions:
+  - Behavior for fractional weights is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

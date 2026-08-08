@@ -1,0 +1,76 @@
+```ts
+export function foldFormula(recipe: string): string {
+  if (typeof recipe !== 'string' || recipe === '') {
+    throw new Error('Invalid input');
+  }
+
+  const stack: { tag: string; count: number }[] = [];
+  let i = 0;
+
+  while (i < recipe.length) {
+    if (recipe[i] >= 'A' && recipe[i] <= 'Z') {
+      const tag = recipe[i];
+      i++;
+      let count = 1;
+      if (i < recipe.length && recipe[i] >= 'a' && recipe[i] <= 'z') {
+        count *= recipe[i].charCodeAt(0) - 'a'.charCodeAt(0) + 1;
+        i++;
+        if (i < recipe.length && recipe[i] >= 'a' && recipe[i] <= 'z') {
+          count *= recipe[i].charCodeAt(0) - 'a'.charCodeAt(0) + 1;
+          i++;
+        }
+      }
+      stack.push({ tag, count });
+    } else if (recipe[i] === '(') {
+      const subStack: { tag: string; count: number }[] = [];
+      let depth = 1;
+      i++;
+      while (i < recipe.length && depth > 0) {
+        if (recipe[i] === '(') {
+          depth++;
+        } else if (recipe[i] === ')') {
+          depth--;
+        }
+        subStack.push(...foldFormula(recipe.slice(i, i + depth)).split('').map(tag => ({ tag, count: 1 })));
+        i += depth;
+      }
+      if (depth !== 0) {
+        throw new Error('Unbalanced parentheses');
+      }
+      let totalCount = 1;
+      for (const { count } of subStack) {
+        totalCount *= count;
+      }
+      stack.push(...subStack.map(({ tag, count }) => ({ tag, count: count * totalCount })));
+    } else if (recipe[i] >= '0' && recipe[i] <= '9') {
+      let num = parseInt(recipe[i], 10);
+      i++;
+      while (i < recipe.length && recipe[i] >= '0' && recipe[i] <= '9') {
+        num = num * 10 + parseInt(recipe[i], 10);
+        i++;
+      }
+      if (num === 0) {
+        throw new Error('Invalid repeat count');
+      }
+      const { tag, count } = stack.pop()!;
+      stack.push({ tag, count: count * num });
+    } else {
+      throw new Error('Invalid character in recipe');
+    }
+  }
+
+  const result: { [tag: string]: number } = {};
+  for (const { tag, count } of stack) {
+    if (result[tag]) {
+      result[tag] += count;
+    } else {
+      result[tag] = count;
+    }
+  }
+
+  return Object.keys(result)
+    .sort()
+    .map(tag => (result[tag] > 1 ? `${tag}${result[tag]}` : tag))
+    .join('');
+}
+```

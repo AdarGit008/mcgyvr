@@ -1,0 +1,28 @@
+```ts
+/**
+ * Splits cargo into two holds with minimal weight difference.
+ * @param weights - Array of positive integer weights for each item.
+ * @returns An ascending list of indices of items assigned to the forward hold.
+ */
+export function splitCargo(weights: number[]): number[] {
+  if (weights.length === 0) throw new Error("Manifest cannot be empty");
+  if (weights.some(w => w < 1)) throw new Error("Weights must be positive integers");
+
+  const totalWeight = weights.reduce((acc, weight) => acc + weight, 0);
+  const target = Math.floor(totalWeight / 2);
+
+  let forwardHold: number[] = [0];
+  let remainingItems = weights.filter((_, i) => i !== 0).sort((a, b) => a - b);
+
+  while (remainingItems.length > 0) {
+    const itemIndex = remainingItems.findIndex(item => 
+      Math.abs(totalWeight - 2 * forwardHold.reduce((acc, weight) => acc + weight, 0) + item) < 
+      Math.abs(totalWeight - 2 * forwardHold.reduce((acc, weight) => acc + weight, 0))
+    );
+    if (itemIndex === -1) break;
+    forwardHold.push(remainingItems.splice(itemIndex, 1)[0]);
+  }
+
+  return forwardHold.sort((a, b) => a - b);
+}
+```

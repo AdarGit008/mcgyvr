@@ -1,0 +1,27 @@
+```python
+def convert_length(quantity: str, goal: str) -> int:
+    if not quantity or goal not in {'mm', 'cm', 'm', 'km'}:
+        raise ValueError("Invalid input")
+
+    conversion_factors = {
+        'mm': 1,
+        'cm': 10,
+        'm': 1000,
+        'km': 1_000_000
+    }
+
+    if goal not in conversion_factors:
+        raise ValueError("Unknown target symbol")
+
+    total_mm = sum(int(part[:-2]) * conversion_factors[part[-2:]] for part in quantity.split())
+
+    try:
+        result = total_mm // conversion_factors[goal]
+    except ZeroDivisionError:
+        raise ValueError("Invalid input")
+
+    if result * conversion_factors[goal] != total_mm:
+        raise ValueError("Non-integer result")
+
+    return result
+```

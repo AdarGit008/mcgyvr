@@ -1,0 +1,32 @@
+```ts
+export function unmutedAlerts(alerts: Array<{ id: string; resource: string; severity: number }>): string[] {
+  // Validate input
+  const seenIds = new Set<string>();
+  for (const alert of alerts) {
+    if (seenIds.has(alert.id)) {
+      throw new Error(`Duplicate alert id: ${alert.id}`);
+    }
+    if (!Number.isInteger(alert.severity) || alert.severity <= 0) {
+      throw new Error(`Invalid severity: ${alert.severity} for alert id: ${alert.id}`);
+    }
+    seenIds.add(alert.id);
+  }
+
+  // Group alerts by resource and find the highest severity for each resource
+  const maxSeverityByResource = new Map<string, number>();
+  for (const alert of alerts) {
+    if (!maxSeverityByResource.has(alert.resource) || alert.severity > maxSeverityByResource.get(alert.resource)!) {
+      maxSeverityByResource.set(alert.resource, alert.severity);
+    }
+  }
+
+  // Filter out muted alerts and sort the remaining ones
+  const unmuted = alerts.filter((alert) => alert.severity === maxSeverityByResource.get(alert.resource));
+  return unmuted.sort((a, b) => {
+    if (b.severity !== a.severity) {
+      return b.severity - a.severity;
+    }
+    return a.id.localeCompare(b.id);
+  }).map((alert) => alert.id);
+}
+```

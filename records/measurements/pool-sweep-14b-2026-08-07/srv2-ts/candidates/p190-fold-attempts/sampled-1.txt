@@ -1,0 +1,63 @@
+```ts
+export function foldAttempts(records: string[]): string[] {
+  if (!Array.isArray(records)) {
+    throw new Error("Input must be a list of strings");
+  }
+
+  const caseResults: { [key: string]: { passes: number; fails: number } } = {};
+
+  for (const record of records) {
+    if (typeof record !== "string") {
+      throw new Error("Each record must be a string");
+    }
+
+    const parts = record.split(" ");
+    if (parts.length !== 3) {
+      throw new Error("Record must have exactly three pieces");
+    }
+
+    const [name, tryNumberStr, outcome] = parts;
+
+    if (name === "") {
+      throw new Error("Name cannot be empty");
+    }
+    if (!/^\d+$/.test(tryNumberStr)) {
+      throw new Error("Try number must be digits without padding zeros");
+    }
+    const tryNumber = parseInt(tryNumberStr, 10);
+    if (tryNumber < 1) {
+      throw new Error("Try number must be at least one");
+    }
+    if (outcome !== "pass" && outcome !== "fail") {
+      throw new Error("Outcome must be either 'pass' or 'fail'");
+    }
+
+    if (!caseResults[name]) {
+      caseResults[name] = { passes: 0, fails: 0 };
+    }
+
+    if (outcome === "pass") {
+      caseResults[name].passes++;
+    } else {
+      caseResults[name].fails++;
+    }
+  }
+
+  const results: string[] = [];
+
+  for (const name in caseResults) {
+    const { passes, fails } = caseResults[name];
+    let result: string;
+    if (passes > 0 && fails === 0) {
+      result = "pass";
+    } else if (fails > 0 && passes === 0) {
+      result = "fail";
+    } else {
+      result = "flake";
+    }
+    results.push(`${name}=${result}`);
+  }
+
+  return results.sort();
+}
+```

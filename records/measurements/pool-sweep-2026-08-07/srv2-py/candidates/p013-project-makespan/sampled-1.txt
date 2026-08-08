@@ -1,0 +1,39 @@
+```python
+def project_makespan(durations: dict[str, int], deps: list[list[str]]) -> int:
+    if not durations or not deps:
+        return 0
+
+    if any(not isinstance(d, int) or d <= 0 for d in durations.values()):
+        raise ValueError("Durations must be positive whole numbers.")
+
+    tasks = set(durations)
+    if any(task not in tasks for pair in deps for task in pair):
+        raise ValueError("Invalid task name in dependencies.")
+
+    if any(a == b for a, b in deps):
+        raise ValueError("Dependencies cannot have the same task as both head and tail.")
+
+    graph = {task: [] for task in tasks}
+    in_degree = {task: 0 for task in tasks}
+
+    for a, b in deps:
+        graph[a].append(b)
+        in_degree[b] += 1
+
+    queue = [task for task in tasks if in_degree[task] == 0]
+    result = 0
+    time_spent = [0] * len(tasks)
+
+    while queue:
+        new_queue = []
+        for task in queue:
+            time_spent[tasks.index(task)] += durations[task]
+            result = max(result, time_spent[tasks.index(task)])
+            for neighbor in graph[task]:
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    new_queue.append(neighbor)
+        queue = new_queue
+
+    return result
+```

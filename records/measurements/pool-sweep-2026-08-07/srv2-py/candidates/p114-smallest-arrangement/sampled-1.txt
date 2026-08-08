@@ -1,0 +1,25 @@
+```python
+from typing import List
+
+def smallest_arrangement(counts: List[int]) -> str:
+    if len(counts) != 4 or any(not (0 <= c <= 12 and isinstance(c, int)) for c in counts):
+        raise ValueError("Input must be a list of four integers between 0 and 12.")
+    if sum(counts) == 0:
+        raise ValueError("At least one count must be positive.")
+    
+    chars = 'abcd'
+    counts = [0] * 4
+    result = []
+    
+    while True:
+        valid = False
+        for i in range(4):
+            if counts[i] > 0 and (i == 0 or result[-1] != chars[i-1]):
+                result.append(chars[i])
+                counts[i] -= 1
+                valid = True
+        if not valid:
+            break
+    
+    return ''.join(result) if len(result) == sum(counts) else ""
+```

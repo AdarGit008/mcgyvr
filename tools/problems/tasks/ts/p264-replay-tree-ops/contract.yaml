@@ -1,0 +1,26 @@
+id: p264-replay-tree-ops
+task_type: function_implementation
+task: >-
+  Implement replayTreeOps. A search index starts out empty and is driven by a
+  list of steps, each written "add:<n>" or "drop:<n>" where <n> is a whole
+  number that may carry a leading minus sign. An add settles the number the
+  usual way: from the root, go left while the newcomer is smaller than the
+  value sitting there and right while it is larger, hanging the newcomer off
+  the first empty side reached; a number the index already holds is silently
+  ignored. A drop removes the value: a knot with no children simply goes; a
+  knot with one child is replaced by that child; a knot with both children
+  takes on the highest value found anywhere in its left side, and that
+  highest value is then dropped from the left side in turn. After the last
+  step, report the values in root-then-left-side-then-right-side order. An
+  empty step list reports an empty answer. Reject with an error a steps
+  argument that is not a list, a step that is not text, a step not written in
+  the "add:<n>" or "drop:<n>" form, and a drop naming a value the index does
+  not hold at that moment.
+target: solution.ts
+interface: "export function replayTreeOps(steps: string[]): number[]"
+stop_conditions:
+  - Whether the index may be built with recursion or with an explicit stack is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

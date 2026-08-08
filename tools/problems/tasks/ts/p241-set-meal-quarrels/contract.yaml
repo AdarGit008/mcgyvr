@@ -1,0 +1,28 @@
+id: p241-set-meal-quarrels
+task_type: function_implementation
+task: >-
+  Implement buildSetMeal. A set meal takes exactly one option from every
+  course, in course order. The first argument lists the courses, each course
+  a non-empty list of option records carrying code (a non-empty string, no
+  two options anywhere sharing one) and price (a whole number of pence, one
+  or more). There is at least one course and at most six, and no course
+  offers more than six options. The second argument lists the quarrels: a
+  quarrel is a pair of codes naming two options that must never share a
+  tray, both of them codes some course offers, and never the same code
+  written twice. Pick the tray of least total price that breaks no quarrel;
+  where two such trays cost the same, keep the one whose codes read smaller,
+  comparing course by course and stopping at the first course where they
+  differ. Return a record with total, that tray's price, and picks, its
+  codes in course order. Raise an error when there are no courses at all,
+  when a course offers nothing, when there are too many courses or too many
+  options within one, when a code repeats, when a price is below one, when a
+  quarrel is not a pair of known codes or writes one code twice, and when no
+  tray whatsoever avoids every quarrel.
+target: solution.ts
+interface: "export function buildSetMeal(courses: any[], quarrels: any[]): any"
+stop_conditions:
+  - Whether a diner may skip a course they dislike is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

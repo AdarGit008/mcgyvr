@@ -1,0 +1,30 @@
+id: p210-scale-batch-lines
+task_type: function_implementation
+task: >-
+  Implement scaleBatchLines, which resizes a batch sheet. Each sheet line
+  reads as a quantity, one space, a measure, one space, and a stuff name;
+  the quantity is a whole number above zero written without a leading zero,
+  the measure is g or ml or each, and the name is one or more words of
+  letters held apart by single spaces. The second argument says how many
+  portions are wanted and the third says how many the sheet was written
+  for. Work every quantity out exactly as the old quantity times the wanted
+  portions divided by the written portions, keeping the arithmetic whole
+  rather than approximate. Then settle it on its measure's tick: g and each
+  tick by one, ml ticks by five. Settle to the nearest whole number of ticks
+  and send a value sitting exactly between two ticks upward. A quantity that
+  settles to nothing but was not nothing becomes one tick. Return the lines
+  in their original order, each written back in the same three part shape
+  with its new quantity. Raise an error when the sheet is not a list, when a
+  line is not a string, when a line breaks the three part shape, when the
+  quantity is zero or padded or not all digits, when the measure is none of
+  the three, when the name is not words of letters, when two lines name the
+  same stuff, and when either portion count is not a whole number above
+  zero.
+target: solution.ts
+interface: "export function scaleBatchLines(items: string[], want: number, base: number): string[]"
+stop_conditions:
+  - Whether the wanted portions may exceed the written portions by any amount is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

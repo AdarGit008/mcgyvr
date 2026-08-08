@@ -1,0 +1,32 @@
+id: p432-shunt-siding-plan
+task_type: function_implementation
+task: >-
+  Implement planShunting. The first argument lists the cars standing on an
+  arrival road, written from the car nearest the shunting neck — the one an
+  engine reaches first — through to the car furthest from it; the second
+  lists those same cars in the order they must stand on the departure road,
+  the car set down first written first. One siding is available and it is
+  worked from a single end, so the car pushed onto it most recently is the
+  only one that can come off. Every car travels arrival road to siding to
+  departure road: the writing "hold <code>" pushes the next arrival car onto
+  the siding, and the writing "place <code>" takes the topmost siding car
+  onto the tail of the departure road. The siding never carries more than
+  depth cars at one time. Work the yard by the shortest-sighted drill there
+  is: place whenever the topmost siding car is the very next car the
+  departure order wants, and hold otherwise. Return a mapping under "moves",
+  the writings made in order, and "blocked", which is the empty string when
+  every car reached the departure road, "full" when a hold fell due with the
+  siding already carrying depth cars, and "buried:" followed by the wanted
+  car's code when the arrival road ran dry while that car sat under others.
+  Raise an error when either list is not a list, when the arrival road is
+  empty, when a code is not a non-empty string, when one list writes a code
+  twice, when the two lists do not name the same cars, and when depth is not
+  a whole number of one or more.
+target: solution.ts
+interface: "export function planShunting(arrival: string[], target: string[], depth: number): { moves: string[]; blocked: string }"
+stop_conditions:
+  - Whether an engine may run a car round the train and set it down without entering the siding is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

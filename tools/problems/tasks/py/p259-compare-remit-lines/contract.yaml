@@ -1,0 +1,21 @@
+id: p259-compare-remit-lines
+task_type: function_implementation
+task: |
+  Implement compare_remit_lines, which sets our remittance advice beside the one
+  a counterparty sent. Each argument is a list of [label, cents] pairs, cents
+  being a whole number that may be zero or below zero. A label carried by both
+  advices is settled by its amounts: identical amounts make it agreed, and
+  differing amounts make it queried. A label only we carry, and a label only
+  they carry, each fall to their own side. Return a record with four lists —
+  agreed, queried, ourSide, theirSide — every one of them sorted ascending.
+  Reject a label repeated inside one advice, a label that is not a non-empty
+  string, an amount that is not a whole number, a pair that does not hold
+  exactly two entries, and an argument that is not a list.
+target: solution.py
+interface: "def compare_remit_lines(ours: list[list], theirs: list[list]) -> dict"
+stop_conditions:
+  - Whether labels differing only in letter case name the same line is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

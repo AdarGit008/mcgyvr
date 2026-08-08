@@ -1,0 +1,58 @@
+```ts
+export function rollupTotals(
+  nodes: Record<string, { value: number; parent: string }>,
+): Record<string, number> {
+  // Validate input
+  const nodeIds = Object.keys(nodes);
+  if (nodeIds.length === 0) {
+    throw new Error("Input must contain at least one node.");
+  }
+
+  const rootNodes = nodeIds.filter(id => nodes[id].parent === "");
+  if (rootNodes.length !== 1) {
+    throw new Error("Input must have exactly one root node.");
+  }
+
+  const validParents = new Set(nodeIds);
+  for (const id of nodeIds) {
+    const parent = nodes[id].parent;
+    if (parent !== "" && !validParents.has(parent)) {
+      throw new Error(`Parent ID "${parent}" is invalid.`);
+    }
+  }
+
+  // Build the tree
+  const tree: Record<string, { value: number; children: string[] }> = {};
+  for (const id of nodeIds) {
+    tree[id] = { value: nodes[id].value, children: [] };
+  }
+
+  for (const id of nodeIds) {
+    const parent = nodes[id].parent;
+    if (parent !== "") {
+      tree[parent].children.push(id);
+    }
+  }
+
+  // Compute totals using DFS
+  const totals: Record<string, number> = {};
+
+  function computeTotal(nodeId: string): number {
+    if (totals[nodeId] !== undefined) {
+      return totals[nodeId];
+    }
+
+    let total = tree[nodeId].value;
+    for (const child of tree[nodeId].children) {
+      total += computeTotal(child);
+    }
+
+    totals[nodeId] = total;
+    return total;
+  }
+
+  computeTotal(rootNodes[0]);
+
+  return totals;
+}
+```

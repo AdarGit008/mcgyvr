@@ -1,0 +1,25 @@
+id: p354-front-shift-codes
+task_type: function_implementation
+task: >-
+  Implement shift_front_codes. The first argument is an alphabet: a
+  non-empty string of characters with none of them repeated. Keep a row of
+  characters that starts out as the alphabet read left to right. Walk the
+  message one character at a time, and for each character note the place it
+  holds in the row, counting from zero; then lift that character out of the
+  row and set it down again at the head, everything ahead of its old place
+  sliding along one and keeping its order. Return the noted places as a
+  list in the order they were noted, and return an empty list for an empty
+  message. With the alphabet "abcd" the message "dab" gives [3, 1, 2] — d
+  holds place 3 and the row turns into "dabc", a holds place 1 and the row
+  turns into "adbc", b holds place 2. Throw an error for an alphabet that
+  is not a string, for an empty alphabet, for an alphabet carrying a
+  character twice over, for a message that is not a string, and for a
+  message holding a character the alphabet does not carry.
+target: solution.py
+interface: "def shift_front_codes(alphabet: str, message: str) -> list"
+stop_conditions:
+  - Whether the alphabet may carry characters beyond the printable ones is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

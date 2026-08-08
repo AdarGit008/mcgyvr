@@ -1,0 +1,60 @@
+```ts
+export function bestRatePath(quotes: unknown[][], amount: number, source: string, destination: string): Record<string, unknown> {
+    if (quotes.length === 0) throw new Error("Quote list is empty");
+    if (!Array.isArray(quotes[0]) || quotes[0].length !== 3) throw new Error("Invalid quote format");
+    if (typeof amount !== "number" || amount <= 0) throw new Error("Amount must be a positive whole number");
+    if (typeof source !== "string" || source.length === 0) throw new Error("Source code must be a non-empty string");
+    if (typeof destination !== "string" || destination.length === 0) throw new Error("Destination code must be a non-empty string");
+
+    const quoteMap = new Map<string, [string, number]>();
+    for (const quote of quotes) {
+        if (!Array.isArray(quote) || quote.length !== 3) throw new Error("Invalid quote format");
+        const [base, counter, micro] = quote;
+        if (typeof base !== "string" || base.length === 0) throw new Error("Base code must be a non-empty string");
+        if (typeof counter !== "string" || counter.length === 0) throw new Error("Counter code must be a non-empty string");
+        if (base === counter) throw new Error("Base and counter codes cannot be the same");
+        if (typeof micro !== "number" || micro <= 0 || !Number.isInteger(micro)) throw new Error("Micro must be a positive whole number");
+
+        const key = `${base}-${counter}`;
+        if (quoteMap.has(key)) throw new Error("Duplicate quote pair");
+        quoteMap.set(key, [counter, micro]);
+    }
+
+    if (!quoteMap.has(source) || !quoteMap.has(destination)) throw new Error("Source or destination code not found in quotes");
+
+    const graph: Record<string, Map<string, number>> = {};
+    for (const [key, [counter, micro]] of quoteMap.entries()) {
+        const [base] = key.split("-");
+        if (!graph[base]) graph[base] = new Map();
+        graph[base].set(counter, micro);
+    }
+
+    const visited: Set<string> = new Set();
+    let bestPath: string[] | null = null;
+    let bestAmount: number = 0;
+
+    function dfs(current: string, path: string[], amount: number) {
+        if (current === destination) {
+            if (amount > bestAmount || (amount === bestAmount && path.length < bestPath!.length)) {
+                bestPath = [...path, current];
+                bestAmount = amount;
+            }
+            return;
+        }
+
+        visited.add(current);
+        for (const [next, micro] of graph[current].entries()) {
+            if (!visited.has(next)) {
+                dfs(next, [...path, current], Math.floor(amount * micro / 1_000_000));
+            }
+        }
+        visited.delete(current);
+    }
+
+    dfs(source, [], amount);
+
+    if (bestPath === null) throw new Error("No path found connecting source and destination");
+
+    return { amount: bestAmount, path: bestPath };
+}
+```

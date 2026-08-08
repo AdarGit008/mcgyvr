@@ -1,0 +1,26 @@
+```python
+def rank_with_policy(scores: list[int], policy: str, direction: str) -> list[int]:
+    if not scores:
+        raise ValueError("The input list cannot be empty.")
+    
+    valid_policies = {"dense", "gapped", "entry"}
+    if policy not in valid_policies:
+        raise ValueError(f"Invalid policy. Must be one of {valid_policies}.")
+    
+    valid_directions = {"asc", "desc"}
+    if direction not in valid_directions:
+        raise ValueError(f"Invalid direction. Must be one of {valid_directions}.")
+
+    sorted_indices = sorted(range(len(scores)), key=lambda i: (scores[i], -i) if direction == "desc" else (scores[i], i))
+    ranks = [0] * len(scores)
+    
+    for rank, index in enumerate(sorted_indices):
+        if policy == "dense":
+            ranks[index] = rank + 1
+        elif policy == "gapped":
+            ranks[index] = rank + 2
+        elif policy == "entry":
+            ranks[index] = rank + 1
+    
+    return ranks
+```

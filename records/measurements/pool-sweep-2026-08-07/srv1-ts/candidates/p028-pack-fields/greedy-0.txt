@@ -1,0 +1,16 @@
+```ts
+export function packFields(widths: number[], values: number[]): number {
+  if (widths.length !== values.length) throw new Error("Widths and values must be of equal length");
+  if (widths.length === 0) throw new Error("Input lists cannot be empty");
+  const totalWidth = widths.reduce((acc, width) => acc + width, 0);
+  if (totalWidth > 30) throw new Error("Combined width exceeds 30 bits");
+
+  return widths.map((width, index) => {
+    const value = values[index];
+    if (!Number.isInteger(value)) throw new Error("All values must be integers");
+    if (value < 0) throw new Error("Negative values are not allowed");
+    if (value >= Math.pow(2, width)) throw new Error(`Value ${value} too large for field of width ${width}`);
+    return value << (totalWidth - width);
+  }).reduce((acc, shiftedValue) => acc | shiftedValue, 0);
+}
+```

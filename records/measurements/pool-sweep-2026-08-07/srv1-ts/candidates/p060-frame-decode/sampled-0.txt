@@ -1,0 +1,35 @@
+```ts
+export function decodeFrames(stream: number[]): number[][] {
+  const frames: number[][] = [];
+  let i = 0;
+
+  while (i < stream.length) {
+    if (stream[i] < 0 || stream[i] > 255 || !Number.isInteger(stream[i])) {
+      throw new Error("Invalid byte value");
+    }
+
+    const length = stream[i++] * 256 + stream[i++];
+
+    if (length > stream.length - i) {
+      throw new Error("Frame ends before payload and trailing byte");
+    }
+
+    const payload = stream.slice(i, i + length);
+    i += length;
+
+    let checksum = 0;
+    for (const byte of payload) {
+      checksum ^= byte;
+    }
+
+    if (checksum !== stream[i] && stream[i] !== 0) {
+      throw new Error("Incorrect trailing byte");
+    }
+
+    frames.push(payload);
+    ++i; // Skip the trailing byte
+  }
+
+  return frames;
+}
+```

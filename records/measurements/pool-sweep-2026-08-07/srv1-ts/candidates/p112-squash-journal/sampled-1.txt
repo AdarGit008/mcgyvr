@@ -1,0 +1,41 @@
+```ts
+export function squashJournal(ops: (string | number)[][]): (string | number)[][] {
+  const keyToValue = new Map<string, number>();
+  const keyToLastPutIndex = new Map<string, number>();
+
+  ops.forEach((op, index) => {
+    if (op[0] === "put") {
+      if (typeof op[1] !== "string" || typeof op[2] !== "number" || op[2] <= 0) {
+        throw new Error("Invalid put operation");
+      }
+      keyToValue.set(op[1], op[2]);
+      keyToLastPutIndex.set(op[1], index);
+    } else if (op[0] === "del") {
+      if (typeof op[1] !== "string" || !keyToValue.has(op[1])) {
+        throw new Error("Invalid del operation");
+      }
+      keyToValue.delete(op[1]);
+      keyToLastPutIndex.delete(op[1]);
+    } else if (op[0] === "ren") {
+      if (
+        typeof op[1] !== "string" ||
+        typeof op[2] !== "string" ||
+        !keyToValue.has(op[1]) ||
+        keyToValue.has(op[2])
+      ) {
+        throw new Error("Invalid ren operation");
+      }
+      const value = keyToValue.get(op[1])!;
+      keyToValue.delete(op[1]);
+      keyToValue.set(op[2], value);
+      keyToLastPutIndex.set(op[2], index);
+    } else {
+      throw new Error("Unknown operation");
+    }
+  });
+
+  return Array.from(keyToValue.entries())
+    .map(([key, value]) => ["put", key, value])
+    .sort((a, b) => keyToLastPutIndex.get(a[1])! - keyToLastPutIndex.get(b[1])!);
+}
+```

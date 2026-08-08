@@ -1,0 +1,23 @@
+id: p388-find-motif-sites
+task_type: function_implementation
+task: >-
+  Implement findMotifSites. The strand is a string written with nothing but the
+  letters A, C, G and T. The motif is a non-empty string whose symbols may each
+  stand for a whole set of letters, by this table: A, C, G and T stand for
+  themselves alone; R stands for A or G; Y for C or T; S for C or G; W for A or
+  T; K for G or T; M for A or C; and N for any of the four. The motif sits at a
+  position when, letter against symbol from that position onward, every strand
+  letter belongs to the set its motif symbol stands for. Report the ascending
+  list of positions, counted from zero, at which the motif sits; sittings may
+  overlap one another freely, and a motif longer than the strand simply sits
+  nowhere. Raise an error when either argument is not a string, when the motif
+  is empty, when the motif carries a symbol the table does not name, and when
+  the strand carries a letter other than A, C, G or T.
+target: solution.ts
+interface: "export function findMotifSites(strand: string, motif: string): number[]"
+stop_conditions:
+  - Whether lowercase letters may be read as their uppercase counterparts is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

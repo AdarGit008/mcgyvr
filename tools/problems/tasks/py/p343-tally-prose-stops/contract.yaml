@@ -1,0 +1,57 @@
+id: p343-tally-prose-stops
+task_type: bug_fix
+task: >-
+  count_sentences should say how many sentences a piece of prose holds, but
+  the version below only knows about square brackets and misses every
+  other rule. Fix it so all of these hold. Square brackets nest and an
+  apostrophe toggles an aside; while either shelter is in force, no full
+  stop, bang or query mark ends anything. Outside them a run of touching
+  marks ends exactly one sentence. A lone full stop, however, is inert in
+  three cases: when a digit stands on each side of it, as in 12.5; when
+  the letters directly to its left spell one of the supplied titles,
+  compared with case respected; and when a single capital letter stands to
+  its left with a space or the start of the prose just beyond that letter,
+  which is how an initial is written. Bang and query marks are never
+  inert. The answer is the number of endings, plus one more when anything
+  other than spaces trails the last ending. The version below also skips
+  validation, which must throw an error for prose that is not a string,
+  titles that are not a list, a title that is not a non-empty run of
+  letters, a square bracket closed with no opener, a square bracket left
+  open, and an aside left open. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def count_sentences(prose: str, titles: list[str]) -> int:
+      marks = frozenset(".!?")
+      endings = 0
+      depth = 0
+      at = 0
+      after = 0
+      while at < len(prose):
+          ch = prose[at]
+          if ch == "[":
+              depth += 1
+              at += 1
+              continue
+          if ch == "]":
+              depth -= 1
+              at += 1
+              continue
+          if depth == 0 and ch in marks:
+              last = at
+              while last + 1 < len(prose) and prose[last + 1] in marks:
+                  last += 1
+              endings += 1
+              at = last + 1
+              after = at
+              continue
+          at += 1
+      if prose[after:].strip() != "":
+          endings += 1
+      return endings
+interface: "def count_sentences(prose: str, titles: list[str]) -> int"
+stop_conditions:
+  - Whether an apostrophe used inside a word closes an aside is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

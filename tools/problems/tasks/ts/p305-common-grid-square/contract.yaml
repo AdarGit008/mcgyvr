@@ -1,0 +1,27 @@
+id: p305-common-grid-square
+task_type: function_implementation
+task: >-
+  Implement commonGridSquare. Every entry of references is a Harrow reference:
+  two capitals picking a hundred-kilometre square, drawn from the twenty-letter
+  set that omits I and O, then an even tally of decimal figures — never above
+  ten — sharing themselves evenly between the axes, the leading half sharpening
+  the easting and the trailing half the northing, each figure shrinking the
+  named box tenfold. Such a reference therefore stands for a box, not a point.
+  Hand back the tightest box that wholly swallows every box handed in, itself
+  written as a Harrow reference. Nothing can swallow a box coarser than itself,
+  so begin at the coarsest tally present among the entries and slacken from
+  there until one box holds them all; when even the bare capitals disagree
+  there is nothing to hand back and the answer is the empty string. Figures in
+  the answer keep their leading noughts so that the tally stays even. Reject
+  with an error an argument that is not a list, a list with nothing in it, an
+  entry that is not a string, and an entry the projection cannot read — a
+  capital outside the set, a stray character, an odd tally of figures, or more
+  than ten of them.
+target: solution.ts
+interface: "export function commonGridSquare(references: string[]): string"
+stop_conditions:
+  - Whether the same reference may appear twice in the list is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

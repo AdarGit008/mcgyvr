@@ -1,0 +1,29 @@
+```ts
+export function collateFeeds(feeds: number[][][]): number[][] {
+  if (feeds.some(feed => feed.some(([tick1, tick2]) => tick1 >= tick2))) {
+    throw new Error("Ticks must strictly increase within each feed");
+  }
+
+  const timeline: [number, number][] = [];
+
+  for (const feed of feeds) {
+    for (const [tick, reading] of feed) {
+      if (!timeline.length || timeline[timeline.length - 1][0] !== tick) {
+        timeline.push([tick, reading]);
+      }
+    }
+  }
+
+  const result: number[][] = [];
+  let lastReading: number | undefined;
+
+  for (const [_, reading] of timeline) {
+    if (reading !== lastReading) {
+      result.push([timeline[timeline.length - 1][0], reading]);
+      lastReading = reading;
+    }
+  }
+
+  return result;
+}
+```

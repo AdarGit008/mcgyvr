@@ -1,0 +1,56 @@
+```ts
+/** Sifts events into lanes by channel prefix and severity ceiling. */
+export function siftEventStreams(
+  lanes: Array<Record<string, unknown>>,
+  events: Array<Record<string, unknown>>,
+): Record<string, unknown> {
+  const RANK = ["chatter", "notice", "alarm", "panic"];
+
+  // Validate input
+  if (!Array.isArray(lanes) || !Array.isArray(events)) {
+    throw new Error("Lanes and events must be arrays.");
+  }
+
+  lanes.forEach((lane: any) => {
+    if (
+      typeof lane.name !== "string" ||
+      lane.name.trim() === "" ||
+      typeof lane.prefix !== "string" ||
+      RANK.indexOf(lane.upTo as string) === -1 ||
+      typeof lane.last !== "boolean"
+    ) {
+      throw new Error("Invalid lane properties.");
+    }
+  });
+
+  events.forEach((event: any) => {
+    if (
+      typeof event.channel !== "string" ||
+      event.channel.trim() === "" ||
+      RANK.indexOf(event.severity as string) === -1
+    ) {
+      throw new Error("Invalid event properties.");
+    }
+  });
+
+  const gathered = lanes.map((lane: any) => ({
+    name: lane.name as string,
+    took: [] as number[],
+  }));
+  const dropped: number[] = [];
+
+  events.forEach((event: any, at: number) => {
+    let caught = false;
+    for (const { which, lane } of lanes.map((lane, index) => ({ which: index, lane }))) {
+      if (!event.channel.startsWith(lane.prefix)) continue;
+      if (RANK.indexOf(event.severity as string) > RANK.indexOf(lane.upTo as string)) continue;
+      gathered[which].took.push(at);
+      caught = true;
+      if (lane.last === true) break;
+    }
+    if (!caught) dropped.push(at);
+  });
+
+  return { lanes: gathered, dropped };
+}
+```

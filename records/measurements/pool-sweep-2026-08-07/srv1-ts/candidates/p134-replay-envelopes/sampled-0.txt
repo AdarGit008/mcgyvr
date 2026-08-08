@@ -1,0 +1,57 @@
+```typescript
+export function replayEnvelopes(
+  envelopes: Array<{ name: string; monthly: number; cap: number }>,
+  months: Array<Array<[string, number]>>,
+): { balances: Array<[string, number]>; forfeited: number } {
+  const envelopeMap = new Map<string, { balance: number; debt: number }>();
+  let totalForfeited = 0;
+
+  // Initialize envelopes
+  for (const envelope of envelopes) {
+    if (envelope.name === "" || envelope.monthly < 0 || envelope.cap < 0) {
+      throw new Error("Invalid envelope properties");
+    }
+    if (envelopeMap.has(envelope.name)) {
+      throw new Error(`Duplicate envelope name: ${envelope.name}`);
+    }
+    envelopeMap.set(envelope.name, { balance: 0, debt: 0 });
+  }
+
+  // Process each month
+  for (const month of months) {
+    for (const [name, amount] of month) {
+      if (!envelopeMap.has(name)) {
+        throw new Error(`Unknown envelope name: ${name}`);
+      }
+      const { balance, debt } = envelopeMap.get(name)!;
+      if (amount <= 0) {
+        throw new Error("Invalid outlay amount");
+      }
+
+      // Step 1: Add monthly deposit
+      envelopeMap.set(name, { balance: balance + envelope.monthly, debt });
+
+      // Step 2: Subtract outlay
+      let remainingDebt = debt - amount;
+      while (remainingDebt < 0) {
+        const available = Math.min(-remainingDebt, balance);
+        remainingDebt += available;
+        balance -= available;
+        totalForfeited += available;
+      }
+      envelopeMap.set(name, { balance, debt: remainingDebt });
+
+      // Step 3: Cap enforcement
+      if (balance > envelope.cap) {
+        const excess = balance - envelope.cap;
+        balance = envelope.cap;
+        totalForfeited += excess;
+      }
+    }
+  }
+
+  // Prepare the result
+  const balances = Array.from(envelopeMap.entries()).map(([name, { balance }]) => [name, balance]);
+  return { balances, forfeited: totalForfeited };
+}
+```

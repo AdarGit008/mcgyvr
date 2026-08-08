@@ -1,0 +1,60 @@
+```python
+def fold_machine(machine: dict) -> dict:
+    alphabet = machine.get("alphabet")
+    states = machine.get("states")
+    start = machine.get("start")
+    accepting = machine.get("accepting")
+    moves = machine.get("moves")
+
+    if not alphabet or not states or not start or not moves:
+        raise ValueError("Machine must have non-empty alphabet, states, start, and moves.")
+
+    if len(alphabet) != len(set(alphabet)):
+        raise ValueError("Alphabet must contain distinct symbols.")
+    if len(states) != len(set(states)):
+        raise ValueError("States must contain distinct names.")
+    if not all(isinstance(s, str) and s for s in alphabet + states):
+        raise ValueError("All symbols and state names must be non-empty strings.")
+
+    if start not in states:
+        raise ValueError(f"Start state '{start}' is not a listed state.")
+
+    if any(state not in states or accepting.count(state) > 1 for state in accepting):
+        raise ValueError("Accepting states must be distinct and listed states.")
+
+    valid_moves = set((s, sym, t) for s, sym, t in moves if s in states and sym in alphabet and t in states)
+    if len(valid_moves) != len(alphabet) * len(states):
+        raise ValueError("Each state-symbol pair must have exactly one move.")
+
+    reachable_states = {start}
+    queue = [start]
+    while queue:
+        current = queue.pop()
+        for s, sym, t in moves:
+            if s == current and t not in reachable_states:
+                reachable_states.add(t)
+                queue.append(t)
+
+    unreachable_states = set(states) - reachable_states
+    machine["moves"] = [(s, sym, t) for s, sym, t in moves if s not in unreachable_states and t not in unreachable_states]
+
+    indistinguishable_groups = {state: None for state in states}
+    group_number = 0
+
+    def dfs(state):
+        nonlocal group_number
+        if indistinguishable_groups[state] is None:
+            indistinguishable_groups[state] = group_number
+            group_number += 1
+            for sym, t in sorted((sym, t) for s, sym, t in moves if s == state):
+                dfs(t)
+
+    dfs(start)
+    machine["moves"] = [(indistinguishable_groups[s], sym, indistinguishable_groups[t]) for s, sym, t in machine["moves"]]
+    machine["states"] = list(indistinguishable_groups.values())
+    machine["accepting"] = sorted(indistinguishable_groups[state] for state in accepting if indistinguishable_groups[state] is not None)
+    machine["size"] = len(machine["states"])
+    machine["start"] = 0
+
+    return machine
+```

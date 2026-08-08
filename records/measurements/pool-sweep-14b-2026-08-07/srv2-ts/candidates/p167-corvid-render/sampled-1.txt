@@ -1,0 +1,25 @@
+```ts
+/**
+ * Renders a given number as a Corvid tally.
+ * @param value - The number to render.
+ * @returns The Corvid tally string.
+ */
+export function corvidRender(value: number): string {
+  if (!Number.isInteger(value)) {
+    throw new Error("Input must be a whole number.");
+  }
+
+  const marks = ['v', 'w', 'x', 'y', 'z'];
+  let result = '';
+  let absValue = Math.abs(value);
+
+  for (let i = 0; absValue > 0 || i < 5; i++) {
+    const digit = (absValue % 25) / 5;
+    const markIndex = Math.floor(digit);
+    result = marks[markIndex] + result;
+    absValue = Math.floor(absValue / 25);
+  }
+
+  return value === 0 ? 'x' : result;
+}
+```

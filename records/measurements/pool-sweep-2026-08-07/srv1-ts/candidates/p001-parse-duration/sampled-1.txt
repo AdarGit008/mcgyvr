@@ -1,0 +1,39 @@
+```ts
+/**
+ * Parses a compact duration string into total seconds.
+ *
+ * @param input - A compact duration string of value-unit pairs (e.g., "1h30m").
+ * @returns The total number of seconds represented by the duration.
+ * @throws Error if the input is empty, contains unknown units, repeated units,
+ *         units out of order, a missing value, or a non-string argument.
+ */
+export function parseDuration(input: string): number {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error('Invalid input');
+  }
+
+  const unitOrder: { [key: string]: number } = { d: 86400, h: 3600, m: 60, s: 1 };
+  let totalSeconds = 0;
+
+  const pairs = input.split(/(\d+)/);
+  for (let i = 0; i < pairs.length - 1; i += 2) {
+    const value = parseInt(pairs[i], 10);
+    if (isNaN(value)) {
+      throw new Error('Missing value');
+    }
+    const unit = pairs[i + 1];
+    if (!unitOrder.hasOwnProperty(unit)) {
+      throw new Error('Unknown unit');
+    }
+    if (i > 0 && pairs[i - 2] === unit) {
+      throw new Error('Repeated unit');
+    }
+    if (i < pairs.length - 3 && unitOrder[unit] < unitOrder[pairs[i + 3]]) {
+      throw new Error('Units out of order');
+    }
+    totalSeconds += value * unitOrder[unit];
+  }
+
+  return totalSeconds;
+}
+```

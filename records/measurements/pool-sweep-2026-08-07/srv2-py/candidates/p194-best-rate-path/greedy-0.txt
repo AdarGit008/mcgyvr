@@ -1,0 +1,53 @@
+```python
+def best_rate_path(quotes: list, amount: int, source: str, destination: str) -> dict:
+    if not quotes:
+        raise ValueError("Quote list cannot be empty")
+    
+    for quote in quotes:
+        if len(quote) != 3:
+            raise ValueError("Each quote must have exactly three elements")
+        
+        base, counter, micro = quote
+        if not (isinstance(base, str) and isinstance(counter, str) and isinstance(micro, int)):
+            raise ValueError("Invalid types in quote")
+        
+        if base == counter or micro <= 0:
+            raise ValueError("Base and counter must be different, micro must be a positive integer")
+    
+    if source == destination:
+        raise ValueError("Source and destination cannot be the same code")
+    
+    if not any(base == source for base, _, _ in quotes) or not any(counter == destination for _, counter, _ in quotes):
+        raise ValueError("Either source or destination is named by no quote")
+    
+    graph = {}
+    for base, counter, micro in quotes:
+        if base not in graph:
+            graph[base] = []
+        graph[base].append((counter, micro))
+    
+    def dfs(current, path, current_amount):
+        if current == destination:
+            return (current_amount, path)
+        
+        max_amount = 0
+        best_path = None
+        
+        for next_currency, micro in graph.get(current, []):
+            if next_currency not in path:
+                new_amount = current_amount * micro // 1_000_000
+                result = dfs(next_currency, path + [next_currency], new_amount)
+                if result[0] > max_amount or (result[0] == max_amount and len(result[1]) < len(best_path)):
+                    max_amount = result[0]
+                    best_path = result[1]
+        
+        return (max_amount, best_path)
+    
+    initial_path = [source]
+    result = dfs(source, initial_path, amount)
+    
+    if not result[1]:
+        raise ValueError("No run connects the source and destination")
+    
+    return {"amount": result[0], "path": result[1]}
+```

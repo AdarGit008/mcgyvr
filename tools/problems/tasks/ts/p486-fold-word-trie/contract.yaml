@@ -1,0 +1,28 @@
+id: p486-fold-word-trie
+task_type: function_implementation
+task: >-
+  Implement foldWordTrie. A list of words is squeezed into one line that names
+  every shared opening exactly once. Each word is one or more small letters a to
+  z, and no word turns up twice. Sort the words into rising order and split them
+  into runs by their opening letter, the runs taken in rising order of that
+  letter; the line is those runs squeezed and joined by a bar. A run holding one
+  word alone squeezes to that word. A run holding more squeezes to its longest
+  shared opening followed by a bracket holding the run's tails separated by
+  bars: strip the shared opening off each word of the run, and where a word is
+  exactly the shared opening its tail is empty and is written as a lone dash
+  placed first inside the bracket; whatever tails are left are split by their
+  own opening letter into runs, taken in rising order of that letter, and every
+  one of those runs is squeezed by the very same recipe. So ant, ante, anvil and
+  bee squeeze to an(t(-|e)|vil)|bee, while car, card, care and cat squeeze to
+  ca(r(-|d|e)|t). Give back the squeezed line. Raise an error when words is not
+  a list or holds nothing, when a word is not a string, when a word is empty,
+  when a word carries anything but small letters a to z, and when one word turns
+  up twice.
+target: solution.ts
+interface: "export function foldWordTrie(words: string[]): string"
+stop_conditions:
+  - Whether the caller's list may be reordered where it lies is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

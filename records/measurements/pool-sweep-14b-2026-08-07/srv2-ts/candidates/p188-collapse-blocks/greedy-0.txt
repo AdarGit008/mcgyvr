@@ -1,0 +1,69 @@
+```ts
+/**
+ * Collapses a list of berths into the shortest list of slabs.
+ * @param berths - An array of berth strings to collapse.
+ * @returns An array of slab strings representing the collapsed berths.
+ */
+export function collapseBlocks(berths: string[]): string[] {
+  if (!Array.isArray(berths)) {
+    throw new Error("Input must be an array.");
+  }
+
+  const validateBerth = (berth: string): boolean => {
+    const parts = berth.split(".");
+    return (
+      parts.length === 4 &&
+      parts.every((part) => /^[0-7]$/.test(part))
+    );
+  };
+
+  const normalizeBerths = (berths: string[]): string[] => {
+    return Array.from(new Set(berths)).filter(validateBerth);
+  };
+
+  const berthsList = normalizeBerths(berths);
+
+  if (berthsList.length === 0) {
+    return [];
+  }
+
+  berthsList.sort();
+
+  const collapseSlabs = (berths: string[]): string[] => {
+    const slabs: string[] = [];
+    let i = 0;
+
+    while (i < berths.length) {
+      let pin = 0;
+      let currentBerth = berths[i];
+      let fixedFields = currentBerth.split(".");
+
+      while (pin < 4 && fixedFields[pin] === "0") {
+        pin++;
+      }
+
+      let j = i + 1;
+      while (
+        j < berths.length &&
+        berths[j].startsWith(currentBerth.substring(0, pin) + ".")
+      ) {
+        j++;
+      }
+
+      if (j - i === Math.pow(8, 4 - pin)) {
+        slabs.push(`${currentBerth.substring(0, pin)}.0/${pin}`);
+      } else {
+        for (let k = i; k < j; k++) {
+          slabs.push(berths[k]);
+        }
+      }
+
+      i = j;
+    }
+
+    return slabs;
+  };
+
+  return collapseSlabs(berthsList);
+}
+```

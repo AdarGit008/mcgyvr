@@ -1,0 +1,20 @@
+```python
+def split_cargo(weights: list[int]) -> list[int]:
+    if not weights:
+        raise ValueError("Manifest cannot be empty")
+    if any(w < 1 for w in weights):
+        raise ValueError("Weight must be at least 1")
+    if len(weights) > 16:
+        raise ValueError("Cannot handle more than sixteen items")
+
+    weights.sort()
+    total_weight = sum(weights)
+    target = total_weight // 2
+    forward_hold = []
+
+    for weight in weights:
+        if sum(forward_hold) + weight <= target:
+            forward_hold.append(weight)
+
+    return sorted([i for i, w in enumerate(weights) if w in forward_hold])
+```

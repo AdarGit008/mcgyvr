@@ -1,0 +1,17 @@
+```ts
+export function graceWindow(counts: number[], goal: number, grace: number): number {
+  if (goal <= 0) throw new Error('Goal must be positive');
+  if (grace < 0) throw new Error('Grace must not be negative');
+
+  let keptDays = counts.filter(count => count >= goal);
+  let maxLength = 0;
+
+  for (let i = 0; i < keptDays.length; i++) {
+    for (let j = i + grace; j <= keptDays.length; j++) {
+      if (j - i > maxLength) maxLength = j - i;
+    }
+  }
+
+  return maxLength;
+}
+```

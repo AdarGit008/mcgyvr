@@ -1,0 +1,95 @@
+```ts
+/** Where each ruled library should land. */
+export function chooseUpgrades(
+  request: Record<string, unknown>
+): Record<string, unknown> {
+  const installed = request.installed as Record<string, string>;
+  const offers = request.offers as Record<string, string[]>;
+  const rules = request.rules as any[];
+
+  // Validate input types
+  if (typeof installed !== "object" || installed === null) {
+    throw new Error("Invalid 'installed' argument");
+  }
+  if (typeof offers !== "object" || offers === null) {
+    throw new Error("Invalid 'offers' argument");
+  }
+  if (!Array.isArray(rules)) {
+    throw new Error("Invalid 'rules' argument");
+  }
+
+  const floors = new Map<string, string>();
+  const ceilings = new Map<string, string>();
+
+  // Validate rules and populate floors and ceilings
+  for (const rule of rules) {
+    if (typeof rule !== "object" || rule === null) {
+      throw new Error("Invalid rule in 'rules' argument");
+    }
+    const { package: pkg, min, max } = rule;
+    if (typeof pkg !== "string") {
+      throw new Error("Invalid 'package' in rule");
+    }
+    if (typeof min !== "string" || typeof max !== "string") {
+      throw new Error("Invalid 'min' or 'max' in rule");
+    }
+    if (!(pkg in offers)) {
+      throw new Error(`Rule bounds package '${pkg}' not carried by registry`);
+    }
+    if (compareReleases(min, max) > 0) {
+      throw new Error(`Rule for '${pkg}' has min greater than max`);
+    }
+    const low = floors.get(pkg);
+    if (low === undefined || compareReleases(rule.min, low) > 0) {
+      floors.set(pkg, rule.min);
+    }
+    const high = ceilings.get(pkg);
+    if (high === undefined || compareReleases(rule.max, high) < 0) {
+      ceilings.set(pkg, rule.max);
+    }
+  }
+
+  const moves: Record<string, string>[] = [];
+  const snags: Record<string, string>[] = [];
+
+  // Process each package
+  for (const name of Array.from(floors.keys()).sort()) {
+    const low = floors.get(name) as string;
+    const high = ceilings.get(name) as string;
+    const allowed = offers[name]
+      .filter((release) => compareReleases(release, low) >= 0 && compareReleases(release, high) <= 0)
+      .sort(compareReleases);
+
+    if (allowed.length === 0) {
+      snags.push({ package: name, why: "none" });
+      continue;
+    }
+
+    const here = installed[name];
+    if (here !== undefined && !isValidRelease(here)) {
+      throw new Error(`Installed release '${here}' for '${name}' is not a valid release`);
+    }
+    if (here !== undefined && allowed.includes(here)) {
+      moves.push({ package: name, to: here, action: "hold" });
+      continue;
+    }
+
+    let best: string | null = null;
+    for (const release of allowed) {
+      if (compareReleases(release, here ?? "") > 0) {
+        best = release;
+        break;
+      }
+    }
+
+    if (best !== null) {
+      moves.push({ package: name, to: best, action: here === undefined ? "fetch" : "lift" });
+    } else {
+      snags.push({ package: name, why: "drop" });
+    }
+  }
+
+  return { moves, snags };
+}
+
+// Helper

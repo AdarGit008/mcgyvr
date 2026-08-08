@@ -1,0 +1,85 @@
+```ts
+/**
+ * Parses a score and meter to calculate the difference between units held and units carried in each measure.
+ * @param score - A string representing the score with measures separated by semicolons.
+ * @param meter - A string representing the meter in the format "numerator/denominator".
+ * @returns An array of numbers representing the unit difference for each measure.
+ */
+export function tallyTuplets(score: string, meter: string): number[] {
+  if (typeof score !== 'string') {
+    throw new Error('Score must be a string');
+  }
+
+  const allowedDenominators = [1, 2, 4, 8, 16, 32, 64];
+
+  // Parse the meter
+  const [meterNumerator, meterDenominator] = parseSpan(meter);
+  if (!allowedDenominators.includes(meterDenominator)) {
+    throw new Error('Invalid meter denominator');
+  }
+
+  // Calculate units per measure based on the meter
+  const unitsPerMeasure = (meterNumerator * 64) / meterDenominator;
+
+  // Split the score into measures
+  const measures = score.split(';').map(measure => measure.trim());
+  if (measures.some(measure => measure === '')) {
+    throw new Error('A measure cannot be empty');
+  }
+
+  return measures.map(measure => {
+    let totalUnitsHeld = 0;
+    let totalUnitsCarried = 0;
+
+    const entries = measure.split(' ');
+    if (entries.length === 0) {
+      throw new Error('A measure must have at least one entry');
+    }
+
+    for (const entry of entries) {
+      if (entry.startsWith('{')) {
+        // Squeeze
+        const squeezeMatch = entry.match(/^\{(\d+)([^\}]+)\}$/);
+        if (!squeezeMatch) {
+          throw new Error('Malformed squeeze');
+        }
+        const figure = parseInt(squeezeMatch[1], 10);
+        if (figure < 2) {
+          throw new Error('Squeeze figure must be two or more');
+        }
+        const spanStrings = squeezeMatch[2].split('+').map(span => span.trim());
+        let totalSpanUnits = spanStrings.reduce((sum, spanString) => sum + calculateSpanUnits(spanString), 0);
+        const squeezeUnits = (totalSpanUnits * (figure - 1)) / figure;
+        if (!Number.isInteger(squeezeUnits)) {
+          throw new Error('Squeeze worth must be a whole number of units');
+        }
+        totalUnitsCarried += squeezeUnits;
+      } else {
+        // Plain span
+        const spanUnits = calculateSpanUnits(entry);
+        totalUnitsCarried += spanUnits;
+      }
+    }
+
+    return totalUnitsHeld - totalUnitsCarried;
+  });
+}
+
+/**
+ * Parses a span string into its numerator and denominator, calculating the units it represents.
+ * @param span - A string representing a span in the format "numerator/denominator".
+ * @returns The calculated units for the span.
+ */
+function calculateSpanUnits(span: string): number {
+  const [numeratorStr, denominatorStr] = span.split('/');
+  if (!numeratorStr || !denominatorStr) {
+    throw new Error('Malformed span');
+  }
+  const numerator = parseInt(numeratorStr, 10);
+  const denominator = parseInt(denominatorStr, 10);
+
+  if (numerator <= 0 || numerator.toString() !== numeratorStr) {
+    throw new Error('Numerator must be a positive number with no padding zero');
+  }
+  if (!allowedDenominators.includes(denominator)) {
+    throw new Error('

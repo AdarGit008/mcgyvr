@@ -1,0 +1,31 @@
+```python
+def sift_down_run(heap: list[int], start: int) -> list[list[int]]:
+    if not heap:
+        raise ValueError("Heap cannot be empty")
+    if start < 0 or start >= len(heap):
+        raise ValueError("Start index out of range")
+    if not isinstance(heap[start], int):
+        raise ValueError("Heap elements must be whole numbers")
+
+    path = [start]
+    left = 2 * start + 1
+    right = 2 * start + 2
+
+    while left < len(heap) or right < len(heap):
+        min_child = left
+        if right < len(heap) and heap[right] < heap[left]:
+            min_child = right
+        elif right < len(heap) and heap[right] == heap[left]:
+            min_child = left
+
+        if heap[min_child] < heap[start]:
+            heap[start], heap[min_child] = heap[min_child], heap[start]
+            path.append(min_child)
+            start = min_child
+            left = 2 * start + 1
+            right = 2 * start + 2
+        else:
+            break
+
+    return [heap, path]
+```

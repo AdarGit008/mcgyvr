@@ -1,0 +1,32 @@
+id: p077-fill-slots
+task_type: bug_fix
+task: >-
+  fillPlaceholders substitutes %name% slots in a text from a flat mapping
+  of slot names to replacement strings. The current code first collapses
+  every "%%" and then loops over the mapping doing global replacement,
+  which breaks the function's promises. Restore them: the text is scanned
+  once from left to right; "%%" always yields a single literal percent
+  sign; a slot name runs between two percent signs and must exist in the
+  mapping, otherwise an error is raised; replacement text is inserted
+  verbatim and never scanned again, so a replacement that itself spells a
+  slot or contains percent signs passes through untouched; and a percent
+  sign with no closing partner is an error too.
+target: solution.ts
+target_content: |
+  export function fillPlaceholders(
+    text: string,
+    slots: Record<string, string>
+  ): string {
+    let out = text.replace(/%%/g, "%");
+    for (const name of Object.keys(slots)) {
+      out = out.split("%" + name + "%").join(slots[name]);
+    }
+    return out;
+  }
+interface: "export function fillPlaceholders(text: string, slots: Record<string, string>): string"
+stop_conditions:
+  - Whether a slot name may be the empty string is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

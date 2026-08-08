@@ -1,0 +1,39 @@
+```ts
+/**
+ * Tally votes from a list of event mappings.
+ * @param events - Array of event mappings.
+ * @returns A mapping from each option to the number of standing votes it holds.
+ */
+export function tallyBallots(events: Array<Record<string, string>>): Record<string, number> {
+    const voteCounts: Record<string, number> = {};
+    let electionClosed = false;
+
+    for (const event of events) {
+        if (electionClosed) {
+            throw new Error("Election has already been closed.");
+        }
+
+        switch (event.type) {
+            case "cast":
+                if (voteCounts[event.voter]) {
+                    throw new Error(`Voter ${event.voter} has already voted.`);
+                }
+                voteCounts[event.voter] = 1;
+                break;
+            case "retract":
+                if (!voteCounts[event.voter]) {
+                    throw new Error(`Voter ${event.voter} has no standing vote to retract.`);
+                }
+                delete voteCounts[event.voter];
+                break;
+            case "close":
+                electionClosed = true;
+                break;
+            default:
+                throw new Error(`Unknown event type: ${event.type}`);
+        }
+    }
+
+    return voteCounts;
+}
+```

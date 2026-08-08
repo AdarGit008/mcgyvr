@@ -1,0 +1,64 @@
+id: p233-studio-slide-repair
+task_type: bug_fix
+task: >-
+  slide_sessions books a recording studio's day and double-books it. Repair
+  it. The studio takes its first session no earlier than its opening moment
+  and must be empty again by its closing moment, both integers with the
+  opening moment strictly below the closing one, and it holds one session at
+  a time. Each request is a record with id (a non-empty string, no two
+  alike), want (the integer moment it would like to begin) and span (a
+  positive integer length). Work the requests in the order given: a request
+  takes the earliest moment m that is no earlier than the opening moment and
+  no earlier than its own want, whose stretch from m up to but not including
+  m plus span touches nothing already granted, and which finishes at or
+  before the closing moment. A request with no such moment is turned away
+  and consumes nothing, leaving the day exactly as the requests behind it
+  would have found it. Return one string per request in the order given: the
+  id, one space, and the granted moment, or the id, one space and the word
+  away. Today's code consults only the session granted just before, so an
+  earlier one it steps over gets double-booked, and it never watches the
+  clock at the end of the day. Leave the existing checks alone: they already
+  reject a non-integer bound, a closing moment not strictly after the
+  opening one, a span below one, a want that is not an integer, and a
+  repeated id.
+target: solution.py
+target_content: |
+  def _whole(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def slide_sessions(sessions: list, opens_at: int, closes_at: int) -> list:
+      if not _whole(opens_at) or not _whole(closes_at):
+          raise ValueError("the day's bounds must be integers")
+      if opens_at >= closes_at:
+          raise ValueError("the studio must close after it opens")
+      seen = set()
+      for row in sessions:
+          if not isinstance(row, dict):
+              raise ValueError("each request must be a record")
+          if not isinstance(row.get("id"), str) or row["id"] == "":
+              raise ValueError("id must be a non-empty string")
+          if not _whole(row.get("want")):
+              raise ValueError("want must be an integer")
+          if not _whole(row.get("span")) or row["span"] < 1:
+              raise ValueError("span must be a positive integer")
+          if row["id"] in seen:
+              raise ValueError("repeated request id: " + row["id"])
+          seen.add(row["id"])
+
+      placed = []
+      booked = []
+      for row in sessions:
+          moment = max(row["want"], opens_at)
+          if placed and moment < placed[-1][1]:
+              moment = placed[-1][1]
+          placed.append((moment, moment + row["span"]))
+          booked.append(row["id"] + " " + str(moment))
+      return booked
+interface: "def slide_sessions(sessions: list, opens_at: int, closes_at: int) -> list"
+stop_conditions:
+  - Whether a turned-away request may be retried on the following day is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,30 @@
+id: p378-count-working-days
+task_type: function_implementation
+task: >-
+  Implement count_working_days. The first two arguments give the opening and
+  the closing date of a span as zero-padded YYYY-MM-DD strings in the years
+  1900 through 2999, and the span takes both of its ends in. The third argument
+  lists the weekday numbers the office shuts on, where 0 stands for Monday and
+  6 for Sunday; that list may be empty, holds no repeats, and may not name all
+  seven. The fourth lists the dates the office shuts besides, written the same
+  way; repeats among them are refused, a date falling outside the span is
+  simply passed over, and one landing on a day the weekend has already closed
+  is not deducted a second time. Return how many days of the span the office
+  actually works. Work the weekday out by integer arithmetic on the digits,
+  with February gaining a day in years divisible by four except centuries,
+  which need to divide by 400 as well, and borrow nothing from any built-in
+  date or calendar facility. Raise an error when either end is not a
+  well-formed date naming a real month and a day that exists in it inside those
+  years, when the closing date falls before the opening one, when the span runs
+  longer than forty thousand days, when the weekend is not a list of distinct
+  whole numbers from 0 through 6, when the weekend names all seven, when the
+  shut dates are not a list of well-formed dates, and when one date is named
+  twice among them.
+target: solution.py
+interface: "def count_working_days(opening: str, closing: str, weekend: list, holidays: list) -> int"
+stop_conditions:
+  - Whether the shut dates need to arrive in date order is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,20 @@
+id: p067-posting-lists
+task_type: function_implementation
+task: >-
+  Implement postingLists. Given the documents of a tiny search engine as a
+  list of strings, build the inverted index: a mapping from each indexed
+  term to the ascending list of distinct document positions (0-based
+  indices into the input) whose text contains that term. Terms are maximal
+  runs of ASCII letters and digits, lowercased before indexing; a term made
+  only of digits is not indexed, and neither is a term of a single
+  character. However many times one document repeats a term, the document
+  appears once in that term's list. Reject with an error an input that is
+  not a list and any document that is not a string.
+target: solution.ts
+interface: "export function postingLists(documents: string[]): Record<string, number[]>"
+stop_conditions:
+  - Whether the index should also record how often a term occurs is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,85 @@
+id: p511-render-dial-batch
+task_type: bug_fix
+task: >-
+  render_dial_batch turns a batch of switchboard rows into the dial strings an
+  operator reads aloud. Three exchanges are in the book and no others.
+  Exchange "ashen" carries the carrier stem "8" and cuts its line into pieces
+  of two, two and three. Exchange "brill" carries no carrier stem and cuts
+  into pieces of five and three. Exchange "cobal" carries the stem "44" and
+  cuts into pieces of three and three. The argument is a list of rows, each a
+  mapping with "tag" (a non-empty string no other row carries), "exchange" and
+  "line". A row renders when its exchange is a string naming one of the three
+  and its line is a string of digit characters exactly as long as that
+  exchange's pieces come to added together; the pieces are then cut from the
+  left, joined with single hyphens, and, where the exchange carries a stem,
+  the stem is put in front inside round brackets with no space after them. A
+  row that fails any of that does not render at all and its tag is minuted
+  instead. The length test is written wrongly: it lets through any line at
+  least as long as the exchange wants rather than exactly that long, so an
+  over-long line is quietly cut down to size and read aloud as though the
+  operator had never typed the surplus. Make the length test demand the exact
+  length. Change nothing else: the "lines" and "bad" keys of the returned
+  mapping, lines holding one mapping of "tag" and "dial" per rendered row in
+  the order the rows arrived, bad holding the minuted tags in that same order,
+  and the errors raised when the rows are not a list, when a row is not a
+  mapping, when a tag is missing, empty or not a string, and when two rows
+  carry the same tag. Return the complete fixed file.
+target: solution.py
+target_content: |
+  import re
+
+  BOOK = {
+      "ashen": ("8", (2, 2, 3)),
+      "brill": ("", (5, 3)),
+      "cobal": ("44", (3, 3)),
+  }
+  RUN = re.compile(r"[0-9]+")
+
+
+  def render_dial_batch(rows) -> dict:
+      """Dial strings for a batch of rows, and the tags of the rows that refuse."""
+      if not isinstance(rows, list):
+          raise ValueError("the rows must be a list")
+      tags = []
+      for row in rows:
+          if not isinstance(row, dict):
+              raise ValueError("a row must be a mapping")
+          tag = row.get("tag")
+          if not isinstance(tag, str) or not tag:
+              raise ValueError("a row needs a non-empty tag")
+          if tag in tags:
+              raise ValueError("two rows carry the same tag")
+          tags.append(tag)
+
+      lines = []
+      bad = []
+      for index, row in enumerate(rows):
+          exchange = row.get("exchange")
+          if not isinstance(exchange, str) or exchange not in BOOK:
+              bad.append(tags[index])
+              continue
+          line = row.get("line")
+          if not isinstance(line, str) or RUN.fullmatch(line) is None:
+              bad.append(tags[index])
+              continue
+          stem, cuts = BOOK[exchange]
+          wanted = sum(cuts)
+          if len(line) < wanted:
+              bad.append(tags[index])
+              continue
+          parts = []
+          cursor = 0
+          for cut in cuts:
+              parts.append(line[cursor : cursor + cut])
+              cursor += cut
+          body = "-".join(parts)
+          lines.append({"tag": tags[index], "dial": body if stem == "" else "(" + stem + ")" + body})
+
+      return {"lines": lines, "bad": bad}
+interface: "def render_dial_batch(rows) -> dict"
+stop_conditions:
+  - Whether a line may open with a nought is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

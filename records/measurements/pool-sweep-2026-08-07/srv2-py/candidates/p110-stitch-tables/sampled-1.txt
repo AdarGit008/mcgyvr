@@ -1,0 +1,51 @@
+```python
+def stitch_tables(left: list, right: list, key: str, mode: str) -> list:
+    if not isinstance(key, str):
+        raise ValueError("Key must be a string")
+
+    if mode not in ["inner", "left"]:
+        raise ValueError("Mode must be 'inner' or 'left'")
+
+    # Check for structural errors
+    right_key_values = set()
+    right_non_key_columns = set()
+
+    for record in right:
+        if not isinstance(record, dict):
+            raise ValueError("Right table records must be dictionaries")
+        if key not in record or not isinstance(record[key], str):
+            raise ValueError(f"Right record missing or wrong type for key: {record}")
+        if record[key] in right_key_values:
+            raise ValueError(f"Duplicate key value in right table: {record[key]}")
+        right_key_values.add(record[key])
+
+        non_key_columns = set(record.keys()) - {key}
+        if right_non_key_columns.intersection(non_key_columns):
+            raise ValueError("Non-key column name conflict between tables")
+
+        right_non_key_columns.update(non_key_columns)
+
+    for record in left:
+        if not isinstance(record, dict):
+            raise ValueError("Left table records must be dictionaries")
+        if key not in record or not isinstance(record[key], str):
+            raise ValueError(f"Left record missing or wrong type for key: {record}")
+
+    # Perform the join
+    result = []
+    right_dict = {r[key]: r for r in right}
+
+    for left_record in left:
+        match = right_dict.get(left_record[key])
+        if match is not None:
+            new_record = {**left_record, **match}
+            del new_record[key]
+            result.append(new_record)
+        elif mode == "left":
+            new_record = {**left_record}
+            for col in right_non_key_columns:
+                new_record[col] = None
+            result.append(new_record)
+
+    return result
+```

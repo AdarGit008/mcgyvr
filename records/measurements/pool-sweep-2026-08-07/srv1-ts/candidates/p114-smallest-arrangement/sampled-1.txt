@@ -1,0 +1,35 @@
+```ts
+/**
+ * Produces the alphabetically least string that uses every letter exactly its counted number of times
+ * while never letting three identical letters stand consecutively.
+ *
+ * @param counts - Array of four integers, each between 0 and 12. Each count represents how many copies
+ *                 of a specific lowercase letter (a, b, c, d) the output must contain.
+ * @returns The alphabetically least string that meets the criteria or throws an error if no such string exists.
+ */
+export function smallestArrangement(counts: number[]): string {
+  if (counts.length !== 4 || counts.some(c => typeof c !== 'number' || c < 0 || c > 12) || counts.every(c => c === 0)) {
+    throw new Error('Invalid input');
+  }
+
+  const letters = ['a', 'b', 'c', 'd'];
+  let result = '';
+  let usedCounts = [...counts];
+
+  while (result.length < counts.reduce((acc, curr) => acc + curr, 0)) {
+    for (let i = 0; i < letters.length; i++) {
+      if (usedCounts[i] > 0 && (result.length === 0 || result[result.length - 1] !== letters[i] || result[result.length - 2] !== letters[i])) {
+        result += letters[i];
+        usedCounts[i]--;
+        break;
+      }
+    }
+
+    if (result.length < counts.reduce((acc, curr) => acc + curr, 0)) {
+      throw new Error('No valid arrangement possible');
+    }
+  }
+
+  return result;
+}
+```

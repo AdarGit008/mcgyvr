@@ -1,0 +1,30 @@
+```python
+def invoice_total(lines: list[dict], rate: int) -> dict[str, int]:
+    if not lines:
+        raise ValueError("Empty line list is not allowed")
+    
+    for line in lines:
+        qty = line.get('qty')
+        unit = line.get('unit')
+        discount = line.get('discount')
+        
+        if not isinstance(qty, int) or qty <= 0:
+            raise ValueError("Invalid quantity: must be a positive integer")
+        if not isinstance(unit, int) or unit < 0:
+            raise ValueError("Invalid unit price: must be a non-negative integer")
+        if not isinstance(discount, int) or discount < 0 or discount > 10000:
+            raise ValueError("Invalid discount rate: must be an integer between 0 and 10000")
+    
+    subtotal = sum(
+        (line['qty'] * line['unit']) - round((line['qty'] * line['unit'] * line['discount']) / 10000)
+        for line in lines
+    )
+    
+    tax = round(subtotal * rate / 10000)
+    
+    return {
+        'subtotal': subtotal,
+        'tax': tax,
+        'total': subtotal + tax
+    }
+```

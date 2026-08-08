@@ -1,0 +1,66 @@
+```ts
+export function expandTemplate(template: string, context: Record<string, unknown>, missing: string): string {
+    const result = [];
+    let i = 0;
+
+    while (i < template.length) {
+        if (template[i] === '$' && i + 1 < template.length) {
+            if (template[i + 1] === '$') {
+                result.push('$');
+                i += 2;
+            } else if (template[i + 1] === '{') {
+                let j = i + 2;
+                while (j < template.length && template[j] !== '}') {
+                    j++;
+                }
+                if (j === template.length) {
+                    throw new Error('Unmatched "${"');
+                }
+                const path = template.slice(i + 2, j);
+                if (!path || path.includes('.')) {
+                    throw new Error('Invalid path');
+                }
+                const segments = path.split('.');
+                let value: unknown = context;
+                for (const segment of segments) {
+                    if (value && typeof value === 'object' && segment in value) {
+                        value = (value as Record<string, unknown>)[segment];
+                    } else {
+                        switch (missing) {
+                            case 'error':
+                                throw new Error(`Missing path: ${path}`);
+                            case 'keep':
+                                result.push('${' + path + '}');
+                                break;
+                            case 'blank':
+                                // Do nothing
+                                break;
+                            default:
+                                throw new Error('Invalid missing policy');
+                        }
+                        value = undefined;
+                        break;
+                    }
+                }
+                if (value !== undefined) {
+                    if (typeof value === 'string') {
+                        result.push(value);
+                    } else if (typeof value === 'number' && Number.isInteger(value)) {
+                        result.push(value.toString());
+                    } else {
+                        throw new Error('Invalid path value type');
+                    }
+                }
+                i = j + 1;
+            } else {
+                throw new Error('Unexpected character after $');
+            }
+        } else {
+            result.push(template[i]);
+            i++;
+        }
+    }
+
+    return result.join('');
+}
+```

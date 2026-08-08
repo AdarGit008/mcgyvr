@@ -1,0 +1,58 @@
+```ts
+/**
+ * Shifts a proleptic Gregorian calendar date by a specified number of days.
+ * @param date - The date in "YYYY-MM-DD" format (zero-padded).
+ * @param days - The number of days to shift, may be negative.
+ * @returns The shifted date in the same "YYYY-MM-DD" format.
+ */
+export function shiftCivilDate(date: string, days: number): string {
+    const [yearStr, monthStr, dayStr] = date.split('-').map(Number);
+    if (isNaN(yearStr) || isNaN(monthStr) || isNaN(dayStr)) throw new Error('Invalid date format');
+    if (!Number.isInteger(days)) throw new Error('Day count must be an integer');
+
+    const year = yearStr;
+    const month = monthStr;
+    const day = dayStr;
+
+    if (month < 1 || month > 12) throw new Error('Invalid month');
+    if (day < 1 || day > getDaysInMonth(year, month)) throw new Error('Invalid day');
+
+    let shiftedDay = day + days;
+    let shiftedMonth = month;
+    let shiftedYear = year;
+
+    if (shiftedDay <= 0) {
+        while (shiftedDay <= 0) {
+            shiftedMonth--;
+            if (shiftedMonth === 0) {
+                shiftedMonth = 12;
+                shiftedYear -= 1;
+            }
+            shiftedDay += getDaysInMonth(shiftedYear, shiftedMonth);
+        }
+    } else if (shiftedDay > getDaysInMonth(shiftedYear, shiftedMonth)) {
+        while (shiftedDay > getDaysInMonth(shiftedYear, shiftedMonth)) {
+            shiftedDay -= getDaysInMonth(shiftedYear, shiftedMonth);
+            shiftedMonth++;
+            if (shiftedMonth > 12) {
+                shiftedMonth = 1;
+                shiftedYear += 1;
+            }
+        }
+    }
+
+    if (shiftedYear < 1 || shiftedYear > 9999) throw new Error('Result falls outside valid year range');
+
+    return `${String(shiftedYear).padStart(4, '0')}-${String(shiftedMonth).padStart(2, '0')}-${String(shiftedDay).padStart(2, '0')}`;
+}
+
+function getDaysInMonth(year: number, month: number): number {
+    if (month === 2) return isLeapYear(year) ? 29 : 28;
+    if ([4, 6, 9, 11].includes(month)) return 30;
+    return 31;
+}
+
+function isLeapYear(year: number): boolean {
+    return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+```

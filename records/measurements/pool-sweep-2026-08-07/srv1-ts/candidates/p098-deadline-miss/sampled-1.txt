@@ -1,0 +1,40 @@
+```ts
+export function firstDeadlineMiss(jobs: Array<Record<string, unknown>>): string {
+  // Validate input
+  for (const job of jobs) {
+    if (
+      typeof job.work !== 'number' ||
+      !Number.isInteger(job.work) ||
+      job.work <= 0 ||
+      typeof job.due !== 'number' ||
+      !Number.isInteger(job.due) ||
+      job.due <= 0
+    ) {
+      throw new Error('Invalid work or due time');
+    }
+    if (typeof job.name !== 'string' || job.name.trim() === '') {
+      throw new Error('Invalid name');
+    }
+  }
+
+  const uniqueNames = new Set<string>();
+  for (const job of jobs) {
+    if (!uniqueNames.add(job.name)) {
+      throw new Error('Duplicate name');
+    }
+  }
+
+  // Sort jobs by due time, breaking ties by earlier position
+  jobs.sort((a, b) => a.due - b.due || jobs.indexOf(a) - jobs.indexOf(b));
+
+  let currentTime = 0;
+  for (const job of jobs) {
+    if (currentTime + job.work > job.due) {
+      return job.name;
+    }
+    currentTime += job.work;
+  }
+
+  return '';
+}
+```

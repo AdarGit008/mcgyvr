@@ -1,0 +1,31 @@
+export function mirrorStepRun(width: number): any {
+  if (typeof width !== "number" || !Number.isInteger(width)) {
+    throw new Error("width must be a whole number");
+  }
+  if (width < 1 || width > 12) {
+    throw new Error("width lies within one through twelve");
+  }
+  let words: string[] = [""];
+  for (let step = 0; step < width; step++) {
+    const grown: string[] = [];
+    for (const word of words) {
+      grown.push("0" + word);
+    }
+    for (let i = words.length - 1; i >= 0; i--) {
+      grown.push("1" + words[i]);
+    }
+    words = grown;
+  }
+  const flips: number[] = [];
+  for (let i = 1; i < words.length; i++) {
+    const before = words[i - 1];
+    const after = words[i];
+    for (let column = 0; column < width; column++) {
+      if (before[column] !== after[column]) {
+        flips.push(column + 1);
+        break;
+      }
+    }
+  }
+  return { words, flips };
+}

@@ -1,0 +1,21 @@
+id: p088-chain-transforms
+task_type: function_implementation
+task: >-
+  Implement chainTransforms. The first argument is a rectangular grid of
+  integers given as a list of rows; the second is a list of step names
+  applied in the order given. Step cw turns the grid a quarter turn
+  clockwise, ccw a quarter turn counterclockwise, mirror flips it left to
+  right, flip flips it top to bottom, and diag reflects it across the main
+  diagonal so rows become columns. The grid need not be square, so a step
+  may change its shape. Return the grid the chain produces, leaving the
+  argument grid unmodified; an empty chain returns an equal copy. Raise an
+  error for a step name outside the five, for a grid with no rows, and for
+  rows of differing length.
+target: solution.ts
+interface: "export function chainTransforms(grid: number[][], steps: string[]): number[][]"
+stop_conditions:
+  - Whether a grid whose rows have zero length is valid input is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

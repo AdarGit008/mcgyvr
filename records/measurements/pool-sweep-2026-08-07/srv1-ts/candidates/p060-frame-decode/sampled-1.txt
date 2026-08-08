@@ -1,0 +1,54 @@
+```ts
+/**
+ * Decodes a stream of byte values into frames.
+ * @param stream - An array of byte values (0-255).
+ * @returns A two-dimensional array of frame payloads.
+ */
+export function decodeFrames(stream: number[]): number[][] {
+    if (!Number.isInteger(stream.length) || stream.length < 0) {
+        throw new Error("Invalid input length");
+    }
+
+    const frames: number[][] = [];
+    let index = 0;
+
+    while (index < stream.length) {
+        if (stream[index] < 0 || stream[index] > 255) {
+            throw new Error("Byte out of range");
+        }
+
+        const headerLength = 2;
+        if (index + headerLength >= stream.length) {
+            throw new Error("Stream ends inside a header");
+        }
+
+        const payloadLength = (stream[index] << 8) | stream[index + 1];
+        index += headerLength;
+
+        if (payloadLength === 0) {
+            frames.push([]);
+            continue;
+        }
+
+        if (index + payloadLength >= stream.length) {
+            throw new Error("Stream ends inside a payload");
+        }
+
+        const payload = stream.slice(index, index + payloadLength);
+        index += payloadLength;
+
+        const xorChecksum = stream[index];
+        index++;
+
+        const calculatedChecksum = payload.reduce((acc, byte) => acc ^ byte, 0);
+
+        if (xorChecksum !== 0 && xorChecksum !== calculatedChecksum) {
+            throw new Error("Checksum mismatch");
+        }
+
+        frames.push(payload);
+    }
+
+    return frames;
+}
+```

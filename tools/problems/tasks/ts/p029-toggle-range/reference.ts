@@ -1,0 +1,20 @@
+export function toggleRange(value: number, lo: number, hi: number): number {
+  if (
+    !Number.isInteger(value) ||
+    !Number.isInteger(lo) ||
+    !Number.isInteger(hi)
+  ) {
+    throw new Error("toggleRange expects integer arguments");
+  }
+  if (value < 0 || value >= 2 ** 30) {
+    throw new Error("value must be within 0..2**30-1");
+  }
+  if (lo < 0 || hi > 29) {
+    throw new Error("bit positions must be within 0..29");
+  }
+  if (lo > hi) {
+    throw new Error("lo must not exceed hi");
+  }
+  const mask = ((1 << (hi - lo + 1)) - 1) << lo;
+  return value ^ mask;
+}

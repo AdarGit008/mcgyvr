@@ -1,0 +1,19 @@
+```python
+def load_vans(parcels: list[int]) -> list[int]:
+    if not parcels:
+        raise ValueError("Parcel list cannot be empty")
+    for weight in parcels:
+        if weight < 1:
+            raise ValueError("Parcel weights must be positive integers")
+
+    first_van = 0
+    second_van = 0
+
+    for parcel in sorted(parcels, reverse=True):
+        if first_van <= second_van:
+            first_van += parcel
+        else:
+            second_van += parcel
+
+    return [first_van, second_van]
+```

@@ -1,0 +1,46 @@
+```ts
+export function runTransactions(commands: string[]): Record<string, string> {
+    const state: Record<string, string> = {};
+    const transactions: Record<string, string>[] = [];
+
+    for (const command of commands) {
+        const parts = command.split(' ');
+        if (parts.length < 2 || parts.length > 3) throw new Error("Invalid command format");
+
+        const verb = parts[0];
+        const key = parts[1];
+
+        switch (verb) {
+            case 'set': {
+                const value = parts[2];
+                if (!transactions.length) state[key] = value;
+                else transactions[transactions.length - 1][key] = value;
+                break;
+            }
+            case 'unset':
+                if (!transactions.length) delete state[key];
+                else delete transactions[transactions.length - 1][key];
+                break;
+            case 'begin':
+                if (transactions.length) transactions.push({ ...transactions[transactions.length - 1] });
+                else transactions.push({});
+                break;
+            case 'commit':
+                if (!transactions.length) throw new Error("No open transaction to commit");
+                const changes = transactions.pop()!;
+                Object.assign(state, changes);
+                break;
+            case 'rollback':
+                if (!transactions.length) throw new Error("No open transaction to rollback");
+                transactions.pop();
+                break;
+            default:
+                throw new Error(`Unknown verb: ${verb}`);
+        }
+    }
+
+    if (transactions.length) throw new Error("Open transaction after last command");
+
+    return state;
+}
+```

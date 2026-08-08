@@ -1,0 +1,44 @@
+```ts
+export function expandGlossary(script: string[]): string {
+  const slots: Record<string, string> = {};
+  const sent: string[] = [];
+
+  for (const line of script) {
+    if (typeof line !== "string") {
+      throw new Error("Line is not a string");
+    }
+
+    if (!line.startsWith("!")) {
+      const cut = line.indexOf("=");
+      if (cut === -1) {
+        throw new Error("Invalid store line format");
+      }
+      const slot = line.slice(0, cut);
+      const body = line.slice(cut + 1);
+
+      if (!/^\d+$/.test(slot)) {
+        throw new Error("Slot number must be a positive integer without leading zeros");
+      }
+
+      if (slots[slot]) {
+        throw new Error(`Slot ${slot} already stored`);
+      }
+
+      slots[slot] = body;
+    } else {
+      const slot = line.slice(1);
+      if (!/^\d+$/.test(slot)) {
+        throw new Error("Slot number must be a positive integer without leading zeros");
+      }
+
+      if (!slots[slot]) {
+        throw new Error(`Slot ${slot} not stored`);
+      }
+
+      sent.push(slots[slot]);
+    }
+  }
+
+  return sent.join("");
+}
+```

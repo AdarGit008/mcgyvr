@@ -1,0 +1,26 @@
+```ts
+/**
+ * Returns the sums of every complete window in a list of integers,
+ * with specified size and hop step.
+ *
+ * @param values - The list of integers to process.
+ * @param size - The size of each window.
+ * @param hop - The number of elements to move between windows.
+ * @returns An array containing the sum of each window.
+ */
+export function hopWindowSums(values: number[], size: number, hop: number): number[] {
+  if (!Array.isArray(values) || !values.every(Number.isInteger)) {
+    throw new Error('Input must be a list of integers');
+  }
+  if (size <= 0 || hop <= 0) {
+    throw new Error('Window size and hop step must be positive integers');
+  }
+
+  const result: number[] = [];
+  for (let i = 0; i <= values.length - size; i += hop) {
+    const windowSum = values.slice(i, i + size).reduce((acc, val) => acc + val, 0);
+    result.push(windowSum);
+  }
+  return result;
+}
+```

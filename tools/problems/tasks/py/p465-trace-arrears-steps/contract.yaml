@@ -1,0 +1,93 @@
+id: p465-trace-arrears-steps
+task_type: bug_fix
+task: >-
+  trace_arrears_steps walks one debtor's account through its chasing steps and
+  mislabels the edges. The first argument is the opening sum owed, a whole
+  number of cents above nought; the second is the day that sum fell due, a
+  whole number at nought or above; the third is the events, a list of mappings
+  dealt with in the order given whose day never steps backwards. A pay event
+  carries exactly the three keys kind (the word pay), day and cents (a whole
+  number above nought) and knocks that much off what is owed, which never
+  drops under nought. A check event carries exactly kind (the word check) and
+  day, and puts one label on the list. The chasing clock is anchored on the due
+  day, and every payment that leaves something still owed re-anchors it on that
+  payment's own day; once a payment brings the sum owed down to nought the
+  matter is closed and every later check reads settled. A check on an account
+  still owing something reads by the gap between its day and the anchor: nought
+  or under reads current, one through nine reads reminder, ten through
+  twenty-four reads warning, twenty-five through forty-four reads demand, and
+  forty-five or more reads referred. Give back the labels in check order. The
+  code below stretches three of those bands by one day apiece and never
+  re-anchors the clock on a payment that leaves something still owed. Repair
+  both, keep raising an error for an opening sum that is not whole or falls
+  below one, a due day that is not whole or falls below nought, a third
+  argument that is not a list, an event that is not a mapping, a kind outside
+  pay and check, an event whose keys are not the ones its kind calls for, a day
+  that is not whole, falls below nought or steps backwards, and a payment that
+  is not whole or falls below one, and return the complete fixed file.
+target: solution.py
+target_content: |
+  def _whole(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def trace_arrears_steps(opening: int, due_day: int, events: list) -> list:
+      if not _whole(opening) or opening < 1:
+          raise ValueError("the opening sum is not whole or falls below one")
+      if not _whole(due_day) or due_day < 0:
+          raise ValueError("the due day is not whole or falls below nought")
+      if not isinstance(events, list):
+          raise ValueError("trace_arrears_steps expects a list of events")
+
+      labels = []
+      owing = opening
+      anchor = due_day
+      clock = 0
+      started = False
+
+      for event in events:
+          if not isinstance(event, dict):
+              raise ValueError("an event is not a mapping")
+          kind = event.get("kind")
+          if kind not in ("pay", "check"):
+              raise ValueError("an event's kind is outside pay and check")
+          wanted = ["cents", "day", "kind"] if kind == "pay" else ["day", "kind"]
+          if sorted(event) != wanted:
+              raise ValueError("an event's keys are not the ones its kind calls for")
+          day = event["day"]
+          if not _whole(day) or day < 0:
+              raise ValueError("a day is not whole or falls below nought")
+          if started and day < clock:
+              raise ValueError("a day steps backwards")
+          clock = day
+          started = True
+
+          if kind == "pay":
+              cents = event["cents"]
+              if not _whole(cents) or cents < 1:
+                  raise ValueError("a payment is not whole or falls below one")
+              owing = max(0, owing - cents)
+              continue
+
+          if owing == 0:
+              labels.append("settled")
+              continue
+          age = clock - anchor
+          if age <= 0:
+              labels.append("current")
+          elif age <= 10:
+              labels.append("reminder")
+          elif age <= 25:
+              labels.append("warning")
+          elif age <= 45:
+              labels.append("demand")
+          else:
+              labels.append("referred")
+      return labels
+interface: "def trace_arrears_steps(opening: int, due_day: int, events: list) -> list"
+stop_conditions:
+  - Whether a payment may arrive after the account has already been closed is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

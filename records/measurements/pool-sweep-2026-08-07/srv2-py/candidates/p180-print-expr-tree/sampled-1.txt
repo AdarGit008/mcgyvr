@@ -1,0 +1,31 @@
+```python
+def print_expr_tree(node) -> str:
+    if isinstance(node, (int, float)):
+        if node < 0 or not node.is_integer():
+            raise ValueError("Literal must be a non-negative whole number")
+        return str(int(node))
+    elif isinstance(node, str):
+        if not node.isalpha() or not node:
+            raise ValueError("Name must be a non-empty string of letters")
+        return node
+    elif isinstance(node, dict) and 'op' in node and 'left' in node and 'right' in node:
+        left = print_expr_tree(node['left'])
+        right = print_expr_tree(node['right'])
+        op = node['op']
+        if op not in '+-*/':
+            raise ValueError("Invalid operator")
+        
+        precedence = {'+': 1, '-': 1, '*': 2, '/': 2}
+        left_prec = precedence.get(op, float('-inf'))
+        right_prec = precedence.get(node['right'].get('op', None), float('-inf'))
+        
+        if (left_prec < left_prec or
+                (left_prec == left_prec and op in '+-')):
+            left = f"({left})"
+        if (right_prec <= left_prec):
+            right = f"({right})"
+        
+        return f"{left} {op} {right}"
+    else:
+        raise ValueError("Invalid node type")
+```

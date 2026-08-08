@@ -1,0 +1,34 @@
+id: p416-secret-fault-report
+task_type: function_implementation
+task: >-
+  Implement reportSecretFaults. The phrase argument is a string offered as a
+  shared secret; nothing is ever stored or invented here, only judged. The
+  policy argument is a record with least and most, whole numbers of one or
+  more with most never below least; needs, a non-empty list drawn without
+  repeats from the four class words lower, upper, digit and mark; and
+  forbidden, a list of lowercase words. A character of the phrase belongs to
+  class lower when it is a to z, to class upper when it is A to Z, to class
+  digit when it is 0 to 9, and to class mark when it is one of the ten
+  characters ! # $ % & * + - ? @ ; every other character, the space among
+  them, belongs to no class at all. Judge the phrase against the policy and
+  return the names of the rules it breaks, as a list of words, always in this
+  order and never repeating a word: short, when the phrase is shorter than
+  least; long, when it is longer than most; stray, when it holds a character
+  of no class; then lower, upper, digit and mark in that fixed order, one for
+  each class the policy needs and the phrase has no character of; and last
+  forbidden, when some word of the forbidden list turns up anywhere inside
+  the phrase after the phrase is lowered to small letters. A phrase that
+  breaks nothing gives an empty list. Raise an error when the phrase is not a
+  string, when the policy is not a record carrying all four names, when least
+  or most is not a whole number of one or more, when most is below least,
+  when needs is not a list, is empty, names a word outside the four, or names
+  one twice, and when forbidden is not a list of non-empty strings of small
+  letters only.
+target: solution.ts
+interface: "export function reportSecretFaults(phrase: string, policy: any): string[]"
+stop_conditions:
+  - Whether a phrase may be judged against several policies at once is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

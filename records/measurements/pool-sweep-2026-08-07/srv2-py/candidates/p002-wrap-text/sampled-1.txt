@@ -1,0 +1,23 @@
+```python
+def wrap_text(text: str, width: int) -> list[str]:
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("Width must be a positive integer")
+    if not isinstance(text, str) or text.startswith(' ') or text.endswith(' ') or '  ' in text:
+        raise ValueError("Text must not contain leading, trailing, or doubled spaces")
+
+    words = text.split()
+    lines = []
+    current_line = []
+
+    for word in words:
+        if len(' '.join(current_line + [word])) <= width:
+            current_line.append(word)
+        else:
+            lines.append(' '.join(current_line))
+            current_line = [word]
+
+    if current_line:
+        lines.append(' '.join(current_line))
+
+    return lines
+```

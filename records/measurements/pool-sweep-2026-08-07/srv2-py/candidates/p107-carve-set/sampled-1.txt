@@ -1,0 +1,32 @@
+```python
+def carve_set(steps: list) -> list:
+    if not steps:
+        return []
+
+    s = set()
+    for step in steps:
+        verb, lo, hi = step
+        if verb == "add":
+            if not isinstance(lo, int) or not isinstance(hi, int):
+                raise ValueError("Bounds must be integers")
+            if lo >= hi:
+                raise ValueError("Lo must be strictly less than hi")
+            s.update(range(lo, hi))
+        elif verb == "cut":
+            if not isinstance(lo, int) or not isinstance(hi, int):
+                raise ValueError("Bounds must be integers")
+            if lo >= hi:
+                raise ValueError("Lo must be strictly less than hi")
+            s.difference_update(range(lo, hi))
+        else:
+            raise ValueError("Invalid verb")
+
+    ranges = []
+    for start in sorted(s):
+        if not ranges or start > ranges[-1][1]:
+            ranges.append([start, start])
+        else:
+            ranges[-1][1] = max(ranges[-1][1], start)
+
+    return ranges
+```

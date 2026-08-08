@@ -1,0 +1,22 @@
+id: p142-veil-encode
+task_type: function_implementation
+task: >-
+  Implement veilEncode. A veil alphabet is built from a keyword: write the
+  keyword's letters left to right, skipping any letter already written,
+  then append every unused letter of a-z in reverse alphabetical order, z
+  first. The plain letter at alphabet position i (a is 0, z is 25) is
+  replaced by the veil alphabet's letter at position i, and spaces are
+  copied through unchanged. With keyword "march" the veil alphabet starts
+  m, a, r, c, h, z, y, x, so "bad cab" encodes to "amc rma". Return the
+  encoded message. Reject with an error a keyword that is not a non-empty
+  string of lowercase a-z, and a message that is not a string made of
+  lowercase a-z and spaces; an empty message is fine and encodes to an
+  empty string.
+target: solution.ts
+interface: "export function veilEncode(keyword: string, message: string): string"
+stop_conditions:
+  - How characters beyond lowercase a-z and spaces would ever be carried is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,59 @@
+```ts
+export function rescaleRecipe(lines: string[], num: number, den: number): string[] {
+  if (!Array.isArray(lines)) throw new Error("Recipe must be a list of strings.");
+  if (num <= 0 || !Number.isInteger(num)) throw new Error("Ratio numerator must be a whole number above zero.");
+  if (den <= 0 || !Number.isInteger(den)) throw new Error("Ratio denominator must be a whole number above zero.");
+
+  const units = ["tsp", "tbsp", "cup", "egg", "g"];
+  const ingredientMap = new Map<string, string>();
+
+  return lines.map(line => {
+    const parts = line.split(" ");
+    if (parts.length < 3) throw new Error("Row must have at least three parts.");
+
+    const [amountStr, unit, ...ingredientParts] = parts;
+    const ingredient = ingredientParts.join(" ");
+
+    if (!units.includes(unit)) throw new Error(`Invalid unit: ${unit}.`);
+    if (ingredientMap.has(ingredient)) throw new Error(`Duplicate ingredient: ${ingredient}.`);
+    ingredientMap.set(ingredient, line);
+
+    let amount: number;
+    if (amountStr.includes("/")) {
+      const [numerator, denominator] = amountStr.split("/").map(Number);
+      amount = numerator / denominator;
+    } else if (amountStr.includes(" ")) {
+      const [whole, fractionPart] = amountStr.split(" ");
+      const [numerator, denominator] = fractionPart.split("/").map(Number);
+      amount = parseInt(whole) + numerator / denominator;
+    } else {
+      amount = parseInt(amountStr);
+    }
+
+    const scaledAmount = (amount * num) / den;
+
+    let result: string;
+    if (unit === "tsp") {
+      result = roundToNearest(scaledAmount, 0.25, unit);
+    } else if (unit === "tbsp") {
+      result = roundToNearest(scaledAmount, 0.5, unit);
+    } else if (unit === "cup") {
+      result = roundToNearest(scaledAmount, 0.125, unit);
+    } else if (unit === "egg" || unit === "g") {
+      result = scaledAmount > 0 ? Math.ceil(scaledAmount).toString() : "1";
+    }
+
+    return `${result} ${unit} ${ingredient}`;
+  });
+}
+
+function roundToNearest(amount: number, grain: number, unit: string): string {
+  const rounded = Math.round(amount / grain) * grain;
+  if (rounded === 0) return "1";
+  if (rounded % 1 !== 0) {
+    const [whole, fraction] = rounded.toString().split(".");
+    return `${whole} ${fraction}/${Math.pow(10, fraction.length)} ${unit}`;
+  }
+  return rounded.toString();
+}
+```

@@ -1,0 +1,21 @@
+id: p052-sheet-eval
+task_type: function_implementation
+task: >-
+  Implement compute_sheet. A sheet maps cell names — one or more uppercase
+  letters followed by digits, like B7 — to cell text. Cell text is either an
+  optionally negative integer literal or a formula: an equals sign followed
+  by one or more terms joined by plus signs, where a term is a cell name or
+  an integer literal and spaces around terms are allowed. Return a mapping
+  from every cell name to its computed integer value, resolving references
+  through any depth of chained formulas. Raise an error for a malformed
+  literal or term, for an empty formula, for a reference to a name absent
+  from the sheet, and for any reference cycle, including a cell that
+  references itself.
+target: solution.py
+interface: "def compute_sheet(cells: dict[str, str]) -> dict[str, int]"
+stop_conditions:
+  - The maximum nesting depth a sheet may reach is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

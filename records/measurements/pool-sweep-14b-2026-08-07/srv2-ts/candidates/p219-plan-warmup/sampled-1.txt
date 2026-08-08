@@ -1,0 +1,117 @@
+```ts
+export function planWarmup(brief: Record<string, unknown>): Record<string, unknown> {
+  if (typeof brief !== 'object' || brief === null) {
+    throw new Error('Invalid input');
+  }
+
+  const { budget, slots, caps, items } = brief;
+
+  if (
+    typeof budget !== 'number' ||
+    budget < 0 ||
+    !Number.isInteger(budget)
+  ) {
+    throw new Error('"budget" must be a non-negative whole number');
+  }
+
+  if (
+    typeof slots !== 'number' ||
+    slots <= 0 ||
+    !Number.isInteger(slots)
+  ) {
+    throw new Error('"slots" must be a positive whole number');
+  }
+
+  if (typeof caps !== 'object' || caps === null) {
+    throw new Error('Invalid "caps"');
+  }
+
+  const validCaps = Object.entries(caps).reduce<Record<string, number>>((acc, [family, cap]) => {
+    if (
+      typeof family !== 'string' ||
+      family.trim() === '' ||
+      typeof cap !== 'number' ||
+      cap < 0 ||
+      !Number.isInteger(cap)
+    ) {
+      throw new Error('Invalid "caps" entry');
+    }
+    acc[family] = cap;
+    return acc;
+  }, {});
+
+  if (!Array.isArray(items)) {
+    throw new Error('"items" must be a list');
+  }
+
+  const validItems = items.map((item, index) => {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error(`Invalid "items"[${index}]`);
+    }
+
+    const { name, bytes, weight, family } = item;
+
+    if (
+      typeof name !== 'string' ||
+      name.trim() === ''
+    ) {
+      throw new Error(`"items"[${index}].name must be a non-empty string`);
+    }
+
+    if (
+      typeof bytes !== 'number' ||
+      bytes <= 0 ||
+      !Number.isInteger(bytes)
+    ) {
+      throw new Error(`"items"[${index}].bytes must be a positive whole number`);
+    }
+
+    if (
+      typeof weight !== 'number' ||
+      weight < 0 ||
+      !Number.isInteger(weight)
+    ) {
+      throw new Error(`"items"[${index}].weight must be a non-negative whole number`);
+    }
+
+    if (
+      typeof family !== 'string' ||
+      family.trim() === '' ||
+      !(family in validCaps)
+    ) {
+      throw new Error(`"items"[${index}].family must be a non-empty string and mentioned in "caps"`);
+    }
+
+    return { name, bytes, weight, family };
+  });
+
+  if (new Set(validItems.map(item => item.name)).size !== validItems.length) {
+    throw new Error('Duplicate names in "items"');
+  }
+
+  const sortedItems = [...validItems].sort((a, b) => {
+    if (b.weight === a.weight) {
+      if (a.bytes === b.bytes) {
+        return a.name.localeCompare(b.name);
+      }
+      return a.bytes - b.bytes;
+    }
+    return b.weight - a.weight;
+  });
+
+  const result = {
+    loaded: [] as string[],
+    spare: budget,
+    turned: [] as { name: string, why: string }[]
+  };
+
+  let remainingSlots = slots;
+  const familyUsage: Record<string, number> = {};
+
+  for (const item of sortedItems) {
+    if (remainingSlots === 0) {
+      result.turned.push({ name: item.name, why: 'slots' });
+      continue;
+    }
+
+    if ((familyUsage[item.family

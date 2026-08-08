@@ -1,0 +1,45 @@
+```python
+"""The term mark built from weighted strands with discards."""
+
+def strand_mark_sheet(strands: list) -> dict:
+    if not strands:
+        raise ValueError("Report cannot be empty")
+    
+    strand_names = set()
+    for strand in strands:
+        if strand["name"] in strand_names:
+            raise ValueError(f"Repeated strand name: {strand['name']}")
+        strand_names.add(strand["name"])
+        
+        if sum(strand["share"] for strand in strands) != 1000:
+            raise ValueError("Shares must sum to exactly 1000")
+        
+        if strand["discard"] < 0:
+            raise ValueError(f"Negative discard count: {strand['discard']}")
+        
+        if not strand["work"]:
+            raise ValueError(f"No work for strand: {strand['name']}")
+        
+        available = sum(entry[1] for entry in strand["work"])
+        if available <= 0:
+            raise ValueError(f"Piece available for nothing or less: {strand['name']}")
+        
+        for score, piece in strand["work"]:
+            if score != "absent" and (not isinstance(score, int) or score < 0):
+                raise ValueError(f"Invalid score: {score} for strand: {strand['name']}")
+    
+    discarded = []
+    mark = 0
+    for strand in strands:
+        work = strand["work"]
+        order = sorted(enumerate(work), key=lambda i: (i[1][0] * i[1][1], -i[1][1]))
+        dropped = order[: strand["discard"]]
+        discarded.extend(strand["name"] + "#" + str(index) for index, _ in dropped)
+        
+        scored = sum(entry[0] if entry[0] != "absent" else 0 for _, entry in enumerate(work))
+        available = sum(entry[1] for _, entry in enumerate(work))
+        
+        mark += strand["share"] * scored // available
+    
+    return {"mark": mark, "discarded": discarded}
+```

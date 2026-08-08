@@ -1,0 +1,29 @@
+id: p290-explode-bill-materials
+task_type: function_implementation
+task: >-
+  Implement explodeBillOfMaterials, which works out what raw stock a build
+  consumes. parts lists the assemblies of a works: each entry names a part and
+  gives uses, the sub-parts one unit of it swallows, each with a part and a per
+  telling how many of that sub-part one unit needs. A part that parts does not
+  name is raw stock and swallows nothing. Explode batch units of root: every
+  unit of an assembly pulls in per units of each sub-part, and those pull in
+  theirs, until only raw stock is left. Return one entry of part and count for
+  every raw stock the build consumes, ordered by part name under plain
+  code-point comparison; when root is itself raw stock the answer is that one
+  part with a count of batch. Throw an error when the explosion of root walks
+  into a part already open above it on the same chain, since such a loop can
+  never bottom out — a loop among parts the root never reaches is no concern of
+  this build. Throw an error too when parts is not a list, holds an entry that
+  is not a record, names the same part twice, or gives a part name that is not
+  a non-empty string; when an entry's uses is empty, is not a list, holds an
+  entry that is not a record, names the same sub-part twice within that one
+  entry, or gives a per that is not an integer of at least 1; when root is not
+  a non-empty string; and when batch is not an integer of at least 1.
+target: solution.ts
+interface: "export function explodeBillOfMaterials(parts: { part: string; uses: { part: string; per: number }[] }[], root: string, batch: number): { part: string; count: number }[]"
+stop_conditions:
+  - Whether a part may appear at two different depths of the same build is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,27 @@
+```ts
+export function layerConfigs(layers: Array<Record<string, unknown>>): Record<string, unknown> {
+  if (!Array.isArray(layers)) {
+    throw new Error("Input must be an array of configuration layers.");
+  }
+
+  const result: Record<string, unknown> = {};
+
+  for (const layer of layers) {
+    if (typeof layer !== 'object' || layer === null) {
+      throw new Error("Each layer must be a mapping.");
+    }
+
+    for (const [key, value] of Object.entries(layer)) {
+      if (value === null) {
+        delete result[key];
+      } else if (typeof result[key] === 'object' && result[key] !== null && typeof value === 'object' && value !== null) {
+        result[key] = layerConfigs([result[key] as Record<string, unknown>, value]);
+      } else {
+        result[key] = value;
+      }
+    }
+  }
+
+  return result;
+}
+```

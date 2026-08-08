@@ -1,0 +1,56 @@
+```python
+"""A chart with its twin rows squashed together."""
+
+def squash_rows(chart: dict) -> dict:
+    if not chart["signals"]:
+        raise ValueError("Signal list must be non-empty and contain distinct non-empty strings.")
+    
+    for signal in chart["signals"]:
+        if not isinstance(signal, str) or not signal:
+            raise ValueError("Each signal must be a non-empty string.")
+    
+    if not chart["rows"]:
+        raise ValueError("Chart must contain at least one row.")
+    
+    rows = chart["rows"]
+    group_of = {}
+    chosen = []
+    seen = {}
+    
+    for row in rows:
+        if not isinstance(row, dict) or "label" not in row or "mark" not in row or "next" not in row:
+            raise ValueError("Each row must be a dictionary with 'label', 'mark', and 'next' keys.")
+        
+        if not isinstance(row["label"], str) or not row["label"]:
+            raise ValueError("Row label must be a non-empty string.")
+        
+        if not isinstance(row["mark"], str) or not row["mark"]:
+            raise ValueError("Row mark must be a non-empty string.")
+        
+        if not isinstance(row["next"], list) or len(row["next"]) != len(chart["signals"]):
+            raise ValueError("Row 'next' must hold exactly one entry per signal.")
+        
+        for next_label in row["next"]:
+            if not isinstance(next_label, str) or not next_label:
+                raise ValueError("Each 'next' entry must be a non-empty string.")
+        
+        key = row["mark"] + "|" + ",".join(row["next"])
+        if key not in seen:
+            seen[key] = len(chosen)
+            chosen.append(row)
+        group_of[row["label"]] = seen[key]
+    
+    folded = [
+        {
+            "at": at,
+            "mark": row["mark"],
+            "next": [group_of[label] for label in row["next"]],
+        }
+        for at, row in enumerate(chosen)
+    ]
+    
+    if chart["head"] not in group_of:
+        raise ValueError("Head must name a valid row.")
+    
+    return {"entry": group_of[chart["head"]], "rows": folded}
+```

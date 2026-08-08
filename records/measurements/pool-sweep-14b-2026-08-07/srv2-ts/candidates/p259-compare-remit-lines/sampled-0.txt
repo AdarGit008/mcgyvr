@@ -1,0 +1,65 @@
+```ts
+export function compareRemitLines(ours: unknown[][], theirs: unknown[][]): { agreed: string[]; queried: string[]; ourSide: string[]; theirSide: string[] } {
+    if (!Array.isArray(ours) || !Array.isArray(theirs)) {
+        throw new Error("Both arguments must be arrays.");
+    }
+
+    const validatePair = (pair: unknown[]) => {
+        if (!Array.isArray(pair) || pair.length !== 2) {
+            throw new Error("Each entry must be a pair.");
+        }
+        const [label, cents] = pair;
+        if (typeof label !== 'string' || !label.trim()) {
+            throw new Error("Label must be a non-empty string.");
+        }
+        if (!Number.isInteger(cents)) {
+            throw new Error("Amount must be a whole number.");
+        }
+    };
+
+    ours.forEach(validatePair);
+    theirs.forEach(validatePair);
+
+    const mapFromPairs = (pairs: unknown[][]) => pairs.reduce((acc, [label, cents]) => {
+        if (acc.has(label as string)) {
+            throw new Error("Label repeated inside one advice.");
+        }
+        acc.set(label as string, cents as number);
+        return acc;
+    }, new Map<string, number>());
+
+    const ourMap = mapFromPairs(ours);
+    const theirMap = mapFromPairs(theirs);
+
+    const agreed: string[] = [];
+    const queried: string[] = [];
+    const ourSide: string[] = [];
+    const theirSide: string[] = [];
+
+    ourMap.forEach((ourCents, label) => {
+        if (theirMap.has(label)) {
+            const theirCents = theirMap.get(label)!;
+            if (ourCents === theirCents) {
+                agreed.push(label);
+            } else {
+                queried.push(label);
+            }
+        } else {
+            ourSide.push(label);
+        }
+    });
+
+    theirMap.forEach((theirCents, label) => {
+        if (!ourMap.has(label)) {
+            theirSide.push(label);
+        }
+    });
+
+    return {
+        agreed: agreed.sort(),
+        queried: queried.sort(),
+        ourSide: ourSide.sort(),
+        theirSide: theirSide.sort()
+    };
+}
+```

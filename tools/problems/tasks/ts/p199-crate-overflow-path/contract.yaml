@@ -1,0 +1,28 @@
+id: p199-crate-overflow-path
+task_type: function_implementation
+task: >-
+  Implement crateOverflowPath. A crate is a mapping with "tag" (a non-empty
+  string carrying no full stop, and no two crates packed directly inside the
+  same crate share one), "weight" (a non-negative whole number for what the
+  crate itself holds loose), "cap" (a positive whole number it must not
+  pass) and "inside" (a list, possibly empty, of the crates packed within
+  it). A crate's gross is its own weight plus the gross of every crate
+  packed directly inside it. A crate spills when its gross is strictly
+  greater than its cap; sitting exactly on the cap is fine. Search the
+  nesting so that a crate is examined only after everything packed inside
+  it, taking the crates inside in the listed order, and name the first crate
+  found spilling. Write its trail as the tags from the outermost crate down
+  to that crate, joined by full stops. Return an empty string when nothing
+  spills anywhere. Raise an error when the outermost crate is not a mapping,
+  when a tag is missing, empty or carries a full stop, when two crates
+  packed side by side share a tag, when a weight is not a non-negative whole
+  number, when a cap is not a positive whole number, and when "inside" is
+  not a list.
+target: solution.ts
+interface: "export function crateOverflowPath(root: Record<string, unknown>): string"
+stop_conditions:
+  - How deep the nesting is allowed to run before it is considered abusive is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

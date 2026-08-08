@@ -1,0 +1,27 @@
+```python
+def newer_release(a: str, b: str) -> int:
+    if a == b:
+        return 0
+
+    def parse_version(version):
+        parts = version.split('-')
+        major_minor = map(int, parts[0].split('.'))
+        channel_build = ('', None)
+        if len(parts) > 1:
+            channel, build_str = parts[1].split('.')
+            if channel in ('dev', 'alpha', 'beta', 'rc'):
+                channel_build = (channel, int(build_str))
+            else:
+                raise ValueError(f"Invalid channel: {channel}")
+        return major_minor + channel_build
+
+    a_parsed = parse_version(a)
+    b_parsed = parse_version(b)
+
+    if a_parsed < b_parsed:
+        return -1
+    elif a_parsed > b_parsed:
+        return 1
+    else:
+        return 0
+```

@@ -1,0 +1,48 @@
+id: p119-section-numbers
+task_type: bug_fix
+task: >-
+  sectionNumbers assigns dotted numbers to the lines of an indented
+  document. Nesting is unit spaces per step; a line's number is its
+  parent's number, a dot, and its position among that parent's own lines,
+  so a document whose steps run 0, 1, 1, 0, 1 is numbered 1, 1.1, 1.2, 2,
+  2.1. Each output entry is the number, one space, and the line's content
+  without its indentation. The current code never clears the counters of
+  deeper steps when a shallower line arrives, so once the document returns
+  toward the margin, the next deep line continues stale counts -- the
+  sequence above wrongly finishes with 2.3. Fix that; the validation stays
+  exactly as written: a unit that is not a positive integer, indentation
+  that is not a whole multiple of the unit, a line nesting more than one
+  step past its predecessor, and an opening line off the margin are
+  rejected with an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function sectionNumbers(text: string, unit: number): string[] {
+    if (!Number.isInteger(unit) || unit <= 0) {
+      throw new Error("unit must be a positive integer");
+    }
+    const counters: number[] = [];
+    const out: string[] = [];
+    let previous = -1;
+    for (const line of text.split("\n")) {
+      const content = line.replace(/^ */, "");
+      const indent = line.length - content.length;
+      if (indent % unit !== 0) {
+        throw new Error("indentation is not a multiple of the unit");
+      }
+      const step = indent / unit;
+      if (step > previous + 1) {
+        throw new Error("nesting jumps more than one step");
+      }
+      counters[step] = (counters[step] ?? 0) + 1;
+      out.push(counters.slice(0, step + 1).join(".") + " " + content);
+      previous = step;
+    }
+    return out;
+  }
+interface: "export function sectionNumbers(text: string, unit: number): string[]"
+stop_conditions:
+  - How blank lines are treated is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

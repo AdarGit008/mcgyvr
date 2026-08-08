@@ -1,0 +1,33 @@
+id: p018-door-controller
+task_type: bug_fix
+task: >-
+  final_door_state walks a door through a list of events and reports where
+  it ends up. The door starts locked. The event unlock moves it from
+  locked to closed, lock from closed to locked, open from closed to open,
+  and close from open to closed; those four are the only lawful moves. The
+  current code applies whatever an event names, so a locked door swings
+  open. Fix it: an event that does not apply in the current state must
+  leave the state alone and count as ignored, and an event that is not one
+  of the four names must be rejected with an error. Return the final state
+  and the ignored count joined by a colon, like open:2.
+target: solution.py
+target_content: |
+  def final_door_state(events: list[str]) -> str:
+      moves = {
+          "unlock": "closed",
+          "lock": "locked",
+          "open": "open",
+          "close": "closed",
+      }
+      state = "locked"
+      ignored = 0
+      for event in events:
+          state = moves.get(event, state)
+      return state + ":" + str(ignored)
+interface: "def final_door_state(events: list[str]) -> str"
+stop_conditions:
+  - Whether event names are case-sensitive is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

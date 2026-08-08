@@ -1,0 +1,19 @@
+```python
+import re
+
+def canonical_stack_mark(mark: str) -> str:
+    if not isinstance(mark, str):
+        raise ValueError("Input must be a string")
+    
+    pattern = r"^(?P<floor>\d{1,2})[ -]*(?P<wing>[nsewNSeW])[ -]*(?P<stack>\d{1,3})$"
+    match = re.match(pattern, mark)
+    
+    if not match:
+        raise ValueError("Invalid stack mark format")
+    
+    floor = match.group('floor')
+    wing = match.group('wing').upper()
+    stack = match.group('stack').zfill(3)
+    
+    return f"{floor}{wing}{stack}"
+```

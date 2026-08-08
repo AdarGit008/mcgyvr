@@ -1,0 +1,24 @@
+```ts
+export function layoutColumns(rows: string[][], aligns: string): string[] {
+  if (rows.length === 0) throw new Error("Empty table");
+  if (!Array.isArray(aligns) || aligns.some(c => !["l", "r", "c"].includes(c))) throw new Error("Invalid alignment spec");
+
+  const colWidths = rows[0].map((_, i) => Math.max(...rows.map(row => row[i]?.length || 0)));
+
+  return rows.map(row => {
+    if (row.length !== aligns.length) throw new Error("Row has different cell count than alignment spec");
+    return row.map((cell, i) => {
+      if (typeof cell !== "string") throw new Error("Cell is not a string");
+      const width = colWidths[i];
+      let padded: string;
+      switch (aligns[i]) {
+        case "l": padded = cell.padEnd(width); break;
+        case "r": padded = cell.padStart(width); break;
+        case "c": padded = cell.padStart(Math.floor((width + 1) / 2)).padEnd(width); break;
+        default: throw new Error("Invalid alignment character");
+      }
+      return padded;
+    }).join("  ").trim();
+  });
+}
+```

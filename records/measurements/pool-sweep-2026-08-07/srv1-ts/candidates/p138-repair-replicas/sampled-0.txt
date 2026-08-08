@@ -1,0 +1,48 @@
+```ts
+/**
+ * Rebuilds an array from multiple replicas where each position is filled by the value held by a strict majority of replicas.
+ * @param replicas - An array of arrays with integers or null values representing replica data.
+ * @returns The rebuilt array with no gaps if possible, otherwise throws an error.
+ */
+export function repairReplicas(replicas: Array<Array<number | null>>): number[] {
+    if (replicas.length === 0) {
+        throw new Error("Replica list cannot be empty.");
+    }
+
+    const length = replicas[0].length;
+    for (let i = 1; i < replicas.length; i++) {
+        if (replicas[i].length !== length) {
+            throw new Error("All replica arrays must have the same length.");
+        }
+    }
+
+    const result: number[] = [];
+    for (let pos = 0; pos < length; pos++) {
+        const counts: { [key in string]: number } = {};
+        let totalCount = 0;
+
+        for (const replica of replicas) {
+            if (replica[pos] !== null) {
+                counts[replica[pos].toString()] = (counts[replica[pos].toString()] || 0) + 1;
+                totalCount++;
+            }
+        }
+
+        let majorityValue: number | null = null;
+        for (const value in counts) {
+            if (counts[value] > totalCount / 2) {
+                majorityValue = parseInt(value);
+                break;
+            }
+        }
+
+        if (majorityValue === null) {
+            throw new Error("No strict majority found at position " + pos);
+        }
+
+        result.push(majorityValue);
+    }
+
+    return result;
+}
+```

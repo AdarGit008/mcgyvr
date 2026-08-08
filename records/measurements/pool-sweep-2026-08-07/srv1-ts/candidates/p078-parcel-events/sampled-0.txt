@@ -1,0 +1,56 @@
+```ts
+export function foldParcels(events: Array<{ type: string; parcel: string }>): Record<string, string> {
+    const state: Record<string, 'accepted' | 'in_transit' | 'delivered' | 'returned' | 'lost'> = {};
+    const acceptedIds = new Set<string>();
+
+    events.forEach((event, index) => {
+        const { type, parcel } = event;
+
+        if (!parcel) {
+            throw new Error(`Event at index ${index} is missing the parcel key.`);
+        }
+
+        switch (type) {
+            case 'accept':
+                if (acceptedIds.has(parcel)) {
+                    throw new Error(`Parcel ${parcel} already accepted at index ${index}.`);
+                }
+                acceptedIds.add(parcel);
+                state[parcel] = 'accepted';
+                break;
+            case 'load':
+                if (!state[parcel] || state[parcel] !== 'accepted') {
+                    throw new Error(`Invalid transition to load for parcel ${parcel} at index ${index}.`);
+                }
+                state[parcel] = 'in_transit';
+                break;
+            case 'deliver':
+                if (!state[parcel] || state[parcel] !== 'in_transit') {
+                    throw new Error(`Invalid transition to deliver for parcel ${parcel} at index ${index}.`);
+                }
+                state[parcel] = 'delivered';
+                break;
+            case 'bounce':
+                if (!state[parcel] || state[parcel] !== 'delivered') {
+                    throw new Error(`Invalid transition to bounce for parcel ${parcel} at index ${index}.`);
+                }
+                state[parcel] = 'returned';
+                break;
+            case 'lose':
+                if (!state[parcel] || (state[parcel] !== 'accepted' && state[parcel] !== 'in_transit')) {
+                    throw new Error(`Invalid transition to lose for parcel ${parcel} at index ${index}.`);
+                }
+                state[parcel] = 'lost';
+                break;
+            default:
+                throw new Error(`Unknown event type ${type} at index ${index}`);
+        }
+
+        if (state[parcel] === 'returned' || state[parcel] === 'lost') {
+            delete acceptedIds[parcel];
+        }
+    });
+
+    return state;
+}
+```

@@ -1,0 +1,43 @@
+id: p454-reseat-cabin-swap
+task_type: function_implementation
+task: >-
+  Implement reseatCabin. A flight has been given a different aeroplane overnight
+  and everybody aboard must be put somewhere in the new cabin. Each holder is a
+  record with name (a non-empty string, no two holders answering to the same
+  one), seat (the seat held on the old aeroplane, written as a row number with no
+  leading nought followed by exactly one capital letter, and no two holders
+  claiming the same one) and want, one of window, aisle or any. The cabin record
+  carries rows (a whole number above nought), left and right (non-empty runs of
+  capital letters naming the seats on either side of the gangway, in order from
+  the hull inward on the left and from the gangway outward on the right, with no
+  letter used twice across the two) and blocked, a list of seat labels the new
+  cabin cannot sell. A seat is written as its row number then its letter. Seats
+  rank by row first and, inside a row, by where their letter falls in left
+  followed by right. The window letters are the first of left and the last of
+  right; the gangway letters are the last of left and the first of right; on a
+  side of one letter that letter is both. Serve the holders in the rank order of
+  the seats they held, not in the order they were listed. A holder whose old
+  label names a seat the new cabin has, is not blocked and nobody has taken yet
+  simply stays in it, whatever they wanted. Otherwise give them the
+  lowest-ranking free seat whose letter answers their want, where any answers to
+  every letter. Should nothing answer their want, give them the lowest-ranking
+  free seat of any kind instead; should nothing at all be free, they lose the
+  flight. Give back a record whose seated lists, in service order, each holder's
+  name then a space then the seat they end in then a space then kept, moved or
+  shifted for the three ways above, and whose bumped lists in service order the
+  names that lost the flight. Raise an error when holders is not a list, when a
+  holder is not a record, when a name is empty or not a string, when two holders
+  share a name, when a seat label is malformed, when two holders claim one old
+  seat, when want is none of the three words, when cabin is not a record, when
+  rows is not a whole number above nought, when left or right is empty or holds
+  anything but capital letters, when a letter appears twice across the two, when
+  blocked is not a list, when a blocked label is malformed, and when a blocked
+  label names a seat the new cabin does not have.
+target: solution.ts
+interface: "export function reseatCabin(holders: any[], cabin: any): { seated: string[]; bumped: string[] }"
+stop_conditions:
+  - Whether a holder bumped from the flight should free the old seat they never took is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

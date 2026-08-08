@@ -1,0 +1,32 @@
+import assert from "node:assert/strict";
+import { scoreDiceScript } from "./solution.ts";
+
+assert.equal(scoreDiceScript("3", []), 3, "a bare constant draws nothing");
+assert.equal(scoreDiceScript("1d6", [4]), 4, "one die, one roll");
+assert.equal(scoreDiceScript("2d6+3", [5, 2]), 10, "two dice and a constant");
+assert.equal(scoreDiceScript("2d6-1d4", [6, 6, 3]), 9, "a minus sign subtracts a whole group");
+assert.equal(scoreDiceScript("1d6!", [6, 6, 2]), 14, "an open-ended group keeps drawing");
+assert.equal(scoreDiceScript("2d4!+1", [4, 1, 2]), 8, "only the die that hit the size draws again");
+assert.equal(scoreDiceScript("10+2d20-5", [20, 1]), 26, "a closed group does not draw again on its size");
+assert.equal(scoreDiceScript("1d12!", [12, 12, 12, 1]), 37, "a chain of three open draws");
+assert.equal(scoreDiceScript("1d4+1d6", [1, 6]), 7, "each group checks the rolls against its own size");
+assert.equal(scoreDiceScript("0+1d4", [2]), 2, "a zero constant contributes nothing");
+assert.equal(scoreDiceScript("20d4", new Array(20).fill(1)), 20, "the largest count is allowed");
+
+assert.throws(() => scoreDiceScript("", []), Error, "an empty script is refused");
+assert.throws(() => scoreDiceScript(5, []), Error, "a script that is not a string is refused");
+assert.throws(() => scoreDiceScript("1d6", "nope"), Error, "rolls that are not a list are refused");
+assert.throws(() => scoreDiceScript("1d6", [7]), Error, "a roll above the die size is refused");
+assert.throws(() => scoreDiceScript("1d6", [0]), Error, "a roll below one is refused");
+assert.throws(() => scoreDiceScript("1d6", [2.5]), Error, "a roll that is not whole is refused");
+assert.throws(() => scoreDiceScript("1d6", [3, 3]), Error, "a leftover roll is refused");
+assert.throws(() => scoreDiceScript("2d6", [3]), Error, "running out of rolls is refused");
+assert.throws(() => scoreDiceScript("1d7", [3]), Error, "an unknown die size is refused");
+assert.throws(() => scoreDiceScript("0d6", []), Error, "a count of zero is refused");
+assert.throws(() => scoreDiceScript("21d4", []), Error, "a count above twenty is refused");
+assert.throws(() => scoreDiceScript("+1d6", [3]), Error, "a leading sign is refused");
+assert.throws(() => scoreDiceScript("1d6+", [3]), Error, "a trailing sign is refused");
+assert.throws(() => scoreDiceScript("1d6++1", [3]), Error, "two signs running are refused");
+assert.throws(() => scoreDiceScript("1d6x2", [3]), Error, "an unreadable term is refused");
+assert.throws(() => scoreDiceScript("1d6!!", [3]), Error, "two exclamation marks are refused");
+console.log("ok");

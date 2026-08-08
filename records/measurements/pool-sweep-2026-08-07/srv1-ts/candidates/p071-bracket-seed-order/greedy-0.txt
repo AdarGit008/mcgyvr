@@ -1,0 +1,16 @@
+```ts
+export function bracketSeedOrder(count: number): number[] {
+  if (!Number.isInteger(count) || count < 2 || (count & (count - 1)) !== 0) {
+    throw new Error("count must be a power of two, at least 2");
+  }
+  let sheet: number[] = [1];
+  while (sheet.length < count) {
+    const nextRound: number[] = [];
+    for (let i = 0; i < sheet.length / 2; i++) {
+      nextRound.push(sheet[i], count + 1 - sheet[sheet.length - 1 - i]);
+    }
+    sheet = nextRound;
+  }
+  return sheet;
+}
+```

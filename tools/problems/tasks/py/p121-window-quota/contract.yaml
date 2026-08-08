@@ -1,0 +1,24 @@
+id: p121-window-quota
+task_type: function_implementation
+task: >-
+  Implement window_quota. Calls arrive as [time, name] pairs with
+  non-decreasing integer times, and time is chopped into fixed frames of
+  width ticks aligned at zero: a call belongs to the frame numbered
+  floor(time / width). Within a single frame, a given name may be served
+  at most limit times; further calls of that name inside the same frame
+  are turned away, and the moment the clock crosses into a fresh frame
+  every name starts again from nothing -- there is no carrying leftover
+  allowance forward and no partial overlap between frames. Names are
+  independent of one another. Return "ok" for a served call and "over" for
+  a turned-away one, in arrival order. Reject with an error a limit or
+  width that is not a positive integer, a name that is not a non-empty
+  string, a time that is not a non-negative integer, and a time earlier
+  than its predecessor.
+target: solution.py
+interface: "def window_quota(limit: int, width: int, calls: list) -> list"
+stop_conditions:
+  - Whether frames with no calls at all need any bookkeeping is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

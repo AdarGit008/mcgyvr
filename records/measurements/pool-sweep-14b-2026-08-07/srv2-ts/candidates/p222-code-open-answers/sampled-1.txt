@@ -1,0 +1,80 @@
+```ts
+export function codeOpenAnswers(
+  rules: Array<Record<string, unknown>>,
+  answers: string[]
+): Record<string, unknown> {
+  if (!Array.isArray(rules) || rules.length === 0) {
+    throw new Error("Rules must be a non-empty list.");
+  }
+  if (!Array.isArray(answers)) {
+    throw new Error("Answers must be a list.");
+  }
+
+  const tidyAnswer = (answer: string): string => {
+    return answer
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  };
+
+  const phrasePattern = /^[a-z0-9]+(\s[a-z0-9]+)*$/;
+
+  const ruleCodes = new Set<string>();
+  const phrases = new Set<string>();
+
+  for (const rule of rules) {
+    if (typeof rule !== "object" || rule === null) {
+      throw new Error("Each rule must be a mapping.");
+    }
+
+    const code = rule["code"];
+    const phrase = rule["phrase"];
+
+    if (typeof code !== "string" || code.trim() === "") {
+      throw new Error("Each rule must have a non-empty string 'code'.");
+    }
+    if (!phrasePattern.test(phrase as string)) {
+      throw new Error("Each rule must have a valid 'phrase'.");
+    }
+
+    if (phrases.has(phrase as string)) {
+      throw new Error("No two rules may share the same phrase.");
+    }
+
+    phrases.add(phrase as string);
+    ruleCodes.add(code);
+  }
+
+  const tally: { code: string; count: number }[] = Array.from(ruleCodes).map(
+    (code) => ({ code, count: 0 })
+  );
+
+  const loose: string[] = [];
+
+  for (const answer of answers) {
+    if (typeof answer !== "string") {
+      throw new Error("Each answer must be a string.");
+    }
+
+    const tidiedAnswer = tidyAnswer(answer);
+    let coded = false;
+
+    for (const rule of rules) {
+      const phrase = rule["phrase"] as string;
+      const code = rule["code"] as string;
+
+      if (tidiedAnswer.includes(phrase)) {
+        tally.find((t) => t.code === code)!.count++;
+        coded = true;
+        break;
+      }
+    }
+
+    if (!coded) {
+      loose.push(tidiedAnswer);
+    }
+  }
+
+  return { tally, loose };
+}
+```

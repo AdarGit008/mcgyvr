@@ -1,0 +1,19 @@
+id: p043-clip-label
+task_type: function_implementation
+task: >-
+  Implement clipLabel. A label must fit a display slot of a given character
+  budget. When the label already fits, return it untouched. When it does
+  not, keep the leading part and mark the cut with three dots: take the
+  first budget-minus-3 characters, drop any spaces at the end of that kept
+  part, then append "...". The clipped result is therefore never longer
+  than the budget, and never has a space just before the dots. Reject a
+  budget below 4, a budget that is not an integer, and a label that is not
+  a string, with an error.
+target: solution.ts
+interface: "export function clipLabel(label: string, budget: number): string"
+stop_conditions:
+  - How a label that is entirely spaces should clip is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

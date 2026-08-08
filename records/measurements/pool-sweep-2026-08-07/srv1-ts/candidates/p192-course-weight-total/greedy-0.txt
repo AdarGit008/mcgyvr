@@ -1,0 +1,55 @@
+```ts
+export function courseWeightTotal(categories: Array<Record<string, unknown>>): number {
+  if (categories.length === 0) {
+    throw new Error("Empty syllabus");
+  }
+
+  const labelSet = new Set<string>();
+  let totalWeight = 0;
+
+  for (const category of categories) {
+    const { label, weight, items } = category as { label: string; weight: number; items: Array<[number, number]> };
+
+    if (!label || typeof label !== "string" || label.trim() === "") {
+      throw new Error("Invalid label");
+    }
+
+    if (labelSet.has(label.toLowerCase())) {
+      throw new Error("Duplicate label");
+    }
+    labelSet.add(label.toLowerCase());
+
+    if (typeof weight !== "number" || weight < 0 || !Number.isInteger(weight)) {
+      throw new Error("Invalid weight");
+    }
+
+    totalWeight += weight;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error("Empty items list");
+    }
+
+    for (const [earned, worth] of items) {
+      if (typeof earned !== "number" || typeof worth !== "number") {
+        throw new Error("Invalid item points");
+      }
+      if (earned < 0 || earned > worth || !Number.isInteger(earned) || !Number.isInteger(worth)) {
+        throw new Error("Invalid item points");
+      }
+    }
+  }
+
+  if (totalWeight !== 10000) {
+    throw new Error("Weights do not add up to exactly 10000");
+  }
+
+  return categories.reduce((total, category) => {
+    const { weight, items } = category as { label: string; weight: number; items: Array<[number, number]> };
+    let contribution = 0;
+    for (const [earned, worth] of items) {
+      contribution += earned * weight;
+    }
+    return total + Math.floor(contribution / worth);
+  }, 0);
+}
+```

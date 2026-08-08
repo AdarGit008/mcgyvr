@@ -1,0 +1,39 @@
+```ts
+export function foldParcels(events: Array<{ type: string; parcel: string }>): Record<string, string> {
+    const states: Record<string, string> = {};
+    const acceptedIds: Set<string> = new Set();
+
+    for (let i = 0; i < events.length; i++) {
+        const { type, parcel } = events[i];
+        if (!parcel) throw new Error(`Event at index ${i} is missing the parcel key`);
+
+        switch (type) {
+            case 'accept':
+                if (acceptedIds.has(parcel)) throw new Error(`Duplicate parcel id ${parcel} at index ${i}`);
+                acceptedIds.add(parcel);
+                states[parcel] = 'accepted';
+                break;
+            case 'load':
+                if (!states[parcel] || states[parcel] !== 'accepted') throw new Error(`Invalid transition to load for parcel id ${parcel} at index ${i}`);
+                states[parcel] = 'in_transit';
+                break;
+            case 'deliver':
+                if (!states[parcel] || states[parcel] !== 'in_transit') throw new Error(`Invalid transition to deliver for parcel id ${parcel} at index ${i}`);
+                states[parcel] = 'delivered';
+                break;
+            case 'bounce':
+                if (!states[parcel] || states[parcel] !== 'delivered') throw new Error(`Invalid transition to bounce for parcel id ${parcel} at index ${i}`);
+                states[parcel] = 'returned';
+                break;
+            case 'lose':
+                if (!states[parcel] || (states[parcel] !== 'accepted' && states[parcel] !== 'in_transit')) throw new Error(`Invalid transition to lose for parcel id ${parcel} at index ${i}`);
+                states[parcel] = 'lost';
+                break;
+            default:
+                throw new Error(`Unknown event type ${type} at index ${i}`);
+        }
+    }
+
+    return states;
+}
+```

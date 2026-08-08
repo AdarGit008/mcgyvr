@@ -1,0 +1,46 @@
+```ts
+/**
+ * Breaks the text into lines greedily, each not wider than the specified width.
+ * @param text - The text to break into lines.
+ * @param width - The maximum line width.
+ * @returns An array of lines.
+ */
+export function wrapText(text: string, width: number): string[] {
+  if (typeof text !== 'string') {
+    throw new Error('Text must be a string');
+  }
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error('Width must be a positive integer');
+  }
+
+  const words = text.split(' ');
+  const lines: string[] = [];
+
+  let currentLine = '';
+  for (const word of words) {
+    if (word.length > width) {
+      if (currentLine !== '') {
+        lines.push(currentLine);
+        currentLine = '';
+      }
+      lines.push(word);
+    } else {
+      if (currentLine.length + word.length + 1 <= width) {
+        if (currentLine !== '') {
+          currentLine += ' ';
+        }
+        currentLine += word;
+      } else {
+        lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+  }
+
+  if (currentLine !== '') {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+```

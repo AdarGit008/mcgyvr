@@ -1,0 +1,50 @@
+```python
+from typing import List
+
+def stranded_ticker_pairs(legs: List[List[str]]) -> List[str]:
+    if not legs:
+        raise ValueError("No legs published")
+    
+    tickers = set()
+    routes = {}
+    
+    for leg in legs:
+        if len(leg) != 2:
+            raise ValueError("Each leg must be exactly two elements")
+        
+        sell, buy = leg
+        if sell == buy:
+            raise ValueError(f"Leg cannot sell and buy the same ticker: {sell}")
+        
+        tickers.add(sell)
+        tickers.add(buy)
+        
+        if sell in routes:
+            if leg in routes[sell]:
+                raise ValueError(f"Identical leg published twice: {leg}")
+            routes[sell].append(leg)
+        else:
+            routes[sell] = [leg]
+    
+    pairs = []
+    
+    for start in sorted(tickers):
+        if start not in routes:
+            continue
+        reachable = set()
+        
+        stack = routes[start][:]
+        while stack:
+            curr_leg = stack.pop()
+            sell, buy = curr_leg
+            reachable.add(buy)
+            for next_leg in routes.get(buy, []):
+                if next_leg[1] not in reachable:
+                    stack.append(next_leg)
+        
+        for end in tickers:
+            if end > start and end not in reachable:
+                pairs.append(f"{start}>{end}")
+    
+    return sorted(pairs)
+```

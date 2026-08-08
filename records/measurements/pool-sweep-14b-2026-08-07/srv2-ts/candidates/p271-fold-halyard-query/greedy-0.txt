@@ -1,0 +1,99 @@
+```ts
+export function foldHalyardQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const hexToChar = (hex: string): string => {
+    const code = parseInt(hex, 16);
+    if (code < 33 || code > 126) {
+      throw new Error(`Invalid escape sequence: ${hex}`);
+    }
+    return String.fromCharCode(code);
+  };
+
+  const unescapeParam = (param: string): string => {
+    return param.replace(/_([0-9a-f]{2})/g, (_, hex) => hexToChar(hex));
+  };
+
+  const parseQuery = (query: string): { [key: string]: string[] } => {
+    const params = query.split('&');
+    const result: { [key: string]: string[] } = {};
+
+    for (const param of params) {
+      if (param.includes('==')) {
+        throw new Error('Parameter cannot contain a second equals sign');
+      }
+
+      const [name, payload] = param.split('=');
+      if (!name) {
+        throw new Error('Name cannot be empty');
+      }
+
+      const unescapedName = unescapeParam(name.toLowerCase());
+      const unescapedPayload = payload ? unescapeParam(payload) : '';
+
+      if (unescapedName in result) {
+        if (payload && !result[unescapedName].includes(unescapedPayload)) {
+          result[unescapedName].push(unescapedPayload);
+        }
+      } else {
+        result[unescapedName] = payload ? [unescapedPayload] : [];
+      }
+    }
+
+    return result;
+  };
+
+  const escapeChar = (char: string): string => {
+    const code = char.charCodeAt(0);
+    if (code === 38) return '_26';
+    if (code === 44) return '_2c';
+    if (code === 61) return '_3d';
+    if (code === 95) return '_5f';
+    return char;
+  };
+
+  const escapeParam = (param: string): string => {
+    return param.split('').map(escapeChar).join('');
+  };
+
+  const foldQuery = (parsed: { [key: string]: string[] }): string => {
+    const bareNames: string[] = [];
+    const namedParams: { name: string; payloads: string[] }[] = [];
+
+    for (const [name, payloads] of Object.entries(parsed)) {
+      if (payloads.length === 0) {
+        bareNames.push(name);
+      } else {
+        namedParams.push({ name, payloads });
+      }
+    }
+
+    const sortedBareNames = bareNames.sort();
+    const sortedNamedParams = namedParams
+      .map(({ name, payloads }) => ({
+        name,
+        payloads: [...new Set(payloads)].sort(),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const result: string[] = [];
+
+    for (const bareName of sortedBareNames) {
+      result.push(escapeParam(bareName));
+    }
+
+    for (const { name, payloads } of sortedNamedParams) {
+      if (payloads.length > 0) {
+        result.push(`${escapeParam(name)}=${payloads.map(escapeParam).join(',')}`);
+      }
+    }
+
+    return result.join('&');
+  };
+
+  const parsedQuery = parseQuery(text);
+  return foldQuery(parsedQuery);
+}
+```

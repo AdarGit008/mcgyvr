@@ -1,0 +1,37 @@
+id: p466-apportion-leg-costs
+task_type: function_implementation
+task: >-
+  Implement apportion_leg_costs. A party of friends travels a route in legs and
+  each leg is footed by whichever of them handed over the money at the time.
+  The first argument is the legs, a non-empty list of mappings in travel order,
+  each carrying exactly the three keys name (a non-empty string, no two legs
+  alike), cents (a whole number at nought or above) and payer (the name of
+  somebody the second argument lists). The second argument is the travellers, a
+  non-empty list of mappings each carrying exactly the three keys name (a
+  non-empty string, no two travellers alike), joins (a leg name) and leaves (a
+  leg name that is not earlier in travel order than joins); that traveller
+  rides every leg from joins through leaves, both taken in, and no other. A
+  leg's cents are shared out among the travellers riding it: each of them
+  carries the whole part of the cents divided by how many are aboard, and the
+  cents left over after that are handed out one apiece, working through the
+  riders of that leg in ascending name order until none are left. Nobody pays a
+  fraction of a cent and no cent goes missing, so what the party carries across
+  all legs is exactly the sum of the legs. The one who paid a leg need not have
+  ridden it. Return one mapping per traveller, each carrying name, owes (that
+  traveller's carried share across every leg) and paid (what that traveller
+  handed over across every leg), in ascending name order. Raise an error when
+  either argument is not a list, when either list is empty, when a leg or a
+  traveller is not a mapping or fails to carry exactly the three keys named for
+  it, when a name is not a non-empty string, when two legs or two travellers
+  share a name, when a leg's cents are not whole or fall below nought, when
+  joins or leaves names a leg the trip does not run, when a traveller leaves
+  before joining, when a leg is paid by somebody the party does not list, and
+  when a leg is ridden by nobody at all.
+target: solution.py
+interface: "def apportion_leg_costs(legs: list, travellers: list) -> list"
+stop_conditions:
+  - Whether two travellers may ride identical stretches of the route is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

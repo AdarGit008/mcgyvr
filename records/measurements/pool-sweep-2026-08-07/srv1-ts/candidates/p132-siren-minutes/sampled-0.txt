@@ -1,0 +1,45 @@
+```ts
+export function sirenMinutes(events: Array<Record<string, unknown>>, horizon: number): Array<[string, number]> {
+  if (!Number.isInteger(horizon) || horizon < 0) {
+    throw new Error("Invalid horizon");
+  }
+
+  const alerts = new Map<string, { id: string; channel: string; severity: number; at: number }[]>();
+  const results = new Map<string, number>();
+
+  for (const event of events) {
+    if (!event.at || typeof event.at !== 'number' || event.at < 0) {
+      throw new Error("Invalid event time");
+    }
+    if (event.at > horizon) break;
+
+    if (event.kind === "raise") {
+      const { id, channel, severity } = event;
+      if (!id || !channel || typeof severity !== 'number' || severity < 1 || severity > 5) {
+        throw new Error("Invalid raise event");
+      }
+      if (alerts.has(id)) {
+        throw new Error(`Duplicate raise for ${id}`);
+      }
+
+      alerts.set(id, [{ id, channel, severity, at: event.at }]);
+    } else if (event.kind === "clear") {
+      const { id } = event;
+      if (!id) {
+        throw new Error("Invalid clear event");
+      }
+      if (!alerts.has(id)) {
+        throw new Error(`Clear for non-active ${id}`);
+      }
+
+      const alert = alerts.get(id)!;
+      results.set(id, (results.get(id) || 0) + (event.at - alert[alert.length - 1].at));
+      alerts.delete(id);
+    } else {
+      throw new Error("Invalid event kind");
+    }
+  }
+
+  return [...results.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

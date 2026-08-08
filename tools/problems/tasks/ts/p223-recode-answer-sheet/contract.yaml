@@ -1,0 +1,67 @@
+id: p223-recode-answer-sheet
+task_type: bug_fix
+task: >-
+  recodeAnswerSheet codes a sheet wrongly. Repair it. A sheet is a mapping with
+  "steps" (a non-empty ordered list) and "entries" (a list). A step is a
+  mapping with "label" (a non-empty string no other step shares), "wanted" (a
+  non-empty list of fragments, a fragment being a non-empty string carrying no
+  capital letter, none repeated within the list), "barred" (a list, possibly
+  empty, of fragments under the same conditions) and "least" (a whole number
+  from one up to however many fragments "wanted" holds). An entry is a mapping
+  with "id" (a non-empty string no other entry shares) and "text" (a string).
+  Fold an entry's text by lowering its case, squeezing every run of whitespace
+  down to a single space, and dropping any space left at either end. A step
+  takes an entry when at least "least" of its wanted fragments appear
+  somewhere in the folded text and not one of its barred fragments does. Walk
+  the steps in the order given and let the first that takes the entry label it.
+  Return a mapping with "coded", one mapping carrying "id" and "label" per
+  labelled entry in the order the entries arrived, "loose", the ids of the
+  entries no step took in that same order, and "unused", the labels of the
+  steps that took nothing, in step order. Raise an error when the sheet is not
+  a mapping, when the steps are not a non-empty list or the entries are not a
+  list, when a step or an entry is not a mapping, when a label or an id is
+  missing, empty or shared, when "wanted" is empty or "barred" is not a list,
+  when either holds something that is not a non-empty string, carries a capital
+  letter, or repeats within its own list, when "least" is not a whole number in
+  range, and when an entry's text is not a string. Return the complete fixed
+  file.
+target: solution.ts
+target_content: |
+  /** Codes a sheet of written-in answers against its ordered steps. */
+  export function recodeAnswerSheet(
+    sheet: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const steps = sheet.steps as any[];
+    const entries = sheet.entries as any[];
+    const coded: any[] = [];
+    const loose: string[] = [];
+    const used = new Set<string>();
+    for (const entry of entries) {
+      const text = (entry.text as string).toLowerCase();
+      let label = "";
+      for (const step of steps) {
+        const hits = step.wanted.filter((frag: string) => text.includes(frag));
+        if (hits.length > 0) {
+          label = step.label;
+          break;
+        }
+      }
+      if (label === "") {
+        loose.push(entry.id);
+      } else {
+        coded.push({ id: entry.id, label });
+        used.add(label);
+      }
+    }
+    const unused = steps
+      .map((step: any) => step.label)
+      .filter((label: string) => !used.has(label));
+    return { coded, loose, unused };
+  }
+interface: "export function recodeAnswerSheet(sheet: Record<string, unknown>): Record<string, unknown>"
+stop_conditions:
+  - Whether a barred fragment may also stand among the same step's wanted fragments is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

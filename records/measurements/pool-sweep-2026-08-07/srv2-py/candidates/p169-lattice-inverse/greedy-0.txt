@@ -1,0 +1,55 @@
+```python
+def lattice_inverse(frame: list[list[int]]) -> list[list[int]]:
+    if not isinstance(frame, list) or not all(isinstance(row, list) for row in frame):
+        raise ValueError("Input must be a list of lists")
+    
+    height = len(frame)
+    if height != 2 and height != 3:
+        raise ValueError("Frame must be exactly two or three rows tall")
+    
+    width = len(frame[0])
+    if not all(len(row) == width for row in frame):
+        raise ValueError("All rows must have the same length")
+    
+    if not all(isinstance(num, int) for row in frame for num in row):
+        raise ValueError("All entries must be whole numbers")
+    
+    det = 0
+    if height == 2:
+        det = frame[0][0] * frame[1][1] - frame[0][1] * frame[1][0]
+    elif height == 3:
+        det = (frame[0][0] * (frame[1][1] * frame[2][2] - frame[1][2] * frame[2][1]) -
+               frame[0][1] * (frame[1][0] * frame[2][2] - frame[1][2] * frame[2][0]) +
+               frame[0][2] * (frame[1][0] * frame[2][1] - frame[1][1] * frame[2][0]))
+    
+    if det != 1 and det != -1:
+        return []
+    
+    if height == 2:
+        inv = [[frame[1][1], -frame[0][1]], [-frame[1][0], frame[0][0]]]
+        for i in range(2):
+            for j in range(2):
+                inv[i][j] //= det
+        return inv
+    
+    adjugate = [
+        [frame[1][1] * frame[2][2] - frame[1][2] * frame[2][1],
+         -(frame[1][0] * frame[2][2] - frame[1][2] * frame[2][0]),
+         frame[1][0] * frame[2][1] - frame[1][1] * frame[2][0]],
+        [-(frame[0][1] * frame[2][2] - frame[0][2] * frame[2][1]),
+         frame[0][0] * frame[2][2] - frame[0][2] * frame[2][0],
+         -(frame[0][0] * frame[2][1] - frame[0][1] * frame[2][0])],
+        [frame[0][1] * frame[1][2] - frame[0][2] * frame[1][1],
+         -(frame[0][0] * frame[1][2] - frame[0][2] * frame[1][0]),
+         frame[0][0] * frame[1][1] - frame[0][1] * frame[1][0]]
+    ]
+    
+    inv = []
+    for i in range(3):
+        row = []
+        for j in range(3):
+            row.append(adjugate[j][i] // det)
+        inv.append(row)
+    
+    return inv
+```

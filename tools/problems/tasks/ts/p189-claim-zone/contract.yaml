@@ -1,0 +1,27 @@
+id: p189-claim-zone
+task_type: function_implementation
+task: >-
+  Implement claimZone. A post in this made-up numbering is three numbers
+  joined by dots, each between 0 and 15 and written with no padding zero,
+  as in 5.9.15. Each claim is one string holding a stencil, one space, and
+  a name: the stencil is a post, a slash, and a depth of 0, 1, 2 or 3
+  saying how many of the leading numbers the stencil fixes, with every
+  number after those written as 0, and it covers every post agreeing with
+  it on the fixed numbers. The name is anything not empty and holding no
+  space. Return the name on the deepest stencil covering the where
+  argument — depth 3 beats depth 2 and so on, and the order the claims
+  arrive in never matters — or the empty string when nothing covers it.
+  Raise an error for two claims carrying the same stencil, a claim with no
+  space or an empty name or a name holding a space, a stencil without a
+  slash or with a depth outside 0 to 3, a number after the fixed ones that
+  is not 0, a post without exactly three numbers, a number above 15 or
+  written with a padding zero, a claim list that is not a list, and a
+  claim that is not a string.
+target: solution.ts
+interface: "export function claimZone(claims: string[], where: string): string"
+stop_conditions:
+  - Whether two claims may carry the same name is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

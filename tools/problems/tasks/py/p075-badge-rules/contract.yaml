@@ -1,0 +1,30 @@
+id: p075-badge-rules
+task_type: bug_fix
+task: >-
+  evaluate_rules answers whether a badge may open a door. Rules are meant to
+  be scanned strictly top to bottom, with the FIRST matching rule deciding,
+  and the answer is "deny" when nothing matches. Each rule mapping has
+  "effect" ("allow" or "deny"), "role" and "door"; it matches a request
+  mapping (keys "role" and "door") when the rule's role equals the
+  request's role or is the word "everyone", and the rule's door equals the
+  request's door or is the word "all". The current code scans every rule
+  so the LAST match decides, and it answers "allow" when no rule matches
+  at all. Fix both faults and return the deciding rule's effect as a
+  string.
+target: solution.py
+target_content: |
+  def evaluate_rules(rules: list, request: dict) -> str:
+      verdict = "allow"
+      for rule in rules:
+          role_ok = rule["role"] == request["role"] or rule["role"] == "everyone"
+          door_ok = rule["door"] == request["door"] or rule["door"] == "all"
+          if role_ok and door_ok:
+              verdict = rule["effect"]
+      return verdict
+interface: "def evaluate_rules(rules: list, request: dict) -> str"
+stop_conditions:
+  - What evaluate_rules does with a rule missing one of its three keys is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,38 @@
+```ts
+export function planRetryWindow(policy: { base: number; factor: number; ceiling: number; tries: number; deadline: number }, outcomes: string[]): { times: number[]; verdict: string } {
+    const { base, factor, ceiling, tries, deadline } = policy;
+    if (typeof policy !== 'object' || policy === null || Object.keys(policy).length !== 5) throw new Error('Invalid policy');
+    if (!Number.isInteger(base) || base < 1) throw new Error('Base must be a whole number of one or more');
+    if (!Number.isInteger(factor) || factor < 1) throw new Error('Factor must be a whole number of one or more');
+    if (!Number.isInteger(ceiling) || ceiling < base) throw new Error('Ceiling must be a whole number of at least base');
+    if (!Number.isInteger(tries) || tries < 1) throw new Error('Tries must be a whole number of one or more');
+    if (typeof outcomes !== 'object' || outcomes === null || !Array.isArray(outcomes)) throw new Error('Outcomes must be an array');
+    const validOutcomes = new Set(['won', 'lost', 'held']);
+    for (const outcome of outcomes) {
+        if (!validOutcomes.has(outcome)) throw new Error(`Invalid outcome: ${outcome}`);
+    }
+
+    let times: number[] = [];
+    let currentAttempt = 0;
+    let nextTime = 0;
+
+    while (currentAttempt < tries && times.length < outcomes.length) {
+        if (nextTime > deadline) break;
+        times.push(nextTime);
+        const outcome = outcomes[times.length];
+        if (outcome === 'won') {
+            break;
+        } else if (outcome === 'lost') {
+            currentAttempt++;
+            nextTime += base * Math.pow(factor, currentAttempt - 1);
+            if (nextTime > ceiling) nextTime = ceiling;
+        } else if (outcome === 'held') {
+            currentAttempt = 0;
+            nextTime = deadline;
+        }
+    }
+
+    const verdict = times.length === outcomes.length ? 'succeeded' : currentAttempt === tries ? 'exhausted' : 'expired';
+    return { times, verdict };
+}
+```

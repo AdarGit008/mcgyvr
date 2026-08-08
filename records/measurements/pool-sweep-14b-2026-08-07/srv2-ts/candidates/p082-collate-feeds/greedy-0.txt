@@ -1,0 +1,25 @@
+```ts
+/**
+ * Collates multiple feeds into a single timeline ordered by ascending tick.
+ * Discards duplicate ticks from later feeds and removes consecutive readings that are the same.
+ * @param feeds - An array of feeds, each feed is an array of [tick, reading] pairs.
+ * @returns A collated array of [tick, reading] pairs representing changes only.
+ */
+export function collateFeeds(feeds: number[][][]): number[][] {
+  const timeline: number[][] = [];
+
+  for (const feed of feeds) {
+    for (let i = 0; i < feed.length; i++) {
+      const [tick, reading] = feed[i];
+      if (i > 0 && tick <= feed[i - 1][0]) {
+        throw new Error("Ticks must strictly increase within each feed.");
+      }
+      if (!timeline.some(([t]) => t === tick)) {
+        timeline.push([tick, reading]);
+      }
+    }
+  }
+
+  return timeline.filter((pair, index) => index === 0 || pair[1] !== timeline[index - 1][1]);
+}
+```

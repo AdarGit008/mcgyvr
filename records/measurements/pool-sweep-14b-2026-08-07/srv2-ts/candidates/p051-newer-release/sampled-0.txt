@@ -1,0 +1,66 @@
+```ts
+export function newerRelease(a: string, b: string): number {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+
+  const parseVersion = (version: string) => {
+    const [base, suffix] = version.split('-');
+    const [major, minor] = base.split('.').map(Number);
+
+    if (isNaN(major) || isNaN(minor)) {
+      throw new Error('Invalid version format');
+    }
+
+    let channelRank = 0;
+    let buildNumber = 0;
+
+    if (suffix) {
+      const [channel, buildStr] = suffix.split('.');
+      const build = Number(buildStr);
+
+      if (isNaN(build)) {
+        throw new Error('Invalid version format');
+      }
+
+      switch (channel) {
+        case 'dev':
+          channelRank = 1;
+          break;
+        case 'alpha':
+          channelRank = 2;
+          break;
+        case 'beta':
+          channelRank = 3;
+          break;
+        case 'rc':
+          channelRank = 4;
+          break;
+        default:
+          throw new Error('Invalid version format');
+      }
+
+      buildNumber = build;
+    }
+
+    return { major, minor, channelRank, buildNumber };
+  };
+
+  const aVersion = parseVersion(a);
+  const bVersion = parseVersion(b);
+
+  if (aVersion.major !== bVersion.major) {
+    return aVersion.major > bVersion.major ? 1 : -1;
+  }
+
+  if (aVersion.minor !== bVersion.minor) {
+    return aVersion.minor > bVersion.minor ? 1 : -1;
+  }
+
+  if (aVersion.channelRank !== bVersion.channelRank) {
+    return aVersion.channelRank > bVersion.channelRank ? 1 : -1;
+  }
+
+  return aVersion.buildNumber > bVersion.buildNumber ? 1 : -1;
+}
+```

@@ -1,0 +1,71 @@
+```ts
+/**
+ * Finds the starting offsets of each occurrence of the query's words in the passage.
+ * @param passage - The text to search within.
+ * @param query - The text to search for.
+ * @returns An array of starting offsets where the query's words appear consecutively in the passage.
+ */
+export function wordSpanStarts(passage: string, query: string): number[] {
+  if (typeof passage !== 'string' || typeof query !== 'string') {
+    throw new Error('Both passage and query must be strings.');
+  }
+
+  const queryWords = query.match(/\b\w+\b/g);
+  if (!queryWords) {
+    throw new Error('Query contains no words.');
+  }
+
+  const wordRegex = /\b\w+\b/g;
+  const matches: number[] = [];
+  let match;
+
+  while ((match = wordRegex.exec(passage)) !== null) {
+    const startIndex = match.index;
+    if (isConsecutiveMatch(passage, startIndex, queryWords)) {
+      matches.push(startIndex);
+    }
+  }
+
+  return matches;
+}
+
+/**
+ * Checks if the words starting at the given index in the passage match the query words consecutively.
+ * @param passage - The text to search within.
+ * @param startIndex - The starting index of the potential match.
+ * @param queryWords - The array of words from the query.
+ * @returns True if the consecutive words match the query words, false otherwise.
+ */
+function isConsecutiveMatch(passage: string, startIndex: number, queryWords: string[]): boolean {
+  let currentIndex = startIndex;
+  for (const word of queryWords) {
+    const passageWord = getWordAt(passage, currentIndex);
+    if (!passageWord || !wordsMatch(passageWord, word)) {
+      return false;
+    }
+    currentIndex += passageWord.length + 1; // Move past the current word and any following non-word character
+  }
+  return true;
+}
+
+/**
+ * Retrieves the word at the given index in the passage.
+ * @param passage - The text to search within.
+ * @param index - The starting index of the word.
+ * @returns The word at the given index, or null if no word is found.
+ */
+function getWordAt(passage: string, index: number): string | null {
+  const match = /\b\w+\b/.exec(passage.slice(index));
+  return match ? match[0] : null;
+}
+
+/**
+ * Compares two words for case-insensitive equality.
+ * @param word1 - The first word to compare.
+ * @param word2 - The second word to compare.
+ * @returns True if the words are equal, false otherwise.
+ */
+function wordsMatch(word1: string, word2: string): boolean {
+  return word1.toLowerCase() === word2.toLowerCase();
+}
+```

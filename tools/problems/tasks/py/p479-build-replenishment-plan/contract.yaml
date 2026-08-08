@@ -1,0 +1,41 @@
+id: p479-build-replenishment-plan
+task_type: function_implementation
+task: >-
+  Implement build_replenishment_plan, which walks one line of stock through a
+  run of weeks. The first argument is the item, a mapping carrying exactly the
+  six keys held (a whole number at nought or above, the units in the depot
+  before week one), floor (a whole number at nought or above), ceiling (a whole
+  number at or above the floor), pack (a whole number above nought), lead (a
+  whole number above nought, the weeks a fresh purchase takes to land) and
+  inbound (a list of mappings each carrying exactly week and units, both whole
+  numbers above nought, whose weeks climb strictly, being purchases already
+  made). The second argument is the draws, a list of whole numbers at nought or
+  above, one for each week of the run, the first being week one. Take the weeks
+  in turn. Whatever lands that week joins the depot first, be it from inbound
+  or from a purchase made earlier in this same run. The week's draw then leaves
+  the depot; where the depot holds less than the draw, the difference is added
+  to the missed count and the depot is left empty. At the close of the week the
+  cover is what the depot holds plus every unit bought and not yet landed;
+  should the cover sit at the floor or below, buy the ceiling less the cover,
+  raised to the next whole number of packs, and it lands at the start of the
+  week lead weeks further on, which may be past the end of the run. A purchase
+  coming out at nought or below is not made. Give back a mapping whose orders
+  lists each purchase as a mapping of week and units in the order the purchases
+  were made, whose missed is the total draw the depot could not meet, and whose
+  closing is what the depot holds once the last week is done. Raise an error
+  for an item that is not a mapping, an item whose keys are not exactly the six
+  named, a held, floor or ceiling that is not whole or falls below nought, a
+  ceiling below the floor, a pack that is not whole or falls below one, a lead
+  that is not whole or falls below one, an inbound that is not a list, an
+  inbound entry that is not a mapping or whose keys are not exactly week and
+  units, an inbound week or units that is not whole or falls below one, inbound
+  weeks that do not climb strictly, a draws argument that is not a list, and a
+  draw that is not whole or falls below nought.
+target: solution.py
+interface: "def build_replenishment_plan(item: dict, draws: list) -> dict"
+stop_conditions:
+  - Whether a purchase may be cancelled once made is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

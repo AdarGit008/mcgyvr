@@ -1,0 +1,109 @@
+```ts
+export function nameKinTie(links: Array<Record<string, unknown>>, one: string, other: string): string {
+  if (!Array.isArray(links)) {
+    throw new Error("Links must be an array.");
+  }
+
+  const parentMap: Map<string, string[]> = new Map();
+  const childMap: Map<string, Set<string>> = new Map();
+
+  links.forEach(link => {
+    if (typeof link !== 'object' || typeof link.child !== 'string' || typeof link.parent !== 'string') {
+      throw new Error("Each link must be an object with 'child' and 'parent' as strings.");
+    }
+
+    const { child, parent } = link;
+
+    if (child === parent) {
+      throw new Error("Nobody may stand as their own parent.");
+    }
+
+    if (!parentMap.has(child)) {
+      parentMap.set(child, []);
+    }
+    if (!childMap.has(parent)) {
+      childMap.set(parent, new Set());
+    }
+
+    const parents = parentMap.get(child)!;
+    if (parents.length === 2) {
+      throw new Error("Nobody may be given more than two parents.");
+    }
+    if (parents.includes(parent)) {
+      throw new Error("A link may not be listed twice.");
+    }
+
+    parents.push(parent);
+    childMap.get(parent)!.add(child);
+  });
+
+  function hasLoop(name: string, path: Set<string>): boolean {
+    if (path.has(name)) {
+      return true;
+    }
+    path.add(name);
+    const parents = parentMap.get(name) || [];
+    for (const parent of parents) {
+      if (hasLoop(parent, new Set(path))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  links.forEach(link => {
+    const { child } = link;
+    if (hasLoop(child, new Set())) {
+      throw new Error("The links must not close a loop.");
+    }
+  });
+
+  if (!parentMap.has(one) || !parentMap.has(other)) {
+    throw new Error("Both people must appear somewhere in the links.");
+  }
+
+  function findPath(name: string, target: string): number | null {
+    const queue: [string, number][] = [[name, 0]];
+    const visited = new Set<string>([name]);
+
+    while (queue.length > 0) {
+      const [current, depth] = queue.shift()!;
+      if (current === target) {
+        return depth;
+      }
+      for (const parent of parentMap.get(current) || []) {
+        if (!visited.has(parent)) {
+          visited.add(parent);
+          queue.push([parent, depth + 1]);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  const commonAncestors: { u: number, v: number }[] = [];
+
+  for (const ancestor of childMap.keys()) {
+    const u = findPath(ancestor, one);
+    const v = findPath(ancestor, other);
+
+    if (u !== null && v !== null) {
+      commonAncestors.push({ u, v });
+    }
+  }
+
+  if (commonAncestors.length === 0) {
+    return "unrelated";
+  }
+
+  commonAncestors.sort((a, b) => {
+    if (Math.max(a.u, a.v) !== Math.max(b.u, b.v)) {
+      return Math.max(b.u, b.v) - Math.max(a.u, a.v);
+    }
+    return Math.min(a.u, a.v) - Math.min(b.u, b.v);
+  });
+
+  const { u, v } = commonAncestors[0];
+
+  if (u === 0 && v === 0)

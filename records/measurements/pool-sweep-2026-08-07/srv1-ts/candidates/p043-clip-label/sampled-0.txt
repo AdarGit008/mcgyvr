@@ -1,0 +1,17 @@
+```ts
+export function clipLabel(label: string, budget: number): string {
+  if (typeof label !== 'string' || isNaN(budget) || !Number.isInteger(budget)) {
+    throw new Error('Invalid input');
+  }
+  if (budget < 4) {
+    throw new Error('Budget must be at least 4');
+  }
+
+  if (label.length <= budget) {
+    return label;
+  }
+
+  const clipped = label.slice(0, budget - 3).trimEnd();
+  return `${clipped}...`;
+}
+```

@@ -1,0 +1,73 @@
+```ts
+export function expiryCache(capacity: number, ops: (string | number)[][]): number[] {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer");
+  }
+
+  const cache = new Map<string, { value: number; expiry: number }>();
+  const results: number[] = [];
+
+  for (const op of ops) {
+    if (!Array.isArray(op) || op.length < 3) {
+      throw new Error("Invalid operation format");
+    }
+
+    const [operation, time, key] = op;
+    let ttl: number | undefined;
+
+    if (typeof operation !== "string" || typeof time !== "number" || typeof key !== "string") {
+      throw new Error("Invalid operation types");
+    }
+
+    if (operation === "set") {
+      if (op.length !== 5) {
+        throw new Error("Invalid set operation format");
+      }
+      [ttl] = op.slice(3);
+      if (!Number.isInteger(ttl) || ttl <= 0) {
+        throw new Error("TTL must be a positive integer");
+      }
+
+      // Purge dead entries
+      for (const [k, entry] of cache.entries()) {
+        if (entry.expiry < time) {
+          cache.delete(k);
+        }
+      }
+
+      // Evict if necessary
+      while (cache.size >= capacity) {
+        let toEvict: string | null = null;
+        let earliestExpiry = Infinity;
+
+        for (const [k, entry] of cache.entries()) {
+          if (entry.expiry < earliestExpiry || (entry.expiry === earliestExpiry && k < key)) {
+            earliestExpiry = entry.expiry;
+            toEvict = k;
+          }
+        }
+
+        if (toEvict !== null) {
+          cache.delete(toEvict);
+        } else {
+          break;
+        }
+      }
+
+      // Set the new value
+      cache.set(key, { value: ttl as number, expiry: time + ttl });
+    } else if (operation === "get") {
+      const entry = cache.get(key);
+      if (!entry || entry.expiry < time) {
+        results.push(-1);
+      } else {
+        results.push(entry.value);
+      }
+    } else {
+      throw new Error("Unknown operation");
+    }
+  }
+
+  return results;
+}
+```

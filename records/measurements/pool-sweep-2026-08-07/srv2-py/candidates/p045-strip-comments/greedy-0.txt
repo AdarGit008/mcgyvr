@@ -1,0 +1,30 @@
+```python
+import re
+
+
+def strip_comments(source: str) -> str:
+    def is_escaped(string: str, index: int) -> bool:
+        return index > 0 and string[index - 1] == '\\'
+
+    lines = source.split("\n")
+    result = []
+    in_string = False
+    for line in lines:
+        new_line = ""
+        i = 0
+        while i < len(line):
+            if line[i] == '"' and not is_escaped(line, i):
+                in_string = not in_string
+            elif line[i:i+2] == "//" and not in_string:
+                break
+            elif line[i:i+2] == "/*" and not in_string:
+                j = line.find("*/", i + 2)
+                if j == -1:
+                    raise ValueError("Unmatched block comment")
+                i = j + 2
+            else:
+                new_line += line[i]
+            i += 1
+        result.append(new_line)
+    return "\n".join(result)
+```

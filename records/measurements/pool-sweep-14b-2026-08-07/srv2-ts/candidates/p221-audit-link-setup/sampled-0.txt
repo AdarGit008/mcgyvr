@@ -1,0 +1,82 @@
+```ts
+/**
+ * The first record of a link setup that departs from the drill.
+ */
+export function auditLinkSetup(exchange: Record<string, unknown>[]): string {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid input: exchange must be a non-empty list.");
+  }
+
+  let expectedSeq = 1;
+  let phase = 0;
+
+  const script = [
+    ["caller", "PROBE"],
+    ["listener", "READY"],
+    ["caller", "KEY"],
+    ["listener", "SEAL"],
+  ];
+
+  for (let at = 0; at < exchange.length; at++) {
+    const record = exchange[at];
+
+    if (
+      typeof record !== "object" ||
+      record === null ||
+      !("side" in record) ||
+      !("verb" in record) ||
+      !("seq" in record)
+    ) {
+      throw new Error("Invalid input: each record must be a mapping with 'side', 'verb', and 'seq'.");
+    }
+
+    const side = record.side as string;
+    const verb = record.verb as string;
+    const seq = Number(record.seq);
+
+    if (isNaN(seq) || !Number.isInteger(seq)) {
+      throw new Error("Invalid input: 'seq' must be a whole number.");
+    }
+
+    if (side !== "caller" && side !== "listener") {
+      throw new Error("Invalid input: 'side' must be either 'caller' or 'listener'.");
+    }
+
+    if (
+      verb !== "PROBE" &&
+      verb !== "READY" &&
+      verb !== "KEY" &&
+      verb !== "SEAL" &&
+      verb !== "PING" &&
+      verb !== "PONG" &&
+      verb !== "CLOSE"
+    ) {
+      throw new Error("Invalid input: 'verb' must be one of PROBE, READY, KEY, SEAL, PING, PONG, or CLOSE.");
+    }
+
+    if (phase < script.length) {
+      if (side !== script[phase][0] || verb !== script[phase][1]) {
+        return verb + "@" + (at + 1);
+      }
+      expectedSeq = seq;
+      phase += 1;
+      continue;
+    }
+
+    if (verb === "PING" || verb === "CLOSE") {
+      if (side !== "caller" || seq !== expectedSeq) {
+        return verb + "@" + (at + 1);
+      }
+      expectedSeq += 1;
+    } else if (verb === "PONG") {
+      if (side !== "listener" || seq !== expectedSeq - 1) {
+        return verb + "@" + (at + 1);
+      }
+    } else {
+      return verb + "@" + (at + 1);
+    }
+  }
+
+  return phase < script.length ? "short" : "";
+}
+```

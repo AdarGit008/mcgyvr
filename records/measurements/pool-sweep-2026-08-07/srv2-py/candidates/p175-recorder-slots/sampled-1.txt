@@ -1,0 +1,31 @@
+```python
+def recorder_snapshot(slots: int, script: list) -> dict:
+    if slots < 1:
+        raise ValueError("the slot count must be a positive whole number")
+    if not isinstance(script, list):
+        raise ValueError("the script must be a list")
+    seats = [-1] * slots
+    head = 0
+    carried = 0
+    overwritten = 0
+    starved = 0
+    for entry in script:
+        if not isinstance(entry, int) or entry < -1:
+            raise ValueError("a script entry must be -1 or a non-negative integer")
+        if entry == -1:
+            head = (head + 1) % slots
+            carried -= 1
+        elif carried == slots:
+            seats[head] = entry
+            overwritten += 1
+        else:
+            seats[(head + carried) % slots] = entry
+            carried += 1
+    order = [seats[at] for at in range(carried)]
+    return {
+        "order": order,
+        "head": head,
+        "overwritten": overwritten,
+        "starved": starved,
+    }
+```

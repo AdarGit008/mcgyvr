@@ -1,0 +1,34 @@
+```python
+def squash_journal(ops: list) -> list:
+    store = {}
+    last_put = {}
+    
+    for i, (op, *args) in enumerate(ops):
+        if op == "put":
+            key, value = args
+            if not isinstance(key, str) or key == "" or not isinstance(value, int) or value <= 0:
+                raise ValueError("Invalid put operation: key must be a non-empty string and value must be a positive integer")
+            store[key] = value
+            last_put[key] = i
+        elif op == "del":
+            key = args[0]
+            if not isinstance(key, str) or key == "":
+                raise ValueError("Invalid del operation: key must be a non-empty string")
+            if key not in store:
+                raise ValueError("Deleting absent key")
+            del store[key]
+        elif op == "ren":
+            old, new = args
+            if not isinstance(old, str) or old == "" or not isinstance(new, str) or new == "":
+                raise ValueError("Invalid ren operation: both keys must be non-empty strings")
+            if old not in store:
+                raise ValueError("Renaming absent key")
+            if new in store:
+                raise ValueError("Renaming onto an existing key")
+            store[new] = store.pop(old)
+            last_put[new] = last_put[old]
+        else:
+            raise ValueError(f"Unknown operation: {op}")
+    
+    return [[op, key, value] for op, key, value in ops if (op == "put" and key not in store) or (key in last_put and last_put[key] == i)]
+```

@@ -1,0 +1,43 @@
+```python
+def run_transactions(commands: list[str]) -> dict[str, str]:
+    state = {}
+    transactions = []
+
+    for cmd in commands:
+        parts = cmd.split()
+        if len(parts) != 3 and parts[0] not in ["commit", "rollback"]:
+            raise ValueError("Invalid command format")
+
+        verb = parts[0]
+        key = parts[1]
+
+        if verb == "k":
+            value = parts[2]
+            if transactions:
+                transactions[-1][key] = value
+            else:
+                state[key] = value
+        elif verb == "unset":
+            if transactions:
+                if key in transactions[-1]:
+                    del transactions[-1][key]
+            else:
+                if key in state:
+                    del state[key]
+        elif verb == "begin":
+            transactions.append({})
+        elif verb == "commit":
+            if not transactions:
+                raise ValueError("No open transaction to commit")
+            inner_changes = transactions.pop()
+            if transactions:
+                transactions[-1].update(inner_changes)
+            else:
+                state.update(inner_changes)
+        elif verb == "rollback":
+            if not transactions:
+                raise ValueError("No open transaction to rollback")
+            transactions.pop()
+
+    return {k: state[k] for k in transactions[0]} if transactions else state
+```

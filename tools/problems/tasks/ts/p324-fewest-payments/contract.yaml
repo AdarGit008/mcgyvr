@@ -1,0 +1,28 @@
+id: p324-fewest-payments
+task_type: function_implementation
+task: >-
+  Implement fewestPayments. Each due is a three-element list holding a payer
+  name, a payee name and a whole amount of one or more, meaning the payer
+  owes the payee exactly that much. First fold the dues into one net position
+  per person, adding what a person is owed and subtracting what they owe, and
+  set aside everyone whose net position comes to nothing. Then draw up
+  payments one at a time until no position is left standing. Whenever some
+  person still in the red owes precisely what some person still in the black
+  is due, pay that pair off in full, choosing the red name that sorts first
+  and, among the pairs sharing it, the black name that sorts first. Failing
+  any such exact pair, take the deepest red position and the fullest black
+  position, breaking either tie by the name that sorts first, and move the
+  smaller of the two magnitudes. Return the payments as three-element lists
+  of payer, payee and amount in the order they were drawn up; dues that net
+  to nothing everywhere yield no payments at all. Raise an error when the
+  dues are not a list, when a due is not a list of exactly three items, when
+  either name is not a non-empty string, when a due puts one person on both
+  sides, and when an amount is not a whole number of one or more.
+target: solution.ts
+interface: "export function fewestPayments(dues: any): (string | number)[][]"
+stop_conditions:
+  - Whether the payment count these rules produce is the smallest possible for every input is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

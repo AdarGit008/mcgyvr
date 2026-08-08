@@ -1,0 +1,37 @@
+id: p209-write-tag-marks
+task_type: bug_fix
+task: >-
+  write_tag_marks writes a badge out and quotes it badly. Repair it. A badge
+  is an angle bracket, a label, then every field in the order handed over,
+  each preceded by one space, then a closing angle bracket. The label and a
+  field's key are both a small letter trailed by small letters and digits.
+  Each field arrives as a pair of a key and its text. Write a field whose
+  text is empty as the bare key and nothing else. Write a field whose text
+  is one or more letters, digits, hyphens and full stops as the key, an
+  equals sign, and the text naked. Write any other field wrapped: choose the
+  single quote when the text carries a double quote and carries no single
+  quote, and choose the double quote in every other case, then write the
+  key, an equals sign, the chosen quote, the text with a backslash put in
+  front of every backslash and in front of every appearance of the chosen
+  quote, and the chosen quote again. A badge with no fields at all is just
+  the angle bracket, the label and the closing angle bracket, with no space
+  anywhere. Raise an error when the label is not a string of the stated
+  shape, when the fields are not a list, when an entry is not a list of
+  exactly two, when a key is not a string of the stated shape, when a text
+  is not a string, and when one key arrives twice. Return the complete fixed
+  file.
+target: solution.py
+target_content: |
+  """A badge written out from its fields."""
+
+
+  def write_tag_marks(label: str, fields: list) -> str:
+      parts = [key + '="' + text + '"' for key, text in fields]
+      return "<" + label + " " + " ".join(parts) + ">"
+interface: "def write_tag_marks(label: str, fields: list) -> str"
+stop_conditions:
+  - Whether a text may hold a newline, and how it would be wrapped, is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

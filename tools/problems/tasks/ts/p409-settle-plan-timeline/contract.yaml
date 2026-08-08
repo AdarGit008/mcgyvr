@@ -1,0 +1,61 @@
+id: p409-settle-plan-timeline
+task_type: bug_fix
+task: >-
+  settlePlanTimeline bills a run of plan changes across one period and gets
+  the arithmetic wrong. Repair it. The period is a whole number of days
+  numbered from one, the account opens the period on a plan whose price for a
+  period entire is given in cents, and the changes arrive as records of a day
+  and the cents a period entire costs on the plan taken up that day. The
+  changes carve the period into legs: a leg runs from the day its plan is
+  taken up through the day before the next change, and the last leg runs
+  through the period's final day. Price one leg by multiplying its plan's
+  period price by the leg's days; the leg costs that product divided by the
+  period's days with the fraction thrown away, and the remainder of that same
+  division drops into a pot carried on from leg to leg. Whenever the pot has
+  reached the period's days or gone past them, one further cent joins the leg
+  in hand and the period's days come back out of the pot, so that rounding
+  loses nothing over the period as a whole. Give back a record whose legs
+  lists every leg in order carrying from, to, days and cents, and whose total
+  is the legs' cents added together. Raise an error for a period that is not
+  a whole number of one day or more, an opening price that is not a whole
+  number of cents of nothing or more, changes that are not a list, a change
+  that is not a record, a change day that is not a whole number lying from
+  two to the period's last day, a change price that is not a whole number of
+  cents of nothing or more, and change days that fail to climb strictly.
+  Return the whole repaired file.
+target: solution.ts
+target_content: |
+  /** What one period costs when the plan changes part way through. */
+  export function settlePlanTimeline(
+    periodDays: number,
+    openingCents: number,
+    changes: { day: number; cents: number }[],
+  ): {
+    legs: { from: number; to: number; days: number; cents: number }[];
+    total: number;
+  } {
+    const legs: { from: number; to: number; days: number; cents: number }[] = [];
+    let total = 0;
+    let start = 1;
+    let rate = openingCents;
+    for (const change of changes) {
+      const days = change.day - start;
+      const cents = Math.floor((rate * days) / periodDays);
+      legs.push({ from: start, to: change.day, days, cents });
+      total += cents;
+      start = change.day;
+      rate = change.cents;
+    }
+    const days = periodDays - start + 1;
+    const cents = Math.floor((rate * days) / periodDays);
+    legs.push({ from: start, to: periodDays, days, cents });
+    total += cents;
+    return { legs, total };
+  }
+interface: "export function settlePlanTimeline(periodDays: number, openingCents: number, changes: { day: number; cents: number }[]): { legs: { from: number; to: number; days: number; cents: number }[]; total: number }"
+stop_conditions:
+  - Whether two consecutive legs priced at the same rate should be folded into one is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

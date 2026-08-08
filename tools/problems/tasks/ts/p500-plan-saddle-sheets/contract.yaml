@@ -1,0 +1,31 @@
+id: p500-plan-saddle-sheets
+task_type: function_implementation
+task: >-
+  Implement planSaddleSheets. A booklet is saddle-stitched: its leaves are
+  stacked, folded once through the middle and stapled along the fold, so one
+  sheet of paper carries four pages, two on the side facing out and two on the
+  side facing in. The first argument is the pages, a whole number from one
+  through four thousand giving how many pages carry printing. The booklet is
+  padded with unprinted pages until the count divides by four, and every padded
+  page reads blank rather than a number. The second argument is the binding,
+  either the word left or the word right. Sheets are numbered from one, the first
+  being the outermost. Write P for the padded page count. Under a left binding
+  the front of sheet s carries the page numbered P plus two less twice s on its
+  left half and the page numbered twice s less one on its right half, while the
+  back of sheet s carries the page numbered twice s on its left half and the page
+  numbered P plus one less twice s on its right half. Under a right binding the
+  two halves of every side change places. Give back one line for each side, sheet
+  by sheet from the first and, within a sheet, the front before the back, each
+  line being the sheet number then a space then the word front or back then a
+  space then the page on the left half then a space then the page on the right
+  half, a padded page being written as the word blank. Raise an error when the
+  pages are not a whole number, when they fall outside one through four thousand,
+  and when the binding is neither left nor right.
+target: solution.ts
+interface: "export function planSaddleSheets(pages: number, binding: string): string[]"
+stop_conditions:
+  - Whether the padded pages should be reported separately from the sheet lines is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,78 @@
+```ts
+export function foldFormula(recipe: string): string {
+  if (typeof recipe !== 'string' || recipe.length === 0) {
+    throw new Error('Invalid input');
+  }
+
+  const tagRegex = /^[A-Z][a-z]{0,2}$/;
+  const repeatRegex = /^\d+$/;
+
+  interface Item {
+    tags: Map<string, number>;
+  }
+
+  function parseItem(input: string): { item: Item; rest: string } {
+    const tags = new Map<string, number>();
+    let count = 1;
+    let i = 0;
+
+    while (i < input.length) {
+      if (input[i] === '(') {
+        const closeIndex = findMatchingParenthesis(input, i);
+        if (closeIndex === -1) {
+          throw new Error('Mismatched parentheses');
+        }
+        const { item: subItem, rest } = parseItem(input.slice(i + 1, closeIndex));
+        for (const [tag, subCount] of subItem.tags) {
+          tags.set(tag, (tags.get(tag) || 0) + subCount * count);
+        }
+        i = closeIndex + 1;
+      } else if (tagRegex.test(input.slice(i, i + 3))) {
+        const tag = input.slice(i, i + 3).match(tagRegex)![0];
+        tags.set(tag, (tags.get(tag) || 0) + count);
+        i += tag.length;
+      } else {
+        throw new Error('Invalid tag');
+      }
+
+      if (repeatRegex.test(input[i])) {
+        const repeat = input.slice(i).match(repeatRegex)!;
+        count *= parseInt(repeat[0], 10);
+        i += repeat[0].length;
+      } else {
+        count = 1;
+      }
+    }
+
+    return { item: { tags }, rest: input.slice(i) };
+  }
+
+  function findMatchingParenthesis(input: string, openIndex: number): number {
+    let balance = 1;
+    for (let i = openIndex + 1; i < input.length; i++) {
+      if (input[i] === '(') {
+        balance++;
+      } else if (input[i] === ')') {
+        balance--;
+        if (balance === 0) {
+          return i;
+        }
+      }
+    }
+    return -1;
+  }
+
+  const { item, rest } = parseItem(recipe);
+  if (rest.length !== 0) {
+    throw new Error('Extra characters at the end');
+  }
+
+  const result: string[] = [];
+  for (const tag of Array.from(item.tags.keys()).sort()) {
+    const count = item.tags.get(tag)!;
+    result.push(tag + (count > 1 ? count : ''));
+  }
+
+  return result.join('');
+}
+```

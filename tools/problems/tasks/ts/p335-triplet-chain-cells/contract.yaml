@@ -1,0 +1,57 @@
+id: p335-triplet-chain-cells
+task_type: bug_fix
+task: >-
+  tripletChainCells composes two stages of a relay and botches the join. Stage
+  one is a bag of links [source, middle, weight]; stage two is a bag of links
+  [middle, sink, weight]. Chaining them yields, for each source and sink, the
+  summed weight of every route that leaves the source, passes through some
+  middle, and arrives at the sink — each route weighing the product of its two
+  links. Give back one triple [source, sink, weight] per surviving route,
+  sorted by source ascending and then by sink ascending, dropping any pair
+  whose summed weight comes out as nothing. Bands are numbered from zero:
+  sources below lefts, middles below mids, sinks below rights. The code here
+  joins on the wrong end, pairing stage one's source against stage two's
+  middle; it stores each route instead of adding to what earlier routes
+  through other middles already contributed; it never drops a pair that sums
+  away to nothing; and it sorts on the sink ahead of the source. Fix all four,
+  keep every product exact, and supply the missing guards, throwing an error
+  for: a bag that is not a list, a link that is not a triple, an endpoint that
+  is not a whole number or lies outside its band, a weight that is not a whole
+  number or whose size tops 10000, a weight of nothing stored in a bag, one
+  bag holding two links between the same two endpoints, and a band width that
+  is not a whole number between 1 and 1000. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function tripletChainCells(
+    first: number[][],
+    second: number[][],
+    lefts: number,
+    mids: number,
+    rights: number,
+  ): number[][] {
+    const routes = new Map<string, number>();
+    for (const [source, middle, weight] of first) {
+      for (const [other, sink, gain] of second) {
+        if (source !== other) continue;
+        routes.set(`${source}:${sink}`, weight * gain);
+      }
+    }
+    const out: number[][] = [];
+    for (const [pair, weight] of routes) {
+      const cut = pair.indexOf(":");
+      out.push([
+        Number(pair.slice(0, cut)),
+        Number(pair.slice(cut + 1)),
+        weight,
+      ]);
+    }
+    out.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+    return out;
+  }
+interface: "export function tripletChainCells(first: number[][], second: number[][], lefts: number, mids: number, rights: number): number[][]"
+stop_conditions:
+  - Whether a middle that no stage-two link leaves should be reported anywhere is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

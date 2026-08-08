@@ -1,0 +1,22 @@
+```python
+def resolve_access(rules: list, request: dict) -> dict:
+    if not request.get("action"):
+        raise ValueError("Request action cannot be empty")
+    
+    max_specificity = -1
+    best_decision = "deny"
+    best_index = -1
+    
+    for i, rule in enumerate(rules):
+        if rule["effect"] not in ("allow", "deny") or not rule["action"]:
+            raise ValueError(f"Invalid rule: {rule}")
+        
+        if rule["path"].issubset(request["path"]) and (rule["action"] == request["action"] or rule["action"] == "any"):
+            specificity = len(rule["path"])
+            if specificity > max_specificity or (specificity == max_specificity and rule["effect"] != "deny"):
+                max_specificity = specificity
+                best_decision = rule["effect"]
+                best_index = i
+    
+    return {"decision": best_decision, "rule": best_index}
+```

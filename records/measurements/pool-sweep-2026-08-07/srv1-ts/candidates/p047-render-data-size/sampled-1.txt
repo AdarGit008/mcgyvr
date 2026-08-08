@@ -1,0 +1,25 @@
+```ts
+export function renderDataSize(total: number): string {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error("Invalid input");
+  }
+
+  const ladder: [string, number][] = [
+    ["TiB", 1024 * 1024 * 1024],
+    ["GiB", 1024 * 1024],
+    ["MiB", 1024],
+    ["KiB", 1],
+    ["B", 1],
+  ];
+  const parts: string[] = [];
+  let rest = total;
+  for (const [suffix, size] of ladder) {
+    if (size === 1) break; // Stop at bytes
+    const count = Math.floor(rest / size);
+    if (count > 0) parts.push(`${count}${suffix}`);
+    rest -= count * size;
+  }
+  if (rest > 0 || parts.length === 0) parts.push(`${rest}B`);
+  return parts.join(" ");
+}
+```

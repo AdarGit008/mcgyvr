@@ -1,0 +1,59 @@
+id: p227-kinship-degree
+task_type: bug_fix
+task: >-
+  kinship_degree reads a register wrongly. Repair it. The register is a mapping
+  from a person's name to the list of their forebears, which may be empty and
+  may never run past two; every name listed as a forebear must itself be a key
+  of the register, no list may name the same forebear twice, and nobody may be
+  listed as their own forebear. The second and third arguments name two people,
+  both of which must be keys. Climb from a person to reach every forebear,
+  holding each at the fewest steps that lead there, with the person standing at
+  nought steps. When one of the two is reached by climbing from the other, or
+  the two names are the same, the line is "direct": the steps are the gap
+  between them and the meeting point is the elder of the two, or the person
+  themselves. Otherwise, when the two reach a forebear in common, the line is
+  "collateral": take the shared forebear whose two step counts add up to the
+  least, and where several add up alike, the one whose name sorts first; the
+  steps are that sum and the meeting point is that forebear. When neither
+  holds, the line is "apart", the steps are nought and the meeting point is the
+  empty string. Return a mapping with "steps", "line" and "meet". Raise an
+  error when the register is not a mapping, when a key is not a non-empty
+  string, when a forebear list is not a list or names more than two, when a
+  forebear is not a non-empty string or is not a key of the register, when a
+  list names the same forebear twice, when someone is their own forebear, when
+  climbing from anybody closes a loop, and when either person is not a key.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  """How far apart two people stand in a register of forebears."""
+
+
+  def kinship_degree(register: dict, one: str, other: str) -> dict:
+      def climb(start):
+          seen = {}
+          frontier = register.get(start, [])
+          step = 1
+          while frontier:
+              following = []
+              for name in frontier:
+                  if name not in seen:
+                      seen[name] = step
+                      following.extend(register.get(name, []))
+              frontier = following
+              step += 1
+          return seen
+
+      mine = climb(one)
+      theirs = climb(other)
+      for name, up in mine.items():
+          down = theirs.get(name)
+          if down is not None:
+              return {"steps": up + down, "line": "collateral", "meet": name}
+      return {"steps": 0, "line": "apart", "meet": ""}
+interface: "def kinship_degree(register: dict, one: str, other: str) -> dict"
+stop_conditions:
+  - Whether a register may hold a person no other entry ever mentions is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

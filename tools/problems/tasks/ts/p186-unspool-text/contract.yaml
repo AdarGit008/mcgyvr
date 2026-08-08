@@ -1,0 +1,28 @@
+id: p186-unspool-text
+task_type: function_implementation
+task: >-
+  Implement unspoolText. A spool is text that has been shortened by
+  pointing backwards at itself, using this made-up notation only. Read the
+  spool left to right and build the output as you go. Any character other
+  than the less-than sign is appended as it stands, including the
+  greater-than sign. Two less-than signs in a row append one less-than
+  sign. Otherwise a less-than sign opens a pointer, written as a reach, a
+  comma, a haul, and a greater-than sign, both numbers being digits
+  denoting a value of at least one and written with no padding zero: it
+  appends haul characters taken from reach characters behind the current
+  end of the output, appended one at a time so that a haul larger than its
+  reach keeps re-reading what the pointer has itself just appended.
+  Return the finished output. Raise an error for a less-than sign that
+  opens neither a doubled sign nor a well-formed pointer, a pointer whose
+  greater-than sign never arrives, a pointer with no comma in it, a reach
+  or haul that is not digits or is zero or carries a padding zero, a reach
+  larger than the number of characters produced so far, and an argument
+  that is not a string.
+target: solution.ts
+interface: "export function unspoolText(spool: string): string"
+stop_conditions:
+  - Whether a pointer may appear before any character has been produced is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

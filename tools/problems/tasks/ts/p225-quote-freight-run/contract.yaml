@@ -1,0 +1,27 @@
+id: p225-quote-freight-run
+task_type: function_implementation
+task: >-
+  Implement quoteFreightRun. The first argument is a non-empty list of rate
+  bands, each a mapping with "from" (a whole number of kilos, never negative)
+  and "perKilo" (a non-negative whole number of cents). The first band must
+  start at nought and the starting weights must climb strictly. A band's
+  stretch takes in its own starting weight and stops just short of the next
+  band's; the last band's stretch runs on without end. The second argument is a
+  consignment weight in whole kilos, one or more. Number the kilos of the
+  consignment from nought upwards, so a weight of seven kilos is the numbers
+  nought to six; each number sits in exactly one band's stretch and is charged
+  at that band's rate. Return a mapping with "split", what each band charged in
+  band order, and "cents", the sum of those charges. Raise an error when the
+  bands are not a non-empty list, when a band is not a mapping, when a starting
+  weight is not a whole number of nought or more, when the first band does not
+  start at nought, when the starting weights do not climb strictly, when a rate
+  is not a non-negative whole number, and when the consignment weight is not a
+  whole number of one or more.
+target: solution.ts
+interface: "export function quoteFreightRun(bands: Array<Record<string, unknown>>, kilos: number): Record<string, unknown>"
+stop_conditions:
+  - Whether a later band's rate must sit below an earlier one's is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

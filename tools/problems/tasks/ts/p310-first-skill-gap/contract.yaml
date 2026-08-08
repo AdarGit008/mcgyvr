@@ -1,0 +1,33 @@
+id: p310-first-skill-gap
+task_type: function_implementation
+task: >-
+  Implement firstSkillGap. Each row of shifts is one person's tour of duty: a
+  name, the minute the tour starts, the minute it ends, then one or more skills
+  that person carries. Each row of required is a demand of exactly four fields —
+  a skill, the fewest people who must hold it, the minute the demand opens, and
+  the minute it closes. Minutes are written as decimal figures counted from the
+  top of the day and never run past 1440. Cut the day at every minute named
+  anywhere, whether by a tour's two ends or a demand's two ends, and read the
+  stretches lying between neighbouring cuts in rising order. A demand bites on a
+  stretch when it opens no later than the stretch begins and closes no earlier
+  than the stretch ends; a person answers that demand when the tour spans the
+  whole stretch and carries the named skill. Walk the stretches in rising order
+  and, inside a stretch, the demands in the order handed over; the first demand
+  answered by too few people is the verdict, written as the opening minute, a
+  hyphen, the closing minute, one space, then the skill. Hand back the word
+  covered when no demand ever falls short. Reject with an error a roster that is
+  not a list; a tour row that is not a list or holds fewer than four fields; a
+  field that is not a non-empty string; a minute that is not decimal figures or
+  runs past 1440; a tour that does not end after it starts; a skill written
+  twice in one tour; a name rostered twice; a demand list that is not a list or
+  holds nothing; a demand row that is not four fields; a headcount that is not
+  decimal figures or falls below one; and a demand that does not close after it
+  opens.
+target: solution.ts
+interface: "export function firstSkillGap(shifts: string[][], required: string[][]): string"
+stop_conditions:
+  - Whether two demands may name the same skill over overlapping minutes is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

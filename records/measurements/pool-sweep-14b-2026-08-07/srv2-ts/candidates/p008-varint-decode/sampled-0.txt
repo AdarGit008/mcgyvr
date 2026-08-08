@@ -1,0 +1,44 @@
+```ts
+/**
+ * Decodes a list of byte values into a sequence of unsigned base-128 varints.
+ * @param data - An array of integers representing byte values (0-255).
+ * @returns An array of decoded numbers.
+ */
+export function decodeVarints(data: number[]): number[] {
+  if (!Array.isArray(data)) {
+    throw new Error("Input must be an array");
+  }
+
+  const result: number[] = [];
+  let currentNumber = 0;
+  let shift = 0;
+
+  for (let i = 0; i < data.length; i++) {
+    const byte = data[i];
+
+    if (!Number.isInteger(byte) || byte < 0 || byte > 255) {
+      throw new Error("Invalid byte value");
+    }
+
+    currentNumber |= (byte & 0x7f) << shift;
+    shift += 7;
+
+    if ((byte & 0x80) === 0) {
+      // If the high bit is not set, this is the last byte of the varint
+      if (shift !== 7 && currentNumber > 2 ** (shift - 1)) {
+        throw new Error("Overlong encoding");
+      }
+      result.push(currentNumber);
+      currentNumber = 0;
+      shift = 0;
+    }
+  }
+
+  // If there's a pending number without a termination byte, it's an error
+  if (shift !== 0) {
+    throw new Error("Varint not terminated");
+  }
+
+  return result;
+}
+```

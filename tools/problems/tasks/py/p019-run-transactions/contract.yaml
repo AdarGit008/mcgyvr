@@ -1,0 +1,21 @@
+id: p019-run-transactions
+task_type: function_implementation
+task: >-
+  Implement run_transactions. The input is a list of commands over a
+  key-value store. The command set k v stores v under k, unset k removes k
+  (removing an absent key does nothing), begin opens a nested transaction,
+  commit folds the innermost open transaction's changes into whatever
+  encloses it, and rollback discards them. Transactions nest to any depth,
+  and removals made inside a transaction must also take effect when it
+  commits. Return the resulting mapping from key to value once every
+  command has run. Reject with an error a commit or rollback with no open
+  transaction, a transaction still open after the last command, a command
+  whose verb is unknown, and a command with the wrong number of parts.
+target: solution.py
+interface: "def run_transactions(commands: list[str]) -> dict[str, str]"
+stop_conditions:
+  - Whether a key or value may contain a space is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

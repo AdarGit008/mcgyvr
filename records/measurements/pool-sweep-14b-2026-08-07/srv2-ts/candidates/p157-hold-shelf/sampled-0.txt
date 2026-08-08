@@ -1,0 +1,64 @@
+```ts
+export function holdShelfReplay(slips: string[]): string[] {
+  const queue: string[] = [];
+  const responses: string[] = [];
+
+  for (const slip of slips) {
+    if (typeof slip !== 'string') {
+      throw new Error('Invalid slip: not a string');
+    }
+
+    const parts = slip.split(' ');
+    const verb = parts[0];
+
+    switch (verb) {
+      case 'join': {
+        if (parts.length < 2 || !parts[1]) {
+          throw new Error('Invalid join slip: missing name');
+        }
+        const name = parts.slice(1).join(' ');
+
+        const index = queue.indexOf(name);
+        if (index !== -1) {
+          responses.push(`no:again`);
+        } else {
+          queue.push(name);
+          responses.push(`at:${queue.length}`);
+        }
+        break;
+      }
+      case 'leave': {
+        if (parts.length < 2 || !parts[1]) {
+          throw new Error('Invalid leave slip: missing name');
+        }
+        const name = parts.slice(1).join(' ');
+
+        const index = queue.indexOf(name);
+        if (index !== -1) {
+          queue.splice(index, 1);
+          responses.push(`out`);
+        } else {
+          responses.push(`no:absent`);
+        }
+        break;
+      }
+      case 'serve': {
+        if (parts.length > 1) {
+          throw new Error('Invalid serve slip: carries extra content');
+        }
+        if (queue.length === 0) {
+          responses.push(`idle`);
+        } else {
+          const name = queue.shift()!;
+          responses.push(`take:${name}`);
+        }
+        break;
+      }
+      default:
+        throw new Error('Invalid verb in slip');
+    }
+  }
+
+  return responses;
+}
+```

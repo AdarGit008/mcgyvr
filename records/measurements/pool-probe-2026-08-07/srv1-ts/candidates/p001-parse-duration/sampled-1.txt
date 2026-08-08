@@ -1,0 +1,32 @@
+```ts
+/**
+ * Parses a compact duration string into total seconds.
+ * @param input - The duration string to parse.
+ * @returns The total number of seconds in the duration.
+ */
+export function parseDuration(input: string): number {
+  if (typeof input !== 'string' || input.trim() === '') {
+    throw new Error('Invalid input');
+  }
+
+  const units = ['d', 'h', 'm', 's'];
+  const regex = /^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/;
+  const match = input.match(regex);
+
+  if (!match) {
+    throw new Error('Invalid duration format');
+  }
+
+  let totalSeconds = 0;
+
+  for (let i = 0; i < units.length; i++) {
+    const value = parseInt(match[i + 1] || '0', 10);
+    if (isNaN(value)) {
+      throw new Error('Missing value');
+    }
+    totalSeconds += value * Math.pow(60, units.length - i - 1);
+  }
+
+  return totalSeconds;
+}
+```

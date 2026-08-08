@@ -1,0 +1,45 @@
+id: p261-issue-cost-total
+task_type: bug_fix
+task: |
+  issueCostTotal walks a spare-parts bin's movement log and adds up what the
+  issues cost. A movement is a record: kind "in" with units and cents, meaning
+  that many parts arrived priced at that many cents each, or kind "out" with
+  units only, meaning that many parts left the bin. Parts leave in the order
+  they arrived, so an issue must be priced off the oldest consignment standing
+  in the bin — the code reaches for the newest instead. An issue bigger than
+  the oldest consignment must be priced piece by piece, draining that
+  consignment at its price and the next one at its own price until the issue is
+  filled; the code prices the entire issue off a single consignment and lets
+  that consignment go negative. And an issue larger than everything in the bin
+  is impossible and must be an error, where the code happily charges for it.
+  Also refuse a kind that is neither "in" nor "out", units that are not whole
+  or not above zero, an arrival whose cents are missing, fractional or below
+  zero, an issue that carries cents at all, and an argument that is not a list.
+  Return the total cents charged for all issues, zero when none were made.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function issueCostTotal(moves: Array<Record<string, unknown>>): number {
+    const bin: Array<[number, number]> = [];
+    let charged = 0;
+    for (const move of moves) {
+      if (move.kind === "in") {
+        bin.push([move.units as number, move.cents as number]);
+      } else {
+        const consignment = bin[bin.length - 1];
+        charged += (move.units as number) * consignment[1];
+        consignment[0] -= move.units as number;
+        if (consignment[0] <= 0) {
+          bin.pop();
+        }
+      }
+    }
+    return charged;
+  }
+interface: "export function issueCostTotal(moves: Array<Record<string, unknown>>): number"
+stop_conditions:
+  - Whether a movement may carry extra bookkeeping fields is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

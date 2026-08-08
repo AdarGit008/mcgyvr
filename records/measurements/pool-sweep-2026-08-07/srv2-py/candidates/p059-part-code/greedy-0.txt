@@ -1,0 +1,27 @@
+```python
+def normalize_part_code(code: str) -> str:
+    if not isinstance(code, str):
+        raise ValueError("Input must be a string")
+    
+    # Remove separators and convert to uppercase
+    cleaned_code = ''.join(c.upper() for c in code if c.isalnum())
+    
+    if len(cleaned_code) != 10:
+        raise ValueError("Cleaned code must have exactly 10 characters")
+    
+    payload = cleaned_code[:-1]
+    check_char = cleaned_code[-1]
+    
+    # Calculate the expected check character
+    weights = [3, 5, 7] * 2
+    expected_check_char = str((sum(int(payload[i]) * weights[i % len(weights)] for i in range(8)) + int(check_char)) % 36)
+    if len(expected_check_char) == 1:
+        expected_check_char = '0' + expected_check_char
+    
+    # Verify the check character
+    if check_char != expected_check_char:
+        raise ValueError("Invalid check character")
+    
+    # Return the canonical rendering
+    return f"{payload[:4]}-{payload[4:]}-{check_char}"
+```

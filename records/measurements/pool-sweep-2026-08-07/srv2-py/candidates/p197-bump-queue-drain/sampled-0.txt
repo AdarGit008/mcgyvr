@@ -1,0 +1,40 @@
+```python
+"""The order a crew works through a batch of graded tickets."""
+
+def bump_queue_drain(tickets: list, start: int, bump_every: int) -> list:
+    if not tickets:
+        raise ValueError("The batch cannot be empty.")
+    
+    for ticket in tickets:
+        if not isinstance(ticket, dict):
+            raise ValueError("Each ticket must be a mapping.")
+        if "id" not in ticket or not isinstance(ticket["id"], str) or not ticket["id"]:
+            raise ValueError("Each ticket must have a non-empty string id.")
+        if "filed" not in ticket or not isinstance(ticket["filed"], int) or ticket["filed"] < 0:
+            raise ValueError("The filed minute of each ticket must be a non-negative whole number.")
+        if "grade" not in ticket or not isinstance(ticket["grade"], int) or not (0 <= ticket["grade"] <= 9):
+            raise ValueError("The grade of each ticket must be a whole number between 0 and 9.")
+    
+    if not isinstance(start, int) or start < 0:
+        raise ValueError("The start minute must be a non-negative whole number.")
+    if not isinstance(bump_every, int) or bump_every <= 0:
+        raise ValueError("The bump interval must be a positive whole number.")
+    
+    pending = list(tickets)
+    handled = []
+    for current_minute in range(start, max(ticket["filed"] + ticket["grade"] // bump_every for ticket in tickets) + 1):
+        eligible = [ticket for ticket in pending if ticket["filed"] <= current_minute]
+        if eligible:
+            highest_urgency = -1
+            picked_ticket = None
+            for ticket in eligible:
+                urgency = ticket["grade"] + (current_minute - ticket["filed"]) // bump_every
+                urgency = min(urgency, 9)
+                if urgency > highest_urgency or (urgency == highest_urgency and ticket["id"] < picked_ticket["id"]):
+                    highest_urgency = urgency
+                    picked_ticket = ticket
+            handled.append(picked_ticket["id"])
+            pending.remove(picked_ticket)
+    
+    return handled
+```

@@ -1,0 +1,35 @@
+```python
+def project_makespan(durations: dict[str, int], deps: list[list[str]]) -> int:
+    if any(not isinstance(duration, int) or duration <= 0 for duration in durations.values()):
+        raise ValueError("All task durations must be positive whole numbers.")
+
+    tasks = set(durations.keys())
+    graph = {task: [] for task in tasks}
+    in_degree = {task: 0 for task in tasks}
+
+    for a, b in deps:
+        if a not in tasks or b not in tasks or a == b:
+            raise ValueError("Invalid dependency pair.")
+        graph[a].append(b)
+        in_degree[b] += 1
+
+    queue = [task for task in tasks if in_degree[task] == 0]
+    order = []
+    time = 0
+
+    while queue:
+        current_time = max(time, sum(durations[task] for task in order))
+        new_order = []
+
+        for task in queue:
+            time += durations[task]
+            new_order.append(task)
+
+        order.extend(new_order)
+        queue = [node for node in tasks if all(in_degree[node] == 0 for node in graph[new_task])]
+
+    if len(order) != len(tasks):
+        raise ValueError("Circular dependency detected.")
+
+    return max(time, sum(durations[task] for task in order))
+```

@@ -1,0 +1,43 @@
+id: p313-run-pour-script
+task_type: bug_fix
+task: >-
+  runPourScript replays a measuring script over a rack of flasks, and it
+  ruins every pour that meets an occupied receiver. Fix it. Flasks of the
+  listed capacities start dry and answer to the marks A, B, C by position.
+  Each script line is exactly one of "fill M", "empty M" or "pour M N" with
+  single spaces between words: a fill brings that flask up to its capacity,
+  an empty leaves it dry, and a pour hands over only as much as the
+  receiving flask still has room for, stopping early when the giving flask
+  runs out. Return the contents of every flask after the last line, in
+  position order. Also add checking: a line whose first word is none of the
+  three, a mark naming no flask in the rack, a pour whose two marks agree, a
+  line carrying the wrong number of words, a line that is not a string, and
+  an empty capacity list are each an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Flask contents after replaying a measuring script. */
+  export function runPourScript(capacities: number[], script: string[]): number[] {
+    const held: number[] = capacities.map(() => 0);
+    for (const line of script) {
+      const parts = line.split(" ");
+      if (parts[0] === "fill") {
+        held[parts[1].charCodeAt(0) - 65] = capacities[parts[1].charCodeAt(0) - 65];
+      } else if (parts[0] === "empty") {
+        held[parts[1].charCodeAt(0) - 65] = 0;
+      } else if (parts[0] === "pour") {
+        const giver = parts[1].charCodeAt(0) - 65;
+        const taker = parts[2].charCodeAt(0) - 65;
+        const moved = Math.min(held[giver], capacities[taker]);
+        held[giver] -= moved;
+        held[taker] += moved;
+      }
+    }
+    return held;
+  }
+interface: "export function runPourScript(capacities: number[], script: string[]): number[]"
+stop_conditions:
+  - Whether a mark below A or above Z may appear is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

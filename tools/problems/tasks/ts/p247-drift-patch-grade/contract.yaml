@@ -1,0 +1,94 @@
+id: p247-drift-patch-grade
+task_type: bug_fix
+task: >-
+  gradeTolerantPatches sorts a sensor plate into patches. The plate is a
+  list of lines, each line a list of whole readings, all lines of one
+  length. The second argument is the drift, a whole number of zero or more.
+  Two cells are linked when they touch — sharing a side or only a corner,
+  so eight neighbours at most — and their two readings are no further apart
+  than the drift; a patch is a run of cells joined by following links from
+  one to the next, so two cells far apart in reading may still share a
+  patch when a chain of small steps runs between them. The linking test is
+  written wrong. As it grows a patch it measures each candidate cell
+  against the reading of the cell the patch was started from, not against
+  the reading of the neighbour it is stepping off, so a gentle slope across
+  the plate is chopped into pieces instead of staying whole. Measure each
+  step against the neighbour it leaves. Leave everything else as it is: the
+  eight-neighbour touch, the walk order, the sorting of patches by size
+  falling and by earliest cell rising among equals, the "count", "sizes"
+  and "seeds" keys of the returned mapping, the seed being a cell's
+  position counted from zero reading line by line, and the errors raised
+  for a plate that is not a list, a plate with no lines, a line that is not
+  a list, a line with no cells, lines of unequal length, a reading that is
+  not a whole number, and a drift that is not a whole number of zero or
+  more. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function gradeTolerantPatches(plate: number[][], drift: number): any {
+    if (!Array.isArray(plate) || plate.length === 0) {
+      throw new Error("the plate must hold at least one line");
+    }
+    if (typeof drift !== "number" || !Number.isInteger(drift) || drift < 0) {
+      throw new Error("the drift must be a whole number of zero or more");
+    }
+    let width = -1;
+    for (const line of plate) {
+      if (!Array.isArray(line) || line.length === 0) {
+        throw new Error("every line must be a list holding at least one cell");
+      }
+      if (width === -1) width = line.length;
+      if (line.length !== width) {
+        throw new Error("the lines are not all of one length");
+      }
+      for (const reading of line) {
+        if (typeof reading !== "number" || !Number.isInteger(reading)) {
+          throw new Error("every reading must be a whole number");
+        }
+      }
+    }
+    const height = plate.length;
+    const seen: boolean[][] = [];
+    for (let r = 0; r < height; r++) seen.push(new Array(width).fill(false));
+    const found: number[][] = [];
+    for (let r = 0; r < height; r++) {
+      for (let c = 0; c < width; c++) {
+        if (seen[r][c]) continue;
+        seen[r][c] = true;
+        let size = 0;
+        const pending: number[][] = [[r, c]];
+        while (pending.length > 0) {
+          const spot = pending.pop();
+          if (spot === undefined) break;
+          const row = spot[0];
+          const col = spot[1];
+          size += 1;
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              if (dr === 0 && dc === 0) continue;
+              const nr = row + dr;
+              const nc = col + dc;
+              if (nr < 0 || nr >= height || nc < 0 || nc >= width) continue;
+              if (seen[nr][nc]) continue;
+              if (Math.abs(plate[nr][nc] - plate[r][c]) > drift) continue;
+              seen[nr][nc] = true;
+              pending.push([nr, nc]);
+            }
+          }
+        }
+        found.push([size, r * width + c]);
+      }
+    }
+    found.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+    return {
+      count: found.length,
+      sizes: found.map((patch) => patch[0]),
+      seeds: found.map((patch) => patch[1]),
+    };
+  }
+interface: "export function gradeTolerantPatches(plate: number[][], drift: number): any"
+stop_conditions:
+  - Whether a plate wide enough to overflow the pending list must be walked another way is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

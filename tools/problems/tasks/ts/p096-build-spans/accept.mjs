@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import { intersectBuildSpans } from "./solution.ts";
+
+assert.equal(intersectBuildSpans(["5..20", "10..30"]), "10..20", "limits tighten both ways");
+assert.equal(intersectBuildSpans(["..15!7", "3.."]), "3..15!7", "strike inside survives");
+assert.equal(intersectBuildSpans(["0..9!9", "5.."]), "5..8", "strike on the upper limit shrinks it");
+assert.equal(intersectBuildSpans(["5..9!5!6", ".."]), "7..9", "limit cascades past consecutive strikes");
+assert.equal(intersectBuildSpans(["2..8!4", "4..10"]), "5..8", "tightening turns a strike into a limit move");
+assert.equal(intersectBuildSpans(["5..6!5!6"]), "empty", "everything struck is empty");
+assert.equal(intersectBuildSpans(["10..20", "30..40"]), "empty", "disjoint spans are empty");
+assert.equal(intersectBuildSpans([".."]), "..", "the unlimited span is its own canonical form");
+assert.equal(intersectBuildSpans(["..!3", ".."]), "..!3", "an unlimited span can still strike");
+assert.equal(intersectBuildSpans(["0..50!7", "..30!7!7"]), "0..30!7", "duplicate strikes are written once");
+assert.equal(intersectBuildSpans(["1..100!40", "50.."]), "50..100", "a strike below the final limits vanishes");
+assert.throws(() => intersectBuildSpans(["5..3"]), Error, "reversed limits are rejected");
+assert.throws(() => intersectBuildSpans(["05..9"]), Error, "a leading zero is rejected");
+assert.throws(() => intersectBuildSpans(["5..9!12"]), Error, "a strike outside its span is rejected");
+assert.throws(() => intersectBuildSpans(["5-9"]), Error, "a malformed span is rejected");
+assert.throws(() => intersectBuildSpans(["5..9!!3"]), Error, "a bare double bang is rejected");
+assert.throws(() => intersectBuildSpans([]), Error, "an empty list is rejected");
+assert.throws(() => intersectBuildSpans([7]), Error, "a non-string span is rejected");
+console.log("ok");

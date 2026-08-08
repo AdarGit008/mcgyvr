@@ -1,0 +1,27 @@
+```ts
+interface InvoiceLine {
+  qty: number;
+  unit: number;
+  discount: number;
+}
+
+function invoiceTotal(lines: InvoiceLine[], rate: number): { subtotal: number; tax: number; total: number } {
+  if (lines.length === 0) throw new Error("Empty line list");
+
+  const calculateNet = (line: InvoiceLine): number => {
+    if (line.qty <= 0 || !Number.isInteger(line.qty)) throw new Error("Invalid quantity");
+    if (line.unit < 0 || !Number.isInteger(line.unit)) throw new Error("Invalid unit price");
+    if (line.discount < 0 || line.discount > 10000 || !Number.isInteger(line.discount)) throw new Error("Invalid discount rate");
+
+    const gross = line.qty * line.unit;
+    const rebate = Math.round((gross * line.discount) / 100);
+    return gross - rebate;
+  };
+
+  const subtotal = lines.reduce((sum, line) => sum + calculateNet(line), 0);
+  if (rate < 0 || rate > 10000 || !Number.isInteger(rate)) throw new Error("Invalid tax rate");
+
+  const tax = Math.round((subtotal * rate) / 100);
+  return { subtotal, tax, total: subtotal + tax };
+}
+```

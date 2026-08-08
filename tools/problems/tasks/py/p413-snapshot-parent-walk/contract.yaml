@@ -1,0 +1,45 @@
+id: p413-snapshot-parent-walk
+task_type: bug_fix
+task: >-
+  order_snapshot_load walks an archive the wrong way round and trusts links it
+  ought to test. An archive holds snapshots; each snapshot is a record with
+  name, a non-empty string no other snapshot shares, and parent, the name of
+  the snapshot it was taken against, the empty string marking a whole image
+  that leans on nothing. Fix the walk so it answers with a record under three
+  keys — found, order and why. Follow parent from the wanted snapshot until a
+  whole image is reached, then answer found as the word yes, order as the
+  names to load with the whole image first and the wanted snapshot last, and
+  why as the empty string. When the wanted name, or any parent met along the
+  way, names no snapshot in the archive, answer found as the word no, order
+  as an empty list and why as the word unknown. When the walk meets a name it
+  already passed through, answer found as no, order as empty and why as the
+  word cycle; a snapshot naming itself as its parent counts. Add the checks
+  it lacks as well: raise an error when the archive is not a list, when a
+  snapshot is not a record carrying both names, when name is empty or is not
+  a string, when parent is not a string, when two snapshots share a name, and
+  when the wanted argument is not a non-empty string. Return the complete
+  fixed file.
+target: solution.py
+target_content: |
+  """The snapshots to load to rebuild one wanted image."""
+
+
+  def order_snapshot_load(archive, wanted):
+      by_name = {}
+      for entry in archive:
+          by_name[entry["name"]] = entry
+      order = []
+      seen = set()
+      at = wanted
+      while at != "" and at in by_name and at not in seen:
+          seen.add(at)
+          order.append(at)
+          at = by_name[at]["parent"]
+      return {"found": "yes", "order": order, "why": ""}
+interface: "def order_snapshot_load(archive: list, wanted: str) -> dict"
+stop_conditions:
+  - Whether two snapshots may name the same parent is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

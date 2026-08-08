@@ -1,0 +1,45 @@
+id: p187-expand-glossary
+task_type: bug_fix
+task: >-
+  expandGlossary runs a shorthand script in which repeated wording is
+  stored in numbered slots and spliced back in, and it gets the shorthand
+  wrong. Repair it. The script is a list of lines, each one of two kinds.
+  A store line is a slot number, an equals sign, and a body. A send line is
+  an exclamation mark and a slot number. A slot number is digits standing
+  for at least one, with no padding zero. Inside a body, a brace, digits
+  and a brace splice in the settled text of that slot, which must have been
+  stored on an earlier line, so a body is settled once and for all when its
+  own line is read and a slot stored later can never reach back into it.
+  Two opening braces stand for one opening brace and two closing braces
+  stand for one closing brace, and those doubled forms are not splices.
+  Return the settled texts of every send line joined together in the order
+  the send lines appear. Raise an error instead for a line of neither
+  kind, a slot number that is zero or padded, a splice naming a slot not
+  stored yet, a slot stored a second time, a send line naming a slot never
+  stored, a brace opened and never closed, a closing brace with nothing
+  open, a script that is not a list, and a line that is not a string.
+  Return the whole repaired file.
+target: solution.ts
+target_content: |
+  export function expandGlossary(script: string[]): string {
+    const slots: Record<string, string> = {};
+    const sent: string[] = [];
+    for (const line of script) {
+      if (line.startsWith("!")) {
+        sent.push(slots[line.slice(1)] ?? "");
+      } else {
+        const cut = line.indexOf("=");
+        slots[line.slice(0, cut)] = line.slice(cut + 1);
+      }
+    }
+    return sent
+      .map((body) => body.replace(/\{(\d+)\}/g, (_whole, n) => slots[n] ?? ""))
+      .join("");
+  }
+interface: "export function expandGlossary(script: string[]): string"
+stop_conditions:
+  - Whether a body may be the empty string is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

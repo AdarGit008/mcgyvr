@@ -1,0 +1,42 @@
+```python
+def print_operator_tree(node) -> str:
+    if node is None:
+        raise ValueError("Node cannot be None")
+    
+    if isinstance(node, (int, float)):
+        if not node.is_integer() or node < 0:
+            raise ValueError("Number must be a non-negative whole number")
+        return f"{int(node)}"
+    
+    if isinstance(node, str):
+        if not node.islower():
+            raise ValueError("Word must be lowercase letters")
+        return node
+    
+    if isinstance(node, dict):
+        if 'op' in node:
+            op = node['op']
+            if op not in ('or', 'and', '+', '-', '*', '/', '^'):
+                raise ValueError("Invalid operator")
+            left = print_operator_tree(node['left'])
+            right = print_operator_tree(node['right'])
+            binding_power = {
+                'or': 0, 'and': 1, '+': 2, '-': 2, '*': 3, '/': 3, '^': 4
+            }
+            left_binds_tighter = binding_power[op] > binding_power.get(left.split()[-1], -1)
+            right_binds_tighter = binding_power[op] > binding_power.get(right.split()[-1], -1)
+            return f"{'(' if left_binds_tighter else ''}{left} {op} {'(' if right_binds_tighter else ''}{right}{')' if left_binds_tighter or right_binds_tighter else ''}"
+        elif 'negate' in node:
+            operand = print_operator_tree(node['negate'])
+            bind_power_negate = 5
+            binds_tighter = binding_power.get(operand.split()[-1], -1) < bind_power_negate
+            return f"{'(' if binds_tighter else ''}- {operand}{')' if binds_tighter else ''}"
+        elif 'call' in node:
+            func = node['call']
+            if not isinstance(func, str) or not func.islower():
+                raise ValueError("Function name must be a lowercase word")
+            args = [print_operator_tree(arg) for arg in node['args']]
+            return f"{func}({', '.join(args)})"
+    
+    raise ValueError("Invalid node structure")
+```

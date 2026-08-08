@@ -1,0 +1,48 @@
+```ts
+export function serpentinePickOrder(picks: unknown): string[] {
+  if (!Array.isArray(picks)) {
+    throw new Error("Invalid input: picks must be an array");
+  }
+
+  const validatedPicks: { sku: string; aisle: number; bay: number }[] = [];
+
+  for (const pick of picks) {
+    if (
+      typeof pick !== "object" ||
+      pick === null ||
+      typeof (pick as any).sku !== "string" ||
+      !Number.isInteger((pick as any).aisle) ||
+      !Number.isInteger((pick as any).bay) ||
+      (pick as any).sku.trim() === "" ||
+      (pick as any).aisle <= 0 ||
+      (pick as any).bay <= 0
+    ) {
+      throw new Error("Invalid pick");
+    }
+
+    const sku = (pick as any).sku;
+    if (validatedPicks.some(p => p.sku === sku)) {
+      throw new Error("Duplicate SKU");
+    }
+
+    validatedPicks.push({
+      sku,
+      aisle: (pick as any).aisle,
+      bay: (pick as any).bay,
+    });
+  }
+
+  return validatedPicks
+    .sort((a, b) => a.aisle - b.aisle || a.bay - b.bay)
+    .map(pick => {
+      if (pick.aisle % 2 === 0) {
+        return pick;
+      }
+      return { ...pick, bay: -pick.bay };
+    })
+    .sort((a, b) =>
+      a.aisle !== b.aisle ? a.aisle - b.aisle : Math.abs(b.bay) - Math.abs(a.bay)
+    )
+    .map(pick => pick.sku);
+}
+```

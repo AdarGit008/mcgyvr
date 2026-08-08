@@ -1,0 +1,73 @@
+```ts
+export function intersectBuildSpans(spans: string[]): string {
+  if (spans.length === 0) throw new Error("Empty list of spans");
+
+  const parseSpan = (span: string): [number | null, number | null, Set<number>] => {
+    const parts = span.split("..");
+    if (parts.length < 1 || parts.length > 2) throw new Error("Malformed span");
+    if (parts.some(p => p.startsWith("0") && p !== "0")) throw new Error("Leading zero");
+
+    let lo: number | null = null;
+    let hi: number | null = null;
+    const strikes = new Set<number>();
+
+    if (parts[0] === "") {
+      hi = parseInt(parts[1], 10);
+    } else if (parts[1] === "") {
+      lo = parseInt(parts[0], 10);
+    } else {
+      lo = parseInt(parts[0], 10);
+      hi = parseInt(parts[1], 10);
+      if (lo > hi) throw new Error("Reversed limits");
+    }
+
+    const strikeParts = span.match(/!(\d+)/g);
+    if (strikeParts) {
+      for (const part of strikeParts) {
+        const strike = parseInt(part.slice(1), 10);
+        if (isNaN(strike)) throw new Error("Invalid strike number");
+        strikes.add(strike);
+      }
+    }
+
+    return [lo, hi, strikes];
+  };
+
+  const spansParsed = spans.map(parseSpan);
+
+  let lo: number | null = null;
+  let hi: number | null = null;
+  const strikes = new Set<number>();
+
+  for (const [spanLo, spanHi, spanStrikes] of spansParsed) {
+    if (spanLo !== null && (lo === null || spanLo > lo)) lo = spanLo;
+    if (spanHi !== null && (hi === null || spanHi < hi)) hi = spanHi;
+
+    for (const strike of spanStrikes) {
+      if ((lo !== null && strike <= lo) || (hi !== null && strike >= hi)) throw new Error("Strike outside its own span");
+      strikes.add(strike);
+    }
+  }
+
+  if (lo !== null && hi !== null && lo > hi) return "empty";
+
+  const resultStrikes = Array.from(strikes).filter(s => s > (lo ?? -1)).sort((a, b) => a - b);
+
+  let result = "";
+  if (lo === null) {
+    result += "..";
+  } else {
+    result += `${lo}`;
+  }
+
+  if (hi !== null) {
+    result += `..${hi}`;
+  }
+
+  if (resultStrikes.length > 0) {
+    result += "!" + resultStrikes.join("!");
+  }
+
+  return result;
+}
+```

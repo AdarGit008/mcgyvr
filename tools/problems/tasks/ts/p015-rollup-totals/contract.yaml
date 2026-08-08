@@ -1,0 +1,37 @@
+id: p015-rollup-totals
+task_type: bug_fix
+task: >-
+  rollupTotals computes, for every node of a hierarchy, the sum of its own
+  value and the values of every node beneath it. The input maps each node
+  id to a record holding its integer value and its parent id, and the
+  single root carries the empty string as its parent. The current code
+  only adds direct children into a node's total, so anything deeper is
+  silently dropped, and it never checks its input. Fix it: each total must
+  cover the node's entire subtree, and reject with an error a parent id
+  that is neither the empty string nor a known node id, an input with no
+  root or with more than one, and a node that cannot be reached from the
+  root. Return the mapping from node id to its total.
+target: solution.ts
+target_content: |
+  export function rollupTotals(
+    nodes: Record<string, { value: number; parent: string }>,
+  ): Record<string, number> {
+    const totals: Record<string, number> = {};
+    for (const id of Object.keys(nodes)) {
+      let total = nodes[id].value;
+      for (const other of Object.keys(nodes)) {
+        if (nodes[other].parent === id) {
+          total += nodes[other].value;
+        }
+      }
+      totals[id] = total;
+    }
+    return totals;
+  }
+interface: "export function rollupTotals(nodes: Record<string, { value: number; parent: string }>): Record<string, number>"
+stop_conditions:
+  - Whether node values may be negative is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

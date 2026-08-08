@@ -1,0 +1,20 @@
+id: p084-bin-tallies
+task_type: function_implementation
+task: >-
+  Implement bin_tallies. The first argument is a list of integer readings;
+  the second is a list of edge values in strictly increasing order, at
+  least two of them. Adjacent edges bound half-open bands: a reading r
+  lands in band i exactly when edges[i] <= r < edges[i+1]. Return a mapping
+  whose key bands holds the count landing in each band (one entry per
+  adjacent edge pair), whose key below counts readings smaller than the
+  first edge, and whose key above counts readings at or past the last
+  edge. Raise an error when fewer than two edges arrive or when any edge
+  fails to exceed the one before it.
+target: solution.py
+interface: "def bin_tallies(readings: list, edges: list) -> dict"
+stop_conditions:
+  - The allowed magnitude of readings and edges is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

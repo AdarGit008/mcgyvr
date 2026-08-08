@@ -1,0 +1,51 @@
+```ts
+export function judgeLancer(board: string[], side: string, from: number[], to: number[]): string {
+    if (board.length !== 7 || !board.every(row => row.length === 7 && /^[WB.]+$/.test(row))) {
+        throw new Error("Invalid board");
+    }
+    if (side !== "W" && side !== "B") {
+        throw new Error("Invalid side");
+    }
+    if (!Array.isArray(from) || from.length !== 2 || !from.every(coord => Number.isInteger(coord) && coord >= 0 && coord < 7)) {
+        throw new Error("Invalid from square");
+    }
+    if (!Array.isArray(to) || to.length !== 2 || !to.every(coord => Number.isInteger(coord) && coord >= 0 && coord < 7)) {
+        throw new Error("Invalid to square");
+    }
+
+    const [fromRow, fromCol] = from;
+    const [toRow, toCol] = to;
+
+    if (board[fromRow][fromCol] !== side) {
+        return "no_piece";
+    }
+
+    const rowDist = Math.abs(toRow - fromRow);
+    const colDist = Math.abs(toCol - fromCol);
+
+    if ((rowDist === 0 && colDist === 0) || (rowDist > 3 || colDist > 3) || (rowDist !== 0 && colDist !== 0)) {
+        return "bad_line";
+    }
+
+    const [dRow, dCol] = [rowDist === 0 ? 0 : (toRow - fromRow) / rowDist, colDist === 0 ? 0 : (toCol - fromCol) / colDist];
+
+    for (let i = 1; i < rowDist + colDist; i++) {
+        if (board[fromRow + i * dRow][fromCol + i * dCol] !== ".") {
+            return "blocked";
+        }
+    }
+
+    const targetPiece = board[toRow][toCol];
+
+    if (targetPiece === side) {
+        return "own_piece";
+    } else if (targetPiece === ("W" === side ? "B" : "W")) {
+        const [adjacentRow, adjacentCol] = [fromRow + dRow, fromCol + dCol];
+        if (board[adjacentRow]?.[adjacentCol] === targetPiece) {
+            return "too_close";
+        }
+    }
+
+    return "ok";
+}
+```

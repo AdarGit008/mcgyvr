@@ -1,0 +1,19 @@
+```python
+def bracket_seed_order(count: int) -> list:
+    if (
+        isinstance(count, bool)
+        or not isinstance(count, int)
+        or count < 2
+        or count & (count - 1) != 0
+    ):
+        raise ValueError("count must be a power of two, at least 2")
+    
+    def grow_field(field):
+        return [s for seed in field for s in (seed, count + 1 - seed)]
+    
+    sheet = [1]
+    while len(sheet) < count:
+        sheet = grow_field(sheet)
+    
+    return sheet
+```

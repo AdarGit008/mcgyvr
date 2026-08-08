@@ -1,0 +1,21 @@
+id: p124-cargo-split
+task_type: function_implementation
+task: >-
+  Implement splitCargo. Freight items with positive integer weights, at
+  most sixteen of them, must all be stowed into two holds so that the
+  weight totals of the holds differ as little as possible. Item 0 is
+  bolted into the forward hold by convention, which settles the mirror
+  symmetry between the holds. Among stowages achieving the least
+  possible difference, prefer the one giving the forward hold fewer
+  items; if that still ties, the forward hold whose ascending index list
+  compares lexicographically smallest wins. Return the ascending list of
+  item indices assigned to the forward hold. Reject an empty manifest
+  and any weight below one with an error.
+target: solution.ts
+interface: "export function splitCargo(weights: number[]): number[]"
+stop_conditions:
+  - Behavior for more than sixteen items is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

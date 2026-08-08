@@ -1,0 +1,80 @@
+```ts
+export function cheapestTray(items: { code: string; price: number }[], bundles: { code: string; price: number; holds: string[] }[], needed: string[]): { total: number; picks: string[] } {
+    if (items.length + bundles.length > 14) {
+        throw new Error("More than fourteen things on sale in all");
+    }
+
+    const itemMap = new Map<string, number>();
+    const bundleMap = new Map<string, { price: number; holds: string[] }>();
+
+    for (const item of items) {
+        if (item.price < 1) {
+            throw new Error("Price below one");
+        }
+        if (itemMap.has(item.code)) {
+            throw new Error("Code shared by two things on sale");
+        }
+        itemMap.set(item.code, item.price);
+    }
+
+    for (const bundle of bundles) {
+        if (bundle.price < 1) {
+            throw new Error("Price below one");
+        }
+        if (bundle.holds.length === 0) {
+            throw new Error("Bundle holding nothing");
+        }
+        for (const code of bundle.holds) {
+            if (!itemMap.has(code)) {
+                throw new Error("Bundle holding an unknown code");
+            }
+        }
+        if (bundleMap.has(bundle.code)) {
+            throw new Error("Code shared by two things on sale");
+        }
+        bundleMap.set(bundle.code, { price: bundle.price, holds: bundle.holds });
+    }
+
+    const neededSet = new Set(needed);
+    if (needed.some(code => neededSet.size !== needed.length)) {
+        throw new Error("A required code no item sells or a code required twice");
+    }
+    for (const code of needed) {
+        if (!itemMap.has(code)) {
+            throw new Error("A required code no item sells");
+        }
+    }
+
+    const allItems = [...items, ...bundles.map(b => ({ code: b.code, price: b.price }))];
+
+    function canCover(needed: Set<string>, picks: string[]): boolean {
+        const covered = new Set(picks.flatMap(code => bundleMap.has(code) ? bundleMap.get(code)!.holds : [code]));
+        return [...needed].every(code => covered.has(code));
+    }
+
+    let bestTotal = Infinity;
+    let bestPicks: string[] = [];
+
+    function backtrack(index: number, currentTotal: number, currentPicks: string[]): void {
+        if (index === allItems.length) {
+            if (canCover(neededSet, currentPicks) && (currentTotal < bestTotal || (currentTotal === bestTotal && currentPicks.sort().join(',') < bestPicks.sort().join(',')))) {
+                bestTotal = currentTotal;
+                bestPicks = [...currentPicks];
+            }
+            return;
+        }
+
+        const item = allItems[index];
+
+        if (!currentPicks.includes(item.code)) {
+            backtrack(index + 1, currentTotal + item.price, [...currentPicks, item.code]);
+        }
+
+        backtrack(index + 1, currentTotal, currentPicks);
+    }
+
+    backtrack(0, 0, []);
+
+    return { total: bestTotal, picks: bestPicks.sort() };
+}
+```

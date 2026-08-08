@@ -1,0 +1,100 @@
+```ts
+/**
+ * Decodes a single escape sequence in the form of ~XX where XX is a two-digit hex number.
+ * @param escaped - The escaped string to decode.
+ * @returns The decoded character or throws an error if invalid.
+ */
+function decodeEscape(escaped: string): string {
+  if (escaped.length !== 3 || escaped[0] !== '~' || !/^[\dA-Fa-f]{2}$/.test(escaped.slice(1))) {
+    throw new Error('Invalid escape sequence');
+  }
+  const code = parseInt(escaped.slice(1), 16);
+  if (code < 0x20 || code > 0x7E) {
+    throw new Error('Escape sequence out of valid range');
+  }
+  return String.fromCharCode(code);
+}
+
+/**
+ * Encodes a character to its escape sequence if it is one of the three special glyphs.
+ * @param char - The character to encode.
+ * @returns The encoded string or the original character.
+ */
+function encodeSpecial(char: string): string {
+  const code = char.charCodeAt(0);
+  switch (code) {
+    case 0x3A: return '~3A'; // Colon
+    case 0x3B: return '~3B'; // Semicolon
+    case 0x7E: return '~7E'; // Tilde
+    default: return char;
+  }
+}
+
+/**
+ * Parses a tag query into an array of key-value pairs.
+ * @param text - The tag query string to parse.
+ * @returns An array of [key, value] tuples.
+ */
+function parseTagQuery(text: string): [string, string][] {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const items = text.split(';');
+  const parsedItems: [string, string][] = [];
+
+  for (const item of items) {
+    const colonIndex = item.indexOf(':');
+    if (colonIndex === -1 || colonIndex !== item.lastIndexOf(':')) {
+      throw new Error('Item must contain exactly one colon');
+    }
+    const key = item.slice(0, colonIndex);
+    const value = item.slice(colonIndex + 1);
+
+    if (key.length === 0) {
+      throw new Error('Key cannot be empty');
+    }
+
+    parsedItems.push([decode(key), decode(value)]);
+  }
+
+  return parsedItems;
+}
+
+/**
+ * Encodes an array of key-value pairs back into a tag query string.
+ * @param items - An array of [key, value] tuples.
+ * @returns The encoded tag query string.
+ */
+function encodeTagQuery(items: [string, string][]): string {
+  return items.map(([key, value]) => `${encode(key)}:${encode(value)}`).join(';');
+}
+
+/**
+ * Decodes a string by replacing all escape sequences with their corresponding characters.
+ * @param str - The string to decode.
+ * @returns The decoded string.
+ */
+function decode(str: string): string {
+  return str.replace(/~[0-9A-Fa-f]{2}/g, decodeEscape);
+}
+
+/**
+ * Encodes a string by replacing special glyphs with their escape sequences.
+ * @param str - The string to encode.
+ * @returns The encoded string.
+ */
+function encode(str: string): string {
+  return Array.from(str).map(encodeSpecial).join('');
+}
+
+/**
+ * Implements the canonical form of a tag query.
+ * @param text - The input tag query string.
+ * @returns The canonical tag query string.
+ */
+export function canonicalTagQuery(text: string): string {
+  const items = parseTagQuery(text);
+
+  // Sort items by key and then by value
+  items.sort

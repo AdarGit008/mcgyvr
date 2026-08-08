@@ -1,0 +1,21 @@
+id: p028-pack-fields
+task_type: function_implementation
+task: >-
+  Implement packFields. Given a list of field widths in bits and an
+  equally long list of non-negative field values, concatenate the fields
+  into a single non-negative integer, first field in the most significant
+  position: widths [4, 4] with values [10, 3] packs to 163, while values
+  [3, 10] pack to 58 — order matters. A field of value 0 still occupies its
+  full width, so widths [4, 4] with values [0, 15] pack to 15. The combined
+  width of all fields never exceeds 30 bits. Reject lists of unequal
+  length, empty lists, a width below 1, a combined width above 30, a value
+  too large to fit in its own field's width, a negative value, and any
+  non-integer element, all with an error.
+target: solution.ts
+interface: "export function packFields(widths: number[], values: number[]): number"
+stop_conditions:
+  - Whether the two arguments may alias the same list object is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

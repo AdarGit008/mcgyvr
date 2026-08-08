@@ -1,0 +1,35 @@
+```python
+def tree_delta(before: dict, after: dict) -> list:
+    if before["name"] != after["name"]:
+        raise ValueError("Root names differ")
+
+    def compare_nodes(b_node, a_node):
+        path = "/".join(a_node["path"])
+        operations = []
+
+        if b_node["value"] != a_node["value"]:
+            operations.append({"op": "change", "path": path, "from": b_node["value"], "to": a_node["value"]})
+
+        before_children = set(child["name"] for child in b_node["children"])
+        after_children = {child["name"]: child for child in a_node["children"]}
+
+        for name, a_child in after_children.items():
+            if name in before_children:
+                operations.extend(compare_nodes(before_children[name], a_child))
+            else:
+                operations.append({"op": "add", "path": f"{path}/{name}", **a_child})
+
+        for b_name in before_children - after_children.keys():
+            operations.append({"op": "remove", "path": f"{path}/{b_name}"})
+
+        return operations
+
+    a_root = {
+        "name": "root",
+        "value": 0,
+        "children": after["children"],
+        "path": []
+    }
+
+    return compare_nodes(before, a_root)
+```

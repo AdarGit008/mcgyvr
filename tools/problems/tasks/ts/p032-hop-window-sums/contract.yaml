@@ -1,0 +1,20 @@
+id: p032-hop-window-sums
+task_type: function_implementation
+task: >-
+  Implement hopWindowSums. Given a list of integers, a window size, and a
+  hop step, return the sums of every complete window: the first window
+  starts at index 0, each following window starts one hop later, and a
+  window that would run past the end of the list is discarded. With values
+  [1, 2, 3, 4, 5], size 3 and hop 2, the windows are [1, 2, 3] and
+  [3, 4, 5], so the result is [6, 12]. An empty input list yields an empty
+  result, as does a list shorter than the window. Reject a window size or
+  hop step that is not a positive integer, and reject an input that is not
+  a list of integers, with an error.
+target: solution.ts
+interface: "export function hopWindowSums(values: number[], size: number, hop: number): number[]"
+stop_conditions:
+  - Whether the values may be negative is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

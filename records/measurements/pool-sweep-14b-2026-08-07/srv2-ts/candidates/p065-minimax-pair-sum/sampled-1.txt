@@ -1,0 +1,31 @@
+```ts
+/**
+ * Finds the smallest achievable largest pair sum by pairing two equally long lists of integers.
+ * @param first - The first list of integers.
+ * @param second - The second list of integers.
+ * @returns The smallest achievable largest pair sum.
+ */
+export function minimaxPairSum(first: number[], second: number[]): number {
+  if (first.length !== second.length || first.length === 0) {
+    throw new Error("Lists must be non-empty and of equal length.");
+  }
+
+  const isValid = (list: number[]) => list.every(Number.isInteger);
+  if (!isValid(first) || !isValid(second)) {
+    throw new Error("All entries must be integers.");
+  }
+
+  first.sort((a, b) => a - b);
+  second.sort((a, b) => b - a);
+
+  let maxPairSum = -Infinity;
+  for (let i = 0; i < first.length; i++) {
+    const pairSum = first[i] + second[i];
+    if (pairSum > maxPairSum) {
+      maxPairSum = pairSum;
+    }
+  }
+
+  return maxPairSum;
+}
+```

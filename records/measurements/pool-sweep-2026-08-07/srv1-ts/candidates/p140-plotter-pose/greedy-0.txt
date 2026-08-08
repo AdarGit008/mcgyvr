@@ -1,0 +1,41 @@
+```ts
+export function plotterPose(program: string): { x: number; y: number; facing: string } {
+  if (typeof program !== 'string') throw new Error('Invalid input: program must be a string');
+
+  const directions = ['N', 'E', 'S', 'W'];
+  let x = 0, y = 0;
+  let facingIndex = 0;
+
+  for (const char of program) {
+    if (char === 'L') {
+      facingIndex = (facingIndex - 1 + directions.length) % directions.length;
+    } else if (char === 'R') {
+      facingIndex = (facingIndex + 1) % directions.length;
+    } else if (char === 'F' || char === 'B') {
+      const distanceStr = program.slice(program.indexOf(char) + 1);
+      if (!/^\d+$/.test(distanceStr)) throw new Error('Invalid input: drive distance must be a positive integer');
+      const distance = parseInt(distanceStr, 10);
+      if (distance <= 0) throw new Error('Invalid input: drive distance must be greater than zero');
+
+      switch (directions[facingIndex]) {
+        case 'N':
+          y += char === 'F' ? distance : -distance;
+          break;
+        case 'E':
+          x += char === 'F' ? distance : -distance;
+          break;
+        case 'S':
+          y += char === 'F' ? -distance : distance;
+          break;
+        case 'W':
+          x += char === 'F' ? -distance : distance;
+          break;
+      }
+    } else {
+      throw new Error('Invalid input: unrecognized command');
+    }
+  }
+
+  return { x, y, facing: directions[facingIndex] };
+}
+```

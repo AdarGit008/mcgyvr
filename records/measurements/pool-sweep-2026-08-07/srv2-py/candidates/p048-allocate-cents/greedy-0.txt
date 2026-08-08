@@ -1,0 +1,25 @@
+```python
+def allocate_cents(total: int, weights: list[int]) -> list[int]:
+    if total < 0 or not isinstance(total, int):
+        raise ValueError("Total must be a non-negative integer")
+    if not weights:
+        raise ValueError("Weights list cannot be empty")
+    for weight in weights:
+        if not isinstance(weight, int) or weight <= 0:
+            raise ValueError("All weights must be positive integers")
+
+    total_weight = sum(weights)
+    base_amounts = [total * weight // total_weight for weight in weights]
+    remainder = total - sum(base_amounts)
+
+    # Sort parties by the negative of the remainder to ensure largest remainders first
+    # If remainders are equal, order by the index (earliest party first)
+    sorted_indices = sorted(range(len(weights)), key=lambda i: (-base_amounts[i] % total_weight, i))
+
+    for i in sorted_indices:
+        if remainder > 0:
+            base_amounts[i] += 1
+            remainder -= 1
+
+    return base_amounts
+```

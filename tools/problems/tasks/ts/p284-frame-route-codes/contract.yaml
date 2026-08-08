@@ -1,0 +1,24 @@
+id: p284-frame-route-codes
+task_type: function_implementation
+task: >-
+  Implement sortPostalItems, which drops mail into the bins of a sorting frame.
+  A route code is exactly seven characters — three capital letters naming the
+  depot, a hyphen, then three digits giving the walk — so QNR-407 is walk 407
+  of depot QNR. bins lists the frame's bins in the order the sorter tries them,
+  each carrying a name, a depot of three capital letters, and an inclusive walk
+  range from low to high. Route each code to the first bin whose depot equals
+  the code's depot and whose range holds the code's walk. A well-formed code no
+  bin claims goes to HOLD; a code that breaks the grammar goes to BAD whatever
+  the frame holds. Return one bin name or mark per code, in the order the codes
+  were given. Throw an error when bins is empty, repeats a name, or calls a bin
+  HOLD or BAD; when a bin name is not a non-empty string; when a bin depot is
+  not three capital letters; when low or high is not an integer from 0 to 999,
+  or low is greater than high; and when codes is not a list of strings.
+target: solution.ts
+interface: "export function sortPostalItems(codes: string[], bins: { name: string; depot: string; low: number; high: number }[]): string[]"
+stop_conditions:
+  - Whether two bins may claim overlapping walk ranges of the same depot is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

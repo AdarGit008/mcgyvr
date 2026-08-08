@@ -1,0 +1,23 @@
+id: p308-pad-mirrored-margins
+task_type: function_implementation
+task: >-
+  Implement pad_mirrored_margins. A gauge hands over a run of whole-number
+  readings and wants margins hung on either side of it, so that a later
+  smoothing pass has something to chew on beyond the ends. Build the margins by
+  mirroring: treat the outer face of each end reading as a looking-glass, so
+  the reading standing just before the first is the first itself, the one
+  before that is the second, the one before that the third, and the far end
+  mirrors in the very same way. A margin longer than the run simply keeps
+  bouncing between the two glasses. Hand back a fresh run holding left mirrored
+  readings, then every reading of the original in its own order, then right
+  mirrored readings. Reject with an error a run that is not a list or holds
+  nothing, a reading that is not a whole number, and a margin width that is not
+  a whole number or that falls below nought.
+target: solution.py
+interface: "def pad_mirrored_margins(readings: list[int], left: int, right: int) -> list[int]"
+stop_conditions:
+  - Whether an enormous margin width should be capped rather than bounced is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,37 @@
+id: p152-line-choke-point
+task_type: bug_fix
+task: >-
+  lineChokePoint studies a production line whose stations run in series,
+  and the current code gets the arithmetic wrong. Each station is a triple
+  [name, machines, ratePerMachine]: the station's hourly capacity is
+  machines times ratePerMachine, because its machines work in parallel.
+  The line's steady hourly output equals the smallest station capacity,
+  and the choke point is the station that has it; when several stations
+  share the smallest capacity the one earliest in the list is the choke
+  point. Return a mapping with keys "station" (the choke point's name) and
+  "output" (the line's hourly output). The buggy version compares
+  per-machine rates instead of station capacities and keeps the wrong
+  station on ties. Also add the missing validation: throw an error for an
+  empty station list, a name that is not a non-empty string, a machine
+  count or rate that is not a positive integer, and a station name that
+  appears twice.
+target: solution.ts
+target_content: |
+  export function lineChokePoint(stations: Array<[string, number, number]>): { station: string; output: number } {
+    let station = "";
+    let slowest = Infinity;
+    for (const [name, machines, rate] of stations) {
+      if (rate <= slowest) {
+        slowest = rate;
+        station = name;
+      }
+    }
+    return { station, output: slowest };
+  }
+interface: "export function lineChokePoint(stations: Array<[string, number, number]>): { station: string; output: number }"
+stop_conditions:
+  - Whether a rate supplied as a numeric string should be coerced or rejected is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

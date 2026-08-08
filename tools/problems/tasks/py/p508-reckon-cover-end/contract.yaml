@@ -1,0 +1,45 @@
+id: p508-reckon-cover-end
+task_type: function_implementation
+task: >-
+  Implement reckon_cover_end, which works out how far a guarantee reaches and
+  whether a claim falls inside it. The argument is a mapping with "bought" (a
+  zero-padded YYYY-MM-DD date), "months" (a whole number from 1 to 120, the
+  cover sold with the goods), "extensions" (a list, possibly empty, of whole
+  numbers from 1 to 60, each a block of months bought on top afterwards),
+  "repairs" (a list, possibly empty, of mappings with "in" and "out", the day
+  the goods went to the workshop and the day they came back, both taken in)
+  and "claim" (a date the owner wants judged). Cover runs for the sold months
+  plus every extension block added together, counted forward from the purchase
+  day: land on the same day number in the later month, and when that month is
+  too short to have such a day, land on its last day instead, so goods bought
+  on the 31st of January under one month of cover reach the 29th of February
+  in a leap year and the 28th otherwise. Every day the goods spent in the
+  workshop suspends the cover, so once the month reckoning has landed, push
+  that landing day forward by the total number of workshop days, counting both
+  the day in and the day out of each visit. Judge the claim against the
+  purchase day and that pushed-out ending: "early" when the claim day falls
+  before the purchase, "lapsed" when it falls after the ending, and "covered"
+  otherwise. Return a mapping with "ends" (the pushed-out ending, written
+  YYYY-MM-DD), "suspended" (the workshop days added up), "verdict" (one of the
+  three words) and "left" (how many days of cover the claim day still has in
+  front of it, counting the claim day itself, and nought whenever the verdict
+  is not "covered"). Reckon the calendar with whole-number arithmetic on the
+  digits alone and lean on no built-in date or calendar facility whatever;
+  February runs to 29 days in a year that four divides, save for a year
+  closing a century unless 400 divides it too. Raise an error when the
+  argument is not a mapping, when any date is not written as YYYY-MM-DD or
+  does not name a real month, a year from 1900 through 2999 and a day that
+  exists in that month, when months is out of range or not whole, when the
+  extensions are not a list or a block is out of range, when the repairs are
+  not a list or one of them is not a mapping, when a visit comes back before
+  it went, when a visit went before the purchase, and when the visits are not
+  handed over in opening order with each one opening strictly after the
+  previous one came back.
+target: solution.py
+interface: "def reckon_cover_end(policy: dict) -> dict"
+stop_conditions:
+  - Whether a workshop visit may run on past the ending the month reckoning first landed on is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

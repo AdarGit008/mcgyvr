@@ -1,0 +1,23 @@
+id: p104-merge-markup
+task_type: function_implementation
+task: >-
+  Implement merge_markup. An annotated document carries labeled character
+  spans, given in any order as mappings with "start", "end" and "tag";
+  each span covers the character positions from start up to but not
+  including end. Two spans carrying the same tag that overlap or touch
+  collapse into a single span covering both, repeatedly, until no such
+  pair remains. Once collapsing is done, spans carrying different tags
+  must not share any character position — touching is fine, sharing is an
+  error. Return the surviving spans as [start, end, tag] triples sorted
+  by start ascending. Reject with an error a start or end that is not an
+  integer, a negative start, a start not strictly below its end, and a
+  tag that is not a non-empty string. No spans at all yields an empty
+  list.
+target: solution.py
+interface: "def merge_markup(spans: list) -> list"
+stop_conditions:
+  - Whether an upper bound on positions applies is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

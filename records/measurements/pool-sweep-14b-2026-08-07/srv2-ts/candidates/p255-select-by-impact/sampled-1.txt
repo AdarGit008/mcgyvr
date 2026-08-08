@@ -1,0 +1,81 @@
+```ts
+/**
+ * Selects the suites that a commit forces to run based on module impact.
+ */
+export function selectByImpact(imports: Record<string, string[]>, suites: Record<string, string[]>, edited: string[]): string[] {
+    // Validate input shapes
+    if (typeof imports !== 'object' || imports === null || Array.isArray(imports)) {
+        throw new Error('Invalid imports argument');
+    }
+    if (typeof suites !== 'object' || suites === null || Array.isArray(suites)) {
+        throw new Error('Invalid suites argument');
+    }
+    if (!Array.isArray(edited)) {
+        throw new Error('Invalid edited argument');
+    }
+
+    // Validate module names in imports
+    for (const [module, imported] of Object.entries(imports)) {
+        if (!Array.isArray(imported)) {
+            throw new Error(`Invalid import list for module ${module}`);
+        }
+        const uniqueImports = new Set(imported);
+        if (uniqueImports.size !== imported.length) {
+            throw new Error(`Duplicate imports in module ${module}`);
+        }
+        for (const imp of imported) {
+            if (!imports[imp]) {
+                throw new Error(`Import ${imp} not declared in modules`);
+            }
+            if (imp === module) {
+                throw new Error(`Module ${module} imports itself`);
+            }
+        }
+    }
+
+    // Validate suite names
+    for (const [suite, modules] of Object.entries(suites)) {
+        if (!Array.isArray(modules)) {
+            throw new Error(`Invalid module list for suite ${suite}`);
+        }
+        for (const mod of modules) {
+            if (!imports[mod]) {
+                throw new Error(`Suite ${suite} drives undeclared module ${mod}`);
+            }
+        }
+    }
+
+    // Validate edited names
+    for (const edit of edited) {
+        if (!imports[edit]) {
+            throw new Error(`Edited module ${edit} not declared in modules`);
+        }
+    }
+
+    // Find all disturbed modules
+    const disturbed = new Set(edited);
+    let newDisturbed: string[] = [];
+    do {
+        newDisturbed = Array.from(disturbed).flatMap(module => imports[module] || []).filter(mod => !disturbed.has(mod));
+        for (const mod of newDisturbed) {
+            disturbed.add(mod);
+        }
+    } while (newDisturbed.length > 0);
+
+    // Find all affected suites
+    const affectedSuites = new Set<string>();
+    for (const [suite, modules] of Object.entries(suites)) {
+        if (modules.some(mod => disturbed.has(mod))) {
+            affectedSuites.add(suite);
+        }
+    }
+
+    // Determine if we should run all suites
+    if (affectedSuites.size > Object.keys(suites).length / 2) {
+        return ["ALL"];
+    }
+
+    // Return sorted list of affected suites
+    return Array.from(affectedSuites).sort();
+}
+```

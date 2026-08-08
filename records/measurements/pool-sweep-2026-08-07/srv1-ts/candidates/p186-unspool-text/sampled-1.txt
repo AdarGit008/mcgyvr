@@ -1,0 +1,76 @@
+```ts
+/**
+ * Unspools a spooled text string back to its original form.
+ * @param spool - The spooled text to unroll.
+ * @returns The unrolled text.
+ */
+export function unspoolText(spool: string): string {
+  if (typeof spool !== 'string') {
+    throw new Error('Argument must be a string');
+  }
+
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < spool.length) {
+    if (spool[i] === '<') {
+      i++;
+      if (i >= spool.length || spool[i] === '<') {
+        result.push('<');
+        continue;
+      }
+
+      const reachEnd = spool.indexOf('>', i);
+      if (reachEnd === -1) {
+        throw new Error('Missing closing greater-than sign for pointer');
+      }
+
+      const reachStr = spool.slice(i, reachEnd);
+      i = reachEnd + 1;
+
+      if (!/^\d+$/.test(reachStr)) {
+        throw new Error('Reach must be a digit string');
+      }
+
+      const reach = parseInt(reachStr, 10);
+      if (reach < 1 || reach.toString().length !== reachStr.length) {
+        throw new Error('Invalid reach value');
+      }
+
+      if (reach > result.length) {
+        throw new Error('Reach exceeds current output length');
+      }
+
+      const haulEnd = spool.indexOf('>', i);
+      if (haulEnd === -1) {
+        throw new Error('Missing closing greater-than sign for pointer');
+      }
+
+      const haulStr = spool.slice(i, haulEnd);
+      i = haulEnd + 1;
+
+      if (!/^\d+$/.test(haulStr)) {
+        throw new Error('Haul must be a digit string');
+      }
+
+      const haul = parseInt(haulStr, 10);
+      if (haul < 1 || haul.toString().length !== haulStr.length) {
+        throw new Error('Invalid haul value');
+      }
+
+      for (let j = result.length - reach; j < result.length; j++) {
+        if (result[j].repeat(haul).startsWith(result.slice(-reach))) {
+          result.push(result[j]);
+        } else {
+          throw new Error('Haul exceeds reach');
+        }
+      }
+    } else {
+      result.push(spool[i]);
+      i++;
+    }
+  }
+
+  return result.join('');
+}
+```

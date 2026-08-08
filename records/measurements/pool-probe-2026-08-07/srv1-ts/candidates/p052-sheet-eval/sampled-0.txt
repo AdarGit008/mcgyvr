@@ -1,0 +1,83 @@
+```ts
+export function computeSheet(cells: Record<string, string>): Record<string, number> {
+    const cellValues = new Map<string, number>();
+    const formulaCache = new Map<string, () => number>();
+
+    function evaluateCell(cellName: string): number {
+        if (cellValues.has(cellName)) return cellValues.get(cellName)!;
+        if (!formulaCache.has(cellName)) throw new Error(`Unknown cell: ${cellName}`);
+
+        const formula = formulaCache.get(cellName)!();
+        cellValues.set(cellName, formula);
+        formulaCache.delete(cellName);
+
+        return formula;
+    }
+
+    function parseFormula(formula: string): () => number {
+        if (formula.trim() === '') throw new Error('Empty formula');
+
+        const terms = formula
+            .substring(1)
+            .split('+')
+            .map(term => term.trim())
+            .filter(Boolean);
+
+        return () =>
+            terms.reduce((acc, term) => {
+                if (/^\d+$/.test(term)) {
+                    return acc + parseInt(term, 10);
+                } else if (/-\d+$/.test(term)) {
+                    return acc + parseInt(term, 10);
+                } else {
+                    const cellName = term.toUpperCase();
+                    if (!cells.hasOwnProperty(cellName)) throw new Error(`Unknown reference: ${cellName}`);
+                    return acc + evaluateCell(cellName);
+                }
+            }, 0);
+    }
+
+    function detectCycles(formula: string, visited: Set<string>): void {
+        const terms = formula
+            .substring(1)
+            .split('+')
+            .map(term => term.trim())
+            .filter(Boolean);
+
+        for (const term of terms) {
+            if (/^\d+$/.test(term) || /-\d+$/.test(term)) continue;
+            const cellName = term.toUpperCase();
+            if (!cells.hasOwnProperty(cellName)) throw new Error(`Unknown reference: ${cellName}`);
+
+            visited.add(cellName);
+            if (visited.has(cellName)) throw new Error('Reference cycle detected');
+            detectCycles(cells[cellName], visited);
+            visited.delete(cellName);
+        }
+    }
+
+    for (const cellName in cells) {
+        const formula = cells[cellName];
+        if (!/^=/.test(formula)) continue;
+
+        try {
+            detectCycles(formula, new Set([cellName]));
+            formulaCache.set(cellName, parseFormula(formula));
+        } catch (error) {
+            throw new Error(`Error in cell ${cellName}: ${error.message}`);
+        }
+    }
+
+    for (const cellName in cells) {
+        if (!/^=/.test(cells[cellName])) continue;
+        evaluateCell(cellName);
+    }
+
+    const result: Record<string, number> = {};
+    for (const [cellName] of cellValues.entries()) {
+        result[cellName] = cellValues.get(cellName)!;
+    }
+
+    return result;
+}
+```

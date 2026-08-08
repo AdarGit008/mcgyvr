@@ -1,0 +1,38 @@
+id: p426-discount-band-stack
+task_type: function_implementation
+task: >-
+  Implement applyDiscountBands. The basket is a list of [sku, cents, count]
+  triples — a non-empty sku, a whole number of cents at nought or above, and a
+  count of at least one — and its subtotal is the sum, over every triple, of the
+  cents times the count. The rules are an ordered list of mappings, each
+  carrying exactly the six keys code, band, mode, amount, floor and solo. A code
+  is a non-empty string, unique across the whole list. A band is a non-empty
+  string. A mode is either share, whose amount is a whole number from 1 through
+  100 and whose cut is that many hundredths of the running figure with any part
+  of a cent dropped, or flat, whose amount is a whole number of cents above
+  nought and whose cut is that amount but never more than the running figure. A
+  floor is a whole number of cents at nought or above, and it holds its rule back
+  unless the running figure, at the moment that rule comes round, stands at the
+  floor or above it. A solo flag is true or false. Start the running figure at
+  the subtotal and take the rules in the order given. A rule bites only when no
+  earlier rule of its own band has already bitten and the running figure clears
+  its floor, and a rule that bites claims its band even where its cut works out
+  to nothing whatever. Take each bite's cut off the running figure. Once a rule
+  carrying a true solo flag has bitten, every rule behind it is passed over.
+  Return a mapping whose total is the running figure at the end and whose applied
+  is the list of codes that bit, in the order they bit. Raise an error for a
+  basket triple that is not three parts, a sku that is empty or not a string,
+  cents that are not whole or fall below nought, a count that is not whole
+  or falls below one, a rule that is not a mapping or does not carry exactly
+  those six keys, two rules sharing a code, a mode outside share and flat, a
+  share amount outside 1 through 100, a flat amount that is not whole or is not
+  above nought, a floor that is not whole or falls below nought, and a solo flag
+  that is not a boolean.
+target: solution.ts
+interface: "export function applyDiscountBands(basket: (string | number)[][], rules: Record<string, unknown>[]): { total: number; applied: string[] }"
+stop_conditions:
+  - Whether the same sku may appear in more than one basket triple is not stated to be an error.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

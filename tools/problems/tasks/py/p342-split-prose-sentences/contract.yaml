@@ -1,0 +1,30 @@
+id: p342-split-prose-sentences
+task_type: function_implementation
+task: >-
+  Implement split_prose_sentences. The first argument is a passage of prose,
+  the second a list of abbreviations, each one ending in a period and
+  holding no space. Walk the passage from the left keeping two shields: a
+  double quote toggles a quotation on and off, and round brackets nest. A
+  period, exclamation mark or question mark is a candidate stop only while
+  no quotation is open and no bracket is open, and a run of consecutive
+  stop marks counts as one candidate taken at its last mark. The candidate
+  becomes a real break only when the passage ends there or the very next
+  character is a space, so the point inside 3.5 never breaks. A candidate
+  is cancelled when the run of non-space characters ending at its last
+  mark appears verbatim in the abbreviation list. The sentences are the
+  stretches lying between breaks with their outer spaces removed, each
+  keeping its own stop marks, and any non-space remainder after the final
+  break is one more sentence. Return the sentences in order; a passage
+  that is empty or made only of spaces yields none. Reject with an error a
+  passage that is not a string, an abbreviation list that is not a list of
+  strings, an abbreviation that does not end in a period or that holds a
+  space, a closing bracket with no opener, a bracket left open, and a
+  quotation left open.
+target: solution.py
+interface: "def split_prose_sentences(passage: str, abbreviations: list[str]) -> list[str]"
+stop_conditions:
+  - Whether a tab or a newline separates sentences the way a space does is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

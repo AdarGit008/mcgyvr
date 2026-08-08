@@ -1,0 +1,24 @@
+```python
+def fill_placeholders(text: str, slots: dict) -> str:
+    i = 0
+    out = []
+    while i < len(text):
+        if text[i:i+2] == "%%":
+            out.append("%")
+            i += 2
+        elif text[i] == "%":
+            j = i + 1
+            while j < len(text) and text[j] != "%":
+                j += 1
+            if j == len(text):
+                raise ValueError("Unmatched '%' found in the text")
+            slot_name = text[i+1:j]
+            if slot_name not in slots:
+                raise ValueError(f"Slot '{slot_name}' not found in the mapping")
+            out.append(slots[slot_name])
+            i = j + 1
+        else:
+            out.append(text[i])
+            i += 1
+    return "".join(out)
+```

@@ -1,0 +1,28 @@
+id: p282-lift-bank-quota
+task_type: function_implementation
+task: >-
+  Implement assignLiftCalls, which dispatches a bank of lifts. cars lists the
+  cages of the bank, each carrying a name, the floor it is standing at, and a
+  quota — the greatest number of landing calls that cage may answer over the
+  whole run. top is the highest floor of the building, so a floor is an
+  integer from 0 to top. calls gives the landing calls in the order they are
+  pressed. For each call, look only at cages that have not yet spent their
+  quota, and take the one standing nearest the calling floor, nearness being
+  the count of floors between the two. Break a tie by preferring the cage that
+  has answered the fewest calls so far, and any remaining tie by the name that
+  sorts earliest. The chosen cage then stands at the calling floor and has
+  answered one more call. When every cage has spent its quota, record the mark
+  - for that call and leave every cage standing where it is. Return one name
+  or mark per call, in call order. Throw an error when cars is empty, repeats
+  a name, or holds an entry whose name is not a non-empty string or is the
+  mark - itself; when a standing floor or a call is not an integer from 0 to
+  top; when a quota is not an integer of at least 1; and when top is not an
+  integer of at least 1.
+target: solution.ts
+interface: "export function assignLiftCalls(cars: { name: string; floor: number; quota: number }[], calls: number[], top: number): string[]"
+stop_conditions:
+  - Whether a cage may be given a quota larger than the number of calls is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

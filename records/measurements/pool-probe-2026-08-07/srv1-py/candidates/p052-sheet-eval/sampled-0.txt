@@ -1,0 +1,40 @@
+```python
+from typing import Dict
+
+def compute_sheet(cells: Dict[str, str]) -> Dict[str, int]:
+    def evaluate(cell: str) -> int:
+        if cell.isdigit() or (cell[0] == '-' and cell[1:].isdigit()):
+            return int(cell)
+        elif cell.startswith('='):
+            terms = [term.strip() for term in cell[1:].split('+')]
+            return sum(evaluate(term) for term in terms)
+        else:
+            if cell not in cells:
+                raise ValueError(f"Unknown cell reference: {cell}")
+            value = cells[cell]
+            if value.isdigit() or (value[0] == '-' and value[1:].isdigit()):
+                return int(value)
+            elif value.startswith('='):
+                terms = [term.strip() for term in value[1:].split('+')]
+                return sum(evaluate(term) for term in terms)
+            else:
+                raise ValueError(f"Malformed formula: {cell}")
+
+    def detect_cycle(cell: str, visited: set) -> None:
+        if cell in visited:
+            raise ValueError("Reference cycle detected")
+        visited.add(cell)
+
+    results = {}
+    stack = list(cells.keys())
+
+    while stack:
+        current = stack.pop()
+        try:
+            detect_cycle(current, set())
+            results[current] = evaluate(current)
+        except (ValueError, RecursionError):
+            pass
+
+    return results
+```

@@ -1,0 +1,24 @@
+id: p118-nest-outline
+task_type: function_implementation
+task: >-
+  Implement nest_outline. The input is a block of text whose newline-separated
+  lines form an indented list: a line's leading spaces set its depth, at
+  exactly two spaces per level, and its text is whatever follows that
+  indentation, internal spaces preserved. A line one level deeper than its
+  predecessor becomes a child of it; a line at the same or a shallower level
+  closes deeper branches and attaches to the nearest earlier line one level
+  above it; several lines may sit at level zero. Return the level-zero items
+  as a list of [text, children] pairs, children recursively the same shape.
+  A single newline after the final line is tolerated. Reject with an error:
+  an input that is not a non-empty string, a tab character anywhere, leading
+  spaces that are not a multiple of two, an opening line that is indented, a
+  line more than one level deeper than its predecessor, and a line that is
+  blank or all spaces.
+target: solution.py
+interface: "def nest_outline(text: str) -> list"
+stop_conditions:
+  - Whether trailing spaces after a line's text are trimmed is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

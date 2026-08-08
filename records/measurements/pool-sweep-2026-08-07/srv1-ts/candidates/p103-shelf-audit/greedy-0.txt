@@ -1,0 +1,25 @@
+```ts
+/** Fold shelf entries into a final count and a skipped-take tally. */
+export function shelfCount(entries: Array<[string, number]>): [number, number] {
+  let count = 0;
+  let skippedTakes = 0;
+
+  for (const [kind, amount] of entries) {
+    if (kind === "add") {
+      count += amount;
+    } else if (kind === "take") {
+      if (amount > count) {
+        skippedTakes++;
+      } else {
+        count -= amount;
+      }
+    } else if (kind !== "fix" || !Number.isInteger(amount) || amount < 0) {
+      throw new Error("Invalid entry");
+    } else {
+      count = amount;
+    }
+  }
+
+  return [count, skippedTakes];
+}
+```

@@ -1,0 +1,44 @@
+```ts
+export function agedServiceOrder(events: Array<Record<string, unknown>>, step: number): string[] {
+  if (step <= 0) throw new Error("Step must be a positive whole number");
+  if (events.length === 0) throw new Error("Log cannot be empty");
+
+  const waitingRoom: { who: string; rank: number; joinTick: number }[] = [];
+  const result: string[] = [];
+
+  events.forEach((event, index) => {
+    const kind = event.kind as string;
+    const tick = Number(event.tick);
+    if (isNaN(tick) || tick < 0) throw new Error("Tick must be a non-negative whole number");
+    if (index > 0 && tick < events[index - 1].tick) throw new Error("Ticks must not run backwards");
+
+    if (kind === "join") {
+      const who = event.who as string;
+      const rank = Number(event.rank);
+      if (!who || rank < 0) throw new Error("Invalid join event");
+      if (waitingRoom.some((c) => c.who === who)) throw new Error("Duplicate caller joining");
+
+      waitingRoom.push({ who, rank, joinTick: tick });
+    } else if (kind === "call") {
+      if (waitingRoom.length === 0) throw new Error("Cannot call from empty waiting room");
+
+      const oldest = waitingRoom.sort((a, b) => {
+        const standingA = a.rank + Math.floor((tick - a.joinTick) / step);
+        const standingB = b.rank + Math.floor((tick - b.joinTick) / step);
+        if (standingA !== standingB) return standingB - standingA;
+        if (a.joinTick !== b.joinTick) return a.joinTick - b.joinTick;
+        return a.who.localeCompare(b.who);
+      }).pop();
+
+      if (oldest) {
+        result.push(oldest.who);
+        waitingRoom.splice(waitingRoom.indexOf(oldest), 1);
+      }
+    } else {
+      throw new Error("Invalid event kind");
+    }
+  });
+
+  return result;
+}
+```

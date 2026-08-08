@@ -1,0 +1,29 @@
+id: p240-cheapest-tray
+task_type: function_implementation
+task: >-
+  Implement cheapest_tray. A canteen sells single items and bundles. Each item
+  record carries code (a non-empty string) and price (a whole number of
+  pence, one or more). Each bundle record carries code, price and holds, a
+  non-empty list of the item codes that bundle puts on the tray. No two
+  things on sale share a code, item and bundle alike, and no bundle holds a
+  code no item sells. The third argument lists the codes a diner must leave
+  with, every one of them an item code and none of them named twice; a tray
+  carrying more than was asked for is perfectly fine and costs nothing extra.
+  Each thing on sale may be bought at most once. Find the cheapest set of
+  purchases whose codes between them cover everything required, and settle a
+  tie first by the smaller number of purchases and then by the set whose
+  codes, sorted upward, read smaller when compared one code at a time.
+  Return a record with total, the price of that set, and picks, its codes
+  sorted upward. An empty requirement is met by an empty tray costing
+  nothing. Raise an error for a price below one, a code shared by two things
+  on sale, a bundle holding an unknown code, a bundle holding nothing, a
+  required code no item sells, a code required twice, and more than fourteen
+  things on sale in all.
+target: solution.py
+interface: "def cheapest_tray(items: list, bundles: list, needed: list) -> dict"
+stop_conditions:
+  - Whether a diner may return an unwanted item for credit is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

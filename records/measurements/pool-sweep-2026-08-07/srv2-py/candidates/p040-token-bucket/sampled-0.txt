@@ -1,0 +1,31 @@
+```python
+from typing import List
+
+def token_bucket(capacity: int, refill: int, requests: List[List[int]]) -> List[str]:
+    if capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    if refill < 0:
+        raise ValueError("Refill rate must be a non-negative integer")
+    
+    labels = []
+    current_time = 0
+    tokens = capacity
+    
+    for time, cost in requests:
+        if time < current_time:
+            raise ValueError("Arrival times cannot go backwards")
+        if cost <= 0:
+            raise ValueError("Cost must be a positive integer")
+        
+        while current_time < time:
+            tokens += min(refill, capacity - tokens)
+            current_time += 1
+        
+        if tokens >= cost:
+            labels.append("grant")
+            tokens -= cost
+        else:
+            labels.append("refuse")
+    
+    return labels
+```

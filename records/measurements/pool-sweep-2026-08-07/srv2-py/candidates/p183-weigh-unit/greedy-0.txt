@@ -1,0 +1,77 @@
+```python
+def weigh_unit(spec: str, masses: dict) -> int:
+    if not isinstance(spec, str):
+        raise ValueError("spec must be a string")
+    if not all(c.isalpha() or c.isdigit() or c in "()[] " for c in spec):
+        raise ValueError("invalid characters in spec")
+
+    at = 0
+    outer = []
+    total = 0
+
+    def read_count():
+        nonlocal at
+        digits = ""
+        while at < len(spec) and spec[at].isdigit():
+            digits += spec[at]
+            at += 1
+        if not digits:
+            return 1
+        elif digits[0] == '0':
+            raise ValueError("count cannot start with zero")
+        return int(digits)
+
+    def read_name():
+        nonlocal at
+        name = ""
+        while at < len(spec) and "a" <= spec[at] <= "z":
+            name += spec[at]
+            at += 1
+        if not name:
+            raise ValueError("empty name")
+        return name
+
+    stack = []
+    while at < len(spec):
+        ch = spec[at]
+        if ch == '(':
+            if stack and stack[-1] in '[]':
+                raise ValueError("mismatched brackets")
+            stack.append(ch)
+            outer.append(total)
+            total = 0
+            at += 1
+        elif ch == '[':
+            if stack and stack[-1] in '()':
+                raise ValueError("mismatched brackets")
+            stack.append(ch)
+            outer.append(total)
+            total = 0
+            at += 1
+        elif ch == ')':
+            if not stack or stack[-1] != '(':
+                raise ValueError("unmatched closing bracket")
+            stack.pop()
+            count = read_count()
+            total = (outer.pop() if outer else 0) * count + total
+            at += 1
+        elif ch == ']':
+            if not stack or stack[-1] != '[':
+                raise ValueError("unmatched closing bracket")
+            stack.pop()
+            count = read_count()
+            total = (outer.pop() if outer else 0) * count + total
+            at += 1
+        else:
+            name = read_name()
+            if name not in masses:
+                raise ValueError(f"unknown name: {name}")
+            count = read_count()
+            total += masses[name] * count
+            at += len(name)
+
+    if stack:
+        raise ValueError("unmatched opening bracket")
+
+    return total
+```

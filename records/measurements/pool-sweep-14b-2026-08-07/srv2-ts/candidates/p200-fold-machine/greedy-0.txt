@@ -1,0 +1,92 @@
+```ts
+export function foldMachine(machine: Record<string, unknown>): Record<string, unknown> {
+  const alphabet = machine.alphabet as string[];
+  const states = machine.states as string[];
+  const start = machine.start as string;
+  const accepting = machine.accepting as string[];
+  const moves = machine.moves as [string, string, string][];
+
+  // Validate input
+  if (alphabet.length === 0 || alphabet.some(s => typeof s !== 'string' || s.trim() === '')) {
+    throw new Error('Invalid alphabet');
+  }
+  if (states.length === 0 || states.some(s => typeof s !== 'string' || s.trim() === '')) {
+    throw new Error('Invalid states');
+  }
+  if (!states.includes(start)) {
+    throw new Error('Start state not in states');
+  }
+  if (accepting.some(a => !states.includes(a) || accepting.filter(x => x === a).length > 1)) {
+    throw new Error('Invalid accepting states');
+  }
+  const moveMap = new Map<string, Map<string, string>>();
+  for (const [from, symbol, to] of moves) {
+    if (!states.includes(from) || !alphabet.includes(symbol) || !states.includes(to)) {
+      throw new Error('Move references invalid state or symbol');
+    }
+    if (!moveMap.has(from)) moveMap.set(from, new Map());
+    const fromMap = moveMap.get(from)!;
+    if (fromMap.has(symbol)) {
+      throw new Error('Duplicate move for state and symbol');
+    }
+    fromMap.set(symbol, to);
+  }
+  for (const state of states) {
+    for (const symbol of alphabet) {
+      if (!moveMap.get(state)?.has(symbol)) {
+        throw new Error('Missing move for state and symbol');
+      }
+    }
+  }
+
+  // Reachable states
+  const reachable = new Set<string>();
+  const queue: string[] = [start];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (!reachable.has(current)) {
+      reachable.add(current);
+      for (const symbol of alphabet) {
+        const next = moveMap.get(current)?.get(symbol)!;
+        queue.push(next);
+      }
+    }
+  }
+
+  // Equivalence classes
+  const equivalenceClasses: Map<string, number> = new Map();
+  let classCount = 0;
+  const worklist: string[] = Array.from(reachable);
+  while (worklist.length > 0) {
+    const current = worklist.shift()!;
+    if (!equivalenceClasses.has(current)) {
+      equivalenceClasses.set(current, classCount++);
+      for (const symbol of alphabet) {
+        const next = moveMap.get(current)?.get(symbol)!;
+        if (reachable.has(next) && !equivalenceClasses.has(next)) {
+          worklist.push(next);
+        }
+      }
+    }
+  }
+
+  // Merge indistinguishable states
+  const mergedStates: Map<number, Set<string>> = new Map();
+  for (const [state, classNum] of equivalenceClasses.entries()) {
+    if (!mergedStates.has(classNum)) mergedStates.set(classNum, new Set());
+    mergedStates.get(classNum)!.add(state);
+  }
+
+  // Determine accepting classes
+  const acceptingClasses: number[] = [];
+  for (const state of accepting) {
+    const classNum = equivalenceClasses.get(state)!;
+    if (!acceptingClasses.includes(classNum)) {
+      acceptingClasses.push(classNum);
+    }
+  }
+  acceptingClasses.sort((a, b) => a - b);
+
+  // Build moves
+  const newMoves: [number, string, number][] = [];
+  for (const [

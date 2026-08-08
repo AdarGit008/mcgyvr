@@ -1,0 +1,31 @@
+```python
+def turn_cost_route(grid: list, step_cost: int, turn_cost: int) -> int:
+    if not grid or any(len(row) != len(grid[0]) for row in grid):
+        raise ValueError("Grid must be non-empty and rectangular")
+    if not (isinstance(step_cost, int) and step_cost > 0):
+        raise ValueError("Step cost must be a positive integer")
+    if not (isinstance(turn_cost, int) and turn_cost >= 0):
+        raise ValueError("Turn cost must be a non-negative integer")
+    if grid[0][0] == 1 or grid[-1][-1] == 1:
+        return -1
+
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    m, n = len(grid), len(grid[0])
+    dp = [[[float('inf')] * 4 for _ in range(n)] for _ in range(m)]
+    dp[0][0] = [0, float('inf'), float('inf'), float('inf')]
+
+    for i in range(m):
+        for j in range(n):
+            if grid[i][j] == 1:
+                continue
+            current_dir = (i - 1 == 0) + 2 * (j - 1 == 0)
+            min_turn_cost = dp[i][j][current_dir]
+            for dr, dc in directions:
+                ni, nj = i + dr, j + dc
+                if 0 <= ni < m and 0 <= nj < n and grid[ni][nj] != 1:
+                    next_dir = (dr == -1) + 2 * (dc == -1)
+                    move_cost = step_cost + turn_cost if next_dir != current_dir else step_cost
+                    dp[ni][nj][next_dir] = min(dp[ni][nj][next_dir], dp[i][j][current_dir] + move_cost)
+
+    return dp[m-1][n-1][-1]
+```

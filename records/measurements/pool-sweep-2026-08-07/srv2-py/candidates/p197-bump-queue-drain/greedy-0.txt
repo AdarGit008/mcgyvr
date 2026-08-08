@@ -1,0 +1,44 @@
+```python
+"""The order a crew works through a batch of graded tickets."""
+
+def bump_queue_drain(tickets: list, start: int, bump_every: int) -> list:
+    if not tickets:
+        raise ValueError("Batch cannot be empty")
+    
+    for ticket in tickets:
+        if not isinstance(ticket, dict):
+            raise ValueError("Each item must be a mapping")
+        if "id" not in ticket or not isinstance(ticket["id"], str) or not ticket["id"]:
+            raise ValueError("Each item must have a non-empty string id")
+        if "filed" not in ticket or not isinstance(ticket["filed"], int) or ticket["filed"] < 0:
+            raise ValueError("Filed minute must be a non-negative whole number")
+        if "grade" not in ticket or not isinstance(ticket["grade"], int) or not (0 <= ticket["grade"] <= 9):
+            raise ValueError("Grade must be a whole number between 0 and 9")
+    
+    if not isinstance(start, int) or start < 0:
+        raise ValueError("Start minute must be a non-negative whole number")
+    if not isinstance(bump_every, int) or bump_every <= 0:
+        raise ValueError("Bump interval must be a positive whole number")
+    
+    pending = sorted(tickets, key=lambda x: (x["filed"], x["id"]))
+    handled = []
+    current_minute = start
+    
+    while pending:
+        eligible = [ticket for ticket in pending if ticket["filed"] <= current_minute]
+        if not eligible:
+            current_minute += 1
+            continue
+        
+        highest_urgency = max(
+            ticket["grade"] + (current_minute - ticket["filed"]) // bump_every
+            for ticket in eligible
+        )
+        
+        handled.append(next(ticket["id"] for ticket in eligible if 
+                            ticket["grade"] + (current_minute - ticket["filed"]) // bump_every == highest_urgency))
+        
+        pending = [ticket for ticket in pending if ticket["id"] != handled[-1]]
+    
+    return handled
+```

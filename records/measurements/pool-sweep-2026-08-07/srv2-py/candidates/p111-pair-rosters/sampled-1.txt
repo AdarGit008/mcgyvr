@@ -1,0 +1,26 @@
+```
+def pair_rosters(left: list, right: list, key: str) -> list:
+    """Inner-join two rosters on a key column."""
+    where = {}
+    for index, row in enumerate(right):
+        value = row.get(key)
+        if not isinstance(value, str):
+            raise ValueError("bad key value")
+        if value in where:
+            raise ValueError("duplicate key value in right roster")
+        where[value] = index
+    joined = []
+    for row in left:
+        value = row.get(key)
+        if not isinstance(value, str):
+            raise ValueError("bad key value")
+        if value in where:
+            partner_index = where[value]
+            partner = right[partner_index]
+            merged = dict(row)
+            for name, item in partner.items():
+                if name != key:
+                    merged[name] = item
+            joined.append(merged)
+    return joined
+```

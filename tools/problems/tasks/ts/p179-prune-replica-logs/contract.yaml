@@ -1,0 +1,108 @@
+id: p179-prune-replica-logs
+task_type: bug_fix
+task: >-
+  pruneReplicaLogs decides how far a coordinator's write stream has settled,
+  and it is wrong on three separate counts. Repair it. The second argument
+  says how many positions the coordinator is holding, numbered one upward.
+  The first argument describes the replicas, each a record with a name, an
+  acked position — the highest one it has accepted, zero for none — and a
+  weight, the number of votes it carries. A position counts as settled once
+  the combined weight of the replicas that have accepted it or anything
+  later is strictly more than half the combined weight of every replica; a
+  tie at exactly half is not enough. Report committed as the highest
+  settled position, or zero when none clears the bar. Report discardable as
+  the lowest acked position held by any replica, since everything at or
+  below it already sits on all of them and the coordinator need not keep
+  it. Report laggards as the names of the replicas whose acked position is
+  strictly below committed, in the order the replicas were described. Throw
+  an error when the replica list is not a list or is empty, when a replica
+  record lacks any of the three fields, when a name is not a non-empty
+  string or repeats an earlier name, when a weight is not a whole number of
+  one or more, when an acked position is not a whole number between zero
+  and the number held, and when the number held is not a whole number of
+  zero or more. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function pruneReplicaLogs(
+    replicas: Array<{ name: string; acked: number; weight: number }>,
+    held: number,
+  ): { committed: number; discardable: number; laggards: string[] } {
+    if (!Array.isArray(replicas) || replicas.length === 0) {
+      throw new Error("the replicas must be a non-empty list");
+    }
+    if (typeof held !== "number" || !Number.isInteger(held) || held < 0) {
+      throw new Error("the number held must be a whole number of zero or more");
+    }
+    const seen: string[] = [];
+    let total = 0;
+    for (const replica of replicas) {
+      if (
+        typeof replica !== "object" ||
+        replica === null ||
+        Array.isArray(replica)
+      ) {
+        throw new Error("a replica must be a record");
+      }
+      for (const field of ["name", "acked", "weight"]) {
+        if (!(field in replica)) {
+          throw new Error("a replica record is missing " + field);
+        }
+      }
+      if (typeof replica.name !== "string" || replica.name === "") {
+        throw new Error("a replica name must be a non-empty string");
+      }
+      if (seen.includes(replica.name)) {
+        throw new Error("replica names must not repeat");
+      }
+      seen.push(replica.name);
+      if (
+        typeof replica.weight !== "number" ||
+        !Number.isInteger(replica.weight) ||
+        replica.weight < 1
+      ) {
+        throw new Error("a weight must be a whole number of one or more");
+      }
+      if (
+        typeof replica.acked !== "number" ||
+        !Number.isInteger(replica.acked) ||
+        replica.acked < 0 ||
+        replica.acked > held
+      ) {
+        throw new Error("an acked position must lie between zero and the number held");
+      }
+      total += replica.weight;
+    }
+    let committed = 0;
+    for (let position = held; position >= 1; position--) {
+      let backing = 0;
+      for (const replica of replicas) {
+        if (replica.acked >= position) {
+          backing += replica.weight;
+        }
+      }
+      if (backing * 2 >= total) {
+        committed = position;
+        break;
+      }
+    }
+    let discardable = replicas[0].acked;
+    for (const replica of replicas) {
+      if (replica.acked > discardable) {
+        discardable = replica.acked;
+      }
+    }
+    const laggards: string[] = [];
+    for (const replica of replicas) {
+      if (replica.acked <= committed) {
+        laggards.push(replica.name);
+      }
+    }
+    return { committed, discardable, laggards };
+  }
+interface: "export function pruneReplicaLogs(replicas: Array<{ name: string; acked: number; weight: number }>, held: number): { committed: number; discardable: number; laggards: string[] }"
+stop_conditions:
+  - Whether a replica may carry more weight than all the others together is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

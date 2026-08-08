@@ -1,0 +1,51 @@
+```typescript
+export function dealPacket(items: string[], seats: number[], order: string): Record<string, unknown> {
+  if (!Array.isArray(items) || items.some(item => typeof item !== 'string' || item.length === 0)) {
+    throw new Error('Invalid packet');
+  }
+  if (new Set(items).size !== items.length) {
+    throw new Error('Duplicate entries in packet');
+  }
+  if (!Array.isArray(seats) || seats.length === 0 || seats.some(limit => typeof limit !== 'number' || limit <= 0)) {
+    throw new Error('Invalid limits');
+  }
+  if (order !== 'round' && order !== 'reverse' && order !== 'snake') {
+    throw new Error('Invalid turn sequence');
+  }
+
+  const hands: string[][] = seats.map(() => []);
+  let left: string[] = [];
+  let index = 0;
+
+  const getNextHandIndex = () => {
+    switch (order) {
+      case 'round':
+        return index % seats.length;
+      case 'reverse':
+        return seats.length - 1 - (index % seats.length);
+      case 'snake':
+        const halfCycle = Math.floor((index / seats.length) % 2);
+        const cycleIndex = index % seats.length;
+        return halfCycle === 0 ? cycleIndex : seats.length - 1 - cycleIndex;
+      default:
+        throw new Error('Invalid turn sequence');
+    }
+  };
+
+  for (const item of items) {
+    let handed = false;
+    while (!handed) {
+      const handIndex = getNextHandIndex();
+      if (hands[handIndex].length < seats[handIndex]) {
+        hands[handIndex].push(item);
+        handed = true;
+      }
+      index++;
+    }
+  }
+
+  left = items.slice(Math.min(...seats.map(hand => hand.length)) * seats.length);
+
+  return { hands, left };
+}
+```

@@ -1,0 +1,58 @@
+```ts
+export function buildOnCallRota(roster: string[], blocked: string[][]): string[] {
+  if (roster.length === 0) {
+    throw new Error("Roster cannot be empty");
+  }
+  if (!Array.isArray(blocked)) {
+    throw new Error("Blocked list must be an array");
+  }
+
+  const uniqueNames = new Set(roster);
+  if (uniqueNames.size !== roster.length) {
+    throw new Error("Roster cannot contain duplicates");
+  }
+
+  for (const name of roster) {
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error("Roster names must be non-empty strings");
+    }
+  }
+
+  const shiftCount = blocked.length;
+  const rosterSize = roster.length;
+  const ceiling = Math.ceil(shiftCount / rosterSize);
+  const rota: string[] = [];
+  const shiftCounts: { [key: string]: number } = {};
+  let lastPerson = "";
+
+  for (let i = 0; i < shiftCount; i++) {
+    if (!Array.isArray(blocked[i])) {
+      throw new Error("Each blocked entry must be an array");
+    }
+
+    const validPeople = roster.filter(
+      (name) =>
+        !blocked[i].includes(name) &&
+        name !== lastPerson &&
+        (shiftCounts[name] || 0) < ceiling
+    );
+
+    if (validPeople.length === 0) {
+      return [];
+    }
+
+    let chosenPerson = validPeople[0];
+    for (const person of validPeople) {
+      if ((shiftCounts[person] || 0) < (shiftCounts[chosenPerson] || 0)) {
+        chosenPerson = person;
+      }
+    }
+
+    rota.push(chosenPerson);
+    shiftCounts[chosenPerson] = (shiftCounts[chosenPerson] || 0) + 1;
+    lastPerson = chosenPerson;
+  }
+
+  return rota;
+}
+```

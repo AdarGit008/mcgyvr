@@ -1,0 +1,27 @@
+```python
+def plural_noun(word: str) -> str:
+    if not word or not word.islower() or not word.isalpha():
+        raise ValueError("Input must be a non-empty string of lowercase letters")
+
+    irregulars = {
+        "child": "children",
+        "person": "people",
+        "foot": "feet",
+        "mouse": "mice",
+        "sheep": "sheep"
+    }
+
+    if word in irregulars:
+        return irregulars[word]
+
+    if word.endswith('y') and word[-2] not in 'aeiou':
+        return word[:-1] + 'ies'
+    elif word.endswith(('s', 'x', 'z', 'ch', 'sh')):
+        return word + 'es'
+    elif word.endswith('fe'):
+        return word[:-2] + 'ves'
+    elif word.endswith('f'):
+        return word[:-1] + 'ves'
+    else:
+        return word + 's'
+```

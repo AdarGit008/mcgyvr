@@ -1,0 +1,49 @@
+```ts
+export function hexRingWalk(center: number[], radius: number): number[][] {
+  if (!Array.isArray(center) || center.length !== 2) {
+    throw new Error("Center must be a two-element array.");
+  }
+  if (typeof center[0] !== 'number' || typeof center[1] !== 'number') {
+    throw new Error("Center elements must be numbers.");
+  }
+  if (!Number.isInteger(radius)) {
+    throw new Error("Radius must be an integer.");
+  }
+  if (radius < 0) {
+    throw new Error("Radius cannot be negative.");
+  }
+
+  const directions = [
+    [1, 0],     // east
+    [1, -1],    // northeast
+    [0, -1],    // northwest
+    [-1, 0],    // west
+    [-1, 1],   // southwest
+    [0, 1]      // southeast
+  ];
+
+  const walk: number[][] = [];
+  let current = [...center];
+
+  if (radius === 0) {
+    walk.push(current);
+    return walk;
+  }
+
+  for (let step = 0; step < radius; step++) {
+    current[0] -= 1;
+    current[1] += 1;
+  }
+  walk.push([...current]);
+
+  for (const [dq, dr] of directions) {
+    for (let step = 0; step < radius; step++) {
+      current[0] += dq;
+      current[1] += dr;
+      walk.push([...current]);
+    }
+  }
+
+  return walk;
+}
+```

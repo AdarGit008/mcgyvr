@@ -1,0 +1,38 @@
+id: p216-pin-package-set
+task_type: function_implementation
+task: >-
+  Implement pinPackageSet. The argument is a mapping with "shelf" (a mapping
+  from a package name to a non-empty list of distinct version strings),
+  "needs" (a mapping from a package name to the list of wants that package
+  declares once and for all) and "root" (the list of wants the application
+  itself declares). A version string is three dot-separated groups of
+  digits, none of them carrying a leading zero unless the group is a single
+  zero. A want is a mapping with "name" (a package the shelf stocks), "from"
+  (a version string, allowed) and "under" (a version string, strictly above
+  "from", and neither it nor anything above it is allowed). Start with the
+  root wants and take wants one at a time in the order they arrive: a want
+  files its window against its package, and a package met for the first time
+  is marked as reached and has its own declared wants appended to the back
+  of the queue — a package is reached whether or not any version can be
+  found for it. When the queue runs dry, settle each reached package from
+  the versions the shelf stocks for it that satisfy every window filed
+  against it, choosing the smallest first group, then the largest second
+  group, then the largest third group, so the pin stays on the oldest
+  generation still allowed while taking the freshest build within it. Return
+  a mapping with "picked", one mapping of "name" and "version" per settled
+  package in ascending name order, and "stuck", the names of reached
+  packages no stocked version satisfies, ascending. Raise an error when the
+  argument, "shelf", or "needs" is not a mapping, when "root" or a declared
+  want list is not a list, when a shelf entry is not a non-empty list of
+  distinct well-formed version strings, when "needs" is keyed by a package
+  the shelf does not stock, when a want is not a mapping, when a want names
+  a package the shelf does not stock, and when a want's "from" is not
+  strictly below its "under".
+target: solution.ts
+interface: "export function pinPackageSet(plan: Record<string, unknown>): Record<string, unknown>"
+stop_conditions:
+  - Whether a package may declare a want on itself is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

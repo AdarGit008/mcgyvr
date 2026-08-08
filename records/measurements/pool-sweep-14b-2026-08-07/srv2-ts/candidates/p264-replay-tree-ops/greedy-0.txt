@@ -1,0 +1,111 @@
+```ts
+export function replayTreeOps(steps: string[]): number[] {
+  if (!Array.isArray(steps)) {
+    throw new Error("Steps must be an array");
+  }
+
+  interface TreeNode {
+    value: number;
+    left?: TreeNode;
+    right?: TreeNode;
+  }
+
+  let root: TreeNode | null = null;
+
+  const addValue = (node: TreeNode | null, value: number): void => {
+    if (!node) {
+      return;
+    }
+    if (value < node.value) {
+      if (node.left) {
+        addValue(node.left, value);
+      } else {
+        node.left = { value };
+      }
+    } else if (value > node.value) {
+      if (node.right) {
+        addValue(node.right, value);
+      } else {
+        node.right = { value };
+      }
+    }
+  };
+
+  const findMinNode = (node: TreeNode): TreeNode => {
+    while (node.left) {
+      node = node.left;
+    }
+    return node;
+  };
+
+  const removeValue = (node: TreeNode | null, value: number): TreeNode | null => {
+    if (!node) {
+      throw new Error("Value not found");
+    }
+
+    if (value < node.value) {
+      node.left = removeValue(node.left, value);
+    } else if (value > node.value) {
+      node.right = removeValue(node.right, value);
+    } else {
+      if (!node.left && !node.right) {
+        return null;
+      }
+      if (!node.left) {
+        return node.right;
+      }
+      if (!node.right) {
+        return node.left;
+      }
+
+      const minNode = findMinNode(node.right);
+      node.value = minNode.value;
+      node.right = removeValue(node.right, minNode.value);
+    }
+
+    return node;
+  };
+
+  const traverseInOrder = (node: TreeNode | null): number[] => {
+    if (!node) {
+      return [];
+    }
+    return [...traverseInOrder(node.left), node.value, ...traverseInOrder(node.right)];
+  };
+
+  for (const step of steps) {
+    if (typeof step !== "string") {
+      throw new Error("Step must be a string");
+    }
+
+    const match = step.match(/^([a-z]+):(-?\d+)$/);
+    if (!match) {
+      throw new Error("Invalid step format");
+    }
+
+    const action = match[1];
+    const value = parseInt(match[2], 10);
+
+    if (isNaN(value)) {
+      throw new Error("Value must be a number");
+    }
+
+    if (action === "add") {
+      if (!root) {
+        root = { value };
+      } else {
+        addValue(root, value);
+      }
+    } else if (action === "drop") {
+      if (!root) {
+        throw new Error("Value not found");
+      }
+      root = removeValue(root, value);
+    } else {
+      throw new Error("Invalid action");
+    }
+  }
+
+  return traverseInOrder(root);
+}
+```

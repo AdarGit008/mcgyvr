@@ -1,0 +1,15 @@
+```python
+def bin_tallies(readings: list[int], edges: list[int]) -> dict:
+    if len(edges) < 2:
+        raise ValueError("At least two edge values are required.")
+    
+    for i in range(1, len(edges)):
+        if edges[i] <= edges[i - 1]:
+            raise ValueError("Edges must be in strictly increasing order.")
+    
+    below = sum(r < edges[0] for r in readings)
+    above = sum(r >= edges[-1] for r in readings)
+    bands = [sum(edges[i] <= r < edges[i + 1] for r in readings) for i in range(len(edges) - 1)]
+    
+    return {"below": below, "above": above, "bands": bands}
+```

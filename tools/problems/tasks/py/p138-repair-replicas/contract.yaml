@@ -1,0 +1,22 @@
+id: p138-repair-replicas
+task_type: function_implementation
+task: >-
+  Implement repair_replicas. The input is a list of replica arrays of equal
+  length; every slot holds an integer, or the language's null value where
+  that replica lost its data. Rebuild the true array position by position:
+  at each position the value held by a strict majority — more than half —
+  of the replicas that still hold a value there wins, and lost slots never
+  count toward the denominator. Return the rebuilt array; equal-length
+  empty replicas rebuild to an empty array. Raise an error when the replica
+  list is empty, when the replica arrays differ in length, when a slot
+  holds something other than an integer or the null value, when a position
+  is lost in every replica, and when no value reaches a strict majority of
+  the surviving slots at some position.
+target: solution.py
+interface: "def repair_replicas(replicas: list) -> list"
+stop_conditions:
+  - How large the replica arrays may get is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

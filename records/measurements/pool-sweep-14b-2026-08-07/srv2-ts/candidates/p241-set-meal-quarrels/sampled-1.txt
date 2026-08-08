@@ -1,0 +1,66 @@
+```ts
+export function buildSetMeal(courses: { code: string, price: number }[][], quarrels: [string, string][]): { total: number, picks: string[] } {
+    if (courses.length === 0 || courses.length > 6) {
+        throw new Error("Invalid number of courses");
+    }
+
+    const allCodes = new Set<string>();
+    for (const course of courses) {
+        if (course.length === 0 || course.length > 6) {
+            throw new Error("Invalid number of options in a course");
+        }
+        for (const option of course) {
+            if (option.code.length === 0 || option.price < 1) {
+                throw new Error("Invalid option");
+            }
+            if (allCodes.has(option.code)) {
+                throw new Error("Duplicate code");
+            }
+            allCodes.add(option.code);
+        }
+    }
+
+    for (const [code1, code2] of quarrels) {
+        if (!allCodes.has(code1) || !allCodes.has(code2) || code1 === code2) {
+            throw new Error("Invalid quarrel");
+        }
+    }
+
+    const n = courses.length;
+    let bestPrice = Infinity;
+    let bestPicks: string[] | null = null;
+
+    function isValidTray(tray: string[]): boolean {
+        for (const [code1, code2] of quarrels) {
+            if (tray.includes(code1) && tray.includes(code2)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function backtrack(courseIndex: number, currentPrice: number, currentTray: string[]): void {
+        if (courseIndex === n) {
+            if (isValidTray(currentTray) && currentPrice < bestPrice) {
+                bestPrice = currentPrice;
+                bestPicks = [...currentTray];
+            }
+            return;
+        }
+
+        for (const option of courses[courseIndex]) {
+            currentTray.push(option.code);
+            backtrack(courseIndex + 1, currentPrice + option.price, currentTray);
+            currentTray.pop();
+        }
+    }
+
+    backtrack(0, 0, []);
+
+    if (!bestPicks) {
+        throw new Error("No valid tray found");
+    }
+
+    return { total: bestPrice, picks: bestPicks };
+}
+```

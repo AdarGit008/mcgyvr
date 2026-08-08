@@ -1,0 +1,61 @@
+```ts
+
+/**
+ * Expands a pattern written in an invented little grammar into all possible strings.
+ * @param {string} pattern - The input pattern to expand.
+ * @returns {string[]} An array of distinct, sorted strings that match the pattern.
+ */
+export function expandSpanGrammar(pattern: string): string[] {
+    const result: Set<string> = new Set();
+    
+    const tokens = pattern.split(/(<[^<>|~]*>|<[^<>|~]*\.\.[^<>|~]*>|<[^<>|~]*[^<>|~\.\.]*>)/);
+    const stack: string[] = [];
+    
+    for (const token of tokens) {
+        if (token.startsWith('<') && token.endsWith('>')) {
+            if (token.includes('..')) {
+                const [startStr, endStr] = token.slice(1, -1).split('..');
+                const startNum = parseInt(startStr, 10);
+                const endNum = parseInt(endNum, 10);
+                
+                if (startNum > endNum || isNaN(startNum) || isNaN(endNum)) {
+                    throw new Error('Invalid span range');
+                }
+                
+                const width = startStr.length;
+                for (let i = startNum; i <= endNum; i++) {
+                    stack.push(i.toString().padStart(width, '0'));
+                }
+            } else {
+                stack.push(token.slice(1, -1));
+            }
+        } else if (token.startsWith('~')) {
+            switch (token[1]) {
+                case '<':
+                case '>':
+                case '|':
+                case '~':
+                    result.add(token[1]);
+                    break;
+                default:
+                    throw new Error('Invalid escape sequence');
+            }
+        } else {
+            if (stack.length === 0) {
+                stack.push(token);
+            } else {
+                const previous = stack.pop();
+                if (!previous) throw new Error('Stack underflow');
+                stack.push(...previous.split('').map(c => c + token));
+            }
+        }
+        
+        if (result.size > 500) {
+            throw new Error('Too many results');
+        }
+    }
+
+    return Array.from(result).sort();
+}
+
+```

@@ -1,0 +1,29 @@
+id: p030-group-totals
+task_type: bug_fix
+task: |
+  group_totals aggregates a row set wrongly in three ways. Called with a
+  list of records, the name of the property holding each row's group label
+  and the name of the property holding its integer amount, it must return
+  [label, total] pairs where total is the SUM of every amount filed under
+  that label; the current code overwrites the running value instead of
+  adding to it, so only each label's last row survives. The output must be
+  ordered by total descending with ties broken by label ascending — not
+  the plain label sort it does now. And it validates nothing, where it
+  must reject a row missing either named property, a label that is not a
+  string, and an amount that is not an integer, each with an error. A
+  label seen once keeps its single amount, amounts may be negative, and an
+  empty row list yields an empty result. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def group_totals(rows: list[dict], key: str, field: str) -> list[list]:
+      totals = {}
+      for row in rows:
+          totals[str(row[key])] = row[field]
+      return [[name, totals[name]] for name in sorted(totals)]
+interface: "def group_totals(rows: list[dict], key: str, field: str) -> list[list]"
+stop_conditions:
+  - Whether rows may carry extra properties beyond the two named is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

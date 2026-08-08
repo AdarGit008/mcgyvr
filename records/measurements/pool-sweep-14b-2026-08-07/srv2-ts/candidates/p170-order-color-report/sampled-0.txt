@@ -1,0 +1,41 @@
+```ts
+export function orderColorReport(
+  neighbours: number[][],
+  visitOrder: number[],
+): number[][] {
+  if (neighbours.length === 0) {
+    throw new Error("No transmitters provided.");
+  }
+
+  const channel: number[] = new Array(neighbours.length).fill(-1);
+
+  for (const node of visitOrder) {
+    if (node < 0 || node >= neighbours.length) {
+      throw new Error(`Transmitter index ${node} out of bounds.`);
+    }
+    if (neighbours[node].includes(node)) {
+      throw new Error(`Transmitter ${node} clashes with itself.`);
+    }
+    const usedChannels = new Set<number>();
+    for (const other of neighbours[node]) {
+      if (other < 0 || other >= neighbours.length) {
+        throw new Error(`Clash references non-existent transmitter ${other}.`);
+      }
+      if (!neighbours[other].includes(node)) {
+        throw new Error(`Clash not recorded on both sides between ${node} and ${other}.`);
+      }
+      if (channel[other] !== -1) {
+        usedChannels.add(channel[other]);
+      }
+    }
+    let channelAssignment = 0;
+    while (usedChannels.has(channelAssignment)) {
+      channelAssignment++;
+    }
+    channel[node] = channelAssignment;
+  }
+
+  const distinctChannels = new Set(channel).size;
+  return [channel, [distinctChannels]];
+}
+```

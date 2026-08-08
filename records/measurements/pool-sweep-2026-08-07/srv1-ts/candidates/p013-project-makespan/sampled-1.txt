@@ -1,0 +1,38 @@
+```ts
+export function projectMakespan(durations: Record<string, number>, deps: [string, string][]): number {
+    if (deps.some(([a, b]) => a === b)) {
+        throw new Error("Dependency pair has equal elements");
+    }
+
+    const graph: { [task: string]: string[] } = {};
+    const inDegree: { [task: string]: number } = {};
+
+    for (const [a, b] of deps) {
+        if (!(a in durations) || !(b in durations)) {
+            throw new Error("Dependency on non-existent task");
+        }
+
+        if (!graph[a]) graph[a] = [];
+        graph[a].push(b);
+        inDegree[b] = (inDegree[b] || 0) + 1;
+    }
+
+    const queue: string[] = Object.keys(durations).filter(task => !inDegree[task]);
+    let time = 0;
+
+    while (queue.length > 0) {
+        for (const task of queue.slice()) {
+            time += durations[task];
+            queue.shift();
+            for (const nextTask of graph[task] || []) {
+                inDegree[nextTask]--;
+                if (inDegree[nextTask] === 0) {
+                    queue.push(nextTask);
+                }
+            }
+        }
+    }
+
+    return Number.isInteger(time) ? time : Infinity;
+}
+```

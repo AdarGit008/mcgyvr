@@ -1,0 +1,19 @@
+```python
+def divide_coefficients(dividend: list[int], divisor: list[int]) -> list[list[int]]:
+    if not divisor:
+        raise ValueError("Divisor cannot be empty")
+    if dividend[-1] % divisor[-1]:
+        raise ValueError("Leading coefficients must have an exact multiple relationship")
+
+    rest = list(dividend)
+    quotient = []
+    while len(rest) >= len(divisor):
+        factor = rest[-1] // divisor[-1]
+        quotient.append(factor)
+        for i, term in enumerate(divisor):
+            rest[len(rest) - len(divisor) + i] -= factor * term
+        while rest and not rest[-1]:
+            rest.pop()
+
+    return [quotient, rest[::-1]]
+```

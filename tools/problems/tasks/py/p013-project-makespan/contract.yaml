@@ -1,0 +1,20 @@
+id: p013-project-makespan
+task_type: function_implementation
+task: >-
+  Implement project_makespan. The input is a mapping from task name to the
+  whole number of minutes that task takes, plus a list of dependency
+  pairs, each [a, b] meaning task a must finish before task b may start.
+  Any number of tasks may run at once, and a task starts the moment every
+  one of its prerequisites is done. Return the least number of minutes in
+  which the whole project can finish. Reject with an error a duration that
+  is not a positive whole number, a pair naming a task absent from the
+  mapping, a pair whose two names are equal, and dependencies that form a
+  cycle.
+target: solution.py
+interface: "def project_makespan(durations: dict[str, int], deps: list[list[str]]) -> int"
+stop_conditions:
+  - Whether duplicate dependency pairs are rejected or tolerated is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

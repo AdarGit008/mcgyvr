@@ -1,0 +1,33 @@
+```ts
+/**
+ * Count ordered sequences of parts integers, each in [lo, hi], summing to total.
+ * @param total - The exact sum required for each sequence.
+ * @param parts - The number of parts in each sequence.
+ * @param lo - The minimum value for each part.
+ * @param hi - The maximum value for each part.
+ * @returns The count of valid sequences, or 0 if none exist.
+ * @throws Error if inputs are invalid.
+ */
+export function cappedCompositions(total: number, parts: number, lo: number, hi: number): number {
+    if (!Number.isInteger(parts) || parts <= 0) throw new Error('Parts must be a positive integer.');
+    if (!Number.isInteger(lo) || lo < 0) throw new Error('Low bound must be a non-negative integer.');
+    if (!Number.isInteger(hi) || hi < 0) throw new Error('High bound must be a non-negative integer.');
+    if (lo > hi) throw new Error('Low bound cannot exceed high bound.');
+
+    const dp: number[][] = Array.from({ length: parts + 1 }, () => Array(total + 1).fill(0));
+
+    for (let i = lo; i <= Math.min(hi, total); i++) {
+        dp[1][i] = 1;
+    }
+
+    for (let p = 2; p <= parts; p++) {
+        for (let s = lo * p; s <= total; s++) {
+            for (let i = lo; i <= Math.min(hi, s); i++) {
+                dp[p][s] += dp[p - 1][s - i];
+            }
+        }
+    }
+
+    return dp[parts][total];
+}
+```

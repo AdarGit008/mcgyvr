@@ -1,0 +1,27 @@
+id: p332-cohort-hold-grid
+task_type: function_implementation
+task: >-
+  Implement cohortHoldGrid. A club logs every member as a pair [key, intake],
+  where intake is the whole-numbered period the member signed up in, and every
+  sighting as a pair [key, period] saying that member was seen alive in that
+  period. Gather the members into groups by their shared intake and hand back
+  one row per intake that has at least one member, ordered by intake rising.
+  A row reads [intake, size, seen0, seen1, ...] where size is how many members
+  share that intake, the trailing run holds horizon + 1 entries, and entry K
+  counts the members of the group seen alive in period intake + K. Being seen
+  twice inside one period counts once. Every row therefore has horizon + 3
+  entries. Hand back an empty list when nobody is logged. Reject with an error:
+  an argument that is not a list, a record that is not a pair, a key that is
+  not a non-empty string, a key logged as a member twice, an intake or a
+  sighting period that is not a whole number from 0 through 100000, a sighting
+  whose key was never logged as a member, a sighting standing earlier than
+  that member's own intake, and a horizon that is not a whole number from 0
+  through 50.
+target: solution.ts
+interface: "export function cohortHoldGrid(members: Array<[string, number]>, sightings: Array<[string, number]>, horizon: number): number[][]"
+stop_conditions:
+  - Whether two members may share a key when their intakes agree is not stated beyond the duplicate rule.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

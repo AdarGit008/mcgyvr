@@ -1,0 +1,61 @@
+id: p277-spread-night-duty
+task_type: bug_fix
+task: >-
+  spreadNightDuty divides a run of nights among a crew. weights gives one
+  number per night in calendar order — 1 for a quiet night, 2 for a punishing
+  one — and away gives, over those same nights, whoever is off duty. Anyone
+  who works a night must then rest: they are barred from the two nights
+  following it. Pick, among the crew neither away nor resting, whoever carries
+  the lightest load so far, a load being the summed weights of the nights that
+  person has already worked; settle a tie by taking the name sorting earliest.
+  Give each night its chosen name; give a night nobody can work the mark ?
+  instead, which lays no rest upon anybody, and carry straight on to the next
+  night. The present code weighs a load by nights worked rather than by summed
+  weight, settles ties by position in the crew list instead of by name, and
+  rests a worker for one night only instead of two. Mend those three and add
+  the guards it lacks: throw an error when the crew is empty, repeats a name,
+  holds a name that is not a non-empty string, or holds the mark ? itself;
+  when weights is empty or holds anything other than 1 or 2; when away is not
+  the same length as weights; when an away entry is not a list; and when an
+  away entry names somebody outside the crew. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function spreadNightDuty(
+    crew: string[],
+    weights: number[],
+    away: string[][],
+  ): string[] {
+    const stood = new Map<string, number>();
+    for (const name of crew) {
+      stood.set(name, 0);
+    }
+    const nights: string[] = [];
+    let previous = "";
+    for (let night = 0; night < weights.length; night++) {
+      let chosen = "";
+      for (const name of crew) {
+        if (away[night].includes(name) || name === previous) {
+          continue;
+        }
+        if (chosen === "" || (stood.get(name) as number) < (stood.get(chosen) as number)) {
+          chosen = name;
+        }
+      }
+      if (chosen === "") {
+        nights.push("?");
+        previous = "";
+        continue;
+      }
+      stood.set(chosen, (stood.get(chosen) as number) + 1);
+      nights.push(chosen);
+      previous = chosen;
+    }
+    return nights;
+  }
+interface: "export function spreadNightDuty(crew: string[], weights: number[], away: string[][]): string[]"
+stop_conditions:
+  - Whether a night marked ? should be reported anywhere else is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

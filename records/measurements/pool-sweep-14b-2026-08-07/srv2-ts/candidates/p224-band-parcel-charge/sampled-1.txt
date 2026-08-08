@@ -1,0 +1,79 @@
+```ts
+export function bandParcelCharge(book: Record<string, unknown>, parcel: Record<string, unknown>): Record<string, unknown> {
+  if (typeof book !== 'object' || typeof parcel !== 'object') {
+    throw new Error('Invalid input');
+  }
+
+  const zones = book['zones'] as string[];
+  const steps = book['steps'] as { upTo: number | null; cents: number[] }[];
+  const extras = book['extras'] as { mark: string; cents: number; zones: string[] | null }[];
+  const round = book['round'] as number;
+
+  if (!Array.isArray(zones) || zones.length === 0 || zones.some(zone => typeof zone !== 'string' || zone.trim() === '')) {
+    throw new Error('Invalid zones');
+  }
+
+  if (new Set(zones).size !== zones.length) {
+    throw new Error('Duplicate zones');
+  }
+
+  if (!Array.isArray(steps) || steps.length === 0 || !steps.every(step => typeof step === 'object' && typeof step.upTo === 'number' && Array.isArray(step.cents) && step.cents.length === zones.length)) {
+    throw new Error('Invalid steps');
+  }
+
+  if (round <= 0 || round % 1 !== 0) {
+    throw new Error('Invalid round');
+  }
+
+  if (!Array.isArray(extras) || !extras.every(extra => typeof extra === 'object' && typeof extra.mark === 'string' && Array.isArray(extra.zones))) {
+    throw new Error('Invalid extras');
+  }
+
+  const parcelZone = parcel['zone'] as string;
+  const parcelGrams = parcel['grams'] as number;
+  const parcelMarks = parcel['marks'] as string[];
+
+  if (typeof parcelZone !== 'string' || typeof parcelGrams !== 'number' || !Array.isArray(parcelMarks)) {
+    throw new Error('Invalid parcel');
+  }
+
+  if (!zones.includes(parcelZone) || parcelGrams <= 0 || !parcelMarks.every(mark => typeof mark === 'string')) {
+    throw new Error('Invalid parcel details');
+  }
+
+  let bandIndex = -1;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (step.upTo === null || (typeof step.upTo === 'number' && parcelGrams <= step.upTo)) {
+      bandIndex = i;
+      break;
+    }
+  }
+
+  if (bandIndex === -1) {
+    throw new Error('No matching band found');
+  }
+
+  const baseCents = steps[bandIndex].cents[zones.indexOf(parcelZone)];
+  let extraCents = 0;
+  const appliedMarks: string[] = [];
+
+  for (const extra of extras) {
+    if ((extra.zones === null || extra.zones.includes(parcelZone)) && parcelMarks.includes(extra.mark)) {
+      extraCents += extra.cents;
+      appliedMarks.push(extra.mark);
+    }
+  }
+
+  const totalCents = baseCents + extraCents;
+  const roundedTotalCents = Math.ceil(totalCents / round) * round;
+
+  return {
+    band: bandIndex,
+    base: baseCents,
+    extra: extraCents,
+    total: roundedTotalCents,
+    applied: appliedMarks
+  };
+}
+```

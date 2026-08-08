@@ -1,0 +1,59 @@
+```ts
+export function intersectBuildSpans(spans: string[]): string {
+  if (spans.length === 0) throw new Error("Empty input");
+
+  const parseSpan = (span: string): [number | null, number | null, Set<number>] => {
+    const parts = span.split("..");
+    if (parts.length < 1 || parts.length > 2) throw new Error("Malformed span");
+
+    let lo: number | null = null;
+    let hi: number | null = null;
+    const strikes = new Set<number>();
+
+    for (const part of parts) {
+      if (part.includes("!")) {
+        const strikeParts = part.split("!");
+        if (strikeParts.length !== 2) throw new Error("Invalid strike syntax");
+        const strikeBuild = parseInt(strikeParts[1], 10);
+        if (!Number.isInteger(strikeBuild) || strikeBuild <= 0) throw new Error("Non-integer or leading zero in strike");
+        strikes.add(strikeBuild);
+      } else {
+        if (part === "") {
+          lo = null;
+          hi = null;
+        } else {
+          const num = parseInt(part, 10);
+          if (!Number.isInteger(num) || num <= 0) throw new Error("Non-integer or leading zero");
+          if (lo === null) lo = num;
+          else if (hi === null) hi = num;
+          else throw new Error("Reversed limits in span");
+        }
+      }
+    }
+
+    return [lo, hi, strikes];
+  };
+
+  const spansParsed = spans.map(parseSpan);
+
+  let lo: number | null = Infinity;
+  let hi: number | null = -Infinity;
+  const strikes = new Set<number>();
+
+  for (const [spanLo, spanHi, spanStrikes] of spansParsed) {
+    if (spanLo !== null) lo = Math.max(lo, spanLo);
+    if (spanHi !== null) hi = Math.min(hi, spanHi);
+    for (const strike of spanStrikes) {
+      if (lo <= strike && strike <= hi) strikes.add(strike);
+    }
+  }
+
+  if (lo > hi) return "empty";
+
+  const resultLo = lo !== null ? lo.toString() : "";
+  const resultHi = hi !== null ? hi.toString() : "..";
+  const resultStrikes = Array.from(strikes).sort((a, b) => a - b).map(strike => `!${strike}`);
+
+  return `${resultLo}${resultHi === "" ? "" : ".."}${resultStrikes.join("")}`;
+}
+```

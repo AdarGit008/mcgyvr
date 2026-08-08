@@ -1,0 +1,23 @@
+```ts
+export function rankCandidates(candidates: string[], query: string, limit: number): string[] {
+    if (typeof query !== 'string' || query === '') throw new Error('Invalid query');
+    if (!Number.isInteger(limit) || limit <= 0) throw new Error('Invalid limit');
+
+    const result: { candidate: string; rank: number }[] = candidates
+        .filter(candidate => typeof candidate === 'string')
+        .map((candidate, index) => ({
+            candidate,
+            rank: calculateRank(candidate.toLowerCase(), query.toLowerCase())
+        }))
+        .sort((a, b) => a.rank - b.rank || a.candidate.length - b.candidate.length || candidates.indexOf(a.candidate) - candidates.indexOf(b.candidate));
+
+    return result.slice(0, limit).map(item => item.candidate);
+}
+
+function calculateRank(candidate: string, query: string): number {
+    if (candidate === query) return 0;
+    if (candidate.startsWith(query)) return 1;
+    if (candidate.includes(query)) return 2;
+    return 3;
+}
+```

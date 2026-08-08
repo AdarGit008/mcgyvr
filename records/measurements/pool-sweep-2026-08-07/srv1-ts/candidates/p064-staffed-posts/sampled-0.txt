@@ -1,0 +1,28 @@
+```ts
+export function staffedPosts(wanted: number[][], posts: number): number {
+  if (!Number.isInteger(posts) || posts <= 0) {
+    throw new Error("Invalid posts count");
+  }
+
+  const postAssignments = new Array<number>(posts).fill(-1);
+
+  for (const applicant of wanted) {
+    for (const post of applicant) {
+      if (
+        !Number.isInteger(post) ||
+        post < 0 ||
+        post >= posts
+      ) {
+        throw new Error("Invalid post number");
+      }
+
+      if (postAssignments[post] === -1) {
+        postAssignments[post] = applicant.length;
+        break;
+      }
+    }
+  }
+
+  return postAssignments.filter((assignee) => assignee !== -1).length;
+}
+```

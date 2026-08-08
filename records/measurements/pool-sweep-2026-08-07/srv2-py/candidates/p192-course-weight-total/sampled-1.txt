@@ -1,0 +1,40 @@
+```python
+def course_weight_total(categories: list) -> int:
+    if not categories:
+        raise ValueError("Syllabus is empty")
+    
+    category_labels = set()
+    total_weight = 0
+    
+    for category in categories:
+        label, weight, items = category
+        
+        if not label or not isinstance(label, str):
+            raise ValueError("Invalid label")
+        if not items or not isinstance(items, list) or len(items[0]) != 2:
+            raise ValueError("Category must have non-empty items")
+        
+        if label in category_labels:
+            raise ValueError(f"Duplicate label: {label}")
+        category_labels.add(label)
+        
+        if weight < 0 or weight > 10000:
+            raise ValueError("Weight must be a non-negative whole number up to 10000")
+        
+        total_weight += weight
+        
+        earned_points = sum(earned for earned, worth in items)
+        worth_points = sum(worth for earned, worth in items)
+        
+        if not worth_points or any(worth <= 0 for earned, worth in items):
+            raise ValueError("Worth must be strictly positive")
+        if any(earned < 0 or earned > worth for earned, worth in items):
+            raise ValueError("Earned points must be non-negative and less than worth")
+        
+        category_total = (weight * earned_points) // worth_points
+        
+    if total_weight != 10000:
+        raise ValueError("Total weight must be exactly 10000")
+    
+    return course_weight_total
+```

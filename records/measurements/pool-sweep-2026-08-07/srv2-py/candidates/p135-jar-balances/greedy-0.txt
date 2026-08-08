@@ -1,0 +1,19 @@
+```python
+def jar_balances(topup: int, lid: int, outflows: list) -> list:
+    if not isinstance(outflows, list):
+        raise ValueError("outflows must be a list")
+    if any(not isinstance(x, int) or x < 0 for x in [topup, lid] + outflows):
+        raise ValueError("all topup, lid, and outflows must be non-negative integers")
+
+    balances = []
+    current_balance = 0
+
+    for outflow in outflows:
+        current_balance += topup
+        if current_balance < outflow:
+            raise ValueError("outflow exceeds jar balance after topup")
+        current_balance -= outflow
+        balances.append(min(current_balance, lid))
+
+    return balances
+```

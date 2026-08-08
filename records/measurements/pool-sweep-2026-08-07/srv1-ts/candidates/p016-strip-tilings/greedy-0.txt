@@ -1,0 +1,32 @@
+```ts
+/**
+ * Count the distinct ways to cover a grid two cells tall and width cells wide,
+ * completely and without overlap, using one-by-two dominoes (laid upright or flat)
+ * and two-by-two squares. A width of zero has exactly one covering, the empty one,
+ * and a width of one has exactly one, a single upright domino. Two coverings are
+ * distinct when any cell is served by a differently placed or differently shaped piece.
+ * Return the count. Reject with an error a width that is negative or not a whole number.
+ *
+ * @param {number} width - The width of the grid to be covered.
+ * @returns {number} - The count of distinct ways to cover the grid.
+ */
+export function countStripTilings(width: number): number {
+  if (width < 0 || !Number.isInteger(width)) {
+    throw new Error('Width must be a non-negative integer');
+  }
+
+  if (width === 0) return 1;
+  if (width === 1) return 1;
+
+  let a = 1; // Base case: width 0
+  let b = 1; // Base case: width 1
+
+  for (let i = 2; i <= width; i++) {
+    const c = 2 * b + a;
+    a = b;
+    b = c;
+  }
+
+  return b;
+}
+```

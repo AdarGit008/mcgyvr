@@ -1,0 +1,46 @@
+id: p333-renewal-thousandths
+task_type: bug_fix
+task: >-
+  renewalThousandths turns squad rosters into renewal strength and gets the
+  arithmetic wrong twice over. A squad arrives as a triple [name, seats, run]:
+  seats is how many seats were filled when the squad formed, and run lists how
+  many of those seats were still filled at each later cycle, one entry per
+  cycle. For each squad hand back a pair [name, strengths] where strengths
+  holds one entry per cycle, written in thousandths of the squad's own forming
+  seats — always measured against that anchor, never against the cycle before
+  it. A thousandth is a whole number: work it out exactly with integers and
+  round to the nearest whole thousandth, sending an exact half upward, so one
+  seat of sixteen is 63 and one seat of eight is 125. Squads come back in the
+  order given. The present code re-anchors on the previous cycle's tally, so a
+  squad that never loses a seat reads 1000 forever by accident, and it chops
+  the fraction away instead of rounding it. Repair both and add the absent
+  guards: throw an error when an argument is not a list, when a squad is not a
+  triple, when a name is not a non-empty string, when a name is used by two
+  squads, when seats is not a whole number from 1 through 1000000, when a
+  cycle tally is not a whole number between 0 and seats inclusive, and when a
+  tally is larger than the tally of the cycle before it, since seats are never
+  regained. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function renewalThousandths(
+    squads: Array<[string, number, number[]]>,
+  ): Array<[string, number[]]> {
+    const out: Array<[string, number[]]> = [];
+    for (const [name, seats, run] of squads) {
+      const strengths: number[] = [];
+      let base = seats;
+      for (const tally of run) {
+        strengths.push(Math.floor((tally * 1000) / base));
+        base = tally;
+      }
+      out.push([name, strengths]);
+    }
+    return out;
+  }
+interface: "export function renewalThousandths(squads: Array<[string, number, number[]]>): Array<[string, number[]]>"
+stop_conditions:
+  - Whether a squad whose run is empty should be listed at all is not stated beyond the ordering rule.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

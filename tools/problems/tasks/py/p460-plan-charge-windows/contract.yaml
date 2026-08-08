@@ -1,0 +1,37 @@
+id: p460-plan-charge-windows
+task_type: function_implementation
+task: >-
+  Implement plan_charge_windows. An overnight charger must draw target units, a
+  whole number of nought or more, spread across a day cut into tariff windows.
+  Each window is a record with label (a non-empty string, no two windows carrying
+  the same one), opens and shuts (whole tick numbers with opens at nought or
+  above and shuts strictly later), price (the pence one unit costs inside that
+  window, a whole number of nought or more), rate (the most units the charger may
+  draw in one tick there, a whole number above nought) and blocked (true when the
+  window is barred and may not be drawn on at all). The windows arrive in no
+  particular order and no two of them may share a tick, though one may shut on
+  the very tick another opens. A window's room is its length in ticks times its
+  rate. Work through the unbarred windows from the cheapest price upward, and
+  where two share a price take the one that opens earlier first; from each take
+  as many units as are still wanted or as many as its room allows, whichever is
+  the smaller, and stop the moment the target is met. Because every unit costs
+  only the price of the window it is drawn in, this is the cheapest way to meet
+  the target. Give back a record whose plan lists, in clock order of the windows
+  that were drawn on and never mentioning a window drawn on for nothing, a pair
+  of the label and the units taken there, whose cost is every window's units
+  times its price added up, and whose short is how much of the target could not
+  be met at all. Raise an error when windows is not a list, when target is not a
+  whole number of nought or more, when a window is not a record, when a label is
+  empty or not a string, when two windows carry one label, when opens is not a
+  whole number of nought or more, when shuts is not a whole number strictly later
+  than opens, when price is not a whole number of nought or more, when rate is
+  not a whole number above nought, when blocked is not a boolean, and when two
+  windows share a tick.
+target: solution.py
+interface: "def plan_charge_windows(windows: list, target: int) -> dict"
+stop_conditions:
+  - Whether the charger may be left idle for part of a window it is drawing on is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

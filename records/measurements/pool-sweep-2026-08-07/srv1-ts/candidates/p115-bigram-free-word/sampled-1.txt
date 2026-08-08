@@ -1,0 +1,30 @@
+```ts
+export function smallestFreeWord(n: number, k: number, banned: string[]): string {
+  if (!Number.isInteger(n) || n <= 0 || n > 12) throw new Error("Invalid n");
+  if (!Number.isInteger(k) || k < 1 || k > 6) throw new Error("Invalid k");
+  if (!Array.isArray(banned)) throw new Error("Banned must be a list");
+
+  const alphabet = Array.from({ length: k }, (_, i) => String.fromCharCode('a'.charCodeAt(0) + i));
+  const bannedSet = new Set(banned.filter(ban => ban.length === 2 && /^([a-z]{2})$/.test(ban)));
+
+  function isValidWord(word: string[]): boolean {
+    for (let i = 1; i < word.length; i++) {
+      if (bannedSet.has(word[i - 1] + word[i])) return false;
+    }
+    return true;
+  }
+
+  function generateWords(current: string[], length: number): string[] {
+    if (length === n) {
+      return isValidWord(current) ? [current.join('')] : [];
+    }
+    const nextChars = alphabet.filter(char => !current.length || !bannedSet.has(current.slice(-1)[0] + char));
+    return nextChars.flatMap(nextChar => generateWords([...current, nextChar], length + 1));
+  }
+
+  const allWords = generateWords([], 0);
+  if (allWords.length === 0) throw new Error("No valid word found");
+
+  return allWords.sort()[0];
+}
+```

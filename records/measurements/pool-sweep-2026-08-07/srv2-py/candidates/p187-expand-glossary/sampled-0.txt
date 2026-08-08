@@ -1,0 +1,47 @@
+```python
+import re
+from typing import List
+
+
+def expand_glossary(script: List[str]) -> str:
+    if not isinstance(script, list):
+        raise ValueError("Script must be a list.")
+    
+    slots = {}
+    sent = []
+    stack = []
+
+    for line in script:
+        if not isinstance(line, str):
+            raise ValueError("All lines in the script must be strings.")
+
+        if line.startswith("!"):
+            slot_num = line[1:]
+            if not slot_num.isdigit() or int(slot_num) <= 0:
+                raise ValueError("Invalid slot number.")
+            if int(slot_num) not in slots:
+                raise ValueError(f"Slot {slot_num} referenced before storage.")
+            sent.append(slots[int(slot_num)])
+        else:
+            cut = line.find("=")
+            if cut == -1:
+                raise ValueError("Lines must be either store or send lines.")
+
+            slot_num, body = line[:cut], line[cut + 1:]
+            if not slot_num.isdigit() or int(slot_num) <= 0:
+                raise ValueError("Invalid slot number.")
+            if int(slot_num) in slots:
+                raise ValueError(f"Slot {slot_num} stored more than once.")
+
+            stack.append((slot_num, body))
+
+    for slot_num, body in stack:
+        if not stack:
+            raise ValueError(f"Slot {slot_num} send before storage.")
+        sent.append(body)
+
+    return "".join(
+        re.sub(r"\{(\d+)\}", lambda m: slots.get(m.group(1), ""), body)
+        for body in sent
+    )
+```

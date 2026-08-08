@@ -1,0 +1,39 @@
+```ts
+/**
+ * Seats parties in rows according to their size.
+ * @param rows - Array of numbers representing the lengths of each row.
+ * @param parties - Array of numbers representing the sizes of parties.
+ * @returns An array of strings, each representing a seat record or a rejection reason.
+ */
+export function seatParties(rows: number[], parties: number[]): string[] {
+    if (rows.length === 0) {
+        throw new Error("Empty rows list");
+    }
+
+    const seatRecords: string[] = [];
+
+    for (const partySize of parties) {
+        if (partySize < 1) {
+            throw new Error("Party size below 1 is not allowed");
+        }
+
+        let seated = false;
+        for (let i = 0; i < rows.length; i++) {
+            if (rows[i] >= partySize) {
+                seatRecords.push(`${i + 1}-${rows[i] - partySize + 1}`);
+                rows[i] -= partySize;
+                seated = true;
+                break;
+            }
+        }
+
+        if (!seated && partySize <= Math.max(...rows)) {
+            seatRecords.push("rejected:full");
+        } else if (!seated) {
+            seatRecords.push("rejected:too_big");
+        }
+    }
+
+    return seatRecords;
+}
+```

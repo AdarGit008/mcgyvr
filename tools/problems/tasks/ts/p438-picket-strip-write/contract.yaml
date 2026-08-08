@@ -1,0 +1,26 @@
+id: p438-picket-strip-write
+task_type: function_implementation
+task: >-
+  Implement writePicketStrip. The picket code draws each digit as five bars
+  standing side by side, exactly two of them wide and the other three narrow;
+  a wide bar is written w and a narrow bar n. The ten ways of choosing which
+  two of the five bars are wide are ordered by the place of the earlier wide
+  bar and then by the place of the later one — first and second, first and
+  third, first and fourth, first and fifth, second and third, and onward to
+  fourth and fifth — and those ten choices stand for the digits 0 through 9
+  in exactly that order. A whole strip is the head guard nn, then the five
+  bars of every digit in the order the digits are given, then the tail guard
+  wn. A narrow bar measures one unit across and a wide bar measures two.
+  Return a mapping under "strip", the written strip, and "width", how many
+  units the strip measures from the edge of its first bar to the edge of its
+  last. Raise an error when the digits are not given as a string, when the
+  string is empty, and when it holds any character that is not a digit 0
+  to 9.
+target: solution.ts
+interface: "export function writePicketStrip(digits: string): { strip: string; width: number }"
+stop_conditions:
+  - Whether the gaps between neighbouring bars measure anything is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

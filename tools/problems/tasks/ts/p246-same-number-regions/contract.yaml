@@ -1,0 +1,28 @@
+id: p246-same-number-regions
+task_type: function_implementation
+task: >-
+  Implement labelValueRegions. The argument is a grid, a non-empty list of
+  rows, each row a non-empty list of whole numbers, and every row the same
+  length as the first. Two squares belong to the same region when they lie
+  side by side sharing an edge — one directly above, below, left of or
+  right of the other, never merely touching at a corner — and they hold the
+  very same number; a region is everything reachable from any of its
+  squares by repeating that step. Number the regions from one, in the order
+  the reading first meets them, the reading going along the top row from
+  the left and then on to the row below. Return a mapping under three keys:
+  "map", the grid redrawn square for square with each square's region
+  number in its place; "sizes", one entry per region in region-number
+  order, holding how many squares that region owns; and "values", one entry
+  per region in region-number order, holding the number every square of
+  that region carries. Raise an error when the grid is not a list, when it
+  has no rows, when a row is not a list, when a row has no squares, when
+  the rows are not all of one length, and when a square is not a whole
+  number.
+target: solution.ts
+interface: "export function labelValueRegions(grid: number[][]): any"
+stop_conditions:
+  - Whether a very tall grid must be walked without deep recursion is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,49 @@
+```ts
+export function replayTesselMatch(rallies: string[]): { winner: string; bands: number[]; points: number[]; serve: string } {
+  if (!Array.isArray(rallies)) {
+    throw new Error("Invalid input: rallies must be an array");
+  }
+
+  const validRallies = rallies.every(rally => rally === "A" || rally === "B");
+  if (!validRallies) {
+    throw new Error("Invalid input: rallies must only contain 'A' or 'B'");
+  }
+
+  let bands: number[] = [0, 0];
+  let points: number[] = [0, 0];
+  let serve: string = "A";
+  let winner: string = "";
+
+  const checkWinner = () => {
+    if (bands[0] >= 3) {
+      winner = "A";
+    } else if (bands[1] >= 3) {
+      winner = "B";
+    }
+  };
+
+  for (const rally of rallies) {
+    if (winner !== "") {
+      throw new Error("Invalid input: match is already decided");
+    }
+
+    const servingIndex = serve === "A" ? 0 : 1;
+    const receivingIndex = 1 - servingIndex;
+
+    if (rally === serve) {
+      points[servingIndex]++;
+      if (points[servingIndex] >= 7 && points[servingIndex] - points[receivingIndex] >= 2) {
+        bands[servingIndex]++;
+        points = [0, 0];
+        serve = receivingIndex === 0 ? "A" : "B";
+      }
+    } else {
+      serve = rally;
+    }
+
+    checkWinner();
+  }
+
+  return { winner, bands, points, serve };
+}
+```

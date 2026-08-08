@@ -1,0 +1,37 @@
+id: p181-print-mixed-ops
+task_type: function_implementation
+task: >-
+  Implement print_operator_tree. The argument describes an expression as plain
+  data, and the job is to print it — never to work out its value. A whole
+  number of zero or more prints as itself, and so does a lowercase word of
+  letters. Every other node is a record. A record carrying op holds two
+  further nodes under left and right, its op drawn from or, and, +, -, *, /
+  and ^. A record carrying negate holds one further node and prints as a
+  minus sign immediately followed by that node. A record carrying call
+  holds a lowercase function word plus a list under args, and prints as the
+  word, an opening parenthesis, the printed arguments separated by a comma
+  and a space, then a closing parenthesis. Binding power runs from loosest
+  to tightest in this order: or, then and, then + and -, then * and /, then
+  negate, then ^. Anything standing alone — a number, a word or a call —
+  binds tightest of all and never takes parentheses. Every operator except
+  ^ gathers toward the left; ^ gathers toward the right. Print a record
+  carrying op as its left operand, a space, the operator, a space, then its
+  right operand, adding one pair of parentheses around an operand binding
+  more loosely than the operator itself, and also around an operand of
+  equal binding power sitting on the side the operator does not gather
+  toward. Add parentheses around the node under negate when that node binds
+  more loosely than negate does, and also whenever it is itself a negate.
+  Raise an error for a record carrying none of op, negate and call, for a
+  record carrying op without both left and right or with an operator
+  outside the seven, for a call whose word is not a lowercase run of
+  letters or whose args is not a list, for a number that is negative or not
+  whole, for a word that is empty or holds anything but lowercase letters,
+  and for a node that is none of a number, a word and a record.
+target: solution.py
+interface: "def print_operator_tree(node) -> str"
+stop_conditions:
+  - Whether a call may take an argument that is itself a call is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

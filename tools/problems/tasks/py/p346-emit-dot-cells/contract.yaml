@@ -1,0 +1,29 @@
+id: p346-emit-dot-cells
+task_type: function_implementation
+task: >-
+  Implement emit_dot_cells. A cell is a raised pattern inside a frame of six
+  dots, numbered 1, 2, 3 down the left column and 4, 5, 6 down the right
+  column; write a cell as its raised numbers in ascending order, and write
+  a frame with nothing raised as 0. The ten patterns for a through j are,
+  in that order, 1, 12, 14, 145, 15, 124, 1245, 125, 24 and 245. The
+  patterns for k through t are those same ten in the same order with dot 3
+  also raised. The patterns for u, v, x, y and z are the patterns of a, b,
+  c, d and e with dots 3 and 6 also raised, and w stands apart as 2456.
+  Render an uppercase letter as the cell 6 followed by that letter's own
+  cell. Render a space as the empty frame. Render a digit run — a stretch
+  of digits with nothing else inside it — as the cell 3456 followed by one
+  cell per digit, where 1 through 9 borrow the patterns of a through i and
+  0 borrows the pattern of j; only the digit that opens a run carries the
+  3456, and any character that is not a digit closes the run. Join every
+  cell with single hyphens and return that string. Reject with an error an
+  argument that is not a string, an empty argument, a character that is
+  neither an ASCII letter nor an ASCII digit nor a space, and two spaces
+  standing next to each other.
+target: solution.py
+interface: "def emit_dot_cells(text: str) -> str"
+stop_conditions:
+  - How a tab or a newline should be rendered is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,23 @@
+import assert from "node:assert/strict";
+import { emitDotCells } from "./solution.ts";
+
+assert.equal(emitDotCells("abc"), "1-12-14", "the first three patterns");
+assert.equal(emitDotCells("ij"), "24-245", "the ninth and tenth patterns");
+assert.equal(emitDotCells("klm"), "13-123-134", "dot 3 added, kept in order");
+assert.equal(emitDotCells("qt"), "12345-2345", "later members of the second ten");
+assert.equal(emitDotCells("w"), "2456", "w stands apart");
+assert.equal(emitDotCells("uvxyz"), "136-1236-1346-13456-1356", "dots 3 and 6 added");
+assert.equal(emitDotCells("Ab"), "6-1-12", "a capital carries its own cell first");
+assert.equal(emitDotCells("Za"), "6-1356-1", "a capital late in the alphabet");
+assert.equal(emitDotCells("a b"), "1-0-12", "a space is the empty frame");
+assert.equal(emitDotCells(" "), "0", "a lone space");
+assert.equal(emitDotCells("12"), "3456-1-12", "one opener for a run of two digits");
+assert.equal(emitDotCells("90"), "3456-24-245", "nine and zero");
+assert.equal(emitDotCells("a1b"), "1-3456-1-12", "a letter closes the run");
+assert.equal(emitDotCells("1 2"), "3456-1-0-3456-12", "a space closes the run");
+assert.throws(() => emitDotCells(42), Error, "not a string");
+assert.throws(() => emitDotCells(""), Error, "empty argument");
+assert.throws(() => emitDotCells("a-b"), Error, "a hyphen cannot be rendered");
+assert.throws(() => emitDotCells("a_b"), Error, "an underscore cannot be rendered");
+assert.throws(() => emitDotCells("a  b"), Error, "two spaces side by side");
+console.log("ok");

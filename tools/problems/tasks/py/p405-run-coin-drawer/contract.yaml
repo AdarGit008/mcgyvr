@@ -1,0 +1,36 @@
+id: p405-run-coin-drawer
+task_type: function_implementation
+task: >-
+  Implement run_coin_drawer. A kiosk keeps its coins in a till described by
+  pairs of a denomination and how many of it are on hand; those denominations
+  are the only ones the kiosk ever handles. A queue of purchases is then
+  worked through in the order given, numbered from zero, each purchase a
+  record whose price is what is charged and whose paid lists the coins the
+  customer has pushed in. Handle one
+  purchase like this: the pushed coins join the till at once, and the balance
+  owed back is what was pushed in less the price. Settle that balance by
+  walking the denominations from biggest to smallest, at each one handing
+  over as many coins as the till still holds without overshooting what is
+  still owed. Should the pushed coins fall short of the price, or should the
+  walk finish with something still owed, the purchase is turned away: the
+  till goes back exactly to what it was before those coins joined it, the
+  customer gets the coins back, and the purchase number is noted. A purchase
+  that settles takes its change out of the till and adds its price to the
+  earnings. Give back a record whose till lists every denomination and its
+  final count, biggest denomination first, whose turnedAway lists the numbers
+  of the purchases turned away in order, and whose earnings is the prices of
+  the purchases that settled added up. Throw an error for a till that is not
+  a list, a till of no denominations, a till entry that is not a pair, a
+  denomination that is not a whole number above nothing, a count that is not
+  a whole number of nothing or more, a denomination listed twice, a queue
+  that is not a list, a purchase that is not a record, a price that is not a
+  whole number above nothing, pushed coins that are not a list, and a pushed
+  coin of a denomination the till does not handle.
+target: solution.py
+interface: "def run_coin_drawer(till: list, queue: list) -> dict"
+stop_conditions:
+  - Whether the till's pairs arrive already sorted by denomination is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,46 @@
+```ts
+/**
+ * Assigns channels to transmitters based on their signal clashes and a given visit order.
+ * @param neighbours - A 2D array where each element is a list of clashing transmitters for that transmitter.
+ * @param visitOrder - An array specifying the order in which transmitters should be assigned channels.
+ * @returns A 2D array with two rows: the first row contains the channel number for each transmitter,
+ *          and the second row contains the count of distinct channels used.
+ */
+export function orderColorReport(neighbours: number[][], visitOrder: number[]): number[][] {
+  if (neighbours.length === 0) {
+    throw new Error("No transmitters provided.");
+  }
+
+  const channel: number[] = new Array(neighbours.length).fill(-1);
+  const distinctChannels = new Set<number>();
+
+  for (const node of visitOrder) {
+    if (node < 0 || node >= neighbours.length) {
+      throw new Error(`Invalid transmitter index in visit order: ${node}`);
+    }
+    if (!neighbours[node].includes(node)) {
+      throw new Error(`Transmitter ${node} does not clash with itself.`);
+    }
+    for (const other of neighbours[node]) {
+      if (other === node || !neighbours[other].includes(node)) {
+        throw new Error(`Clash between transmitters ${node} and ${other} is recorded on one side only.`);
+      }
+    }
+  }
+
+  if (new Set(visitOrder).size !== neighbours.length) {
+    throw new Error("Visit order does not include every transmitter exactly once.");
+  }
+
+  for (const node of visitOrder) {
+    let lowestAvailableChannel = 0;
+    while (neighbours[node].some(other => channel[other] === lowestAvailableChannel)) {
+      lowestAvailableChannel++;
+    }
+    channel[node] = lowestAvailableChannel;
+    distinctChannels.add(lowestAvailableChannel);
+  }
+
+  return [channel, [distinctChannels.size]];
+}
+```

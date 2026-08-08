@@ -1,0 +1,36 @@
+```ts
+export function leafPaths(rows: [string, string][]): string[] {
+  // Create a map to store children for each node
+  const children = new Map<string, string[]>();
+  rows.forEach(([id, parentId]) => {
+    if (children.has(parentId)) {
+      children.get(parentId)!.push(id);
+    } else {
+      children.set(parentId, [id]);
+    }
+  });
+
+  // Find the root node (node with no parent)
+  const rootNode = rows.find(row => row[1] === '');
+  if (!rootNode || rows.filter(r => r[0] !== rootNode[0] && r[1] === rootNode[1]).length > 0) {
+    throw new Error('Invalid input: multiple root nodes or no root node');
+  }
+
+  // Function to find paths from a given node
+  const findPaths = (nodeId: string, currentPath: string): void => {
+    if (!children.has(nodeId)) {
+      paths.push(currentPath);
+      return;
+    }
+    children.get(nodeId)!.forEach(childId => {
+      findPaths(childId, `${currentPath}/${childId}`);
+    });
+  };
+
+  const paths: string[] = [];
+  findPaths(rootNode[0], rootNode[0]);
+
+  // Sort the paths lexicographically
+  return paths.sort();
+}
+```

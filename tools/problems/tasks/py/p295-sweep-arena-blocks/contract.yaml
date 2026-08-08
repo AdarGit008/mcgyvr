@@ -1,0 +1,28 @@
+id: p295-sweep-arena-blocks
+task_type: function_implementation
+task: >-
+  Implement sweep_arena_blocks. An arena is a list of slots and a slot's place in
+  that list is its number. A slot carries a size in bytes, a links list of
+  slot numbers, and a cleanup that is either a name or null. The anchors
+  argument lists the slot numbers the program still holds. Mark every slot
+  the anchors reach along links, whether straight away or by way of other
+  slots. Then walk the arena from slot 0 upward: every unmarked slot is
+  freed, and a stretch of freed slots standing next to one another merges
+  into a single block, written as the pair of its first slot number and the
+  sum of the sizes it swallows. A freed slot carrying a cleanup name has that
+  name appended to the cleanup log as the walk passes it, so the log follows
+  slot order. Return an object with blocks, the merged blocks in arena order,
+  reclaimed, the count of bytes freed altogether, and cleanups, the log.
+  Reject with an error an arena or an anchors argument that is not a list, a
+  slot that is not an object, a size that is not a whole number above zero, a
+  links entry that is not a list, a link or an anchor that is not a whole
+  number naming a slot of this arena, and a cleanup that is neither a string
+  nor null.
+target: solution.py
+interface: "def sweep_arena_blocks(slots: list[dict], anchors: list[int]) -> dict"
+stop_conditions:
+  - Whether a cleanup name may be the empty string is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

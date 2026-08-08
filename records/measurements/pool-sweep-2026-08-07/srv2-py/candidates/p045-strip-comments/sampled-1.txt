@@ -1,0 +1,43 @@
+```python
+import re
+
+
+def strip_comments(source: str) -> str:
+    def is_escaped(string, i):
+        return i > 0 and string[i - 1] == '\\'
+
+    def is_in_string(line, i):
+        return any(char in line[:i] for char in '""')
+
+    lines = source.split("\n")
+    result = []
+
+    for line in lines:
+        if not is_in_string(line, 0):
+            line = re.sub(r'//.*', '', line)
+        new_line = []
+        i = 0
+        while i < len(line):
+            if line[i:i+2] == '/*':
+                close_index = line.find('*/', i + 2)
+                if close_index == -1:
+                    raise ValueError("Block comment never closes")
+                i = close_index + 2
+            elif line[i:i+2] == '//':
+                break
+            elif line[i] != '"' or is_escaped(line, i):
+                new_line.append(line[i])
+                i += 1
+            else:
+                quote_count = 0
+                while i < len(line) and (line[i] == '"' or is_escaped(line, i)):
+                    if not is_escaped(line, i):
+                        quote_count += line[i] == '"'
+                    new_line.append(line[i])
+                    i += 1
+                if quote_count % 2 != 0:
+                    raise ValueError("String literal never closes")
+        result.append(''.join(new_line))
+
+    return '\n'.join(result)
+```

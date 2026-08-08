@@ -1,0 +1,24 @@
+```ts
+export function mergeThreeWay(base: Record<string, string>, ours: Record<string, string>, theirs: Record<string, string>): { merged: Record<string, string>; conflicts: string[] } {
+  if (typeof base !== 'object' || base === null || typeof ours !== 'object' || ours === null || typeof theirs !== 'object' || theirs === null) {
+    throw new Error('All arguments must be objects');
+  }
+
+  const merged: Record<string, string> = {};
+  const conflicts: string[] = [];
+
+  for (const key of [...new Set([...Object.keys(base), ...Object.keys(ours), ...Object.keys(theirs)])]) {
+    if ((key in base && !key in ours) || (key in base && !key in theirs)) {
+      merged[key] = base[key];
+    } else if (base[key] === ours[key] && base[key] === theirs[key]) {
+      merged[key] = base[key];
+    } else if (ours[key] !== theirs[key]) {
+      conflicts.push(key);
+    } else {
+      merged[key] = ours[key];
+    }
+  }
+
+  return { merged, conflicts: conflicts.sort() };
+}
+```

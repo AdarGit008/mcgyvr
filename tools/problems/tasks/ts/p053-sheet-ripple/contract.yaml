@@ -1,0 +1,49 @@
+id: p053-sheet-ripple
+task_type: bug_fix
+task: >-
+  Fix changedCells. Given a sheet mapping cell names to text — a literal
+  cell holds an optionally signed integer, a formula cell holds an equals
+  sign followed by cell names joined by plus signs — the function replaces
+  the text of one existing cell with new text (either kind) and reports,
+  sorted alphabetically, the names of every cell whose computed value ends
+  up different from before, the edited cell included. A rewrite that leaves
+  a value unchanged, such as swapping a literal for an equivalent spelling
+  of the same integer, must report nothing for that cell. The current code
+  compares raw text and then lists only cells whose own formulas mention
+  the edited cell, so a change flowing through an intermediate formula
+  never reaches the report and an equivalent respelling is falsely
+  reported. Recompute values before and after the edit instead. Keep
+  rejecting an edit naming a cell absent from the sheet with an error, and
+  return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function changedCells(
+    cells: Record<string, string>,
+    name: string,
+    replacement: string,
+  ): string[] {
+    if (!(name in cells)) {
+      throw new Error(`unknown cell ${name}`);
+    }
+    if (cells[name] === replacement) {
+      return [];
+    }
+    const changed = [name];
+    for (const [cell, raw] of Object.entries(cells)) {
+      if (cell === name || !raw.startsWith("=")) {
+        continue;
+      }
+      const refs = raw.slice(1).split("+").map((part) => part.trim());
+      if (refs.includes(name)) {
+        changed.push(cell);
+      }
+    }
+    return changed.sort();
+  }
+interface: "export function changedCells(cells: Record<string, string>, name: string, replacement: string): string[]"
+stop_conditions:
+  - Behaviour on a sheet whose formulas form a reference cycle is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

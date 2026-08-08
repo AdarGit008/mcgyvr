@@ -1,0 +1,24 @@
+id: p090-run-loom
+task_type: function_implementation
+task: >-
+  Implement run_loom. A loom program is a list of instructions run in order
+  against a stack of integers that starts empty. ["put", n] pushes the
+  integer n; ["twin"] pushes a copy of the top value; ["flip"] swaps the
+  two topmost values; ["fuse"] pops two values and pushes their sum;
+  ["scale"] pops two values and pushes their product; ["weave"] pops the
+  top value and appends it to the woven output. A bad program never
+  raises: the function always returns a mapping with keys status and
+  output. Running off the end of the program gives status done. An
+  instruction needing more stack than it has stops the run with status
+  starved; an instruction whose name is none of the six stops it with
+  status lost; a stopped run's mapping carries the extra key step, the
+  0-based index of the offending instruction, and output holds whatever
+  was woven before the stop.
+target: solution.py
+interface: "def run_loom(program: list) -> dict"
+stop_conditions:
+  - Whether integer overflow of stack values is possible is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

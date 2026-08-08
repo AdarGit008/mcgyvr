@@ -1,0 +1,68 @@
+```ts
+/**
+ * Places donations by matching them with requests based on specified criteria.
+ * @param requests - An array of request records each with an id, kind, from, to, and urgent flag.
+ * @param lots - An array of lot records each with an id, kind, and day.
+ * @returns An array of pairs where each pair contains a lot id and a matched request id.
+ */
+export function placeDonations(
+  requests: Array<{ id: string; kind: string; from: number; to: number; urgent: boolean }>,
+  lots: Array<{ id: string; kind: string; day: number }>
+): Array<[string, string]> {
+  const placedPairs: Array<[string, string]> = [];
+
+  // Validate requests
+  const requestIds = new Set<string>();
+  for (const request of requests) {
+    if (requestIds.has(request.id)) {
+      throw new Error(`Duplicate request id: ${request.id}`);
+    }
+    requestIds.add(request.id);
+    if (request.from > request.to || !Number.isInteger(request.from) || !Number.isInteger(request.to)) {
+      throw new Error(`Invalid span for request ${request.id}: from=${request.from}, to=${request.to}`);
+    }
+  }
+
+  // Validate lots
+  const lotIds = new Set<string>();
+  for (const lot of lots) {
+    if (lotIds.has(lot.id)) {
+      throw new Error(`Duplicate lot id: ${lot.id}`);
+    }
+    lotIds.add(lot.id);
+    if (!Number.isInteger(lot.day)) {
+      throw new Error(`Invalid day for lot ${lot.id}: day=${lot.day}`);
+    }
+  }
+
+  // Sort requests by urgency, then by closing span, then by position in the array
+  requests.sort((a, b) => {
+    if (a.urgent !== b.urgent) return a.urgent ? -1 : 1;
+    if (a.to !== b.to) return a.to - b.to;
+    return 0;
+  });
+
+  // Process each lot
+  for (const lot of lots) {
+    let matchedRequest: { id: string } | null = null;
+
+    for (const request of requests) {
+      if (
+        (request.kind === lot.kind || request.kind === "ANY") &&
+        lot.day >= request.from &&
+        lot.day <= request.to
+      ) {
+        matchedRequest = request;
+        break;
+      }
+    }
+
+    if (matchedRequest) {
+      placedPairs.push([lot.id, matchedRequest.id]);
+      requests = requests.filter(r => r !== matchedRequest);
+    }
+  }
+
+  return placedPairs;
+}
+```

@@ -1,0 +1,34 @@
+```ts
+export function firstOverload(bookings: number[][], capacity: number): number {
+  if (capacity < 1) {
+    throw new Error("Capacity must be at least 1.");
+  }
+
+  const events: { time: number; delta: number }[] = [];
+
+  for (const [start, end] of bookings) {
+    if (!Number.isInteger(start) || !Number.isInteger(end)) {
+      throw new Error("Booking endpoints must be integers.");
+    }
+    if (start >= end) {
+      throw new Error("Start time must come strictly before end time.");
+    }
+
+    events.push({ time: start, delta: 1 });
+    events.push({ time: end, delta: -1 });
+  }
+
+  events.sort((a, b) => a.time - b.time);
+
+  let activeBookings = 0;
+
+  for (const event of events) {
+    activeBookings += event.delta;
+    if (activeBookings > capacity) {
+      return event.time;
+    }
+  }
+
+  return -1;
+}
+```

@@ -1,0 +1,34 @@
+id: p455-build-bump-list
+task_type: function_implementation
+task: >-
+  Implement buildBumpList. A smaller aeroplane has been rolled out and the gate
+  agent must decide who flies. Each traveller is a record with code (a non-empty
+  string, no two travellers carrying the same one), fare (one of flex, saver or
+  award), miles (a whole number of nought or more) and checked (a whole number
+  above nought giving the place in the check-in queue, no two travellers sharing
+  one). The seats argument is a whole number of nought or more for what the
+  replacement aeroplane holds, and volunteers is a list of codes, in the order
+  the offer was taken up, of travellers willing to stand down. Rank the roll from
+  best protected to worst: flex ahead of saver ahead of award; among equal fares
+  more miles ahead of fewer; among those still level the earlier check-in ahead
+  of the later. The number who must stand down is however many travellers the
+  seats do not cover, or none when the seats cover everybody. Fill that number by
+  taking volunteers in the order listed, stopping the moment it is met, and if it
+  is still not met keep taking the worst-protected traveller not already standing
+  down until it is. Give back a record whose boarding lists the codes still
+  flying in rank order, best protected first, and whose bumped lists the codes
+  standing down in the order they were picked. Raise an error when travellers is
+  not a list, when seats is not a whole number of nought or more, when volunteers
+  is not a list, when a traveller is not a record, when a code is empty or not a
+  string, when two travellers carry one code, when fare is none of the three
+  words, when miles is not a whole number of nought or more, when checked is not
+  a whole number above nought, when two travellers share a check-in place, when a
+  volunteer names nobody on the roll, and when a volunteer is named twice.
+target: solution.ts
+interface: "export function buildBumpList(travellers: any[], seats: number, volunteers: string[]): { boarding: string[]; bumped: string[] }"
+stop_conditions:
+  - Whether a volunteer who is standing down should be offered a later departure is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

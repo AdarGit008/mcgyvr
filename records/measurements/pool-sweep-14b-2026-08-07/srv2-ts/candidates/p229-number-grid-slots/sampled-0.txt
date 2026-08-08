@@ -1,0 +1,65 @@
+```ts
+export function numberGridSlots(rows: string[]): Array<Record<string, number>> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("Rows must be a non-empty list");
+  }
+
+  const rowCount = rows.length;
+  const colCount = rows[0].length;
+
+  if (colCount === 0) {
+    throw new Error("Each row must be a non-empty string");
+  }
+
+  for (const row of rows) {
+    if (typeof row !== "string" || row.length !== colCount) {
+      throw new Error("All rows must be strings of the same length");
+    }
+    for (const char of row) {
+      if (char !== "." && char !== "#") {
+        throw new Error("Each character in a row must be either '.' or '#'");
+      }
+    }
+  }
+
+  const slots: Array<Record<string, number>> = [];
+  let currentNumber = 1;
+
+  for (let row = 0; row < rowCount; row++) {
+    for (let col = 0; col < colCount; col++) {
+      if (rows[row][col] === ".") {
+        const hasLeftNeighbor = col > 0 && rows[row][col - 1] === ".";
+        const hasTopNeighbor = row > 0 && rows[row - 1][col] === ".";
+
+        let acrossLength = 0;
+        let downLength = 0;
+
+        if (!hasLeftNeighbor) {
+          for (let c = col; c < colCount && rows[row][c] === "."; c++) {
+            acrossLength++;
+          }
+        }
+
+        if (!hasTopNeighbor) {
+          for (let r = row; r < rowCount && rows[r][col] === "."; r++) {
+            downLength++;
+          }
+        }
+
+        if (acrossLength >= 2 || downLength >= 2) {
+          slots.push({
+            at: currentNumber,
+            row: row + 1,
+            col: col + 1,
+            across: acrossLength >= 2 ? acrossLength : 0,
+            down: downLength >= 2 ? downLength : 0,
+          });
+          currentNumber++;
+        }
+      }
+    }
+  }
+
+  return slots;
+}
+```

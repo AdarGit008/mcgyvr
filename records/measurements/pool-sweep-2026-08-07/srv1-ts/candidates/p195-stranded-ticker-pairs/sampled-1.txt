@@ -1,0 +1,47 @@
+```ts
+export function strandedTickerPairs(legs: unknown[][]): string[] {
+  if (legs.length === 0) throw new Error("No legs published");
+
+  const tickerSet = new Set<string>();
+  const legMap = new Map<string, string>();
+
+  for (const [sell, buy] of legs) {
+    if (!Array.isArray(sell) || !Array.isArray(buy)) throw new Error("Invalid leg format");
+    if (sell.length !== 2 || buy.length !== 2) throw new Error("Invalid leg length");
+    if (typeof sell[0] !== 'string' || typeof sell[1] !== 'string') throw new Error("Non-string ticker in sell");
+    if (typeof buy[0] !== 'string' || typeof buy[1] !== 'string') throw new Error("Non-string ticker in buy");
+    if (sell[0] === buy[0]) throw new Error("Ticker cannot route to itself");
+
+    const [s, t] = sell;
+    const [u, v] = buy;
+
+    if (legMap.has(s)) {
+      if (legMap.get(s) !== u) throw new Error("Identical leg published twice");
+    } else {
+      legMap.set(s, u);
+    }
+
+    tickerSet.add(s);
+    tickerSet.add(t);
+    tickerSet.add(u);
+    tickerSet.add(v);
+  }
+
+  const reachablePairs = new Set<string[]>();
+
+  for (const [s, t] of legs) {
+    let current = s;
+    while (legMap.has(current)) {
+      current = legMap.get(current)!;
+    }
+    if (current !== t) reachablePairs.add([s, current]);
+  }
+
+  const allPairs = Array.from(tickerSet).flatMap(s => Array.from(tickerSet).map(t => [s, t]));
+  const unreachablePairs = allPairs.filter(pair => !reachablePairs.has(pair));
+
+  return unreachablePairs
+    .sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]))
+    .map(([start, end]) => `${start}>${end}`);
+}
+```

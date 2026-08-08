@@ -1,0 +1,40 @@
+```python
+def hold_shelf_replay(slips: list) -> list:
+    queue = []
+    results = []
+
+    for slip in slips:
+        if isinstance(slip, str):
+            parts = slip.split()
+            verb = parts[0]
+
+            if verb == "join":
+                if len(parts) != 2 or not parts[1]:
+                    raise ValueError("Invalid join slip")
+                name = parts[1]
+                if name in queue:
+                    results.append(f"no:again")
+                else:
+                    queue.append(name)
+                    position = queue.index(name) + 1
+                    results.append(f"at:{position}")
+            elif verb == "leave":
+                if len(parts) != 2 or not parts[1]:
+                    raise ValueError("Invalid leave slip")
+                name = parts[1]
+                if name in queue:
+                    queue.remove(name)
+                    results.append("out")
+                else:
+                    results.append("no:absent")
+            elif verb == "serve":
+                if queue:
+                    name = queue.pop(0)
+                    results.append(f"take:{name}")
+                else:
+                    results.append("idle")
+        else:
+            raise ValueError("Invalid slip type")
+
+    return results
+```

@@ -1,0 +1,42 @@
+id: p495-sweep-probe-scales
+task_type: function_implementation
+task: >-
+  Implement sweepProbeScales. A probe deck turns tick figures into micro-units,
+  one channel at a time. The first argument is the channels, a list of records
+  each holding exactly the three keys channel (a non-empty string, no two
+  channels answering to one), ladder (a list of at least two rungs, each rung a
+  list of exactly two whole numbers, a tick figure and the micro-units that
+  figure stands for, the tick figures rising strictly from rung to rung while the
+  micro-units may rise, fall or stay) and bias (a whole number added to every
+  micro-unit figure that channel yields). The second argument is the samples, a
+  list of records each holding exactly the two keys channel, naming a declared
+  channel, and count, a whole tick figure; the samples are swept in the order
+  given. A count under the lowest rung's tick figure is pinned to that rung's
+  micro-units and scores a low pin; a count over the highest rung's tick figure
+  is pinned to that rung's micro-units and scores a high pin; a count sitting on
+  a rung or between two of them runs evenly along the two rungs it lies between.
+  That figure is worked out in exact arithmetic and never in floating point, the
+  channel's bias is then added, and only after that is the result settled to the
+  nearest whole micro-unit, a half settling away from nought. Give back a record
+  whose readings holds for every sample in order its channel then a space then
+  the settled micro-units, whose low and high count the samples pinned at either
+  end, and whose span holds, in the order the channels were declared and leaving
+  out any channel no sample named, that channel then a space then the smallest
+  then a space then the largest micro-unit figure it yielded. Raise an error when
+  the channels are not a list, when a channel is not a record, when a channel's
+  keys are not exactly those three, when a channel name is not a non-empty
+  string, when two channels answer to one name, when a ladder is not a list of at
+  least two rungs, when a rung is not a list of exactly two whole numbers, when
+  the tick figures fail to rise strictly, when a bias is not whole, when the
+  samples are not a list, when a sample is not a record, when a sample's keys are
+  not exactly those two, when a sample names no declared channel, when a count is
+  not whole, and when any rung entry, bias or count reaches beyond a million away
+  from nought.
+target: solution.ts
+interface: "export function sweepProbeScales(channels: Record<string, unknown>[], samples: Record<string, unknown>[]): Record<string, unknown>"
+stop_conditions:
+  - Whether a channel may declare a ladder whose rungs all stand for the same micro-units is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

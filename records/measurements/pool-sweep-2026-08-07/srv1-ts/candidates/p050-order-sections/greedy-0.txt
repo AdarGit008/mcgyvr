@@ -1,0 +1,29 @@
+```ts
+export function orderSections(labels: string[]): string[] {
+  const isValidLabel = (label: string): boolean => {
+    if (typeof label !== 'string' || label === '') return false;
+    const components = label.split('.');
+    for (const component of components) {
+      if (!/^\d+$/.test(component)) return false;
+      if (component.length > 1 && component.startsWith('0')) return false;
+    }
+    return true;
+  };
+
+  if (!labels.every(isValidLabel)) throw new Error('Invalid label format');
+
+  const compareComponents = (a: string, b: string): number => {
+    const aParts = a.split('.').map(Number);
+    const bParts = b.split('.').map(Number);
+    for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+      if (aParts[i] !== bParts[i]) return aParts[i] - bParts[i];
+    }
+    return aParts.length - bParts.length;
+  };
+
+  const uniqueLabels = Array.from(new Set(labels));
+  if (uniqueLabels.length !== labels.length) throw new Error('Duplicate label');
+
+  return uniqueLabels.sort(compareComponents);
+}
+```

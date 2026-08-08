@@ -1,0 +1,31 @@
+id: p302-plan-crop-succession
+task_type: function_implementation
+task: >-
+  Implement plan_crop_succession. lastSown names the crop standing on each plot
+  when the season just gone was lifted, one entry per plot in field order.
+  follows is a table of pairs — before, then after — each declaring that after
+  may be drilled on a plot the season directly after before came off it. order
+  ranks every crop the farm grows, best first. Plan seasons further seasons,
+  one season at a time, and inside a season plot by plot in field order. A crop
+  goes into a plot only when the table declares it a legal follower of whatever
+  stood there the season before, only when it did not itself stand in that plot
+  in either of the two seasons directly before, and only while the count of
+  plots already given that crop this same season stays below the allowance —
+  the plot count halved and rounded upward. Of the crops clearing all three,
+  drill the one ranked highest. Should some plot admit no crop whatever, the
+  whole plan collapses: hand back an empty list. Otherwise hand back one row per
+  plot, each row that plot's crops in season order. Reject with an error a plot
+  list that is not a list, is empty, or carries a name that is not a non-empty
+  string; a table that is not a list, a row that is not a pair of non-empty
+  strings, or a pair stated twice; a ranking that is not a list, is empty,
+  repeats a name, or carries a name that is not a non-empty string; a crop named
+  on a plot or in the table yet absent from the ranking; and a season count that
+  is not a whole number above zero.
+target: solution.py
+interface: "def plan_crop_succession(last_sown: list[str], follows: list[list[str]], order: list[str], seasons: int) -> list[list[str]]"
+stop_conditions:
+  - Whether the ranking may name a crop that no table row mentions is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

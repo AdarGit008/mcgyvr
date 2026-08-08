@@ -1,0 +1,22 @@
+```ts
+export function runBufferedLine(capacities: number[], buffers: number[], ticks: number): { made: number; left: number[] } {
+  if (capacities.length === 0) throw new Error('Station list cannot be empty');
+  if (buffers.length !== capacities.length - 1) throw new Error('Buffer list must have exactly one less entry than the station list');
+  if (!capacities.every(c => Number.isInteger(c) && c > 0)) throw new Error('All per-tick limits must be positive integers');
+  if (!buffers.every(b => Number.isInteger(b) && b > 0)) throw new Error('All buffer sizes must be positive integers');
+  if (!Number.isInteger(ticks) || ticks < 0) throw new Error('Tick count must be a non-negative integer');
+
+  const made = 0;
+  const left = buffers.slice();
+
+  for (let t = 0; t < ticks; t++) {
+    for (let i = capacities.length - 1; i > 0; i--) {
+      const fromBuffer = Math.min(capacities[i], left[i - 1], buffers[i]);
+      left[i - 1] -= fromBuffer;
+      left[i] += fromBuffer;
+    }
+  }
+
+  return { made, left };
+}
+```

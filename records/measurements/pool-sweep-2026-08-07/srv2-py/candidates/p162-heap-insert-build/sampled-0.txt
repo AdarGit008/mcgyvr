@@ -1,0 +1,22 @@
+```python
+def build_min_heap_by_insertion(values: list[int]) -> list[int]:
+    if not isinstance(values, list):
+        raise ValueError("Argument must be a list")
+    
+    for value in values:
+        if not isinstance(value, int) or value < 0:
+            raise ValueError("List must contain only non-negative integers")
+    
+    heap = []
+    for value in values:
+        heap.append(value)
+        i = len(heap) - 1
+        while i > 0:
+            parent_i = (i - 1) // 2
+            if heap[parent_i] <= heap[i]:
+                break
+            heap[parent_i], heap[i] = heap[i], heap[parent_i]
+            i = parent_i
+    
+    return heap
+```

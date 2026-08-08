@@ -1,0 +1,21 @@
+id: p274-accrue-flat-interest
+task_type: function_implementation
+task: >-
+  Implement accrue_flat_interest. A deposit of principalCents whole cents earns
+  at rateBasisPoints hundredths of one percent per annum, and the question is
+  what it earns across days days when the year is taken to run yearBasis days
+  long. Do the whole sum in whole numbers: multiply the principal by the rate
+  by the day count, then divide that product by ten thousand times the year
+  basis, settling a tie upward so a remainder of exactly half a cent lands on
+  the larger cent. Give back the earned cents on their own — never the closing
+  balance, and never a fractional cent. Reject with an error any argument that
+  is not a whole number, a principal or a rate or a day count below zero, and
+  a year basis that is neither 360 nor 365.
+target: solution.py
+interface: "def accrue_flat_interest(principal_cents: int, rate_basis_points: int, days: int, year_basis: int) -> int"
+stop_conditions:
+  - Whether a principal large enough to lose precision must be refused is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

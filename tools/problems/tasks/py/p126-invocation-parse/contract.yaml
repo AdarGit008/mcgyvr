@@ -1,0 +1,30 @@
+id: p126-invocation-parse
+task_type: function_implementation
+task: >-
+  Implement parse_invocation. The first argument is an option catalogue:
+  a list of records, each carrying a long name, a kind, and possibly a
+  one-letter alias. Kinds are toggle (takes no value, becomes true when
+  mentioned, false otherwise), single (carries exactly one value, with a
+  null/None outcome when never mentioned), and repeat (collects every
+  value given into a list, empty when never mentioned). The second
+  argument is the token list of an invocation. A token "--name"
+  addresses an option by long name; a dash plus exactly one character
+  addresses an alias. A single or repeat option takes its value either
+  inline as "--name=value" or from the very next token, which is
+  consumed as the value no matter what it looks like; a toggle never
+  takes a value. Any token not consumed as an option or a value is an
+  operand, and every token after a bare "--" is an operand
+  unconditionally. Return a record with key options, mapping every
+  catalogued long name to its outcome, and key operands, holding the
+  operands in order. Raise an error for a long name or alias the
+  catalogue lacks, for an inline value handed to a toggle, for a single
+  option mentioned twice, and for an option whose value would come from
+  a next token that does not exist.
+target: solution.py
+interface: "def parse_invocation(catalogue: list[dict], tokens: list[str]) -> dict"
+stop_conditions:
+  - What an inline "=" on an alias token means is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

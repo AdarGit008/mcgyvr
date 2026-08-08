@@ -1,0 +1,52 @@
+id: p355-restore-front-shift
+task_type: bug_fix
+task: >-
+  restoreFrontShift turns a list of codes back into text, and it forgets to
+  keep its ring moving. Repair it. The ring is a run of characters that
+  begins as the given alphabet taken left to right. Every code names a slot
+  of the ring, counted from zero: the character standing in that slot is
+  the next character of the text, and once it has been read out it must be
+  pulled from the ring and put back at the very front, each character that
+  stood ahead of it falling back one slot. The broken code reads every slot
+  out of the untouched opening ring and never rearranges it, so with the
+  alphabet "abcd" the codes [3, 1, 2] must give "dab" and instead give
+  "dbc". An empty list of codes gives an empty string. Leave the checks
+  exactly where they are: an alphabet that is not a string, an empty
+  alphabet, an alphabet carrying one character twice, a code list that is
+  not a list, a code that is not a whole number, and a code naming no slot
+  of the ring must each throw an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function restoreFrontShift(alphabet: string, codes: number[]): string {
+    if (typeof alphabet !== "string") {
+      throw new Error("the alphabet must be a string");
+    }
+    if (alphabet.length === 0) {
+      throw new Error("the alphabet must not be empty");
+    }
+    const ring = Array.from(alphabet);
+    if (new Set(ring).size !== ring.length) {
+      throw new Error("the alphabet carries one character twice");
+    }
+    if (!Array.isArray(codes)) {
+      throw new Error("the codes must be a list");
+    }
+    let text = "";
+    for (const code of codes) {
+      if (typeof code !== "number" || !Number.isInteger(code)) {
+        throw new Error("every code must be a whole number");
+      }
+      if (code < 0 || code >= ring.length) {
+        throw new Error("the code names no slot of the ring");
+      }
+      text += ring[code];
+    }
+    return text;
+  }
+interface: "export function restoreFrontShift(alphabet: string, codes: number[]): string"
+stop_conditions:
+  - Whether a code list longer than any plausible text should be capped is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

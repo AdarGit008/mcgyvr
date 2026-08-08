@@ -1,0 +1,25 @@
+id: p364-runoff-winner
+task_type: function_implementation
+task: >-
+  Implement runoffWinner. A ballot is a list of option names in the voter's
+  order of preference, most wanted first, with no option named twice. The
+  options in play are exactly those some ballot names. Count a round by
+  giving every ballot to the first option on it that is still standing; a
+  ballot whose named options have all been dropped is spent and counts toward
+  nothing. An option holding strictly more than half of the ballots counted
+  in that round has won, and its name is the answer. Otherwise drop the
+  standing option with the fewest votes that round — an option nobody put
+  first counts as zero — and count again; when two or more options are level
+  at the bottom, drop the one whose name is greater under plain code point
+  comparison. Should a single option ever be left standing it has won. Raise
+  an error when the list of ballots is empty, when a ballot is empty, when a
+  ballot names one option twice, when an option is not a non-empty string,
+  when a ballot is not a list, and when the argument itself is not a list.
+target: solution.ts
+interface: "export function runoffWinner(ballots: string[][]): string"
+stop_conditions:
+  - Whether every ballot must rank the same set of options is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

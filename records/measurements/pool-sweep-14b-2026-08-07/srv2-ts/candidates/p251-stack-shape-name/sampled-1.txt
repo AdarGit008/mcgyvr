@@ -1,0 +1,44 @@
+```ts
+export function nameTriadStack(marks: number[]): { base: number, name: string } {
+    if (!Array.isArray(marks) || marks.length === 0) {
+        throw new Error("Input must be a non-empty list of numbers.");
+    }
+
+    const pitchClasses = Array.from(new Set(marks.map(mark => (mark % 12 + 12) % 12))).sort((a, b) => a - b);
+    if (pitchClasses.length < 3) {
+        throw new Error("The resulting stack must have at least three classes.");
+    }
+
+    const shapeTable = [
+        [0, 4, 7],
+        [0, 3, 7],
+        [0, 3, 6],
+        [0, 4, 8],
+        [0, 5, 7],
+        [0, 2, 6],
+        [0, 4, 7, 11],
+        [0, 4, 7, 10],
+        [0, 3, 7, 10],
+        [0, 3, 6, 9]
+    ];
+
+    let bestBase = -1;
+    let bestName = "unknown";
+
+    for (const base of pitchClasses) {
+        const shape = pitchClasses.map(cls => ((cls - base + 12) % 12)).sort((a, b) => a - b);
+
+        for (const [index, row] of shapeTable.entries()) {
+            if (shape.length === row.length && row.every((value, i) => shape[i] === value)) {
+                if (bestBase === -1 || index < shapeTable.findIndex(r => r.length === row.length)) {
+                    bestBase = base;
+                    bestName = ["major", "minor", "diminished", "augmented", "quartal", "narrow", "major seventh", "dominant seventh", "minor seventh", "shrunk seventh"][index];
+                }
+                break;
+            }
+        }
+    }
+
+    return { base: bestBase, name: bestName };
+}
+```

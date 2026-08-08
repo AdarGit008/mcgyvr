@@ -1,0 +1,35 @@
+id: p474-plan-cut-list
+task_type: function_implementation
+task: >-
+  Implement plan_cut_list, which lays an order of pieces out on a rack of stock
+  bars. The first argument is the bars, a list of whole millimetre lengths
+  above nought in rack order. The second is the orders, a list of mappings each
+  carrying exactly the two keys length (a whole number above nought) and count
+  (a whole number above nought), no two orders naming the same length. The
+  third is the kerf, a whole number of millimetres at nought or above that the
+  saw turns to dust at every cut. The fourth is the keep, a whole number at
+  nought or above, being the shortest offcut worth putting back on the rack.
+  Work through the wanted pieces longest first, and take each one off the first
+  bar in rack order with room for it: a bar with R millimetres still on it has
+  room for a piece of length L whenever L is at most R, and cutting that piece
+  leaves R less L less the kerf, or nothing at all should that come out below
+  nought. Give back a mapping whose layout holds one list per bar in rack
+  order, naming the pieces cut from it in the order they came off; whose
+  offcuts lists, in rack order, every remainder above nought that reaches the
+  keep length, a bar never cut counting as its whole self; whose scrap adds up
+  the remainders above nought that fall short of the keep length; and whose
+  short lists the pieces no bar had room for, longest first, one entry per
+  piece. Raise an error for a bars argument that is not a list, a bar that is
+  not whole or falls below one, an orders argument that is not a list, an order
+  that is not a mapping, an order whose keys are not exactly length and count,
+  a length that is not whole or falls below one, a length named by two orders,
+  a count that is not whole or falls below one, a kerf that is not whole or
+  falls below nought, and a keep that is not whole or falls below nought.
+target: solution.py
+interface: "def plan_cut_list(bars: list, orders: list, kerf: int, keep: int) -> dict"
+stop_conditions:
+  - Whether the rack may be restocked once every bar is spent is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

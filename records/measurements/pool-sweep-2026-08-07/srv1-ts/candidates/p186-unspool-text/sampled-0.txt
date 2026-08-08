@@ -1,0 +1,50 @@
+```ts
+/**
+ * Reconstructs the original text from a spool by interpreting pointers.
+ *
+ * @param {string} spool - The spool string to unspool.
+ * @returns {string} - The unspooled text.
+ */
+export function unspoolText(spool: string): string {
+  if (typeof spool !== 'string') {
+    throw new Error('Argument must be a string');
+  }
+
+  let output = '';
+
+  for (let i = 0; i < spool.length; i++) {
+    const char = spool[i];
+
+    if (char === '<') {
+      if (spool[i + 1] === '<') {
+        output += '<';
+        i++;
+      } else if (i + 4 < spool.length && spool[i + 2] === ',' && /\d+,\d+>/.test(spool.substring(i, i + 5))) {
+        const [reachStr, haulStr] = spool.substring(i + 3, i + 5).split(',');
+        const reach = parseInt(reachStr, 10);
+        const haul = parseInt(haulStr, 10);
+
+        if (isNaN(reach) || isNaN(haul) || reach <= 0 || haul <= 0 || reach.toString().length !== reachStr.length || haul.toString().length !== haulStr.length) {
+          throw new Error('Invalid pointer format');
+        }
+
+        if (reach > output.length) {
+          throw new Error('Reach exceeds current output length');
+        }
+
+        for (let j = 0; j < haul; j++) {
+          output += output[output.length - reach];
+        }
+
+        i += 4;
+      } else {
+        throw new Error('Invalid pointer format');
+      }
+    } else {
+      output += char;
+    }
+  }
+
+  return output;
+}
+```

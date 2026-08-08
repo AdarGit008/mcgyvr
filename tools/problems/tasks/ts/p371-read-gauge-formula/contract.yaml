@@ -1,0 +1,96 @@
+id: p371-read-gauge-formula
+task_type: bug_fix
+task: >-
+  readGaugeFormula reads a gauge table wrongly. Repair it. The table maps a
+  label — a run of small letters — to a quantity written either as a whole
+  number on its own or as a whole number, one space, and a unit text. A unit
+  text is one or more parts joined by asterisks; a part is a unit name of
+  small letters optionally followed by a caret and an exponent, the exponent
+  a whole number that is never zero and never carries a leading zero or a
+  plus sign, an absent exponent standing for one; no name may appear twice in
+  one unit text. The formula is labels joined by asterisks, slashes and plus
+  signs with no spaces anywhere; plus signs bind most loosely, so a formula
+  is a run of products added together, and inside a product the asterisks and
+  slashes are worked left to right. Multiplying multiplies the numbers and
+  adds the exponents name by name; dividing divides the numbers, which must
+  come out whole, and takes the exponents away; adding adds the numbers and
+  demands both sides carry exactly the same names at exactly the same
+  exponents. Exponents reaching zero disappear. Return the answer written the
+  way the table writes quantities: the number alone when no units survive,
+  otherwise the number, a space, and the surviving names in rising
+  alphabetical order, each bare when its exponent is one and otherwise with a
+  caret and the exponent, joined by asterisks. Raise an error when the table
+  is not a mapping or any label or quantity in it is malformed, when the
+  formula is not a string or is empty, when an operand is missing anywhere,
+  when a label is unknown, when a divisor's number is zero, when a division
+  does not come out whole, and when unlike quantities are added. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  /** The quantity a gauge formula names, read out of a table. */
+  export function readGaugeFormula(
+    table: Record<string, string>,
+    formula: string,
+  ): string {
+    const readOne = (label: string) => {
+      const text = table[label];
+      const space = text.indexOf(" ");
+      const value = Number(space === -1 ? text : text.slice(0, space));
+      const units: Record<string, number> = {};
+      if (space !== -1) {
+        for (const part of text.slice(space + 1).split("*")) {
+          const [name, power] = part.split("^");
+          units[name] = power === undefined ? 1 : Number(power);
+        }
+      }
+      return { value, units };
+    };
+    let total: any = null;
+    for (const piece of formula.split("+")) {
+      let run: any = null;
+      let op = "*";
+      for (const label of piece.split(/([*/])/)) {
+        if (label === "*" || label === "/") {
+          op = label;
+          continue;
+        }
+        const one = readOne(label);
+        if (run === null) {
+          run = one;
+          continue;
+        }
+        if (op === "*") {
+          run.value *= one.value;
+          for (const [name, power] of Object.entries(one.units)) {
+            run.units[name] = (run.units[name] ?? 0) + power;
+          }
+        } else {
+          run.value = Math.floor(run.value / one.value);
+          for (const [name, power] of Object.entries(one.units)) {
+            run.units[name] = (run.units[name] ?? 0) - power;
+          }
+        }
+      }
+      if (total === null) {
+        total = run;
+      } else {
+        total.value += run.value;
+      }
+    }
+    const names = Object.keys(total.units).filter((n) => total.units[n] !== 0);
+    if (names.length === 0) {
+      return String(total.value);
+    }
+    return (
+      String(total.value) +
+      " " +
+      names.map((n) => `${n}^${total.units[n]}`).join("*")
+    );
+  }
+interface: "export function readGaugeFormula(table: Record<string, string>, formula: string): string"
+stop_conditions:
+  - Whether the table may hold labels the formula never mentions is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

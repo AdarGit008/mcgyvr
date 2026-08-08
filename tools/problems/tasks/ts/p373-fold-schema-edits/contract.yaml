@@ -1,0 +1,91 @@
+id: p373-fold-schema-edits
+task_type: bug_fix
+task: >-
+  foldSchemaEdits rewrites the header of a record file. The first argument
+  lists the headings the file starts with, non-empty strings none of which
+  repeats; the second lists edits worked through in turn, each a mapping whose
+  op reads add, drop or rename and whose field names a heading. An add hangs
+  the named heading on the end, a drop lifts it out and closes the gap behind
+  it, and a rename swaps it for the edit's into while holding its place. Both
+  an add and a rename refuse a heading the file already carries, and a drop or
+  a rename refuses a heading that is not there. That refusal is tested against
+  the wrong thing: the code looks the candidate up in the list it was handed
+  rather than in the header as the edits have left it, so a heading freed by an
+  earlier drop is turned away although nothing holds it now, and a heading
+  brought in by an earlier add is let through a second time, leaving the header
+  with a pair of identical entries. Test the candidate against the header as it
+  stands. Leave the rest alone: the ordering, the gap closing, a rename holding
+  its place, the header being allowed to run empty, and the errors raised for a
+  first argument that is not a non-empty list, a heading that is not a
+  non-empty string, a repeat among the headings handed in, a second argument
+  that is not a list, an edit that is not a mapping, an edit whose field or
+  whose into is not a non-empty string, and an op outside the three. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  export function foldSchemaEdits(
+    fields: string[],
+    edits: Array<Record<string, unknown>>,
+  ): string[] {
+    if (!Array.isArray(fields) || fields.length === 0) {
+      throw new Error("the header must be a non-empty list");
+    }
+    const header: string[] = [];
+    for (const field of fields) {
+      if (typeof field !== "string" || field.length === 0) {
+        throw new Error("every heading must be a non-empty string");
+      }
+      if (header.indexOf(field) !== -1) {
+        throw new Error("the header repeats " + field);
+      }
+      header.push(field);
+    }
+    if (!Array.isArray(edits)) {
+      throw new Error("the edits must be a list");
+    }
+    for (const raw of edits) {
+      if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+        throw new Error("every edit must be a mapping");
+      }
+      const edit = raw as Record<string, unknown>;
+      const field = edit.field;
+      if (typeof field !== "string" || field.length === 0) {
+        throw new Error("every edit must name a non-empty heading");
+      }
+      if (edit.op === "add") {
+        if (fields.indexOf(field) !== -1) {
+          throw new Error(field + " is already taken");
+        }
+        header.push(field);
+      } else if (edit.op === "drop") {
+        const at = header.indexOf(field);
+        if (at === -1) {
+          throw new Error("no heading called " + field);
+        }
+        header.splice(at, 1);
+      } else if (edit.op === "rename") {
+        const into = edit.into;
+        if (typeof into !== "string" || into.length === 0) {
+          throw new Error("a rename must give a non-empty into");
+        }
+        const at = header.indexOf(field);
+        if (at === -1) {
+          throw new Error("no heading called " + field);
+        }
+        if (fields.indexOf(into) !== -1) {
+          throw new Error(into + " is already taken");
+        }
+        header[at] = into;
+      } else {
+        throw new Error("an op must be add, drop or rename");
+      }
+    }
+    return header;
+  }
+interface: "export function foldSchemaEdits(fields: string[], edits: Array<Record<string, unknown>>): string[]"
+stop_conditions:
+  - Whether headings should be compared without regard to letter case is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

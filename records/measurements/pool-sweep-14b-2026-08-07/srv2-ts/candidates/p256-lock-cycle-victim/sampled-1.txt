@@ -1,0 +1,104 @@
+```ts
+export function lockCycleVictim(holds: string[][], blocked: string[][]): { victim: string; cycle: string[] } {
+  if (!Array.isArray(holds) || !Array.isArray(blocked)) {
+    throw new Error("Invalid input: holds and blocked must be arrays");
+  }
+
+  const holdMap = new Map<string, Set<string>>();
+  const blockMap = new Map<string, string>();
+
+  for (const hold of holds) {
+    if (!Array.isArray(hold) || hold.length !== 2) {
+      throw new Error("Invalid input: each hold entry must be a two-element array");
+    }
+    const [resource, worker] = hold;
+    if (typeof resource !== "string" || typeof worker !== "string" || !resource || !worker) {
+      throw new Error("Invalid input: resource and worker names must be non-empty strings");
+    }
+    if (!holdMap.has(resource)) {
+      holdMap.set(resource, new Set());
+    }
+    const workers = holdMap.get(resource)!;
+    if (workers.has(worker)) {
+      throw new Error("Invalid input: a resource cannot be held by two workers simultaneously");
+    }
+    workers.add(worker);
+  }
+
+  for (const block of blocked) {
+    if (!Array.isArray(block) || block.length !== 2) {
+      throw new Error("Invalid input: each blocked entry must be a two-element array");
+    }
+    const [worker, resource] = block;
+    if (typeof worker !== "string" || typeof resource !== "string" || !worker || !resource) {
+      throw new Error("Invalid input: worker and resource names must be non-empty strings");
+    }
+    if (blockMap.has(worker)) {
+      throw new Error("Invalid input: a worker cannot be blocked on two resources simultaneously");
+    }
+    blockMap.set(worker, resource);
+  }
+
+  const cycle = findCycle(blockMap, holdMap);
+  if (cycle.length === 0) {
+    return { victim: "", cycle: [] };
+  }
+
+  let victim = cycle[0];
+  let minLocks = Infinity;
+  for (const worker of cycle) {
+    const locks = holdMap.get(worker)?.size ?? 0;
+    if (locks < minLocks || (locks === minLocks && worker < victim)) {
+      victim = worker;
+      minLocks = locks;
+    }
+  }
+
+  return { victim, cycle };
+}
+
+function findCycle(blockMap: Map<string, string>, holdMap: Map<string, Set<string>>): string[] {
+  const visited = new Set<string>();
+  const recStack = new Set<string>();
+
+  function dfs(worker: string, path: string[]): boolean {
+    if (recStack.has(worker)) {
+      return true;
+    }
+    if (visited.has(worker)) {
+      return false;
+    }
+
+    visited.add(worker);
+    recStack.add(worker);
+
+    const resource = blockMap.get(worker);
+    if (!resource) {
+      recStack.delete(worker);
+      return false;
+    }
+
+    const nextWorkers = holdMap.get(resource) ?? new Set();
+    for (const nextWorker of nextWorkers) {
+      path.push(nextWorker);
+      if (dfs(nextWorker, path)) {
+        path.unshift(worker);
+        return true;
+      }
+      path.pop();
+    }
+
+    recStack.delete(worker);
+    return false;
+  }
+
+  for (const worker of blockMap.keys()) {
+    const path: string[] = [worker];
+    if (dfs(worker, path)) {
+      return Array.from(new Set(path));
+    }
+  }
+
+  return [];
+}
+```

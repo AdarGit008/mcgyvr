@@ -1,0 +1,39 @@
+id: p383-flatline-spans
+task_type: bug_fix
+task: >-
+  Fix flatlineSpans. A channel arrives as a list of whole number samples, and a
+  flat stretch is a maximal run of touching samples all carrying one and the
+  same value. Report every flat stretch whose length reaches least, each
+  written as the pair of its opening and its closing sample position, ordered
+  by opening position; a channel holding no such stretch reports nothing. The
+  version below goes wrong twice. It weighs a stretch only at the instant the
+  value changes, so a stretch running all the way to the end of the channel is
+  quietly dropped, and it demands that a stretch be strictly longer than least
+  rather than merely as long. Repair both faults. Keep turning away with an
+  error a least that is not a whole number or that lies beneath two, and return
+  the complete fixed file.
+target: solution.ts
+target_content: |
+  export function flatlineSpans(channel: number[], least: number): number[][] {
+    if (!Number.isInteger(least) || least < 2) {
+      throw new Error("least must be a whole number of at least two");
+    }
+    const spans: number[][] = [];
+    let start = 0;
+    for (let at = 1; at < channel.length; at++) {
+      if (channel[at] !== channel[at - 1]) {
+        if (at - start > least) {
+          spans.push([start, at - 1]);
+        }
+        start = at;
+      }
+    }
+    return spans;
+  }
+interface: "export function flatlineSpans(channel: number[], least: number): number[][]"
+stop_conditions:
+  - Whether two stretches of the same value separated by one differing sample may be merged is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,32 @@
+id: p202-recase-name
+task_type: function_implementation
+task: >-
+  Implement recase_name. The first argument is a label built from ASCII
+  letters, digits, underscores and hyphens; the second names the style to
+  write it in. Cut the label into words first. An underscore or a hyphen
+  ends a word and is dropped. A run of digits is always a word by itself, so
+  "utf8Frame" cuts into "utf", "8" and "Frame". A lone capital opens a word
+  and takes the small letters trailing it. A run of two or more capitals is
+  one word, except that when a small letter comes right after the run, the
+  run's final capital is handed to the word after it instead, so
+  "XMLHTTPRequest" cuts into "XMLHTTP" and "Request" while "parseURL" cuts
+  into "parse" and "URL". Then join the words. The "snake" style writes them
+  small joined by underscores and "kebab" writes them small joined by
+  hyphens. The "shout" style writes them capital joined by underscores. The
+  "pascal" style writes each word with a leading capital and the rest small
+  and glues them together, and "camel" is pascal with its opening word
+  written wholly small. Under pascal and camel a word that the label spelled
+  in capitals throughout and that is two letters or longer keeps every
+  capital, and a word of digits is copied unchanged. Raise an error when the
+  label or the style is not a string, when the label is empty, when it holds
+  a character outside the four allowed kinds, when a separator opens or
+  closes it or sits beside another separator, and when the style is none of
+  the five named.
+target: solution.py
+interface: "def recase_name(label: str, style: str) -> str"
+stop_conditions:
+  - Whether a label made only of digits should be treated as a single word is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

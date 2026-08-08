@@ -1,0 +1,58 @@
+```ts
+export function projectMakespan(durations: Record<string, number>, deps: [string, string][]): number {
+    if (Object.values(durations).some(duration => typeof duration !== 'number' || duration <= 0)) {
+        throw new Error('Invalid task durations');
+    }
+
+    const graph: Record<string, Set<string>> = {};
+    const inDegree: Record<string, number> = {};
+
+    for (const [task] of Object.entries(durations)) {
+        graph[task] = new Set();
+        inDegree[task] = 0;
+    }
+
+    for (const [from, to] of deps) {
+        if (!durations[from] || !durations[to]) {
+            throw new Error('Invalid task name in dependency');
+        }
+        if (from === to) {
+            throw new Error('Self-loop dependency');
+        }
+        graph[from].add(to);
+        inDegree[to]++;
+    }
+
+    const queue = Object.keys(inDegree).filter(task => inDegree[task] === 0);
+
+    let time = 0;
+    let tasksCompleted = 0;
+
+    while (queue.length > 0) {
+        const currentTasks: string[] = [];
+        for (const task of queue) {
+            if (inDegree[task] === 0) {
+                currentTasks.push(task);
+                inDegree[task]--;
+            }
+        }
+
+        time += Math.max(...currentTasks.map(task => durations[task]));
+
+        for (const task of currentTasks) {
+            tasksCompleted++;
+            for (const neighbor of graph[task]) {
+                inDegree[neighbor]--;
+            }
+        }
+
+        queue = Object.keys(inDegree).filter(task => inDegree[task] === 0);
+    }
+
+    if (tasksCompleted !== Object.keys(durations).length) {
+        throw new Error('Cyclic dependency detected');
+    }
+
+    return time;
+}
+```

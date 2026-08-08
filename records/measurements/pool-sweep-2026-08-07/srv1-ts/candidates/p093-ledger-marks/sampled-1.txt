@@ -1,0 +1,49 @@
+```ts
+export function linkLedgerMarks(marks: string[], aliases: Record<string, string>): [string, string[]][] {
+  const validateMark = (mark: string): { houseCode: string; serial: number; checkLetter: string } => {
+    const regex = /^(?<houseCode>[a-zA-Z]+(?:(?:-|/|\s)[a-zA-Z]+)?)(?:(?:-|/|\s))(?<serial>\d+)(?<checkLetter>[A-Za-z])$/;
+    const match = mark.match(regex);
+    if (!match) throw new Error("Malformed mark");
+
+    const { houseCode, serial, checkLetter } = match.groups!;
+    const upperHouseCode = houseCode.toUpperCase();
+    const numericSerial = parseInt(serial, 10);
+
+    if (numericSerial <= 0 || isNaN(numericSerial)) throw new Error("Invalid serial");
+    if (checkLetter !== String.fromCharCode(65 + (numericSerial % 26))) throw new Error("Incorrect check letter");
+
+    return { houseCode: upperHouseCode, serial: numericSerial, checkLetter };
+  };
+
+  const normalizeMark = ({ houseCode, serial, checkLetter }: { houseCode: string; serial: number; checkLetter: string }): string => {
+    return `${houseCode}-${serial.toString().padStart(2, '0')}-${checkLetter}`;
+  };
+
+  const resolveAlias = (houseCode: string): string => {
+    let resolved = houseCode;
+    while (aliases[resolved]) {
+      if (aliases[resolved] === resolved || aliases[resolved] in aliases) throw new Error("Invalid alias table");
+      resolved = aliases[resolved];
+    }
+    return resolved;
+  };
+
+  const seenEntries: Set<string> = new Set();
+  const result: [string, string[]][] = [];
+
+  for (const mark of marks) {
+    let { houseCode, serial, checkLetter } = validateMark(mark);
+    houseCode = resolveAlias(houseCode);
+
+    const canonicalKey = `${houseCode}-${serial}-${checkLetter}`;
+    if (!seenEntries.has(canonicalKey)) {
+      seenEntries.add(canonicalKey);
+      result.push([normalizeMark({ houseCode, serial, checkLetter }), [mark]]);
+    } else {
+      result.find(([key]) => key === canonicalKey)![1].push(mark);
+    }
+  }
+
+  return result;
+}
+```

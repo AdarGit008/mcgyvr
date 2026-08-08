@@ -1,0 +1,44 @@
+```ts
+export function smallestFreeWord(n: number, k: number, banned: string[]): string {
+    if (!Number.isInteger(n) || n <= 0 || n > 12) {
+        throw new Error("n must be a positive integer of at most 12");
+    }
+    if (!Number.isInteger(k) || k < 1 || k > 6) {
+        throw new Error("k must be an integer from 1 to 6");
+    }
+    if (!Array.isArray(banned)) {
+        throw new Error("banned must be a list");
+    }
+    const validChars = Array.from({ length: k }, (_, i) => String.fromCharCode('a'.charCodeAt(0) + i));
+    for (const combo of banned) {
+        if (combo.length !== 2 || !validChars.includes(combo[0]) || !validChars.includes(combo[1])) {
+            throw new Error("banned entries must be two-character strings of letters within the first k");
+        }
+    }
+
+    const isBanned = (word: string): boolean => {
+        for (let i = 0; i < word.length - 1; i++) {
+            if (banned.includes(word.slice(i, i + 2))) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const generateWords = (length: number): string[] => {
+        if (length === 1) {
+            return validChars;
+        }
+        return validChars.flatMap(char => generateWords(length - 1).map(word => char + word));
+    };
+
+    const words = generateWords(n);
+    const filteredWords = words.filter(word => !isBanned(word));
+
+    if (filteredWords.length === 0) {
+        throw new Error("No valid word can be formed");
+    }
+
+    return filteredWords.sort()[0];
+}
+```

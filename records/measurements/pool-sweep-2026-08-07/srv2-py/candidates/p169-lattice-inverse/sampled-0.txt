@@ -1,0 +1,42 @@
+```python
+def lattice_inverse(frame: list[list[int]]) -> list[list[int]]:
+    if not isinstance(frame, list) or any(not isinstance(row, list) for row in frame):
+        raise ValueError("Input must be a list of lists.")
+    
+    height = len(frame)
+    if height != 2 and height != 3:
+        raise ValueError("Frame must have exactly two or three rows.")
+    
+    width = set(len(row) for row in frame)
+    if len(width) != 1:
+        raise ValueError("All rows must be the same length.")
+    
+    width = next(iter(width))
+    if not all(isinstance(num, int) and num >= 0 for num in sum(frame, [])):
+        raise ValueError("Frame entries must be non-negative integers.")
+    
+    det = None
+    if height == 2:
+        a, b = frame[0]
+        c, d = frame[1]
+        det = a * d - b * c
+    elif height == 3:
+        a, b, c = frame[0]
+        d, e, f = frame[1]
+        g, h, i = frame[2]
+        det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+    
+    if det is None or det not in [1, -1]:
+        return []
+    
+    if height == 2:
+        inv_det = 1 / det
+        return [[inv_det * d, -inv_det * b], [-inv_det * c, inv_det * a]]
+    else:
+        inv_det = 1 / det
+        return [
+            [inv_det * (e * i - f * h), -inv_det * (b * i - c * h), inv_det * (b * f - c * e)],
+            [-inv_det * (d * i - f * g), inv_det * (a * i - c * g), -inv_det * (a * f - c * d)],
+            [inv_det * (d * h - e * g), -inv_det * (a * h - b * g), inv_det * (a * e - b * d)]
+        ]
+```

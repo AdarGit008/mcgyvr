@@ -1,0 +1,17 @@
+```ts
+/**
+ * One line of key=value pairs, joined by &. Escapes %, &, = in keys and values.
+ */
+export function encodePairs(pairs: [string, string][]): string {
+  if (pairs.some(pair => typeof pair[0] !== 'string' || typeof pair[1] !== 'string')) {
+    throw new Error('Both key and value must be strings.');
+  }
+  const parts: string[] = [];
+  for (const [key, value] of pairs) {
+    const k = encodeURIComponent(key);
+    const v = encodeURIComponent(value);
+    parts.push(k + "=" + v);
+  }
+  return parts.join("&");
+}
+```

@@ -1,0 +1,23 @@
+id: p168-grid-determinant
+task_type: function_implementation
+task: >-
+  Implement grid_determinant. The argument is a square grid of whole numbers
+  holding one, two or three rows, so [[3, 4], [5, 6]] is two rows of two
+  cells each. Return its determinant, worked out exactly and never with
+  decimals: a one-row grid gives its only cell; a two-row grid gives the
+  top-left times the bottom-right less the top-right times the bottom-left;
+  a three-row grid expands along its top row, where each top cell is
+  multiplied by the determinant of the two-row grid that remains once that
+  cell's own row and column are struck out, and the three products are
+  combined with signs running plus, minus, plus. Reject with an error: an
+  argument that is not a list of lists, a grid holding no rows, a row whose
+  length differs from the count of rows, a grid of four rows or more, and a
+  cell that is not a whole number.
+target: solution.py
+interface: "def grid_determinant(grid: list[list[int]]) -> int"
+stop_conditions:
+  - Nothing is stated about a determinant too large for the usual number range.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

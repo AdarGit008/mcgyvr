@@ -1,0 +1,12 @@
+```python
+def kth_distinct(values: list[int], k: int) -> int:
+    if not values or k <= 0:
+        raise ValueError("Input must be a non-empty list and k must be a positive integer")
+    
+    distinct_values = sorted(set(values))
+    
+    if k > len(distinct_values):
+        raise ValueError("k is greater than the number of distinct values")
+    
+    return distinct_values[k - 1]
+```

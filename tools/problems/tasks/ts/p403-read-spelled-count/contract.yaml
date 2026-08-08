@@ -1,0 +1,62 @@
+id: p403-read-spelled-count
+task_type: bug_fix
+task: >-
+  readSpelledCount turns an amount written out in words back into a figure,
+  and it misreads most of them. Repair it. The argument is a phrase of
+  lowercase words parted by single blanks, drawn from the ordinary English
+  spellings of zero to nineteen, of the multiples of ten from twenty to
+  ninety, and the two scale words hundred and thousand. A multiple-of-ten
+  spelling may carry a hyphen and a one-to-nine spelling behind it, the way
+  42 is usually written, and nothing else may be hyphenated. A block stands
+  for 1 to 999 and is made of an optional head — a one-to-nine spelling and
+  then the word hundred — followed by an optional tail, which is either one
+  spelling of 1 to 19 or one multiple-of-ten spelling with or without its
+  hyphenated ending; a block must show at least one of head and tail. The
+  phrase as a whole is the lone word zero, worth nothing, or one block, or a
+  block and the word thousand, or a block, the word thousand and one further
+  block. Give back the figure the phrase names. Raise an error instead for an
+  argument that is not a string, an empty phrase, a blank at either end or
+  two blanks running together, a word outside the vocabulary, the word
+  hundred with no one-to-nine spelling ahead of it, hundred or thousand
+  appearing twice, the word thousand with no block ahead of it, zero standing
+  anywhere but alone, a hyphen joining anything other than a multiple-of-ten
+  spelling and a one-to-nine spelling, and a tail longer than one word.
+  Return the whole repaired file.
+target: solution.ts
+target_content: |
+  /** The figure an amount written out in words names. */
+  const SMALL =
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split(
+      " ",
+    );
+  const TENS = "twenty thirty forty fifty sixty seventy eighty ninety".split(" ");
+
+  export function readSpelledCount(phrase: string): number {
+    const values: Record<string, number> = {};
+    SMALL.forEach((word, index) => {
+      values[word] = index;
+    });
+    TENS.forEach((word, index) => {
+      values[word] = 20 + 10 * index;
+    });
+    let total = 0;
+    let current = 0;
+    for (const word of phrase.split(" ")) {
+      if (word === "hundred") {
+        current *= 100;
+      } else if (word === "thousand") {
+        total += current * 1000;
+        current = 0;
+      } else {
+        current += values[word] ?? 0;
+      }
+    }
+    return total + current;
+  }
+interface: "export function readSpelledCount(phrase: string): number"
+stop_conditions:
+  - Whether a phrase may name a figure above 999999 is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

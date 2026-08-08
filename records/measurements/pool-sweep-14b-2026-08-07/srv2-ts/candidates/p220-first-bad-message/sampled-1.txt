@@ -1,0 +1,64 @@
+```ts
+export function firstBadMessage(exchange: unknown): number {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid exchange");
+  }
+
+  const validKinds = ["HELLO", "OFFER", "CHOOSE", "ACCEPT", "DATA", "BYE"];
+  const validFroms = ["client", "server"];
+
+  for (let i = 0; i < exchange.length; i++) {
+    const message = exchange[i];
+
+    if (typeof message !== "object" || message === null) {
+      throw new Error("Invalid message");
+    }
+
+    const { from, kind } = message as Record<string, unknown>;
+
+    if (!validFroms.includes(from as string)) {
+      throw new Error("Invalid 'from' field");
+    }
+
+    if (!validKinds.includes(kind as string)) {
+      throw new Error("Invalid 'kind' field");
+    }
+  }
+
+  let expectedClientMessages = ["HELLO", "CHOOSE", "BYE"];
+  let expectedServerMessages = ["OFFER", "ACCEPT", "DATA", "BYE"];
+
+  for (let i = 0; i < exchange.length; i++) {
+    const message = exchange[i] as Record<string, string>;
+
+    if (
+      (message.from === "client" && !expectedClientMessages.includes(message.kind)) ||
+      (message.from === "server" && !expectedServerMessages.includes(message.kind))
+    ) {
+      return i;
+    }
+
+    if (message.from === "client") {
+      const index = expectedClientMessages.indexOf(message.kind);
+      expectedClientMessages = expectedClientMessages.slice(index + 1);
+
+      if (message.kind === "BYE") {
+        break;
+      }
+    } else if (message.from === "server") {
+      const index = expectedServerMessages.indexOf(message.kind);
+      expectedServerMessages = expectedServerMessages.slice(index + 1);
+
+      if (expectedClientMessages.includes("DATA") && message.kind !== "DATA") {
+        return i;
+      }
+
+      if (message.kind === "BYE" && expectedClientMessages.length > 0) {
+        return exchange.length;
+      }
+    }
+  }
+
+  return -1;
+}
+```

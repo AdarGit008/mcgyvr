@@ -1,0 +1,35 @@
+```ts
+function orderSections(labels: string[]): string[] {
+  if (!Array.isArray(labels)) throw new Error("Input must be an array");
+  
+  const isValidLabel = (label: string): boolean => {
+    return typeof label === "string" && /^(\d+(?:\.\d+)*)$/.test(label);
+  };
+
+  const splitLabel = (label: string): number[] => {
+    return label.split(".").map(Number);
+  };
+
+  if (!labels.every(isValidLabel)) throw new Error("Invalid label found");
+
+  const sortedLabels = labels.sort((a, b) => {
+    const aParts = splitLabel(a);
+    const bParts = splitLabel(b);
+
+    const maxLength = Math.max(aParts.length, bParts.length);
+
+    for (let i = 0; i < maxLength; i++) {
+      if (i >= aParts.length || i >= bParts.length) return i - (i + 1);
+
+      if (aParts[i] !== bParts[i]) return aParts[i] - bParts[i];
+    }
+
+    return 0;
+  });
+
+  const hasDuplicates = new Set(sortedLabels).size !== sortedLabels.length;
+  if (hasDuplicates) throw new Error("Duplicate labels found");
+
+  return sortedLabels;
+}
+```

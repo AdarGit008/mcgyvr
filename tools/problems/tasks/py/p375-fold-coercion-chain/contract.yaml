@@ -1,0 +1,30 @@
+id: p375-fold-coercion-chain
+task_type: function_implementation
+task: >-
+  Implement fold_coercion_chain. A tiny language has five value types: bit (a
+  nought-or-one), whole (a counting number), ratio (a number with a fractional
+  part), word (a run of characters) and empty (an absent value). The first
+  argument names the type a chain starts from; the second is a list of terms,
+  each a mapping carrying an op reading join or weigh together with a type
+  naming one of the five. Work the chain from the left, each term folding the
+  running type against its own type by the rules of its op. A join with an
+  empty on either side cannot be done. A join with a word on either side yields
+  a word, whatever stands on the other side. A join of two types drawn from
+  bit, whole and ratio yields a ratio when either side is a ratio and a whole
+  otherwise, so even a pair of bits joins to a whole. A weigh with an empty on
+  either side cannot be done. A weigh of two words yields a bit, and so does a
+  weigh of two types drawn from bit, whole and ratio, but a word weighed
+  against any of those three cannot be done. Return the running type after
+  every term, in order, as a list of type names; a chain of no terms returns an
+  empty list. Raise an error when the starting type is not one of the five,
+  when the terms are not a list, when a term is not a mapping, when a term's op
+  is neither join nor weigh, when a term's type is not one of the five, and
+  when a term asks for a fold its op does not allow.
+target: solution.py
+interface: "def fold_coercion_chain(start: str, terms: list) -> list"
+stop_conditions:
+  - How long a chain of terms may run is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

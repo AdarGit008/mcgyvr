@@ -1,0 +1,103 @@
+```ts
+export function intersectBuildSpans(spans: string[]): string {
+  if (spans.length === 0) {
+    throw new Error("Empty list of spans");
+  }
+
+  const parseSpan = (span: string): { lo?: number; hi?: number; strikes: Set<number> } => {
+    const [range, strikePart] = span.split('!');
+    const [loStr, hiStr] = range.split('..');
+
+    let lo: number | undefined;
+    let hi: number | undefined;
+
+    if (loStr === '') {
+      lo = -Infinity;
+    } else if (loStr.startsWith('0') || isNaN(Number(loStr))) {
+      throw new Error("Leading zero or invalid number in span");
+    } else {
+      lo = Number(loStr);
+    }
+
+    if (hiStr === '') {
+      hi = Infinity;
+    } else if (hiStr.startsWith('0') || isNaN(Number(hiStr))) {
+      throw new Error("Leading zero or invalid number in span");
+    } else {
+      hi = Number(hiStr);
+    }
+
+    if (lo !== undefined && hi !== undefined && lo > hi) {
+      throw new Error("Reversed limits in span");
+    }
+
+    const strikes = new Set<number>();
+    if (strikePart) {
+      for (const strike of strikePart.split(',')) {
+        const num = Number(strike);
+        if (isNaN(num) || num < 0 || (lo !== undefined && num < lo) || (hi !== undefined && num > hi)) {
+          throw new Error("Invalid or out-of-range strike in span");
+        }
+        strikes.add(num);
+      }
+    }
+
+    return { lo, hi, strikes };
+  };
+
+  const spansParsed = spans.map(parseSpan);
+
+  let resultLo: number | undefined = -Infinity;
+  let resultHi: number | undefined = Infinity;
+  const resultStrikes = new Set<number>();
+
+  for (const span of spansParsed) {
+    if (span.lo !== undefined && span.hi !== undefined) {
+      if (resultLo === -Infinity || span.lo > resultLo) {
+        resultLo = span.lo;
+      }
+      if (resultHi === Infinity || span.hi < resultHi) {
+        resultHi = span.hi;
+      }
+    } else if (span.lo !== undefined) {
+      if (resultLo === -Infinity || span.lo > resultLo) {
+        resultLo = span.lo;
+      }
+    } else if (span.hi !== undefined) {
+      if (resultHi === Infinity || span.hi < resultHi) {
+        resultHi = span.hi;
+      }
+    }
+
+    for (const strike of span.strikes) {
+      if ((resultLo === -Infinity || strike >= resultLo) && (resultHi === Infinity || strike <= resultHi)) {
+        resultStrikes.add(strike);
+      }
+    }
+  }
+
+  if (resultLo !== undefined && resultHi !== undefined && resultLo > resultHi) {
+    return "empty";
+  }
+
+  const strikesArray = Array.from(resultStrikes).sort((a, b) => a - b);
+
+  let result = '';
+  if (resultLo === -Infinity) {
+    result += '..';
+  } else {
+    result += resultLo;
+  }
+  if (resultHi !== Infinity) {
+    result += `..${resultHi}`;
+  }
+
+  for (const strike of strikesArray) {
+    if ((resultLo === undefined || strike > resultLo) && (resultHi === undefined || strike < resultHi)) {
+      result += `!${strike}`;
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,107 @@
+```ts
+/**
+ * Finds the cheapest set of purchases to meet the required item codes.
+ * @param items - Array of item records with code and price.
+ * @param bundles - Array of bundle records with code, price, and holds.
+ * @param needed - Array of required item codes.
+ * @returns An object with total price and sorted picks of item codes.
+ */
+export function cheapestTray(items: any[], bundles: any[], needed: any[]): any {
+  // Validate input
+  if (items.length + bundles.length > 14) {
+    throw new Error("More than fourteen things on sale in all");
+  }
+
+  const itemMap = new Map<string, number>();
+  const bundleMap = new Map<string, { price: number; holds: string[] }>();
+
+  for (const item of items) {
+    if (item.price < 1) {
+      throw new Error("Price below one");
+    }
+    if (itemMap.has(item.code)) {
+      throw new Error("Code shared by two things on sale");
+    }
+    itemMap.set(item.code, item.price);
+  }
+
+  for (const bundle of bundles) {
+    if (bundle.price < 1) {
+      throw new Error("Price below one");
+    }
+    if (bundle.holds.length === 0) {
+      throw new Error("Bundle holding nothing");
+    }
+    for (const code of bundle.holds) {
+      if (!itemMap.has(code)) {
+        throw new Error("Bundle holding an unknown code");
+      }
+    }
+    if (bundleMap.has(bundle.code)) {
+      throw new Error("Code shared by two things on sale");
+    }
+    bundleMap.set(bundle.code, { price: bundle.price, holds: bundle.holds });
+  }
+
+  for (const code of needed) {
+    if (!itemMap.has(code)) {
+      throw new Error("Required code no item sells");
+    }
+  }
+
+  // Helper function to get the cost of a set of picks
+  const getPicksCost = (picks: string[]): number => {
+    let total = 0;
+    const seen = new Set<string>();
+
+    for (const pick of picks) {
+      if (seen.has(pick)) continue;
+      seen.add(pick);
+      if (itemMap.has(pick)) {
+        total += itemMap.get(pick)!;
+      } else {
+        const bundle = bundleMap.get(pick)!;
+        total += bundle.price;
+        for (const hold of bundle.holds) {
+          seen.add(hold);
+        }
+      }
+    }
+
+    return total;
+  };
+
+  // Generate all possible combinations of picks
+  const generateCombinations = (
+    options: string[],
+    index: number,
+    current: string[]
+  ): string[][] => {
+    if (index === options.length) {
+      return [current.slice()];
+    }
+
+    const withCurrent = generateCombinations(
+      options,
+      index + 1,
+      [...current, options[index]]
+    );
+    const withoutCurrent = generateCombinations(options, index + 1, current);
+
+    return withCurrent.concat(withoutCurrent);
+  };
+
+  // Get all unique item and bundle codes
+  const allCodes = Array.from(new Set([...itemMap.keys(), ...bundleMap.keys()]));
+
+  // Generate all possible combinations of picks
+  const allCombinations = generateCombinations(allCodes, 0, []);
+
+  // Filter combinations to only those that meet the required items
+  const validCombinations = allCombinations.filter((combination) => {
+    const covered = new Set<string>();
+    for (const pick of combination) {
+      if (itemMap.has(pick)) {
+        covered.add(pick);
+      } else {
+        const bundle = bundle

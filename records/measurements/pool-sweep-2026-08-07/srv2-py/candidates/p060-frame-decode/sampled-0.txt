@@ -1,0 +1,34 @@
+```python
+def decode_frames(stream: list[int]) -> list[list[int]]:
+    frames = []
+    i = 0
+
+    while i < len(stream):
+        if i + 3 > len(stream):
+            raise ValueError("Stream ends inside a header or payload")
+
+        header = stream[i:i+2]
+        payload_length = (header[0] << 8) | header[1]
+        i += 2
+
+        if i + payload_length > len(stream):
+            raise ValueError("Stream ends before the trailing byte")
+
+        payload = stream[i:i+payload_length]
+        i += payload_length
+
+        if i >= len(stream):
+            raise ValueError("Stream ends before the trailing byte")
+
+        xor_checksum = stream[i]
+        calculated_xor checksum = 0
+        for byte in payload:
+            calculated_xor_checksum ^= byte
+
+        if xor_checksum != 0 and xor_checksum != calculated_xor_checksum:
+            raise ValueError("Trailing byte disagrees with its payload")
+
+        frames.append(payload)
+
+    return frames
+```

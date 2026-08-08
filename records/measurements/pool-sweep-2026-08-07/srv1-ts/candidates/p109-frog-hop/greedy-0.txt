@@ -1,0 +1,36 @@
+```ts
+export function canHop(pond: string[], from: number[], to: number[]): boolean {
+  if (pond.length !== 5 || !pond.every(row => row.length === 5)) {
+    throw new Error("Invalid pond dimensions");
+  }
+  if (!isValidSquare(from) || !isValidSquare(to)) {
+    throw new Error("Invalid square coordinates");
+  }
+
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+
+  if (pond[fromRow][fromCol] === '.' || pond[toRow][toCol] !== '.') {
+    return false;
+  }
+
+  const isAdjacent = Math.abs(fromRow - toRow) + Math.abs(fromCol - toCol) === 1;
+  if (isAdjacent) {
+    return true;
+  }
+
+  const midRow = fromRow + (toRow - fromRow) / 2;
+  const midCol = fromCol + (toCol - fromCol) / 2;
+
+  if (midRow < 0 || midRow > 4 || midCol < 0 || midCol > 4) {
+    return false;
+  }
+
+  return pond[midRow][midCol] !== '.';
+}
+
+function isValidSquare(square: number[]): boolean {
+  const [row, col] = square;
+  return Number.isInteger(row) && Number.isInteger(col) && row >= 0 && row <= 4 && col >= 0 && col <= 4;
+}
+```

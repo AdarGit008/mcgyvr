@@ -1,0 +1,31 @@
+id: p362-cross-resting-orders
+task_type: function_implementation
+task: >-
+  Implement crossRestingOrders. A book holds resting orders, oldest first;
+  each is a mapping with "tag" (a non-empty string no other order shares),
+  "side" (either "bid" or "ask"), "price" (a positive whole number) and
+  "size" (a positive whole number). The arriving order carries the same four
+  fields. Match it against the far side: a bid takes asks priced at or below
+  its own price, an ask takes bids priced at or above it. Serve the keenest
+  price first — the cheapest ask, the dearest bid — and among equal prices
+  the older order first. Every trade happens at the resting order's price,
+  never the arriving one's, and is recorded as a mapping with "maker" (the
+  resting tag), "price" and "size"; a resting order drained to nothing leaves
+  the book. Whatever size the arriving order still carries once no far-side
+  order can take it rests as the newest order on its own side. Return a
+  mapping with "trades", holding the trades in the order they happened, and
+  "book", holding the survivors written with the same four fields: every bid
+  first, dearest price leading, then every ask, cheapest price leading, and
+  within one price the older order ahead. Raise an error when a side is
+  neither bid nor ask, when a price or a size is not a positive whole number,
+  when a tag is empty or repeats another tag, when the arriving tag already
+  rests, and when the book handed in already crosses, meaning its dearest bid
+  stands at or above its cheapest ask.
+target: solution.ts
+interface: "export function crossRestingOrders(book: Array<Record<string, unknown>>, arriving: Record<string, unknown>): Record<string, unknown>"
+stop_conditions:
+  - Whether an arriving order may rest at a price that would cross a far-side order it was not allowed to take is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

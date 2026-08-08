@@ -1,0 +1,28 @@
+id: p270-canonical-tag-query
+task_type: function_implementation
+task: >-
+  Implement canonicalTagQuery. A tag query is a run of items joined by
+  semicolons, each item a key and a value joined by a colon. Any glyph may be
+  written as an escape: a tilde followed by exactly two upper-case hex
+  glyphs, standing for the glyph at that code, and only codes 20 through 7E
+  may be named that way. Put the query into its settled form: decode every
+  escape in every key and value, place the items in rising order of decoded
+  key with items sharing a key placed in rising order of decoded value
+  (comparison is by glyph code), drop an item whose decoded key and decoded
+  value both repeat an item already kept, then write the items out again
+  escaping only the three glyphs that would otherwise be read as structure —
+  colon as ~3A, semicolon as ~3B, tilde as ~7E — and join them with
+  semicolons. An empty query settles to the empty text. A value may be empty;
+  a key may not. Reject with an error an item carrying no colon, an item
+  carrying a second bare colon, an empty key, a tilde not followed by two
+  upper-case hex glyphs, an escape naming a code outside 20 through 7E, a raw
+  glyph in the query outside that same band, and an argument that is not
+  text.
+target: solution.ts
+interface: "export function canonicalTagQuery(text: string): string"
+stop_conditions:
+  - Whether the settled form may re-escape glyphs beyond the three named is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,40 @@
+```python
+def label_cadence_walk(edges: list[list[str]], cadence: list[str], start: str, goal: str) -> int:
+    if not all(isinstance(c, str) and c for c in cadence):
+        raise ValueError("Cadence must be a list of non-empty strings")
+    if not all(isinstance(e, list) and len(e) == 3 and all(isinstance(x, str) and x for x in e) for e in edges):
+        raise ValueError("Edges must be triples of non-empty strings")
+    if start not in (e[0] for e in edges) or goal not in (e[1] for e in edges):
+        raise ValueError("Start or goal must appear in an edge")
+
+    from collections import defaultdict
+    from heapq import heappop, heappush
+
+    graph = defaultdict(list)
+    for fr, to, label in edges:
+        graph[fr].append((to, label))
+
+    cadence_len = len(cadence)
+    start_edges = graph[start]
+    if not any(label == cadence[0] for _, label in start_edges):
+        return -1
+
+    heap = [(len(start_edges), start)]
+    visited = set()
+
+    while heap:
+        remaining_cadence, node = heappop(heap)
+
+        if node == goal and remaining_cadence == 0:
+            return len(edges) - remaining_cadence
+
+        if (node, remaining_cadence) in visited:
+            continue
+        visited.add((node, remaining_cadence))
+
+        for next_node, next_label in graph[node]:
+            next_remaining_cadence = remaining_cadence - 1 if next_label == cadence[remaining_cadence] else (cadence_len - 1)
+            heappush(heap, (len(graph[next_node]) + next_remaining_cadence, next_node))
+
+    return -1
+```

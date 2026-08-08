@@ -1,0 +1,27 @@
+```ts
+export function outlineDiff(
+  before: Record<string, any>,
+  after: Record<string, any>
+): string[] {
+  const lines: string[] = [];
+
+  function diffHeads(prefix: string, before: Record<string, any>, after: Record<string, any>): void {
+    for (const key of Object.keys(after)) {
+      if (!(key in before)) {
+        lines.push("added " + prefix + key);
+      } else {
+        diffHeads(prefix + key + "/", before[key], after[key]);
+      }
+    }
+    for (const key of Object.keys(before)) {
+      if (!(key in after)) {
+        lines.push("removed " + prefix + key);
+      }
+    }
+  }
+
+  diffHeads("", before, after);
+
+  return lines.sort();
+}
+```

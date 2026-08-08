@@ -1,0 +1,26 @@
+```ts
+export function transcribeRunes(source: string, table: Array<[string, string]>): string {
+    if (table.some(([pattern]) => pattern === '')) {
+        throw new Error('Pattern cannot be empty');
+    }
+
+    let result = '';
+    let pos = 0;
+
+    while (pos < source.length) {
+        const remaining = source.slice(pos);
+        const match = table.find(([pattern]) => remaining.startsWith(pattern));
+
+        if (match) {
+            const [_, output] = match;
+            result += output;
+            pos += pattern.length;
+        } else {
+            result += source[pos];
+            pos++;
+        }
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,77 @@
+```ts
+/**
+ * Flattens a recipe string to per-tag totals and returns them as a string.
+ * @param recipe - A recipe string written in a specific grammar.
+ */
+export function foldFormula(recipe: string): string {
+  if (typeof recipe !== 'string' || recipe.length === 0) {
+    throw new Error('Invalid argument');
+  }
+
+  const tagPattern = /^[A-Z][a-z]{0,2}$/;
+  const repeatPattern = /^\d+$/;
+
+  interface StackItem {
+    tags: Record<string, number>;
+  }
+
+  const stack: StackItem[] = [{ tags: {} }];
+  let currentRepeat = 1;
+
+  for (let i = 0; i < recipe.length; ) {
+    const char = recipe[i];
+
+    if (tagPattern.test(char)) {
+      const tag = char + recipe.slice(i + 1, i + 3);
+      if (!tagPattern.test(tag)) {
+        throw new Error('Invalid tag');
+      }
+      stack[stack.length - 1].tags[tag] = (stack[stack.length - 1].tags[tag] || 0) + currentRepeat;
+      i += tag.length;
+    } else if (char === '(') {
+      stack.push({ tags: {} });
+      i += 1;
+    } else if (char === ')') {
+      const lastItem = stack.pop();
+      if (!lastItem) {
+        throw new Error('Unmatched closing parenthesis');
+      }
+      let repeat = currentRepeat;
+      while (i + 1 < recipe.length && repeatPattern.test(recipe[i + 1])) {
+        i += 1;
+      }
+      const repeatStr = recipe.slice(i - (repeat === currentRepeat ? 0 : 1), i);
+      if (repeatPattern.test(repeatStr)) {
+        repeat *= parseInt(repeatStr, 10);
+      } else {
+        throw new Error('Invalid repeat');
+      }
+
+      for (const [tag, count] of Object.entries(lastItem.tags)) {
+        stack[stack.length - 1].tags[tag] = (stack[stack.length - 1].tags[tag] || 0) + count * repeat;
+      }
+    } else if (repeatPattern.test(char)) {
+      let repeatStr = char;
+      while (i + 1 < recipe.length && repeatPattern.test(recipe[i + 1])) {
+        i += 1;
+        repeatStr += recipe[i];
+      }
+      currentRepeat *= parseInt(repeatStr, 10);
+    } else {
+      throw new Error('Invalid character');
+    }
+  }
+
+  if (stack.length !== 1) {
+    throw new Error('Unmatched opening parenthesis');
+  }
+
+  const result: string[] = [];
+  for (const tag of Object.keys(stack[0].tags).sort()) {
+    const count = stack[0].tags[tag];
+    result.push(tag + (count > 1 ? count.toString() : ''));
+  }
+
+  return result.join('');
+}
+```

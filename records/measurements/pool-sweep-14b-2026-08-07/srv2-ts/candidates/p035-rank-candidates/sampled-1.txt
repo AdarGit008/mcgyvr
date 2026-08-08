@@ -1,0 +1,35 @@
+```ts
+export function rankCandidates(candidates: string[], query: string, limit: number): string[] {
+  if (typeof query !== 'string') throw new Error('Query must be a string');
+  if (!query) throw new Error('Query cannot be empty');
+  if (limit <= 0 || !Number.isInteger(limit)) throw new Error('Limit must be a positive integer');
+
+  const lowerQuery = query.toLowerCase();
+
+  const rankedCandidates = candidates
+    .filter(candidate => {
+      if (typeof candidate !== 'string') throw new Error('Candidate must be a string');
+      return (
+        candidate.toLowerCase().includes(lowerQuery) &&
+        (candidate.toLowerCase() === lowerQuery ||
+          candidate.toLowerCase().startsWith(lowerQuery) ||
+          candidate.toLowerCase().indexOf(lowerQuery) > 0)
+      );
+    })
+    .map(candidate => ({
+      candidate,
+      isExact: candidate.toLowerCase() === lowerQuery,
+      isPrefix: candidate.toLowerCase().startsWith(lowerQuery),
+      length: candidate.length
+    }))
+    .sort((a, b) => {
+      if (a.isExact !== b.isExact) return a.isExact ? -1 : 1;
+      if (a.isPrefix !== b.isPrefix) return a.isPrefix ? -1 : 1;
+      return a.length - b.length || candidates.indexOf(a.candidate) - candidates.indexOf(b.candidate);
+    })
+    .map(item => item.candidate)
+    .slice(0, limit);
+
+  return rankedCandidates;
+}
+```

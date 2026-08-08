@@ -1,0 +1,28 @@
+id: p256-lock-cycle-victim
+task_type: function_implementation
+task: |
+  Implement lockCycleVictim, the deadlock detector of a lock manager. The first
+  argument lists granted locks as [resource, worker] pairs; the second lists
+  blocked requests as [worker, resource] pairs. A blocked worker is stuck
+  behind whoever currently holds the resource it asked for, which gives one
+  arrow out of that worker and no more. A request for a resource nobody holds
+  is about to be granted and draws no arrow at all. Workers standing on a ring
+  of such arrows can never proceed, and one of them must be thrown out: among
+  every worker standing on any ring, throw out the one holding the fewest
+  locks, and where several hold equally few, the one whose name sorts first.
+  Return a record with victim naming that worker and cycle listing its own ring
+  beginning at the victim and walking the arrows once round, each worker
+  appearing once; a worker that merely queues behind a ring is not part of it.
+  With no ring anywhere, victim is "" and cycle is empty. Reject a resource
+  granted to two workers, a worker blocked on two resources at once, a worker
+  blocked on a resource it already holds, a pair that is not exactly two
+  entries, a name that is not a string or is empty, and either argument that is
+  not a list.
+target: solution.ts
+interface: "export function lockCycleVictim(holds: string[][], blocked: string[][]): { victim: string; cycle: string[] }"
+stop_conditions:
+  - Whether shared read locks with several holders must be supported is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

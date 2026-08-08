@@ -1,0 +1,101 @@
+```ts
+/**
+ * Folds a reply thread into a string representation.
+ * @param messages - An array of message arrays, each containing [id, parent, text].
+ * @returns A string with each message on a new line, indented based on its depth in the thread.
+ * @throws Error if input is invalid or contains circular references.
+ */
+export function foldReplyThread(messages: string[][]): string {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    throw new Error("Invalid input: messages must be a non-empty array.");
+  }
+
+  const messageMap = new Map<string, { id: string; parent: string; text: string; depth: number }>();
+  const parentIdMap = new Map<string, string[]>();
+
+  for (const message of messages) {
+    if (!Array.isArray(message) || message.length !== 3) {
+      throw new Error("Invalid message format.");
+    }
+    const [id, parent, text] = message;
+
+    if (typeof id !== "string" || typeof parent !== "string" || typeof text !== "string") {
+      throw new Error("Message elements must be strings.");
+    }
+
+    if (id.trim() === "") {
+      throw new Error("Message id cannot be empty.");
+    }
+
+    if (messageMap.has(id)) {
+      throw new Error("Repeated message id.");
+    }
+
+    if (text.includes("\n")) {
+      throw new Error("Message text cannot contain newlines.");
+    }
+
+    messageMap.set(id, { id, parent, text, depth: 0 });
+
+    if (!parentIdMap.has(parent)) {
+      parentIdMap.set(parent, []);
+    }
+    parentIdMap.get(parent)!.push(id);
+  }
+
+  const visited = new Set<string>();
+  const stack: string[] = [];
+  let hasCycle = false;
+
+  function detectCycle(messageId: string): void {
+    if (visited.has(messageId)) {
+      hasCycle = true;
+      return;
+    }
+    visited.add(messageId);
+
+    for (const child of parentIdMap.get(messageId) || []) {
+      detectCycle(child);
+    }
+
+    visited.delete(messageId);
+  }
+
+  for (const message of messages) {
+    const [id] = message;
+    if (!parentIdMap.has(id)) {
+      detectCycle(id);
+      if (hasCycle) {
+        throw new Error("Circular references detected in parent links.");
+      }
+      hasCycle = false;
+      stack.push(id);
+    }
+  }
+
+  let result = "";
+
+  while (stack.length > 0) {
+    const messageId = stack[0];
+    const message = messageMap.get(messageId)!;
+
+    if (!parentIdMap.has(messageId)) {
+      for (const child of parentIdMap.get("") || []) {
+        stack.push(child);
+      }
+    } else {
+      const parentMessage = messageMap.get(message.parent)!;
+      message.depth = parentMessage.depth + 1;
+    }
+
+    result += "> ".repeat(message.depth) + `${message.id} ${message.text}\n`;
+
+    for (const child of parentIdMap.get(messageId) || []) {
+      stack.push(child);
+    }
+    stack.shift();
+  }
+
+  return result.trim();
+}
+```

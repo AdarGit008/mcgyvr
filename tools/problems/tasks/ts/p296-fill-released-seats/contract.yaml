@@ -1,0 +1,35 @@
+id: p296-fill-released-seats
+task_type: function_implementation
+task: >-
+  Implement fillReleasedSeats. The first argument lists the taken seats, each
+  with a seat id, the holder sitting in it, and the band the seat belongs to.
+  The second is the waitlist, each entry naming a person, the band they are
+  waiting on, their years of standing, their rank (a whole number, unique,
+  smaller for whoever signed up sooner), and a roving flag. The third lists
+  seat ids being released, in the order the releases come in. Work through
+  the releases one at a time. The holder steps out of the seat and is not
+  written onto the waitlist, though an entry already standing in that
+  person's name comes back into play the moment they are out. Then offer the
+  seat: the runners are the waitlist entries still standing whose person is
+  in no seat and whose band matches the seat's band, and the offer goes to
+  the most years of standing, a tie going to the smaller rank. If no entry
+  matches the band, the offer widens to every still-standing entry whose
+  roving flag is true, judged the same way. Whoever accepts sits in the seat
+  and every entry in their name leaves the waitlist; if nobody runs, the seat
+  stands empty and may be filled by no later release. Return one object per
+  release, holding the seat id and taken, the name that took it or null.
+  Reject with an error any of the three arguments not being a list, a seat or
+  entry that is not an object or is missing a string field, two seats sharing
+  an id, one name holding two seats, years or rank that is not a whole
+  number, a negative years, two entries sharing a rank, two entries pairing
+  the same name with the same band, a roving flag that is not a boolean, a
+  release naming no seat, and a release naming a seat that already stands
+  empty.
+target: solution.ts
+interface: "export function fillReleasedSeats(seats: { seat: string; holder: string; band: string }[], waitlist: { name: string; band: string; years: number; rank: number; roving: boolean }[], releases: string[]): { seat: string; taken: string | null }[]"
+stop_conditions:
+  - Whether rank values must run consecutively from one is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

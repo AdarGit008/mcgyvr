@@ -1,0 +1,27 @@
+id: p351-critical-chain-name
+task_type: function_implementation
+task: >-
+  Implement criticalChainName. The argument describes a job as a list of
+  steps, each a mapping carrying a label, a whole number of hours it takes,
+  and a needs list naming the steps that must be complete before it may
+  start. Read a run as any sequence of steps in which every step but the
+  first appears in the needs list of the step just behind it in the
+  sequence, and weigh a run by adding up the hours of its steps. Find the
+  heaviest run anywhere in the job. Should several runs weigh the same,
+  prefer the one whose labels come first when the two are compared one
+  label at a time from the front, with a run that has run out counting as
+  coming first. Return that run's labels joined by the greater-than sign,
+  with no spaces anywhere. Raise an error if the argument is not a list
+  holding at least one step, if a step is not a mapping, if a label is
+  missing or is not a non-empty string, if two steps carry the same label,
+  if the hours are not a whole number greater than zero, if the needs list
+  is not a list of strings, if a needs entry matches no label in the job,
+  if a step needs itself, and if the needs relation closes into a ring.
+target: solution.ts
+interface: "export function criticalChainName(steps: { label: string; hours: number; needs: string[] }[]): string"
+stop_conditions:
+  - Whether two steps may be worked at the same moment by the same crew is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

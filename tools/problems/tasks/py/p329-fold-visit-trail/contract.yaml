@@ -1,0 +1,63 @@
+id: p329-fold-visit-trail
+task_type: bug_fix
+task: >-
+  fold_visit_trail folds a scattered pile of pings into the runs each handle
+  left behind, and it currently miscounts them. Fix it. A ping is a
+  two-element list of a handle, a non-empty string, and a stamp, a whole
+  number. The pings come in scattered, so each handle's stamps must be put in
+  rising order before anything is counted. Walking a handle's stamps in that
+  order, a run carries on while each stamp sits closer than idle to the one
+  before it, and a fresh run begins the moment a stamp is idle or more past
+  its predecessor — a distance of exactly idle already breaks the run. Answer
+  with one two-element list per handle, the handle and then the lengths of its
+  runs in the order the runs were left, with the handles rising. Keep raising
+  an error when the pings are not a list, when a ping is not a list of exactly
+  two items, when a handle is not a non-empty string, when a stamp is not a
+  whole number, when one handle carries the same stamp twice, and when idle
+  is not a whole number of one or more. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def _marked(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def _handled(value):
+      return isinstance(value, str) and value != ""
+
+
+  def fold_visit_trail(pings, idle) -> list:
+      if not isinstance(pings, list):
+          raise ValueError("the pings must be a list")
+      if not _marked(idle) or idle < 1:
+          raise ValueError("idle must be a whole number of one or more")
+      trails = {}
+      for ping in pings:
+          if not isinstance(ping, list) or len(ping) != 2:
+              raise ValueError("a ping must be a list of exactly two items")
+          handle, stamp = ping
+          if not _handled(handle):
+              raise ValueError("a handle must be a non-empty string")
+          if not _marked(stamp):
+              raise ValueError("a stamp must be a whole number")
+          stamps = trails.setdefault(handle, [])
+          if stamp in stamps:
+              raise ValueError("a handle carries one stamp twice")
+          stamps.append(stamp)
+      folded = []
+      for handle in sorted(trails):
+          stamps = trails[handle]
+          runs = []
+          for index, stamp in enumerate(stamps):
+              if index == 0 or stamp - stamps[index - 1] > idle:
+                  runs.append(1)
+              else:
+                  runs[-1] += 1
+          folded.append([handle, runs])
+      return folded
+interface: "def fold_visit_trail(pings, idle) -> list"
+stop_conditions:
+  - Whether two different handles may share a stamp is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

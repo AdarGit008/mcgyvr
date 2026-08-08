@@ -1,0 +1,29 @@
+id: p396-polygon-probe
+task_type: function_implementation
+task: >-
+  Implement polygon_probe. The first argument is a closed ring of corners, at
+  least three of them, each corner a pair of whole numbers; the ring is
+  walked in the given order, it never crosses itself, the opening corner is
+  not written out again at the tail, and the walk may run either way round.
+  The second argument is a list of sample spots, each also a pair of whole
+  numbers, possibly empty. Hand back a record under two keys. Under
+  "doubled" put twice the ground the ring shuts in, always a whole number of
+  nothing or more, so a ring hugging one unit cell gives 2; which way round
+  the walk runs must leave that untouched, and a ring whose corners all fall
+  along one straight line shuts in nothing. Under "marks" put one verdict per
+  sample spot, in the order the spots arrived: "edge" when the spot rests
+  anywhere upon the ring's own line, corners counted in; otherwise "inside"
+  when the ring shuts the spot in and "outside" when it does not. Hold every
+  step to whole numbers. Raise an error when either argument is not a list,
+  when the ring carries fewer than three corners, when a corner or a sample
+  spot is not a pair of exactly two whole numbers, when two neighbouring
+  corners repeat, when the tail corner equals the opening one, and when any
+  measure's magnitude passes one hundred thousand.
+target: solution.py
+interface: "def polygon_probe(outline: list, probes: list) -> dict"
+stop_conditions:
+  - Whether a ring that crosses itself must be detected rather than trusted is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

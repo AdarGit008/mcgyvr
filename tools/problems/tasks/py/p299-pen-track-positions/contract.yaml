@@ -1,0 +1,105 @@
+id: p299-pen-track-positions
+task_type: bug_fix
+task: >-
+  pen_track_positions lays a line of glyphs along the pen line, but it reads its
+  pair table too greedily, adding the shift of every row that fits a
+  neighbouring pair where only the topmost fitting row should count, and it
+  is blind to any row written against a group, seeing only rows whose two
+  sides are plain glyphs. Cure both faults. The font argument carries
+  advances, a mapping from a glyph to the units it moves the pen; groups, a
+  mapping from a group name to the string of glyphs belonging to it; and
+  pairs, an ordered table whose rows hold a left side, a right side and a
+  whole-number shift. A side is either one glyph or a group name wrapped in
+  braces, and it fits a glyph when it is that glyph or when the named group's
+  string holds it. Read the text from left to right: the first glyph sits at
+  pen 0, and every later glyph sits at the pen of the glyph before it plus
+  that glyph's advance plus the shift the topmost fitting row grants the two
+  of them, or plus nothing when no row fits. Return an object holding
+  positions, the pen of every glyph in order, and total, the pen of the last
+  glyph plus its advance, which is 0 for an empty text. Go on rejecting with
+  an error a text that is not a string, a font that is not an object, an
+  advances or groups entry that is not a plain mapping, an advance that is
+  not a whole number of zero or more, a group whose glyphs are not a string,
+  a pairs entry that is not a list, a row that is not two sides and a whole
+  number, a side that is neither one glyph nor braces around a name the
+  groups carry, a glyph the advances do not carry, and a pen or total that
+  would fall below zero. Return the complete fixed file.
+target: solution.py
+target_content: |
+  import re
+
+  BRACED = re.compile(r"\{(.+)\}")
+
+
+  def _whole(value) -> bool:
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def pen_track_positions(text: str, font: dict) -> dict:
+      if not isinstance(text, str):
+          raise ValueError("pen_track_positions expects a string of glyphs")
+      if not isinstance(font, dict):
+          raise ValueError("the font must be an object")
+      advances = font.get("advances")
+      groups = font.get("groups")
+      pairs = font.get("pairs")
+      if not isinstance(advances, dict) or not isinstance(groups, dict):
+          raise ValueError("advances and groups must be plain mappings")
+      for glyph, advance in advances.items():
+          if not _whole(advance) or advance < 0:
+              raise ValueError(f"an advance is a whole number of zero or more: {glyph}")
+      for name, held in groups.items():
+          if not isinstance(held, str):
+              raise ValueError(f"a group holds a string of glyphs: {name}")
+      if not isinstance(pairs, list):
+          raise ValueError("pairs must be a table list")
+
+      def check_side(side) -> None:
+          if not isinstance(side, str):
+              raise ValueError("a side is written as text")
+          if len(side) == 1:
+              return
+          braced = BRACED.fullmatch(side)
+          if braced is None or braced.group(1) not in groups:
+              raise ValueError(
+                  f"a side is one glyph or braces around a known group: {side}"
+              )
+
+      for row in pairs:
+          if not isinstance(row, (list, tuple)) or len(row) != 3:
+              raise ValueError("a row is two sides and a shift")
+          check_side(row[0])
+          check_side(row[1])
+          if not _whole(row[2]):
+              raise ValueError("a shift is a whole number")
+
+      def shift_for(left: str, right: str) -> int:
+          shift = 0
+          for row in pairs:
+              if row[0] == left and row[1] == right:
+                  shift += row[2]
+          return shift
+
+      for glyph in text:
+          if glyph not in advances:
+              raise ValueError(f"no advance for {glyph}")
+
+      positions: list[int] = []
+      pen = 0
+      for at, glyph in enumerate(text):
+          if at > 0:
+              pen += advances[text[at - 1]] + shift_for(text[at - 1], glyph)
+          if pen < 0:
+              raise ValueError(f"the pen falls below zero at glyph {at}")
+          positions.append(pen)
+      total = 0 if text == "" else pen + advances[text[-1]]
+      if total < 0:
+          raise ValueError("the total falls below zero")
+      return {"positions": positions, "total": total}
+interface: "def pen_track_positions(text: str, font: dict) -> dict"
+stop_conditions:
+  - Whether one glyph may belong to two groups at once is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

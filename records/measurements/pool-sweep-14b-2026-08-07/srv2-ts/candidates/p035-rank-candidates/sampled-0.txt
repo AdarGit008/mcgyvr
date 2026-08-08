@@ -1,0 +1,39 @@
+```ts
+export function rankCandidates(candidates: string[], query: string, limit: number): string[] {
+  if (typeof query !== 'string' || query.length === 0) {
+    throw new Error('Invalid query');
+  }
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error('Invalid limit');
+  }
+
+  const lowerQuery = query.toLowerCase();
+
+  const rankedCandidates = candidates
+    .map(candidate => ({
+      original: candidate,
+      lower: candidate.toLowerCase(),
+    }))
+    .filter(({ lower }) =>
+      lower.includes(lowerQuery)
+    )
+    .sort((a, b) => {
+      const aExact = a.lower === lowerQuery;
+      const bExact = b.lower === lowerQuery;
+      if (aExact !== bExact) return bExact ? 1 : -1;
+
+      const aPrefix = a.lower.startsWith(lowerQuery);
+      const bPrefix = b.lower.startsWith(lowerQuery);
+      if (aPrefix !== bPrefix) return bPrefix ? 1 : -1;
+
+      if (a.original.length !== b.original.length) {
+        return a.original.length - b.original.length;
+      }
+
+      return 0;
+    })
+    .map(item => item.original);
+
+  return rankedCandidates.slice(0, limit);
+}
+```

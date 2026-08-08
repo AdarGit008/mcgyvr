@@ -1,0 +1,36 @@
+```typescript
+export function rankWithPolicy(scores: number[], policy: string, direction: string): number[] {
+    if (scores.length === 0) throw new Error("Input list cannot be empty");
+    
+    const scoreMap = scores.map((score, index) => ({ score, index }));
+    scoreMap.sort((a, b) => {
+        if (direction === "asc") return a.score - b.score;
+        else if (direction === "desc") return b.score - a.score;
+        else throw new Error("Invalid direction: must be 'asc' or 'desc'");
+    });
+    
+    const ranks = new Array(scores.length).fill(0);
+    let rank = 1;
+    
+    for (let i = 0; i < scoreMap.length; i++) {
+        if (i > 0 && policy === "dense" && scoreMap[i].score === scoreMap[i - 1].score) continue;
+        
+        const previousRank = rank;
+        let nextRank = rank + 1;
+        
+        if (policy === "gapped") {
+            while (nextRank <= scores.length && scores.findIndex(score => score === scoreMap[i].score) !== scores.length - 1) {
+                nextRank++;
+            }
+        } else if (policy === "entry") {
+            nextRank = i + 1;
+        }
+        
+        rank = nextRank;
+        
+        ranks[scoreMap[i].index] = previousRank;
+    }
+    
+    return ranks;
+}
+```

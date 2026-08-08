@@ -1,0 +1,60 @@
+```ts
+const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function leaps(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+// Weekday of January 1, with 0 standing for Monday; index 0 of the day
+// count is 0001-01-01, itself a Monday.
+function openingWeekday(year: number): number {
+  const prior = year - 1;
+  const index =
+    365 * prior +
+    Math.floor(prior / 4) -
+    Math.floor(prior / 100) +
+    Math.floor(prior / 400);
+  return ((index % 7) + 7) % 7;
+}
+
+function stamp(year: number, ordinal: number): string {
+  let remaining = ordinal;
+  for (let month = 1; month <= 12; month++) {
+    const held = MONTH_DAYS[month - 1] + (month === 2 && leaps(year) ? 1 : 0);
+    if (remaining <= held || month === 12) {
+      return (
+        String(year).padStart(4, "0") +
+        "-" +
+        String(month).padStart(2, "0") +
+        "-" +
+        String(remaining).padStart(2, "0")
+      );
+    }
+    remaining -= held;
+  }
+  throw new Error("unreachable");
+}
+
+export function ferrinWeekSpan(year: number, week: number): string[] {
+  if (!Number.isInteger(year) || year < 1 || year > 9999) {
+    throw new Error("year must be a whole number in 1..9999");
+  }
+  if (!Number.isInteger(week) || week < 0) {
+    throw new Error("week must be a whole number of at least zero");
+  }
+  const span = leaps(year) ? 366 : 365;
+  const opening = 1 + ((5 - openingWeekday(year) + 7) % 7);
+  if (week === 0) {
+    if (opening === 1) {
+      throw new Error("the year opens on a Saturday, so it carries no week 0");
+    }
+    return [stamp(year, 1), stamp(year, opening - 1)];
+  }
+  const first = opening + 7 * (week - 1);
+  if (first > span) {
+    throw new Error("the year does not reach that week");
+  }
+  const last = Math.min(first + 6, span);
+  return [stamp(year, first), stamp(year, last)];
+}
+```

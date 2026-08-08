@@ -1,0 +1,72 @@
+```ts
+export function buildWeightCode(entries: any[]): any {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error("Invalid input: must be a non-empty array.");
+  }
+
+  const tokens = entries.map((entry, index) => {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      throw new Error(`Entry at index ${index} is invalid.`);
+    }
+    const [token, tally] = entry;
+    if (typeof token !== "string" || !/^[a-z]+$/.test(token)) {
+      throw new Error(`Token at index ${index} must be a non-empty string of lowercase letters.`);
+    }
+    if (typeof tally !== "number" || tally < 1) {
+      throw new Error(`Tally at index ${index} must be a whole number of one or more.`);
+    }
+    return { token, tally };
+  });
+
+  tokens.sort((a, b) => a.token.localeCompare(b.token));
+
+  type Bud = {
+    load: number;
+    number: number;
+    near?: Bud;
+    far?: Bud;
+  };
+
+  const buds: Bud[] = tokens.map(({ tally }, index) => ({
+    load: tally,
+    number: index,
+  }));
+
+  while (buds.length > 1) {
+    buds.sort((a, b) => a.load - b.load || a.number - b.number);
+    const nearBud = buds.shift()!;
+    const farBud = buds.shift()!;
+    const newBud: Bud = {
+      load: nearBud.load + farBud.load,
+      number: buds.length,
+      near: nearBud,
+      far: farBud,
+    };
+    buds.push(newBud);
+  }
+
+  const crown = buds[0];
+
+  const codes: { [key: string]: string } = {};
+  const totalBits = tokens.reduce((sum, token) => sum + token.tally * (codes[token.token] ? codes[token.token].length : 1), 0);
+
+  function walkBud(bud: Bud | undefined, path: string): void {
+    if (!bud) return;
+    walkBud(bud.near, path + "0");
+    walkBud(bud.far, path + "1");
+    if (bud.number < tokens.length) {
+      codes[tokens[bud.number].token] = path;
+    }
+  }
+
+  walkBud(crown, "");
+
+  const tallestBits = Math.max(...Object.values(codes).map(code => code.length));
+
+  return {
+    codes,
+    bits: totalBits,
+    tallest: tallestBits,
+  };
+}
+```

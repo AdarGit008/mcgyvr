@@ -1,0 +1,45 @@
+```ts
+/**
+ * Sums a list of fraction strings in lowest terms.
+ * @param parts - List of fraction strings to sum.
+ * @returns The total sum as a string in "n/d" form.
+ */
+export function combineFractions(parts: string[]): string {
+  if (parts.length === 0) {
+    throw new Error("Input list cannot be empty");
+  }
+
+  const fractions = parts.map((part) => {
+    const [numerator, denominator] = part.split("/");
+    if (!/^-?\d+\/\d+$/.test(part)) {
+      throw new Error("Invalid fraction format");
+    }
+    if (denominator === "0") {
+      throw new Error("Denominator cannot be zero");
+    }
+    return { numerator: parseInt(numerator), denominator: parseInt(denominator) };
+  });
+
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  let totalNumerator = 0;
+  let commonDenominator = 1;
+
+  fractions.forEach((fraction) => {
+    const factor = commonDenominator / fraction.denominator;
+    totalNumerator += fraction.numerator * factor;
+    commonDenominator *= factor;
+  });
+
+  const overallGcd = gcd(Math.abs(totalNumerator), commonDenominator);
+  totalNumerator /= overallGcd;
+  commonDenominator /= overallGcd;
+
+  if (commonDenominator === 1) {
+    return `${totalNumerator}/1`;
+  } else if (totalNumerator < 0) {
+    return `-${Math.abs(totalNumerator)}/${commonDenominator}`;
+  } else {
+    return `${totalNumerator}/${commonDenominator}`;
+  }
+}
+```

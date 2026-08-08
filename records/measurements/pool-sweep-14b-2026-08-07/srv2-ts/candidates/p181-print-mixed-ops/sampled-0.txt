@@ -1,0 +1,79 @@
+```ts
+export function printOperatorTree(node: unknown): string {
+  if (typeof node === 'number') {
+    if (!Number.isInteger(node) || node < 0) {
+      throw new Error('Invalid number');
+    }
+    return node.toString();
+  }
+
+  if (typeof node === 'string') {
+    if (node.length === 0 || !/^[a-z]+$/.test(node)) {
+      throw new Error('Invalid word');
+    }
+    return node;
+  }
+
+  if (typeof node !== 'object' || node === null) {
+    throw new Error('Invalid node');
+  }
+
+  const { op, left, right, negate, call } = node as Record<string, unknown>;
+
+  if (call !== undefined) {
+    if (typeof call !== 'object' || call === null || !Array.isArray((call as any).args)) {
+      throw new Error('Invalid call');
+    }
+    const funcName = call.func;
+    if (typeof funcName !== 'string' || !/^[a-z]+$/.test(funcName)) {
+      throw new Error('Invalid function name in call');
+    }
+    const args = (call as any).args.map(printOperatorTree).join(', ');
+    return `${funcName}(${args})`;
+  }
+
+  if (negate !== undefined) {
+    if (negate === null || typeof negate !== 'object') {
+      throw new Error('Invalid negate');
+    }
+    const operand = printOperatorTree(negate);
+    if (operand.startsWith('-') || needsParenthesesForNegate(operand)) {
+      return `-${operand}`;
+    }
+    return `-${printOperatorTree(negate)}`;
+  }
+
+  if (op !== undefined) {
+    if (left === undefined || right === undefined || typeof op !== 'string' || !['or', 'and', '+', '-', '*', '/', '^'].includes(op)) {
+      throw new Error('Invalid op');
+    }
+    const leftStr = printOperatorTree(left);
+    const rightStr = printOperatorTree(right);
+    const operatorPrecedence: { [key: string]: number } = { 'or': 1, 'and': 2, '+': 3, '-': 3, '*': 4, '/': 4, '^': 5 };
+    const opPrecedence = operatorPrecedence[op];
+    return `${addParentheses(leftStr, left, op, 'left')} ${op} ${addParentheses(rightStr, right, op, 'right')}`;
+  }
+
+  throw new Error('Invalid node');
+}
+
+function needsParenthesesForNegate(operand: string): boolean {
+  const operators = ['+', '-', '*', '/', '^'];
+  return operators.some(op => operand.includes(` ${op} `));
+}
+
+function addParentheses(operand: string, node: unknown, op: string, side: 'left' | 'right'): string {
+  const operatorPrecedence: { [key: string]: number } = { 'or': 1, 'and': 2, '+': 3, '-': 3, '*': 4, '/': 4, '^': 5 };
+  const opPrecedence = operatorPrecedence[op];
+  if (side === 'left' && ['+', '-', '*', '/', '^'].includes(op)) {
+    return operand;
+  }
+  if (operand.includes(' ') && getBindingPower(operand) <= opPrecedence) {
+    return `(${operand})`;
+  }
+  return operand;
+}
+
+function getBindingPower(expression: string): number {
+  const operators = ['or', 'and', '+', '-', '*', '/', '^'];
+  let maxPrecedence = -1

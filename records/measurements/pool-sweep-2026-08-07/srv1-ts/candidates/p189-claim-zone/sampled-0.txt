@@ -1,0 +1,32 @@
+```ts
+/**
+ * Finds the deepest stencil covering a given post.
+ * @param claims - Array of claim strings in the format "post/depth name".
+ * @param where - The post to check for coverage.
+ * @returns The name of the deepest covering stencil or an empty string if none.
+ */
+export function claimZone(claims: string[], where: string): string {
+  // Validate input
+  if (!Array.isArray(claims)) throw new Error("Claims must be an array.");
+  if (typeof where !== "string") throw new Error("Where must be a string.");
+
+  const postRegExp = /^\d{1,2}\.\d{1,2}\.\d{1,2}$/;
+  const claimRegExp = /^(?:(?:\d{1,2})\.){2}\d{1,2}\/[0-3] .+$/;
+
+  for (const claim of claims) {
+    if (!claimRegExp.test(claim)) throw new Error("Invalid claim format.");
+    const [post, name] = claim.split(/ (.+)/);
+    const [fixedPost, depthStr] = post.split("/");
+    const fixedDepth = parseInt(depthStr, 10);
+
+    if (fixedPost !== where) continue;
+    if (name.includes(" ")) throw new Error("Name cannot contain spaces.");
+
+    for (let i = 0; i < fixedDepth + 1; i++) {
+      if (where.split(".").i[i] !== post.split(".").i[i]) break;
+    } else return name.trim();
+  }
+
+  return "";
+}
+```

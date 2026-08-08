@@ -1,0 +1,33 @@
+```python
+def grade_reruns(log: list, budget: int) -> list:
+    if not isinstance(log, list):
+        raise ValueError("Log must be a list")
+    if budget < 0 or not isinstance(budget, int):
+        raise ValueError("Budget must be a whole number of at least zero")
+    
+    goes = {}
+    for entry in log:
+        if not isinstance(entry, str) or ' ' not in entry:
+            raise ValueError("Log entries must be strings with exactly one space")
+        name, mark = entry.split(" ")
+        if not name or mark not in {"green", "red"}:
+            raise ValueError("Invalid mark or job name")
+        if name in goes and goes[name][-1] == "green":
+            raise ValueError("Job has already gone green")
+        if len(goes.get(name, [])) >= budget + 2:
+            raise ValueError("Job has more goes than the budget allows")
+        
+        goes.setdefault(name, []).append(mark)
+    
+    graded = []
+    for name, marks in goes.items():
+        if marks[-1] == "green":
+            grade = "solid" if len(marks) == 1 else "shaky"
+        elif any(mark == "red" for mark in marks):
+            grade = "broken"
+        else:
+            grade = "dropped"
+        graded.append(name + ":" + grade)
+    
+    return sorted(graded)
+```

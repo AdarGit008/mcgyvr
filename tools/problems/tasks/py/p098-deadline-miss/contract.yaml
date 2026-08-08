@@ -1,0 +1,21 @@
+id: p098-deadline-miss
+task_type: function_implementation
+task: >-
+  Implement first_deadline_miss. Each job mapping has a "name", a "work" (the
+  minutes it needs) and a "due" (the minute it must be finished by). One
+  machine starts at minute 0 and runs the jobs back to back, ordered by
+  earliest due minute first, breaking ties by earlier position in the given
+  list; a job finishing exactly at its due minute is on time. Return the
+  name of the first job, in running order, whose finish lands after its due
+  minute — or the empty string when every job is on time, including when
+  the list is empty. Reject with an error a "work" or a "due" that is not
+  a positive integer, a repeated name, and a name that is not a non-empty
+  string.
+target: solution.py
+interface: "def first_deadline_miss(jobs: list[dict]) -> str"
+stop_conditions:
+  - How many jobs a single call must handle is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

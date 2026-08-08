@@ -1,0 +1,78 @@
+```ts
+export function parseInvocation(catalogue: Array<{ name: string; kind: string; alias?: string }>, tokens: string[]): { options: Record<string, unknown>; operands: string[] } {
+  const options: Record<string, unknown> = {};
+  const operands: string[] = [];
+  let skipNextToken = false;
+
+  catalogue.forEach(option => {
+    options[option.name] = option.kind === 'toggle' ? false : (option.kind === 'single' ? null : []);
+  });
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+
+    if (skipNextToken) {
+      skipNextToken = false;
+      continue;
+    }
+
+    if (token.startsWith('--')) {
+      let [name, value] = token.split('=');
+      const option = catalogue.find(opt => opt.name === name.slice(2));
+
+      if (!option) {
+        throw new Error(`Unknown option: ${name}`);
+      }
+
+      if (option.kind === 'toggle') {
+        options[name.slice(2)] = true;
+      } else if (option.kind === 'single' || option.kind === 'repeat') {
+        if (value !== undefined) {
+          setValue(option.name, value);
+        } else if (i + 1 < tokens.length) {
+          setValue(option.name, tokens[i + 1]);
+          skipNextToken = true;
+        } else {
+          throw new Error(`Missing value for option: ${name}`);
+        }
+      }
+    } else if (token.startsWith('-') && token.length === 2) {
+      const alias = token[1];
+      const option = catalogue.find(opt => opt.alias === alias);
+
+      if (!option) {
+        throw new Error(`Unknown alias: ${alias}`);
+      }
+
+      if (option.kind === 'toggle') {
+        options[option.name] = true;
+      } else if (option.kind === 'single' || option.kind === 'repeat') {
+        if (i + 1 < tokens.length) {
+          setValue(option.name, tokens[i + 1]);
+          skipNextToken = true;
+        } else {
+          throw new Error(`Missing value for option: ${alias}`);
+        }
+      }
+    } else if (token === '--' || Object.values(options).every(val => Array.isArray(val) ? val.length > 0 : val !== null)) {
+      operands.push(token);
+    }
+  }
+
+  return { options, operands };
+
+  function setValue(name: string, value: string): void {
+    const option = catalogue.find(opt => opt.name === name);
+
+    if (option!.kind === 'single' && options[name] !== null) {
+      throw new Error(`Option mentioned twice: ${name}`);
+    }
+
+    if (option!.kind === 'repeat') {
+      (options[name] as string[]).push(value);
+    } else if (option!.kind === 'single') {
+      options[name] = value;
+    }
+  }
+}
+```

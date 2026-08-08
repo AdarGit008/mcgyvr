@@ -1,0 +1,87 @@
+id: p217-choose-upgrades
+task_type: bug_fix
+task: >-
+  chooseUpgrades decides where each ruled library should land and gets the
+  ordering of releases wrong. Repair it. The argument is a mapping with
+  "installed" (a mapping from a library to the release running today),
+  "offers" (a mapping from a library to a non-empty list of distinct
+  releases the registry carries) and "rules" (a list of mappings, each with
+  "package", "min" and "max", two releases that bound it, both ends
+  permitted). A release is written as two groups of digits split by a full
+  stop, such as 9.0 or 1.10, and neither group may carry a leading zero
+  unless it is a single zero; releases order by the first group as a number
+  and then by the second, so 1.10 comes after 1.2 and 10.0 comes after 9.0.
+  Only libraries some rule bounds are considered; the rest are left alone
+  and reported nowhere. A release is permitted for a library when it clears
+  every min and stays at or under every max bound on that library. A library
+  running a permitted release today stays where it is, action "hold". A
+  library running something else goes to the lowest permitted release above
+  what runs today, action "lift"; when a permitted release exists but every
+  one of them is below what runs today, nothing is chosen and the trouble is
+  "drop". A library with nothing running today takes the lowest permitted
+  release, action "fetch". A library with no permitted release at all has
+  the trouble "none". Return a mapping with "moves", one mapping of
+  "package", "to" and "action" per library that lands somewhere, ordered by
+  library ascending, and "snags", one mapping of "package" and "why" per
+  troubled library, ordered by library ascending. Raise an error when the
+  argument, "installed" or "offers" is not a mapping, when "rules" is not a
+  list, when a rule is not a mapping, when a rule bounds a library the
+  registry does not carry, when a rule's min is above its max, when a
+  library running today is not carried by the registry, when an offers entry
+  is not a non-empty list of distinct releases, and when any release
+  anywhere is not written as stated. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Where each ruled library should land. */
+  export function chooseUpgrades(
+    request: Record<string, unknown>
+  ): Record<string, unknown> {
+    const installed = request.installed as Record<string, string>;
+    const offers = request.offers as Record<string, string[]>;
+    const rules = request.rules as any[];
+    const floors = new Map<string, string>();
+    const ceilings = new Map<string, string>();
+    for (const rule of rules) {
+      const low = floors.get(rule.package);
+      if (low === undefined || rule.min > low) {
+        floors.set(rule.package, rule.min);
+      }
+      const high = ceilings.get(rule.package);
+      if (high === undefined || rule.max < high) {
+        ceilings.set(rule.package, rule.max);
+      }
+    }
+    const moves: Record<string, string>[] = [];
+    const snags: Record<string, string>[] = [];
+    for (const name of Array.from(floors.keys()).sort()) {
+      const low = floors.get(name) as string;
+      const high = ceilings.get(name) as string;
+      const allowed = offers[name].filter(
+        (release) => release >= low && release <= high
+      );
+      if (allowed.length === 0) {
+        snags.push({ package: name, why: "none" });
+        continue;
+      }
+      const here = installed[name];
+      if (here !== undefined && allowed.includes(here)) {
+        moves.push({ package: name, to: here, action: "hold" });
+        continue;
+      }
+      allowed.sort();
+      const best = allowed[allowed.length - 1];
+      moves.push({
+        package: name,
+        to: best,
+        action: here === undefined ? "fetch" : "lift",
+      });
+    }
+    return { moves, snags };
+  }
+interface: "export function chooseUpgrades(request: Record<string, unknown>): Record<string, unknown>"
+stop_conditions:
+  - Whether a library running a release the registry no longer carries should be reported specially is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

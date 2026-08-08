@@ -1,0 +1,22 @@
+id: p079-ballot-tally
+task_type: function_implementation
+task: >-
+  Implement tally_ballots. Fold a list of event mappings into a vote count.
+  An event {"type": "cast", "voter": ..., "option": ...} records that
+  voter's vote for the option, and is an error when the voter already has
+  a standing vote. {"type": "retract", "voter": ...} withdraws the voter's
+  standing vote, and is an error when there is none. A voter who retracted
+  may cast again, for any option. {"type": "close"} ends the election:
+  every event after it, including a second close, is an error. An event
+  type outside these three is an error. Return a mapping from each option
+  that was ever cast for to the number of standing votes it holds at the
+  end — an option all of whose votes were retracted still appears, with
+  count 0.
+target: solution.py
+interface: "def tally_ballots(events: list) -> dict"
+stop_conditions:
+  - Whether the election must be closed for the tally to count is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

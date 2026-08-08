@@ -1,0 +1,38 @@
+```ts
+export function placeDonations(requests: Array<{ id: string; kind: string; from: number; to: number; urgent: boolean }>, lots: Array<{ id: string; kind: string; day: number }>): Array<[string, string]> {
+    const result: [string, string][] = [];
+    const openRequests = new Map<string, { id: string; kind: string; from: number; to: number; urgent: boolean }>();
+
+    for (const lot of lots) {
+        if (!Number.isInteger(lot.day)) throw new Error("Day must be an integer");
+        if (lot.from > lot.to) throw new Error("From day cannot be greater than to day");
+
+        let bestMatch: { id: string; kind: string; from: number; to: number; urgent: boolean } | null = null;
+
+        for (const [requestId, request] of openRequests.entries()) {
+            if (lot.day >= request.from && lot.day <= request.to) {
+                if (bestMatch === null || request.urgent) {
+                    bestMatch = request;
+                }
+            }
+        }
+
+        if (bestMatch !== null) {
+            result.push([lot.id, bestMatch.id]);
+            openRequests.delete(bestMatch.id);
+        }
+    }
+
+    for (const [requestId, request] of openRequests.entries()) {
+        if (!Number.isInteger(request.from) || !Number.isInteger(request.to)) throw new Error("Request span must be integers");
+        if (request.from > request.to) throw new Error("From day cannot be greater than to day");
+
+        const kindMatch = lots.find(lot => lot.kind === request.kind || lot.kind === "ANY");
+        if (kindMatch !== undefined) {
+            result.push([kindMatch.id, requestId]);
+        }
+    }
+
+    return result;
+}
+```

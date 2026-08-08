@@ -1,0 +1,94 @@
+```ts
+export function foldMachine(machine: Record<string, unknown>): Record<string, unknown> {
+  const { alphabet, states, start, accepting, moves } = machine;
+
+  if (!Array.isArray(alphabet) || !alphabet.every(s => typeof s === 'string' && s.length > 0)) {
+    throw new Error('Invalid alphabet');
+  }
+  if (new Set(alphabet).size !== alphabet.length) {
+    throw new Error('Alphabet contains duplicates');
+  }
+
+  if (!Array.isArray(states) || !states.every(s => typeof s === 'string' && s.length > 0)) {
+    throw new Error('Invalid states');
+  }
+  if (new Set(states).size !== states.length) {
+    throw new Error('States contain duplicates');
+  }
+
+  if (typeof start !== 'string' || !states.includes(start)) {
+    throw new Error('Invalid start state');
+  }
+
+  if (!Array.isArray(accepting) || accepting.some(s => typeof s !== 'string' || !states.includes(s))) {
+    throw new Error('Invalid accepting states');
+  }
+  if (new Set(accepting).size !== accepting.length) {
+    throw new Error('Accepting states contain duplicates');
+  }
+
+  const moveMap: Map<string, Map<string, string>> = new Map();
+  for (const [from, symbol, to] of moves) {
+    if (!states.includes(from) || !alphabet.includes(symbol) || !states.includes(to)) {
+      throw new Error('Invalid move');
+    }
+    if (!moveMap.has(from)) {
+      moveMap.set(from, new Map());
+    }
+    const fromMoves = moveMap.get(from)!;
+    if (fromMoves.has(symbol)) {
+      throw new Error('Duplicate move');
+    }
+    fromMoves.set(symbol, to);
+  }
+
+  // Remove unreachable states
+  const reachableStates: Set<string> = new Set();
+  const queue: string[] = [start];
+  while (queue.length > 0) {
+    const state = queue.shift()!;
+    if (!reachableStates.has(state)) {
+      reachableStates.add(state);
+      for (const symbol of alphabet) {
+        const next = moveMap.get(state)?.get(symbol);
+        if (next && !reachableStates.has(next)) {
+          queue.push(next);
+        }
+      }
+    }
+  }
+
+  // Merge indistinguishable states
+  const stateGroups: Map<string, Set<string>> = new Map();
+  reachableStates.forEach(state => stateGroups.set(state, new Set([state])));
+
+  let groupCount = 0;
+  while (true) {
+    let mergedSomething = false;
+    for (const [group1, states1] of stateGroups) {
+      const nextGroup = new Set<string>();
+      for (const [group2, states2] of stateGroups) {
+        if (group1 !== group2 && !mergedSomething) {
+          let distinguishable = false;
+          for (const symbol of alphabet) {
+            const state1 = Array.from(states1).find(state => moveMap.get(state)?.get(symbol));
+            const state2 = Array.from(states2).find(state => moveMap.get(state)?.get(symbol));
+            if (state1 && state2 && stateGroups.has(state1) !== stateGroups.has(state2)) {
+              distinguishable = true;
+              break;
+            }
+          }
+          if (!distinguishable) {
+            states1.forEach(state => nextGroup.add(state));
+            mergedSomething = true;
+          }
+        }
+      }
+      if (mergedSomething) {
+        stateGroups.delete(group1);
+        stateGroups.set(nextGroup.values().next().value, nextGroup);
+        groupCount += 1;
+        break;
+      }
+    }
+   

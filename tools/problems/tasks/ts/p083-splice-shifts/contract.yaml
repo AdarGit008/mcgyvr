@@ -1,0 +1,30 @@
+id: p083-splice-shifts
+task_type: bug_fix
+task: >-
+  spliceShifts merges the day's sign-in sheets into one roster, and the
+  current code gets almost everything about that wrong. Fix it: each sheet
+  is a list of integer badge numbers in non-decreasing order, and there may
+  be any number of sheets, including none. The returned roster lists every
+  badge that appears on at least one sheet in increasing numeric order,
+  each badge exactly once no matter how many sheets carry it or how often
+  one sheet repeats it. Empty sheets contribute nothing, and with no
+  sheets, or only empty ones, the roster is empty.
+target: solution.ts
+target_content: |
+  export function spliceShifts(sheets: number[][]): number[] {
+    const merged: number[] = [];
+    for (const badge of sheets[0] ?? []) {
+      merged.push(badge);
+    }
+    for (const badge of sheets[1] ?? []) {
+      merged.push(badge);
+    }
+    return merged.sort();
+  }
+interface: "export function spliceShifts(sheets: number[][]): number[]"
+stop_conditions:
+  - Whether badge numbers can be negative is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,42 @@
+```ts
+export function gridDeterminant(grid: number[][]): number {
+  if (!Array.isArray(grid) || grid.length === 0) {
+    throw new Error("Invalid grid");
+  }
+
+  const n = grid.length;
+
+  if (n > 3) {
+    throw new Error("Grid must have one, two, or three rows");
+  }
+
+  for (let row of grid) {
+    if (!Array.isArray(row) || row.length !== n) {
+      throw new Error("Invalid grid");
+    }
+    for (let cell of row) {
+      if (!Number.isInteger(cell)) {
+        throw new Error("All cells must be whole numbers");
+      }
+    }
+  }
+
+  if (n === 1) {
+    return grid[0][0];
+  } else if (n === 2) {
+    return grid[0][0] * grid[1][1] - grid[0][1] * grid[1][0];
+  } else { // n === 3
+    let determinant = 0;
+    for (let i = 0; i < n; i++) {
+      const subGrid = [];
+      for (let j = 1; j < n; j++) {
+        const newRow = [...grid[j]];
+        newRow.splice(i, 1);
+        subGrid.push(newRow);
+      }
+      determinant += Math.pow(-1, i) * grid[0][i] * gridDeterminant(subGrid);
+    }
+    return determinant;
+  }
+}
+```

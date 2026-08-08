@@ -1,0 +1,89 @@
+```ts
+export function expandSpanGrammar(pattern: string): string[] {
+  if (typeof pattern !== 'string') {
+    throw new Error('Invalid input: pattern must be a string');
+  }
+
+  const groups = [];
+  let currentGroup = '';
+  let inGroup = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i];
+
+    if (escapeNext) {
+      if ('<>|~'.includes(char)) {
+        currentGroup += char;
+      } else {
+        throw new Error('Invalid escape sequence');
+      }
+      escapeNext = false;
+    } else if (char === '~') {
+      escapeNext = true;
+    } else if (char === '<') {
+      if (inGroup) {
+        throw new Error('Unclosed group');
+      }
+      inGroup = true;
+      currentGroup = '';
+    } else if (char === '>') {
+      if (!inGroup) {
+        throw new Error('Bare > outside a group');
+      }
+      groups.push(currentGroup);
+      inGroup = false;
+    } else {
+      currentGroup += char;
+    }
+  }
+
+  if (inGroup || escapeNext) {
+    throw new Error('Unclosed group or lone trailing tilde');
+  }
+
+  const expandAlternation = (alternation: string): string[] => {
+    return alternation.split('|').map(choice => choice.trim());
+  };
+
+  const expandSpan = (span: string): string[] => {
+    const [start, end] = span.split('..').map(Number);
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start > end) {
+      throw new Error('Invalid numeric span');
+    }
+
+    const width = start.toString().length;
+    const result: string[] = [];
+    for (let i = start; i <= end; i++) {
+      result.push(i.toString().padStart(width, '0'));
+    }
+    return result;
+  };
+
+  const expandGroup = (group: string): string[] => {
+    if (group.includes('..')) {
+      return expandSpan(group);
+    } else {
+      return expandAlternation(group);
+    }
+  };
+
+  const allCombinations: string[] = [pattern];
+  for (const group of groups) {
+    const newCombinations: string[] = [];
+    for (const expansion of expandGroup(group)) {
+      for (const combination of allCombinations) {
+        newCombinations.push(combination.replace('<>', expansion));
+      }
+    }
+    allCombinations.length = 0;
+    allCombinations.push(...newCombinations);
+  }
+
+  if (allCombinations.length > 500) {
+    throw new Error('Expansion exceeds 500 combinations');
+  }
+
+  return allCombinations.sort((a, b) => a.localeCompare(b));
+}
+```

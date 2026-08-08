@@ -1,0 +1,50 @@
+```typescript
+export function foldAttempts(records: string[]): string[] {
+    if (!Array.isArray(records)) {
+        throw new Error("Argument must be a list");
+    }
+
+    const caseResults = new Map<string, { pass: number; fail: number }>();
+
+    for (const record of records) {
+        const parts = record.split(' ');
+        if (parts.length !== 3) {
+            throw new Error("Record must hold exactly three pieces");
+        }
+
+        const [name, tryNumber, outcome] = parts;
+        if (name.trim() === "" || !/^\d+$/.test(tryNumber)) {
+            throw new Error("Invalid name or try number");
+        }
+        if (outcome !== "pass" && outcome !== "fail") {
+            throw new Error("Outcome must be 'pass' or 'fail'");
+        }
+
+        const tryNum = parseInt(tryNumber, 10);
+
+        if (!caseResults.has(name)) {
+            caseResults.set(name, { pass: 0, fail: 0 });
+        }
+        const result = caseResults.get(name)!;
+
+        if (result.pass + result.fail > tryNum) {
+            throw new Error("Skip or repeat try number");
+        }
+
+        if (outcome === "pass") {
+            result.pass++;
+        } else {
+            result.fail++;
+        }
+    }
+
+    return Array.from(caseResults.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([name, { pass, fail }]) => {
+            if (pass === 0 && fail === 0) {
+                throw new Error("Invalid case state");
+            }
+            return `${name}=${pass > 0 ? (fail > 0 ? "flake" : "pass") : "fail"}`;
+        });
+}
+```

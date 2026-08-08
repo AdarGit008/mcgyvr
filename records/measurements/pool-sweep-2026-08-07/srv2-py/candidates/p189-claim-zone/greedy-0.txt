@@ -1,0 +1,53 @@
+```python
+def claim_zone(claims: list, where: str) -> str:
+    if not isinstance(claims, list):
+        raise ValueError("Claims must be a list")
+    
+    if not all(isinstance(c, str) for c in claims):
+        raise ValueError("All claims must be strings")
+    
+    if not isinstance(where, str):
+        raise ValueError("Where must be a string")
+    
+    if len(where.split('.')) != 3:
+        raise ValueError("Where must be three numbers joined by dots")
+    
+    where_parts = [int(p) for p in where.split('.')]
+    if any(p < 0 or p > 15 for p in where_parts):
+        raise ValueError("Each number in where must be between 0 and 15")
+    
+    max_depth = -1
+    result_name = ""
+    
+    for claim in claims:
+        parts = claim.split()
+        if len(parts) != 2:
+            raise ValueError("Claim must have exactly one space")
+        
+        stencil, name = parts
+        if ' ' in name or not name:
+            raise ValueError("Name must be non-empty and contain no spaces")
+        
+        stencil_parts = stencil.split('/')
+        if len(stencil_parts) != 2:
+            raise ValueError("Stencil must have exactly one slash")
+        
+        fixed_depth = int(stencil_parts[1])
+        if fixed_depth < 0 or fixed_depth > 3:
+            raise ValueError("Depth must be between 0 and 3")
+        
+        stencil_post_parts = stencil_parts[0].split('.')
+        if len(stencil_post_parts) != 3:
+            raise ValueError("Stencil post must have exactly three numbers joined by dots")
+        
+        stencil_post_parts = [int(p) for p in stencil_post_parts]
+        if any(p < 0 or p > 15 for p in stencil_post_parts):
+            raise ValueError("Each number in stencil post must be between 0 and 15")
+        
+        if all(where_parts[i] == stencil_post_parts[i] for i in range(fixed_depth)):
+            if fixed_depth > max_depth:
+                max_depth = fixed_depth
+                result_name = name
+    
+    return result_name
+```

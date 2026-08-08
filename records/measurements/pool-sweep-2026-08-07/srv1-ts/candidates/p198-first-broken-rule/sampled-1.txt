@@ -1,0 +1,63 @@
+```ts
+export function firstBrokenRule(root: Record<string, unknown>): Record<string, string> {
+  if (!root) throw new Error('Root node is null or undefined');
+
+  const checkNode = (node: Record<string, any>, path: string): { path: string; rule: string } | null => {
+    if (
+      typeof node !== 'object' ||
+      node === null ||
+      !('key' in node) ||
+      !('count' in node) ||
+      !('left' in node) ||
+      !('right' in node)
+    ) {
+      return { path, rule: 'node structure' };
+    }
+
+    const key = node.key;
+    if (typeof key !== 'number' || !Number.isInteger(key)) {
+      return { path, rule: 'key type' };
+    }
+
+    const count = node.count;
+    if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) {
+      return { path, rule: 'count type' };
+    }
+
+    let leftCount = 0;
+    if (node.left !== null && node.left !== undefined) {
+      const leftResult = checkNode(node.left, path + '/L');
+      if (leftResult) return leftResult;
+      leftCount = node.left.count || 1;
+    }
+
+    let rightCount = 0;
+    if (node.right !== null && node.right !== undefined) {
+      const rightResult = checkNode(node.right, path + '/R');
+      if (rightResult) return rightResult;
+      rightCount = node.right.count || 1;
+    }
+
+    if (leftCount > key || (node.left !== null && node.left !== undefined)) {
+      return { path, rule: 'order' };
+    }
+
+    if (rightCount < key || (node.right !== null && node.right !== undefined)) {
+      return { path, rule: 'order' };
+    }
+
+    if (Math.abs(leftCount - rightCount) > 1) {
+      return { path, rule: 'balance' };
+    }
+
+    if (count !== 1 + leftCount + rightCount) {
+      return { path, rule: 'count' };
+    }
+
+    return null;
+  };
+
+  const result = checkNode(root, 'root');
+  return result || { path: '', rule: '' };
+}
+```

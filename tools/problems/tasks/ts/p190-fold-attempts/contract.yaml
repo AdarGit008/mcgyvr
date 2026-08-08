@@ -1,0 +1,26 @@
+id: p190-fold-attempts
+task_type: function_implementation
+task: >-
+  Implement foldAttempts. Each record is one string holding a case name,
+  one space, a try number, one space, and an outcome that is either the
+  word pass or the word fail. The name is not empty and holds no space,
+  and the try number is digits standing for at least one with no padding
+  zero. Every case must carry try numbers 1 through however many records
+  it has, each exactly once, though the records themselves may arrive in
+  any order at all and cases may be interleaved. Settle each case to one
+  word: pass when every one of its tries passed, fail when every one of
+  them failed, and flake when it has both kinds. Return one string per
+  case, the name then an equals sign then the settled word, ordered by
+  name lowest code point first. Raise an error for a record that does not
+  hold exactly three pieces, an outcome that is neither word, a try number
+  that is zero or padded or not digits, an empty name, a case whose try
+  numbers skip a value or repeat one, an argument that is not a list, and
+  a record that is not a string.
+target: solution.ts
+interface: "export function foldAttempts(records: string[]): string[]"
+stop_conditions:
+  - Whether two spaces may separate the pieces of a record is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

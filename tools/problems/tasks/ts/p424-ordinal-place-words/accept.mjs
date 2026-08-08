@@ -1,0 +1,35 @@
+import assert from "node:assert/strict";
+import { spellOrdinalPlace } from "./solution.ts";
+
+assert.equal(spellOrdinalPlace(1), "first", "the smallest place");
+assert.equal(spellOrdinalPlace(2), "second", "two is irregular");
+assert.equal(spellOrdinalPlace(3), "third", "three is irregular");
+assert.equal(spellOrdinalPlace(4), "fourth", "four merely takes th");
+assert.equal(spellOrdinalPlace(5), "fifth", "five is irregular");
+assert.equal(spellOrdinalPlace(8), "eighth", "eight is irregular");
+assert.equal(spellOrdinalPlace(9), "ninth", "nine is irregular");
+assert.equal(spellOrdinalPlace(10), "tenth", "ten merely takes th");
+assert.equal(spellOrdinalPlace(11), "eleventh", "eleven merely takes th");
+assert.equal(spellOrdinalPlace(12), "twelfth", "twelve is irregular");
+assert.equal(spellOrdinalPlace(13), "thirteenth", "a teen takes th");
+assert.equal(spellOrdinalPlace(19), "nineteenth", "the last teen");
+assert.equal(spellOrdinalPlace(20), "twentieth", "a round ten trades y for ieth");
+assert.equal(spellOrdinalPlace(21), "twenty-first", "only the piece past the hyphen changes");
+assert.equal(spellOrdinalPlace(32), "thirty-second", "a hyphenated compound");
+assert.equal(spellOrdinalPlace(40), "fortieth", "forty keeps its spelling");
+assert.equal(spellOrdinalPlace(45), "forty-fifth", "an irregular unit behind a round ten");
+assert.equal(spellOrdinalPlace(99), "ninety-ninth", "the largest two-figure place");
+assert.equal(spellOrdinalPlace(100), "one hundredth", "hundred is the trailing piece");
+assert.equal(spellOrdinalPlace(101), "one hundred and first", "and joins the leftover");
+assert.equal(spellOrdinalPlace(112), "one hundred and twelfth", "a leftover teen");
+assert.equal(spellOrdinalPlace(120), "one hundred and twentieth", "a leftover round ten");
+assert.equal(spellOrdinalPlace(203), "two hundred and third", "a leftover unit");
+assert.equal(spellOrdinalPlace(300), "three hundredth", "no leftover leaves hundred trailing");
+assert.equal(spellOrdinalPlace(999), "nine hundred and ninety-ninth", "the largest place");
+
+assert.throws(() => spellOrdinalPlace(0), Error, "zero is refused");
+assert.throws(() => spellOrdinalPlace(1000), Error, "beyond 999 is refused");
+assert.throws(() => spellOrdinalPlace(-5), Error, "a negative place is refused");
+assert.throws(() => spellOrdinalPlace(2.5), Error, "a fractional place is refused");
+assert.throws(() => spellOrdinalPlace("7"), Error, "a string is refused");
+console.log("ok");

@@ -1,0 +1,26 @@
+```python
+def first_overload(bookings: list, capacity: int) -> int:
+    if capacity < 1:
+        raise ValueError("Capacity must be at least 1")
+    
+    for start, end in bookings:
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise ValueError("Bookings must have integer endpoints")
+        if start >= end:
+            raise ValueError("Booking start must be before end")
+
+    events = []
+    for start, end in bookings:
+        events.append((start, 1))
+        events.append((end, -1))
+
+    events.sort()
+
+    current_count = 0
+    for time, change in events:
+        current_count += change
+        if current_count > capacity:
+            return time
+
+    return -1
+```

@@ -1,0 +1,64 @@
+```ts
+export function runTransactions(commands: string[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  let transactionStack: Record<string, string>[] = [];
+
+  for (const command of commands) {
+    const parts = command.split(' ');
+    if (parts.length < 2 || parts.length > 3) {
+      throw new Error('Invalid command format');
+    }
+
+    switch (parts[0]) {
+      case 'set':
+        if (parts.length !== 3) {
+          throw new Error('Set command requires a key and a value');
+        }
+        const { 1: key, 2: value } = parts;
+        if (!transactionStack.length) {
+          result[key] = value;
+        } else {
+          transactionStack[transactionStack.length - 1][key] = value;
+        }
+        break;
+      case 'unset':
+        if (parts.length !== 2) {
+          throw new Error('Unset command requires a key');
+        }
+        const { 1: keyToRemove } = parts;
+        if (!transactionStack.length) {
+          delete result[keyToRemove];
+        } else {
+          delete transactionStack[transactionStack.length - 1][keyToRemove];
+        }
+        break;
+      case 'begin':
+        transactionStack.push({});
+        break;
+      case 'commit':
+        if (transactionStack.length === 0) {
+          throw new Error('No open transaction to commit');
+        }
+        const innerTransaction = transactionStack.pop()!;
+        for (const [key, value] of Object.entries(innerTransaction)) {
+          result[key] = value;
+        }
+        break;
+      case 'rollback':
+        if (transactionStack.length === 0) {
+          throw new Error('No open transaction to rollback');
+        }
+        transactionStack.pop();
+        break;
+      default:
+        throw new Error(`Unknown command: ${parts[0]}`);
+    }
+  }
+
+  if (transactionStack.length > 0) {
+    throw new Error('Open transaction remaining after last command');
+  }
+
+  return result;
+}
+```

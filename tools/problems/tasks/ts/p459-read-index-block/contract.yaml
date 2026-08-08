@@ -1,0 +1,28 @@
+id: p459-read-index-block
+task_type: function_implementation
+task: >-
+  Implement readIndexBlock. The argument is a list of byte values, whole numbers
+  from 0 through 255, holding the directory block of an archive. Its very first
+  byte says how many entries the block promises. Each entry then follows, back to
+  back with no filler: one byte giving the width of the entry's name in bytes,
+  then that many name bytes, then two bytes for the member's offset and two more
+  for the member's length, in both cases the weightier byte first. A name must be
+  at least one byte wide and every one of its bytes must be a small letter or a
+  digit, so 97 through 122 or 48 through 57. The names must climb strictly as the
+  block is read, comparing them as ordinary text, so no name repeats and none
+  trails a name that sorts after it. The block must finish exactly where the last
+  promised entry finishes. Give back one triple for each entry, in the order read,
+  holding the name as text, then the offset, then the length. Raise an error when
+  the argument is not a list, when an element is not a whole number from 0 through
+  255, when the list is empty so that even the count is missing, when the block
+  runs out before a promised entry starts or in the middle of one, when a name
+  width is nought, when a name byte is neither a small letter nor a digit, when
+  the names do not climb, and when any byte is left over past the final entry.
+target: solution.ts
+interface: "export function readIndexBlock(bytes: any): (string | number)[][]"
+stop_conditions:
+  - Whether a count byte larger than the block could ever hold should be reported apart from an ordinary short read is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

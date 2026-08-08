@@ -1,0 +1,57 @@
+```ts
+/**
+ * Splits cargo weights into two holds such that the weight difference is minimized.
+ * @param weights - An array of positive integer weights for each freight item.
+ */
+export function splitCargo(weights: number[]): number[] {
+  if (weights.length === 0) {
+    throw new Error("Empty manifest");
+  }
+  if (weights.length > 16) {
+    throw new Error("More than sixteen items");
+  }
+  if (weights.some(weight => weight < 1)) {
+    throw new Error("Weight below one");
+  }
+
+  const totalWeight = weights.reduce((acc, weight) => acc + weight, 0);
+  const target = Math.floor(totalWeight / 2);
+
+  // Dynamic programming to find the closest sum to target
+  const dp: boolean[][] = Array.from({ length: weights.length }, () =>
+    Array(target + 1).fill(false)
+  );
+  dp[0][0] = true;
+
+  for (let i = 1; i < weights.length; i++) {
+    for (let j = 0; j <= target; j++) {
+      if (!dp[i - 1][j]) continue;
+      dp[i][j + weights[i]] = true;
+    }
+  }
+
+  // Find the maximum sum we can achieve that is less than or equal to target
+  let maxSum = 0;
+  for (let j = target; j >= 0; j--) {
+    if (dp[weights.length - 1][j]) {
+      maxSum = j;
+      break;
+    }
+  }
+
+  // Backtrack to find the items that make up this sum
+  const forwardHold: number[] = [];
+  let remaining = maxSum;
+  for (let i = weights.length - 1; i > 0 && remaining > 0; i--) {
+    if (!dp[i - 1][remaining]) {
+      forwardHold.push(i);
+      remaining -= weights[i];
+    }
+  }
+  if (remaining === target) {
+    forwardHold.push(0); // Item 0 is always in the forward hold
+  }
+
+  return forwardHold.sort((a, b) => a - b);
+}
+```

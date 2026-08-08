@@ -1,0 +1,32 @@
+```ts
+/**
+ * Lowercases the given hostname and removes one trailing dot if present,
+ * then checks if the result is a valid DNS hostname.
+ *
+ * @param {string} hostname - The hostname to normalize.
+ * @returns {string} - The normalized hostname if it passes all rules.
+ * @throws {Error} - If the hostname is invalid or not a string.
+ */
+export function normalizeHostname(hostname: string): string {
+  if (typeof hostname !== 'string') {
+    throw new Error('Invalid argument: expected a string');
+  }
+
+  const normalized = hostname.toLowerCase().replace(/\.$/, '');
+
+  const isValidLabel = (label: string) => {
+    return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label);
+  };
+
+  const labels = normalized.split('.');
+  if (
+    labels.length < 1 ||
+    labels.length > 253 ||
+    !labels.every(isValidLabel)
+  ) {
+    throw new Error('Invalid hostname');
+  }
+
+  return normalized;
+}
+```

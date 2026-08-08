@@ -1,0 +1,94 @@
+id: p297-assign-freed-slots
+task_type: bug_fix
+task: >-
+  assignFreedSlots hands out the appointment slots that patients give back,
+  and it gets two things wrong: it weighs only the days a patient has been
+  kept waiting, blind to the tier they were triaged into, and it never takes
+  a placed patient off the standby list, so one patient can be given slot
+  after slot. Mend both. The standby list holds patients, each with a name, a
+  tier of urgent, soon or routine, a waited count of whole days, and a window
+  of morning, afternoon or either. The cancellations argument holds the
+  slots being given back in the order the calls arrive, each with a slot id
+  and a part of the day, morning or afternoon. For each cancellation, the
+  patients in the running are those still on standby whose window is the
+  part named or is either. Urgent outranks soon and soon outranks routine;
+  within one tier the longer wait wins; and should two patients still stand
+  level, the one nearer the front of the standby list wins. The winner is
+  placed and stands on the list no longer. A cancellation nobody can take is
+  passed over and appears nowhere in the answer. Return one object per
+  placement, holding the slot id and the name, in call order. Go on
+  rejecting with an error either argument that is not a list, a patient or
+  cancellation that is not an object, a name or slot id that is not a
+  string, a tier or window or part outside the words listed, a waited count
+  that is not a whole number of zero or more, two patients sharing a name,
+  and two cancellations sharing a slot id. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  const TIERS = ["urgent", "soon", "routine"];
+  const WINDOWS = ["morning", "afternoon", "either"];
+  const PARTS = ["morning", "afternoon"];
+
+  type Patient = { name: string; tier: string; waited: number; window: string };
+  type Call = { slot: string; part: string };
+
+  export function assignFreedSlots(
+    standby: Patient[],
+    cancellations: Call[],
+  ): { slot: string; name: string }[] {
+    if (!Array.isArray(standby) || !Array.isArray(cancellations)) {
+      throw new Error("assignFreedSlots expects two lists");
+    }
+    const names = new Set<string>();
+    for (const one of standby) {
+      if (one === null || typeof one !== "object" || typeof one.name !== "string") {
+        throw new Error("a patient needs a name");
+      }
+      if (!TIERS.includes(one.tier) || !WINDOWS.includes(one.window)) {
+        throw new Error("a patient needs a known tier and window: " + one.name);
+      }
+      if (!Number.isInteger(one.waited) || one.waited < 0) {
+        throw new Error("waited is a whole number of zero or more");
+      }
+      if (names.has(one.name)) {
+        throw new Error("two patients share the name " + one.name);
+      }
+      names.add(one.name);
+    }
+    const slots = new Set<string>();
+    for (const call of cancellations) {
+      if (call === null || typeof call !== "object" || typeof call.slot !== "string") {
+        throw new Error("a cancellation needs a slot id");
+      }
+      if (!PARTS.includes(call.part)) {
+        throw new Error("a cancellation names morning or afternoon");
+      }
+      if (slots.has(call.slot)) {
+        throw new Error("two cancellations share the slot " + call.slot);
+      }
+      slots.add(call.slot);
+    }
+    const placements: { slot: string; name: string }[] = [];
+    for (const call of cancellations) {
+      let winner: Patient | null = null;
+      for (const one of standby) {
+        if (one.window !== call.part && one.window !== "either") {
+          continue;
+        }
+        if (winner === null || one.waited > winner.waited) {
+          winner = one;
+        }
+      }
+      if (winner === null) {
+        continue;
+      }
+      placements.push({ slot: call.slot, name: winner.name });
+    }
+    return placements;
+  }
+interface: "export function assignFreedSlots(standby: { name: string; tier: string; waited: number; window: string }[], cancellations: { slot: string; part: string }[]): { slot: string; name: string }[]"
+stop_conditions:
+  - Whether a patient may be triaged into a tier no cancellation ever reaches is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

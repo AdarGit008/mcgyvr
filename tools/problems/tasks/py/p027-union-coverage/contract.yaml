@@ -1,0 +1,22 @@
+id: p027-union-coverage
+task_type: function_implementation
+task: >-
+  Implement union_coverage. The input is a list of axis-aligned rectangles,
+  each written [x1, y1, x2, y2] with integer corners, covering the half-open
+  region x1 <= x < x2, y1 <= y < y2. Return the total area of the plane
+  covered by at least one rectangle. Any region where rectangles overlap is
+  counted exactly once, never per rectangle: [0,0,3,3] together with
+  [1,1,4,4] covers 14, not 18, and two identical rectangles cover no more
+  than one of them. Coordinates may be negative, the list may hold
+  rectangles in any order, and an empty list covers 0. Reject a rectangle
+  whose x1 is not strictly below its x2 or whose y1 is not strictly below
+  its y2, an entry that is not four integers, and coordinates outside the
+  range -10000 through 10000, all with an error.
+target: solution.py
+interface: "def union_coverage(rects: list[list[int]]) -> int"
+stop_conditions:
+  - Whether a cap on how many rectangles may be given applies is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

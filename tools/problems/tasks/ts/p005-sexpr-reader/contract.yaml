@@ -1,0 +1,27 @@
+id: p005-sexpr-reader
+task_type: function_implementation
+task: >-
+  Implement readSexpr. The input holds exactly one s-expression: an atom, or
+  a parenthesized list of s-expressions separated by whitespace, nested to
+  any depth. An atom is either a signed integer (an optional minus then
+  digits) or a symbol made of letters, digits and the characters + - * / !
+  ? that does not start with a digit; a lone minus is a symbol. Spaces,
+  tabs and newlines may pad the input and appear freely around parentheses
+  and between elements, and () is a valid empty list. Return integers as
+  numbers, symbols as strings, and each parenthesized group as a list of
+  its decoded elements, so (add 1 (mul -2 30)) becomes a list holding the
+  symbol add, the number 1, and an inner list of the symbol mul and the
+  numbers -2 and 30. Reject input that is empty or only whitespace, an
+  unclosed list, a stray closing parenthesis, an atom with a character
+  outside the sets above, an atom starting with a digit that is not an
+  integer, anything left over after the first expression ends, and a
+  non-string argument, with an error.
+target: solution.ts
+interface: "export function readSexpr(text: string): number | string | any[]"
+stop_conditions:
+  - Whether an integer too large for the language's exact range must be
+    rejected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

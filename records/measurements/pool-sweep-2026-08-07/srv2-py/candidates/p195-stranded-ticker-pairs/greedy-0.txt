@@ -1,0 +1,33 @@
+```python
+def stranded_ticker_pairs(legs: list) -> list:
+    if not legs:
+        raise ValueError("No legs published")
+
+    tickers = set()
+    routes = {}
+
+    for leg in legs:
+        if len(leg) != 2:
+            raise ValueError("Leg must be exactly two elements")
+        sell, buy = leg
+        if not isinstance(sell, str) or not isinstance(buy, str):
+            raise ValueError("Tickers must be non-empty strings")
+        if sell == buy:
+            raise ValueError("Ticker cannot route to itself")
+        if leg in legs:
+            raise ValueError("Identical leg published twice")
+
+        tickers.add(sell)
+        tickers.add(buy)
+        routes[sell] = buy
+
+    stranded_pairs = []
+    for start in sorted(tickers):
+        current = start
+        while current in routes:
+            current = routes[current]
+        if current != start:
+            stranded_pairs.append((start, current))
+
+    return sorted(stranded_pairs)
+```

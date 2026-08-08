@@ -1,0 +1,62 @@
+```ts
+export function hopOffsetGrid(
+  start: number[],
+  moves: string[],
+): { cell: number[]; distance: number } {
+  if (!Array.isArray(start) || start.length !== 2) {
+    throw new Error("the start must be a two-element address");
+  }
+  for (const part of start) {
+    if (typeof part !== "number" || !Number.isInteger(part)) {
+      throw new Error("an address must hold whole numbers");
+    }
+  }
+  if (!Array.isArray(moves)) {
+    throw new Error("the moves must be a list");
+  }
+  let col = start[0];
+  let row = start[1];
+  for (const move of moves) {
+    switch (move.toLowerCase()) {
+      case "e":
+        col += 1;
+        break;
+      case "w":
+        col -= 1;
+        break;
+      case "ne":
+        if ((row & 1) === 0) {
+          col += 1;
+        }
+        row -= 1;
+        break;
+      case "nw":
+        if ((row & 1) !== 0) {
+          col -= 1;
+        }
+        row -= 1;
+        break;
+      case "se":
+        if ((row & 1) === 0) {
+          col += 1;
+        }
+        row += 1;
+        break;
+      case "sw":
+        if ((row & 1) !== 0) {
+          col -= 1;
+        }
+        row += 1;
+        break;
+      default:
+        throw new Error("invalid move name");
+    }
+  }
+  const q = Math.floor(col - row / 2);
+  const r = row;
+  return {
+    cell: [col, row],
+    distance: (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 3,
+  };
+}
+```

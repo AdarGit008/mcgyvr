@@ -1,0 +1,19 @@
+```ts
+export function loadVans(parcels: number[]): number[] {
+    if (parcels.length === 0) throw new Error("No parcels to load");
+    if (parcels.some(weight => weight < 1)) throw new Error("Parcel weights must be positive integers");
+
+    const firstVan = [0];
+    const secondVan = [0];
+
+    for (const parcel of parcels.sort((a, b) => b - a)) {
+        if (firstVan[0] <= secondVan[0]) {
+            firstVan.push(parcel);
+        } else {
+            secondVan.push(parcel);
+        }
+    }
+
+    return [firstVan.reduce((acc, curr) => acc + curr, 0), secondVan.reduce((acc, curr) => acc + curr, 0)];
+}
+```

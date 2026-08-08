@@ -1,0 +1,23 @@
+```python
+def trace_teleports(pads: list[int], start: int) -> list[int]:
+    if not pads:
+        raise ValueError("Empty hall")
+    if start < 0 or start >= len(pads):
+        raise ValueError("Start index outside the hall")
+    for pad in pads:
+        if pad < 0 or pad >= len(pads):
+            raise ValueError("Destination outside the hall")
+
+    visited = set()
+    circuit_start = None
+    rides = 0
+
+    while start not in visited:
+        visited.add(start)
+        if not circuit_start:
+            circuit_start = start
+        start = pads[start]
+        rides += 1
+
+    return [rides, len(visited), circuit_start]
+```

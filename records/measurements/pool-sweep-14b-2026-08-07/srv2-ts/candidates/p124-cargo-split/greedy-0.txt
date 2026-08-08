@@ -1,0 +1,56 @@
+```ts
+export function splitCargo(weights: number[]): number[] {
+  if (weights.length === 0) {
+    throw new Error("Manifest cannot be empty");
+  }
+  if (weights.length > 16) {
+    throw new Error("Cannot handle more than sixteen items");
+  }
+  if (weights.some(weight => weight < 1)) {
+    throw new Error("All weights must be positive integers");
+  }
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const target = Math.floor(totalWeight / 2);
+
+  // Dynamic programming to find the closest subset sum to the target
+  const dp: boolean[][] = Array.from({ length: weights.length }, () =>
+    Array(target + 1).fill(false)
+  );
+  dp[0][0] = true;
+
+  for (let i = 1; i < weights.length; i++) {
+    for (let j = 0; j <= target; j++) {
+      if (j >= weights[i]) {
+        dp[i][j] = dp[i - 1][j] || dp[i - 1][j - weights[i]];
+      } else {
+        dp[i][j] = dp[i - 1][j];
+      }
+    }
+  }
+
+  // Find the maximum j <= target such that dp[weights.length - 1][j] is true
+  let maxJ = 0;
+  for (let j = target; j >= 0; j--) {
+    if (dp[weights.length - 1][j]) {
+      maxJ = j;
+      break;
+    }
+  }
+
+  // Backtrack to find the items in the forward hold
+  const forwardHold: number[] = [];
+  let remaining = maxJ;
+  for (let i = weights.length - 1; i > 0 && remaining > 0; i--) {
+    if (remaining >= weights[i] && dp[i - 1][remaining - weights[i]]) {
+      forwardHold.push(i);
+      remaining -= weights[i];
+    }
+  }
+  if (remaining === 0) {
+    forwardHold.push(0); // Item 0 is always in the forward hold
+  }
+
+  return forwardHold.sort((a, b) => a - b);
+}
+```

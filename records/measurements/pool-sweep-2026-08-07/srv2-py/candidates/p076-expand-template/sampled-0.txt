@@ -1,0 +1,50 @@
+```python
+def expand_template(template: str, context: dict, missing: str) -> str:
+    def resolve_path(path: str) -> str:
+        segments = path.split('.')
+        value = context
+        for segment in segments:
+            if isinstance(value, dict):
+                value = value.get(segment)
+            elif isinstance(value, list):
+                try:
+                    value = value[int(segment)]
+                except (ValueError, IndexError):
+                    break
+            else:
+                break
+        return value
+
+    result = []
+    i = 0
+    while i < len(template):
+        if template[i:i+2] == '$$':
+            result.append('$')
+            i += 2
+        elif template[i:i+2] == '${':
+            j = template.find('}', i)
+            if j == -1:
+                raise ValueError("Unmatched ${")
+            path = template[i+2:j]
+            if not path or '.' in path and path.startswith('.'):
+                result.append('${' + path + '}')
+            else:
+                value = resolve_path(path)
+                if isinstance(value, str):
+                    result.append(value)
+                elif isinstance(value, int):
+                    result.append(str(value))
+                elif missing == "error":
+                    raise ValueError(f"Missing path: {path}")
+                elif missing == "keep":
+                    result.append('${' + path + '}')
+                elif missing == "blank":
+                    pass
+                else:
+                    raise ValueError(f"Unknown missing policy: {missing}")
+            i = j + 1
+        else:
+            result.append(template[i])
+            i += 1
+    return ''.join(result)
+```

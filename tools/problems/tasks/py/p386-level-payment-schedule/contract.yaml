@@ -1,0 +1,28 @@
+id: p386-level-payment-schedule
+task_type: function_implementation
+task: >-
+  Implement level_payment_schedule. A debt of opening whole cents is retired by
+  handing over payment whole cents at the close of each of at most terms
+  periods, and every period charges rate basis points — hundredths of one
+  percent — upon the balance standing as that period opens. The charge is taken
+  in whole cents with an exact half cent going upward. In an ordinary period
+  the whole payment is handed over, the charge comes out of it first, and
+  whatever survives eats into the balance. A period is instead the closing one
+  when it is the terms-th period or when the payment would carry the balance to
+  zero or past it; a closing period hands over exactly the charge plus the
+  balance then standing, which may be far more or far less than payment, and
+  leaves nothing owing. The schedule stops at its closing period, so it may run
+  shorter than terms. Report one row per period, each holding what was handed
+  over, the charge, the amount that ate into the balance, and the balance still
+  owing. Raise an error when opening or rate or payment or terms is not a whole
+  number, when opening or payment or terms fails to be above zero, when rate
+  falls below zero, and when payment does not exceed the very first period's
+  charge.
+target: solution.py
+interface: "def level_payment_schedule(opening: int, rate: int, payment: int, terms: int) -> list[list[int]]"
+stop_conditions:
+  - Whether a period may be skipped without a payment being handed over is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

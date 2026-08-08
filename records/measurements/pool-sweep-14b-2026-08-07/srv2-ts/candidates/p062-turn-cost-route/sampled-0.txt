@@ -1,0 +1,77 @@
+```ts
+export function turnCostRoute(grid: number[][], stepCost: number, turnCost: number): number {
+  if (grid.length === 0 || grid.some(row => row.length !== grid[0].length)) {
+    throw new Error("Grid must be non-empty and not ragged.");
+  }
+  if (!grid.every(row => row.every(cell => cell === 0 || cell === 1))) {
+    throw new Error("Grid cells must be either 0 or 1.");
+  }
+  if (stepCost <= 0 || !Number.isInteger(stepCost)) {
+    throw new Error("Step cost must be a positive integer.");
+  }
+  if (turnCost < 0 || !Number.isInteger(turnCost)) {
+    throw new Error("Turn cost must be a non-negative integer.");
+  }
+
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+  if (grid[0][0] === 1 || grid[numRows - 1][numCols - 1] === 1) {
+    return -1;
+  }
+  if (numRows === 1 && numCols === 1) {
+    return 0;
+  }
+
+  const directions = [
+    [0, 1], // right
+    [1, 0], // down
+    [0, -1], // left
+    [-1, 0] // up
+  ];
+
+  interface CellState {
+    cost: number;
+    direction?: number; // index of the direction array
+  }
+
+  const dp: CellState[][] = Array.from({ length: numRows }, () =>
+    Array.from({ length: numCols }, () => ({ cost: Infinity }))
+  );
+
+  dp[0][0] = { cost: 0 };
+
+  const isValidCell = (row: number, col: number): boolean => {
+    return row >= 0 && row < numRows && col >= 0 && col < numCols && grid[row][col] === 0;
+  };
+
+  for (let step = 1; step < numRows + numCols - 1; step++) {
+    const newDp: CellState[][] = Array.from({ length: numRows }, () =>
+      Array.from({ length: numCols }, () => ({ cost: Infinity }))
+    );
+
+    for (let row = 0; row < numRows; row++) {
+      for (let col = 0; col < numCols; col++) {
+        if (dp[row][col].cost === Infinity) continue;
+
+        for (const [d, [dr, dc]] of directions.entries()) {
+          const newRow = row + dr;
+          const newCol = col + dc;
+
+          if (!isValidCell(newRow, newCol)) continue;
+
+          const moveCost = stepCost + (dp[row][col].direction !== undefined && dp[row][col].direction !== d ? turnCost : 0);
+          const newCost = dp[row][col].cost + moveCost;
+
+          if (newCost < newDp[newRow][newCol].cost) {
+            newDp[newRow][newCol] = { cost: newCost, direction: d };
+          }
+        }
+      }
+    }
+
+    dp.splice(0, dp.length, ...newDp);
+  }
+
+  return dp[numRows - 1][numCols - 1].cost === Infinity ? -1 : dp[numRows - 1][numCols - 1].cost;
+}
+```

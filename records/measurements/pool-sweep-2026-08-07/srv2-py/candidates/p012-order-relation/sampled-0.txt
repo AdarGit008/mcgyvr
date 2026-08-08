@@ -1,0 +1,45 @@
+```python
+def order_relation(pairs: list[list[str]], x: str, y: str) -> str:
+    if x == y:
+        raise ValueError("Query items cannot be equal.")
+    
+    if (x not in item for pair in pairs for item in pair):
+        raise ValueError(f"Item '{x}' not found in any pair.")
+    
+    if (y not in item for pair in pairs for item in pair):
+        raise ValueError(f"Item '{y}' not found in any pair.")
+    
+    before = set()
+    after = set()
+    
+    stack = [x]
+    while stack:
+        current = stack.pop()
+        if current != x and (current, y) in pairs:
+            return "unordered"
+        for pair in pairs:
+            if current == pair[0]:
+                after.add(pair[1])
+                if pair[1] not in before:
+                    stack.append(pair[1])
+    
+    stack = [y]
+    while stack:
+        current = stack.pop()
+        if current != y and (x, current) in pairs:
+            return "unordered"
+        for pair in pairs:
+            if current == pair[1]:
+                before.add(pair[0])
+                if pair[0] not in after:
+                    stack.append(pair[0])
+    
+    if x in before and y in after:
+        return "both"
+    elif x in before:
+        return "before"
+    elif y in after:
+        return "after"
+    else:
+        return "unordered"
+```

@@ -1,0 +1,25 @@
+id: p334-triplet-sum-cells
+task_type: function_implementation
+task: >-
+  Implement triplet_sum_cells. A punch sheet is handed over as a list of
+  entries [row, column, mark], each naming one cell that holds something; a
+  cell nobody names holds nothing at all. Overlay two sheets of the same shape
+  by adding the marks that land on the very same cell, and give the overlay
+  back in that same entry form, ordered by row rising and, within a row, by
+  column rising, leaving out every cell whose added mark comes to nothing. The
+  shape is given by rows and cols: a row index runs 0 through rows - 1 and a
+  column index runs 0 through cols - 1. All arithmetic is exact whole-number
+  arithmetic. Reject with an error: an argument that is not a list, an entry
+  that is not a triple, an index that is not a whole number or steps outside
+  the shape, a mark that is not a whole number, a mark whose magnitude tops
+  1000000000, a mark of nothing written into a sheet at all, the same cell
+  named twice inside one sheet, and a rows or cols that is not a whole number
+  from 1 through 10000.
+target: solution.py
+interface: "def triplet_sum_cells(left: list, right: list, rows: int, cols: int) -> list"
+stop_conditions:
+  - Whether the two sheets may be the very same list object is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

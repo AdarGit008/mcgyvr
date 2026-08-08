@@ -1,0 +1,20 @@
+id: p091-run-crane
+task_type: function_implementation
+task: >-
+  Implement run_crane. A crane script is a list of moves worked in order
+  over a pile of crates that begins empty, each crate a string label.
+  ["load", label] sets a crate on top of the pile; ["ship"] takes the top
+  crate off and records its label on the manifest; ["bury"] moves the top
+  crate to the bottom of the pile; ["scrap"] removes the top crate and
+  forgets it. When every move is done, return the manifest, the shipped
+  labels in shipping order. A move other than load finding the pile empty
+  is a fault, and so is a move whose name is none of the four: raise an
+  error naming the 0-based index of the faulty move.
+target: solution.py
+interface: "def run_crane(script: list) -> list"
+stop_conditions:
+  - Whether two crates may carry the same label is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

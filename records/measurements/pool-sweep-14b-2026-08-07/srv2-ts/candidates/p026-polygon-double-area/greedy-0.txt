@@ -1,0 +1,37 @@
+```ts
+export function polygonDoubleArea(vertices: number[][]): number {
+  if (vertices.length < 3) {
+    throw new Error("Fewer than three vertices");
+  }
+
+  for (let i = 0; i < vertices.length; i++) {
+    const vertex = vertices[i];
+    if (!Array.isArray(vertex) || vertex.length !== 2) {
+      throw new Error("Vertex is not a pair of two integers");
+    }
+    const [x, y] = vertex;
+    if (!Number.isInteger(x) || !Number.isInteger(y)) {
+      throw new Error("Vertex coordinates must be integers");
+    }
+  }
+
+  for (let i = 0; i < vertices.length - 1; i++) {
+    if (vertices[i][0] === vertices[i + 1][0] && vertices[i][1] === vertices[i + 1][1]) {
+      throw new Error("Two identical consecutive vertices");
+    }
+  }
+
+  if (vertices[0][0] === vertices[vertices.length - 1][0] && vertices[0][1] === vertices[vertices.length - 1][1]) {
+    throw new Error("First and last vertex are identical");
+  }
+
+  let area = 0;
+  for (let i = 0; i < vertices.length; i++) {
+    const [x1, y1] = vertices[i];
+    const [x2, y2] = vertices[(i + 1) % vertices.length];
+    area += x1 * y2 - y1 * x2;
+  }
+
+  return Math.abs(area);
+}
+```

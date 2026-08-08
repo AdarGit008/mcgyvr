@@ -1,0 +1,27 @@
+```python
+def exam_slot_classes(conflicts: list[list[int]]) -> list[list[int]]:
+    if not isinstance(conflicts, list) or not all(isinstance(c, list) for c in conflicts):
+        raise ValueError("Input must be a list of lists")
+    if not conflicts:
+        raise ValueError("No exams provided")
+    
+    n = len(conflicts)
+    if any(not (0 <= i < n and 0 <= j < n and i != j and i in c and j in c) for c in conflicts):
+        raise ValueError("Invalid conflict pair or self-sharing exam")
+    
+    # Sort exams by the number of shared students, descending. If equal, lower-numbered first.
+    exams = sorted(range(n), key=lambda x: (-len(conflicts[x]), x))
+    
+    sittings = []
+    for exam in exams:
+        placed = False
+        for sitting in sittings:
+            if all(exam not in conflicts[s] for s in sitting):
+                sitting.append(exam)
+                placed = True
+                break
+        if not placed:
+            sittings.append([exam])
+    
+    return sittings
+```

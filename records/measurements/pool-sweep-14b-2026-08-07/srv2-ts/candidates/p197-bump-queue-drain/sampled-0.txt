@@ -1,0 +1,75 @@
+```ts
+/** The order a crew works through a batch of graded tickets. */
+export function bumpQueueDrain(
+  tickets: Array<Record<string, unknown>>,
+  start: number,
+  bumpEvery: number
+): string[] {
+  if (tickets.length === 0) {
+    throw new Error("Batch is empty");
+  }
+
+  const validTickets = tickets.map((ticket, index) => {
+    if (typeof ticket !== "object" || ticket === null) {
+      throw new Error(`Ticket at index ${index} is not a mapping`);
+    }
+    const { id, filed, grade } = ticket as { id: string; filed: number; grade: number };
+    if (typeof id !== "string" || id.trim() === "") {
+      throw new Error(`Ticket at index ${index} has an invalid or missing id`);
+    }
+    if (!Number.isInteger(filed) || filed < 0) {
+      throw new Error(`Ticket at index ${index} has an invalid filed minute`);
+    }
+    if (!Number.isInteger(grade) || grade < 0 || grade > 9) {
+      throw new Error(`Ticket at index ${index} has an invalid grade`);
+    }
+    return { id, filed, grade };
+  });
+
+  const uniqueIds = new Set(validTickets.map(ticket => ticket.id));
+  if (uniqueIds.size !== validTickets.length) {
+    throw new Error("Duplicate ids found in the batch");
+  }
+
+  if (!Number.isInteger(start) || start < 0) {
+    throw new Error("Invalid start minute");
+  }
+  if (!Number.isInteger(bumpEvery) || bumpEvery <= 0) {
+    throw new Error("Invalid bump interval");
+  }
+
+  const pending = validTickets.slice();
+  const handled: string[] = [];
+  let currentMinute = start;
+
+  while (pending.length > 0) {
+    let eligibleTickets = pending.filter(ticket => ticket.filed <= currentMinute);
+
+    if (eligibleTickets.length === 0) {
+      currentMinute++;
+      continue;
+    }
+
+    eligibleTickets.sort((a, b) => {
+      const urgencyA = Math.min(a.grade + Math.floor((currentMinute - a.filed) / bumpEvery), 9);
+      const urgencyB = Math.min(b.grade + Math.floor((currentMinute - b.filed) / bumpEvery), 9);
+
+      if (urgencyA !== urgencyB) {
+        return urgencyB - urgencyA;
+      }
+      if (a.filed !== b.filed) {
+        return a.filed - b.filed;
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+    const pick = eligibleTickets[0];
+    handled.push(pick.id);
+    pending.splice(pending.indexOf(pick), 1);
+
+    currentMinute++;
+  }
+
+  return handled;
+}
+```

@@ -1,0 +1,46 @@
+```ts
+/**
+ * Simulates a factory line with processing stations in series and holding buffers between them.
+ * @param capacities - Array of per-tick piece limits for each station.
+ * @param buffers - Array of buffer sizes between each pair of adjacent stations.
+ * @param ticks - Number of whole ticks to simulate.
+ * @returns An object with keys "made" (total pieces finished by the last station) and "left" (final content of each buffer).
+ */
+export function runBufferedLine(capacities: number[], buffers: number[], ticks: number): { made: number; left: number[] } {
+  if (capacities.length === 0) {
+    throw new Error("Station list cannot be empty.");
+  }
+  if (buffers.length !== capacities.length - 1) {
+    throw new Error("Buffer list must have exactly one entry fewer than the station list.");
+  }
+  if (!capacities.every(cap => Number.isPositiveInteger(cap))) {
+    throw new Error("All per-tick limits must be positive integers.");
+  }
+  if (!buffers.every(buf => Number.isPositiveInteger(buf))) {
+    throw new Error("All buffer sizes must be positive integers.");
+  }
+  if (!Number.isNonNegativeInteger(ticks)) {
+    throw new Error("Tick count must be a non-negative integer.");
+  }
+
+  const n = capacities.length;
+  let made = 0;
+  const bufferContents: number[] = buffers.map(() => 0);
+
+  for (let tick = 0; tick < ticks; tick++) {
+    for (let i = n - 1; i > 0; i--) {
+      const piecesToMove = Math.min(
+        capacities[i],
+        bufferContents[i - 1],
+        buffers[i] - bufferContents[i]
+      );
+      bufferContents[i - 1] -= piecesToMove;
+      bufferContents[i] += piecesToMove;
+    }
+    made += bufferContents[n - 2];
+    bufferContents[n - 2] = 0;
+  }
+
+  return { made, left: bufferContents };
+}
+```

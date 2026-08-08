@@ -1,0 +1,27 @@
+id: p275-step-accrual-ledger
+task_type: function_implementation
+task: >-
+  Implement stepAccrualLedger. A balance of opening cents travels through a
+  schedule of steps, each written as [dayCount, tenThousandths, capitalise].
+  A step earns dayCount days of interest at tenThousandths parts in ten
+  thousand per annum upon whatever principal stands as the step begins, the
+  year being fixed at 365 days throughout. Nothing may be rounded away: hold a
+  running leftover, so a step's earnings are the whole cents in (principal
+  times tenThousandths times dayCount, plus the leftover carried in) divided
+  by 3650000, and the residue of that same division becomes the leftover the
+  following step carries in. A capitalise of 1 folds the step's earnings into
+  the principal; a capitalise of 0 parks them on a set-aside heap which never
+  itself earns. Emit one row per step in schedule order, each row being
+  [earned, principal, heap] as those three stand once the step has closed.
+  Throw an error for an empty schedule, a schedule that is not a list, a step
+  that is not a list of exactly three values, an opening below zero, any value
+  that is not a whole number, a day count under one, a rate below zero, and a
+  capitalise that is neither 0 nor 1.
+target: solution.ts
+interface: "export function stepAccrualLedger(opening: number, steps: number[][]): number[][]"
+stop_conditions:
+  - Whether the heap may be capitalised by a later step is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

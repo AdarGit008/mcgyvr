@@ -1,0 +1,50 @@
+```ts
+export function gradeReruns(log: string[], budget: number): string[] {
+  if (typeof budget !== "number" || budget < 0 || !Number.isInteger(budget)) {
+    throw new Error("Invalid budget");
+  }
+  if (!Array.isArray(log)) {
+    throw new Error("Invalid log");
+  }
+
+  const goes = new Map<string, { mark: string; allowedReruns: number }>();
+  for (const entry of log) {
+    if (typeof entry !== "string") {
+      throw new Error("Invalid entry");
+    }
+    const [name, mark] = entry.split(" ");
+    if (!name || name.includes(" ")) {
+      throw new Error("Invalid job name");
+    }
+    if (mark !== "green" && mark !== "red") {
+      throw new Error("Invalid mark");
+    }
+
+    let jobEntry = goes.get(name);
+    if (jobEntry === undefined) {
+      jobEntry = { mark, allowedReruns: budget };
+      goes.set(name, jobEntry);
+    } else {
+      if (mark === "green" && jobEntry.mark !== "red") {
+        throw new Error("Job went green more than once");
+      }
+      if (jobEntry.allowedReruns <= 0) {
+        throw new Error("Job used all allowed reruns");
+      }
+      jobEntry.mark = mark;
+      jobEntry.allowedReruns--;
+    }
+  }
+
+  const graded: string[] = [];
+  for (const [name, { mark }] of goes) {
+    if (mark === "green") {
+      graded.push(name + ":" + (goes.size === 1 ? "solid" : "shaky"));
+    } else {
+      graded.push(name + ":broken");
+    }
+  }
+
+  return graded.sort();
+}
+```

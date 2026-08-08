@@ -1,0 +1,29 @@
+```python
+def nest_outline(text: str) -> list:
+    if not text or '\t' in text or any(line.startswith(' ') for line in text.splitlines()):
+        raise ValueError("Invalid input")
+    
+    lines = text.strip().split('\n')
+    result = []
+    stack = []
+    
+    for line in lines:
+        level = (len(line) - len(line.lstrip())) // 2
+        if line.isspace():
+            raise ValueError("Blank or all-space line found")
+        
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+        
+        if not stack:
+            node = [line.strip(), []]
+            result.append(node)
+        else:
+            parent = stack[-1][1]
+            node = [line.strip(), []]
+            parent.append(node)
+        
+        stack.append((level, node))
+    
+    return result
+```

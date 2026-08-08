@@ -1,0 +1,24 @@
+id: p314-audit-region-grid
+task_type: function_implementation
+task: >-
+  Implement auditRegionGrid. The first list holds the rows of a filled square
+  board of side n, each row a string of n digit characters; the second holds
+  the same rows as territory labels, each an uppercase letter, and the squares
+  sharing a letter belong to one territory, which may be any shape at all.
+  Every row, every file and every territory has to carry the digits 1 through
+  n once apiece. Return the first breach as "row K", "file K" or "territory L"
+  with K counted from one and L the offending letter, testing every row top to
+  bottom, then every file left to right, then every territory in letter order,
+  and return "ok" when nothing is breached. Reject with an error two lists of
+  unequal height, a row of the wrong width, a side outside 1 through 9, a
+  character that is not a digit from 1 to n, a label that is not an uppercase
+  letter, and a labelling that fails to cut the board into exactly n
+  territories of exactly n squares.
+target: solution.ts
+interface: "export function auditRegionGrid(digits: string[], territories: string[]): string"
+stop_conditions:
+  - Whether a territory's squares must touch one another is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

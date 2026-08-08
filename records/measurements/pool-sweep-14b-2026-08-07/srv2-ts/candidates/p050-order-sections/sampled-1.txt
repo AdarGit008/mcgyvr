@@ -1,0 +1,44 @@
+```ts
+/**
+ * Sorts document section labels using dotted outline numbering.
+ * @param labels - Array of section labels to sort.
+ * @returns A new array of sorted section labels.
+ * @throws Error if any label is invalid or appears twice.
+ */
+export function orderSections(labels: string[]): string[] {
+  const validateLabel = (label: string): boolean => {
+    const components = label.split('.');
+    return (
+      components.length > 0 &&
+      components.every((component) => /^\d+$/.test(component) && component !== '00' && !/^0\d+/.test(component))
+    );
+  };
+
+  const labelSet = new Set<string>();
+  for (const label of labels) {
+    if (typeof label !== 'string') {
+      throw new Error('Label must be a string');
+    }
+    if (!validateLabel(label)) {
+      throw new Error(`Invalid label: ${label}`);
+    }
+    if (labelSet.has(label)) {
+      throw new Error(`Duplicate label: ${label}`);
+    }
+    labelSet.add(label);
+  }
+
+  return labels.slice().sort((a, b) => {
+    const aComponents = a.split('.').map(Number);
+    const bComponents = b.split('.').map(Number);
+
+    for (let i = 0; i < Math.min(aComponents.length, bComponents.length); i++) {
+      if (aComponents[i] !== bComponents[i]) {
+        return aComponents[i] - bComponents[i];
+      }
+    }
+
+    return aComponents.length - bComponents.length;
+  });
+}
+```

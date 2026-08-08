@@ -1,0 +1,60 @@
+```ts
+/**
+ * Shifts a proleptic Gregorian calendar date by a given number of days.
+ * @param date - The input date in "YYYY-MM-DD" format.
+ * @param days - The number of days to shift, may be negative.
+ * @returns The shifted date in "YYYY-MM-DD" format.
+ */
+export function shiftCivilDate(date: string, days: number): string {
+  const [yearStr, monthStr, dayStr] = date.split('-');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10) - 1; // Convert to zero-indexed
+  const day = parseInt(dayStr, 10);
+
+  if (isNaN(year) || isNaN(month) || isNaN(day)) {
+    throw new Error('Invalid date format');
+  }
+  if (month < 0 || month > 11) {
+    throw new Error('Month must be between 01 and 12');
+  }
+  if (day < 1 || day > [31, 28 + isLeapYear(year), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month]) {
+    throw new Error('Invalid day for the given month');
+  }
+  if (!Number.isInteger(days)) {
+    throw new Error('Day count must be an integer');
+  }
+
+  const totalDays = year * 365 + Math.floor(year / 4) - Math.floor(year / 100) + Math.floor(year / 400);
+  const monthOffset = [0, 31, 28 + isLeapYear(year), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let newDay = day + days;
+  let newMonth = month;
+
+  while (newDay <= 0) {
+    newMonth--;
+    if (newMonth < 0) {
+      year--;
+      newMonth = 11;
+    }
+    newDay += monthOffset[newMonth] + (isLeapYear(year) && newMonth === 1 ? 1 : 0);
+  }
+
+  while (newDay > monthOffset[newMonth] + (isLeapYear(year) && newMonth === 1 ? 1 : 0)) {
+    newDay -= monthOffset[newMonth] + (isLeapYear(year) && newMonth === 1 ? 1 : 0);
+    newMonth++;
+    if (newMonth > 11) {
+      year++;
+      newMonth = 0;
+    }
+  }
+
+  const newYearStr = year.toString().padStart(4, '0');
+  const newMonthStr = (newMonth + 1).toString().padStart(2, '0');
+  const newDayStr = newDay.toString().padStart(2, '0');
+
+  return `${newYearStr}-${newMonthStr}-${newDayStr}`;
+}
+
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+```

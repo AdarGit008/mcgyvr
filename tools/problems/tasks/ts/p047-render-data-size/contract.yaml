@@ -1,0 +1,37 @@
+id: p047-render-data-size
+task_type: bug_fix
+task: >-
+  renderDataSize turns a byte count into a human-readable compound like
+  "3GiB 2KiB", but the current code was written for decimal prefixes and
+  pads its output with noise. Fix it: the binary ladder applies, 1KiB is
+  1024 bytes, 1MiB is 1024 KiB, 1GiB is 1024 MiB. Decompose the count
+  greedily from GiB down, write each nonzero component as its number glued
+  to its suffix, and join the written components with single spaces —
+  components that are zero are simply absent. A count of zero renders as
+  "0B". Reject a negative count and a count that is not an integer with an
+  error. Return the rendered string.
+target: solution.ts
+target_content: |
+  export function renderDataSize(total: number): string {
+    const ladder: [string, number][] = [
+      ["GiB", 1000000000],
+      ["MiB", 1000000],
+      ["KiB", 1000],
+      ["B", 1],
+    ];
+    const parts: string[] = [];
+    let rest = total;
+    for (const [suffix, size] of ladder) {
+      const count = Math.floor(rest / size);
+      parts.push(`${count}${suffix}`);
+      rest -= count * size;
+    }
+    return parts.join(" ");
+  }
+interface: "export function renderDataSize(total: number): string"
+stop_conditions:
+  - Whether counts of a whole TiB or more need their own suffix is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

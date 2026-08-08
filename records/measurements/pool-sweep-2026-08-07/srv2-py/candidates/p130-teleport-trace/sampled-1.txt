@@ -1,0 +1,19 @@
+```python
+def trace_teleports(pads: list[int], start: int) -> list[int]:
+    if not pads or start < 0 or start >= len(pads):
+        raise ValueError("Invalid hall configuration or start pad")
+    
+    visited = set()
+    circuit = []
+    current = start
+    
+    while current not in visited:
+        visited.add(current)
+        circuit.append(current)
+        current = pads[current]
+    
+    loop_start = circuit.index(current)
+    loop_length = len(circuit) - loop_start
+    
+    return [len(visited) - loop_start, loop_length, loop_start]
+```

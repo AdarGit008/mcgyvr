@@ -1,0 +1,34 @@
+```ts
+export function parseDuration(input: string): number {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error('Invalid input');
+  }
+
+  const units = ['d', 'h', 'm', 's'];
+  const regex = /^(\d+)([dhs])$/;
+  let totalSeconds = 0;
+
+  input.split('').forEach(char => {
+    if (!units.includes(char)) {
+      throw new Error('Unknown unit');
+    }
+  });
+
+  const parts = input.match(regex);
+  if (parts) {
+    const value = parseInt(parts[1], 10);
+    const unit = parts[2];
+    const index = units.indexOf(unit);
+
+    if (index === -1) {
+      throw new Error('Invalid unit');
+    }
+
+    totalSeconds += value * Math.pow(60, 3 - index);
+  } else {
+    throw new Error('Missing value or invalid format');
+  }
+
+  return totalSeconds;
+}
+```

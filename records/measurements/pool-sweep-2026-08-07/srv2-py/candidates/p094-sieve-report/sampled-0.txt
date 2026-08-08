@@ -1,0 +1,41 @@
+```python
+from typing import List, Dict
+
+def sieve_report(items: List[Dict[str, any]], rules: List[Dict[str, any]]) -> List[str]:
+    def apply_rule(item: Dict[str, any], rule: Dict[str, any]) -> bool:
+        field = rule.get("field")
+        if field not in item:
+            return rule["op"] == "absent"
+        value = item[field]
+        if rule["op"] == "eq":
+            return value == rule["value"]
+        elif rule["op"] == "ne":
+            return value != rule["value"]
+        elif rule["op"] == "gt":
+            try:
+                return value > rule["value"]
+            except TypeError:
+                pass
+        elif rule["op"] == "lt":
+            try:
+                return value < rule["value"]
+            except TypeError:
+                pass
+        elif rule["op"] == "present":
+            return True
+        elif rule["op"] == "absent":
+            return False
+        else:
+            raise ValueError(f"Invalid op: {rule['op']}")
+    
+    def find_first_failure(item: Dict[str, any]) -> str:
+        for rule in rules:
+            if not apply_rule(item, rule):
+                return rule["name"]
+        return "pass"
+    
+    if any(rule.get("name", "") == "" or rules.index(rule) != rules[::-1].index(rule) for rule in rules[1:]):
+        raise ValueError("Duplicate or empty rule name")
+    
+    return [find_first_failure(item) for item in items]
+```

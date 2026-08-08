@@ -1,0 +1,72 @@
+id: p173-hex-offset-hop
+task_type: bug_fix
+task: >-
+  hopOffsetGrid walks a hexagonal map addressed by shifted-row offset
+  coordinates, and it currently ignores the shift. Repair it. An address is
+  [col, row]; rows run top to bottom and each row bearing an odd row number
+  sits half a cell further right than its neighbours, so which diagonal
+  neighbour a move lands on depends on whether the row number is odd or
+  even. Leaving an even row, northeast is [col, row-1], northwest is
+  [col-1, row-1], southeast is [col, row+1] and southwest is [col-1,
+  row+1]. Leaving an odd row, northeast is [col+1, row-1], northwest is
+  [col, row-1], southeast is [col+1, row+1] and southwest is [col, row+1].
+  From any row, east is [col+1, row] and west is [col-1, row]. Row numbers
+  may be negative, and a negative odd row shifts exactly as a positive odd
+  row does. The second argument lists move names drawn from e, w, ne, nw,
+  se and sw, applied in order from the starting address. Return a record
+  holding cell, the address the walk ends on, and distance, the fewest
+  moves that could separate the two ends: rewrite each address as a pair
+  q = col minus half the row number rounded toward negative infinity and
+  r = row, then halve the summed magnitudes of the change in q, the change
+  in r, and the change in q plus the change in r. An empty move list ends
+  where it began, at distance zero. Throw an error for a starting address
+  that is not two whole numbers, for a move list that is not a list, and
+  for a move name outside the six. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function hopOffsetGrid(
+    start: number[],
+    moves: string[],
+  ): { cell: number[]; distance: number } {
+    if (!Array.isArray(start) || start.length !== 2) {
+      throw new Error("the start must be a two-element address");
+    }
+    for (const part of start) {
+      if (typeof part !== "number" || !Number.isInteger(part)) {
+        throw new Error("an address must hold whole numbers");
+      }
+    }
+    if (!Array.isArray(moves)) {
+      throw new Error("the moves must be a list");
+    }
+    let col = start[0];
+    let row = start[1];
+    for (const move of moves) {
+      if (move === "e") {
+        col += 1;
+      } else if (move === "w") {
+        col -= 1;
+      } else if (move === "ne") {
+        row -= 1;
+      } else if (move === "nw") {
+        col -= 1;
+        row -= 1;
+      } else if (move === "se") {
+        row += 1;
+      } else if (move === "sw") {
+        col -= 1;
+        row += 1;
+      }
+    }
+    return {
+      cell: [col, row],
+      distance: Math.abs(col - start[0]) + Math.abs(row - start[1]),
+    };
+  }
+interface: "export function hopOffsetGrid(start: number[], moves: string[]): { cell: number[]; distance: number }"
+stop_conditions:
+  - Whether move names may arrive in upper case is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

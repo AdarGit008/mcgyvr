@@ -1,0 +1,22 @@
+```python
+def mend_shards(copies: list) -> list:
+    if not copies:
+        raise ValueError("List of copies is empty")
+    
+    if len(set(len(copy) for copy in copies)) > 1:
+        raise ValueError("Copies differ in length")
+    
+    mended = []
+    for position in range(len(copies[0])):
+        counts = {}
+        for i, copy in enumerate(copies):
+            value = copy[position]
+            if not isinstance(value, (int, type(None))):
+                raise ValueError(f"Invalid value at position {position}, copy {i+1}: {value}")
+            counts[value] = counts.get(value, 0) + 1
+        best_count = max(counts.values())
+        winners = [value for value, count in counts.items() if count == best_count]
+        best_value = min(winners) if None not in winners else -1
+        mended.append(best_value)
+    return mended
+```

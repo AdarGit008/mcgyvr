@@ -1,0 +1,28 @@
+```ts
+export function smallestArrangement(counts: number[]): string {
+  if (counts.length !== 4) throw new Error("Invalid input length");
+  if (!counts.every((c, i) => Number.isInteger(c) && c >= 0 && c <= 12)) throw new Error("Invalid count");
+  if (counts.reduce((a, b) => a + b, 0) === 0) throw new Error("All counts are zero");
+
+  const letters = ['a', 'b', 'c', 'd'];
+  let result: string[] = [];
+
+  while (result.length < counts.reduce((a, b) => a + b, 0)) {
+    for (let i = 0; i < 4; i++) {
+      if (counts[i] > 0 && (result.length === 0 || result[result.length - 1] !== letters[i])) {
+        result.push(letters[i]);
+        counts[i]--;
+        break;
+      }
+    }
+  }
+
+  for (let i = 2; i < result.length; i++) {
+    if (result[i] === result[i - 1] && result[i] === result[i - 2]) {
+      throw new Error("No valid arrangement possible");
+    }
+  }
+
+  return result.join('');
+}
+```

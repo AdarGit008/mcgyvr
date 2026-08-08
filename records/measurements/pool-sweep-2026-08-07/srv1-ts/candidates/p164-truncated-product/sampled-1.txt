@@ -1,0 +1,31 @@
+```ts
+/**
+ * Multiplies two polynomials, discards terms with exponents beyond cap,
+ * and strips trailing zeros to return a canonical polynomial.
+ * @param left - The first polynomial coefficients.
+ * @param right - The second polynomial coefficients.
+ * @param cap - The maximum exponent for terms in the result.
+ * @returns The truncated product of the two polynomials as a canonical list.
+ */
+export function truncatedProduct(left: number[], right: number[], cap: number): number[] {
+  if (!Array.isArray(left) || !Array.isArray(right)) throw new Error('Arguments must be lists');
+  if (left.some(x => typeof x !== 'number') || right.some(x => typeof x !== 'number')) throw new Error('Coefficients must be whole numbers');
+  if (typeof cap !== 'number' || !Number.isInteger(cap) || cap < 0) throw new Error('Cap must be a non-negative integer');
+  if (left.length === 0 || left[left.length - 1] === 0) throw new Error('Left polynomial cannot have a zero coefficient at the end');
+  if (right.length === 0 || right[right.length - 1] === 0) throw new Error('Right polynomial cannot have a zero coefficient at the end');
+
+  const result = left.flatMap((coeff, i) => 
+    right.map((rCoeff, j) => coeff * rCoeff).map((val, k) => val * Math.pow(left.length + right.length - i - j - 2, k))
+  ).reduce((acc, curr, index) => {
+    if (index >= cap) return acc;
+    acc[index] = (acc[index] || 0) + curr;
+    return acc;
+  }, [] as number[]);
+
+  while (result.length > 0 && result[result.length - 1] === 0) {
+    result.pop();
+  }
+
+  return result;
+}
+```

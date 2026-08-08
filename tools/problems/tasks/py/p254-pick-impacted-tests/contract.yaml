@@ -1,0 +1,24 @@
+id: p254-pick-impacted-tests
+task_type: function_implementation
+task: |
+  Implement pick_impacted_tests. The first argument is a coverage table keyed by
+  test name, each value the list of source paths that test touches; the second
+  is the list of paths a commit edited. A test is impacted when at least one
+  path it touches was edited. A test whose coverage list holds the single entry
+  "*" is a blanket test: it is impacted as soon as anything at all was edited.
+  Inside any longer coverage list "*" carries no such meaning and is compared
+  as an ordinary path. An edited path nothing touches simply impacts nothing.
+  Return the impacted test names in ascending order with no repeats, and return
+  an empty list when nothing was edited, whatever the coverage table holds.
+  Reject a coverage list that is empty, the same path written twice under one
+  test, a test name that is the empty string, a coverage list that is not a
+  list, an edited path that is not a string, and arguments that are not a table
+  and a list respectively.
+target: solution.py
+interface: "def pick_impacted_tests(coverage: dict, edited: list[str]) -> list[str]"
+stop_conditions:
+  - Whether path comparison should ignore a leading "./" is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

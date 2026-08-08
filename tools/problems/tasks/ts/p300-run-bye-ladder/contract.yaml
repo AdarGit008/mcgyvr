@@ -1,0 +1,29 @@
+id: p300-run-bye-ladder
+task_type: function_implementation
+task: >-
+  Implement runByeLadder. The seeds argument lists the entrants from the
+  strongest seed downward, and the upsets argument names the entrants that
+  beat anybody sitting above them. Play the ladder round by round. Whoever is
+  still in stands in seed order at the head of every round. When an odd
+  number is still in, one of them sits the round out: the sit-out goes to the
+  strongest still in who has not sat out already, and, once every one of them
+  has sat out at some point, to the strongest still in. The others meet head
+  to tail, the strongest against the weakest, the next strongest against the
+  next weakest, and so on down the middle. The stronger seed takes the match
+  unless the weaker seed is one of the named upsets, in which case the weaker
+  seed takes it. The winners and the sitter go through, sorted again into
+  seed order, and the ladder runs until one entrant is left standing. Return
+  an object holding rounds, a list carrying for each round the sitter's name
+  or null and the round's matches as pairs of the stronger then the weaker
+  seed, and champion, the last one standing. Reject with an error a seeds or
+  upsets argument that is not a list, a field of fewer than two entrants, an
+  entrant name that is not a string, a name entered twice, an upset that
+  names no entrant, and an upset named twice.
+target: solution.ts
+interface: "export function runByeLadder(seeds: string[], upsets: string[]): { rounds: { bye: string | null; matches: string[][] }[]; champion: string }"
+stop_conditions:
+  - Whether an entrant named in upsets may also be the strongest seed is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

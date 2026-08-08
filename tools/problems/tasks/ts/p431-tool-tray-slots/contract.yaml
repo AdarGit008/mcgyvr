@@ -1,0 +1,89 @@
+id: p431-tool-tray-slots
+task_type: bug_fix
+task: >-
+  foldToolTray replays a workbench tray. The tray holds at most slots entries all
+  told, pinned ones counted among them, and each action is a [verb, name] pair
+  taken in the order given. A touch on a name the tray already holds does nothing
+  beyond making that entry the most recently touched of them all. A touch on a
+  name the tray does not hold brings it in unpinned and most recently touched:
+  where a slot stands free it takes one, and where none does the least recently
+  touched entry that is not pinned is turned out to make room, but where every
+  entry is pinned the touch is refused outright and the tray stands as it was. A
+  pin on a name the tray does not hold changes nothing, and on one it does hold
+  marks that entry pinned without stirring the touch order at all; pinning what
+  is already pinned changes nothing either. A drop on a name the tray does not
+  hold changes nothing, and on one it does hold turns that entry out whether it
+  was pinned or not. Give back the tray's entries, most recently touched first,
+  each written as its own name with an asterisk set in front of it where the
+  entry is pinned and bare where it is not. The code below turns out the least
+  recently touched entry of them all rather than the least recently touched
+  unpinned one, so a pinned entry can be lost and a tray of nothing but pinned
+  entries never refuses a touch. Repair that, keep raising an error for a slots
+  figure that is not whole or falls below 1, an action that is not a pair, a verb
+  outside touch, pin and drop, and a name that is empty, carries an asterisk, or
+  is not a string, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  const VERBS = ["touch", "pin", "drop"];
+
+  export function foldToolTray(slots: number, actions: string[][]): string[] {
+    if (typeof slots !== "number" || !Number.isInteger(slots) || slots < 1) {
+      throw new Error("slots must be a whole number of at least 1");
+    }
+    if (!Array.isArray(actions)) {
+      throw new Error("the actions must be a list of pairs");
+    }
+
+    const order: string[] = [];
+    const stuck = new Set<string>();
+
+    for (const action of actions) {
+      if (!Array.isArray(action) || action.length !== 2) {
+        throw new Error("an action is a [verb, name] pair");
+      }
+      const verb = action[0];
+      const name = action[1];
+      if (typeof verb !== "string" || !VERBS.includes(verb)) {
+        throw new Error("a verb is one of touch, pin and drop");
+      }
+      if (typeof name !== "string" || name.length === 0 || name.includes("*")) {
+        throw new Error("a name must be a non-empty string free of asterisks");
+      }
+
+      const at = order.indexOf(name);
+      if (verb === "touch") {
+        if (at !== -1) {
+          order.splice(at, 1);
+          order.push(name);
+          continue;
+        }
+        if (order.length >= slots) {
+          const victim = order[0];
+          order.splice(0, 1);
+          stuck.delete(victim);
+        }
+        order.push(name);
+      } else if (verb === "pin") {
+        if (at !== -1) {
+          stuck.add(name);
+        }
+      } else if (at !== -1) {
+        order.splice(at, 1);
+        stuck.delete(name);
+      }
+    }
+
+    const shown: string[] = [];
+    for (let index = order.length - 1; index >= 0; index--) {
+      const name = order[index];
+      shown.push(stuck.has(name) ? `*${name}` : name);
+    }
+    return shown;
+  }
+interface: "export function foldToolTray(slots: number, actions: string[][]): string[]"
+stop_conditions:
+  - Whether a pin may be undone once made is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

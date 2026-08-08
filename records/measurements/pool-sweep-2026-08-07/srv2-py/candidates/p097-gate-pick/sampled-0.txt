@@ -1,0 +1,23 @@
+```python
+def pick_build(gate: str, offers: list[int]) -> int:
+    if not isinstance(gate, str) or gate == "":
+        raise ValueError("Gate must be a non-empty string")
+    
+    clauses = gate.split(',')
+    for clause in clauses:
+        parts = clause.split('^')
+        carve_outs = set(map(int, parts[1].split(','))) if len(parts) > 1 else set()
+        
+        if ':' not in parts[0]:
+            raise ValueError("Clause must have a range or wildcard")
+        
+        lo, hi = map(lambda x: int(x.strip()) if x != '' else float('-inf'), parts[0].split(':'))
+        if lo > hi:
+            raise ValueError("Range is out of order")
+        
+        for offer in offers:
+            if (lo <= offer <= hi) and offer not in carve_outs:
+                return offer
+    
+    return -1
+```

@@ -1,0 +1,39 @@
+```python
+def place_donations(requests: list, lots: list) -> list:
+    if any(isinstance(req['kind'], str) and req['kind'].upper() == "ANY" for req in requests):
+        raise ValueError("Request kind 'ANY' is not allowed.")
+
+    placed = []
+    request_queue = []
+
+    # Initialize the request queue
+    for request in requests:
+        if request['from'] > request['to']:
+            raise ValueError(f"Invalid request span: from={request['from']}, to={request['to']}")
+        if not isinstance(request['from'], int) or not isinstance(request['to'], int):
+            raise ValueError(f"Request days must be integers: from={request['from']}, to={request['to']}")
+
+        request_queue.append((request, float('inf'), -1))
+        placed.append(None)
+
+    # Process each lot
+    for lot in lots:
+        if lot['day'] < lot['from']:
+            raise ValueError(f"Lot day must be within the request span: {lot['day']} not in [{lot['from']}, {lot['to']}]")
+
+        suitable_requests = []
+        for idx, (req, _, _) in enumerate(request_queue):
+            if req['from'] <= lot['day'] <= req['to']:
+                if req['kind'] == lot['kind'] or lot['kind'] == 'ANY':
+                    suitable_requests.append((idx, req))
+
+        # Sort by urgency, then earliest closing day, then earliest request
+        suitable_requests.sort(key=lambda x: (not x[1]['urgent'], x[1]['to'], x[0]))
+
+        for idx, req in suitable_requests:
+            if placed[idx] is None:
+                placed[idx] = [lot['id'], req['id']]
+                break
+
+    return [pair for pair in placed if pair is not None]
+```

@@ -1,0 +1,52 @@
+```ts
+export function computeSheet(cells: Record<string, string>): Record<string, number> {
+  const cellValues = new Map<string, number>();
+  const formulaCache = new Map<string, Set<string>>();
+
+  function evaluateCell(cellName: string): number {
+    if (cellValues.has(cellName)) return cellValues.get(cellName)!;
+
+    if (!cells.hasOwnProperty(cellName)) throw new Error(`Unknown cell name: ${cellName}`);
+
+    const formula = cells[cellName];
+    if (!formula.startsWith('=')) throw new Error(`Invalid formula for cell ${cellName}: ${formula}`);
+
+    const terms = formula.slice(1).split('+').map(term => term.trim());
+    let result = 0;
+
+    for (const term of terms) {
+      if (/^-?\d+$/.test(term)) {
+        result += parseInt(term, 10);
+      } else {
+        const referencedCell = term;
+        if (!cells.hasOwnProperty(referencedCell)) throw new Error(`Unknown cell name in formula: ${term}`);
+
+        if (formulaCache.has(cellName) && formulaCache.get(cellName)!.has(referencedCell)) {
+          throw new Error(`Reference cycle detected involving cell: ${cellName}`);
+        }
+
+        if (!formulaCache.has(cellName)) formulaCache.set(cellName, new Set());
+        formulaCache.get(cellName)!.add(referencedCell);
+
+        result += evaluateCell(referencedCell);
+      }
+    }
+
+    cellValues.set(cellName, result);
+    return result;
+  }
+
+  for (const cellName in cells) {
+    if (cells.hasOwnProperty(cellName)) {
+      evaluateCell(cellName);
+    }
+  }
+
+  const finalResult: Record<string, number> = {};
+  for (const [cellName, value] of cellValues.entries()) {
+    finalResult[cellName] = value;
+  }
+
+  return finalResult;
+}
+```

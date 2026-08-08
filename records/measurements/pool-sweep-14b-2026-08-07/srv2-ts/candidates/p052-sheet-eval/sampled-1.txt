@@ -1,0 +1,60 @@
+```ts
+export function computeSheet(cells: Record<string, string>): Record<string, number> {
+  const computedValues: Record<string, number | null> = {};
+
+  const isCellName = (name: string): boolean => /^[A-Z]+[0-9]+$/.test(name);
+  const isIntegerLiteral = (value: string): boolean => /^-?\d+$/.test(value);
+
+  const parseValue = (value: string): number => {
+    if (isIntegerLiteral(value)) {
+      return parseInt(value, 10);
+    } else if (isCellName(value)) {
+      return getCellValue(value);
+    } else {
+      throw new Error(`Malformed literal or term: ${value}`);
+    }
+  };
+
+  const getCellValue = (cellName: string): number => {
+    if (!computedValues[cellName]) {
+      computedValues[cellName] = null; // Mark as computing to detect cycles
+
+      const cellText = cells[cellName];
+      if (!cellText) {
+        throw new Error(`Reference to absent name: ${cellName}`);
+      }
+
+      let value: number;
+      if (cellText.startsWith('=')) {
+        const formula = cellText.slice(1).trim();
+        if (!formula) {
+          throw new Error('Empty formula');
+        }
+        const terms = formula.split(/\s*\+\s*/);
+        value = terms.reduce((sum, term) => sum + parseValue(term), 0);
+      } else {
+        value = parseValue(cellText);
+      }
+
+      computedValues[cellName] = value;
+    } else if (computedValues[cellName] === null) {
+      throw new Error('Reference cycle detected');
+    }
+
+    return computedValues[cellName]!;
+  };
+
+  for (const cellName in cells) {
+    getCellValue(cellName);
+  }
+
+  const result: Record<string, number> = {};
+  for (const cellName in computedValues) {
+    if (computedValues[cellName] !== null) {
+      result[cellName] = computedValues[cellName];
+    }
+  }
+
+  return result;
+}
+```

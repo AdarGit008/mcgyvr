@@ -1,0 +1,24 @@
+```typescript
+export function resolveProfile(profiles: Record<string, Record<string, unknown>>, wanted: string): Record<string, unknown> {
+    const visited = new Set<string>();
+
+    function resolve(name: string): Record<string, unknown> {
+        if (!profiles.hasOwnProperty(name)) throw Error(`No profile named '${name}'`);
+        if (visited.has(name)) throw Error(`Inheritance cycle detected involving '${name}'`);
+
+        visited.add(name);
+        const currentProfile = profiles[name];
+        const result: Record<string, unknown> = {};
+
+        if (currentProfile.extends) {
+            Object.assign(result, resolve(currentProfile.extends));
+        }
+
+        delete currentProfile.extends; // Remove the extends key from the final output
+
+        return { ...result, ...currentProfile };
+    }
+
+    return resolve(wanted);
+}
+```

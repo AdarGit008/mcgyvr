@@ -1,0 +1,37 @@
+```python
+def stranded_ticker_pairs(legs: list) -> list:
+    if not legs:
+        raise ValueError("No legs published")
+
+    ticker_set = set()
+    leg_dict = {}
+    for sell, buy in legs:
+        if len(sell) != 1 or len(buy) != 1:
+            raise ValueError("Ticker must be a non-empty string")
+        if sell == buy:
+            raise ValueError("Leg cannot sell and buy the same ticker")
+        if (sell, buy) in leg_dict:
+            raise ValueError("Identical leg published twice")
+        ticker_set.add(sell)
+        ticker_set.add(buy)
+        leg_dict[sell] = buy
+
+    reachable_pairs = set()
+    for start in ticker_set:
+        current = start
+        while current in leg_dict:
+            next_ticker = leg_dict[current]
+            if (start, next_ticker) in reachable_pairs or next_ticker == start:
+                break
+            reachable_pairs.add((start, next_ticker))
+            current = next_ticker
+
+    stranded_pairs = [
+        (start, end)
+        for start in ticker_set
+        for end in ticker_set
+        if start < end and (start, end) not in reachable_pairs
+    ]
+
+    return sorted(stranded_pairs)
+```

@@ -1,0 +1,50 @@
+```ts
+export function expandSpanGrammar(pattern: string): string[] {
+  if (typeof pattern !== 'string') throw new Error('Invalid argument');
+
+  const groups = pattern.split(/(<[^<>|~]*>|[<>|~/])/g);
+  const results: string[][] = [[]];
+
+  for (const group of groups) {
+    if (group.startsWith('<')) {
+      const inner = group.slice(1, -1);
+      if (inner.includes('..')) {
+        const [startStr, endStr] = inner.split('..');
+        const start = parseInt(startStr, 10);
+        const end = parseInt(endStr, 10);
+        if (isNaN(start) || isNaN(end) || start > end) throw new Error('Invalid span range');
+
+        const width = startStr.length;
+        results.push(
+          Array.from({ length: end - start + 1 }, (_, i) => {
+            const num = start + i;
+            return num.toString().padStart(width, '0');
+          })
+        );
+      } else {
+        const choices = inner.split('|').map(choice => choice.trim());
+        if (choices.some(choice => !/^[a-zA-Z\d]+$/.test(choice))) throw new Error('Invalid group body');
+
+        results.push(choices);
+      }
+    } else if (group === '~') {
+      throw new Error('Trailing tilde');
+    } else if (group !== '') {
+      results[0].push(group);
+    }
+  }
+
+  const combinations: string[] = [];
+  for (const combination of cartesianProduct(...results)) {
+    combinations.push(combination.join(''));
+  }
+
+  if (combinations.length > 500) throw new Error('Too many combinations');
+
+  return combinations.sort();
+}
+
+function cartesianProduct<T>(...arrays: T[][]): T[][] {
+  return arrays.reduce((acc, array) => acc.flatMap(item => array.map(value => [item, value].flat())), [[]]);
+}
+```

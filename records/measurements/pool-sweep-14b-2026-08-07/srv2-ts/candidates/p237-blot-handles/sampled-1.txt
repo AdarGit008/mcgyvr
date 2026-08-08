@@ -1,0 +1,51 @@
+```ts
+const HANDLE = /(?<![a-z0-9_@])@[a-z0-9_]{3,12}(?![a-z0-9_])/g;
+
+export function blotHandles(message: string): string {
+  if (typeof message !== "string") {
+    throw new Error("blotHandles expects a string");
+  }
+
+  // Split the message into fenced parts and plain parts
+  const parts = [];
+  let insideFence = false;
+  let currentPart = "";
+
+  for (let i = 0; i < message.length; i++) {
+    if (message[i] === "`") {
+      if (insideFence) {
+        // End of a fenced part
+        parts.push(currentPart + message[i]);
+        currentPart = "";
+        insideFence = false;
+      } else {
+        // Start of a fenced part
+        if (currentPart.length > 0) {
+          parts.push(currentPart);
+        }
+        currentPart = message[i];
+        insideFence = true;
+      }
+    } else {
+      currentPart += message[i];
+    }
+  }
+
+  if (currentPart.length > 0) {
+    parts.push(currentPart);
+  }
+
+  // Blot handles in plain parts
+  const blottedParts = parts.map(part => {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      // Fenced part, pass through exactly as it stands
+      return part;
+    } else {
+      // Plain part, blot handles
+      return part.replace(HANDLE, (found) => "@" + ".".repeat(found.length - 1));
+    }
+  });
+
+  return blottedParts.join("");
+}
+```

@@ -1,0 +1,23 @@
+```python
+def run_buffered_line(capacities: list[int], buffers: list[int], ticks: int) -> dict:
+    if not capacities:
+        raise ValueError("Station list is empty")
+    if len(buffers) != len(capacities) - 1:
+        raise ValueError("Buffer list must have one entry fewer than station list")
+    if any(not isinstance(c, int) or c <= 0 for c in capacities + buffers):
+        raise ValueError("All per-tick limits and buffer sizes must be positive integers")
+    if not isinstance(ticks, int) or ticks < 0:
+        raise ValueError("Tick count must be a non-negative integer")
+
+    made = 0
+    buffer_states = buffers.copy()
+
+    for _ in range(ticks):
+        for i in range(len(capacities) - 1, 0, -1):
+            from_buffer = min(buffer_states[i - 1], capacities[i], capacities[i] - (sum(buffer_states[:i]) - sum(buffer_states[:i - 1])))
+            buffer_states[i - 1] -= from_buffer
+            buffer_states[i] += from_buffer
+        made += min(capacities[0], buffer_states[0])
+
+    return {"made": made, "left": buffer_states}
+```

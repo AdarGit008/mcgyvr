@@ -1,0 +1,29 @@
+```ts
+export function expandNthWeekday(ordinal: number, weekday: number, start: string, months: number): string[] {
+    if (ordinal < -1 || ordinal > 5) throw new Error("Invalid ordinal");
+    if (weekday < 0 || weekday > 6) throw new Error("Invalid weekday");
+    const [yearStr, monthStr] = start.split('-');
+    const year = parseInt(yearStr);
+    const month = parseInt(monthStr);
+    if (isNaN(year) || isNaN(month) || year < 1 || year > 9999 || month < 1 || month > 12) throw new Error("Invalid start date");
+    if (months <= 0 || months > 240) throw new Error("Invalid months");
+
+    const result: string[] = [];
+    for (let i = 0; i < months; i++) {
+        const currentMonth = month + i;
+        const currentYear = year + Math.floor((currentMonth - 1) / 12);
+        const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+        let count = 0;
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(currentYear, currentMonth - 1, day);
+            if (date.getDay() === weekday) {
+                count++;
+                if ((ordinal > 0 && count === ordinal) || (ordinal < 0 && count === Math.abs(ordinal))) {
+                    result.push(`${currentYear.toString().padStart(4, '0')}-${currentMonth.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`);
+                }
+            }
+        }
+    }
+    return result;
+}
+```

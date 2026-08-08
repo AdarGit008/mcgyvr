@@ -1,0 +1,50 @@
+```ts
+export function splitCargo(weights: number[]): number[] {
+  if (weights.length === 0) {
+    throw new Error("Empty manifest");
+  }
+  if (weights.some(weight => weight < 1)) {
+    throw new Error("Invalid weight");
+  }
+  if (weights.length > 16) {
+    throw new Error("Too many items");
+  }
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const target = Math.floor(totalWeight / 2);
+
+  // Dynamic programming to find the closest subset sum to the target
+  const dp: boolean[][] = Array.from({ length: 17 }, () =>
+    Array(target + 1).fill(false)
+  );
+  dp[0][0] = true;
+
+  for (let i = 1; i <= weights.length; i++) {
+    for (let j = target; j >= weights[i - 1]; j--) {
+      dp[i][j] = dp[i - 1][j] || dp[i - 1][j - weights[i - 1]];
+    }
+  }
+
+  // Find the closest possible sum to the target
+  let bestSum = 0;
+  for (let i = target; i >= 0; i--) {
+    if (dp[weights.length][i]) {
+      bestSum = i;
+      break;
+    }
+  }
+
+  // Backtrack to find which items make up this sum
+  const forwardHold: number[] = [];
+  let remaining = bestSum;
+  for (let i = weights.length - 1; i >= 0 && remaining > 0; i--) {
+    if (dp[i][remaining] !== dp[i + 1][remaining]) {
+      forwardHold.push(i);
+      remaining -= weights[i];
+    }
+  }
+
+  // Sort the indices in ascending order
+  return forwardHold.sort((a, b) => a - b);
+}
+```

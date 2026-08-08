@@ -1,0 +1,22 @@
+```python
+def truncated_product(left: list[int], right: list[int], cap: int) -> list[int]:
+    if not all(isinstance(x, int) for x in left + right):
+        raise ValueError("All coefficients must be integers")
+    if not isinstance(cap, int) or cap < 0:
+        raise ValueError("Cap must be a non-negative integer")
+    if left and left[-1] == 0:
+        raise ValueError("Left polynomial cannot have a zero coefficient at the end")
+    if right and right[-1] == 0:
+        raise ValueError("Right polynomial cannot have a zero coefficient at the end")
+
+    result = [0] * (len(left) + len(right) - 1)
+    for i, coeff_left in enumerate(left):
+        for j, coeff_right in enumerate(right):
+            if i + j <= cap:
+                result[i + j] += coeff_left * coeff_right
+
+    while result and result[-1] == 0:
+        result.pop()
+
+    return result
+```

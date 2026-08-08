@@ -1,0 +1,25 @@
+```ts
+export function chainTransforms(grid: number[][], steps: string[]): number[][] {
+  if (grid.length === 0 || grid.some(row => row.length !== grid[0].length)) {
+    throw new Error('Invalid input: Grid must be rectangular.');
+  }
+
+  const transformMap = {
+    cw: (g: number[][]) => g[0].map((_, i) => g.map(row => row[i]).reverse()),
+    ccw: (g: number[][]) => g[0].map((_, i) => g.map(row => row[i])).reverse().map(row => row.reverse()),
+    mirror: (g: number[][]) => g.map(row => [...row].reverse()),
+    flip: (g: number[][]) => [...g].reverse(),
+    diag: (g: number[][]) => Array.from({ length: g[0].length }, (_, i) => g.map(row => row[i]))
+  };
+
+  let transformedGrid = grid;
+  for (const step of steps) {
+    if (!transformMap.hasOwnProperty(step)) {
+      throw new Error(`Invalid step: ${step}`);
+    }
+    transformedGrid = transformMap[step](transformedGrid);
+  }
+
+  return transformedGrid;
+}
+```

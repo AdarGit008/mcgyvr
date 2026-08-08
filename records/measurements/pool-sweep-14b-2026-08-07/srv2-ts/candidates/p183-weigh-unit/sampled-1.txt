@@ -1,0 +1,70 @@
+```ts
+export function weighUnit(spec: string, masses: Record<string, number>): number {
+  if (typeof spec !== "string") {
+    throw new Error("Invalid input: spec must be a string.");
+  }
+  if (spec.length === 0) {
+    throw new Error("Invalid input: spec cannot be an empty string.");
+  }
+
+  let at = 0;
+  const outer: number[] = [];
+  let sum = 0;
+
+  const readCount = (): number => {
+    if (at >= spec.length || spec[at] < "1" || spec[at] > "9") {
+      throw new Error("Invalid input: count must start with a non-zero digit.");
+    }
+    let digits = "";
+    while (at < spec.length && spec[at] >= "0" && spec[at] <= "9") {
+      digits += spec[at];
+      at += 1;
+    }
+    return Number(digits);
+  };
+
+  const readName = (): string => {
+    if (at >= spec.length || spec[at] < "A" || spec[at] > "Z") {
+      throw new Error("Invalid input: name must start with a capital letter.");
+    }
+    let name = spec[at];
+    at += 1;
+    while (at < spec.length && spec[at] >= "a" && spec[at] <= "z") {
+      if (name.length === 3) {
+        throw new Error("Invalid input: name cannot have more than two small letters.");
+      }
+      name += spec[at];
+      at += 1;
+    }
+    return name;
+  };
+
+  while (at < spec.length) {
+    const ch = spec[at];
+    if (ch === "(" || ch === "[") {
+      outer.push(sum);
+      sum = 0;
+      at += 1;
+    } else if (ch === ")" || ch === "]") {
+      if (outer.length === 0) {
+        throw new Error("Invalid input: closing bracket without matching opening bracket.");
+      }
+      at += 1;
+      const count = readCount();
+      sum = (outer.pop() ?? 0) * count + sum;
+    } else {
+      const name = readName();
+      if (!(name in masses)) {
+        throw new Error(`Invalid input: name "${name}" not found in masses table.`);
+      }
+      sum += masses[name] * readCount();
+    }
+  }
+
+  if (outer.length !== 0) {
+    throw new Error("Invalid input: opening bracket without matching closing bracket.");
+  }
+
+  return sum;
+}
+```

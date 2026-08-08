@@ -1,0 +1,75 @@
+```ts
+/**
+ * Runs a series of commands over a key-value store with transaction support.
+ * @param commands - An array of command strings to execute.
+ * @returns The final state of the key-value store as a Record<string, string>.
+ */
+export function runTransactions(commands: string[]): Record<string, string> {
+  const store: Record<string, string> = {};
+  const transactions: { [key: string]: string | undefined }[] = [];
+
+  for (const command of commands) {
+    const parts = command.split(' ');
+    if (parts.length < 2) throw new Error(`Invalid command: ${command}`);
+
+    const verb = parts[0];
+    const key = parts[1];
+
+    switch (verb) {
+      case 'set':
+        if (parts.length !== 3) throw new Error(`Invalid set command: ${command}`);
+        const value = parts[2];
+        if (transactions.length > 0) {
+          transactions[transactions.length - 1][key] = value;
+        } else {
+          store[key] = value;
+        }
+        break;
+
+      case 'unset':
+        if (parts.length !== 2) throw new Error(`Invalid unset command: ${command}`);
+        if (transactions.length > 0) {
+          transactions[transactions.length - 1][key] = undefined;
+        } else {
+          delete store[key];
+        }
+        break;
+
+      case 'begin':
+        if (parts.length !== 1) throw new Error(`Invalid begin command: ${command}`);
+        transactions.push({});
+        break;
+
+      case 'commit':
+        if (parts.length !== 1) throw new Error(`Invalid commit command: ${command}`);
+        if (transactions.length === 0) throw new Error('No transaction to commit');
+        const lastTransaction = transactions.pop();
+        if (lastTransaction) {
+          for (const [k, v] of Object.entries(lastTransaction)) {
+            if (v !== undefined) {
+              store[k] = v;
+            } else {
+              delete store[k];
+            }
+          }
+        }
+        break;
+
+      case 'rollback':
+        if (parts.length !== 1) throw new Error(`Invalid rollback command: ${command}`);
+        if (transactions.length === 0) throw new Error('No transaction to rollback');
+        transactions.pop();
+        break;
+
+      default:
+        throw new Error(`Unknown command: ${verb}`);
+    }
+  }
+
+  if (transactions.length > 0) {
+    throw new Error('Transaction still open after the last command');
+  }
+
+  return store;
+}
+```

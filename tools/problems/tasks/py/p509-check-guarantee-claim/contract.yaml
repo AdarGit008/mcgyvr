@@ -1,0 +1,38 @@
+id: p509-check-guarantee-claim
+task_type: function_implementation
+task: >-
+  Implement check_guarantee_claim. A shop backs its goods for a stated run of
+  months and then allows a further stated run of days during which a late
+  complaint is still heard, though it is minuted as late. The four arguments
+  are the day of sale, the months backed, the days allowed on top, and the day
+  the complaint was made; the two days are zero-padded YYYY-MM-DD strings, the
+  months a whole number from 1 to 240, and the days a whole number from 0 to
+  365. The backing runs out on the same day number of the month that many
+  months on from the sale, except that when the later month has no such day
+  number the backing runs out on its final day instead — so goods sold on the
+  29th of February under twelve months run out on the 28th of the following
+  February. The days allowed on top are then counted forward one at a time
+  from that day to fix the very last day a complaint is heard at all. Judge
+  the complaint: "early" when it was made before the goods were sold, "inside"
+  when it falls on or before the day the backing ran out, "grace" when it
+  falls after that but on or before the very last day, and "lapsed" when it
+  falls after the very last day. Return a mapping with "plain" (the day the
+  backing ran out), "last" (the very last day a complaint is heard), both
+  written YYYY-MM-DD, "verdict" (one of the four words) and "over" (how many
+  days past the very last day the complaint was made, and nought unless the
+  verdict is "lapsed"). Work the whole calendar out with whole-number
+  arithmetic on the digits and call on no built-in date machinery at all,
+  remembering that a year divisible by four gives February 29 days while a
+  year ending a century needs to be divisible by 400 as well. Raise an error
+  when either day is not a well-formed YYYY-MM-DD string, does not name a real
+  month and a day existing in it, or falls outside the years 1900 through
+  2999, and when the months or the days on top are not whole numbers inside
+  the ranges stated.
+target: solution.py
+interface: "def check_guarantee_claim(sold: str, months: int, grace: int, claim: str) -> dict"
+stop_conditions:
+  - Whether the complaint day may fall in a later century than the sale is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

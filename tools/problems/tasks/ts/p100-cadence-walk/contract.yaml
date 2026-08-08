@@ -1,0 +1,21 @@
+id: p100-cadence-walk
+task_type: function_implementation
+task: >-
+  Implement labelCadenceWalk. The graph is a list of directed edges, each a
+  [from, to, label] triple of non-empty strings, and a walk must follow the
+  cadence: its first edge carries the first cadence label, its second the
+  next, and after the cadence's last label it starts over from the front.
+  Nodes and edges may be used any number of times. Return the smallest
+  number of edges in a walk from start to goal that follows the cadence —
+  equal start and goal answer 0, and -1 means no such walk exists. Reject
+  with an error an empty cadence list, a cadence entry that is not a
+  non-empty string, an edge that is not a triple of non-empty strings, and
+  a start or goal appearing in no edge.
+target: solution.ts
+interface: "export function labelCadenceWalk(edges: string[][], cadence: string[], start: string, goal: string): number"
+stop_conditions:
+  - Whether identical edges may repeat in the list is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

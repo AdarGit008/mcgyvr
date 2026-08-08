@@ -1,0 +1,24 @@
+id: p038-merge-three-way
+task_type: function_implementation
+task: >-
+  Implement mergeThreeWay. It reconciles two edited copies of a flat
+  string-to-string mapping against their common ancestor. Per key, a side
+  that left the ancestor's entry untouched exerts no pressure; a change
+  made on exactly one side — adding the key, altering its value, or
+  removing it — carries into the merge, and both sides making the
+  identical change is also clean. When the sides disagree — different new
+  values for the same key, the key added with different values on each
+  side, or removed on one side while altered on the other — that key is a
+  conflict: it appears under "conflicts" in ascending key order, and the
+  merged mapping keeps the ancestor's entry for it (a key the ancestor
+  lacked stays absent). Return a mapping with keys "merged" and
+  "conflicts". Reject an argument that is not a mapping of strings to
+  strings with an error.
+target: solution.ts
+interface: "export function mergeThreeWay(base: Record<string, string>, ours: Record<string, string>, theirs: Record<string, string>): { merged: Record<string, string>; conflicts: string[] }"
+stop_conditions:
+  - Whether key order inside the merged mapping matters is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

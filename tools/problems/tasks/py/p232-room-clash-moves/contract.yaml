@@ -1,0 +1,27 @@
+id: p232-room-clash-moves
+task_type: function_implementation
+task: >-
+  Implement plan_room_moves. One room's diary is a list of booking records,
+  each carrying id (a non-empty string, no two alike), start and end
+  (integers marking the half-open span the booking occupies, start strictly
+  below end) and fixed (a boolean). The room seats one booking at a time,
+  and because the spans are half-open a booking ending at t and one starting
+  at t sit together happily. A fixed booking is nailed down and can never
+  leave; any other booking may be moved out to some other room. Move as few
+  bookings as possible so that what stays behind never doubles up. Two fixed
+  bookings that overlap each other are beyond repair and raise an error.
+  Otherwise every movable booking overlapping a fixed one is moved, and the
+  rest are settled greedily: walk them by end, earliest end first, a tie
+  broken by start and then by id, and keep each whose start is at or after
+  the end of the booking kept before it. Whatever is not kept is moved.
+  Return the ids of every moved booking, ordered by start and then by id.
+  Raise an error too for a missing or wrongly typed field, a start not
+  strictly below its end, and a repeated id.
+target: solution.py
+interface: "def plan_room_moves(bookings: list) -> list"
+stop_conditions:
+  - Whether the room another booking is moved to is itself free is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

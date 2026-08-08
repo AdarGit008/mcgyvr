@@ -1,0 +1,68 @@
+```ts
+/**
+ * Divides two integers and returns the quotient as a decimal string rounded to a specified number of places.
+ * @param numerator - The integer numerator.
+ * @param denominator - The integer denominator.
+ * @param places - The number of decimal places to round to.
+ * @returns The quotient as a decimal string rounded to the specified number of places.
+ */
+export function divideFixed(numerator: number, denominator: number, places: number): string {
+  if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(places)) {
+    throw new Error("All arguments must be integers.");
+  }
+  if (denominator === 0) {
+    throw new Error("Denominator cannot be zero.");
+  }
+  if (places < 0 || places > 6) {
+    throw new Error("Places must be between 0 and 6.");
+  }
+  if (Math.abs(numerator) > 1_000_000 || Math.abs(denominator) > 1_000_000) {
+    throw new Error("Numerator and denominator magnitudes must be at or below one million.");
+  }
+
+  const isNegative = (numerator < 0) !== (denominator < 0);
+  numerator = Math.abs(numerator);
+  denominator = Math.abs(denominator);
+
+  let quotient = "";
+  let remainder = numerator;
+
+  for (let i = 0; i <= places; i++) {
+    if (i === places || remainder === 0) {
+      break;
+    }
+    const digit = Math.floor((remainder * 10) / denominator);
+    quotient += digit.toString();
+    remainder = (remainder * 10) % denominator;
+  }
+
+  if (places > 0) {
+    quotient = quotient.padEnd(places, "0");
+  }
+
+  if (quotient.length === places && quotient[places - 1] !== "5") {
+    return isNegative ? "-" + quotient : quotient;
+  }
+
+  // Handle rounding
+  let lastDigitIndex = quotient.length - 1;
+  while (lastDigitIndex >= 0 && quotient[lastDigitIndex] === "9") {
+    lastDigitIndex--;
+  }
+
+  if (lastDigitIndex < 0) {
+    return isNegative ? "-1" : "1" + "0".repeat(places);
+  }
+
+  let roundedQuotient = quotient.slice(0, lastDigitIndex);
+  const lastDigit = parseInt(quotient[lastDigitIndex], 10);
+
+  if (lastDigit % 2 === 0) {
+    roundedQuotient += (lastDigit + 1).toString();
+  } else {
+    roundedQuotient += (lastDigit - 1).toString();
+  }
+
+  return isNegative ? "-" + roundedQuotient : roundedQuotient;
+}
+```

@@ -1,0 +1,35 @@
+```ts
+/**
+ * Divides coefficients of two polynomials represented by arrays of whole-number coefficients.
+ * @param dividend The coefficients of the dividend polynomial in ascending order.
+ * @param divisor The coefficients of the divisor polynomial in ascending order.
+ * @returns A two-row array: the quotient and the remainder, both in ascending order.
+ */
+export function divideCoefficients(
+  dividend: number[],
+  divisor: number[],
+): number[][] {
+  if (divisor.length === 0) throw new Error("Divisor cannot be empty.");
+  if (dividend.some(c => c % 1 !== 0) || divisor.some(c => c % 1 !== 0)) throw new Error("All coefficients must be whole numbers.");
+  if (dividend[dividend.length - 1] === 0 || divisor[divisor.length - 1] === 0) throw new Error("No coefficient can end in zero.");
+
+  const rest = [...dividend];
+  const quotient: number[] = [];
+
+  while (rest.length >= divisor.length) {
+    if (rest[rest.length - 1] % divisor[divisor.length - 1] !== 0) throw new Error("Leading coefficient of dividend must be an exact multiple of the leading coefficient of divisor.");
+    const factor = rest[rest.length - 1] / divisor[divisor.length - 1];
+    quotient.push(factor);
+
+    for (let i = 0; i < divisor.length; i++) {
+      rest[rest.length - divisor.length + i] -= factor * divisor[i];
+    }
+
+    while (rest.length > 0 && rest[0] === 0) {
+      rest.shift();
+    }
+  }
+
+  return [quotient, rest];
+}
+```

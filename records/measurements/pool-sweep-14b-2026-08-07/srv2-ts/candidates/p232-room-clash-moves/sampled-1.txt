@@ -1,0 +1,54 @@
+```ts
+export function planRoomMoves(bookings: any[]): string[] {
+    if (!Array.isArray(bookings)) {
+        throw new Error("Invalid input: bookings must be an array");
+    }
+
+    const validateBooking = (booking: any) => {
+        if (
+            typeof booking.id !== "string" || 
+            typeof booking.start !== "number" || 
+            typeof booking.end !== "number" || 
+            typeof booking.fixed !== "boolean" ||
+            booking.id.trim() === "" ||
+            !Number.isInteger(booking.start) || 
+            !Number.isInteger(booking.end) || 
+            booking.start >= booking.end
+        ) {
+            throw new Error("Invalid booking record");
+        }
+    };
+
+    bookings.forEach(validateBooking);
+
+    const idSet = new Set<string>();
+    bookings.forEach(booking => {
+        if (idSet.has(booking.id)) {
+            throw new Error("Duplicate booking id");
+        }
+        idSet.add(booking.id);
+    });
+
+    const fixedBookings = bookings.filter((b: any) => b.fixed).sort((a, b) => a.start - b.start || a.end - b.end || a.id.localeCompare(b.id));
+    for (let i = 0; i < fixedBookings.length - 1; i++) {
+        if (fixedBookings[i].end > fixedBookings[i + 1].start) {
+            throw new Error("Overlapping fixed bookings");
+        }
+    }
+
+    const movableBookings = bookings.filter((b: any) => !b.fixed).sort((a, b) => a.end - b.end || a.start - b.start || a.id.localeCompare(b.id));
+
+    let lastEnd = 0;
+    const movedBookings: string[] = [];
+
+    for (const booking of movableBookings) {
+        if (booking.start < lastEnd) {
+            movedBookings.push(booking.id);
+        } else {
+            lastEnd = booking.end;
+        }
+    }
+
+    return movedBookings;
+}
+```

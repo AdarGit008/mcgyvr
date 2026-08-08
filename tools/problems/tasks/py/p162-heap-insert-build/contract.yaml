@@ -1,0 +1,20 @@
+id: p162-heap-insert-build
+task_type: function_implementation
+task: >-
+  Implement build_min_heap_by_insertion. A min-heap lives in a plain array: the
+  children of slot i sit at 2i+1 and 2i+2, and the parent of slot i sits at
+  floor((i-1)/2). Build one by taking the supplied whole numbers in the
+  order given — append each newcomer to the end of the array, then, while
+  the newcomer sits under a parent holding a strictly larger number, trade
+  the two slots. A parent holding an equal number never trades. Return the
+  finished array. An empty supply yields an empty array. Reject an argument
+  that is not a list, and a supply carrying anything that is not a whole
+  number, with an error.
+target: solution.py
+interface: "def build_min_heap_by_insertion(values: list[int]) -> list[int]"
+stop_conditions:
+  - Whether the supplied list may be reused as the returned array is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

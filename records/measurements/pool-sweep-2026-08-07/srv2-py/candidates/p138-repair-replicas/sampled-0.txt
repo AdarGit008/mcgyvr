@@ -1,0 +1,26 @@
+```python
+def repair_replicas(replicas: list) -> list:
+    if not replicas:
+        raise ValueError("Replica list cannot be empty")
+
+    if len(set(len(r) for r in replicas)) > 1:
+        raise ValueError("All replica arrays must have the same length")
+
+    n = len(replicas)
+    m = len(replicas[0])
+    result = []
+
+    for i in range(m):
+        votes = {}
+        for j in range(n):
+            value = replicas[j][i]
+            if value is not None:
+                votes[value] = votes.get(value, 0) + 1
+                if votes[value] > n // 2:
+                    result.append(value)
+                    break
+        else:
+            raise ValueError("No strict majority found at position {}".format(i))
+
+    return result
+```

@@ -1,0 +1,84 @@
+```ts
+/**
+ * Intersects build spans and returns the canonical representation.
+ * @param spans - A non-empty list of span strings.
+ * @returns The canonical intersection of all spans.
+ */
+export function intersectBuildSpans(spans: string[]): string {
+  if (spans.length === 0) {
+    throw new Error("Empty list of spans");
+  }
+
+  const parseSpan = (span: string): { lo?: number, hi?: number, strikes: Set<number> } => {
+    const [range, strikePart] = span.split('!');
+    const strikes = new Set<number>();
+    let lo: number | undefined;
+    let hi: number | undefined;
+
+    if (range === "..") {
+      lo = -Infinity;
+      hi = Infinity;
+    } else if (range.startsWith("..")) {
+      if (!/^\.\.\d+$/.test(range)) throw new Error("Malformed span");
+      const upper = range.slice(2);
+      if (upper.startsWith("0")) throw new Error("Leading zero in build number");
+      hi = parseInt(upper, 10);
+    } else if (range.endsWith("..")) {
+      if (!/^\d+\.\.$/.test(range)) throw new Error("Malformed span");
+      const lower = range.slice(0, -2);
+      if (lower.startsWith("0")) throw new Error("Leading zero in build number");
+      lo = parseInt(lower, 10);
+    } else {
+      if (!/^\d+\.\.\d+$/.test(range)) throw new Error("Malformed span");
+      const [lower, upper] = range.split('..');
+      if (lower.startsWith("0") || upper.startsWith("0")) throw new Error("Leading zero in build number");
+      lo = parseInt(lower, 10);
+      hi = parseInt(upper, 10);
+      if (lo > hi) throw new Error("Reversed limits");
+    }
+
+    if (strikePart) {
+      for (const strike of strikePart.split('!')) {
+        if (!/^\d+$/.test(strike)) throw new Error("Malformed strike");
+        const num = parseInt(strike, 10);
+        if (num < (lo ?? -Infinity) || num > (hi ?? Infinity)) throw new Error("Strike outside its own span");
+        strikes.add(num);
+      }
+    }
+
+    return { lo, hi, strikes };
+  };
+
+  let [{ lo: commonLo = -Infinity, hi: commonHi = Infinity, strikes: commonStrikes } = {}] = spans.map(parseSpan);
+
+  for (let i = 1; i < spans.length; i++) {
+    const { lo, hi, strikes } = parseSpan(spans[i]);
+
+    if (lo !== undefined) {
+      commonLo = Math.max(commonLo, lo);
+    }
+    if (hi !== undefined) {
+      commonHi = Math.min(commonHi, hi);
+    }
+
+    if (commonLo > commonHi) {
+      return "empty";
+    }
+
+    for (const strike of strikes) {
+      if ((commonLo <= strike && strike <= commonHi) || (strike < commonLo && commonStrikes.has(strike + 1))) {
+        commonStrikes.delete(strike);
+      } else {
+        commonStrikes.add(strike);
+      }
+    }
+  }
+
+  const lowerLimit = commonStrikes.has(commonLo) ? commonLo + 1 : commonLo;
+  const upperLimit = commonStrikes.has(commonHi) ? commonHi - 1 : commonHi;
+
+  if (lowerLimit > upperLimit) {
+    return "empty";
+  }
+
+  const strikesArray = Array.from(commonStrikes).filter(strike =>

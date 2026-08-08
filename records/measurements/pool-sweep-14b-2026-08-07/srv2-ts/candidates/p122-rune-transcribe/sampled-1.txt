@@ -1,0 +1,32 @@
+```ts
+/**
+ * Transcribes a source string based on a table of rules.
+ * Each rule is a [pattern, output] pair. The transcription is built in one pass,
+ * applying the first matching rule from top to bottom of the table.
+ * If no rule matches, the current character is copied to the result.
+ * Throws an error if any rule has an empty pattern.
+ *
+ * @param source - The source string to transcribe.
+ * @param table - An array of [pattern, output] pairs representing the rules.
+ * @returns The transcribed string.
+ */
+export function transcribeRunes(source: string, table: Array<[string, string]>): string {
+  if (table.some(([pattern]) => pattern === '')) {
+    throw new Error('Rule with empty pattern is not allowed.');
+  }
+
+  let result = '';
+  let position = 0;
+
+  while (position < source.length) {
+    const [matched, output] = table.find(([pattern]) =>
+      source.startsWith(pattern, position)
+    ) || [source[position], source[position]];
+
+    result += output;
+    position += matched.length;
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,27 @@
+```ts
+export function firstDeadlineMiss(jobs: Array<Record<string, unknown>>): string {
+    const validWork = (work: any) => Number.isInteger(work) && work > 0;
+    const validDue = (due: any) => Number.isInteger(due) && due > 0;
+    const validName = (name: any) => typeof name === 'string' && name.length > 0;
+
+    for (const job of jobs) {
+        if (!validWork(job.work)) throw new Error('Invalid work value');
+        if (!validDue(job.due)) throw new Error('Invalid due value');
+        if (!validName(job.name)) throw new Error('Invalid name value');
+    }
+
+    const uniqueNames = new Set<string>();
+    for (const job of jobs) {
+        if (uniqueNames.has(job.name)) throw new Error('Duplicate job name');
+        uniqueNames.add(job.name);
+    }
+
+    jobs.sort((a, b) => a.due - b.due || jobs.indexOf(a) - jobs.indexOf(b));
+
+    for (let i = 0; i < jobs.length; ++i) {
+        if (jobs[i].work + i > jobs[i].due) return jobs[i].name;
+    }
+
+    return '';
+}
+```

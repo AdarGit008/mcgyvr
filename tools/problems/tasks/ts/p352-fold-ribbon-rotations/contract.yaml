@@ -1,0 +1,26 @@
+id: p352-fold-ribbon-rotations
+task_type: function_implementation
+task: >-
+  Implement foldRibbonRotations. A ribbon is a non-empty string of lowercase
+  letters and spaces. Glue the marker | onto the ribbon's right-hand end,
+  then write out every turn of the glued ribbon: turn k starts at place k
+  and wraps round through the front, so a glued ribbon of length m has m
+  turns. Put those turns in order by comparing them symbol against symbol
+  under this ranking — the marker ranks ahead of the space, the space ahead
+  of every letter, and the letters rank a through z. Because the marker is
+  carried once, no two turns can tie. Return a record under two keys: line,
+  the closing symbol of each turn taken down the ordered list and joined
+  into one string, and home, the seat the glued ribbon itself occupies in
+  that order, counted from zero. The ribbon "banana" yields line "annb|aa"
+  with home 4, and the ribbon "a" yields line "a|" with home 1. Throw an
+  error for a ribbon that is not a string, for an empty ribbon, for a
+  ribbon already carrying the marker, and for a ribbon holding any symbol
+  besides lowercase letters and spaces.
+target: solution.ts
+interface: "export function foldRibbonRotations(ribbon: string): { line: string; home: number }"
+stop_conditions:
+  - Whether an uppercase letter should be folded down to lowercase rather than thrown out is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

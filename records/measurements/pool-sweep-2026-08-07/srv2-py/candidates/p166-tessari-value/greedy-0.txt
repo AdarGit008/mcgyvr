@@ -1,0 +1,21 @@
+```python
+def tessari_value(text: str) -> int:
+    if not text or not isinstance(text, str):
+        raise ValueError("Invalid input")
+    
+    glyph_to_value = {
+        'K': 0, 'L': 1, 'M': 2, 'N': 3, 'P': 4,
+        'Q': 5, 'R': 6, 'S': 7, 'T': 8
+    }
+    
+    if text[0] == 'K' and len(text) > 1:
+        raise ValueError("Leading K is not allowed")
+    
+    value = 0
+    for glyph in text:
+        if glyph not in glyph_to_value:
+            raise ValueError(f"Invalid glyph: {glyph}")
+        value = value * 9 + glyph_to_value[glyph]
+    
+    return value
+```

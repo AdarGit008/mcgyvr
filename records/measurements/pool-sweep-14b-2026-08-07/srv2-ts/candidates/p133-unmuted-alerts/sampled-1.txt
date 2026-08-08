@@ -1,0 +1,44 @@
+```ts
+export function unmutedAlerts(alerts: Array<{ id: string; resource: string; severity: number }>): string[] {
+  // Validate input
+  const seenIds = new Set<string>();
+  for (const alert of alerts) {
+    if (seenIds.has(alert.id)) {
+      throw Error(`Duplicate alert id: ${alert.id}`);
+    }
+    if (!Number.isInteger(alert.severity) || alert.severity <= 0) {
+      throw Error(`Invalid severity for alert id: ${alert.id}. Severity must be a positive integer.`);
+    }
+    seenIds.add(alert.id);
+  }
+
+  // Group alerts by resource
+  const groupedAlerts = new Map<string, { id: string; severity: number }[]>();
+  for (const alert of alerts) {
+    if (!groupedAlerts.has(alert.resource)) {
+      groupedAlerts.set(alert.resource, []);
+    }
+    groupedAlerts.get(alert.resource)!.push({ id: alert.id, severity: alert.severity });
+  }
+
+  // Determine unmuted alerts within each group
+  const unmutedIds: string[] = [];
+  for (const [resource, resourceAlerts] of groupedAlerts.entries()) {
+    const topSeverity = Math.max(...resourceAlerts.map((alert) => alert.severity));
+    const unmutedInResource = resourceAlerts
+      .filter((alert) => alert.severity === topSeverity)
+      .map((alert) => alert.id);
+    unmutedIds.push(...unmutedInResource);
+  }
+
+  // Sort unmuted alerts by severity descending, breaking ties by id ascending
+  return unmutedIds.sort((a, b) => {
+    const alertA = alerts.find(({ id }) => id === a)!;
+    const alertB = alerts.find(({ id }) => id === b)!;
+    if (alertA.severity !== alertB.severity) {
+      return alertB.severity - alertA.severity;
+    }
+    return a.localeCompare(b);
+  });
+}
+```

@@ -1,0 +1,24 @@
+```python
+def decode_varints(data: list) -> list[int]:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    
+    numbers = []
+    i = 0
+    while i < len(data):
+        number = 0
+        shift = 0
+        while True:
+            byte = data[i]
+            if byte < 0 or byte > 255:
+                raise ValueError("Byte values must be integers between 0 and 255")
+            i += 1
+            number |= (byte & 0x7F) << shift
+            shift += 7
+            if not (byte & 0x80):
+                break
+        if byte == 0:
+            raise ValueError("Overlong varint encoding detected")
+        numbers.append(number)
+    return numbers
+```

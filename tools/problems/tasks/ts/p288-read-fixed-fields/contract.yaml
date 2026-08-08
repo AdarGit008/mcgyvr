@@ -1,0 +1,27 @@
+id: p288-read-fixed-fields
+task_type: function_implementation
+task: >-
+  Implement readFixedFields, which lifts named values out of records typed on a
+  fixed grid. layout describes the grid: each entry gives a name, the start
+  column the value begins in counting the leftmost column as 1, and the width
+  in columns the value occupies, so a value covers the columns start through
+  start plus width minus one. lines holds the typed records, one per line.
+  Values are shorter than their column run and are packed out to the right with
+  spaces, so strip the spaces off the right-hand end of every value but keep
+  any that lead it, and treat a run of nothing but spaces as the empty value. A
+  line that stops before a value's columns end supplies spaces for the columns
+  it never reached. Return one record per line, in line order, each holding
+  every name of the layout against the value read for it. Throw an error when
+  layout is empty, repeats a name, or holds a name that is not a non-empty
+  string; when a start or a width is not an integer of at least 1; when two
+  entries of the layout lay claim to the same column; when lines is not a list
+  of strings; and when a line holds a tab character, which no column grid can
+  measure.
+target: solution.ts
+interface: "export function readFixedFields(lines: string[], layout: { name: string; start: number; width: number }[]): Record<string, string>[]"
+stop_conditions:
+  - Whether the layout must cover every column of a line without gaps is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

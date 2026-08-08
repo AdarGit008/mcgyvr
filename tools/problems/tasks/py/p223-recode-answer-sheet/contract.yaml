@@ -1,0 +1,60 @@
+id: p223-recode-answer-sheet
+task_type: bug_fix
+task: >-
+  recode_answer_sheet codes a sheet wrongly. Repair it. A sheet is a mapping
+  with "steps" (a non-empty ordered list) and "entries" (a list). A step is a
+  mapping with "label" (a non-empty string no other step shares), "wanted" (a
+  non-empty list of fragments, a fragment being a non-empty string carrying no
+  capital letter, none repeated within the list), "barred" (a list, possibly
+  empty, of fragments under the same conditions) and "least" (a whole number
+  from one up to however many fragments "wanted" holds). An entry is a mapping
+  with "id" (a non-empty string no other entry shares) and "text" (a string).
+  Fold an entry's text by lowering its case, squeezing every run of whitespace
+  down to a single space, and dropping any space left at either end. A step
+  takes an entry when at least "least" of its wanted fragments appear
+  somewhere in the folded text and not one of its barred fragments does. Walk
+  the steps in the order given and let the first that takes the entry label it.
+  Return a mapping with "coded", one mapping carrying "id" and "label" per
+  labelled entry in the order the entries arrived, "loose", the ids of the
+  entries no step took in that same order, and "unused", the labels of the
+  steps that took nothing, in step order. Raise an error when the sheet is not
+  a mapping, when the steps are not a non-empty list or the entries are not a
+  list, when a step or an entry is not a mapping, when a label or an id is
+  missing, empty or shared, when "wanted" is empty or "barred" is not a list,
+  when either holds something that is not a non-empty string, carries a capital
+  letter, or repeats within its own list, when "least" is not a whole number in
+  range, and when an entry's text is not a string. Return the complete fixed
+  file.
+target: solution.py
+target_content: |
+  """Codes a sheet of written-in answers against its ordered steps."""
+
+
+  def recode_answer_sheet(sheet: dict) -> dict:
+      steps = sheet["steps"]
+      entries = sheet["entries"]
+      coded = []
+      loose = []
+      used = set()
+      for entry in entries:
+          text = entry["text"].lower()
+          label = ""
+          for step in steps:
+              hits = [frag for frag in step["wanted"] if frag in text]
+              if hits:
+                  label = step["label"]
+                  break
+          if label == "":
+              loose.append(entry["id"])
+          else:
+              coded.append({"id": entry["id"], "label": label})
+              used.add(label)
+      unused = [step["label"] for step in steps if step["label"] not in used]
+      return {"coded": coded, "loose": loose, "unused": unused}
+interface: "def recode_answer_sheet(sheet: dict) -> dict"
+stop_conditions:
+  - Whether a barred fragment may also stand among the same step's wanted fragments is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

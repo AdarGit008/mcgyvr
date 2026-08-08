@@ -1,0 +1,51 @@
+```python
+from typing import List
+
+def smallest_arrangement(counts: List[int]) -> str:
+    if len(counts) != 4:
+        raise ValueError("Input must be a list of four counts.")
+    if not all(isinstance(x, int) and 0 <= x <= 12 for x in counts):
+        raise ValueError("Each count must be an integer between 0 and 12.")
+    if sum(counts) == 0:
+        raise ValueError("At least one count must be positive.")
+    
+    letters = 'abcd'
+    letter_counts = {letter: count for letter, count in zip(letters, counts)}
+    
+    def is_valid(arrangement):
+        for i in range(len(arrangement) - 2):
+            if arrangement[i] == arrangement[i+1] == arrangement[i+2]:
+                return False
+        return True
+    
+    from heapq import heappop, heappush
+    heap = []
+    for letter, count in letter_counts.items():
+        if count > 0:
+            heappush(heap, (-count, letter))
+    
+    result = []
+    while len(result) < sum(counts):
+        count, letter = heappop(heap)
+        count = -count
+        if len(result) >= 2 and result[-1] == result[-2] == letter:
+            if not heap:
+                raise ValueError("No valid arrangement possible.")
+            next_count, next_letter = heappop(heap)
+            next_count = -next_count
+            result.append(next_letter)
+            if next_count > 0:
+                heappush(heap, (-next_count, next_letter))
+            heappush(heap, (count, letter))
+        else:
+            result.append(letter)
+            count -= 1
+            if count > 0:
+                heappush(heap, (-count, letter))
+    
+    arrangement = ''.join(result)
+    if not is_valid(arrangement):
+        raise ValueError("No valid arrangement possible.")
+    
+    return arrangement
+```

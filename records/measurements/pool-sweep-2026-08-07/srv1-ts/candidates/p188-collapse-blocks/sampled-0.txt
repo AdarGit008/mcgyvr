@@ -1,0 +1,62 @@
+```ts
+/**
+ * Collapses a list of berths into the shortest list of slabs.
+ *
+ * @param {string[]} berths - The list of berths to collapse.
+ * @returns {string[]} - The collapsed list of slabs.
+ */
+export function collapseBlocks(berths: string[]): string[] {
+  if (!Array.isArray(berths)) {
+    throw new Error('Input must be a list');
+  }
+
+  const validateBerth = ( berth: string ) => {
+    const parts = berth.split('.');
+    if (parts.length !== 4) {
+      throw new Error('Each berth must have exactly four fields');
+    }
+    for (const part of parts) {
+      if (part.length !== 1 || isNaN(Number(part)) || Number(part) < 0 || Number(part) > 7) {
+        throw new Error('Each field must be a single character between 0 and 7');
+      }
+    }
+  };
+
+  berths.forEach(validateBerth);
+
+  const sortByFirstField = (a: string, b: string) => {
+    const firstPartA = parseInt(a.split('.')[0], 10);
+    const firstPartB = parseInt(b.split('.')[0], 10);
+    return firstPartA - firstPartB;
+  };
+
+  berths.sort(sortByFirstField);
+
+  const slabs: string[] = [];
+  let currentSlab: string | null = null;
+
+  for (const berth of berths) {
+    if (!currentSlab) {
+      currentSlab = `${berth}/4`;
+      slabs.push(currentSlab);
+      continue;
+    }
+
+    const [currentPrefix, currentPin] = currentSlab.split('/');
+    const [berthPrefix, berthPin] = `${berth}/0`.split('/');
+
+    if (currentPrefix === berthPrefix) {
+      const newPin = Math.min(parseInt(currentPin, 10), parseInt(berthPin, 10));
+      const newSlab = `${currentPrefix}/${newPin}`;
+      slabs.pop();
+      slabs.push(newSlab);
+      currentSlab = newSlab;
+    } else {
+      slabs.push(berth);
+      currentSlab = berth;
+    }
+  }
+
+  return slabs;
+}
+```

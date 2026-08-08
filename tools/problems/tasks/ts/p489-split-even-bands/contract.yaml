@@ -1,0 +1,27 @@
+id: p489-split-even-bands
+task_type: function_implementation
+task: >-
+  Implement splitEvenBands. A league splits its members into bands of roughly
+  equal size by standing, and no member is ever left straddling a boundary. Each
+  entry is a record with who (a non-empty string, no two entries answering to
+  the same one) and mark (a whole number of nought or more). Order the entries
+  by mark, heaviest first, settling a tie of marks in favour of the entry whose
+  who sorts earlier. Walking that order with the seats counted from nought, the
+  entry sitting in seat i provisionally takes the band numbered i times the band
+  count divided by the entry count, rounded down, and then one added. Afterwards
+  apply the one binding rule: entries carrying the very same mark all take the
+  lowest band number any of them was provisionally handed, so a tie is never cut
+  in two. A band may end up holding nobody at all and that is quite in order.
+  Give back one record per entry in the order the entries arrived, each with who
+  and band. Raise an error when entries is not a list or holds nothing, when an
+  entry is not a record, when who is not a non-empty string, when two entries
+  answer to one who, when mark is not a whole number of nought or more, and when
+  bands is not a whole number from one up to the count of entries.
+target: solution.ts
+interface: "export function splitEvenBands(entries: any[], bands: number): any[]"
+stop_conditions:
+  - Whether the caller's list may be reordered where it lies is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

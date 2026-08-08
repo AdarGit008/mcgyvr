@@ -1,0 +1,22 @@
+```python
+def grid_determinant(grid: list[list[int]]) -> int:
+    if not isinstance(grid, list) or not all(isinstance(row, list) for row in grid):
+        raise ValueError("Input must be a list of lists.")
+    if len(grid) == 0 or any(len(row) != len(grid) for row in grid):
+        raise ValueError("Grid must have the same number of rows and columns.")
+    if len(grid) > 3:
+        raise ValueError("Grid can have at most three rows.")
+    if not all(isinstance(cell, int) for row in grid for cell in row):
+        raise ValueError("All cells must be whole numbers.")
+
+    if len(grid) == 1:
+        return grid[0][0]
+    elif len(grid) == 2:
+        return grid[0][0] * grid[1][1] - grid[0][1] * grid[1][0]
+    else:
+        det = 0
+        for i in range(len(grid)):
+            subgrid = [row[:i] + row[i+1:] for row in grid[1:]]
+            det += ((-1) ** i) * grid[0][i] * grid_determinant(subgrid)
+        return det
+```

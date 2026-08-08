@@ -1,0 +1,94 @@
+```ts
+export function lockCycleVictim(holds: string[][], blocked: string[][]): { victim: string; cycle: string[] } {
+  if (!Array.isArray(holds) || !Array.isArray(blocked)) {
+    throw new Error("Invalid input: holds and blocked must be arrays");
+  }
+
+  const resourceOwners = new Map<string, string>();
+  const workerRequests = new Map<string, Set<string>>();
+
+  // Validate holds and populate maps
+  for (const hold of holds) {
+    if (!Array.isArray(hold) || hold.length !== 2) {
+      throw new Error("Invalid input: each hold must be a two-element array");
+    }
+    const [resource, worker] = hold;
+    if (typeof resource !== "string" || typeof worker !== "string") {
+      throw new Error("Invalid input: resource and worker names must be strings");
+    }
+    if (resourceOwners.has(resource)) {
+      throw new Error("Invalid input: a resource cannot be held by more than one worker");
+    }
+    resourceOwners.set(resource, worker);
+  }
+
+  // Validate blocked and populate maps
+  for (const block of blocked) {
+    if (!Array.isArray(block) || block.length !== 2) {
+      throw new Error("Invalid input: each blocked request must be a two-element array");
+    }
+    const [worker, resource] = block;
+    if (typeof worker !== "string" || typeof resource !== "string") {
+      throw new Error("Invalid input: worker and resource names must be strings");
+    }
+    if (!resourceOwners.has(resource)) {
+      continue; // Request for a resource nobody holds, no arrow
+    }
+    if (workerRequests.has(worker) && workerRequests.get(worker)!.has(resource)) {
+      throw new Error("Invalid input: a worker cannot block on the same resource more than once");
+    }
+    if (!workerRequests.has(worker)) {
+      workerRequests.set(worker, new Set());
+    }
+    workerRequests.get(worker)!.add(resource);
+  }
+
+  // Detect cycles
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+
+  function detectCycle(worker: string): string[] | null {
+    if (visiting.has(worker)) {
+      return [worker]; // Cycle detected
+    }
+    if (visited.has(worker) || !workerRequests.has(worker)) {
+      return null; // No cycle here
+    }
+
+    visiting.add(worker);
+    visited.add(worker);
+
+    let cycle: string[] | null = null;
+    for (const resource of workerRequests.get(worker)!) {
+      const owner = resourceOwners.get(resource)!;
+      const result = detectCycle(owner);
+      if (result) {
+        if (!cycle || result.includes(worker)) {
+          cycle = [...result, worker];
+        }
+      }
+    }
+
+    visiting.delete(worker);
+    return cycle;
+  }
+
+  let victim: string | null = null;
+  let victimCycle: string[] = [];
+
+  for (const [resource, owner] of resourceOwners.entries()) {
+    if (!workerRequests.has(owner)) {
+      continue; // Owner is not blocked, skip
+    }
+    const cycle = detectCycle(owner);
+    if (cycle) {
+      if (!victim || cycle.length < victimCycle.length || (cycle.length === victimCycle.length && cycle[0] < victimCycle[0])) {
+        victim = owner;
+        victimCycle = cycle;
+      }
+    }
+  }
+
+  return { victim: victim ? victim : "", cycle: victimCycle };
+}
+```

@@ -1,0 +1,21 @@
+```python
+def resolve_profile(profiles: dict, wanted: str) -> dict:
+    if wanted not in profiles:
+        raise ValueError(f"Profile '{wanted}' not found.")
+
+    visited = set()
+
+    def follow_chain(name):
+        if name in visited:
+            raise ValueError(f"Circular inheritance detected for profile '{name}'.")
+        visited.add(name)
+        if 'extends' not in profiles[name]:
+            return profiles[name]
+        parent_profile = profiles[name]['extends']
+        if parent_profile not in profiles:
+            raise ValueError(f"Parent profile '{parent_profile}' of '{name}' not found.")
+        parent_settings = follow_chain(parent_profile)
+        return {**parent_settings, **profiles[name]}
+
+    return follow_chain(wanted)
+```

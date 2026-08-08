@@ -1,0 +1,91 @@
+```ts
+export function expandGlossary(script: string[]): string {
+  if (!Array.isArray(script)) {
+    throw new Error("Script must be a list");
+  }
+
+  const slots: Record<string, string> = {};
+  const sent: string[] = [];
+  let openBraces = 0;
+
+  for (const line of script) {
+    if (typeof line !== "string") {
+      throw new Error("Each line must be a string");
+    }
+
+    if (line.startsWith("!")) {
+      const slotNumber = line.slice(1);
+      validateSlotNumber(slotNumber, true);
+      sent.push(slots[slotNumber] ?? "");
+    } else {
+      const cut = line.indexOf("=");
+      if (cut === -1) {
+        throw new Error("Invalid line format");
+      }
+      const slotNumber = line.slice(0, cut);
+      const body = line.slice(cut + 1);
+
+      validateSlotNumber(slotNumber, false);
+
+      if (slots[slotNumber] !== undefined) {
+        throw new Error(`Slot ${slotNumber} stored a second time`);
+      }
+
+      slots[slotNumber] = expandBody(body, slots);
+    }
+  }
+
+  return sent.join("");
+}
+
+function validateSlotNumber(slotNumber: string, isSendLine: boolean): void {
+  if (!/^\d+$/.test(slotNumber) || slotNumber.startsWith("0")) {
+    throw new Error(`Invalid slot number: ${slotNumber}`);
+  }
+  const num = parseInt(slotNumber, 10);
+  if (isSendLine && slots[`${num}`] === undefined) {
+    throw new Error(`Slot ${num} never stored`);
+  }
+}
+
+function expandBody(body: string, slots: Record<string, string>): string {
+  let openBraces = 0;
+  let result = "";
+
+  for (let i = 0; i < body.length; i++) {
+    const char = body[i];
+
+    if (char === "{" && body[i + 1] !== "{") {
+      const end = findMatchingBrace(body, i);
+      if (end === -1) {
+        throw new Error("Opening brace with nothing closed");
+      }
+      const slotNumber = body.slice(i + 1, end);
+      validateSlotNumber(slotNumber, false);
+      result += slots[slotNumber] ?? "";
+      i = end;
+    } else if (char === "}" && body[i - 1] !== "}") {
+      throw new Error("Closing brace with nothing open");
+    } else {
+      result += char;
+    }
+  }
+
+  return result;
+}
+
+function findMatchingBrace(body: string, start: number): number {
+  let balance = 1;
+  for (let i = start + 2; i < body.length; i++) {
+    if (body[i] === "{") {
+      balance++;
+    } else if (body[i] === "}") {
+      balance--;
+      if (balance === 0) {
+        return i;
+      }
+    }
+  }
+  throw new Error("Unmatched opening brace");
+}
+```

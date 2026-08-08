@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import { divideFixed } from "./solution.ts";
+
+assert.equal(divideFixed(1, 8, 3), "0.125", "exact quotient");
+assert.equal(divideFixed(1, 8, 2), "0.12", "tie rounds to even (down)");
+assert.equal(divideFixed(3, 8, 2), "0.38", "tie rounds to even (up)");
+assert.equal(divideFixed(7, 2, 0), "4", "integer tie rounds to even, no point");
+assert.equal(divideFixed(5, 2, 0), "2", "integer tie rounds down to even");
+assert.equal(divideFixed(1, 3, 4), "0.3333", "repeating decimal truncated side");
+assert.equal(divideFixed(2, 3, 4), "0.6667", "non-tie rounds up normally");
+assert.equal(divideFixed(-1, 8, 2), "-0.12", "negative quotient keeps its sign");
+assert.equal(divideFixed(-7, 2, 0), "-4", "negative integer tie to even");
+assert.equal(divideFixed(-1, 200, 2), "0.00", "zero result never shows a minus");
+assert.equal(divideFixed(10, 4, 1), "2.5", "exact one-place result");
+assert.equal(divideFixed(3, -2, 1), "-1.5", "negative denominator flips sign");
+assert.equal(divideFixed(1200, 4, 2), "300.00", "padding after the point");
+assert.throws(() => divideFixed(1, 0, 2), Error, "zero denominator is rejected");
+assert.throws(() => divideFixed(1, 2, -1), Error, "negative places is rejected");
+assert.throws(() => divideFixed(1, 2, 7), Error, "places above 6 is rejected");
+assert.throws(() => divideFixed(1.5, 2, 2), Error, "fractional numerator is rejected");
+assert.throws(() => divideFixed("1", 2, 2), Error, "non-number argument is rejected");
+console.log("ok");

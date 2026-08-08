@@ -1,0 +1,56 @@
+```ts
+export function shiftCivilDate(date: string, days: number): string {
+  if (!/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)) {
+    throw new Error("Invalid date format");
+  }
+
+  const [yearStr, monthStr, dayStr] = date.split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const day = parseInt(dayStr, 10);
+
+  if (isNaN(year) || isNaN(month) || isNaN(day)) {
+    throw new Error("Invalid date format");
+  }
+
+  const isLeapYear = (y: number): boolean => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  const daysInMonth = [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  if (day < 1 || day > daysInMonth[month - 1]) {
+    throw new Error("Invalid day for the given month");
+  }
+
+  let totalDays = year * 365 + Math.floor(year / 4) - Math.floor(year / 100) + Math.floor(year / 400);
+
+  for (let m = 0; m < month - 1; m++) {
+    totalDays += daysInMonth[m];
+  }
+
+  totalDays += day - 1;
+  totalDays += days;
+
+  if (totalDays < 0 || totalDays > 3652058) { // 3652058 is the number of days from 0001-01-01 to 9999-12-31
+    throw new Error("Resulting date out of bounds");
+  }
+
+  let remainingDays = totalDays;
+  let resultYear = 1;
+
+  while (remainingDays >= 365 + Number.isLeapYear(resultYear)) {
+    remainingDays -= 365 + Number.isLeapYear(resultYear);
+    resultYear++;
+  }
+
+  let resultMonth = 0;
+  const leapYear = isLeapYear(resultYear);
+
+  while (remainingDays >= daysInMonth[resultMonth]) {
+    remainingDays -= daysInMonth[resultMonth];
+    resultMonth++;
+  }
+
+  const resultDay = remainingDays + 1;
+
+  return `${resultYear.toString().padStart(4, '0')}-${(resultMonth + 1).toString().padStart(2, '0')}-${resultDay.toString().padStart(2, '0')}`;
+}
+```

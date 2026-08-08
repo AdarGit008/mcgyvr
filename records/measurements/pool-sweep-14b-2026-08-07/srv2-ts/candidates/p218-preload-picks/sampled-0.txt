@@ -1,0 +1,65 @@
+```ts
+export function preloadPicks(entries: unknown, room: unknown): string[] {
+  if (!Array.isArray(entries)) {
+    throw new Error("Entries must be an array");
+  }
+  if (typeof room !== "number" || room < 0 || !Number.isInteger(room)) {
+    throw new Error("Room must be a non-negative whole number");
+  }
+
+  const candidateMap: Map<string, { size: number; hits: number }> = new Map();
+
+  for (const entry of entries) {
+    if (
+      typeof entry !== "object" ||
+      entry === null ||
+      !("key" in entry) ||
+      !("size" in entry) ||
+      !("hits" in entry)
+    ) {
+      throw new Error("Each entry must be a mapping with 'key', 'size', and 'hits'");
+    }
+
+    const { key, size, hits } = entry as { key: string; size: number; hits: number };
+
+    if (typeof key !== "string" || key.trim() === "") {
+      throw new Error("Key must be a non-empty string");
+    }
+    if (candidateMap.has(key)) {
+      throw new Error("Two candidates cannot share the same key");
+    }
+    if (typeof size !== "number" || size <= 0 || !Number.isInteger(size)) {
+      throw new Error("Size must be a positive whole number");
+    }
+    if (typeof hits !== "number" || hits < 0 || !Number.isInteger(hits)) {
+      throw new Error("Hits must be a non-negative whole number");
+    }
+
+    candidateMap.set(key, { size, hits });
+  }
+
+  const sortedCandidates = Array.from(candidateMap.entries()).sort(
+    ([keyA, { size: sizeA, hits: hitsA }], [keyB, { size: sizeB, hits: hitsB }]) => {
+      if (hitsB !== hitsA) {
+        return hitsB - hitsA;
+      }
+      if (sizeA !== sizeB) {
+        return sizeA - sizeB;
+      }
+      return keyA.localeCompare(keyB);
+    }
+  );
+
+  const selectedKeys: string[] = [];
+  let remainingRoom = room;
+
+  for (const [key, { size }] of sortedCandidates) {
+    if (size <= remainingRoom) {
+      selectedKeys.push(key);
+      remainingRoom -= size;
+    }
+  }
+
+  return selectedKeys;
+}
+```

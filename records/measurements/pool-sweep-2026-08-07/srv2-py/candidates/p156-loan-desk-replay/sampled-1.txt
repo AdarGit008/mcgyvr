@@ -1,0 +1,90 @@
+```python
+def replay_loan_desk(stock: dict, cap: int, events: list) -> list:
+    if not all(isinstance(title, str) and isinstance(count, int) and count > 0 for title, count in stock.items()):
+        raise ValueError("Invalid stock format")
+    if not isinstance(cap, int) or cap <= 0:
+        raise ValueError("Invalid cap value")
+    if not all(isinstance(event, tuple) and len(event) == 3 for event in events):
+        raise ValueError("Invalid events format")
+
+    loans = {}
+    holds = {title: [] for title in stock}
+    answers = []
+
+    def is_valid_title(title):
+        return title in stock
+
+    def is_valid_member(member):
+        return member is not None
+
+    def has_open_loan(member, title):
+        return (member, title) in loans
+
+    def can_borrow(member, title):
+        if not is_valid_title(title):
+            return "unknown-title"
+        if has_open_loan(member, title):
+            return "already-out"
+        if len(loans) >= cap:
+            return "member-cap"
+        if stock[title] == 0:
+            return "none-left"
+        if holds[title]:
+            return "queued-ahead"
+        loans[(member, title)] = 0
+        stock[title] -= 1
+        if holds[title] and holds[title][0] == member:
+            holds[title].pop(0)
+        return "ok"
+
+    def can_return(member, title):
+        if not is_valid_title(title):
+            return "unknown-title"
+        if not has_open_loan(member, title):
+            return "not-out"
+        loans.pop((member, title))
+        stock[title] += 1
+        return "ok"
+
+    def can_renew(member, title):
+        if not is_valid_title(title):
+            return "unknown-title"
+        if not has_open_loan(member, title):
+            return "not-out"
+        if holds[title]:
+            return "on-hold"
+        loan = loans[(member, title)]
+        if loan >= 2:
+            return "renew-cap"
+        loans[(member, title)] += 1
+        return "ok"
+
+    def can_hold(member, title):
+        if not is_valid_title(title):
+            return "unknown-title"
+        if has_open_loan(member, title):
+            return "own-loan"
+        if member in holds[title]:
+            return "in-queue"
+        if stock[title] > 0:
+            loans[(member, title)] = 0
+            stock[title] -= 1
+            holds[title].remove(member)
+        else:
+            holds[title].append(member)
+        return "take-it"
+
+    for action, member, title in events:
+        if action == "borrow":
+            answers.append(can_borrow(member, title))
+        elif action == "return":
+            answers.append(can_return(member, title))
+        elif action == "renew":
+            answers.append(can_renew(member, title))
+        elif action == "hold":
+            answers.append(can_hold(member, title))
+        else:
+            raise ValueError("Invalid action")
+
+    return answers
+```

@@ -1,0 +1,55 @@
+```python
+from typing import List, Dict
+
+def best_rate_path(quotes: List[List[str]], amount: int, source: str, destination: str) -> Dict[str, str]:
+    if not quotes:
+        raise ValueError("Quote list cannot be empty")
+    
+    currency_to_micro = {}
+    for quote in quotes:
+        if len(quote) != 3:
+            raise ValueError("Each quote must have exactly three elements")
+        
+        base, counter, micro = quote
+        if not all(isinstance(x, str) and x for x in (base, counter)):
+            raise ValueError("Currency codes must be non-empty strings")
+        if base == counter:
+            raise ValueError("A currency cannot be quoted against itself")
+        if not isinstance(micro, int) or micro <= 0:
+            raise ValueError("Micro value must be a positive whole number")
+        
+        if (base, counter) in currency_to_micro or (counter, base) in currency_to_micro:
+            raise ValueError("Each ordered pair of currencies can only be quoted once")
+        
+        currency_to_micro[(base, counter)] = micro
+    
+    if source not in currency_to_micro or destination not in currency_to_micro:
+        raise ValueError("Source and destination must be named by at least one quote")
+    
+    if source == destination:
+        raise ValueError("Source and destination cannot be the same code")
+    
+    seen_codes = set()
+    def dfs(current: str, path: List[str], acc_amount: int) -> None:
+        if current == destination:
+            nonlocal max_amount, best_path
+            if acc_amount > max_amount or (acc_amount == max_amount and len(path) < len(best_path)):
+                max_amount = acc_amount
+                best_path = path.copy()
+            return
+        
+        seen_codes.add(current)
+        for quote in currency_to_micro:
+            if quote[0] == current and quote[1] not in seen_codes:
+                dfs(quote[1], path + [quote[1]], acc_amount * currency_to_micro[quote] // 1_000_000)
+        seen_codes.remove(current)
+    
+    max_amount = 0
+    best_path = []
+    dfs(source, [source], amount)
+    
+    if not best_path:
+        raise ValueError("No run connects the source and destination")
+    
+    return {"amount": str(max_amount), "path": "->".join(best_path)}
+```

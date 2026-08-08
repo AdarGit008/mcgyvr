@@ -1,0 +1,46 @@
+```python
+def course_weight_total(categories: list) -> int:
+    if not categories:
+        raise ValueError("Syllabus cannot be empty")
+    
+    total_weight = 0
+    category_labels = set()
+    
+    for category in categories:
+        label = category["label"]
+        weight = category["weight"]
+        items = category["items"]
+        
+        if not label or not isinstance(label, str) or len(label.strip()) == 0:
+            raise ValueError("Category label must be a non-empty string")
+        if label.lower() in category_labels:
+            raise ValueError("Duplicate category labels are not allowed")
+        category_labels.add(label.lower())
+        
+        if weight < 0:
+            raise ValueError("Weight cannot be negative")
+        total_weight += weight
+        
+        if not items or len(items) == 0:
+            raise ValueError("Category must contain at least one item")
+        
+        earned_points = sum(item[0] for item in items)
+        worth_points = sum(item[1] for item in items)
+        
+        if worth_points <= 0:
+            raise ValueError("Item worth must be strictly positive")
+        if earned_points < 0 or earned_points > worth_points:
+            raise ValueError("Earned points must be non-negative and less than or equal to worth")
+    
+    if total_weight != 10000:
+        raise ValueError("Total weight of categories must sum up to exactly 10000 basis points")
+    
+    total_contribution = 0
+    for category in categories:
+        earned_points = sum(item[0] for item in category["items"])
+        worth_points = sum(item[1] for item in category["items"])
+        contribution = (category["weight"] * earned_points) // worth_points
+        total_contribution += contribution
+    
+    return total_contribution
+```

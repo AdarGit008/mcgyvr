@@ -1,0 +1,34 @@
+```ts
+export function repairReplicas(replicas: Array<Array<number | null>>): number[] {
+  if (replicas.length === 0) {
+    throw new Error("Empty replica list");
+  }
+
+  const firstLength = replicas[0].length;
+  if (!replicas.every(replica => replica.length === firstLength)) {
+    throw new Error("Replica arrays differ in length");
+  }
+
+  return replicas[0].map((_, index) => {
+    const values = replicas.map(replica => replica[index]).filter(value => value !== null);
+
+    if (values.length === 0) {
+      throw new Error("Lost slot at some position");
+    }
+
+    const majorityCount = Math.floor(values.length / 2) + 1;
+    const valueCounts: { [key: number]: number } = {};
+
+    for (const value of values) {
+      if (value !== null) {
+        valueCounts[value] = (valueCounts[value] || 0) + 1;
+        if (valueCounts[value] >= majorityCount) {
+          return value;
+        }
+      }
+    }
+
+    throw new Error("No value reaches a strict majority at some position");
+  });
+}
+```

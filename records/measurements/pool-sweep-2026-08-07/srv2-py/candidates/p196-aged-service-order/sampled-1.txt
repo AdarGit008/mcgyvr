@@ -1,0 +1,39 @@
+```python
+def aged_service_order(events: list, step: int) -> list:
+    if step <= 0:
+        raise ValueError("Step must be a positive whole number")
+    if not events:
+        raise ValueError("Log cannot be empty")
+
+    waiting_room = []
+    result = []
+
+    for event in events:
+        kind = event.get('kind')
+        tick = event.get('tick')
+
+        if kind == 'join':
+            who = event.get('who')
+            rank = event.get('rank')
+
+            if not isinstance(who, str) or not who:
+                raise ValueError("Joining caller must have a non-empty name")
+            if not isinstance(rank, int) or rank < 0:
+                raise ValueError("Rank must be a non-negative whole number")
+
+            waiting_room.append((who, tick, rank))
+        elif kind == 'call':
+            if not waiting_room:
+                raise ValueError("Cannot call from an empty waiting room")
+
+            def standing(call):
+                join_tick, _, rank = call
+                return rank + (tick - join_tick) // step
+
+            waiting_room.sort(key=lambda x: (-standing(x), x[1], x[0]))
+            result.append(waiting_room.pop(0)[0])
+        else:
+            raise ValueError("Invalid event kind")
+
+    return result
+```

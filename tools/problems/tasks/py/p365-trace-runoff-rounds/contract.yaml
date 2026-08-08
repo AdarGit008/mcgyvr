@@ -1,0 +1,30 @@
+id: p365-trace-runoff-rounds
+task_type: function_implementation
+task: >-
+  Implement trace_runoff_rounds. A paper lists runner names in the order one
+  voter prefers them, favourite first, no runner twice; the race is run among
+  exactly the runners some paper names. Each round hands every paper to the
+  leading runner on it who is still in the race, setting aside any paper
+  whose runners have all gone. A runner whose tally passes half the papers
+  handed out that round takes the race — passes, not merely reaches.
+  Otherwise the runner with the smallest tally is knocked out. Break a tie at
+  the bottom by the tally of the round before, the smaller going first; if
+  that is level too, or this is the opening round, go by where each runner is
+  first met reading the papers in turn and each paper from its favourite
+  down, and the one met later goes first. Report one line per round, written
+  as the round number counting from one, a bar, the runners still in the race
+  as a name then an equals sign then a tally, joined by commas in falling
+  tally order with ties in first-met order, another bar, and then "out:" with
+  the knocked-out name — or "won:" with the winner's name on the closing
+  line. Raise an error when there are no papers, when a paper is empty or is
+  not a list, when a paper names a runner twice, when a runner is not a
+  non-empty string, when a runner's name holds a bar or a comma or an equals
+  sign, and when the argument is not a list.
+target: solution.py
+interface: "def trace_runoff_rounds(papers: list) -> list"
+stop_conditions:
+  - Whether a runner met later may be preferred by some other reading of the papers is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

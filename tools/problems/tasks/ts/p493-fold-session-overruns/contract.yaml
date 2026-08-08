@@ -1,0 +1,112 @@
+id: p493-fold-session-overruns
+task_type: bug_fix
+task: >-
+  foldSessionOverruns replays a conference session against a hard closing minute
+  and mislabels two of its edges. The first argument is the runsheet, a list of
+  records taken in the order printed, each holding exactly the four keys speaker
+  (a non-empty string, no two entries naming the same one), slot (the minutes the
+  programme gave that speaker, a whole number above nought), ran (the minutes the
+  speaker truly used, a whole number at nought or above) and pause (the break
+  printed after that speaker, a whole number at nought or above). The second
+  argument is the wall, a whole number above nought naming the minute the hall
+  must be handed back. The session opens at minute nought. A speaker whose turn
+  would begin at the wall or later never reaches the lectern: the name goes on
+  the spill list and the session moves on. Otherwise the speaker begins where the
+  previous turn left the clock and would end that many minutes later; a turn
+  reaching past the wall is guillotined there and reads cut, and any turn ending
+  at the wall or sooner reads full. After each turn the printed break is squeezed
+  by however many minutes the speaker went beyond the programme slot, but a break
+  never squeezes below nought, and the clock then moves on by whatever break
+  survives. Give back a record whose lines hold for every speaker who reached the
+  lectern, in order, the name then a space then the opening minute then a space
+  then the closing minute then a space then cut or full, whose spill holds in
+  order the names that never reached it, and whose finish is the closing minute
+  of the last turn that happened, or nought when none did. The code below lets a
+  squeezed break drop below nought and hands the lectern to a speaker whose turn
+  would begin exactly on the wall. Repair both, keep raising an error for a
+  runsheet that is not a list, an entry that is not a record, an entry whose keys
+  are not exactly those four, a speaker that is not a non-empty string, two
+  entries naming one speaker, a slot that is not whole or falls below one, a ran
+  or a pause that is not whole or falls below nought, and a wall that is not
+  whole or falls below one, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  function whole(value: unknown): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  export function foldSessionOverruns(
+    runsheet: Record<string, unknown>[],
+    wall: number,
+  ): Record<string, unknown> {
+    if (!whole(wall) || wall < 1) {
+      throw new Error("the wall is not whole or falls below one");
+    }
+    if (!Array.isArray(runsheet)) {
+      throw new Error("foldSessionOverruns expects a list of entries");
+    }
+
+    const named = new Set<string>();
+    for (const entry of runsheet) {
+      if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+        throw new Error("an entry is not a record");
+      }
+      if (Object.keys(entry).sort().join(",") !== "pause,ran,slot,speaker") {
+        throw new Error("an entry's keys are not exactly the four named");
+      }
+      const speaker = entry["speaker"];
+      if (typeof speaker !== "string" || speaker.length === 0) {
+        throw new Error("a speaker is not a non-empty string");
+      }
+      if (named.has(speaker)) {
+        throw new Error("two entries name one speaker");
+      }
+      named.add(speaker);
+      if (!whole(entry["slot"]) || Number(entry["slot"]) < 1) {
+        throw new Error("a slot is not whole or falls below one");
+      }
+      if (!whole(entry["ran"]) || Number(entry["ran"]) < 0) {
+        throw new Error("a ran is not whole or falls below nought");
+      }
+      if (!whole(entry["pause"]) || Number(entry["pause"]) < 0) {
+        throw new Error("a pause is not whole or falls below nought");
+      }
+    }
+
+    const lines: string[] = [];
+    const spill: string[] = [];
+    let clock = 0;
+    let finish = 0;
+
+    for (const entry of runsheet) {
+      const speaker = String(entry["speaker"]);
+      const ran = Number(entry["ran"]);
+      const slot = Number(entry["slot"]);
+      const pause = Number(entry["pause"]);
+
+      if (clock > wall) {
+        spill.push(speaker);
+        continue;
+      }
+      const start = clock;
+      let end = start + ran;
+      let mark = "full";
+      if (end > wall) {
+        end = wall;
+        mark = "cut";
+      }
+      lines.push(`${speaker} ${start} ${end} ${mark}`);
+      finish = end;
+      const beyond = ran > slot ? ran - slot : 0;
+      clock = end + (pause - beyond);
+    }
+
+    return { lines, spill, finish };
+  }
+interface: "export function foldSessionOverruns(runsheet: Record<string, unknown>[], wall: number): Record<string, unknown>"
+stop_conditions:
+  - Whether a guillotined turn's unheard minutes are reported anywhere is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

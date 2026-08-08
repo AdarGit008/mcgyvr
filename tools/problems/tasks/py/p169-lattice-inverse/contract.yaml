@@ -1,0 +1,22 @@
+id: p169-lattice-inverse
+task_type: function_implementation
+task: >-
+  Implement lattice_inverse. A frame is a square arrangement of whole numbers
+  standing exactly two or three rows tall. Such a frame can be undone
+  without ever leaving the whole numbers precisely when its determinant is
+  one or minus one; for any other determinant, zero included, no whole-number
+  undoing exists. When the frame can be undone, return the undoing frame:
+  the same shape, every entry a whole number, such that multiplying the two
+  frames in either order yields ones down the leading diagonal and zeros
+  everywhere else. When it cannot be undone, return an empty list instead.
+  Reject with an error anything that is not a list of lists, a frame that is
+  not exactly two or three rows tall, a row that does not match the frame's
+  height, and an entry that is not a whole number.
+target: solution.py
+interface: "def lattice_inverse(frame: list[list[int]]) -> list[list[int]]"
+stop_conditions:
+  - Nothing is stated about whether the undoing frame may share storage with the argument.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

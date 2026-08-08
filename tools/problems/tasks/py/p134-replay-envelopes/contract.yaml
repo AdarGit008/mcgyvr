@@ -1,0 +1,27 @@
+id: p134-replay-envelopes
+task_type: function_implementation
+task: >-
+  Implement replay_envelopes. The first argument declares budget envelopes,
+  each a record with name (a unique non-empty string), monthly (a
+  non-negative integer, the deposit it receives) and cap (a non-negative
+  integer, the most it may hold once a month closes). The second argument is
+  a list of months, each month a list of [name, amount] outlays. Every
+  envelope starts at zero. A month runs in three strict steps: first every
+  envelope receives its monthly deposit; then the month's outlays are
+  subtracted in order, and an outlay may drive an envelope below zero — the
+  debt simply carries; finally any envelope holding more than its cap
+  forfeits the excess. The cap never touches debt, and the next deposit
+  lands on top of whatever is owed. Return a record with balances, the final
+  [name, balance] pairs in declaration order, and forfeited, the grand total
+  ever forfeited. With no months every balance is 0 and nothing was
+  forfeited. Raise an error for a duplicate or empty envelope name, a
+  monthly or cap that is not a non-negative integer, an outlay naming an
+  unknown envelope, and an outlay amount that is not a positive integer.
+target: solution.py
+interface: "def replay_envelopes(envelopes: list, months: list) -> dict"
+stop_conditions:
+  - Whether an envelope list may be empty is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

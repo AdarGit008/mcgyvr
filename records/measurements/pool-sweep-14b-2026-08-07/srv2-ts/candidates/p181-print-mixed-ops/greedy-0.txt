@@ -1,0 +1,99 @@
+```ts
+export function printOperatorTree(node: unknown): string {
+  if (typeof node === 'number') {
+    if (!Number.isInteger(node) || node < 0) {
+      throw new Error('Invalid number');
+    }
+    return node.toString();
+  }
+
+  if (typeof node === 'string') {
+    if (node === '' || !/^[a-z]+$/.test(node)) {
+      throw new Error('Invalid word');
+    }
+    return node;
+  }
+
+  if (typeof node !== 'object' || node === null) {
+    throw new Error('Invalid node');
+  }
+
+  const { op, left, right, negate, call } = node as Record<string, unknown>;
+
+  if (negate !== undefined) {
+    if (left !== undefined || right !== undefined || call !== undefined) {
+      throw new Error('Invalid negate node');
+    }
+    return `-${printWithBindingPower(negate, 6)}`;
+  }
+
+  if (call !== undefined) {
+    if (op !== undefined || left !== undefined || right !== undefined) {
+      throw new Error('Invalid call node');
+    }
+    const { word, args } = call as Record<string, unknown>;
+    if (typeof word !== 'string' || !/^[a-z]+$/.test(word)) {
+      throw new Error('Invalid function name in call');
+    }
+    if (!Array.isArray(args) || !args.every(arg => typeof arg === 'object')) {
+      throw new Error('Invalid arguments in call');
+    }
+    return `${word}(${args.map(arg => printOperatorTree(arg)).join(', ')})`;
+  }
+
+  if (op !== undefined && left !== undefined && right !== undefined) {
+    const bindingPowers: Record<string, number> = {
+      or: 1,
+      and: 2,
+      '+': 3,
+      '-': 3,
+      '*': 4,
+      '/': 4,
+      '^': 5
+    };
+
+    if (!bindingPowers[op]) {
+      throw new Error('Invalid operator');
+    }
+
+    const leftString = printWithBindingPower(left, bindingPowers[op]);
+    const rightString = printWithBindingPower(right, bindingPowers[op], op === '^');
+
+    return `${leftString} ${op} ${rightString}`;
+  }
+
+  throw new Error('Invalid node structure');
+}
+
+function printWithBindingPower(node: unknown, parentBindingPower: number, rightToLeft = false): string {
+  const nodeString = printOperatorTree(node);
+  const { op, negate } = node as Record<string, unknown>;
+
+  if (op !== undefined) {
+    const bindingPowers: Record<string, number> = {
+      or: 1,
+      and: 2,
+      '+': 3,
+      '-': 3,
+      '*': 4,
+      '/': 4,
+      '^': 5
+    };
+
+    const nodeBindingPower = bindingPowers[op];
+    if (nodeBindingPower < parentBindingPower || (nodeBindingPower === parentBindingPower && rightToLeft)) {
+      return `(${nodeString})`;
+    }
+  }
+
+  if (negate !== undefined) {
+    const childNode = (node as Record<string, unknown>).negate;
+    const childBindingPower = 6; // Binding power of negate
+    if (childBindingPower < parentBindingPower || (childBindingPower === parentBindingPower && rightToLeft)) {
+      return `(${nodeString})`;
+    }
+  }
+
+  return nodeString;
+}
+```

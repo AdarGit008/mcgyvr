@@ -1,0 +1,47 @@
+```ts
+/**
+ * Tally votes from a list of ballot events.
+ * @param {Record<string, string>[]} events - Array of ballot events.
+ * @returns {Record<string, number>} - Object with option counts.
+ */
+export function tallyBallots(events: Array<Record<string, string>>): Record<string, number> {
+    const voteCount: Record<string, number> = {};
+    let electionOpen = true;
+    const voterVotes: Record<string, string | null> = {};
+
+    for (const event of events) {
+        if (!electionOpen && event.type !== "close") {
+            throw new Error("Election is closed");
+        }
+
+        switch (event.type) {
+            case "cast":
+                if (!event.voter || !event.option) {
+                    throw new Error("Invalid cast event");
+                }
+                if (voterVotes[event.voter]) {
+                    throw new Error("Voter already has a standing vote");
+                }
+                voterVotes[event.voter] = event.option;
+                voteCount[event.option] = (voteCount[event.option] || 0) + 1;
+                break;
+            case "retract":
+                if (!event.voter) {
+                    throw new Error("Invalid retract event");
+                }
+                if (!voterVotes[event.voter]) {
+                    throw new Error("Voter has no standing vote to retract");
+                }
+                voterVotes[event.voter] = null;
+                break;
+            case "close":
+                electionOpen = false;
+                break;
+            default:
+                throw new Error(`Invalid event type: ${event.type}`);
+        }
+    }
+
+    return voteCount;
+}
+```

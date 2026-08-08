@@ -1,0 +1,24 @@
+```ts
+/**
+ * Finds the k-th smallest distinct value in a list of integers.
+ * @param values - An array of integers.
+ * @param k - A positive integer representing the rank.
+ * @returns The k-th smallest distinct value.
+ * @throws Error if k is not a positive integer, exceeds the count of distinct values, or if input is invalid.
+ */
+export function kthDistinct(values: number[], k: number): number {
+  if (!Array.isArray(values) || !values.every(Number.isInteger)) {
+    throw new Error("Invalid input list.");
+  }
+  if (!Number.isInteger(k) || k <= 0) {
+    throw new Error("Rank must be a positive integer.");
+  }
+
+  const distinctValues = Array.from(new Set(values)).sort((a, b) => a - b);
+  if (k > distinctValues.length) {
+    throw new Error("Rank exceeds the count of distinct values.");
+  }
+
+  return distinctValues[k - 1];
+}
+```

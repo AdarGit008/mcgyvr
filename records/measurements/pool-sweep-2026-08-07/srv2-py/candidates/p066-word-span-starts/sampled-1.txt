@@ -1,0 +1,25 @@
+```python
+import re
+
+def word_span_starts(passage: str, query: str) -> list:
+    if not isinstance(passage, str) or not isinstance(query, str):
+        raise ValueError("Both passage and query must be strings")
+    
+    if not query.strip():
+        raise ValueError("Query cannot be empty")
+    
+    pattern = r'\b\w+\b'
+    words = re.findall(pattern, passage, re.IGNORECASE)
+    query_words = re.findall(pattern, query, re.IGNORECASE)
+    
+    query_len = len(query_words)
+    if not query_len:
+        raise ValueError("Query must contain at least one word")
+    
+    hits = []
+    for i in range(len(words) - query_len + 1):
+        if words[i:i+query_len] == query_words:
+            hits.append(i * len(re.findall(r'\w', passage, re.IGNORECASE)[:i]))
+    
+    return hits
+```

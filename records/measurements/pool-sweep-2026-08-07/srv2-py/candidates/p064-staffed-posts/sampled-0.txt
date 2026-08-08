@@ -1,0 +1,26 @@
+```python
+def staffed_posts(wanted: list, posts: int) -> int:
+    if not isinstance(posts, int) or posts <= 0 or not all(isinstance(p, int) and 0 <= p < posts for p in wanted):
+        raise ValueError("Invalid posts count or post numbers")
+
+    post_assignments = [-1] * posts
+    applicant_order = list(range(len(wanted)))
+
+    def find_next_open_post(applicant: int) -> int:
+        for post in applicants_posts[applicant]:
+            if post_assignments[post] == -1:
+                return post
+        return -1
+
+    for i, applicant in enumerate(applicant_order):
+        applicants_posts = wanted[applicant]
+        open_post = find_next_open_post(applicant)
+        while open_post == -1 and applicant_order[i:] != []:
+            applicant_order.append(applicant_order.pop(i))
+            open_post = find_next_open_post(applicant)
+
+        if open_post != -1:
+            post_assignments[open_post] = applicant
+
+    return sum(1 for p in post_assignments if p != -1)
+```

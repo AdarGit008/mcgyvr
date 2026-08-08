@@ -1,0 +1,90 @@
+```ts
+export function selectByImpact(imports: Record<string, string[]>, suites: Record<string, string[]>, edited: string[]): string[] {
+  // Validate input shapes
+  if (typeof imports !== 'object' || Array.isArray(imports) || typeof suites !== 'object' || Array.isArray(suites) || !Array.isArray(edited)) {
+    throw new Error('Invalid input shape');
+  }
+
+  // Validate module names in imports
+  for (const [module, importedModules] of Object.entries(imports)) {
+    if (!Array.isArray(importedModules) || importedModules.some(m => typeof m !== 'string')) {
+      throw new Error('Invalid import list');
+    }
+    if (importedModules.includes(module)) {
+      throw new Error('Module imports itself');
+    }
+    if (new Set(importedModules).size !== importedModules.length) {
+      throw new Error('Duplicate module in import list');
+    }
+  }
+
+  // Validate suite names and modules
+  for (const [suite, drivenModules] of Object.entries(suites)) {
+    if (!Array.isArray(drivenModules) || drivenModules.some(m => typeof m !== 'string')) {
+      throw new Error('Invalid suite module list');
+    }
+    if (suite === '') {
+      throw new Error('Suite name cannot be empty');
+    }
+  }
+
+  // Validate edited modules
+  for (const module of edited) {
+    if (typeof module !== 'string') {
+      throw new Error('Invalid edited module name');
+    }
+  }
+
+  // Check for undefined modules in imports, suites, or edited
+  const allModules = new Set([...Object.keys(imports), ...Object.values(imports).flat()]);
+  for (const [module, importedModules] of Object.entries(imports)) {
+    if (!allModules.has(module) || importedModules.some(m => !allModules.has(m))) {
+      throw new Error('Module not declared in graph');
+    }
+  }
+  for (const [suite, drivenModules] of Object.entries(suites)) {
+    if (drivenModules.some(m => !allModules.has(m))) {
+      throw new Error('Suite drives undeclared module');
+    }
+  }
+  for (const module of edited) {
+    if (!allModules.has(module)) {
+      throw new Error('Edited module not declared in graph');
+    }
+  }
+
+  // Calculate disturbed modules
+  const disturbed = new Set<string>();
+  const visited = new Set<string>();
+
+  function markDisturbed(module: string): void {
+    if (visited.has(module)) return;
+    visited.add(module);
+    disturbed.add(module);
+    for (const importer of Object.keys(imports).filter(m => imports[m].includes(module))) {
+      markDisturbed(importer);
+    }
+  }
+
+  for (const module of edited) {
+    markDisturbed(module);
+  }
+
+  // Calculate running suites
+  const runningSuites = new Set<string>();
+  for (const [suite, drivenModules] of Object.entries(suites)) {
+    if (drivenModules.some(m => disturbed.has(m))) {
+      runningSuites.add(suite);
+    }
+  }
+
+  // Check if more than half of all suites would run
+  const totalSuites = Object.keys(suites).length;
+  if (runningSuites.size > totalSuites / 2) {
+    return ['ALL'];
+  }
+
+  // Return sorted running suite names
+  return Array.from(runningSuites).sort();
+}
+```

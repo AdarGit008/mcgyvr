@@ -1,0 +1,37 @@
+id: p417-key-rotation-verdict
+task_type: function_implementation
+task: >-
+  Implement judge_key_rotation. Nothing here handles a secret itself, only
+  fingerprints already taken of one. The ledger argument lists a holder's
+  past fingerprints, oldest first; each is a record with digest, a non-empty
+  string of small letters and digits, and step, a whole number of zero or
+  more, with the steps rising strictly down the list. The offer argument is
+  the same shape and stands for the fingerprint now being put forward; its
+  step must sit strictly above the newest ledger step whenever the ledger
+  holds anything. The rules argument is a record with keep, gap, span, runs
+  and window. Judge the offer and return a record under two keys, verdict and
+  broken. Put in broken the names of the rules the offer falls foul of, in
+  this order and no other. First reused, when the offer's digest matches any
+  of the newest keep digests of the ledger, counting fewer when the ledger is
+  shorter than keep and none at all when keep is zero. Then toosoon, when the
+  ledger holds something and the offer's step minus the newest ledger step
+  falls below gap. Then stale, when the ledger holds something and that same
+  difference rises above span. Then churn, when the ledger entries whose step
+  sits strictly above the offer's step minus window number runs or more. Set
+  verdict to the word accept when broken came out empty and to the word
+  refuse otherwise. Raise an error when the ledger is not a list, when an
+  entry or the offer is not a record carrying digest and step, when a digest
+  is not a non-empty string of small letters and digits, when a step is not a
+  whole number of zero or more, when the ledger steps do not rise strictly,
+  when the offer's step does not sit above the newest ledger step, when rules
+  is not a record carrying all five names, when keep or gap is not a whole
+  number of zero or more, when span, runs or window is not a whole number of
+  one or more, and when gap is larger than span.
+target: solution.py
+interface: "def judge_key_rotation(ledger: list, offer: dict, rules: dict) -> dict"
+stop_conditions:
+  - Whether one ledger may carry the fingerprints of more than one holder is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,63 @@
+```ts
+export function rollupTotals(
+  nodes: Record<string, { value: number; parent: string }>,
+): Record<string, number> {
+  // Validate input
+  const nodeIds = Object.keys(nodes);
+  if (nodeIds.length === 0) {
+    throw new Error("Input must have at least one node.");
+  }
+
+  let rootCount = 0;
+  for (const id of nodeIds) {
+    const { parent } = nodes[id];
+    if (parent === "") {
+      rootCount++;
+    } else if (!nodeIds.includes(parent)) {
+      throw new Error(`Parent ID "${parent}" is not a known node ID.`);
+    }
+  }
+
+  if (rootCount !== 1) {
+    throw new Error("Input must have exactly one root node.");
+  }
+
+  // Build the tree structure
+  const tree: Record<string, { value: number; children: string[] }> = {};
+  for (const id of nodeIds) {
+    const { value, parent } = nodes[id];
+    tree[id] = { value, children: [] };
+    if (parent !== "") {
+      if (!tree[parent]) {
+        throw new Error(`Node "${id}" cannot be reached from the root.`);
+      }
+      tree[parent].children.push(id);
+    }
+  }
+
+  // Calculate totals using DFS
+  const totals: Record<string, number> = {};
+
+  function dfs(nodeId: string): number {
+    if (totals[nodeId] !== undefined) {
+      return totals[nodeId];
+    }
+    let total = tree[nodeId].value;
+    for (const child of tree[nodeId].children) {
+      total += dfs(child);
+    }
+    totals[nodeId] = total;
+    return total;
+  }
+
+  // Start DFS from the root
+  for (const id of nodeIds) {
+    if (nodes[id].parent === "") {
+      dfs(id);
+      break;
+    }
+  }
+
+  return totals;
+}
+```

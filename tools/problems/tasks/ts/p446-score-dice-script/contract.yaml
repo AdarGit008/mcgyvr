@@ -1,0 +1,28 @@
+id: p446-score-dice-script
+task_type: function_implementation
+task: >-
+  Implement scoreDiceScript, which reads a small dice script and works out
+  its value from a list of rolls handed over with it rather than generated. A
+  script is one or more terms joined by plus or minus signs with no spaces
+  anywhere. A term is either a whole number written in digits, or a group
+  written as a count, the letter d, and a die size, optionally trailed by one
+  exclamation mark. The count runs from 1 to 20 and the die size must be 4,
+  6, 8, 10, 12 or 20. Groups draw from the rolls left to right in the order
+  the groups are written, one roll per die. A group trailed by an exclamation
+  mark is open-ended: a drawn roll equal to that group's die size draws one
+  further roll straight away, which is counted as well and may itself draw
+  another. The value of the script is the sum of its terms with their signs
+  applied, and every roll handed over must be drawn, no more and no fewer.
+  Raise an error for a script that is not a string, an empty script, a sign
+  at either end, two signs running, a term that cannot be read, a count
+  outside 1 to 20, a die size outside the six allowed, rolls that are not a
+  list, a roll that is not a whole number from 1 to its own group's die size,
+  rolls that run out mid-script, and rolls left undrawn at the end.
+target: solution.ts
+interface: "export function scoreDiceScript(script: string, rolls: number[]): number"
+stop_conditions:
+  - Whether an open-ended group has any ceiling on how far it may keep drawing is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

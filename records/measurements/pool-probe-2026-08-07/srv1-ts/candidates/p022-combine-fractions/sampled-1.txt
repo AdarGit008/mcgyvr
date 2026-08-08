@@ -1,0 +1,26 @@
+```ts
+export function combineFractions(parts: string[]): string {
+  if (parts.length === 0) {
+    throw new Error("Input list cannot be empty");
+  }
+
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+
+  let numerator = 0;
+  let denominator = 1;
+
+  for (const part of parts) {
+    const [numStr, denomStr] = part.split("/");
+    if (!/^-?\d+\/\d+$/.test(part) || parseInt(denomStr) <= 0) {
+      throw new Error("Invalid fraction format or zero denominator");
+    }
+    const num = parseInt(numStr);
+    const denom = parseInt(denomStr);
+    numerator = numerator * denom + num * denominator;
+    denominator *= denom;
+  }
+
+  const divisor = gcd(Math.abs(numerator), Math.abs(denominator));
+  return `${numerator / divisor}/${Math.abs(denominator) / divisor}`;
+}
+```

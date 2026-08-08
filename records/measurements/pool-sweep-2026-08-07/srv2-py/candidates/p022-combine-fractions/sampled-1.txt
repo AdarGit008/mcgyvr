@@ -1,0 +1,19 @@
+```python
+from fractions import Fraction
+
+def combine_fractions(parts: list[str]) -> str:
+    if not parts:
+        raise ValueError("Input list cannot be empty")
+    
+    total = Fraction(0, 1)
+    
+    for part in parts:
+        try:
+            numerator, denominator = map(int, part.split('/'))
+            fraction = Fraction(numerator, denominator)
+            total += fraction
+        except (ValueError, ZeroDivisionError):
+            raise ValueError("Invalid fraction format or zero denominator")
+    
+    return str(total)
+```

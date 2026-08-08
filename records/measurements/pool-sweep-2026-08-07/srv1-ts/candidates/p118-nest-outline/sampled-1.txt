@@ -1,0 +1,48 @@
+```ts
+/**
+ * Nest Outline - Converts indented text into a nested list structure.
+ * @param {string} text - Block of text representing an indented list.
+ * @returns {any[]} A list of [text, children] pairs recursively structured.
+ */
+export function nestOutline(text: string): any[] {
+  if (!text || /\t/.test(text) || !/^[^\s]/.test(text)) throw new Error("Invalid input");
+
+  const lines = text.trimEnd().split('\n');
+  const result: any[] = [];
+  let stack: { level: number; item: any }[] = [];
+
+  for (const line of lines) {
+    const level = getLevel(line);
+    if (level < 0 || (stack.length > 0 && level <= stack[stack.length - 1].level)) throw new Error("Invalid input");
+
+    const trimmedLine = line.trim();
+    if (trimmedLine === '') throw new Error("Blank or all spaces line found");
+
+    while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+      stack.pop();
+    }
+
+    const item: any[] = [trimmedLine, []];
+    if (stack.length > 0) {
+      stack[stack.length - 1].item[1].push(item);
+    } else {
+      result.push(item);
+    }
+    stack.push({ level, item });
+  }
+
+  return result;
+}
+
+/**
+ * Get the indentation level of a line.
+ * @param {string} line - The line to check.
+ * @returns {number} The level of indentation (multiple of two spaces).
+ */
+function getLevel(line: string): number {
+  const match = line.match(/^(\s*)/);
+  if (!match) return -1;
+  const indent = match[0];
+  return indent.length / 2;
+}
+```

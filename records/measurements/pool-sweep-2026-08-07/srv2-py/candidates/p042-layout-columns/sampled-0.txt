@@ -1,0 +1,35 @@
+```python
+def layout_columns(rows: list[list[str]], aligns: str) -> list[str]:
+    if not rows:
+        raise ValueError("Table cannot be empty")
+    
+    num_cols = len(aligns)
+    if any(len(row) != num_cols for row in rows):
+        raise ValueError("All rows must have the same number of columns as the alignment specification")
+    
+    if set(aligns).difference({'l', 'r', 'c'}):
+        raise ValueError("Alignment specification can only contain 'l', 'r', or 'c'")
+    
+    col_widths = [max(len(cell) for cell in column) for column in zip(*rows)]
+    
+    def format_cell(cell: str, width: int, align: str) -> str:
+        if not isinstance(cell, str):
+            raise ValueError("All cells must be strings")
+        
+        padding = width - len(cell)
+        if align == 'l':
+            return cell + ' ' * padding
+        elif align == 'r':
+            return ' ' * padding + cell
+        else:  # align == 'c'
+            right_padding = (padding // 2) + (padding % 2)
+            left_padding = padding - right_padding
+            return ' ' * left_padding + cell + ' ' * right_padding
+    
+    formatted_rows = [
+        ' '.join(format_cell(cell, width, aligns[i]) for i, cell in enumerate(row))
+        for row in rows
+    ]
+    
+    return [line.rstrip() for line in formatted_rows]
+```

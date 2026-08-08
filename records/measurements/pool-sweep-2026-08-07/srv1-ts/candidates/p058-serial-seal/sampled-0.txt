@@ -1,0 +1,24 @@
+```ts
+/**
+ * Seals a given serial under the SR-11 scheme.
+ * @param serial - The 8-digit serial string to seal.
+ * @returns The sealed serial as a 9-character string, including the seal character.
+ */
+export function sealSerial(serial: string): string {
+  if (typeof serial !== 'string' || serial.length !== 8 || !/^\d+$/.test(serial)) {
+    throw new Error('Invalid serial input');
+  }
+
+  const weightCycle = [3, 7, 1, 3, 7, 1, 3, 7];
+  let sum = 0;
+
+  for (let i = 0; i < serial.length; i++) {
+    sum += parseInt(serial[i]) * weightCycle[i];
+  }
+
+  const remainder = sum % 11;
+  const sealChar = remainder === 10 ? 'K' : remainder.toString();
+
+  return `${serial}${sealChar}`;
+}
+```

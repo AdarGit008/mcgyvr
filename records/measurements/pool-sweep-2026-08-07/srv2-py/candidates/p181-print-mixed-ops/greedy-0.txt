@@ -1,0 +1,45 @@
+```python
+def print_operator_tree(node) -> str:
+    if isinstance(node, (int, float)) and node.is_integer() and node >= 0:
+        return str(int(node))
+    elif isinstance(node, str) and node.islower():
+        return node
+    elif isinstance(node, dict):
+        op = node.get('op')
+        negate = node.get('negate')
+        call = node.get('call')
+
+        if (op is None and negate is None and call is None) or \
+           (op is not None and ('left' not in node or 'right' not in node)) or \
+           (op is not None and op not in {'or', 'and', '+', '-', '*', '/', '^'}):
+            raise ValueError("Invalid record structure")
+
+        if negate:
+            return f"-{print_operator_tree(negate)}"
+
+        if call:
+            func = call['word']
+            args = call['args']
+            if not isinstance(func, str) or not func.islower() or not all(isinstance(arg, (int, float)) and arg.is_integer() and arg >= 0 for arg in args):
+                raise ValueError("Invalid call structure")
+            return f"{func}({', '.join(print_operator_tree(arg) for arg in args)})"
+
+        left = print_operator_tree(node['left'])
+        right = print_operator_tree(node['right'])
+
+        if op == '^':
+            binding_power = 5
+        elif op in {'*', '/'}:
+            binding_power = 4
+        elif op in {'+', '-'}:
+            binding_power = 3
+        elif op in {'and', 'or'}:
+            binding_power = 2
+
+        left_needs_parens = binding_power > 1 and (node['left'] != negate)
+        right_needs_parens = binding_power > 1 and (node['right'] != negate)
+
+        return f"{left if left_needs_parens else left} {op} {right if right_needs_parens else right}"
+    else:
+        raise ValueError("Invalid node type")
+```

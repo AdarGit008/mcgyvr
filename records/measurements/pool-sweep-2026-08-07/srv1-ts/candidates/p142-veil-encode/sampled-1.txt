@@ -1,0 +1,24 @@
+```ts
+export function veilEncode(keyword: string, message: string): string {
+  if (typeof keyword !== 'string' || !/^[a-z]+$/.test(keyword) || keyword.length === 0) {
+    throw new Error('Invalid keyword');
+  }
+
+  if (typeof message !== 'string' || /[^a-z\s]/.test(message)) {
+    throw new Error('Invalid message');
+  }
+
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+  const usedLetters = Array.from(new Set(keyword.split('').filter((char, index) => keyword.indexOf(char) === index)));
+  const remainingLetters = alphabet.split('').filter(char => !usedLetters.includes(char)).reverse();
+  const veilAlphabet = [...usedLetters, ...remainingLetters];
+
+  return message.split('').map(char => {
+    if (char === ' ') {
+      return char;
+    }
+    const plainIndex = alphabet.indexOf(char);
+    return veilAlphabet[plainIndex];
+  }).join('');
+}
+```

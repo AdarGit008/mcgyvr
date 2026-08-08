@@ -1,0 +1,71 @@
+```ts
+export function steadyReadings(readings: unknown, spec: unknown): Record<string, unknown> {
+  if (!Array.isArray(readings) || readings.length === 0) {
+    throw new Error("Invalid readings list");
+  }
+
+  for (const reading of readings) {
+    if (!Number.isInteger(reading)) {
+      throw new Error("Invalid reading value");
+    }
+  }
+
+  if (typeof spec !== "object" || spec === null) {
+    throw new Error("Invalid spec object");
+  }
+
+  const { band, hold } = spec as Record<string, unknown>;
+
+  if (typeof band !== "number" || band < 0 || !Number.isInteger(band)) {
+    throw new Error("Invalid band value");
+  }
+
+  if (typeof hold !== "number" || hold <= 0 || !Number.isInteger(hold)) {
+    throw new Error("Invalid hold value");
+  }
+
+  const settled: number[] = [];
+  const moved: number[] = [];
+  let steadyFigure = readings[0] as number;
+  let challengeOpen = false;
+  let challengeStartIndex = -1;
+  let challengeLength = 0;
+
+  for (let i = 0; i < readings.length; i++) {
+    const reading = readings[i] as number;
+    const distanceFromSteady = Math.abs(reading - steadyFigure);
+
+    if (distanceFromSteady <= band) {
+      challengeOpen = false;
+      challengeStartIndex = -1;
+      challengeLength = 0;
+    } else {
+      if (!challengeOpen) {
+        challengeOpen = true;
+        challengeStartIndex = i;
+        challengeLength = 1;
+      } else {
+        const distanceFromChallengeStart = Math.abs(reading - (readings[challengeStartIndex] as number));
+        if (distanceFromChallengeStart <= band) {
+          challengeLength++;
+          if (challengeLength >= hold) {
+            steadyFigure = readings[challengeStartIndex] as number;
+            moved.push(i);
+            challengeOpen = false;
+            challengeStartIndex = -1;
+            challengeLength = 0;
+          }
+        } else {
+          challengeOpen = true;
+          challengeStartIndex = i;
+          challengeLength = 1;
+        }
+      }
+    }
+
+    settled.push(steadyFigure);
+  }
+
+  return { settled, moved };
+}
+```

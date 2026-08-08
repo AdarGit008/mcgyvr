@@ -1,0 +1,22 @@
+id: p140-plotter-pose
+task_type: function_implementation
+task: >-
+  Implement plotter_pose. A pen plotter sits at the origin (0, 0) of an
+  integer grid facing "N", where N is the +y direction and E is +x. The
+  program is a compact string read left to right: F<n> drives forward n
+  cells and B<n> drives backward n cells, where n is a positive integer
+  written in decimal, while a bare L or R spins the plotter 90 degrees left
+  or right without moving it. Backward means opposite to the current
+  facing, and neither F nor B changes the facing. Return a record with x
+  and y, the final integer coordinates, and facing, one of "N", "E", "S" or
+  "W". The empty program leaves the plotter at the origin facing "N".
+  Reject with an error a non-string program, a letter outside F, B, L and
+  R, an F or B not followed by digits, and a drive distance of zero.
+target: solution.py
+interface: "def plotter_pose(program: str) -> dict"
+stop_conditions:
+  - Whether distances may carry leading zeros is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

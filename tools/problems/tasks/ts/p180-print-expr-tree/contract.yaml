@@ -1,0 +1,27 @@
+id: p180-print-expr-tree
+task_type: function_implementation
+task: >-
+  Implement printExprTree. The argument is an arithmetic tree written as
+  plain data: a whole number of zero or more stands for a literal, a
+  non-empty string of letters stands for a name, and anything else is a
+  record with op, left and right, where op is one of + - * / and the two
+  sides are trees in their own right. Render the tree back into text. A
+  record renders as its left side, a space, its operator, a space, then its
+  right side. All four operators gather to the left, and * and / bind more
+  tightly than + and -. Wrap a child in one pair of round brackets exactly
+  when leaving it bare would change how the text reads back: wrap a left
+  child whose operator binds more loosely than its parent's, and wrap a
+  right child whose operator binds either more loosely than its parent's or
+  exactly as tightly. A literal or a name is never wrapped. Raise an error
+  for an operator outside the four, for a record lacking op, left or right,
+  for a literal that is negative or not a whole number, for a name that is
+  empty or carries anything but letters, and for a node that is neither a
+  number, a string, nor a record.
+target: solution.ts
+interface: "export function printExprTree(node: unknown): string"
+stop_conditions:
+  - Whether a name may mix upper and lower case letters is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

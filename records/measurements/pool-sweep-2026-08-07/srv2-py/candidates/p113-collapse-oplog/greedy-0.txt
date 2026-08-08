@@ -1,0 +1,17 @@
+```python
+def collapse_oplog(records: list) -> list:
+    chosen = {}
+    for record in records:
+        kind = record[0]
+        if kind not in ("set", "drop"):
+            raise ValueError("unknown record kind")
+        key = record[1]
+        if not isinstance(key, str):
+            raise ValueError("key must be a string")
+        if kind == "set":
+            value = record[2]
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError("value must be an integer")
+        chosen[key] = record
+    return [chosen[key] for key in sorted(chosen)]
+```

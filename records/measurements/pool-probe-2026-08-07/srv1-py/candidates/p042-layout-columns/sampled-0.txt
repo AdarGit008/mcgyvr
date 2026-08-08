@@ -1,0 +1,35 @@
+```python
+def layout_columns(rows: list[list[str]], aligns: str) -> list[str]:
+    if not rows:
+        raise ValueError("Empty input")
+    
+    num_cols = len(aligns)
+    for row in rows:
+        if len(row) != num_cols:
+            raise ValueError("Row length mismatch with alignment spec")
+    
+    col_widths = [max(len(cell) for cell in column) for column in zip(*rows)]
+    aligns = aligns.replace('l', 'L').replace('r', 'R').replace('c', 'C')
+    if not set(aligns).issubset({'L', 'R', 'C'}):
+        raise ValueError("Invalid alignment character")
+    
+    lines = []
+    for row in rows:
+        cells = []
+        for cell, width, align in zip(row, col_widths, aligns):
+            if not isinstance(cell, str):
+                raise ValueError("Non-string cell")
+            pad = width - len(cell)
+            if align == 'L':
+                padded_cell = f"{cell}{' ' * pad}"
+            elif align == 'R':
+                padded_cell = f"{' ' * pad}{cell}"
+            else:  # align == 'C'
+                left_pad = pad // 2
+                right_pad = pad - left_pad
+                padded_cell = f"{' ' * left_pad}{cell}{' ' * right_pad}"
+            cells.append(padded_cell)
+        lines.append(''.join(cells))
+    
+    return [line.rstrip() for line in lines]
+```

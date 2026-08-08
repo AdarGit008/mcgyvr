@@ -1,0 +1,31 @@
+id: p384-settle-claim-run
+task_type: function_implementation
+task: >-
+  Implement settleClaimRun. The first argument is a list of claims, each the
+  allowed amount of one claim in whole cents, met in the order given; the
+  second is a mapping carrying deductible, coinsurance and cap, all whole cents
+  save coinsurance, which is a whole percent from 0 through 100. Every claim is
+  settled in three stages. First the unmet part of the deductible swallows as
+  much of the claim as it can, and the member owes that outright. Second the
+  member owes coinsurance percent of whatever survives the claim after that,
+  taken in whole cents with an exact half cent carried upward. Third the two
+  amounts together are trimmed so the member's running total across the whole
+  run never passes cap, and the plan owes everything left of the claim, the
+  trimming included. The deductible is worn down by the amount the first stage
+  swallowed whether or not the third stage trimmed what the member truly paid,
+  so a run may finish its deductible without ever handing over all of it.
+  Report one row per claim, each holding the member's payment, the plan's
+  payment, the deductible still unmet and the member's running total, as they
+  all stand once that claim is settled. Raise an error when the claim list is
+  not a list, when a claim is not a whole number or falls below zero, when the
+  plan is not a mapping, when deductible or cap is not a whole number or falls
+  below zero, when coinsurance is not a whole number from 0 through 100, and
+  when cap lies below deductible.
+target: solution.ts
+interface: "export function settleClaimRun(claims: unknown, plan: unknown): number[][]"
+stop_conditions:
+  - Whether the deductible and the cap reset partway through the run is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

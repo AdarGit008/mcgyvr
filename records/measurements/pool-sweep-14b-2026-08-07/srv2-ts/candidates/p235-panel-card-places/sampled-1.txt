@@ -1,0 +1,71 @@
+```ts
+/**
+ * Places cards on a panel grid.
+ * @param panel - The panel record with width, height, bleed, cardWidth, cardHeight, and seam.
+ * @param count - The number of cards to place.
+ * @param taken - The list of cell numbers already spoken for.
+ * @returns An array of pairs representing the top-left corner distances from the panel's left and top edges.
+ */
+export function placeCards(panel: any, count: number, taken: any[]): number[][] {
+  if (
+    !Number.isInteger(panel.width) || panel.width <= 0 ||
+    !Number.isInteger(panel.height) || panel.height <= 0 ||
+    !Number.isInteger(panel.bleed) || panel.bleed < 0 ||
+    !Number.isInteger(panel.cardWidth) || panel.cardWidth <= 0 ||
+    !Number.isInteger(panel.cardHeight) || panel.cardHeight <= 0 ||
+    !Number.isInteger(panel.seam) || panel.seam < 0
+  ) {
+    throw new Error("Panel measurements must be positive integers for width, height, cardWidth, and cardHeight; bleed and seam must be non-negative integers.");
+  }
+
+  if (!Number.isInteger(count) || count < 0) {
+    throw new Error("Count must be a whole number of zero or more.");
+  }
+
+  const printableWidth = panel.width - 2 * panel.bleed;
+  const printableHeight = panel.height - 2 * panel.bleed;
+
+  if (printableWidth <= 0 || printableHeight <= 0) {
+    throw new Error("Panel carries no cells at all.");
+  }
+
+  const columnCount = Math.max(1, Math.floor((printableWidth + panel.seam) / (panel.cardWidth + panel.seam)));
+  const rowCount = Math.max(1, Math.floor((printableHeight + panel.seam) / (panel.cardHeight + panel.seam)));
+
+  if (columnCount * rowCount === 0) {
+    throw new Error("Panel carries no cells at all.");
+  }
+
+  const gridCells: number[] = [];
+  for (let row = 0; row < rowCount; row++) {
+    for (let col = 0; col < columnCount; col++) {
+      gridCells.push(row * columnCount + col + 1);
+    }
+  }
+
+  const takenSet = new Set<number>(taken.filter(cell => cell >= 1 && cell <= columnCount * rowCount));
+
+  if (gridCells.length - takenSet.size < count) {
+    throw new Error("Free cells cannot cover the count.");
+  }
+
+  const result: number[][] = [];
+  let placed = 0;
+
+  for (const cell of gridCells) {
+    if (!takenSet.has(cell)) {
+      const row = Math.floor((cell - 1) / columnCount);
+      const col = (cell - 1) % columnCount;
+      const left = panel.bleed + col * (panel.cardWidth + panel.seam);
+      const top = panel.bleed + row * (panel.cardHeight + panel.seam);
+      result.push([left, top]);
+      placed++;
+      if (placed === count) {
+        break;
+      }
+    }
+  }
+
+  return result;
+}
+```

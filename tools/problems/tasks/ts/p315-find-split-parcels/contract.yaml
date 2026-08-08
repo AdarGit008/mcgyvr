@@ -1,0 +1,22 @@
+id: p315-find-split-parcels
+task_type: function_implementation
+task: >-
+  Implement findSplitParcels. The input is a rectangular land map given row by
+  row, each row a string of the same width, where an uppercase letter claims
+  that square for the parcel of that name and a full stop leaves the square
+  unclaimed. A parcel is whole when a walker can get between any two of its
+  squares stepping only up, down, left or right and only onto squares of that
+  same parcel. Return one entry "L:K" for every parcel that is not whole, L
+  being its letter and K how many separate pieces it falls into, ordered by
+  letter; return the empty list when every parcel is whole. Reject with an
+  error a map with no rows, a row whose width differs from the first row, a
+  row that is not a string, a character that is neither a full stop nor an
+  uppercase letter, and a map that claims not one square.
+target: solution.ts
+interface: "export function findSplitParcels(plan: string[]): string[]"
+stop_conditions:
+  - Whether the same letter may be intended as two deliberately separate parcels is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

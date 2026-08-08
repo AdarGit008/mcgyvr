@@ -1,0 +1,28 @@
+```ts
+/**
+ * One line of key=value pairs, joined by &. Each pair is serialized with special
+ * characters escaped: % as %25, & as %26, = as %3D. Throws an error for invalid
+ * input.
+ */
+export function encodePairs(pairs: [string, string][]): string {
+  if (!Array.isArray(pairs)) {
+    throw new Error("Input must be an array of key-value pairs.");
+  }
+
+  const parts: string[] = [];
+  for (const [key, value] of pairs) {
+    if (typeof key !== "string" || typeof value !== "string") {
+      throw new Error("Both key and value must be strings.");
+    }
+    if (key === "") {
+      throw new Error("Key cannot be an empty string.");
+    }
+
+    const escape = (str: string): string =>
+      str.replace(/%/g, "%25").replace(/&/g, "%26").replace(/=/g, "%3D");
+
+    parts.push(`${escape(key)}=${escape(value)}`);
+  }
+  return parts.join("&");
+}
+```

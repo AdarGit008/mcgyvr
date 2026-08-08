@@ -1,0 +1,16 @@
+```python
+def render_data_size(total: int) -> str:
+    if total < 0:
+        raise ValueError("Count must be non-negative.")
+    if not isinstance(total, int):
+        raise ValueError("Count must be an integer.")
+
+    ladder = [("GiB", 1024*1024*1024), ("MiB", 1024*1024), ("KiB", 1024), ("B", 1)]
+    parts = []
+    for suffix, size in ladder:
+        count = total // size
+        if count > 0:
+            parts.append(f"{count}{suffix}")
+            total -= count * size
+    return " ".join(parts) or "0B"
+```

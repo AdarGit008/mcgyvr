@@ -1,0 +1,34 @@
+```ts
+/**
+ * Resolves the profile settings for the given name by walking up the inheritance chain.
+ * @param profiles - A record mapping profile names to their flat setting tables.
+ * @param wanted - The name of the profile to resolve.
+ * @returns The folded settings for the requested profile.
+ */
+export function resolveProfile(profiles: Record<string, Record<string, unknown>>, wanted: string): Record<string, unknown> {
+    const seen = new Set<string>();
+    const resolvedSettings: Record<string, unknown> = {};
+
+    function resolve(name: string): void {
+        if (!profiles[name]) {
+            throw new Error(`Profile "${name}" does not exist.`);
+        }
+        if (seen.has(name)) {
+            throw new Error(`Circular inheritance detected for profile "${name}".`);
+        }
+        seen.add(name);
+
+        const currentProfile = profiles[name];
+        if (currentProfile.extends) {
+            resolve(currentProfile.extends);
+        }
+
+        Object.assign(resolvedSettings, currentProfile);
+    }
+
+    resolve(wanted);
+    delete resolvedSettings.extends;
+
+    return resolvedSettings;
+}
+```

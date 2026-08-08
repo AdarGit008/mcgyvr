@@ -1,0 +1,11 @@
+```ts
+export function kthDistinct(values: number[], k: number): number {
+  if (values.length === 0) throw new Error("Input list must not be empty");
+  if (!Number.isInteger(k) || k <= 0) throw new Error("Rank must be a positive integer");
+
+  const distinctValues = Array.from(new Set(values)).sort((a, b) => a - b);
+  if (k > distinctValues.length) throw new Error("Rank exceeds the count of distinct values");
+
+  return distinctValues[k - 1];
+}
+```

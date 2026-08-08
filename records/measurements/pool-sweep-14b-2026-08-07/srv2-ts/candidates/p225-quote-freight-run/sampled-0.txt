@@ -1,0 +1,51 @@
+```ts
+export function quoteFreightRun(bands: Array<Record<string, unknown>>, kilos: number): Record<string, unknown> {
+  if (!Array.isArray(bands) || bands.length === 0) {
+    throw new Error("Bands must be a non-empty list.");
+  }
+
+  const validatedBands = bands.map((band, index) => {
+    if (typeof band !== 'object' || band === null) {
+      throw new Error(`Band at index ${index} is not a mapping.`);
+    }
+    const from = band['from'];
+    const perKilo = band['perKilo'];
+
+    if (!Number.isInteger(from) || from < 0) {
+      throw new Error(`Starting weight at index ${index} must be a whole number of nought or more.`);
+    }
+    if (!Number.isInteger(perKilo) || perKilo < 0) {
+      throw new Error(`Rate at index ${index} must be a non-negative whole number.`);
+    }
+
+    return { from, perKilo };
+  });
+
+  if (validatedBands[0].from !== 0) {
+    throw new Error("The first band must start at nought.");
+  }
+
+  for (let i = 1; i < validatedBands.length; i++) {
+    if (validatedBands[i].from <= validatedBands[i - 1].from) {
+      throw new Error("Starting weights do not climb strictly.");
+    }
+  }
+
+  if (!Number.isInteger(kilos) || kilos < 1) {
+    throw new Error("Consignment weight must be a whole number of one or more.");
+  }
+
+  let cents = 0;
+  const split: number[] = [];
+
+  for (let i = 0; i < validatedBands.length; i++) {
+    const { from, perKilo } = validatedBands[i];
+    const end = (i === validatedBands.length - 1) ? kilos : validatedBands[i + 1].from;
+    const bandWeight = Math.min(kilos, end) - from;
+    cents += bandWeight * perKilo;
+    split.push(bandWeight * perKilo);
+  }
+
+  return { split, cents };
+}
+```

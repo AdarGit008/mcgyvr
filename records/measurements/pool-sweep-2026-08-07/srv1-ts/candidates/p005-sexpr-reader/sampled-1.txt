@@ -1,0 +1,44 @@
+```typescript
+export function readSexpr(text: string): number | string | any[] {
+    if (typeof text !== 'string') {
+        throw new Error('Input must be a string');
+    }
+
+    const tokens = text.trim().split(/\s+/);
+    if (tokens.length === 0) {
+        throw new Error('Empty input or only whitespace');
+    }
+
+    function parseToken(tokens: string[]): number | string | any[] {
+        const token = tokens.shift();
+        if (!token) {
+            throw new Error('Unclosed list');
+        }
+
+        if (token === '(') {
+            if (tokens[0] === ')') {
+                tokens.shift(); // Remove closing parenthesis
+                return [];
+            }
+            const result: any[] = [];
+            while (tokens[0] !== ')') {
+                result.push(parseToken(tokens));
+            }
+            tokens.shift(); // Remove closing parenthesis
+            return result;
+        } else if (/^-?\d+$/.test(token)) {
+            return parseInt(token, 10);
+        } else if (/^[a-zA-Z+\-*/!?]+$/.test(token)) {
+            return token;
+        } else {
+            throw new Error(`Invalid atom: ${token}`);
+        }
+    }
+
+    const result = parseToken(tokens);
+    if (tokens.length > 0) {
+        throw new Error('Extra input after first expression');
+    }
+    return result;
+}
+```

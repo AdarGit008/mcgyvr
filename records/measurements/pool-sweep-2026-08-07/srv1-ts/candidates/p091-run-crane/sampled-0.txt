@@ -1,0 +1,38 @@
+```ts
+/**
+ * Executes a series of crane operations on a pile of crates and returns the manifest of shipped crates.
+ * 
+ * @param script - An array of arrays representing crane operations. Each sub-array contains an operation type and an optional crate label.
+ * @returns An array of strings representing the labels of the crates that have been shipped in order.
+ */
+export function runCrane(script: string[][]): string[] {
+    const pile: string[] = [];
+    const manifest: string[] = [];
+
+    for (let i = 0; i < script.length; i++) {
+        const [operation, label] = script[i];
+        switch (operation) {
+            case "load":
+                if (label === undefined) throw new Error(`Invalid load operation at index ${i}`);
+                pile.push(label);
+                break;
+            case "ship":
+                if (pile.length === 0) throw new Error(`Attempt to ship from an empty pile at index ${i}`);
+                manifest.push(pile.pop()!);
+                break;
+            case "bury":
+                if (pile.length === 0) throw new Error(`Attempt to bury from an empty pile at index ${i}`);
+                pile.unshift(pile.pop()!);
+                break;
+            case "scrap":
+                if (pile.length === 0) throw new Error(`Attempt to scrap from an empty pile at index ${i}`);
+                pile.pop();
+                break;
+            default:
+                throw new Error(`Invalid operation '${operation}' at index ${i}`);
+        }
+    }
+
+    return manifest;
+}
+```

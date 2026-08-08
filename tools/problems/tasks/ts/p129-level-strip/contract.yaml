@@ -1,0 +1,43 @@
+id: p129-level-strip
+task_type: bug_fix
+task: >-
+  Fix levelStrip. Each integer reading becomes one character of a ramp
+  string whose characters run dimmest to brightest. With n ramp
+  characters and a span from low to high, the lawful index is
+  floor((reading - low) * n / (high - low)), clamped into 0..n-1, so
+  readings under low print the dimmest character and readings at or
+  beyond high print the brightest. The current code scales by n - 1,
+  rounds to nearest instead of flooring, and never clamps, so
+  out-of-span readings reach past the ramp entirely and in-span readings
+  light the wrong character near band edges. Keep rejecting a ramp with
+  no characters and a span whose high end does not exceed its low end
+  with an error. One character per reading, concatenated in reading
+  order — return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function levelStrip(
+    readings: number[],
+    low: number,
+    high: number,
+    ramp: string,
+  ): string {
+    if (ramp.length === 0) {
+      throw new Error("empty ramp");
+    }
+    if (high <= low) {
+      throw new Error("span must rise");
+    }
+    let out = "";
+    for (const r of readings) {
+      const index = Math.round(((r - low) * (ramp.length - 1)) / (high - low));
+      out += ramp[index];
+    }
+    return out;
+  }
+interface: "export function levelStrip(readings: number[], low: number, high: number, ramp: string): string"
+stop_conditions:
+  - Behavior for a ramp containing repeated characters is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

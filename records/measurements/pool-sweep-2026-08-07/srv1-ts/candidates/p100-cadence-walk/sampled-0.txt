@@ -1,0 +1,38 @@
+```ts
+export function labelCadenceWalk(edges: string[][], cadence: string[], start: string, goal: string): number {
+  if (cadence.length === 0) throw new Error('Empty cadence list');
+  if (!cadence.every(label => typeof label === 'string' && label !== '')) throw new Error('Invalid cadence entry');
+  if (!edges.every(edge => Array.isArray(edge) && edge.length === 3 && edge.every(part => typeof part === 'string' && part !== ''))) throw new Error('Invalid edge format');
+  if (!edges.some(([from, to]) => from === start || to === start)) throw new Error('Start node not in any edge');
+  if (!edges.some(([from, to]) => from === goal || to === goal)) throw new Error('Goal node not in any edge');
+
+  const edgeMap = new Map<string, [string, string][]>();
+  edges.forEach(([from, to, label]) => {
+    if (!edgeMap.has(label)) edgeMap.set(label, []);
+    edgeMap.get(label)!.push([from, to]);
+  });
+
+  const cadenceLength = cadence.length;
+  let minEdges = Infinity;
+
+  function dfs(current: string, index: number, steps: number): void {
+    if (current === goal && index === cadenceLength) {
+      minEdges = Math.min(minEdges, steps);
+      return;
+    }
+    if (index >= cadenceLength || current === goal) return;
+
+    const targetLabel = cadence[index];
+    const nextEdges = edgeMap.get(targetLabel);
+    if (!nextEdges) return;
+
+    for (const [from, to] of nextEdges) {
+      if (from === current) dfs(to, index + 1, steps + 1);
+    }
+  }
+
+  dfs(start, 0, 0);
+
+  return minEdges === Infinity ? -1 : minEdges;
+}
+```

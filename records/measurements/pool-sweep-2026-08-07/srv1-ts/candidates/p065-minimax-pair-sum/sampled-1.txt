@@ -1,0 +1,23 @@
+```ts
+export function minimaxPairSum(first: number[], second: number[]): number {
+    if (first.length !== second.length) {
+        throw new Error("Lists must be of equal length");
+    }
+    if (first.length === 0 || second.length === 0) {
+        throw new Error("Lists cannot be empty");
+    }
+
+    const sortedFirst = first.slice().sort((a, b) => a - b);
+    const sortedSecond = second.slice().sort((a, b) => a - b);
+
+    let maxPairSum = 0;
+    for (let i = 0; i < sortedFirst.length; i++) {
+        if (!Number.isInteger(sortedFirst[i]) || !Number.isInteger(sortedSecond[i])) {
+            throw new Error("All entries must be integers");
+        }
+        maxPairSum = Math.max(maxPairSum, sortedFirst[i] + sortedSecond[sortedSecond.length - 1 - i]);
+    }
+
+    return maxPairSum;
+}
+```

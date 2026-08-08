@@ -1,0 +1,58 @@
+```ts
+/**
+ * Divides two integers and returns the quotient as a decimal string rounded to a specified number of places.
+ * @param numerator - The integer numerator.
+ * @param denominator - The integer denominator.
+ * @param places - The number of decimal places to round to.
+ * @returns The quotient as a decimal string.
+ */
+export function divideFixed(numerator: number, denominator: number, places: number): string {
+  if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(places)) {
+    throw new Error("All arguments must be integers.");
+  }
+  if (denominator === 0) {
+    throw new Error("Denominator cannot be zero.");
+  }
+  if (places < 0 || places > 6) {
+    throw new Error("Places must be between 0 and 6.");
+  }
+  if (Math.abs(numerator) > 1_000_000 || Math.abs(denominator) > 1_000_000) {
+    throw new Error("Numerator and denominator magnitudes must be at or below one million.");
+  }
+
+  const isNegative = (numerator < 0) !== (denominator < 0);
+  numerator = Math.abs(numerator);
+  denominator = Math.abs(denominator);
+
+  let quotient = "";
+  let remainder = numerator;
+
+  for (let i = 0; i <= places; i++) {
+    if (i === 0 && numerator >= denominator) {
+      quotient += Math.floor(numerator / denominator);
+      remainder = numerator % denominator;
+    } else {
+      quotient += "0";
+    }
+
+    if (remainder === 0) {
+      break;
+    }
+
+    remainder *= 10;
+    const digit = Math.floor(remainder / denominator);
+    quotient += digit.toString();
+    remainder %= denominator;
+  }
+
+  if (places > 0) {
+    quotient = quotient.slice(0, -places) + "." + quotient.slice(-places);
+  }
+
+  if (isNegative && quotient !== "0") {
+    quotient = "-" + quotient;
+  }
+
+  return quotient.replace(/\.?0+$/, "");
+}
+```

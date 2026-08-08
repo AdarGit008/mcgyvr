@@ -1,0 +1,55 @@
+```ts
+export function processStockMoves(moves: Array<Record<string, unknown>>): { levels: Record<string, number>; refused: Array<[number, string]> } {
+  const levels: Record<string, number> = {};
+  const refused: Array<[number, string]> = [];
+
+  moves.forEach((move, index) => {
+    const op = move.op as string;
+    const item = move.item as string;
+    const qty = move.qty as number;
+
+    if (typeof op !== 'string' || typeof item !== 'string' || typeof qty !== 'number') {
+      throw new Error('Invalid move format');
+    }
+
+    if (!item) {
+      throw new Error('Item must be a non-empty string');
+    }
+
+    if (!Number.isInteger(qty)) {
+      throw new Error('Qty must be an integer');
+    }
+
+    switch (op) {
+      case 'receive':
+        if (qty < 1) {
+          throw new Error('Receive qty must be at least 1');
+        }
+        levels[item] = (levels[item] || 0) + qty;
+        break;
+      case 'issue':
+        if (qty < 1) {
+          throw new Error('Issue qty must be at least 1');
+        }
+        if (!levels[item]) {
+          refused.push([index, 'unknown_item']);
+        } else if (levels[item] < qty) {
+          refused.push([index, 'short']);
+        } else {
+          levels[item] -= qty;
+        }
+        break;
+      case 'recount':
+        if (qty < 0) {
+          throw new Error('Recount qty must be at least 0');
+        }
+        levels[item] = qty;
+        break;
+      default:
+        throw new Error(`Unknown operation: ${op}`);
+    }
+  });
+
+  return { levels, refused };
+}
+```

@@ -1,0 +1,23 @@
+id: p122-rune-transcribe
+task_type: function_implementation
+task: >-
+  Implement transcribeRunes. The first argument is a source string, the
+  second an ordered table of rules, each a [pattern, output] pair of
+  strings. Build the transcription in one pass: standing at the current
+  position of the source, try the rules from the top of the table down,
+  and the first rule whose pattern occurs verbatim starting exactly at
+  that position fires — its output joins the result and the position
+  jumps past the matched pattern. Table order is the only priority, so an
+  earlier rule with a short pattern beats a later rule with a longer one.
+  When no rule fires, the single character at the position is copied and
+  the position moves on by one. Rule outputs are never rescanned. Reject
+  a rule whose pattern is empty with an error, even when the source is
+  empty. Return the finished transcription.
+target: solution.ts
+interface: "export function transcribeRunes(source: string, table: Array<[string, string]>): string"
+stop_conditions:
+  - Whether patterns may match across differing letter case is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

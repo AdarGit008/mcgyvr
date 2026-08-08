@@ -1,0 +1,63 @@
+```ts
+export function unionCoverage(rects: number[][]): number {
+  if (!Array.isArray(rects) || rects.length === 0) return 0;
+
+  const events: { x: number; type: 'start' | 'end'; y1: number; y2: number }[] = [];
+
+  for (const rect of rects) {
+    if (
+      !Array.isArray(rect) ||
+      rect.length !== 4 ||
+      !rect.every(Number.isInteger) ||
+      rect[0] >= rect[2] ||
+      rect[1] >= rect[3] ||
+      rect.some(coord => coord < -10000 || coord > 10000)
+    ) {
+      throw new Error('Invalid rectangle');
+    }
+
+    events.push({ x: rect[0], type: 'start', y1: rect[1], y2: rect[3] });
+    events.push({ x: rect[2], type: 'end', y1: rect[1], y2: rect[3] });
+  }
+
+  events.sort((a, b) => a.x - b.x);
+
+  let totalArea = 0;
+  let currentX = events[0].x;
+
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    if (event.type === 'start') {
+      let openIntervals = 1;
+      while (i + 1 < events.length && events[i + 1].x === event.x) {
+        if (events[i + 1].type === 'end') openIntervals--;
+        else openIntervals++;
+        i++;
+      }
+      if (openIntervals > 0) {
+        let currentY = -Infinity;
+        let activeIntervals: { y1: number; y2: number }[] = [];
+        for (let j = i; j < events.length && events[j].x === event.x; j++) {
+          const e = events[j];
+          if (e.type === 'start') {
+            activeIntervals.push({ y1: e.y1, y2: e.y2 });
+          } else {
+            activeIntervals = activeIntervals.filter(
+              interval => !(interval.y1 <= e.y1 && interval.y2 >= e.y2)
+            );
+          }
+        }
+        activeIntervals.sort((a, b) => a.y1 - b.y1);
+
+        for (const interval of activeIntervals) {
+          totalArea += Math.max(0, interval.y2 - currentY);
+          currentY = Math.max(currentY, interval.y2);
+        }
+      }
+    }
+    currentX = event.x;
+  }
+
+  return totalArea;
+}
+```

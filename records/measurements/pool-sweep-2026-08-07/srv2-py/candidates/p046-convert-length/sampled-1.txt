@@ -1,0 +1,20 @@
+```python
+def convert_length(quantity: str, goal: str) -> int:
+    symbols = {"mm": 0.001, "cm": 0.01, "m": 1, "km": 1000}
+    
+    if not quantity or goal not in symbols:
+        raise ValueError("Invalid input")
+    
+    total_meters = sum(int(part[:-2]) * symbols[part[-2:]] for part in quantity.split())
+    
+    if goal == "mm":
+        target_value = int(total_meters / 0.001)
+    elif goal == "cm":
+        target_value = int(total_meters / 0.01)
+    elif goal == "m":
+        target_value = int(total_meters)
+    elif goal == "km":
+        target_value = int(total_meters / 1000)
+    
+    return target_value
+```

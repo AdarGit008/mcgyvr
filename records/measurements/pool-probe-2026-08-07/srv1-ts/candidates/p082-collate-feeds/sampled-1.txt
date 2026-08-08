@@ -1,0 +1,19 @@
+```ts
+export function collateFeeds(feeds: number[][][]): number[][] {
+  if (feeds.some(feed => feed.some(([tick1, tick2]) => tick1 >= tick2))) {
+    throw new Error('Feed contains non-strictly increasing ticks');
+  }
+
+  const timeline = feeds.flat()
+    .sort((a, b) => a[0] - b[0]);
+
+  const result: number[][] = [];
+  for (let i = 0; i < timeline.length; i++) {
+    if (i === 0 || timeline[i][1] !== timeline[i - 1][1]) {
+      result.push(timeline[i]);
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,82 @@
+id: p423-ladder-race-bumps
+task_type: bug_fix
+task: >-
+  race_ladder_board replays a lane race. The lane is squares 1 through size, and
+  every runner named in turns begins off the lane on square 0, which holds any
+  number of them at once. Each turn is a [name, steps] pair, taken in the order
+  given: the named runner advances steps squares from wherever it stands, and a
+  turn whose arrival would land beyond square size is forfeit. Coming down on a
+  chute mouth carries the runner at once to that pair's exit — one carry only,
+  since no exit is ever a mouth. Whichever square the runner finally rests on,
+  any other runner already resting there is knocked back off the lane to square
+  0; square 0 itself never knocks anybody back. A runner resting on square size
+  is home, and every later turn naming it is skipped. Give back a mapping from
+  each named runner to the square it finishes on. The code below looks for a
+  runner to knock back on the square the steps arrived at, before the carry has
+  been resolved, so a carried runner never clears the exit square and two
+  runners are left sharing it. Repair that, keep raising an error for a size
+  under 2 or not whole, a chute that is not two whole numbers on the lane, a
+  mouth equal to its own exit, a mouth on the home square, two chutes sharing a
+  mouth, an exit that is some pair's mouth, an empty or non-string name, and
+  steps that are not a whole number above zero, and return the complete fixed
+  file.
+target: solution.py
+target_content: |
+  def _whole(value) -> bool:
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def race_ladder_board(
+      size: int, chutes: list[list[int]], turns: list[list]
+  ) -> dict[str, int]:
+      if not _whole(size) or size < 2:
+          raise ValueError("size must be a whole number of at least 2")
+
+      exit_of: dict[int, int] = {}
+      for pair in chutes:
+          if not isinstance(pair, (list, tuple)) or len(pair) != 2:
+              raise ValueError("a chute is a [mouth, exit] pair")
+          mouth, landing = pair
+          for square in (mouth, landing):
+              if not _whole(square) or square < 1 or square > size:
+                  raise ValueError("a chute square must be a whole number on the lane")
+          if mouth == landing:
+              raise ValueError("a mouth may not be its own exit")
+          if mouth == size:
+              raise ValueError("the home square may not be a mouth")
+          if mouth in exit_of:
+              raise ValueError("two chutes share one mouth")
+          exit_of[mouth] = landing
+      for landing in exit_of.values():
+          if landing in exit_of:
+              raise ValueError("an exit may not be a mouth")
+
+      standing: dict[str, int] = {}
+      for turn in turns:
+          if not isinstance(turn, (list, tuple)) or len(turn) != 2:
+              raise ValueError("a turn is a [name, steps] pair")
+          name, steps = turn
+          if not isinstance(name, str) or not name:
+              raise ValueError("a runner's name must be a non-empty string")
+          if not _whole(steps) or steps < 1:
+              raise ValueError("steps must be a whole number above zero")
+          standing.setdefault(name, 0)
+          start = standing[name]
+          if start == size:
+              continue
+          arrival = start + steps
+          if arrival > size:
+              continue
+          for other in standing:
+              if other != name and standing[other] == arrival:
+                  standing[other] = 0
+          standing[name] = exit_of.get(arrival, arrival)
+
+      return dict(standing)
+interface: "def race_ladder_board(size: int, chutes: list[list[int]], turns: list[list]) -> dict[str, int]"
+stop_conditions:
+  - Whether a runner may be named in turns after reaching home is not stated to be an error.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

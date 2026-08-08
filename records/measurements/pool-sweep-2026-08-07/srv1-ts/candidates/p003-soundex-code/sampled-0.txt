@@ -1,0 +1,35 @@
+```ts
+export function soundexCode(word: string): string {
+  if (typeof word !== 'string' || /[^a-zA-Z]/.test(word)) {
+    throw new Error('Invalid input');
+  }
+
+  const codeMap = {
+    b: 1, f: 1, p: 1, v: 1,
+    c: 2, g: 2, j: 2, k: 2, q: 2, s: 2, x: 2, z: 2,
+    d: 3, t: 3,
+    l: 4,
+    m: 5, n: 5,
+    r: 6
+  };
+
+  const digits = word[0].toUpperCase();
+  let prevDigit = null;
+
+  for (const char of word.slice(1)) {
+    const digit = codeMap[char.toLowerCase()];
+    if (digit !== undefined) {
+      if (prevDigit === null || digit !== prevDigit || (digit === 2 && (prevDigit === 1 || prevDigit === 3))) {
+        digits += digit;
+        prevDigit = digit;
+      }
+    }
+  }
+
+  while (digits.length < 4) {
+    digits += '0';
+  }
+
+  return digits.slice(0, 4);
+}
+```

@@ -1,0 +1,21 @@
+```ts
+export function cappedCompositions(total: number, parts: number, lo: number, hi: number): number {
+  if (!Number.isInteger(parts) || parts <= 0) throw new Error('Parts must be a positive integer.');
+  if (!Number.isInteger(lo) || !Number.isInteger(hi) || lo < 0 || hi < 0) throw new Error('Bounds must be non-negative integers.');
+  if (lo > hi) throw new Error('Lower bound cannot be greater than upper bound.');
+  if (!Number.isInteger(total)) throw new Error('Total must be an integer.');
+
+  if (total < parts * lo || total > parts * hi) return 0;
+
+  const dp: number[] = Array(parts + 1).fill(0);
+  dp[0] = 1;
+
+  for (let i = lo; i <= hi; i++) {
+    for (let j = parts; j >= 1; j--) {
+      dp[j] += dp[j - i];
+    }
+  }
+
+  return dp[parts];
+}
+```

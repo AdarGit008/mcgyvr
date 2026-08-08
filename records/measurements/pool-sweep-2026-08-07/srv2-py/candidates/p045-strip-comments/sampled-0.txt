@@ -1,0 +1,46 @@
+```python
+import re
+
+def strip_comments(source: str) -> str:
+    # Regular expression to match single-line comments
+    single_line_comment = re.compile(r'//.*?(?=\n|$)')
+    # Regular expression to match block comments
+    block_comment = re.compile(r'/\*.*?\*/', re.DOTALL)
+    # Regular expression to match double-quoted string literals
+    string_literal = re.compile(r'"(\\.|[^"])*"', re.DOTALL)
+
+    def remove_comments(line: str) -> str:
+        # Find all string literals in the line
+        strings = [(m.start(), m.group()) for m in string_literal.finditer(line)]
+        if not strings:
+            # If there are no string literals, use a simple substitution
+            return single_line_comment.sub('', block_comment.sub('', line))
+        
+        new_line = []
+        last_end = 0
+        for start, string in strings:
+            # Add the part of the line before the current string literal
+            new_line.append(line[last_end:start])
+            last_end = start + len(string)
+        
+        # Add the remaining part of the line after the last string literal
+        new_line.append(line[last_end:])
+        
+        # Process each segment separately to remove comments within strings
+        for i in range(len(new_line)):
+            if i % 2 == 0:
+                # If it's a non-string segment, remove comments
+                new_line[i] = single_line_comment.sub('', block_comment.sub('', new_line[i]))
+        
+        return ''.join(new_line)
+
+    # Process each line separately to handle multi-line strings and comments
+    lines = [remove_comments(line) for line in source.split("\n")]
+    text = "\n".join(lines)
+    
+    # Check for unclosed block comments
+    if "/*" in text:
+        raise ValueError("Unclosed block comment found")
+    
+    return text
+```

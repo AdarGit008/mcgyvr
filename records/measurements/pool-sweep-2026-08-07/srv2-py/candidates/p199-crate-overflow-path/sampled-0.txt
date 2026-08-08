@@ -1,0 +1,32 @@
+```python
+def crate_overflow_path(root: dict) -> str:
+    if not isinstance(root, dict):
+        raise ValueError("The outermost crate must be a mapping.")
+    
+    def check_crate(crate: dict) -> (int, str):
+        tag = crate.get("tag")
+        weight = crate.get("weight")
+        cap = crate.get("cap")
+        inside = crate.get("inside")
+        
+        if not isinstance(tag, str) or len(tag) == 0 or "." in tag:
+            raise ValueError("Tag must be a non-empty string with no full stop.")
+        if not (isinstance(weight, int) and weight >= 0):
+            raise ValueError("Weight must be a non-negative whole number.")
+        if not (isinstance(cap, int) and cap > 0):
+            raise ValueError("Cap must be a positive whole number.")
+        if not isinstance(inside, list):
+            raise ValueError("'inside' must be a list.")
+        
+        gross = weight
+        for sub_crate in inside:
+            sub_gross, path = check_crate(sub_crate)
+            gross += sub_gross
+            if ".".join([tag] + path.split(".")) == tag:  # Duplicate tag check
+                raise ValueError("Two crates packed side by side share a tag.")
+        
+        return gross, ".".join([tag] * (gross > cap))
+    
+    _, path = check_crate(root)
+    return path if path else ""
+```

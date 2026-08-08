@@ -1,0 +1,24 @@
+```python
+def keyset_page(ids: list[int], cursor: int, limit: int) -> dict:
+    """
+    Page through a sorted collection with a keyset cursor.
+
+    :param ids: List of integer ids in strictly increasing order.
+    :param cursor: Integer cursor.
+    :param limit: Positive integer page limit.
+    :return: Mapping with "items" holding the first limit ids strictly greater than the cursor
+             and "done" indicating if no id remains beyond the page.
+    """
+    if not isinstance(limit, int) or limit <= 0:
+        raise ValueError("Limit must be a positive integer.")
+    if not isinstance(cursor, int):
+        raise ValueError("Cursor must be an integer.")
+    if not all(ids[i] < ids[i + 1] for i in range(len(ids) - 1)):
+        raise ValueError("Ids must be strictly increasing.")
+
+    start_index = bisect.bisect_right(ids, cursor)
+    items = ids[start_index:start_index + limit]
+    done = len(items) < limit or (start_index + limit >= len(ids))
+
+    return {"items": items, "done": done}
+```

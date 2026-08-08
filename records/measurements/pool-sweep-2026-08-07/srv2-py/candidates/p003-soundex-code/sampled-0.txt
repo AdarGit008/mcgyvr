@@ -1,0 +1,30 @@
+```python
+import re
+
+def soundex_code(word: str) -> str:
+    if not isinstance(word, str) or not word.isalpha():
+        raise ValueError("Input must be a non-empty string containing only ASCII letters.")
+    
+    # Mapping of letters to digits
+    soundex_map = {
+        'b': '1', 'f': '1', 'p': '1', 'v': '1',
+        'c': '2', 'g': '2', 'j': '2', 'k': '2', 'q': '2', 's': '2', 'x': '2', 'z': '2',
+        'd': '3', 't': '3',
+        'l': '4',
+        'm': '5', 'n': '5',
+        'r': '6'
+    }
+    
+    # Convert word to lowercase and get first letter
+    soundex = word[0].upper()
+    
+    # Process the rest of the letters
+    for char in word[1:]:
+        digit = soundex_map.get(char.lower())
+        if digit:
+            if not soundex or digit != soundex[-1]:
+                soundex += digit
+    
+    # Pad with zeros to ensure exactly three digits follow the first letter
+    return soundex[:4].ljust(4, '0')
+```

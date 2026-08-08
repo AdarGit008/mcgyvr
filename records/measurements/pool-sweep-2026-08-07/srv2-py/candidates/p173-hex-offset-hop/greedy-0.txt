@@ -1,0 +1,49 @@
+```python
+def hop_offset_grid(start: list, moves: list) -> dict:
+    if not isinstance(start, list) or len(start) != 2:
+        raise ValueError("the start must be a two-element address")
+    for part in start:
+        if not isinstance(part, int) or isinstance(part, bool):
+            raise ValueError("an address must hold whole numbers")
+    if not isinstance(moves, list):
+        raise ValueError("the moves must be a list")
+    col, row = start[0], start[1]
+    for move in moves:
+        if move.lower() == "e":
+            col += 1
+        elif move.lower() == "w":
+            col -= 1
+        elif move.lower() == "ne":
+            if (row + col) % 2 == 0:
+                row -= 1
+            else:
+                col += 1
+                row -= 1
+        elif move.lower() == "nw":
+            if (row + col) % 2 == 0:
+                col -= 1
+                row -= 1
+            else:
+                row -= 1
+        elif move.lower() == "se":
+            if (row + col) % 2 == 0:
+                row += 1
+            else:
+                col += 1
+                row += 1
+        elif move.lower() == "sw":
+            if (row + col) % 2 == 0:
+                col -= 1
+                row += 1
+            else:
+                row += 1
+        else:
+            raise ValueError("invalid move name")
+    q = col - (row // 2)
+    r = row
+    distance = (abs(q - start[0] + (start[1] // 2)) + abs(r - start[1]) + abs(q - start[0] + (start[1] // 2) - r)) / 3
+    return {
+        "cell": [col, row],
+        "distance": distance,
+    }
+```

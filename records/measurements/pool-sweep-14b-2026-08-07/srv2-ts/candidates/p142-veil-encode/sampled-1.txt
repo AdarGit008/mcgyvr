@@ -1,0 +1,32 @@
+```ts
+/**
+ * Encodes a message using a veil alphabet built from a keyword.
+ * @param keyword - A non-empty string of lowercase a-z characters.
+ * @param message - A string made of lowercase a-z and spaces.
+ * @returns The encoded message as a string.
+ */
+export function veilEncode(keyword: string, message: string): string {
+  if (!/^[a-z]+$/.test(keyword)) {
+    throw new Error("Invalid keyword: must be a non-empty string of lowercase a-z characters.");
+  }
+  if (typeof message !== 'string') {
+    throw new Error("Invalid message: must be a string.");
+  }
+
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+  const uniqueKeywordChars = Array.from(new Set(keyword)).filter(char => /^[a-z]$/.test(char));
+  const remainingAlphabet = alphabet.split('').filter(char => !uniqueKeywordChars.includes(char)).reverse();
+  const veilAlphabet = [...uniqueKeywordChars, ...remainingAlphabet];
+
+  return message.split('').map(char => {
+    if (char === ' ') {
+      return char;
+    }
+    const index = alphabet.indexOf(char);
+    if (index === -1) {
+      throw new Error("Invalid message: contains characters beyond lowercase a-z and spaces.");
+    }
+    return veilAlphabet[index];
+  }).join('');
+}
+```

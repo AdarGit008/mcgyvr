@@ -1,0 +1,27 @@
+```ts
+/**
+ * Minimizes the maximum sum of pairs from two equally long lists of integers.
+ * @param first - The first list of integers.
+ * @param second - The second list of integers.
+ * @returns The smallest achievable largest pair sum.
+ */
+export function minimaxPairSum(first: number[], second: number[]): number {
+  if (first.length !== second.length || first.length === 0) {
+    throw new Error('Input lists must be non-empty and of the same length.');
+  }
+
+  const sortedFirst = [...first].sort((a, b) => a - b);
+  const sortedSecond = [...second].sort((a, b) => b - a);
+
+  let maxSum = -Infinity;
+
+  for (let i = 0; i < first.length; i++) {
+    const pairSum = sortedFirst[i] + sortedSecond[i];
+    if (pairSum > maxSum) {
+      maxSum = pairSum;
+    }
+  }
+
+  return maxSum;
+}
+```

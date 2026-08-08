@@ -1,0 +1,24 @@
+id: p106-range-algebra
+task_type: function_implementation
+task: >-
+  Implement rangeAlgebra. The operands a and b are each a list of
+  half-open integer intervals [lo, hi] covering lo up to but not
+  including hi; within one operand the intervals arrive unordered and are
+  free to overlap one another. The op argument selects the set operation:
+  "union" keeps every integer belonging to either operand, "intersect"
+  keeps those belonging to both, and "subtract" keeps those belonging to
+  a but not to b. Return the resulting set of integers in canonical
+  form — intervals sorted ascending, pairwise disjoint, touching
+  neighbours fused into one, nothing empty — so that a given set has
+  exactly one rendering no matter what the operands looked like. Reject
+  with an error an op outside the three, an entry that is not a pair of
+  integers, and a lo that is not strictly below its hi. Either operand
+  may be the empty list.
+target: solution.ts
+interface: "export function rangeAlgebra(a: number[][], b: number[][], op: string): number[][]"
+stop_conditions:
+  - How large the coordinates may grow is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

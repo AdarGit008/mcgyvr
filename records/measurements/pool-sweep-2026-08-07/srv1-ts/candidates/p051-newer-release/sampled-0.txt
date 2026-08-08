@@ -1,0 +1,57 @@
+```ts
+export function newerRelease(a: string, b: string): number {
+  if (a === b) {
+    return 0;
+  }
+
+  const parseVersion = (version: string): [number, number, string | null, number] => {
+    const parts = version.split('.');
+    if (parts.length < 2 || isNaN(Number(parts[0])) || isNaN(Number(parts[1]))) {
+      throw new Error('Invalid release format');
+    }
+    const major = Number(parts[0]);
+    const minor = Number(parts[1]);
+    let channel: string | null = null;
+    let build = 0;
+    if (parts.length === 3) {
+      const prereleaseParts = parts[2].split('-');
+      if (prereleaseParts.length > 1 && prereleaseParts[0] !== 'dev' && prereleaseParts[0] !== 'alpha' && prereleaseParts[0] !== 'beta' && prereleaseParts[0] !== 'rc') {
+        throw new Error('Invalid release format');
+      }
+      channel = prereleaseParts[0];
+      if (prereleaseParts.length === 2) {
+        build = Number(prereleaseParts[1]);
+      }
+    } else if (parts.length > 3) {
+      throw new Error('Invalid release format');
+    }
+    return [major, minor, channel, build];
+  };
+
+  const [aMajor, aMinor, aChannel, aBuild] = parseVersion(a);
+  const [bMajor, bMinor, bChannel, bBuild] = parseVersion(b);
+
+  if (aMajor !== bMajor) {
+    return aMajor > bMajor ? 1 : -1;
+  }
+  if (aMinor !== bMinor) {
+    return aMinor > bMinor ? 1 : -1;
+  }
+
+  if (aChannel === null && bChannel !== null) {
+    return -1;
+  } else if (aChannel !== null && bChannel === null) {
+    return 1;
+  }
+
+  const channelOrder = ['dev', 'alpha', 'beta', 'rc'];
+  const aIndex = channelOrder.indexOf(aChannel!);
+  const bIndex = channelOrder.indexOf(bChannel!);
+
+  if (aIndex !== bIndex) {
+    return aIndex < bIndex ? -1 : 1;
+  }
+
+  return aBuild > bBuild ? 1 : -1;
+}
+```

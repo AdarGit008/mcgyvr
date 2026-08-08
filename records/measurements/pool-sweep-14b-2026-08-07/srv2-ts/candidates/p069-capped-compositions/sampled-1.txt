@@ -1,0 +1,31 @@
+```ts
+export function cappedCompositions(total: number, parts: number, lo: number, hi: number): number {
+  if (!Number.isInteger(parts) || parts <= 0) {
+    throw new Error("parts count must be a positive integer");
+  }
+  if (!Number.isInteger(lo) || lo < 0 || !Number.isInteger(hi) || hi < 0) {
+    throw new Error("bounds must be non-negative integers");
+  }
+  if (lo > hi) {
+    throw new Error("lo cannot be greater than hi");
+  }
+  if (!Number.isInteger(total)) {
+    throw new Error("total must be an integer");
+  }
+
+  const dp: number[][] = Array.from({ length: parts + 1 }, () =>
+    Array(total + 1).fill(0)
+  );
+  dp[0][0] = 1;
+
+  for (let p = 1; p <= parts; p++) {
+    for (let t = 0; t <= total; t++) {
+      for (let v = lo; v <= hi && t - v >= 0; v++) {
+        dp[p][t] += dp[p - 1][t - v];
+      }
+    }
+  }
+
+  return dp[parts][total];
+}
+```

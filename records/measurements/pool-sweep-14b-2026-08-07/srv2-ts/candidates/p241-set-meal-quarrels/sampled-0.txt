@@ -1,0 +1,81 @@
+```ts
+/**
+ * Builds a set meal by selecting one option from each course while avoiding quarrels.
+ * @param courses - An array of courses, each containing options with code and price.
+ * @param quarrels - An array of quarrel pairs, where each pair contains two option codes that cannot be on the same tray.
+ * @returns A record with total (total price), picks (array of selected option codes).
+ * @throws Error when input is invalid or no valid tray can be found.
+ */
+export function buildSetMeal(courses: { code: string, price: number }[][], quarrels: [string, string][]): { total: number, picks: string[] } {
+    if (courses.length === 0 || courses.length > 6) {
+        throw new Error("Invalid number of courses.");
+    }
+
+    const allCodes = new Set<string>();
+    for (const course of courses) {
+        if (course.length === 0 || course.length > 6) {
+            throw new Error("Invalid number of options in a course.");
+        }
+        for (const option of course) {
+            if (option.code.length === 0 || option.price < 1) {
+                throw new Error("Invalid option code or price.");
+            }
+            if (allCodes.has(option.code)) {
+                throw new Error("Duplicate option code.");
+            }
+            allCodes.add(option.code);
+        }
+    }
+
+    const quarrelMap: Map<string, Set<string>> = new Map();
+    for (const [code1, code2] of quarrels) {
+        if (!allCodes.has(code1) || !allCodes.has(code2) || code1 === code2) {
+            throw new Error("Invalid quarrel.");
+        }
+        if (!quarrelMap.has(code1)) {
+            quarrelMap.set(code1, new Set());
+        }
+        quarrelMap.get(code1)!.add(code2);
+        if (!quarrelMap.has(code2)) {
+            quarrelMap.set(code2, new Set());
+        }
+        quarrelMap.get(code2)!.add(code1);
+    }
+
+    function isValidTray(tray: string[]): boolean {
+        for (let i = 0; i < tray.length - 1; i++) {
+            const code1 = tray[i];
+            const code2 = tray[i + 1];
+            const quarrelsForCode1 = quarrelMap.get(code1);
+            if (quarrelsForCode1 && quarrelsForCode1.has(code2)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function generateTrays(courseIndex: number, currentTray: string[], trays: string[][]): void {
+        if (courseIndex === courses.length) {
+            trays.push([...currentTray]);
+            return;
+        }
+        for (const option of courses[courseIndex]) {
+            currentTray.push(option.code);
+            generateTrays(courseIndex + 1, currentTray, trays);
+            currentTray.pop();
+        }
+    }
+
+    const allTrays: string[][] = [];
+    generateTrays(0, [], allTrays);
+
+    let bestTray: { total: number, picks: string[] } | null = null;
+
+    for (const tray of allTrays) {
+        if (!isValidTray(tray)) continue;
+        const total = tray.reduce((acc, code) => acc + courses[tray.indexOf(code)][0].price, 0);
+        const currentBestTray = bestTray;
+
+        if (!bestTray || (total < bestTray.total) || 
+            (total === bestTray.total && tray < bestTray.picks)) {
+           

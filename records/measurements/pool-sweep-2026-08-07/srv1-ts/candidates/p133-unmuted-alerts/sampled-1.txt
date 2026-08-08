@@ -1,0 +1,26 @@
+```ts
+export function unmutedAlerts(alerts: Array<{ id: string; resource: string; severity: number }>): string[] {
+  const topSeverityMap = new Map<string, number>();
+  
+  for (const alert of alerts) {
+    if (!Number.isInteger(alert.severity) || alert.severity <= 0) {
+      throw new Error(`Invalid severity ${alert.severity} for alert with id ${alert.id}`);
+    }
+    if (topSeverityMap.has(alert.resource)) {
+      const currentTopSeverity = topSeverityMap.get(alert.resource);
+      if (currentTopSeverity !== undefined && currentTopSeverity >= alert.severity) continue;
+    }
+    topSeverityMap.set(alert.resource, alert.severity);
+  }
+
+  return alerts
+    .filter((alert) => topSeverityMap.get(alert.resource) === alert.severity)
+    .sort((a, b) => {
+      if (b.severity !== a.severity) {
+        return b.severity - a.severity;
+      }
+      return a.id.localeCompare(b.id);
+    })
+    .map((alert) => alert.id);
+}
+```

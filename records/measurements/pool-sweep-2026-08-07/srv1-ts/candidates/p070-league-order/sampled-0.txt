@@ -1,0 +1,44 @@
+```ts
+/**
+ * Determines the league standings based on the given matches.
+ * @param matches - A list of matches, each with four items: home team, away team, home goals, and away goals.
+ * @returns An array of team names sorted by their final standings.
+ */
+export function leagueOrder(matches: (string | number)[][]): string[] {
+  if (!Array.isArray(matches)) throw new Error('Invalid input: matches must be an array');
+  if (matches.some(match => match.length !== 4)) throw new Error('Invalid input: each match must have four items');
+
+  const teamStats = new Map<string, { points: number; goalDifference: number; goalsScored: number }>();
+
+  for (const [home, away, homeGoals, awayGoals] of matches) {
+    if (typeof home !== 'string' || typeof away !== 'string') throw new Error('Invalid input: team names must be strings');
+    if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals) || homeGoals < 0 || awayGoals < 0)
+      throw new Error('Invalid input: goal figures must be non-negative integers');
+
+    const updateStats = (team: string, goalsFor: number, goalsAgainst: number, points: number): void => {
+      if (!teamStats.has(team)) teamStats.set(team, { points: 0, goalDifference: 0, goalsScored: 0 });
+      const stats = teamStats.get(team)!;
+      stats.points += points;
+      stats.goalDifference += goalsFor - goalsAgainst;
+      stats.goalsScored += goalsFor;
+    };
+
+    updateStats(home, homeGoals, awayGoals, homeGoals > awayGoals ? 3 : homeGoals < awayGoals ? 0 : 1);
+    updateStats(away, awayGoals, homeGoals, awayGoals > homeGoals ? 3 : awayGoals < homeGoals ? 0 : 1);
+  }
+
+  const sortedTeams = Array.from(teamStats.entries())
+    .sort((a, b) => {
+      if (b[1].points !== a[1].points)
+        return b[1].points - a[1].points;
+      if (b[1].goalDifference !== a[1].goalDifference)
+        return b[1].goalDifference - a[1].goalDifference;
+      if (b[1].goalsScored !== a[1].goalsScored)
+        return b[1].goalsScored - a[1].goalsScored;
+      return a[0].localeCompare(b[0]);
+    })
+    .map(([team]) => team);
+
+  return sortedTeams;
+}
+```

@@ -1,0 +1,92 @@
+id: p505-audit-branch-replies
+task_type: bug_fix
+task: >-
+  audit_branch_replies inspects a filled-in branching sheet and says which
+  entries were owed, which were written where nothing was owed, and which were
+  owed but left empty. The argument is a mapping with "items" (a non-empty
+  ordered list) and "given" (a mapping from tag to the answer written against
+  it). An item is a mapping with "tag" (a non-empty string no other item
+  carries) and optionally "when": absent or null when the item is owed
+  unconditionally, otherwise a mapping with "tag" (the tag of an item standing
+  earlier in the list) and "is" (a non-empty string). An item guarded by a
+  "when" is owed only when the item it leans on was itself owed and the answer
+  written against that earlier tag reads exactly the guard's "is" — a guard
+  standing under an entry that was never owed cannot come alive, however the
+  sheet happens to have been filled in. That chaining is what the present code
+  gets wrong: it decides a guarded item purely by comparing the earlier tag's
+  written answer with "is", never asking whether that earlier item was owed,
+  so an entry buried two levels under a branch nobody took is called owed
+  because somebody scribbled an answer above it. Make the guard chain the way
+  the rules describe. Change nothing else: the "due", "extra" and "gap" keys
+  of the returned mapping — due naming every owed tag in item order, extra
+  naming in item order every tag answered although nothing was owed, and gap
+  naming in item order every owed tag with no answer written against it — nor
+  the errors raised for an argument that is not a mapping, items that are not
+  a non-empty list, an item or a when that is not a mapping, a tag that is
+  missing, empty or shared by two items, a when leaning on a tag that does not
+  stand earlier, a when whose "is" is missing or empty, given that is not a
+  mapping, an answer naming no item of the sheet, and an answer that is not a
+  non-empty string. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def audit_branch_replies(sheet: dict) -> dict:
+      """Which entries on a branching sheet were owed, spurious or missing."""
+      if not isinstance(sheet, dict):
+          raise ValueError("the sheet must be a mapping")
+      items = sheet.get("items")
+      if not isinstance(items, list) or not items:
+          raise ValueError("the items must be a non-empty list")
+      tags = []
+      guards = []
+      for item in items:
+          if not isinstance(item, dict):
+              raise ValueError("an item must be a mapping")
+          tag = item.get("tag")
+          if not isinstance(tag, str) or not tag:
+              raise ValueError("an item needs a non-empty tag")
+          if tag in tags:
+              raise ValueError("two items carry the same tag")
+          when = item.get("when")
+          if when is None:
+              guards.append(None)
+          else:
+              if not isinstance(when, dict):
+                  raise ValueError("a when must be a mapping")
+              on = when.get("tag")
+              is_ = when.get("is")
+              if not isinstance(on, str) or on not in tags:
+                  raise ValueError("a when must lean on an item standing earlier")
+              if not isinstance(is_, str) or not is_:
+                  raise ValueError("a when needs a non-empty is")
+              guards.append((on, is_))
+          tags.append(tag)
+      given = sheet.get("given")
+      if not isinstance(given, dict):
+          raise ValueError("the given answers must be a mapping")
+      for tag, answer in given.items():
+          if tag not in tags:
+              raise ValueError("an answer names no item of the sheet")
+          if not isinstance(answer, str) or not answer:
+              raise ValueError("an answer must be a non-empty string")
+
+      due = []
+      extra = []
+      gap = []
+      for index, tag in enumerate(tags):
+          guard = guards[index]
+          settled = True if guard is None else given.get(guard[0]) == guard[1]
+          answered = tag in given
+          if settled:
+              due.append(tag)
+              if not answered:
+                  gap.append(tag)
+          elif answered:
+              extra.append(tag)
+      return {"due": due, "extra": extra, "gap": gap}
+interface: "def audit_branch_replies(sheet: dict) -> dict"
+stop_conditions:
+  - Whether two items may lean on the same earlier tag with different is values is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

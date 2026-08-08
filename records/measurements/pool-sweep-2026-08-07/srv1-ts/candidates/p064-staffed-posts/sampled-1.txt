@@ -1,0 +1,28 @@
+```ts
+/**
+ * Determines the maximum number of posts that can be staffed simultaneously.
+ * @param wanted - A 2D array where each sub-array contains post numbers an applicant is qualified for.
+ * @param posts - The total number of posts (1-based index).
+ * @returns The greatest number of posts that can be staffed.
+ */
+export function staffedPosts(wanted: number[][], posts: number): number {
+  if (!Number.isInteger(posts) || posts <= 0) {
+    throw new Error('Invalid post count');
+  }
+
+  const availablePosts = new Array(posts).fill(true);
+  let staffCount = 0;
+
+  for (const applicant of wanted) {
+    for (const post of applicant) {
+      if (Number.isInteger(post) && post >= 0 && post < posts && availablePosts[post]) {
+        availablePosts[post] = false;
+        staffCount++;
+        break;
+      }
+    }
+  }
+
+  return staffCount;
+}
+```

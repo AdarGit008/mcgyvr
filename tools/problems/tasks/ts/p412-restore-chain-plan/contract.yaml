@@ -1,0 +1,32 @@
+id: p412-restore-chain-plan
+task_type: function_implementation
+task: >-
+  Implement planRestoreChain. A run is a record with label, a non-empty
+  string; kind, one of the words full, diff or incr; step, a whole number of
+  zero or more counting when the run finished; and sound, a boolean saying
+  the media still reads. Runs arrive in any order and no two share a label or
+  a step. Given a target step, work out the shortest stack of media that
+  rebuilds the data as it stood at that step. Begin at the run carrying the
+  target step and walk backwards: a full run ends the walk on its own; a diff
+  run is followed by the newest sound full run sitting at an earlier step; an
+  incr run is followed by whichever run sits at the greatest earlier step,
+  whatever its kind. Return a record under three keys — ok, chain and reason.
+  When the walk reaches a full run, ok is the word yes, chain holds the
+  labels gathered oldest first, and reason is the empty string. When the walk
+  lands on a run whose sound is false, ok is the word no, chain is empty and
+  reason is the word damaged. When a diff run finds no sound full before it,
+  or when a diff or incr run has nothing at all before it, ok is the word no,
+  chain is empty and reason is the word nofull. Raise an error when runs is
+  not a list, when it is empty, when a run is not a record carrying all four
+  names, when label is empty or not a string, when two runs share a label or
+  a step, when kind is none of the three words, when step or target is not a
+  whole number of zero or more, when sound is not a boolean, and when no run
+  carries the target step.
+target: solution.ts
+interface: "export function planRestoreChain(runs: any[], target: number): any"
+stop_conditions:
+  - Whether a diff run may sit at an earlier step than every full run it could pair with is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

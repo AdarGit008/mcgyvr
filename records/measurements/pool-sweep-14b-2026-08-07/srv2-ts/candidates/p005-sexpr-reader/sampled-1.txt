@@ -1,0 +1,78 @@
+```ts
+/**
+ * Parses a single s-expression from the input text.
+ * @param text - The input string containing the s-expression.
+ * @returns The parsed s-expression as a number, string, or array.
+ */
+export function readSexpr(text: string): number | string | any[] {
+    if (typeof text !== 'string') {
+        throw new Error('Input must be a string');
+    }
+
+    const tokens = tokenize(text);
+    if (tokens.length === 0) {
+        throw new Error('Empty input or only whitespace');
+    }
+
+    const [result, index] = parseSexpr(tokens, 0);
+    if (index !== tokens.length) {
+        throw new Error('Extra characters after the first expression');
+    }
+
+    return result;
+}
+
+/**
+ * Tokenizes the input text into atoms and parentheses.
+ * @param text - The input string to tokenize.
+ * @returns An array of tokens.
+ */
+function tokenize(text: string): (string | number)[] {
+    const tokens: (string | number)[] = [];
+    const regex = /[\s()]+|[-+]?\d+|[+\-*/!?A-Za-z0-9]+/g;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+        if (match[0] === '(' || match[0] === ')') {
+            tokens.push(match[0]);
+        } else if (/^-?\d+$/.test(match[0])) {
+            tokens.push(Number(match[0]));
+        } else if (/^[+\-*/!?A-Za-z][+\-*/!?A-Za-z0-9]*$/.test(match[0])) {
+            tokens.push(match[0]);
+        } else {
+            throw new Error('Invalid atom');
+        }
+    }
+
+    return tokens;
+}
+
+/**
+ * Parses an s-expression from the list of tokens.
+ * @param tokens - The array of tokens to parse.
+ * @param index - The current index in the tokens array.
+ * @returns A tuple containing the parsed s-expression and the next index.
+ */
+function parseSexpr(tokens: (string | number)[], index: number): [number | string | any[], number] {
+    if (tokens[index] === '(') {
+        const list: any[] = [];
+        index++;
+
+        while (index < tokens.length && tokens[index] !== ')') {
+            const [element, nextIndex] = parseSexpr(tokens, index);
+            list.push(element);
+            index = nextIndex;
+        }
+
+        if (index >= tokens.length || tokens[index] !== ')') {
+            throw new Error('Unclosed list');
+        }
+
+        return [list, index + 1];
+    } else if (tokens[index] === ')') {
+        throw new Error('Stray closing parenthesis');
+    } else {
+        return [tokens[index], index + 1];
+    }
+}
+```

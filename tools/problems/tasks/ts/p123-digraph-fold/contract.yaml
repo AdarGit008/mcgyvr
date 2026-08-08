@@ -1,0 +1,38 @@
+id: p123-digraph-fold
+task_type: bug_fix
+task: >-
+  Fix foldDigraphs. The function folds a text through a table of
+  [pattern, output] pairs in a single left-to-right sweep: at each
+  position of the original text, every pattern that occurs verbatim
+  starting there competes, the widest one wins, and a width tie goes to
+  the pair listed earlier in the table; the winner's output is emitted
+  and the sweep resumes just past the matched span. Positions no pattern
+  claims emit their character untouched. Emitted output is final —
+  nothing ever matches against it. The current code instead walks the
+  table and globally substitutes each pattern over the whole working
+  string in turn, so one pair's output feeds the next pair's matches and
+  an early narrow pattern steals spans a wider one should own. Rework it
+  into the single-sweep discipline. Keep raising an error for a pair
+  whose pattern is empty, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function foldDigraphs(
+    text: string,
+    table: Array<[string, string]>,
+  ): string {
+    let folded = text;
+    for (const [pattern, output] of table) {
+      if (pattern === "") {
+        throw new Error("empty pattern");
+      }
+      folded = folded.split(pattern).join(output);
+    }
+    return folded;
+  }
+interface: "export function foldDigraphs(text: string, table: Array<[string, string]>): string"
+stop_conditions:
+  - Nothing is stated about non-string entries in the table.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

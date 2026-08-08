@@ -1,0 +1,47 @@
+```ts
+/**
+ * Determines the greatest number of posts that can be staffed simultaneously.
+ * @param wanted - A list of applicants with the post numbers they are qualified to hold.
+ * @param posts - The total number of posts available, numbered from 0 to posts-1.
+ * @returns The maximum number of posts that can be staffed.
+ * @throws Error if posts is not a positive integer or any listed post number is invalid.
+ */
+export function staffedPosts(wanted: number[][], posts: number): number {
+    if (!Number.isInteger(posts) || posts <= 0) {
+        throw new Error("Invalid number of posts");
+    }
+
+    const availablePosts = new Set<number>();
+    for (let i = 0; i < posts; i++) {
+        availablePosts.add(i);
+    }
+
+    let staffedCount = 0;
+    const assignedPosts: { [key: number]: number } = {};
+
+    for (const applicant of wanted) {
+        const validPosts = applicant.filter(post =>
+            Number.isInteger(post) && post >= 0 && post < posts
+        );
+
+        for (const post of validPosts) {
+            if (availablePosts.has(post)) {
+                availablePosts.delete(post);
+                assignedPosts[applicant.indexOf(post)] = post;
+                staffedCount++;
+                break;
+            } else if (assignedPosts.hasOwnProperty(applicant.indexOf(post))) {
+                const currentPost = assignedPosts[applicant.indexOf(post)];
+                delete assignedPosts[applicant.indexOf(post)];
+                availablePosts.add(currentPost);
+
+                availablePosts.delete(post);
+                assignedPosts[applicant.indexOf(post)] = post;
+                break;
+            }
+        }
+    }
+
+    return staffedCount;
+}
+```

@@ -1,0 +1,66 @@
+```ts
+/**
+ * Validates and processes ledger marks according to the specified rules.
+ * @param marks - An array of ledger mark strings.
+ * @param aliases - A mapping of retired house codes to their replacements.
+ * @returns An array of [canonical, raws] pairs, where canonical is the standardized form of the entry,
+ *          and raws holds that entry's marks exactly as given, in input order.
+ * @throws Error for malformed marks, wrong check letters, serial value of 0, non-string marks, or bad alias tables.
+ */
+export function linkLedgerMarks(marks: string[], aliases: Record<string, string>): [string, string[]][] {
+    const validateAndParseMark = (mark: string): { houseCode: string, serial: number, checkLetter: string } => {
+        const regex = /^([A-Z]{2,3})[- /]([0-9]+)([A-Za-z])$/i;
+        const match = mark.match(regex);
+        if (!match) {
+            throw new Error(`Malformed mark: ${mark}`);
+        }
+
+        const houseCode = match[1].toUpperCase();
+        const serial = parseInt(match[2], 10);
+        const checkLetter = match[3].toUpperCase();
+
+        if (serial < 1) {
+            throw new Error(`Serial value of 0 or below: ${mark}`);
+        }
+
+        const expectedCheckLetter = String.fromCharCode(((serial - 1) % 26) + 'A'.charCodeAt(0));
+        if (checkLetter !== expectedCheckLetter) {
+            throw new Error(`Wrong check letter: ${mark}`);
+        }
+
+        return { houseCode, serial, checkLetter };
+    };
+
+    const resolveHouseCode = (houseCode: string): string => {
+        const resolvedCode = aliases[houseCode];
+        if (resolvedCode && resolvedCode.toUpperCase() === houseCode) {
+            throw new Error(`Alias table maps a code to itself: ${houseCode}`);
+        }
+        return resolvedCode || houseCode;
+    };
+
+    const entries: Map<string, { canonical: string, raws: string[] }> = new Map();
+
+    for (const mark of marks) {
+        if (typeof mark !== 'string') {
+            throw new Error(`Non-string mark encountered`);
+        }
+
+        try {
+            const { houseCode, serial, checkLetter } = validateAndParseMark(mark);
+            const resolvedHouseCode = resolveHouseCode(houseCode.toUpperCase());
+            const canonicalKey = `${resolvedHouseCode}-${serial.toString().padStart(2, '0')}-${checkLetter}`;
+
+            if (!entries.has(canonicalKey)) {
+                entries.set(canonicalKey, { canonical: `${resolvedHouseCode}-${serial}-${checkLetter}`, raws: [] });
+            }
+
+            entries.get(canonicalKey)!.raws.push(mark);
+        } catch (error) {
+            throw new Error(`Error processing mark "${mark}": ${error.message}`);
+        }
+    }
+
+    return Array.from(entries.values()).map(({ canonical, raws }) => [canonical, raws]);
+}
+```

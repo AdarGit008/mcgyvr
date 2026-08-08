@@ -1,0 +1,20 @@
+```ts
+export function normalizeHostname(hostname: string): string {
+  if (typeof hostname !== 'string') {
+    throw new Error('Invalid argument: expected a string');
+  }
+
+  const normalized = hostname.toLowerCase().replace(/\.$/, '');
+
+  const isValidLabel = (label: string) => {
+    return /^[a-z\d]{1,63}$/.test(label);
+  };
+
+  const labels = normalized.split('.');
+  if (!labels.every(isValidLabel) || normalized.length > 253) {
+    throw new Error('Invalid hostname');
+  }
+
+  return normalized;
+}
+```

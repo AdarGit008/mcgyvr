@@ -1,0 +1,49 @@
+```python
+def tally_tuplets(score: str, meter: str) -> list:
+    def parse_span(span):
+        if '/' in span:
+            numerator, denominator = map(int, span.split('/'))
+            if numerator == 0 or (numerator < 10 and len(span) > 1):
+                raise ValueError("Invalid span format")
+            return numerator * 64 / denominator
+        else:
+            try:
+                return int(span) * 64
+            except ValueError:
+                raise ValueError("Invalid span format")
+
+    def parse_squeeze(squeeze):
+        if squeeze[0] != '{' or squeeze[-1] != '}':
+            raise ValueError("Malformed squeeze")
+        figure, spans = squeeze[1:-1].split('}', 1)
+        if not figure.isdigit() or int(figure) < 2:
+            raise ValueError("Invalid squeeze figure")
+        figure = int(figure)
+        span_values = spans.split('+')
+        total_value = sum(parse_span(span) for span in span_values)
+        return (total_value * (figure - 1)) / figure
+
+    def parse_entry(entry):
+        if entry.startswith('{'):
+            return parse_squeeze(entry)
+        else:
+            return parse_span(entry)
+
+    def parse_measure(measure, meter_value):
+        entries = measure.split()
+        if not entries:
+            raise ValueError("Empty measure")
+        total_value = sum(parse_entry(entry) for entry in entries)
+        expected_value = meter_value * len(entries)
+        return int(expected_value - total_value)
+
+    def parse_score(score, meter):
+        measures = score.split(';')
+        meter_value = parse_span(meter)
+        return [parse_measure(measure.strip(), meter_value) for measure in measures]
+
+    try:
+        return parse_score(score, meter)
+    except ValueError as e:
+        raise ValueError(f"Invalid input: {e}")
+```

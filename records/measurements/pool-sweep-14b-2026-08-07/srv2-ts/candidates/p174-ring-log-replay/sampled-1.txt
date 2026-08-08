@@ -1,0 +1,72 @@
+```ts
+export function replayRingLog(capacity: number, policy: string, operations: string[][]): { contents: string[]; journal: string[]; lost: number } {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive whole number.");
+  }
+  if (policy !== "overwrite" && policy !== "refuse") {
+    throw new Error("Policy must be either 'overwrite' or 'refuse'.");
+  }
+  if (!Array.isArray(operations)) {
+    throw new Error("Operations must be a list.");
+  }
+
+  const ring: string[] = [];
+  const journal: string[] = [];
+  let lost = 0;
+
+  for (const operation of operations) {
+    if (!Array.isArray(operation) || operation.length === 0) {
+      throw new Error("Each operation must be a non-empty list.");
+    }
+    const [opName, ...args] = operation;
+
+    switch (opName) {
+      case "push":
+        if (args.length !== 1 || typeof args[0] !== "string" || args[0].trim() === "") {
+          throw new Error("Push must carry exactly one non-empty label string.");
+        }
+        const label = args[0];
+        if (ring.length < capacity) {
+          ring.push(label);
+          journal.push(`stored ${label}`);
+        } else {
+          lost++;
+          if (policy === "overwrite") {
+            const evicted = ring.shift()!;
+            ring.push(label);
+            journal.push(`evicted ${evicted}, ${label}`);
+          } else {
+            journal.push("refused");
+          }
+        }
+        break;
+      case "pop":
+        if (args.length !== 0) {
+          throw new Error("Pop carries anything past its own name.");
+        }
+        if (ring.length > 0) {
+          const removed = ring.shift()!;
+          journal.push(`took ${removed}`);
+        } else {
+          journal.push("bare");
+        }
+        break;
+      case "peek":
+        if (args.length !== 0) {
+          throw new Error("Peek carries anything past its own name.");
+        }
+        if (ring.length > 0) {
+          const oldest = ring[0];
+          journal.push(`front ${oldest}`);
+        } else {
+          journal.push("bare");
+        }
+        break;
+      default:
+        throw new Error(`Operation name must be one of 'push', 'pop', or 'peek'.`);
+    }
+  }
+
+  return { contents: ring, journal, lost };
+}
+```

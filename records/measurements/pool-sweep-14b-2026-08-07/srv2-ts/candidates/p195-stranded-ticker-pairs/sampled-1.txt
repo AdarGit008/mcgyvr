@@ -1,0 +1,82 @@
+```ts
+/**
+ * Finds all pairs of distinct tickers with no route between them.
+ * @param legs - An array of legs, where each leg is a two-element list naming the ticker it sells out of and the ticker it buys into.
+ */
+export function strandedTickerPairs(legs: unknown[][]): string[] {
+  if (!Array.isArray(legs) || legs.length === 0) {
+    throw new Error("No legs are published.");
+  }
+
+  const tickers = new Set<string>();
+  const adjacencyList: Record<string, Set<string>> = {};
+
+  for (const leg of legs) {
+    if (!Array.isArray(leg) || leg.length !== 2) {
+      throw new Error("A leg is not exactly two elements.");
+    }
+
+    const [sell, buy] = leg;
+    if (typeof sell !== "string" || typeof buy !== "string") {
+      throw new Error("A ticker is not a non-empty string.");
+    }
+    if (sell === "" || buy === "") {
+      throw new Error("A ticker is not a non-empty string.");
+    }
+    if (sell === buy) {
+      throw new Error("A leg sells and buys the same ticker.");
+    }
+
+    tickers.add(sell);
+    tickers.add(buy);
+
+    if (!adjacencyList[sell]) {
+      adjacencyList[sell] = new Set();
+    }
+    if (!adjacencyList[buy]) {
+      adjacencyList[buy] = new Set();
+    }
+
+    if (adjacencyList[sell].has(buy)) {
+      throw new Error("The identical leg is published twice.");
+    }
+
+    adjacencyList[sell].add(buy);
+  }
+
+  const allPairs: string[] = [];
+  for (const from of tickers) {
+    for (const to of tickers) {
+      if (from < to && !canReach(adjacencyList, from, to)) {
+        allPairs.push(`${from}>${to}`);
+      }
+    }
+  }
+
+  return allPairs.sort();
+}
+
+function canReach(
+  adjacencyList: Record<string, Set<string>>,
+  from: string,
+  to: string
+): boolean {
+  const visited = new Set<string>();
+  const stack = [from];
+
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (current === to) {
+      return true;
+    }
+    visited.add(current);
+    for (const neighbor of adjacencyList[current]) {
+      if (!visited.has(neighbor)) {
+        stack.push(neighbor);
+      }
+    }
+  }
+
+  return false;
+}
+```

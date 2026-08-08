@@ -1,0 +1,44 @@
+```ts
+export function smallestArrangement(counts: number[]): string {
+  if (counts.length !== 4) {
+    throw new Error("Input must be a list of exactly four counts.");
+  }
+
+  for (const count of counts) {
+    if (!Number.isInteger(count)) {
+      throw new Error("All counts must be integers.");
+    }
+    if (count < 0 || count > 12) {
+      throw new Error("Each count must be between 0 and 12.");
+    }
+  }
+
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  if (total === 0) {
+    throw new Error("At least one count must be positive.");
+  }
+
+  const letters = ["a", "b", "c", "d"];
+  const result: string[] = [];
+
+  while (true) {
+    let placed = false;
+    for (let i = 0; i < 4; i++) {
+      if (counts[i] > 0 && (result.length < 2 || !(result[result.length - 1] === letters[i] && result[result.length - 2] === letters[i]))) {
+        result.push(letters[i]);
+        counts[i]--;
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      throw new Error("No valid arrangement exists.");
+    }
+
+    if (result.length === total) {
+      return result.join("");
+    }
+  }
+}
+```

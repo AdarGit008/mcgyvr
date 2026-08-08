@@ -1,0 +1,32 @@
+id: p430-recent-panel-pins
+task_type: function_implementation
+task: >-
+  Implement replay_recent_panel. A side panel keeps names in two regions, a pinned
+  one and a recent one. The recent region may hold at most limit names, while
+  pinned names are held outside that count and never fall away of their own
+  accord. Replay the events in the order given, each a [verb, name] pair. On
+  open, a pinned name leaves everything as it stands, and any other name is
+  lifted out of the recent region wherever it sits and set at its head, after
+  which, for as long as the recent region holds more names than limit allows, the
+  name at its tail is let go. On pin, a name already pinned leaves everything as
+  it stands, and any other name is lifted out of the recent region if it sits
+  there — it need not sit anywhere at all — and set at the tail of the pinned
+  region, which is why that region always reads in the order the pins were made.
+  On unpin, a name that is not pinned leaves everything as it stands, and a
+  pinned name quits the pinned region and is set at the head of the recent
+  region, which is then trimmed exactly the way an open trims it. On forget, a
+  pinned name leaves everything as it stands, and any other name is lifted out of
+  the recent region if it sits there and otherwise changes nothing. No name ever
+  sits in both regions at once. Return the panel as one list: the pinned region
+  in pin order, and behind it the recent region most recent first. Raise an error
+  for a limit that is not whole or falls below 1, an event that is not a pair, a
+  verb outside open, pin, unpin and forget, and a name that is empty or not a
+  string.
+target: solution.py
+interface: "def replay_recent_panel(limit: int, events: list[list[str]]) -> list[str]"
+stop_conditions:
+  - Whether the pinned region has a ceiling of its own is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

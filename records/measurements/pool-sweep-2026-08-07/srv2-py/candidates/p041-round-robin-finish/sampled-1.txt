@@ -1,0 +1,29 @@
+```python
+from collections import deque
+
+
+def round_robin_finish(jobs: list[list], quantum: int) -> list[list]:
+    if not isinstance(quantum, int) or quantum < 1:
+        raise ValueError("quantum must be a positive integer")
+    queue = deque()
+    seen = set()
+    for name, burst in jobs:
+        if not isinstance(name, str) or not name or name in seen:
+            raise ValueError("job names must be non-empty unique strings")
+        if not isinstance(burst, int) or burst < 1:
+            raise ValueError("burst must be a positive integer")
+        seen.add(name)
+        queue.append([name, burst])
+    finished = []
+    clock = 0
+    while queue:
+        name, left = queue.popleft()
+        slice_run = min(quantum, left)
+        left -= slice_run
+        clock += slice_run
+        if left == 0:
+            finished.append([name, clock])
+        else:
+            queue.append([name, left])
+    return finished
+```

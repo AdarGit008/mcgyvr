@@ -1,0 +1,32 @@
+```python
+def leaf_paths(rows: list[list[str]]) -> list[str]:
+    if not rows:
+        raise ValueError("Input cannot be empty")
+    
+    nodes = {}
+    for row in rows:
+        node_id, parent_id = row
+        if node_id in nodes:
+            raise ValueError(f"Duplicated id: {node_id}")
+        if node_id == "":
+            continue  # Skip the root node for now
+        nodes[node_id] = parent_id
+    
+    roots = [node_id for node_id, parent_id in rows if parent_id == ""]
+    if len(roots) != 1:
+        raise ValueError("Input must have exactly one root node")
+    
+    def find_path(node_id):
+        if node_id not in nodes:
+            raise ValueError(f"Node {node_id} cannot be reached from the root")
+        path = []
+        while node_id != "":
+            path.append(node_id)
+            node_id = nodes[node_id]
+        return "/".join(reversed(path))
+    
+    leaves = [node_id for node_id, parent_id in rows if parent_id in nodes]
+    leaf_paths = sorted(find_path(leaf) for leaf in leaves)
+    
+    return leaf_paths
+```

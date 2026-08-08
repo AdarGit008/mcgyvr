@@ -1,0 +1,57 @@
+```ts
+/**
+ * Finds the path to the first crate that overflows.
+ * @param root - The outermost crate as a mapping.
+ * @returns A string representing the trail of tags from the outermost crate down to the overflowing crate, joined by full stops. Returns an empty string if no crate overflows.
+ */
+export function crateOverflowPath(root: Record<string, unknown>): string {
+  const validateCrate = (crate: any, parentTags: string[] = []): string => {
+    if (typeof crate !== 'object' || crate === null) {
+      throw new Error('Invalid crate structure');
+    }
+
+    const { tag, weight, cap, inside } = crate;
+
+    if (typeof tag !== 'string' || !tag || tag.includes('.')) {
+      throw new Error('Invalid tag');
+    }
+    if (!Number.isInteger(weight) || weight < 0) {
+      throw new Error('Invalid weight');
+    }
+    if (!Number.isInteger(cap) || cap <= 0) {
+      throw new Error('Invalid cap');
+    }
+    if (!Array.isArray(inside)) {
+      throw new Error('Invalid inside');
+    }
+
+    const currentTags = [...parentTags, tag];
+
+    for (const innerCrate of inside) {
+      if (typeof innerCrate !== 'object' || innerCrate === null) {
+        throw new Error('Invalid crate structure');
+      }
+      if (innerCrate.tag === tag) {
+        throw new Error('Duplicate tag');
+      }
+    }
+
+    const gross = weight + inside.reduce((acc, innerCrate) => acc + validateCrate(innerCrate, currentTags), 0);
+
+    if (gross > cap) {
+      return currentTags.join('.');
+    }
+
+    for (const innerCrate of inside) {
+      const overflowPath = validateCrate(innerCrate, currentTags);
+      if (overflowPath) {
+        return overflowPath;
+      }
+    }
+
+    return '';
+  };
+
+  return validateCrate(root);
+}
+```

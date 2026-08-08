@@ -1,0 +1,32 @@
+```ts
+export function readSwitches(
+  kinds: Record<string, string>,
+  tokens: string[],
+): { found: Record<string, boolean | string>; extra: string[] } {
+  const found: Record<string, boolean | string> = {};
+  const extra: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (token.startsWith("--")) {
+      const eqIndex = token.indexOf("=");
+      const name = eqIndex !== -1 ? token.slice(2, eqIndex) : token.slice(2);
+      if (!kinds[name]) throw new Error(`Unknown option: ${name}`);
+      if (kinds[name] === "value") {
+        if (eqIndex !== -1 && eqIndex < token.length - 1) {
+          found[name] = token.slice(eqIndex + 1);
+        } else if (i + 1 < tokens.length) {
+          found[name] = tokens[++i];
+        } else {
+          throw new Error(`Dangling value option: ${name}`);
+        }
+      } else {
+        if (eqIndex !== -1) throw new Error(`Switch with inline "=" form: ${token}`);
+        found[name] = true;
+      }
+    } else {
+      extra.push(token);
+    }
+  }
+  return { found, extra };
+}
+```

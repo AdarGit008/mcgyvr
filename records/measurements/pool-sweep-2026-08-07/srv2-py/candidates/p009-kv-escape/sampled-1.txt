@@ -1,0 +1,16 @@
+```python
+"""One line of key=value pairs, joined by &."""
+
+
+def encode_pairs(pairs: list) -> str:
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in pairs):
+        raise ValueError("All keys and values must be strings.")
+    if any(not k for k, _ in pairs):
+        raise ValueError("No empty keys allowed.")
+
+    def escape(s: str) -> str:
+        return s.replace("&", "%26").replace("=", "%3D").replace("%", "%25")
+
+    parts = [escape(key) + "=" + escape(value) for key, value in pairs]
+    return "&".join(parts)
+```

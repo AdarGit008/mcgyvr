@@ -1,0 +1,47 @@
+```python
+from typing import List
+
+def league_order(matches: List[List]) -> List[str]:
+    if any(len(match) != 4 for match in matches):
+        raise ValueError("Each match must be a 4-item list.")
+    
+    if any(not isinstance(item, (int, str)) or item < 0 for match in matches for item in match if isinstance(item, int)):
+        raise ValueError("Invalid goal figure or team name.")
+    
+    if any(match[0] == match[1] for match in matches):
+        raise ValueError("A team cannot face itself.")
+    
+    teams = set()
+    for match in matches:
+        teams.update(match[:2])
+    
+    standings = {team: {"points": 0, "gd": 0, "gs": 0} for team in teams}
+    
+    for home, away, home_goals, away_goals in matches:
+        standings[home]["gs"] += home_goals
+        standings[away]["gs"] += away_goals
+        
+        if home_goals == away_goals:
+            standings[home]["points"] += 1
+            standings[away]["points"] += 1
+        elif home_goals > away_goals:
+            standings[home]["points"] += 3
+        else:
+            standings[away]["points"] += 3
+        
+        standings[home]["gd"] += home_goals - away_goals
+        standings[away]["gd"] -= home_goals - away_goals
+    
+    sorted_standings = sorted(
+        teams,
+        key=lambda team: (
+            standings[team]["points"],
+            standings[team]["gd"],
+            standings[team]["gs"],
+            team
+        ),
+        reverse=True
+    )
+    
+    return sorted_standings
+```

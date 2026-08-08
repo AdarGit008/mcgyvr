@@ -1,0 +1,58 @@
+id: p419-fit-tag-lines
+task_type: bug_fix
+task: >-
+  fitTagLines lays a tag tree out to a measured width and gets both the
+  joining and the fitting wrong. A tag is a record with head, a non-empty
+  string of small letters, and items, a list whose members are either words —
+  non-empty strings of small letters and digits — or further tags. Fix it to
+  work as follows. The tight form of a word is the word; the tight form of a
+  tag is its head, an opening round bracket, the tight forms of its items in
+  order parted by a comma and a space, and a closing round bracket, so a tag
+  with no items is its head followed by an empty pair of brackets. Every line
+  drawn at depth n is opened by two spaces repeated n times. A tag drawn at
+  depth n is put on one line in its tight form whenever that depth's opening
+  spaces plus that tight form together measure no more than the width;
+  otherwise it is spread over lines — the head and its opening bracket on one
+  line at depth n, then every item drawn at depth n plus one, then the
+  closing bracket alone on a line at depth n. A word is always one line and
+  is never spread however long it is. Every item but the last has a comma
+  hung on the end of its final line, and the last item has none. Return the
+  drawing as one string, its lines joined by single line breaks with none
+  trailing. Add the checks that are missing as well: raise an error when a
+  tag is not a record carrying head and items, when head is not a non-empty
+  string of small letters, when items is not a list, when an item is neither
+  a word nor a tag, and when the width is not a whole number of one or more.
+  Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** A tag tree drawn down to a measured width. */
+  export function fitTagLines(node: any, width: number): string {
+    const tight = (thing: any): string =>
+      typeof thing === "string"
+        ? thing
+        : thing.head + "(" + thing.items.map(tight).join(",") + ")";
+    const draw = (thing: any, depth: number): string[] => {
+      const pad = "  ".repeat(depth);
+      const one = tight(thing);
+      if (one.length <= width) {
+        return [pad + one];
+      }
+      const lines = [pad + thing.head + "("];
+      for (const item of thing.items) {
+        const kid =
+          typeof item === "string" ? [pad + "  " + item] : draw(item, depth + 1);
+        kid[kid.length - 1] += ",";
+        lines.push(...kid);
+      }
+      lines.push(pad + ")");
+      return lines;
+    };
+    return draw(node, 0).join("\n");
+  }
+interface: "export function fitTagLines(node: any, width: number): string"
+stop_conditions:
+  - Whether a width too small for any tight form at all should be refused is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,39 @@
+```ts
+/**
+ * Writes the senary tail representation of a fraction.
+ * @param numerator - The upper reading of the Loomis gauge.
+ * @param denominator - The lower reading of the Loomis gauge.
+ * @returns The senary tail as a string.
+ * @throws Error if inputs are invalid.
+ */
+export function writeSenaryTail(numerator: number, denominator: number): string {
+  if (!Number.isInteger(numerator)) {
+    throw new Error("Numerator must be a whole number.");
+  }
+  if (denominator < 1 || denominator > 10000) {
+    throw new Error("Denominator must be between 1 and 10000.");
+  }
+  if (numerator >= denominator) {
+    throw new Error("Numerator must be smaller than the denominator.");
+  }
+
+  const marks = ["0", "1", "2", "3", "4", "5"];
+  let result = "";
+  let remainder = numerator;
+  const seenRemainders = new Map<number, number>();
+
+  while (remainder > 0) {
+    if (seenRemainders.has(remainder)) {
+      const start = seenRemainders.get(remainder)!;
+      return result.slice(0, start) + "|" + result.slice(start) + "|";
+    }
+    seenRemainders.set(remainder, result.length);
+    remainder *= 6;
+    const digit = Math.floor(remainder / denominator);
+    result += marks[digit];
+    remainder %= denominator;
+  }
+
+  return result || "0";
+}
+```

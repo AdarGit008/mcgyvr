@@ -1,0 +1,25 @@
+```python
+def run_buffered_line(capacities: list[int], buffers: list[int], ticks: int) -> dict:
+    if not capacities or len(buffers) != len(capacities) - 1:
+        raise ValueError("Invalid station/buffer count")
+    for cap, buf in zip(capacities + [float('inf')], buffers):
+        if not isinstance(cap, int) or not isinstance(buf, int) or cap <= 0 or buf <= 0:
+            raise ValueError("Non-positive integer capacity or buffer size")
+    if not isinstance(ticks, int) or ticks < 0:
+        raise ValueError("Negative tick count")
+
+    made = 0
+    current_buffers = buffers[:]
+    
+    for _ in range(ticks):
+        for i in reversed(range(len(capacities))):
+            in_bound = min(current_buffers[min(i + 1, len(buffers))], capacities[i])
+            out_bound = min(in_bound, current_buffers[i] if i > 0 else float('inf'))
+            move_amount = min(out_bound, capacities[i])
+            made += move_amount
+            current_buffers[i] += move_amount - capacities[i]
+            if i < len(buffers) - 1:
+                current_buffers[min(i + 1, len(buffers))] -= move_amount
+    
+    return {"made": made, "left": current_buffers}
+```

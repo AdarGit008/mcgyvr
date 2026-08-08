@@ -1,0 +1,51 @@
+```ts
+export function parseInvocation(catalogue: Array<{ name: string; kind: string; alias?: string }>, tokens: string[]): { options: Record<string, unknown>; operands: string[] } {
+    const options: Record<string, unknown> = {};
+    let index = 0;
+    while (index < tokens.length) {
+        if (tokens[index] === "--") {
+            index++;
+            while (index < tokens.length) {
+                operands.push(tokens[index]);
+                index++;
+            }
+            break;
+        } else if (tokens[index].startsWith("--")) {
+            const longName = tokens[index].slice(2);
+            const option = catalogue.find(opt => opt.name === longName || (opt.alias && opt.alias === longName));
+            if (!option) throw new Error(`Unknown option: ${longName}`);
+            index++;
+            if (option.kind === "toggle") {
+                options[longName] = true;
+            } else if (option.kind === "single") {
+                if (index >= tokens.length) throw new Error(`Missing value for single option: ${longName}`);
+                options[longName] = tokens[index];
+                index++;
+            } else if (option.kind === "repeat") {
+                const values: string[] = [];
+                while (index < tokens.length && !tokens[index].startsWith("--")) {
+                    values.push(tokens[index]);
+                    index++;
+                }
+                options[longName] = values;
+            }
+        } else if (tokens[index].startsWith("-") && tokens[index].length === 2) {
+            const alias = tokens[index][1];
+            const option = catalogue.find(opt => opt.alias === alias);
+            if (!option) throw new Error(`Unknown alias: ${alias}`);
+            index++;
+            if (option.kind === "toggle") {
+                options[option.name] = true;
+            } else if (option.kind === "single" || option.kind === "repeat") {
+                if (index >= tokens.length) throw new Error(`Missing value for single/repeat option with alias: ${alias}`);
+                options[option.name] = tokens[index];
+                index++;
+            }
+        } else {
+            operands.push(tokens[index]);
+            index++;
+        }
+    }
+    return { options, operands };
+}
+```

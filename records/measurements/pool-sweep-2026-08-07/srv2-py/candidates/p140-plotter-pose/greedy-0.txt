@@ -1,0 +1,30 @@
+```python
+def plotter_pose(program: str) -> dict:
+    if not isinstance(program, str):
+        raise ValueError("Program must be a string")
+    
+    directions = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
+    facing = "N"
+    x, y = 0, 0
+    
+    for char in program:
+        if char == "L":
+            facing = directions[facing][2]
+        elif char == "R":
+            facing = directions[facing][3]
+        elif char == "F" or char == "B":
+            distance = ""
+            while len(program) > program.index(char) + 1 and program[program.index(char) + 1].isdigit():
+                distance += program[program.index(char) + 1]
+                program = program[:program.index(char) + 1] + program[program.index(char) + 2:]
+            if not distance:
+                raise ValueError("Drive distance must be a positive integer")
+            distance = int(distance)
+            if char == "B":
+                distance *= -1
+            dx, dy = directions[facing]
+            x += dx * distance
+            y += dy * distance
+    
+    return {"x": x, "y": y, "facing": facing}
+```

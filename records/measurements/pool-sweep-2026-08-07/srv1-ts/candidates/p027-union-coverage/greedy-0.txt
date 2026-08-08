@@ -1,0 +1,49 @@
+```ts
+export function unionCoverage(rects: number[][]): number {
+  if (!Array.isArray(rects) || rects.some(r => !Array.isArray(r) || r.length !== 4)) {
+    throw new Error('Invalid input: must be an array of four-element arrays');
+  }
+  for (const rect of rects) {
+    const [x1, y1, x2, y2] = rect;
+    if (!Number.isInteger(x1) || !Number.isInteger(y1) || !Number.isInteger(x2) || !Number.isInteger(y2)) {
+      throw new Error('Invalid input: coordinates must be integers');
+    }
+    if (x1 >= x2 || y1 >= y2 || x1 < -10000 || x1 > 10000 || y1 < -10000 || y1 > 10000 || x2 < -10000 || x2 > 10000 || y2 < -10000 || y2 > 10000) {
+      throw new Error('Invalid input: coordinates must be within the range -10000 to 10000');
+    }
+  }
+
+  const xSort = (a: number[], b: number[]) => a[0] - b[0];
+  const ySort = (a: number[], b: number[]) => a[1] - b[1];
+
+  rects.sort(xSort);
+  let totalArea = 0;
+
+  for (let i = 0; i < rects.length; ) {
+    const [x1, y1, x2, y2] = rects[i];
+    let currentX = x1;
+    let currentY = y1;
+    let nextI = i + 1;
+
+    while (nextI < rects.length && rects[nextI][0] === currentX) {
+      const [nx1, ny1, nx2, ny2] = rects[nextI];
+      if (ny1 > currentY) {
+        totalArea += (currentY - y1) * (x2 - x1);
+        currentY = ny1;
+      }
+      if (ny2 > currentY) {
+        currentY = ny2;
+      }
+      nextI++;
+    }
+
+    if (currentY > y1) {
+      totalArea += (currentY - y1) * (x2 - x1);
+    }
+
+    i = nextI;
+  }
+
+  return totalArea;
+}
+```

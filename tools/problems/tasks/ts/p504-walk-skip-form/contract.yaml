@@ -1,0 +1,45 @@
+id: p504-walk-skip-form
+task_type: function_implementation
+task: >-
+  Implement walkSkipForm, which replays a questionnaire against one
+  respondent's answer set and says what the interviewer would actually have
+  put to them. The first argument is a non-empty ordered list of steps. A step
+  is a mapping with "code" (a non-empty string no other step carries),
+  "options" (a non-empty list of distinct non-empty strings, the answers on
+  offer) and "jumps" (a list, possibly empty, of mappings with "on", one of
+  that same step's own options, and "to", either the word "close" or the code
+  of a step standing further down the list; no two jumps of one step fire on
+  the same option). The second argument maps step codes to the answers given,
+  every key naming a step the list declares and every value being a string; a
+  step the respondent never reached simply has no key. Begin at the first step
+  and keep going: note the code of the step now being put; when the answer set
+  carries no key for it, note the code as unheard and fall through to the step
+  standing next in the list; when it carries a key whose answer is not one of
+  the step's options, note the code as odd and again fall through to the next
+  step in the list; when the answer matches a jump's "on", follow that jump —
+  "close" finishes the questionnaire, any other target moves to the step of
+  that code; and when the answer is a plain option no jump fires on, fall
+  through to the next step in the list. Falling through past the last step
+  finishes the questionnaire too. Since jumps only ever point further down the
+  list, the walk always finishes. Return a mapping with "asked", the codes put
+  in the order they were put; "blank", the codes noted as unheard, in that
+  same order; "wrong", the codes noted as odd, in that same order; "stray",
+  the codes of steps never put although the answer set carries an answer for
+  them, in the order the list declares those steps; and "ending", the word
+  "close" when a jump closed the questionnaire and "spent" when it ran off the
+  end. Raise an error when the steps are not a non-empty list, when a step or
+  a jump is not a mapping, when a code is missing, empty or shared by two
+  steps, when the options are not a non-empty list of distinct non-empty
+  strings, when the jumps are not a list, when a jump fires on something that
+  is not one of its own step's options, when two jumps of one step fire on the
+  same option, when a jump's target is neither "close" nor the code of a later
+  step, when the answer set is not a mapping, when it names a step the form
+  does not declare, and when an answer is not a string.
+target: solution.ts
+interface: "export function walkSkipForm(steps: unknown[], replies: Record<string, unknown>): Record<string, unknown>"
+stop_conditions:
+  - Whether a step may declare an option no jump and no answer ever mentions is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

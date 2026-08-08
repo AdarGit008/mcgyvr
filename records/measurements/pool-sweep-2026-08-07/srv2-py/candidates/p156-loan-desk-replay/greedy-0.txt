@@ -1,0 +1,93 @@
+```python
+def replay_loan_desk(stock: dict, cap: int, events: list) -> list:
+    if not all(isinstance(v, int) and v > 0 for v in stock.values()):
+        raise ValueError("Copy counts must be positive integers")
+    if not isinstance(cap, int) or cap <= 0:
+        raise ValueError("Cap must be a positive integer")
+    if not all(isinstance(event, list) and len(event) == 3 for event in events):
+        raise ValueError("Each event must be a triple [action, member, title]")
+
+    loans = {}
+    holds = {}
+
+    def get_member_loans(member):
+        return loans.get(member, [])
+
+    def get_title_hold_queue(title):
+        return holds.get(title, [])
+
+    def is_title_in_stock(title):
+        return stock[title] > 0
+
+    def decrement_copy_count(title):
+        stock[title] -= 1
+
+    def increment_copy_count(title):
+        stock[title] += 1
+
+    def add_to_hold_queue(member, title):
+        if title not in holds:
+            holds[title] = []
+        holds[title].append(member)
+
+    def remove_from_hold_queue(title):
+        if title in holds and holds[title]:
+            return holds[title].pop(0)
+        return None
+
+    def is_member_in_hold_queue(member, title):
+        return member in get_title_hold_queue(title)
+
+    def count_renewals(member, title):
+        return sum(1 for l in get_member_loans(member) if l == (title, 2))
+
+    responses = []
+
+    for action, member, title in events:
+        if action not in ["borrow", "return", "renew", "hold"]:
+            raise ValueError(f"Invalid action: {action}")
+
+        if action == "borrow":
+            if title not in stock or not is_title_in_stock(title):
+                responses.append("no:unknown-title")
+            elif member in get_member_loans(member):
+                responses.append("no:already-out")
+            elif len(get_member_loans(member)) >= cap:
+                responses.append("no:member-cap")
+            elif sum(1 for l in get_member_loans(member) if l[0] == title) >= 2:
+                responses.append("no:none-left")
+            elif get_title_hold_queue(title):
+                if member != get_title_hold_queue(title)[0]:
+                    responses.append("no:queued-ahead")
+                else:
+                    remove_from_hold_queue(title)
+                    loans[member].append((title, 0))
+                    decrement_copy_count(title)
+                    responses.append("ok")
+            else:
+                loans[member].append((title, 0))
+                decrement_copy_count(title)
+                responses.append("ok")
+
+        elif action == "return":
+            if title not in stock or member not in get_member_loans(member):
+                responses.append("no:unknown-title")
+            else:
+                loans[member] = [(t, r) for t, r in get_member_loans(member) if t != title]
+                increment_copy_count(title)
+                responses.append("ok")
+
+        elif action == "renew":
+            if title not in stock or member not in get_member_loans(member):
+                responses.append("no:unknown-title")
+            elif count_renewals(member, title) >= 2:
+                responses.append("no:on-hold")
+            else:
+                loans[member] = [(t, r + 1) for t, r in get_member_loans(member)]
+                responses.append("ok")
+
+        elif action == "hold":
+            if title not in stock or member in get_member_loans(member):
+                responses.append("no:unknown-title")
+            elif is_member_in_hold_queue(member, title):
+               

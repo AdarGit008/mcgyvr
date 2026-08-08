@@ -1,0 +1,26 @@
+id: p074-resolve-access
+task_type: function_implementation
+task: >-
+  Implement resolveAccess. The first argument is a list of rule mappings,
+  each with "effect" ("allow" or "deny"), "action" (a verb, or the word
+  "any"), and "path" (a list of name segments). The second is a request
+  mapping with "action" (a verb) and "path" (a list of segments). A rule
+  matches when its path list is an initial prefix of the request's path
+  (an empty rule path matches every request) and its action is either
+  equal to the request's or is "any". The most specific matching rule
+  decides: a longer rule path beats a shorter one; between equal path
+  lengths an exact action beats "any"; between rules still tied "deny"
+  beats "allow"; and when two tied rules share an effect the one earlier
+  in the list wins. Return {"decision": ..., "rule": ...} where "decision"
+  is the winning rule's effect and "rule" its zero-based index; with no
+  matching rule return {"decision": "deny", "rule": -1}. Raise an error
+  for a rule whose effect is neither "allow" nor "deny", and for a rule
+  whose action is the empty string.
+target: solution.ts
+interface: "export function resolveAccess(rules: Array<{ effect: string; action: string; path: string[] }>, request: { action: string; path: string[] }): { decision: string; rule: number }"
+stop_conditions:
+  - What resolveAccess does when the request's own action is empty is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

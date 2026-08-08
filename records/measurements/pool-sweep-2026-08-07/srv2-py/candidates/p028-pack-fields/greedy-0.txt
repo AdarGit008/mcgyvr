@@ -1,0 +1,21 @@
+```python
+def pack_fields(widths: list[int], values: list[int]) -> int:
+    if len(widths) != len(values):
+        raise ValueError("Widths and values lists must be of equal length")
+    if not widths or not values:
+        raise ValueError("Input lists cannot be empty")
+    if sum(widths) > 30:
+        raise ValueError("Combined width exceeds 30 bits")
+    
+    result = 0
+    for width, value in zip(reversed(widths), reversed(values)):
+        if not isinstance(value, int):
+            raise ValueError("All values must be integers")
+        if value < 0:
+            raise ValueError("Negative values are not allowed")
+        if value >= (1 << width):
+            raise ValueError(f"Value {value} too large for field of width {width}")
+        result |= (value << sum(widths) - sum(widths[:widths.index(width)+1]))
+    
+    return result
+```

@@ -1,0 +1,30 @@
+id: p215-steady-readings
+task_type: function_implementation
+task: >-
+  Implement steady_readings. The first argument is a non-empty list of whole
+  number gauge readings, which may be negative, and the second is a mapping
+  with "band" (a non-negative whole number) and "hold" (a positive whole
+  number). The steady figure starts as the first reading, and no challenge
+  is open. Take each later reading in turn. A reading whose distance from
+  the steady figure is at most band is quiet: it drops any open challenge
+  and leaves the steady figure alone. A noisy reading — one further from the
+  steady figure than band — either lengthens the open challenge, when its
+  distance from that challenge's opening reading is at most band, or throws
+  the open challenge away and starts a fresh challenge of its own, opened by
+  itself and one reading long. Once a challenge is hold readings long the
+  steady figure becomes that challenge's opening reading, not the reading
+  that completed it, and the challenge closes so the next noisy reading
+  opens a new one. Return a mapping with "settled", the steady figure as it
+  stood at every reading including the first, and "moved", the ascending
+  positions at which the steady figure took a new value. Raise an error when
+  the reading list is not a list or is empty, when a reading is not a whole
+  number, when the second argument is not a mapping, when band is not a
+  non-negative whole number, and when hold is not a positive whole number.
+target: solution.py
+interface: "def steady_readings(readings: object, spec: object) -> dict"
+stop_conditions:
+  - Whether a challenge left open when the readings run out should be reported is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

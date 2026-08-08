@@ -1,0 +1,70 @@
+```ts
+/**
+ * Calculates the total weight of a course based on weighted categories.
+ * Each category has a label, weight, and items with earned points and worth.
+ * The total weight is the sum of each category's contribution in basis points.
+ *
+ * @param {Array<Record<string, unknown>>} categories - Array of category objects.
+ * @returns {number} Total weight of the course in basis points.
+ */
+export function courseWeightTotal(categories: Array<Record<string, unknown>>): number {
+  if (categories.length === 0) {
+    throw new Error("Syllabus cannot be empty.");
+  }
+
+  const labelSet = new Set<string>();
+  let totalWeightBasisPoints = 0;
+  let totalWeightBasisPointsExpected = 10000;
+
+  for (const category of categories) {
+    if (typeof category.label !== 'string' || category.label.trim() === '') {
+      throw new Error("Category label must be a non-empty string.");
+    }
+
+    if (!labelSet.has(category.label.toLowerCase())) {
+      labelSet.add(category.label.toLowerCase());
+    } else {
+      throw new Error(`Duplicate category label: ${category.label}`);
+    }
+
+    if (typeof category.weight !== 'number' || category.weight < 0 || !Number.isInteger(category.weight)) {
+      throw new Error("Category weight must be a non-negative whole number.");
+    }
+
+    totalWeightBasisPointsExpected -= category.weight;
+
+    if (totalWeightBasisPointsExpected < 0) {
+      throw new Error(`Total weight exceeds 10000 basis points.`);
+    }
+
+    if (!Array.isArray(category.items) || category.items.length === 0) {
+      throw new Error("Category must have at least one item.");
+    }
+
+    let earnedPointsSum = 0;
+    let worthSum = 0;
+
+    for (const [earned, worth] of category.items) {
+      if (typeof earned !== 'number' || earned < 0 || !Number.isInteger(earned)) {
+        throw new Error("Earned points must be a non-negative whole number.");
+      }
+
+      if (typeof worth !== 'number' || worth <= 0 || !Number.isInteger(worth)) {
+        throw new Error("Worth of item must be a positive whole number.");
+      }
+
+      earnedPointsSum += earned;
+      worthSum += worth;
+    }
+
+    const contributionBasisPoints = Math.floor((earnedPointsSum * category.weight) / worthSum);
+    totalWeightBasisPoints += contributionBasisPoints;
+  }
+
+  if (totalWeightBasisPointsExpected !== 0) {
+    throw new Error("Total weight must sum to exactly 10000 basis points.");
+  }
+
+  return totalWeightBasisPoints;
+}
+```

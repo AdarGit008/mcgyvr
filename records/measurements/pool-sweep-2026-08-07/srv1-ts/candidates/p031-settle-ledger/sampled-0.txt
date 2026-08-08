@@ -1,0 +1,42 @@
+```ts
+export async function settleLedger(entries: Array<Record<string, unknown>>): Promise<Array<[string, number]>> {
+    const accountBalances = new Map<string, number>();
+    const seenSeqs = new Set<number>();
+
+    for (const entry of entries.sort((a, b) => (a as any).seq - (b as any).seq)) {
+        if (
+            typeof entry !== 'object' ||
+            entry === null ||
+            !('account' in entry && 'amount' in entry && 'seq' in entry)
+        ) {
+            throw new Error('Invalid ledger entry');
+        }
+
+        const { account, amount, seq } = entry;
+
+        if (typeof account !== 'string' || account.trim() === '') {
+            throw new Error('Invalid account name');
+        }
+
+        if (!Number.isInteger(amount) || !Number.isInteger(seq)) {
+            throw new Error('Invalid amount or seq');
+        }
+
+        if (seenSeqs.has(seq)) {
+            throw new Error('Duplicate seq number');
+        }
+
+        seenSeqs.add(seq);
+
+        if ((accountBalances.get(account) ?? 0) + amount < 0) {
+            throw new Error('Negative balance not allowed');
+        }
+
+        accountBalances.set(account, (accountBalances.get(account) ?? 0) + amount);
+    }
+
+    return Array.from(accountBalances.entries())
+        .filter(([_, balance]) => balance !== 0)
+        .sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

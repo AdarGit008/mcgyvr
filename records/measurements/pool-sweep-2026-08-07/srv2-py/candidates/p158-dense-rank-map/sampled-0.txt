@@ -1,0 +1,16 @@
+```python
+def dense_rank_map(values: list, order: str) -> list:
+    if not values:
+        raise ValueError("Input list cannot be empty")
+    for v in values:
+        if not isinstance(v, int):
+            raise ValueError("All elements must be integers")
+    if order not in ("asc", "desc"):
+        raise ValueError("Order must be 'asc' or 'desc'")
+    
+    ordered = sorted(values)
+    ranks = [ordered.index(v) + 1 for v in values]
+    if order == "desc":
+        ranks = [-r for r in ranks]
+    return ranks
+```

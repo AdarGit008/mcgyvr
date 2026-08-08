@@ -1,0 +1,25 @@
+id: p450-rank-net-scores
+task_type: function_implementation
+task: >-
+  Implement rank_net_scores. Each entry in the field is a mapping with a
+  "name", a "gross" score and a "mark". The allowance a mark earns comes from
+  a fixed table: a mark of 0 through 4 earns nothing, 5 through 9 earns 3, 10
+  through 14 earns 6, 15 through 19 earns 10, and 20 through 28 earns 15. A
+  competitor's net score is the gross score less the allowance that mark
+  earns. Order the field by net score, lowest first; where two nets are
+  level, the lower gross goes ahead; where the gross scores are level as
+  well, the name that comes first alphabetically goes ahead. Return one
+  mapping per competitor in that order, each carrying a "place" counted from
+  one, the "name", and the "net". Raise an error when the field is not a list
+  or is empty, when a name is missing or is not a string of at least one
+  character, when two competitors share a name, when a gross score is not a
+  whole number of at least one, and when a mark is not a whole number from 0
+  to 28.
+target: solution.py
+interface: "def rank_net_scores(field: list) -> list"
+stop_conditions:
+  - Whether a competitor who did not finish may be entered with no gross score at all is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

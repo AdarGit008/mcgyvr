@@ -1,0 +1,37 @@
+```ts
+export function pickBuild(gate: string, offers: number[]): number {
+  if (typeof gate !== 'string' || gate.trim() === '') throw new Error('Invalid gate');
+  if (!offers.every(Number.isInteger) || offers.some(n => n < 0)) throw new Error('Invalid offers');
+
+  const clauses = gate.split(',').map(c => c.trim());
+  if (clauses.length === 0) throw new Error('No clause in gate');
+
+  let maxAdmittedBuild = -1;
+
+  for (const offer of offers.sort((a, b) => a - b)) {
+    for (const clause of clauses) {
+      const parts = clause.split(':');
+      if (parts.length !== 2 && parts.length !== 3) throw new Error('Malformed clause');
+
+      let [lo, hi] = parts.map(Number);
+      const carveOuts: number[] = [];
+
+      if (parts.length === 3) {
+        const carveOutStr = parts[2];
+        if (!/^(\^)\d+$/.test(carveOutStr)) throw new Error('Invalid carve-out');
+        carveOuts.push(Number(carveOutStr.slice(1)));
+      }
+
+      if (lo > hi || (lo === hi && !carveOuts.includes(lo))) continue;
+
+      if ((offer >= lo && offer <= hi) || (lo === 0 && offer <= hi)) {
+        if (!carveOuts.includes(offer)) {
+          maxAdmittedBuild = Math.max(maxAdmittedBuild, offer);
+        }
+      }
+    }
+  }
+
+  return maxAdmittedBuild;
+}
+```

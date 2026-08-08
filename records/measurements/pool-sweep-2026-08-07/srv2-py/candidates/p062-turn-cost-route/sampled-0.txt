@@ -1,0 +1,61 @@
+```python
+def turn_cost_route(grid: list, step_cost: int, turn_cost: int) -> int:
+    if not grid or any(len(row) != len(grid[0]) for row in grid) or grid[0][0] != 0 or grid[-1][-1] == 1:
+        raise ValueError("Invalid input")
+    if not isinstance(step_cost, int) or step_cost <= 0:
+        raise ValueError("step_cost must be a positive integer")
+    if not isinstance(turn_cost, int) or turn_cost < 0:
+        raise ValueError("turn_cost must be a non-negative integer")
+
+    n = len(grid)
+    m = len(grid[0])
+    directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+    direction_indices = {directions[i]: i for i in range(4)}
+
+    def is_wall(x: int, y: int) -> bool:
+        return grid[x][y] == 1
+
+    def get_neighbors(x: int, y: int) -> list:
+        neighbors = []
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < n and 0 <= ny < m and not is_wall(nx, ny):
+                neighbors.append((nx, ny))
+        return neighbors
+
+    def get_direction(x: int, y: int) -> tuple:
+        for dx, dy in directions:
+            if grid[x - dx][y - dy] == 1 or (x == 0 and y == 0):
+                continue
+            return dx, dy
+        raise ValueError("Invalid grid state")
+
+    def get_turn_cost(current_direction: tuple, next_direction: tuple) -> int:
+        current_index = direction_indices[current_direction]
+        next_index = direction_indices[next_direction]
+        if (current_index + 1) % 4 == next_index or (next_index + 1) % 4 == current_index:
+            return turn_cost
+        else:
+            return 0
+
+    from collections import deque
+
+    queue = deque([(0, 0, None, 0)])
+    visited = set()
+
+    while queue:
+        x, y, previous_direction, cost = queue.popleft()
+        if (x, y) in visited:
+            continue
+        visited.add((x, y))
+
+        if x == n - 1 and y == m - 1:
+            return cost
+
+        for nx, ny in get_neighbors(x, y):
+            direction = get_direction(nx, ny)
+            turn_cost_value = get_turn_cost(previous_direction, direction) if previous_direction is not None else 0
+            queue.append((nx, ny, direction, cost + step_cost + turn_cost_value))
+
+    return -1
+```

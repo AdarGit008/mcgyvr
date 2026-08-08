@@ -1,0 +1,23 @@
+```python
+def divide_fixed(numerator: int, denominator: int, places: int) -> str:
+    if not isinstance(numerator, int) or not isinstance(denominator, int) or not isinstance(places, int):
+        raise ValueError("All arguments must be integers.")
+    if denominator == 0:
+        raise ValueError("Denominator cannot be zero.")
+    if places < 0 or places > 6:
+        raise ValueError("Places must be between 0 and 6 inclusive.")
+    
+    negative = numerator < 0 ^ denominator < 0
+    numerator, denominator = abs(numerator), abs(denominator)
+    
+    quotient, remainder = divmod(numerator * 10**places, denominator)
+    if remainder >= denominator // 2:
+        quotient += 1
+    quotient, remainder = divmod(quotient, 10**(len(str(remainder)) - 1))
+    
+    result = str(quotient)
+    if len(result) < places + (not places):
+        result = '0' * (places + (not places) - len(result)) + result
+    
+    return ('-' if negative and int(result) else '') + result[:places] + ('.' if places else '')
+```

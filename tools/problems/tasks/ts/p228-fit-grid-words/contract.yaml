@@ -1,0 +1,35 @@
+id: p228-fit-grid-words
+task_type: function_implementation
+task: >-
+  Implement fitGridWords. The first argument is a non-empty list of slots, each
+  a mapping with "id" (a non-empty string no other slot shares), "row" and
+  "col" (whole numbers of nought or more naming the slot's first square),
+  "run" (either "across" or "down") and "len" (a whole number of two or more).
+  An across slot covers "len" squares rightward from its first square, keeping
+  its row; a down slot covers "len" squares downward, keeping its column. Two
+  slots that run the same way may never cover a square in common, though a
+  slot may of course cross one running the other way. The second argument is a
+  list of candidate words, each a non-empty string of lowercase letters a to z,
+  none repeated. Fill the slots in the order given: for each slot take the
+  first word not yet used whose length is the slot's length and whose letters
+  agree with every letter already written into the slot's squares by an earlier
+  filling, then write that word into those squares. Never go back on a filling
+  already made. If some slot has no word left that will do, stop there, keeping
+  the fillings already made. Return a mapping with "placed", one mapping
+  carrying "slot" and "word" per filling in the order made, and "stuck", the id
+  of the slot that stopped the fill, or the empty string when every slot was
+  filled. Raise an error when the slots are not a non-empty list, when a slot
+  is not a mapping, when an id is missing, empty or shared, when a row or a
+  column is not a whole number of nought or more, when a run is neither
+  "across" nor "down", when a length is not a whole number of two or more, when
+  two slots running the same way cover a square in common, when the words are
+  not a list, when a word is not a non-empty string of lowercase letters a to z,
+  and when a word is offered twice.
+target: solution.ts
+interface: "export function fitGridWords(slots: Array<Record<string, unknown>>, words: string[]): Record<string, unknown>"
+stop_conditions:
+  - Whether the squares a slot covers must lie inside any stated outer boundary is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

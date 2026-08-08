@@ -1,0 +1,32 @@
+```python
+def smallest_free_word(n: int, k: int, banned: list) -> str:
+    if not (1 <= n <= 12):
+        raise ValueError("n must be a positive integer of at most 12")
+    if not (1 <= k <= 6):
+        raise ValueError("k must be an integer from 1 to 6")
+    if not isinstance(banned, list):
+        raise ValueError("banned must be a list")
+    if any(not (len(entry) == 2 and entry.isalpha() and entry[0] in 'abcdef'[:k] and entry[1] in 'abcdef'[:k]) for entry in banned):
+        raise ValueError("all entries in banned must be two-character strings of letters within the first k")
+
+    alphabet = 'abcdef'[:k]
+    banned_set = set(banned)
+
+    def is_valid(word: str) -> bool:
+        return all(word[i:i+2] not in banned_set for i in range(len(word) - 1))
+
+    if n == 1:
+        return min(alphabet)
+    
+    for first_char in alphabet:
+        remaining_chars = [char for char in alphabet if char != first_char]
+        for second_char in remaining_chars:
+            word = first_char + second_char
+            if is_valid(word):
+                for third_char in remaining_chars:
+                    word += third_char
+                    if len(word) == n and is_valid(word):
+                        return word
+
+    raise ValueError("No valid word can be formed")
+```

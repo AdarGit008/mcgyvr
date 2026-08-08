@@ -1,0 +1,23 @@
+```python
+def wrap_cost(words: list[str], width: int) -> int:
+    if not words or any(len(word) == 0 for word in words) or len(words[0]) > width or width < 1:
+        raise ValueError("Invalid input")
+
+    def cost_of_line(line_length: int, width: int) -> int:
+        return (width - line_length) ** 2
+
+    def backtrack(start: int) -> int:
+        if start >= len(words):
+            return 0
+        min_cost = float('inf')
+        current_line_length = 0
+        for end in range(start, len(words)):
+            word_length = len(words[end])
+            if current_line_length + word_length + (end - start) > width:
+                break
+            current_line_length += word_length + (end - start)
+            min_cost = min(min_cost, cost_of_line(current_line_length, width) + backtrack(end + 1))
+        return min_cost
+
+    return backtrack(0)
+```

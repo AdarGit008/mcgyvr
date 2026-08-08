@@ -1,0 +1,49 @@
+id: p213-zone-pick-walk
+task_type: bug_fix
+task: >-
+  zone_pick_walk writes up a zoned pick walk and gets the route wrong.
+  Repair it. The argument is a mapping with "zoneOrder" (a non-empty list of
+  distinct non-empty strings, the zones in the sequence the trolley visits
+  them) and "picks" (a list of mappings, each with "code" (a non-empty
+  string no other pick repeats), "zone", "row" (a positive whole number) and
+  "slot" (a positive whole number)). Visit the zones in the sequence
+  zoneOrder gives, passing over any zone holding no picks. Inside a zone,
+  take the rows that hold picks in ascending row number. The trolley faces
+  up the first row it enters in a zone, so that row's picks come out in
+  ascending slot order; it faces down the next row it enters, and keeps
+  turning about with every further row it enters — the turning counts rows
+  entered, not row numbers. When two picks share a row and a slot, the one
+  listed earlier is grabbed first. Report one line for every row entered, in
+  the order entered: the zone, a slash, the row number, a colon, then the
+  codes grabbed on that row joined by vertical bars. Raise an error when the
+  argument is not a mapping, when zoneOrder is not a list, is empty, repeats
+  a zone or holds anything but a non-empty string, when picks is not a list,
+  when a pick is not a mapping, when a code is missing, empty or not a
+  string, when two picks share a code, when a pick names a zone zoneOrder
+  does not list, and when a row or a slot is not a positive whole number.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  """One line per row of a zoned pick walk."""
+
+
+  def zone_pick_walk(plan: dict) -> list:
+      by_zone = {}
+      for pick in plan["picks"]:
+          by_zone.setdefault(pick["zone"], []).append(pick)
+      lines = []
+      for zone, group in by_zone.items():
+          rows = sorted({pick["row"] for pick in group})
+          for row in rows:
+              here = [pick for pick in group if pick["row"] == row]
+              here.sort(key=lambda pick: pick["slot"], reverse=row % 2 == 0)
+              codes = "|".join(pick["code"] for pick in here)
+              lines.append(zone + "/" + str(row) + ":" + codes)
+      return lines
+interface: "def zone_pick_walk(plan: dict) -> list"
+stop_conditions:
+  - Whether the trolley may be sent back to a zone it has already left is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

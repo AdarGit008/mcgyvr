@@ -1,0 +1,28 @@
+id: p292-assemble-word-list
+task_type: function_implementation
+task: >-
+  Implement assemble_word_list. The Sprig core runs four instructions and each
+  becomes one 16-bit word: SET rX, n gives register X the immediate n and
+  becomes 4096 + 256*X + n; ADD rX, rY becomes 8192 + 256*X + Y; JZ rX, name
+  becomes 12288 + 256*X + d, where d is the signed byte holding the distance
+  from the word after this one to the word a marker names, a negative
+  distance written as d plus 256; HALT becomes 16384. Registers are spelled
+  r0 through r7 and an immediate is a decimal integer from 0 to 255. The
+  argument is a list of source lines. Trim each line, then drop it if it is
+  empty or opens with a semicolon; a line holding a lowercase name and a
+  colon plants a marker at the position the next word will take and itself
+  takes no word; every other line is a mnemonic in capitals followed by its
+  operands separated by commas. Return the list of assembled words. Reject
+  with an error a non-list argument, a line that is not a string, a line the
+  format does not cover, an unknown mnemonic, a wrong count of operands, a
+  register outside r0 through r7, an immediate outside 0 through 255, a
+  marker planted twice, a marker no line plants, and a distance outside -128
+  through 127.
+target: solution.py
+interface: "def assemble_word_list(lines: list[str]) -> list[int]"
+stop_conditions:
+  - Whether a marker name may be spelled the same as a mnemonic is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

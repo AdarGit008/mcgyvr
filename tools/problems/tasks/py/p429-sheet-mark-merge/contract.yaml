@@ -1,0 +1,33 @@
+id: p429-sheet-mark-merge
+task_type: function_implementation
+task: >-
+  Implement merge_sheet_marks. The argument is a list of mark strings, one per
+  proof reader, weighed in the order given. A mark string carries segments parted
+  by exactly one blank apiece, with no blank at either end and never two blanks
+  running together. A segment takes one of four shapes: a lone figure gathers
+  that sheet; two figures parted by a hyphen gather every sheet from the first
+  through the second, the second never being the smaller of the two; and either
+  of those shapes carrying a leading exclamation mark strikes those sheets
+  instead of gathering them. One holding is built across the whole list, empty
+  when the first reader starts, each segment weighed left to right, so a later
+  reader's strike may take away what an earlier reader gathered and a later
+  gather may put back what some strike took away. Every figure is plain decimal
+  with no leading nought, and every sheet named falls between 1 and 9999. Return
+  a mapping whose sheets is how many sheets the holding ends with, and whose spec
+  renders that holding the one canonical way: the held sheets in ascending order,
+  drawn together into the longest runs of consecutive sheets, each run written as
+  its lone figure where it holds a single sheet and as first, hyphen, last
+  otherwise, the runs parted by one blank apiece; an empty holding renders as the
+  empty string. Raise an error for an argument that is not a list, a mark that is
+  not a string, an empty mark, a blank at either end of a mark, two blanks
+  running together, a segment matching none of the four shapes, a figure carrying
+  a leading nought, a sheet outside 1 through 9999, and a hyphen segment whose
+  second figure is smaller than its first.
+target: solution.py
+interface: "def merge_sheet_marks(marks: list[str]) -> dict"
+stop_conditions:
+  - Whether a striking segment must name sheets the holding actually carries is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,29 @@
+id: p345-key-row-suggestions
+task_type: function_implementation
+task: >-
+  Implement keyRowSuggestions. The first argument draws a keyboard as rows
+  of letters, row 0 on top, and the rows need not be equally long; a
+  letter's column is its index inside its own row. Two different letters
+  touch when their row numbers differ by at most one and their column
+  numbers differ by at most one, so this layout, not any similarity of
+  spelling, decides what a slip could have been. The second argument is
+  what was typed and the third a list of accepted words. If what was typed
+  is already accepted, answer with an empty list. Otherwise answer with
+  every accepted word obtained by exchanging one letter of what was typed
+  for a letter touching it, sorted first by the compass step of the
+  exchange in this fixed order — straight left, straight right, straight
+  up, straight down, then up and left, up and right, down and left, down
+  and right — and then by the place in the typed word, leftmost first.
+  Raise an error when the drawing is not a list of strings, when a row is
+  empty, when a row holds anything but lowercase letters, when one letter
+  is drawn twice anywhere, when what was typed is not a non-empty string
+  of lowercase letters, when a typed letter is nowhere on the drawing, and
+  when the accepted list is not a list of non-empty lowercase strings.
+target: solution.ts
+interface: "export function keyRowSuggestions(rows: string[], typed: string, lexicon: string[]): string[]"
+stop_conditions:
+  - Whether rows are meant to be staggered by half a key is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

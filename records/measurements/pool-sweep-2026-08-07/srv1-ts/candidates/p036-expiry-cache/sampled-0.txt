@@ -1,0 +1,36 @@
+```ts
+export function expiryCache(capacity: number, ops: (string | number)[][]): number[] {
+    if (!Number.isInteger(capacity) || capacity <= 0) throw new Error("Invalid capacity");
+    const cache: { [key: string]: { value: number; expiry: number } } = {};
+    let time = -1;
+    let keys: string[] = [];
+
+    return ops.map(([op, _time, key, ...rest]) => {
+        if (typeof _time !== "number" || _time < time) throw new Error("Time goes backwards");
+        time = _time;
+
+        switch (op) {
+            case "set":
+                const ttl = Number(rest[0]);
+                if (!Number.isInteger(ttl) || ttl <= 0) throw new Error("Invalid ttl");
+
+                // Purge dead entries
+                keys = keys.filter(k => cache[k]?.expiry > time);
+
+                // Evict oldest if necessary
+                while (Object.keys(cache).length >= capacity && keys.length > 0) {
+                    const oldestKey = keys.shift()!;
+                    delete cache[oldestKey];
+                }
+
+                cache[key] = { value: Number(rest[1]), expiry: time + ttl };
+                return -1;
+            case "get":
+                if (cache[key]?.expiry > time) return cache[key].value;
+                else return -1;
+            default:
+                throw new Error("Unknown operation");
+        }
+    });
+}
+```

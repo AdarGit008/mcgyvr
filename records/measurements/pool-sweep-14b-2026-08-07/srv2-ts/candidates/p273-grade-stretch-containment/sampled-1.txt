@@ -1,0 +1,44 @@
+```ts
+export function gradeContainment(
+  source: string[],
+  draft: string[],
+  span: number,
+): number {
+  if (!Array.isArray(source) || !Array.isArray(draft)) {
+    throw new Error("Both source and draft must be arrays.");
+  }
+  if (span <= 0 || !Number.isInteger(span)) {
+    throw new Error("Span must be a positive whole number.");
+  }
+  if (source.some(word => typeof word !== "string" || word.trim() === "")) {
+    throw new Error("All elements in source must be non-empty strings.");
+  }
+  if (draft.some(word => typeof word !== "string" || word.trim() === "")) {
+    throw new Error("All elements in draft must be non-empty strings.");
+  }
+  if (draft.length < span) {
+    throw new Error("Draft must contain at least as many words as the span.");
+  }
+
+  const seen = new Map<string, number>();
+  for (let i = 0; i <= source.length - span; i++) {
+    const stretch = source.slice(i, i + span).join(" ");
+    seen.set(stretch, (seen.get(stretch) || 0) + 1);
+  }
+
+  let matched = 0;
+  let total = 0;
+  for (let i = 0; i <= draft.length - span; i++) {
+    const stretch = draft.slice(i, i + span).join(" ");
+    if (seen.has(stretch)) {
+      if (seen.get(stretch)! > 0) {
+        matched += 1;
+        seen.set(stretch, seen.get(stretch)! - 1);
+      }
+    }
+    total += 1;
+  }
+
+  return Math.floor((matched * 1000) / total);
+}
+```

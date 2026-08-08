@@ -1,0 +1,69 @@
+```ts
+export function claimZone(claims: string[], where: string): string {
+  if (!Array.isArray(claims)) {
+    throw new Error("Claims must be an array");
+  }
+
+  const parsePost = (post: string): number[] => {
+    const parts = post.split(".");
+    if (parts.length !== 3) {
+      throw new Error("Post must have exactly three numbers");
+    }
+    return parts.map((numStr) => {
+      const num = parseInt(numStr, 10);
+      if (isNaN(num) || num < 0 || num > 15 || numStr.length !== numStr.replace(/^0+/, "").length) {
+        throw new Error("Invalid post number");
+      }
+      return num;
+    });
+  };
+
+  const parseClaim = (claim: string): { stencil: string; depth: number; name: string } => {
+    const [stencil, name] = claim.split(" ");
+    if (!stencil || !name || name.includes(" ")) {
+      throw new Error("Invalid claim format");
+    }
+    const [post, depthStr] = stencil.split("/");
+    const depth = parseInt(depthStr, 10);
+    if (isNaN(depth) || depth < 0 || depth > 3) {
+      throw new Error("Invalid depth");
+    }
+    return { stencil, depth, name };
+  };
+
+  const matchesPost = (stencil: string, post: number[], depth: number): boolean => {
+    const [fixedPart, ...rest] = parsePost(stencil.split("/")[0]);
+    if (rest.some((num) !== 0)) {
+      throw new Error("Numbers after fixed ones must be 0");
+    }
+    return post.slice(0, depth).every((num, i) => num === fixedPart[i]) && post.slice(depth).every((num) => num === 0);
+  };
+
+  const claimsMap = new Map<string, { name: string; depth: number }>();
+
+  for (const claim of claims) {
+    if (typeof claim !== "string") {
+      throw new Error("Each claim must be a string");
+    }
+    const { stencil, depth, name } = parseClaim(claim);
+    if (claimsMap.has(stencil)) {
+      throw new Error("Two claims may not carry the same stencil");
+    }
+    claimsMap.set(stencil, { name, depth });
+  }
+
+  const wherePost = parsePost(where);
+
+  let bestName = "";
+
+  for (const [stencil, { name, depth }] of claimsMap.entries()) {
+    if (matchesPost(stencil, wherePost, depth)) {
+      if (depth > claimsMap.get(bestName)?.depth || bestName === "") {
+        bestName = name;
+      }
+    }
+  }
+
+  return bestName;
+}
+```

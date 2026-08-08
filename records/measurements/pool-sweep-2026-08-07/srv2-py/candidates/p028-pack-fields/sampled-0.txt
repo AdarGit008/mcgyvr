@@ -1,0 +1,17 @@
+```python
+def pack_fields(widths: list[int], values: list[int]) -> int:
+    if len(widths) != len(values):
+        raise ValueError("Widths and values must have the same length")
+    if not widths or any(w < 1 for w in widths) or sum(widths) > 30:
+        raise ValueError("Invalid width(s)")
+    if any(v < 0 or v >= (1 << w) for w, v in zip(widths, values)):
+        raise ValueError("Value out of range")
+    
+    result = 0
+    shift = 0
+    for w, v in zip(reversed(widths), reversed(values)):
+        result |= v << shift
+        shift += w
+    
+    return result
+```

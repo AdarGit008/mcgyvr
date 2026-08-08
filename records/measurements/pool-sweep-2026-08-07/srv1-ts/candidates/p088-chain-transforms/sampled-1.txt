@@ -1,0 +1,44 @@
+```ts
+export function chainTransforms(grid: number[][], steps: string[]): number[][] {
+  if (grid.length === 0 || grid.some(row => row.length !== grid[0].length)) {
+    throw new Error("Invalid input grid");
+  }
+
+  const transformMap: { [key: string]: (g: number[][]) => number[][] } = {
+    cw: g => {
+      const rows = g.length;
+      const cols = g[0].length;
+      return Array.from({ length: cols }, (_, i) =>
+        g.map(row => row[rows - 1 - i])
+      );
+    },
+    ccw: g => {
+      const rows = g.length;
+      const cols = g[0].length;
+      return Array.from({ length: cols }, (_, i) =>
+        g.map(row => row[i]).reverse()
+      );
+    },
+    mirror: g => g.map(row => [...row].reverse()),
+    flip: g => g.reverse(),
+    diag: g => {
+      const rows = g.length;
+      const cols = g[0].length;
+      return Array.from({ length: cols }, (_, i) =>
+        g[i].map((_, j) => g[j][i])
+      );
+    }
+  };
+
+  if (!Object.keys(transformMap).every(key => steps.includes(key))) {
+    throw new Error("Invalid step name");
+  }
+
+  let result = [...grid];
+  for (const step of steps) {
+    result = transformMap[step](result);
+  }
+
+  return result;
+}
+```

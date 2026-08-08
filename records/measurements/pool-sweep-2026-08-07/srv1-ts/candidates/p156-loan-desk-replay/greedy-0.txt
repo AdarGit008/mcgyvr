@@ -1,0 +1,56 @@
+```ts
+export function replayLoanDesk(stock: Record<string, number>, cap: number, events: Array<[string, string, string]>): string[] {
+    if (typeof cap !== 'number' || cap <= 0) throw new Error('Invalid cap');
+    const loans: Record<string, { member: string; renewals: number }[]> = {};
+    const holds: Record<string, string[]> = {};
+
+    return events.map(([action, member, title]) => {
+        if (typeof action !== 'string' || typeof member !== 'string' || typeof title !== 'string') throw new Error('Invalid event format');
+        if (!['borrow', 'return', 'renew', 'hold'].includes(action)) throw new Error('Unknown action');
+
+        switch (action) {
+            case 'borrow':
+                if (!(title in stock) || stock[title] <= 0) return `no:unknown-title`;
+                if (loans[member]?.some(l => l.title === title)) return `no:already-out`;
+                if (Object.values(loans).flat().filter(l => l.member === member).length >= cap) return `no:member-cap`;
+                if (!stock[title]) return `no:none-left`;
+                if (holds[title] && holds[title][0] !== member) return `no:queued-ahead`;
+
+                loans[member] = [...(loans[member] || []), { title, renewals: 0 }];
+                stock[title]--;
+                if (holds[title]) {
+                    const nextMember = holds[title].shift();
+                    loans[nextMember!] = loans[nextMember!].filter(l => l.title !== title);
+                }
+                return 'ok';
+            case 'return':
+                if (!(title in stock)) return `no:unknown-title`;
+                if (!loans[member]?.some(l => l.title === title)) return `no:not-out`;
+
+                const loan = loans[member].find(l => l.title === title)!;
+                loans[member] = loans[member].filter(l => l.title !== title);
+                stock[title]++;
+                return 'ok';
+            case 'renew':
+                if (!(title in stock)) return `no:unknown-title`;
+                if (!loans[member]?.some(l => l.title === title)) return `no:not-out`;
+                if (holds[title] && holds[title][0] !== member) return `no:on-hold`;
+
+                const renewal = loans[member].find(l => l.title === title)!;
+                if (renewal.renewals >= 2) return `no:renew-cap`;
+
+                renewal.renewals++;
+                return 'ok';
+            case 'hold':
+                if (!(title in stock)) return `no:unknown-title`;
+                if (loans[member]?.some(l => l.title === title)) return `no:own-loan`;
+                if (holds[title] && holds[title].includes(member)) return `no:in-queue`;
+
+                holds[title] = [...(holds[title] || []), member];
+                return 'ok';
+            default:
+                throw new Error('Unknown action');
+        }
+    });
+}
+```

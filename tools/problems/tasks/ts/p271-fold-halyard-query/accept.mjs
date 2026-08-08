@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import { foldHalyardQuery } from "./solution.ts";
+
+assert.equal(foldHalyardQuery("b=2&a=1"), "a=1&b=2", "parameters are put in name order");
+assert.equal(foldHalyardQuery(""), "", "an empty query folds to nothing");
+assert.equal(foldHalyardQuery("verbose&a=1"), "verbose&a=1", "a lone name comes ahead of a carrying one");
+assert.equal(foldHalyardQuery("z=1&mm"), "mm&z=1", "the lone name goes first even when it sorts later");
+assert.equal(foldHalyardQuery("one&two&three&k=v"), "one&three&two&k=v", "lone names sort among themselves");
+assert.equal(foldHalyardQuery("a=2&a=1&a=2"), "a=1,2", "a repeated name gathers its values and sheds the repeat");
+assert.equal(foldHalyardQuery("A=1&a=2"), "a=1,2", "names fold to lower case before gathering");
+assert.equal(foldHalyardQuery("_41=1"), "a=1", "a name written as an escape folds too");
+assert.equal(foldHalyardQuery("q=Zed&q=zed"), "q=Zed,zed", "values keep their case");
+assert.equal(foldHalyardQuery("Flag&flag"), "flag", "two spellings of one lone name become one");
+assert.equal(foldHalyardQuery("zeta&alpha"), "alpha&zeta", "lone names in rising order");
+assert.equal(foldHalyardQuery("x=&x=1"), "x=,1", "an empty value sorts ahead of the rest");
+assert.equal(foldHalyardQuery("n_5fm=1"), "n_5fm=1", "an underscore in a name survives the round trip");
+assert.equal(foldHalyardQuery("k=a_2cb"), "k=a_2cb", "a comma in a value survives the round trip");
+assert.equal(foldHalyardQuery("p=a_26b"), "p=a_26b", "an ampersand in a value survives the round trip");
+assert.equal(foldHalyardQuery("r=x_3dy"), "r=x_3dy", "an equals in a value survives the round trip");
+
+assert.throws(() => foldHalyardQuery("a&a=1"), Error, "one name both standing alone and carrying");
+assert.throws(() => foldHalyardQuery("=1"), Error, "an empty name");
+assert.throws(() => foldHalyardQuery("&"), Error, "a bare separator");
+assert.throws(() => foldHalyardQuery("a=1&"), Error, "a trailing separator");
+assert.throws(() => foldHalyardQuery("a=1=2"), Error, "a second bare equals");
+assert.throws(() => foldHalyardQuery("k=_2"), Error, "an escape cut short");
+assert.throws(() => foldHalyardQuery("k=_ZZ"), Error, "an escape that is not hex");
+assert.throws(() => foldHalyardQuery("k=_2C"), Error, "an upper-case hex escape");
+assert.throws(() => foldHalyardQuery("k=_20"), Error, "an escape naming a space");
+assert.throws(() => foldHalyardQuery("k=_7f"), Error, "an escape above the visible band");
+assert.throws(() => foldHalyardQuery("a b=1"), Error, "a raw space in the query");
+assert.throws(() => foldHalyardQuery(7), Error, "a query that is not text");
+console.log("ok");

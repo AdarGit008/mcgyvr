@@ -1,0 +1,45 @@
+```python
+
+
+def compute_sheet(cells: dict[str, str]) -> dict[str, int]:
+    def evaluate(expression: str) -> int:
+        terms = [term.strip() for term in expression.split('+')]
+        return sum(evaluate_term(term) for term in terms)
+
+    def evaluate_term(term: str) -> int:
+        if term.startswith('-'):
+            return -evaluate_number(term[1:])
+        elif term.isdigit():
+            return int(term)
+        else:
+            cell_name = term
+            if cell_name not in cells:
+                raise ValueError(f"Unknown cell reference: {cell_name}")
+            return evaluate_cell(cell_name)
+
+    def evaluate_cell(cell_name: str) -> int:
+        formula = cells[cell_name]
+        if '=' not in formula:
+            raise ValueError(f"Malformed formula for cell {cell_name}: {formula}")
+        expression = formula.split('=')[1].strip()
+        if not expression:
+            raise ValueError(f"Empty formula for cell {cell_name}: {formula}")
+
+        visited.add(cell_name)
+        try:
+            return evaluate(expression)
+        finally:
+            visited.remove(cell_name)
+
+    visited = set()
+    result = {}
+
+    for cell_name in cells:
+        if cell_name in visited:
+            continue
+        result[cell_name] = evaluate_cell(cell_name)
+
+    return result
+
+
+```

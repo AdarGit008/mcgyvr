@@ -1,0 +1,77 @@
+```ts
+/**
+ * Finds signal conflicts based on given cycle, approaches, and pairs.
+ * @param cycle - The length of the traffic light cycle in seconds.
+ * @param approaches - Array of approach records with name, offset, green, and amber times.
+ * @param pairs - Array of pairs of approach names that must not be lit together.
+ * @returns An array of conflict reports sorted by time and text.
+ */
+export function findSignalConflicts(cycle: number, approaches: object[], pairs: string[][]): string[] {
+  if (!Number.isInteger(cycle) || cycle < 2 || cycle > 3600) {
+    throw new Error("Cycle must be a whole number between 2 and 3600.");
+  }
+  if (!Array.isArray(approaches) || approaches.length === 0) {
+    throw new Error("Approach list cannot be empty or non-list.");
+  }
+
+  const approachMap: { [key: string]: { offset: number, green: number, amber: number } } = {};
+
+  for (const approach of approaches) {
+    if (
+      typeof approach !== 'object' ||
+      !('name' in approach && 'offset' in approach && 'green' in approach && 'amber' in approach) ||
+      typeof approach.name !== 'string' || approach.name.trim() === '' ||
+      typeof approach.offset !== 'number' || approach.offset < 0 || approach.offset >= cycle ||
+      typeof approach.green !== 'number' || approach.green < 1 ||
+      typeof approach.amber !== 'number' || approach.amber < 0 ||
+      approach.green + approach.amber > cycle
+    ) {
+      throw new Error("Invalid approach record.");
+    }
+    const name = approach.name.trim();
+    if (approachMap[name]) {
+      throw new Error("Repeated approach name.");
+    }
+    approachMap[name] = { offset: approach.offset, green: approach.green, amber: approach.amber };
+  }
+
+  if (!Array.isArray(pairs)) {
+    throw new Error("Pairs must be an array.");
+  }
+  for (const pair of pairs) {
+    if (
+      !Array.isArray(pair) || pair.length !== 2 ||
+      typeof pair[0] !== 'string' || typeof pair[1] !== 'string' ||
+      pair[0].trim() === '' || pair[1].trim() === '' ||
+      pair[0].trim() === pair[1].trim()
+    ) {
+      throw new Error("Invalid pair.");
+    }
+    const [first, second] = [pair[0].trim(), pair[1].trim()];
+    if (!approachMap[first] || !approachMap[second]) {
+      throw new Error("Pair must name exactly two declared approaches.");
+    }
+  }
+
+  const conflicts: string[] = [];
+
+  for (let second = 0; second < cycle; second++) {
+    const litApproaches = Object.entries(approachMap).filter(([name, { offset, green, amber }]) => {
+      const adjustedSecond = (second - offset + cycle) % cycle;
+      return adjustedSecond < green + amber;
+    });
+
+    for (const pair of pairs) {
+      const [first, second] = [pair[0].trim(), pair[1].trim()];
+      if (
+        litApproaches.some(([name]) => name === first) &&
+        litApproaches.some(([name]) => name === second)
+      ) {
+        conflicts.push(`${first}~${second}@${second}`);
+      }
+    }
+  }
+
+  return conflicts.sort((a, b) => {
+    const [timeA] = a.split('@')[1].split('');
+    const [timeB]

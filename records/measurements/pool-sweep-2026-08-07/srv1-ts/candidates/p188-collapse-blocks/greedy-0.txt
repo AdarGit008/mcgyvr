@@ -1,0 +1,46 @@
+```ts
+/**
+ * Collapses a list of berths into the shortest list of slabs standing for exactly that set of berths.
+ * @param berths - A list of berths in the format "x.y.z.0".
+ * @returns The shortest list of slabs.
+ */
+export function collapseBlocks(berths: string[]): string[] {
+  if (!Array.isArray(berths)) {
+    throw new Error("Argument must be a list.");
+  }
+
+  const validBerth = ( berth: string ) => {
+    return /^([0-7]\.){3}[0-7]$/.test(berth);
+  };
+
+  if (!berths.every(validBerth)) {
+    throw new Error("All elements must be valid berths.");
+  }
+
+  const slabs = new Map<string, number>();
+
+  for (const berth of berths) {
+    const [prefix, pin] = berth.split('/');
+    const fixedFields = parseInt(pin);
+    let slab = prefix;
+
+    if (fixedFields > 0) {
+      slab += '.'.repeat(4 - fixedFields).replace(/.$/, '0');
+    }
+
+    slabs.set(slab, (slabs.get(slab) || 0) + 1);
+  }
+
+  const result: string[] = [];
+
+  for (const [slab, count] of slabs.entries()) {
+    if (count === Math.pow(8, slab.split('.').filter(f => f !== '0').length)) {
+      result.push(slab);
+    } else {
+      result.push(...Array.from({ length: count }, (_, i) => slab.replace(/\.0$/, `.${i}`)));
+    }
+  }
+
+  return result.sort();
+}
+```

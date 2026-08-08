@@ -1,0 +1,22 @@
+```python
+"""A cleaned form of a slash-separated relative path."""
+
+
+def normalize_rel_path(path: str) -> str:
+    if not isinstance(path, str):
+        raise ValueError("Input must be a string")
+    if path == "" or path.startswith("/") or len(path.split("/")) == 1 and path != ".":
+        raise ValueError("Invalid path")
+
+    out = []
+    for segment in path.split("/"):
+        if segment == "..":
+            if out:
+                out.pop()
+            else:
+                raise ValueError("Path cannot climb above the starting point")
+        elif segment != ".":
+            out.append(segment)
+
+    return "/".join(out) or "."
+```

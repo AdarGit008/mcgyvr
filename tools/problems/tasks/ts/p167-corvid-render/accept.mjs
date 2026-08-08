@@ -1,0 +1,30 @@
+import assert from "node:assert/strict";
+import { corvidRender } from "./solution.ts";
+
+assert.equal(corvidRender(0), "x", "nothing is the lone x");
+assert.equal(corvidRender(1), "y", "plus one");
+assert.equal(corvidRender(2), "z", "plus two");
+assert.equal(corvidRender(3), "yv", "three leans back");
+assert.equal(corvidRender(4), "yw", "four leans back");
+assert.equal(corvidRender(5), "yx", "five needs the middle mark");
+assert.equal(corvidRender(6), "yy", "six");
+assert.equal(corvidRender(12), "zz", "twelve");
+assert.equal(corvidRender(13), "yvv", "thirteen");
+assert.equal(corvidRender(62), "zzz", "the largest three-mark tally");
+assert.equal(corvidRender(63), "yvvv", "one past it needs four marks");
+assert.equal(corvidRender(100), "ywxx", "a hundred");
+assert.equal(corvidRender(-1), "w", "minus one");
+assert.equal(corvidRender(-2), "v", "minus two");
+assert.equal(corvidRender(-3), "wz", "minus three");
+assert.equal(corvidRender(-4), "wy", "minus four");
+assert.equal(corvidRender(-13), "wzz", "minus thirteen");
+assert.equal(corvidRender(-100), "wyxx", "minus a hundred mirrors the mark leans");
+assert.equal(corvidRender(-63), "wzzz", "minus sixty-three");
+
+assert.throws(() => corvidRender(2.5), Error, "fraction rejected");
+assert.throws(() => corvidRender("12"), Error, "text rejected");
+assert.throws(() => corvidRender(true), Error, "true-or-false rejected");
+assert.throws(() => corvidRender(Infinity), Error, "unbounded rejected");
+assert.throws(() => corvidRender(NaN), Error, "not-a-number rejected");
+assert.throws(() => corvidRender(null), Error, "nothing at all rejected");
+console.log("ok");

@@ -1,0 +1,29 @@
+id: p154-span-grammar
+task_type: function_implementation
+task: >-
+  Implement expand_span_grammar. It expands a pattern written in an invented
+  little grammar — the rules below are this problem's own, not shell brace
+  or glob semantics. A pattern is literal text interspersed with groups
+  wrapped in < and >. A group whose body contains the two dots .. is a
+  numeric span and must be exactly digits, two dots, digits: it stands for
+  every integer from the first number through the second, each written
+  with leading zeros up to the width the first number was written with (a
+  value naturally wider is left as is), and the first number must not
+  exceed the second. Any other group body is an alternation of one or
+  more choices separated by |, each choice a non-empty run of ASCII
+  letters and digits. Outside groups a tilde escapes the character after
+  it, which must be one of < > | ~ and is taken literally; inside a group
+  body the characters < and ~ may not appear. A bare > outside a group,
+  an unclosed group, a lone trailing tilde, and a non-string argument are
+  all errors. The pattern stands for every string formed by picking one
+  choice from each group in order; when the count of such combinations
+  exceeds 500, raise an error instead of expanding. Return the distinct
+  expansions sorted ascending by code point.
+target: solution.py
+interface: "def expand_span_grammar(pattern: str) -> list"
+stop_conditions:
+  - What the empty pattern expands to is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

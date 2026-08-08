@@ -1,0 +1,26 @@
+```ts
+export function loadVans(parcels: number[]): number[] {
+  if (parcels.length === 0) {
+    throw new Error("Parcel list cannot be empty");
+  }
+
+  const sortedParcels = parcels.slice().sort((a, b) => b - a);
+
+  let van1Total = 0;
+  let van2Total = 0;
+
+  for (const weight of sortedParcels) {
+    if (weight < 1) {
+      throw new Error("Parcel weight must be at least one");
+    }
+
+    if (van1Total <= van2Total) {
+      van1Total += weight;
+    } else {
+      van2Total += weight;
+    }
+  }
+
+  return [van1Total, van2Total];
+}
+```

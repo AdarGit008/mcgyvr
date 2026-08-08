@@ -1,0 +1,30 @@
+id: p021-count-phrase
+task_type: bug_fix
+task: >-
+  countPhrase counts how many times a phrase occurs in a list of tokens.
+  The current code joins the tokens and searches the joined text, so it
+  finds the phrase inside longer words, misses it when letter case
+  differs, and counts overlapping hits more than once. Fix it: split the
+  phrase on spaces, compare token by token ignoring case, count
+  occurrences left to right without overlap (after a hit, scanning resumes
+  after the matched tokens), and reject with an error a phrase that is
+  empty or only spaces. Return the count.
+target: solution.ts
+target_content: |
+  export function countPhrase(tokens: string[], phrase: string): number {
+    const text = tokens.join(" ");
+    let count = 0;
+    let at = text.indexOf(phrase);
+    while (at !== -1) {
+      count += 1;
+      at = text.indexOf(phrase, at + 1);
+    }
+    return count;
+  }
+interface: "export function countPhrase(tokens: string[], phrase: string): number"
+stop_conditions:
+  - Whether a phrase may contain consecutive or leading spaces, and what they mean, is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,58 @@
+id: p401-mirror-step-run
+task_type: bug_fix
+task: >-
+  mirrorStepRun lays out one whole turn of a mirror-step dial. Handed width,
+  the count of marks in every word, it gives back a record under two keys.
+  Under "words" comes the entire turn in dial order, each word made of width
+  marks drawn from 0 and 1, opening with the word of all 0s; the turn is
+  raised by the mirroring recipe, which takes the turn for one mark fewer,
+  writes it out, writes it out a second time in reverse, then fits a 0 to the
+  front of every word of the first writing and a 1 to the front of every word
+  of the second. Under "flips" comes one entry per notch of turn, naming
+  which column altered on that notch, columns numbered from the left starting
+  at one; there is one fewer entry here than there are words. Two faults
+  spoil it. The second writing is laid down forwards rather than in reverse,
+  so neighbouring words can differ in more than a single mark; and the
+  altered column is numbered from the right instead of from the left.
+  Repair both. Go on raising an error when width is not a whole number and
+  when it lies outside one through twelve. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function mirrorStepRun(width: number): any {
+    if (typeof width !== "number" || !Number.isInteger(width)) {
+      throw new Error("width must be a whole number");
+    }
+    if (width < 1 || width > 12) {
+      throw new Error("width lies within one through twelve");
+    }
+    let words: string[] = [""];
+    for (let step = 0; step < width; step++) {
+      const grown: string[] = [];
+      for (const word of words) {
+        grown.push("0" + word);
+      }
+      for (const word of words) {
+        grown.push("1" + word);
+      }
+      words = grown;
+    }
+    const flips: number[] = [];
+    for (let i = 1; i < words.length; i++) {
+      const before = words[i - 1];
+      const after = words[i];
+      for (let column = 0; column < width; column++) {
+        if (before[column] !== after[column]) {
+          flips.push(width - column);
+          break;
+        }
+      }
+    }
+    return { words, flips };
+  }
+interface: "export function mirrorStepRun(width: number): any"
+stop_conditions:
+  - Whether the caller wants the turn to close back onto its opening word is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

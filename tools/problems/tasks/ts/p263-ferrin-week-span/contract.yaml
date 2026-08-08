@@ -1,0 +1,88 @@
+id: p263-ferrin-week-span
+task_type: bug_fix
+task: >-
+  ferrinWeekSpan reports the inclusive span of one week of the Ferrin
+  almanac. There a week runs Saturday through Friday; week 1 of a year opens
+  on the first Saturday falling in January, and whatever days sit between
+  January 1 and that Saturday form a stub numbered week 0 — a year whose
+  January 1 is itself a Saturday carries no stub at all, and asking for its
+  week 0 is refused. Later weeks count 1, 2, 3 upward, and the closing week
+  of a year is cut off at December 31, so it may run anywhere from one to
+  seven days. Everything is worked out from whole numbers alone with no
+  standard-library calendar; a leap year is one divisible by 4 apart from
+  centuries, which leap only when divisible by 400. The answer is a pair of
+  zero-padded "YYYY-MM-DD" texts, opening day first, closing day second. The
+  current code never applies that cut-off — it hands back the opening day
+  plus six every time — so a year's closing week is reported as running past
+  the end of December. Repair the cut-off and leave every refusal exactly as
+  it stands: a year that is not a whole number in 1 through 9999, a week that
+  is not a whole number of at least zero, a week the year never reaches, and
+  week 0 of a year opening on a Saturday are all errors. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  function leaps(year: number): boolean {
+    return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  }
+
+  // Weekday of January 1, with 0 standing for Monday; index 0 of the day
+  // count is 0001-01-01, itself a Monday.
+  function openingWeekday(year: number): number {
+    const prior = year - 1;
+    const index =
+      365 * prior +
+      Math.floor(prior / 4) -
+      Math.floor(prior / 100) +
+      Math.floor(prior / 400);
+    return ((index % 7) + 7) % 7;
+  }
+
+  function stamp(year: number, ordinal: number): string {
+    let remaining = ordinal;
+    for (let month = 1; month <= 12; month++) {
+      const held = MONTH_DAYS[month - 1] + (month === 2 && leaps(year) ? 1 : 0);
+      if (remaining <= held || month === 12) {
+        return (
+          String(year).padStart(4, "0") +
+          "-" +
+          String(month).padStart(2, "0") +
+          "-" +
+          String(remaining).padStart(2, "0")
+        );
+      }
+      remaining -= held;
+    }
+    throw new Error("unreachable");
+  }
+
+  export function ferrinWeekSpan(year: number, week: number): string[] {
+    if (!Number.isInteger(year) || year < 1 || year > 9999) {
+      throw new Error("year must be a whole number in 1..9999");
+    }
+    if (!Number.isInteger(week) || week < 0) {
+      throw new Error("week must be a whole number of at least zero");
+    }
+    const span = leaps(year) ? 366 : 365;
+    const opening = 1 + ((5 - openingWeekday(year) + 7) % 7);
+    if (week === 0) {
+      if (opening === 1) {
+        throw new Error("the year opens on a Saturday, so it carries no week 0");
+      }
+      return [stamp(year, 1), stamp(year, opening - 1)];
+    }
+    const first = opening + 7 * (week - 1);
+    if (first > span) {
+      throw new Error("the year does not reach that week");
+    }
+    const last = first + 6;
+    return [stamp(year, first), stamp(year, last)];
+  }
+interface: "export function ferrinWeekSpan(year: number, week: number): string[]"
+stop_conditions:
+  - Whether the ordinal-to-date helper may be restructured while repairing the cut-off is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

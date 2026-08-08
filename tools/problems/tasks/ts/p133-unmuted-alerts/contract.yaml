@@ -1,0 +1,29 @@
+id: p133-unmuted-alerts
+task_type: bug_fix
+task: >-
+  unmutedAlerts builds the on-call shortlist after suppression, and the
+  current code ignores the grouping entirely. Fix it: every alert is a
+  record with id (a string, unique across the input), resource (a string
+  naming what it fires on) and severity (a positive integer). An alert is
+  muted exactly when some other alert on the same resource carries a
+  strictly higher severity; equal severities never mute each other, and
+  alerts on different resources never interact. Return the ids of the
+  unmuted alerts ordered by severity descending, breaking ties by id
+  ascending. An empty input yields an empty list. Raise an error when two
+  alerts share an id and when a severity is not a positive integer.
+target: solution.ts
+target_content: |
+  export function unmutedAlerts(alerts: Array<{ id: string; resource: string; severity: number }>): string[] {
+    const top = Math.max(...alerts.map((alert) => alert.severity));
+    return alerts
+      .filter((alert) => alert.severity >= top)
+      .map((alert) => alert.id)
+      .sort();
+  }
+interface: "export function unmutedAlerts(alerts: Array<{ id: string; resource: string; severity: number }>): string[]"
+stop_conditions:
+  - Whether resource names are case-sensitive is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

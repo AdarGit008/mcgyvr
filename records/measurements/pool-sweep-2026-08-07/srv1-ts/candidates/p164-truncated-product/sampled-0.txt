@@ -1,0 +1,36 @@
+```ts
+export function truncatedProduct(left: number[], right: number[], cap: number): number[] {
+  if (!Array.isArray(left) || !Array.isArray(right)) {
+    throw new Error("Arguments must be arrays.");
+  }
+  if (!Number.isInteger(cap) || cap < 0) {
+    throw new Error("Cap must be a non-negative integer.");
+  }
+
+  const result: number[] = [];
+
+  for (let i = 0; i <= Math.min(left.length - 1, cap); i++) {
+    if (!Number.isInteger(left[i])) {
+      throw new Error("Coefficients of the first polynomial must be integers.");
+    }
+    for (let j = 0; j <= Math.min(right.length - 1, cap - i); j++) {
+      if (!Number.isInteger(right[j])) {
+        throw new Error("Coefficients of the second polynomial must be integers.");
+      }
+      const exponent = i + j;
+      const coefficient = left[i] * right[j];
+      if (exponent >= result.length) {
+        result.push(coefficient);
+      } else {
+        result[exponent] += coefficient;
+      }
+    }
+  }
+
+  while (result.length > 0 && result[result.length - 1] === 0) {
+    result.pop();
+  }
+
+  return result;
+}
+```

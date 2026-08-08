@@ -1,0 +1,23 @@
+id: p318-pick-merge-base
+task_type: function_implementation
+task: >-
+  Implement pickMergeBase. The mapping gives, for every revision in a history,
+  the revisions it was built directly on top of; a root revision lists none
+  and a revision joining two lines of work lists more than one. A revision
+  counts as its own forebear, along with everything reachable by following
+  those lists onward. A shared forebear of the two named revisions is one that
+  is a forebear of both, and the answer is a shared forebear that is not
+  itself a forebear of any other shared forebear; when several qualify, give
+  the one first in alphabetical order. Reject with an error a mapping that is
+  not a mapping, an entry whose value is not a list, a listed parent the
+  mapping does not carry, an entry naming the same parent twice, a history in
+  which some revision descends from itself, either named revision missing from
+  the mapping, and a pair with no shared forebear at all.
+target: solution.ts
+interface: "export function pickMergeBase(parents: Record<string, string[]>, left: string, right: string): string"
+stop_conditions:
+  - Whether a revision may list its parents in any particular order is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

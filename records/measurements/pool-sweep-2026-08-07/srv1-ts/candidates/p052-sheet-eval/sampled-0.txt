@@ -1,0 +1,61 @@
+```ts
+/**
+ * Computes the value of each cell in the sheet, resolving references through any depth of chained formulas.
+ * @param cells - A mapping from cell names to their text, which is either an integer literal or a formula.
+ * @returns A mapping from every cell name to its computed integer value.
+ */
+export function computeSheet(cells: Record<string, string>): Record<string, number> {
+    const evaluated = new Map<string, number>();
+    const visiting = new Set<string>();
+
+    function evaluateCell(cell: string): number {
+        if (visiting.has(cell)) {
+            throw new Error('Reference cycle detected');
+        }
+        if (evaluated.has(cell)) {
+            return evaluated.get(cell)!;
+        }
+
+        visiting.add(cell);
+        let result: number;
+
+        try {
+            const text = cells[cell];
+            if (/^[+-]?\d+$/.test(text)) {
+                result = parseInt(text, 10);
+            } else if (text.startsWith('=')) {
+                const terms = text.substring(1).split(/\s*\+\s*/);
+                result = terms.reduce((acc, term) => acc + evaluateTerm(term), 0);
+            } else {
+                throw new Error('Malformed literal or formula');
+            }
+        } finally {
+            visiting.delete(cell);
+        }
+
+        evaluated.set(cell, result);
+        return result;
+    }
+
+    function evaluateTerm(term: string): number {
+        if (/^[+-]?\d+$/.test(term)) {
+            return parseInt(term, 10);
+        } else if (cells.hasOwnProperty(term)) {
+            return evaluateCell(term);
+        } else {
+            throw new Error('Reference to a name absent from the sheet');
+        }
+    }
+
+    for (const cell in cells) {
+        evaluateCell(cell);
+    }
+
+    const result: Record<string, number> = {};
+    for (const [cell, value] of evaluated) {
+        result[cell] = Math.floor(value); // Ensure integer values
+    }
+
+    return result;
+}
+```

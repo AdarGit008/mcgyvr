@@ -1,0 +1,45 @@
+```ts
+export function sieveReport(items: Array<Record<string, unknown>>, rules: Array<Record<string, unknown>>): string[] {
+    const ruleNames = new Set<string>();
+
+    for (const rule of rules) {
+        if (!rule.name || ruleNames.has(rule.name)) {
+            throw new Error(`Invalid rule name: ${rule.name}`);
+        }
+        if (!['eq', 'ne', 'gt', 'lt', 'present', 'absent'].includes(rule.op as string)) {
+            throw new Error(`Invalid op: ${rule.op}`);
+        }
+        ruleNames.add(rule.name);
+    }
+
+    return items.map(item => {
+        for (const rule of rules) {
+            const fieldValue = item[rule.field];
+            if (fieldValue === undefined && rule.op !== 'absent') {
+                return rule.name;
+            }
+            switch (rule.op) {
+                case 'eq':
+                    if (fieldValue !== rule.value) return rule.name;
+                    break;
+                case 'ne':
+                    if (fieldValue === rule.value) return rule.name;
+                    break;
+                case 'gt':
+                    if (typeof fieldValue !== 'number' || fieldValue <= rule.value) return rule.name;
+                    break;
+                case 'lt':
+                    if (typeof fieldValue !== 'number' || fieldValue >= rule.value) return rule.name;
+                    break;
+                case 'present':
+                    if (fieldValue === undefined) return rule.name;
+                    break;
+                case 'absent':
+                    if (fieldValue !== undefined) return rule.name;
+                    break;
+            }
+        }
+        return 'pass';
+    });
+}
+```

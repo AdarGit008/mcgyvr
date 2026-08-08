@@ -1,0 +1,59 @@
+```ts
+export function printOperatorTree(node: unknown): string {
+  if (typeof node === 'number') {
+    if (!Number.isInteger(node) || node < 0) throw new Error('Invalid number');
+    return node.toString();
+  }
+
+  if (typeof node === 'string') {
+    if (/[^a-z]/.test(node)) throw new Error('Invalid word');
+    return node;
+  }
+
+  if (node && typeof node === 'object') {
+    const { op, negate, call } = node as Record<string, unknown>;
+    const bindingPower: { [key: string]: number } = {
+      or: 1,
+      and: 2,
+      '+': 3,
+      '-': 4,
+      '*': 5,
+      '/': 6,
+      '^': 7
+    };
+
+    function print(node: unknown): string {
+      if (typeof node === 'number' || typeof node === 'string') return node;
+      const { op, negate, call } = node as Record<string, unknown>;
+
+      if (op) {
+        if (!['or', 'and', '+', '-', '*', '/'].includes(op)) throw new Error('Invalid operator');
+        const left = print(node.left);
+        const right = print(node.right);
+        const bpLeft = bindingPower[op];
+        const bpRight = bindingPower[right.split(' ')[1]];
+        return `( ${left} ${op} ${right.replace(/^\s+/, '')} )`;
+      }
+
+      if (negate) {
+        const operand = negate;
+        const bpOperand = bindingPower[operand.split(' ')[0]] || 8;
+        return `-${bpOperand > bindingPower['-'] ? `(${print(operand)})` : print(operand)}`;
+      }
+
+      if (call) {
+        if (typeof call !== 'string' || !/^[a-z]+$/.test(call)) throw new Error('Invalid function name');
+        const args = call.args;
+        if (!Array.isArray(args)) throw new Error('Invalid arguments list');
+        return `${call}(${args.map(print).join(', ')})`;
+      }
+
+      throw new Error('Invalid node structure');
+    }
+
+    return print(node);
+  }
+
+  throw new Error('Invalid input type');
+}
+```

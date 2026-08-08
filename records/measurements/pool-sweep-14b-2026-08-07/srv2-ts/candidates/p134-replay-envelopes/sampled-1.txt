@@ -1,0 +1,72 @@
+```ts
+/**
+ * Replays the budget envelopes through the given months of outlays.
+ * @param envelopes - Array of envelope records with name, monthly deposit, and cap.
+ * @param months - Array of months, each a list of [name, amount] outlays.
+ * @returns An object with balances and forfeited total.
+ */
+export function replayEnvelopes(
+  envelopes: Array<{ name: string; monthly: number; cap: number }>,
+  months: Array<Array<[string, number]>>
+): { balances: Array<[string, number]>; forfeited: number } {
+  // Validate envelopes
+  const envelopeMap = new Map<string, { monthly: number; cap: number; balance: number; totalForfeited: number }>();
+  for (const envelope of envelopes) {
+    if (!envelope.name || typeof envelope.name !== 'string') {
+      throw new Error('Envelope name must be a non-empty string.');
+    }
+    if (envelopeMap.has(envelope.name)) {
+      throw new Error('Duplicate envelope name found.');
+    }
+    if (typeof envelope.monthly !== 'number' || envelope.monthly < 0) {
+      throw new Error('Monthly deposit must be a non-negative integer.');
+    }
+    if (typeof envelope.cap !== 'number' || envelope.cap < 0) {
+      throw new Error('Cap must be a non-negative integer.');
+    }
+    envelopeMap.set(envelope.name, { monthly: envelope.monthly, cap: envelope.cap, balance: 0, totalForfeited: 0 });
+  }
+
+  // Process each month
+  for (const month of months) {
+    // Step 1: Add monthly deposits
+    for (const [name] of month) {
+      const envelope = envelopeMap.get(name);
+      if (!envelope) {
+        throw new Error(`Outlay references unknown envelope name: ${name}.`);
+      }
+      envelope.balance += envelope.monthly;
+    }
+
+    // Step 2: Process outlays
+    for (const [name, amount] of month) {
+      const envelope = envelopeMap.get(name);
+      if (!envelope) {
+        throw new Error(`Outlay references unknown envelope name: ${name}.`);
+      }
+      if (typeof amount !== 'number' || amount <= 0) {
+        throw new Error('Outlay amount must be a positive integer.');
+      }
+      envelope.balance -= amount;
+    }
+
+    // Step 3: Apply caps and calculate forfeits
+    for (const envelope of envelopeMap.values()) {
+      if (envelope.balance > envelope.cap) {
+        envelope.totalForfeited += envelope.balance - envelope.cap;
+        envelope.balance = envelope.cap;
+      }
+    }
+  }
+
+  // Prepare the result
+  const balances: Array<[string, number]> = [];
+  let totalForfeited = 0;
+  for (const [name, { balance, totalForfeited: monthForfeited }] of envelopeMap.entries()) {
+    balances.push([name, balance]);
+    totalForfeited += monthForfeited;
+  }
+
+  return { balances, forfeited: totalForfeited };
+}
+```

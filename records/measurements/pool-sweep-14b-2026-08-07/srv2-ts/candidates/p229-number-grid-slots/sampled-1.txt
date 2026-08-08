@@ -1,0 +1,63 @@
+```ts
+/**
+ * Finds slots in a grid and numbers them according to the rules specified.
+ * @param rows - A non-empty list of rows, all of one non-empty length, each a string
+ *               whose characters are either "." for an open square or "#" for a blocked one.
+ * @returns An array of mappings for each numbered square with "at", "row", "col",
+ *          "across" and "down" properties.
+ * @throws Error if the input does not meet the specified conditions.
+ */
+export function numberGridSlots(rows: string[]): Array<Record<string, number>> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("Rows must be a non-empty list.");
+  }
+
+  const rowLength = rows[0].length;
+  if (rowLength === 0) {
+    throw new Error("A row must not be empty.");
+  }
+
+  for (const row of rows) {
+    if (typeof row !== 'string' || row.length !== rowLength) {
+      throw new Error("Each row must be a string of the same length as the others.");
+    }
+    for (const char of row) {
+      if (char !== '.' && char !== '#') {
+        throw new Error("Characters in rows must be either '.' or '#'.");
+      }
+    }
+  }
+
+  const result: Array<Record<string, number>> = [];
+  let nextNumber = 1;
+
+  for (let row = 0; row < rows.length; row++) {
+    for (let col = 0; col < rowLength; col++) {
+      if (rows[row][col] === '.') {
+        const hasLeftNeighbor = col > 0 && rows[row][col - 1] === '.';
+        const hasTopNeighbor = row > 0 && rows[row - 1][col] === '.';
+
+        let across = 1;
+        while (col + across < rowLength && rows[row][col + across] === '.') {
+          across++;
+        }
+
+        let down = 1;
+        while (row + down < rows.length && rows[row + down][col] === '.') {
+          down++;
+        }
+
+        if (!hasLeftNeighbor && across >= 2) {
+          result.push({ at: nextNumber, row, col, across, down });
+          nextNumber++;
+        } else if (!hasTopNeighbor && down >= 2) {
+          result.push({ at: nextNumber, row, col, across, down });
+          nextNumber++;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,77 @@
+```ts
+export function costBasisReport(events: unknown[][]): { fifoSold: number; averageSold: number; unitsLeft: number; fifoValue: number; averageValue: number } {
+  if (!Array.isArray(events)) {
+    throw new Error("Input must be a list of events");
+  }
+
+  let fifoSold = 0;
+  let averageSold = 0;
+  let unitsLeft = 0;
+  let fifoValue = 0;
+  let averageCost = 0;
+
+  const fifoStack: { units: number; unitCents: number }[] = [];
+
+  for (const event of events) {
+    if (!Array.isArray(event)) {
+      throw new Error("Each event must be an array");
+    }
+
+    const [type, unitsRaw, unitCentsRaw] = event;
+
+    if (typeof type !== "string" || !["buy", "sell"].includes(type)) {
+      throw new Error("Event type must be 'buy' or 'sell'");
+    }
+
+    const units = Number(unitsRaw);
+    const unitCents = Number(unitCentsRaw);
+
+    if (!Number.isInteger(units) || units <= 0) {
+      throw new Error("Units must be a whole number above zero");
+    }
+
+    if (type === "buy") {
+      if (typeof unitCents !== "number" || !Number.isInteger(unitCents) || unitCents < 0) {
+        throw new Error("Unit price must be a whole number at or above zero");
+      }
+
+      fifoStack.push({ units, unitCents });
+      unitsLeft += units;
+      fifoValue += units * unitCents;
+      averageCost = (fifoValue / unitsLeft) | 0; // Drop fraction
+    } else if (type === "sell") {
+      if (units > unitsLeft) {
+        throw new Error("Despatch cannot exceed stock on hand");
+      }
+
+      unitsLeft -= units;
+
+      // FIFO logic
+      let fifoIndex = 0;
+      while (units > 0) {
+        const { units: layerUnits, unitCents: layerUnitCents } = fifoStack[fifoIndex];
+        const sellUnits = Math.min(units, layerUnits);
+
+        fifoSold += sellUnits * layerUnitCents;
+        fifoStack[fifoIndex].units -= sellUnits;
+
+        if (fifoStack[fifoIndex].units === 0) {
+          fifoStack.splice(fifoIndex, 1);
+        } else {
+          fifoIndex++;
+        }
+
+        units -= sellUnits;
+      }
+
+      // Average logic
+      averageSold += units * averageCost;
+      fifoValue -= units * averageCost;
+    }
+  }
+
+  const averageValue = unitsLeft * averageCost;
+
+  return { fifoSold, averageSold, unitsLeft, fifoValue, averageValue };
+}
+```

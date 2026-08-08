@@ -1,0 +1,48 @@
+```ts
+export function treeDelta(
+  before: { name: string; value: number; children: unknown[] },
+  after: { name: string; value: number; children: unknown[] }
+): Array<Record<string, unknown>> {
+  if (before.name !== after.name) {
+    throw new Error("Root names differ");
+  }
+
+  const result: Array<Record<string, unknown>> = [];
+
+  const walk = (beforeNode: typeof before, afterNode: typeof after, path: string) => {
+    if (beforeNode.value !== afterNode.value) {
+      result.push({
+        op: "change",
+        path,
+        from: beforeNode.value,
+        to: afterNode.value
+      });
+    }
+
+    const beforeChildrenMap = new Map(beforeNode.children.map(child => [child.name, child]));
+    const afterChildrenMap = new Map(afterNode.children.map(child => [child.name, child]));
+
+    for (const [name, afterChild] of afterChildrenMap) {
+      if (!beforeChildrenMap.has(name)) {
+        walk(afterChild as typeof after, { name, value: 0, children: [] } as typeof after, `${path}/${name}`);
+      } else {
+        const beforeChild = beforeChildrenMap.get(name)!;
+        walk(beforeChild as typeof before, afterChild as typeof after, `${path}/${name}`);
+      }
+    }
+
+    for (const [name] of beforeChildrenMap) {
+      if (!afterChildrenMap.has(name)) {
+        result.push({
+          op: "remove",
+          path: `${path}/${name}`
+        });
+      }
+    }
+  };
+
+  walk(before, after, "");
+
+  return result;
+}
+```

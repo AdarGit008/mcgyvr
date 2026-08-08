@@ -1,0 +1,23 @@
+```python
+def normalize_part_code(code: str) -> str:
+    if not isinstance(code, str):
+        raise ValueError("Input must be a string")
+    
+    allowed_chars = set('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ- ')
+    cleaned_code = ''.join(c for c in code if c in allowed_chars).upper()
+    
+    if len(cleaned_code) != 12 or cleaned_code[4] != '-' or cleaned_code[9] != '-':
+        raise ValueError("Invalid part code format")
+    
+    payload = cleaned_code[:8]
+    check_char = cleaned_code[-1]
+    
+    weights = (3, 5, 7) * 3
+    calc_check_char = str((sum((int(payload[i]) if '0' <= payload[i] <= '9' else ord(payload[i]) - 55) * weights[i] for i in range(8))) % 36)
+    calc_check_char = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[int(calc_check_char)]
+    
+    if check_char != calc_check_char:
+        raise ValueError("Invalid check character")
+    
+    return cleaned_code[:4] + '-' + cleaned_code[4:8] + '-' + check_char
+```

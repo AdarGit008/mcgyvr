@@ -1,0 +1,49 @@
+```ts
+/**
+ * Decodes a stream of byte values into frames.
+ * @param stream - A list of byte values (0 to 255) containing zero or more frames.
+ * @returns A list of payloads, each a list of byte values.
+ */
+export function decodeFrames(stream: number[]): number[][] {
+    const frames: number[][] = [];
+    let index = 0;
+
+    while (index < stream.length) {
+        if (index + 2 > stream.length) {
+            throw new Error("Stream ends inside a header.");
+        }
+
+        // Read the two-byte header in big-endian order
+        const payloadLength = (stream[index] << 8) | stream[index + 1];
+        index += 2;
+
+        if (payloadLength < 0 || payloadLength > 65535) {
+            throw new Error("Invalid payload length.");
+        }
+
+        // Check if there are enough bytes for the payload and trailing byte
+        if (index + payloadLength + 1 > stream.length) {
+            throw new Error("Stream ends inside a payload or before a frame's trailing byte.");
+        }
+
+        // Extract the payload bytes
+        const payload: number[] = stream.slice(index, index + payloadLength);
+        index += payloadLength;
+
+        // Read the trailing byte
+        const trailingByte = stream[index];
+        index++;
+
+        // Calculate the XOR of all payload bytes
+        const calculatedTrailingByte = payload.reduce((xor, byte) => xor ^ byte, 0);
+
+        if (trailingByte !== calculatedTrailingByte) {
+            throw new Error("Trailing byte disagrees with its payload.");
+        }
+
+        frames.push(payload);
+    }
+
+    return frames;
+}
+```

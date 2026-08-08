@@ -1,0 +1,60 @@
+```ts
+export function hopOffsetGrid(
+  start: number[],
+  moves: string[],
+): { cell: number[]; distance: number } {
+  if (!Array.isArray(start) || start.length !== 2) {
+    throw new Error("the start must be a two-element address");
+  }
+  for (const part of start) {
+    if (typeof part !== "number" || !Number.isInteger(part)) {
+      throw new Error("an address must hold whole numbers");
+    }
+  }
+  if (!Array.isArray(moves)) {
+    throw new Error("the moves must be a list");
+  }
+  let col = start[0];
+  let row = start[1];
+  for (const move of moves) {
+    if (move === "e") {
+      col += 1;
+    } else if (move === "w") {
+      col -= 1;
+    } else if (move === "ne") {
+      if (row % 2 === 0) {
+        col += 1;
+      }
+      row -= 1;
+    } else if (move === "nw") {
+      if (row % 2 !== 0) {
+        col -= 1;
+      }
+      row -= 1;
+    } else if (move === "se") {
+      if (row % 2 === 0) {
+        col += 1;
+      }
+      row += 1;
+    } else if (move === "sw") {
+      if (row % 2 !== 0) {
+        col -= 1;
+      }
+      row += 1;
+    } else {
+      throw new Error("invalid move name");
+    }
+  }
+
+  const startQ = Math.floor(start[0] - start[1] / 2);
+  const endQ = Math.floor(col - row / 2);
+  const qChange = Math.abs(endQ - startQ);
+  const rChange = Math.abs(row - start[1]);
+  const qrSumChange = Math.abs(qChange + rChange);
+
+  return {
+    cell: [col, row],
+    distance: (qChange + rChange + qrSumChange) / 2,
+  };
+}
+```

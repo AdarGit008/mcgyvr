@@ -1,0 +1,61 @@
+id: p173-hex-offset-hop
+task_type: bug_fix
+task: >-
+  hop_offset_grid walks a hexagonal map addressed by shifted-row offset
+  coordinates, and it currently ignores the shift. Repair it. An address is
+  [col, row]; rows run top to bottom and each row bearing an odd row number
+  sits half a cell further right than its neighbours, so which diagonal
+  neighbour a move lands on depends on whether the row number is odd or
+  even. Leaving an even row, northeast is [col, row-1], northwest is
+  [col-1, row-1], southeast is [col, row+1] and southwest is [col-1,
+  row+1]. Leaving an odd row, northeast is [col+1, row-1], northwest is
+  [col, row-1], southeast is [col+1, row+1] and southwest is [col, row+1].
+  From any row, east is [col+1, row] and west is [col-1, row]. Row numbers
+  may be negative, and a negative odd row shifts exactly as a positive odd
+  row does. The second argument lists move names drawn from e, w, ne, nw,
+  se and sw, applied in order from the starting address. Return a record
+  holding cell, the address the walk ends on, and distance, the fewest
+  moves that could separate the two ends: rewrite each address as a pair
+  q = col minus half the row number rounded toward negative infinity and
+  r = row, then halve the summed magnitudes of the change in q, the change
+  in r, and the change in q plus the change in r. An empty move list ends
+  where it began, at distance zero. Throw an error for a starting address
+  that is not two whole numbers, for a move list that is not a list, and
+  for a move name outside the six. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def hop_offset_grid(start, moves):
+      if not isinstance(start, list) or len(start) != 2:
+          raise ValueError("the start must be a two-element address")
+      for part in start:
+          if not isinstance(part, int) or isinstance(part, bool):
+              raise ValueError("an address must hold whole numbers")
+      if not isinstance(moves, list):
+          raise ValueError("the moves must be a list")
+      col, row = start[0], start[1]
+      for move in moves:
+          if move == "e":
+              col += 1
+          elif move == "w":
+              col -= 1
+          elif move == "ne":
+              row -= 1
+          elif move == "nw":
+              col -= 1
+              row -= 1
+          elif move == "se":
+              row += 1
+          elif move == "sw":
+              col -= 1
+              row += 1
+      return {
+          "cell": [col, row],
+          "distance": abs(col - start[0]) + abs(row - start[1]),
+      }
+interface: "def hop_offset_grid(start: list, moves: list) -> dict"
+stop_conditions:
+  - Whether move names may arrive in upper case is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

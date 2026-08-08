@@ -1,0 +1,25 @@
+id: p229-number-grid-slots
+task_type: function_implementation
+task: >-
+  Implement numberGridSlots. The argument is a non-empty list of rows, all of
+  one non-empty length, each a string whose characters are either "." for an
+  open square or "#" for a blocked one. A square opens an across slot when it
+  is open, no open square lies immediately to its left, and the unbroken run of
+  open squares beginning there is two squares or longer. It opens a down slot
+  the same way, looking upward for the neighbour and downward for the run.
+  Number every square that opens at least one slot, taking the squares row by
+  row from the top and left to right within a row, and starting the count at
+  one. Return one mapping per numbered square in that same order, carrying "at"
+  (its number), "row", "col", "across" (how long the across slot opening there
+  is, or nought when it opens none) and "down" (the same for the down slot).
+  Raise an error when the rows are not a non-empty list, when a row is not a
+  string, when a row is empty, when the rows are not all of one length, and
+  when a character is neither "." nor "#".
+target: solution.ts
+interface: "export function numberGridSlots(rows: string[]): Array<Record<string, number>>"
+stop_conditions:
+  - Whether a grid must hold at least one slot to be worth numbering is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

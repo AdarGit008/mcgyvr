@@ -1,0 +1,30 @@
+id: p235-panel-card-places
+task_type: function_implementation
+task: >-
+  Implement place_cards. The first argument is a panel record carrying width
+  and height (positive integers), bleed (a non-negative integer of
+  untouchable border on all four sides), cardWidth and cardHeight (positive
+  integers) and seam (a non-negative integer of clear space demanded between
+  two neighbouring cards). Inside the bleed the panel carries a grid: its
+  column count is the largest c such that c cards side by side with c minus
+  one seams between them measure no wider than the printable width, and its
+  row count is the largest r reaching the same way down the printable
+  height. Cells are numbered from one in reading order, along a row from the
+  left and then on to the row beneath. The second argument says how many
+  cards to lay down; the third lists the cell numbers already spoken for, in
+  no particular order and free to name the same cell twice. Lay the cards
+  into the lowest-numbered free cells, lowest first. Return one pair per
+  card in the order laid, each pair the distance of that card's top-left
+  corner from the panel's left edge and then from its top edge. Raise an
+  error when a panel measurement is out of range, when the count is not a
+  whole number of zero or more, when a spoken-for cell number falls outside
+  the grid, when the panel carries no cells at all, and when the free cells
+  cannot cover the count.
+target: solution.py
+interface: "def place_cards(panel: dict, count: int, taken: list) -> list"
+stop_conditions:
+  - Whether a card may be laid across the bleed when nothing else fits is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

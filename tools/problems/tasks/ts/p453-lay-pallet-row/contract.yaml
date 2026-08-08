@@ -1,0 +1,109 @@
+id: p453-lay-pallet-row
+task_type: bug_fix
+task: >-
+  layPalletRow lays boxes in a single file down a pallet deck. Each box is a
+  record with name (a non-empty string, no two boxes answering to the same one),
+  alen and blen (its two ground sides, whole numbers above nought), mass (a whole
+  number above nought) and tender (true when the box is marked as one that must
+  never be swung round). The deck record carries run and span, whole numbers
+  above nought for the length still free ahead and the fixed width across, and
+  load, a whole number of nought or more for the mass the deck is rated to take.
+  Work through the boxes in the order given, keeping a running mass and a
+  shrinking run. A box whose mass would carry the running mass past the load
+  rating is passed over at once, whatever its shape. Otherwise the box lies
+  as it comes when alen is within the run still free and blen is within the span,
+  and it lies swung round when blen is within the run still free and alen is
+  within the span, except that a tender box may only lie as it comes. Where both
+  lies would work the box goes down as it comes. Whichever lie is used, the side
+  pointing down the deck is taken off the run still free. A box that neither lie
+  suits is passed over, and boxes behind a passed-over one are still tried. Give
+  back a record whose laid lists, in the order they went down, the name of each
+  box followed by a space and then flat or turned, whose skipped lists the names
+  passed over in the order they were passed over, whose run is the length still
+  free at the end, and whose mass is the running mass. The code below tests the
+  swung-round lie against the same two sides as the flat lie, so no box is ever
+  swung round. Repair that, keep raising an error when boxes is not a list, when
+  deck is not a record, when run or span is missing or is not a whole number above
+  nought, when load is missing or is not a whole number of nought or more, when a
+  box is not a record, when a name is empty or not a string, when two boxes answer
+  to one name, when alen, blen or mass is not a whole number above nought, and
+  when tender is not a boolean, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  function whole(value: unknown): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  export function layPalletRow(
+    boxes: any[],
+    deck: any,
+  ): { laid: string[]; skipped: string[]; run: number; mass: number } {
+    if (!Array.isArray(boxes)) {
+      throw new Error("boxes must be a list");
+    }
+    if (deck === null || typeof deck !== "object" || Array.isArray(deck)) {
+      throw new Error("deck must be a record");
+    }
+    for (const key of ["run", "span"]) {
+      if (!whole(deck[key]) || deck[key] < 1) {
+        throw new Error(`${key} must be a whole number above nought`);
+      }
+    }
+    if (!whole(deck.load) || deck.load < 0) {
+      throw new Error("load must be a whole number of nought or more");
+    }
+
+    const seen = new Set<string>();
+    for (const box of boxes) {
+      if (box === null || typeof box !== "object" || Array.isArray(box)) {
+        throw new Error("a box must be a record");
+      }
+      if (typeof box.name !== "string" || box.name.length === 0) {
+        throw new Error("a name must be a non-empty string");
+      }
+      if (seen.has(box.name)) {
+        throw new Error(`two boxes answer to the name ${box.name}`);
+      }
+      seen.add(box.name);
+      for (const key of ["alen", "blen", "mass"]) {
+        if (!whole(box[key]) || box[key] < 1) {
+          throw new Error(`${key} must be a whole number above nought`);
+        }
+      }
+      if (typeof box.tender !== "boolean") {
+        throw new Error("tender must be either true or false");
+      }
+    }
+
+    const laid: string[] = [];
+    const skipped: string[] = [];
+    let run = deck.run;
+    let mass = 0;
+    for (const box of boxes) {
+      if (mass + box.mass > deck.load) {
+        skipped.push(box.name);
+        continue;
+      }
+      const flat = box.alen <= run && box.blen <= deck.span;
+      const turned = !box.tender && box.alen <= run && box.blen <= deck.span;
+      if (flat) {
+        laid.push(`${box.name} flat`);
+        run -= box.alen;
+        mass += box.mass;
+      } else if (turned) {
+        laid.push(`${box.name} turned`);
+        run -= box.blen;
+        mass += box.mass;
+      } else {
+        skipped.push(box.name);
+      }
+    }
+    return { laid, skipped, run, mass };
+  }
+interface: "export function layPalletRow(boxes: any[], deck: any): { laid: string[]; skipped: string[]; run: number; mass: number }"
+stop_conditions:
+  - Whether a box may be stood on end so that its height runs down the deck is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

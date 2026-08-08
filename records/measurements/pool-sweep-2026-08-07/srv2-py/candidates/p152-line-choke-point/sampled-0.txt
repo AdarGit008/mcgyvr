@@ -1,0 +1,27 @@
+```python
+def line_choke_point(stations: list) -> dict:
+    if not stations:
+        raise ValueError("Station list cannot be empty")
+    
+    slowest = None
+    station_name = ""
+    
+    seen_names = set()
+    for name, machines, rate in stations:
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"Invalid station name: {name}")
+        if not isinstance(machines, int) or machines <= 0:
+            raise ValueError(f"Invalid machine count for station {name}: {machines}")
+        if not isinstance(rate, int) or rate <= 0:
+            raise ValueError(f"Invalid rate per machine for station {name}: {rate}")
+        if name in seen_names:
+            raise ValueError(f"Duplicate station name: {name}")
+        
+        seen_names.add(name)
+        capacity = machines * rate
+        if slowest is None or capacity < slowest:
+            slowest = capacity
+            station_name = name
+    
+    return {"station": station_name, "output": slowest}
+```

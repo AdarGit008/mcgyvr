@@ -1,0 +1,16 @@
+```ts
+export function tessariValue(text: string): number {
+  if (typeof text !== 'string' || !text) throw new Error('Invalid input');
+  const glyphValues = { K: 0, L: 1, M: 3, N: 4, P: 5, Q: 6, R: 7, S: 8, T: 9 };
+  if (text.length === 1 && text in glyphValues) return glyphValues[text];
+  if (text.startsWith('K')) throw new Error('Invalid numeral');
+  let value = 0;
+  for (let i = 0; i < text.length; i++) {
+    const glyph = text[i];
+    if (!(glyph in glyphValues)) throw new Error('Invalid glyph');
+    if (i > 0 && glyphValues[glyph] <= glyphValues[text[i - 1]]) throw new Error('Invalid numeral');
+    value += glyphValues[glyph];
+  }
+  return value;
+}
+```

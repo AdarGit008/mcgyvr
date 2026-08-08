@@ -1,0 +1,20 @@
+id: p164-truncated-product
+task_type: function_implementation
+task: >-
+  Implement truncated_product. A polynomial over the whole numbers is written
+  as a list running from the constant term upward, so [2, 0, 5] means
+  2 + 5t squared. Such a list is canonical when its final entry is not zero,
+  and the zero polynomial is written as the empty list. Multiply the two
+  given polynomials exactly, discard every term whose exponent exceeds cap,
+  then strip trailing zeros so the answer is canonical again, and return it.
+  Reject with an error: an argument that is not a list, a coefficient that
+  is not a whole number, a list whose final entry is a zero coefficient, and
+  a cap that is not a whole number of at least zero.
+target: solution.py
+interface: "def truncated_product(left: list[int], right: list[int], cap: int) -> list[int]"
+stop_conditions:
+  - Whether the two argument lists may be the very same list is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

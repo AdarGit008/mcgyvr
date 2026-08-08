@@ -1,0 +1,32 @@
+```ts
+export function readSwitches(
+  kinds: Record<string, string>,
+  tokens: string[],
+): { found: Record<string, boolean | string>; extra: string[] } {
+  const found: Record<string, boolean | string> = {};
+  const extra: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (token.startsWith("--")) {
+      const [name, value] = token.slice(2).split("=");
+      if (!kinds.hasOwnProperty(name)) {
+        throw new Error(`Unknown option name: ${name}`);
+      }
+      if (kinds[name] === "value") {
+        if (i + 1 >= tokens.length) {
+          throw new Error(`Missing value for option: ${name}`);
+        }
+        found[name] = value !== undefined ? value : tokens[++i];
+      } else {
+        if (value !== undefined) {
+          throw new Error(`Switch cannot have a value: ${name}`);
+        }
+        found[name] = true;
+      }
+    } else {
+      extra.push(token);
+    }
+  }
+  return { found, extra };
+}
+```

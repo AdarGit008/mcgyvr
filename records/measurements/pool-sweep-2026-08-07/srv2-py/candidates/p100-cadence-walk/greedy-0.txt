@@ -1,0 +1,31 @@
+```python
+def label_cadence_walk(edges: list[list[str]], cadence: list[str], start: str, goal: str) -> int:
+    if not cadence or any(not isinstance(label, str) or not label for label in cadence):
+        raise ValueError("Invalid cadence")
+    if any(len(edge) != 3 or not all(isinstance(node, str) and node for node in edge) for edge in edges):
+        raise ValueError("Invalid edges")
+    if start not in (edge[0] for edge in edges) or goal not in (edge[1] for edge in edges):
+        raise ValueError("Start or goal not in edges")
+
+    from collections import defaultdict, deque
+
+    graph = defaultdict(list)
+    for from_node, to_node, label in edges:
+        graph[from_node].append((to_node, label))
+
+    queue = deque([(start, 0, -1)])  # (current_node, edge_count, last_label_index)
+    visited = set()
+
+    while queue:
+        current_node, edge_count, last_label_index = queue.popleft()
+        if current_node == goal and edge_count > 0:
+            return edge_count
+
+        for next_node, label in graph[current_node]:
+            next_label_index = (last_label_index + 1) % len(cadence)
+            if label == cadence[next_label_index] and (current_node, next_node, next_label_index) not in visited:
+                visited.add((current_node, next_node, next_label_index))
+                queue.append((next_node, edge_count + 1, next_label_index))
+
+    return -1
+```

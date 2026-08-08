@@ -1,0 +1,47 @@
+```ts
+/**
+ * Finds the smallest job name in a loop and returns its members sorted in ascending order.
+ * @param waits - A record where each key is a stalled job and each value is the job it is waiting to finish.
+ * @returns An array of job names that are part of the smallest loop, sorted in ascending order.
+ */
+export function stalledLoopMembers(waits: Record<string, string>): string[] {
+  if (typeof waits !== 'object' || waits === null) {
+    throw new Error('Invalid input: argument must be a record');
+  }
+
+  const loops: string[][] = [];
+  const visited: Set<string> = new Set();
+
+  for (const start of Object.keys(waits)) {
+    if (visited.has(start)) continue;
+    const seen: string[] = [];
+    let current = start;
+
+    while (waits[current] !== undefined && !seen.includes(current)) {
+      if (current === waits[current]) {
+        throw new Error('Invalid input: a job cannot wait on itself');
+      }
+      if (typeof waits[current] !== 'string') {
+        throw new Error('Invalid input: waited-for value must be a string');
+      }
+      seen.push(current);
+      visited.add(current);
+      current = waits[current];
+    }
+
+    if (seen.includes(current)) {
+      const loopStartIndex = seen.indexOf(current);
+      const loop = seen.slice(loopStartIndex).sort();
+      loops.push(loop);
+    }
+  }
+
+  if (loops.length === 0) return [];
+
+  const smallestLoop = loops.reduce((acc, loop) => {
+    return loop[0] < acc[0] ? loop : acc;
+  });
+
+  return smallestLoop;
+}
+```

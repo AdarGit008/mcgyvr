@@ -1,0 +1,55 @@
+```ts
+/**
+ * Quotes the freight cost based on weight bands and consignment weight.
+ * @param bands - A non-empty list of rate bands with "from" and "perKilo".
+ * @param kilos - The consignment weight in whole kilos, one or more.
+ * @returns An object with "split" (charges for each band) and "cents" (total charge).
+ */
+export function quoteFreightRun(bands: Array<Record<string, unknown>>, kilos: number): Record<string, unknown> {
+  if (!Array.isArray(bands) || bands.length === 0) {
+    throw new Error("Bands must be a non-empty list.");
+  }
+
+  let previousFrom = -1;
+  const splitCharges: number[] = [];
+  let totalCents = 0;
+
+  for (let i = 0; i < bands.length; i++) {
+    const band = bands[i];
+    if (typeof band !== 'object' || band === null) {
+      throw new Error("Each band must be a mapping.");
+    }
+
+    const from = band.from;
+    const perKilo = band.perKilo;
+
+    if (!Number.isInteger(from) || from < 0) {
+      throw new Error("Starting weight must be a whole number of nought or more.");
+    }
+    if (i === 0 && from !== 0) {
+      throw new Error("The first band must start at nought.");
+    }
+    if (from <= previousFrom) {
+      throw new Error("Starting weights must climb strictly.");
+    }
+    if (!Number.isInteger(perKilo) || perKilo < 0) {
+      throw new Error("Rate must be a non-negative whole number.");
+    }
+
+    const end = i < bands.length - 1 ? (bands[i + 1].from as number) : Infinity;
+    const bandWeight = Math.min(kilos, end) - from;
+    const charge = bandWeight * perKilo;
+
+    splitCharges.push(charge);
+    totalCents += charge;
+
+    previousFrom = from;
+  }
+
+  if (kilos < 1) {
+    throw new Error("The consignment weight must be a whole number of one or more.");
+  }
+
+  return { split: splitCharges, cents: totalCents };
+}
+```

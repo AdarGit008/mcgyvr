@@ -1,0 +1,42 @@
+```python
+def link_ledger_marks(marks: list[str], aliases: dict[str, str]) -> list:
+    def parse_mark(mark: str) -> tuple[str, int, str]:
+        parts = mark.split()
+        if len(parts) != 2 or not (parts[0].isalpha() and parts[1].isdigit()):
+            raise ValueError("Malformed mark")
+        
+        house_code, serial_str = parts
+        check_letter = house_code[-1]
+        house_code = house_code[:-1].upper()
+        serial = int(serial_str.lstrip('0'))
+        
+        if not (2 <= len(house_code) <= 3):
+            raise ValueError("Invalid house code length")
+        if serial == 0:
+            raise ValueError("Serial value must be at least 1")
+        if check_letter != chr((serial - 42) % 26 + ord('A')):
+            raise ValueError("Incorrect check letter")
+        
+        return house_code, serial, check_letter
+
+    def resolve_alias(code: str) -> str:
+        while code in aliases:
+            replacement = aliases[code]
+            if replacement == code or replacement in aliases:
+                raise ValueError("Invalid alias table")
+            code = replacement
+        return code
+
+    parsed_marks = [parse_mark(mark) for mark in marks]
+    resolved_codes = [(resolve_alias(code), serial, check_letter) for code, serial, check_letter in parsed_marks]
+
+    unique_entries = []
+    seen = set()
+    for code, serial, check_letter in resolved_codes:
+        canonical = f"{code}-{serial:02d}-{check_letter}"
+        if (code, serial, check_letter) not in seen:
+            unique_entries.append((canonical, [mark for mark, parsed_code, parsed_serial, parsed_check in zip(marks, *zip(*parsed_marks)) if parsed_code == code and parsed_serial == serial and parsed_check == check_letter]))
+            seen.add((code, serial, check_letter))
+
+    return unique_entries
+```

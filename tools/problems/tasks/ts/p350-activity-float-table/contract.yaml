@@ -1,0 +1,32 @@
+id: p350-activity-float-table
+task_type: function_implementation
+task: >-
+  Implement activityFloatTable. The argument lists the activities of a plan,
+  each a mapping carrying a name, a whole number of days it occupies, and
+  an after list naming the activities that must be finished before it may
+  begin. Anything able to run alongside something else does, and an
+  activity begins the instant the last of its after list is finished. Work
+  out three numbers for every activity. Its earliest start is zero when its
+  after list is empty and otherwise the largest earliest finish among the
+  activities it waits on, where an earliest finish is an earliest start
+  plus that activity's days. Its latest start comes from giving the plan
+  the shortest span its earliest finishes allow, then working backwards:
+  an activity may finish as late as the smallest latest start among the
+  activities waiting on it, or as late as the span itself when nothing
+  waits on it, and its latest start is that finish less its days. Its
+  slack is the latest start less the earliest start. Return one line per
+  activity, in ascending name order, reading name, earliest start, latest
+  start and slack parted by single spaces. Raise an error when the argument
+  is not a non-empty list, when an entry is not a mapping, when a name is
+  not a non-empty string, when two entries share a name, when the days are
+  not a whole number above zero, when the after list is not a list of
+  strings, when an after entry names no activity in the plan, when an
+  activity waits on itself, and when the waiting forms a loop.
+target: solution.ts
+interface: "export function activityFloatTable(activities: { name: string; days: number; after: string[] }[]): string[]"
+stop_conditions:
+  - Whether days off the calendar should interrupt an activity is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

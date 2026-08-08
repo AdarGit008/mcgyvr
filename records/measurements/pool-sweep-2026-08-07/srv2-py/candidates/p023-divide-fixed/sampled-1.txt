@@ -1,0 +1,39 @@
+```python
+def divide_fixed(numerator: int, denominator: int, places: int) -> str:
+    if not isinstance(numerator, int) or not isinstance(denominator, int) or not isinstance(places, int):
+        raise ValueError("All inputs must be integers")
+    if denominator == 0:
+        raise ValueError("Denominator cannot be zero")
+    if places < 0 or places > 6:
+        raise ValueError("Places must be between 0 and 6 inclusive")
+
+    is_negative = numerator * denominator < 0
+    numerator, denominator = abs(numerator), abs(denominator)
+
+    quotient, remainder = divmod(numerator * (10 ** (places + 2)), denominator)
+    digit_at_place = (quotient // (10 ** places)) % 10
+    next_digit = (quotient // (10 ** (places - 1))) % 10
+
+    if next_digit >= 5:
+        remainder += 10 ** (places + 2)
+    if remainder >= denominator * (10 ** (places + 1)):
+        quotient += 10 ** places
+        digit_at_place = (quotient // (10 ** places)) % 10
+
+    final_digit = str(digit_at_place + (1 if next_digit >= 5 else 0))
+    if len(final_digit) > 1:
+        quotient, remainder = divmod(quotient * 10, denominator)
+        if remainder >= denominator // 2:
+            quotient += 1
+        result = f"{final_digit[0]}"
+    else:
+        result = final_digit
+
+    while len(result) < places + 1:
+        result += '0'
+
+    if is_negative:
+        return "-" + (result if int(result) != 0 else '')
+    else:
+        return result if int(result) != 0 else ''
+```

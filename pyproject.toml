@@ -83,6 +83,11 @@ extend-exclude = [
     "tools/baseline",
     "records/evidence",
     "tools/bundle/python/tasks",
+    # tools/problems/tasks/ is digest-pinned by tools/problems/admissions.jsonl the
+    # way the python arm is pinned by test_python_arm.py: run directories pin
+    # the task set's digests, so a formatter pass is not a tidy-up, it
+    # invalidates every prior run's resume and the manifest's pins (#197).
+    "tools/problems/tasks",
 ]
 
 [tool.ruff.lint]

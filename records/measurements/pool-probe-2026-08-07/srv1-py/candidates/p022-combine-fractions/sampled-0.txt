@@ -1,0 +1,23 @@
+```python
+def combine_fractions(parts: list[str]) -> str:
+    from fractions import Fraction
+
+    if not parts:
+        raise ValueError("Input list cannot be empty")
+
+    total = Fraction(0, 1)
+    for frac_str in parts:
+        try:
+            numerator, denominator = frac_str.split('/')
+            numerator = int(numerator)
+            denominator = int(denominator)
+            if denominator == 0:
+                raise ValueError("Denominator cannot be zero")
+            if '/' in fraction or '-' in fraction[0] and not fraction.startswith('-'):
+                raise ValueError("Invalid fraction format")
+            total += Fraction(numerator, denominator)
+        except (ValueError, IndexError):
+            raise ValueError("Invalid fraction format")
+
+    return str(total)
+```

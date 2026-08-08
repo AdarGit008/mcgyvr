@@ -1,0 +1,82 @@
+```ts
+/**
+ * One line per row of a zoned pick walk.
+ */
+export function zonePickWalk(plan: Record<string, unknown>): string[] {
+  if (typeof plan !== 'object' || plan === null) {
+    throw new Error('Invalid plan');
+  }
+
+  const { zoneOrder, picks } = plan;
+
+  if (!Array.isArray(zoneOrder) || zoneOrder.length === 0) {
+    throw new Error('Invalid zoneOrder');
+  }
+
+  if (!Array.isArray(picks)) {
+    throw new Error('Invalid picks');
+  }
+
+  const seenZones = new Set<string>();
+  for (const zone of zoneOrder) {
+    if (typeof zone !== 'string' || zone === '') {
+      throw new Error('Invalid zone in zoneOrder');
+    }
+    if (seenZones.has(zone)) {
+      throw new Error('Duplicate zone in zoneOrder');
+    }
+    seenZones.add(zone);
+  }
+
+  const pickMap = new Map<string, any[]>();
+  for (const pick of picks) {
+    if (typeof pick !== 'object' || pick === null) {
+      throw new Error('Invalid pick');
+    }
+
+    const { code, zone, row, slot } = pick;
+
+    if (typeof code !== 'string' || code === '') {
+      throw new Error('Invalid code in pick');
+    }
+    if (pickMap.has(code)) {
+      throw new Error('Duplicate code in picks');
+    }
+    pickMap.set(code, pick);
+
+    if (typeof zone !== 'string' || zone === '' || !seenZones.has(zone)) {
+      throw new Error('Invalid or unknown zone in pick');
+    }
+
+    if (typeof row !== 'number' || row <= 0 || !Number.isInteger(row)) {
+      throw new Error('Invalid row in pick');
+    }
+
+    if (typeof slot !== 'number' || slot <= 0 || !Number.isInteger(slot)) {
+      throw new Error('Invalid slot in pick');
+    }
+  }
+
+  const lines: string[] = [];
+  for (const zone of zoneOrder) {
+    const zonePicks = picks.filter((pick) => pick.zone === zone);
+    if (zonePicks.length === 0) continue;
+
+    const rows = Array.from(new Set(zonePicks.map((pick) => pick.row))).sort(
+      (a, b) => a - b
+    );
+
+    let direction = 1; // 1 for up, -1 for down
+    for (const row of rows) {
+      const here = zonePicks.filter((pick) => pick.row === row);
+      here.sort((a, b) => (direction === 1 ? a.slot - b.slot : b.slot - a.slot));
+      lines.push(
+        zone + "/" + row + ":" + here.map((pick) => pick.code).join("|")
+      );
+      direction *= -1;
+    }
+  }
+
+  return lines;
+}
+```

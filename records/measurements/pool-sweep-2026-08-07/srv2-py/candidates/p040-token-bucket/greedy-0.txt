@@ -1,0 +1,30 @@
+```python
+def token_bucket(capacity: int, refill: int, requests: list[list[int]]) -> list[str]:
+    if capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    if refill < 0:
+        raise ValueError("Refill rate must be a non-negative integer")
+    if not all(isinstance(req, list) and len(req) == 2 for req in requests):
+        raise ValueError("Requests must be pairs [time, cost]")
+    if any(time < 0 or cost <= 0 for time, cost in requests):
+        raise ValueError("Invalid request time or cost")
+
+    tokens = capacity
+    last_time = 0
+    labels = []
+
+    for time, cost in requests:
+        if time < last_time:
+            raise ValueError("Arrival times must not go backwards")
+        elapsed = time - last_time
+        tokens += min(elapsed * refill, capacity - tokens)
+        last_time = time
+
+        if tokens >= cost:
+            labels.append("grant")
+            tokens -= cost
+        else:
+            labels.append("refuse")
+
+    return labels
+```

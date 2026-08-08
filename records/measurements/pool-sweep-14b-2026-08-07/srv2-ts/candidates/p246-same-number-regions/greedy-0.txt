@@ -1,0 +1,53 @@
+```ts
+export function labelValueRegions(grid: number[][]): any {
+  if (!Array.isArray(grid) || grid.length === 0) {
+    throw new Error("Invalid grid");
+  }
+
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+
+  for (let row of grid) {
+    if (!Array.isArray(row) || row.length !== numCols) {
+      throw new Error("Invalid grid");
+    }
+    for (let cell of row) {
+      if (!Number.isInteger(cell)) {
+        throw new Error("Invalid grid");
+      }
+    }
+  }
+
+  const map: number[][] = Array.from({ length: numRows }, () =>
+    Array(numCols).fill(0)
+  );
+  const sizes: number[] = [];
+  const values: number[] = [];
+  let regionCount = 0;
+
+  function dfs(row: number, col: number, value: number): void {
+    if (row < 0 || row >= numRows || col < 0 || col >= numCols) return;
+    if (map[row][col] !== 0 || grid[row][col] !== value) return;
+
+    map[row][col] = regionCount;
+    sizes[regionCount - 1]++;
+    dfs(row + 1, col, value);
+    dfs(row - 1, col, value);
+    dfs(row, col + 1, value);
+    dfs(row, col - 1, value);
+  }
+
+  for (let row = 0; row < numRows; row++) {
+    for (let col = 0; col < numCols; col++) {
+      if (map[row][col] === 0) {
+        regionCount++;
+        sizes.push(0);
+        values.push(grid[row][col]);
+        dfs(row, col, grid[row][col]);
+      }
+    }
+  }
+
+  return { map, sizes, values };
+}
+```

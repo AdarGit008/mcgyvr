@@ -1,0 +1,28 @@
+id: p327-decide-switch-state
+task_type: function_implementation
+task: >-
+  Implement decideSwitch. A setting is a record with mode, one of the words
+  dark, live or ramp; barred and waved, each a list of caller ids; and
+  cutoff, a whole number from 0 to 100. A caller is a record with id, a
+  non-empty string, and slot, a whole number from 0 to 99. Answer with a
+  record holding open, the word yes or no, and why, the single reason that
+  settled it. Work down this list and stop at the first line that applies: an
+  id sitting in barred answers no with barred; a mode of dark answers no with
+  dark; an id sitting in waved answers yes with waved; a mode of live answers
+  yes with live; a slot below cutoff answers yes with ramp; and anything left
+  over answers no with held. A cutoff of 0 therefore lets nobody through on
+  the ramp and a cutoff of 100 lets every slot through. Raise an error when
+  the setting is not a record carrying all four names, when mode is none of
+  the three words, when barred or waved is not a list of non-empty strings,
+  when either list names one id twice, when an id appears in both lists, when
+  cutoff is not a whole number from 0 to 100, when the caller is not a record
+  carrying id and slot, when id is not a non-empty string, and when slot is
+  not a whole number from 0 to 99.
+target: solution.ts
+interface: "export function decideSwitch(setting: any, caller: any): { open: string; why: string }"
+stop_conditions:
+  - Whether one caller may be judged twice against a changing setting is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

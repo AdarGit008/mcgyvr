@@ -1,0 +1,19 @@
+```python
+def reassemble_stream(total: int, fragments: list[list]) -> str:
+    if any(offset < 0 for offset, _ in fragments):
+        raise ValueError("negative offset")
+    
+    if any(offset + len(text) > total for offset, text in fragments):
+        raise ValueError("fragment runs past the end")
+    
+    message = [''] * total
+    for offset, text in sorted(fragments):
+        if message[offset] and message[offset] != text:
+            raise ValueError("disagreement on a shared position")
+        message[offset] = text
+    
+    if any(char == '' for char in message):
+        raise ValueError("uncovered position")
+    
+    return ''.join(message)
+```

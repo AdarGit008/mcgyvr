@@ -1,0 +1,32 @@
+id: p174-ring-log-replay
+task_type: function_implementation
+task: >-
+  Implement replay_ring_log. A ring holds at most capacity labels at once,
+  oldest first, and starts out holding none. The second argument names the ring's
+  crowding policy, either overwrite or refuse. The third argument replays
+  operations in order, each a list whose first element is its name:
+  ["push", label] offers a label, ["pop"] removes the oldest label, and
+  ["peek"] reads the oldest label without removing it. Every operation
+  appends exactly one line to a running journal. A push with room to spare
+  seats the label as the newest and journals stored. A push into a full
+  ring under overwrite discards the oldest label to clear a seat and
+  journals evicted, a space, then the discarded label; under refuse the
+  ring is left exactly as it was and the line reads refused. Either way a
+  label was lost, and lost tallies how many. A pop journals took, a space
+  and the removed label, or the single word bare when the ring held
+  nothing; a peek journals front, a space and the oldest label, or again
+  the single word bare. Return a record carrying contents, the labels still
+  seated listed oldest to newest, plus journal and lost. Raise an error
+  when the capacity is not a positive whole number, when the policy is
+  neither of the two names, when the operation list is not a list, when an
+  operation is not a non-empty list, when an operation name is outside the
+  three, when a push does not carry exactly one non-empty label string, and
+  when a pop or a peek carries anything past its own name.
+target: solution.py
+interface: "def replay_ring_log(capacity: int, policy: str, operations: list) -> dict"
+stop_conditions:
+  - Whether two seats may hold the same label is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

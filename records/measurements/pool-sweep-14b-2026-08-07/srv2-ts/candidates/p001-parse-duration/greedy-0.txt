@@ -1,0 +1,43 @@
+```ts
+export function parseDuration(input: string): number {
+  if (typeof input !== 'string' || input.length === 0) {
+    throw new Error('Invalid input');
+  }
+
+  const unitMap: { [key: string]: number } = {
+    d: 86400,
+    h: 3600,
+    m: 60,
+    s: 1
+  };
+
+  let totalSeconds = 0;
+  let previousUnitValue = Infinity;
+
+  const regex = /(\d+)([dhms])/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(input)) !== null) {
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+
+    if (isNaN(value) || !unitMap[unit]) {
+      throw new Error('Invalid input');
+    }
+
+    const unitValue = unitMap[unit];
+    if (unitValue >= previousUnitValue) {
+      throw new Error('Units must appear in strictly decreasing size');
+    }
+
+    totalSeconds += value * unitValue;
+    previousUnitValue = unitValue;
+  }
+
+  if (regex.lastIndex !== input.length) {
+    throw new Error('Invalid input');
+  }
+
+  return totalSeconds;
+}
+```

@@ -1,0 +1,44 @@
+id: p340-blend-congruences
+task_type: bug_fix
+task: >-
+  blendCongruences merges simultaneous congruences and only copes with the
+  easy case. Each pair [rest, span] states that the unknown leaves remainder
+  rest when divided by span. Merge every pair into one pair [rest, span]
+  covering exactly the unknowns that satisfy all of them at once: the merged
+  span is the least common multiple of the spans given, and the merged rest is
+  the single value from 0 up to that span which works, with an incoming rest
+  first folded into its own span so that -3 against a span of 10 stands for 7.
+  Where no unknown satisfies them all, hand back an empty list — two
+  congruences are reconcilable exactly when the difference of their rests
+  divides evenly by the greatest common divisor of their spans. The code here
+  assumes the spans share no factor, so it multiplies them where the least
+  common multiple belongs; it walks a search that quietly runs out and reports
+  a wrong answer where an empty list belongs; and it never folds the answer
+  back inside the merged span. Repair all three, keep every step exact, and
+  add the guards it lacks, throwing an error for an argument that is not a
+  list, an empty list of pairs, an entry that is not a pair, a span that is not
+  a whole number from 1 through 1000000, a rest that is not a whole number or
+  whose magnitude passes 1000000000, and any merge whose span would swell past
+  1000000000. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function blendCongruences(pairs: number[][]): number[] {
+    let remainder = 0;
+    let modulus = 1;
+    for (const [rest, span] of pairs) {
+      let step = 0;
+      while (step < span && (remainder + modulus * step) % span !== rest % span) {
+        step += 1;
+      }
+      remainder = remainder + modulus * step;
+      modulus = modulus * span;
+    }
+    return [remainder, modulus];
+  }
+interface: "export function blendCongruences(pairs: number[][]): number[]"
+stop_conditions:
+  - Which outcome comes first when a pair both conflicts and would swell the span past the limit is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

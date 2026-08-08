@@ -1,0 +1,27 @@
+import assert from "node:assert/strict";
+import { readDotCells } from "./solution.ts";
+
+assert.equal(readDotCells("1"), "a", "weight one");
+assert.equal(readDotCells("2"), "b", "weight two");
+assert.equal(readDotCells("12"), "c", "two dots add up");
+assert.equal(readDotCells("245"), "z", "the last letter");
+assert.equal(readDotCells("134-234"), "mn", "two letters in the middle");
+assert.equal(readDotCells("6-1"), "A", "the shift sign capitalises");
+assert.equal(readDotCells("6-245"), "Z", "a capital at the far end");
+assert.equal(readDotCells("0"), " ", "a blank cell is a space");
+assert.equal(readDotCells("1-0-2"), "a b", "a space between letters");
+assert.equal(readDotCells("6-1-0-2"), "A b", "shift, blank, then a letter");
+assert.equal(readDotCells("56-1-12"), "13", "one count sign covers the whole run");
+assert.equal(readDotCells("56-24"), "0", "weight ten is the digit zero");
+assert.equal(readDotCells("56-1-0-1"), "1 a", "a blank cell closes the count");
+assert.throws(() => readDotCells(42), Error, "not a string");
+assert.throws(() => readDotCells(""), Error, "empty argument");
+assert.throws(() => readDotCells("7"), Error, "a dot beyond six");
+assert.throws(() => readDotCells("11"), Error, "a dot named twice");
+assert.throws(() => readDotCells("21"), Error, "dots that do not rise");
+assert.throws(() => readDotCells("1245"), Error, "a weight that spells nothing");
+assert.throws(() => readDotCells("6"), Error, "a shift sign ending the line");
+assert.throws(() => readDotCells("6-0"), Error, "a shift sign before a blank");
+assert.throws(() => readDotCells("56-6"), Error, "too heavy inside a count");
+assert.throws(() => readDotCells("1--2"), Error, "an empty cell");
+console.log("ok");

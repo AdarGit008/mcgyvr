@@ -1,0 +1,65 @@
+```ts
+export function firstBadMessage(exchange: unknown): number {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid exchange");
+  }
+
+  const validKinds = ["HELLO", "OFFER", "CHOOSE", "ACCEPT", "DATA", "BYE"];
+
+  type Message = {
+    from: "client" | "server";
+    kind: typeof validKinds[number];
+  };
+
+  let clientExpectedKind: typeof validKinds[number] | null = "HELLO";
+  let serverExpectedKind: typeof validKinds[number] | null = "OFFER";
+
+  for (let i = 0; i < exchange.length; i++) {
+    const message = exchange[i];
+
+    if (typeof message !== "object" || message === null) {
+      throw new Error("Invalid message");
+    }
+
+    const { from, kind } = message as Record<string, unknown>;
+
+    if (from !== "client" && from !== "server") {
+      throw new Error("Invalid 'from' field");
+    }
+
+    if (!validKinds.includes(kind as string)) {
+      throw new Error("Invalid 'kind' field");
+    }
+
+    if (from === "client") {
+      if (kind !== clientExpectedKind) {
+        return i;
+      }
+      if (kind === "HELLO") {
+        clientExpectedKind = "CHOOSE";
+        serverExpectedKind = "OFFER";
+      } else if (kind === "CHOOSE") {
+        clientExpectedKind = "DATA";
+        serverExpectedKind = "ACCEPT";
+      } else if (kind === "BYE") {
+        return exchange.length;
+      }
+    } else if (from === "server") {
+      if (kind !== serverExpectedKind) {
+        return i;
+      }
+      if (kind === "OFFER") {
+        clientExpectedKind = "CHOOSE";
+        serverExpectedKind = null; // No further messages expected after OFFER
+      } else if (kind === "ACCEPT") {
+        clientExpectedKind = "DATA";
+        serverExpectedKind = "DATA";
+      } else if (kind === "BYE") {
+        return i === exchange.length - 1 ? -1 : i;
+      }
+    }
+  }
+
+  return -1;
+}
+```

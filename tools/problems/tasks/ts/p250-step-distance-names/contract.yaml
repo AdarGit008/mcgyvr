@@ -1,0 +1,32 @@
+id: p250-step-distance-names
+task_type: function_implementation
+task: >-
+  Implement nameStepDistances. The argument is a list of one or more steps;
+  a step is a list of exactly two whole numbers, each a pitch mark counted
+  in half-tones and free to be negative. For a step, its reach is the two
+  marks' difference taken without its sign, its lift is the reach divided
+  by twelve with the remainder dropped, and its leftover is the remainder
+  itself. Name the step from its leftover by this table and no other: 0
+  unison, 1 minor second, 2 major second, 3 minor third, 4 major third, 5
+  perfect fourth, 6 tritone, 7 perfect fifth, 8 minor sixth, 9 major sixth,
+  10 minor seventh, 11 major seventh. Call the step "sweet" when its
+  leftover is one of 0, 3, 4, 5, 7, 8 and 9, and "sharp" when its leftover
+  is one of 1, 2, 6, 10 and 11. Return a mapping under five keys. Under
+  "names" put every step's name in the order the steps arrived. Under
+  "lifts" put every step's lift in that same order. Under "colours" put
+  every step's sweet-or-sharp word in that same order. Under "tally" put a
+  mapping from each name that turned up at least once to how many steps
+  carry it, names that never turned up staying out of it. Under "widest"
+  put the position, counted from zero, of the step of greatest reach,
+  giving it to the earliest such step when several share the greatest
+  reach. Raise an error when the argument is not a list, when it holds no
+  steps, when a step is not a list of exactly two things, and when a pitch
+  mark is not a whole number.
+target: solution.ts
+interface: "export function nameStepDistances(steps: any[]): any"
+stop_conditions:
+  - Whether a pitch mark may be large enough to make the lift enormous is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

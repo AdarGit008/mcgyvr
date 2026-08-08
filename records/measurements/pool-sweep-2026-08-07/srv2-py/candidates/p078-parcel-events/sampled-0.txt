@@ -1,0 +1,45 @@
+```python
+def fold_parcels(events: list) -> dict:
+    parcels = {}
+    for i, event in enumerate(events):
+        if "parcel" not in event:
+            raise ValueError(f"Event at index {i} is missing the 'parcel' key")
+        parcel_id = event["parcel"]
+        if "type" not in event:
+            raise ValueError(f"Event at index {i} is missing the 'type' key")
+        event_type = event["type"]
+        
+        if parcel_id in parcels:
+            if event_type == "accept":
+                raise ValueError(f"Parcel {parcel_id} seen before, error at index {i}")
+            elif event_type not in ["load", "deliver", "bounce", "lose"]:
+                raise ValueError(f"Invalid transition for parcel {parcel_id}, error at index {i}")
+        else:
+            if event_type != "accept":
+                raise ValueError(f"Parcel {parcel_id} never accepted, error at index {i}")
+        
+        current_state = parcels.get(parcel_id, "accepted")
+        if current_state == "delivered":
+            if event_type not in ["bounce", "lose"]:
+                raise ValueError(f"Invalid transition for parcel {parcel_id}, error at index {i}")
+        elif current_state == "returned":
+            raise ValueError(f"Parcel {parcel_id} already returned, error at index {i}")
+        elif current_state == "lost":
+            raise ValueError(f"Parcel {parcel_id} already lost, error at index {i}")
+        
+        if event_type == "accept":
+            parcels[parcel_id] = "accepted"
+        elif event_type == "load":
+            parcels[parcel_id] = "in_transit"
+        elif event_type == "deliver":
+            parcels[parcel_id] = "delivered"
+        elif event_type == "bounce":
+            parcels[parcel_id] = "returned"
+        elif event_type == "lose":
+            if current_state == "accepted":
+                parcels[parcel_id] = "lost"
+            else:
+                parcels[parcel_id] = "in_transit"
+    
+    return parcels
+```

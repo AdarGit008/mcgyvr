@@ -1,0 +1,42 @@
+id: p203-title-line-case
+task_type: bug_fix
+task: >-
+  title_line dresses a heading for print and gets the capitals wrong. Repair
+  it. The heading is a run of tokens held apart by exactly one space; a
+  token is ASCII letters and digits and may carry inner hyphens and inner
+  apostrophes. The second argument lists, wholly in small letters, the
+  tokens that stay quiet. Dress each token so: a token the heading already
+  spelled in capitals throughout, two letters or longer, is copied
+  untouched; otherwise a token standing neither at the front nor at the back
+  of the heading whose small form is on the quiet list is written wholly
+  small; otherwise the token is broken at each hyphen and each apostrophe
+  into pieces, every piece is written with its opening character raised and
+  the rest lowered, the hyphens and apostrophes are put back where they
+  stood, and a closing piece of exactly one character in a token of more
+  than one piece is left small, so "o'brien" comes out "O'Brien" while
+  "don't" comes out "Don't". Return the dressed tokens rejoined by single
+  spaces. Raise an error when the heading is not a string or is empty, when
+  a space opens or closes it or stands beside another space, when a token
+  holds a character of any other kind or opens or closes with a hyphen or
+  an apostrophe, when the quiet list is not a list, and when an entry of it
+  is not a string of small letters. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """A heading dressed for print."""
+
+
+  def title_line(text: str, quiet: list) -> str:
+      dressed = []
+      for token in text.split(" "):
+          if token.lower() in quiet:
+              dressed.append(token.lower())
+          else:
+              dressed.append(token[0].upper() + token[1:].lower())
+      return " ".join(dressed)
+interface: "def title_line(text: str, quiet: list) -> str"
+stop_conditions:
+  - Whether the quiet list may name a token that never appears in the heading is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

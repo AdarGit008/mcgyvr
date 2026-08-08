@@ -1,0 +1,28 @@
+id: p236-mask-note-shapes
+task_type: function_implementation
+task: >-
+  Implement mask_sensitive. A note may carry two shapes nobody downstream may
+  read. A badge is a stretch of 2 to 4 capital letters A to Z with no
+  capital letter immediately before it, then one hyphen, then a stretch of 4
+  to 8 digits with no digit immediately after it; a badge is masked where it
+  stands, every one of its digits becoming a hash while its letters and its
+  hyphen survive, so the note keeps its length there. A vault key is the two
+  letters vk, then an equals sign, then a stretch of 6 to 10 characters each
+  of them a lowercase letter or a digit, with neither a lowercase letter nor
+  a digit immediately before the v and none immediately after the stretch;
+  the whole vault key, equals sign and all, is swept out and the token
+  [vault] put down in its place, so the note does not keep its length there.
+  A stretch a hair too short or too long for its shape is not that shape at
+  all and is left exactly as it is. The note is read once from the left, and
+  nothing a mask puts down is ever masked again. Return a record with text
+  (the masked note), badges (how many badges were masked) and vaults (how
+  many vault keys were swept out). Reject an argument that is not a string
+  with an error.
+target: solution.py
+interface: "def mask_sensitive(note: str) -> dict"
+stop_conditions:
+  - Whether a note may hold characters outside the printable range is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,88 @@
+```ts
+/**
+ * Parses a post string into its components.
+ * @param post - The post string to parse.
+ * @returns An array of three numbers representing the post.
+ * @throws Error if the post is invalid.
+ */
+function parsePost(post: string): [number, number, number] {
+  const parts = post.split('.');
+  if (parts.length !== 3) throw new Error('Invalid post format');
+  return parts.map(num => {
+    const n = parseInt(num, 10);
+    if (isNaN(n) || n < 0 || n > 15 || num !== n.toString()) {
+      throw new Error('Invalid post number');
+    }
+    return n;
+  }) as [number, number, number];
+}
+
+/**
+ * Parses a claim string into its components.
+ * @param claim - The claim string to parse.
+ * @returns An object with stencil and name properties.
+ * @throws Error if the claim is invalid.
+ */
+function parseClaim(claim: string): { stencil: string; depth: number; name: string } {
+  const [stencilPart, name] = claim.split(' ');
+  if (!name || name.includes(' ')) throw new Error('Invalid claim name');
+  if (!stencilPart || !stencilPart.includes('/')) throw new Error('Invalid claim stencil');
+
+  const [post, depthStr] = stencilPart.split('/');
+  const depth = parseInt(depthStr, 10);
+  if (isNaN(depth) || depth < 0 || depth > 3) throw new Error('Invalid claim depth');
+
+  return { stencil: post, depth, name };
+}
+
+/**
+ * Checks if a post matches a stencil at a given depth.
+ * @param post - The post to check.
+ * @param stencil - The stencil string.
+ * @param depth - The depth of the stencil.
+ * @returns True if the post matches the stencil, false otherwise.
+ */
+function matchesStencil(post: [number, number, number], stencil: [number, number, number], depth: number): boolean {
+  for (let i = 0; i < depth; i++) {
+    if (post[i] !== stencil[i]) return false;
+  }
+  for (let i = depth; i < 3; i++) {
+    if (stencil[i] !== 0) return false;
+  }
+  return true;
+}
+
+/**
+ * Finds the name of the claim that covers the given post with the deepest stencil.
+ * @param claims - An array of claim strings.
+ * @param where - The post string to cover.
+ * @returns The name of the claim or an empty string if no claim covers the post.
+ * @throws Error for invalid input.
+ */
+export function claimZone(claims: string[], where: string): string {
+  if (!Array.isArray(claims)) throw new Error('Claims must be an array');
+  const post = parsePost(where);
+  let bestName = '';
+  let bestDepth = -1;
+  const seenStencils = new Set<string>();
+
+  for (const claim of claims) {
+    if (typeof claim !== 'string') throw new Error('Each claim must be a string');
+
+    const { stencil, depth, name } = parseClaim(claim);
+    const parsedStencil = parsePost(stencil);
+
+    if (seenStencils.has(parsedStencil.toString())) {
+      throw new Error('Duplicate stencils are not allowed');
+    }
+    seenStencils.add(parsedStencil.toString());
+
+    if (matchesStencil(post, parsedStencil, depth) && depth > bestDepth) {
+      bestName = name;
+      bestDepth = depth;
+    }
+  }
+
+  return bestName;
+}
+```

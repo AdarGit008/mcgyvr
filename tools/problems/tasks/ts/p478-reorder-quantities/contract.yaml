@@ -1,0 +1,30 @@
+id: p478-reorder-quantities
+task_type: function_implementation
+task: >-
+  Implement reorderQuantities, which decides what a storeroom must buy. The
+  argument is the lines, a list of mappings taken in the order given, each
+  carrying exactly the six keys sku (a non-empty string, no two lines alike),
+  shelf (a whole number at nought or above, the units on the shelf now), due (a
+  whole number at nought or above, the units already bought but not yet
+  arrived), low (a whole number at nought or above, the level that trips a
+  buy), high (a whole number at or above the low, the level a buy fills up to)
+  and pack (a whole number above nought, the units a supplier's pack holds). A
+  line's cover is its shelf plus its due. A line whose cover sits above its low
+  buys nothing. Otherwise the units wanted are the high less the cover, raised
+  to the next whole number of packs, so a want of seven against a pack of four
+  buys eight; a want that comes out at nought or below buys nothing. Give back
+  a list holding, for each line that buys and in the order the lines were
+  given, a mapping whose sku names the line and whose units is what it buys.
+  Raise an error for a lines argument that is not a list, a line that is not a
+  mapping, a line whose keys are not exactly the six named, an sku that is not
+  a non-empty string or is repeated, a shelf, due or low that is not whole or
+  falls below nought, a high that is not whole or falls below the low, and a
+  pack that is not whole or falls below one.
+target: solution.ts
+interface: "export function reorderQuantities(lines: Record<string, unknown>[]): { sku: string; units: number }[]"
+stop_conditions:
+  - Whether a supplier will break a pack for a part order is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

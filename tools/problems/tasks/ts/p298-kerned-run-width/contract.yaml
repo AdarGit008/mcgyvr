@@ -1,0 +1,27 @@
+id: p298-kerned-run-width
+task_type: function_implementation
+task: >-
+  Implement kernedRunWidth. A run of type is measured in units. The widths
+  argument maps each single character to the units it advances. The kerns
+  argument is an ordered table; every row is a two-character couple and the
+  units to add where that couple falls side by side, and where two rows carry
+  the same couple only the row standing higher in the table counts, the rest
+  being dead weight. The tracking argument is added once between every two
+  neighbouring characters and may be negative. The run's width is the sum of
+  the characters' own advances, plus, for each neighbouring couple in the
+  text, the tracking and whatever the table grants that couple. A run of one
+  character is just its advance and an empty run measures zero. Return the
+  width as a whole number. Reject with an error a text that is not a string,
+  a widths argument that is not a plain mapping, a character of the text that
+  the widths argument does not carry, a width that is not a whole number of
+  zero or more, a kerns argument that is not a list, a table row that is not
+  a two-character couple paired with a whole number, a tracking that is not a
+  whole number, and a run whose width would come out below zero.
+target: solution.ts
+interface: "export function kernedRunWidth(text: string, widths: Record<string, number>, kerns: [string, number][], tracking: number): number"
+stop_conditions:
+  - What ceiling on the length of a run must still measure within the time limit is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

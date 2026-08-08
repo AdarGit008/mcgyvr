@@ -1,0 +1,81 @@
+```ts
+export function foldHalyardQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const isValidHex = (hex: string) => /^[0-9a-f]{2}$/.test(hex);
+
+  const unescape = (str: string): string =>
+    str.replace(/_([0-9a-f]{2})/g, (_, hex) => {
+      const code = parseInt(hex, 16);
+      if (code < 33 || code > 126) {
+        throw new Error('Invalid escape sequence');
+      }
+      return String.fromCharCode(code);
+    });
+
+  const escape = (str: string): string =>
+    str
+      .replace(/&/g, '_26')
+      .replace(/=/g, '_3d')
+      .replace(/,/g, '_2c')
+      .replace(/_/g, '_5f');
+
+  const parseParameters = (query: string): { name: string; payload?: string }[] => {
+    return query.split('&').map(param => {
+      const [name, payload] = param.split('=');
+      if (param.includes('==')) {
+        throw new Error('Parameter cannot contain a second equals sign');
+      }
+      if (!name) {
+        throw new Error('Name cannot be empty');
+      }
+      if (payload !== undefined && !payload.length) {
+        return { name, payload };
+      }
+      return { name, payload: unescape(payload) };
+    });
+  };
+
+  const foldParameters = (
+    params: { name: string; payload?: string }[]
+  ): string => {
+    const map = new Map<string, Set<string>>();
+
+    for (const param of params) {
+      if (param.payload !== undefined) {
+        const set = map.get(param.name.toLowerCase());
+        if (set) {
+          set.add(param.payload);
+        } else {
+          map.set(param.name.toLowerCase(), new Set([param.payload]));
+        }
+      } else {
+        map.set(param.name.toLowerCase(), new Set(['']));
+      }
+    }
+
+    let result: string[] = [];
+
+    for (const [name, payloads] of Array.from(map.entries()).sort((a, b) =>
+      a[0].localeCompare(b[0])
+    )) {
+      if (payloads.size === 1 && payloads.has('')) {
+        result.push(name);
+      } else {
+        result.push(
+          `${name}=${escape(
+            Array.from(payloads).sort().join(',')
+          )}`
+        );
+      }
+    }
+
+    return result.join('&');
+  };
+
+  const parameters = parseParameters(text);
+  return foldParameters(parameters);
+}
+```

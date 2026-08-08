@@ -1,0 +1,22 @@
+```python
+def soundex_code(word: str) -> str:
+    if not isinstance(word, str) or not word.isalpha():
+        raise ValueError("Input must be a non-empty string of ASCII letters.")
+
+    code = {'b': '1', 'f': '1', 'p': '1', 'v': '1',
+            'c': '2', 'g': '2', 'j': '2', 'k': '2', 'q': '2', 's': '2', 'x': '2', 'z': '2',
+            'd': '3', 't': '3',
+            'l': '4',
+            'm': '5', 'n': '5',
+            'r': '6'}
+
+    word = word.lower()
+    result = [word[0].upper()]
+
+    for letter in word[1:]:
+        digit = code.get(letter, '')
+        if digit and (not result or digit != result[-1]):
+            result.append(digit)
+
+    return ''.join(result).ljust(4, '0')[:4]
+```

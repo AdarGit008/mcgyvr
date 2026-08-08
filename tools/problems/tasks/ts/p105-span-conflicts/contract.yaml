@@ -1,0 +1,47 @@
+id: p105-span-conflicts
+task_type: bug_fix
+task: |
+  spanConflicts flags the wrong pairs. Every annotation is a
+  [start, end, label] triple covering the characters from start up to
+  but not including end. Two annotations conflict exactly when they
+  share at least one character position AND carry different labels:
+  annotations that merely touch never conflict, and overlap between two
+  annotations with the same label is deliberate layering, not a
+  conflict. The current code treats touching as sharing and reports
+  same-label pairs too. Fix both defects, and keep the existing
+  validation as it is: bounds must be integers with start strictly below
+  end, and each label a non-empty string, or an error is raised. Report
+  each conflicting pair as [i, j] with i below j, the two annotations'
+  zero-based input positions, in lexicographic order. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  /** The index pairs of annotations that conflict. */
+  export function spanConflicts(
+    spans: Array<[number, number, string]>,
+  ): Array<[number, number]> {
+    for (const [start, end, label] of spans) {
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start >= end) {
+        throw new Error("bad span bounds");
+      }
+      if (typeof label !== "string" || label.length === 0) {
+        throw new Error("bad label");
+      }
+    }
+    const pairs: Array<[number, number]> = [];
+    for (let i = 0; i < spans.length; i++) {
+      for (let j = i + 1; j < spans.length; j++) {
+        if (spans[i][0] <= spans[j][1] && spans[j][0] <= spans[i][1]) {
+          pairs.push([i, j]);
+        }
+      }
+    }
+    return pairs;
+  }
+interface: "export function spanConflicts(spans: Array<[number, number, string]>): Array<[number, number]>"
+stop_conditions:
+  - Whether negative positions can appear is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

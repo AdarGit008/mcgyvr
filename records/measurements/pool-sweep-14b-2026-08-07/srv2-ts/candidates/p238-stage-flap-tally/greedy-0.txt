@@ -1,0 +1,71 @@
+```ts
+export function tallyStageRetries(stages: any[], budget: number): string[] {
+  if (budget < 1) {
+    throw new Error("Budget must be at least one.");
+  }
+
+  const results: string[] = [];
+  let totalAttempts = 0;
+  let totalRetries = 0;
+  let totalFlaps = 0;
+  let totalHalts = 0;
+  let greenCount = 0;
+
+  for (const stage of stages) {
+    if (typeof stage.name !== "string" || !stage.name.trim() || stage.name.includes(" ")) {
+      throw new Error("Invalid stage name.");
+    }
+    if (!Array.isArray(stage.outcomes) || stage.outcomes.length === 0) {
+      throw new Error("Outcome list must be non-empty.");
+    }
+
+    const outcomes = stage.outcomes;
+    let attemptCount = outcomes.length;
+    let retryCount = 0;
+    let flapCount = 0;
+    let haltCount = 0;
+
+    for (const outcome of outcomes) {
+      if (!["pass", "flap", "halt"].includes(outcome)) {
+        throw new Error("Invalid outcome.");
+      }
+      if ((outcome === "pass" || outcome === "halt") && outcomes.indexOf(outcome) !== outcomes.length - 1) {
+        throw new Error("A pass or halt must be the last outcome.");
+      }
+      if (outcome === "flap") {
+        flapCount++;
+      } else if (outcome === "halt") {
+        haltCount++;
+      }
+    }
+
+    if (attemptCount > budget) {
+      throw new Error("Stage has more outcomes than the budget allows.");
+    }
+
+    retryCount = attemptCount - 1;
+    let verdict: string;
+
+    if (outcomes[outcomes.length - 1] === "pass") {
+      verdict = "green";
+      greenCount++;
+    } else if (outcomes[outcomes.length - 1] === "halt") {
+      verdict = "dead";
+    } else if (flapCount === budget) {
+      verdict = "spent";
+    } else {
+      verdict = "open";
+    }
+
+    results.push(`${stage.name} ${attemptCount} ${retryCount} ${flapCount} ${haltCount} ${verdict}`);
+
+    totalAttempts += attemptCount;
+    totalRetries += retryCount;
+    totalFlaps += flapCount;
+    totalHalts += haltCount;
+  }
+
+  results.push(`* ${totalAttempts} ${totalRetries} ${totalFlaps} ${totalHalts} ${greenCount}`);
+  return results;
+}
+```

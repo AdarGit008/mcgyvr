@@ -1,0 +1,17 @@
+```python
+def veil_encode(keyword: str, message: str) -> str:
+    if not keyword or not message:
+        raise ValueError("Keyword and message must be non-empty strings")
+    
+    if not keyword.islower() or not all(c in "abcdefghijklmnopqrstuvwxyz" for c in keyword):
+        raise ValueError("Keyword must contain only lowercase a-z characters")
+    
+    if not all(c in "abcdefghijklmnopqrstuvwxyz " for c in message):
+        raise ValueError("Message must contain only lowercase a-z characters and spaces")
+    
+    keyword_set = set(keyword)
+    veil_alphabet = [c for c in keyword if c not in keyword_set] + list(reversed("abcdefghijklmnopqrstuvwxyz"))
+    message_encoded = ''.join([veil_alphabet[ord(c) - ord('a')] if c.isalpha() else c for c in message])
+    
+    return message_encoded
+```

@@ -1,0 +1,32 @@
+```ts
+export function meridianWeekLabel(date: string): string {
+  const datePattern = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+  if (!datePattern.test(date)) {
+    throw new Error("Invalid date format or value");
+  }
+
+  const [yearStr, monthStr, dayStr] = date.split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const day = parseInt(dayStr, 10);
+
+  if (year < 2 || year > 9999) {
+    throw new Error("Year out of range");
+  }
+
+  const isLeapYear = (y: number): boolean => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+
+  const daysInMonth = [31, (isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (day < 1 || day > daysInMonth[month - 1]) {
+    throw new Error("Invalid day for the given month");
+  }
+
+  const daysSinceYearStart = Array.from({ length: month - 1 }, (_, i) => daysInMonth[i]).reduce((acc, days) => acc + days, 0) + day;
+  const wednesdayOffset = (3 - ((daysSinceYearStart + 1) % 7)) % 7; // Find the offset to the next Wednesday
+  const daysToFirstWednesday = daysSinceYearStart + wednesdayOffset;
+
+  const weekNumber = Math.ceil((daysToFirstWednesday + 1) / 7);
+
+  return `${yearStr}-W${weekNumber.toString().padStart(2, "0")}`;
+}
+```

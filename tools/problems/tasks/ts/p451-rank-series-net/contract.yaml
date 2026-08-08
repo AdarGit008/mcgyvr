@@ -1,0 +1,37 @@
+id: p451-rank-series-net
+task_type: function_implementation
+task: >-
+  Implement rankSeriesNet for a series run over several rounds. Each entry is
+  a mapping with a "name", a "mark" and a "rounds" list, and each round is a
+  mapping with a "gross" score and a "weight". The bands arrive separately as
+  a list of mappings with a "limit" and an "allowance", given in strictly
+  rising order of limit; a competitor's base allowance is the allowance of
+  the first band whose limit is at least their mark. A round's allowance is
+  the base allowance times that round's weight divided by one hundred, cut
+  down to a whole number, and the round's net is its gross less that
+  allowance. A competitor with fewer than three rounds does not stand in the
+  series at all. A competitor with more than three rounds sets aside their
+  single worst round, the one with the largest net, and where two are level
+  the later one is set aside. The total is the sum of the nets that remain.
+  Order the standing competitors by total, lowest first; where totals are
+  level the lower best remaining net goes ahead, and where those are level
+  too the name that comes first alphabetically goes ahead. Return a mapping
+  whose "standings" key holds one mapping per standing competitor with a
+  "place" counted from one, the "name", the "total", and a "counted" list of
+  the positions of the rounds that were kept, counted from zero and
+  ascending; and whose "unranked" key holds the names of everyone else in
+  alphabetical order. Raise an error when the entries or the bands are not a
+  list or are empty, when the band limits do not strictly rise, when a limit
+  or an allowance is not a whole number of zero or more, when a name is
+  missing, empty or entered twice, when a mark is not a whole number of zero
+  or more or lies above every band, when the rounds are not a list, when a
+  gross score is not a whole number of at least one, and when a weight is not
+  a whole number from one to two hundred.
+target: solution.ts
+interface: "export function rankSeriesNet(entries: Record<string, unknown>[], bands: Record<string, number>[]): Record<string, unknown>"
+stop_conditions:
+  - Whether the series should also report how many rounds each competitor set aside is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

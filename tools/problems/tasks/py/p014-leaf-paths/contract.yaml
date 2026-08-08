@@ -1,0 +1,19 @@
+id: p014-leaf-paths
+task_type: function_implementation
+task: >-
+  Implement leaf_paths. The input is a list of rows, each row a pair of a
+  node id and its parent id, together describing one hierarchy; the single
+  root row carries the empty string as its parent. Return the path from
+  the root to every leaf (a node no row names as a parent), each path its
+  ids joined with slashes, and the whole list sorted lexicographically.
+  Reject with an error a duplicated id, a parent that is neither the empty
+  string nor some row's id, an input with no root row or with more than
+  one, an empty input, and a row that cannot be reached from the root.
+target: solution.py
+interface: "def leaf_paths(rows: list[list[str]]) -> list[str]"
+stop_conditions:
+  - Whether a node id may itself contain a slash is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

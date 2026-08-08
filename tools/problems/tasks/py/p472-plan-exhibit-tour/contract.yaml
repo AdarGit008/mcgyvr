@@ -1,0 +1,34 @@
+id: p472-plan-exhibit-tour
+task_type: function_implementation
+task: >-
+  Implement plan_exhibit_tour, which picks the stops of a museum visit. The
+  first argument is the stops, a list of mappings laid out along one corridor
+  in the order given, each carrying exactly the four keys name (a non-empty
+  string, no two alike), walk (a whole number at nought or above, being the
+  minutes spent getting from the door before it, or from the entrance for the
+  very first, to its own door), stay (a whole number above nought) and worth
+  (a whole number at nought or above). The second argument is the budget, a
+  whole number of minutes at nought or above. The visitor never turns back and
+  leaves through the door of the last stop taken in, so the minutes a plan
+  costs are the walk of every stop from the first through that last one,
+  whether taken in or merely passed, plus the stay of each stop taken in;
+  taking nothing in costs nought minutes. Pick the stops whose worth adds up
+  highest without the minutes going over the budget. Where two plans tie on
+  worth, prefer the one costing fewer minutes; still tied, the one taking in
+  fewer stops; still tied, the one that takes in the earlier stop at the first
+  place they differ. Give back a mapping whose names lists the chosen stops in
+  corridor order, whose worth is their total and whose minutes is what the plan
+  costs. Raise an error for a stops argument that is not a list, a stop that is
+  not a mapping, a stop whose keys are not exactly the four named, a name that
+  is not a non-empty string or is repeated, a walk that is not whole or falls
+  below nought, a stay that is not whole or falls below one, a worth that is
+  not whole or falls below nought, and a budget that is not whole or falls
+  below nought.
+target: solution.py
+interface: "def plan_exhibit_tour(stops: list, budget: int) -> dict"
+stop_conditions:
+  - Whether a corridor may hold two stops sharing one door is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

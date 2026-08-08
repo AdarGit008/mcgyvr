@@ -1,0 +1,32 @@
+```python
+def corvid_render(value: int) -> str:
+    if not isinstance(value, int):
+        raise ValueError("Input must be a whole number")
+    
+    marks = "vwxyz"
+    result = []
+    is_negative = value < 0
+    value = abs(value)
+    
+    while value > 0 or len(result) == 0:
+        if value >= 25:
+            result.append('z')
+            value -= 25
+        elif value >= 10:
+            result.append('y')
+            value -= 10
+        elif value >= 5:
+            result.append('x')
+            value -= 5
+        elif value >= 2:
+            result.append('w')
+            value -= 2
+        else:
+            result.append('v')
+            value -= 1
+    
+    if is_negative:
+        result = ['x'] + result
+    
+    return ''.join(result)
+```

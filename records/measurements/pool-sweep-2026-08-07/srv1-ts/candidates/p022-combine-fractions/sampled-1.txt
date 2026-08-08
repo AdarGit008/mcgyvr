@@ -1,0 +1,56 @@
+```ts
+/**
+ * Combines fractions exactly using integer arithmetic.
+ * @param parts - List of fraction strings in the form "n/d".
+ * @returns The total sum in lowest terms as a string.
+ */
+export function combineFractions(parts: string[]): string {
+    if (parts.length === 0) {
+        throw new Error("Empty input");
+    }
+
+    const parsedParts = parts.map((part) => {
+        const [numeratorStr, denominatorStr] = part.split('/');
+        const numerator = parseInt(numeratorStr, 10);
+        const denominator = parseInt(denominatorStr, 10);
+
+        if (isNaN(numerator) || isNaN(denominator)) {
+            throw new Error("Invalid fraction format");
+        }
+        if (denominator <= 0) {
+            throw new Error("Zero or negative denominator");
+        }
+
+        return { numerator, denominator };
+    });
+
+    const gcd = (a: number, b: number): number => {
+        while (b !== 0) {
+            const temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
+    };
+
+    let totalNumerator = 0;
+    let totalDenominator = 1;
+
+    parsedParts.forEach(({ numerator, denominator }) => {
+        totalNumerator = totalNumerator * denominator + totalDenominator * numerator;
+        totalDenominator *= denominator;
+    });
+
+    const commonDivisor = gcd(Math.abs(totalNumerator), totalDenominator);
+    totalNumerator /= commonDivisor;
+    totalDenominator /= commonDivisor;
+
+    if (totalNumerator === 0) {
+        return "0/1";
+    } else if (totalDenominator < 0) {
+        throw new Error("Negative denominator");
+    }
+
+    return `${totalNumerator}/${totalDenominator}`;
+}
+```

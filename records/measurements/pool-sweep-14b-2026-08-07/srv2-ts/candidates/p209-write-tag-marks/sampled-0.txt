@@ -1,0 +1,59 @@
+```ts
+/**
+ * A badge written out from its fields.
+ */
+export function writeTagMarks(label: string, fields: string[][]): string {
+  // Validate label
+  if (typeof label !== 'string' || !/^[a-z][a-z0-9]*$/.test(label)) {
+    throw new Error('Invalid label');
+  }
+
+  // Validate fields
+  if (!Array.isArray(fields)) {
+    throw new Error('Fields must be an array');
+  }
+
+  const seenKeys = new Set<string>();
+  const parts: string[] = [];
+
+  for (const field of fields) {
+    if (!Array.isArray(field) || field.length !== 2) {
+      throw new Error('Each field must be a pair [key, text]');
+    }
+
+    const [key, text] = field;
+
+    // Validate key
+    if (typeof key !== 'string' || !/^[a-z][a-z0-9]*$/.test(key)) {
+      throw new Error('Invalid key');
+    }
+
+    // Check for duplicate keys
+    if (seenKeys.has(key)) {
+      throw new Error('Duplicate key');
+    }
+    seenKeys.add(key);
+
+    // Validate text
+    if (typeof text !== 'string') {
+      throw new Error('Text must be a string');
+    }
+
+    // Construct field part
+    let fieldPart: string;
+    if (text === '') {
+      fieldPart = key;
+    } else if (/^[a-z0-9-.]+$/.test(text)) {
+      fieldPart = `${key}=${text}`;
+    } else {
+      const quote = text.includes('"') && !text.includes("'") ? "'" : '"';
+      const escapedText = text.replace(/[\\${quote}]/g, '\\$&');
+      fieldPart = `${key}=${quote}${escapedText}${quote}`;
+    }
+
+    parts.push(fieldPart);
+  }
+
+  return `<${label}${parts.length > 0 ? ' ' + parts.join(' ') : ''}>`;
+}
+```

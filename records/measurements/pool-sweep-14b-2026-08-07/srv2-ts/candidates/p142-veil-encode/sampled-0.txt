@@ -1,0 +1,19 @@
+```ts
+export function veilEncode(keyword: string, message: string): string {
+  if (!/^[a-z]+$/.test(keyword)) {
+    throw new Error("Keyword must be a non-empty string of lowercase a-z.");
+  }
+  if (typeof message !== "string" || !/^[a-z\s]*$/.test(message)) {
+    throw new Error("Message must be a string made of lowercase a-z and spaces.");
+  }
+
+  const alphabet = "abcdefghijklmnopqrstuvwxyz";
+  const uniqueKeywordLetters = Array.from(new Set(keyword)).join('');
+  const unusedLetters = alphabet.split('').filter(letter => !uniqueKeywordLetters.includes(letter));
+  const veilAlphabet = uniqueKeywordLetters + unusedLetters.reverse().join('');
+
+  return message.replace(/[a-z]/g, letter => {
+    return veilAlphabet[alphabet.indexOf(letter)];
+  });
+}
+```

@@ -1,0 +1,73 @@
+```ts
+export function splitFieldPath(path: string): (string | number)[] {
+  if (typeof path !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  if (!path) {
+    throw new Error('Empty string is not allowed');
+  }
+
+  const parts: (string | number)[] = [];
+  let currentIdentifier = '';
+  let currentIndex: string | null = null;
+
+  for (let i = 0; i < path.length; i++) {
+    const char = path[i];
+
+    if (char === '.') {
+      if (!currentIdentifier && !currentIndex) {
+        throw new Error('Leading dot is not allowed');
+      }
+      if (currentIndex !== null) {
+        parts.push(parseInt(currentIndex, 10));
+        currentIndex = null;
+      }
+      if (currentIdentifier) {
+        parts.push(currentIdentifier);
+      }
+      currentIdentifier = '';
+    } else if (char === '[') {
+      if (!currentIdentifier && !currentIndex) {
+        throw new Error('Leading bracket is not allowed');
+      }
+      if (currentIndex !== null || currentIdentifier.length === 0) {
+        throw new Error('Invalid path format');
+      }
+      i++;
+      let indexStart = i;
+      while (i < path.length && path[i] !== ']') {
+        i++;
+      }
+      if (i === path.length) {
+        throw new Error('Unterminated bracket');
+      }
+      currentIndex = path.substring(indexStart, i);
+      if (!/^\d+$/.test(currentIndex) || currentIndex.startsWith('0')) {
+        throw new Error('Invalid index format');
+      }
+      currentIdentifier = '';
+    } else if (char === ']') {
+      throw new Error('Unexpected closing bracket');
+    } else if (/^[a-zA-Z_]$/.test(char)) {
+      currentIdentifier += char;
+    } else if (/^\d$/.test(char) && currentIdentifier !== '') {
+      currentIdentifier += char;
+    } else {
+      throw new Error('Invalid character in path');
+    }
+  }
+
+  if (currentIndex !== null) {
+    parts.push(parseInt(currentIndex, 10));
+  }
+  if (currentIdentifier) {
+    parts.push(currentIdentifier);
+  }
+
+  if (!parts.length || path.endsWith('.')) {
+    throw new Error('Trailing dot is not allowed');
+  }
+
+  return parts;
+}
+```

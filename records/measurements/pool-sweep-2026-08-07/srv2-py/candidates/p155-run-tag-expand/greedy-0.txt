@@ -1,0 +1,38 @@
+```python
+def expand_run_tag(pattern: str) -> list:
+    if not isinstance(pattern, str):
+        raise ValueError("Pattern must be a string")
+    
+    if '[' not in pattern or ']' not in pattern:
+        raise ValueError("Pattern must contain exactly one square-bracketed group")
+    
+    stem, group = pattern.split('[')
+    tail = group.split(']')[1]
+    
+    if '[' in group[1:-1] or ']' in group[1:-1]:
+        raise ValueError("Group may not contain another bracket")
+    
+    if group[0] == group[-1]:
+        raise ValueError("Group must have an opening and closing bracket")
+    
+    if not group[1:-1]:
+        raise ValueError("Group body must not be empty")
+    
+    if ',' in group:
+        items = [item.strip() for item in group.split(',')]
+        if any(not item for item in items):
+            raise ValueError("Comma-separated items must not be empty")
+        return sorted([stem + item + tail for item in items])
+    
+    run_parts = group[1:-1].split('/')
+    if len(run_parts) > 2:
+        raise ValueError("Group body may have at most one slash")
+    
+    start, end = map(int, run_parts[0].split('-'))
+    step = int(run_parts[1]) if len(run_parts) == 2 else 1
+    
+    if start > end or step == 0:
+        raise ValueError("Run must be non-empty and have a positive step")
+    
+    return sorted([stem + str(i) + tail for i in range(start, end + 1, step)])
+```

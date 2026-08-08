@@ -1,0 +1,31 @@
+id: p322-connect-services
+task_type: function_implementation
+task: >-
+  Implement connectServices. A timetable is a list of service records, each
+  carrying code, from, to, depart and arrive; depart and arrive are whole
+  minutes counted from the opening of one service day, and arrive is strictly
+  later than depart. A journey leaves origin no earlier than readyAt, rides
+  one service at a time, and may board a later service only where the service
+  before it set the traveller down and no earlier than that setting-down
+  minute plus minTransfer. No place may be called at twice on one journey,
+  origin included. Among every journey ending at destination pick the one
+  arriving earliest; should two arrive together prefer the one riding fewer
+  services, and should that match as well prefer the one whose codes come
+  first when compared one position at a time. Return a record with arrive,
+  the arrival minute, and legs, the ridden codes in riding order; when no
+  journey exists at all return arrive of -1 and an empty legs list. Raise an
+  error when the timetable is not a list, when a service is not a record
+  carrying all five names, when a code or a place name is not a non-empty
+  string, when a service sets down where it picked up, when two services
+  share a code, when depart or arrive is not a whole number, when arrive is
+  not later than depart, when readyAt or minTransfer is not a whole number of
+  zero or more, and when origin and destination are equal or either of them
+  is not a non-empty string.
+target: solution.ts
+interface: "export function connectServices(services: any, origin: any, destination: any, readyAt: any, minTransfer: any): { arrive: number; legs: string[] }"
+stop_conditions:
+  - Whether a timetable may be large enough that enumerating journeys is too slow is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

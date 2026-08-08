@@ -1,0 +1,67 @@
+```ts
+export function printExprTree(node: unknown): string {
+  if (typeof node === 'number' && Number.isInteger(node) && node >= 0) {
+    return node.toString();
+  }
+
+  if (typeof node === 'string' && /^[a-zA-Z]+$/.test(node)) {
+    return node;
+  }
+
+  if (
+    typeof node === 'object' &&
+    node !== null &&
+    'op' in node &&
+    'left' in node &&
+    'right' in node
+  ) {
+    const { op, left, right } = node as { op: string; left: unknown; right: unknown };
+
+    if (!['+', '-', '*', '/'].includes(op)) {
+      throw new Error('Invalid operator');
+    }
+
+    const leftStr = printExprTree(left);
+    const rightStr = printExprTree(right);
+
+    const needsLeftParen = shouldWrap(left, op);
+    const needsRightParen = shouldWrap(right, op, true);
+
+    return `${needsLeftParen ? '(' : ''}${leftStr} ${op} ${rightStr}${
+      needsRightParen ? ')' : ''
+    }`;
+  }
+
+  throw new Error('Invalid node');
+}
+
+function shouldWrap(
+  child: unknown,
+  parentOp: string,
+  isRightChild = false
+): boolean {
+  if (typeof child === 'number' || typeof child === 'string') {
+    return false;
+  }
+
+  const childNode = child as { op: string };
+  const childOp = childNode.op;
+
+  if (isRightChild && parentOp === '-' && childOp === '-') {
+    return true;
+  }
+
+  if ((parentOp === '*' || parentOp === '/') && (childOp === '+' || childOp === '-')) {
+    return true;
+  }
+
+  if (
+    (parentOp === '*' || parentOp === '/') &&
+    (childOp === '*' || childOp === '/')
+  ) {
+    return false;
+  }
+
+  return true;
+}
+```

@@ -1,0 +1,39 @@
+```ts
+export function repairReplicas(replicas: Array<Array<number | null>>): number[] {
+  if (replicas.length === 0) {
+    throw new Error("Replica list cannot be empty");
+  }
+
+  const length = replicas[0].length;
+  for (const replica of replicas) {
+    if (replica.length !== length) {
+      throw new Error("All replica arrays must have the same length");
+    }
+  }
+
+  const result: number[] = [];
+  for (let i = 0; i < length; i++) {
+    const counts: { [key: string]: number } = {};
+    let majorityCount = 0;
+    let majorityValue: number | null = null;
+
+    for (const replica of replicas) {
+      if (replica[i] !== null) {
+        counts[replica[i].toString()] = (counts[replica[i].toString()] || 0) + 1;
+        if (counts[replica[i].toString()] > majorityCount) {
+          majorityCount = counts[replica[i].toString()];
+          majorityValue = replica[i];
+        }
+      }
+    }
+
+    if (majorityCount <= replicas.length / 2) {
+      throw new Error("No value reaches a strict majority at some position");
+    }
+
+    result.push(majorityValue as number);
+  }
+
+  return result;
+}
+```

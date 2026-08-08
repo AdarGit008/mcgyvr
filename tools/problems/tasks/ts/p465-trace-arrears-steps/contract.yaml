@@ -1,0 +1,111 @@
+id: p465-trace-arrears-steps
+task_type: bug_fix
+task: >-
+  traceArrearsSteps walks one debtor's account through its chasing steps and
+  mislabels the edges. The first argument is the opening sum owed, a whole
+  number of cents above nought; the second is the day that sum fell due, a
+  whole number at nought or above; the third is the events, a list of mappings
+  dealt with in the order given whose day never steps backwards. A pay event
+  carries exactly the three keys kind (the word pay), day and cents (a whole
+  number above nought) and knocks that much off what is owed, which never
+  drops under nought. A check event carries exactly kind (the word check) and
+  day, and puts one label on the list. The chasing clock is anchored on the due
+  day, and every payment that leaves something still owed re-anchors it on that
+  payment's own day; once a payment brings the sum owed down to nought the
+  matter is closed and every later check reads settled. A check on an account
+  still owing something reads by the gap between its day and the anchor: nought
+  or under reads current, one through nine reads reminder, ten through
+  twenty-four reads warning, twenty-five through forty-four reads demand, and
+  forty-five or more reads referred. Give back the labels in check order. The
+  code below stretches three of those bands by one day apiece and never
+  re-anchors the clock on a payment that leaves something still owed. Repair
+  both, keep raising an error for an opening sum that is not whole or falls
+  below one, a due day that is not whole or falls below nought, a third
+  argument that is not a list, an event that is not a mapping, a kind outside
+  pay and check, an event whose keys are not the ones its kind calls for, a day
+  that is not whole, falls below nought or steps backwards, and a payment that
+  is not whole or falls below one, and return the complete fixed file.
+target: solution.ts
+target_content: |
+  function whole(value: unknown): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  export function traceArrearsSteps(
+    opening: number,
+    dueDay: number,
+    events: Record<string, unknown>[],
+  ): string[] {
+    if (!whole(opening) || opening < 1) {
+      throw new Error("the opening sum is not whole or falls below one");
+    }
+    if (!whole(dueDay) || dueDay < 0) {
+      throw new Error("the due day is not whole or falls below nought");
+    }
+    if (!Array.isArray(events)) {
+      throw new Error("traceArrearsSteps expects a list of events");
+    }
+
+    const labels: string[] = [];
+    let owing = opening;
+    const anchor = dueDay;
+    let clock = 0;
+    let started = false;
+
+    for (const event of events) {
+      if (typeof event !== "object" || event === null || Array.isArray(event)) {
+        throw new Error("an event is not a mapping");
+      }
+      const kind = event["kind"];
+      if (kind !== "pay" && kind !== "check") {
+        throw new Error("an event's kind is outside pay and check");
+      }
+      const wanted = kind === "pay" ? "cents,day,kind" : "day,kind";
+      if (Object.keys(event).sort().join(",") !== wanted) {
+        throw new Error("an event's keys are not the ones its kind calls for");
+      }
+      const day = event["day"];
+      if (!whole(day) || Number(day) < 0) {
+        throw new Error("a day is not whole or falls below nought");
+      }
+      if (started && Number(day) < clock) {
+        throw new Error("a day steps backwards");
+      }
+      clock = Number(day);
+      started = true;
+
+      if (kind === "pay") {
+        const cents = event["cents"];
+        if (!whole(cents) || Number(cents) < 1) {
+          throw new Error("a payment is not whole or falls below one");
+        }
+        owing = Math.max(0, owing - Number(cents));
+        continue;
+      }
+
+      if (owing === 0) {
+        labels.push("settled");
+        continue;
+      }
+      const age = clock - anchor;
+      if (age <= 0) {
+        labels.push("current");
+      } else if (age <= 10) {
+        labels.push("reminder");
+      } else if (age <= 25) {
+        labels.push("warning");
+      } else if (age <= 45) {
+        labels.push("demand");
+      } else {
+        labels.push("referred");
+      }
+    }
+    return labels;
+  }
+interface: "export function traceArrearsSteps(opening: number, dueDay: number, events: Record<string, unknown>[]): string[]"
+stop_conditions:
+  - Whether a payment may arrive after the account has already been closed is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

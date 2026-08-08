@@ -1,0 +1,18 @@
+```python
+def pack_fields(widths: list[int], values: list[int]) -> int:
+    if len(widths) != len(values):
+        raise ValueError("Widths and values must be of equal length")
+    if not widths or any(w <= 0 for w in widths) or sum(widths) > 30:
+        raise ValueError("Invalid width values")
+    if any(v < 0 or v >= (1 << w) for v, w in zip(values, widths)):
+        raise ValueError("Invalid value for its field width")
+
+    packed_value = 0
+    bit_position = 0
+    for width, value in zip(reversed(widths), reversed(values)):
+        mask = (1 << width) - 1
+        packed_value |= (value & mask) << bit_position
+        bit_position += width
+
+    return packed_value
+```

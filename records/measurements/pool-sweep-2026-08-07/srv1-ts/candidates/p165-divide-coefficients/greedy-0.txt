@@ -1,0 +1,36 @@
+```ts
+export function divideCoefficients(
+  dividend: number[],
+  divisor: number[],
+): number[][] {
+  if (!Array.isArray(dividend) || !Array.isArray(divisor)) {
+    throw new Error("Both arguments must be arrays.");
+  }
+  if (divisor.length === 0) {
+    throw new Error("Divisor cannot be an empty array.");
+  }
+  if (dividend.some(c => typeof c !== 'number' || !Number.isInteger(c))) {
+    throw new Error("All coefficients in dividend must be whole numbers.");
+  }
+  if (divisor.some(c => typeof c !== 'number' || !Number.isInteger(c))) {
+    throw new Error("All coefficients in divisor must be whole numbers.");
+  }
+
+  const rest = [...dividend];
+  const quotient: number[] = [];
+  while (rest.length >= divisor.length) {
+    const factor = Math.floor(rest[rest.length - 1] / divisor[divisor.length - 1]);
+    if (factor * divisor[divisor.length - 1] !== rest[rest.length - 1]) {
+      throw new Error("Cannot divide without exact multiples.");
+    }
+    quotient.push(factor);
+    for (let i = 0; i < divisor.length; i++) {
+      rest[rest.length - divisor.length + i] -= factor * divisor[i];
+    }
+    while (rest.length > 0 && rest[0] === 0) {
+      rest.shift();
+    }
+  }
+  return [quotient.reverse(), rest];
+}
+```

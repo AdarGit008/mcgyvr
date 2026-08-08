@@ -1,0 +1,23 @@
+id: p306-shift-lane-label
+task_type: function_implementation
+task: >-
+  Implement shift_lane_label. The Kilburn ledger board letters its upright lanes
+  with capitals and nothing else: the first twenty-six lanes run A through Z,
+  the twenty-seventh is AA, the fifty-third is BA, and the board stops dead at
+  ZZZ, its eighteen thousand two hundred and seventy-eighth lane. This
+  lettering owns no nought, so AA sits one place past Z rather than sharing a
+  place with it. Given a lane's label and a signed whole number of places, hand
+  back the label of the lane that many places to the right; a negative number
+  means that many places to the left, and nought leaves the label alone. Reject
+  with an error a label that is not a string, a label with no capitals in it at
+  all, a label carrying anything besides the capitals A through Z, a label
+  running longer than three capitals, a step that is not a whole number, and a
+  step that would walk clean off either end of the board.
+target: solution.py
+interface: "def shift_lane_label(label: str, step: int) -> str"
+stop_conditions:
+  - Whether the board might one day be widened past three capitals is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

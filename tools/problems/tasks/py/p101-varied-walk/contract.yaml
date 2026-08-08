@@ -1,0 +1,58 @@
+id: p101-varied-walk
+task_type: bug_fix
+task: >-
+  varied_label_walk measures the shortest walk between two nodes of a
+  directed graph whose edges are [from, to, label] triples of non-empty
+  strings, under one rule: consecutive edges of the walk must never carry
+  the same label. Nodes and edges may be revisited, and sometimes a walk
+  has to leave a node and come back under a different label before it can
+  continue. Return the number of edges in the shortest lawful walk, 0 when
+  start and goal are equal, and -1 when no walk obeys the rule. The current
+  code marks whole nodes as visited on first reach, so it refuses ever to
+  return to one and answers -1 for graphs whose only lawful walk doubles
+  back. Two arrivals differ by the label of the edge that brought you in —
+  track the pair of node and arriving label instead — and keep rejecting
+  with an error a malformed edge and a start or goal appearing in no edge.
+  Return the complete fixed file.
+target: solution.py
+target_content: |
+  from collections import deque
+
+
+  def varied_label_walk(edges: list[list[str]], start: str, goal: str) -> int:
+      nodes = set()
+      for edge in edges:
+          if (
+              not isinstance(edge, list)
+              or len(edge) != 3
+              or any(not isinstance(part, str) or part == "" for part in edge)
+          ):
+              raise ValueError("each edge must be a [from, to, label] triple of non-empty strings")
+          nodes.add(edge[0])
+          nodes.add(edge[1])
+      if start not in nodes:
+          raise ValueError("start appears in no edge")
+      if goal not in nodes:
+          raise ValueError("goal appears in no edge")
+      if start == goal:
+          return 0
+      queue = deque([(start, "", 0)])
+      visited = {start}
+      while queue:
+          node, last, steps = queue.popleft()
+          for source, target, label in edges:
+              if source != node or label == last:
+                  continue
+              if target == goal:
+                  return steps + 1
+              if target not in visited:
+                  visited.add(target)
+                  queue.append((target, label, steps + 1))
+      return -1
+interface: "def varied_label_walk(edges: list[list[str]], start: str, goal: str) -> int"
+stop_conditions:
+  - Whether edge labels are case-sensitive is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

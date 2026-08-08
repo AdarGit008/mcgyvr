@@ -1,0 +1,32 @@
+```python
+def combine_fractions(parts: list[str]) -> str:
+    if not parts:
+        raise ValueError("Input list cannot be empty")
+    
+    def parse_fraction(frac: str) -> tuple[int, int]:
+        if '/' not in frac:
+            raise ValueError(f"Invalid fraction format: {frac}")
+        
+        num, denom = frac.split('/')
+        num = int(num)
+        denom = int(denom)
+        
+        if denom <= 0:
+            raise ValueError("Denominator must be a positive integer")
+        
+        if num < 0 and denom < 0:
+            num = -num
+            denom = -denom
+        
+        return num, denom
+    
+    fractions = [parse_fraction(frac) for frac in parts]
+    
+    numerator sum = sum(num * denom for num, denom in fractions)
+    denominator = fractions[0][1]
+    
+    gcd = lambda a, b: a if b == 0 else gcd(b, a % b)
+    gcd_value = gcd(numerator_sum, denominator)
+    
+    return f"{numerator_sum // gcd_value}/{denominator // gcd_value}"
+```

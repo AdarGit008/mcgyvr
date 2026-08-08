@@ -1,0 +1,53 @@
+```ts
+export function latticeInverse(frame: number[][]): number[][] {
+  if (!Array.isArray(frame) || frame.length !== 2 && frame.length !== 3) {
+    throw new Error("Input must be a list of lists with exactly two or three rows.");
+  }
+
+  const height = frame.length;
+  const width = frame[0].length;
+
+  for (let row of frame) {
+    if (!Array.isArray(row) || row.length !== width) {
+      throw new Error("Each row must have the same number of elements as the first row.");
+    }
+    for (let entry of row) {
+      if (!Number.isInteger(entry)) {
+        throw new Error("All entries must be whole numbers.");
+      }
+    }
+  }
+
+  const determinant = height === 2
+    ? frame[0][0] * frame[1][1] - frame[0][1] * frame[1][0]
+    : frame[0][0] * (frame[1][1] * frame[2][2] - frame[1][2] * frame[2][1]) -
+      frame[0][1] * (frame[1][0] * frame[2][2] - frame[1][2] * frame[2][0]) +
+      frame[0][2] * (frame[1][0] * frame[2][1] - frame[1][1] * frame[2][0]);
+
+  if (determinant !== 1 && determinant !== -1) {
+    return [];
+  }
+
+  const inverse: number[][] = Array.from({ length: width }, () => Array(height).fill(0));
+
+  for (let i = 0; i < height; i++) {
+    for (let j = 0; j < width; j++) {
+      if (height === 2) {
+        inverse[j][i] = (i === j ? 1 : -1) * frame[1 - i][1 - j];
+      } else {
+        const minor = [
+          [frame[1][1], frame[1][2]],
+          [frame[2][1], frame[2][2]]
+        ];
+        inverse[j][i] = (i === j ? 1 : -1) * determinantOfMinor(minor);
+      }
+    }
+  }
+
+  return inverse;
+}
+
+function determinantOfMinor(minor: number[][]): number {
+  return minor[0][0] * minor[1][1] - minor[0][1] * minor[1][0];
+}
+```

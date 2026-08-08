@@ -1,0 +1,43 @@
+id: p335-triplet-chain-cells
+task_type: bug_fix
+task: >-
+  triplet_chain_cells composes two stages of a relay and botches the join.
+  Stage one is a bag of links [source, middle, weight]; stage two is a bag of
+  links [middle, sink, weight]. Chaining them yields, for each source and sink,
+  the summed weight of every route that leaves the source, passes through some
+  middle, and arrives at the sink — each route weighing the product of its two
+  links. Give back one triple [source, sink, weight] per surviving route,
+  sorted by source ascending and then by sink ascending, dropping any pair
+  whose summed weight comes out as nothing. Bands are numbered from zero:
+  sources below lefts, middles below mids, sinks below rights. The code here
+  joins on the wrong end, pairing stage one's source against stage two's
+  middle; it stores each route instead of adding to what earlier routes
+  through other middles already contributed; it never drops a pair that sums
+  away to nothing; and it sorts on the sink ahead of the source. Fix all four,
+  keep every product exact, and supply the missing guards, throwing an error
+  for: a bag that is not a list, a link that is not a triple, an endpoint that
+  is not a whole number or lies outside its band, a weight that is not a whole
+  number or whose size tops 10000, a weight of nothing stored in a bag, one
+  bag holding two links between the same two endpoints, and a band width that
+  is not a whole number between 1 and 1000. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def triplet_chain_cells(
+      first: list, second: list, lefts: int, mids: int, rights: int
+  ) -> list:
+      routes = {}
+      for source, middle, weight in first:
+          for other, sink, gain in second:
+              if source != other:
+                  continue
+              routes[(source, sink)] = weight * gain
+      out = [[source, sink, weight] for (source, sink), weight in routes.items()]
+      out.sort(key=lambda route: (route[1], route[0]))
+      return out
+interface: "def triplet_chain_cells(first: list, second: list, lefts: int, mids: int, rights: int) -> list"
+stop_conditions:
+  - Whether a middle that no stage-two link leaves should be reported anywhere is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,83 @@
+id: p247-drift-patch-grade
+task_type: bug_fix
+task: >-
+  grade_tolerant_patches sorts a sensor plate into patches. The plate is a
+  list of lines, each line a list of whole readings, all lines of one
+  length. The second argument is the drift, a whole number of zero or more.
+  Two cells are linked when they touch — sharing a side or only a corner,
+  so eight neighbours at most — and their two readings are no further apart
+  than the drift; a patch is a run of cells joined by following links from
+  one to the next, so two cells far apart in reading may still share a
+  patch when a chain of small steps runs between them. The linking test is
+  written wrong. As it grows a patch it measures each candidate cell
+  against the reading of the cell the patch was started from, not against
+  the reading of the neighbour it is stepping off, so a gentle slope across
+  the plate is chopped into pieces instead of staying whole. Measure each
+  step against the neighbour it leaves. Leave everything else as it is: the
+  eight-neighbour touch, the walk order, the sorting of patches by size
+  falling and by earliest cell rising among equals, the "count", "sizes"
+  and "seeds" keys of the returned mapping, the seed being a cell's
+  position counted from zero reading line by line, and the errors raised
+  for a plate that is not a list, a plate with no lines, a line that is not
+  a list, a line with no cells, lines of unequal length, a reading that is
+  not a whole number, and a drift that is not a whole number of zero or
+  more. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def grade_tolerant_patches(plate: list[list[int]], drift: int) -> dict:
+      if not isinstance(plate, list) or not plate:
+          raise ValueError("the plate must hold at least one line")
+      if not isinstance(drift, int) or isinstance(drift, bool) or drift < 0:
+          raise ValueError("the drift must be a whole number of zero or more")
+      width = -1
+      for line in plate:
+          if not isinstance(line, list) or not line:
+              raise ValueError("every line must be a list holding at least one cell")
+          if width == -1:
+              width = len(line)
+          if len(line) != width:
+              raise ValueError("the lines are not all of one length")
+          for reading in line:
+              if not isinstance(reading, int) or isinstance(reading, bool):
+                  raise ValueError("every reading must be a whole number")
+      height = len(plate)
+      seen = [[False] * width for _ in range(height)]
+      found = []
+      for r in range(height):
+          for c in range(width):
+              if seen[r][c]:
+                  continue
+              seen[r][c] = True
+              size = 0
+              pending = [(r, c)]
+              while pending:
+                  row, col = pending.pop()
+                  size += 1
+                  for dr in (-1, 0, 1):
+                      for dc in (-1, 0, 1):
+                          if dr == 0 and dc == 0:
+                              continue
+                          nr = row + dr
+                          nc = col + dc
+                          if nr < 0 or nr >= height or nc < 0 or nc >= width:
+                              continue
+                          if seen[nr][nc]:
+                              continue
+                          if abs(plate[nr][nc] - plate[r][c]) > drift:
+                              continue
+                          seen[nr][nc] = True
+                          pending.append((nr, nc))
+              found.append((size, r * width + c))
+      found.sort(key=lambda patch: (-patch[0], patch[1]))
+      return {
+          "count": len(found),
+          "sizes": [patch[0] for patch in found],
+          "seeds": [patch[1] for patch in found],
+      }
+interface: "def grade_tolerant_patches(plate: list[list[int]], drift: int) -> dict"
+stop_conditions:
+  - Whether a plate wide enough to overflow the pending list must be walked another way is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,77 @@
+```ts
+export function costBasisReport(events: unknown[][]): { fifoSold: number; averageSold: number; unitsLeft: number; fifoValue: number; averageValue: number } {
+    if (!Array.isArray(events)) {
+        throw new Error("Invalid input: events must be an array");
+    }
+
+    let fifoSold = 0;
+    let averageSold = 0;
+    let unitsLeft = 0;
+    let fifoValue = 0;
+    let averageUnits = 0;
+    let averageCost = 0;
+    const fifoStack: { units: number; unitCents: number }[] = [];
+
+    for (const event of events) {
+        if (!Array.isArray(event)) {
+            throw new Error("Invalid input: each event must be an array");
+        }
+
+        const [action, units, unitCents] = event;
+
+        if (typeof action !== 'string' || !['buy', 'sell'].includes(action)) {
+            throw new Error("Invalid input: event action must be 'buy' or 'sell'");
+        }
+
+        if (typeof units !== 'number' || !Number.isInteger(units) || units <= 0) {
+            throw new Error("Invalid input: units must be a positive integer");
+        }
+
+        if (action === 'sell') {
+            if (units > unitsLeft) {
+                throw new Error("Invalid input: sell units cannot exceed available stock");
+            }
+
+            // FIFO handling
+            let soldUnits = 0;
+            while (soldUnits < units) {
+                const layer = fifoStack[0];
+                if (!layer || !layer.units) {
+                    break;
+                }
+                const sellUnits = Math.min(layer.units, units - soldUnits);
+                fifoSold += sellUnits * layer.unitCents;
+                soldUnits += sellUnits;
+                layer.units -= sellUnits;
+                if (layer.units === 0) {
+                    fifoStack.shift();
+                }
+            }
+
+            // Average handling
+            averageSold += Math.floor((averageCost * units) / averageUnits);
+            averageUnits -= units;
+            averageCost = averageUnits > 0 ? (averageCost * averageUnits - averageSold) / averageUnits : 0;
+        } else if (action === 'buy') {
+            fifoStack.push({ units, unitCents });
+            unitsLeft += units;
+
+            // Average handling
+            averageUnits += units;
+            averageCost = (averageCost * (averageUnits - units) + units * unitCents) / averageUnits;
+        }
+    }
+
+    // Calculate remaining value for FIFO and Average
+    fifoValue = fifoStack.reduce((acc, layer) => acc + layer.units * layer.unitCents, 0);
+    averageValue = Math.floor(averageCost * averageUnits);
+
+    return {
+        fifoSold,
+        averageSold,
+        unitsLeft,
+        fifoValue,
+        averageValue
+    };
+}
+```

@@ -1,0 +1,53 @@
+id: p191-grade-reruns
+task_type: bug_fix
+task: >-
+  gradeReruns reads a rerun log and grades each job, but it ignores the
+  budget entirely and waves through logs that could never have happened.
+  Repair it. The log is a list of entries in the order they happened; an
+  entry holds a job name, one space, and a mark that is the word green or
+  the word red, and the name is not empty and holds no space. Jobs
+  interleave freely; a job's goes are its own entries in log order. The
+  budget is a whole number of at least zero saying how many reruns are
+  allowed after a job's first go, so a job may never have more than budget
+  plus one goes, and a job that has already gone green must never appear
+  again. Grade each job with exactly one word: solid when its single go
+  was green, shaky when it went red at least once and then green, broken
+  when every go was red and it used every go the budget allowed, and
+  dropped when every go was red but it stopped before using them all.
+  Return the name, a colon, and the word for each job, ordered by name
+  lowest code point first. Raise an error for a mark that is neither
+  word, an entry not holding exactly two pieces, an empty name, an entry
+  for a job that has already gone green, a job with more goes than the
+  budget allows, a budget that is not a whole number of at least zero, a
+  log that is not a list, and an entry that is not a string. Return the
+  whole repaired file.
+target: solution.ts
+target_content: |
+  export function gradeReruns(log: string[], budget: number): string[] {
+    const goes = new Map<string, string[]>();
+    for (const entry of log) {
+      const [name, mark] = entry.split(" ");
+      const marks = goes.get(name);
+      if (marks === undefined) {
+        goes.set(name, [mark]);
+      } else {
+        marks.push(mark);
+      }
+    }
+    const graded: string[] = [];
+    for (const [name, marks] of goes) {
+      if (marks[marks.length - 1] === "green") {
+        graded.push(name + ":" + (marks.length === 1 ? "solid" : "shaky"));
+      } else {
+        graded.push(name + ":broken");
+      }
+    }
+    return graded;
+  }
+interface: "export function gradeReruns(log: string[], budget: number): string[]"
+stop_conditions:
+  - Whether a job may go green on a go it was not entitled to is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

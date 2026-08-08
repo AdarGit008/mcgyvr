@@ -1,0 +1,38 @@
+id: p281-tidy-halliday-mark
+task_type: bug_fix
+task: >-
+  tidyShelfMark rewrites a Halliday mark the way the catalogue files it. A
+  mark carries three parts parted by hyphens: a wing of exactly two letters in
+  either case; a bay of one to six digits, optionally followed by a dot and
+  one to four more digits; and a peg of one letter in either case with one
+  digit behind it. To tidy is to drop whatever spaces sit at either end of the
+  mark or hug a hyphen, to put the wing into capitals and the peg's letter
+  into small, to strip the zeros padding the bay on its left together with the
+  zeros trailing its fraction, and to drop the dot as well should the fraction
+  empty out entirely. Once tidied the bay must stand between 1 and 999, the
+  fraction must be one or two digits, and the peg's digit must not be zero.
+  The present code shouts the whole mark into capitals, so the peg comes back
+  wrong; it strips the bay's padding by reading it as a whole number, which
+  throws the fraction away; and it never touches the spaces at all. Mend those
+  three and add every guard, throwing an error for a mark that is not a
+  string, a mark not made of exactly three parts, a wing that is not two
+  letters, a bay outside 1 to 999 or shaped otherwise than described, a
+  fraction still longer than two digits once its trailing zeros have gone, and
+  a peg that is not one letter with one non-zero digit. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  export function tidyShelfMark(raw: string): string {
+    const parts = raw.toUpperCase().split("-");
+    const wing = parts[0];
+    const bay = String(parseInt(parts[1], 10));
+    const peg = parts[2];
+    return wing + "-" + bay + "-" + peg;
+  }
+interface: "export function tidyShelfMark(raw: string): string"
+stop_conditions:
+  - Whether a space inside a part rather than beside a hyphen is tolerated is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

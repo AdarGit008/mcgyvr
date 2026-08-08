@@ -1,0 +1,28 @@
+id: p402-spell-count-words
+task_type: function_implementation
+task: >-
+  Implement spell_count_words. The Larkin house style writes a whole number of
+  0 through 999999 out as English words. Its small words are zero, one, two,
+  three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen,
+  fourteen, fifteen, sixteen, seventeen, eighteen and nineteen; its round
+  words are twenty, thirty, forty, fifty, sixty, seventy, eighty and ninety.
+  Anything under twenty is simply its small word. Anything under a hundred is
+  its round word, tied by a hyphen to the small word of what is left over
+  whenever something is left over. Anything under a thousand is the small
+  word of the hundreds figure, a blank, the word hundred, and, whenever a
+  leftover remains, a blank, the word and, a blank, and that leftover written
+  by these same rules. At a thousand and above, write the thousands figure as
+  though it were a number under a thousand, follow it with a blank and the
+  word thousand, and then, whenever a leftover remains, attach the leftover
+  by the word and set between blanks if the leftover is under a hundred, or
+  by one plain blank otherwise. Give back the finished string. Refuse with an
+  error anything that is not a number, a number carrying a fractional part, a
+  number under zero, and a number over 999999.
+target: solution.py
+interface: "def spell_count_words(count: int) -> str"
+stop_conditions:
+  - Whether a leading plus sign or any other written form of the argument is meant is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

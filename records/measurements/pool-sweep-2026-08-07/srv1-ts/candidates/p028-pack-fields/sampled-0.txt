@@ -1,0 +1,49 @@
+```ts
+/**
+ * Concatenates fields into a single non-negative integer based on their widths and values.
+ * @param widths - An array of field widths in bits.
+ * @param values - An array of non-negative field values corresponding to the widths.
+ * @returns The concatenated integer.
+ */
+export function packFields(widths: number[], values: number[]): number {
+  if (widths.length !== values.length) {
+    throw new Error('Widths and values must be of equal length.');
+  }
+
+  if (widths.length === 0 || values.length === 0) {
+    throw new Error('Input lists cannot be empty.');
+  }
+
+  let totalWidth = widths.reduce((sum, width) => sum + width, 0);
+
+  if (totalWidth > 30) {
+    throw new Error('Total width of fields exceeds 30 bits.');
+  }
+
+  for (let i = 0; i < widths.length; i++) {
+    const width = widths[i];
+    const value = values[i];
+
+    if (!Number.isInteger(width) || width <= 0) {
+      throw new Error(`Invalid width at index ${i}: must be a positive integer.`);
+    }
+
+    if (!Number.isInteger(value) || value < 0) {
+      throw new Error(`Invalid value at index ${i}: must be a non-negative integer.`);
+    }
+
+    if (value > (1 << width) - 1) {
+      throw new Error(`Value at index ${i} too large for its field width.`);
+    }
+  }
+
+  let result = 0;
+  for (let i = widths.length - 1; i >= 0; i--) {
+    const value = values[i];
+    const shift = totalWidth - widths.slice(i).reduce((sum, w) => sum + w, 0);
+    result |= (value << shift);
+  }
+
+  return result;
+}
+```

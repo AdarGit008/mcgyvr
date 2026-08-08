@@ -1,0 +1,58 @@
+```python
+def plan_retry_window(policy: dict, outcomes: list) -> dict:
+    if not isinstance(policy, dict) or len(policy) != 5:
+        raise ValueError("Policy must be a record with five names.")
+    
+    base = policy.get('base')
+    factor = policy.get('factor')
+    ceiling = policy.get('ceiling')
+    tries = policy.get('tries')
+    deadline = policy.get('deadline')
+    
+    if not all(isinstance(x, int) and x > 0 for x in [base, factor, tries, deadline]):
+        raise ValueError("Base, factor, tries, and deadline must be whole numbers of one or more.")
+    
+    if ceiling < base:
+        raise ValueError("Ceiling must be a whole number of at least base.")
+    
+    if not isinstance(outcomes, list):
+        raise ValueError("Outcomes must be a list.")
+    
+    valid_outcomes = {'won', 'lost', 'held'}
+    if any(outcome not in valid_outcomes for outcome in outcomes):
+        raise ValueError("All listed outcomes must be outside the three names.")
+    
+    times = []
+    attempt = 0
+    consecutive_lost = 0
+    
+    while attempt < tries:
+        if attempt == 0 and deadline == 1:
+            raise ValueError("An attempt is not allowed to start exactly at moment zero when the deadline is one.")
+        
+        if outcomes[attempt] == 'won':
+            times.append(0)
+            break
+        elif outcomes[attempt] == 'lost':
+            consecutive_lost += 1
+            gap = base * factor ** (consecutive_lost - 1)
+            if gap > ceiling:
+                gap = ceiling
+            next_attempt_time = sum(times) + gap
+            if next_attempt_time >= deadline:
+                times.append(deadline)
+                break
+            times.append(next_attempt_time)
+        elif outcomes[attempt] == 'held':
+            consecutive_lost = 0
+            gap = ceiling
+            next_attempt_time = sum(times) + gap
+            if next_attempt_time >= deadline:
+                times.append(deadline)
+                break
+            times.append(next_attempt_time)
+        
+        attempt += 1
+    
+    return {'times': times, 'verdict': 'succeeded' if outcomes[attempt - 1] == 'won' else 'exhausted'}
+```

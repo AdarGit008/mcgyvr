@@ -1,0 +1,26 @@
+```python
+def tessari_value(text: str) -> int:
+    if not text or not isinstance(text, str):
+        raise ValueError("Invalid input")
+    if any(c.lower() != c for c in text):
+        raise ValueError("Lower-case glyph found")
+    if text.startswith('k'):
+        raise ValueError("Leading 'K' is invalid")
+
+    glyph_values = {'k': 0, 'l': 1, 'm': 3, 'n': 4, 'p': 5, 'q': 6, 'r': 7, 's': 8, 't': 9}
+    value = 0
+    prev_value = 10
+
+    for glyph in text:
+        if glyph not in glyph_values:
+            raise ValueError("Invalid glyph found")
+
+        current_value = glyph_values[glyph]
+        if current_value > prev_value:
+            value -= 2 * prev_value
+
+        value += current_value
+        prev_value = current_value
+
+    return value
+```

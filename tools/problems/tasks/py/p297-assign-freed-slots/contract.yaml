@@ -1,0 +1,74 @@
+id: p297-assign-freed-slots
+task_type: bug_fix
+task: >-
+  assign_freed_slots hands out the appointment slots that patients give back,
+  and it gets two things wrong: it weighs only the days a patient has been
+  kept waiting, blind to the tier they were triaged into, and it never takes
+  a placed patient off the standby list, so one patient can be given slot
+  after slot. Mend both. The standby list holds patients, each with a name, a
+  tier of urgent, soon or routine, a waited count of whole days, and a window
+  of morning, afternoon or either. The cancellations argument holds the
+  slots being given back in the order the calls arrive, each with a slot id
+  and a part of the day, morning or afternoon. For each cancellation, the
+  patients in the running are those still on standby whose window is the
+  part named or is either. Urgent outranks soon and soon outranks routine;
+  within one tier the longer wait wins; and should two patients still stand
+  level, the one nearer the front of the standby list wins. The winner is
+  placed and stands on the list no longer. A cancellation nobody can take is
+  passed over and appears nowhere in the answer. Return one object per
+  placement, holding the slot id and the name, in call order. Go on
+  rejecting with an error either argument that is not a list, a patient or
+  cancellation that is not an object, a name or slot id that is not a
+  string, a tier or window or part outside the words listed, a waited count
+  that is not a whole number of zero or more, two patients sharing a name,
+  and two cancellations sharing a slot id. Return the complete fixed file.
+target: solution.py
+target_content: |
+  TIERS = ("urgent", "soon", "routine")
+  WINDOWS = ("morning", "afternoon", "either")
+  PARTS = ("morning", "afternoon")
+
+
+  def assign_freed_slots(standby: list[dict], cancellations: list[dict]) -> list[dict]:
+      if not isinstance(standby, list) or not isinstance(cancellations, list):
+          raise ValueError("assign_freed_slots expects two lists")
+      names: set[str] = set()
+      for one in standby:
+          if not isinstance(one, dict) or not isinstance(one.get("name"), str):
+              raise ValueError("a patient needs a name")
+          if one.get("tier") not in TIERS or one.get("window") not in WINDOWS:
+              raise ValueError(f"a patient needs a known tier and window: {one}")
+          waited = one.get("waited")
+          if not isinstance(waited, int) or isinstance(waited, bool) or waited < 0:
+              raise ValueError("waited is a whole number of zero or more")
+          if one["name"] in names:
+              raise ValueError(f"two patients share the name {one['name']}")
+          names.add(one["name"])
+      slots: set[str] = set()
+      for call in cancellations:
+          if not isinstance(call, dict) or not isinstance(call.get("slot"), str):
+              raise ValueError("a cancellation needs a slot id")
+          if call.get("part") not in PARTS:
+              raise ValueError("a cancellation names morning or afternoon")
+          if call["slot"] in slots:
+              raise ValueError(f"two cancellations share the slot {call['slot']}")
+          slots.add(call["slot"])
+      placements: list[dict] = []
+      for call in cancellations:
+          winner = None
+          for one in standby:
+              if one["window"] != call["part"] and one["window"] != "either":
+                  continue
+              if winner is None or one["waited"] > winner["waited"]:
+                  winner = one
+          if winner is None:
+              continue
+          placements.append({"slot": call["slot"], "name": winner["name"]})
+      return placements
+interface: "def assign_freed_slots(standby: list[dict], cancellations: list[dict]) -> list[dict]"
+stop_conditions:
+  - Whether a patient may be triaged into a tier no cancellation ever reaches is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

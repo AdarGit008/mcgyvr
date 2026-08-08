@@ -1,0 +1,52 @@
+```ts
+export function processStockMoves(moves: Array<Record<string, unknown>>): { levels: Record<string, number>; refused: Array<[number, string]> } {
+  const levels: Record<string, number> = {};
+  const refused: Array<[number, string]> = [];
+
+  moves.forEach((move, index) => {
+    const op = move.op as string;
+    const item = move.item as string;
+    const qty = move.qty as number;
+
+    if (!['receive', 'issue', 'recount'].includes(op)) {
+      throw new Error('Invalid operation');
+    }
+
+    if (typeof item !== 'string' || item.trim() === '') {
+      throw new Error('Item must be a non-empty string');
+    }
+
+    if (!Number.isInteger(qty)) {
+      throw new Error('Qty must be an integer');
+    }
+
+    if ((op === 'receive' || op === 'issue') && qty < 1) {
+      throw new Error('Receive and issue quantities must be at least 1');
+    }
+
+    if (op === 'recount' && qty < 0) {
+      throw new Error('Recount quantity must be at least 0');
+    }
+
+    switch (op) {
+      case 'receive':
+        levels[item] = (levels[item] || 0) + qty;
+        break;
+      case 'issue':
+        if (!(item in levels)) {
+          refused.push([index, 'unknown_item']);
+        } else if (levels[item] < qty) {
+          refused.push([index, 'short']);
+        } else {
+          levels[item] -= qty;
+        }
+        break;
+      case 'recount':
+        levels[item] = qty;
+        break;
+    }
+  });
+
+  return { levels, refused };
+}
+```

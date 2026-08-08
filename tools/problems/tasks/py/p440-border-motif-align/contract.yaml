@@ -1,0 +1,43 @@
+id: p440-border-motif-align
+task_type: bug_fix
+task: >-
+  align_border_motifs reports where a repeating border sits along a wall and
+  gets both of its answers wrong. Repair it. A border repeats a run of
+  pattern_length motifs over and over, the motifs of one run numbered from 0
+  upward, and it travels unbroken along a wall built of strips laid left to
+  right. The widths argument gives, strip by strip in that order, how many
+  motifs each strip carries. The border starts with motif 0 at the left edge
+  of the leading strip. Report for every strip the number of the motif
+  standing at its left edge, and report as well the 1-based place of the
+  first strip after the leading one whose left edge carries motif 0 once
+  more, or 0 when no strip after the leading one does. The code below adds up
+  each strip's width already reduced against the pattern length but never
+  reduces the running total itself, so an edge it reports may name a motif
+  the run does not hold; and it hunts for that fresh start from the leading
+  strip onward, which always answers with the leading strip itself. Mend both
+  faults, and add the checking the code lacks: raise an error when the widths
+  are not a list, when the list is empty, when a width is not a whole number
+  of one or more, and when pattern_length is not a whole number of one or
+  more. Return a mapping under "edges", one motif number per strip in order,
+  and "freshAt", that 1-based place. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def align_border_motifs(widths: list, pattern_length: int) -> dict:
+      edges: list = []
+      running = 0
+      for width in widths:
+          edges.append(running)
+          running += width % pattern_length
+      fresh_at = 0
+      for index, edge in enumerate(edges):
+          if edge == 0:
+              fresh_at = index + 1
+              break
+      return {"edges": edges, "freshAt": fresh_at}
+interface: "def align_border_motifs(widths: list, pattern_length: int) -> dict"
+stop_conditions:
+  - Whether the wall's strips must together carry a whole number of runs is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

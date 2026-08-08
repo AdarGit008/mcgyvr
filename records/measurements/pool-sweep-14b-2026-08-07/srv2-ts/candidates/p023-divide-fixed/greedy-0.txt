@@ -1,0 +1,64 @@
+```ts
+export function divideFixed(numerator: number, denominator: number, places: number): string {
+  if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || !Number.isInteger(places)) {
+    throw new Error("All arguments must be integers.");
+  }
+  if (denominator === 0) {
+    throw new Error("Denominator cannot be zero.");
+  }
+  if (places < 0 || places > 6) {
+    throw new Error("Places must be between 0 and 6.");
+  }
+
+  const isNegative = (numerator < 0) !== (denominator < 0);
+  numerator = Math.abs(numerator);
+  denominator = Math.abs(denominator);
+
+  let quotient = "";
+  let remainder = numerator;
+
+  for (let i = 0; i <= places; i++) {
+    if (i === 0 && quotient === "") {
+      quotient += Math.floor(remainder / denominator).toString();
+      remainder %= denominator;
+    } else {
+      remainder *= 10;
+      const digit = Math.floor(remainder / denominator);
+      quotient += digit.toString();
+      remainder %= denominator;
+    }
+  }
+
+  if (places > 0) {
+    const integerPart = quotient.slice(0, -places);
+    const fractionalPart = quotient.slice(-places);
+
+    if (remainder * 2 >= denominator) {
+      // Round up
+      let carry = 1;
+      for (let i = places - 1; i >= 0; i--) {
+        let digit = parseInt(fractionalPart[i]) + carry;
+        if (digit === 10) {
+          digit = 0;
+          carry = 1;
+        } else {
+          carry = 0;
+        }
+        fractionalPart = fractionalPart.slice(0, i) + digit.toString() + fractionalPart.slice(i + 1);
+      }
+
+      if (carry === 1) {
+        integerPart = (parseInt(integerPart) + 1).toString();
+      }
+    }
+
+    quotient = integerPart + "." + fractionalPart;
+  }
+
+  if (isNegative && quotient !== "0") {
+    quotient = "-" + quotient;
+  }
+
+  return quotient.replace(/\.?0+$/, "");
+}
+```

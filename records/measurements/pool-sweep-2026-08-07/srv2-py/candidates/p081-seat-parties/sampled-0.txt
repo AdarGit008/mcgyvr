@@ -1,0 +1,21 @@
+```python
+def seat_parties(rows: list, parties: list) -> list:
+    results = []
+    for party_size in parties:
+        if party_size < 1:
+            raise ValueError("Party size must be at least 1")
+        found_row = None
+        for row_index in range(len(rows)):
+            if rows[row_index] >= party_size:
+                found_row = row_index
+                rows[row_index] -= party_size
+                break
+        if found_row is not None:
+            results.append(f"{found_row + 1}-{rows[found_row] + party_size}")
+        else:
+            if max(rows) < party_size:
+                results.append("rejected:too_big")
+            else:
+                results.append("rejected:full")
+    return results
+```

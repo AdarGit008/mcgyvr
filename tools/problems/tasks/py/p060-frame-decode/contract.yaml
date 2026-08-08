@@ -1,0 +1,21 @@
+id: p060-frame-decode
+task_type: function_implementation
+task: >-
+  Implement decode_frames. The input is a list of byte values, 0 to 255,
+  holding zero or more frames laid end to end with nothing between them.
+  Each frame is a two-byte header giving the payload length in big-endian
+  order, then that many payload bytes, then one trailing byte that must
+  equal the bitwise XOR of all payload bytes, or zero when the payload is
+  empty. Return the payloads in stream order, each a list of byte values;
+  an empty stream decodes to an empty list and zero-length payloads are
+  legal. Raise an error when any element is not an integer from 0 to 255,
+  when the stream ends inside a header or a payload or before a frame's
+  trailing byte, and when a trailing byte disagrees with its payload.
+target: solution.py
+interface: "def decode_frames(stream: list[int]) -> list[list[int]]"
+stop_conditions:
+  - Whether a maximum payload length below 65535 applies is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

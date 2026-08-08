@@ -1,0 +1,40 @@
+```ts
+/**
+ * Debounces the levels in a list of samples based on the hold value.
+ * @param samples - A non-empty list of samples, each being 0 or 1.
+ * @param hold - A positive whole number indicating how many samples must disagree with the settled level before changing it.
+ * @returns An array representing the settled level at every sample.
+ */
+export function debounceLevels(samples: unknown, hold: unknown): number[] {
+    if (!Array.isArray(samples) || samples.length === 0) {
+        throw new Error("Samples must be a non-empty list.");
+    }
+    if (typeof hold !== 'number' || hold <= 0 || !Number.isInteger(hold)) {
+        throw new Error("Hold must be a positive whole number.");
+    }
+    for (const sample of samples) {
+        if (sample !== 0 && sample !== 1) {
+            throw new Error("Each sample must be either 0 or 1.");
+        }
+    }
+
+    const report: number[] = [];
+    let settledLevel = samples[0] as number;
+    let tally = 0;
+
+    for (const sample of samples) {
+        if (sample === settledLevel) {
+            tally = 0;
+        } else {
+            tally++;
+            if (tally >= hold) {
+                settledLevel = sample;
+                tally = 0;
+            }
+        }
+        report.push(settledLevel);
+    }
+
+    return report;
+}
+```

@@ -1,0 +1,48 @@
+```ts
+export function expandRunTag(pattern: string): string[] {
+  if (typeof pattern !== 'string') {
+    throw new Error('Invalid argument: expected a string');
+  }
+
+  const regex = /^([^[\]]+)(\[(.*?)\])(.*)$/;
+  const match = pattern.match(regex);
+
+  if (!match) {
+    throw new Error('Invalid pattern: no group found');
+  }
+
+  const [_, stem, group, tail] = match;
+
+  if (group.includes('[') || group.includes(']')) {
+    throw new Error('Invalid pattern: unclosed bracket or second opening/closing bracket');
+  }
+
+  if (!group.startsWith('[') || !group.endsWith(']')) {
+    throw new Error('Invalid pattern: missing opening or closing bracket');
+  }
+
+  const items = group.slice(1, -1).split(',');
+
+  if (items.some(item => item.trim() === '')) {
+    throw new Error('Invalid pattern: empty comma item');
+  }
+
+  if (items.length > 1) {
+    return items.map(item => `${stem}${item}${tail}`).sort();
+  }
+
+  const [start, end, step] = group.match(/(\d+)-(\d+)(?:\/(\d+))?/)!.map(Number);
+
+  if (isNaN(start) || isNaN(end) || (step !== undefined && isNaN(step))) {
+    throw new Error('Invalid pattern: invalid number format');
+  }
+
+  if (start > end || (step !== undefined && step === 0)) {
+    throw new Error('Invalid pattern: invalid range or step');
+  }
+
+  return Array.from({ length: Math.floor((end - start) / (step ?? 1)) + 1 }, (_, i) => start + i * (step ?? 1))
+    .map(num => `${stem}${num}${tail}`)
+    .sort();
+}
+```

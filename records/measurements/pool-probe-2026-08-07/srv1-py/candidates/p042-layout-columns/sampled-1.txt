@@ -1,0 +1,29 @@
+```python
+def layout_columns(rows: list[list[str]], aligns: str) -> list[str]:
+    if not rows:
+        raise ValueError("Table is empty")
+    if len(aligns) != len(rows[0]):
+        raise ValueError("Alignment specification does not match row length")
+    for align in aligns:
+        if align not in "lrc":
+            raise ValueError("Invalid alignment character")
+    for row in rows:
+        if any(not isinstance(cell, str) for cell in row):
+            raise ValueError("All cells must be strings")
+
+    col_widths = [max(len(cell) for cell in column) for column in zip(*rows)]
+    lines = []
+    for row in rows:
+        line = ""
+        for cell, width, align in zip(row, col_widths, aligns):
+            if align == "l":
+                line += cell.ljust(width)
+            elif align == "r":
+                line += cell.rjust(width)
+            else:  # align == "c"
+                padding = (width - len(cell)) // 2
+                extra_space = (width - len(cell)) % 2
+                line += " " * padding + cell + " " * (padding + extra_space)
+        lines.append(line.rstrip())
+    return lines
+```

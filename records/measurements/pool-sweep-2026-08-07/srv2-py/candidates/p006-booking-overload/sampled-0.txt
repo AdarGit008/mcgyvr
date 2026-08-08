@@ -1,0 +1,30 @@
+```python
+def first_overload(bookings: list, capacity: int) -> int:
+    if capacity < 1:
+        raise ValueError("Capacity must be at least 1")
+    
+    for start, end in bookings:
+        if not (isinstance(start, int) and isinstance(end, int)):
+            raise ValueError("Endpoints must be integers")
+        if start >= end:
+            raise ValueError("Booking start must be before its end")
+
+    # Sort bookings by start time
+    sorted_bookings = sorted(bookings)
+    
+    current_overload = 0
+    next_end_time = []
+    min_time = float('inf')
+    
+    for start, end in sorted_bookings:
+        while next_end_time and next_end_time[0] <= start:
+            heapq.heappop(next_end_time)
+            current_overload -= 1
+        
+        heapq.heappush(next_end_time, end)
+        current_overload += 1
+        if current_overload > capacity:
+            min_time = min(min_time, start)
+    
+    return -1 if min_time == float('inf') else min_time
+```

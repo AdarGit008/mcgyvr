@@ -1,0 +1,61 @@
+```python
+def parse_invocation(catalogue: list[dict], tokens: list[str]) -> dict:
+    options = {}
+    operands = []
+    i = 0
+
+    long_name_to_option = {opt['long']: opt for opt in catalogue}
+    alias_to_long_name = {opt.get('alias'): opt['long'] for opt in catalogue if 'alias' in opt}
+
+    while i < len(tokens):
+        token = tokens[i]
+
+        if token == '--':
+            operands.extend(tokens[i+1:])
+            break
+
+        if '=' in token:
+            long_name, value = token.split('=', 1)
+            if long_name not in long_name_to_option:
+                raise ValueError(f"Unknown option: {long_name}")
+            if long_name_to_option[long_name]['kind'] == 'toggle':
+                raise ValueError(f"Toggle option {long_name} cannot take a value")
+            options[long_name] = value
+            i += 1
+        elif token.startswith('--'):
+            long_name = token[2:]
+            if long_name not in long_name_to_option:
+                raise ValueError(f"Unknown option: {token}")
+            if long_name_to_option[long_name]['kind'] == 'toggle':
+                options[long_name] = True
+            else:
+                i += 1
+                if i < len(tokens):
+                    options[long_name] = tokens[i]
+                else:
+                    raise ValueError(f"Option {token} requires a value")
+        elif token.startswith('-'):
+            alias = token[1:]
+            if alias not in alias_to_long_name:
+                raise ValueError(f"Unknown alias: {alias}")
+            long_name = alias_to_long_name[alias]
+            if long_name_to_option[long_name]['kind'] == 'toggle':
+                options[long_name] = True
+            else:
+                i += 1
+                if i < len(tokens):
+                    options[long_name] = tokens[i]
+                else:
+                    raise ValueError(f"Option {token} requires a value")
+        else:
+            operands.append(token)
+
+        i += 1
+
+    for long_name, option in catalogue:
+        if 'kind' in long_name_to_option[long_name]:
+            continue
+        options[long_name] = None
+
+    return {'options': options, 'operands': operands}
+```

@@ -1,0 +1,25 @@
+```ts
+export function gappedMatch(needle: string, haystack: string, gap: number): boolean {
+    if (!needle) throw new Error("Needle cannot be empty");
+    if (gap < 0 || !Number.isInteger(gap)) throw new Error("Gap must be a non-negative integer");
+
+    const needleLength = needle.length;
+    let i = 0; // index for haystack
+    let j = 0; // index for needle
+
+    while (i < haystack.length) {
+        if (haystack[i] === needle[j]) {
+            if (j === needleLength - 1) return true; // end of needle found
+            i++;
+            j++;
+        } else if (j > 0 && j < needleLength - 1) {
+            i += gap; // skip characters within the gap
+            j = 1; // reset to second character in needle after skipping
+        } else {
+            i++; // move to next character in haystack
+        }
+    }
+
+    return false; // needle not found
+}
+```

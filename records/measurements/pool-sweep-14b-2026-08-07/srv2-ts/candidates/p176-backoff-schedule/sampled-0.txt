@@ -1,0 +1,34 @@
+```ts
+/**
+ * Generates a backoff schedule for dialing a flaky endpoint.
+ * @param base - The initial idle time before the second dial.
+ * @param factor - The multiplication factor for each subsequent idle.
+ * @param cap - The maximum idle time allowed.
+ * @param attempts - The number of dial attempts to schedule.
+ * @returns An array of moments when each dial should occur.
+ */
+export function backoffSchedule(base: number, factor: number, cap: number, attempts: number): number[] {
+    if (!Number.isInteger(base) || base < 1) {
+        throw new Error("Base must be a whole number of one or more.");
+    }
+    if (!Number.isInteger(factor) || factor < 1) {
+        throw new Error("Factor must be a whole number of one or more.");
+    }
+    if (!Number.isInteger(cap) || cap < base) {
+        throw new Error("Cap must be a whole number not smaller than base.");
+    }
+    if (!Number.isInteger(attempts) || attempts < 1) {
+        throw new Error("Attempts must be a whole number of one or more.");
+    }
+
+    const schedule: number[] = [0];
+    let nextIdle = base;
+
+    for (let i = 1; i < attempts; i++) {
+        schedule.push(schedule[i - 1] + nextIdle);
+        nextIdle = Math.min(nextIdle * factor, cap);
+    }
+
+    return schedule;
+}
+```

@@ -1,0 +1,45 @@
+```ts
+export function strandedTickerPairs(legs: unknown[][]): string[] {
+  if (legs.length === 0) throw new Error("No legs published");
+
+  const validLegs = legs.filter((leg) => {
+    if (!Array.isArray(leg) || leg.length !== 2) return false;
+    const [sell, buy] = leg;
+    if (typeof sell !== 'string' || typeof buy !== 'string') return false;
+    if (sell === '' || buy === '') return false;
+    if (sell === buy) return false;
+    return true;
+  });
+
+  if (validLegs.length !== legs.length) throw new Error("Invalid leg format");
+
+  const tickerSet = new Set<string>();
+  for (const [sell, buy] of validLegs) {
+    tickerSet.add(sell);
+    tickerSet.add(buy);
+  }
+
+  const tickers = Array.from(tickerSet).sort();
+
+  const routes = new Map<string, Set<string>>();
+  for (const [sell, buy] of validLegs) {
+    if (!routes.has(sell)) routes.set(sell, new Set());
+    routes.get(sell)!.add(buy);
+  }
+
+  const strandedPairs: string[] = [];
+  for (let i = 0; i < tickers.length - 1; i++) {
+    for (let j = i + 1; j < tickers.length; j++) {
+      let currentTicker = tickers[i];
+      while (routes.has(currentTicker)) {
+        const nextTickers = routes.get(currentTicker)!;
+        if (nextTickers.has(tickers[j])) break;
+        currentTicker = Array.from(nextTickers).find((t) => !routes.has(t))!;
+      }
+      if (currentTicker !== tickers[j]) strandedPairs.push(`${tickers[i]}>${tickers[j]}`);
+    }
+  }
+
+  return strandedPairs.sort();
+}
+```

@@ -1,0 +1,24 @@
+id: p445-plan-key-presses
+task_type: function_implementation
+task: >-
+  Implement plan_key_presses, which turns text into the presses that would
+  enter it. The layout hands over ten strings, one for each key 0 through 9,
+  and each string lists in order the characters that key can produce: the
+  first character of the string wants one press of that key, the second wants
+  two, and so on. A key handed an empty string produces nothing. Write each
+  character of the text as its key digit repeated as many times as its
+  position wants. When a character's key is the very same key just written,
+  put a full stop ahead of its presses so the two stretches stay apart;
+  otherwise write nothing between them. Return the whole press string. Raise
+  an error when the text is not a string, when the text is empty, when the
+  layout is not a list of exactly ten strings, when a character of the text
+  sits on no key, and when the layout lists one character more than once,
+  whether on one key or across two.
+target: solution.py
+interface: "def plan_key_presses(text: str, layout: list) -> str"
+stop_conditions:
+  - Whether the text may hold a full stop, which is also the separator, is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

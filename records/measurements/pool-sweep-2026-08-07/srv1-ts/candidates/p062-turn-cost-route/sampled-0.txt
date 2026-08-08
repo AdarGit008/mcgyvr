@@ -1,0 +1,39 @@
+```ts
+/**
+ * Calculates the smallest total cost for a courier to cross a rectangular grid from top-left to bottom-right,
+ * considering stepCost and turnCost.
+ * @param grid - 2D array representing the grid with 0 (passable) and 1 (wall).
+ * @param stepCost - Cost of moving to an adjacent cell.
+ * @param turnCost - Extra cost for making a turn in a different direction.
+ * @returns The smallest total cost or -1 if no route exists or end is a wall.
+ */
+export function turnCostRoute(grid: number[][], stepCost: number, turnCost: number): number {
+  const m = grid.length;
+  const n = grid[0].length;
+
+  if (m === 0 || n === 0) throw new Error("Grid must have positive dimensions.");
+  if (!Number.isInteger(stepCost) || stepCost <= 0) throw new Error("Step cost must be a positive integer.");
+  if (!Number.isInteger(turnCost) || turnCost < 0) throw new Error("Turn cost must be a non-negative integer.");
+
+  const directions = [[0, 1], [1, 0], [-1, 0], [0, -1]];
+  let minCost = Infinity;
+
+  function dfs(x: number, y: number, prevDirection: number[], currentCost: number): void {
+    if (x < 0 || x >= m || y < 0 || y >= n || grid[x][y] === 1) return;
+    if (x === m - 1 && y === n - 1) {
+      minCost = Math.min(minCost, currentCost);
+      return;
+    }
+
+    for (let i = 0; i < directions.length; i++) {
+      const [dx, dy] = directions[i];
+      const cost = prevDirection[0] !== dx || prevDirection[1] !== dy ? currentCost + turnCost : currentCost;
+      dfs(x + dx, y + dy, [dx, dy], cost + stepCost);
+    }
+  }
+
+  dfs(0, 0, [0, 0], 0);
+
+  return minCost === Infinity ? -1 : minCost;
+}
+```

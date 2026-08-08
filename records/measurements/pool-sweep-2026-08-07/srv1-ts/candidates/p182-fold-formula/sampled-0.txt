@@ -1,0 +1,84 @@
+```ts
+export function foldFormula(recipe: string): string {
+    if (typeof recipe !== 'string' || recipe === '') {
+        throw new Error('Invalid argument');
+    }
+
+    const stack: { tag: string, count: number }[] = [];
+    let i = 0;
+
+    while (i < recipe.length) {
+        const char = recipe[i];
+
+        if (char >= 'A' && char <= 'Z') {
+            const tag = char + (recipe[i + 1] ? recipe[i + 1].toLowerCase() : '') + (recipe[i + 2] ? recipe[i + 2].toLowerCase() : '');
+            i += tag.length;
+            const count = parseInt(recipe.slice(i), 10) || 1;
+            i += count.toString().length;
+
+            if (!/^[A-Z][a-z]{0,2}$/.test(tag)) {
+                throw new Error('Invalid tag');
+            }
+            if (count === 0) {
+                throw new Error('Repeat cannot begin with zero');
+            }
+
+            stack.push({ tag, count });
+        } else if (char === '(') {
+            const subStack: { tag: string, count: number }[] = [];
+            let openCount = 1;
+            i++;
+
+            while (openCount > 0 && i < recipe.length) {
+                if (recipe[i] === '(') {
+                    openCount++;
+                } else if (recipe[i] === ')') {
+                    openCount--;
+                }
+                subStack.push(...foldFormula(recipe.slice(i, i + openCount * 2)).split('').map(tag => ({ tag, count: 1 })));
+                i += openCount * 2;
+            }
+
+            if (openCount !== 0) {
+                throw new Error('Unbalanced parentheses');
+            }
+
+            const count = parseInt(recipe.slice(i), 10) || 1;
+            i += count.toString().length;
+
+            let totalCount = 0;
+            subStack.forEach(item => {
+                totalCount += item.count;
+            });
+
+            stack.push({ tag: '', count: totalCount * count });
+        } else if (char === ')') {
+            throw new Error('Unbalanced parentheses');
+        } else if (/^\d$/.test(char)) {
+            throw new Error('Invalid repeat format');
+        } else if (/[a-z]/.test(char)) {
+            throw new Error('Item cannot start with a lowercase letter');
+        }
+    }
+
+    const result: { [tag: string]: number } = {};
+
+    stack.forEach(item => {
+        if (!result[item.tag]) {
+            result[item.tag] = 0;
+        }
+        result[item.tag] += item.count;
+    });
+
+    let output = '';
+    Object.keys(result).sort().forEach(tag => {
+        if (result[tag] > 1) {
+            output += `${tag}${result[tag]}`;
+        } else {
+            output += tag;
+        }
+    });
+
+    return output;
+}
+```

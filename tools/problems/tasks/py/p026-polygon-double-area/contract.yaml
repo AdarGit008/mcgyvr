@@ -1,0 +1,22 @@
+id: p026-polygon-double-area
+task_type: function_implementation
+task: >-
+  Implement polygon_double_area. The input is the vertex list of a simple
+  polygon on the integer lattice: each vertex is a pair [x, y] of integers,
+  the vertices are given in order around the boundary (clockwise or
+  counter-clockwise both occur), and the first vertex is NOT repeated at the
+  end. Return twice the enclosed area as a non-negative integer — doubling
+  keeps the answer exact on the lattice, so the unit square yields 2 and the
+  right triangle (0,0) (4,0) (0,3) yields 12. Orientation must not change
+  the answer, and a fully collinear vertex list encloses nothing and yields
+  0. Reject fewer than three vertices, a vertex that is not a pair of two
+  integers, two identical consecutive vertices, and a last vertex identical
+  to the first, all with an error.
+target: solution.py
+interface: "def polygon_double_area(vertices: list[list[int]]) -> int"
+stop_conditions:
+  - Whether a self-intersecting boundary must be detected is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

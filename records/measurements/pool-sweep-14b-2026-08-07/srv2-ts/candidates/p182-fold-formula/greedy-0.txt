@@ -1,0 +1,89 @@
+```ts
+export function foldFormula(recipe: string): string {
+  if (typeof recipe !== 'string') {
+    throw new Error('Invalid argument');
+  }
+  if (recipe.length === 0) {
+    throw new Error('Empty argument');
+  }
+
+  const tagPattern = /^[A-Z][a-z]{0,2}$/;
+  const repeatPattern = /^\d+$/;
+
+  interface Item {
+    body: string;
+    repeat: number;
+  }
+
+  function parseItem(input: string): [Item, string] {
+    if (input[0] === '(') {
+      let depth = 1;
+      let end = 1;
+      while (end < input.length && depth > 0) {
+        if (input[end] === '(') {
+          depth++;
+        } else if (input[end] === ')') {
+          depth--;
+        }
+        end++;
+      }
+      if (depth !== 0 || end === 1) {
+        throw new Error('Invalid parentheses');
+      }
+      const body = input.slice(1, end - 1);
+      const repeatMatch = input.slice(end).match(repeatPattern);
+      const repeat = repeatMatch ? parseInt(repeatMatch[0], 10) : 1;
+      return [{ body, repeat }, input.slice(end)];
+    } else {
+      const tagMatch = input.match(tagPattern);
+      if (!tagMatch) {
+        throw new Error('Invalid tag');
+      }
+      const tag = tagMatch[0];
+      const repeatMatch = input.slice(tag.length).match(repeatPattern);
+      const repeat = repeatMatch ? parseInt(repeatMatch[0], 10) : 1;
+      return [{ body: tag, repeat }, input.slice(tag.length + (repeatMatch ? repeatMatch[0].length : 0))];
+    }
+  }
+
+  function parseRecipe(input: string): Item[] {
+    const items: Item[] = [];
+    while (input.length > 0) {
+      const [item, rest] = parseItem(input);
+      items.push(item);
+      input = rest;
+    }
+    return items;
+  }
+
+  function tallyTags(items: Item[]): Record<string, number> {
+    const tally: Record<string, number> = {};
+    for (const item of items) {
+      if (item.body[0] === '(') {
+        const nestedItems = parseRecipe(item.body);
+        const nestedTally = tallyTags(nestedItems);
+        for (const [tag, count] of Object.entries(nestedTally)) {
+          tally[tag] = (tally[tag] || 0) + count * item.repeat;
+        }
+      } else {
+        tally[item.body] = (tally[item.body] || 0) + item.repeat;
+      }
+    }
+    return tally;
+  }
+
+  const items = parseRecipe(recipe);
+  const tally = tallyTags(items);
+
+  const sortedTags = Object.keys(tally).sort();
+  let result = '';
+  for (const tag of sortedTags) {
+    result += tag;
+    if (tally[tag] > 1) {
+      result += tally[tag];
+    }
+  }
+
+  return result;
+}
+```

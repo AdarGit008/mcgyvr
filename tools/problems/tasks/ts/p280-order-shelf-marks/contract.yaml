@@ -1,0 +1,26 @@
+id: p280-order-shelf-marks
+task_type: function_implementation
+task: >-
+  Implement orderShelfMarks. A shelf mark of the Marrow scheme is three
+  segments parted by single spaces: a stack, one to three capital letters; a
+  run, a whole number from 1 to 9999 bearing no leading zero, optionally
+  followed by a dot and one to four further digits which never finish on a
+  zero; and a cutter, one small letter trailed by one to three digits. Sort
+  the marks into shelf order and give them back. Marks stand ordered by stack,
+  letter against letter, a shorter stack preceding a longer one it opens; then
+  by the run's whole part taken as a number; then by the digits after the dot
+  read as a decimal fraction, so that .9 shelves after .14 while a run bearing
+  no dot at all shelves ahead of every run that has one; then by the cutter's
+  letter; and last by the cutter's digits read as a plain whole number, so
+  that m7 shelves ahead of m10. Reject with an error a batch that is not a
+  list, an empty batch, an entry that is not a string, an entry departing in
+  any way whatever from the shape described, and one and the same mark handed
+  over twice.
+target: solution.ts
+interface: "export function orderShelfMarks(marks: string[]): string[]"
+stop_conditions:
+  - Whether the input list may be reordered in place is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,22 @@
+```python
+def transcribe_runes(source: str, table: list[list[str]]) -> str:
+    if any(len(pattern) == 0 for pattern, _ in table):
+        raise ValueError("Pattern cannot be empty")
+    
+    transcription = []
+    pos = 0
+    
+    while pos < len(source):
+        matched = False
+        for pattern, output in table:
+            if source[pos:].startswith(pattern):
+                transcription.append(output)
+                pos += len(pattern)
+                matched = True
+                break
+        if not matched:
+            transcription.append(source[pos])
+            pos += 1
+    
+    return ''.join(transcription)
+```

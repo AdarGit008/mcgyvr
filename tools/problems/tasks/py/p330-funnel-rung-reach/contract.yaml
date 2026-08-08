@@ -1,0 +1,29 @@
+id: p330-funnel-rung-reach
+task_type: function_implementation
+task: >-
+  Implement funnel_rung_reach. A mark is a three-element list of an actor name,
+  a step name and an at, a whole number. The ladder argument gives the ordered
+  step names, all different and none of them empty; a mark naming a step
+  outside the ladder is ignored outright. An actor is credited with the first
+  rung when any mark of theirs names it, and with rung k when some run of that
+  actor's marks names the ladder's first k+1 steps in ladder order, each
+  mark's at strictly past the at before it, and the last of them lying no more
+  than window past the first. Nothing forces the run to begin at the actor's
+  earliest first-rung mark: any run of that actor's own marks counts, so an
+  actor whose early attempt runs out of the window may still be credited
+  through a later one. Report one two-element list per rung, the step name
+  followed by how many distinct actors are credited with it, in ladder order;
+  those counts never rise as the ladder descends. Raise an error when the
+  marks are not a list, when a mark is not a list of exactly three items, when
+  an actor or a step name is not a non-empty string, when an at is not a whole
+  number, when the ladder is not a list or holds nothing, when a ladder step
+  is not a non-empty string, when the ladder names one step twice, and when
+  window is not a whole number of zero or more.
+target: solution.py
+interface: "def funnel_rung_reach(marks, ladder, window) -> list"
+stop_conditions:
+  - Whether one actor may leave two marks sharing an at and a step is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

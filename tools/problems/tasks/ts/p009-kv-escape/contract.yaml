@@ -1,0 +1,32 @@
+id: p009-kv-escape
+task_type: bug_fix
+task: >-
+  encodePairs serializes key-value string pairs into one line, but it
+  corrupts exactly the strings escaping exists to protect. Fix it: each
+  pair becomes key=value, pairs are joined with the & character, and pair
+  order follows the input. Within every key and every value the three
+  special characters are escaped — % as %25, & as %26, = as %3D — and the
+  escaping must be reversible: every occurrence gets replaced, not just the
+  first, and a % that an escape itself just introduced is never escaped a
+  second time. An empty input list produces the empty string. Also add
+  validation: reject an empty key, and a key or value that is not a string,
+  with an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** One line of key=value pairs, joined by &. */
+  export function encodePairs(pairs: [string, string][]): string {
+    const parts: string[] = [];
+    for (const [key, value] of pairs) {
+      const k = key.replace("&", "%26").replace("=", "%3D").replace("%", "%25");
+      const v = value.replace("&", "%26").replace("=", "%3D").replace("%", "%25");
+      parts.push(k + "=" + v);
+    }
+    return parts.join("&");
+  }
+interface: "export function encodePairs(pairs: [string, string][]): string"
+stop_conditions:
+  - Whether duplicate keys are permitted is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

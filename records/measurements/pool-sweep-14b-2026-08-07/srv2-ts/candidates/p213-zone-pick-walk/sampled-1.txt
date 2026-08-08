@@ -1,0 +1,92 @@
+```ts
+/**
+ * One line per row of a zoned pick walk.
+ */
+export function zonePickWalk(plan: Record<string, unknown>): string[] {
+  if (typeof plan !== "object" || plan === null) {
+    throw new Error("plan must be a mapping");
+  }
+
+  const { zoneOrder, picks } = plan as any;
+
+  if (!Array.isArray(zoneOrder)) {
+    throw new Error("zoneOrder must be a list");
+  }
+  if (zoneOrder.length === 0) {
+    throw new Error("zoneOrder cannot be empty");
+  }
+  if (new Set(zoneOrder).size !== zoneOrder.length) {
+    throw new Error("zoneOrder must not repeat zones");
+  }
+  for (const zone of zoneOrder) {
+    if (typeof zone !== "string" || zone.trim() === "") {
+      throw new Error("zones in zoneOrder must be non-empty strings");
+    }
+  }
+
+  if (!Array.isArray(picks)) {
+    throw new Error("picks must be a list");
+  }
+  const pickMap = new Map<string, any[]>();
+  for (const pick of picks) {
+    if (typeof pick !== "object" || pick === null) {
+      throw new Error("each pick must be a mapping");
+    }
+    const { code, zone, row, slot } = pick as any;
+    if (
+      typeof code !== "string" ||
+      code.trim() === "" ||
+      pickMap.has(code)
+    ) {
+      throw new Error("code must be a non-empty string and unique");
+    }
+    if (typeof zone !== "string" || zone.trim() === "") {
+      throw new Error("zone must be a non-empty string");
+    }
+    if (!zoneOrder.includes(zone)) {
+      throw new Error(`pick names a zone not in zoneOrder: ${zone}`);
+    }
+    if (
+      typeof row !== "number" ||
+      !Number.isInteger(row) ||
+      row <= 0
+    ) {
+      throw new Error("row must be a positive whole number");
+    }
+    if (
+      typeof slot !== "number" ||
+      !Number.isInteger(slot) ||
+      slot <= 0
+    ) {
+      throw new Error("slot must be a positive whole number");
+    }
+
+    pickMap.set(code, { code, zone, row, slot });
+  }
+
+  const lines: string[] = [];
+  for (const zone of zoneOrder) {
+    const zonePicks = Array.from(pickMap.values()).filter(
+      (pick) => pick.zone === zone
+    );
+    if (zonePicks.length > 0) {
+      const rows = Array.from(new Set(zonePicks.map((pick) => pick.row))).sort(
+        (a, b) => a - b
+      );
+      let direction = 1; // 1 for up, -1 for down
+      for (const row of rows) {
+        const here = zonePicks.filter((pick) => pick.row === row);
+        here.sort((a, b) =>
+          direction * (b.slot - a.slot)
+        );
+        lines.push(
+          zone + "/" + row + ":" + here.map((pick) => pick.code).join("|")
+        );
+        direction *= -1; // Toggle direction
+      }
+    }
+  }
+
+  return lines;
+}
+```

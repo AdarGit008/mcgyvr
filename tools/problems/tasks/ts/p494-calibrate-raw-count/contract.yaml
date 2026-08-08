@@ -1,0 +1,30 @@
+id: p494-calibrate-raw-count
+task_type: function_implementation
+task: >-
+  Implement calibrateRawCount. A gauge is read through a breakpoint table. The
+  first argument is that table, a list of rows, each row a list of exactly two
+  whole numbers: a raw count, and the reading that count stands for. The table
+  holds at least two rows and its counts climb strictly from one row to the next,
+  while the readings may rise, fall or repeat freely and may sit below nought.
+  The second argument is the raw count to convert, a whole number. A count at or
+  below the first row's count reads as the first row's reading, and a count at or
+  above the last row's count reads as the last row's reading. Any other count
+  falls between two neighbouring rows and reads along the straight line joining
+  them, worked out in exact arithmetic and never in floating point. Give back
+  that reading written in lowest terms: a whole answer as its plain digits,
+  carrying a leading minus when it lies below nought; a fractional answer as the
+  numerator, then a solidus, then the denominator, with the sign carried on the
+  numerator and the denominator always above one; and an answer of nought as the
+  single character 0 and never with a minus in front of it. Raise an error when
+  the table is not a list, when it holds fewer than two rows, when a row is not a
+  list of exactly two entries, when a row entry or the raw count is not a whole
+  number, when a row entry or the raw count reaches beyond a million away from
+  nought, and when the counts fail to climb strictly from one row to the next.
+target: solution.ts
+interface: "export function calibrateRawCount(table: number[][], raw: number): string"
+stop_conditions:
+  - Whether a table row may repeat an earlier row's reading at the same count is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

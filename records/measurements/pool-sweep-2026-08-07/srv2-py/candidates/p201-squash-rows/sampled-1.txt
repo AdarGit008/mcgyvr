@@ -1,0 +1,49 @@
+```python
+"""A chart with its twin rows squashed together."""
+
+
+def squash_rows(chart: dict) -> dict:
+    if not chart["signals"]:
+        raise ValueError("Signal list is empty or repeats a signal.")
+    
+    rows = chart["rows"]
+    if not rows:
+        raise ValueError("No rows in the chart.")
+    
+    group_of = {}
+    chosen = []
+    seen = set()
+    
+    for row in rows:
+        if not isinstance(row["label"], str) or not row["label"]:
+            raise ValueError(f"Invalid label: {row['label']}")
+        if row["label"] in seen:
+            raise ValueError(f"Duplicate row label: {row['label']}")
+        seen.add(row["label"])
+        
+        if not isinstance(row["mark"], str) or not row["mark"]:
+            raise ValueError(f"Invalid mark: {row['mark']}")
+        
+        if len(row["next"]) != len(chart["signals"]):
+            raise ValueError(f"Incorrect number of next entries for row {row['label']}: {len(row['next'])}")
+        
+        key = row["mark"] + "|" + ",".join(row["next"])
+        if key not in seen:
+            seen.add(key)
+            chosen.append(row)
+        group_of[row["label"]] = len(chosen) - 1
+    
+    folded = [
+        {
+            "at": at,
+            "mark": row["mark"],
+            "next": [group_of[label] for label in row["next"]],
+        }
+        for at, row in enumerate(chosen)
+    ]
+    
+    if chart["head"] not in group_of:
+        raise ValueError(f"Head label {chart['head']} does not correspond to any row.")
+    
+    return {"entry": group_of[chart["head"]], "rows": folded}
+```

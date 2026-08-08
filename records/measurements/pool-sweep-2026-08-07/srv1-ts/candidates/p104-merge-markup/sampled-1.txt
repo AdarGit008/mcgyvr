@@ -1,0 +1,30 @@
+```ts
+export function mergeMarkup(spans: Array<{ start: number; end: number; tag: string }>): Array<[number, number, string]> {
+    if (spans.some(span => typeof span.start !== 'number' || typeof span.end !== 'number' || typeof span.tag !== 'string')) {
+        throw new Error('Invalid input');
+    }
+    if (spans.some(span => !Number.isInteger(span.start) || !Number.isInteger(span.end))) {
+        throw new Error('Start and end must be integers');
+    }
+    if (spans.some(span => span.start < 0 || span.start >= span.end)) {
+        throw new Error('Invalid start or end position');
+    }
+
+    const sortedSpans = spans.sort((a, b) => a.start - b.start);
+    const result: Array<[number, number, string]> = [];
+
+    for (const span of sortedSpans) {
+        if (result.length === 0 || result[result.length - 1][2] !== span.tag) {
+            result.push([span.start, span.end, span.tag]);
+        } else {
+            const lastSpan = result.pop()!;
+            if (lastSpan[1] >= span.start) {
+                throw new Error('Overlapping spans with different tags');
+            }
+            result.push([lastSpan[0], span.end, span.tag]);
+        }
+    }
+
+    return result;
+}
+```

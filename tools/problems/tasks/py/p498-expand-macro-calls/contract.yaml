@@ -1,0 +1,44 @@
+id: p498-expand-macro-calls
+task_type: function_implementation
+task: >-
+  Implement expand_macro_calls. The first argument is the macros, a list of
+  records each holding exactly the three keys name (lowercase letters and digits
+  opening with a letter, no two macros answering to one), arity (a whole number
+  from nought through nine) and body (a string). The second argument is the
+  source text and the third is the bound, a whole number above nought fixing how
+  deep expansion may nest. The source is walked once from the left. Two at signs
+  in a row stand for one literal at sign. An at sign followed by a macro name
+  opens a call: when an opening brace follows the name straight away, the call's
+  arguments run to the matching closing brace and are parted by vertical bars
+  standing at the outermost brace level, so braces may nest inside an argument
+  and a bar buried in them parts nothing; when no brace follows the name the call
+  carries no arguments at all, while a call written with an empty pair of braces
+  carries one argument, that being the empty string. An at sign followed by
+  anything else is refused, and so is a brace that is never closed. A call's
+  argument count must equal its macro's arity. The macro's body is then filled
+  in: two hashes in a row stand for one literal hash, a hash followed by a digit
+  stands for the argument in that place counting from one, and any other hash is
+  refused, as is a place the macro's arity does not reach. Argument text is
+  dropped into the body exactly as written and its own hashes are never looked
+  at. The filled-in body is then walked again the very same way, so a macro may
+  call macros, and each such walk sits one step deeper than the walk that
+  produced it. The source itself sits at depth nought, and any expansion that
+  would sit deeper than the bound is refused, which is what stops a macro calling
+  itself for ever. Everything outside a call, vertical bars and closing braces
+  and hashes included, is copied across untouched. Give back the fully walked
+  text. Raise an error when the macros are not a list, when a macro is not a
+  record, when its keys are not exactly those three, when a name is malformed,
+  when two macros answer to one name, when an arity is not whole or falls outside
+  nought through nine, when a body is not a string, when the source is not a
+  string, when the bound is not whole or falls below one, when the text calls a
+  macro that was never declared, when a call's argument count differs from the
+  arity, when a brace is never closed, when a stray at sign or a stray hash is
+  met, and when the expansion runs deeper than the bound.
+target: solution.py
+interface: "def expand_macro_calls(macros: list, source: str, bound: int) -> str"
+stop_conditions:
+  - Whether a macro body may be filled in and checked before any call reaches it is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

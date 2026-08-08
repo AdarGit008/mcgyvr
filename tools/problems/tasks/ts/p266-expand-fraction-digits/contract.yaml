@@ -1,0 +1,28 @@
+id: p266-expand-fraction-digits
+task_type: function_implementation
+task: >-
+  Implement expandFractionDigits. It writes out the exact value of
+  numerator over denominator in a chosen base, using only whole-number
+  arithmetic — nothing floating-point anywhere. The base runs from 3 to 20
+  and its glyphs are taken in order from "0123456789ABCDEFGHIJ", so the
+  quantity ten is the glyph A and nineteen is J. The written form is the
+  stem (the whole part of the magnitude, at least one glyph, never padded
+  with a leading zero), then a semicolon, then the glyphs after the point;
+  when the value is an exact whole the semicolon and everything after it are
+  left off altogether. Where the glyphs after the point run on forever, the
+  block that recurs is wrapped in square brackets and placed at the earliest
+  position it can start from, so one sixth in base ten is written 0;1[6] and
+  one seventh is written 0;[142857]; where they come to an end no brackets
+  appear at all. A negative quantity carries a single leading minus even
+  when its stem is a lone zero, and a quantity of nothing is written as the
+  bare glyph 0 with no sign. Reject with an error an argument that is not a
+  whole number, a base outside 3 through 20, a denominator that is not
+  positive, and a numerator magnitude or a denominator above one million.
+target: solution.ts
+interface: "export function expandFractionDigits(numerator: number, denominator: number, base: number): string"
+stop_conditions:
+  - Whether an exact whole may still be written with an empty tail is not stated beyond the examples given.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

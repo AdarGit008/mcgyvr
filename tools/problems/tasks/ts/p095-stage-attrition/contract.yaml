@@ -1,0 +1,77 @@
+id: p095-stage-attrition
+task_type: bug_fix
+task: >-
+  stageAttrition audits a measurement line. Each stage mapping has a "stage"
+  name, a "field", and numeric bounds "low" and "high", either of which may
+  be null for unbounded; a specimen record passes a stage when it carries
+  the field, the field holds a number, and that number lies within the
+  bounds inclusive. Specimens go through the stages in order and leave the
+  line at the first stage they fail. Return one [name, count] pair per
+  stage, in stage order, counting the specimens that left there, then a
+  final ["through", count] pair for those that passed everything. The
+  current code scores every stage against every specimen independently, so
+  one specimen can be counted as leaving at several stages and the counts
+  add up to more than the line received. Fix the attribution so a specimen
+  counts only at the first stage it fails, and keep rejecting with an error
+  an empty or repeated stage name, a stage named "through", and bounds
+  whose low exceeds high. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function stageAttrition(
+    specimens: Array<Record<string, unknown>>,
+    stages: Array<Record<string, unknown>>,
+  ): [string, number][] {
+    const seen = new Set<string>();
+    for (const stage of stages) {
+      const name = stage.stage;
+      if (typeof name !== "string" || name === "") {
+        throw new Error("stage name must be a non-empty string");
+      }
+      if (name === "through") {
+        throw new Error('a stage may not be named "through"');
+      }
+      if (seen.has(name)) {
+        throw new Error(`stage name repeated: ${name}`);
+      }
+      seen.add(name);
+      const low = stage.low as number | null;
+      const high = stage.high as number | null;
+      if (low !== null && high !== null && low > high) {
+        throw new Error("low exceeds high");
+      }
+    }
+    const fails = (specimen: Record<string, unknown>, stage: Record<string, unknown>): boolean => {
+      const value = specimen[stage.field as string];
+      if (typeof value !== "number") {
+        return true;
+      }
+      const low = stage.low as number | null;
+      const high = stage.high as number | null;
+      return (low !== null && value < low) || (high !== null && value > high);
+    };
+    const pairs: [string, number][] = [];
+    for (const stage of stages) {
+      let left = 0;
+      for (const specimen of specimens) {
+        if (fails(specimen, stage)) {
+          left += 1;
+        }
+      }
+      pairs.push([stage.stage as string, left]);
+    }
+    let through = 0;
+    for (const specimen of specimens) {
+      if (stages.every((stage) => !fails(specimen, stage))) {
+        through += 1;
+      }
+    }
+    pairs.push(["through", through]);
+    return pairs;
+  }
+interface: "export function stageAttrition(specimens: Array<Record<string, unknown>>, stages: Array<Record<string, unknown>>): [string, number][]"
+stop_conditions:
+  - Whether specimens may carry fields no stage reads is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

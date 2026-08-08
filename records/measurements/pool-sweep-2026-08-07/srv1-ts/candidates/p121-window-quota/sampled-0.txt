@@ -1,0 +1,37 @@
+```ts
+export function windowQuota(limit: number, width: number, calls: (string | number)[][]): string[] {
+  if (!Number.isInteger(width) || width <= 0) throw new Error("Width must be a positive integer");
+  if (!Number.isInteger(limit) || limit <= 0) throw new Error("Limit must be a positive integer");
+
+  const results: string[] = [];
+  const frameLimits: Map<number, Map<string, number>> = new Map();
+
+  for (const [time, name] of calls) {
+    if (typeof time !== 'number' || time < 0) throw new Error("Time must be a non-negative integer");
+    if (typeof name !== 'string' || name === '') throw new Error("Name must be a non-empty string");
+
+    const frameNumber = Math.floor(time / width);
+    let frameQuota = frameLimits.get(frameNumber);
+
+    if (!frameQuota) {
+      frameQuota = new Map();
+      frameLimits.set(frameNumber, frameQuota);
+    }
+
+    if (frameQuota.has(name)) {
+      const count = frameQuota.get(name)!;
+      if (count < limit) {
+        frameQuota.set(name, count + 1);
+        results.push("ok");
+      } else {
+        results.push("over");
+      }
+    } else {
+      frameQuota.set(name, 1);
+      results.push("ok");
+    }
+  }
+
+  return results;
+}
+```

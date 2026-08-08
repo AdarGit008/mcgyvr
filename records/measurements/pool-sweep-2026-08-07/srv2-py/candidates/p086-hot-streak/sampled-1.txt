@@ -1,0 +1,24 @@
+```python
+def hot_streak(scores: list, bar: int) -> list:
+    if not scores:
+        return [-1, 0]
+    
+    max_length = 0
+    max_start = -1
+    current_length = 0
+    current_start = -1
+    
+    for i, score in enumerate(scores):
+        if score > bar:
+            if current_start == -1:
+                current_start = i
+            current_length += 1
+            if current_length > max_length:
+                max_length = current_length
+                max_start = current_start
+        else:
+            current_length = 0
+            current_start = -1
+    
+    return [max_start, max_length]
+```

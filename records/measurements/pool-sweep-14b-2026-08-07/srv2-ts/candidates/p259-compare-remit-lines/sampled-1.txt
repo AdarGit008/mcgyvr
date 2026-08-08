@@ -1,0 +1,78 @@
+```ts
+/**
+ * Compares two lists of remittance lines and categorizes them into agreed, queried, ourSide, and theirSide.
+ * @param ours - List of [label, cents] pairs representing our remittance advice.
+ * @param theirs - List of [label, cents] pairs representing the counterparty's remittance advice.
+ * @returns A record with four lists: agreed, queried, ourSide, theirSide.
+ */
+export function compareRemitLines(ours: unknown[][], theirs: unknown[][]): { agreed: string[]; queried: string[]; ourSide: string[]; theirSide: string[] } {
+  // Helper function to validate a single remittance line
+  const validateLine = (line: unknown[]): [string, number] => {
+    if (!Array.isArray(line) || line.length !== 2) {
+      throw new Error("Invalid remittance line format");
+    }
+    const [label, cents] = line;
+    if (typeof label !== "string" || !label.trim()) {
+      throw new Error("Label must be a non-empty string");
+    }
+    if (!Number.isInteger(cents)) {
+      throw new Error("Amount must be a whole number");
+    }
+    return [label, cents];
+  };
+
+  // Validate and normalize input lists
+  const ourLines = ours.map(validateLine);
+  const theirLines = theirs.map(validateLine);
+
+  // Check for duplicate labels in each list
+  const checkForDuplicates = (lines: [string, number][]) => {
+    const labelSet = new Set<string>();
+    lines.forEach(([label]) => {
+      if (labelSet.has(label)) {
+        throw new Error("Duplicate label found");
+      }
+      labelSet.add(label);
+    });
+  };
+
+  checkForDuplicates(ourLines);
+  checkForDuplicates(theirLines);
+
+  // Separate labels into categories
+  const agreed: string[] = [];
+  const queried: string[] = [];
+  const ourSide: string[] = [];
+  const theirSide: string[] = [];
+
+  const ourLabels = new Set<string>(ourLines.map(([label]) => label));
+  const theirLabels = new Set<string>(theirLines.map(([label]) => label));
+
+  ourLines.forEach(([ourLabel, ourCents]) => {
+    if (theirLabels.has(ourLabel)) {
+      const theirCents = theirLines.find(([label]) => label === ourLabel)![1];
+      if (ourCents === theirCents) {
+        agreed.push(ourLabel);
+      } else {
+        queried.push(ourLabel);
+      }
+    } else {
+      ourSide.push(ourLabel);
+    }
+  });
+
+  theirLines.forEach(([theirLabel, theirCents]) => {
+    if (!ourLabels.has(theirLabel)) {
+      theirSide.push(theirLabel);
+    }
+  });
+
+  // Sort the results
+  agreed.sort();
+  queried.sort();
+  ourSide.sort();
+  theirSide.sort();
+
+  return { agreed, queried, ourSide, theirSide };
+}
+```

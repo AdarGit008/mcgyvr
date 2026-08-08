@@ -1,0 +1,24 @@
+```ts
+export function jarBalances(topup: number, lid: number, outflows: number[]): number[] {
+  if (!Number.isInteger(topup) || topup < 0 ||
+      !Number.isInteger(lid) || lid < 0 ||
+      !Array.isArray(outflows) || !outflows.every(Number.isInteger)) {
+    throw new Error("Invalid input");
+  }
+
+  const balances: number[] = [];
+  let balance = 0;
+
+  for (const outflow of outflows) {
+    if (outflow < 0) {
+      throw new Error("Negative outflow");
+    }
+    balance += topup;
+    balance -= outflow;
+    balance = Math.min(balance, lid);
+    balances.push(balance);
+  }
+
+  return balances;
+}
+```

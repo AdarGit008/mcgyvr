@@ -1,0 +1,48 @@
+```ts
+export function mergeMarkup(spans: Array<{ start: number; end: number; tag: string }>): Array<[number, number, string]> {
+  if (!Array.isArray(spans) || spans.length === 0) return [];
+
+  const validate = (span: { start: number; end: number; tag: string }) => {
+    if (
+      typeof span.start !== 'number' ||
+      typeof span.end !== 'number' ||
+      typeof span.tag !== 'string'
+    ) throw new Error('Invalid span format');
+    if (!Number.isInteger(span.start) || !Number.isInteger(span.end)) throw new Error('Start and end must be integers');
+    if (span.start < 0) throw new Error('Start cannot be negative');
+    if (!(typeof span.tag === 'string' && span.tag.length > 0)) throw new Error('Tag must be a non-empty string');
+    if (span.start >= span.end) throw new Error('End must be strictly greater than start');
+  };
+
+  spans.forEach(validate);
+
+  const merged: { [tag: string]: number[] } = {};
+
+  for (const span of spans) {
+    if (!merged[span.tag]) merged[span.tag] = [];
+    merged[span.tag].push(span.start, span.end);
+  }
+
+  for (const tag in merged) {
+    merged[tag].sort((a, b) => a - b);
+    let i = 0;
+    while (i < merged[tag].length - 2) {
+      if (merged[tag][i + 1] <= merged[tag][i + 2]) {
+        merged[tag].splice(i, 2);
+      } else {
+        i += 2;
+      }
+    }
+  }
+
+  const result: Array<[number, number, string]> = [];
+
+  for (const tag in merged) {
+    for (let i = 0; i < merged[tag].length; i += 2) {
+      result.push([merged[tag][i], merged[tag][i + 1], tag]);
+    }
+  }
+
+  return result.sort((a, b) => a[0] - b[0]);
+}
+```

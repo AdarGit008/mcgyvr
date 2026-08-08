@@ -1,0 +1,44 @@
+```python
+def can_hop(pond: list, origin: list, dest: list) -> bool:
+    if len(pond) != 5 or any(len(row) != 5 for row in pond):
+        raise ValueError("Pond must be a five-by-five grid of strings.")
+    
+    if not (isinstance(origin, list) and isinstance(dest, list)):
+        raise ValueError("Origin and destination must be lists of two integers each.")
+    
+    if len(origin) != 2 or any(not isinstance(x, int) for x in origin):
+        raise ValueError("Origin coordinates must be a pair of integers.")
+    
+    if len(dest) != 2 or any(not isinstance(x, int) for x in dest):
+        raise ValueError("Destination coordinates must be a pair of integers.")
+    
+    if not (0 <= origin[0] < 5 and 0 <= origin[1] < 5):
+        raise ValueError("Origin coordinates must be between 0 and 4.")
+    
+    if not (0 <= dest[0] < 5 and 0 <= dest[1] < 5):
+        raise ValueError("Destination coordinates must be between 0 and 4.")
+    
+    from_char = pond[origin[0]][origin[1]]
+    to_char = pond[dest[0]][dest[1]]
+    
+    if from_char == '.':
+        raise ValueError("Origin square must be occupied by a frog.")
+    
+    if to_char != '.':
+        raise ValueError("Destination square must be open water.")
+    
+    def is_adjacent(p1, p2):
+        return abs(p1[0] - p2[0]) + abs(p1[1] - p2[1]) == 1
+    
+    def is_vault(p1, p2):
+        mid = ((p1[0] + p2[0]) // 2, (p1[1] + p2[1]) // 2)
+        return is_adjacent(p1, mid) and pond[mid[0]][mid[1]] != '.' and is_adjacent(mid, p2)
+    
+    if is_adjacent(origin, dest):
+        return True
+    
+    if is_vault(origin, dest):
+        return True
+    
+    return False
+```

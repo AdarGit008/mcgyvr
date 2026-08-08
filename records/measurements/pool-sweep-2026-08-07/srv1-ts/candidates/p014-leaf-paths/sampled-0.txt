@@ -1,0 +1,38 @@
+```ts
+export function leafPaths(rows: [string, string][]): string[] {
+    const graph: { [id: string]: string[] } = {};
+    let rootId: string | null = null;
+
+    for (const [child, parent] of rows) {
+        if (child in graph) throw new Error('Duplicate node id');
+
+        if (parent === '') {
+            if (rootId !== null) throw new Error('Multiple root nodes');
+            rootId = child;
+        } else if (!(parent in graph)) {
+            throw new Error('Invalid parent id');
+        }
+
+        if (!graph[parent]) graph[parent] = [];
+        graph[parent].push(child);
+    }
+
+    if (rootId === null) throw new Error('No root node');
+
+    const paths: string[] = [];
+
+    function dfs(node: string, path: string): void {
+        if (!graph[node].length) {
+            paths.push(path + node);
+            return;
+        }
+        for (const child of graph[node]) {
+            dfs(child, path + node + '/');
+        }
+    }
+
+    dfs(rootId, '');
+
+    return paths.sort();
+}
+```

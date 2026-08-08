@@ -1,0 +1,31 @@
+```
+export function fillPlaceholders(
+  text: string,
+  slots: Record<string, string>
+): string {
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === "%" && i + 1 < text.length && text[i + 1] === "%") {
+      out += "%";
+      i += 2;
+    } else if (text[i] === "%") {
+      let j = i + 1;
+      while (j < text.length && text[j] !== "%") {
+        j++;
+      }
+      const name = text.slice(i, j);
+      if (j === text.length) {
+        throw new Error(`Unmatched '%' at index ${i}`);
+      } else if (!(name in slots)) {
+        throw new Error(`Unknown slot: '${name}'`);
+      }
+      out += slots[name];
+      i = j + 1;
+    } else {
+      out += text[i++];
+    }
+  }
+  return out;
+}
+```

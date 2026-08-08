@@ -1,0 +1,42 @@
+```ts
+export function sirenMinutes(events: Array<Record<string, unknown>>, horizon: number): Array<[string, number]> {
+  if (!Number.isInteger(horizon)) throw new Error("Horizon must be an integer.");
+  if (horizon < 0) throw new Error("Negative horizon is not allowed.");
+
+  const activeAlerts = new Map<string, { severity: number; timeRaised: number }>();
+  const result = new Map<string, number>();
+
+  events.sort((a, b) => (a.at as number) - (b.at as number));
+
+  for (const event of events) {
+    if (typeof event.at !== 'number' || typeof event.kind !== 'string') throw new Error("Invalid event format.");
+    if (event.kind !== "raise" && event.kind !== "clear") throw new Error("Invalid kind in event.");
+
+    const { at, id, channel, severity } = event;
+
+    if (at >= horizon) break;
+
+    if (event.kind === "raise") {
+      if (!id || !channel || typeof severity !== 'number') throw new Error("Malformed raise event.");
+      if (severity < 1 || severity > 5) throw new Error("Severity must be between 1 and 5.");
+
+      if (activeAlerts.has(id)) throw new Error(`Alert ${id} already raised.`);
+
+      activeAlerts.set(id, { severity, timeRaised: at });
+    } else {
+      if (!id) throw new Error("Malformed clear event.");
+
+      if (!activeAlerts.has(id)) throw new Error(`No alert with id ${id} to clear.`);
+      const alert = activeAlerts.get(id)!;
+      result.set(id, (result.get(id) || 0) + at - alert.timeRaised);
+      activeAlerts.delete(id);
+    }
+  }
+
+  for (const [id, alert] of activeAlerts) {
+    result.set(id, (result.get(id) || 0) + horizon - alert.timeRaised);
+  }
+
+  return Array.from(result.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

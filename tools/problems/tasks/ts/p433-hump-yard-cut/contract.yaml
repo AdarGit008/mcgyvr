@@ -1,0 +1,60 @@
+id: p433-hump-yard-cut
+task_type: bug_fix
+task: >-
+  classifyHumpCars makes up an outbound train and draws the classification
+  tracks in the wrong order. Repair it. The first argument is the cut going
+  over the hump, one entry per car in the order the cars are uncoupled and
+  let go, each entry a pair of two non-empty strings: the car's number and
+  the destination chalked on it. The second argument is the routing table, a
+  mapping from a destination to the number of the classification track that
+  destination is routed onto. A car whose destination the table does not
+  carry rolls into the rejection track instead. Cars reaching a
+  classification track stand behind whatever is already on it and are drawn
+  off in the order they arrived. Once the whole cut is over the hump the
+  outbound train is made up by drawing the tracks in ascending track number,
+  taking each track's cars in arrival order. The code below keeps its tracks
+  in a table it walks in the order the tracks were first used rather than in
+  track-number order, and it draws every track off backwards; both faults
+  must go. Add the checking it lacks as well: raise an error when the cut is
+  not a list, when the cut is empty, when an entry is not a pair of two
+  non-empty strings, when two cars carry the same number, when the routing
+  table is not a mapping, and when a track number in it is not a whole
+  number of one or more. Return a mapping under "train", the outbound car
+  numbers in order, and "unrouted", the numbers of the cars that rolled into
+  the rejection track, in hump order. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function classifyHumpCars(
+    cut: Array<[string, string]>,
+    table: Record<string, number>,
+  ): { train: string[]; unrouted: string[] } {
+    const tracks = new Map<number, string[]>();
+    const unrouted: string[] = [];
+    for (const entry of cut) {
+      const car = entry[0];
+      const chalked = entry[1];
+      const track = table[chalked];
+      if (track === undefined) {
+        unrouted.push(car);
+        continue;
+      }
+      if (!tracks.has(track)) {
+        tracks.set(track, []);
+      }
+      tracks.get(track).push(car);
+    }
+    const train: string[] = [];
+    for (const cars of tracks.values()) {
+      for (const car of [...cars].reverse()) {
+        train.push(car);
+      }
+    }
+    return { train, unrouted };
+  }
+interface: "export function classifyHumpCars(cut: Array<[string, string]>, table: Record<string, number>): { train: string[]; unrouted: string[] }"
+stop_conditions:
+  - Whether a car may be chalked with a destination whose track already holds cars from an earlier cut is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,56 @@
+```ts
+export function squashJournal(ops: (string | number)[][]): (string | number)[][] {
+  const store: Record<string, number> = {};
+  const keyHistory: Record<string, string[]> = {};
+
+  for (const op of ops) {
+    if (op.length < 2 || typeof op[0] !== 'string' || typeof op[1] !== 'string') {
+      throw new Error('Invalid operation');
+    }
+
+    const [operation, keyA, value] = op;
+    switch (operation) {
+      case 'put':
+        if (typeof value !== 'number' || value <= 0) {
+          throw new Error('Invalid put value');
+        }
+        store[keyA] = value;
+        keyHistory[keyA] ??= [];
+        keyHistory[keyA].push(keyA);
+        break;
+      case 'del':
+        if (!(keyA in store)) {
+          throw new Error('Key does not exist for delete');
+        }
+        delete store[keyA];
+        break;
+      case 'ren':
+        if (typeof op[2] !== 'string') {
+          throw new Error('Invalid rename key');
+        }
+        const keyB = op[2];
+        if (!(keyA in store)) {
+          throw new Error('Key does not exist for rename');
+        }
+        if (keyB in store) {
+          throw new Error('Target key already exists for rename');
+        }
+        store[keyB] = store[keyA];
+        delete store[keyA];
+        keyHistory[keyB] ??= [];
+        keyHistory[keyA]?.forEach(k => keyHistory[k].push(keyB));
+        break;
+      default:
+        throw new Error('Unknown operation');
+    }
+  }
+
+  const result: (string | number)[][] = [];
+  for (const [key, value] of Object.entries(store)) {
+    const lastEstablishedKey = keyHistory[key][0];
+    result.push(['put', lastEstablishedKey, value]);
+  }
+
+  return result;
+}
+```

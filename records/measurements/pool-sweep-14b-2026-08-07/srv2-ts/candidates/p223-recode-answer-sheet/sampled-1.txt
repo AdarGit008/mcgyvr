@@ -1,0 +1,101 @@
+```ts
+/**
+ * Codes a sheet of written-in answers against its ordered steps.
+ */
+export function recodeAnswerSheet(sheet: Record<string, unknown>): Record<string, unknown> {
+  if (typeof sheet !== 'object' || sheet === null) {
+    throw new Error('Invalid sheet format');
+  }
+
+  const steps = Array.isArray(sheet.steps) ? sheet.steps : [];
+  const entries = Array.isArray(sheet.entries) ? sheet.entries : [];
+
+  if (steps.length === 0 || entries.length === 0) {
+    throw new Error('Steps and entries must be non-empty lists');
+  }
+
+  const coded: { id: string, label: string }[] = [];
+  const loose: string[] = [];
+  const used = new Set<string>();
+  const labelsSet = new Set<string>();
+
+  for (const step of steps) {
+    if (typeof step !== 'object' || step === null) {
+      throw new Error('Invalid step format');
+    }
+
+    const label = step.label as string;
+    const wanted = Array.isArray(step.wanted) ? step.wanted : [];
+    const barred = Array.isArray(step.barred) ? step.barred : [];
+    const least = Number(step.least);
+
+    if (typeof label !== 'string' || label.trim() === '') {
+      throw new Error('Step label must be a non-empty string');
+    }
+
+    if (labelsSet.has(label)) {
+      throw new Error('Duplicate step labels are not allowed');
+    }
+
+    labelsSet.add(label);
+
+    if (!wanted.every(frag => typeof frag === 'string' && /^[a-z\s]+$/.test(frag) && frag.trim() !== '')) {
+      throw new Error('Wanted fragments must be non-empty strings with no capital letters and no repeats within the list');
+    }
+
+    if (!barred.every(frag => typeof frag === 'string' && /^[a-z\s]+$/.test(frag) && frag.trim() !== '')) {
+      throw new Error('Barred fragments must be non-empty strings with no capital letters');
+    }
+
+    if (isNaN(least) || least < 1 || least > wanted.length) {
+      throw new Error('Least must be a whole number in range from 1 to the length of wanted fragments');
+    }
+  }
+
+  const idsSet = new Set<string>();
+
+  for (const entry of entries) {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new Error('Invalid entry format');
+    }
+
+    const id = entry.id as string;
+    const text = String(entry.text);
+
+    if (typeof id !== 'string' || id.trim() === '') {
+      throw new Error('Entry ID must be a non-empty string');
+    }
+
+    if (idsSet.has(id)) {
+      throw new Error('Duplicate entry IDs are not allowed');
+    }
+
+    idsSet.add(id);
+
+    const foldedText = text.toLowerCase().replace(/\s+/g, ' ').trim();
+
+    let label = "";
+
+    for (const step of steps) {
+      const hits = step.wanted.filter((frag: string) => foldedText.includes(frag));
+      const bars = step.barred.some((frag: string) => foldedText.includes(frag));
+
+      if (hits.length >= step.least && !bars) {
+        label = step.label;
+        break;
+      }
+    }
+
+    if (label === "") {
+      loose.push(entry.id);
+    } else {
+      coded.push({ id: entry.id, label });
+      used.add(label);
+    }
+  }
+
+  const unused = steps
+    .map((step: any) => step.label)
+    .filter((label: string) => !used.has(label));
+
+  return { coded, loose, unused };

@@ -1,0 +1,48 @@
+```ts
+/**
+ * Packs fields into a single non-negative integer based on given widths and values.
+ * @param widths - An array of field widths in bits.
+ * @param values - An array of non-negative field values.
+ * @returns A single non-negative integer with fields packed in MSB order.
+ */
+export function packFields(widths: number[], values: number[]): number {
+  if (widths.length !== values.length) {
+    throw new Error("Widths and values arrays must be of equal length.");
+  }
+  if (widths.length === 0) {
+    throw new Error("Widths array cannot be empty.");
+  }
+
+  let totalWidth = 0;
+  for (let i = 0; i < widths.length; i++) {
+    const width = widths[i];
+    const value = values[i];
+
+    if (!Number.isInteger(width) || width < 1) {
+      throw new Error("Each width must be a positive integer.");
+    }
+    if (!Number.isInteger(value) || value < 0) {
+      throw new Error("Each value must be a non-negative integer.");
+    }
+    if (value >= (1 << width)) {
+      throw new Error("Value exceeds the bit width of its field.");
+    }
+
+    totalWidth += width;
+  }
+
+  if (totalWidth > 30) {
+    throw new Error("Combined width of all fields exceeds 30 bits.");
+  }
+
+  let result = 0;
+  for (let i = 0; i < widths.length; i++) {
+    const width = widths[i];
+    const value = values[i];
+    result <<= width;
+    result |= value;
+  }
+
+  return result;
+}
+```

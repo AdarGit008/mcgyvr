@@ -1,0 +1,48 @@
+```ts
+/**
+ * Parses a compact duration string into total seconds.
+ * @param input - A string representing time in "1h30m" format.
+ */
+export function parseDuration(input: string): number {
+  if (typeof input !== 'string' || input.length === 0) {
+    throw Error('Invalid input');
+  }
+
+  const unitMap: { [key: string]: number } = {
+    d: 86400, // seconds in a day
+    h: 3600,  // seconds in an hour
+    m: 60,    // seconds in a minute
+    s: 1      // seconds in a second
+  };
+
+  let totalSeconds = 0;
+  let prevUnitSize = Infinity;
+
+  const regex = /(\d+)([dhms])/g;
+  let match;
+
+  while ((match = regex.exec(input)) !== null) {
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    const unitSize = unitMap[unit];
+
+    if (isNaN(value) || unitSize === undefined) {
+      throw Error('Invalid input');
+    }
+
+    if (unitSize >= prevUnitSize) {
+      throw Error('Units must appear in strictly decreasing size');
+    }
+
+    totalSeconds += value * unitSize;
+    prevUnitSize = unitSize;
+  }
+
+  // Check for any remaining characters that don't match the regex
+  if (regex.lastIndex !== input.length) {
+    throw Error('Invalid input');
+  }
+
+  return totalSeconds;
+}
+```

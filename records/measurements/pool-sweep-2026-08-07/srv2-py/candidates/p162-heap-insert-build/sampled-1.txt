@@ -1,0 +1,16 @@
+```python
+def build_min_heap_by_insertion(values: list[int]) -> list[int]:
+    if not all(isinstance(x, int) for x in values):
+        raise ValueError("All elements must be integers")
+    
+    heap = []
+    for value in values:
+        heap.append(value)
+        i = len(heap) - 1
+        while i > 0 and heap[i] < heap[(i - 1) // 2]:
+            parent_index = (i - 1) // 2
+            heap[i], heap[parent_index] = heap[parent_index], heap[i]
+            i = parent_index
+    
+    return heap
+```

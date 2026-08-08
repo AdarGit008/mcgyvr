@@ -1,0 +1,61 @@
+```python
+def parse_invocation(catalogue: list[dict], tokens: list[str]) -> dict:
+    options = {}
+    operands = []
+    i = 0
+
+    while i < len(tokens):
+        token = tokens[i]
+        if token == "--":
+            i += 1
+            while i < len(tokens):
+                operands.append(tokens[i])
+                i += 1
+            break
+        elif "=" in token:
+            long_name, value = token.split("=", 1)
+            option = next((opt for opt in catalogue if opt["long"] == long_name), None)
+            if not option or option["kind"] != "single":
+                raise ValueError(f"Invalid inline value for {token}")
+            options[long_name] = value
+            i += 1
+        elif token.startswith("--"):
+            long_name = token[2:]
+            option = next((opt for opt in catalogue if opt["long"] == long_name), None)
+            if not option:
+                raise ValueError(f"Unknown option {token}")
+            if option["kind"] == "toggle":
+                options[long_name] = True
+            elif option["kind"] == "single":
+                i += 1
+                if i < len(tokens):
+                    options[long_name] = tokens[i]
+                else:
+                    raise ValueError(f"Missing value for {token}")
+            elif option["kind"] == "repeat":
+                while i + 1 < len(tokens) and not tokens[i + 1].startswith("--"):
+                    options[long_name] = tokens[i + 1]
+                    i += 2
+        elif token.startswith("-"):
+            alias = token[1:]
+            option = next((opt for opt in catalogue if opt.get("alias") == alias), None)
+            if not option:
+                raise ValueError(f"Unknown alias {token}")
+            if option["kind"] == "toggle":
+                options[option["long"]] = True
+            elif option["kind"] == "single":
+                i += 1
+                if i < len(tokens):
+                    options[option["long"]] = tokens[i]
+                else:
+                    raise ValueError(f"Missing value for {token}")
+            elif option["kind"] == "repeat":
+                while i + 1 < len(tokens) and not tokens[i + 1].startswith("--"):
+                    options[option["long"]] = tokens[i + 1]
+                    i += 2
+        else:
+            operands.append(token)
+            i += 1
+
+    return {"options": options, "operands": operands}
+```

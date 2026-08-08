@@ -1,0 +1,26 @@
+id: p422-ladder-token-walk
+task_type: function_implementation
+task: >-
+  Implement walk_ladder_board. One counter travels a track of numbered squares,
+  1 through size, and begins resting on square 1. The chutes argument lists
+  [mouth, exit] pairs: a counter coming to rest on a mouth square is carried
+  at once to that pair's exit, which may sit ahead of the mouth or behind it.
+  The pushes argument gives, in order, how many squares each push advances the
+  counter. A push whose arrival would land beyond square size is forfeit and
+  the counter does not budge, though later pushes still happen. A carry never
+  sets off a second carry, because no exit is ever a mouth. The moment the
+  counter rests on square size the track is finished and every push still
+  waiting is skipped. Return the square the counter finishes on. Raise an
+  error for a size that is not a whole number or is under 2, a pair that is
+  not two whole numbers, a mouth or exit outside 1 through size, a mouth equal
+  to its own exit, a mouth sitting on square 1 or on square size, two pairs
+  sharing one mouth, an exit that is some pair's mouth, and a push that is not
+  a whole number above zero.
+target: solution.py
+interface: "def walk_ladder_board(size: int, chutes: list[list[int]], pushes: list[int]) -> int"
+stop_conditions:
+  - Whether two pairs may share one exit is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

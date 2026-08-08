@@ -1,0 +1,81 @@
+```ts
+export function fitGridWords(slots: Array<Record<string, unknown>>, words: string[]): Record<string, unknown> {
+  if (!Array.isArray(slots) || slots.length === 0) {
+    throw new Error("Slots must be a non-empty list.");
+  }
+
+  const slotMap = new Map<string, { row: number; col: number; run: "across" | "down"; len: number }>();
+  const grid: (string | null)[][] = [];
+  const placed: { slot: string; word: string }[] = [];
+  let stuck = "";
+
+  slots.forEach(slot => {
+    if (typeof slot !== 'object' || slot === null) {
+      throw new Error("Each slot must be a mapping.");
+    }
+
+    const id = String(slot.id);
+    const row = Number(slot.row);
+    const col = Number(slot.col);
+    const run = String(slot.run);
+    const len = Number(slot.len);
+
+    if (id.trim() === "" || slotMap.has(id)) {
+      throw new Error("Each slot must have a unique non-empty string id.");
+    }
+    if (!Number.isInteger(row) || row < 0 || !Number.isInteger(col) || col < 0) {
+      throw new Error("Row and column must be whole numbers of nought or more.");
+    }
+    if (run !== "across" && run !== "down") {
+      throw new Error('Run must be either "across" or "down".');
+    }
+    if (!Number.isInteger(len) || len < 2) {
+      throw new Error("Length must be a whole number of two or more.");
+    }
+
+    slotMap.set(id, { row, col, run, len });
+
+    for (let i = 0; i < len; i++) {
+      if (!grid[row]) {
+        grid[row] = [];
+      }
+      if (!grid[row][col + (run === "across" ? i : 0)]) {
+        grid[row][col + (run === "across" ? i : 0)] = null;
+      }
+    }
+  });
+
+  const wordSet = new Set<string>();
+  words.forEach(word => {
+    if (typeof word !== 'string' || !/^[a-z]+$/.test(word) || wordSet.has(word)) {
+      throw new Error("Each word must be a non-empty string of lowercase letters a to z, and not repeated.");
+    }
+    wordSet.add(word);
+  });
+
+  const wordsArray = Array.from(wordSet);
+
+  slotMap.forEach((slot, id) => {
+    const { row, col, run, len } = slot;
+    let foundWord = false;
+
+    for (let i = 0; i < wordsArray.length; i++) {
+      const word = wordsArray[i];
+      if (word.length !== len) continue;
+
+      let canPlace = true;
+      for (let j = 0; j < len; j++) {
+        const existingChar = grid[row + (run === "down" ? j : 0)][col + (run === "across" ? j : 0)];
+        if (existingChar !== null && existingChar !== word[j]) {
+          canPlace = false;
+          break;
+        }
+      }
+
+      if (canPlace) {
+        for (let j = 0; j < len; j++) {
+          grid[row + (run === "down" ? j : 0)][col + (run === "across" ? j : 0)] = word[j];
+        }
+        placed.push({ slot: id, word });
+        wordsArray.splice(i, 1);
+        foundWord =

@@ -1,0 +1,40 @@
+import assert from "node:assert/strict";
+import { countWorkingDays } from "./solution.ts";
+
+assert.equal(countWorkingDays("2024-03-04", "2024-03-08", [5, 6], []), 5, "a plain Monday-to-Friday week");
+assert.equal(countWorkingDays("2024-03-04", "2024-03-10", [5, 6], []), 5, "the two closed days drop out");
+assert.equal(countWorkingDays("2024-03-04", "2024-03-10", [], []), 7, "an empty weekend leaves every day worked");
+assert.equal(countWorkingDays("2024-03-04", "2024-03-08", [5, 6], ["2024-03-06"]), 4, "a shut date inside the span");
+assert.equal(countWorkingDays("2024-03-04", "2024-03-08", [5, 6], ["2024-03-15"]), 5, "a shut date outside the span is passed over");
+assert.equal(countWorkingDays("2024-03-04", "2024-03-10", [5, 6], ["2024-03-09"]), 5, "a shut date on a closed day is not deducted twice");
+assert.equal(countWorkingDays("2024-03-09", "2024-03-09", [5, 6], []), 0, "one closed day alone works nothing");
+assert.equal(countWorkingDays("2024-03-08", "2024-03-08", [5, 6], []), 1, "one open day alone works one");
+assert.equal(countWorkingDays("2024-02-01", "2024-02-29", [5, 6], []), 21, "a leap February");
+assert.equal(countWorkingDays("2023-02-01", "2023-02-28", [5, 6], []), 20, "the same month a year earlier");
+assert.equal(countWorkingDays("2024-03-01", "2024-03-31", [0, 1, 2, 3, 4, 5], []), 5, "six closed days leave only the Sundays");
+assert.equal(countWorkingDays("2024-01-01", "2024-12-31", [5, 6], []), 262, "a whole leap year");
+assert.equal(countWorkingDays("2024-03-04", "2024-03-08", [5, 6], ["2024-03-05", "2024-03-07"]), 3, "two shut dates in one week");
+assert.equal(countWorkingDays("1900-01-01", "1900-01-31", [5, 6], []), 23, "a month at the low end of the range");
+assert.equal(countWorkingDays("2024-12-30", "2025-01-03", [5, 6], ["2025-01-01"]), 4, "a span crossing the turn of the year");
+
+const rejects = (opening, closing, weekend, holidays) => {
+  try {
+    countWorkingDays(opening, closing, weekend, holidays);
+  } catch {
+    return true;
+  }
+  return false;
+};
+
+assert.ok(rejects("2024-03-08", "2024-03-04", [5, 6], []), "a closing date behind the opening one is refused");
+assert.ok(rejects("2024-3-08", "2024-03-04", [5, 6], []), "a date that is not zero-padded is refused");
+assert.ok(rejects("2023-02-29", "2023-03-01", [5, 6], []), "the 29th of a plain February is refused");
+assert.ok(rejects("1899-12-31", "1900-01-01", [5, 6], []), "a year below 1900 is refused");
+assert.ok(rejects("2024-13-01", "2024-13-02", [5, 6], []), "a month above 12 is refused");
+assert.ok(rejects("2024-03-04", "2024-03-08", [5, 5], []), "a weekend naming a day twice is refused");
+assert.ok(rejects("2024-03-04", "2024-03-08", [0, 1, 2, 3, 4, 5, 6], []), "a weekend of all seven days is refused");
+assert.ok(rejects("2024-03-04", "2024-03-08", [7], []), "a weekday number above 6 is refused");
+assert.ok(rejects("2024-03-04", "2024-03-08", [5, 6], ["2024-03-05", "2024-03-05"]), "a shut date named twice is refused");
+assert.ok(rejects("2024-03-04", "2024-03-08", [5, 6], ["not-a-date"]), "a malformed shut date is refused");
+assert.ok(rejects("1900-01-01", "2999-12-31", [5, 6], []), "a span longer than forty thousand days is refused");
+console.log("ok");

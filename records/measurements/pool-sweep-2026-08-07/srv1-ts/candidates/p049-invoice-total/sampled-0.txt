@@ -1,0 +1,23 @@
+```ts
+export function invoiceTotal(lines: { qty: number; unit: number; discount: number }[], rate: number): { subtotal: number; tax: number; total: number } {
+    if (lines.length === 0) throw new Error("Empty line list");
+    
+    const subtotal = lines.reduce((acc, line) => {
+        if (!Number.isInteger(line.qty) || line.qty <= 0) throw new Error("Invalid quantity");
+        if (!Number.isInteger(line.unit) || line.unit < 0) throw new Error("Invalid unit price");
+        if (!Number.isInteger(line.discount) || line.discount < 0 || line.discount > 10000) throw new Error("Invalid discount rate");
+        
+        const gross = line.qty * line.unit;
+        const rebate = Math.round((gross * line.discount) / 10000);
+        const net = gross - rebate;
+        return acc + net;
+    }, 0);
+
+    if (!Number.isInteger(rate) || rate < 0 || rate > 10000) throw new Error("Invalid tax rate");
+
+    const tax = Math.round((subtotal * rate) / 10000);
+    const total = subtotal + tax;
+
+    return { subtotal, tax, total };
+}
+```

@@ -1,0 +1,32 @@
+```python
+def merge_three_way(base: dict, ours: dict, theirs: dict) -> dict:
+    if not all(isinstance(v, str) for v in base.values()) or \
+       not all(isinstance(v, str) for v in ours.values()) or \
+       not all(isinstance(v, str) for v in theirs.values()):
+        raise ValueError("All values must be strings")
+
+    merged = {}
+    conflicts = {}
+
+    keys = sorted(set(base.keys()).union(ours.keys(), theirs.keys()))
+
+    for key in keys:
+        if key not in base and ours.get(key) == theirs.get(key):
+            merged[key] = ours.get(key)
+        elif key in base and ours.get(key) is None and theirs.get(key) is None:
+            pass
+        elif (key in base and ours.get(key) == base[key]) or \
+             (key in base and theirs.get(key) == base[key]):
+            if key in ours and key in theirs and ours[key] != theirs[key]:
+                conflicts[key] = base[key]
+            else:
+                merged[key] = base[key]
+        elif ours.get(key) is not None and theirs.get(key) is not None and ours[key] != theirs[key]:
+            conflicts[key] = base[key]
+        elif ours.get(key) is not None:
+            merged[key] = ours[key]
+        else:
+            merged[key] = theirs[key]
+
+    return {"merged": merged, "conflicts": conflicts}
+```

@@ -1,0 +1,19 @@
+```typescript
+export function backoffSchedule(base: number, factor: number, cap: number, attempts: number): number[] {
+  if (!Number.isInteger(base) || base < 1) throw new Error('Base must be a whole number of one or more');
+  if (!Number.isInteger(factor) || factor < 1) throw new Error('Factor must be a whole number of one or more');
+  if (!Number.isInteger(cap) || cap < base) throw new Error('Cap must be a whole number and not smaller than base');
+  if (!Number.isInteger(attempts) || attempts < 1) throw new Error('Attempts must be a whole number of one or more');
+
+  const result: number[] = [];
+  let currentBackoff = base;
+
+  for (let i = 0; i < attempts; i++) {
+    result.push(currentBackoff);
+    if (i > 0) currentBackoff *= factor;
+    if (currentBackoff > cap) currentBackoff = cap;
+  }
+
+  return result;
+}
+```

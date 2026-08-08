@@ -1,0 +1,47 @@
+```ts
+
+export function repairReplicas(replicas: Array<Array<number | null>>): number[] {
+  if (replicas.length === 0) {
+    throw new Error("Replica list cannot be empty.");
+  }
+
+  const replicaLength = replicas[0].length;
+  if (!replicas.every(replica => replica.length === replicaLength)) {
+    throw new Error("All replicas must have the same length.");
+  }
+
+  const result: number[] = [];
+
+  for (let i = 0; i < replicaLength; i++) {
+    const values: number[] = [];
+    const nullCount = replicas.reduce((count, replica) => {
+      const value = replica[i];
+      if (value !== null) {
+        values.push(value);
+      }
+      return count + (value === null ? 1 : 0);
+    }, 0);
+
+    if (values.length === 0 || nullCount > replicas.length / 2) {
+      throw new Error("A position is lost in every replica or no value reaches a strict majority.");
+    }
+
+    const majorityValue = findMajority(values);
+    result.push(majorityValue);
+  }
+
+  return result;
+}
+
+function findMajority(values: number[]): number {
+  if (values.length === 0) {
+    throw new Error("No values to determine majority from.");
+  }
+
+  values.sort((a, b) => a - b);
+  const middleIndex = Math.floor(values.length / 2);
+
+  return values[middleIndex];
+}
+
+```

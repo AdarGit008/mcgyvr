@@ -1,0 +1,33 @@
+id: p178-commit-index
+task_type: function_implementation
+task: >-
+  Implement commitIndex. A leader keeps a log whose entries are numbered
+  from one; the first argument lists the term stamped on each entry, and
+  terms never fall as the log grows. The second argument gives, for each
+  follower, the number of the highest entry that follower has copied, with
+  zero meaning it holds nothing yet; the leader itself holds every entry and
+  is not listed among them. The third argument is the term the leader is
+  serving now, and no entry may be stamped above it. A quorum is more than
+  half of the cluster, meaning the followers together with the leader.
+  Return a record of three fields. commit is the highest entry number that
+  both bears the leader's current term and has been copied by a quorum,
+  the leader counting as a copier of everything, and is zero when no entry
+  qualifies. safe is the highest entry number that has been committed and
+  that every single follower has also copied — the point up to which a
+  snapshot may discard entries — so it falls to zero when some follower
+  holds nothing, and it equals commit when the leader has no followers at
+  all. behind lists the positions of the followers whose copied number sits
+  below commit, in the order the followers were given. Raise an error when
+  either list is not a list, when a term is not a whole number of one or
+  more, when a term falls below the term before it, when a term sits above
+  the leader's current term, when a copied number is not a whole number
+  between zero and the log's length, and when the current term is not a
+  whole number of one or more.
+target: solution.ts
+interface: "export function commitIndex(log: number[], matches: number[], currentTerm: number): { commit: number; safe: number; behind: number[] }"
+stop_conditions:
+  - Whether a follower may report a copied number it later loses is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

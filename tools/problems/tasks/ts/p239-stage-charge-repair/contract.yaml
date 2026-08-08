@@ -1,0 +1,87 @@
+id: p239-stage-charge-repair
+task_type: bug_fix
+task: >-
+  chargeStages bills a pipeline's runtime and lets far too much of it go
+  free. Repair it. Each stage record carries name (a non-empty string, no
+  two alike) and tries (a non-empty list of attempt records in the order
+  they ran, each with secs, a whole number of zero or more, and code, one of
+  done, soft and hard). A soft code is a passing wobble the operator eats;
+  done and hard each finish a stage where they stand, so no attempt may
+  follow either. The second argument, forgive, is a whole number of zero or
+  more saying how many soft attempts a stage gets on the house, counted from
+  that stage's first soft attempt onward and reckoned for each stage
+  entirely on its own. A stage's wall is the sum of every attempt's secs.
+  Its billed figure is every done attempt and every hard attempt in full,
+  plus in full every soft attempt beyond the forgiven ones. Return one
+  record per stage in the order given, carrying name, wall, billed and free,
+  where free is wall less billed. Today's code hands back every soft second
+  and every hard second alike, and never so much as reads forgive. Leave the
+  existing checks in place: they reject a bad name, a repeated name, a
+  missing or empty try list, a secs below zero or not whole, an unknown
+  code, an attempt standing after a done or a hard, and a forgive below
+  zero.
+target: solution.ts
+target_content: |
+  const CODES = new Set(["done", "soft", "hard"]);
+
+  export function chargeStages(stages: any[], forgive: number): any[] {
+    if (!Number.isInteger(forgive) || forgive < 0) {
+      throw new Error("forgive must be a whole number of zero or more");
+    }
+    if (!Array.isArray(stages)) {
+      throw new Error("the pipeline must be a list of stage records");
+    }
+    const seen = new Set<string>();
+    for (const stage of stages) {
+      if (stage === null || typeof stage !== "object" || Array.isArray(stage)) {
+        throw new Error("each stage must be a record");
+      }
+      if (typeof stage.name !== "string" || stage.name === "") {
+        throw new Error("a stage name must be a non-empty string");
+      }
+      if (seen.has(stage.name)) {
+        throw new Error("repeated stage name: " + stage.name);
+      }
+      seen.add(stage.name);
+      const tries = stage.tries;
+      if (!Array.isArray(tries) || tries.length === 0) {
+        throw new Error(stage.name + " ran no attempts");
+      }
+      for (let i = 0; i < tries.length; i++) {
+        const attempt = tries[i];
+        if (attempt === null || typeof attempt !== "object") {
+          throw new Error("each attempt must be a record");
+        }
+        if (!Number.isInteger(attempt.secs) || attempt.secs < 0) {
+          throw new Error("secs must be a whole number of zero or more");
+        }
+        if (!CODES.has(attempt.code)) {
+          throw new Error("unknown attempt code in " + stage.name);
+        }
+        if (i > 0 && tries[i - 1].code !== "soft") {
+          throw new Error(stage.name + " ran on after it had finished");
+        }
+      }
+    }
+
+    const bills: any[] = [];
+    for (const stage of stages) {
+      let wall = 0;
+      let billed = 0;
+      for (const attempt of stage.tries) {
+        wall += attempt.secs;
+        if (attempt.code === "done") {
+          billed += attempt.secs;
+        }
+      }
+      bills.push({ name: stage.name, wall, billed, free: wall - billed });
+    }
+    return bills;
+  }
+interface: "export function chargeStages(stages: any[], forgive: number): any[]"
+stop_conditions:
+  - Whether an unused forgiveness carries over to the next stage is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

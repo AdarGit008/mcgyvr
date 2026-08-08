@@ -1,0 +1,31 @@
+id: p357-open-sweep-cascade
+task_type: function_implementation
+task: >-
+  Implement openSweepCascade. The board is a list of one or more lines,
+  each a non-empty string built from a star for a bomb and a dash for bare
+  ground, all lines of one length. The origin is a pair [line, spot] naming
+  where the sweep starts, both counted from zero. Bare ground that is
+  opened shows one digit, the tally of bombs among the up to eight squares
+  around it, corners included. Opening a square whose tally is zero also
+  opens every square around it, and that same rule then applies to each
+  freshly opened square whose tally is also zero; a square whose tally is
+  above zero is opened but carries the spread no further. Bombs are never
+  opened by the spread. Should the origin itself sit on a bomb the sweep is
+  struck: that one square is marked with an exclamation mark, nothing is
+  opened, and the spread never starts. Return a record under three keys:
+  view, the board redrawn with a digit on every opened square, a question
+  mark on every square still shut and an exclamation mark on a struck bomb;
+  opened, how many squares ended up showing a digit; and struck, true only
+  when the origin sat on a bomb. Throw an error when the board is not a
+  list, when it holds no lines, when a line is not a string, when a line is
+  empty, when the lines differ in length, when a symbol is neither a star
+  nor a dash, when the origin is not a pair of whole numbers, and when the
+  origin falls off the board.
+target: solution.ts
+interface: "export function openSweepCascade(board: string[], origin: number[]): { view: string[]; opened: number; struck: boolean }"
+stop_conditions:
+  - Whether a board tall enough to overflow a recursive spread must be walked another way is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

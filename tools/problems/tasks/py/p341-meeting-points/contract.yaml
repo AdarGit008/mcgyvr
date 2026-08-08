@@ -1,0 +1,26 @@
+id: p341-meeting-points
+task_type: function_implementation
+task: >-
+  Implement meeting_points. Two counters tick along ladders of their own: the
+  first lands on startA, then startA plus strideA, then startA plus two
+  strides, and onward without end; the second does the same from startB with
+  strideB. Give back the first count values both counters land on, in rising
+  order, and give back an empty list where the counters never land together or
+  where count is nothing. Two ladders share a landing exactly when the
+  difference of their starts divides evenly by the greatest common divisor of
+  their strides, and the shared landings then form a ladder of their own whose
+  stride is the least common multiple of the two. Reach the earliest shared
+  landing by arithmetic rather than by walking either counter forward a rung
+  at a time, and bear in mind that a landing must sit at or beyond both
+  starts. Everything is exact whole-number work. Reject with an error a start
+  that is not a whole number from 0 through 1000000, a stride that is not a
+  whole number from 1 through 100000, and a count that is not a whole number
+  from 0 through 20.
+target: solution.py
+interface: "def meeting_points(start_a: int, stride_a: int, start_b: int, stride_b: int, count: int) -> list"
+stop_conditions:
+  - Whether the caller wants to know that landings exist when count is nothing is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

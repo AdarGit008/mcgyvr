@@ -1,0 +1,90 @@
+```ts
+/**
+ * Decodes a single escape sequence in the form of ~XX where XX is a two-digit hex number.
+ * @param escaped - The string with the escape sequence to decode.
+ * @returns The decoded character or the original string if decoding fails.
+ */
+function decodeEscape(escaped: string): string {
+  const match = escaped.match(/^~([2-7][0-9A-F])$/);
+  if (match) {
+    return String.fromCharCode(parseInt(match[1], 16));
+  }
+  return escaped;
+}
+
+/**
+ * Encodes a single character to its escape sequence if necessary.
+ * @param char - The character to encode.
+ * @returns The encoded character or the original character if no encoding is needed.
+ */
+function encodeChar(char: string): string {
+  const code = char.charCodeAt(0);
+  if (code === 58) return '~3A'; // Colon
+  if (code === 59) return '~3B'; // Semicolon
+  if (code === 126) return '~7E'; // Tilde
+  if (code >= 32 && code <= 126) return char;
+  throw new Error('Invalid character in query');
+}
+
+/**
+ * Parses a tag query into an array of key-value pairs.
+ * @param text - The raw tag query string.
+ * @returns An array of key-value pairs.
+ */
+function parseTagQuery(text: string): [string, string][] {
+  if (typeof text !== 'string') throw new Error('Invalid argument type');
+  
+  const items = text.split(';').map(item => item.trim());
+  const parsedItems: [string, string][] = [];
+
+  for (const item of items) {
+    const parts = item.split(':');
+    if (parts.length !== 2) throw new Error('Item must contain exactly one colon');
+    const [key, value] = parts.map(decodeEscape);
+
+    if (!key) throw new Error('Key cannot be empty');
+    parsedItems.push([key, value]);
+  }
+
+  return parsedItems;
+}
+
+/**
+ * Sorts and deduplicates the parsed tag query items.
+ * @param items - The array of key-value pairs to sort and deduplicate.
+ * @returns A sorted and deduplicated array of key-value pairs.
+ */
+function sortAndDeduplicate(items: [string, string][]): [string, string][] {
+  const seen = new Set<string>();
+  return items
+    .sort(([key1, value1], [key2, value2]) => {
+      if (key1 === key2) return value1.localeCompare(value2);
+      return key1.localeCompare(key2);
+    })
+    .filter(([key, value]) => {
+      const combined = `${key}:${value}`;
+      if (seen.has(combined)) return false;
+      seen.add(combined);
+      return true;
+    });
+}
+
+/**
+ * Encodes and joins the sorted and deduplicated items back into a query string.
+ * @param items - The sorted and deduplicated array of key-value pairs.
+ * @returns The encoded tag query string.
+ */
+function encodeTagQuery(items: [string, string][]): string {
+  return items.map(([key, value]) => `${encodeChar(key)}:${value.split('').map(encodeChar).join('')}`).join(';');
+}
+
+/**
+ * Converts a raw tag query into its canonical form.
+ * @param text - The raw tag query string.
+ * @returns The canonical tag query string.
+ */
+export function canonicalTagQuery(text: string): string {
+  if (typeof text !== 'string') throw new Error('Invalid argument type');
+
+  const parsedItems = parseTagQuery(text);
+  const sortedItems = sortAndD

@@ -1,0 +1,74 @@
+id: p457-scan-tape-label
+task_type: bug_fix
+task: >-
+  scan_tape_label reads the label at the front of a tape image. The argument is a
+  list of byte values, whole numbers from 0 through 255. The first two bytes are
+  the marker and must be 212 then 79. The third byte is the major shape, and only
+  1 and 2 are known. The fourth byte is the record width in bytes and must be at
+  least one. The fifth byte says how many records follow. A shape-one label stops
+  there, so it is five bytes long. A shape-two label goes on with a sixth byte
+  counting the extra table's entries, then that many entries of three bytes each:
+  a kind byte and then a value in two bytes, the weightier first. Entry kinds must
+  climb strictly, so no kind repeats and none trails a larger one. A shape-two
+  label is therefore six bytes plus three for every entry. Everything past the
+  label is the run of records, and the count of bytes there must be exactly the
+  record count times the record width. Give back a record whose major and minor
+  are the third and fourth bytes, whose records is the fifth, and whose extras is
+  a list holding, for each entry in the table's own order, a pair of the kind byte
+  and the two-byte value, an empty list under shape one. The code below measures
+  the run of records from a fixed six bytes under shape two, forgetting that the
+  extra table's own bytes sit in front of the records. Repair that, keep raising
+  an error when the argument is not a list, when an element is not a whole number
+  from 0 through 255, when the run is shorter than the fixed part, when the marker
+  is wrong, when the major shape is unknown, when the record width is nought, when
+  a shape-two run ends before the extra count or inside the extra table, when the
+  kinds do not climb, and when the bytes past the label are not the run of records
+  promised, and return the complete fixed file.
+target: solution.py
+target_content: |
+  def scan_tape_label(bytes_in: list) -> dict:
+      if not isinstance(bytes_in, list):
+          raise ValueError("bytes must be a list")
+      for byte in bytes_in:
+          if not isinstance(byte, int) or isinstance(byte, bool) or byte < 0 or byte > 255:
+              raise ValueError("every byte must be a whole number from 0 through 255")
+      if len(bytes_in) < 5:
+          raise ValueError("the run is too short for the fixed part of the label")
+      if bytes_in[0] != 212 or bytes_in[1] != 79:
+          raise ValueError("the two opening bytes are not this label's marker")
+      major = bytes_in[2]
+      if major not in (1, 2):
+          raise ValueError(f"major {major} is not a shape this reader knows")
+      minor = bytes_in[3]
+      if minor < 1:
+          raise ValueError("the record width must be at least one byte")
+      records = bytes_in[4]
+
+      header_length = 5
+      extras: list[list[int]] = []
+      if major == 2:
+          if len(bytes_in) < 6:
+              raise ValueError("the run ends before the extra count")
+          count = bytes_in[5]
+          header_length = 6 + 3 * count
+          if len(bytes_in) < header_length:
+              raise ValueError("the run ends inside the extra table")
+          last = -1
+          for index in range(count):
+              at = 6 + 3 * index
+              kind = bytes_in[at]
+              if kind <= last:
+                  raise ValueError("the extra table is not in rising order of kind")
+              last = kind
+              extras.append([kind, bytes_in[at + 1] * 256 + bytes_in[at + 2]])
+
+      if len(bytes_in) - (5 if major == 1 else 6) != records * minor:
+          raise ValueError("what follows the label is not the run of records it promises")
+      return {"major": major, "minor": minor, "records": records, "extras": extras}
+interface: "def scan_tape_label(bytes_in: list) -> dict"
+stop_conditions:
+  - Whether an extra of a kind the reader does not know should be reported rather than simply read is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,27 @@
+```ts
+export function mergeMarkup(spans: Array<{ start: number; end: number; tag: string }>): Array<[number, number, string]> {
+    if (!Array.isArray(spans) || spans.some(s => typeof s.start !== 'number' || typeof s.end !== 'number' || typeof s.tag !== 'string')) {
+        throw new Error('Invalid input');
+    }
+
+    const validSpans = spans.filter(s => Number.isInteger(s.start) && Number.isInteger(s.end) && s.start >= 0 && s.start < s.end && s.tag.length > 0);
+
+    if (validSpans.length === 0) {
+        return [];
+    }
+
+    const merged: Array<[number, number, string]> = [];
+
+    validSpans.sort((a, b) => a.start - b.start);
+
+    for (const span of validSpans) {
+        if (merged.length === 0 || merged[merged.length - 1][2] !== span.tag || merged[merged.length - 1][1] < span.start) {
+            merged.push([span.start, span.end, span.tag]);
+        } else {
+            merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], span.end);
+        }
+    }
+
+    return merged;
+}
+```

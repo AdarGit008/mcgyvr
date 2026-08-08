@@ -1,0 +1,54 @@
+id: p409-settle-plan-timeline
+task_type: bug_fix
+task: >-
+  settle_plan_timeline bills a run of plan changes across one period and gets
+  the arithmetic wrong. Repair it. The period is a whole number of days
+  numbered from one, the account opens the period on a plan whose price for a
+  period entire is given in cents, and the changes arrive as records of a day
+  and the cents a period entire costs on the plan taken up that day. The
+  changes carve the period into legs: a leg runs from the day its plan is
+  taken up through the day before the next change, and the last leg runs
+  through the period's final day. Price one leg by multiplying its plan's
+  period price by the leg's days; the leg costs that product divided by the
+  period's days with the fraction thrown away, and the remainder of that same
+  division drops into a pot carried on from leg to leg. Whenever the pot has
+  reached the period's days or gone past them, one further cent joins the leg
+  in hand and the period's days come back out of the pot, so that rounding
+  loses nothing over the period as a whole. Give back a record whose legs
+  lists every leg in order carrying from, to, days and cents, and whose total
+  is the legs' cents added together. Raise an error for a period that is not
+  a whole number of one day or more, an opening price that is not a whole
+  number of cents of nothing or more, changes that are not a list, a change
+  that is not a record, a change day that is not a whole number lying from
+  two to the period's last day, a change price that is not a whole number of
+  cents of nothing or more, and change days that fail to climb strictly.
+  Return the whole repaired file.
+target: solution.py
+target_content: |
+  """What one period costs when the plan changes part way through."""
+
+
+  def settle_plan_timeline(period_days, opening_cents, changes):
+      legs = []
+      total = 0
+      start = 1
+      rate = opening_cents
+      for change in changes:
+          days = change["day"] - start
+          cents = (rate * days) // period_days
+          legs.append({"from": start, "to": change["day"], "days": days, "cents": cents})
+          total += cents
+          start = change["day"]
+          rate = change["cents"]
+      days = period_days - start + 1
+      cents = (rate * days) // period_days
+      legs.append({"from": start, "to": period_days, "days": days, "cents": cents})
+      total += cents
+      return {"legs": legs, "total": total}
+interface: "def settle_plan_timeline(period_days: int, opening_cents: int, changes: list) -> dict"
+stop_conditions:
+  - Whether two consecutive legs priced at the same rate should be folded into one is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

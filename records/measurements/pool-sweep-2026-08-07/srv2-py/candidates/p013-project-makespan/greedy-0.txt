@@ -1,0 +1,38 @@
+```python
+def project_makespan(durations: dict[str, int], deps: list[list[str]]) -> int:
+    if any(not isinstance(v, int) or v <= 0 for v in durations.values()):
+        raise ValueError("All duration values must be positive whole numbers.")
+    
+    tasks = set(durations)
+    if any(task not in tasks for dep in deps for task in dep):
+        raise ValueError("Dependency pair names a task absent from the mapping.")
+    
+    if any(a == b for a, b in deps):
+        raise ValueError("A dependency pair must name two different tasks.")
+    
+    graph = {task: [] for task in tasks}
+    in_degree = {task: 0 for task in tasks}
+    
+    for a, b in deps:
+        graph[a].append(b)
+        in_degree[b] += 1
+    
+    queue = [task for task in tasks if in_degree[task] == 0]
+    time = 0
+    current_time = 0
+    
+    while queue:
+        next_task = queue.pop(0)
+        current_time += durations[next_task]
+        time = max(time, current_time)
+        
+        for neighbor in graph[next_task]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+    
+    if any(in_degree[task] > 0 for task in tasks):
+        raise ValueError("Dependencies form a cycle.")
+    
+    return time
+```

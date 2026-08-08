@@ -1,0 +1,17 @@
+```python
+def fifo_cache_trace(capacity: int, keys: list[str]) -> list[str]:
+    if not isinstance(capacity, int) or capacity < 1:
+        raise ValueError("capacity must be a positive integer")
+    
+    cached = []
+    trace = []
+    for key in keys:
+        if key in cached:
+            trace.append("hit")
+        else:
+            if len(cached) == capacity:
+                cached.pop(0)
+            cached.append(key)
+            trace.append("miss")
+    return trace
+```

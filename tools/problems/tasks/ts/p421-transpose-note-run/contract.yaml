@@ -1,0 +1,38 @@
+id: p421-transpose-note-run
+task_type: function_implementation
+task: >-
+  Implement transposeNoteRun. A written note is a capital letter from A to G,
+  then a run of zero, one or two identical signs, all hashes or all small b's,
+  then a digit from 0 to 9 giving the octave the letter is written in. The
+  ladder of letters runs C, D, E, F, G, A, B and their offsets are 0, 2, 4,
+  5, 7, 9 and 11; a hash counts one upwards and a small b one downwards. A
+  key is a list of stamps such as F# or Cb, each a letter with exactly one
+  sign and no letter stamped twice; a written note whose letter is stamped
+  and which carries no sign of its own sounds as though the stamp were
+  written on it, and a note carrying its own signs ignores the stamp
+  entirely. The pitch of a note is twelve times its written octave plus its
+  letter's offset plus whatever its signs, or its stamp, are worth. Move
+  every note by a rung and a size, both whole numbers that may be negative or
+  zero. The new letter is found by walking rung places along the ladder from
+  the old letter, wrapping round, and the new written octave is the old one
+  plus the number of whole times that walk passed the end of the ladder,
+  counting downwards when the walk went backwards. The new pitch is the old
+  pitch plus the size. The new signs are whatever makes the new letter in the
+  new octave reach the new pitch: none when it already does, one or two
+  hashes when the pitch is one or two above, one or two small b's when it is
+  one or two below. Answers are always written out in full and never lean on
+  the key. Return the moved notes as a list in the order they came, an empty
+  list giving an empty list. Raise an error when the notes are not a list,
+  when a note is not of the shape described, when the rung or the size is not
+  a whole number, when the key is not a list, when a stamp is not a letter
+  with exactly one sign, when a letter is stamped twice, when a moved note
+  would need more than two signs, and when a moved note would be written in
+  an octave below 0 or above 9.
+target: solution.ts
+interface: "export function transposeNoteRun(notes: any[], rung: number, size: number, key: any[]): string[]"
+stop_conditions:
+  - Whether a rung of one may be paired with a size that no key would ever call for is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

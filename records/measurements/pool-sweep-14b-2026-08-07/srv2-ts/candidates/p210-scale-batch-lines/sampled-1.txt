@@ -1,0 +1,43 @@
+```ts
+export function scaleBatchLines(items: string[], want: number, base: number): string[] {
+  if (!Array.isArray(items)) throw new Error("Items must be an array");
+  if (want <= 0 || !Number.isInteger(want)) throw new Error("Want portions must be a whole number above zero");
+  if (base <= 0 || !Number.isInteger(base)) throw new Error("Base portions must be a whole number above zero");
+
+  const measureTicks: { [key: string]: number } = {
+    g: 1,
+    ml: 5,
+    each: 1
+  };
+
+  const seenNames = new Set<string>();
+  const result: string[] = [];
+
+  for (const item of items) {
+    if (typeof item !== "string") throw new Error("Each item must be a string");
+
+    const parts = item.split(" ");
+    if (parts.length !== 3) throw new Error("Item must have three parts: quantity, measure, and name");
+
+    const [quantityStr, measure, name] = parts;
+    const quantity = parseInt(quantityStr, 10);
+
+    if (isNaN(quantity) || quantity <= 0 || quantity.toString() !== quantityStr) {
+      throw new Error("Quantity must be a whole number above zero without leading zeros");
+    }
+
+    if (!measureTicks[measure]) throw new Error("Measure must be one of 'g', 'ml', or 'each'");
+    if (!/^[a-zA-Z\s]+$/.test(name)) throw new Error("Name must be words of letters");
+
+    if (seenNames.has(name)) throw new Error("Each stuff name must be unique");
+    seenNames.add(name);
+
+    const scaledQuantity = Math.round((quantity * want) / base);
+    const settledQuantity = Math.max(1, Math.ceil(scaledQuantity / measureTicks[measure]) * measureTicks[measure]);
+
+    result.push(`${settledQuantity} ${measure} ${name}`);
+  }
+
+  return result;
+}
+```

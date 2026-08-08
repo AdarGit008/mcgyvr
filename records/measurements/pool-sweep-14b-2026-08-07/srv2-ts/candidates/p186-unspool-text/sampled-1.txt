@@ -1,0 +1,70 @@
+```ts
+/**
+ * Unspools a spool string into its fully expanded form.
+ * @param spool - The spool string to unspool.
+ * @returns The fully expanded text.
+ */
+export function unspoolText(spool: string): string {
+  if (typeof spool !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let output = '';
+  let i = 0;
+
+  while (i < spool.length) {
+    const char = spool[i];
+
+    if (char === '<') {
+      if (i + 1 < spool.length && spool[i + 1] === '<') {
+        // Double less-than sign, append one less-than sign
+        output += '<';
+        i += 2;
+      } else if (i + 1 < spool.length && spool[i + 1] !== '>') {
+        // Pointer format: <reach>,<haul>
+        const end = spool.indexOf('>', i);
+        if (end === -1) {
+          throw new Error('Pointer missing closing greater-than sign');
+        }
+
+        const pointer = spool.substring(i + 1, end);
+        const commaIndex = pointer.indexOf(',');
+        if (commaIndex === -1 || !pointer[0] || !pointer[commaIndex + 1]) {
+          throw new Error('Invalid pointer format');
+        }
+
+        const reachStr = pointer.substring(0, commaIndex);
+        const haulStr = pointer.substring(commaIndex + 1);
+
+        if (!/^\d+$/.test(reachStr) || !/^\d+$/.test(haulStr)) {
+          throw new Error('Reach and haul must be non-zero digits');
+        }
+
+        const reach = parseInt(reachStr, 10);
+        const haul = parseInt(haulStr, 10);
+
+        if (reach === 0 || haul === 0) {
+          throw new Error('Reach and haul must be non-zero');
+        }
+
+        if (output.length < reach) {
+          throw new Error('Reach larger than the number of characters produced so far');
+        }
+
+        const toAppend = output.slice(-reach).repeat(Math.ceil(haul / reach));
+        output += toAppend.substring(0, haul);
+
+        i = end + 1;
+      } else {
+        throw new Error('Invalid pointer format');
+      }
+    } else {
+      // Append character as is
+      output += char;
+      i++;
+    }
+  }
+
+  return output;
+}
+```

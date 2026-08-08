@@ -1,0 +1,53 @@
+```ts
+
+export function foldParcels(events: Array<{ type: string; parcel: string }>): Record<string, string> {
+  const state: Record<string, 'accepted' | 'in_transit' | 'delivered' | 'returned' | 'lost'> = {};
+  const seen: Set<string> = new Set();
+
+  for (let i = 0; i < events.length; i++) {
+    const { type, parcel } = events[i];
+    if (!parcel) {
+      throw new Error(`Event at index ${i} is missing the parcel key`);
+    }
+
+    switch (type) {
+      case 'accept':
+        if (seen.has(parcel)) {
+          throw new Error(`Parcel with id '${parcel}' seen before at index ${i}`);
+        }
+        state[parcel] = 'accepted';
+        seen.add(parcel);
+        break;
+      case 'load':
+        if (!state[parcel]) {
+          throw new Error(`Event of type 'load' for parcel id '${parcel}' at index ${i} is invalid`);
+        }
+        state[parcel] = 'in_transit';
+        break;
+      case 'deliver':
+        if (state[parcel] !== 'in_transit') {
+          throw new Error(`Event of type 'deliver' for parcel id '${parcel}' at index ${i} is invalid`);
+        }
+        state[parcel] = 'delivered';
+        break;
+      case 'bounce':
+        if (state[parcel] !== 'delivered') {
+          throw new Error(`Event of type 'bounce' for parcel id '${parcel}' at index ${i} is invalid`);
+        }
+        state[parcel] = 'returned';
+        break;
+      case 'lose':
+        if (!state[parcel]) {
+          throw new Error(`Event of type 'lose' for parcel id '${parcel}' at index ${i} is invalid`);
+        }
+        state[parcel] = 'lost';
+        break;
+      default:
+        throw new Error(`Invalid event type '${type}' at index ${i}`);
+    }
+  }
+
+  return state;
+}
+
+```

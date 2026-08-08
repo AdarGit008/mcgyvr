@@ -1,0 +1,37 @@
+```python
+def admit_bytes(per_key: int, total: int, span: int, entries: list) -> list:
+    if not (isinstance(per_key, int) and per_key > 0):
+        raise ValueError("per_key must be a positive integer")
+    if not (isinstance(total, int) and total > 0):
+        raise ValueError("total must be a positive integer")
+    if not (isinstance(span, int) and span > 0):
+        raise ValueError("span must be a positive integer")
+    
+    carried_volume = {}
+    carried_total = 0
+    result = []
+    
+    for time, key, size in entries:
+        if not isinstance(time, int) or time < 0:
+            raise ValueError("time must be a non-negative integer")
+        if not isinstance(key, str) or not key:
+            raise ValueError("key must be a non-empty string")
+        if not isinstance(size, int) or size <= 0:
+            raise ValueError("size must be a positive integer")
+        
+        # Remove aged entries
+        carried_volume = {k: v for k, v in carried_volume.items() if time - v[1] < span}
+        carried_total -= sum(v[0] for v in carried_volume.values())
+        
+        # Check if the new entry can be carried
+        key_carried_volume = carried_volume.get(key, (0, 0))[0]
+        if key_carried_volume + size > per_key or carried_total + size > total:
+            result.append("drop")
+        else:
+            carried_volume[key] = (key_carried_volume + size, time)
+            carried_total += size
+            result.append("pass")
+    
+    return result
+
+```

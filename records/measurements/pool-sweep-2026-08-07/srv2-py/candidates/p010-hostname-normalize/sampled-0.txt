@@ -1,0 +1,18 @@
+```python
+def normalize_hostname(hostname: str) -> str:
+    if not isinstance(hostname, str):
+        raise ValueError("Invalid argument: hostname must be a string")
+
+    normalized = hostname.lower()
+    if normalized.endswith('.'):
+        normalized = normalized[:-1]
+
+    labels = normalized.split('.')
+    if any(not (1 <= len(label) <= 63) or label.startswith('-') or label.endswith('-') for label in labels):
+        raise ValueError("Invalid hostname: invalid label format")
+
+    if len(normalized) > 253:
+        raise ValueError("Invalid hostname: too long")
+
+    return normalized
+```

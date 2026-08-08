@@ -1,0 +1,62 @@
+```ts
+export function firstBrokenRule(root: Record<string, unknown>): Record<string, string> {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root must be a non-null object');
+  }
+
+  const validateNode = (
+    node: Record<string, unknown>,
+    path: string
+  ): { path: string; rule: string } | null => {
+    if (typeof node.key !== 'number' || !Number.isInteger(node.key)) {
+      return { path, rule: 'order' };
+    }
+    if (typeof node.count !== 'number' || node.count <= 0 || !Number.isInteger(node.count)) {
+      return { path, rule: 'count' };
+    }
+    if (
+      typeof node.left !== 'object' &&
+      typeof node.left !== 'undefined' &&
+      node.left !== null
+    ) {
+      throw new Error('Left must be an object or undefined');
+    }
+    if (
+      typeof node.right !== 'object' &&
+      typeof node.right !== 'undefined' &&
+      node.right !== null
+    ) {
+      throw new Error('Right must be an object or undefined');
+    }
+
+    const leftDepth = node.left ? validateNode(node.left as Record<string, unknown>, `${path}/L`) : { path: '', rule: 'sound' };
+    if (leftDepth.rule !== 'sound') return leftDepth;
+
+    const rightDepth = node.right ? validateNode(node.right as Record<string, unknown>, `${path}/R`) : { path: '', rule: 'sound' };
+    if (rightDepth.rule !== 'sound') return rightDepth;
+
+    const leftKey = node.left ? (node.left as Record<string, number>).key : -Infinity;
+    const rightKey = node.right ? (node.right as Record<string, number>).key : Infinity;
+
+    if (leftKey >= node.key || rightKey <= node.key) {
+      return { path, rule: 'order' };
+    }
+
+    const leftCount = node.left ? (node.left as Record<string, number>).count : 0;
+    const rightCount = node.right ? (node.right as Record<string, number>).count : 0;
+
+    if (Math.abs(leftDepth.path.length - rightDepth.path.length) > 1) {
+      return { path, rule: 'balance' };
+    }
+
+    if (leftCount + rightCount + 1 !== node.count) {
+      return { path, rule: 'count' };
+    }
+
+    return { path: '', rule: 'sound' };
+  };
+
+  const result = validateNode(root, 'root');
+  return result;
+}
+```

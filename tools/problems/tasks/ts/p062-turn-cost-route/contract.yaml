@@ -1,0 +1,22 @@
+id: p062-turn-cost-route
+task_type: function_implementation
+task: >-
+  Implement turnCostRoute. A courier crosses a rectangular grid of 0 and 1
+  cells (1 is a wall) from the top-left cell to the bottom-right cell,
+  moving one cell up, down, left or right at a time. Every move costs
+  stepCost, and a move in a different direction from the move before it
+  costs turnCost extra; the first move is never charged for a turn. Return
+  the smallest total cost of any route, or -1 when no route exists or an
+  end cell is a wall; a single-cell grid costs 0. A route with the fewest
+  moves can lose to a longer route that turns less often, so moves and
+  turns must be optimised together. Reject with an error a grid that is
+  empty or ragged, a cell that is not 0 or 1, a stepCost that is not a
+  positive integer, and a turnCost that is not a non-negative integer.
+target: solution.ts
+interface: "export function turnCostRoute(grid: number[][], stepCost: number, turnCost: number): number"
+stop_conditions:
+  - How large a grid must still finish within the checker's time limit is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

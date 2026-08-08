@@ -1,0 +1,39 @@
+id: p406-band-picks-by-share
+task_type: function_implementation
+task: >-
+  Implement band_picks_by_share. A stockroom ranks its lines by how often they
+  are pulled and gives the busiest ones the nearest shelving. Each line comes
+  as a record with code, its label, and picks, how many times it was pulled
+  last season. Rank the lines by picks, busiest first, and where two were
+  pulled equally often put the one whose code sorts earlier first. Walk that
+  ranking keeping a running sum of the picks of the lines already ranked, the
+  line in hand not counted. The two cuts are whole percentages, the first
+  below the second: a line joins band A while that running sum, read as a
+  percentage of every line's picks together, is still strictly under the
+  first cut; failing that it joins band B while the running sum is still
+  strictly under the second cut; failing that it joins band C. Weigh those
+  percentages with whole-number arithmetic so that no rounding creeps in.
+  Then seat the lines. The rows arrive in walking order, each a record with
+  code and capacity. Band A takes rows from the front, filling one row to its
+  capacity before opening the next, and band B starts on the row after the
+  last one band A touched even when that row still had room; band C follows
+  band B the same way, and a band holding no lines takes no row at all. Give
+  back one record per line in the order the lines were seated, carrying code,
+  band, the row's code as row, and slot, its place within that row counted
+  from one. Throw an error for a line list that is not a list or holds no
+  lines, a line that is not a record, a code that is not a non-empty string,
+  one code appearing twice, picks that are not a whole number of nothing or
+  more, picks coming to nothing across every line, cuts that are not two
+  whole numbers each from 1 to 99 with the first below the second, a row list
+  that is not a list or holds no rows, a row that is not a record, a row code
+  that is not a non-empty string, one row code appearing twice, a capacity
+  that is not a whole number above nothing, and rows running out before every
+  line is seated.
+target: solution.py
+interface: "def band_picks_by_share(lines: list, cuts: list, rows: list) -> list"
+stop_conditions:
+  - Whether a code may carry lowercase letters or punctuation is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

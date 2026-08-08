@@ -1,0 +1,34 @@
+```ts
+function strandedTickerPairs(legs: unknown[][]): string[] {
+    if (legs.length === 0) throw new Error('No legs published');
+
+    const tickerSet = new Set<string>();
+    const legMap = new Map<string, string>();
+
+    for (const leg of legs) {
+        if (leg.length !== 2) throw new Error('Leg must be exactly two elements');
+        const [sell, buy] = leg as [string, string];
+        if (typeof sell !== 'string' || typeof buy !== 'string') throw new Error('Tickers must be non-empty strings');
+        if (sell === '' || buy === '') throw new Error('Tickers must be non-empty strings');
+        if (sell === buy) throw new Error('Leg cannot sell and buy the same ticker');
+        if (legMap.has(buy)) throw new Error('Duplicate leg detected');
+
+        tickerSet.add(sell);
+        tickerSet.add(buy);
+        legMap.set(sell, buy);
+    }
+
+    const result: string[] = [];
+    for (const sell of Array.from(tickerSet).sort()) {
+        if (!legMap.has(sell)) continue;
+        const buy = legMap.get(sell)!;
+        let nextBuy = buy;
+        while (legMap.has(nextBuy)) {
+            nextBuy = legMap.get(nextBuy)!;
+        }
+        if (nextBuy > sell) result.push(`${sell}>${nextBuy}`);
+    }
+
+    return result.sort();
+}
+```

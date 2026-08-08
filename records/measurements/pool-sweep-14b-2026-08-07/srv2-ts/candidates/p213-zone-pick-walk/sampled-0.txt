@@ -1,0 +1,86 @@
+```ts
+/**
+ * One line per row of a zoned pick walk.
+ */
+export function zonePickWalk(plan: Record<string, unknown>): string[] {
+  if (typeof plan !== "object" || plan === null) {
+    throw new Error("Invalid plan argument");
+  }
+
+  const { zoneOrder, picks } = plan;
+
+  // Validate zoneOrder
+  if (!Array.isArray(zoneOrder)) {
+    throw new Error("zoneOrder must be an array");
+  }
+  if (zoneOrder.length === 0) {
+    throw new Error("zoneOrder must not be empty");
+  }
+  const uniqueZones = new Set<string>();
+  for (const zone of zoneOrder) {
+    if (typeof zone !== "string" || zone.trim() === "") {
+      throw new Error("Each zone in zoneOrder must be a non-empty string");
+    }
+    if (!uniqueZones.add(zone)) {
+      throw new Error("Duplicate zones found in zoneOrder");
+    }
+  }
+
+  // Validate picks
+  if (!Array.isArray(picks)) {
+    throw new Error("picks must be an array");
+  }
+  const byZone = new Map<string, { code: string; row: number; slot: number }[]>();
+  const seenCodes = new Set<string>();
+  for (const pick of picks) {
+    if (typeof pick !== "object" || pick === null) {
+      throw new Error("Each pick must be an object");
+    }
+    const { code, zone, row, slot } = pick;
+    if (typeof code !== "string" || code.trim() === "") {
+      throw new Error("Each pick's code must be a non-empty string");
+    }
+    if (seenCodes.has(code)) {
+      throw new Error("Duplicate codes found in picks");
+    }
+    seenCodes.add(code);
+    if (typeof zone !== "string" || zone.trim() === "") {
+      throw new Error("Each pick's zone must be a non-empty string");
+    }
+    if (!uniqueZones.has(zone)) {
+      throw new Error(`Pick references unknown zone: ${zone}`);
+    }
+    if (typeof row !== "number" || row <= 0 || !Number.isInteger(row)) {
+      throw new Error("Each pick's row must be a positive whole number");
+    }
+    if (typeof slot !== "number" || slot <= 0 || !Number.isInteger(slot)) {
+      throw new Error("Each pick's slot must be a positive whole number");
+    }
+
+    if (!byZone.has(zone)) {
+      byZone.set(zone, []);
+    }
+    byZone.get(zone)!.push({ code, row, slot });
+  }
+
+  const lines: string[] = [];
+  for (const zone of zoneOrder) {
+    if (!byZone.has(zone)) continue;
+
+    const group = byZone.get(zone)!;
+    const rows = Array.from(new Set(group.map((pick) => pick.row))).sort(
+      (a, b) => a - b
+    );
+
+    let direction = 1; // 1 for ascending, -1 for descending
+    for (const row of rows) {
+      const here = group.filter((pick) => pick.row === row);
+      here.sort((a, b) => (direction > 0 ? a.slot - b.slot : b.slot - a.slot));
+      lines.push(`${zone}/${row}:${here.map((pick) => pick.code).join("|")}`);
+      direction *= -1;
+    }
+  }
+
+  return lines;
+}
+```

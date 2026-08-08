@@ -1,0 +1,29 @@
+id: p045-strip-comments
+task_type: bug_fix
+task: >-
+  stripComments deletes comments from source text, but the current code
+  mangles exactly the inputs a real lexer meets. Fix it: a // comment runs
+  from its marker to the end of that line and is removed while the newline
+  survives; a /* */ comment is removed entirely, even when it spans several
+  lines and even when it contains stray * characters. Neither marker
+  counts inside a double-quoted string literal, where a backslash escapes
+  the character after it, so \" does not close the string and \\ is a
+  literal backslash. All other text is copied through untouched. Throw an
+  error for a block comment that never closes and for a string literal
+  that never closes. Return the stripped text.
+target: solution.ts
+target_content: |
+  export function stripComments(source: string): string {
+    return source
+      .split("\n")
+      .map((line) => line.split("//")[0])
+      .join("\n")
+      .replace(/\/\*.*?\*\//g, "");
+  }
+interface: "export function stripComments(source: string): string"
+stop_conditions:
+  - Whether single-quoted string literals exist in this language is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

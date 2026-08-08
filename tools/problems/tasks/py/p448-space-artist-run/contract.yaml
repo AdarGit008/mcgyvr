@@ -1,0 +1,23 @@
+id: p448-space-artist-run
+task_type: function_implementation
+task: >-
+  Implement space_artist_run, which sets a run of tracks in an order where no
+  two tracks standing next to each other come from the same artist. Each
+  track arrives as a mapping with a "title" and an "artist". Fill the run one
+  place at a time. For each place, look at every artist with tracks still
+  unplaced, leaving out the artist whose track went into the place just
+  before, and take the artist with the most tracks still unplaced; where two
+  such artists are level on that count, take the one whose earliest track
+  stood earlier in the list handed over. Within one artist, tracks go into
+  the run in the order they were handed over. Return the titles in run order.
+  Raise an error when the tracks are not a list or are empty, when a title or
+  an artist is missing or is not a string of at least one character, when two
+  tracks share a title, and when no order at all can keep every artist apart.
+target: solution.py
+interface: "def space_artist_run(tracks: list) -> list"
+stop_conditions:
+  - Whether the caller would rather have a nearly separated run than an error is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,13 @@
+```python
+def fold_digraphs(text: str, table: list[list[str]]) -> str:
+    folded = text
+    for pattern, output in table:
+        if pattern == "":
+            raise ValueError("empty pattern")
+        while True:
+            start = folded.find(pattern)
+            if start == -1:
+                break
+            folded = folded[:start] + output + folded[start + len(pattern):]
+    return folded
+```

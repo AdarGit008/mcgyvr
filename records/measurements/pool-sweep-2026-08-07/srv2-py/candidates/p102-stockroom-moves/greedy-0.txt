@@ -1,0 +1,36 @@
+```python
+def process_stock_moves(moves: list) -> dict:
+    stock = {}
+    refused = []
+    
+    for i, move in enumerate(moves):
+        op = move.get("op")
+        item = move.get("item")
+        qty = move.get("qty")
+        
+        if not isinstance(item, str) or not item:
+            raise ValueError("Item must be a non-empty string.")
+        if not isinstance(qty, int):
+            raise ValueError("Qty must be an integer.")
+        if op == "receive":
+            if qty < 1:
+                raise ValueError("Receive qty must be at least 1.")
+            stock.setdefault(item, 0)
+            stock[item] += qty
+        elif op == "issue":
+            if qty < 1:
+                raise ValueError("Issue qty must be at least 1.")
+            if item not in stock or stock[item] < qty:
+                refused.append([i, "unknown_item" if item not in stock else "short"])
+            else:
+                stock[item] -= qty
+        elif op == "recount":
+            if qty < 0:
+                raise ValueError("Recount qty must be at least 0.")
+            stock.setdefault(item, 0)
+            stock[item] = qty
+        else:
+            raise ValueError(f"Unknown operation: {op}")
+    
+    return {"levels": stock, "refused": refused}
+```

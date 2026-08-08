@@ -1,0 +1,24 @@
+id: p112-squash-journal
+task_type: function_implementation
+task: >-
+  Implement squash_journal. A journal is a list of operations replayed
+  against a key-value store that begins empty: ["put", key, value] creates
+  or overwrites key with a positive integer value, ["del", key] removes a
+  key that must exist, and ["ren", old, new] transfers the value of old --
+  which must exist -- to new, which must not, removing old. Return the
+  shortest journal that rebuilds the identical final store from empty:
+  exactly one put per surviving key, carrying its final name and value,
+  and these puts ordered by the position in the original journal of the
+  operation that last established each value -- the put whose written
+  value the key still holds, tracked through any renames. Reject an
+  unknown operation name, a key that is not a non-empty string, a value
+  that is not a positive integer, deleting an absent key, renaming an
+  absent key, and renaming onto an existing key, with an error.
+target: solution.py
+interface: "def squash_journal(ops: list) -> list"
+stop_conditions:
+  - Whether an operation carrying extra trailing elements is rejected is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

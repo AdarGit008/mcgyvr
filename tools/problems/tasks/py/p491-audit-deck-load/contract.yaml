@@ -1,0 +1,93 @@
+id: p491-audit-deck-load
+task_type: bug_fix
+task: >-
+  audit_deck_load inspects a deck that is already loaded and says which rule the
+  load breaks first, and it gets nearly all of it wrong. The deck is a record
+  with bays, a list of one or more records each carrying bay (a non-empty
+  string, no two bays answering to the same one), hold (a whole number above
+  nought, the weight that bay is rated for), lever (a whole number, perhaps
+  negative or nought) and pull (a whole number above nought, the largest swing
+  that bay is allowed either way); and with total, a whole number above nought
+  for the weight the deck may carry altogether. Each row is a record with crate
+  (a non-empty string, no two rows answering to the same one), bay (the name of
+  one of the deck's bays) and weight (a whole number above nought). A bay's
+  weight is the weight of the crates sitting in it, nought when none do, and its
+  swing is that weight times its lever. Walk the bays in the very order the deck
+  lists them and, for each, test hold first, the bay's weight standing above its
+  rating, and then pull, the size of the bay's swing with its sign disregarded
+  standing above what that bay allows. The first bay failing either test is the
+  answer. Only when every bay comes through is total tested, against the weight
+  of the whole deck. Standing exactly on a rating is not a failure. Give back a
+  record whose verdict is clear or broken, whose bay names the bay at fault or
+  is an empty string when total was the fault or nothing was, whose limit is
+  hold, pull, total or an empty string, and whose weight and swing are the
+  deck's weight and the bays' swings added together. The code below adds a bay's
+  lever to its weight instead of multiplying, visits the bays in the order the
+  crates happen to mention them, and tests total before it tests any bay at all.
+  Mend all three, add the missing checks so that it throws an error when rows is
+  not a list, when a row is not a record, when a crate is not a non-empty
+  string, when two rows answer to one crate, when a row's bay is not a non-empty
+  string or names no bay of the deck, when a weight is not a whole number above
+  nought, when deck is not a record, when bays is not a list or holds nothing,
+  when a bay is not a record, when a bay name is not a non-empty string, when
+  two bays answer to one name, when hold or pull is not a whole number above
+  nought, when lever is not a whole number, and when total is not a whole number
+  above nought, and return the complete fixed file.
+target: solution.py
+target_content: |
+  """Which rule an already loaded deck breaks first."""
+
+
+  def audit_deck_load(rows: list, deck: dict) -> dict:
+      weights = {}
+      met = []
+      weight = 0
+      for row in rows:
+          if row["bay"] not in weights:
+              weights[row["bay"]] = 0
+              met.append(row["bay"])
+          weights[row["bay"]] += row["weight"]
+          weight += row["weight"]
+      swing = 0
+      for bay in deck["bays"]:
+          swing += weights.get(bay["bay"], 0) + bay["lever"]
+      if weight > deck["total"]:
+          return {
+              "verdict": "broken",
+              "bay": "",
+              "limit": "total",
+              "weight": weight,
+              "swing": swing,
+          }
+      for name in met:
+          bay = next(entry for entry in deck["bays"] if entry["bay"] == name)
+          if weights[name] > bay["hold"]:
+              return {
+                  "verdict": "broken",
+                  "bay": name,
+                  "limit": "hold",
+                  "weight": weight,
+                  "swing": swing,
+              }
+          if abs(weights[name] + bay["lever"]) > bay["pull"]:
+              return {
+                  "verdict": "broken",
+                  "bay": name,
+                  "limit": "pull",
+                  "weight": weight,
+                  "swing": swing,
+              }
+      return {
+          "verdict": "clear",
+          "bay": "",
+          "limit": "",
+          "weight": weight,
+          "swing": swing,
+      }
+interface: "def audit_deck_load(rows: list, deck: dict) -> dict"
+stop_conditions:
+  - Whether a bay the deck lists but no crate reaches should be reported at all is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

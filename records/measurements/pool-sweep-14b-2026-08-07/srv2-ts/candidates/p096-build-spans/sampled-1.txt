@@ -1,0 +1,106 @@
+```ts
+/**
+ * Intersects build spans and returns the canonical result.
+ * @param spans - A non-empty list of span strings.
+ * @returns The canonical intersection of the spans.
+ */
+export function intersectBuildSpans(spans: string[]): string {
+  if (spans.length === 0) {
+    throw new Error("Empty list of spans");
+  }
+
+  const parseSpan = (span: string): { lo?: number; hi?: number; strikes: Set<number> } => {
+    const [range, strikePart] = span.split(/(?<!\d)(?=\!)/);
+    const [loStr, hiStr] = range.split("..");
+
+    let lo: number | undefined;
+    let hi: number | undefined;
+
+    if (loStr && loStr !== "..") {
+      if (/^0\d/.test(loStr)) {
+        throw new Error("Leading zero in build number");
+      }
+      lo = parseInt(loStr, 10);
+    }
+
+    if (hiStr && hiStr !== "..") {
+      if (/^0\d/.test(hiStr)) {
+        throw new Error("Leading zero in build number");
+      }
+      hi = parseInt(hiStr, 10);
+    }
+
+    if (lo !== undefined && hi !== undefined && lo > hi) {
+      throw new Error("Reversed limits in span");
+    }
+
+    const strikes = strikePart.split("!").slice(1).map(Number);
+
+    for (const strike of strikes) {
+      if ((lo !== undefined && strike < lo) || (hi !== undefined && strike > hi)) {
+        throw new Error("Strike outside its own span");
+      }
+    }
+
+    return { lo, hi, strikes: new Set(strikes) };
+  };
+
+  const spansParsed = spans.map(parseSpan);
+
+  let resultLo: number | undefined;
+  let resultHi: number | undefined;
+  let resultStrikes = new Set<number>();
+
+  for (const span of spansParsed) {
+    if (resultLo === undefined) {
+      resultLo = span.lo;
+    } else if (span.lo !== undefined) {
+      resultLo = Math.max(resultLo, span.lo);
+    }
+
+    if (resultHi === undefined) {
+      resultHi = span.hi;
+    } else if (span.hi !== undefined) {
+      resultHi = Math.min(resultHi, span.hi);
+    }
+
+    if (resultLo !== undefined && resultHi !== undefined && resultLo > resultHi) {
+      return "empty";
+    }
+
+    for (const strike of span.strikes) {
+      if ((resultLo === undefined || strike >= resultLo) && (resultHi === undefined || strike <= resultHi)) {
+        resultStrikes.add(strike);
+      }
+    }
+  }
+
+  if (resultLo !== undefined && resultHi !== undefined) {
+    for (let i = resultLo; i <= resultHi; i++) {
+      resultStrikes.delete(i);
+    }
+  }
+
+  const strikesArray = Array.from(resultStrikes).sort((a, b) => a - b);
+
+  let result = "";
+
+  if (resultLo !== undefined) {
+    result += resultLo;
+  } else {
+    result += "..";
+  }
+
+  result += "..";
+
+  if (resultHi !== undefined) {
+    result += resultHi;
+  }
+
+  for (const strike of strikesArray) {
+    result += `!${strike}`;
+  }
+
+  return result;
+}
+```

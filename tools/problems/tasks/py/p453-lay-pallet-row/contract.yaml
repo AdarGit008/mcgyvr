@@ -1,0 +1,92 @@
+id: p453-lay-pallet-row
+task_type: bug_fix
+task: >-
+  lay_pallet_row lays boxes in a single file down a pallet deck. Each box is a
+  record with name (a non-empty string, no two boxes answering to the same one),
+  alen and blen (its two ground sides, whole numbers above nought), mass (a whole
+  number above nought) and tender (true when the box is marked as one that must
+  never be swung round). The deck record carries run and span, whole numbers
+  above nought for the length still free ahead and the fixed width across, and
+  load, a whole number of nought or more for the mass the deck is rated to take.
+  Work through the boxes in the order given, keeping a running mass and a
+  shrinking run. A box whose mass would carry the running mass past the load
+  rating is passed over at once, whatever its shape. Otherwise the box lies
+  as it comes when alen is within the run still free and blen is within the span,
+  and it lies swung round when blen is within the run still free and alen is
+  within the span, except that a tender box may only lie as it comes. Where both
+  lies would work the box goes down as it comes. Whichever lie is used, the side
+  pointing down the deck is taken off the run still free. A box that neither lie
+  suits is passed over, and boxes behind a passed-over one are still tried. Give
+  back a record whose laid lists, in the order they went down, the name of each
+  box followed by a space and then flat or turned, whose skipped lists the names
+  passed over in the order they were passed over, whose run is the length still
+  free at the end, and whose mass is the running mass. The code below tests the
+  swung-round lie against the same two sides as the flat lie, so no box is ever
+  swung round. Repair that, keep raising an error when boxes is not a list, when
+  deck is not a record, when run or span is missing or is not a whole number above
+  nought, when load is missing or is not a whole number of nought or more, when a
+  box is not a record, when a name is empty or not a string, when two boxes answer
+  to one name, when alen, blen or mass is not a whole number above nought, and
+  when tender is not a boolean, and return the complete fixed file.
+target: solution.py
+target_content: |
+  def _whole(value) -> bool:
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def lay_pallet_row(boxes: list, deck: dict) -> dict:
+      if not isinstance(boxes, list):
+          raise ValueError("boxes must be a list")
+      if not isinstance(deck, dict):
+          raise ValueError("deck must be a record")
+      for key in ("run", "span"):
+          if key not in deck or not _whole(deck[key]) or deck[key] < 1:
+              raise ValueError(f"{key} must be a whole number above nought")
+      if "load" not in deck or not _whole(deck["load"]) or deck["load"] < 0:
+          raise ValueError("load must be a whole number of nought or more")
+
+      seen: set[str] = set()
+      for box in boxes:
+          if not isinstance(box, dict):
+              raise ValueError("a box must be a record")
+          name = box.get("name")
+          if not isinstance(name, str) or not name:
+              raise ValueError("a name must be a non-empty string")
+          if name in seen:
+              raise ValueError(f"two boxes answer to the name {name}")
+          seen.add(name)
+          for key in ("alen", "blen", "mass"):
+              value = box.get(key)
+              if not _whole(value) or value < 1:
+                  raise ValueError(f"{key} must be a whole number above nought")
+          if not isinstance(box.get("tender"), bool):
+              raise ValueError("tender must be either true or false")
+
+      laid: list[str] = []
+      skipped: list[str] = []
+      run = deck["run"]
+      mass = 0
+      for box in boxes:
+          if mass + box["mass"] > deck["load"]:
+              skipped.append(box["name"])
+              continue
+          flat = box["alen"] <= run and box["blen"] <= deck["span"]
+          turned = not box["tender"] and box["alen"] <= run and box["blen"] <= deck["span"]
+          if flat:
+              laid.append(f"{box['name']} flat")
+              run -= box["alen"]
+              mass += box["mass"]
+          elif turned:
+              laid.append(f"{box['name']} turned")
+              run -= box["blen"]
+              mass += box["mass"]
+          else:
+              skipped.append(box["name"])
+      return {"laid": laid, "skipped": skipped, "run": run, "mass": mass}
+interface: "def lay_pallet_row(boxes: list, deck: dict) -> dict"
+stop_conditions:
+  - Whether a box may be stood on end so that its height runs down the deck is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

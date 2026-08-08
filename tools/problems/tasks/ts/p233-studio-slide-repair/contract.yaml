@@ -1,0 +1,76 @@
+id: p233-studio-slide-repair
+task_type: bug_fix
+task: >-
+  slideSessions books a recording studio's day and double-books it. Repair
+  it. The studio takes its first session no earlier than its opening moment
+  and must be empty again by its closing moment, both integers with the
+  opening moment strictly below the closing one, and it holds one session at
+  a time. Each request is a record with id (a non-empty string, no two
+  alike), want (the integer moment it would like to begin) and span (a
+  positive integer length). Work the requests in the order given: a request
+  takes the earliest moment m that is no earlier than the opening moment and
+  no earlier than its own want, whose stretch from m up to but not including
+  m plus span touches nothing already granted, and which finishes at or
+  before the closing moment. A request with no such moment is turned away
+  and consumes nothing, leaving the day exactly as the requests behind it
+  would have found it. Return one string per request in the order given: the
+  id, one space, and the granted moment, or the id, one space and the word
+  away. Today's code consults only the session granted just before, so an
+  earlier one it steps over gets double-booked, and it never watches the
+  clock at the end of the day. Leave the existing checks alone: they already
+  reject a non-integer bound, a closing moment not strictly after the
+  opening one, a span below one, a want that is not an integer, and a
+  repeated id.
+target: solution.ts
+target_content: |
+  export function slideSessions(
+    sessions: any[],
+    opensAt: number,
+    closesAt: number,
+  ): string[] {
+    if (!Number.isInteger(opensAt) || !Number.isInteger(closesAt)) {
+      throw new Error("the day's bounds must be integers");
+    }
+    if (opensAt >= closesAt) {
+      throw new Error("the studio must close after it opens");
+    }
+    const seen = new Set<string>();
+    for (const row of sessions) {
+      if (row === null || typeof row !== "object" || Array.isArray(row)) {
+        throw new Error("each request must be a record");
+      }
+      if (typeof row.id !== "string" || row.id === "") {
+        throw new Error("id must be a non-empty string");
+      }
+      if (!Number.isInteger(row.want)) {
+        throw new Error("want must be an integer");
+      }
+      if (!Number.isInteger(row.span) || row.span < 1) {
+        throw new Error("span must be a positive integer");
+      }
+      if (seen.has(row.id)) {
+        throw new Error("repeated request id: " + row.id);
+      }
+      seen.add(row.id);
+    }
+
+    const placed: number[][] = [];
+    const booked: string[] = [];
+    for (const row of sessions) {
+      let moment = Math.max(row.want, opensAt);
+      const previous = placed[placed.length - 1];
+      if (previous !== undefined && moment < previous[1]) {
+        moment = previous[1];
+      }
+      placed.push([moment, moment + row.span]);
+      booked.push(row.id + " " + moment);
+    }
+    return booked;
+  }
+interface: "export function slideSessions(sessions: any[], opensAt: number, closesAt: number): string[]"
+stop_conditions:
+  - Whether a turned-away request may be retried on the following day is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

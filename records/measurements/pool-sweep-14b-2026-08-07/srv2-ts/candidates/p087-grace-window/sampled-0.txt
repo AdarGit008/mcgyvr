@@ -1,0 +1,41 @@
+```ts
+export function graceWindow(counts: number[], goal: number, grace: number): number {
+  if (goal <= 0) {
+    throw new Error("Goal must be positive");
+  }
+  if (grace < 0) {
+    throw new Error("Grace must be non-negative");
+  }
+
+  const keptDays = counts.map(count => count >= goal);
+
+  let maxLength = 0;
+  let currentLength = 0;
+  let unkeptCount = 0;
+
+  for (let i = 0; i < keptDays.length; i++) {
+    if (keptDays[i]) {
+      currentLength++;
+      maxLength = Math.max(maxLength, currentLength);
+      unkeptCount = 0;
+    } else {
+      unkeptCount++;
+      if (unkeptCount <= grace) {
+        currentLength++;
+        maxLength = Math.max(maxLength, currentLength);
+      } else {
+        while (unkeptCount > grace && i >= 0) {
+          if (!keptDays[i]) {
+            unkeptCount--;
+          }
+          i--;
+          currentLength--;
+        }
+        i++; // Move back one step to not skip the current day
+      }
+    }
+  }
+
+  return maxLength;
+}
+```

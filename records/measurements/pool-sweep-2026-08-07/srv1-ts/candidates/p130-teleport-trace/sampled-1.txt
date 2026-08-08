@@ -1,0 +1,35 @@
+```ts
+/**
+ * Traces the teleports in the hall starting from the given pad.
+ * @param pads - The array of destination pads for each pad in the hall.
+ * @param start - The index of the start pad.
+ * @returns A list containing the number of rides before first arriving at a pad of the circuit,
+ *          the number of distinct pads in the circuit, and the index of the first circuit pad.
+ */
+export function traceTeleports(pads: number[], start: number): number[] {
+    if (pads.length === 0 || pads.some(pad => pad < 0 || pad >= pads.length)) {
+        throw new Error('Invalid hall configuration');
+    }
+    if (start < 0 || start >= pads.length) {
+        throw new Error('Start index out of bounds');
+    }
+
+    const visited = new Set<number>();
+    let circuitStart = -1;
+    let rideCount = 0;
+
+    for (let current = start; ; ++rideCount) {
+        if (!visited.has(current)) {
+            visited.add(current);
+        } else {
+            circuitStart = visited.size > 0 ? Array.from(visited).findIndex(pad => pad === current)! : -1;
+            break;
+        }
+        current = pads[current];
+    }
+
+    const circuitLength = circuitStart !== -1 ? Array.from(visited).slice(circuitStart).length : 0;
+
+    return [rideCount, circuitLength, circuitStart];
+}
+```

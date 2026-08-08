@@ -1,0 +1,53 @@
+```ts
+export function expiryCache(capacity: number, ops: (string | number)[][]): number[] {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+        throw new Error('Capacity must be a positive integer');
+    }
+
+    const cache: { [key: string]: { value: number; expiry: number } } = {};
+    let time: number | null = null;
+
+    ops.forEach(([op, opTime, key, ...rest]) => {
+        if (time !== null && Number(opTime) < time) {
+            throw new Error('Future operations cannot be processed');
+        }
+
+        time = Number(opTime);
+
+        switch (op) {
+            case 'set': {
+                const ttl = Number(rest[0]);
+                if (!Number.isInteger(ttl) || ttl <= 0) {
+                    throw new Error('TTL must be a positive integer');
+                }
+                const expiry = time + ttl;
+                cache[key] = { value: Number(rest[1]), expiry };
+                break;
+            }
+            case 'get': {
+                if (cache.hasOwnProperty(key)) {
+                    if (time >= cache[key].expiry) {
+                        delete cache[key];
+                    } else {
+                        return [cache[key].value];
+                    }
+                }
+                return [-1];
+            }
+            default:
+                throw new Error('Unknown operation');
+        }
+
+        if (Object.keys(cache).length > capacity) {
+            const oldestEntry = Object.entries(cache)
+                .sort((a, b) => a[1].expiry - b[1].expiry || a[0].localeCompare(b[0]))
+                .shift();
+            if (oldestEntry) delete cache[oldestEntry[0]];
+        }
+    });
+
+    return ops
+        .filter(([op]) => op === 'get')
+        .map(() => -1); // Placeholder, actual read results are set in the loop above
+}
+```

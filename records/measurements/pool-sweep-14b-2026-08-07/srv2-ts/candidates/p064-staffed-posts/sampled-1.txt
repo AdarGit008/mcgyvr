@@ -1,0 +1,62 @@
+```ts
+/**
+ * Calculates the greatest number of posts that can be staffed simultaneously.
+ * @param wanted - An array of arrays where each sub-array contains the post numbers
+ *                 a candidate is qualified for.
+ * @param posts - The total number of posts available, numbered from 0 to posts-1.
+ * @returns The maximum number of posts that can be staffed.
+ */
+export function staffedPosts(wanted: number[][], posts: number): number {
+    if (!Number.isInteger(posts) || posts <= 0) {
+        throw new Error("Invalid number of posts");
+    }
+
+    const postAssignments = new Array(posts).fill(null);
+    let maxStaffed = 0;
+
+    for (const applicant of wanted) {
+        let assigned = false;
+        // Try to assign the first available post in the applicant's list
+        for (const post of applicant) {
+            if (!Number.isInteger(post) || post < 0 || post >= posts) {
+                throw new Error("Invalid post number");
+            }
+            if (postAssignments[post] === null) {
+                postAssignments[post] = applicant;
+                assigned = true;
+                break;
+            }
+        }
+
+        // If no direct assignment was made, try to reassign
+        if (!assigned) {
+            for (const post of applicant) {
+                for (let i = 0; i < posts; i++) {
+                    if (postAssignments[i] === applicant && canReassign(post, i)) {
+                        postAssignments[i] = null;
+                        postAssignments[post] = applicant;
+                        assigned = true;
+                        break;
+                    }
+                }
+                if (assigned) break;
+            }
+        }
+
+        if (assigned) {
+            maxStaffed++;
+        }
+    }
+
+    return maxStaffed;
+
+    function canReassign(targetPost: number, currentPost: number): boolean {
+        for (const applicant of wanted) {
+            if (applicant.includes(targetPost) && !applicant.includes(currentPost)) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+```

@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import { firstClueClash } from "./solution.ts";
+
+assert.equal(firstClueClash("##.#...", [2, 1]), -1, "the runs match the clues");
+assert.equal(firstClueClash("##.#...", [2, 2]), 1, "the second block is too short");
+assert.equal(firstClueClash("##.#...", [2]), 1, "one block more than the clues want");
+assert.equal(firstClueClash("##.#...", [2, 1, 1]), 2, "one clue more than the line has");
+assert.equal(firstClueClash(".......", []), -1, "a bare line matches no clues");
+assert.equal(firstClueClash(".......", [1]), 0, "a bare line fails its first clue");
+assert.equal(firstClueClash("###....", [3]), -1, "a single block at the left");
+assert.equal(firstClueClash("....###", [3]), -1, "a single block at the right");
+assert.equal(firstClueClash("#.#.#..", [1, 1, 1]), -1, "three lone cells");
+assert.equal(firstClueClash("#.#.#..", [1, 2, 1]), 1, "the middle clue disagrees");
+assert.equal(firstClueClash("#######", [7]), -1, "the whole line is one block");
+assert.equal(firstClueClash("###.###", [3, 3]), -1, "two blocks split by one dot");
+assert.equal(firstClueClash("#..###.", [2, 3]), 0, "the very first place disagrees");
+assert.throws(() => firstClueClash("", []), Error, "an empty line is rejected");
+assert.throws(() => firstClueClash("##x#...", [2, 1]), Error, "a stray character is rejected");
+assert.throws(() => firstClueClash("##.#...", [0]), Error, "a clue of zero is rejected");
+assert.throws(() => firstClueClash("##.#...", [2, -1]), Error, "a negative clue is rejected");
+assert.throws(() => firstClueClash("##.#...", [4, 4]), Error, "clues that cannot fit are rejected");
+assert.throws(() => firstClueClash("##.#...", 3), Error, "a clue list that is not a list");
+assert.throws(() => firstClueClash(42, [1]), Error, "a line that is not a string");
+console.log("ok");

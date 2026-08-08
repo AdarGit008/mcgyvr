@@ -1,0 +1,51 @@
+```ts
+/**
+ * Renders a table as lines of text based on alignment specifications.
+ * @param rows - A list of rows, each row is a list of string cells.
+ * @param aligns - A string specifying alignment for each column ('l', 'r', or 'c').
+ * @returns An array of strings representing the rendered table lines.
+ */
+export function layoutColumns(rows: string[][], aligns: string): string[] {
+  if (rows.length === 0) {
+    throw new Error("Table cannot be empty.");
+  }
+
+  const columnCount = rows[0].length;
+  if (aligns.length !== columnCount) {
+    throw new Error("Alignment specification length must match the number of columns.");
+  }
+
+  if (!aligns.split('').every(a => ['l', 'r', 'c'].includes(a))) {
+    throw new Error("Alignment specification must only contain 'l', 'r', or 'c'.");
+  }
+
+  const columnWidths = rows.map(row =>
+    row.map(cell => {
+      if (typeof cell !== 'string') {
+        throw new Error("All cells must be strings.");
+      }
+      return cell.length;
+    })
+  ).reduce((acc, widths) => acc.map((maxWidth, i) => Math.max(maxWidth, widths[i])), new Array(columnCount).fill(0));
+
+  const paddedRows = rows.map(row =>
+    row.map((cell, i) => {
+      const width = columnWidths[i];
+      switch (aligns[i]) {
+        case 'l':
+          return cell.padEnd(width);
+        case 'r':
+          return cell.padStart(width);
+        case 'c':
+          const leftPadding = Math.floor((width - cell.length) / 2);
+          const rightPadding = width - cell.length - leftPadding;
+          return ' '.repeat(leftPadding) + cell + ' '.repeat(rightPadding);
+        default:
+          throw new Error("Invalid alignment character.");
+      }
+    })
+  );
+
+  return paddedRows.map(row => row.join('  ').trim());
+}
+```

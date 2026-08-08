@@ -1,0 +1,83 @@
+id: p239-stage-charge-repair
+task_type: bug_fix
+task: >-
+  charge_stages bills a pipeline's runtime and lets far too much of it go
+  free. Repair it. Each stage record carries name (a non-empty string, no
+  two alike) and tries (a non-empty list of attempt records in the order
+  they ran, each with secs, a whole number of zero or more, and code, one of
+  done, soft and hard). A soft code is a passing wobble the operator eats;
+  done and hard each finish a stage where they stand, so no attempt may
+  follow either. The second argument, forgive, is a whole number of zero or
+  more saying how many soft attempts a stage gets on the house, counted from
+  that stage's first soft attempt onward and reckoned for each stage
+  entirely on its own. A stage's wall is the sum of every attempt's secs.
+  Its billed figure is every done attempt and every hard attempt in full,
+  plus in full every soft attempt beyond the forgiven ones. Return one
+  record per stage in the order given, carrying name, wall, billed and free,
+  where free is wall less billed. Today's code hands back every soft second
+  and every hard second alike, and never so much as reads forgive. Leave the
+  existing checks in place: they reject a bad name, a repeated name, a
+  missing or empty try list, a secs below zero or not whole, an unknown
+  code, an attempt standing after a done or a hard, and a forgive below
+  zero.
+target: solution.py
+target_content: |
+  CODES = {"done", "soft", "hard"}
+
+
+  def _whole(value):
+      return isinstance(value, int) and not isinstance(value, bool)
+
+
+  def charge_stages(stages: list, forgive: int) -> list:
+      if not _whole(forgive) or forgive < 0:
+          raise ValueError("forgive must be a whole number of zero or more")
+      if not isinstance(stages, list):
+          raise ValueError("the pipeline must be a list of stage records")
+      seen = set()
+      for stage in stages:
+          if not isinstance(stage, dict):
+              raise ValueError("each stage must be a record")
+          name = stage.get("name")
+          if not isinstance(name, str) or name == "":
+              raise ValueError("a stage name must be a non-empty string")
+          if name in seen:
+              raise ValueError("repeated stage name: " + name)
+          seen.add(name)
+          tries = stage.get("tries")
+          if not isinstance(tries, list) or not tries:
+              raise ValueError(name + " ran no attempts")
+          for index, attempt in enumerate(tries):
+              if not isinstance(attempt, dict):
+                  raise ValueError("each attempt must be a record")
+              if not _whole(attempt.get("secs")) or attempt["secs"] < 0:
+                  raise ValueError("secs must be a whole number of zero or more")
+              if attempt.get("code") not in CODES:
+                  raise ValueError("unknown attempt code in " + name)
+              if index > 0 and tries[index - 1]["code"] != "soft":
+                  raise ValueError(name + " ran on after it had finished")
+
+      bills = []
+      for stage in stages:
+          wall = 0
+          billed = 0
+          for attempt in stage["tries"]:
+              wall += attempt["secs"]
+              if attempt["code"] == "done":
+                  billed += attempt["secs"]
+          bills.append(
+              {
+                  "name": stage["name"],
+                  "wall": wall,
+                  "billed": billed,
+                  "free": wall - billed,
+              }
+          )
+      return bills
+interface: "def charge_stages(stages: list, forgive: int) -> list"
+stop_conditions:
+  - Whether an unused forgiveness carries over to the next stage is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

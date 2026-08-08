@@ -1,0 +1,51 @@
+```python
+def first_broken_rule(root: dict) -> dict:
+    if root is None:
+        raise ValueError("Root cannot be None")
+    
+    def check_node(node, key_bound):
+        if node is None:
+            return {}
+        
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a dictionary")
+        
+        if len(node) != 4:
+            raise ValueError("Node must contain exactly four entries")
+        
+        key = node.get('key')
+        count = node.get('count')
+        left = node.get('left')
+        right = node.get('right')
+        
+        if key is None or not isinstance(key, int):
+            raise ValueError("Key must be an integer")
+        
+        if count is None or not isinstance(count, int) or count <= 0:
+            raise ValueError("Count must be a positive integer")
+        
+        left_depth = check_node(left, key_bound)
+        right_depth = check_node(right, key_bound)
+        
+        order_broken = left and key <= left.get('key', float('-inf'))
+        order_broken |= right and key >= right.get('key', float('inf'))
+        
+        balance_broken = abs(left_depth - right_depth) > 1
+        
+        count_broken = node['count'] != (1 + left_depth + right_depth)
+        
+        if order_broken:
+            return {'path': 'root' + ('/L' if left else '/R'), 'rule': 'order'}
+        elif balance_broken:
+            return {'path': 'root' + ('/L' if left else '/R'), 'rule': 'balance'}
+        elif count_broken:
+            return {'path': 'root' + ('/L' if left else '/R'), 'rule': 'count'}
+        
+        if order_broken or balance_broken or count_broken:
+            raise ValueError(f"Node {key} breaks a rule")
+        
+        return {'path': '', 'rule': ''}
+
+    result = check_node(root, None)
+    return result
+```

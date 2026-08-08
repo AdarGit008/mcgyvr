@@ -1,0 +1,85 @@
+```python
+def range_algebra(a: list, b: list, op: str) -> list:
+    if op not in ("union", "intersect", "subtract"):
+        raise ValueError("Invalid operation")
+    
+    def merge_intervals(intervals):
+        intervals.sort(key=lambda x: (x[0], -x[1]))
+        merged = []
+        for lo, hi in intervals:
+            if not merged or lo > merged[-1][1]:
+                merged.append([lo, hi])
+            else:
+                merged[-1][1] = max(merged[-1][1], hi)
+        return merged
+    
+    def apply_operation(a, b, op):
+        result = []
+        i, j = 0, 0
+        while i < len(a) and j < len(b):
+            lo_a, hi_a = a[i]
+            lo_b, hi_b = b[j]
+            if hi_a <= lo_b:
+                result.append([lo_a, hi_a])
+                i += 1
+            elif hi_b <= lo_a:
+                result.append([lo_b, hi_b])
+                j += 1
+            else:
+                if op == "union":
+                    if lo_a < lo_b:
+                        result.append([lo_a, min(hi_a, hi_b)])
+                        if hi_a < hi_b:
+                            i += 1
+                        else:
+                            i += 1
+                            j += 1
+                    else:
+                        result.append([lo_b, min(hi_a, hi_b)])
+                        if hi_b < hi_a:
+                            j += 1
+                        else:
+                            i += 1
+                            j += 1
+                elif op == "intersect":
+                    if lo_a > lo_b:
+                        result.append([lo_a, min(hi_a, hi_b)])
+                        if hi_a < hi_b:
+                            i += 1
+                        else:
+                            i += 1
+                            j += 1
+                    else:
+                        result.append([lo_b, min(hi_a, hi_b)])
+                        if hi_b < hi_a:
+                            j += 1
+                        else:
+                            i += 1
+                            j += 1
+                elif op == "subtract":
+                    if lo_a < lo_b:
+                        result.append([lo_a, lo_b])
+                        if hi_a < hi_b:
+                            i += 1
+                        else:
+                            i += 1
+                            j += 1
+                    else:
+                        if hi_a > hi_b:
+                            i += 1
+                        else:
+                            i += 1
+                            j += 1
+        result.extend(a[i:])
+        result.extend(b[j:])
+        return merged_intervals(result)
+    
+    for intervals in a, b:
+        for lo, hi in intervals:
+            if not isinstance(lo, int) or not isinstance(hi, int):
+                raise ValueError("Invalid interval entry")
+            if lo >= hi:
+                raise ValueError("Invalid interval: lo must be strictly below hi")
+    
+    return apply_operation(a, b, op)
+```

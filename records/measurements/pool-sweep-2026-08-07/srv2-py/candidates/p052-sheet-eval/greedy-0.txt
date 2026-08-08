@@ -1,0 +1,48 @@
+```python
+def compute_sheet(cells: dict[str, str]) -> dict[str, int]:
+    def parse_literal(s: str) -> int:
+        if s.startswith('-'):
+            return -int(s[1:])
+        elif s.isdigit():
+            return int(s)
+        else:
+            raise ValueError("Invalid literal")
+
+    def parse_term(term: str) -> int:
+        if term.startswith('='):
+            return evaluate_formula(term[1:].strip())
+        else:
+            try:
+                return parse_literal(term.strip())
+            except ValueError:
+                raise ValueError(f"Invalid term: {term}")
+
+    def evaluate_formula(formula: str) -> int:
+        terms = formula.split('+')
+        result = 0
+        for term in terms:
+            result += parse_term(term)
+        return result
+
+    def resolve_cell(cell_name: str) -> int:
+        if cell_name not in cells:
+            raise ValueError(f"Cell '{cell_name}' not found")
+        try:
+            return evaluate_formula(cells[cell_name])
+        except (ValueError, RecursionError):
+            raise ValueError(f"Cycle detected involving cell '{cell_name}'")
+
+    visited = set()
+
+    def dfs(cell_name: str) -> None:
+        if cell_name in visited:
+            raise ValueError(f"Cycle detected involving cell '{cell_name}'")
+        visited.add(cell_name)
+        resolve_cell(cell_name)
+        visited.remove(cell_name)
+
+    for cell_name in cells:
+        dfs(cell_name)
+
+    return {cell_name: resolve_cell(cell_name) for cell_name in cells}
+```

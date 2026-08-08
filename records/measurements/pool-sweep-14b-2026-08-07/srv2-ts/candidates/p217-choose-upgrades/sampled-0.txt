@@ -1,0 +1,93 @@
+```ts
+/**
+ * Where each ruled library should land.
+ */
+export function chooseUpgrades(request: Record<string, unknown>): Record<string, unknown> {
+  const installed = request.installed as Record<string, string>;
+  const offers = request.offers as Record<string, string[]>;
+  const rules = request.rules as any[];
+
+  // Validate inputs
+  if (typeof installed !== 'object' || installed === null) {
+    throw new Error('Invalid installed mapping');
+  }
+  if (typeof offers !== 'object' || offers === null) {
+    throw new Error('Invalid offers mapping');
+  }
+  if (!Array.isArray(rules)) {
+    throw new Error('Invalid rules list');
+  }
+
+  const floors = new Map<string, string>();
+  const ceilings = new Map<string, string>();
+
+  for (const rule of rules) {
+    if (typeof rule !== 'object' || rule === null) {
+      throw new Error('Invalid rule');
+    }
+    const { package: packageName, min, max } = rule;
+    if (typeof packageName !== 'string') {
+      throw new Error('Invalid rule package name');
+    }
+    if (!offers[packageName]) {
+      throw new Error(`Rule bounds a library the registry does not carry: ${packageName}`);
+    }
+    if (compareReleases(min, max) > 0) {
+      throw new Error(`Rule min is above max for package: ${packageName}`);
+    }
+    const low = floors.get(packageName);
+    if (low === undefined || compareReleases(rule.min, low) > 0) {
+      floors.set(packageName, rule.min);
+    }
+    const high = ceilings.get(packageName);
+    if (high === undefined || compareReleases(rule.max, high) < 0) {
+      ceilings.set(packageName, rule.max);
+    }
+  }
+
+  const moves: Record<string, unknown>[] = [];
+  const snags: Record<string, unknown>[] = [];
+
+  for (const name of Array.from(floors.keys()).sort()) {
+    const low = floors.get(name) as string;
+    const high = ceilings.get(name) as string;
+    const allowed = offers[name].filter(
+      (release) => compareReleases(release, low) >= 0 && compareReleases(release, high) <= 0
+    );
+    if (allowed.length === 0) {
+      snags.push({ package: name, why: "none" });
+      continue;
+    }
+    const here = installed[name];
+    if (here !== undefined && allowed.includes(here)) {
+      moves.push({ package: name, to: here, action: "hold" });
+      continue;
+    }
+    if (!allowed.some(release => compareReleases(release, here!) > 0)) {
+      snags.push({ package: name, why: "drop" });
+      continue;
+    }
+    allowed.sort(compareReleases);
+    const best = allowed.find(release => compareReleases(release, here!) > 0) as string;
+    moves.push({
+      package: name,
+      to: best,
+      action: here === undefined ? "fetch" : "lift",
+    });
+  }
+
+  return { moves, snags };
+}
+
+/**
+ * Compare two releases.
+ * @param a - First release.
+ * @param b - Second release.
+ * @returns Negative number if a < b, positive if a > b, zero if equal.
+ */
+function compareReleases(a: string, b: string): number {
+  const [majorA, minorA] = a.split('.').map(Number);
+  const [majorB, minorB] = b.split('.').map(Number);
+
+  if (majorA !== majorB) {
+    return majorA

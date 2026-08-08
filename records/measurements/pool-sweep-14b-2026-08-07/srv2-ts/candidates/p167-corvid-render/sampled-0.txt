@@ -1,0 +1,23 @@
+```ts
+export function corvidRender(value: number): string {
+  if (!Number.isInteger(value)) {
+    throw new Error("Input must be a whole number");
+  }
+
+  const marks = ["v", "w", "x", "y", "z"];
+  let result = "";
+  let remainingValue = value;
+  let placeValue = 125; // Start with the highest place value (5^3)
+
+  while (remainingValue !== 0 || placeValue >= 1) {
+    const markIndex = Math.floor(remainingValue / placeValue);
+    if (markIndex !== 0) {
+      result += marks[markIndex + 2]; // Adjust index for marks array
+      remainingValue -= markIndex * placeValue;
+    }
+    placeValue /= 5;
+  }
+
+  return result || "x"; // Return "x" for zero value
+}
+```

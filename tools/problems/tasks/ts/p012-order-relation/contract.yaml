@@ -1,0 +1,18 @@
+id: p012-order-relation
+task_type: function_implementation
+task: >-
+  Implement orderRelation. The input is a list of precedence pairs, each
+  pair [a, b] stating that item a comes somewhere before item b, plus two
+  query items x and y. Under the transitive closure of the pairs, return
+  "before" when x must precede y, "after" when y must precede x, "both"
+  when each can reach the other (the pairs contradict themselves), and
+  "unordered" when neither reaches the other. Reject with an error a query
+  where x equals y, and a query item that appears in no pair.
+target: solution.ts
+interface: "export function orderRelation(pairs: [string, string][], x: string, y: string): string"
+stop_conditions:
+  - Whether a pair may name the same item on both sides is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

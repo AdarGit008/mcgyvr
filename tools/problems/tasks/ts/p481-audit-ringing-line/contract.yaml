@@ -1,0 +1,110 @@
+id: p481-audit-ringing-line
+task_type: bug_fix
+task: >-
+  auditRingingLine looks over a written line of ringing and lets a wild bell
+  through. The argument is the rows, a non-empty list of rows, each row a list
+  of whole numbers. The opening row must be rounds, the numbers one to however
+  many there are in order, and it must hold at least two of them. Every later
+  row is judged in turn on three counts. A row that is not as long as the
+  opening row, or that does not hold each of the numbers one to however many
+  there are exactly once, is faulted as shape. A row reached from the one
+  before it by any bell shifting further than a single place, or by anything
+  other than swaps of neighbours that leave every other bell where it stood, is
+  faulted as jump. A row already rung earlier in the line is faulted as repeat,
+  unless it is rounds and it is the last row written. Give back a mapping whose
+  ok says whether the line is clean, whose fault names the first count failed
+  and is the empty string for a clean line, and whose row is the number of the
+  row that failed it, the opening row counting as one and a clean line giving
+  nought. Where one row fails more than one count, shape is named before jump
+  and jump before repeat. The code below asks only that a row holds the same
+  bells as the row before it rather than that no bell shifted more than a
+  single place, and it numbers the faulted row one too low. Repair both, keep
+  raising an error for a rows argument that is not a list or is empty, a row
+  that is not a list, a row entry that is not whole, an opening row holding
+  fewer than two bells, and an opening row that is not rounds, and return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  function whole(value: unknown): boolean {
+    return typeof value === "number" && Number.isInteger(value);
+  }
+
+  function isRounds(row: number[]): boolean {
+    for (let seat = 0; seat < row.length; seat++) {
+      if (row[seat] !== seat + 1) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function shapely(row: number[], bells: number): boolean {
+    if (row.length !== bells) {
+      return false;
+    }
+    const held = new Set(row);
+    if (held.size !== bells) {
+      return false;
+    }
+    for (const bell of row) {
+      if (bell < 1 || bell > bells) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function holdsSame(before: number[], row: number[]): boolean {
+    const left = before.slice().sort((a, b) => a - b).join(",");
+    const right = row.slice().sort((a, b) => a - b).join(",");
+    return left === right;
+  }
+
+  export function auditRingingLine(
+    rows: number[][],
+  ): { ok: boolean; fault: string; row: number } {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new Error("auditRingingLine expects a non-empty list of rows");
+    }
+    for (const row of rows) {
+      if (!Array.isArray(row)) {
+        throw new Error("a row is not a list");
+      }
+      for (const bell of row) {
+        if (!whole(bell)) {
+          throw new Error("a row entry is not whole");
+        }
+      }
+    }
+    const bells = rows[0].length;
+    if (bells < 2) {
+      throw new Error("the opening row holds fewer than two bells");
+    }
+    if (!isRounds(rows[0])) {
+      throw new Error("the opening row is not rounds");
+    }
+
+    const rung = new Set<string>([rows[0].join(",")]);
+    for (let seat = 1; seat < rows.length; seat++) {
+      const row = rows[seat];
+      if (!shapely(row, bells)) {
+        return { ok: false, fault: "shape", row: seat };
+      }
+      if (!holdsSame(rows[seat - 1], row)) {
+        return { ok: false, fault: "jump", row: seat };
+      }
+      const mark = row.join(",");
+      if (rung.has(mark) && !(isRounds(row) && seat === rows.length - 1)) {
+        return { ok: false, fault: "repeat", row: seat };
+      }
+      rung.add(mark);
+    }
+    return { ok: true, fault: "", row: 0 };
+  }
+interface: "export function auditRingingLine(rows: number[][]): { ok: boolean; fault: string; row: number }"
+stop_conditions:
+  - Whether a line may be written with no row after the opening one is not stated beyond the list being non-empty.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

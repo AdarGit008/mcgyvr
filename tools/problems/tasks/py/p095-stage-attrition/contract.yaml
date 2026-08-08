@@ -1,0 +1,63 @@
+id: p095-stage-attrition
+task_type: bug_fix
+task: >-
+  stage_attrition audits a measurement line. Each stage mapping has a "stage"
+  name, a "field", and numeric bounds "low" and "high", either of which may
+  be null for unbounded; a specimen record passes a stage when it carries
+  the field, the field holds a number, and that number lies within the
+  bounds inclusive. Specimens go through the stages in order and leave the
+  line at the first stage they fail. Return one [name, count] pair per
+  stage, in stage order, counting the specimens that left there, then a
+  final ["through", count] pair for those that passed everything. The
+  current code scores every stage against every specimen independently, so
+  one specimen can be counted as leaving at several stages and the counts
+  add up to more than the line received. Fix the attribution so a specimen
+  counts only at the first stage it fails, and keep rejecting with an error
+  an empty or repeated stage name, a stage named "through", and bounds
+  whose low exceeds high. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def _fails(specimen: dict, stage: dict) -> bool:
+      value = specimen.get(stage["field"])
+      if not isinstance(value, (int, float)) or isinstance(value, bool):
+          return True
+      low = stage["low"]
+      high = stage["high"]
+      return (low is not None and value < low) or (high is not None and value > high)
+
+
+  def stage_attrition(specimens: list[dict], stages: list[dict]) -> list:
+      seen = set()
+      for stage in stages:
+          name = stage.get("stage")
+          if not isinstance(name, str) or name == "":
+              raise ValueError("stage name must be a non-empty string")
+          if name == "through":
+              raise ValueError('a stage may not be named "through"')
+          if name in seen:
+              raise ValueError(f"stage name repeated: {name}")
+          seen.add(name)
+          low = stage["low"]
+          high = stage["high"]
+          if low is not None and high is not None and low > high:
+              raise ValueError("low exceeds high")
+      pairs = []
+      for stage in stages:
+          left = 0
+          for specimen in specimens:
+              if _fails(specimen, stage):
+                  left += 1
+          pairs.append([stage["stage"], left])
+      through = 0
+      for specimen in specimens:
+          if all(not _fails(specimen, stage) for stage in stages):
+              through += 1
+      pairs.append(["through", through])
+      return pairs
+interface: "def stage_attrition(specimens: list[dict], stages: list[dict]) -> list"
+stop_conditions:
+  - Whether specimens may carry fields no stage reads is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,26 @@
+id: p301-split-qualifying-round
+task_type: function_implementation
+task: >-
+  Implement split_qualifying_round. The argument lists a tournament's entrants
+  from the strongest seed downward. The main draw is sized to the largest
+  power of two that does not exceed the count of entrants; the surplus is
+  however many entrants stand beyond that size. The surplus fixes the
+  qualifying round: twice the surplus, counted off the weak end of the list,
+  is sent to qualifying, and everyone off the strong end that is left walks
+  into the main draw untroubled. Within the qualifying group the strongest of
+  it is drawn against the weakest of it, the second strongest against the
+  second weakest, and so on inward, giving exactly as many matches as the
+  surplus. Return an object holding direct, the names walking in, kept in
+  seed order, and qualifying, the drawn matches as pairs of the stronger then
+  the weaker name, in the order just described. A field already sized to a
+  power of two has a surplus of nothing and plays no qualifying. Reject with
+  an error an argument that is not a list, a field of fewer than two
+  entrants, a name that is not a string, and a name listed twice.
+target: solution.py
+interface: "def split_qualifying_round(entrants: list[str]) -> dict"
+stop_conditions:
+  - Whether an entrant name may be the empty string is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

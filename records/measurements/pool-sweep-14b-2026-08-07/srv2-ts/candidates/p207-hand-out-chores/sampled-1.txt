@@ -1,0 +1,53 @@
+```ts
+/**
+ * The chore board shared out around the crew.
+ * @param chores - A list of non-empty strings representing the chores.
+ * @param crew - A list of non-empty strings representing the crew members' names.
+ * @returns A mapping from each crew member's name to the chores that fell to them, in order.
+ * @throws Error if the chore board is not a list, or if a chore is not a non-empty string,
+ *         or if a chore is listed twice, or if the crew is not a list, or nobody is on it,
+ *         or if a crew member's name is not a non-empty string, or if two crew members share a name.
+ */
+export function handOutChores(chores: string[], crew: string[]): Record<string, string[]> {
+  if (!Array.isArray(chores)) {
+    throw new Error("Chore board must be an array.");
+  }
+  if (!Array.isArray(crew) || crew.length === 0) {
+    throw new Error("Crew must be a non-empty array.");
+  }
+
+  const uniqueChores = new Set<string>();
+  chores.forEach(chore => {
+    if (typeof chore !== 'string' || chore.trim() === '') {
+      throw new Error("Each chore must be a non-empty string.");
+    }
+    if (!uniqueChores.add(chore)) {
+      throw new Error("Each chore must be unique.");
+    }
+  });
+
+  const uniqueNames = new Set<string>();
+  crew.forEach(name => {
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new Error("Each crew member's name must be a non-empty string.");
+    }
+    if (!uniqueNames.add(name)) {
+      throw new Error("Crew members must have unique names.");
+    }
+  });
+
+  const share: Record<string, string[]> = {};
+  crew.forEach(name => {
+    share[name] = [];
+  });
+
+  let marker = 0;
+  chores.forEach(chore => {
+    const who = crew[marker % crew.length];
+    share[who].push(chore);
+    marker += chore.length;
+  });
+
+  return share;
+}
+```

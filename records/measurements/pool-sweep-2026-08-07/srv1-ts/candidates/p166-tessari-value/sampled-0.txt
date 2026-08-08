@@ -1,0 +1,24 @@
+```ts
+export function tessariValue(text: string): number {
+  if (typeof text !== 'string' || !text.trim()) throw new Error('Invalid input');
+  const glyphToValue: { [key: string]: number } = {
+    K: 0, L: 1, M: 2, N: 3, P: 4, Q: 5, R: 6, S: 7, T: 8
+  };
+
+  for (let char of text) {
+    if (!(char in glyphToValue)) throw new Error('Invalid glyph');
+  }
+
+  let result = 0;
+  let currentMultiplier = 1;
+
+  for (let i = text.length - 1; i >= 0; i--) {
+    const value = glyphToValue[text[i]];
+    if (value === 0 && i !== text.length - 1) throw new Error('Leading K is not allowed');
+    result += value * currentMultiplier;
+    currentMultiplier *= 9;
+  }
+
+  return result;
+}
+```

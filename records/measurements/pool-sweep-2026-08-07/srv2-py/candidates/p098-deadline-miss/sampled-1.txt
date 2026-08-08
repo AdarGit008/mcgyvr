@@ -1,0 +1,23 @@
+```python
+def first_deadline_miss(jobs: list[dict]) -> str:
+    if not jobs:
+        return ""
+    
+    for job in jobs:
+        if not isinstance(job['name'], str) or not job['name']:
+            raise ValueError("Job name must be a non-empty string")
+        if not isinstance(job['work'], int) or job['work'] <= 0:
+            raise ValueError("Work time must be a positive integer")
+        if not isinstance(job['due'], int) or job['due'] <= 0:
+            raise ValueError("Due time must be a positive integer")
+    
+    jobs.sort(key=lambda x: (x['due'], jobs.index(x)))
+    current_time = 0
+    
+    for job in jobs:
+        current_time += job['work']
+        if current_time > job['due']:
+            return job['name']
+    
+    return ""
+```

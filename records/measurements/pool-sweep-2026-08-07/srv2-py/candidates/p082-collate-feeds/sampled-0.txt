@@ -1,0 +1,20 @@
+```python
+def collate_feeds(feeds: list) -> list:
+    if not feeds:
+        return []
+
+    # Flatten and sort by tick while preserving original feed order
+    events = sorted((tick, reading, i) for i, feed in enumerate(feeds) for tick, reading in feed)
+    
+    last_tick = None
+    last_reading = None
+    result = []
+
+    for tick, reading, _ in events:
+        if tick != last_tick or (tick == last_tick and reading != last_reading):
+            result.append([tick, reading])
+        last_tick = tick
+        last_reading = reading
+
+    return result
+```

@@ -1,0 +1,39 @@
+```typescript
+export function orderColorReport(
+  neighbours: number[][],
+  visitOrder: number[],
+): number[][] {
+  if (neighbours.length === 0) {
+    throw new Error("No transmitters");
+  }
+
+  const channel: number[] = new Array(neighbours.length).fill(-1);
+
+  for (const transmitter of visitOrder) {
+    if (transmitter < 0 || transmitter >= neighbours.length) {
+      throw new Error(`Invalid transmitter ${transmitter}`);
+    }
+    let lowestFreeChannel = 0;
+    const clashingChannels: boolean[] = new Array(neighbours.length).fill(false);
+
+    for (const other of neighbours[transmitter]) {
+      if (other === transmitter) {
+        throw new Error("Clash with self");
+      }
+      if (other < 0 || other >= neighbours.length) {
+        throw new Error(`Invalid clashing transmitter ${other}`);
+      }
+      clashingChannels[channel[other]] = true;
+    }
+
+    for (; lowestFreeChannel < channel.length; lowestFreeChannel++) {
+      if (!clashingChannels[lowestFreeChannel]) break;
+    }
+
+    channel[transmitter] = lowestFreeChannel;
+  }
+
+  const distinctChannels = new Set(channel);
+  return [channel, [distinctChannels.size]];
+}
+```

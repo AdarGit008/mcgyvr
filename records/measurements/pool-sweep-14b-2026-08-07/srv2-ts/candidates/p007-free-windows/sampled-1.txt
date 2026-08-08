@@ -1,0 +1,94 @@
+```ts
+/**
+ * Validates that the given window bounds are integers and that start precedes end.
+ */
+function validateWindowBounds(start: number, end: number): void {
+  if (!Number.isInteger(start) || !Number.isInteger(end)) {
+    throw new Error("Window bounds must be integers.");
+  }
+  if (start >= end) {
+    throw new Error("Window start must precede window end.");
+  }
+}
+
+/**
+ * Validates that the given busy interval is a pair of integers and that start precedes end.
+ */
+function validateBusyInterval(interval: number[]): void {
+  const [start, end] = interval;
+  if (!Number.isInteger(start) || !Number.isInteger(end)) {
+    throw new Error("Busy interval endpoints must be integers.");
+  }
+  if (start >= end) {
+    throw new Error("Busy interval start must precede busy interval end.");
+  }
+}
+
+/**
+ * Clips a busy interval to the given window bounds.
+ */
+function clipToWindow(interval: number[], windowStart: number, windowEnd: number): number[] | null {
+  const [start, end] = interval;
+  const clippedStart = Math.max(start, windowStart);
+  const clippedEnd = Math.min(end, windowEnd);
+  if (clippedStart < clippedEnd) {
+    return [clippedStart, clippedEnd];
+  }
+  return null;
+}
+
+/**
+ * Merges overlapping or touching intervals.
+ */
+function mergeIntervals(intervals: number[][]): number[][] {
+  if (intervals.length === 0) return [];
+
+  intervals.sort((a, b) => a[0] - b[0]);
+  const merged: number[][] = [intervals[0]];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const current = intervals[i];
+    const lastMerged = merged[merged.length - 1];
+
+    if (current[0] <= lastMerged[1]) {
+      lastMerged[1] = Math.max(lastMerged[1], current[1]);
+    } else {
+      merged.push(current);
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * The free stretches of a working window, given its busy intervals.
+ */
+export function freeWindows(
+  windowStart: number,
+  windowEnd: number,
+  busy: number[][],
+): number[][] {
+  validateWindowBounds(windowStart, windowEnd);
+
+  const validBusyIntervals = busy
+    .map(interval => clipToWindow(interval, windowStart, windowEnd))
+    .filter((interval): interval is number[] => interval !== null);
+
+  const mergedBusyIntervals = mergeIntervals(validBusyIntervals);
+  const gaps: number[][] = [];
+
+  let cursor = windowStart;
+  for (const [start, end] of mergedBusyIntervals) {
+    if (start > cursor) {
+      gaps.push([cursor, start]);
+    }
+    cursor = end;
+  }
+
+  if (cursor < windowEnd) {
+    gaps.push([cursor, windowEnd]);
+  }
+
+  return gaps;
+}
+```

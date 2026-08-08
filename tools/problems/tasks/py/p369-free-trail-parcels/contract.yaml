@@ -1,0 +1,28 @@
+id: p369-free-trail-parcels
+task_type: function_implementation
+task: >-
+  Implement free_trail_parcels. An estate is a perfect two-way trail of a
+  stated depth: an address is a run of exactly that many letters, each of
+  them L or R, so a depth of three names eight addresses. A parcel is a run
+  of L and R letters no longer than the depth, and it holds every address
+  beginning with those letters, which makes the empty run the parcel holding
+  the whole estate. Given the depth and the parcels already issued, report
+  the parcels still free — the fewest parcels that between them hold exactly
+  the addresses no issued parcel holds. Two free parcels sharing a parent
+  must always be reported as that one shorter parent instead, over and over,
+  so nothing is ever split more finely than it needs to be. Order the report
+  by the first address each parcel holds, taking L ahead of R. An empty
+  report means the estate has been issued out entirely. Raise an error when
+  the depth is not a whole number from 1 to 8, when a parcel is not a string,
+  when a parcel carries a letter other than L or R, when a parcel is longer
+  than the depth, when one issued parcel holds another or the very same
+  parcel is issued twice, and when the issued parcels are not given as a
+  list.
+target: solution.py
+interface: "def free_trail_parcels(depth: int, issued: list) -> list"
+stop_conditions:
+  - Whether the depth may be larger than any issued parcel is long is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

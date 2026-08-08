@@ -1,0 +1,32 @@
+id: p390-rank-stemmed-terms
+task_type: function_implementation
+task: >-
+  Implement rank_stemmed_terms. The first argument is a passage; the second a
+  mapping carrying "stops" and "endings". Cut the passage into words, a word
+  being a maximal run of ASCII letters, and fold every word to lowercase;
+  digits and punctuation merely separate words and belong to none. Then trim
+  each word by the endings, an ordered list of pairs, each pair a tail and a
+  floor. Walk that list from the top and apply the first pair whose tail closes
+  the word and whose floor is honoured — honoured when striking that tail off
+  would leave the word at least floor letters long. Applying a pair strikes off
+  the tail and nothing more, and no later pair is so much as considered; a pair
+  that closes the word but breaks its floor is passed over, so a pair further
+  down may still fire. A word that no pair fits stands exactly as it is. Only
+  once a word has been trimmed is it weighed against "stops", a list of words
+  to discard: a trimmed word found there is thrown away, while a word whose
+  untrimmed spelling sits on that list is not. Count whatever survives and
+  report the pairs of surviving word and count, heaviest count leading, words
+  of equal count in rising alphabetical order. Raise an error when the passage
+  is not a string, when the second argument is not a mapping, when "stops" or
+  "endings" is not a list, when a stop word is not a non-empty run of lowercase
+  letters, when an endings entry is not a pair, when a tail is not a non-empty
+  run of lowercase letters, and when a floor is not a whole number of at least
+  one.
+target: solution.py
+interface: "def rank_stemmed_terms(passage: str, rules: object) -> list[tuple[str, int]]"
+stop_conditions:
+  - Whether letters outside the ASCII range may take part in a word is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

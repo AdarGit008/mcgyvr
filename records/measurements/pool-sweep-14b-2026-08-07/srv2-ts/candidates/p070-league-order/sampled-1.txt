@@ -1,0 +1,77 @@
+```ts
+export function leagueOrder(matches: (string | number)[][]): string[] {
+  // Helper function to validate match entries
+  function isValidMatch(match: (string | number)[]): boolean {
+    if (match.length !== 4) return false;
+    const [homeTeam, awayTeam, homeGoals, awayGoals] = match;
+    if (
+      typeof homeTeam !== 'string' ||
+      typeof awayTeam !== 'string' ||
+      typeof homeGoals !== 'number' ||
+      typeof awayGoals !== 'number'
+    ) {
+      return false;
+    }
+    if (homeTeam === awayTeam) return false;
+    if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals)) return false;
+    if (homeGoals < 0 || awayGoals < 0) return false;
+    return true;
+  }
+
+  // Validate all matches
+  for (const match of matches) {
+    if (!isValidMatch(match)) {
+      throw new Error('Invalid match entry');
+    }
+  }
+
+  // Initialize team standings
+  const standings: Record<string, { points: number; goalDifference: number; goalsFor: number }> = {};
+
+  // Process each match
+  for (const [homeTeam, awayTeam, homeGoals, awayGoals] of matches) {
+    if (!standings[homeTeam]) {
+      standings[homeTeam] = { points: 0, goalDifference: 0, goalsFor: 0 };
+    }
+    if (!standings[awayTeam]) {
+      standings[awayTeam] = { points: 0, goalDifference: 0, goalsFor: 0 };
+    }
+
+    const homePoints = homeGoals > awayGoals ? 3 : homeGoals === awayGoals ? 1 : 0;
+    const awayPoints = awayGoals > homeGoals ? 3 : awayGoals === homeGoals ? 1 : 0;
+
+    standings[homeTeam].points += homePoints;
+    standings[awayTeam].points += awayPoints;
+    standings[homeTeam].goalDifference += homeGoals - awayGoals;
+    standings[awayTeam].goalDifference += awayGoals - homeGoals;
+    standings[homeTeam].goalsFor += homeGoals;
+    standings[awayTeam].goalsFor += awayGoals;
+  }
+
+  // Sort teams based on the rules
+  const sortedTeams = Object.keys(standings).sort((a, b) => {
+    if (standings[b].points !== standings[a].points) {
+      return standings[b].points - standings[a].points;
+    }
+    // Re-count points for teams with the same total points
+    const matchesInvolvingA = matches.filter(
+      ([home, away]) => home === a || away === a
+    );
+    const matchesInvolvingB = matches.filter(
+      ([home, away]) => home === b || away === b
+    );
+
+    const groupPointsA = matchesInvolvingA.reduce((total, [home, away, homeGoals, awayGoals]) => {
+      if ((home === a && homeGoals > awayGoals) || (away === a && awayGoals > homeGoals)) {
+        return total + 3;
+      } else if (homeGoals === awayGoals) {
+        return total + 1;
+      }
+      return total;
+    }, 0);
+
+    const groupPointsB = matchesInvolvingB.reduce((total, [home, away, homeGoals, awayGoals]) => {
+      if ((home === b && homeGoals > awayGoals) || (away === b && awayGoals > homeGoals)) {
+        return total + 3;
+      } else if (homeGoals === awayGoals) {
+        return total + 

@@ -1,0 +1,34 @@
+id: p285-audit-mail-run
+task_type: function_implementation
+task: >-
+  Implement auditMailRun, which checks a night's sorting against the plan it
+  was meant to follow. Every item carries a code of exactly six characters: a
+  grade letter, P, L or E; then two capital letters naming the office; then two
+  digits giving the round; then one check digit. A code is sound when its check
+  digit equals the last digit of this sum — the two round digits added
+  together, plus the place of each office letter in the alphabet counting A as
+  1. plan lists the plan's entries in trial order, each with a bin, a grades
+  string holding one or more of P, L and E with no repeats, and an offices list
+  of distinct two-capital-letter names. An item's true bin is QUERY when its
+  check digit is unsound; otherwise the bin of the first plan entry whose
+  grades hold the item's grade letter and whose offices hold the item's office;
+  otherwise SPARE. items lists what the night actually produced, each with a
+  code and the stamped bin it was dropped into. Return a record with two
+  fields. misrouted holds, in item order, one entry of code, stamped and
+  correct for every item whose stamped bin differs from its true bin. tally
+  holds one entry of bin and count for every bin that truly received at least
+  one item, ordered by bin name under plain code-point comparison, so a capital
+  letter sorts ahead of a small one. Throw an error when plan is empty, repeats
+  a bin, or names a bin QUERY or SPARE; when a bin is not a non-empty string;
+  when grades is not one to three distinct letters drawn from P, L and E; when
+  offices is empty, repeats a name, or holds a name that is not two capital
+  letters; when items is not a list; and when an item's code breaks the
+  six-character grammar or its stamped bin is not a non-empty string.
+target: solution.ts
+interface: "export function auditMailRun(items: { code: string; stamped: string }[], plan: { bin: string; grades: string; offices: string[] }[]): { misrouted: { code: string; stamped: string; correct: string }[]; tally: { bin: string; count: number }[] }"
+stop_conditions:
+  - Whether a stamped bin naming no bin of the plan is itself an error is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
