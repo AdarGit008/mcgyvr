@@ -310,11 +310,22 @@ def report(
     lines.append("\nWhat the replies look like:\n")
     for shape, count in sorted(shapes.items(), key=lambda kv: -kv[1]):
         lines.append(f"- {shape} x{count}")
+    ever = {row["task"] for row in refusals}
+    never = sorted(set(sizes) - ever)
+    if ever and never:
+        lines.append(
+            f"\n{len(ever)} of {len(sizes)} tasks refused at least once. Their "
+            f"reference solutions run {statistics.median(sizes[t] for t in ever):.0f} "
+            f"lines at the median against "
+            f"{statistics.median(sizes[t] for t in never):.0f} "
+            f"for the tasks that never refused."
+        )
     out["refusals"] = {
         "total": len(refusals),
         "codes": codes,
         "shapes": shapes,
         "attributable_to_the_cap": stop_reason_only,
+        "tasks_that_ever_refused": len(ever),
     }
 
     # --- size, and whether it explains the split
