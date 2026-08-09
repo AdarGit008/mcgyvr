@@ -2,9 +2,9 @@
   "record": "reply-corpus/1",
   "issue": 184,
   "totals": {
-    "replies": 12287,
-    "parses": 11889,
-    "refusals": 398
+    "replies": 12331,
+    "parses": 11932,
+    "refusals": 399
   },
   "entries": [
     {
@@ -108318,6 +108318,533 @@
       "expect": {
         "content_sha256": "abda6f056a87190e19a8df01bc7622b371af72f2152aa5ce19258238138fed2e",
         "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t01/greedy-0.txt",
+      "sha256": "8a253cb073f6efd3a502ad786d4a63b16d034b7669afb3bb75afd47609df0640",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cb9541ade891eec4a23849eebb87e77939c1a98845327030cfb8bc79592fca8b",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t02/greedy-0.txt",
+      "sha256": "c9c2cea3b59c44d17ad5769185ced84649ba1d7ec7e3d4fc4e4958c2e5b24e67",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "375a6577470257c04f9ca5c5f116d0f1c02ba93142b7523ada5dfb845ab4a91e",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t03/greedy-0.txt",
+      "sha256": "cae617ce81e9c775fed83452e1b26e73b86b1a0d3049dfd8faa61a98275e8424",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "7164f5cf16e993a3f117fc52f08564050e21c804f003413e26dfea052f62f241",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t04/greedy-0.txt",
+      "sha256": "8050cef5f8f74b3c403061bf0e9e1c308b5d2b1320e9e9d6f731d974a281197a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "truncated",
+      "output_schema": "whole_file",
+      "expect": {
+        "refusal": "incomplete-reply"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t05/greedy-0.txt",
+      "sha256": "ac097b842da0f2906a328495452ac4d75c49ef0f71c460438c6a8c1d3773e3cd",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a29ed05f4d3a2fcba2105f61fb38752e8c139bfa5a85b1e21af612478e9af021",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t06/greedy-0.txt",
+      "sha256": "f7422382245be3e28ad0f060dff65532cfed4cbf8bd93e585dcf83691d13147e",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "95f41b542b8eac95fa37241c3309c0811b897643f481f2314389dbb77fd26b5a",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t07/greedy-0.txt",
+      "sha256": "4d29c937abb2f67d8f3361a37fba9914ef7417d74c28cbcd969fadda0cbf609a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4b1278924a5adb8a0c195ea908c76a362ade552c6b2501ec6d9129dd2dc26195",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t08/greedy-0.txt",
+      "sha256": "e4aa2e26c31fb48c0ae635bc763efe0016c7c3e3cd6ce0f5ea23f2e273ffc09a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "42814099576f8bf712032112e18be62811505b8252c76d749363b785a78b4e5b",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t09/greedy-0.txt",
+      "sha256": "16bd2e143fdda88ec90cc4a86ad45fa27072497f8a8418c317d96e18596325de",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "d9fd491978f14daf258cd2885d63e9a9724f811e821cc674cdf031619d80a444",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t10/greedy-0.txt",
+      "sha256": "db081ebc465ba8c93935b57431ba73c5cf3677e2cc6e1ad607778fc95138ea75",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "01daa37c46e9acf4e8501b37c6eaacfa35cef1c3296b9da9ef19624d0bb28ae4",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t11/greedy-0.txt",
+      "sha256": "2a5fdd977b5c93e1ec8fd5b43dce47ec3a557f4ed581194747008d0c2212e5f2",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "bdc66263e7e3ab956b827d9c0f611018f91c11595f8c4bcddbe2eac616293a90",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t12/greedy-0.txt",
+      "sha256": "57f5fa7f54d23bdd1cfc5f66f262335a6139cd02293bc91e805ad67012809af5",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1f617e48f16bf5eeac21af5584f2b20ba88d598f6878ff21c78eb51b58412e57",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t13/greedy-0.txt",
+      "sha256": "db9e007be274c1caa69578ca52906bd6cc658f61a975a9ff8787335ce7385fff",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8e2915d858ca4ef1b980f8771f2135a4aecc3fd1292f90a146b360f657ad216d",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t14/greedy-0.txt",
+      "sha256": "aa136a3ad99822c39293b2eb2f438ab39d6e1d61d757251a9beb48dee13555f2",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "cf4d86e9770416c467d7fff406da03aac4b4002393b6eb16188b580f87407a79",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t15/greedy-0.txt",
+      "sha256": "e5ca9f4065097c6d247455b3040e47199d758e4ba4ab0faceadeab25b9889016",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "0f03f5e9add76b7f2f5f5c2c1c1d3d79f3f0446014318410cd0a51ed123b51a1",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t16/greedy-0.txt",
+      "sha256": "5ed545fd78ce7af39611177717283f43e96302727a4b344735c1d6b03a2df045",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "a1aabad24ceecd92765f4ef7437f4d7b3edd2a2ca5d2611a3efbca9fddfe1a88",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t17/greedy-0.txt",
+      "sha256": "ed271deaf1c7bc11ebb91a0879db11a3a6deb677df43899a3035b81f6b3e080a",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "e8b062edcff6a3391d51adfc2ad91712d66672ba7423b62bcba519a2e7942785",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t18/greedy-0.txt",
+      "sha256": "5d92c4d8a9b08d01b7be515a2bb53661ef59bea33d84a944070d029756d7520f",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "28483d549cfbf1d90e8501cca60dd8383b55cc28244fb827d401f0e87298670d",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t19/greedy-0.txt",
+      "sha256": "5c7783df66dfdbffcbbf3b7eb83dbebb439536326c4ecc526d20d41bd60012d8",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "9f199398e5882403e9b0af3cae31b614039b34a20d98811eb95231c726689fe3",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d1-graded",
+      "file": "candidates/t20/greedy-0.txt",
+      "sha256": "55d8604e3e1bf70a3c39f721a3dd31d9276f93bb4779ce427c83bcf1b3a33be2",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "63926a207a2d74b92f3879960fff576807e4e5825db57f6a05a7fcc79a62a134",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t01/greedy-0.txt",
+      "sha256": "c9170e14d9e4017a57771799950d5bd0ecd6196186a22ea6a887ad6b5db9ce79",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f151c18e493ba8fc8ba86138a9faac0d58d9c9c248bd7ab242b02d20615b0abc",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t02/greedy-0.txt",
+      "sha256": "e69995eb51c0869bc74f434a128908c0f11aafe9593285f4fa6d82c210fef860",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c208235c9eacf08375047946a0d054391631838e005f7cd3ff0b5cfb47b27e74",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t03/greedy-0.txt",
+      "sha256": "e719ba257ce19168bcb4a2bd012cd076df2ec3c9a923dec5e98bd2c164355ecb",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "5f4088557602bda42c567cccadead20e81320724a86e1e2f94bfc1b4e336a475",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t04/greedy-0.txt",
+      "sha256": "450626c7b6c35eb29e2abd5f0a34109020cdfdf3bc8877e070406824a8a7cda7",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "01c573e0710774525bab6ceecb694fc7f05aed1ed00a7faf38376a0e08804274",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t05/greedy-0.txt",
+      "sha256": "3cbf745b8b25b43385bb3bc06b6209ff47d32c5f5ed8a9daec343a52512ad1f8",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ab4706795f2aaaf6321c792ec8d4a9727803ab46ec60975dee7337a0801bc6a2",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t06/greedy-0.txt",
+      "sha256": "35cfe00e60d3e1b0f113a5ef29b5cb94d7d391bd728446de8eed58786f5d1356",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "1f9887dfca435cf1c44e9f56b2174d198539593deb640be8e5a3e25d5b3a3f29",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t07/greedy-0.txt",
+      "sha256": "ba085ce5f2aaf9440b41d77d1dfb093526c85b34d79775012f3682f3b9a72c70",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "197c075676b825ca911e9a5b1ff2e6d756c940fee91b310b23cbf3ca5d9df809",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t08/greedy-0.txt",
+      "sha256": "4c429263afec63c311f13e61cacedd4e0898fcc890f6fc31cad7fc0f00a9f8a1",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "f1874064e71c1898b70e2adc6cdc0f7208980b3e275b101599e373037055eda5",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t09/greedy-0.txt",
+      "sha256": "13284b51398bd350ac3a329b835f63fc430a0baadda56640782b6d0853ebe9be",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6e24ecaf0ff009e572ae4af96e5e905738ad3f67d6a8d5c142e5b5a669d8eafe",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t10/greedy-0.txt",
+      "sha256": "18609c4fc339197da30bf83dc408109e3628b7d5d6e0889da8bb2e3d3451cf8c",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "6e466ca9c2fc536ccb7fc21a7cc609fbb3206db40f4cd8a423a50f62f3575869",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t11/greedy-0.txt",
+      "sha256": "dc56525a8feae73c57eba6d293c94da0b040d8980d1b07b8f4a8d6c10b664b19",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "4c6fef652d32ded2a5224f5d5d4dfcce0a388256eef08ec223f543aa80a6d5d1",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d2-graded",
+      "file": "candidates/t12/greedy-0.txt",
+      "sha256": "301ff86c976337a0ed8a1740dbe7e1779f5f6a7b05cf38808470662fc633f9f5",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c0cf5a0f4033f216350d9765f47334ba77dfa5fae6d0a80ec69456bc25f08beb",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t01/greedy-0.txt",
+      "sha256": "c3c1db58ccdf0b684f1b99ed9530bbca7aca6e09c2ba0cb1d68cb41cd8c57c73",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c46b8ec4bebaae16cdc56596cf0138f24fb2053db92227651e6a63472180457e",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t02/greedy-0.txt",
+      "sha256": "7c3b45bcce04c1c12788feca271c825622d988d0d090ad5299320d4df736fb96",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "c293dadecbef001dff799c7e22e78977fc487375e473229ec97ff322d1b93077",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t03/greedy-0.txt",
+      "sha256": "f29265a6f237beef7efa6ee6ca099f76c7fc1f4e2b2eaab01067529c2ed50440",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "8785176b4531bf22bba56a7d37a5c72ce81494ae9056e8ae10a91d81ab4cfd4b",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t04/greedy-0.txt",
+      "sha256": "95dcee25c76f66fc5a4584864bfce72a88ba87612e67f240a91da48b26396bfd",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "437b34f3bc94076abd46b9f8fec00519317b5754abc5d919c5add5eedfb92740",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t05/greedy-0.txt",
+      "sha256": "71057e7a2514790525da382cb50b9d21d661e743f24ba898176cf7d815b7c4e4",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2b4aa7f2131b919cced157bad72fab9cf3b8b52c2355394aa64d3161f81e6aca",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t06/greedy-0.txt",
+      "sha256": "c15025889a8abc3bb2fa2cd7e3461a6016d4e959b8d6599f03a2033ab20aef20",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "66ccff6a84300ef9656cda949bff9338a94c9ae8081c94193a6d09549bfe4c85",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t07/greedy-0.txt",
+      "sha256": "1bbd587d78d3d38ce1a12ee2cad6e7c99eeeaf244051a4db293a45b0f10fcd5e",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "2fa41ad47bcbbc36990fb5be45fc6c94b7418ec2a1e5de202aa41ed3ef9f061e",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t08/greedy-0.txt",
+      "sha256": "d37032bbca56f885da8a4f5fe23ec5451f77d58cdd5b076ec1ee247d4cc923a7",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "3158bef5eae689fe66a3b252228085a42495f3493373962a54d19928be8b706f",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t09/greedy-0.txt",
+      "sha256": "c12de06bd1a21cc72e4151445131258a9d43845577a1d0b98347ea89709e1e47",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "946adb45a0823dd8236046899ecd5f15537509293298fbc0602ab745f485f41c",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t10/greedy-0.txt",
+      "sha256": "876ad72885d63644049cee763ce388e7bf8249520eebf2f5e3ac22d892caab88",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "05c823847e8c9a6d8df1999c85ecc9bb9ae4b7a58955650d31d34794e6848681",
+        "info_string": "ts"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t11/greedy-0.txt",
+      "sha256": "48648d9a8e654d5682ae7714afa2d1ed387e01159a26d9c49100d41bb658fbee",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "686abb72abe3b2a4e26aaa6bddec3ec2233304ca8b3765ba1dd64763ae88d752",
+        "info_string": "typescript"
+      }
+    },
+    {
+      "run": "floor-probe-2026-08-09/3b-d3-graded",
+      "file": "candidates/t12/greedy-0.txt",
+      "sha256": "bc9157d236f327f36eba47d8e5fc62bb49f37543827031c60e3e19118adbecb4",
+      "model": "qwen2.5-coder:3b",
+      "stop_reason": "complete",
+      "output_schema": "whole_file",
+      "expect": {
+        "content_sha256": "ca50840b3d2bae1e206a48d89c4df44d0a73ac176bd54d6696dbc24ad7d3ea66",
+        "info_string": "typescript"
       }
     },
     {

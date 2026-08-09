@@ -1,0 +1,44 @@
+```typescript
+export function createLruCache(capacity: number): { get: (key: string) => number | undefined; put: (key: string, value: number) => void; size: () => number } {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+
+  const cache: { [key: string]: { value: number, timestamp: number } } = {};
+  let oldestKey: string | null = null;
+
+  function get(key: string): number | undefined {
+    if (cache[key]) {
+      cache[key].timestamp = Date.now();
+      return cache[key].value;
+    }
+    return undefined;
+  }
+
+  function put(key: string, value: number) {
+    if (key === "") throw new Error("Key cannot be an empty string.");
+
+    if (cache[key]) {
+      cache[key].value = value;
+      cache[key].timestamp = Date.now();
+    } else {
+      cache[key] = { value, timestamp: Date.now() };
+    }
+
+    // Evict the least recently used key if capacity is exceeded
+    if (Object.keys(cache).length > capacity) {
+      const keys = Object.keys(cache);
+      oldestKey = keys.reduce((oldest, current) => {
+        return cache[current].timestamp < cache[oldest].timestamp ? current : oldest;
+      }, keys[0]);
+      delete cache[oldestKey];
+    }
+  }
+
+  function size(): number {
+    return Object.keys(cache).length;
+  }
+
+  return { get, put, size };
+}
+```

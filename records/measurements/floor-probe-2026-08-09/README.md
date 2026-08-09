@@ -19,6 +19,9 @@ dispatched through `tools/breadth/measure.py` at `f3444034`.
 | `3b-py-early` | qwen2.5-coder:3b | `pool-py` | `p001`–`p020` | **0/20** |
 | `7b-ts-heldout30` | qwen2.5-coder:7b | `pool-ts` | 30 hash-spread from `p282`+ | **1/30** |
 | `14b-ts-heldout30` | qwen2.5-coder:14b | `pool-ts` | the same 30 | **5/30** |
+| `3b-d1-graded` | qwen2.5-coder:3b | `d1` | all 20 | **10/20** |
+| `3b-d2-graded` | qwen2.5-coder:3b | `d2` | all 12 | **5/12** |
+| `3b-d3-graded` | qwen2.5-coder:3b | `d3` | all 12 | **2/12** |
 
 The 3B ran on srv1, the 14B on srv2, both `protocol: openai` on 11434.
 
@@ -59,6 +62,37 @@ functions. The whole ladder compresses against it: 14B ~90% on HumanEval+ →
 ratio. The suffix is uniformly about half as passable for every model — and half
 of the 3B's zero is still zero, which is why no holdout arithmetic rescues the
 design.
+
+## The graded arms: the drop is a slope, not a cliff
+
+The three `*-graded` arms were added to answer a question the first five raised —
+between `d1` at ~50% and the pool at 0%, is there a usable band or a cliff? All
+three difficulty rungs run at the **same cap (2048)** as the pool arms, so the
+comparison carries no cap confound:
+
+| tier | tasks | 3B greedy | max completion tokens |
+|---|---:|---:|---:|
+| `d1` | 20 | **10/20 (50.0%)** | 2048 (one runaway, below) |
+| `d2` | 12 | **5/12 (41.7%)** | 338 |
+| `d3` | 12 | **2/12 (16.7%)** | 818 |
+| the pool | 50 | **0/50 (0%)** | — |
+
+**`d1` reproduces.** 50.0% here against the 50.6% standing in the records from
+the breadth campaign — a different cap (768), different runs, different hosts.
+The anchor was not a fluke.
+
+**The band is wider than expected.** `d3` at 16.7% is low but not floored: it
+still resolves improvement and regression. So the usable band for a floor
+instrument spans roughly `d1` through `d3`, and the collapse to zero happens
+somewhere between `d3` and the pool — a range these arms do not resolve, because
+nothing exists between them.
+
+**One runaway, and it is #212's finding again.** `d1`/`t04` hit exactly 2048
+tokens, stopped `truncated`, and `parse_reply` raised `incomplete-reply` on the
+stop reason. It is counted as a failure above. It is a cap event, not a format
+event — the same conflation #212 corrected, recurring at a cap 2.7× larger. Note
+also that `d3`'s longest reply (818) exceeds the inherited 768, so the old cap
+would have censored that tier too.
 
 ## What it means, and what it does not
 

@@ -1,0 +1,44 @@
+```ts
+export function romanToInt(input: string): number {
+  if (typeof input !== 'string' || !input) {
+    throw new Error('Input must be a non-empty string');
+  }
+
+  const romanMap: { [key: string]: number } = {
+    I: 1,
+    V: 5,
+    X: 10,
+    L: 50,
+    C: 100,
+    D: 500,
+    M: 1000
+  };
+
+  let result = 0;
+  let i = 0;
+
+  while (i < input.length) {
+    const currentChar = input[i];
+    const nextChar = input[i + 1];
+
+    if (!romanMap[currentChar] || !romanMap[nextChar]) {
+      throw new Error('Invalid Roman numeral');
+    }
+
+    // Check for subtractive pairs
+    if (
+      (currentChar === 'I' && (nextChar === 'V' || nextChar === 'X')) ||
+      (currentChar === 'X' && (nextChar === 'L' || nextChar === 'C')) ||
+      (currentChar === 'C' && (nextChar === 'D' || nextChar === 'M'))
+    ) {
+      result += romanMap[nextChar] - romanMap[currentChar];
+      i += 2;
+    } else {
+      result += romanMap[currentChar];
+      i++;
+    }
+  }
+
+  return result;
+}
+```

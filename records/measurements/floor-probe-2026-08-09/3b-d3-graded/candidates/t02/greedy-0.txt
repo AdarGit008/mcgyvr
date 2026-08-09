@@ -1,0 +1,60 @@
+```ts
+export function match(pattern: string, text: string): boolean {
+  if (pattern === "" || text === "") return true;
+
+  const isAnchored = pattern.startsWith("^");
+  const isUnanchored = !isAnchored && pattern.endsWith("$");
+
+  const patternParts = pattern.split("*").filter(part => part.length > 0);
+
+  if (patternParts[0] === "*" || (patternParts.length > 1 && patternParts[1].startsWith("*"))) {
+    throw new Error("Invalid pattern: '*' cannot be the first element or immediately follow another '*'.");
+  }
+
+  const matchRecursive = (patternIndex: number, textIndex: number): boolean => {
+    if (patternIndex === patternParts.length) return true;
+    if (textIndex >= text.length) return false;
+
+    const currentPart = patternParts[patternIndex];
+    let hasStar = false;
+
+    for (let i = 0; i < currentPart.length; i++) {
+      const char = currentPart[i];
+
+      if (char === '.') {
+        if (textIndex >= text.length) return false;
+        textIndex++;
+      } else if (char === '*') {
+        hasStar = true;
+        break;
+      } else if (char !== text[textIndex]) {
+        return false;
+      }
+      textIndex++;
+    }
+
+    if (!hasStar) {
+      return matchRecursive(patternIndex + 1, textIndex);
+    }
+
+    for (let i = 0; i <= text.length - textIndex; i++) {
+      if (matchRecursive(patternIndex + 1, textIndex + i)) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const startMatchIndex = isAnchored ? 0 : 1;
+  const endMatchIndex = isUnanchored ? text.length - 1 : text.length;
+
+  for (let i = startMatchIndex; i <= endMatchIndex; i++) {
+    if (matchRecursive(0, i)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+```

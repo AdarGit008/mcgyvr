@@ -1,0 +1,44 @@
+```typescript
+export function addDecimalStrings(a: string, b: string): string {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    throw new Error('Both inputs must be strings.');
+  }
+  if (!a.match(/^\d+$/)) {
+    throw new Error('Input "a" is not a valid decimal string.');
+  }
+  if (!b.match(/^\d+$/)) {
+    throw new Error('Input "b" is not a valid decimal string.');
+  }
+
+  const padToLength = (str: string, length: number): string => {
+    return str.padStart(length, '0');
+  };
+
+  const maxLength = Math.max(a.length, b.length);
+  const paddedA = padToLength(a, maxLength);
+  const paddedB = padToLength(b, maxLength);
+
+  let carry = 0;
+  let result = '';
+
+  for (let i = maxLength - 1; i >= 0; i--) {
+    const digitA = parseInt(paddedA[i], 10);
+    const digitB = parseInt(paddedB[i], 10);
+
+    const sum = digitA + digitB + carry;
+    result = (sum % 10) + result;
+    carry = Math.floor(sum / 10);
+  }
+
+  if (carry > 0) {
+    result = carry.toString() + result;
+  }
+
+  // Remove leading zeros
+  while (result.startsWith('0') && result.length > 1) {
+    result = result.slice(1);
+  }
+
+  return result === '' ? '0' : result;
+}
+```

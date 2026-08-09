@@ -1,0 +1,102 @@
+```typescript
+export function diff(a: string[], b: string[]): string[] {
+  if (a.length === 0 && b.length === 0) return [];
+
+  const lcs = (arr1: string[], arr2: string[]): number[][] => {
+    const dp: number[][] = Array.from({ length: arr1.length + 1 }, () =>
+      Array(arr2.length + 1).fill(0)
+    );
+
+    for (let i = 1; i <= arr1.length; i++) {
+      for (let j = 1; j <= arr2.length; j++) {
+        if (arr1[i - 1] === arr2[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+
+    return dp;
+  };
+
+  const lcsPath = (dp: number[][], i: number, j: number): string[][] => {
+    if (i === 0 || j === 0) return [];
+
+    if (arr1[i - 1] === arr2[j - 1]) {
+      return [...lcsPath(dp, i - 1, j - 1), [arr1[i - 1]]];
+    } else if (dp[i - 1][j] > dp[i][j - 1]) {
+      return [...lcsPath(dp, i - 1, j)];
+    } else {
+      return [...lcsPath(dp, i, j - 1)];
+    }
+  };
+
+  const lcsResult = lcs(a, b);
+  const lcsPathArray = lcsPath(lcsResult, a.length, b.length);
+
+  let i = a.length;
+  let j = b.length;
+  const result: string[] = [];
+
+  while (i > 0 && j > 0) {
+    if (a[i - 1] === b[j - 1]) {
+      result.unshift(a[i - 1]);
+      i--;
+      j--;
+    } else if (lcsResult[i - 1][j] > lcsResult[i][j - 1]) {
+      result.unshift(a[i - 1]);
+      i--;
+    } else {
+      result.push(b[j - 1]);
+      j--;
+    }
+  }
+
+  while (i > 0) {
+    result.unshift(a[i - 1]);
+    i--;
+  }
+
+  while (j > 0) {
+    result.push(b[j - 1]);
+    j--;
+  }
+
+  const hunkStart = 1;
+  let keepCount = 0;
+  let deleteCount = 0;
+  let insertCount = 0;
+
+  for (let k = 0; k < result.length; k++) {
+    if (result[k] === '-') {
+      deleteCount++;
+    } else if (result[k] === '+') {
+      insertCount++;
+    } else {
+      keepCount++;
+    }
+
+    if (keepCount > 0 && (deleteCount > 0 || insertCount > 0)) {
+      result.splice(k - keepCount, keepCount);
+      k -= keepCount;
+      keepCount = 0;
+
+      const hunkHeader = `@@ -${hunkStart},${deleteCount} +${result.length - deleteCount},${insertCount} @@`;
+      result.unshift(hunkHeader);
+
+      for (let l = 0; l < deleteCount; l++) {
+        result.unshift('-' + a[hunkStart - 1 + l]);
+      }
+
+      for (let l = 0; l < insertCount; l++) {
+        result.push('+', b[result.length - deleteCount + l]);
+      }
+
+      hunkStart += keepCount;
+    }
+  }
+
+  return result;
+}
+```
