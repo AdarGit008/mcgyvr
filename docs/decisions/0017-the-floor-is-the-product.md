@@ -28,7 +28,7 @@ artifact):
 | task set | n | qwen2.5-coder:3b |
 |---|---:|---:|
 | HumanEval+ (#189's set, q4_K_M) | 164 | 78.0% |
-| breadth `d1`/`d2` tiers | 243 | 50.6% |
+| breadth `d1` tier (20 distinct problems) | 243 | 50.6% |
 | the #197 problem pool | 50 | **0%** |
 
 Not a language effect: the Python arms read 0/20 beside TypeScript's 0/30. The
@@ -110,6 +110,15 @@ every harness each time it moves.
   Until one exists, "did this raise the floor?" is unanswerable, and #221's
   question of whether to train small models at all cannot be settled on
   evidence. This is the single largest gap the ADR opens.
+- **What a floor instrument needs is *resolution*, not difficulty.** It must sit
+  in a band where the target model scores well above 0 and well below 100, so
+  that gains and regressions are both visible. We hold exactly one measured
+  point in that band — `d1` at 50.6% — and it is #189's training set, so it is
+  contaminated for any tuned 3B and cannot serve as a holdout anchor. Between it
+  and the pool's 0% **nothing is measured**: `d2` exists (12 problems) but has
+  no 3B rows at all. Generating a corpus at a guessed difficulty inside that gap
+  is how a build lands at 0% or at 90%; a graded probe to locate the band is the
+  cheap step that comes first.
 - **The front door does not close it.** HumanEval+ is where the 3B has headroom,
   which makes it tempting. It is also underpowered at n=164 (paired McNemar MDE
   ~+4.8pp against a +3pp bar) and contamination-prone after fine-tuning in

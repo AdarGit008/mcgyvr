@@ -45,7 +45,7 @@ the same twenty problems.
 | task set | n | qwen2.5-coder:3b |
 |---|---:|---:|
 | HumanEval+ (`finetune-pilot-2026-08-07`, q4_K_M) | 164 | 78.0% |
-| breadth `d1`/`d2` tiers, greedy | 243 | 50.6% |
+| breadth `d1` tier, greedy (20 distinct problems) | 243 | 50.6% |
 | the #197 pool (here) | 50 | **0%** |
 
 The pool is a different size class of task — median 60-line reference solution
