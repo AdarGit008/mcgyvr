@@ -54,11 +54,34 @@ Greedy is supposed to be the reproducible arm. It is not, quite:
 - That leaves **~28 greedy cells — 11% of the untruncated ones — differing with
   temperature 0, the same weights, the same prompt and the same host.**
 
-This matches the fine-tune pilot's finding that backend numerics move greedy
-deltas by ~2.6pp (`records/measurements/finetune-pilot-2026-08-07/`). **Any
-single-run greedy delta below roughly 2pp on this stack is inside the noise**,
-which is a bound anyone comparing two sweeps needs before they read a
-difference as a result.
+**But differing text is not a differing verdict, and the two must not be
+conflated.** Collapsing to one outcome per problem, and removing the flips the
+cap change can explain, the same two runs give:
+
+| unit | discordant | net drift | a real effect must net |
+|---|---:|---:|---:|
+| greedy, problem verdict | **1 / 269** | +0.4% | > 2 problems (**+0.7%**) |
+| any-of-3-draws (2 sampled at T=0.7) | 24 / 269 | +3.7% | > 10 problems (+3.6%) |
+
+So **11% of greedy replies differ and only ~1% of greedy verdicts do** — most
+text divergence lands on a problem the model was going to fail either way.
+Greedy is a far quieter instrument than the byte-identity rate suggests, and the
+noise lives in the sampled arm.
+
+Ranked, the three sources anyone differencing two sweeps has to clear:
+
+1. **greedy re-run, same backend: ±0.7pp** — small, and the reason greedy is
+   worth paying for;
+2. **sampled / any-of-k: ±3.6pp** — this is sampling working as designed, not a
+   defect, but it must be replicated or it swamps a small effect;
+3. **backend change: 2.6pp** — the fine-tune pilot's own 2×2 read +1.9pp on CUDA
+   and −0.7pp on CPU from identical weights
+   (`records/measurements/finetune-pilot-2026-08-07/`). Changing backend between
+   two arms measures the backend.
+
+The consequence for the fine-tune question is #219: a +3pp bar tested on
+HumanEval+ at n=164 has a minimum detectable effect of ~+4.8pp, so #189's
++1.9pp cannot separate "no effect" from "an effect that would have passed".
 
 ## #212's verdict survives with the cap removed
 
