@@ -334,14 +334,18 @@ separate work.*
 ## Not a mode, but it breaks the last box: silent skips
 
 #201's fourth checkbox asks that coverage be legible rather than implied by
-silence. Four tests opt out of running at all when a tool is absent, and a
+silence. Nine tests opt out of running at all when a tool is absent, and a
 green suite does not distinguish "checked" from "skipped":
 
-| Where | Condition |
-|---|---|
-| `tests/test_python_adapter.py:93,105,117` | `shutil.which("ruff") is None` |
-| `tests/test_bundle_ladder.py:544` | node cannot run TypeScript |
-| `tests/test_structured_and_preflight.py:67` | `pytest.importorskip("yaml")` |
+| Where | n | Condition |
+|---|---:|---|
+| `tests/test_python_adapter.py:93,105,117` | 3 | `shutil.which("ruff") is None` |
+| `tests/test_bundle_ladder.py:544`, applied at `:568,617,642,706,781` | 5 | node cannot run TypeScript |
+| `tests/test_structured_and_preflight.py:67` | 1 | `pytest.importorskip("yaml")` |
+
+*Corrected 2026-08-09 under #234: this read "Four tests", counting table rows.
+`tests/test_bundle_ladder.py:544` is the `requires_typescript_node` marker's
+definition, not a test — it is applied to five.*
 
 The ruff skips are the sharp one: they are the gate's lint and format rungs,
 and the gate's own answer to a missing tool is an **environment issue** — a

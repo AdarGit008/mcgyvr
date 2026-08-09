@@ -40,10 +40,15 @@ been measured repeatedly on **qwen2.5-coder:3b Q4_K_M**, the floor model itself:
 | set | n | 3B first-pass, by condition | source |
 |---|---:|---|---|
 | bundle JS/TS (= breadth `d1`) | 20 | 45% / 55% / 50% / 45% (c0–c3) | CLM-0012, two full 80-cell sweeps on two rigs |
-| bundle Python | 20 | 35% / 50% / 55% / 65% (c0–c3) | CLM-0017 (CLM-0004's instrument on Ollama) |
+| bundle Python | 20 | 65% / 70% / 70% / 70% (c0–c3) | CLM-0017 **arm A** (this repository's contracts through mcgyvr's rig) |
 
-Both sit where a floor instrument has to sit: well above 0, well below 100, with
-gains *and* regressions visible. They are held out by construction —
+Both sit above 0 and below 100. **Corrected 2026-08-09 under #234:** this table
+first carried 35/50/55/65% for the Python row, which is CLM-0017's **arm B** —
+CLM-0004's instrument run unedited, on its own unported contracts. The figure for
+`tools/bundle/python/tasks/` is arm A's. The correction narrows one claim: gains
+*and* regressions are visible on the JS/TS arm, which rises and falls; arm A is
+flat at p = 1.00, so the Python root is in band by level and not yet shown to be
+in band by response. See ADR-0017's correction section. They are held out by construction —
 `tools/problems/admit.py:104` names both roots as "every task set whose ids and
 prose the pool must stay distinct from". And `tools/breadth/measure.py:202` is
 explicit that `d1` **is** the bundle JS/TS set byte for byte, so the 50.0% that
