@@ -19,9 +19,12 @@ The audit read all 69 open issues against P1–P3 and produced
 **The project owned a floor instrument and did not know it.** ADR-0017 claimed
 none existed; `tools/bundle/tasks/` (20 JS/TS) and `tools/bundle/python/tasks/`
 (20 Python) are real contracts with runnable acceptance against checked-in
-references, measured on qwen2.5-coder:3b at 45/55/50/45% and 35/50/55/65% across
-four conditions. Both sit in the band a floor instrument must occupy. That ADR is
-amended accordingly.
+references, measured on qwen2.5-coder:3b at 45/55/50/45% and 65/70/70/70% across
+four conditions. Both sit in the band a floor instrument must occupy by level;
+only the JS/TS arm has been shown to move under condition. That ADR is amended
+accordingly, and its own Python figure is corrected there — the 35/50/55/65%
+this paragraph first carried is CLM-0017's arm B, the vendored local-ai
+instrument, not this repository's task set.
 
 **Four measurement rigs had grown, none comparable to the others.** Prompt work
 was measured on 20 tasks (`tools/bundle/`), difficulty on 12–20 per tier

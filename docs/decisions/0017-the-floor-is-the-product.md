@@ -122,8 +122,8 @@ every harness each time it moves.
   3B from 16.7% to zero is unidentified; and every rung is `jsts`, so the band
   is unmapped for Python **(— amended 2026-08-09: false, see below)**. Located
   as #224, which is upstream of both the harness (#113) and the training
-  question (#221). Figures are directional — 12 tasks per rung, one draw, one
-  rig.
+  question (#221). Figures are directional — 20 tasks at `d1`, 12 each at `d2`
+  and `d3`, one draw, one rig.
 - **The front door does not close it.** HumanEval+ is where the 3B has headroom,
   which makes it tempting. It is also underpowered at n=164 (paired McNemar MDE
   ~+4.8pp against a +3pp bar) and contamination-prone after fine-tuning in
@@ -153,13 +153,13 @@ mcgyvr would actually hand it" is wrong.** Two task sets do:
 | set | n | qwen2.5-coder:3b, first-pass by condition | source |
 |---|---:|---|---|
 | `tools/bundle/tasks/` (JS/TS) | 20 | 45% / 55% / 50% / 45% (c0–c3) | CLM-0012 |
-| `tools/bundle/python/tasks/` | 20 | 35% / 50% / 55% / 65% (c0–c3) | CLM-0017 |
+| `tools/bundle/python/tasks/` | 20 | 65% / 70% / 70% / 70% (c0–c3) | CLM-0017, arm A |
 
 Both are real contracts — `task_type`, `target`, `interface`, `stop_conditions`,
 a runnable `acceptance` command, `risk`, `scope` — against a checked-in
 reference, held out by construction (`tools/problems/admit.py:104` keeps the pool
-distinct from both roots), and measured on the floor model itself. Both sit where
-a floor instrument must sit: well above 0, well below 100.
+distinct from both roots), and measured on the floor model itself. Both sit above
+0 and below 100. **Only the JS/TS arm also moves** — see the correction below.
 
 `tools/breadth/measure.py:202` is explicit that the `d1` rung **is** the JS/TS set
 byte for byte, so the 50.0% quoted above as a breadth figure is this instrument
@@ -181,3 +181,42 @@ MBPP+.
 
 Nothing in P1–P3 changes. The decision stands; one of its factual premises did
 not survive being checked.
+
+## Correction — 2026-08-09, later the same day (#234)
+
+The amendment above got its own Python figure wrong, and the rewrite it ordered
+found it. Three corrections, all factual; P1–P3 and ADR-0018's Q1–Q4 are
+untouched.
+
+**The 35% / 50% / 55% / 65% row was arm B, not this repository's task set.**
+CLM-0017 ran four arms on the same twenty Python problems, each changing one
+thing from the one above it
+(`records/measurements/python-bundle-2026-08-07/README.md`). Arm B is *local-ai's
+unported contracts through local-ai's unedited harness* — the vendored instrument
+at `records/evidence/local-ai-2026-08-02/instrument/`, whose tasks live in
+`context_tasks.py`. `tools/bundle/python/tasks/` is the mcgyvr port, and it is
+**arm A**: `run.json` carries `"language": "python"`, which `tools/bundle/measure.py:223`
+binds to that root.
+
+| arm | task set | harness | c0–c3 |
+|---|---|---|---|
+| **A** | `tools/bundle/python/tasks/` | mcgyvr rig | 65% / 70% / 70% / 70% |
+| **B** | vendored `context_tasks.py` | local-ai, unchanged | 35% / 50% / 55% / 65% |
+
+**"Gains and regressions both visible" is true of the JS/TS arm only.** The JS/TS
+root moves under condition — 45/55/50/45, a rise and a fall. Arm A is flat: 13/20
+then 14/20 three times, which CLM-0017 records as a null at p = 1.00. The Python
+root is therefore in band by level and not yet shown to be in band by *response*,
+which is a narrower claim than the amendment made. This does not withdraw the
+amendment's central point — the repository owns a floor instrument and this ADR
+was wrong to say it owns none — but it changes what #225 is widening and what
+#224 is mapping, and it is stated there rather than resolved here.
+
+**"Figures are directional — 12 tasks per rung" understates `d1`.** The graded
+probe ran all 20 of `d1`, all 12 of `d2` and all 12 of `d3`
+(`records/measurements/floor-probe-2026-08-09/README.md`). The consequence bullet
+above is corrected accordingly.
+
+The mechanism is worth naming, because it is this ADR's own subject one level up:
+the amendment reached for the figure that made its case most strongly, and nobody
+checked which arm produced it until 45 issue bodies had to cite it.
