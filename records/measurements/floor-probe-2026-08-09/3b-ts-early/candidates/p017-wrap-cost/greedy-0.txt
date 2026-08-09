@@ -1,0 +1,48 @@
+```ts
+export function wrapCost(words: string[], width: number): number {
+  if (words.length === 0) throw new Error("Empty word list");
+  if (width <= 0) throw new Error("Width must be a positive whole number");
+
+  const isWordValid = (word: string, maxWidth: number): boolean => {
+    return word.length > 0 && word.length <= maxWidth;
+  };
+
+  const calculateLineCost = (lineLength: number): number => {
+    return lineLength * lineLength;
+  };
+
+  const splitWordsIntoLines = (words: string[], maxWidth: number): [string[], number] => {
+    let currentLine: string[] = [];
+    let currentLineWidth = 0;
+
+    for (const word of words) {
+      if (!isWordValid(word, maxWidth)) throw new Error("Invalid word");
+
+      const nextLineWidth = currentLineWidth + word.length + (currentLine.length > 0 ? 1 : 0);
+
+      if (nextLineWidth <= maxWidth) {
+        currentLine.push(word);
+        currentLineWidth = nextLineWidth;
+      } else {
+        return [currentLine, calculateLineCost(currentLineWidth)];
+      }
+    }
+
+    return [currentLine, calculateLineCost(currentLineWidth)];
+  };
+
+  const splitIntoSplits = (words: string[], maxWidth: number): number => {
+    let minSplitCost = Infinity;
+
+    for (let i = 0; i < words.length; i++) {
+      const [line, lineCost] = splitWordsIntoLines(words.slice(i), maxWidth);
+      if (i > 0) lineCost += calculateLineCost(maxWidth - line[0].length); // Add cost of the first word on a new line
+      minSplitCost = Math.min(minSplitCost, lineCost + splitIntoSplits(line, maxWidth));
+    }
+
+    return minSplitCost;
+  };
+
+  return splitIntoSplits(words, width);
+}
+```

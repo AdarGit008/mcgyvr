@@ -1,0 +1,50 @@
+```ts
+export function auditMailRun(items: { code: string; stamped: string }[], plan: { bin: string; grades: string; offices: string[] }[]): { misrouted: { code: string; stamped: string; correct: string }[]; tally: { bin: string; count: number }[] } {
+  if (plan.length === 0) throw new Error("Plan cannot be empty");
+
+  const planBins = plan.map(entry => entry.bin);
+  const uniquePlanBins = [...new Set(planBins)];
+  if (uniquePlanBins.includes("QUERY") || uniquePlanBins.includes("SPARE")) {
+    throw new Error("Plan contains invalid bins");
+  }
+
+  const validGrades = "PLE";
+  const validOfficesRegex = /^[A-Z]{2}$/;
+  items.forEach(item => {
+    if (!/^[A-Z]{6}$/.test(item.code)) {
+      throw new Error(`Invalid code: ${item.code}`);
+    }
+    if (!validGrades.includes(item.code[0])) {
+      throw new Error(`Invalid grade in code: ${item.code}`);
+    }
+    if (!validOfficesRegex.test(item.stamped) || !uniquePlanBins.includes(item.stamped)) {
+      throw new Error(`Invalid stamped bin: ${item.stamped}`);
+    }
+  });
+
+  const misrouted: { code: string; stamped: string; correct: string }[] = [];
+  const tally: { bin: string; count: number }[] = [];
+
+  plan.forEach(entry => {
+    const { bin, grades, offices } = entry;
+    const trueBin = items.find(item => {
+      if (item.code[0] === "P" && !grades.includes("P")) return false;
+      if (item.code[0] === "L" && !grades.includes("L")) return false;
+      if (item.code[0] === "E" && !grades.includes("E")) return false;
+      const officeIndex = offices.indexOf(item.code.slice(2, 4));
+      if (officeIndex === -1) return false;
+      return item.stamped === bin;
+    })?.stamped || "SPARE";
+
+    items.forEach(item => {
+      if (item.code[0] !== trueBin && item.stamped === bin) {
+        misrouted.push({ code: item.code, stamped: item.stamped, correct: trueBin });
+      }
+    });
+
+    tally[bin] = tally[bin] ? tally[bin] + 1 : 1;
+  });
+
+  return { misrouted, tally };
+}
+```

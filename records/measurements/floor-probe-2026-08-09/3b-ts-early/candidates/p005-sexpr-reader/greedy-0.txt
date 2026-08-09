@@ -1,0 +1,62 @@
+```ts
+export function readSexpr(text: string): number | string | any[] {
+  if (typeof text !== 'string') throw new Error('Input must be a string');
+
+  const trimmedText = text.trim();
+  if (!trimmedText) throw new Error('Input cannot be empty or only whitespace');
+
+  let index = 0;
+
+  function parseAtom(): number | string {
+    const start = index;
+    while (index < trimmedText.length && /\w+/.test(trimmedText[index])) {
+      index++;
+    }
+    const atom = trimmedText.substring(start, index);
+    if (!/\d/.test(atom[0]) || /^\d/.test(atom.slice(1))) {
+      return atom;
+    } else {
+      throw new Error('Invalid symbol');
+    }
+  }
+
+  function parseList(): any[] {
+    const result: any[] = [];
+    let depth = 0;
+
+    while (index < trimmedText.length) {
+      if (trimmedText[index] === '(') {
+        depth++;
+        index++;
+        result.push(parseSexpr());
+      } else if (trimmedText[index] === ')') {
+        depth--;
+        index++;
+        if (depth < 0) throw new Error('Unclosed list');
+      } else if (/\s/.test(trimmedText[index])) {
+        index++;
+      } else {
+        break;
+      }
+    }
+
+    if (depth !== 0) throw new Error('Unclosed list');
+
+    return result;
+  }
+
+  function parseSexpr(): number | string | any[] {
+    if (trimmedText[index] === '(') {
+      return parseList();
+    } else {
+      return parseAtom();
+    }
+  }
+
+  const result = parseSexpr();
+
+  if (index !== trimmedText.length) throw new Error('Extra characters after expression');
+
+  return result;
+}
+```

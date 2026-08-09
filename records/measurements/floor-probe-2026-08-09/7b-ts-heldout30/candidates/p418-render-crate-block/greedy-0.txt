@@ -1,0 +1,47 @@
+```ts
+export function renderCrateBlock(crate: any): string {
+  if (typeof crate !== 'object' || crate === null) {
+    throw new Error('Invalid argument: expected a crate');
+  }
+
+  const isCrate = (value: any): boolean => {
+    return typeof value === 'object' && value !== null;
+  };
+
+  const isValidFieldName = (name: string): boolean => {
+    return typeof name === 'string' && /^[a-z]+$/.test(name);
+  };
+
+  const renderValue = (value: any, level: number): string => {
+    if (typeof value === 'number') {
+      return `${'-'.repeat(level * 2)}${value}`;
+    } else if (typeof value === 'string') {
+      if (value.includes('\n') || value.includes('<') || value.includes('>')) {
+        throw new Error('Invalid argument: string contains invalid characters');
+      }
+      return `${'-'.repeat(level * 2)}<${value}>`;
+    } else if (Array.isArray(value)) {
+      const items = value.map((item) => renderValue(item, level + 1)).join('\n');
+      return `${'-'.repeat(level * 2)}[\n${items}\n${'-'.repeat(level * 2)}]`;
+    } else if (isCrate(value)) {
+      const fields = Object.entries(value)
+        .filter(([name]) => isValidFieldName(name))
+        .sort((a, b) => a[0].localeCompare(b[0]));
+      const items = fields
+        .map(([name, item]) => `${'-'.repeat(level * 2)}${name} -> ${renderValue(item, level + 1)}`)
+        .join('\n');
+      return `${'-'.repeat(level * 2)}{\n${items}\n${'-'.repeat(level * 2)}}`;
+    } else {
+      throw new Error('Invalid argument: value is not a valid type');
+    }
+  };
+
+  const fields = Object.entries(crate)
+    .filter(([name]) => isValidFieldName(name))
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  const items = fields
+    .map(([name, item]) => `${'-'.repeat(2)}${name} -> ${renderValue(item, 1)}`)
+    .join('\n');
+  return `{${items}}`;
+}
+```

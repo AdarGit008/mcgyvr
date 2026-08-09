@@ -1,0 +1,76 @@
+```ts
+export function tripletChainCells(
+  first: number[][],
+  second: number[][],
+  lefts: number,
+  mids: number,
+  rights: number,
+): number[][] {
+  // Validate input
+  if (!Array.isArray(first) || !Array.isArray(second)) {
+    throw new Error("Bags must be lists.");
+  }
+  if (typeof lefts !== "number" || typeof mids !== "number" || typeof rights !== "number") {
+    throw new Error("Band widths must be whole numbers.");
+  }
+  if (lefts < 1 || lefts > 1000 || mids < 1 || mids > 1000 || rights < 1 || rights > 1000) {
+    throw new Error("Band widths must be between 1 and 1000.");
+  }
+
+  const routes = new Map<string, number>();
+
+  for (const [source, middle, weight] of first) {
+    if (!Array.isArray([source, middle, weight]) || [source, middle, weight].length !== 3) {
+      throw new Error("Link must be a triple.");
+    }
+    if (
+      !Number.isInteger(source) ||
+      source < 0 ||
+      source >= lefts ||
+      !Number.isInteger(middle) ||
+      middle < 0 ||
+      middle >= mids ||
+      !Number.isInteger(weight) ||
+      weight < 0 ||
+      weight > 10000
+    ) {
+      throw new Error("Invalid endpoint or weight.");
+    }
+    for (const [other, sink, gain] of second) {
+      if (!Array.isArray([other, sink, gain]) || [other, sink, gain].length !== 3) {
+        throw new Error("Link must be a triple.");
+      }
+      if (
+        !Number.isInteger(other) ||
+        other < 0 ||
+        other >= mids ||
+        !Number.isInteger(sink) ||
+        sink < 0 ||
+        sink >= rights ||
+        !Number.isInteger(gain) ||
+        gain < 0 ||
+        gain > 10000
+      ) {
+        throw new Error("Invalid endpoint or weight.");
+      }
+      if (middle !== other) continue;
+      const key = `${source}:${sink}`;
+      routes.set(key, (routes.get(key) || 0) + weight * gain);
+    }
+  }
+
+  const out: number[][] = [];
+  for (const [pair, weight] of routes) {
+    if (weight === 0) continue;
+    const cut = pair.indexOf(":");
+    out.push([
+      Number(pair.slice(0, cut)),
+      Number(pair.slice(cut + 1)),
+      weight,
+    ]);
+  }
+
+  out.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  return out;
+}
+```

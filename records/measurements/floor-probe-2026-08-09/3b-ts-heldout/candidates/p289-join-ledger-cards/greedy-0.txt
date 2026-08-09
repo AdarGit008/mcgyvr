@@ -1,0 +1,57 @@
+```ts
+export function joinLedgerCards(
+  cards: string[],
+  layout: { name: string; start: number; width: number }[],
+): Record<string, string>[] {
+  if (!layout.length) throw new Error("Layout must not be empty");
+  const uniqueNames = new Set(layout.map(item => item.name));
+  if (uniqueNames.size !== layout.length)
+    throw new Error("Layout names must be unique");
+
+  for (const { name } of layout) {
+    if (typeof name !== "string" || !name.trim()) {
+      throw new Error(`Invalid layout name: ${name}`);
+    }
+  }
+
+  for (const { start, width } of layout) {
+    if (!Number.isInteger(start) || start < 1 || !Number.isInteger(width) || width < 1) {
+      throw new Error(`Layout start or width must be a positive integer`);
+    }
+  }
+
+  if (!Array.isArray(cards) || cards.some(card => typeof card !== "string")) {
+    throw new Error("Cards must be an array of strings");
+  }
+
+  if (cards.length === 0) return [];
+
+  const records: Record<string, string>[] = [];
+  let currentRecord: Record<string, string> | null = null;
+
+  for (const card of cards) {
+    const mark = card[0];
+    const values: Record<string, string> = {};
+
+    if (!["=", "+"].includes(mark)) {
+      throw new Error(`Invalid marker at the start of a card: ${mark}`);
+    }
+
+    for (const field of layout) {
+      const raw = card.slice(field.start - 1, field.start - 1 + field.width);
+      values[field.name] = raw.replace(/^\.+/, "").replace(/\.+$/, "");
+    }
+
+    if (mark === "+") {
+      if (!currentRecord) throw new Error("Cannot carry a record without an open one");
+      Object.assign(currentRecord, values);
+      continue;
+    }
+
+    currentRecord = { ...values };
+    records.push(currentRecord);
+  }
+
+  return records;
+}
+```

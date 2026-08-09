@@ -1,0 +1,65 @@
+```ts
+export type TreeNode = { value: number; left: TreeNode | null; right: TreeNode | null };
+
+function serialize(root: TreeNode | null): string {
+  if (root === null) return '#';
+  
+  const stack: [TreeNode, boolean][] = [[root, true]];
+  let result = '';
+
+  while (stack.length > 0) {
+    const [node, isLeft] = stack.pop()!;
+    
+    if (isLeft) {
+      result += node.value.toString();
+    } else {
+      result += ',';
+    }
+
+    if (node.left !== null) {
+      stack.push([node.left, true]);
+    } else {
+      result += '#';
+    }
+
+    if (node.right !== null) {
+      stack.push([node.right, false]);
+    } else {
+      result += '#';
+    }
+  }
+
+  return result;
+}
+
+function deserialize(text: string): TreeNode | null {
+  const tokens = text.split(',');
+  
+  function parseNode(tokens: string[]): [TreeNode | null, number] {
+    if (tokens.length === 0) throw new Error('Invalid input');
+    
+    const token = tokens.shift()!;
+    if (token === '#') return [null, 1];
+    
+    let value = parseInt(token, 10);
+    if (isNaN(value)) throw new Error('Invalid input');
+
+    const node: TreeNode = { value, left: null, right: null };
+    const [leftChild, leftIndex] = parseNode(tokens);
+    const [rightChild, rightIndex] = parseNode(tokens);
+
+    if (leftIndex !== tokens.length) throw new Error('Invalid input');
+    if (rightIndex !== tokens.length) throw new Error('Invalid input');
+
+    node.left = leftChild;
+    node.right = rightChild;
+
+    return [node, leftIndex + 1];
+  }
+
+  const [root] = parseNode(tokens);
+  if (tokens.length > 0) throw new Error('Invalid input');
+  
+  return root;
+}
+```

@@ -1,0 +1,38 @@
+```ts
+/**
+ * Builds a string of the given width where each clue is represented by a group of # characters,
+ * separated by exactly one dot from the previous group, and any remaining positions are filled with dots.
+ */
+export function packClueLine(width: number, clues: number[]): string {
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error("Width must be a whole number above zero.");
+  }
+  if (!Array.isArray(clues)) {
+    throw new Error("Clues must be an array.");
+  }
+  for (const clue of clues) {
+    if (!Number.isInteger(clue) || clue <= 0) {
+      throw new Error("Each clue must be a whole number above zero.");
+    }
+  }
+
+  const totalLength = clues.reduce((sum, clue) => sum + clue, 0) + clues.length - 1;
+  if (totalLength > width) {
+    throw new Error("Clue groups and separators together outgrow the width.");
+  }
+
+  let line = "";
+  for (let i = 0; i < clues.length; i++) {
+    line += "#".repeat(clues[i]);
+    if (i < clues.length - 1) {
+      line += ".";
+    }
+  }
+
+  while (line.length < width) {
+    line += ".";
+  }
+
+  return line;
+}
+```

@@ -1,0 +1,47 @@
+```python
+from typing import Dict, List
+
+def project_makespan(durations: Dict[str, int], deps: List[List[str]]) -> int:
+    """
+    Calculate the minimum time required to complete a project given task durations and dependencies.
+
+    :param durations: A dictionary mapping task names to their respective durations in minutes.
+    :param deps: A list of dependency pairs [a, b] where task a must finish before task b can start.
+    :return: The least number of minutes in which the whole project can finish.
+    """
+    if not all(isinstance(d, int) and d > 0 for d in durations.values()):
+        raise ValueError("All durations must be positive integers.")
+    
+    if any(task1 == task2 for task1, task2 in deps):
+        raise ValueError("Dependency pairs cannot have the same task name.")
+    
+    # Create a graph to represent dependencies
+    graph: Dict[str, List[str]] = {}
+    indegree: Dict[str, int] = {task: 0 for task in durations}
+    
+    for dep in deps:
+        if dep[0] not in graph:
+            graph[dep[0]] = []
+        if dep[1] not in graph:
+            graph[dep[1]] = []
+        
+        graph[dep[0]].append(dep[1])
+        indegree[dep[1]] += 1
+    
+    # Initialize the queue with tasks that have no dependencies
+    queue: List[str] = [task for task, d in indegree.items() if d == 0]
+    
+    # Process tasks in order of their completion time
+    completion_times: Dict[str, int] = {}
+    while queue:
+        task = queue.pop(0)
+        completion_times[task] = durations[task]
+        
+        for dependent_task in graph.get(task, []):
+            indegree[dependent_task] -= 1
+            if indegree[dependent_task] == 0:
+                queue.append(dependent_task)
+    
+    # The maximum completion time is the makespan of the project
+    return max(completion_times.values())
+```

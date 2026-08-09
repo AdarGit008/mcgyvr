@@ -1,0 +1,53 @@
+```ts
+export function settleClaimRun(claims: unknown, plan: unknown): number[][] {
+  if (!Array.isArray(claims)) throw new Error('Claims must be an array');
+  if (typeof plan !== 'object' || plan === null) throw new Error('Plan must be an object');
+
+  const { deductible, coinsurance, cap } = plan;
+  if (
+    typeof deductible !== 'number' ||
+    !Number.isInteger(deductible) ||
+    deductible < 0
+  ) {
+    throw new Error('Deductible must be a non-negative integer');
+  }
+  if (typeof cap !== 'number' || !Number.isInteger(cap) || cap < 0) {
+    throw new Error('Cap must be a non-negative integer');
+  }
+  if (
+    typeof coinsurance !== 'number' ||
+    !Number.isInteger(coinsurance) ||
+    coinsurance < 0 ||
+    coinsurance > 100
+  ) {
+    throw new Error('Coinsurance must be an integer between 0 and 100');
+  }
+
+  let runningTotal = 0;
+  let remainingDeductible = deductible;
+
+  return claims.map((claim: unknown) => {
+    if (typeof claim !== 'number' || !Number.isInteger(claim) || claim < 0) {
+      throw new Error('Each claim must be a non-negative integer');
+    }
+
+    if (remainingDeductible > 0) {
+      const deductiblePayment = Math.min(claim, remainingDeductible);
+      runningTotal += deductiblePayment;
+      remainingDeductible -= deductiblePayment;
+      claim -= deductiblePayment;
+    }
+
+    const coinsurancePayment = Math.ceil((coinsurance / 100) * claim);
+    runningTotal += coinsurancePayment;
+
+    if (runningTotal > cap) {
+      const overage = runningTotal - cap;
+      runningTotal = cap;
+      return [overage, claim + deductiblePayment - overage, remainingDeductible, runningTotal];
+    }
+
+    return [claim + deductiblePayment, coinsurancePayment, remainingDeductible, runningTotal];
+  });
+}
+```

@@ -1,0 +1,49 @@
+```ts
+export function foldCoercionChain(start: string, terms: Array<Record<string, unknown>>): string[] {
+  const typeMap = new Map([
+    ['bit', 'bit'],
+    ['whole', 'whole'],
+    ['ratio', 'ratio'],
+    ['word', 'word'],
+    ['empty', 'empty']
+  ]);
+
+  if (!typeMap.has(start)) {
+    throw new Error('Invalid starting type');
+  }
+
+  if (!Array.isArray(terms)) {
+    throw new Error('Terms must be an array');
+  }
+
+  const result: string[] = [start];
+
+  for (const term of terms) {
+    if (typeof term !== 'object' || term === null || Array.isArray(term)) {
+      throw new Error('Term must be a non-null object');
+    }
+
+    const { op, type } = term;
+
+    if (op !== 'join' && op !== 'weigh') {
+      throw new Error('Invalid operation');
+    }
+
+    if (!typeMap.has(type)) {
+      throw new Error('Invalid type in term');
+    }
+
+    const currentType = result[result.length - 1];
+    const nextType = typeMap.get(type)!;
+
+    if ((op === 'join' && (currentType === 'empty' || nextType === 'empty')) ||
+        (op === 'weigh' && (currentType === 'word' || nextType === 'word'))) {
+      throw new Error('Invalid operation for types');
+    }
+
+    result.push(nextType);
+  }
+
+  return result;
+}
+```

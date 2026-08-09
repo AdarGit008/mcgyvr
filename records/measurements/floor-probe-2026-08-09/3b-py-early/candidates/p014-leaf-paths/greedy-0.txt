@@ -1,0 +1,38 @@
+```python
+from typing import List
+
+def leaf_paths(rows: List[List[str]]) -> List[str]:
+    """
+    Return paths from root to leaves in a hierarchy described by rows.
+    Each path is a list of node ids joined with slashes, sorted lexicographically.
+    Raises ValueError for invalid inputs.
+    """
+    if not rows:
+        raise ValueError("Input must be non-empty.")
+    
+    # Check for exactly one root row
+    root_count = sum(1 for row in rows if row[1] == "")
+    if root_count != 1:
+        raise ValueError("Exactly one root row is required.")
+    
+    # Build a dictionary to map node ids to their parent ids
+    id_to_parent = {row[0]: row[1] for row in rows}
+    
+    # Find all leaf nodes (nodes with no parent)
+    leaves = [node for node, parent in id_to_parent.items() if parent == ""]
+    
+    # Build paths from root to each leaf
+    paths = []
+    for leaf in leaves:
+        path = []
+        current_node = leaf
+        while current_node != "":
+            path.append(current_node)
+            current_node = id_to_parent.get(current_node, "")
+        paths.append("/".join(reversed(path)))
+    
+    # Sort the paths lexicographically
+    paths.sort()
+    
+    return paths
+```

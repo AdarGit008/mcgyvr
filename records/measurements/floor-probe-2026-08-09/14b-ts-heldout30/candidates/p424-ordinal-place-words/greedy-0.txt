@@ -1,0 +1,49 @@
+```ts
+export function spellOrdinalPlace(place: number): string {
+  if (typeof place !== 'number') {
+    throw new Error('Input must be a number');
+  }
+  if (!Number.isInteger(place)) {
+    throw new Error('Input must be a whole number');
+  }
+  if (place < 1 || place > 999) {
+    throw new Error('Input must be between 1 and 999');
+  }
+
+  const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+  const teens = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+  const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+  function spellNumber(num: number): string {
+    if (num < 10) return ones[num];
+    if (num < 20) return teens[num - 10];
+    if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? '-' + ones[num % 10] : '');
+    if (num < 1000) {
+      const hundred = Math.floor(num / 100);
+      const remainder = num % 100;
+      return ones[hundred] + ' hundred' + (remainder !== 0 ? ' and ' + spellNumber(remainder) : '');
+    }
+    return '';
+  }
+
+  function toOrdinal(word: string): string {
+    const specialCases: { [key: string]: string } = {
+      one: 'first',
+      two: 'second',
+      three: 'third',
+      five: 'fifth',
+      eight: 'eighth',
+      nine: 'ninth',
+      twelve: 'twelfth',
+      hundred: 'hundredth'
+    };
+    if (specialCases[word]) return specialCases[word];
+    if (word.endsWith('y')) return word.slice(0, -1) + 'ieth';
+    return word + 'th';
+  }
+
+  const spelled = spellNumber(place);
+  const lastWord = spelled.split(/[- ]/).pop()!;
+  return spelled.replace(lastWord, toOrdinal(lastWord));
+}
+```

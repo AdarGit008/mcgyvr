@@ -1,0 +1,37 @@
+```ts
+export function parseDuration(input: string): number {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const units = ['d', 'h', 'm', 's'];
+  const regex = /^(\d+)([dhms])$/g;
+  let totalSeconds = 0;
+
+  while ((match = regex.exec(input)) !== null) {
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+
+    if (isNaN(value) || !units.includes(unit)) {
+      throw new Error('Invalid duration format');
+    }
+
+    switch (unit) {
+      case 'd':
+        totalSeconds += value * 86400;
+        break;
+      case 'h':
+        totalSeconds += value * 3600;
+        break;
+      case 'm':
+        totalSeconds += value * 60;
+        break;
+      case 's':
+        totalSeconds += value;
+        break;
+    }
+  }
+
+  return totalSeconds;
+}
+```

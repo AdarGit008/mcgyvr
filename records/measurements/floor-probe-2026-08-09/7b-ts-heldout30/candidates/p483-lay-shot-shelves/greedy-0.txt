@@ -1,0 +1,59 @@
+```ts
+/**
+ * How deep a strip of fitted prints runs.
+ */
+export function layShotShelves(shots: any[], strip: any): any {
+  if (!Array.isArray(shots) || shots.length === 0) {
+    throw new Error("shots must be a non-empty array");
+  }
+  for (const shot of shots) {
+    if (typeof shot !== "object" || shot === null) {
+      throw new Error("each shot in shots must be an object");
+    }
+    if (typeof shot.name !== "string" || shot.name.trim() === "") {
+      throw new Error("shot name must be a non-empty string");
+    }
+    if (!Number.isInteger(shot.across) || shot.across <= 0) {
+      throw new Error("shot across must be a whole number above nought");
+    }
+    if (!Number.isInteger(shot.down) || shot.down <= 0) {
+      throw new Error("shot down must be a whole number above nought");
+    }
+  }
+  const namesMap = new Map();
+  for (const shot of shots) {
+    if (namesMap.has(shot.name)) {
+      throw new Error(`duplicate shot name: ${shot.name}`);
+    }
+    namesMap.set(shot.name, true);
+  }
+
+  if (typeof strip !== "object" || strip === null) {
+    throw new Error("strip must be an object");
+  }
+  if (!Number.isInteger(strip.perRow) || strip.perRow <= 0) {
+    throw new Error("strip perRow must be a whole number above nought");
+  }
+  if (!Number.isInteger(strip.cell) || strip.cell <= 0) {
+    throw new Error("strip cell must be a whole number above nought");
+  }
+  if (!Number.isInteger(strip.lead) || strip.lead < 0) {
+    throw new Error("strip lead must be a whole number of nought or more");
+  }
+
+  const rows: any[] = [];
+  for (let i = 0; i < shots.length; i += strip.perRow) {
+    const slice = shots.slice(i, i + strip.perRow);
+    const deep = Math.ceil((slice[0].down * strip.cell) / slice[0].across);
+    rows.push({
+      names: slice.map((shot: any) => shot.name),
+      deep,
+    });
+  }
+  let totalDeep = 0;
+  for (const row of rows) {
+    totalDeep += row.deep + strip.lead;
+  }
+  return { rows, deep: totalDeep - strip.lead };
+}
+```

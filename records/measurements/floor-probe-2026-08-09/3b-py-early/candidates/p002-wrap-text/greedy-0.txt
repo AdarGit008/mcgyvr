@@ -1,0 +1,38 @@
+```python
+def wrap_text(text: str, width: int) -> list[str]:
+    """
+    Breaks the input text into lines of specified maximum width, greedily fitting words onto each line.
+    
+    :param text: The input string to be wrapped.
+    :param width: The maximum width of each line.
+    :return: A list of strings, where each string is a line of the wrapped text.
+    """
+    if not isinstance(text, str) or not isinstance(width, int):
+        raise ValueError("Input must be a string and width must be an integer.")
+    
+    if width <= 0:
+        raise ValueError("Width must be a positive integer.")
+    
+    # Remove leading and trailing spaces
+    text = text.strip()
+    
+    # Check for doubled spaces
+    if "  " in text:
+        raise ValueError("Text cannot contain doubled spaces.")
+    
+    lines = []
+    current_line = ""
+    
+    for word in text.split():
+        if len(current_line) + len(word) + 1 <= width:
+            current_line += (current_line and " ") + word
+        else:
+            lines.append(current_line)
+            current_line = word
+    
+    # Add the last line if it's not empty
+    if current_line:
+        lines.append(current_line)
+    
+    return lines
+```

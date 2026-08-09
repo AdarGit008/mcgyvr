@@ -1,0 +1,51 @@
+```ts
+export function planShunting(arrival: string[], target: string[], depth: number): { moves: string[]; blocked: string } {
+  if (!Array.isArray(arrival) || !Array.isArray(target)) {
+    throw new Error("Both arrival and target must be arrays.");
+  }
+  if (arrival.length === 0) {
+    throw new Error("Arrival road cannot be empty.");
+  }
+  if (depth < 1 || !Number.isInteger(depth)) {
+    throw new Error("Depth must be a whole number of one or more.");
+  }
+
+  const arrivalSet = new Set(arrival);
+  const targetSet = new Set(target);
+
+  if (arrivalSet.size !== arrival.length || targetSet.size !== target.length) {
+    throw new Error("Codes must not be repeated in the same list.");
+  }
+  if (arrivalSet.size !== targetSet.size || ![...arrivalSet].every(code => targetSet.has(code))) {
+    throw new Error("Both lists must name the same cars.");
+  }
+
+  const moves: string[] = [];
+  const siding: string[] = [];
+  let arrivalIndex = 0;
+  let targetIndex = 0;
+
+  while (targetIndex < target.length) {
+    if (arrival[arrivalIndex] === target[targetIndex]) {
+      moves.push(`place ${arrival[arrivalIndex]}`);
+      arrivalIndex++;
+      targetIndex++;
+    } else if (siding.length < depth && arrivalIndex < arrival.length) {
+      moves.push(`hold ${arrival[arrivalIndex]}`);
+      siding.push(arrival[arrivalIndex]);
+      arrivalIndex++;
+    } else if (siding.length > 0 && siding[siding.length - 1] === target[targetIndex]) {
+      moves.push(`place ${siding.pop()!}`);
+      targetIndex++;
+    } else {
+      return { moves, blocked: "full" };
+    }
+  }
+
+  if (arrivalIndex < arrival.length) {
+    return { moves, blocked: `buried:${arrival[arrivalIndex]}` };
+  }
+
+  return { moves, blocked: "" };
+}
+```

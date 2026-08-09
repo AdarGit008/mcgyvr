@@ -1,0 +1,76 @@
+```ts
+export function planRestoreChain(runs: any[], target: number): { ok: string; chain: string[]; reason: string } {
+  if (!Array.isArray(runs) || runs.length === 0) throw new Error("runs must be a non-empty array");
+  if (typeof target !== "number" || !Number.isInteger(target) || target < 0) throw new Error("target must be a whole number of zero or more");
+
+  const runMap = new Map<string, { kind: string; step: number; sound: boolean }>();
+  for (const run of runs) {
+    if (typeof run !== "object" || run === null || !run.label || typeof run.label !== "string" || run.label.trim() === "") throw new Error("each run must be a record with a non-empty string label");
+    if (!["full", "diff", "incr"].includes(run.kind)) throw new Error("kind must be one of 'full', 'diff', or 'incr'");
+    if (typeof run.step !== "number" || !Number.isInteger(run.step) || run.step < 0) throw new Error("step must be a whole number of zero or more");
+    if (typeof run.sound !== "boolean") throw new Error("sound must be a boolean");
+
+    if (runMap.has(run.label)) throw new Error(`duplicate label: ${run.label}`);
+    if (runMap.some(r => r[1].step === run.step)) throw new Error(`duplicate step: ${run.step}`);
+
+    runMap.set(run.label, { kind: run.kind, step: run.step, sound: run.sound });
+  }
+
+  const targetRun = runMap.get(target);
+  if (!targetRun) throw new Error("no run carries the target step");
+
+  const chain: string[] = [];
+  let currentStep = target;
+
+  while (currentStep >= 0) {
+    const currentRun = runMap.get(currentStep);
+    if (!currentRun) break;
+
+    if (currentRun.kind === "full") {
+      chain.unshift(currentRun.label);
+      break;
+    } else if (currentRun.kind === "diff") {
+      let fullRun = null;
+      for (let step = currentStep - 1; step >= 0; step--) {
+        const run = runMap.get(step);
+        if (run && run.sound && run.kind === "full") {
+          fullRun = run;
+          break;
+        }
+      }
+
+      if (!fullRun) {
+        return { ok: "no", chain: [], reason: "nofull" };
+      } else {
+        chain.unshift(fullRun.label, currentRun.label);
+        currentStep = fullRun.step - 1;
+      }
+    } else if (currentRun.kind === "incr") {
+      let maxStep = -1;
+      for (let step = currentStep - 1; step >= 0; step--) {
+        const run = runMap.get(step);
+        if (run && run.kind !== "full" && step > maxStep) {
+          maxStep = step;
+        }
+      }
+
+      if (maxStep === -1) {
+        return { ok: "no", chain: [], reason: "nofull" };
+      } else {
+        const incrRun = runMap.get(maxStep);
+        chain.unshift(incrRun.label, currentRun.label);
+        currentStep = maxStep - 1;
+      }
+    }
+  }
+
+  if (currentStep >= 0) return { ok: "no", chain: [], reason: "nofull" };
+
+  const finalRun = runMap.get(currentStep + 1);
+  if (!finalRun || !finalRun.sound) {
+    return { ok: "no", chain: [], reason: "damaged" };
+  }
+
+  return { ok: "yes", chain, reason: "" };
+}
+```

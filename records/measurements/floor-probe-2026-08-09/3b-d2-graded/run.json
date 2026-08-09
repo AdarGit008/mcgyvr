@@ -1,0 +1,45 @@
+{
+  "endpoint": "http://srv1:11434",
+  "protocol": "openai",
+  "model": "qwen2.5-coder:3b",
+  "tier": "d2",
+  "draws": 0,
+  "greedy_temperature": 0.0,
+  "sampled_temperature": 0.7,
+  "max_output_tokens": 2048,
+  "bundle_sha256": "001c23ece0a6297212ba48c18121c3a5dc9b52096ab93f7c8ea3bae05562bd01",
+  "tasks_sha256": {
+    "t01": "bc64f756b73d6afbb92822a14a0a7a3706e6fc7cd1cf819bc960918daee66319",
+    "t02": "2b804b43cbae50d45338749d91ada19cc7d0672da804fa09c04ab9adb20876d7",
+    "t03": "5945d9a5dc8451e09353f6182cf64880a37e7327ff7b14783e5811e07226b442",
+    "t04": "c9b01b52cf24a914d8d92a41eba775dd7b156d1ffb33875a101c8cda856bb46a",
+    "t05": "f0932c00aa798951a08e8aeaed2ffc2c9483d236dc8092d942b30ed215977cd5",
+    "t06": "19508e2a0a4313bcbbd19963dc1dc2643fa518dcaca2eff5caf8217d79a4f3ce",
+    "t07": "f3560bae6e8ec2f3bb88cb840c8c4ed728dd9777f06b75232a85112158a3f511",
+    "t08": "504107c72bb140c154a10c40c3e2eeff58c207b89f07543e495ad353d2b3b45a",
+    "t09": "1cc71937745ed2e0bacb598b9191aa28d77dfbf3164169b5fcb2c0cafe924c41",
+    "t10": "dcfa9c058b3d1e169500684f2bb8c1b0c9bb7afdf54c7649ac87e07df17a2d1b",
+    "t11": "b66ece35c47c0d8985ae22805be48b1d700602bd2d2de302571c8bb906c275ac",
+    "t12": "eacee121d9dbddddbccbef4f74249a5f73509dc0248dee525423f53e33d152a5"
+  },
+  "invocations": [
+    {
+      "started": "2026-08-09T06:45:03+00:00",
+      "tasks": [
+        "t01",
+        "t02",
+        "t03",
+        "t04",
+        "t05",
+        "t06",
+        "t07",
+        "t08",
+        "t09",
+        "t10",
+        "t11",
+        "t12"
+      ],
+      "rig_revision": "17e4438f198cd69e954b46733d3e1d47aed7750a"
+    }
+  ]
+}

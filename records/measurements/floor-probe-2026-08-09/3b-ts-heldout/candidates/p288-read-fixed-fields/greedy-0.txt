@@ -1,0 +1,30 @@
+```ts
+export function readFixedFields(lines: string[], layout: { name: string; start: number; width: number }[]): Record<string, string>[] {
+  if (layout.length === 0) throw new Error("Layout must not be empty.");
+  
+  const columnMap = new Map<string, [number, number]>();
+  for (const entry of layout) {
+    if (!/^[a-zA-Z]+$/.test(entry.name)) throw new Error(`Name "${entry.name}" is invalid.`);
+    if (!Number.isInteger(entry.start) || entry.start < 1) throw new Error(`Start must be a positive integer.`);
+    if (!Number.isInteger(entry.width) || entry.width < 1) throw new Error(`Width must be a positive integer.`);
+    
+    for (let i = entry.start - 1; i < entry.start + entry.width - 1; i++) {
+      const [start, end] = columnMap.get(entry.name) || [0, 0];
+      if (i >= start && i <= end) throw new Error(`Column ${i + 1} is already claimed by name "${entry.name}".`);
+      columnMap.set(entry.name, [Math.min(start, i), Math.max(end, i)]);
+    }
+  }
+
+  return lines.map(line => {
+    const result: Record<string, string> = {};
+    for (const entry of layout) {
+      const start = entry.start - 1;
+      const end = entry.start + entry.width - 2;
+      const value = line.slice(start, end).trimRight();
+      if (value.length === 0 && columnMap.get(entry.name)[0] !== columnMap.get(entry.name)[1]) throw new Error(`Line does not contain a value for name "${entry.name}".`);
+      result[entry.name] = value;
+    }
+    return result;
+  });
+}
+```

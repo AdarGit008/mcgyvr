@@ -1,0 +1,48 @@
+```ts
+export function minWindow(s: string, t: string): string {
+  if (t.length === 0) return "";
+
+  const charCountT = new Map<string, number>();
+  for (const char of t) {
+    charCountT.set(char, (charCountT.get(char) || 0) + 1);
+  }
+
+  let left = 0;
+  let right = 0;
+  let validChars = 0;
+  const windowCharCount = new Map<string, number>();
+  let minWindowStart = -1;
+  let minLength = Infinity;
+
+  while (right < s.length) {
+    const charR = s[right];
+    if (charCountT.has(charR)) {
+      windowCharCount.set(charR, (windowCharCount.get(charR) || 0) + 1);
+      if (windowCharCount.get(charR)! === charCountT.get(charR)!) {
+        validChars++;
+      }
+    }
+
+    while (validChars === charCountT.size) {
+      const charL = s[left];
+      if (charCountT.has(charL)) {
+        windowCharCount.set(charL, windowCharCount.get(charL)! - 1);
+        if (windowCharCount.get(charL)! < charCountT.get(charL)!) {
+          validChars--;
+        }
+      }
+
+      if (right - left + 1 < minLength) {
+        minLength = right - left + 1;
+        minWindowStart = left;
+      }
+
+      left++;
+    }
+
+    right++;
+  }
+
+  return minWindowStart === -1 ? "" : s.substring(minWindowStart, minWindowStart + minLength);
+}
+```

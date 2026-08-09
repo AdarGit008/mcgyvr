@@ -1,0 +1,45 @@
+```ts
+/**
+ * Converts a number to its English word representation according to Larkin house style.
+ * @param count - The number to convert.
+ * @returns The English word representation of the number.
+ */
+export function spellCountWords(count: number): string {
+    if (typeof count !== 'number' || !Number.isInteger(count) || count < 0 || count > 999999) {
+        throw new Error('Input must be a non-negative integer less than or equal to 999999.');
+    }
+
+    const smallWords = [
+        '', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+        'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'
+    ];
+
+    const roundWords = [
+        '', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'
+    ];
+
+    function spellUnder100(num: number): string {
+        if (num < 20) return smallWords[num];
+        const tens = Math.floor(num / 10);
+        const ones = num % 10;
+        return roundWords[tens] + (ones > 0 ? '-' + smallWords[ones] : '');
+    }
+
+    function spellUnder1000(num: number): string {
+        if (num < 100) return spellUnder100(num);
+        const hundreds = Math.floor(num / 100);
+        const remainder = num % 100;
+        return smallWords[hundreds] + ' hundred' + (remainder > 0 ? ' and ' + spellUnder100(remainder) : '');
+    }
+
+    if (count === 0) return 'zero';
+
+    const thousands = Math.floor(count / 1000);
+    const remainder = count % 1000;
+    let result = spellUnder1000(thousands) + ' thousand';
+    if (remainder > 0) {
+        result += ' and ' + spellUnder1000(remainder);
+    }
+    return result;
+}
+```

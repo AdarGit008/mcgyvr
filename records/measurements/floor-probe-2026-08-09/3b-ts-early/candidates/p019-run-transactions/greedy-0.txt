@@ -1,0 +1,40 @@
+```ts
+export function runTransactions(commands: string[]): Record<string, string> {
+  const store: Record<string, string> = {};
+  let currentTransaction: Record<string, string> | null = null;
+
+  for (const command of commands) {
+    const [verb, ...args] = command.split(' ');
+
+    switch (verb) {
+      case 'k':
+        if (args.length !== 2) throw new Error("Command 'k' requires exactly two arguments.");
+        store[args[0]] = args[1];
+        break;
+      case 'unset':
+        if (args.length !== 1) throw new Error("Command 'unset' requires exactly one argument.");
+        delete store[args[0]];
+        break;
+      case 'begin':
+        currentTransaction = {};
+        break;
+      case 'commit':
+        if (currentTransaction === null) throw new Error("Cannot commit without an open transaction.");
+        Object.assign(store, currentTransaction);
+        currentTransaction = null;
+        break;
+      case 'rollback':
+        if (currentTransaction !== null) throw new Error("Cannot rollback with an open transaction.");
+        break;
+      default:
+        throw new Error(`Unknown command: ${verb}`);
+    }
+  }
+
+  if (currentTransaction !== null) {
+    throw new Error("Transaction still open after the last command.");
+  }
+
+  return store;
+}
+```

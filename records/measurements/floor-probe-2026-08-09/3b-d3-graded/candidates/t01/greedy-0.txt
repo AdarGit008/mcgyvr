@@ -1,0 +1,102 @@
+```ts
+export function evaluate(expr: string): number {
+  const tokens = expr.replace(/\s+/g, '').split('');
+  const stack: { value: number; operator: '+' | '-' | '*' | '/' }[] = [];
+  let currentNumber = '';
+
+  for (const token of tokens) {
+    if (!isNaN(Number(token))) {
+      currentNumber += token;
+    } else if (token === '(') {
+      stack.push({ value: 0, operator: '' });
+    } else if (token === ')') {
+      if (stack.length === 0 || stack[stack.length - 1].operator !== '') {
+        throw new Error('Unmatched parenthesis');
+      }
+      const { value, operator } = stack.pop()!;
+      if (operator === '+') {
+        stack[stack.length - 1].value += value;
+      } else if (operator === '-') {
+        stack[stack.length - 1].value -= value;
+      } else if (operator === '*') {
+        stack[stack.length - 1].value *= value;
+      } else if (operator === '/') {
+        if (value === 0) {
+          throw new Error('Division by zero');
+        }
+        stack[stack.length - 1].value /= value;
+      }
+    } else if ('+-*/'.includes(token)) {
+      const num = Number(currentNumber);
+      if (isNaN(num)) {
+        throw new Error('Invalid number');
+      }
+      currentNumber = '';
+
+      while (
+        stack.length > 0 &&
+        stack[stack.length - 1].operator !== '' &&
+        precedence(stack[stack.length - 1].operator) >= precedence(token)
+      ) {
+        const { value, operator } = stack.pop()!;
+        if (operator === '+') {
+          stack[stack.length - 1].value += num;
+        } else if (operator === '-') {
+          stack[stack.length - 1].value -= num;
+        } else if (operator === '*') {
+          stack[stack.length - 1].value *= num;
+        } else if (operator === '/') {
+          if (num === 0) {
+            throw new Error('Division by zero');
+          }
+          stack[stack.length - 1].value /= num;
+        }
+      }
+
+      stack.push({ value: num, operator });
+    } else {
+      throw new Error(`Unknown character: ${token}`);
+    }
+  }
+
+  if (currentNumber !== '') {
+    const num = Number(currentNumber);
+    if (isNaN(num)) {
+      throw new Error('Invalid number');
+    }
+    stack.push({ value: num, operator: '' });
+  }
+
+  while (stack.length > 1) {
+    const { value, operator } = stack.pop()!;
+    const lastValue = stack[stack.length - 1].value;
+    if (operator === '+') {
+      stack[stack.length - 1].value += value;
+    } else if (operator === '-') {
+      stack[stack.length - 1].value -= value;
+    } else if (operator === '*') {
+      stack[stack.length - 1].value *= value;
+    } else if (operator === '/') {
+      if (value === 0) {
+        throw new Error('Division by zero');
+      }
+      stack[stack.length - 1].value /= value;
+    }
+  }
+
+  return stack[0].value;
+}
+
+function precedence(op: '+' | '-' | '*' | '/'): number {
+  switch (op) {
+    case '+':
+    case '-':
+      return 1;
+    case '*':
+    case '/':
+      return 2;
+    default:
+      throw new Error('Invalid operator');
+  }
+}
+```

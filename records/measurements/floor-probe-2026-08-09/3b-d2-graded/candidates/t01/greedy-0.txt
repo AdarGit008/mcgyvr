@@ -1,0 +1,20 @@
+```typescript
+export function mergeIntervals(intervals: [number, number][]): [number, number][] {
+  if (!Array.isArray(intervals) || intervals.some(interval => !Array.isArray(interval) || interval.length !== 2)) {
+    throw new Error("Input must be an array of two-number pairs.");
+  }
+
+  return intervals
+    .filter(([start, end]) => typeof start === 'number' && typeof end === 'number' && Number.isFinite(start) && Number.isFinite(end))
+    .sort((a, b) => a[0] - b[0])
+    .reduce<[number, number][] | null>((mergedIntervals, [currentStart, currentEnd]) => {
+      if (mergedIntervals === null || mergedIntervals[mergedIntervals.length - 1][1] < currentStart) {
+        mergedIntervals.push([currentStart, currentEnd]);
+      } else {
+        mergedIntervals[mergedIntervals.length - 1][1] = Math.max(mergedIntervals[mergedIntervals.length - 1][1], currentEnd);
+      }
+      return mergedIntervals;
+    }, null)
+    .filter(Boolean) as [number, number][]; // Remove any null entries
+}
+```

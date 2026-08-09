@@ -1,0 +1,22 @@
+```typescript
+export function schedule(intervals: { start: number; end: number; weight: number }[]): { total: number; chosen: number[] } {
+  if (intervals.length === 0) return { total: 0, chosen: [] };
+
+  // Sort intervals by their end times
+  intervals.sort((a, b) => a.end - b.end);
+
+  let chosen: number[] = [];
+  let currentEnd = -Infinity;
+
+  for (const [index, interval] of intervals.entries()) {
+    if (interval.start >= currentEnd) {
+      chosen.push(index);
+      currentEnd = interval.end;
+    }
+  }
+
+  const totalWeight = chosen.reduce((sum, index) => sum + intervals[index].weight, 0);
+
+  return { total: totalWeight, chosen };
+}
+```

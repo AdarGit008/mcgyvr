@@ -1,0 +1,34 @@
+```typescript
+export function skyline(buildings: [number, number, number][]): [number, number][] {
+  if (buildings.length === 0) return [];
+
+  const events = buildings.flatMap(([left, right, height]) => [
+    { type: 'start', x: left, height },
+    { type: 'end', x: right, height },
+  ]);
+
+  events.sort((a, b) => a.x - b.x || (a.type === 'start' ? -1 : 1));
+
+  const stack: [number, number][] = [];
+  let currentHeight = 0;
+
+  for (const { type, x, height } of events) {
+    if (type === 'start') {
+      stack.push([x, height]);
+    } else {
+      const last = stack.pop();
+      if (last && last[1] > height) {
+        stack.push(last);
+      }
+    }
+
+    currentHeight = stack.length ? stack[stack.length - 1][1] : 0;
+
+    if (currentHeight !== 0 || stack.length > 0) {
+      events.push([x, currentHeight]);
+    }
+  }
+
+  return events.filter((_, i) => i === 0 || events[i][0] !== events[i - 1][0]);
+}
+```

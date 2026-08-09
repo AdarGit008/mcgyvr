@@ -1,0 +1,29 @@
+```ts
+export function wrapText(text: string, width: number): string[] {
+  if (typeof text !== 'string' || typeof width !== 'number') {
+    throw new Error('Invalid input types');
+  }
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error('Width must be a positive integer');
+  }
+
+  const words = text.trim().split(/\s+/);
+  if (words.length === 0) return [];
+
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    if (currentLine.length + word.length + 1 > width) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine += ` ${word}`;
+    }
+  }
+
+  lines.push(currentLine);
+
+  return lines;
+}
+```

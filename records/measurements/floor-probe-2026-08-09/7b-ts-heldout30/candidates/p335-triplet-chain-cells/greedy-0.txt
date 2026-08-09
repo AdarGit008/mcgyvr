@@ -1,0 +1,36 @@
+```ts
+export function tripletChainCells(
+  first: number[][],
+  second: number[][],
+  lefts: number,
+  mids: number,
+  rights: number,
+): number[][] {
+  if (!Array.isArray(first) || !Array.isArray(second)) throw new Error("Bags must be lists");
+  if (lefts < 1 || mids < 1 || rights < 1 || !Number.isInteger(lefts) || !Number.isInteger(mids) || !Number.isInteger(rights)) throw new Error("Band widths must be whole numbers greater than zero");
+  for (const link of first.concat(second)) {
+    if (!Array.isArray(link) || link.length !== 3) throw new Error("Links must be triples");
+    const [source, middle, weight] = link;
+    if (!Number.isInteger(source) || !Number.isInteger(middle) || !Number.isInteger(weight) || source < 0 || source >= lefts + mids || middle < 0 || middle >= mids + rights || weight < 0 || weight > 10000) throw new Error("Endpoints and weights must be valid");
+    if (source === middle) throw new Error("No link should connect the same endpoints");
+  }
+
+  const routes = new Map<string, number>();
+  for (const [source, middle, weight] of first) {
+    for (const [other, sink, gain] of second) {
+      if (middle !== other) continue;
+      const key = `${source}:${sink}`;
+      routes.set(key, (routes.get(key) || 0) + weight * gain);
+    }
+  }
+
+  const out: number[][] = [];
+  for (const [pair, weight] of routes) {
+    const [source, sink] = pair.split(":").map(Number);
+    if (weight !== 0) out.push([source, sink, weight]);
+  }
+
+  out.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  return out;
+}
+```

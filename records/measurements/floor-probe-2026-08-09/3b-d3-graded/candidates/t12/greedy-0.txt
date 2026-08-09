@@ -1,0 +1,37 @@
+```typescript
+export function schedule(tasks: string[], cooldown: number): string[] {
+  if (cooldown < 0) throw new Error("Cooldown must be non-negative");
+
+  const taskMap = new Map<string, { count: number, lastRun: number }>();
+  for (const label of tasks) {
+    taskMap.set(label, { count: 1, lastRun: -cooldown });
+  }
+
+  const result: string[] = [];
+  let currentTick = 0;
+
+  while (true) {
+    let readyTask: { label: string, count: number } | null = null;
+    for (const [label, task] of taskMap.entries()) {
+      if (currentTick >= task.lastRun + cooldown + 1) {
+        if (!readyTask || task.count > readyTask.count || (task.count === readyTask.count && label < readyTask.label)) {
+          readyTask = { label, count: task.count };
+        }
+      }
+    }
+
+    if (readyTask) {
+      result.push(readyTask.label);
+      taskMap.set(readyTask.label, { ...readyTask, count: readyTask.count - 1 });
+      taskMap.set(readyTask.label, { lastRun: currentTick });
+    } else {
+      result.push("idle");
+    }
+
+    if (taskMap.size === 0) break;
+    currentTick++;
+  }
+
+  return result;
+}
+```

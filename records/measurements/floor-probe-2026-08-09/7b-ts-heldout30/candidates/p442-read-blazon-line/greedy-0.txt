@@ -1,0 +1,51 @@
+```ts
+export function readBlazonLine(line: string): Record<string, unknown> {
+  if (typeof line !== 'string' || line.trim() === '') {
+    throw new Error('Invalid input');
+  }
+
+  const clauses = line.split('; ');
+  const result: Record<string, unknown> = { field: {}, charges: [] };
+
+  for (const clause of clauses) {
+    if (clause.trim() === '') {
+      throw new Error('Empty clause');
+    }
+
+    if (clauses.indexOf(clause) === 0) {
+      const [field, ...tinctures] = clause.split(/\s+/);
+      if (field === 'parted') {
+        if (tinctures.length !== 3 || tinctures[1] !== 'pale' && tinctures[1] !== 'fess') {
+          throw new Error('Invalid parted field');
+        }
+        result.field = { cut: tinctures[1], tinctures: [tinctures[2], tinctures[0]] };
+      } else if (tinctures.length !== 1) {
+        throw new Error('Invalid first clause');
+      } else {
+        result.field = { cut: 'plain', tinctures: [field] };
+      }
+    } else {
+      const [count, charge, tincture] = clause.split(/\s+/);
+      if (count.length !== 1 || !['a', 'two', 'three', 'four', 'five'].includes(count)) {
+        throw new Error('Invalid count');
+      }
+      if (!['lion', 'mullet', 'crescent', 'rose', 'bend'].includes(charge) && charge.endsWith('s')) {
+        throw new Error('Invalid charge word');
+      }
+      if (charge.length === 1 && !['lion', 'mullet', 'crescent', 'rose', 'bend'].includes(charge)) {
+        throw new Error('Invalid charge word');
+      }
+      if (!['or', 'argent', 'gules', 'azure', 'sable', 'vert', 'purpure'].includes(tincture)) {
+        throw new Error('Invalid tincture');
+      }
+      if (result.charges.some(c => c.charge === charge)) {
+        throw new Error('Duplicate charge word');
+      }
+
+      result.charges.push({ count, charge: charge.length === 1 ? charge : charge.slice(0, -1), tincture });
+    }
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,55 @@
+```ts
+export function replayRecentPanel(limit: number, events: string[][]): string[] {
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new Error('Invalid limit');
+  }
+
+  const pinned: string[] = [];
+  const recent: string[] = [];
+
+  for (const [verb, name] of events) {
+    if (verb !== 'open' && verb !== 'pin' && verb !== 'unpin' && verb !== 'forget') {
+      throw new Error('Invalid verb');
+    }
+
+    if (typeof name !== 'string' || name === '') {
+      throw new Error('Invalid name');
+    }
+
+    switch (verb) {
+      case 'open':
+        const index = recent.indexOf(name);
+        if (index !== -1) {
+          recent.splice(index, 1);
+        }
+        break;
+      case 'pin':
+        if (!pinned.includes(name)) {
+          const index = recent.indexOf(name);
+          if (index !== -1) {
+            recent.splice(index, 1);
+          }
+          pinned.push(name);
+        }
+        break;
+      case 'unpin':
+        if (pinned.includes(name)) {
+          pinned.splice(pinned.indexOf(name), 1);
+          recent.unshift(name);
+          while (recent.length > limit) {
+            recent.pop();
+          }
+        }
+        break;
+      case 'forget':
+        const index = recent.indexOf(name);
+        if (index !== -1) {
+          recent.splice(index, 1);
+        }
+        break;
+    }
+  }
+
+  return [...pinned, ...recent];
+}
+```

@@ -1,0 +1,20 @@
+```ts
+export function splitQualifyingRound(entrants: string[]): { direct: string[]; qualifying: string[][] } {
+  if (!Array.isArray(entrants)) throw new Error("Invalid argument: entrants must be an array");
+  if (entrants.length < 2) throw new Error("Invalid argument: entrants must contain at least two names");
+
+  const powerOfTwo = Math.pow(2, Math.floor(Math.log2(entrants.length)));
+  const surplus = entrants.length - powerOfTwo;
+  const direct = entrants.slice(0, powerOfTwo);
+  const qualifying = [];
+
+  if (surplus > 0) {
+    const weakEnd = entrants.slice(powerOfTwo).reverse();
+    for (let i = 0; i < surplus; i++) {
+      qualifying.push([weakEnd[i], direct[direct.length - 1 - i]]);
+    }
+  }
+
+  return { direct, qualifying };
+}
+```

@@ -1,0 +1,20 @@
+```python
+def final_door_state(events: list[str]) -> str:
+    moves = {
+        "unlock": "closed",
+        "lock": "locked",
+        "open": "open",
+        "close": "closed",
+    }
+    state = "locked"
+    ignored = 0
+    for event in events:
+        if event not in moves:
+            raise ValueError(f"Invalid event: {event}")
+        new_state = moves.get(event, state)
+        if new_state != state:
+            state = new_state
+        else:
+            ignored += 1
+    return f"{state}:{ignored}"
+```

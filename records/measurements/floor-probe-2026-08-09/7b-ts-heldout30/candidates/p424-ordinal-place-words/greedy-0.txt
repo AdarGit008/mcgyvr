@@ -1,0 +1,40 @@
+```ts
+/**
+ * Renders a finishing place in written English.
+ * @param place - The whole number from 1 through 999 to be rendered.
+ * @returns The ordinal place in written English.
+ */
+export function spellOrdinalPlace(place: number): string {
+    if (typeof place !== 'number' || !Number.isInteger(place) || place < 1 || place > 999) {
+        throw new Error('Invalid argument. Place must be a whole number between 1 and 999.');
+    }
+
+    const units = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+    const teens = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+    const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+    function toWords(num: number): string {
+        if (num < 10) return units[num];
+        if (num < 20) return teens[num - 10];
+        if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? '-' + units[num % 10] : '');
+        return units[Math.floor(num / 100)] + ' hundred' + (num % 100 !== 0 ? ' and ' + toWords(num % 100) : '');
+    }
+
+    function toOrdinal(words: string): string {
+        const lastWord = words.split(' ').pop();
+        if (!lastWord) return words;
+        switch (lastWord) {
+            case 'one': return words.replace(lastWord, 'first');
+            case 'two': return words.replace(lastWord, 'second');
+            case 'three': return words.replace(lastWord, 'third');
+            case 'five': return words.replace(lastWord, 'fifth');
+            case 'eight': return words.replace(lastWord, 'eighth');
+            case 'nine': return words.replace(lastWord, 'ninth');
+            case 'twelve': return words.replace(lastWord, 'twelfth');
+            default: return words + 'th';
+        }
+    }
+
+    return toOrdinal(toWords(place));
+}
+```

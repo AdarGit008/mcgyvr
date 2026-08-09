@@ -1,0 +1,45 @@
+```ts
+export function spellCountWords(count: number): string {
+  if (!Number.isInteger(count) || count < 0 || count > 999999) {
+    throw new Error("Invalid input");
+  }
+
+  const smallWords = [
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"
+  ];
+  const roundWords = [
+    "", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"
+  ];
+
+  function spellBelowTwenty(num: number): string {
+    return smallWords[num];
+  }
+
+  function spellBelowHundred(num: number): string {
+    if (num < 20) {
+      return spellBelowTwenty(num);
+    }
+    const tens = Math.floor(num / 10);
+    const units = num % 10;
+    return roundWords[tens] + (units !== 0 ? "-" + smallWords[units] : "");
+  }
+
+  function spellBelowThousand(num: number): string {
+    if (num < 100) {
+      return spellBelowHundred(num);
+    }
+    const hundreds = Math.floor(num / 100);
+    const remainder = num % 100;
+    return smallWords[hundreds] + " hundred" + (remainder !== 0 ? " and " + spellBelowHundred(remainder) : "");
+  }
+
+  if (count < 1000) {
+    return spellBelowThousand(count);
+  }
+
+  const thousands = Math.floor(count / 1000);
+  const remainder = count % 1000;
+  return spellBelowThousand(thousands) + " thousand" + (remainder !== 0 ? " and " + spellBelowThousand(remainder) : "");
+}
+```

@@ -1,0 +1,75 @@
+```typescript
+export function reachByHops(
+  across: number,
+  down: number,
+  start: [number, number],
+  marsh: [number, number][],
+  hops: number,
+): number[] {
+  if (!Number.isInteger(across) || across < 1) {
+    throw new Error("across must be an integer of at least 1");
+  }
+  if (!Number.isInteger(down) || down < 1) {
+    throw new Error("down must be an integer of at least 1");
+  }
+  if (!Array.isArray(start) || start.length !== 2 || !Number.isInteger(start[0]) || !Number.isInteger(start[1])) {
+    throw new Error("start must be a pair of integers naming a square of the fen");
+  }
+  const [startRow, startCol] = start;
+  if (marsh.some(([r, c]) => r === startRow && c === startCol)) {
+    throw new Error("start cannot name a marsh square");
+  }
+  for (const [r, c] of marsh) {
+    if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || r >= down || c < 0 || c >= across) {
+      throw new Error("marsh must be a list holding entries that are pairs of integers naming squares of the fen");
+    }
+    for (const [r2, c2] of marsh) {
+      if (r === r2 && c === c2) {
+        throw new Error("marsh cannot name the same square twice");
+      }
+    }
+  }
+  if (!Number.isInteger(hops) || hops < 0) {
+    throw new Error("hops must be an integer of at least 0");
+  }
+
+  const steps: [number, number][] = [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+    [3, 0],
+    [0, -3],
+    [0, 3],
+  ];
+  const rings: number[] = [];
+  for (let i = 0; i <= hops; i++) {
+    rings.push(0);
+  }
+  const first = startRow * across + startCol;
+  const seen = new Set<number>([first]);
+  let edge: [number, number][] = [[startRow, startCol]];
+  rings[0] = 1;
+  for (let ring = 1; ring <= hops; ring++) {
+    const next: [number, number][] = [];
+    for (const square of edge) {
+      for (const step of steps) {
+        const r = square[0] + step[0];
+        const c = square[1] + step[1];
+        if (r < 0 || r >= down || c < 0 || c >= across) {
+          continue;
+        }
+        const key = r * across + c;
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+        next.push([r, c]);
+      }
+    }
+    rings[ring] = next.length;
+    edge = next;
+  }
+  return rings;
+}
+```

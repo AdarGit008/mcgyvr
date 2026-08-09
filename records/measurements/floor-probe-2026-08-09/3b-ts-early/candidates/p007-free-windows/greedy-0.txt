@@ -1,0 +1,44 @@
+```ts
+/** The free stretches of a working window, given its busy intervals. */
+export function freeWindows(
+  windowStart: number,
+  windowEnd: number,
+  busy: number[][],
+): number[][] {
+  // Validate input
+  if (windowStart >= windowEnd) {
+    throw new Error("Window start must precede window end.");
+  }
+  for (const [start, end] of busy) {
+    if (start > end) {
+      throw new Error("Busy interval start must precede busy interval end.");
+    }
+    if (!Number.isInteger(start) || !Number.isInteger(end)) {
+      throw new Error("Window and busy interval endpoints must be integers.");
+    }
+  }
+
+  // Sort busy intervals by their start time
+  busy.sort((a, b) => a[0] - b[0]);
+
+  const gaps: number[][] = [];
+  let cursor = windowStart;
+
+  for (const [start, end] of busy) {
+    if (start > cursor) {
+      gaps.push([cursor, start]);
+    }
+    // Merge overlapping intervals
+    if (end > cursor) {
+      cursor = Math.max(cursor, end);
+    }
+  }
+
+  // Add any remaining gap at the end of the window
+  if (cursor < windowEnd) {
+    gaps.push([cursor, windowEnd]);
+  }
+
+  return gaps;
+}
+```

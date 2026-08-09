@@ -1,0 +1,35 @@
+```python
+def split_field_path(path: str) -> list:
+    """
+    Splits a field path string into a list of identifiers and indexes.
+    
+    :param path: A string representing a location inside nested records, separated by dots.
+                 Identifiers may be followed by index suffixes in square brackets.
+    :return: A list of strings and integers representing the path components.
+    """
+    if not isinstance(path, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = path.split('.')
+    result = []
+    
+    for part in parts:
+        if not part or part[0] == '[':
+            raise ValueError("Invalid field path format.")
+        
+        index_start = 0
+        while index_start < len(part) and part[index_start].isdigit():
+            index_start += 1
+        
+        if index_start > 0 and (index_start == 1 or part[0] == '0'):
+            raise ValueError("Index cannot start with a leading zero.")
+        
+        identifier = part[:index_start]
+        index = int(part[index_start:]) if index_start < len(part) else None
+        
+        result.append(identifier)
+        if index is not None:
+            result.append(index)
+    
+    return result
+```

@@ -1,0 +1,47 @@
+```ts
+export function cohortHoldGrid(members: Array<[string, number]>, sightings: Array<[string, number]>, horizon: number): number[][] {
+    if (!Array.isArray(members) || !members.every(([key]) => typeof key === 'string' && key.length > 0)) {
+        throw new Error('Invalid members input');
+    }
+    if (!Array.isArray(sightings) || !sightings.every(([key, period]) => typeof key === 'string' && key.length > 0 && Number.isInteger(period) && period >= 0 && period <= 100000)) {
+        throw new Error('Invalid sightings input');
+    }
+    if (!Number.isInteger(horizon) || horizon < 0 || horizon > 50) {
+        throw new Error('Invalid horizon input');
+    }
+
+    const memberSet = new Set<string>(members.map(([key]) => key));
+    const sightingMap = new Map<string, Set<number>>(sightings.filter(([key]) => memberSet.has(key)).map(([key, period]) => [key, new Set([period])]));
+
+    for (const [, periods] of sightingMap) {
+        for (const period of periods) {
+            if (!Number.isInteger(period) || period < 0 || period > 100000) {
+                throw new Error('Invalid sighting period');
+            }
+        }
+    }
+
+    const intakeMap = new Map<number, { size: number; seen: Set<number> }>();
+    for (const [key, intake] of members) {
+        if (!intakeMap.has(intake)) {
+            intakeMap.set(intake, { size: 0, seen: new Set() });
+        }
+        intakeMap.get(intake)!.size++;
+    }
+
+    for (const [key, periods] of sightingMap) {
+        const intake = members.find(([k]) => k === key)?.[1];
+        if (intake !== undefined && periods.has(intake)) {
+            for (let i = 0; i <= horizon; i++) {
+                if (!intakeMap.get(intake)!.seen.has(intake + i)) {
+                    intakeMap.get(intake)!.seen.add(intake + i);
+                }
+            }
+        }
+    }
+
+    return Array.from(intakeMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([intake, { size, seen }]) => [intake, size, ...Array.from(seen).sort().map(period => period - intake)]);
+}
+```

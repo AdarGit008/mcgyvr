@@ -1,0 +1,31 @@
+```ts
+export function sortBy(rows: Record<string, unknown>[], keys: { key: string; dir: "asc" | "desc" }[]): Record<string, unknown>[] {
+  if (!rows || rows.length === 0) return [];
+
+  const compare = (a: Record<string, unknown>, b: Record<string, unknown>): number => {
+    for (const { key, dir } of keys) {
+      const valueA = a[key];
+      const valueB = b[key];
+
+      if (valueA === undefined && valueB !== undefined) return dir === "asc" ? -1 : 1;
+      if (valueB === undefined && valueA !== undefined) return dir === "asc" ? 1 : -1;
+
+      if (typeof valueA === "number" && typeof valueB === "string") return dir === "asc" ? 1 : -1;
+      if (typeof valueA === "string" && typeof valueB === "number") return dir === "asc" ? -1 : 1;
+
+      if (typeof valueA !== "number" && typeof valueB !== "number") {
+        const strA = String(valueA);
+        const strB = String(valueB);
+
+        if (strA < strB) return dir === "asc" ? -1 : 1;
+        if (strA > strB) return dir === "asc" ? 1 : -1;
+      }
+
+      // If values are equal, continue to the next key
+    }
+    return 0;
+  };
+
+  return [...rows].sort(compare);
+}
+```

@@ -1,0 +1,70 @@
+```ts
+/**
+ * How deep a strip of fitted prints runs.
+ */
+export function layShotShelves(shots: any[], strip: any): any {
+  // Validate shots input
+  if (!Array.isArray(shots) || shots.length === 0) {
+    throw new Error("shots must be a non-empty array");
+  }
+
+  // Validate shot records and collect names for uniqueness check
+  const seenNames = new Set<string>();
+  for (const shot of shots) {
+    if (typeof shot !== "object" || shot === null) {
+      throw new Error("each shot must be an object");
+    }
+    if (typeof shot.name !== "string" || shot.name.trim() === "") {
+      throw new Error("shot name must be a non-empty string");
+    }
+    if (seenNames.has(shot.name)) {
+      throw new Error("duplicate shot name found");
+    }
+    seenNames.add(shot.name);
+    if (!Number.isInteger(shot.across) || shot.across <= 0) {
+      throw new Error("shot across must be a whole number above zero");
+    }
+    if (!Number.isInteger(shot.down) || shot.down <= 0) {
+      throw new Error("shot down must be a whole number above zero");
+    }
+  }
+
+  // Validate strip input
+  if (typeof strip !== "object" || strip === null) {
+    throw new Error("strip must be an object");
+  }
+  if (!Number.isInteger(strip.perRow) || strip.perRow <= 0) {
+    throw new Error("strip perRow must be a whole number above zero");
+  }
+  if (!Number.isInteger(strip.cell) || strip.cell <= 0) {
+    throw new Error("strip cell must be a whole number above zero");
+  }
+  if (!Number.isInteger(strip.lead) || strip.lead < 0) {
+    throw new Error("strip lead must be a whole number of zero or more");
+  }
+
+  const rows: any[] = [];
+  for (let i = 0; i < shots.length; i += strip.perRow) {
+    const slice = shots.slice(i, i + strip.perRow);
+    const rowDeep = Math.max(
+      ...slice.map((shot: any) =>
+        Math.ceil((shot.down * strip.cell) / shot.across)
+      )
+    );
+    rows.push({
+      names: slice.map((shot: any) => shot.name),
+      deep: rowDeep,
+    });
+  }
+
+  let deep = 0;
+  for (let i = 0; i < rows.length; i++) {
+    deep += rows[i].deep;
+    if (i < rows.length - 1) {
+      deep += strip.lead;
+    }
+  }
+
+  return { rows, deep };
+}
+```

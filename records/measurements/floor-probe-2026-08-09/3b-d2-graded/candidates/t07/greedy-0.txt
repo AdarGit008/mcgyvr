@@ -1,0 +1,26 @@
+```typescript
+export function firstUnbalanced(input: string): number {
+  const stack: { char: string, index: number }[] = [];
+  const pairs: { [key: string]: string } = { ')': '(', ']': '[', '}': '{' };
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    if (char === '(' || char === '[' || char === '{') {
+      stack.push({ char, index: i });
+    } else if (char === ')' || char === ']' || char === '}') {
+      if (stack.length > 0 && stack[stack.length - 1].char === pairs[char]) {
+        stack.pop();
+      } else {
+        return i;
+      }
+    }
+  }
+
+  if (stack.length > 0) {
+    const earliestOpen = stack.reduce((earliest, { index }) => index < earliest ? index : earliest, Infinity);
+    return earliestOpen;
+  }
+
+  return -1;
+}
+```

@@ -1,0 +1,55 @@
+```python
+def parse_duration(text: str) -> int:
+    """
+    Parses a compact duration string into total seconds.
+
+    Args:
+        text (str): A string representing a duration in value-unit pairs separated by spaces.
+                     Valid units are 'd', 'h', 'm', and 's'.
+
+    Returns:
+        int: The total number of seconds represented by the input string.
+
+    Raises:
+        ValueError: If the input is invalid, e.g., empty string, unknown unit,
+                   repeated unit, out-of-order units, missing value, or non-string argument.
+    """
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+
+    if text.strip() == "":
+        raise ValueError("Empty string is not allowed.")
+
+    # Define the mapping of units to their corresponding seconds
+    unit_to_seconds = {
+        'd': 86400,
+        'h': 3600,
+        'm': 60,
+        's': 1
+    }
+
+    # Split the input string into value-unit pairs
+    parts = text.split()
+
+    if len(parts) % 2 != 0:
+        raise ValueError("Invalid format: missing unit.")
+
+    total_seconds = 0
+
+    for i in range(0, len(parts), 2):
+        try:
+            value = int(parts[i])
+        except ValueError:
+            raise ValueError(f"Invalid value '{parts[i]}' at position {i}.")
+
+        if value < 0:
+            raise ValueError("Value cannot be negative.")
+
+        unit = parts[i + 1]
+        if unit not in unit_to_seconds:
+            raise ValueError(f"Unknown unit '{unit}' at position {i + 1}.")
+
+        total_seconds += value * unit_to_seconds[unit]
+
+    return total_seconds
+```

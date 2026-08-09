@@ -1,0 +1,47 @@
+```ts
+export function buildBumpList(travellers: any[], seats: number, volunteers: string[]): { boarding: string[]; bumped: string[] } {
+    if (!Array.isArray(travellers)) throw new Error('Travellers must be a list');
+    if (typeof seats !== 'number' || seats < 0 || !Number.isInteger(seats)) throw new Error('Seats must be a whole number of nought or more');
+    if (!Array.isArray(volunteers)) throw new Error('Volunteers must be a list');
+
+    const validFares = ['flex', 'saver', 'award'];
+    const fareOrder = { flex: 1, saver: 2, award: 3 };
+
+    const parsedTravellers = travellers.map(traveller => {
+        if (typeof traveller !== 'object' || !traveller) throw new Error('Each traveller must be a record');
+        if (typeof traveller.code !== 'string' || !traveller.code) throw new Error('Code must be a non-empty string');
+        if (new Set(travellers.map(t => t.code)).size !== travellers.length) throw new Error('No two travellers can carry the same code');
+        if (!validFares.includes(traveller.fare)) throw new Error('Invalid fare');
+        if (typeof traveller.miles !== 'number' || traveller.miles < 0 || !Number.isInteger(traveller.miles)) throw new Error('Miles must be a whole number of nought or more');
+        if (typeof traveller.checked !== 'number' || traveller.checked <= 0 || !Number.isInteger(traveller.checked)) throw new Error('Checked must be a whole number above nought');
+
+        return { ...traveller, fareOrder: fareOrder[traveller.fare] };
+    });
+
+    const sortedTravellers = parsedTravellers.sort((a, b) => {
+        if (a.fareOrder !== b.fareOrder) return a.fareOrder - b.fareOrder;
+        if (a.miles !== b.miles) return b.miles - a.miles;
+        return a.checked - b.checked;
+    });
+
+    const boarding: string[] = [];
+    const bumped: string[] = [];
+
+    for (const traveller of sortedTravellers) {
+        if (boarding.length < seats) {
+            boarding.push(traveller.code);
+        } else {
+            bumped.push(traveller.code);
+        }
+    }
+
+    for (const volunteer of volunteers) {
+        if (!bumped.includes(volunteer)) throw new Error('A volunteer who is standing down should be offered a later departure');
+        const index = bumped.indexOf(volunteer);
+        bumped.splice(index, 1);
+        boarding.push(volunteer);
+    }
+
+    return { boarding, bumped };
+}
+```

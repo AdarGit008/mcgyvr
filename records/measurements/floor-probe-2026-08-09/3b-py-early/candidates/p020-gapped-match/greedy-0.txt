@@ -1,0 +1,40 @@
+```python
+def gapped_match(needle: str, haystack: str, gap: int) -> bool:
+    """
+    Check if needle occurs inside haystack with at most 'gap' unmatched characters between matched characters.
+    
+    :param needle: The string to search for in the haystack.
+    :param haystack: The string to search within.
+    :param gap: The maximum number of unmatched characters allowed between matched characters.
+    :return: True if a match exists, False otherwise.
+    """
+    if not needle or not isinstance(gap, int) or gap < 0:
+        raise ValueError("Invalid input: needle must be non-empty and gap must be a non-negative integer.")
+    
+    n = len(needle)
+    h = len(haystack)
+    
+    # Early return for empty needle
+    if n == 0:
+        return True
+    
+    # Iterate over haystack to find potential matches
+    for i in range(h - n + 1):
+        matched = True
+        unmatched = 0
+        
+        # Check each character in the needle against the haystack
+        for j in range(n):
+            if haystack[i + j] != needle[j]:
+                if unmatched >= gap:
+                    matched = False
+                    break
+                unmatched += 1
+        
+        # If all characters match or there are enough unmatched characters, return True
+        if matched:
+            return True
+    
+    # No match found
+    return False
+```

@@ -1,0 +1,32 @@
+```python
+def first_overload(bookings: list, capacity: int) -> int:
+    """
+    Determine the earliest time at which the count of simultaneously active bookings exceeds the capacity.
+
+    :param bookings: List of pairs (start, end) representing booking spans.
+    :param capacity: Maximum number of simultaneous bookings allowed.
+    :return: Earliest time when capacity is exceeded, or -1 if never happens.
+    """
+    if capacity < 1:
+        raise ValueError("Capacity must be at least 1.")
+    
+    # Sort bookings by start time
+    sorted_bookings = sorted(bookings)
+    
+    active_count = 0
+    earliest_time = float('inf')
+    
+    for start, end in sorted_bookings:
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise ValueError("Endpoints must be integers.")
+        
+        # Update active count and check if capacity is exceeded
+        if start < end:
+            active_count += 1
+            if active_count > capacity:
+                earliest_time = min(earliest_time, start)
+        else:
+            raise ValueError("Booking start time must come strictly before its end.")
+    
+    return earliest_time if earliest_time != float('inf') else -1
+```

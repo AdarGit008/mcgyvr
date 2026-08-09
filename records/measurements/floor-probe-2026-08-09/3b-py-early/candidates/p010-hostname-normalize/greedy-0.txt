@@ -1,0 +1,31 @@
+```python
+def normalize_hostname(hostname: str) -> str:
+    """
+    Normalize a given hostname by converting it to lowercase,
+    removing one trailing dot if present, and ensuring it meets DNS rules.
+    Returns the normalized hostname or raises ValueError if invalid.
+    """
+    if not isinstance(hostname, str):
+        raise ValueError("Input must be a string.")
+    
+    # Convert to lowercase
+    hostname = hostname.lower()
+    
+    # Remove trailing dot if present
+    if hostname.endswith('.'):
+        hostname = hostname[:-1]
+    
+    # Split into labels and check each label
+    labels = hostname.split('.')
+    for label in labels:
+        if not (1 <= len(label) <= 63):
+            raise ValueError("Each label must be between 1 and 63 characters.")
+        if label.startswith('-') or label.endswith('-'):
+            raise ValueError("Labels cannot start or end with a hyphen.")
+    
+    # Check total length of the normalized hostname
+    if len(hostname) > 253:
+        raise ValueError("Normalized hostname exceeds 253 characters.")
+    
+    return hostname
+```

@@ -1,0 +1,49 @@
+```ts
+export function explodeBillOfMaterials(parts: { part: string; uses: { part: string; per: number }[] }[], root: string, batch: number): { part: string; count: number }[] {
+  if (typeof parts !== 'object' || !Array.isArray(parts)) {
+    throw new Error('parts must be a non-empty array of objects');
+  }
+  if (!root || typeof root !== 'string') {
+    throw new Error('root must be a non-empty string');
+  }
+  if (!Number.isInteger(batch) || batch < 1) {
+    throw new Error('batch must be an integer of at least 1');
+  }
+
+  const partMap = new Map<string, { uses: { part: string; per: number }[] }>();
+  parts.forEach(part => {
+    if (typeof part !== 'object' || !part.hasOwnProperty('part') || typeof part.part !== 'string' || part.part.length === 0) {
+      throw new Error('parts must be a non-empty array of objects with valid "part"');
+    }
+    if (!Array.isArray(part.uses)) {
+      throw new Error('parts must be a non-empty array of objects with an array of uses');
+    }
+    part.uses.forEach(use => {
+      if (typeof use !== 'object' || !use.hasOwnProperty('part') || typeof use.part !== 'string' || use.part.length === 0) {
+        throw new Error('parts must be a non-empty array of objects with valid "part" in uses');
+      }
+      if (!Number.isInteger(use.per) || use.per < 1) {
+        throw new Error('parts must be a non-empty array of objects with integer per values');
+      }
+    });
+    partMap.set(part.part, part);
+  });
+
+  const stock: { [key: string]: number } = {};
+  const stack: { part: string; count: number }[] = [{ part: root, count: batch }];
+
+  while (stack.length > 0) {
+    const { part, count } = stack.pop()!;
+    if (!partMap.has(part)) {
+      stock[part] = (stock[part] || 0) + count;
+    } else {
+      const uses = partMap.get(part)?.uses ?? [];
+      for (const use of uses) {
+        stack.push({ part: use.part, count: count * use.per });
+      }
+    }
+  }
+
+  return Object.entries(stock).map(([part, count]) => ({ part, count }));
+}
+```

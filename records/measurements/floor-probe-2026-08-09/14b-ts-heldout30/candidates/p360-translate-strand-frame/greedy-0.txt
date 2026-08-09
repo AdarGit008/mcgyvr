@@ -1,0 +1,45 @@
+```ts
+/**
+ * Translates a strand into residues based on codon rules.
+ * @param strand - The input strand string to be translated.
+ */
+export function translateStrandFrame(strand: string): { residues: string; halted: boolean } {
+  if (typeof strand !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  if (strand.length === 0) {
+    throw new Error('Strand cannot be empty');
+  }
+  if (strand.length % 3 !== 0) {
+    throw new Error('Strand length must be a whole multiple of three');
+  }
+  const validSymbols = new Set(['W', 'X', 'Y', 'Z']);
+  for (const char of strand) {
+    if (!validSymbols.has(char)) {
+      throw new Error('Strand contains invalid symbols');
+    }
+  }
+
+  const codonToResidueMap: string[] = [
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+    'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p'
+  ];
+
+  let residues = '';
+  let halted = false;
+
+  for (let i = 0; i < strand.length; i += 3) {
+    const codon = strand.substring(i, i + 3);
+    if (codon === 'ZZW' || codon === 'ZZX') {
+      halted = true;
+      break;
+    }
+    const firstSymbolValue = ['W', 'X', 'Y', 'Z'].indexOf(codon[0]);
+    const secondSymbolValue = ['W', 'X', 'Y', 'Z'].indexOf(codon[1]);
+    const residueIndex = 4 * firstSymbolValue + secondSymbolValue;
+    residues += codonToResidueMap[residueIndex];
+  }
+
+  return { residues, halted };
+}
+```

@@ -1,0 +1,66 @@
+```ts
+export function foldCoercionChain(start: string, terms: Array<Record<string, unknown>>): string[] {
+  const validTypes = ['bit', 'whole', 'ratio', 'word', 'empty'];
+
+  if (!validTypes.includes(start)) {
+    throw new Error('Invalid starting type');
+  }
+
+  if (!Array.isArray(terms)) {
+    throw new Error('Terms must be a list');
+  }
+
+  const result: string[] = [];
+  let currentType = start;
+
+  for (const term of terms) {
+    if (typeof term !== 'object' || term === null) {
+      throw new Error('Each term must be a mapping');
+    }
+
+    const { op, type } = term as { op: string; type: string };
+
+    if (!['join', 'weigh'].includes(op)) {
+      throw new Error('Invalid operation');
+    }
+
+    if (!validTypes.includes(type)) {
+      throw new Error('Invalid type in term');
+    }
+
+    let nextType: string;
+
+    switch (op) {
+      case 'join':
+        if (currentType === 'empty' || type === 'empty') {
+          throw new Error('Join with empty is not allowed');
+        }
+        if (currentType === 'word' || type === 'word') {
+          nextType = 'word';
+        } else {
+          nextType = ['ratio', type].includes(currentType) ? 'ratio' : 'whole';
+        }
+        break;
+      case 'weigh':
+        if (currentType === 'empty' || type === 'empty') {
+          throw new Error('Weigh with empty is not allowed');
+        }
+        if (currentType === 'word' && type === 'word') {
+          nextType = 'bit';
+        } else if (!['word', currentType].includes(type)) {
+          nextType = 'bit';
+        } else {
+          throw new Error('Invalid types for weigh operation');
+        }
+        break;
+      default:
+        throw new Error('Unknown operation');
+    }
+
+    result.push(nextType);
+    currentType = nextType;
+  }
+
+  return result;
+}
+```

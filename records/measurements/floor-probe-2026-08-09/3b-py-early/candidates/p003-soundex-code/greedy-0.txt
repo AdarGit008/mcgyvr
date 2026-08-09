@@ -1,0 +1,49 @@
+```python
+def soundex_code(word: str) -> str:
+    """
+    Compute the American Soundex code of a word.
+    """
+    if not isinstance(word, str):
+        raise ValueError("Input must be a string.")
+    
+    # Define mappings for consonants and vowels
+    mapping = {
+        'b': '1', 'f': '1', 'p': '1', 'v': '1',
+        'c': '2', 'g': '2', 'j': '2', 'k': '2', 'q': '2', 's': '2', 'x': '2', 'z': '2',
+        'd': '3', 't': '3',
+        'l': '4',
+        'm': '5', 'n': '5',
+        'r': '6'
+    }
+    
+    # Convert the word to uppercase and remove non-letter characters
+    cleaned_word = ''.join(filter(str.isalpha, word.upper()))
+    
+    if not cleaned_word:
+        raise ValueError("Word must contain at least one alphabetic character.")
+    
+    # Initialize variables
+    soundex = cleaned_word[0]
+    last_digit = None
+    
+    for char in cleaned_word[1:]:
+        digit = mapping.get(char)
+        
+        if digit is not None and (last_digit is None or digit != last_digit):
+            soundex += digit
+            last_digit = digit
+        
+        # Handle consecutive consonants with the same digit
+        elif digit is not None:
+            continue
+        
+        # Handle vowels between two same-digit letters
+        elif char in 'aeiouyhw':
+            if last_digit is not None and last_digit != '0':
+                soundex += '0'
+    
+    # Pad or truncate to exactly three digits
+    soundex = soundex[:3].ljust(3, '0')
+    
+    return soundex
+```

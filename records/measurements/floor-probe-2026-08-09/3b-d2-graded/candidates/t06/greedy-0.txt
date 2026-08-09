@@ -1,0 +1,30 @@
+```typescript
+export function runLengthDecode(input: string): string {
+  if (typeof input !== 'string') throw new Error('Input must be a string');
+  if (/^\d/.test(input)) throw new Error('Input cannot start with a digit');
+
+  let result = '';
+  let i = 0;
+
+  while (i < input.length) {
+    const char = input[i];
+    let count = '';
+
+    // Find the count
+    while (/\d/.test(input[i + 1])) {
+      count += input[++i];
+    }
+
+    if (!count || /^\d$/.test(count)) throw new Error('Invalid count');
+
+    // Decode the character by repeating it
+    for (let j = 0; j < parseInt(count, 10); j++) {
+      result += char;
+    }
+
+    i++; // Move past the counted character
+  }
+
+  return result;
+}
+```

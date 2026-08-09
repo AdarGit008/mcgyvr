@@ -1,0 +1,31 @@
+```ts
+/** One line of key=value pairs, joined by &. */
+export function encodePairs(pairs: [string, string][]): string {
+  if (!Array.isArray(pairs)) throw new Error("Input must be an array of tuples.");
+  
+  const parts: string[] = [];
+  for (const [key, value] of pairs) {
+    if (typeof key !== "string" || typeof value !== "string") {
+      throw new Error("Both keys and values must be strings.");
+    }
+    
+    const escapeChar = "%";
+    const escapeMap: { [char: string]: string } = {
+      "&": "%26",
+      "=": "%3D",
+      "%": "%25"
+    };
+    
+    function escapeString(str: string): string {
+      return str.replace(/[&=]/g, (char) => escapeMap[char]);
+    }
+    
+    const k = escapeString(key);
+    const v = escapeString(value);
+    
+    parts.push(k + "=" + v);
+  }
+  
+  return parts.join("&");
+}
+```

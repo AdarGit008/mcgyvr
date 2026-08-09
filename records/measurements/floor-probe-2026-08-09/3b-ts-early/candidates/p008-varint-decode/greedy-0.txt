@@ -1,0 +1,35 @@
+```ts
+export function decodeVarints(data: number[]): number[] {
+  if (!Array.isArray(data) || data.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
+    throw new Error("Input must be a list of integers between 0 and 255.");
+  }
+
+  const result: number[] = [];
+  let index = 0;
+
+  while (index < data.length) {
+    let num = 0;
+    let shift = 0;
+
+    while (true) {
+      if (index >= data.length) {
+        throw new Error("Invalid varint encoding.");
+      }
+
+      const byte = data[index];
+      num |= (byte & 0x7F) << shift;
+      shift += 7;
+
+      if ((byte & 0x80) === 0) {
+        break;
+      }
+      index++;
+    }
+
+    result.push(num);
+    index++;
+  }
+
+  return result;
+}
+```

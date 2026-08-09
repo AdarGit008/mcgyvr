@@ -1,0 +1,20 @@
+```ts
+export function gappedMatch(needle: string, haystack: string, gap: number): boolean {
+  if (needle.length === 0 || !Number.isInteger(gap) || gap < 0) {
+    throw new Error("Invalid arguments");
+  }
+
+  const n = needle.length;
+  const h = haystack.length;
+
+  for (let i = 0; i <= h - n; i++) {
+    let j = 0;
+    while (j < n && (i + j >= h || haystack[i + j] === needle[j])) {
+      j++;
+    }
+    if (j === n) return true;
+  }
+
+  return false;
+}
+```

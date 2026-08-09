@@ -1,0 +1,67 @@
+```ts
+/**
+ * Settles a series of claims according to the given plan's deductible, coinsurance, and cap.
+ * @param claims - An array of claim amounts in whole cents.
+ * @param plan - An object containing deductible, coinsurance (as a percentage), and cap in whole cents.
+ * @returns A 2D array with each row representing a claim's settlement details.
+ */
+export function settleClaimRun(claims: unknown, plan: unknown): number[][] {
+    if (!Array.isArray(claims)) {
+        throw new Error("Claims must be an array.");
+    }
+    if (typeof plan !== 'object' || plan === null) {
+        throw new Error("Plan must be a mapping.");
+    }
+
+    const { deductible = 0, coinsurance = 0, cap = 0 } = plan;
+
+    if (!Number.isInteger(deductible) || deductible < 0) {
+        throw new Error("Deductible must be a non-negative whole number.");
+    }
+    if (!Number.isInteger(coinsurance) || coinsurance < 0 || coinsurance > 100) {
+        throw new Error("Coinsurance must be a whole number from 0 through 100.");
+    }
+    if (!Number.isInteger(cap) || cap < 0) {
+        throw new Error("Cap must be a non-negative whole number.");
+    }
+    if (cap < deductible) {
+        throw new Error("Cap cannot be less than deductible.");
+    }
+
+    let remainingDeductible = deductible;
+    let memberTotal = 0;
+    const results: number[][] = [];
+
+    for (const claim of claims) {
+        if (!Number.isInteger(claim) || claim < 0) {
+            throw new Error("Each claim must be a non-negative whole number.");
+        }
+
+        let memberPayment = 0;
+        let planPayment = 0;
+
+        // First stage: Deductible
+        const deductiblePortion = Math.min(remainingDeductible, claim);
+        remainingDeductible -= deductiblePortion;
+        memberPayment += deductiblePortion;
+
+        // Second stage: Coinsurance
+        const coinsurancePortion = Math.ceil((claim - deductiblePortion) * (coinsurance / 100));
+        memberPayment += coinsurancePortion;
+
+        // Third stage: Cap
+        if (memberTotal + memberPayment > cap) {
+            const overage = (memberTotal + memberPayment) - cap;
+            memberPayment -= overage;
+            planPayment += overage;
+        }
+
+        planPayment += claim - memberPayment;
+        memberTotal += memberPayment;
+
+        results.push([memberPayment, planPayment, remainingDeductible, memberTotal]);
+    }
+
+    return results;
+}
+```

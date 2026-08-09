@@ -1,0 +1,30 @@
+```ts
+export function normalizeHostname(hostname: string): string {
+  if (typeof hostname !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const normalized = hostname.toLowerCase().replace(/\.$/, '');
+
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)*$/.test(normalized)) {
+    throw new Error('Hostname must consist of labels separated by dots, each label 1 to 63 characters long');
+  }
+
+  const parts = normalized.split('.');
+  for (const part of parts) {
+    if (!/^[a-z0-9]+$/.test(part) || part.length < 1 || part.length > 63) {
+      throw new Error('Labels must be between 1 and 63 characters long');
+    }
+    if (part.startsWith('-') || part.endsWith('-')) {
+      throw new Error('Labels cannot start or end with a hyphen');
+    }
+  }
+
+  const totalLength = parts.reduce((acc, part) => acc + part.length + 1, 0);
+  if (totalLength > 253) {
+    throw new Error('Hostname must be at most 253 characters long');
+  }
+
+  return normalized;
+}
+```

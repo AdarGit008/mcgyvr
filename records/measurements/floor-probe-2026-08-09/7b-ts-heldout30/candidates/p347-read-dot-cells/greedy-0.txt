@@ -1,0 +1,58 @@
+```ts
+export function readDotCells(cells: string): string {
+  if (typeof cells !== 'string' || cells === '') {
+    throw new Error('Invalid input');
+  }
+
+  const parts = cells.split("-");
+  let out = "";
+  let i = 0;
+  while (i < parts.length) {
+    const cell = parts[i];
+    if (cell === "0") {
+      out += " ";
+      i += 1;
+      continue;
+    }
+    if (!/^[1-6]+$/.test(cell)) {
+      throw new Error('Invalid cell');
+    }
+
+    let weight = 0;
+    for (const dot of cell) {
+      const num = Number(dot);
+      if (num <= weight) {
+        throw new Error('Non-rising run of digits');
+      }
+      weight += 1 << (num - 1);
+    }
+
+    if (weight === 32 || weight === 48) {
+      let nextCell = parts[i + 1];
+      if (!nextCell || !/^[1-6]+$/.test(nextCell)) {
+        throw new Error('Invalid cell after shift or count sign');
+      }
+      let nextWeight = 0;
+      for (const dot of nextCell) {
+        const num = Number(dot);
+        if (num <= nextWeight) {
+          throw new Error('Non-rising run of digits');
+        }
+        nextWeight += 1 << (num - 1);
+      }
+
+      out += weight === 32 ? String.fromCharCode(64 + nextWeight) : String(nextWeight % 10);
+      i += 2;
+      continue;
+    }
+
+    if (weight > 26 && weight < 32 || weight > 48 && weight < 58) {
+      throw new Error('Invalid weight outside count');
+    }
+
+    out += String.fromCharCode(96 + weight);
+    i += 1;
+  }
+  return out;
+}
+```
