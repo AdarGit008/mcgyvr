@@ -250,6 +250,37 @@ exactly the same sense as weights — so "does decomposition raise the floor?" i
 now answerable **without training anything**, which makes it the cheapest test of
 P1's central claim available. Recorded on #221 as an input to its recommendation.
 
+## Outcome — the restructure, approved 2026-08-09
+
+C5 was approved and went further than unblocking five issues. The whole tree was
+restructured around a single measurement bench, recorded as
+[ADR-0018](decisions/0018-one-bench-every-lever-and-the-whole-system.md).
+
+**Trunk** (sequential, nothing skippable): #229 the bar → #230 protect the
+instrument → #227/#217 make the rig honest → #113 build the bench → #225/#224
+widen it → **#231 commission it**. **Arms** (parallel, all measured on that
+bench): prompt assembly, target and context, output caps, attempts, weights, and
+decomposition behind its own prerequisites. **#233** closes each round by
+measuring every combination from two levers up to the whole system. **Consumers**:
+#162/#16, #190, #61. Everything else is **parked** — open, unqueued, out of the
+dependency graph.
+
+Three issues opened: **#231** (the commissioning gate), **#232** (the
+decomposition arm's missing input material), **#233** (the combination phase).
+**#110 closed** — all four children were already done. **#111** became the trunk's
+epic. Scope amendments landed on #113, #225, #229 and #230.
+
+Three review rounds against the proposed structure found **eighteen** further
+gaps before it was wired. Two would have let the original failure through a
+second time: #230's guard sat downstream of `pin.py`, where material enters the
+corpus; and nothing pinned the *code* under test, only the tasks. A third is
+worth naming for its shape — **#225's own text calls its output "disposable
+scaffolding" when the restructure makes it the permanent bench.** That is this
+audit's own finding, reappearing inside the proposal the audit produced.
+
+The blanket block is gone: **52 of 74 open issues are now unblocked**, against 4
+before.
+
 ## What this audit did not do
 
 It did not re-open closed decisions except where a landed verdict was taken under
