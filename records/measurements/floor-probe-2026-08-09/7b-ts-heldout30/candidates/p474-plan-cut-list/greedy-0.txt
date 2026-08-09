@@ -1,0 +1,45 @@
+```ts
+export function planCutList(bars: number[], orders: Record<string, unknown>[], kerf: number, keep: number): { layout: number[][]; offcuts: number[]; scrap: number; short: number[] } {
+    if (!Array.isArray(bars) || !Array.isArray(orders)) throw new Error('Invalid input types');
+    if (bars.some(bar => typeof bar !== 'number' || !Number.isInteger(bar) || bar < 1)) throw new Error('Bars must be a list of whole numbers above nought');
+    if (orders.some(order => typeof order !== 'object' || order === null || Object.keys(order).length !== 2 || !order.hasOwnProperty('length') || !order.hasOwnProperty('count'))) throw new Error('Orders must be a list of mappings with exactly the two keys length and count');
+    if (!Number.isInteger(kerf) || kerf < 0) throw new Error('Kerf must be a whole number at nought or above');
+    if (!Number.isInteger(keep) || keep < 0) throw new Error('Keep must be a whole number at nought or above');
+
+    const orderMap = new Map<number, { length: number; count: number }>();
+    for (const order of orders) {
+        const length = order.length as number;
+        const count = order.count as number;
+        if (!Number.isInteger(length) || length < 1) throw new Error('Length must be a whole number above nought');
+        if (!Number.isInteger(count) || count < 1) throw new Error('Count must be a whole number above nought');
+        if (orderMap.has(length)) throw new Error('Duplicate length in orders');
+        orderMap.set(length, { length, count });
+    }
+
+    const layout: number[][] = [];
+    const offcuts: number[] = [];
+    let scrap = 0;
+    const short: number[] = [];
+
+    bars.forEach(bar => {
+        layout.push([]);
+        for (let i = orderMap.size - 1; i >= 0; i--) {
+            const { length, count } = orderMap.get(Array.from(orderMap.keys())[i])!;
+            if (length <= bar) {
+                for (let j = 0; j < count; j++) {
+                    if (bar >= length) {
+                        layout[layout.length - 1].push(length);
+                        bar -= length + kerf;
+                    } else {
+                        short.push(length);
+                    }
+                }
+            }
+        }
+        if (bar > keep) offcuts.push(bar);
+        else if (bar > 0) scrap += bar;
+    });
+
+    return { layout, offcuts, scrap, short };
+}
+```

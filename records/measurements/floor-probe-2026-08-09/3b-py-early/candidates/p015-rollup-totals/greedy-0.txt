@@ -1,0 +1,31 @@
+```python
+def rollup_totals(nodes: dict[str, dict]) -> dict[str, int]:
+    if len(nodes) == 0:
+        raise ValueError("Input must contain at least one node.")
+    
+    root_id = None
+    for node_id, node in nodes.items():
+        if node["parent"] == "":
+            if root_id is not None:
+                raise ValueError("Input must have exactly one root.")
+            root_id = node_id
+        else:
+            if node["parent"] not in nodes:
+                raise ValueError(f"Parent id '{node['parent']}' is invalid.")
+    
+    if root_id is None:
+        raise ValueError("Input must contain a root node.")
+    
+    totals = {root_id: 0}
+    
+    def dfs(node_id):
+        total = nodes[node_id]["value"]
+        for child_id, _ in nodes.items():
+            if nodes[child_id]["parent"] == node_id:
+                total += dfs(child_id)
+        totals[node_id] = total
+    
+    dfs(root_id)
+    
+    return totals
+```

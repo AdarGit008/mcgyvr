@@ -1,0 +1,85 @@
+```ts
+export function planRestoreChain(runs: any[], target: number): any {
+  if (!Array.isArray(runs) || runs.length === 0) {
+    throw new Error("Invalid input");
+  }
+
+  const runMap = new Map<string, any>();
+  const stepSet = new Set<number>();
+
+  for (const run of runs) {
+    if (
+      typeof run.label !== "string" ||
+      !["full", "diff", "incr"].includes(run.kind) ||
+      typeof run.step !== "number" ||
+      typeof run.sound !== "boolean"
+    ) {
+      throw new Error("Invalid run");
+    }
+
+    if (run.label === "" || stepSet.has(run.step)) {
+      throw new Error("Duplicate label or step");
+    }
+
+    runMap.set(run.label, run);
+    stepSet.add(run.step);
+  }
+
+  if (!runMap.has(target.toString())) {
+    throw new Error("No run carries the target step");
+  }
+
+  const chain: string[] = [];
+  let currentStep = target;
+  let ok = "yes";
+  let reason = "";
+
+  while (currentStep >= 0) {
+    const currentRun = runMap.get(currentStep.toString());
+
+    if (!currentRun) {
+      ok = "no";
+      reason = "nofull";
+      break;
+    }
+
+    chain.unshift(currentRun.label);
+
+    if (currentRun.kind === "full") {
+      break;
+    } else if (currentRun.kind === "diff") {
+      let foundSoundFull = false;
+      for (let i = currentStep - 1; i >= 0; i--) {
+        const prevRun = runMap.get(i.toString());
+        if (prevRun && prevRun.sound && prevRun.kind === "full") {
+          foundSoundFull = true;
+          currentStep = i;
+          break;
+        }
+      }
+
+      if (!foundSoundFull) {
+        ok = "no";
+        reason = "nofull";
+        break;
+      }
+    } else if (currentRun.kind === "incr") {
+      for (let i = currentStep - 1; i >= 0; i--) {
+        const prevRun = runMap.get(i.toString());
+        if (prevRun) {
+          currentStep = i;
+          break;
+        }
+      }
+
+      if (currentStep === target) {
+        ok = "no";
+        reason = "nofull";
+        break;
+      }
+    }
+  }
+
+  return { ok, chain, reason };
+}
+```

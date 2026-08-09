@@ -1,0 +1,78 @@
+```ts
+export function bandPicksByShare(
+  lines: { code: string; picks: number }[],
+  cuts: number[],
+  rows: { code: string; capacity: number }[]
+): { code: string; band: string; row: string; slot: number }[] {
+  if (!Array.isArray(lines) || lines.length === 0) {
+    throw new Error("Lines must be a non-empty array.");
+  }
+  if (!Array.isArray(cuts) || cuts.length !== 2 || cuts[0] >= cuts[1]) {
+    throw new Error("Cuts must be an array of two numbers where the first is less than the second.");
+  }
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("Rows must be a non-empty array.");
+  }
+
+  const totalPicks = lines.reduce((sum, line) => sum + line.picks, 0);
+  if (totalPicks === 0) {
+    throw new Error("Total picks across all lines must be greater than zero.");
+  }
+
+  const uniqueCodes = new Set(lines.map(line => line.code));
+  if (uniqueCodes.size !== lines.length) {
+    throw new Error("Line codes must be unique.");
+  }
+
+  const uniqueRowCodes = new Set(rows.map(row => row.code));
+  if (uniqueRowCodes.size !== rows.length) {
+    throw new Error("Row codes must be unique.");
+  }
+
+  lines.sort((a, b) => b.picks - a.picks || a.code.localeCompare(b.code));
+
+  let bandACount = 0;
+  let bandBCount = 0;
+  let bandCCount = 0;
+
+  const bandALimit = (cuts[0] * totalPicks) / 100;
+  const bandBLimit = (cuts[1] * totalPicks) / 100;
+
+  let runningSum = 0;
+  let currentBand = 'A';
+  let rowIndex = 0;
+  let rowCapacity = rows[rowIndex].capacity;
+  let slot = 1;
+
+  const result: { code: string; band: string; row: string; slot: number }[] = [];
+
+  for (const line of lines) {
+    if (currentBand === 'A' && runningSum + line.picks > bandALimit) {
+      currentBand = 'B';
+    }
+    if (currentBand === 'B' && runningSum + line.picks > bandBLimit) {
+      currentBand = 'C';
+    }
+
+    result.push({ code: line.code, band: currentBand, row: rows[rowIndex].code, slot });
+
+    runningSum += line.picks;
+    slot++;
+
+    if (slot > rowCapacity) {
+      rowIndex++;
+      if (rowIndex >= rows.length) {
+        throw new Error("Rows ran out before every line was seated.");
+      }
+      rowCapacity = rows[rowIndex].capacity;
+      slot = 1;
+    }
+
+    if (currentBand === 'A') bandACount++;
+    else if (currentBand === 'B') bandBCount++;
+    else bandCCount++;
+  }
+
+  return result;
+}
+```

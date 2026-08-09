@@ -1,0 +1,50 @@
+```python
+def order_relation(pairs: list[list[str]], x: str, y: str) -> str:
+    """
+    Determine the precedence relationship between two items based on given pairs.
+
+    :param pairs: List of precedence pairs [a, b] where a comes before b.
+    :param x: First query item.
+    :param y: Second query item.
+    :return: "before", "after", "both", or "unordered".
+    """
+    if x == y:
+        raise ValueError("Query items cannot be the same.")
+    
+    # Create a set of all unique items
+    items = {a for pair in pairs for a in pair}
+    
+    if x not in items or y not in items:
+        raise ValueError("One or both query items are not present in the pairs.")
+    
+    # Build a graph to represent precedence relationships
+    graph = {}
+    for a, b in pairs:
+        if a not in graph:
+            graph[a] = []
+        if b not in graph:
+            graph[b] = []
+        graph[a].append(b)
+    
+    def dfs(node, visited):
+        if node in visited:
+            return False
+        visited.add(node)
+        for neighbor in graph.get(node, []):
+            if not dfs(neighbor, visited):
+                return False
+        return True
+    
+    # Check if x can reach y and vice versa
+    x_reachable = dfs(x, set())
+    y_reachable = dfs(y, set())
+    
+    if x_reachable and y_reachable:
+        return "both"
+    elif x_reachable:
+        return "before"
+    elif y_reachable:
+        return "after"
+    else:
+        return "unordered"
+```

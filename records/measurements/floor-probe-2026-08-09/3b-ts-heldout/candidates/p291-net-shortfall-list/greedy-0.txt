@@ -1,0 +1,59 @@
+```ts
+export function netRequirements(
+  recipes: { item: string; needs: { item: string; per: number }[] }[],
+  stock: { item: string; held: number }[],
+  target: string,
+  batch: number
+): { item: string; buy: number }[] {
+  if (
+    !Array.isArray(recipes) ||
+    !recipes.every((r) => typeof r.item === "string" && Array.isArray(r.needs))
+  ) {
+    throw new Error("Recipes must be a list of records with an 'item' and 'needs' array.");
+  }
+
+  if (
+    !Array.isArray(stock) ||
+    !stock.every((s) => typeof s.item === "string" && typeof s.held === "number")
+  ) {
+    throw new Error("Stock must be a list of records with an 'item' and 'held' number.");
+  }
+
+  if (typeof target !== "string" || target.length === 0) {
+    throw new Error("Target must be a non-empty string.");
+  }
+
+  if (!Number.isInteger(batch) || batch < 1) {
+    throw new Error("Batch must be an integer of at least 1.");
+  }
+
+  const needsMap = recipes.reduce((acc, r) => {
+    r.needs.forEach(({ item, per }) => {
+      if (typeof item !== "string" || typeof per !== "number") {
+        throw new Error(`Invalid need: ${item} with per ${per}.`);
+      }
+      acc[item] = (acc[item] || 0) + per;
+    });
+    return acc;
+  }, {} as Record<string, number>);
+
+  const boughtIn: { item: string; buy: number }[] = [];
+
+  function makeItem(item: string, needed: number): void {
+    if (!needsMap[item]) return;
+
+    const held = stock.find((s) => s.item === item)?.held || 0;
+    const toBuy = Math.max(needed - held, 0);
+
+    boughtIn.push({ item, buy: toBuy });
+
+    if (toBuy > 0) {
+      makeItem(item, needsMap[item] * toBuy);
+    }
+  }
+
+  makeItem(target, batch);
+
+  return boughtIn;
+}
+```

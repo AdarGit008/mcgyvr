@@ -1,0 +1,61 @@
+```ts
+export function projectMakespan(durations: Record<string, number>, deps: [string, string][]): number {
+  if (typeof durations !== 'object' || !Object.keys(durations).length) {
+    throw new Error('Invalid input: durations must be a non-empty object.');
+  }
+
+  const taskDurations = Object.entries(durations);
+  const taskNames = taskDurations.map(([name]) => name);
+
+  for (const [a, b] of deps) {
+    if (!taskNames.includes(a) || !taskNames.includes(b)) {
+      throw new Error('Invalid input: dependency pairs must reference existing tasks.');
+    }
+    if (a === b) {
+      throw new Error('Invalid input: task names in dependencies cannot be equal.');
+    }
+  }
+
+  const graph = new Map<string, Set<string>>();
+  for (const [name] of taskDurations) {
+    graph.set(name, new Set());
+  }
+
+  for (const [a, b] of deps) {
+    graph.get(a)?.add(b);
+  }
+
+  const inDegree = new Map<string, number>();
+  for (const [name] of taskNames) {
+    inDegree.set(name, 0);
+  }
+
+  for (const [_, neighbors] of graph.entries()) {
+    for (const neighbor of neighbors) {
+      inDegree.set(neighbor, (inDegree.get(neighbor) || 0) + 1);
+    }
+  }
+
+  const queue: string[] = [];
+  for (const [name, degree] of inDegree.entries()) {
+    if (degree === 0) {
+      queue.push(name);
+    }
+  }
+
+  let time = 0;
+  while (queue.length > 0) {
+    const task = queue.shift()!;
+    time += durations[task];
+
+    for (const neighbor of graph.get(task) || []) {
+      inDegree.set(neighbor, (inDegree.get(neighbor) || 0) - 1);
+      if (inDegree.get(neighbor)! === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return time;
+}
+```

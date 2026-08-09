@@ -1,0 +1,50 @@
+```ts
+export function criticalChainName(steps: { label: string; hours: number; needs: string[] }[]): string {
+    if (steps.length === 0) throw new Error("Job must have at least one step.");
+
+    const stepMap = new Map<string, { hours: number; needs: Set<string> }>();
+    for (const step of steps) {
+        if (typeof step !== 'object' || step === null) throw new Error("Each step must be a mapping.");
+        if (!step.label || typeof step.label !== 'string' || step.label.trim() === '') throw new Error("Label must be a non-empty string.");
+        if (stepMap.has(step.label)) throw new Error(`Duplicate label: ${step.label}`);
+        if (!Number.isInteger(step.hours) || step.hours <= 0) throw new Error("Hours must be a whole number greater than zero.");
+        if (!Array.isArray(step.needs)) throw new Error("Needs must be a list of strings.");
+        for (const need of step.needs) {
+            if (typeof need !== 'string' || need.trim() === '') throw new Error("Need must be a non-empty string.");
+            if (need === step.label) throw new Error(`Step cannot depend on itself: ${step.label}`);
+            if (!stepMap.has(need)) throw new Error(`Unknown need: ${need}`);
+        }
+        stepMap.set(step.label, { hours: step.hours, needs: new Set(step.needs) });
+    }
+
+    const graph = Array.from(stepMap.values());
+    for (const node of graph) {
+        for (const need of node.needs) {
+            const index = graph.findIndex(n => n.label === need);
+            if (index !== -1 && graph[index].needs.has(node.label)) throw new Error("Circular dependency detected.");
+        }
+    }
+
+    function dfs(label: string, visited: Set<string>, path: string[]): number {
+        visited.add(label);
+        let maxHours = 0;
+        for (const need of stepMap.get(label)!.needs) {
+            if (!visited.has(need)) {
+                const hours = dfs(need, visited, [...path, label]);
+                if (hours > maxHours) maxHours = hours;
+            }
+        }
+        return maxHours + stepMap.get(label)!.hours;
+    }
+
+    let maxRun: string[] = [];
+    for (const node of graph) {
+        const path = dfs(node.label, new Set(), []);
+        if (path.length > maxRun.length || (path.length === maxRun.length && path.join('>') < maxRun.join('>'))) {
+            maxRun = path;
+        }
+    }
+
+    return maxRun.join('>');
+}
+```

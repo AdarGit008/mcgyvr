@@ -1,0 +1,27 @@
+```ts
+export function countStripTilings(width: number): number {
+  if (typeof width !== 'number' || !Number.isInteger(width) || width < 0) {
+    throw new Error('Width must be a non-negative integer');
+  }
+
+  const memo: { [key: string]: number } = {};
+
+  function countWays(n: number, m: number): number {
+    if (n === 0 && m === 2) return 1; // Base case: one way to cover a 2x0 strip
+    if (n < 0 || m < 2) return 0; // Invalid configuration
+
+    const key = `${n},${m}`;
+    if (memo[key] !== undefined) return memo[key];
+
+    let result = countWays(n - 1, m); // Place a vertical domino
+    if (m > 1) {
+      result += countWays(n, m - 2); // Place a horizontal square
+    }
+
+    memo[key] = result;
+    return result;
+  }
+
+  return countWays(width, 2);
+}
+```

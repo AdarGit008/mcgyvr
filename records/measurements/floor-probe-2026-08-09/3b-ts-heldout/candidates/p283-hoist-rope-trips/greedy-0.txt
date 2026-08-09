@@ -1,0 +1,55 @@
+```ts
+export function planHoistTrips(
+  hoists: { tag: string; level: number }[],
+  stops: number[],
+): string[] {
+  if (!Array.isArray(hoists) || !Array.isArray(stops)) {
+    throw new Error("Input must be arrays.");
+  }
+  for (const hoist of hoists) {
+    const { tag, level } = hoist;
+    if (typeof tag !== "string" || tag === "" || typeof level !== "number") {
+      throw new Error("Invalid hoist entry.");
+    }
+    if (tag === "idle") {
+      throw new Error("Hoist cannot have the word 'idle' as a tag.");
+    }
+  }
+  for (const stop of stops) {
+    if (!Number.isInteger(stop) || stop < 0) {
+      throw new Error("Stop must be an integer of at least 0.");
+    }
+  }
+
+  const rests = new Map<string, number>();
+  const spent = new Map<string, number>();
+  for (const hoist of hoists) {
+    rests.set(hoist.tag, hoist.level);
+    spent.set(hoist.tag, 0);
+  }
+  const sheet: string[] = [];
+  for (const stop of stops) {
+    let chosen = "";
+    let least = Infinity;
+    for (const hoist of hoists) {
+      if ((spent.get(hoist.tag) as number) >= 12) {
+        continue;
+      }
+      const at = rests.get(hoist.tag) as number;
+      const cost = stop > at ? 2 * (at - stop) : stop - at;
+      if (cost < least || (cost === least && hoist.tag < chosen)) {
+        chosen = hoist.tag;
+        least = cost;
+      }
+    }
+    if (chosen === "") {
+      sheet.push("idle");
+      continue;
+    }
+    spent.set(chosen, (spent.get(chosen) as number) + least);
+    rests.set(chosen, stop);
+    sheet.push(chosen);
+  }
+  return sheet;
+}
+```

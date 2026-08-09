@@ -1,0 +1,75 @@
+```ts
+/**
+ * Groups members by their intake period and calculates sightings within a given horizon.
+ * @param members - Array of [key, intake] pairs representing club members.
+ * @param sightings - Array of [key, period] pairs representing sightings of members.
+ * @param horizon - The number of periods to consider for sightings after the intake period.
+ * @returns A 2D array where each row represents a group of members with the same intake.
+ */
+export function cohortHoldGrid(members: Array<[string, number]>, sightings: Array<[string, number]>, horizon: number): number[][] {
+    if (!Array.isArray(members) || !Array.isArray(sightings)) {
+        throw new Error("Invalid input: members and sightings must be arrays.");
+    }
+    if (horizon < 0 || horizon > 50 || !Number.isInteger(horizon)) {
+        throw new Error("Invalid input: horizon must be a whole number from 0 through 50.");
+    }
+
+    const memberMap = new Map<string, number>();
+    const sightingMap = new Map<string, Set<number>>();
+
+    for (const [key, intake] of members) {
+        if (typeof key !== 'string' || key.length === 0) {
+            throw new Error("Invalid input: key must be a non-empty string.");
+        }
+        if (!Number.isInteger(intake) || intake < 0 || intake > 100000) {
+            throw new Error("Invalid input: intake must be a whole number from 0 through 100000.");
+        }
+        if (memberMap.has(key)) {
+            throw new Error("Invalid input: key logged as a member twice.");
+        }
+        memberMap.set(key, intake);
+    }
+
+    for (const [key, period] of sightings) {
+        if (typeof key !== 'string' || key.length === 0) {
+            throw new Error("Invalid input: key must be a non-empty string.");
+        }
+        if (!Number.isInteger(period) || period < 0 || period > 100000) {
+            throw new Error("Invalid input: sighting period must be a whole number from 0 through 100000.");
+        }
+        if (!memberMap.has(key)) {
+            throw new Error("Invalid input: sighting key was never logged as a member.");
+        }
+        const intake = memberMap.get(key)!;
+        if (period < intake) {
+            throw new Error("Invalid input: sighting period cannot be earlier than the member's own intake.");
+        }
+        if (!sightingMap.has(key)) {
+            sightingMap.set(key, new Set<number>());
+        }
+        sightingMap.get(key)!.add(period);
+    }
+
+    const result: number[][] = [];
+    for (const [key, intake] of members) {
+        const row = result.find(r => r[0] === intake);
+        if (!row) {
+            result.push([intake, 1, ...new Array(horizon + 1).fill(0)]);
+        } else {
+            row[1]++;
+        }
+    }
+
+    for (const [key, periods] of sightingMap.entries()) {
+        const intake = memberMap.get(key)!;
+        const row = result.find(r => r[0] === intake)!;
+        for (const period of periods) {
+            if (period >= intake && period <= intake + horizon) {
+                row[period - intake + 2]++;
+            }
+        }
+    }
+
+    return result.sort((a, b) => a[0] - b[0]);
+}
+```

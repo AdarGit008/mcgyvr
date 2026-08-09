@@ -1,0 +1,58 @@
+```python
+def read_sexpr(text: str) -> object:
+    """
+    Parse a single s-expression from the input string.
+    
+    :param text: A string containing exactly one s-expression.
+    :return: An integer, symbol, or list representing the parsed expression.
+    :raises ValueError: If the input is invalid.
+    """
+    def parse_atom(text: str) -> object:
+        if not text:
+            raise ValueError("Invalid atom")
+        
+        if text[0] == '-':
+            return int(text)
+        
+        if text[0].isalpha() or text[0] in '+-*/!?':
+            for char in text:
+                if not (char.isalnum() or char in '+-*/!?'):
+                    raise ValueError("Invalid atom")
+            return text
+    
+    def parse_list(text: str) -> list:
+        stack = []
+        current = ""
+        
+        for char in text:
+            if char == '(':
+                if stack:
+                    raise ValueError("Unclosed list")
+                stack.append(current)
+                current = ""
+            elif char == ')':
+                if not stack:
+                    raise ValueError("Stray closing parenthesis")
+                result = parse_expression(stack.pop())
+                if current:
+                    raise ValueError("Extra characters after expression")
+                return result
+            else:
+                current += char
+        
+        if stack or current:
+            raise ValueError("Invalid list")
+        
+        return []
+    
+    def parse_expression(text: str) -> object:
+        if text[0] == '(':
+            return parse_list(text)
+        else:
+            return parse_atom(text)
+    
+    try:
+        return parse_expression(text.strip())
+    except ValueError as e:
+        raise ValueError(f"Invalid s-expression: {e}")
+```

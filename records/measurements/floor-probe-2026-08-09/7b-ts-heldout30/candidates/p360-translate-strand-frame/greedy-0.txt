@@ -1,0 +1,37 @@
+```ts
+export function translateStrandFrame(strand: string): { residues: string; halted: boolean } {
+  if (typeof strand !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  if (strand.length === 0) {
+    throw new Error('Input cannot be empty');
+  }
+  if (strand.length % 3 !== 0) {
+    throw new Error('Input length must be a whole multiple of three');
+  }
+
+  const codonMap: { [key: string]: string } = {
+    'WW': 'a', 'WX': 'b', 'WY': 'c', 'WZ': 'd',
+    'XW': 'e', 'XX': 'f', 'XY': 'g', 'XZ': 'h',
+    'YW': 'i', 'YX': 'j', 'YY': 'k', 'YZ': 'l',
+    'ZW': 'm', 'ZX': 'n', 'ZY': 'o', 'ZZ': 'p'
+  };
+
+  let residues = '';
+  let halted = false;
+
+  for (let i = 0; i < strand.length; i += 3) {
+    const codon = strand.slice(i, i + 2);
+    if (codon in codonMap) {
+      residues += codonMap[codon];
+    } else if (codon === 'ZZW' || codon === 'ZZX') {
+      halted = true;
+      break;
+    } else {
+      throw new Error('Invalid symbol in strand');
+    }
+  }
+
+  return { residues, halted };
+}
+```

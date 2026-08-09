@@ -1,0 +1,72 @@
+```ts
+export function rankStemmedTerms(passage: string, rules: unknown): Array<[string, number]> {
+  if (typeof passage !== 'string') {
+    throw new Error('Passage must be a string');
+  }
+
+  if (typeof rules !== 'object' || rules === null) {
+    throw new Error('Rules must be a mapping');
+  }
+
+  const { stops, endings } = rules as { stops: unknown; endings: unknown };
+
+  if (!Array.isArray(stops)) {
+    throw new Error('"stops" must be a list');
+  }
+
+  if (!Array.isArray(endings)) {
+    throw new Error('"endings" must be a list');
+  }
+
+  const isNonEmptyLowercaseRun = (str: string) => /^[a-z]+$/.test(str);
+
+  stops.forEach((stop) => {
+    if (typeof stop !== 'string' || !isNonEmptyLowercaseRun(stop)) {
+      throw new Error('A stop word must be a non-empty run of lowercase letters');
+    }
+  });
+
+  endings.forEach((ending) => {
+    if (!Array.isArray(ending) || ending.length !== 2) {
+      throw new Error('An endings entry must be a pair');
+    }
+
+    const [tail, floor] = ending;
+
+    if (typeof tail !== 'string' || !isNonEmptyLowercaseRun(tail)) {
+      throw new Error('A tail must be a non-empty run of lowercase letters');
+    }
+
+    if (typeof floor !== 'number' || floor < 1) {
+      throw new Error('A floor must be a whole number of at least one');
+    }
+  });
+
+  const words = passage.toLowerCase().match(/[a-z]+/g) || [];
+
+  const trimmedWords = words.map((word) => {
+    for (const [tail, floor] of endings) {
+      if (word.endsWith(tail) && word.length - tail.length >= floor) {
+        return word.slice(0, -tail.length);
+      }
+    }
+    return word;
+  });
+
+  const filteredWords = trimmedWords.filter((word) => !stops.includes(word));
+
+  const wordCounts: Record<string, number> = {};
+
+  for (const word of filteredWords) {
+    if (wordCounts[word]) {
+      wordCounts[word]++;
+    } else {
+      wordCounts[word] = 1;
+    }
+  }
+
+  return Object.entries(wordCounts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([word, count]) => [word, count]);
+}
+```

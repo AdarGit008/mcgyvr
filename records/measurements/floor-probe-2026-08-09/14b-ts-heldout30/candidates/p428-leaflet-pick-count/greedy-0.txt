@@ -1,0 +1,50 @@
+```ts
+export function countLeafletPicks(picks: string): number {
+  if (typeof picks !== 'string' || picks.trim() === '') {
+    throw new Error('Invalid input');
+  }
+
+  const items = picks.split(',');
+  const pages = new Set<number>();
+
+  for (const item of items) {
+    if (!item) {
+      throw new Error('Empty item in pick list');
+    }
+
+    const singlePageMatch = /^(\d+)$/.exec(item);
+    const rangeMatch = /^(\d+)-(\d+)$/.exec(item);
+    const offsetMatch = /^(\d+)\+(\d+)$/.exec(item);
+
+    if (singlePageMatch) {
+      const page = parseInt(singlePageMatch[1], 10);
+      if (page < 1 || page > 9999) {
+        throw new Error('Invalid page number');
+      }
+      pages.add(page);
+    } else if (rangeMatch) {
+      const start = parseInt(rangeMatch[1], 10);
+      const end = parseInt(rangeMatch[2], 10);
+      if (start < 1 || end > 9999 || start > end) {
+        throw new Error('Invalid range');
+      }
+      for (let i = start; i <= end; i++) {
+        pages.add(i);
+      }
+    } else if (offsetMatch) {
+      const base = parseInt(offsetMatch[1], 10);
+      const offset = parseInt(offsetMatch[2], 10);
+      if (base < 1 || offset < 1 || base + offset > 9999) {
+        throw new Error('Invalid offset');
+      }
+      for (let i = 0; i <= offset; i++) {
+        pages.add(base + i);
+      }
+    } else {
+      throw new Error('Invalid item format');
+    }
+  }
+
+  return pages.size;
+}
+```

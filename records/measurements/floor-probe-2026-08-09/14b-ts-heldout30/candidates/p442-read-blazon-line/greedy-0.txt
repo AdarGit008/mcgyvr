@@ -1,0 +1,65 @@
+```ts
+export function readBlazonLine(line: string): Record<string, unknown> {
+  if (typeof line !== 'string' || line.trim() === '') {
+    throw new Error('Invalid input');
+  }
+
+  const clauses = line.split('; ').map(clause => clause.trim());
+  if (clauses.length < 1) {
+    throw new Error('Line must contain at least one clause');
+  }
+
+  const fieldClause = clauses[0];
+  const chargesClauses = clauses.slice(1);
+
+  const fieldMatch = fieldClause.match(/^(parted (pale|fess) and )?(or|argent|gules|azure|sable|vert|purpure)$/);
+  if (!fieldMatch) {
+    throw new Error('Invalid field clause');
+  }
+
+  const field: Record<string, unknown> = {};
+  if (fieldMatch[1]) {
+    field.cut = fieldMatch[2];
+    const tinctures = [fieldMatch[3], fieldMatch[4]];
+    if (tinctures[0] === tinctures[1]) {
+      throw new Error('Parted field tinctures must differ');
+    }
+    field.tinctures = tinctures;
+  } else {
+    field.cut = 'plain';
+    field.tinctures = [fieldMatch[1]];
+  }
+
+  const charges: Record<string, unknown>[] = [];
+  const seenCharges = new Set<string>();
+
+  for (const chargeClause of chargesClauses) {
+    const chargeMatch = chargeClause.match(/^(a|two|three|four|five) (lion|mullet|crescent|rose|bend) (or|argent|gules|azure|sable|vert|purpure)$/);
+    if (!chargeMatch) {
+      throw new Error('Invalid charge clause');
+    }
+
+    const count = chargeMatch[1];
+    const chargeWord = chargeMatch[2];
+    const tincture = chargeMatch[3];
+
+    if (seenCharges.has(chargeWord)) {
+      throw new Error('Charge word named twice');
+    }
+    seenCharges.add(chargeWord);
+
+    const charge: Record<string, unknown> = {
+      count,
+      charge: chargeWord.replace(/s$/, ''),
+      tincture
+    };
+
+    charges.push(charge);
+  }
+
+  return {
+    field,
+    charges
+  };
+}
+```

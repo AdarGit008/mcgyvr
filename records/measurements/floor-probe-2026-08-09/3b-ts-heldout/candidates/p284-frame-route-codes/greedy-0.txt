@@ -1,0 +1,19 @@
+```ts
+export function sortPostalItems(codes: string[], bins: { name: string; depot: string; low: number; high: number }[]): string[] {
+  if (bins.length === 0) throw new Error("Bins cannot be empty");
+  const binNames = bins.map(bin => bin.name);
+  const uniqueBinNames = [...new Set(binNames)];
+  if (uniqueBinNames.length !== binNames.length) throw new Error("Bins must have unique names");
+
+  return codes.map(code => {
+    const [depot, walk] = code.split('-').map(Number);
+    if (!/^[A-Z]{3}-\d{3}$/.test(code)) throw new Error("Invalid route code format");
+    if (isNaN(depot) || isNaN(walk)) throw new Error("Route code contains non-numeric characters");
+
+    const bin = bins.find(bin => bin.depot === depot && walk >= bin.low && walk <= bin.high);
+    if (!bin) return "HOLD";
+
+    return bin.name;
+  });
+}
+```

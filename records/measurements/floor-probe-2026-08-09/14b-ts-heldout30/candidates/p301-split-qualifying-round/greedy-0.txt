@@ -1,0 +1,35 @@
+```ts
+export function splitQualifyingRound(entrants: string[]): { direct: string[]; qualifying: string[][] } {
+  if (!Array.isArray(entrants) || entrants.length < 2) {
+    throw new Error("Invalid entrants list");
+  }
+
+  const uniqueEntrants = new Set(entrants);
+  if (uniqueEntrants.size !== entrants.length) {
+    throw new Error("Duplicate entrant names");
+  }
+
+  for (const name of entrants) {
+    if (typeof name !== "string") {
+      throw new Error("Invalid entrant name");
+    }
+  }
+
+  const count = entrants.length;
+  let mainDrawSize = 1;
+  while (mainDrawSize * 2 <= count) {
+    mainDrawSize *= 2;
+  }
+
+  const surplus = count - mainDrawSize;
+  const direct = entrants.slice(0, mainDrawSize);
+  const qualifyingEntrants = entrants.slice(mainDrawSize).slice(-surplus * 2);
+
+  const qualifying: string[][] = [];
+  for (let i = 0; i < surplus; i++) {
+    qualifying.push([qualifyingEntrants[i], qualifyingEntrants[qualifyingEntrants.length - 1 - i]]);
+  }
+
+  return { direct, qualifying };
+}
+```

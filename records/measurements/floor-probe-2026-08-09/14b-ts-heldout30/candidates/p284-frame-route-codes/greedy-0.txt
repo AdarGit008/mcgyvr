@@ -1,0 +1,48 @@
+```ts
+export function sortPostalItems(codes: string[], bins: { name: string; depot: string; low: number; high: number }[]): string[] {
+  if (bins.length === 0) {
+    throw new Error("Bins list cannot be empty.");
+  }
+
+  const binNames = new Set<string>();
+  for (const bin of bins) {
+    if (binNames.has(bin.name)) {
+      throw new Error("Bin names must be unique.");
+    }
+    binNames.add(bin.name);
+
+    if (bin.name !== "" && !/^[A-Z]+$/.test(bin.name)) {
+      throw new Error("Bin name must be a non-empty string of capital letters.");
+    }
+
+    if (!/^[A-Z]{3}$/.test(bin.depot)) {
+      throw new Error("Bin depot must be exactly three capital letters.");
+    }
+
+    if (!Number.isInteger(bin.low) || !Number.isInteger(bin.high) || bin.low < 0 || bin.high > 999 || bin.low > bin.high) {
+      throw new Error("Low and high must be integers from 0 to 999, with low not greater than high.");
+    }
+
+    if (bin.name === "HOLD" || bin.name === "BAD") {
+      throw new Error("Bin name cannot be 'HOLD' or 'BAD'.");
+    }
+  }
+
+  return codes.map(code => {
+    if (!/^[A-Z]{3}-\d{3}$/.test(code)) {
+      return "BAD";
+    }
+
+    const [depot, walkStr] = code.split("-");
+    const walk = parseInt(walkStr, 10);
+
+    for (const bin of bins) {
+      if (bin.depot === depot && walk >= bin.low && walk <= bin.high) {
+        return bin.name;
+      }
+    }
+
+    return "HOLD";
+  });
+}
+```

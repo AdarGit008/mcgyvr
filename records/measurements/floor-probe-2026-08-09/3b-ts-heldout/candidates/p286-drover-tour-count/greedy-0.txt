@@ -1,0 +1,31 @@
+```ts
+export function countPieceTours(width: number, height: number, start: number[], blocked: number[][]): number {
+  if (!Number.isInteger(width) || width < 1 || !Number.isInteger(height) || height < 1) {
+    throw new Error("Width and height must be integers of at least 1.");
+  }
+
+  const boardSize = width * height;
+  const unblockedSquares = boardSize - blocked.length;
+
+  if (unblockedSquares > 12) {
+    throw new Error("The board leaves more than 12 unblocked squares.");
+  }
+
+  if (!Array.isArray(start) || start.length !== 2 || !Number.isInteger(start[0]) || !Number.isInteger(start[1])) {
+    throw new Error("Start must be a pair of integers naming a square of the board.");
+  }
+  const [startRow, startCol] = start;
+  if (blocked.includes([startRow, startCol])) {
+    throw new Error("Start cannot name a blocked square.");
+  }
+
+  if (!Array.isArray(blocked) || !blocked.every((entry) => Array.isArray(entry) && entry.length === 2 && Number.isInteger(entry[0]) && Number.isInteger(entry[1]))) {
+    throw new Error("Blocked must be a list of pairs of integers naming squares of the board.");
+  }
+  if (new Set(blocked).size !== blocked.length) {
+    throw new Error("Blocked cannot name the same square twice.");
+  }
+
+  // Implementation goes here
+}
+```

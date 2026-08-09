@@ -1,0 +1,44 @@
+```python
+def run_transactions(commands: list[str]) -> dict[str, str]:
+    """
+    Process a series of commands over a key-value store and return the final state.
+
+    :param commands: List of strings representing commands in the format:
+        - "k v": Store value v under key k.
+        - "unset k": Remove key k from the store (no-op if absent).
+        - "begin": Open a nested transaction.
+        - "commit": Fold the innermost open transaction's changes into enclosing state.
+        - "rollback": Discard all changes made in the current transaction.
+    :return: Dictionary representing the final state of the key-value store.
+    """
+    store = {}
+    transactions = []
+
+    def process_command(command: str) -> None:
+        parts = command.split()
+        if len(parts) != 2 and parts[0] not in ["begin", "commit", "rollback"]:
+            raise ValueError("Invalid command format")
+
+        verb = parts[0]
+        key = parts[1]
+
+        if verb == "k":
+            store[key] = value
+        elif verb == "unset":
+            if key in store:
+                del store[key]
+        elif verb == "begin":
+            transactions.append(store.copy())
+        elif verb == "commit":
+            if not transactions:
+                raise ValueError("No open transaction to commit")
+            store.update(transactions.pop())
+        elif verb == "rollback":
+            if not transactions:
+                raise ValueError("No open transaction to rollback")
+
+    for command in commands:
+        process_command(command)
+
+    return store
+```

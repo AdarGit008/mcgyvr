@@ -1,0 +1,46 @@
+```ts
+/**
+ * Finds the merge base of two revisions in a given history.
+ * @param parents - A mapping of each revision to its direct parent revisions.
+ * @param left - The first revision to find the merge base for.
+ * @param right - The second revision to find the merge base for.
+ * @returns The shared forebear revision that is not itself a forebear of any other shared forebear.
+ * @throws Error if the input mapping is invalid or if there is no shared forebear.
+ */
+export function pickMergeBase(parents: Record<string, string[]>, left: string, right: string): string {
+    // Validate input
+    if (typeof parents !== 'object' || Array.isArray(parents) || parents === null) {
+        throw new Error('Invalid parents mapping');
+    }
+    if (!Object.keys(parents).includes(left)) {
+        throw new Error(`Revision ${left} not found in parents mapping`);
+    }
+    if (!Object.keys(parents).includes(right)) {
+        throw new Error(`Revision ${right} not found in parents mapping`);
+    }
+
+    // Helper function to get all ancestors of a revision
+    const getAllAncestors = (revision: string, memo: Set<string> = new Set()): Set<string> => {
+        if (memo.has(revision)) return memo;
+        memo.add(revision);
+        for (const parent of parents[revision] || []) {
+            getAllAncestors(parent, memo);
+        }
+        return memo;
+    };
+
+    // Get all ancestors for both revisions
+    const leftAncestors = getAllAncestors(left);
+    const rightAncestors = getAllAncestors(right);
+
+    // Find common ancestors
+    const commonAncestors = Array.from(leftAncestors).filter(ancestor => rightAncestors.has(ancestor));
+
+    if (commonAncestors.length === 0) {
+        throw new Error('No shared forebear found');
+    }
+
+    // Return the first common ancestor in alphabetical order
+    return commonAncestors.sort()[0];
+}
+```

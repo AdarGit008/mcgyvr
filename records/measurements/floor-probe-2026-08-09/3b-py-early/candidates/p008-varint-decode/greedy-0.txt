@@ -1,0 +1,36 @@
+```python
+def decode_varints(data: list) -> list[int]:
+    """
+    Decode a list of byte values into a list of integers using back-to-back unsigned base-128 varints.
+    
+    :param data: List of bytes, each representing an unsigned base-128 varint.
+    :return: List of decoded integers.
+    :raises ValueError: If the input is not a list or contains invalid byte values.
+    """
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list.")
+    
+    result = []
+    i = 0
+    while i < len(data):
+        num = 0
+        shift = 0
+        
+        while True:
+            byte = data[i]
+            if not (0 <= byte <= 255):
+                raise ValueError("Invalid byte value in input.")
+            
+            num |= (byte & 127) << shift
+            
+            if byte & 128 == 0:
+                break
+            
+            i += 1
+            shift += 7
+        
+        result.append(num)
+        i += 1
+    
+    return result
+```

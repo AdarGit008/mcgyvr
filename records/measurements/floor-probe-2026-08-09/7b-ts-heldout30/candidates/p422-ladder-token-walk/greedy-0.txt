@@ -1,0 +1,24 @@
+```ts
+export function walkLadderBoard(size: number, chutes: number[][], pushes: number[]): number {
+  if (!Number.isInteger(size) || size < 2) throw new Error('Invalid board size');
+  if (chutes.some(([mouth, exit]) => !Number.isInteger(mouth) || !Number.isInteger(exit) || mouth < 1 || mouth > size || exit < 1 || exit > size || mouth === exit)) throw new Error('Invalid chute pair');
+  if (chutes.some(([mouth], index) => chutes.slice(index + 1).some(([otherMouth]) => otherMouth === mouth))) throw new Error('Duplicate chute mouth');
+  if (chutes.some(([_, exit]) => chutes.some(([mouth]) => mouth === exit))) throw new Error('Chute exit is another chute mouth');
+  if (pushes.some(push => !Number.isInteger(push) || push <= 0)) throw new Error('Invalid push');
+
+  let position = 1;
+  for (const [mouth, exit] of chutes) {
+    if (position === mouth) {
+      position = exit;
+      break;
+    }
+  }
+
+  for (const push of pushes) {
+    if (position + push > size) break;
+    position += push;
+  }
+
+  return position;
+}
+```

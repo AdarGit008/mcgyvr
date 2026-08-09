@@ -1,0 +1,57 @@
+```ts
+export function pickMergeBase(parents: Record<string, string[]>, left: string, right: string): string {
+  if (typeof parents !== 'object' || parents === null) {
+    throw new Error('Invalid input: parents must be an object');
+  }
+
+  const validateParentList = (list: string[]): void => {
+    if (!Array.isArray(list)) {
+      throw new Error('Invalid input: parent list must be an array');
+    }
+    const seen = new Set<string>();
+    for (const parent of list) {
+      if (seen.has(parent)) {
+        throw new Error('Invalid input: duplicate parent in list');
+      }
+      if (!(parent in parents)) {
+        throw new Error(`Invalid input: unknown parent ${parent}`);
+      }
+      seen.add(parent);
+    }
+  };
+
+  validateParentList(parents[left]);
+  validateParentList(parents[right]);
+
+  const findAncestors = (revision: string, ancestors: Set<string>): void => {
+    if (!ancestors.has(revision)) {
+      ancestors.add(revision);
+      for (const parent of parents[revision]) {
+        findAncestors(parent, ancestors);
+      }
+    }
+  };
+
+  const leftAncestors = new Set<string>();
+  const rightAncestors = new Set<string>();
+
+  findAncestors(left, leftAncestors);
+  findAncestors(right, rightAncestors);
+
+  let mergeBase: string | null = null;
+
+  for (const ancestor of leftAncestors) {
+    if (rightAncestors.has(ancestor)) {
+      if (!mergeBase || ancestor < mergeBase) {
+        mergeBase = ancestor;
+      }
+    }
+  }
+
+  if (!mergeBase) {
+    throw new Error('No shared forebear found');
+  }
+
+  return mergeBase;
+}
+```

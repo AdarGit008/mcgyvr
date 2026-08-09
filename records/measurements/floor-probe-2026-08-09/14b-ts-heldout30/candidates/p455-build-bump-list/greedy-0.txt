@@ -1,0 +1,58 @@
+```ts
+export function buildBumpList(travellers: any[], seats: number, volunteers: string[]): { boarding: string[]; bumped: string[] } {
+  if (!Array.isArray(travellers)) throw new Error('travellers must be a list');
+  if (typeof seats !== 'number' || seats < 0) throw new Error('seats must be a whole number of nought or more');
+  if (!Array.isArray(volunteers)) throw new Error('volunteers must be a list');
+
+  const fareOrder = { flex: 1, saver: 2, award: 3 };
+
+  const travellerSet = new Set<string>();
+  const checkInSet = new Set<number>();
+
+  const validatedTravellers = travellers.map(travel => {
+    if (typeof travel !== 'object' || travel === null) throw new Error('a traveller must be a record');
+    if (typeof travel.code !== 'string' || travel.code.trim() === '') throw new Error('code must be a non-empty string');
+    if (!travellerSet.add(travel.code)) throw new Error('two travellers carry one code');
+    if (![fareOrder.flex, fareOrder.saver, fareOrder.award].includes(fareOrder[travel.fare])) throw new Error('fare is none of the three words');
+    if (typeof travel.miles !== 'number' || travel.miles < 0) throw new Error('miles must be a whole number of nought or more');
+    if (typeof travel.checked !== 'number' || travel.checked <= 0) throw new Error('checked is not a whole number above nought');
+    if (!checkInSet.add(travel.checked)) throw new Error('two travellers share a check-in place');
+
+    return {
+      code: travel.code,
+      fare: travel.fare,
+      miles: travel.miles,
+      checked: travel.checked
+    };
+  });
+
+  const totalTravellers = validatedTravellers.length;
+  const bumpCount = Math.max(0, totalTravellers - seats);
+
+  const sortedTravellers = validatedTravellers.sort((a, b) => {
+    if (fareOrder[a.fare] !== fareOrder[b.fare]) return fareOrder[a.fare] - fareOrder[b.fare];
+    if (a.miles !== b.miles) return b.miles - a.miles;
+    return a.checked - b.checked;
+  });
+
+  const bumped: string[] = [];
+  const boarding: string[] = [];
+
+  for (const volunteer of volunteers) {
+    const index = sortedTravellers.findIndex(travel => travel.code === volunteer);
+    if (index !== -1) {
+      bumped.push(volunteer);
+      sortedTravellers.splice(index, 1);
+      if (bumped.length === bumpCount) break;
+    }
+  }
+
+  while (bumped.length < bumpCount) {
+    bumped.push(sortedTravellers.pop()!.code);
+  }
+
+  boarding.push(...sortedTravellers.map(travel => travel.code));
+
+  return { boarding, bumped };
+}
+```

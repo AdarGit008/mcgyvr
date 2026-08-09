@@ -1,0 +1,55 @@
+```ts
+export function planCutList(bars: number[], orders: Record<string, unknown>[], kerf: number, keep: number): { layout: number[][]; offcuts: number[]; scrap: number; short: number[] } {
+  if (!Array.isArray(bars)) throw new Error("bars must be a list");
+  if (!bars.every(bar => Number.isInteger(bar) && bar > 0)) throw new Error("each bar must be a whole number above nought");
+
+  if (!Array.isArray(orders)) throw new Error("orders must be a list");
+  const orderMap = orders.reduce((acc, order) => {
+    if (typeof order !== 'object' || order === null) throw new Error("each order must be a mapping");
+    if (Object.keys(order).length !== 2) throw new Error("each order must have exactly two keys: length and count");
+
+    const { length, count } = order as { length: number; count: number };
+    if (!Number.isInteger(length) || length <= 0) throw new Error("order length must be a whole number above nought");
+    if (!Number.isInteger(count) || count <= 0) throw new Error("order count must be a whole number above nought");
+
+    if (acc[length]) throw new Error("no two orders may name the same length");
+    acc[length] = count;
+    return acc;
+  }, {} as Record<number, number>);
+
+  if (!Number.isInteger(kerf) || kerf < 0) throw new Error("kerf must be a whole number at nought or above");
+  if (!Number.isInteger(keep) || keep < 0) throw new Error("keep must be a whole number at nought or above");
+
+  const lengths = Object.keys(orderMap).map(Number).sort((a, b) => b - a);
+  const layout: number[][] = bars.map(() => []);
+  const offcuts: number[] = [];
+  let scrap = 0;
+  const short: number[] = [];
+
+  for (const length of lengths) {
+    for (let i = 0; i < bars.length; i++) {
+      while (orderMap[length] > 0 && bars[i] >= length) {
+        layout[i].push(length);
+        bars[i] -= length + kerf;
+        orderMap[length]--;
+      }
+    }
+  }
+
+  bars.forEach((bar, index) => {
+    if (bar >= keep) {
+      offcuts.push(bar);
+    } else {
+      scrap += bar;
+    }
+  });
+
+  lengths.forEach(length => {
+    for (let i = 0; i < orderMap[length]; i++) {
+      short.push(length);
+    }
+  });
+
+  return { layout, offcuts, scrap, short };
+}
+```

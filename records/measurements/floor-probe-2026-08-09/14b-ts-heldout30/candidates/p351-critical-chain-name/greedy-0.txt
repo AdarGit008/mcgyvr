@@ -1,0 +1,119 @@
+```ts
+export function criticalChainName(steps: { label: string; hours: number; needs: string[] }[]): string {
+  if (!Array.isArray(steps) || steps.length === 0) {
+    throw new Error("Invalid input: steps must be a non-empty array.");
+  }
+
+  const stepMap = new Map<string, { label: string; hours: number; needs: string[] }>();
+  for (const step of steps) {
+    if (
+      typeof step !== "object" ||
+      typeof step.label !== "string" ||
+      step.label.trim() === "" ||
+      typeof step.hours !== "number" ||
+      !Number.isInteger(step.hours) ||
+      step.hours <= 0 ||
+      !Array.isArray(step.needs)
+    ) {
+      throw new Error("Invalid step format.");
+    }
+
+    if (stepMap.has(step.label)) {
+      throw new Error("Duplicate step label.");
+    }
+
+    for (const need of step.needs) {
+      if (typeof need !== "string" || need.trim() === "") {
+        throw new Error("Invalid needs entry.");
+      }
+      if (!stepMap.has(need)) {
+        throw new Error("Needs entry matches no label in the job.");
+      }
+      if (need === step.label) {
+        throw new Error("A step cannot need itself.");
+      }
+    }
+
+    stepMap.set(step.label, step);
+  }
+
+  const visited = new Set<string>();
+  const recStack = new Set<string>();
+
+  function hasCycle(label: string): boolean {
+    if (recStack.has(label)) return true;
+    if (visited.has(label)) return false;
+
+    visited.add(label);
+    recStack.add(label);
+
+    for (const need of stepMap.get(label)!.needs) {
+      if (hasCycle(need)) return true;
+    }
+
+    recStack.delete(label);
+    return false;
+  }
+
+  for (const label of stepMap.keys()) {
+    if (hasCycle(label)) {
+      throw new Error("The needs relation closes into a ring.");
+    }
+  }
+
+  const topologicalOrder: string[] = [];
+  const visited2 = new Set<string>();
+
+  function dfs(label: string): void {
+    if (visited2.has(label)) return;
+    visited2.add(label);
+
+    for (const need of stepMap.get(label)!.needs) {
+      dfs(need);
+    }
+
+    topologicalOrder.unshift(label);
+  }
+
+  for (const label of stepMap.keys()) {
+    dfs(label);
+  }
+
+  let maxWeight = -1;
+  let bestRun: string[] = [];
+
+  function findCriticalChain(labels: string[], currentRun: string[], currentWeight: number): void {
+    if (labels.length === 0) {
+      if (currentWeight > maxWeight || (currentWeight === maxWeight && compareRuns(currentRun, bestRun) < 0)) {
+        maxWeight = currentWeight;
+        bestRun = [...currentRun];
+      }
+      return;
+    }
+
+    for (const label of labels) {
+      const step = stepMap.get(label)!;
+      if (currentRun.length === 0 || step.needs.every(need => currentRun.includes(need))) {
+        findCriticalChain(
+          labels.filter(l => l !== label),
+          [...currentRun, label],
+          currentWeight + step.hours
+        );
+      }
+    }
+  }
+
+  function compareRuns(run1: string[], run2: string[]): number {
+    for (let i = 0; i < Math.min(run1.length, run2.length); i++) {
+      if (run1[i] !== run2[i]) {
+        return run1[i].localeCompare(run2[i]);
+      }
+    }
+    return run1.length - run2.length;
+  }
+
+  findCriticalChain([...stepMap.keys()], [], 0);
+
+  return bestRun.join(">");
+}
+```

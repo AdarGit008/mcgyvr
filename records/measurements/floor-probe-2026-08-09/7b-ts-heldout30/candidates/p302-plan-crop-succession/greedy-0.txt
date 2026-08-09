@@ -1,0 +1,46 @@
+```ts
+export function planCropSuccession(lastSown: string[], follows: string[][], order: string[], seasons: number): string[][] {
+    if (!Array.isArray(lastSown) || lastSown.length === 0 || !lastSown.every(s => typeof s === 'string' && s !== '')) {
+        throw new Error('Invalid lastSown input');
+    }
+    if (!Array.isArray(follows) || follows.some(row => row.length !== 2 || !row.every(s => typeof s === 'string' && s !== ''))) {
+        throw new Error('Invalid follows input');
+    }
+    if (!Array.isArray(order) || order.length === 0 || !order.every(s => typeof s === 'string' && s !== '') || new Set(order).size !== order.length) {
+        throw new Error('Invalid order input');
+    }
+    if (typeof seasons !== 'number' || seasons <= 0 || !Number.isInteger(seasons)) {
+        throw new Error('Invalid seasons input');
+    }
+
+    const cropCount: { [crop: string]: number } = {};
+    for (const plot of lastSown) {
+        cropCount[plot] = (cropCount[plot] || 0) + 1;
+    }
+    for (const row of follows) {
+        if (!follows.some(otherRow => otherRow[0] === row[1])) {
+            throw new Error('Invalid follows input');
+        }
+    }
+
+    const result: string[][] = [];
+    for (let season = 0; season < seasons; season++) {
+        const nextSeason: string[] = [];
+        for (let i = 0; i < lastSown.length; i++) {
+            const plot = lastSown[i];
+            const allowedCrops = follows.filter(row => row[0] === plot).map(row => row[1]);
+            const availableCrops = order.filter(crop => !nextSeason.includes(crop) && !lastSown.slice(0, i + 1).includes(crop) && !lastSown.slice(i - 1, i).includes(crop) && cropCount[crop] < Math.ceil(lastSown.length / 2));
+            const nextCrop = availableCrops.filter(crop => allowedCrops.includes(crop)).sort((a, b) => order.indexOf(a) - order.indexOf(b))[0];
+            if (nextCrop) {
+                nextSeason.push(nextCrop);
+                cropCount[nextCrop] = (cropCount[nextCrop] || 0) + 1;
+            } else {
+                return [];
+            }
+        }
+        result.push(nextSeason);
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,22 @@
+```ts
+export function sortPostalItems(codes: string[], bins: { name: string; depot: string; low: number; high: number }[]): string[] {
+  if (bins.length === 0) throw new Error("Bins list cannot be empty");
+  const binNames = new Set<string>();
+  for (const bin of bins) {
+    if (binNames.has(bin.name)) throw new Error(`Duplicate bin name: ${bin.name}`);
+    if (bin.name.trim() === "") throw new Error(`Invalid bin name: ${bin.name}`);
+    if (!/^[A-Z]{3}$/.test(bin.depot)) throw new Error(`Invalid bin depot: ${bin.depot}`);
+    if (!Number.isInteger(bin.low) || !Number.isInteger(bin.high) || bin.low < 0 || bin.low > 999 || bin.high < 0 || bin.high > 999 || bin.low > bin.high) throw new Error(`Invalid walk range: ${bin.low}-${bin.high}`);
+    if (bin.depot === "HOLD" || bin.depot === "BAD") throw new Error(`Bin depot cannot be HOLD or BAD: ${bin.depot}`);
+  }
+
+  return codes.map(code => {
+    const [depot, walk] = code.split('-');
+    if (!/^[A-Z]{3}$/.test(depot) || !Number.isInteger(parseInt(walk)) || parseInt(walk) < 0 || parseInt(walk) > 999) throw new Error(`Invalid route code: ${code}`);
+    for (const bin of bins) {
+      if (bin.depot === depot && bin.low <= parseInt(walk) && parseInt(walk) <= bin.high) return bin.name;
+    }
+    return "HOLD";
+  });
+}
+```

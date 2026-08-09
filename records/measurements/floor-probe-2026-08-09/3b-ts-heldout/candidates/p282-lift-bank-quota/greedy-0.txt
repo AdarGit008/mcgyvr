@@ -1,0 +1,52 @@
+```ts
+export function assignLiftCalls(cars: { name: string; floor: number; quota: number }[], calls: number[], top: number): string[] {
+  if (cars.length === 0) throw new Error("Cars list cannot be empty.");
+  if (!Array.isArray(calls)) throw new Error("Calls must be an array of numbers.");
+  if (typeof top !== "number" || top < 1) throw new Error("Top must be a positive integer.");
+
+  const validNames = cars.map(car => car.name);
+  for (const name of validNames) {
+    if (!name || typeof name !== "string") throw new Error(`Invalid name: ${name}`);
+    if (validNames.includes(name)) throw new Error(`Duplicate name: ${name}`);
+  }
+
+  const result: string[] = [];
+  let remainingCalls = [...calls];
+
+  while (remainingCalls.length > 0) {
+    const nearestCage = cars.reduce((closest, car) => {
+      if (
+        car.quota === 0 ||
+        car.floor === top ||
+        !validNames.includes(car.name)
+      ) return closest;
+
+      const distance = Math.abs(car.floor - remainingCalls[0]);
+      const callsAnswered = cars.filter(c => c.name === car.name).length;
+      const tieBreaker = callsAnswered;
+
+      if (
+        distance < closest.distance ||
+        (distance === closest.distance && tieBreaker < closest.tieBreaker) ||
+        (distance === closest.distance && tieBreaker === closest.tieBreaker && car.name < closest.cageName)
+      ) {
+        return { ...car, distance, callsAnswered };
+      }
+
+      return closest;
+    }, { floor: -1, quota: 0, name: "", distance: Infinity, callsAnswered: 0 });
+
+    if (nearestCage.floor === top) {
+      result.push(nearestCage.name);
+      remainingCalls.shift();
+    } else {
+      nearestCage.floor = remainingCalls[0];
+      nearestCage.quota--;
+      result.push(nearestCage.name);
+      remainingCalls.shift();
+    }
+  }
+
+  return result;
+}
+```

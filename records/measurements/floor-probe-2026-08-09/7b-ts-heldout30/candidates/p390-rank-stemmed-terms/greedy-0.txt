@@ -1,0 +1,40 @@
+```ts
+export function rankStemmedTerms(passage: string, rules: unknown): Array<[string, number]> {
+    if (typeof passage !== 'string') {
+        throw new Error('Passage must be a string');
+    }
+    if (typeof rules !== 'object' || rules === null) {
+        throw new Error('Rules must be an object');
+    }
+    const { stops, endings } = rules;
+    if (!Array.isArray(stops)) {
+        throw new Error('Stops must be an array');
+    }
+    if (!Array.isArray(endings)) {
+        throw new Error('Endings must be an array');
+    }
+
+    const words = passage.match(/[a-zA-Z]+/g)?.map(word => word.toLowerCase()) || [];
+    const trimmedWords = words.map(word => {
+        for (const [tail, floor] of endings) {
+            if (word.endsWith(tail) && word.length - tail.length >= floor) {
+                return word.slice(0, -tail.length);
+            }
+        }
+        return word;
+    });
+    const filteredWords = trimmedWords.filter(word => !stops.includes(word));
+
+    const wordCounts: { [key: string]: number } = {};
+    for (const word of filteredWords) {
+        if (wordCounts[word]) {
+            wordCounts[word]++;
+        } else {
+            wordCounts[word] = 1;
+        }
+    }
+
+    return Object.entries(wordCounts)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+```

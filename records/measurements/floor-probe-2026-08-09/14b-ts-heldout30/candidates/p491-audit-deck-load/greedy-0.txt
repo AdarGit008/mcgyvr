@@ -1,0 +1,95 @@
+```ts
+/**
+ * Which rule an already loaded deck breaks first.
+ */
+export function auditDeckLoad(rows: any[], deck: any): any {
+  // Validate rows
+  if (!Array.isArray(rows)) {
+    throw new Error("rows must be a list");
+  }
+
+  // Validate deck
+  if (typeof deck !== "object" || deck === null) {
+    throw new Error("deck must be a record");
+  }
+  if (!Array.isArray(deck.bays) || deck.bays.length === 0) {
+    throw new Error("bays must be a list and hold at least one record");
+  }
+
+  // Validate bays
+  const bayNames = new Set<string>();
+  for (const bay of deck.bays) {
+    if (typeof bay !== "object" || bay === null) {
+      throw new Error("bay must be a record");
+    }
+    if (typeof bay.bay !== "string" || bay.bay.trim() === "") {
+      throw new Error("bay name must be a non-empty string");
+    }
+    if (bayNames.has(bay.bay)) {
+      throw new Error("two bays cannot answer to the same name");
+    }
+    bayNames.add(bay.bay);
+    if (!Number.isInteger(bay.hold) || bay.hold <= 0) {
+      throw new Error("hold must be a whole number above nought");
+    }
+    if (!Number.isInteger(bay.pull) || bay.pull <= 0) {
+      throw new Error("pull must be a whole number above nought");
+    }
+    if (!Number.isInteger(bay.lever)) {
+      throw new Error("lever must be a whole number");
+    }
+  }
+
+  // Validate total
+  if (!Number.isInteger(deck.total) || deck.total <= 0) {
+    throw new Error("total must be a whole number above nought");
+  }
+
+  // Validate rows and calculate weights
+  const weights: Record<string, number> = {};
+  for (const row of rows) {
+    if (typeof row !== "object" || row === null) {
+      throw new Error("row must be a record");
+    }
+    if (typeof row.crate !== "string" || row.crate.trim() === "") {
+      throw new Error("crate must be a non-empty string");
+    }
+    if (typeof row.bay !== "string" || row.bay.trim() === "" || !bayNames.has(row.bay)) {
+      throw new Error("row's bay must be a non-empty string and name a bay of the deck");
+    }
+    if (!Number.isInteger(row.weight) || row.weight <= 0) {
+      throw new Error("weight must be a whole number above nought");
+    }
+    weights[row.bay] = (weights[row.bay] ?? 0) + row.weight;
+  }
+
+  // Calculate total weight and swing
+  let totalWeight = 0;
+  let totalSwing = 0;
+  for (const bay of deck.bays) {
+    const bayWeight = weights[bay.bay] ?? 0;
+    totalWeight += bayWeight;
+    totalSwing += Math.abs(bayWeight * bay.lever);
+  }
+
+  // Check total weight
+  if (totalWeight > deck.total) {
+    return { verdict: "broken", bay: "", limit: "total", weight: totalWeight, swing: totalSwing };
+  }
+
+  // Check each bay's hold and pull
+  for (const bay of deck.bays) {
+    const bayWeight = weights[bay.bay] ?? 0;
+    if (bayWeight > bay.hold) {
+      return { verdict: "broken", bay: bay.bay, limit: "hold", weight: totalWeight, swing: totalSwing };
+    }
+    const swing = Math.abs(bayWeight * bay.lever);
+    if (swing > bay.pull) {
+      return { verdict: "broken", bay: bay.bay, limit: "pull", weight: totalWeight, swing: totalSwing };
+    }
+  }
+
+  // All checks passed
+  return { verdict: "clear", bay: "", limit: "", weight: totalWeight, swing: totalSwing };
+}
+```

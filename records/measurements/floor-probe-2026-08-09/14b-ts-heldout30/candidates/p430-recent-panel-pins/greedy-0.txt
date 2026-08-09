@@ -1,0 +1,66 @@
+```ts
+export function replayRecentPanel(limit: number, events: string[][]): string[] {
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new Error("Limit must be a whole number greater than or equal to 1.");
+  }
+
+  const pinned: string[] = [];
+  const recent: string[] = [];
+
+  for (const event of events) {
+    if (!Array.isArray(event) || event.length !== 2) {
+      throw new Error("Each event must be a pair [verb, name].");
+    }
+
+    const [verb, name] = event;
+
+    if (typeof verb !== "string" || typeof name !== "string") {
+      throw new Error("Verb and name must both be strings.");
+    }
+
+    if (!name) {
+      throw new Error("Name cannot be empty.");
+    }
+
+    switch (verb) {
+      case "open":
+        if (!pinned.includes(name)) {
+          recent.unshift(name);
+          while (recent.length > limit) {
+            recent.pop();
+          }
+        }
+        break;
+      case "pin":
+        if (!pinned.includes(name)) {
+          pinned.push(name);
+          const index = recent.indexOf(name);
+          if (index !== -1) {
+            recent.splice(index, 1);
+          }
+        }
+        break;
+      case "unpin":
+        const pinnedIndex = pinned.indexOf(name);
+        if (pinnedIndex !== -1) {
+          pinned.splice(pinnedIndex, 1);
+          recent.unshift(name);
+          while (recent.length > limit) {
+            recent.pop();
+          }
+        }
+        break;
+      case "forget":
+        const recentIndex = recent.indexOf(name);
+        if (recentIndex !== -1) {
+          recent.splice(recentIndex, 1);
+        }
+        break;
+      default:
+        throw new Error("Verb must be one of open, pin, unpin, or forget.");
+    }
+  }
+
+  return [...pinned, ...recent];
+}
+```

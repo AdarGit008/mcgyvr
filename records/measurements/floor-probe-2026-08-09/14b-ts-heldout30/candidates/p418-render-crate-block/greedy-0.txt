@@ -1,0 +1,117 @@
+```ts
+export function renderCrateBlock(crate: any): string {
+  if (typeof crate !== 'object' || crate === null) {
+    throw new Error('Invalid crate');
+  }
+
+  const isNonEmptyStringOfSmallLetters = (str: string): boolean =>
+    /^[a-z]+$/.test(str) && str.length > 0;
+
+  const isWholeNumber = (num: number): boolean => Number.isInteger(num);
+
+  const isValidValue = (value: any): boolean => {
+    if (typeof value === 'number') {
+      return isWholeNumber(value);
+    }
+    if (typeof value === 'string') {
+      return !value.includes('\n') && !value.includes('<') && !value.includes('>');
+    }
+    if (Array.isArray(value)) {
+      return value.every(isValidValue);
+    }
+    if (typeof value === 'object' && value !== null) {
+      return Object.keys(value).every((key) =>
+        isNonEmptyStringOfSmallLetters(key) && isValidValue(value[key])
+      );
+    }
+    return false;
+  };
+
+  const indent = (level: number): string => '. '.repeat(level);
+
+  const renderValue = (value: any, level: number): string => {
+    if (typeof value === 'number') {
+      return `${indent(level)}${value}`;
+    }
+    if (typeof value === 'string') {
+      return `${indent(level)}<${value}>`;
+    }
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        return `${indent(level)}[]`;
+      }
+      return [
+        `${indent(level)}[`,
+        ...value.map((item) => renderValue(item, level + 1)),
+        `${indent(level)}]`,
+      ].join('\n');
+    }
+    if (typeof value === 'object' && value !== null) {
+      const fields = Object.entries(value)
+        .filter(([key]) => isNonEmptyStringOfSmallLetters(key))
+        .sort(([nameA], [nameB]) => nameA.localeCompare(nameB));
+      if (fields.length === 0) {
+        return `${indent(level)}{} `;
+      }
+      return [
+        `${indent(level)}{`,
+        ...fields
+          .map(([key, val]) =>
+            `${indent(level + 1)}${key} -> ${renderValue(val, level + 1)}`
+          ),
+        `${indent(level)}}`,
+      ].join('\n');
+    }
+    throw new Error('Invalid value');
+  };
+
+  if (!isValidValue(crate)) {
+    throw new Error('Invalid crate');
+  }
+
+  return renderCrateBlockHelper(crate, 0);
+}
+
+function renderCrateBlockHelper(crate: any, level: number): string {
+  const indent = (level: number): string => '. '.repeat(level);
+
+  const fields = Object.entries(crate)
+    .filter(([key]) => /^[a-z]+$/.test(key) && key.length > 0)
+    .sort(([nameA], [nameB]) => nameA.localeCompare(nameB));
+
+  if (fields.length === 0) {
+    return `${indent(level)}{} `;
+  }
+
+  return [
+    `${indent(level)}{`,
+    ...fields.map(([key, val]) =>
+      `${indent(level + 1)}${key} -> ${renderValue(val, level + 1)}`
+    ),
+    `${indent(level)}}`,
+  ].join('\n');
+}
+
+function renderValue(value: any, level: number): string {
+  if (typeof value === 'number') {
+    return `${indent(level)}${value}`;
+  }
+  if (typeof value === 'string') {
+    return `${indent(level)}<${value}>`;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return `${indent(level)}[]`;
+    }
+    return [
+      `${indent(level)}[`,
+      ...value.map((item) => renderValue(item, level + 1)),
+      `${indent(level)}]`,
+    ].join('\n');
+  }
+  if (typeof value === 'object' && value !== null) {
+    return renderCrateBlockHelper(value, level);
+  }
+  throw new Error('Invalid value');
+}
+```

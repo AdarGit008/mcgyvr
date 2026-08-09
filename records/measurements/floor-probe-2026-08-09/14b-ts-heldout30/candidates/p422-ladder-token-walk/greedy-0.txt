@@ -1,0 +1,57 @@
+```ts
+export function walkLadderBoard(size: number, chutes: number[][], pushes: number[]): number {
+  if (!Number.isInteger(size) || size < 2) {
+    throw new Error("Size must be a whole number greater than or equal to 2.");
+  }
+
+  const chuteMap = new Map<number, number>();
+  for (const [mouth, exit] of chutes) {
+    if (!Array.isArray(mouth) || !Array.isArray(exit) || mouth.length !== 2 || exit.length !== 2) {
+      throw new Error("Each chute must be an array of two whole numbers.");
+    }
+    const [m1, m2] = mouth;
+    const [e1, e2] = exit;
+    if (!Number.isInteger(m1) || !Number.isInteger(m2) || !Number.isInteger(e1) || !Number.isInteger(e2)) {
+      throw new Error("Each chute must be an array of two whole numbers.");
+    }
+    if (m1 !== m2 || e1 !== e2) {
+      throw new Error("Mouth and exit must be the same number in each pair.");
+    }
+    const mouthSquare = m1;
+    const exitSquare = e1;
+    if (mouthSquare < 1 || mouthSquare > size || exitSquare < 1 || exitSquare > size) {
+      throw new Error("Mouth or exit is outside the range of 1 to size.");
+    }
+    if (mouthSquare === 1 || mouthSquare === size) {
+      throw new Error("Mouth cannot be on square 1 or size.");
+    }
+    if (chuteMap.has(mouthSquare)) {
+      throw new Error("Two pairs cannot share one mouth.");
+    }
+    if (Array.from(chuteMap.values()).includes(mouthSquare)) {
+      throw new Error("Exit cannot be some pair's mouth.");
+    }
+    chuteMap.set(mouthSquare, exitSquare);
+  }
+
+  let position = 1;
+  for (const push of pushes) {
+    if (!Number.isInteger(push) || push <= 0) {
+      throw new Error("Each push must be a whole number greater than zero.");
+    }
+    const newPosition = position + push;
+    if (newPosition > size) {
+      continue;
+    }
+    position = newPosition;
+    if (chuteMap.has(position)) {
+      position = chuteMap.get(position)!;
+    }
+    if (position === size) {
+      break;
+    }
+  }
+
+  return position;
+}
+```

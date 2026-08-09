@@ -1,0 +1,50 @@
+```ts
+export function countLeafletPicks(picks: string): number {
+  if (typeof picks !== 'string' || picks === '') {
+    throw new Error('Invalid input');
+  }
+
+  const items = picks.split(',');
+  const pages = new Set<number>();
+
+  for (const item of items) {
+    if (item.trim() === '') {
+      throw new Error('Empty item found');
+    }
+
+    if (/[^0-9,-+]/.test(item)) {
+      throw new Error('Invalid character in item');
+    }
+
+    if (item.includes('--') || item.includes('++')) {
+      throw new Error('Invalid range format');
+    }
+
+    if (item.includes('-')) {
+      const [start, end] = item.split('-').map(Number);
+      if (isNaN(start) || isNaN(end) || start < 1 || end > 9999 || start >= end) {
+        throw new Error('Invalid range');
+      }
+      for (let i = start; i <= end; i++) {
+        pages.add(i);
+      }
+    } else if (item.includes('+')) {
+      const [page, count] = item.split('+').map(Number);
+      if (isNaN(page) || isNaN(count) || page < 1 || count < 1 || page + count > 9999) {
+        throw new Error('Invalid plus range');
+      }
+      for (let i = 0; i <= count; i++) {
+        pages.add(page + i);
+      }
+    } else {
+      const page = Number(item);
+      if (isNaN(page) || page < 1 || page > 9999) {
+        throw new Error('Invalid single page');
+      }
+      pages.add(page);
+    }
+  }
+
+  return pages.size;
+}
+```

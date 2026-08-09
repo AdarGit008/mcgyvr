@@ -1,0 +1,40 @@
+```python
+def wrap_cost(words: list[str], width: int) -> int:
+    """
+    Calculate the minimum cost to wrap words into lines under a fixed width.
+    
+    :param words: List of words to be wrapped.
+    :param width: Maximum line width.
+    :return: Minimum cost of wrapping the words.
+    """
+    if not words or any(not word for word in words) or any(len(word) > width for word in words):
+        raise ValueError("Invalid input: empty list, empty word, or word longer than width.")
+    
+    if width <= 0:
+        raise ValueError("Width must be a positive whole number.")
+    
+    def line_cost(line: list[str]) -> int:
+        """Calculate the cost of a single line."""
+        return sum(len(word) + 1 for word in line)
+    
+    def min_wrap_cost(words: list[str], width: int, memo: dict = {}) -> int:
+        """Recursively calculate the minimum wrap cost."""
+        if (words, width) in memo:
+            return memo[(words, width)]
+        
+        if not words:
+            return 0
+        
+        min_cost = float('inf')
+        for i in range(1, len(words) + 1):
+            line = words[:i]
+            line_length = sum(len(word) + 1 for word in line)
+            if line_length <= width:
+                cost = line_cost(line) + min_wrap_cost(words[i:], width)
+                min_cost = min(min_cost, cost)
+        
+        memo[(words, width)] = min_cost
+        return min_cost
+    
+    return min_wrap_cost(words, width)
+```

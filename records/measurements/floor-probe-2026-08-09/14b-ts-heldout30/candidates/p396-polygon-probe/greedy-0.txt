@@ -1,0 +1,74 @@
+```ts
+export function polygonProbe(outline: number[][], probes: number[][]): any {
+  if (!Array.isArray(outline) || !Array.isArray(probes)) {
+    throw new Error("Both arguments must be arrays.");
+  }
+
+  if (outline.length < 3) {
+    throw new Error("The outline must have at least three corners.");
+  }
+
+  for (const corner of outline) {
+    if (!Array.isArray(corner) || corner.length !== 2 || !corner.every(Number.isInteger)) {
+      throw new Error("Each corner must be a pair of whole numbers.");
+    }
+    if (Math.abs(corner[0]) > 100000 || Math.abs(corner[1]) > 100000) {
+      throw new Error("Coordinate magnitude exceeds limit.");
+    }
+  }
+
+  for (const probe of probes) {
+    if (!Array.isArray(probe) || probe.length !== 2 || !probe.every(Number.isInteger)) {
+      throw new Error("Each probe must be a pair of whole numbers.");
+    }
+    if (Math.abs(probe[0]) > 100000 || Math.abs(probe[1]) > 100000) {
+      throw new Error("Coordinate magnitude exceeds limit.");
+    }
+  }
+
+  for (let i = 0; i < outline.length - 1; i++) {
+    if (outline[i][0] === outline[i + 1][0] && outline[i][1] === outline[i + 1][1]) {
+      throw new Error("Two neighboring corners repeat.");
+    }
+  }
+
+  if (outline[0][0] === outline[outline.length - 1][0] && outline[0][1] === outline[outline.length - 1][1]) {
+    throw new Error("The tail corner equals the opening one.");
+  }
+
+  function isPointOnLine(p1: number[], p2: number[], point: number[]): boolean {
+    return (point[1] - p1[1]) * (p2[0] - p1[0]) === (point[0] - p1[0]) * (p2[1] - p1[1]);
+  }
+
+  function isPointInsidePolygon(point: number[]): boolean {
+    let inside = false;
+    for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+      const xi = outline[i][0], yi = outline[i][1];
+      const xj = outline[j][0], yj = outline[j][1];
+
+      const intersect = ((yi > point[1]) !== (yj > point[1])) &&
+        (point[0] < (xj - xi) * (point[1] - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  let doubledArea = 0;
+  for (let i = 0; i < outline.length; i++) {
+    const [x1, y1] = outline[i];
+    const [x2, y2] = outline[(i + 1) % outline.length];
+    doubledArea += x1 * y2 - x2 * y1;
+  }
+
+  const marks = probes.map(probe => {
+    for (let i = 0; i < outline.length; i++) {
+      if (isPointOnLine(outline[i], outline[(i + 1) % outline.length], probe)) {
+        return "edge";
+      }
+    }
+    return isPointInsidePolygon(probe) ? "inside" : "outside";
+  });
+
+  return { doubled: Math.abs(doubledArea), marks };
+}
+```

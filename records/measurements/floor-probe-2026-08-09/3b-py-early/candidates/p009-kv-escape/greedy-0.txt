@@ -1,0 +1,14 @@
+```python
+"""One line of key=value pairs, joined by &."""
+
+
+def encode_pairs(pairs: list) -> str:
+    if not pairs:
+        return ""
+
+    def escape(s: str) -> str:
+        return s.replace("&", "%26").replace("=", "%3D").replace("%", "%25")
+
+    parts = [f"{escape(key)}={escape(value)}" for key, value in pairs]
+    return "&".join(parts)
+```

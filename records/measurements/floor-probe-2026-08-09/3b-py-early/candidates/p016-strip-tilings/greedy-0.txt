@@ -1,0 +1,22 @@
+```python
+def count_strip_tilings(width: int) -> int:
+    """
+    Count the distinct ways to cover a grid two cells tall and width cells wide,
+    completely and without overlap, using one-by-two dominoes (laid upright or flat)
+    and two-by-two squares. A width of zero has exactly one covering, the empty one,
+    and a width of one has exactly one, a single upright domino. Two coverings are
+    distinct when any cell is served by a differently placed or differently shaped piece.
+    Return the count. Reject with an error a width that is negative or not a whole number.
+    """
+    if not isinstance(width, int) or width < 0:
+        raise ValueError("Width must be a non-negative integer.")
+    
+    # Base cases
+    if width == 0:
+        return 1
+    elif width == 1:
+        return 1
+    
+    # Recursive case
+    return count_strip_tilings(width - 2) + count_strip_tilings(width - 3)
+```

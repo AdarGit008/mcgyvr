@@ -1,0 +1,29 @@
+```ts
+/**
+ * Draws a clue's groups crowded as far to the left as they will go,
+ * ensuring that neighbouring groups are never allowed to touch.
+ */
+export function packClueLine(width: number, clues: number[]): string {
+  if (typeof width !== 'number' || width <= 0 || !Number.isInteger(width)) {
+    throw new Error("Width must be a whole number above zero.");
+  }
+  if (!Array.isArray(clues) || clues.some(c => typeof c !== 'number' || c <= 0 || !Number.isInteger(c))) {
+    throw new Error("Clues must be an array of whole numbers above zero.");
+  }
+
+  let line = "";
+  for (const clue of clues) {
+    if (line.length + clue + 1 > width) {
+      break;
+    }
+    if (line.length > 0) {
+      line += ".";
+    }
+    line += "#".repeat(clue);
+  }
+  while (line.length < width) {
+    line += ".";
+  }
+  return line;
+}
+```

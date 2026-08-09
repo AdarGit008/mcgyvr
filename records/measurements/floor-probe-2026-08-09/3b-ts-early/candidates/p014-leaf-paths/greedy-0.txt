@@ -1,0 +1,43 @@
+```ts
+export function leafPaths(rows: [string, string][]): string[] {
+  if (rows.length === 0) return [];
+
+  const idToParent = new Map<string, string>();
+  const parentToChildren = new Map<string, Set<string>>();
+
+  for (const [id, parentId] of rows) {
+    if (!parentId && rows.filter(([_, p]) => p === id).length > 1) {
+      throw new Error("Duplicate id");
+    }
+    if (!parentId && id !== "") {
+      throw new Error("Root must have an empty string as parent");
+    }
+    if (parentId && !idToParent.has(parentId)) {
+      throw new Error("Invalid parent id");
+    }
+
+    idToParent.set(id, parentId);
+    if (!parentToChildren.has(parentId)) {
+      parentToChildren.set(parentId, new Set());
+    }
+    parentToChildren.get(parentId)!.add(id);
+  }
+
+  const root = rows.find(([_, p]) => p === "")![0];
+  const paths: string[] = [];
+
+  function dfs(node: string, path: string[]): void {
+    if (parentToChildren.has(node)) {
+      for (const child of parentToChildren.get(node)!) {
+        dfs(child, [...path, node]);
+      }
+    } else {
+      paths.push(path.join("/"));
+    }
+  }
+
+  dfs(root, []);
+
+  return paths.sort();
+}
+```

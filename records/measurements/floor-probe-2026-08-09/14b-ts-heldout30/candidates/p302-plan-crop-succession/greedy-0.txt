@@ -1,0 +1,78 @@
+```ts
+export function planCropSuccession(lastSown: string[], follows: string[][], order: string[], seasons: number): string[][] {
+  if (!Array.isArray(lastSown) || lastSown.length === 0) {
+    throw new Error("Invalid plot list");
+  }
+  if (!lastSown.every(plot => typeof plot === "string" && plot.trim() !== "")) {
+    throw new Error("Plot names must be non-empty strings");
+  }
+
+  if (!Array.isArray(follows) || follows.length === 0) {
+    throw new Error("Invalid follows table");
+  }
+  const followSet = new Set<string>();
+  for (const [before, after] of follows) {
+    if (!Array.isArray(before) || before.length !== 2 || typeof before[0] !== "string" || typeof before[1] !== "string") {
+      throw new Error("Invalid follows row");
+    }
+    if (!Array.isArray(after) || after.length !== 2 || typeof after[0] !== "string" || typeof after[1] !== "string") {
+      throw new Error("Invalid follows row");
+    }
+    const beforeKey = `${before[0]}-${before[1]}`;
+    const afterKey = `${after[0]}-${after[1]}`;
+    if (followSet.has(beforeKey) || followSet.has(afterKey)) {
+      throw new Error("Duplicate pair in follows table");
+    }
+    followSet.add(beforeKey);
+    followSet.add(afterKey);
+  }
+
+  if (!Array.isArray(order) || order.length === 0) {
+    throw new Error("Invalid ranking list");
+  }
+  const rankSet = new Set<string>();
+  for (const crop of order) {
+    if (typeof crop !== "string" || crop.trim() === "") {
+      throw new Error("Ranking names must be non-empty strings");
+    }
+    if (rankSet.has(crop)) {
+      throw new Error("Duplicate name in ranking");
+    }
+    rankSet.add(crop);
+  }
+
+  const cropToIndex: { [key: string]: number } = {};
+  order.forEach((crop, index) => {
+    cropToIndex[crop] = index;
+  });
+
+  const plotCount = lastSown.length;
+  const halfPlotCount = Math.ceil(plotCount / 2);
+
+  const plan: string[][] = Array.from({ length: seasons }, () => Array(plotCount).fill(""));
+
+  for (let season = 0; season < seasons; season++) {
+    for (let plot = 0; plot < plotCount; plot++) {
+      const previousCrop = lastSown[plot];
+      const currentSeasonPlan = plan[season];
+
+      const validCrops = order.filter(crop => {
+        return (
+          follows.some(([before, after]) => before === previousCrop && after === crop) &&
+          !currentSeasonPlan.includes(crop) &&
+          (cropToIndex[crop] !== undefined || cropToIndex[lastSown[plot]] !== undefined)
+        );
+      });
+
+      if (validCrops.length === 0) {
+        return [];
+      }
+
+      const bestCrop = validCrops.reduce((a, b) => cropToIndex[a] < cropToIndex[b] ? a : b);
+      currentSeasonPlan[plot] = bestCrop;
+    }
+  }
+
+  return plan;
+}
+```

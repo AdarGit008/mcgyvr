@@ -1,0 +1,57 @@
+```ts
+export function planShunting(arrival: string[], target: string[], depth: number): { moves: string[]; blocked: string } {
+  if (!Array.isArray(arrival) || !Array.isArray(target)) {
+    throw new Error("Both arrival and target must be arrays.");
+  }
+  if (arrival.length === 0) {
+    throw new Error("Arrival road cannot be empty.");
+  }
+  if (!Number.isInteger(depth) || depth < 1) {
+    throw new Error("Depth must be a whole number of one or more.");
+  }
+
+  const moves: string[] = [];
+  const arrivalSet = new Set(arrival);
+  const targetSet = new Set(target);
+
+  if (arrival.length !== arrivalSet.size || target.length !== targetSet.size) {
+    throw new Error("Arrival and target must not contain duplicate codes.");
+  }
+  if (!arrival.every(code => typeof code === "string" && code.length > 0)) {
+    throw new Error("All codes in arrival must be non-empty strings.");
+  }
+  if (!target.every(code => typeof code === "string" && code.length > 0)) {
+    throw new Error("All codes in target must be non-empty strings.");
+  }
+
+  const uniqueCodes = [...new Set([...arrival, ...target])];
+  for (const code of uniqueCodes) {
+    if (!arrivalSet.has(code) || !targetSet.has(code)) {
+      throw new Error("Arrival and target must name the same cars.");
+    }
+  }
+
+  const siding: string[] = [];
+  let arrivalIndex = 0;
+  let departureIndex = 0;
+
+  while (arrivalIndex < arrival.length || siding.length > 0) {
+    if (siding.length === depth) {
+      moves.push(`blocked: ${target[departureIndex]}`);
+      return { moves, blocked: "full" };
+    }
+
+    if (arrivalIndex < arrival.length && (siding.length === 0 || arrival[arrivalIndex] !== target[departureIndex])) {
+      siding.push(arrival[arrivalIndex]);
+      moves.push(`hold ${arrival[arrivalIndex]}`);
+      arrivalIndex++;
+    } else if (siding.length > 0 && siding[siding.length - 1] === target[departureIndex]) {
+      moves.push(`place ${siding[siding.length - 1]}`);
+      siding.pop();
+      departureIndex++;
+    }
+  }
+
+  return { moves, blocked: "" };
+}
+```

@@ -1,0 +1,61 @@
+```ts
+export function bandPicksByShare(
+  lines: { code: string; picks: number }[],
+  cuts: number[],
+  rows: { code: string; capacity: number }[]
+): { code: string; band: string; row: string; slot: number }[] {
+  if (!Array.isArray(lines) || lines.length === 0) {
+    throw new Error("Invalid line list");
+  }
+  if (cuts.length !== 2 || !Number.isInteger(cuts[0]) || !Number.isInteger(cuts[1]) || cuts[0] < 1 || cuts[1] > 99 || cuts[0] >= cuts[1]) {
+    throw new Error("Invalid cuts");
+  }
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("Invalid row list");
+  }
+
+  const sortedLines = lines
+    .sort((a, b) => b.picks - a.picks || a.code.localeCompare(b.code))
+    .map((line, index) => ({ ...line, cumulativePicks: lines.slice(0, index + 1).reduce((sum, l) => sum + l.picks, 0) }));
+
+  const totalPicks = sortedLines.reduce((sum, line) => sum + line.picks, 0);
+  const firstCut = (cuts[0] * totalPicks) / 100;
+  const secondCut = (cuts[1] * totalPicks) / 100;
+
+  const bands: { [key: string]: { code: string; band: string; row: string; slot: number }[] } = {
+    A: [],
+    B: [],
+    C: []
+  };
+
+  let currentRowCode = rows[0].code;
+  let currentSlot = 1;
+
+  for (const line of sortedLines) {
+    if (line.cumulativePicks <= firstCut) {
+      bands.A.push({ ...line, band: "A", row: currentRowCode, slot: currentSlot });
+      currentSlot++;
+      if (currentSlot > rows.find(row => row.code === currentRowCode)!.capacity) {
+        currentRowCode = rows.find(row => row.code !== currentRowCode)?.code || rows[0].code;
+        currentSlot = 1;
+      }
+    } else if (line.cumulativePicks <= secondCut) {
+      bands.B.push({ ...line, band: "B", row: currentRowCode, slot: currentSlot });
+      currentSlot++;
+      if (currentSlot > rows.find(row => row.code === currentRowCode)!.capacity) {
+        currentRowCode = rows.find(row => row.code !== currentRowCode)?.code || rows[0].code;
+        currentSlot = 1;
+      }
+    } else {
+      bands.C.push({ ...line, band: "C", row: currentRowCode, slot: currentSlot });
+      currentSlot++;
+      if (currentSlot > rows.find(row => row.code === currentRowCode)!.capacity) {
+        currentRowCode = rows.find(row => row.code !== currentRowCode)?.code || rows[0].code;
+        currentSlot = 1;
+      }
+    }
+  }
+
+  return [...bands.A, ...bands.B, ...bands.C];
+}
+```

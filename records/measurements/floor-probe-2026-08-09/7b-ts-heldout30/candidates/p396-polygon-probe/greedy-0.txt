@@ -1,0 +1,66 @@
+```ts
+export function polygonProbe(outline: number[][], probes: number[][]): { doubled: number; marks: string[] } {
+  if (!Array.isArray(outline) || !Array.isArray(probes)) {
+    throw new Error("Both arguments must be arrays.");
+  }
+  if (outline.length < 3) {
+    throw new Error("Outline must have at least three corners.");
+  }
+  for (let i = 0; i < outline.length; i++) {
+    const corner = outline[i];
+    if (!Array.isArray(corner) || corner.length !== 2 || !Number.isInteger(corner[0]) || !Number.isInteger(corner[1])) {
+      throw new Error("Each corner must be a pair of whole numbers.");
+    }
+    if (i > 0 && (corner[0] === outline[i - 1][0] && corner[1] === outline[i - 1][1])) {
+      throw new Error("Neighbouring corners cannot repeat.");
+    }
+  }
+  if (outline[outline.length - 1][0] === outline[0][0] && outline[outline.length - 1][1] === outline[0][1]) {
+    throw new Error("Tail corner must not equal the opening one.");
+  }
+
+  const doubled = calculateDoubledArea(outline);
+  const marks = probes.map(probe => isInsideOrOnEdge(outline, probe) ? "inside" : "outside");
+
+  return { doubled, marks };
+}
+
+function calculateDoubledArea(outline: number[][]): number {
+  let area = 0;
+  for (let i = 0; i < outline.length; i++) {
+    const [x1, y1] = outline[i];
+    const [x2, y2] = outline[(i + 1) % outline.length];
+    area += x1 * y2 - y1 * x2;
+  }
+  return Math.abs(area);
+}
+
+function isInsideOrOnEdge(outline: number[][], probe: number[]): string {
+  let inside = false;
+  for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+    const [xi, yi] = outline[i];
+    const [xj, yj] = outline[j];
+    const intersect = ((yi > probe[1]) !== (yj > probe[1])) && (probe[0] < (xj - xi) * (probe[1] - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside ? "inside" : isOnEdge(outline, probe) ? "edge" : "outside";
+}
+
+function isOnEdge(outline: number[][], probe: number[]): boolean {
+  for (let i = 0; i < outline.length; i++) {
+    const [x1, y1] = outline[i];
+    const [x2, y2] = outline[(i + 1) % outline.length];
+    if ((probe[0] === x1 && probe[1] === y1) || (probe[0] === x2 && probe[1] === y2)) {
+      return true;
+    }
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dpx = probe[0] - x1;
+    const dpy = probe[1] - y1;
+    if (dx * dpy === dy * dpx) {
+      return true;
+    }
+  }
+  return false;
+}
+```
