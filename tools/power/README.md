@@ -55,11 +55,11 @@ from mde import Contrast, detectable_delta, required_n
 
 # What did a run we already have actually establish?
 k = Contrast("jsts c0->c2", n=20, gained=3, lost=2)
-k.psi, k.delta, k.p_value      # 0.25, 0.05, 1.0
-k.can_ever_reject              # False — unresolvable before dispatch
+k.psi, k.delta, k.p_value  # 0.25, 0.05, 1.0
+k.can_ever_reject  # False — unresolvable before dispatch
 
-detectable_delta(400, 0.20)    # 0.065 -> +26 tasks, +6pp
-required_n(0.03, 0.20)         # 1800 paired tasks for a 3pp bar
+detectable_delta(400, 0.20)  # 0.065 -> +26 tasks, +6pp
+required_n(0.03, 0.20)  # 1800 paired tasks for a 3pp bar
 ```
 
 `can_ever_reject` returning `False` is a finding, not an error: it says the
