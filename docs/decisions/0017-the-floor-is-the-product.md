@@ -110,6 +110,7 @@ every harness each time it moves.
   Until one exists, "did this raise the floor?" is unanswerable, and #221's
   question of whether to train small models at all cannot be settled on
   evidence. This is the single largest gap the ADR opens.
+  **— Amended 2026-08-09, see below. This bullet is wrong as written.**
 - **What a floor instrument needs is *resolution*, not difficulty.** It must sit
   in a band where the target model scores well above 0 and well below 100, so
   that gains and regressions are both visible. Grading the 3B across the
@@ -119,9 +120,10 @@ every harness each time it moves.
   down than expected. Two things that follow: the collapse happens somewhere
   between `d3` and the pool and **nothing occupies that range**, so what takes a
   3B from 16.7% to zero is unidentified; and every rung is `jsts`, so the band
-  is unmapped for Python. Located as #224, which is upstream of both the
-  harness (#113) and the training question (#221). Figures are directional —
-  12 tasks per rung, one draw, one rig.
+  is unmapped for Python **(— amended 2026-08-09: false, see below)**. Located
+  as #224, which is upstream of both the harness (#113) and the training
+  question (#221). Figures are directional — 12 tasks per rung, one draw, one
+  rig.
 - **The front door does not close it.** HumanEval+ is where the 3B has headroom,
   which makes it tempting. It is also underpowered at n=164 (paired McNemar MDE
   ~+4.8pp against a +3pp bar) and contamination-prone after fine-tuning in
@@ -139,3 +141,43 @@ every harness each time it moves.
   harness, and P1 will sometimes mean declining a cheap, well-powered ceiling
   measurement in favour of an expensive, awkward floor one. That trade is the
   decision, not a side effect of it.
+
+## Amendment — 2026-08-09, the #220 audit
+
+The audit this ADR ordered (`docs/floor-audit-2026-08-09.md`) found that one of
+its consequences is false, and it is corrected here rather than reinterpreted.
+
+**"Nothing in the repo can currently measure a small model getting better at work
+mcgyvr would actually hand it" is wrong.** Two task sets do:
+
+| set | n | qwen2.5-coder:3b, first-pass by condition | source |
+|---|---:|---|---|
+| `tools/bundle/tasks/` (JS/TS) | 20 | 45% / 55% / 50% / 45% (c0–c3) | CLM-0012 |
+| `tools/bundle/python/tasks/` | 20 | 35% / 50% / 55% / 65% (c0–c3) | CLM-0017 |
+
+Both are real contracts — `task_type`, `target`, `interface`, `stop_conditions`,
+a runnable `acceptance` command, `risk`, `scope` — against a checked-in
+reference, held out by construction (`tools/problems/admit.py:104` keeps the pool
+distinct from both roots), and measured on the floor model itself. Both sit where
+a floor instrument must sit: well above 0, well below 100.
+
+`tools/breadth/measure.py:202` is explicit that the `d1` rung **is** the JS/TS set
+byte for byte, so the 50.0% quoted above as a breadth figure is this instrument
+already, under another name.
+
+**What is actually missing is power and coverage, not the instrument.** n=20 per
+set against a declared ±1-task noise floor; 13 of 20 condition-insensitive on the
+JS/TS arm; one greedy seed per cell; and CLM-0004's never-passing subset (t02,
+t03, t06, t17, t18, t19) reproduces across both stacks, so part of the set sits at
+its own ceiling. That is a real limit and it is why #225 exists. It is not the
+same claim as "no floor instrument at all", and the difference changes what #224
+and #225 are sized against.
+
+**Two knock-on corrections.** The consequence bullet above asserting that "every
+rung is `jsts`, so the band is unmapped for Python" is false for the same reason —
+the Python arm above is 20 tasks on the 3B in the band. And #225's instruction to
+check what exists before generating should start inside this repository, not at
+MBPP+.
+
+Nothing in P1–P3 changes. The decision stands; one of its factual premises did
+not survive being checked.
