@@ -1,0 +1,30 @@
+```ts
+export function collateFeeds(feeds: number[][][]): number[][] {
+  const timeline: { [tick: number]: number } = {};
+
+  for (const feed of feeds) {
+    let lastTick: number | null = null;
+    for (const [tick, reading] of feed) {
+      if (lastTick !== null && tick <= lastTick) {
+        throw new Error("Feed contains non-increasing ticks");
+      }
+      if (!(tick in timeline)) {
+        timeline[tick] = reading;
+      }
+      lastTick = tick;
+    }
+  }
+
+  const result: number[][] = [];
+  let previousReading: number | null = null;
+
+  for (const [tick, reading] of Object.entries(timeline).map(([t, r]) => [Number(t), r]).sort((a, b) => a[0] - b[0])) {
+    if (previousReading === null || reading !== previousReading) {
+      result.push([tick, reading]);
+    }
+    previousReading = reading;
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,35 @@
+```ts
+export function wrapCost(words: string[], width: number): number {
+  if (words.length === 0) {
+    throw new Error("Word list cannot be empty");
+  }
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error("Width must be a positive whole number");
+  }
+
+  for (const word of words) {
+    if (word.length === 0) {
+      throw new Error("Words cannot be empty");
+    }
+    if (word.length > width) {
+      throw new Error("A word is longer than the width");
+    }
+  }
+
+  const n = words.length;
+  const dp: number[] = new Array(n + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= n; i++) {
+    let lineLength = -1;
+    for (let j = i; j >= 1; j--) {
+      lineLength += words[j - 1].length + 1;
+      if (lineLength > width) break;
+      const cost = Math.pow(width - lineLength, 2);
+      dp[i] = Math.min(dp[i], dp[j - 1] + cost);
+    }
+  }
+
+  return dp[n];
+}
+```

@@ -1,0 +1,79 @@
+```ts
+export function buildSetMeal(courses: { code: string; price: number }[][], quarrels: [string, string][]): { total: number; picks: string[] } {
+  if (courses.length < 1 || courses.length > 6) {
+    throw new Error("Invalid number of courses");
+  }
+
+  for (const course of courses) {
+    if (course.length < 1 || course.length > 6) {
+      throw new Error("Invalid number of options in a course");
+    }
+  }
+
+  const codes = new Set<string>();
+  for (const course of courses) {
+    for (const option of course) {
+      if (option.code === "" || option.price < 1) {
+        throw new Error("Invalid option code or price");
+      }
+      if (codes.has(option.code)) {
+        throw new Error("Duplicate option code");
+      }
+      codes.add(option.code);
+    }
+  }
+
+  for (const [code1, code2] of quarrels) {
+    if (code1 === "" || code2 === "" || !codes.has(code1) || !codes.has(code2) || code1 === code2) {
+      throw new Error("Invalid quarrel");
+    }
+  }
+
+  const n = courses.length;
+  let minTotal = Infinity;
+  let bestPicks: string[] | null = null;
+
+  function backtrack(courseIndex: number, currentPicks: string[], currentTotal: number): void {
+    if (courseIndex === n) {
+      if (currentTotal < minTotal || (currentTotal === minTotal && comparePicks(currentPicks, bestPicks!) < 0)) {
+        minTotal = currentTotal;
+        bestPicks = [...currentPicks];
+      }
+      return;
+    }
+
+    const options = courses[courseIndex];
+    for (const option of options) {
+      let isValid = true;
+      for (let i = 0; i < courseIndex; i++) {
+        if (quarrels.some(([code1, code2]) => (code1 === option.code && code2 === currentPicks[i]) || (code1 === currentPicks[i] && code2 === option.code))) {
+          isValid = false;
+          break;
+        }
+      }
+      if (isValid) {
+        currentPicks.push(option.code);
+        backtrack(courseIndex + 1, currentPicks, currentTotal + option.price);
+        currentPicks.pop();
+      }
+    }
+  }
+
+  function comparePicks(picks1: string[], picks2: string[]): number {
+    for (let i = 0; i < n; i++) {
+      if (picks1[i] !== picks2[i]) {
+        return picks1[i].localeCompare(picks2[i]);
+      }
+    }
+    return 0;
+  }
+
+  backtrack(0, [], 0);
+
+  if (!bestPicks) {
+    throw new Error("No valid tray found");
+  }
+
+  return { total: minTotal, picks: bestPicks };
+}
+```

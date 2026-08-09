@@ -1,0 +1,150 @@
+```ts
+export function nameKinTie(links: Array<Record<string, unknown>>, one: string, other: string): string {
+  // Validate input
+  if (!Array.isArray(links)) {
+    throw new Error("links must be an array");
+  }
+
+  const parentMap: Record<string, string[]> = {};
+  const childMap: Record<string, Set<string>> = {};
+
+  links.forEach(link => {
+    if (typeof link !== 'object' || typeof link.child !== 'string' || typeof link.parent !== 'string') {
+      throw new Error("Each link must be an object with non-empty string properties 'child' and 'parent'");
+    }
+
+    const { child, parent } = link;
+
+    if (child === parent) {
+      throw new Error("Nobody may stand as their own parent");
+    }
+
+    if (!parentMap[parent]) {
+      parentMap[parent] = [];
+    }
+    if (!childMap[child]) {
+      childMap[child] = new Set();
+    }
+
+    if (parentMap[parent].includes(child)) {
+      throw new Error("A link may not be listed twice");
+    }
+    if (parentMap[parent].length >= 2) {
+      throw new Error("Nobody may be given more than two parents");
+    }
+
+    parentMap[parent].push(child);
+    childMap[child].add(parent);
+  });
+
+  // Check for loops
+  const visited = new Set<string>();
+
+  function hasLoop(node: string, path: Set<string>): boolean {
+    if (path.has(node)) {
+      return true;
+    }
+    if (visited.has(node)) {
+      return false;
+    }
+
+    visited.add(node);
+    path.add(node);
+
+    for (const parent of (parentMap[node] || [])) {
+      if (hasLoop(parent, path)) {
+        return true;
+      }
+    }
+
+    path.delete(node);
+    return false;
+  }
+
+  Object.keys(parentMap).forEach(node => {
+    if (hasLoop(node, new Set())) {
+      throw new Error("The links must not close a loop");
+    }
+  });
+
+  // Check if both people are in the links
+  if (!Object.keys(parentMap).includes(one) || !Object.keys(parentMap).includes(other)) {
+    throw new Error("Either person is named nowhere in the links");
+  }
+
+  // BFS to find the shortest path from one to common ancestors
+  function bfsToAncestors(start: string): Record<string, number> {
+    const distances: Record<string, number> = {};
+    const queue: [string, number][] = [[start, 0]];
+    const visited = new Set<string>();
+
+    while (queue.length > 0) {
+      const [node, distance] = queue.shift()!;
+      if (!visited.has(node)) {
+        visited.add(node);
+        distances[node] = distance;
+        for (const parent of (parentMap[node] || [])) {
+          queue.push([parent, distance + 1]);
+        }
+      }
+    }
+
+    return distances;
+  }
+
+  const oneAncestors = bfsToAncestors(one);
+  const otherAncestors = bfsToAncestors(other);
+
+  // Find common ancestors
+  let minU = Infinity;
+  let minV = Infinity;
+  let bestAncestor: string | null = null;
+
+  for (const ancestor of Object.keys(oneAncestors)) {
+    if (otherAncestors[ancestor] !== undefined) {
+      const u = oneAncestors[ancestor];
+      const v = otherAncestors[ancestor];
+
+      if ((u < minU || (u === minU && v < minV)) && u <= 10 && v <= 10) {
+        minU = u;
+        minV = v;
+        bestAncestor = ancestor;
+      }
+    }
+  }
+
+  if (!bestAncestor) {
+    return "unrelated";
+  }
+
+  // Determine the relationship
+  const degree = Math.min(minU, minV);
+  const removal = Math.abs(minU - minV);
+
+  if (minU === 0 && minV === 0) {
+    return "self";
+  } else if (minU === 0) {
+    if (minV === 1) {
+      return "child";
+    } else {
+      return `grand${"great-".repeat(minV - 2)}child`;
+    }
+  } else if (minV === 0) {
+    if (minU === 1) {
+      return "parent";
+    } else {
+      return `grand${"great-".repeat(minU - 2)}parent`;
+    }
+  } else if (minU === 1 && minV === 1) {
+    return "sibling";
+  } else if (minU > 1 && minV === 1) {
+    return `${"great-".repeat(minU - 2)}aunt-or-uncle`;
+  } else if (minU === 1 && minV > 1) {
+    return `${"great-".repeat(minV - 2)}niece-or-nephew`;
+  } else {
+    const cousinDegree = degree - 1;
+    const removalWord = removal === 0 ? "" : ` ${removal} times removed`;
+    return `${["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"][cousinDegree]} cousin${removalWord}`;
+  }
+}
+```

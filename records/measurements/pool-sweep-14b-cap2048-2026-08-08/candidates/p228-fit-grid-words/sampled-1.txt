@@ -1,0 +1,102 @@
+```ts
+/**
+ * Fits words into grid slots according to given rules.
+ * @param slots - A non-empty list of slot objects with "id", "row", "col", "run", and "len".
+ * @param words - A list of candidate words, each a non-empty string of lowercase letters.
+ * @returns An object with "placed" and "stuck" properties.
+ */
+export function fitGridWords(slots: Array<Record<string, unknown>>, words: string[]): Record<string, unknown> {
+    if (!Array.isArray(slots) || slots.length === 0) {
+        throw new Error("Slots must be a non-empty list.");
+    }
+    if (!Array.isArray(words)) {
+        throw new Error("Words must be a list.");
+    }
+
+    const slotMap = new Map<string, { row: number, col: number, run: string, len: number }>();
+    for (const slot of slots) {
+        if (typeof slot !== 'object' || slot === null) {
+            throw new Error("Each slot must be a mapping.");
+        }
+        const id = slot.id;
+        const row = slot.row;
+        const col = slot.col;
+        const run = slot.run;
+        const len = slot.len;
+
+        if (typeof id !== 'string' || id.trim() === '') {
+            throw new Error("Each slot must have a non-empty string id.");
+        }
+        if (slotMap.has(id)) {
+            throw new Error("Slot ids must be unique.");
+        }
+        if (typeof row !== 'number' || row < 0 || !Number.isInteger(row)) {
+            throw new Error("Row must be a whole number of nought or more.");
+        }
+        if (typeof col !== 'number' || col < 0 || !Number.isInteger(col)) {
+            throw new Error("Column must be a whole number of nought or more.");
+        }
+        if (run !== 'across' && run !== 'down') {
+            throw new Error('Run must be either "across" or "down".');
+        }
+        if (typeof len !== 'number' || len < 2 || !Number.isInteger(len)) {
+            throw new Error("Length must be a whole number of two or more.");
+        }
+
+        slotMap.set(id, { row, col, run, len });
+    }
+
+    const grid: string[][] = [];
+    const placedWords: { slot: string, word: string }[] = [];
+
+    for (const slot of slots) {
+        const { id, row, col, run, len } = slotMap.get(slot.id)!;
+        let foundWord = false;
+
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i];
+            if (typeof word !== 'string' || !/^[a-z]+$/.test(word) || word.length !== len) {
+                throw new Error("Each word must be a non-empty string of lowercase letters.");
+            }
+
+            let conflict = false;
+            for (let j = 0; j < len; j++) {
+                const gridRow = row + (run === 'down' ? j : 0);
+                const gridCol = col + (run === 'across' ? j : 0);
+
+                if (!grid[gridRow]) {
+                    grid[gridRow] = [];
+                }
+
+                if (grid[gridRow][gridCol] && grid[gridRow][gridCol] !== word[j]) {
+                    conflict = true;
+                    break;
+                }
+            }
+
+            if (!conflict) {
+                for (let j = 0; j < len; j++) {
+                    const gridRow = row + (run === 'down' ? j : 0);
+                    const gridCol = col + (run === 'across' ? j : 0);
+
+                    if (!grid[gridRow][gridCol]) {
+                        grid[gridRow][gridCol] = '';
+                    }
+                    grid[gridRow][gridCol] = word[j];
+                }
+
+                placedWords.push({ slot: id, word });
+                words.splice(i, 1);
+                foundWord = true;
+                break;
+            }
+        }
+
+        if (!foundWord) {
+            return { placed: placedWords, stuck: id };
+        }
+    }
+
+    return { placed: placedWords, stuck: '' };
+}
+```

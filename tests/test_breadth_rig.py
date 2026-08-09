@@ -352,3 +352,79 @@ def test_thinning_keeps_the_authors_order() -> None:
     one = selectivity.thin(source, 1)
     assert "first pair" in one
     assert "__proto__ must be stored" not in one
+
+
+def test_the_cap_the_run_records_is_the_cap_the_worker_was_sent(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    """#216: the cap is a parameter now, and the two halves must not drift.
+
+    Before #212 the cap was a module constant read independently by the
+    dispatch path and by ``record_run``. Nothing held them together, so a
+    change to one would have produced a manifest that misreported the
+    experiment it sat beside — and #212 spent a lane on refusal rates that
+    turned out to describe the instrument. A record that lies about its own
+    cap is the same failure one level down.
+    """
+    runner = _CountingRunner()
+    task = breadth.bundle.load_tasks(["t01"])[0]
+    monkeypatch.setattr(
+        breadth,
+        "parse_reply",
+        lambda text, **kwargs: ParsedFile(content="export const x = 1;\n"),
+    )
+    monkeypatch.setattr(
+        breadth.bundle,
+        "run_acceptance",
+        lambda task, content, workdir: breadth.bundle.Acceptance(True, ""),
+    )
+    breadth.measure_task(
+        task,
+        runner,
+        "test-model",
+        tmp_path / "work",
+        tmp_path / "cand",
+        set(),
+        plan=breadth.draw_plan(1),
+        max_output_tokens=2048,
+    )
+    assert runner.requests, "the fixture must dispatch at least one draw"
+    assert all(request.max_output_tokens == 2048 for request in runner.requests)
+
+    breadth.record_run(
+        tmp_path,
+        _worker(),
+        {"started": "2026-08-08T00:00:00+00:00", "tasks": ["t01"]},
+        tier="d1",
+        draws=1,
+        max_output_tokens=2048,
+    )
+    recorded = json.loads((tmp_path / "run.json").read_text())
+    assert recorded["max_output_tokens"] == 2048
+    assert recorded["max_output_tokens"] == runner.requests[0].max_output_tokens
+
+
+def test_rows_drawn_under_another_cap_refuse_to_join_the_run(tmp_path: Path) -> None:
+    """A cap change is a new experiment, exactly as a temperature change is.
+
+    Truncation is the outcome the cap decides, so averaging draws taken at 768
+    with draws taken at 2048 would mix two different refusal rates into one
+    number and the manifest would name only the last.
+    """
+    invocation = {"started": "2026-08-08T00:00:00+00:00", "tasks": ["t01"]}
+    breadth.record_run(
+        tmp_path, _worker(), dict(invocation), tier="d1", draws=2, max_output_tokens=768
+    )
+    try:
+        breadth.record_run(
+            tmp_path,
+            _worker(),
+            dict(invocation),
+            tier="d1",
+            draws=2,
+            max_output_tokens=2048,
+        )
+    except breadth.bundle.MeasureError as exc:
+        assert "max_output_tokens" in str(exc)
+    else:  # pragma: no cover - the guard is the point of the test
+        raise AssertionError("a cap change was allowed to resume")

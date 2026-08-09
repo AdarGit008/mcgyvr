@@ -1,0 +1,43 @@
+```ts
+export function judgeLancer(board: string[], side: string, from: number[], to: number[]): string {
+  if (board.length !== 7 || !board.every(row => row.length === 7 && /^[WB.]{7}$/.test(row))) {
+    throw new Error("Invalid board");
+  }
+  if (side !== "W" && side !== "B") {
+    throw new Error("Invalid side");
+  }
+  if (!Array.isArray(from) || !Array.isArray(to) || from.length !== 2 || to.length !== 2) {
+    throw new Error("Invalid move coordinates");
+  }
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+  if (fromRow < 0 || fromRow >= 7 || fromCol < 0 || fromCol >= 7 || toRow < 0 || toRow >= 7 || toCol < 0 || toCol >= 7) {
+    return "off_board";
+  }
+  if (board[fromRow][fromCol] !== side) {
+    return "no_piece";
+  }
+  const rowDiff = Math.abs(toRow - fromRow);
+  const colDiff = Math.abs(toCol - fromCol);
+  if ((rowDiff === 0 || colDiff === 0) && (rowDiff + colDiff >= 1 && rowDiff + colDiff <= 3)) {
+    const [dRow, dCol] = [Math.sign(toRow - fromRow), Math.sign(toCol - fromCol)];
+    for (let i = 1; i < rowDiff + colDiff; i++) {
+      if (board[fromRow + i * dRow][fromCol + i * dCol] !== ".") {
+        return "blocked";
+      }
+    }
+    if (board[toRow][toCol] === side) {
+      return "own_piece";
+    }
+    if (board[toRow][toCol] === (side === "W" ? "B" : "W")) {
+      const [adjRow, adjCol] = [fromRow + dRow, fromCol + dCol];
+      if (board[adjRow][adjCol] === (side === "W" ? "B" : "W")) {
+        return "too_close";
+      }
+    }
+  } else {
+    return "bad_line";
+  }
+  return "ok";
+}
+```

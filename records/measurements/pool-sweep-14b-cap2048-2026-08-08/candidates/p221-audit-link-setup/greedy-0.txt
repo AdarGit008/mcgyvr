@@ -1,0 +1,67 @@
+```ts
+/**
+ * The first record of a link setup that departs from the drill.
+ */
+export function auditLinkSetup(exchange: Record<string, unknown>[]): string {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid input: exchange must be a non-empty array.");
+  }
+
+  const script = [
+    ["caller", "PROBE"],
+    ["listener", "READY"],
+    ["caller", "KEY"],
+    ["listener", "SEAL"],
+  ];
+
+  let at = 0;
+  let expectedSeq = 1;
+
+  for (const record of exchange) {
+    if (typeof record !== "object" || record === null) {
+      throw new Error("Invalid input: each record must be a non-null object.");
+    }
+
+    const side = record.side as string;
+    const verb = record.verb as string;
+    const seq = Number(record.seq);
+
+    if (isNaN(seq)) {
+      throw new Error("Invalid input: 'seq' must be a whole number.");
+    }
+
+    if (at < script.length) {
+      if (side !== script[at][0] || verb !== script[at][1]) {
+        return verb + "@" + (at + 1);
+      }
+      at += 1;
+      expectedSeq = seq + 1;
+      continue;
+    }
+
+    if (side === "caller" && (verb === "PING" || verb === "CLOSE")) {
+      if (seq !== expectedSeq) {
+        return verb + "@" + (at + 1);
+      }
+      expectedSeq = seq + 1;
+      continue;
+    }
+
+    if (side === "listener" && (verb === "PONG" || verb === "CLOSE")) {
+      if (seq !== expectedSeq) {
+        return verb + "@" + (at + 1);
+      }
+      expectedSeq = seq + 1;
+      continue;
+    }
+
+    return verb + "@" + (at + 1);
+  }
+
+  if (exchange[exchange.length - 1].side === "caller" && exchange[exchange.length - 1].verb !== "CLOSE") {
+    return "short";
+  }
+
+  return "";
+}
+```

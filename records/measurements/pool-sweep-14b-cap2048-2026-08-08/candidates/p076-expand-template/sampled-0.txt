@@ -1,0 +1,72 @@
+```ts
+export function expandTemplate(template: string, context: Record<string, unknown>, missing: string): string {
+    if (missing !== 'error' && missing !== 'keep' && missing !== 'blank') {
+        throw new Error('Invalid missing-path policy');
+    }
+
+    let result = '';
+    let i = 0;
+    const length = template.length;
+
+    while (i < length) {
+        if (template[i] === '$' && i + 1 < length) {
+            if (template[i + 1] === '$') {
+                // Literal dollar sign
+                result += '$';
+                i += 2;
+            } else if (template[i + 1] === '{') {
+                // Placeholder
+                let j = i + 2;
+                while (j < length && template[j] !== '}') {
+                    j++;
+                }
+                if (j >= length) {
+                    throw new Error('Unclosed placeholder');
+                }
+
+                const path = template.substring(i + 2, j);
+                if (path === '') {
+                    throw new Error('Empty path in placeholder');
+                }
+
+                let value: unknown = context;
+                for (const segment of path.split('.')) {
+                    if (segment === '') {
+                        throw new Error('Empty segment in path');
+                    }
+                    if (typeof value !== 'object' || value === null) {
+                        break;
+                    }
+                    value = (value as Record<string, unknown>)[segment];
+                }
+
+                if (value === undefined) {
+                    switch (missing) {
+                        case 'error':
+                            throw new Error(`Missing path: ${path}`);
+                        case 'keep':
+                            result += template.substring(i, j + 1);
+                            break;
+                        case 'blank':
+                            // Do nothing
+                            break;
+                    }
+                } else if (typeof value === 'string' || typeof value === 'number') {
+                    result += value.toString();
+                } else {
+                    throw new Error(`Invalid type at path: ${path}`);
+                }
+
+                i = j + 1;
+            } else {
+                throw new Error('Unexpected character after $');
+            }
+        } else {
+            result += template[i];
+            i++;
+        }
+    }
+
+    return result;
+}
+```

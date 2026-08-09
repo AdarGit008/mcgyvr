@@ -1,0 +1,63 @@
+```ts
+const CODES = new Set(["done", "soft", "hard"]);
+
+export function chargeStages(stages: any[], forgive: number): any[] {
+  if (!Number.isInteger(forgive) || forgive < 0) {
+    throw new Error("forgive must be a whole number of zero or more");
+  }
+  if (!Array.isArray(stages)) {
+    throw new Error("the pipeline must be a list of stage records");
+  }
+  const seen = new Set<string>();
+  for (const stage of stages) {
+    if (stage === null || typeof stage !== "object" || Array.isArray(stage)) {
+      throw new Error("each stage must be a record");
+    }
+    if (typeof stage.name !== "string" || stage.name === "") {
+      throw new Error("a stage name must be a non-empty string");
+    }
+    if (seen.has(stage.name)) {
+      throw new Error("repeated stage name: " + stage.name);
+    }
+    seen.add(stage.name);
+    const tries = stage.tries;
+    if (!Array.isArray(tries) || tries.length === 0) {
+      throw new Error(stage.name + " ran no attempts");
+    }
+    for (let i = 0; i < tries.length; i++) {
+      const attempt = tries[i];
+      if (attempt === null || typeof attempt !== "object") {
+        throw new Error("each attempt must be a record");
+      }
+      if (!Number.isInteger(attempt.secs) || attempt.secs < 0) {
+        throw new Error("secs must be a whole number of zero or more");
+      }
+      if (!CODES.has(attempt.code)) {
+        throw new Error("unknown attempt code in " + stage.name);
+      }
+      if (i > 0 && tries[i - 1].code !== "soft") {
+        throw new Error(stage.name + " ran on after it had finished");
+      }
+    }
+  }
+
+  const bills: any[] = [];
+  for (const stage of stages) {
+    let wall = 0;
+    let billed = 0;
+    let softForgave = forgive;
+    for (const attempt of stage.tries) {
+      wall += attempt.secs;
+      if (attempt.code === "done") {
+        billed += attempt.secs;
+      } else if (attempt.code === "soft" && softForgave > 0) {
+        softForgave--;
+      } else if (attempt.code === "soft" || attempt.code === "hard") {
+        billed += attempt.secs;
+      }
+    }
+    bills.push({ name: stage.name, wall, billed, free: wall - billed });
+  }
+  return bills;
+}
+```

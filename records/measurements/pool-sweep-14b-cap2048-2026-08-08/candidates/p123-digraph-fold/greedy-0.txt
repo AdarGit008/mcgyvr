@@ -1,0 +1,28 @@
+```ts
+export function foldDigraphs(text: string, table: Array<[string, string]>): string {
+  if (table.some(([pattern]) => pattern === "")) {
+    throw new Error("empty pattern");
+  }
+
+  let result = '';
+  let position = 0;
+
+  while (position < text.length) {
+    let matchFound = false;
+    for (const [pattern, output] of table) {
+      if (text.startsWith(pattern, position)) {
+        result += output;
+        position += pattern.length;
+        matchFound = true;
+        break;
+      }
+    }
+    if (!matchFound) {
+      result += text[position];
+      position++;
+    }
+  }
+
+  return result;
+}
+```

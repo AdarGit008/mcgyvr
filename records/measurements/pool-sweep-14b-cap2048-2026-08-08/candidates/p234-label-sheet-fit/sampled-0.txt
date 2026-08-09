@@ -1,0 +1,65 @@
+```ts
+/**
+ * Calculates the optimal grid for fitting labels on a sheet.
+ * @param sheet - An object describing the sheet's dimensions and margins.
+ * @param label - An object describing the label's dimensions and orientation options.
+ * @returns An object with the number of labels across, down, total, and whether they are turned.
+ */
+export function fitLabelSheet(sheet: any, label: any): any {
+  // Validate sheet dimensions
+  if (!Number.isPositiveInteger(sheet.width) || !Number.isPositiveInteger(sheet.height)) {
+    throw new Error("Sheet width and height must be positive integers.");
+  }
+
+  // Validate margin and gap values
+  if (
+    !Number.isNonNegativeInteger(sheet.marginX) ||
+    !Number.isNonNegativeInteger(sheet.marginY) ||
+    !Number.isNonNegativeInteger(sheet.gapX) ||
+    !Number.isNonNegativeInteger(sheet.gapY)
+  ) {
+    throw new Error("Margins and gaps must be non-negative integers.");
+  }
+
+  // Validate label dimensions
+  if (!Number.isPositiveInteger(label.width) || !Number.isPositiveInteger(label.height)) {
+    throw new Error("Label width and height must be positive integers.");
+  }
+
+  // Validate turn option
+  if (typeof label.turn !== "boolean") {
+    throw new Error("Label turn must be a boolean.");
+  }
+
+  // Calculate printable field dimensions
+  const printableWidth = sheet.width - 2 * sheet.marginX;
+  const printableHeight = sheet.height - 2 * sheet.marginY;
+
+  // Function to calculate the number of labels that fit in a given orientation
+  function calculateFit(width: number, height: number): { across: number; down: number } {
+    return {
+      across: Math.max(0, Math.floor((printableWidth + sheet.gapX) / (width + sheet.gapX))),
+      down: Math.max(0, Math.floor((printableHeight + sheet.gapY) / (height + sheet.gapY))),
+    };
+  }
+
+  // Calculate fit for upright and turned labels
+  const uprightFit = calculateFit(label.width, label.height);
+  const turnedFit = label.turn ? calculateFit(label.height, label.width) : { across: 0, down: 0 };
+
+  // Determine the best fit
+  const totalUpright = uprightFit.across * uprightFit.down;
+  const totalTurned = turnedFit.across * turnedFit.down;
+
+  if (totalUpright + totalTurned === 0) {
+    throw new Error("Not one label fits on the sheet.");
+  }
+
+  const bestFit =
+    totalUpright >= totalTurned
+      ? { ...uprightFit, total: totalUpright, turned: false }
+      : { ...turnedFit, total: totalTurned, turned: true };
+
+  return bestFit;
+}
+```

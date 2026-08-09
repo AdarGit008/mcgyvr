@@ -1,0 +1,83 @@
+```ts
+export function firstBrokenRule(root: Record<string, unknown>): Record<string, string> {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root is not a valid node');
+  }
+
+  const validateNode = (
+    node: Record<string, unknown>,
+    path: string
+  ): { path: string; rule: string } | null => {
+    if (typeof node !== 'object' || node === null) {
+      throw new Error(`Node at ${path} is not a valid node`);
+    }
+
+    const { key, count, left, right } = node;
+
+    if (
+      typeof key !== 'number' ||
+      !Number.isInteger(key) ||
+      typeof count !== 'number' ||
+      !Number.isInteger(count) ||
+      count <= 0
+    ) {
+      throw new Error(`Node at ${path} has invalid key or count`);
+    }
+
+    const validateSide = (side: unknown, direction: string): number => {
+      if (typeof side === 'undefined') {
+        return 0;
+      } else if (typeof side !== 'object' || side === null) {
+        throw new Error(`Node at ${path}/${direction} is not a valid node`);
+      }
+      const { key: sideKey, count: sideCount } = side as Record<string, unknown>;
+      if (
+        typeof sideKey !== 'number' ||
+        !Number.isInteger(sideKey) ||
+        typeof sideCount !== 'number' ||
+        !Number.isInteger(sideCount) ||
+        sideCount <= 0
+      ) {
+        throw new Error(`Node at ${path}/${direction} has invalid key or count`);
+      }
+      return validateSubtree(side as Record<string, unknown>, `${path}/${direction}`);
+    };
+
+    const leftDepth = validateSide(left, 'L');
+    const rightDepth = validateSide(right, 'R');
+
+    if (Math.abs(leftDepth - rightDepth) > 1) {
+      return { path, rule: 'balance' };
+    }
+
+    if (count !== 1 + leftDepth + rightDepth) {
+      return { path, rule: 'count' };
+    }
+
+    return null;
+  };
+
+  const validateSubtree = (
+    node: Record<string, unknown>,
+    path: string
+  ): number => {
+    const result = validateNode(node, path);
+    if (result !== null) {
+      return result;
+    }
+    const left = node.left as Record<string, unknown>;
+    const right = node.right as Record<string, unknown>;
+    let depth = 1;
+    if (left) {
+      depth = Math.max(depth, validateSubtree(left, `${path}/L`) + 1);
+    }
+    if (right) {
+      depth = Math.max(depth, validateSubtree(right, `${path}/R`) + 1);
+    }
+    return depth;
+  };
+
+  const result = validateNode(root, 'root');
+  return result || { path: '', rule: 'sound' };
+}
+```

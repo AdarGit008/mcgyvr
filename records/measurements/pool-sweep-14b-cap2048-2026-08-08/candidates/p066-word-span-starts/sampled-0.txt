@@ -1,0 +1,49 @@
+```ts
+export function wordSpanStarts(passage: string, query: string): number[] {
+  if (typeof passage !== 'string' || typeof query !== 'string') {
+    throw new Error('Both passage and query must be strings');
+  }
+
+  const wordsInQuery = query.match(/\b\w+\b/g);
+  if (!wordsInQuery || wordsInQuery.length === 0) {
+    throw new Error('Query must contain at least one word');
+  }
+
+  const wordRegex = /\b\w+\b/g;
+  let match: RegExpExecArray | null;
+  const hits: number[] = [];
+
+  while ((match = wordRegex.exec(passage)) !== null) {
+    const wordStart = match.index;
+    const wordEnd = wordStart + match[0].length;
+
+    if (isConsecutiveWordsFromQueryStartingAt(passage, wordsInQuery, wordStart)) {
+      hits.push(wordStart);
+    }
+
+    // Move the regex index to the next character after the current match
+    wordRegex.lastIndex = wordEnd;
+  }
+
+  return hits;
+}
+
+function isConsecutiveWordsFromQueryStartingAt(
+  passage: string,
+  queryWords: string[],
+  startOffset: number
+): boolean {
+  let currentOffset = startOffset;
+
+  for (const word of queryWords) {
+    const match = /\b\w+\b/.exec(passage.slice(currentOffset));
+    if (!match || match[0].toLowerCase() !== word.toLowerCase()) {
+      return false;
+    }
+
+    currentOffset += match[0].length + 1; // Move past the matched word and any separator
+  }
+
+  return true;
+}
+```

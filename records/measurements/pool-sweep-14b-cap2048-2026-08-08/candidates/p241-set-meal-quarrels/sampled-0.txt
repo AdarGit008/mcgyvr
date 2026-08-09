@@ -1,0 +1,88 @@
+```ts
+/**
+ * Builds a set meal that minimizes total price while avoiding quarrels.
+ * @param courses - Array of courses, each with options containing code and price.
+ * @param quarrels - Array of pairs of codes that cannot be on the same tray.
+ * @returns An object with total price and picks (codes in course order).
+ */
+export function buildSetMeal(courses: { code: string, price: number }[][], quarrels: [string, string][]): { total: number, picks: string[] } {
+    if (courses.length === 0) throw new Error("No courses provided");
+    if (courses.length > 6) throw new Error("Too many courses");
+    
+    const allCodes = new Set<string>();
+    for (const course of courses) {
+        if (course.length === 0) throw new Error("A course has no options");
+        if (course.length > 6) throw new Error("Too many options in a course");
+        
+        for (const option of course) {
+            const { code, price } = option;
+            if (code.length === 0 || !Number.isInteger(price) || price < 1) {
+                throw new Error("Invalid option code or price");
+            }
+            if (allCodes.has(code)) {
+                throw new Error("Duplicate code found");
+            }
+            allCodes.add(code);
+        }
+    }
+
+    const quarrelSet = new Set<string>();
+    for (const [code1, code2] of quarrels) {
+        if (!allCodes.has(code1) || !allCodes.has(code2) || code1 === code2) {
+            throw new Error("Invalid quarrel");
+        }
+        const pairKey = `${code1}-${code2}`;
+        if (quarrelSet.has(pairKey)) {
+            throw new Error("Duplicate quarrel");
+        }
+        quarrelSet.add(pairKey);
+    }
+
+    function isQuarreled(picks: string[]): boolean {
+        for (const [courseIndex, code] of picks.entries()) {
+            for (let nextCourseIndex = courseIndex + 1; nextCourseIndex < picks.length; nextCourseIndex++) {
+                const nextCode = picks[nextCourseIndex];
+                if (quarrelSet.has(`${code}-${nextCode}`) || quarrelSet.has(`${nextCode}-${code}`)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function findCheapestTray(courses: { code: string, price: number }[][], picks: string[], total: number): { total: number, picks: string[] } | null {
+        if (picks.length === courses.length) {
+            if (!isQuarreled(picks)) {
+                return { total, picks };
+            }
+            return null;
+        }
+
+        const currentCourse = courses[picks.length];
+        let bestTray: { total: number, picks: string[] } | null = null;
+
+        for (const option of currentCourse) {
+            const newPicks = [...picks, option.code];
+            const newTotal = total + option.price;
+            const tray = findCheapestTray(courses, newPicks, newTotal);
+            if (tray) {
+                if (!bestTray || tray.total < bestTray.total || (tray.total === bestTray.total && tray.picks < bestTray.picks)) {
+                    bestTray = tray;
+                }
+            }
+        }
+
+        return bestTray;
+    }
+
+    const initialPicks: string[] = [];
+    const initialTotal = 0;
+    const result = findCheapestTray(courses, initialPicks, initialTotal);
+
+    if (!result) {
+        throw new Error("No valid tray found");
+    }
+
+    return result;
+}
+```

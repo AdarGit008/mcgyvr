@@ -1,0 +1,45 @@
+```ts
+/**
+ * Finds the earliest time at which the count of simultaneously active bookings exceeds the capacity.
+ * @param bookings - A list of pairs of integers representing half-open spans from start to end.
+ * @param capacity - The maximum number of bookings the resource can host at once.
+ * @returns The earliest time at which the count of simultaneous bookings exceeds the capacity, or -1 if it never happens.
+ */
+export function firstOverload(bookings: number[][], capacity: number): number {
+  if (capacity < 1) {
+    throw new Error("Capacity must be at least 1.");
+  }
+
+  const events: number[] = [];
+
+  for (const [start, end] of bookings) {
+    if (!Number.isInteger(start) || !Number.isInteger(end)) {
+      throw new Error("Endpoints must be integers.");
+    }
+    if (start >= end) {
+      throw new Error("Start time must come strictly before end time.");
+    }
+
+    events.push(start, -end);
+  }
+
+  let activeBookings = 0;
+  let maxActiveBookings = 0;
+
+  events.sort((a, b) => a - b);
+
+  for (const event of events) {
+    if (event > 0) {
+      activeBookings++;
+    } else {
+      activeBookings--;
+    }
+
+    if (activeBookings > capacity) {
+      return -event;
+    }
+  }
+
+  return -1;
+}
+```

@@ -1,0 +1,58 @@
+```ts
+/**
+ * A badge written out from its fields.
+ */
+export function writeTagMarks(label: string, fields: string[][]): string {
+  // Validate label
+  if (typeof label !== 'string' || !/^[a-z][a-z0-9]*$/.test(label)) {
+    throw new Error('Invalid label');
+  }
+
+  // Validate fields
+  if (!Array.isArray(fields)) {
+    throw new Error('Fields must be an array');
+  }
+
+  const fieldMap = new Map<string, string>();
+  const parts: string[] = [];
+
+  for (const [key, text] of fields) {
+    // Validate entry
+    if (!Array.isArray(key) || key.length !== 2 || typeof key[0] !== 'string' || typeof key[1] !== 'string') {
+      throw new Error('Each field must be a pair of strings');
+    }
+
+    const [fieldKey, fieldValue] = key;
+
+    // Validate key
+    if (typeof fieldKey !== 'string' || !/^[a-z][a-z0-9]*$/.test(fieldKey)) {
+      throw new Error('Invalid key');
+    }
+
+    // Validate text
+    if (typeof fieldValue !== 'string') {
+      throw new Error('Text must be a string');
+    }
+
+    // Check for duplicate keys
+    if (fieldMap.has(fieldKey)) {
+      throw new Error('Duplicate key');
+    }
+
+    fieldMap.set(fieldKey, fieldValue);
+
+    // Generate part
+    if (fieldValue === '') {
+      parts.push(fieldKey);
+    } else if (/^[a-z0-9-.]+$/.test(fieldValue)) {
+      parts.push(`${fieldKey}=${fieldValue}`);
+    } else {
+      const quote = fieldText.includes('"') && !fieldText.includes("'") ? "'" : '"';
+      const escapedText = fieldValue.replace(new RegExp(`[${quote}\\]`, 'g'), '\\$&');
+      parts.push(`${fieldKey}=${quote}${escapedText}${quote}`);
+    }
+  }
+
+  return `<${label}${parts.length > 0 ? ' ' + parts.join(' ') : ''}>`;
+}
+```

@@ -1,0 +1,38 @@
+```ts
+export function orderSections(labels: string[]): string[] {
+  // Validate and parse labels
+  const parsedLabels = labels.map(label => {
+    if (typeof label !== 'string') {
+      throw new Error('Label must be a string');
+    }
+    
+    const components = label.split('.').map(component => {
+      if (!/^\d+$/.test(component) || component.startsWith('0')) {
+        throw new Error('Invalid label format');
+      }
+      return parseInt(component, 10);
+    });
+
+    return { original: label, components };
+  });
+
+  // Check for duplicates
+  const uniqueLabels = new Set(parsedLabels.map(label => label.original));
+  if (uniqueLabels.size !== labels.length) {
+    throw new Error('Duplicate labels are not allowed');
+  }
+
+  // Sort parsed labels
+  parsedLabels.sort((a, b) => {
+    for (let i = 0; i < Math.min(a.components.length, b.components.length); i++) {
+      if (a.components[i] !== b.components[i]) {
+        return a.components[i] - b.components[i];
+      }
+    }
+    return a.components.length - b.components.length;
+  });
+
+  // Extract sorted original labels
+  return parsedLabels.map(label => label.original);
+}
+```

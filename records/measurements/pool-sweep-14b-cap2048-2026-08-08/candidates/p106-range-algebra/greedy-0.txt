@@ -1,0 +1,101 @@
+```ts
+/**
+ * Performs set operations on two lists of half-open integer intervals.
+ * @param a - First list of intervals [lo, hi].
+ * @param b - Second list of intervals [lo, hi].
+ * @param op - Set operation: "union", "intersect", or "subtract".
+ * @returns The resulting set of integers in canonical form.
+ */
+export function rangeAlgebra(a: number[][], b: number[][], op: string): number[][] {
+  if (!["union", "intersect", "subtract"].includes(op)) {
+    throw new Error("Invalid operation");
+  }
+
+  const validateInterval = (interval: number[]) => {
+    if (interval.length !== 2 || !Number.isInteger(interval[0]) || !Number.isInteger(interval[1])) {
+      throw new Error("Invalid interval format");
+    }
+    if (interval[0] >= interval[1]) {
+      throw new Error("lo must be strictly below hi");
+    }
+  };
+
+  a.forEach(validateInterval);
+  b.forEach(validateInterval);
+
+  const mergeIntervals = (intervals: number[][]): number[][] => {
+    intervals.sort((x, y) => x[0] - y[0]);
+    const merged: number[][] = [];
+    for (const interval of intervals) {
+      if (!merged.length || merged[merged.length - 1][1] <= interval[0]) {
+        merged.push(interval);
+      } else {
+        merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], interval[1]);
+      }
+    }
+    return merged;
+  };
+
+  const unionIntervals = (a: number[][], b: number[][]): number[][] => {
+    return mergeIntervals([...a, ...b]);
+  };
+
+  const intersectIntervals = (a: number[][], b: number[][]): number[][] => {
+    const result: number[][] = [];
+    let i = 0, j = 0;
+    while (i < a.length && j < b.length) {
+      const [alo, ahi] = a[i];
+      const [blo, bhi] = b[j];
+      if (ahi <= blo) {
+        i++;
+      } else if (bhi <= alo) {
+        j++;
+      } else {
+        result.push([Math.max(alo, blo), Math.min(ahi, bhi)]);
+        if (ahi < bhi) {
+          i++;
+        } else {
+          j++;
+        }
+      }
+    }
+    return mergeIntervals(result);
+  };
+
+  const subtractIntervals = (a: number[][], b: number[][]): number[][] => {
+    const result: number[][] = [];
+    let i = 0, j = 0;
+    while (i < a.length) {
+      const [alo, ahi] = a[i];
+      if (j >= b.length || b[j][1] <= alo) {
+        result.push([alo, ahi]);
+        i++;
+      } else if (b[j][0] >= ahi) {
+        i++;
+      } else {
+        if (b[j][0] > alo) {
+          result.push([alo, b[j][0]]);
+        }
+        if (b[j][1] < ahi) {
+          a[i][0] = b[j][1];
+        } else {
+          i++;
+        }
+        j++;
+      }
+    }
+    return mergeIntervals(result);
+  };
+
+  switch (op) {
+    case "union":
+      return unionIntervals(a, b);
+    case "intersect":
+      return intersectIntervals(a, b);
+    case "subtract":
+      return subtractIntervals(a, b);
+    default:
+      throw new Error("Invalid operation");
+  }
+}
+```

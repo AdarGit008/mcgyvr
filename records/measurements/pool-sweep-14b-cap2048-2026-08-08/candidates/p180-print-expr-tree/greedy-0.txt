@@ -1,0 +1,53 @@
+```ts
+export function printExprTree(node: unknown): string {
+  if (typeof node === 'number') {
+    if (!Number.isInteger(node) || node < 0) {
+      throw new Error('Invalid literal');
+    }
+    return node.toString();
+  }
+
+  if (typeof node === 'string') {
+    if (!/^[a-zA-Z]+$/.test(node)) {
+      throw new Error('Invalid name');
+    }
+    return node;
+  }
+
+  if (typeof node !== 'object' || node === null) {
+    throw new Error('Invalid node type');
+  }
+
+  const { op, left, right } = node as Record<string, unknown>;
+
+  if (typeof op !== 'string' || typeof left === undefined || typeof right === undefined) {
+    throw new Error('Invalid record structure');
+  }
+
+  if (!['+', '-', '*', '/'].includes(op)) {
+    throw new Error('Invalid operator');
+  }
+
+  const leftStr = printExprTree(left);
+  const rightStr = printExprTree(right);
+
+  const needsLeftParen = shouldWrap(left, op);
+  const needsRightParen = shouldWrap(right, op);
+
+  return `${needsLeftParen ? '(' : ''}${leftStr} ${op} ${rightStr}${needsRightParen ? ')' : ''}`;
+}
+
+function shouldWrap(child: unknown, parentOp: string): boolean {
+  const childOp = getOperator(child);
+  if (!childOp) return false;
+
+  const precedence = { '+': 1, '-': 1, '*': 2, '/': 2 };
+  return precedence[childOp] < precedence[parentOp] || (precedence[childOp] === precedence[parentOp] && ['+', '-'].includes(parentOp));
+}
+
+function getOperator(node: unknown): string | null {
+  if (typeof node !== 'object' || node === null) return null;
+  const { op } = node as Record<string, unknown>;
+  return typeof op === 'string' ? op : null;
+}
+```

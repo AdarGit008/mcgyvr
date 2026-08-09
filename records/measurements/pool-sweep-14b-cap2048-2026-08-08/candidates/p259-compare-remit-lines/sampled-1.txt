@@ -1,0 +1,64 @@
+```ts
+export function compareRemitLines(ours: unknown[][], theirs: unknown[][]): { agreed: string[]; queried: string[]; ourSide: string[]; theirSide: string[] } {
+  if (!Array.isArray(ours) || !Array.isArray(theirs)) {
+    throw new Error("Both arguments must be lists.");
+  }
+
+  const validateLine = (line: unknown[]): line is [string, number] => {
+    return Array.isArray(line) && line.length === 2 && typeof line[0] === "string" && Number.isInteger(line[1]);
+  };
+
+  const normalize = (lines: unknown[][]): Map<string, number> => {
+    const map = new Map<string, number>();
+    for (const line of lines) {
+      if (!validateLine(line)) {
+        throw new Error("Each line must be a [string, integer] pair.");
+      }
+      const [label, cents] = line;
+      if (map.has(label)) {
+        throw new Error("Label repeated inside one advice.");
+      }
+      map.set(label, cents);
+    }
+    return map;
+  };
+
+  const ourMap = normalize(ours);
+  const theirMap = normalize(theirs);
+
+  const result = {
+    agreed: [] as string[],
+    queried: [] as string[],
+    ourSide: [] as string[],
+    theirSide: [] as string[]
+  };
+
+  for (const [label, ourCents] of ourMap) {
+    if (theirMap.has(label)) {
+      const theirCents = theirMap.get(label)!;
+      if (ourCents === theirCents) {
+        result.agreed.push(label);
+      } else {
+        result.queried.push(label);
+      }
+    } else {
+      result.ourSide.push(label);
+    }
+  }
+
+  for (const [label] of theirMap) {
+    if (!ourMap.has(label)) {
+      result.theirSide.push(label);
+    }
+  }
+
+  const sortList = (list: string[]): string[] => list.sort();
+
+  return {
+    agreed: sortList(result.agreed),
+    queried: sortList(result.queried),
+    ourSide: sortList(result.ourSide),
+    theirSide: sortList(result.theirSide)
+  };
+}
+```

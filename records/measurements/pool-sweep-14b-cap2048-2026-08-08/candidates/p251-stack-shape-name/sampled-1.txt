@@ -1,0 +1,53 @@
+```ts
+export function nameTriadStack(marks: number[]): any {
+  if (!Array.isArray(marks)) {
+    throw new Error("Input must be an array");
+  }
+  if (marks.length === 0) {
+    throw new Error("Input array must not be empty");
+  }
+
+  const stack = Array.from(new Set(marks.map(mark => mark % 12))).sort((a, b) => a - b);
+
+  if (stack.length < 3) {
+    throw new Error("Stack must contain at least three classes");
+  }
+
+  const shapes = [
+    [0, 4, 7],
+    [0, 3, 7],
+    [0, 3, 6],
+    [0, 4, 8],
+    [0, 5, 7],
+    [0, 2, 6],
+    [0, 4, 7, 11],
+    [0, 4, 7, 10],
+    [0, 3, 7, 10],
+    [0, 3, 6, 9]
+  ];
+
+  const shapeNames = [
+    "major",
+    "minor",
+    "diminished",
+    "augmented",
+    "quartal",
+    "narrow",
+    "major seventh",
+    "dominant seventh",
+    "minor seventh",
+    "shrunk seventh"
+  ];
+
+  for (const base of stack) {
+    const shape = stack.map(mark => (mark - base + 12) % 12).sort((a, b) => a - b);
+    for (let i = 0; i < shapes.length; i++) {
+      if (shapes[i].every(step => shape.includes((base + step) % 12))) {
+        return { base, name: shapeNames[i] };
+      }
+    }
+  }
+
+  return { base: -1, name: "unknown" };
+}
+```

@@ -1,0 +1,93 @@
+```ts
+/**
+ * Detects a deadlock cycle in a lock manager and returns the victim worker.
+ * @param holds - List of granted locks as [resource, worker] pairs.
+ * @param blocked - List of blocked requests as [worker, resource] pairs.
+ * @returns A record with the victim worker and their cycle.
+ */
+export function lockCycleVictim(holds: string[][], blocked: string[][]): { victim: string; cycle: string[] } {
+  // Validate input
+  if (!Array.isArray(holds) || !Array.isArray(blocked)) {
+    throw new Error("Invalid input: holds and blocked must be arrays.");
+  }
+
+  const resourceHolders = new Map<string, string>();
+  const workerRequests = new Map<string, Set<string>>();
+
+  for (const hold of holds) {
+    if (!Array.isArray(hold) || hold.length !== 2 || typeof hold[0] !== 'string' || typeof hold[1] !== 'string') {
+      throw new Error("Invalid input: holds must contain [resource, worker] pairs.");
+    }
+    const [resource, worker] = hold;
+    if (resourceHolders.has(resource)) {
+      throw new Error("Invalid input: a resource cannot be held by two workers.");
+    }
+    resourceHolders.set(resource, worker);
+  }
+
+  for (const block of blocked) {
+    if (!Array.isArray(block) || block.length !== 2 || typeof block[0] !== 'string' || typeof block[1] !== 'string') {
+      throw new Error("Invalid input: blocked must contain [worker, resource] pairs.");
+    }
+    const [worker, resource] = block;
+    if (resourceHolders.get(resource) === worker) {
+      throw new Error("Invalid input: a worker cannot be blocked on a resource they already hold.");
+    }
+    if (!workerRequests.has(worker)) {
+      workerRequests.set(worker, new Set());
+    }
+    const requests = workerRequests.get(worker)!;
+    if (requests.has(resource)) {
+      throw new Error("Invalid input: a worker cannot be blocked on two resources at once.");
+    }
+    requests.add(resource);
+  }
+
+  // Build the graph
+  const graph = new Map<string, string>();
+  for (const [worker, resource] of blocked) {
+    if (resourceHolders.has(resource)) {
+      graph.set(worker, resourceHolders.get(resource)!);
+    }
+  }
+
+  // Find cycles
+  const visited = new Set<string>();
+  const recStack = new Set<string>();
+  let victim: string | null = null;
+  let cycle: string[] = [];
+
+  function dfs(node: string): boolean {
+    if (recStack.has(node)) {
+      cycle.push(node);
+      return true;
+    }
+    if (visited.has(node)) {
+      return false;
+    }
+
+    visited.add(node);
+    recStack.add(node);
+
+    const nextNode = graph.get(node);
+    if (nextNode && dfs(nextNode)) {
+      cycle.push(node);
+      if (!victim || workerRequests.get(victim)!.size > workerRequests.get(node)!.size ||
+        (workerRequests.get(victim)!.size === workerRequests.get(node)!.size && victim > node)) {
+        victim = node;
+      }
+    }
+
+    recStack.delete(node);
+    return false;
+  }
+
+  for (const worker of graph.keys()) {
+    if (!visited.has(worker)) {
+      dfs(worker);
+    }
+  }
+
+  return { victim: victim || "", cycle };
+}
+```

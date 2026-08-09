@@ -1,0 +1,70 @@
+```ts
+export function tallyTuplets(score: string, meter: string): number[] {
+  if (typeof score !== 'string') {
+    throw new Error('Score must be a string');
+  }
+
+  const parseSpan = (span: string): number => {
+    const [numerator, denominator] = span.split('/');
+    if (!numerator || !denominator) {
+      throw new Error('Invalid span format');
+    }
+    const num = parseInt(numerator, 10);
+    const den = parseInt(denominator, 10);
+    if (num <= 0 || num.toString() !== numerator) {
+      throw new Error('Numerator must be a positive number without padding zeros');
+    }
+    if (![1, 2, 4, 8, 16, 32, 64].includes(den)) {
+      throw new Error('Denominator must be one of 1, 2, 4, 8, 16, 32, or 64');
+    }
+    return (num * 64) / den;
+  };
+
+  const parseSqueeze = (squeeze: string): number => {
+    const match = squeeze.match(/^(\d+)\{(.+?)\}$/);
+    if (!match) {
+      throw new Error('Invalid squeeze format');
+    }
+    const figure = parseInt(match[1], 10);
+    if (figure < 2) {
+      throw new Error('Squeeze figure must be two or more');
+    }
+    const spans = match[2].split('+').map(parseSpan);
+    const totalUnits = spans.reduce((acc, unit) => acc + unit, 0);
+    const worth = (totalUnits * (figure - 1)) / figure;
+    if (!Number.isInteger(worth)) {
+      throw new Error('Squeeze worth must be a whole number of units');
+    }
+    return worth;
+  };
+
+  const parseEntry = (entry: string): number => {
+    if (entry.includes('{')) {
+      return parseSqueeze(entry);
+    } else {
+      return parseSpan(entry);
+    }
+  };
+
+  const parseMeasure = (measure: string, meterUnits: number): number => {
+    const entries = measure.split(' ').filter(Boolean);
+    if (entries.length === 0) {
+      throw new Error('Measure must contain at least one entry');
+    }
+    const totalUnits = entries.reduce((acc, entry) => acc + parseEntry(entry), 0);
+    return Math.round(totalUnits - meterUnits);
+  };
+
+  const parseMeter = (meter: string): number => {
+    if (!meter.includes('/')) {
+      throw new Error('Malformed meter');
+    }
+    return parseSpan(meter);
+  };
+
+  const measures = score.split(';').filter(Boolean);
+  const meterUnits = parseMeter(meter);
+
+  return measures.map(measure => parseMeasure(measure, meterUnits));
+}
+```

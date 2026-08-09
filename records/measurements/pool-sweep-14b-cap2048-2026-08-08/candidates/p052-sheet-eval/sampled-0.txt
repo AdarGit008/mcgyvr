@@ -1,0 +1,60 @@
+```ts
+export function computeSheet(cells: Record<string, string>): Record<string, number> {
+  const computedValues: Record<string, number> = {};
+  const visitedCells: Set<string> = new Set();
+
+  function getValue(cellName: string): number {
+    if (visitedCells.has(cellName)) {
+      throw new Error("Reference cycle detected");
+    }
+    if (computedValues.hasOwnProperty(cellName)) {
+      return computedValues[cellName];
+    }
+
+    const cellText = cells[cellName];
+    if (!cellText) {
+      throw new Error(`Cell ${cellName} not found`);
+    }
+
+    visitedCells.add(cellName);
+
+    let value: number;
+
+    if (cellText.startsWith("=")) {
+      if (cellText.length === 1) {
+        throw new Error("Empty formula");
+      }
+      const terms = cellText.slice(1).split("+").map(term => term.trim());
+      if (terms.some(term => !term)) {
+        throw new Error("Malformed formula");
+      }
+      value = terms.reduce((sum, term) => {
+        const parsedValue = parseInt(term);
+        if (!isNaN(parsedValue)) {
+          return sum + parsedValue;
+        }
+        if (/^[A-Z]+\d+$/.test(term)) {
+          return sum + getValue(term);
+        }
+        throw new Error("Malformed term");
+      }, 0);
+    } else {
+      const parsedValue = parseInt(cellText);
+      if (isNaN(parsedValue)) {
+        throw new Error("Malformed literal");
+      }
+      value = parsedValue;
+    }
+
+    visitedCells.delete(cellName);
+    computedValues[cellName] = value;
+    return value;
+  }
+
+  for (const cellName in cells) {
+    getValue(cellName);
+  }
+
+  return computedValues;
+}
+```

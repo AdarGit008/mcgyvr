@@ -1,0 +1,58 @@
+```ts
+export function serpentinePickOrder(picks: unknown): string[] {
+  if (!Array.isArray(picks)) {
+    throw new Error("Input must be an array");
+  }
+
+  const validatedPicks: { sku: string; aisle: number; bay: number }[] = [];
+
+  picks.forEach((pick, index) => {
+    if (typeof pick !== "object" || pick === null) {
+      throw new Error(`Pick at index ${index} is not a valid object`);
+    }
+
+    const { sku, aisle, bay } = pick as Record<string, unknown>;
+
+    if (
+      typeof sku !== "string" ||
+      sku.trim() === "" ||
+      validatedPicks.some((p) => p.sku === sku)
+    ) {
+      throw new Error(`Invalid or duplicate SKU at index ${index}`);
+    }
+
+    if (
+      typeof aisle !== "number" ||
+      !Number.isSafeInteger(aisle) ||
+      aisle <= 0
+    ) {
+      throw new Error(`Aisle must be a positive whole number at index ${index}`);
+    }
+
+    if (typeof bay !== "number" || !Number.isSafeInteger(bay) || bay <= 0) {
+      throw new Error(`Bay must be a positive whole number at index ${index}`);
+    }
+
+    validatedPicks.push({ sku, aisle, bay });
+  });
+
+  return validatedPicks
+    .sort((a, b) => a.aisle - b.aisle || a.bay - b.bay)
+    .reduce<string[]>((order, pick) => {
+      if (pick.aisle % 2 === 0) {
+        order.push(pick.sku);
+      }
+      return order;
+    }, [])
+    .concat(
+      validatedPicks
+        .sort((a, b) => a.aisle - b.aisle || b.bay - a.bay)
+        .reduce<string[]>((order, pick) => {
+          if (pick.aisle % 2 !== 0) {
+            order.push(pick.sku);
+          }
+          return order;
+        }, [])
+    );
+}
+```

@@ -1,0 +1,26 @@
+```ts
+export function jarBalances(topup: number, lid: number, outflows: number[]): number[] {
+  if (!Number.isInteger(topup) || topup < 0) {
+    throw new Error("Topup must be a non-negative integer.");
+  }
+  if (!Number.isInteger(lid) || lid < 0) {
+    throw new Error("Lid must be a non-negative integer.");
+  }
+  if (!Array.isArray(outflows)) {
+    throw new Error("Outflows must be an array.");
+  }
+  if (outflows.some(outflow => !Number.isInteger(outflow) || outflow < 0)) {
+    throw new Error("All outflows must be non-negative integers.");
+  }
+
+  return outflows.reduce((balances, outflow) => {
+    let balance = balances[balances.length - 1] + topup;
+    if (outflow > balance) {
+      throw new Error("Outflow exceeds the jar's contents after topup.");
+    }
+    balance -= outflow;
+    balances.push(Math.min(balance, lid));
+    return balances;
+  }, [0]).slice(1);
+}
+```

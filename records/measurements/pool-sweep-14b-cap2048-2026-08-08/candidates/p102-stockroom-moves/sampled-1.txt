@@ -1,0 +1,56 @@
+```ts
+export function processStockMoves(moves: Array<Record<string, unknown>>): { levels: Record<string, number>; refused: Array<[number, string]> } {
+  const levels: Record<string, number> = {};
+  const refused: Array<[number, string]> = [];
+
+  moves.forEach((move, index) => {
+    const op = move.op as string;
+    const item = move.item as string;
+    const qty = move.qty as number;
+
+    if (typeof op !== 'string' || typeof item !== 'string' || isNaN(qty)) {
+      throw new Error('Invalid move format');
+    }
+
+    if (!item) {
+      refused.push([index, 'invalid_item']);
+      return;
+    }
+
+    if (!['receive', 'issue', 'recount'].includes(op)) {
+      refused.push([index, 'unknown_op']);
+      return;
+    }
+
+    if (op === 'receive' || op === 'issue') {
+      if (!Number.isInteger(qty) || qty < 1) {
+        refused.push([index, `${op}_qty_below_1`]);
+        return;
+      }
+    } else if (op === 'recount') {
+      if (!Number.isInteger(qty) || qty < 0) {
+        refused.push([index, 'recount_qty_below_0']);
+        return;
+      }
+    }
+
+    if (!levels[item]) {
+      levels[item] = 0;
+    }
+
+    if (op === 'receive') {
+      levels[item] += qty;
+    } else if (op === 'issue') {
+      if (levels[item] < qty) {
+        refused.push([index, 'short']);
+        return;
+      }
+      levels[item] -= qty;
+    } else if (op === 'recount') {
+      levels[item] = qty;
+    }
+  });
+
+  return { levels, refused };
+}
+```

@@ -1,0 +1,42 @@
+```ts
+export function divideCoefficients(dividend: number[], divisor: number[]): number[][] {
+  if (!Array.isArray(dividend) || !Array.isArray(divisor)) {
+    throw new Error("Both arguments must be arrays.");
+  }
+  if (dividend.length === 0 && divisor.length === 0) {
+    return [[], []];
+  }
+  if (divisor.length === 0) {
+    throw new Error("Divisor cannot be an empty run.");
+  }
+  if (dividend.some(coef => !Number.isInteger(coef)) || divisor.some(coef => !Number.isInteger(coef))) {
+    throw new Error("All coefficients must be whole numbers.");
+  }
+  if (dividend.some((coef, i) => i > 0 && coef === 0) || divisor.some((coef, i) => i > 0 && coef === 0)) {
+    throw new Error("Neither run can end in a zero.");
+  }
+
+  const quotient: number[] = [];
+  const rest = [...dividend];
+  
+  while (rest.length >= divisor.length && rest[0] % divisor[0] === 0) {
+    const factor = rest[0] / divisor[0];
+    quotient.push(factor);
+    
+    for (let i = 0; i < divisor.length; i++) {
+      rest[i] -= factor * divisor[i];
+    }
+    
+    // Remove leading zeros from rest
+    while (rest.length > 0 && rest[0] === 0) {
+      rest.shift();
+    }
+  }
+
+  if (rest.length >= divisor.length && rest[0] % divisor[0] !== 0) {
+    throw new Error("The leading coefficient of the remainder must be an exact multiple of the divisor's leading coefficient.");
+  }
+
+  return [quotient, rest];
+}
+```

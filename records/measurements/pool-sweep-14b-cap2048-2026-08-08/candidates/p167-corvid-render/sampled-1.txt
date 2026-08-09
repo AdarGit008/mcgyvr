@@ -1,0 +1,24 @@
+```ts
+export function corvidRender(value: number): string {
+  if (!Number.isInteger(value)) {
+    throw new Error("Input must be a whole number");
+  }
+
+  const marks = ["v", "w", "x", "y", "z"];
+  let tally = "";
+  let absValue = Math.abs(value);
+
+  while (absValue > 0) {
+    const placeValue = Math.floor(absValue % 5);
+    const markIndex = placeValue + 2;
+    tally = marks[markIndex] + tally;
+    absValue = Math.floor(absValue / 5);
+  }
+
+  if (value === 0) {
+    return "x";
+  }
+
+  return value > 0 ? tally : tally.split("").map(mark => marks[4 - marks.indexOf(mark)]).join("");
+}
+```

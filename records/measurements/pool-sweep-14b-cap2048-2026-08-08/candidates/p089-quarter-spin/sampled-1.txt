@@ -1,0 +1,41 @@
+```ts
+export function quarterSpin(grid: number[][], turns: number): number[][] {
+  const effectiveTurns = turns % 4;
+  if (effectiveTurns === 0) return [...grid.map(row => [...row])];
+
+  const n = grid.length;
+  const m = grid[0].length;
+  let result: number[][];
+
+  switch (effectiveTurns) {
+    case 1:
+      result = Array.from({ length: m }, () => Array(n));
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < m; j++) {
+          result[j][n - 1 - i] = grid[i][j];
+        }
+      }
+      break;
+    case 2:
+      result = Array.from({ length: n }, () => Array(m));
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < m; j++) {
+          result[n - 1 - i][m - 1 - j] = grid[i][j];
+        }
+      }
+      break;
+    case 3:
+      result = Array.from({ length: m }, () => Array(n));
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < m; j++) {
+          result[m - 1 - j][i] = grid[i][j];
+        }
+      }
+      break;
+    default:
+      throw new Error("Invalid number of turns");
+  }
+
+  return result;
+}
+```

@@ -1,0 +1,30 @@
+```ts
+export function kiteFrameState(
+  rallies: string[],
+): { left: number; right: number; winner: string } {
+  if (!Array.isArray(rallies)) {
+    throw new Error("Argument must be an array of strings");
+  }
+
+  const score: Record<string, number> = { left: 0, right: 0 };
+  let winner = "";
+
+  for (const rally of rallies) {
+    if (rally !== "left" && rally !== "right") {
+      throw new Error("Rally must be 'left' or 'right'");
+    }
+
+    score[rally] += 1;
+
+    if (winner === "") {
+      if (score[rally] >= 20) {
+        winner = rally;
+      } else if (Math.abs(score.left - score.right) >= 2 && score[rally] >= 15) {
+        winner = rally;
+      }
+    }
+  }
+
+  return { left: score.left, right: score.right, winner };
+}
+```

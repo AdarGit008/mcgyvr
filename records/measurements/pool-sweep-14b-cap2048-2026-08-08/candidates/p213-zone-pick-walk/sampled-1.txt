@@ -1,0 +1,92 @@
+```ts
+/**
+ * One line per row of a zoned pick walk.
+ */
+export function zonePickWalk(plan: Record<string, unknown>): string[] {
+  if (typeof plan !== "object" || plan === null) {
+    throw new Error("Invalid argument: plan must be an object");
+  }
+
+  const { zoneOrder, picks } = plan;
+
+  if (!Array.isArray(zoneOrder) || zoneOrder.length === 0) {
+    throw new Error("Invalid argument: zoneOrder must be a non-empty array");
+  }
+
+  if (
+    !zoneOrder.every(
+      (zone) => typeof zone === "string" && zone.trim() !== "" && zoneOrder.indexOf(zone) === zoneOrder.lastIndexOf(zone)
+    )
+  ) {
+    throw new Error("Invalid argument: zoneOrder must contain distinct non-empty strings");
+  }
+
+  if (!Array.isArray(picks)) {
+    throw new Error("Invalid argument: picks must be an array");
+  }
+
+  const pickMap = new Map<string, { code: string; row: number; slot: number }[]>();
+  for (const pick of picks) {
+    if (typeof pick !== "object" || pick === null) {
+      throw new Error("Invalid argument: each pick must be an object");
+    }
+
+    const { code, zone, row, slot } = pick as any;
+
+    if (
+      typeof code !== "string" ||
+      code.trim() === "" ||
+      !pickMap.has(code)
+    ) {
+      throw new Error("Invalid argument: each pick must have a unique non-empty string code");
+    }
+
+    if (typeof zone !== "string" || zone.trim() === "") {
+      throw new Error("Invalid argument: each pick must have a non-empty string zone");
+    }
+
+    if (!zoneOrder.includes(zone)) {
+      throw new Error("Invalid argument: each pick's zone must be in zoneOrder");
+    }
+
+    if (
+      typeof row !== "number" ||
+      !Number.isSafeInteger(row) ||
+      row <= 0
+    ) {
+      throw new Error("Invalid argument: each pick must have a positive whole number row");
+    }
+
+    if (
+      typeof slot !== "number" ||
+      !Number.isSafeInteger(slot) ||
+      slot <= 0
+    ) {
+      throw new Error("Invalid argument: each pick must have a positive whole number slot");
+    }
+
+    if (!pickMap.has(zone)) {
+      pickMap.set(zone, []);
+    }
+    pickMap.get(zone)!.push({ code, row, slot });
+  }
+
+  const lines: string[] = [];
+  for (const zone of zoneOrder) {
+    if (pickMap.has(zone)) {
+      const group = pickMap.get(zone)!;
+      const rows = Array.from(new Set(group.map((pick) => pick.row))).sort((a, b) => a - b);
+      let direction = 1; // 1 for up, -1 for down
+
+      for (const row of rows) {
+        const here = group.filter((pick) => pick.row === row);
+        here.sort((a, b) => (direction > 0 ? a.slot - b.slot : b.slot - a.slot));
+        lines.push(`${zone}/${row}:${here.map((pick) => pick.code).join("|")}`);
+        direction *= -1; // Toggle direction
+      }
+    }
+  }
+
+  return lines;
+}
+```

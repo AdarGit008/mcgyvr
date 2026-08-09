@@ -1,0 +1,26 @@
+```ts
+/**
+ * One line of key=value pairs, joined by &.
+ * Validates that keys are non-empty strings and both keys and values are strings.
+ */
+export function encodePairs(pairs: [string, string][]): string {
+  if (!Array.isArray(pairs)) {
+    throw new Error("Input must be an array of pairs.");
+  }
+
+  const parts: string[] = [];
+  for (const [key, value] of pairs) {
+    if (typeof key !== "string" || typeof value !== "string") {
+      throw new Error("Both key and value must be strings.");
+    }
+    if (key === "") {
+      throw new Error("Key cannot be an empty string.");
+    }
+
+    const k = encodeURIComponent(key).replace(/%([25&=])/g, (_, char) => `%${char.charCodeAt(0).toString(16)}`);
+    const v = encodeURIComponent(value).replace(/%([25&=])/g, (_, char) => `%${char.charCodeAt(0).toString(16)}`);
+    parts.push(k + "=" + v);
+  }
+  return parts.join("&");
+}
+```

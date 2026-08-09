@@ -1,0 +1,68 @@
+```ts
+export function readSexpr(text: string): number | string | any[] {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const tokens = tokenize(text);
+  if (tokens.length === 0) {
+    throw new Error('Empty input or only whitespace');
+  }
+
+  const [result, remainingTokens] = parseSexpr(tokens);
+  if (remainingTokens.length > 0) {
+    throw new Error('Extra characters after the first expression');
+  }
+
+  return result;
+}
+
+function tokenize(text: string): (string | number)[] {
+  const tokenRegex = /[\s()]+|[+-]?[0-9]+|[a-zA-Z0-9+*/!?]/g;
+  const tokens: (string | number)[] = [];
+  let match;
+
+  while ((match = tokenRegex.exec(text)) !== null) {
+    if (match[0].trim() === '') continue; // Ignore whitespace
+    if (/^[+-]?[0-9]+$/.test(match[0])) {
+      tokens.push(parseInt(match[0], 10));
+    } else {
+      tokens.push(match[0]);
+    }
+  }
+
+  return tokens;
+}
+
+function parseSexpr(tokens: (string | number)[]): [any, (string | number)[]] {
+  if (tokens.length === 0) {
+    throw new Error('Unexpected end of input');
+  }
+
+  const firstToken = tokens.shift()!;
+  if (firstToken === '(') {
+    const list: any[] = [];
+    while (tokens[0] !== ')') {
+      const [item, remainingTokens] = parseSexpr(tokens);
+      list.push(item);
+      tokens = remainingTokens;
+    }
+    if (tokens.length === 0 || tokens.shift() !== ')') {
+      throw new Error('Unclosed list');
+    }
+    return [list, tokens];
+  } else if (firstToken === ')') {
+    throw new Error('Stray closing parenthesis');
+  } else if (
+    typeof firstToken === 'string' &&
+    /^[+-]?[a-zA-Z0-9+*/!?]+$/.test(firstToken) &&
+    !/^[0-9]/.test(firstToken)
+  ) {
+    return [firstToken, tokens];
+  } else if (typeof firstToken === 'number') {
+    return [firstToken, tokens];
+  } else {
+    throw new Error('Invalid atom');
+  }
+}
+```

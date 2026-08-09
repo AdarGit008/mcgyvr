@@ -1,0 +1,95 @@
+```ts
+export function preemptFirstOverrun(jobs: Array<Record<string, unknown>>): string {
+  const seen = new Set<string>();
+  for (const job of jobs) {
+    if (typeof job.name !== "string" || job.name === "") {
+      throw new Error("name must be a non-empty string");
+    }
+    if (seen.has(job.name)) {
+      throw new Error(`name repeated: ${job.name}`);
+    }
+    seen.add(job.name);
+    if (!Number.isInteger(job.at) || (job.at as number) < 0) {
+      throw new Error("at must be a non-negative integer");
+    }
+    if (!Number.isInteger(job.work) || (job.work as number) <= 0) {
+      throw new Error("work must be a positive integer");
+    }
+    if (!Number.isInteger(job.due) || (job.due as number) <= 0) {
+      throw new Error("due must be a positive integer");
+    }
+  }
+
+  const remaining = new Map<string, number>();
+  const at = new Map<string, number>();
+  const due = new Map<string, number>();
+  for (const job of jobs) {
+    remaining.set(job.name as string, job.work as number);
+    at.set(job.name as string, job.at as number);
+    due.set(job.name as string, job.due as number);
+  }
+
+  const finish = new Map<string, number>();
+  let clock = 0;
+  while (finish.size < jobs.length) {
+    const ready = [...remaining.keys()].filter(
+      (name) => !finish.has(name) && at.get(name)! <= clock,
+    );
+
+    if (ready.length === 0) {
+      clock = Math.min(
+        ...[...remaining.keys()]
+          .filter((name) => !finish.has(name))
+          .map((name) => at.get(name)!),
+      );
+      continue;
+    }
+
+    ready.sort((a, b) => due.get(a)! - due.get(b)! || (a < b ? -1 : 1));
+
+    let currentJob = ready[0];
+    while (remaining.get(currentJob)! > 0) {
+      const nextArrivalTime = Math.min(
+        ...ready.filter(name => name !== currentJob).map(name => at.get(name)!),
+        Infinity
+      );
+
+      const workToFinishCurrentJob = remaining.get(currentJob)!;
+      const timeUntilNextArrival = nextArrivalTime - clock;
+      if (timeUntilNextArrival <= workToFinishCurrentJob) {
+        clock += timeUntilNextArrival;
+        remaining.set(currentJob, workToFinishCurrentJob - timeUntilNextArrival);
+        break;
+      } else {
+        clock += workToFinishCurrentJob;
+        remaining.set(currentJob, 0);
+        finish.set(currentJob, clock);
+
+        const newReady = [...ready.keys()].filter(
+          (name) => !finish.has(name) && at.get(name)! <= clock,
+        );
+        if (newReady.length > 0) {
+          newReady.sort((a, b) => due.get(a)! - due.get(b)! || (a < b ? -1 : 1));
+          currentJob = newReady[0];
+        }
+      }
+    }
+  }
+
+  const missed = jobs.filter(
+    (job) => finish.get(job.name as string)! > (job.due as number),
+  );
+
+  if (missed.length === 0) {
+    return "";
+  }
+
+  missed.sort(
+    (a, b) =>
+      (a.due as number) - (b.due as number) ||
+      ((a.name as string) < (b.name as string) ? -1 : 1),
+  );
+
+  return missed[0].name as string;
+}
+```

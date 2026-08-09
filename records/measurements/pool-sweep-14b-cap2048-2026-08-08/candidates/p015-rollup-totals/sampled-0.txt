@@ -1,0 +1,80 @@
+```ts
+export function rollupTotals(
+  nodes: Record<string, { value: number; parent: string }>,
+): Record<string, number> {
+  // Validate input
+  const nodeIds = Object.keys(nodes);
+  if (nodeIds.length === 0) {
+    throw new Error("Input contains no nodes.");
+  }
+
+  let rootCount = 0;
+  let rootNodeId: string | null = null;
+
+  for (const id of nodeIds) {
+    const { parent } = nodes[id];
+    if (parent === "") {
+      rootCount++;
+      rootNodeId = id;
+    } else if (!nodeIds.includes(parent)) {
+      throw new Error(`Node "${id}" has an invalid parent ID.`);
+    }
+  }
+
+  if (rootCount !== 1) {
+    throw new Error("Input must contain exactly one root node.");
+  }
+
+  if (!rootNodeId) {
+    throw new Error("Root node not found, this should never happen.");
+  }
+
+  // Build the hierarchy
+  const hierarchy: Record<string, { value: number; children: string[] }> = {};
+
+  for (const id of nodeIds) {
+    const { value, parent } = nodes[id];
+    if (!hierarchy[parent]) {
+      hierarchy[parent] = { value: 0, children: [] };
+    }
+    if (!hierarchy[id]) {
+      hierarchy[id] = { value, children: [] };
+    }
+    hierarchy[parent].children.push(id);
+  }
+
+  // Compute totals using DFS
+  const totals: Record<string, number> = {};
+
+  function computeTotal(nodeId: string): number {
+    const node = hierarchy[nodeId];
+    let total = node.value;
+    for (const child of node.children) {
+      total += computeTotal(child);
+    }
+    return total;
+  }
+
+  // Traverse from root to ensure all nodes are reachable
+  const visited = new Set<string>();
+  const stack: string[] = [rootNodeId];
+
+  while (stack.length > 0) {
+    const currentId = stack.pop()!;
+    if (!visited.has(currentId)) {
+      visited.add(currentId);
+      totals[currentId] = computeTotal(currentId);
+      for (const child of hierarchy[currentId].children) {
+        stack.push(child);
+      }
+    }
+  }
+
+  // Check for unreachable nodes
+  if (visited.size !== nodeIds.length) {
+    throw new Error("There are nodes that cannot be reached from the root.");
+  }
+
+  return totals;
+}
+```

@@ -1,0 +1,57 @@
+```ts
+export function tallyHallRows(hall: string[]): string[] {
+  if (!Array.isArray(hall) || hall.length === 0) {
+    throw new Error("Invalid hall input");
+  }
+
+  let totalHeld = 0;
+  let totalOpen = 0;
+  let widestTierIndex = -1;
+  let maxWidth = 0;
+
+  const result: string[] = [];
+
+  for (let i = 0; i < hall.length; i++) {
+    const tier = hall[i];
+
+    if (typeof tier !== "string" || tier.length === 0) {
+      throw new Error("Invalid tier input");
+    }
+
+    if (i > 0 && tier.length !== hall[0].length) {
+      throw new Error("Tiers must have the same width");
+    }
+
+    let held = 0;
+    let open = 0;
+
+    for (const char of tier) {
+      if (char === "x") {
+        held++;
+      } else if (char === "o") {
+        open++;
+      } else if (char !== "=") {
+        throw new Error("Invalid character in tier");
+      }
+    }
+
+    if (held + open === 0) {
+      throw new Error("Tier must offer at least one chair");
+    }
+
+    totalHeld += held;
+    totalOpen += open;
+
+    result.push(`tier ${i} held=${held} open=${open}`);
+
+    if (open > maxWidth || (open === maxWidth && i < widestTierIndex)) {
+      widestTierIndex = i;
+      maxWidth = open;
+    }
+  }
+
+  result.push(`hall held=${totalHeld} open=${totalOpen} widest=tier ${widestTierIndex}`);
+
+  return result;
+}
+```

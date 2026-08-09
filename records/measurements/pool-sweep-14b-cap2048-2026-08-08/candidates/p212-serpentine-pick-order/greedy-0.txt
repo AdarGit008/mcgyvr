@@ -1,0 +1,41 @@
+```ts
+export function serpentinePickOrder(picks: unknown): string[] {
+  if (!Array.isArray(picks)) {
+    throw new Error("Invalid pick list");
+  }
+
+  const validPicks = picks.map((pick, index) => {
+    if (typeof pick !== "object" || pick === null) {
+      throw new Error(`Pick at index ${index} is not a mapping`);
+    }
+
+    const { sku, aisle, bay } = pick as Record<string, unknown>;
+
+    if (typeof sku !== "string" || sku.trim() === "") {
+      throw new Error(`Invalid sku at index ${index}`);
+    }
+
+    if (!Number.isSafeInteger(aisle) || aisle <= 0) {
+      throw new Error(`Invalid aisle at index ${index}`);
+    }
+
+    if (!Number.isSafeInteger(bay) || bay <= 0) {
+      throw new Error(`Invalid bay at index ${index}`);
+    }
+
+    return { sku, aisle, bay };
+  });
+
+  const skuSet = new Set<string>();
+  for (const pick of validPicks) {
+    if (skuSet.has(pick.sku)) {
+      throw new Error(`Duplicate sku: ${pick.sku}`);
+    }
+    skuSet.add(pick.sku);
+  }
+
+  return validPicks
+    .sort((a, b) => a.aisle - b.aisle || a.bay - b.bay)
+    .map((pick) => pick.sku);
+}
+```

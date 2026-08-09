@@ -1,0 +1,47 @@
+```ts
+/**
+ * Concatenates fields into a single non-negative integer based on given widths and values.
+ * @param widths - An array of field widths in bits.
+ * @param values - An array of non-negative field values.
+ * @returns A single non-negative integer with fields packed.
+ * @throws Error if inputs are invalid.
+ */
+export function packFields(widths: number[], values: number[]): number {
+  if (widths.length !== values.length) {
+    throw new Error("Widths and values arrays must be of equal length.");
+  }
+  if (widths.length === 0 || values.length === 0) {
+    throw new Error("Widths and values arrays cannot be empty.");
+  }
+
+  let totalWidth = 0;
+  for (const width of widths) {
+    if (!Number.isInteger(width) || width < 1) {
+      throw new Error("All widths must be positive integers.");
+    }
+    totalWidth += width;
+  }
+
+  if (totalWidth > 30) {
+    throw new Error("Combined width of fields exceeds 30 bits.");
+  }
+
+  let result = 0;
+  for (let i = 0; i < widths.length; i++) {
+    const width = widths[i];
+    const value = values[i];
+
+    if (!Number.isInteger(value) || value < 0) {
+      throw new Error("All values must be non-negative integers.");
+    }
+    if (value >= (1 << width)) {
+      throw new Error("Value exceeds the bit width of its field.");
+    }
+
+    result <<= width;
+    result |= value;
+  }
+
+  return result;
+}
+```

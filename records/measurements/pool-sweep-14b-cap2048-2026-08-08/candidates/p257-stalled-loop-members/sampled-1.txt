@@ -1,0 +1,43 @@
+```ts
+export function stalledLoopMembers(waits: Record<string, string>): string[] {
+  // Validate input
+  if (typeof waits !== 'object' || waits === null) {
+    throw new Error('Invalid input: waits must be a non-null object');
+  }
+
+  const loops: Set<string[]> = new Set();
+
+  for (const start of Object.keys(waits)) {
+    if (start === '' || typeof waits[start] !== 'string') {
+      continue;
+    }
+
+    const seen: string[] = [];
+    let current = start;
+
+    while (waits[current] !== undefined && !seen.includes(current)) {
+      seen.push(current);
+      current = waits[current];
+
+      // Check for self-waiting jobs
+      if (current === start) {
+        break;
+      }
+    }
+
+    if (seen.includes(current) && current !== start) {
+      loops.add(seen.slice(0, seen.indexOf(current) + 1));
+    }
+  }
+
+  if (loops.size === 0) {
+    return [];
+  }
+
+  // Find the loop with the smallest job name
+  const smallestLoop = Array.from(loops).reduce((a, b) => a[0] < b[0] ? a : b);
+
+  // Return sorted members of the smallest loop
+  return smallestLoop.sort();
+}
+```

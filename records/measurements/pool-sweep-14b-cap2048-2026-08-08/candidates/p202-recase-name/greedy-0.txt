@@ -1,0 +1,45 @@
+```ts
+export function recaseName(label: string, style: string): string {
+  if (typeof label !== 'string' || typeof style !== 'string') {
+    throw new Error('Both label and style must be strings.');
+  }
+  if (label.length === 0) {
+    throw new Error('Label cannot be empty.');
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(label)) {
+    throw new Error('Label contains invalid characters.');
+  }
+  if (/^[_-]|[-_]{2}|[_-]$/.test(label)) {
+    throw new Error('Label starts or ends with a separator or has consecutive separators.');
+  }
+  if (!['snake', 'kebab', 'shout', 'pascal', 'camel'].includes(style)) {
+    throw new Error('Invalid style. Must be one of "snake", "kebab", "shout", "pascal", or "camel".');
+  }
+
+  const words = label.match(/[A-Z]+(?=[A-Z][a-z])|[A-Z][a-z]+|[0-9]+|[a-z]+/g) || [];
+  const separator = style === 'snake' ? '_' : style === 'kebab' ? '-' : '_';
+
+  switch (style) {
+    case 'snake':
+    case 'kebab':
+      return words.map(word => word.toLowerCase()).join(separator);
+    case 'shout':
+      return words.join('_');
+    case 'pascal':
+    case 'camel': {
+      const capitalizedWords = words.map((word, index) => {
+        if (/^[A-Z]+$/.test(word) && word.length > 1) {
+          return word;
+        }
+        if (index === 0 && style === 'camel') {
+          return word.toLowerCase();
+        }
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      });
+      return capitalizedWords.join('');
+    }
+    default:
+      throw new Error('Invalid style.');
+  }
+}
+```

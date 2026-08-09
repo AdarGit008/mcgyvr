@@ -1,0 +1,84 @@
+```ts
+export function sirenMinutes(events: Array<Record<string, unknown>>, horizon: number): Array<[string, number]> {
+  if (!Number.isInteger(horizon)) {
+    throw new Error("Horizon must be an integer.");
+  }
+
+  const activeAlerts = new Map<string, { id: string; severity: number; at: number }>();
+  const alertTimes = new Map<string, number>();
+
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+
+    if (!("at" in event) || typeof event.at !== "number") {
+      throw new Error("Event must have a valid 'at' field.");
+    }
+
+    if (i > 0 && event.at <= events[i - 1].at) {
+      throw new Error("Event times must strictly increase.");
+    }
+
+    if (event.at > horizon) {
+      throw new Error("Event time exceeds the horizon.");
+    }
+
+    if ("kind" in event) {
+      const kind = event.kind as string;
+
+      if (kind === "raise") {
+        if (!("id" in event && typeof event.id === "string" && event.id) ||
+            !("channel" in event && typeof event.channel === "string" && event.channel) ||
+            !("severity" in event && Number.isInteger(event.severity) && event.severity >= 1 && event.severity <= 5)) {
+          throw new Error("Invalid raise event.");
+        }
+
+        const { id, channel, severity } = event as { id: string; channel: string; severity: number };
+
+        if (activeAlerts.has(channel)) {
+          const existing = activeAlerts.get(channel)!;
+          if (severity > existing.severity || (severity === existing.severity && existing.at < event.at)) {
+            if (alertTimes.has(existing.id)) {
+              alertTimes.set(existing.id, alertTimes.get(existing.id)! + event.at - existing.at);
+            }
+            activeAlerts.set(channel, { id, severity, at: event.at });
+          } else {
+            throw new Error("Cannot raise an already active id.");
+          }
+        } else {
+          activeAlerts.set(channel, { id, severity, at: event.at });
+        }
+
+      } else if (kind === "clear") {
+        if (!("id" in event && typeof event.id === "string" && event.id)) {
+          throw new Error("Invalid clear event.");
+        }
+
+        const { id } = event as { id: string };
+
+        for (const [channel, alert] of activeAlerts.entries()) {
+          if (alert.id === id) {
+            const existingTime = alertTimes.get(id) || 0;
+            alertTimes.set(id, existingTime + event.at - alert.at);
+            activeAlerts.delete(channel);
+            break;
+          }
+        }
+
+        if (!activeAlerts.has(event.id)) {
+          throw new Error("Cannot clear an id not active.");
+        }
+
+      } else {
+        throw new Error("Invalid event kind.");
+      }
+    }
+  }
+
+  for (const [channel, alert] of activeAlerts.entries()) {
+    const existingTime = alertTimes.get(alert.id) || 0;
+    alertTimes.set(alert.id, existingTime + horizon - alert.at);
+  }
+
+  return Array.from(alertTimes.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

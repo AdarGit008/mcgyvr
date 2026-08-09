@@ -1,0 +1,48 @@
+```ts
+/**
+ * Multiplies two polynomials, truncates terms exceeding the given cap,
+ * and returns the canonical result.
+ * @param left - The coefficients of the first polynomial.
+ * @param right - The coefficients of the second polynomial.
+ * @param cap - The maximum exponent to include in the result.
+ * @returns The coefficients of the truncated product polynomial.
+ * @throws Error if inputs are invalid.
+ */
+export function truncatedProduct(left: number[], right: number[], cap: number): number[] {
+    // Validate inputs
+    if (!Array.isArray(left) || !Array.isArray(right)) {
+        throw new Error("Both left and right must be arrays.");
+    }
+    if (!left.every(Number.isInteger) || !right.every(Number.isInteger)) {
+        throw new Error("All coefficients must be whole numbers.");
+    }
+    if (left.length > 0 && left[left.length - 1] === 0) {
+        throw new Error("The final entry of the left polynomial cannot be zero.");
+    }
+    if (right.length > 0 && right[right.length - 1] === 0) {
+        throw new Error("The final entry of the right polynomial cannot be zero.");
+    }
+    if (!Number.isInteger(cap) || cap < 0) {
+        throw new Error("Cap must be a whole number of at least zero.");
+    }
+
+    // Initialize result array with size cap + 1
+    const result: number[] = new Array(cap + 1).fill(0);
+
+    // Multiply polynomials
+    for (let i = 0; i < left.length; i++) {
+        for (let j = 0; j < right.length; j++) {
+            if (i + j <= cap) {
+                result[i + j] += left[i] * right[j];
+            }
+        }
+    }
+
+    // Strip trailing zeros
+    while (result.length > 1 && result[result.length - 1] === 0) {
+        result.pop();
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,104 @@
+```ts
+/**
+ * Validates that the start is less than the end and both are integers.
+ * @param start - The start of the interval.
+ * @param end - The end of the interval.
+ */
+function validateInterval(start: number, end: number) {
+  if (!Number.isInteger(start) || !Number.isInteger(end)) {
+    throw new Error("Endpoints must be integers.");
+  }
+  if (start >= end) {
+    throw new Error("Start must be less than end.");
+  }
+}
+
+/**
+ * Clips the interval to the window boundaries.
+ * @param start - The start of the interval.
+ * @param end - The end of the interval.
+ * @param windowStart - The start of the window.
+ * @param windowEnd - The end of the window.
+ * @returns The clipped interval or null if it is outside the window.
+ */
+function clipInterval(
+  start: number,
+  end: number,
+  windowStart: number,
+  windowEnd: number
+): [number, number] | null {
+  const clippedStart = Math.max(start, windowStart);
+  const clippedEnd = Math.min(end, windowEnd);
+  if (clippedStart < clippedEnd) {
+    return [clippedStart, clippedEnd];
+  }
+  return null;
+}
+
+/**
+ * Merges overlapping intervals.
+ * @param intervals - The list of intervals to merge.
+ * @returns The merged list of intervals.
+ */
+function mergeIntervals(intervals: [number, number][]): [number, number][] {
+  if (intervals.length === 0) return [];
+
+  const sortedIntervals = intervals.slice().sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [sortedIntervals[0]];
+
+  for (let i = 1; i < sortedIntervals.length; i++) {
+    const current = sortedIntervals[i];
+    const lastMerged = merged[merged.length - 1];
+
+    if (current[0] <= lastMerged[1]) {
+      // Overlapping intervals, merge them
+      merged[merged.length - 1] = [
+        lastMerged[0],
+        Math.max(lastMerged[1], current[1]),
+      ];
+    } else {
+      // Non-overlapping interval, add it to the list
+      merged.push(current);
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * The free stretches of a working window, given its busy intervals.
+ * @param windowStart - The start of the working window.
+ * @param windowEnd - The end of the working window.
+ * @param busy - The list of busy intervals.
+ * @returns The maximal free stretches as half-open pairs of integers.
+ */
+export function freeWindows(
+  windowStart: number,
+  windowEnd: number,
+  busy: number[][]
+): number[][] {
+  validateInterval(windowStart, windowEnd);
+
+  const clippedBusy = busy
+    .map(([start, end]) => clipInterval(start, end, windowStart, windowEnd))
+    .filter((interval) => interval !== null) as [number, number][];
+
+  const mergedBusy = mergeIntervals(clippedBusy);
+
+  const gaps: number[][] = [];
+  let cursor = windowStart;
+
+  for (const [start, end] of mergedBusy) {
+    if (start > cursor) {
+      gaps.push([cursor, start]);
+    }
+    cursor = end;
+  }
+
+  if (cursor < windowEnd) {
+    gaps.push([cursor, windowEnd]);
+  }
+
+  return gaps;
+}
+```

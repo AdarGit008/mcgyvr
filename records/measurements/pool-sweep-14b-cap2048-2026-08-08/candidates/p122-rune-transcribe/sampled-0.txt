@@ -1,0 +1,33 @@
+```ts
+export function transcribeRunes(source: string, table: Array<[string, string]>): string {
+  if (!source && table.some(([pattern]) => pattern === "")) {
+    throw new Error("Empty pattern found in rules.");
+  }
+
+  let result = "";
+  let position = 0;
+
+  while (position < source.length) {
+    let ruleFired = false;
+
+    for (const [pattern, output] of table) {
+      if (pattern === "") {
+        throw new Error("Empty pattern found in rules.");
+      }
+      if (source.startsWith(pattern, position)) {
+        result += output;
+        position += pattern.length;
+        ruleFired = true;
+        break;
+      }
+    }
+
+    if (!ruleFired) {
+      result += source[position];
+      position++;
+    }
+  }
+
+  return result;
+}
+```

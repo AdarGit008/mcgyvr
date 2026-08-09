@@ -1,0 +1,108 @@
+```ts
+/**
+ * Parses a tag string and returns its attributes.
+ * @param tag - The input string representing the tag.
+ * @returns An object with "stem" and "marks" keys.
+ */
+export function readTagAttributes(tag: string): Record<string, unknown> {
+  if (typeof tag !== 'string') {
+    throw new Error('Invalid input: tag must be a string');
+  }
+
+  const stemPattern = /^[a-zA-Z][a-zA-Z0-9-]*$/;
+  const namePattern = /^[a-z][a-z0-9-]*$/;
+  const settingPattern = /^[a-zA-Z0-9._-]+$/;
+
+  if (!tag.startsWith('[') || !tag.endsWith(']')) {
+    throw new Error('Invalid tag: missing opening or closing bracket');
+  }
+
+  const content = tag.slice(1, -1);
+  const parts = content.split(' ');
+
+  if (parts.length === 0) {
+    throw new Error('Invalid tag: no content between brackets');
+  }
+
+  const stem = parts[0];
+  if (!stemPattern.test(stem)) {
+    throw new Error('Invalid stem format');
+  }
+
+  const marks: Record<string, { name: string; setting: string }> = {};
+  let currentName = '';
+  let currentSetting = '';
+
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+
+    if (part === '') {
+      throw new Error('Invalid tag: two spaces running');
+    }
+
+    if (namePattern.test(part)) {
+      if (currentName !== '' && currentSetting !== '') {
+        marks[currentName] = { name: currentName, setting: currentSetting };
+        currentName = '';
+        currentSetting = '';
+      }
+      currentName = part;
+    } else if (part.startsWith('=')) {
+      if (currentName === '') {
+        throw new Error('Invalid tag: equals sign with no setting after it');
+      }
+      const setting = part.slice(1);
+      if (!settingPattern.test(setting) && !isFencedSetting(setting)) {
+        throw new Error('Invalid setting format');
+      }
+      currentSetting = parseSetting(setting);
+    } else {
+      throw new Error('Invalid tag: unexpected part');
+    }
+  }
+
+  if (currentName !== '' && currentSetting !== '') {
+    if (marks[currentName]) {
+      throw new Error('Invalid tag: name carried twice with different settings');
+    }
+    marks[currentName] = { name: currentName, setting: currentSetting };
+  }
+
+  return { stem, marks };
+}
+
+function isFencedSetting(setting: string): boolean {
+  const quote = setting[0];
+  return (quote === '"' || quote === "'") && setting.endsWith(quote);
+}
+
+function parseSetting(setting: string): string {
+  if (!isFencedSetting(setting)) {
+    throw new Error('Invalid setting format');
+  }
+
+  const quote = setting[0];
+  const content = setting.slice(1, -1);
+  let result = '';
+
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+
+    if (char === '\\') {
+      if (i + 1 >= content.length) {
+        throw new Error('Invalid backslash in setting');
+      }
+      const nextChar = content[i + 1];
+      if (nextChar !== quote && nextChar !== '\\') {
+        throw new Error('Invalid character after backslash in setting');
+      }
+      result += nextChar;
+      i++;
+    } else {
+      result += char;
+    }
+  }
+
+  return result;
+}
+```

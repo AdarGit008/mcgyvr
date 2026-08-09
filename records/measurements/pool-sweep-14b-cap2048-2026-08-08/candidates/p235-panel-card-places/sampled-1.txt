@@ -1,0 +1,60 @@
+```ts
+/**
+ * Places cards on a panel according to given constraints.
+ * @param panel - The panel record with width, height, bleed, cardWidth, cardHeight, and seam.
+ * @param count - The number of cards to lay down.
+ * @param taken - The list of cell numbers already spoken for.
+ * @returns An array of pairs representing the top-left corner distances of each card.
+ */
+export function placeCards(panel: any, count: number, taken: any[]): number[][] {
+  if (count < 0) {
+    throw new Error("Count must be a non-negative integer.");
+  }
+
+  const { width, height, bleed, cardWidth, cardHeight, seam } = panel;
+
+  if (!(width > 0 && height > 0 && cardWidth > 0 && cardHeight > 0)) {
+    throw new Error("Panel dimensions and card sizes must be positive integers.");
+  }
+
+  if (bleed < 0 || seam < 0) {
+    throw new Error("Bleed and seam must be non-negative integers.");
+  }
+
+  const printableWidth = width - 2 * bleed;
+  const printableHeight = height - 2 * bleed;
+
+  if (printableWidth <= 0 || printableHeight <= 0) {
+    throw new Error("Panel dimensions are too small for the given bleed.");
+  }
+
+  const columnCount = Math.max(1, Math.floor((printableWidth + seam) / (cardWidth + seam)));
+  const rowCount = Math.max(1, Math.floor((printableHeight + seam) / (cardHeight + seam)));
+
+  if (columnCount * rowCount === 0) {
+    throw new Error("Panel carries no cells at all.");
+  }
+
+  const totalCells = columnCount * rowCount;
+  const freeCells: number[] = Array.from({ length: totalCells }, (_, i) => i + 1).filter(
+    cell => !taken.includes(cell)
+  );
+
+  if (freeCells.length < count) {
+    throw new Error("Free cells cannot cover the count.");
+  }
+
+  const placedCards: number[][] = [];
+
+  for (let i = 0; i < count; i++) {
+    const cellNumber = freeCells[i];
+    const row = Math.floor((cellNumber - 1) / columnCount);
+    const col = (cellNumber - 1) % columnCount;
+    const x = bleed + col * (cardWidth + seam);
+    const y = bleed + row * (cardHeight + seam);
+    placedCards.push([x, y]);
+  }
+
+  return placedCards;
+}
+```

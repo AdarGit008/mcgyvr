@@ -1,0 +1,81 @@
+```ts
+/**
+ * Expands a pattern written in a custom grammar into distinct strings.
+ * @param pattern - The input pattern string to expand.
+ * @returns An array of distinct expansion strings sorted by code point.
+ */
+export function expandSpanGrammar(pattern: string): string[] {
+    if (typeof pattern !== 'string') {
+        throw new Error('Invalid argument: pattern must be a string');
+    }
+
+    const groups = [];
+    let currentGroup = '';
+    let inGroup = false;
+    let escapeMode = false;
+
+    for (const char of pattern) {
+        if (escapeMode) {
+            if ('<>|~'.includes(char)) {
+                currentGroup += char;
+                escapeMode = false;
+            } else {
+                throw new Error('Invalid escape sequence');
+            }
+        } else if (char === '<') {
+            if (inGroup) {
+                throw new Error('Unclosed group');
+            }
+            inGroup = true;
+        } else if (char === '>') {
+            if (!inGroup) {
+                throw new Error('Bare ">" outside a group');
+            }
+            groups.push(currentGroup);
+            currentGroup = '';
+            inGroup = false;
+        } else if (char === '~') {
+            escapeMode = true;
+        } else {
+            currentGroup += char;
+        }
+    }
+
+    if (inGroup) {
+        throw new Error('Unclosed group');
+    }
+    if (escapeMode) {
+        throw new Error('Lone trailing tilde');
+    }
+
+    const expandGroup = (group: string): string[] => {
+        if (group.includes('..')) {
+            const [start, end] = group.split('..').map(Number);
+            if (isNaN(start) || isNaN(end) || start > end) {
+                throw new Error('Invalid numeric span');
+            }
+            const width = start.toString().length;
+            return Array.from({ length: end - start + 1 }, (_, i) =>
+                String(start + i).padStart(width, '0')
+            );
+        } else {
+            return group.split('|').map(s => s.trim());
+        }
+    };
+
+    let result = [''];
+
+    for (const group of groups) {
+        const options = expandGroup(group);
+        result = result
+            .flatMap(prefix => options.map(option => prefix + option))
+            .filter((item, index, self) => self.indexOf(item) === index);
+    }
+
+    if (result.length > 500) {
+        throw new Error('Expansion count exceeds 500');
+    }
+
+    return result.sort();
+}
+```

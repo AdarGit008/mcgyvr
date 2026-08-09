@@ -1,0 +1,39 @@
+```ts
+export function expandRunTag(pattern: string): string[] {
+  if (typeof pattern !== 'string') {
+    throw new Error('Invalid argument: pattern must be a string');
+  }
+
+  const match = pattern.match(/^([^[]*)\[(.*?)\](.*)$/);
+  if (!match) {
+    throw new Error('Invalid pattern: no valid group found');
+  }
+
+  const [_, stem, group, tail] = match;
+  const runMatch = group.match(/^(\d+)-(\d+)(?:\/(\d+))?$/);
+
+  if (runMatch) {
+    const [, startStr, endStr, stepStr = '1'] = runMatch;
+    const start = parseInt(startStr, 10);
+    const end = parseInt(endStr, 10);
+    const step = parseInt(stepStr, 10);
+
+    if (start > end || step === 0) {
+      throw new Error('Invalid run: start must not exceed end and step must not be zero');
+    }
+
+    const result: string[] = [];
+    for (let i = start; i <= end; i += step) {
+      result.push(`${stem}${i}${tail}`);
+    }
+    return result;
+  }
+
+  const items = group.split(',');
+  if (items.includes('')) {
+    throw new Error('Invalid listing: empty item found');
+  }
+
+  return items.map(item => `${stem}${item}${tail}`).sort();
+}
+```

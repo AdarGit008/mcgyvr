@@ -1,0 +1,78 @@
+```ts
+/**
+ * One line per row of a zoned pick walk.
+ */
+export function zonePickWalk(plan: Record<string, unknown>): string[] {
+  if (typeof plan !== 'object' || plan === null) {
+    throw new Error('Invalid plan argument');
+  }
+
+  const { zoneOrder, picks } = plan;
+
+  if (!Array.isArray(zoneOrder) || zoneOrder.length === 0) {
+    throw new Error('Invalid zoneOrder: must be a non-empty array of strings');
+  }
+
+  if (zoneOrder.some((zone) => typeof zone !== 'string' || zone.trim() === '')) {
+    throw new Error('Invalid zoneOrder: all elements must be non-empty strings');
+  }
+
+  const uniqueZones = new Set(zoneOrder);
+  if (uniqueZones.size !== zoneOrder.length) {
+    throw new Error('Invalid zoneOrder: zones must be distinct');
+  }
+
+  if (!Array.isArray(picks)) {
+    throw new Error('Invalid picks argument: must be an array');
+  }
+
+  const pickMap = new Map<string, any[]>();
+  for (const pick of picks) {
+    if (typeof pick !== 'object' || pick === null) {
+      throw new Error('Invalid pick object');
+    }
+
+    const { code, zone, row, slot } = pick;
+
+    if (
+      typeof code !== 'string' ||
+      code.trim() === '' ||
+      typeof zone !== 'string' ||
+      zone.trim() === '' ||
+      typeof row !== 'number' || row <= 0 || !Number.isInteger(row) ||
+      typeof slot !== 'number' || slot <= 0 || !Number.isInteger(slot)
+    ) {
+      throw new Error('Invalid pick properties');
+    }
+
+    if (!pickMap.has(zone)) {
+      pickMap.set(zone, []);
+    }
+    pickMap.get(zone).push(pick);
+  }
+
+  const lines: string[] = [];
+  for (const zone of zoneOrder) {
+    if (!pickMap.has(zone)) continue;
+
+    const group = pickMap.get(zone);
+
+    const rows = Array.from(new Set(group.map((pick) => pick.row))).sort(
+      (a, b) => a - b
+    );
+
+    let direction = 1; // 1 for up, -1 for down
+
+    for (const row of rows) {
+      const here = group.filter((pick) => pick.row === row);
+      here.sort((a, b) => (direction > 0 ? a.slot - b.slot : b.slot - a.slot));
+      lines.push(
+        zone + "/" + row + ":" + here.map((pick) => pick.code).join("|")
+      );
+      direction *= -1;
+    }
+  }
+
+  return lines;
+}
+```

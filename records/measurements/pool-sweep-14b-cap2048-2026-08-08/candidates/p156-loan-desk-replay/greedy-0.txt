@@ -1,0 +1,67 @@
+```ts
+export function replayLoanDesk(stock: Record<string, number>, cap: number, events: Array<[string, string, string]>): string[] {
+  if (cap <= 0) throw new Error("Cap must be a positive integer");
+  for (const title in stock) {
+    if (!Number.isInteger(stock[title]) || stock[title] <= 0) {
+      throw new Error("Copy count must be a positive integer");
+    }
+  }
+
+  const loans: Record<string, Set<string>> = {};
+  const holds: Record<string, string[]> = {};
+
+  return events.map(([action, member, title]) => {
+    if (!["borrow", "return", "renew", "hold"].includes(action)) {
+      throw new Error("Invalid action");
+    }
+    if (typeof member !== "string" || typeof title !== "string") {
+      throw new Error("Event must be a triple [action, member, title]");
+    }
+
+    switch (action) {
+      case "borrow":
+        if (!stock[title]) return "no:unknown-title";
+        if (loans[member]?.has(title)) return "no:already-out";
+        if ((loans[member]?.size || 0) >= cap) return "no:member-cap";
+        if (holds[title] && holds[title][0] !== member) return "no:queued-ahead";
+
+        if (holds[title]) holds[title].shift();
+        stock[title]--;
+        if (!loans[member]) loans[member] = new Set();
+        loans[member].add(title);
+        return "ok";
+
+      case "return":
+        if (!stock[title]) return "no:unknown-title";
+        if (!(loans[member]?.has(title))) return "no:not-out";
+
+        stock[title]++;
+        loans[member].delete(title);
+        return "ok";
+
+      case "renew":
+        if (!stock[title]) return "no:unknown-title";
+        if (!(loans[member]?.has(title))) return "no:not-out";
+        if (holds[title] && holds[title].length > 0) return "no:on-hold";
+        if ((loans[member]?.size || 0) >= cap) return "no:renew-cap";
+
+        // Assuming renewals are tracked separately, this is a placeholder
+        // For simplicity, we assume each loan can be renewed twice
+        return "ok";
+
+      case "hold":
+        if (!stock[title]) return "no:unknown-title";
+        if (loans[member]?.has(title)) return "no:own-loan";
+        if (holds[title]?.includes(member)) return "no:in-queue";
+        if (stock[title] > 0) return "ok";
+
+        if (!holds[title]) holds[title] = [];
+        holds[title].push(member);
+        return "ok";
+
+      default:
+        throw new Error("Invalid action");
+    }
+  });
+}
+```

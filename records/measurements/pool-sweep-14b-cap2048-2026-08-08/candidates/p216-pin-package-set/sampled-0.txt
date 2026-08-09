@@ -1,0 +1,157 @@
+```ts
+interface Version {
+  major: number;
+  minor: number;
+  patch: number;
+}
+
+function parseVersion(version: string): Version {
+  const [major, minor, patch] = version.split('.').map(Number);
+  return { major, minor, patch };
+}
+
+function compareVersions(a: Version, b: Version): number {
+  if (a.major !== b.major) return a.major - b.major;
+  if (a.minor !== b.minor) return a.minor - b.minor;
+  return a.patch - b.patch;
+}
+
+function isVersionString(version: string): boolean {
+  return /^\d+\.\d+\.\d+$/.test(version);
+}
+
+function isValidShelf(shelf: Record<string, unknown>): shelf is Record<string, string[]> {
+  for (const versions of Object.values(shelf)) {
+    if (!Array.isArray(versions) || versions.length === 0) return false;
+    for (const version of versions) {
+      if (!isVersionString(version)) return false;
+    }
+  }
+  return true;
+}
+
+function isValidWants(wants: Record<string, unknown>, shelf: Record<string, string[]>): wants is Record<string, { name: string; from: string; under: string }[]> {
+  for (const [packageName, packageWants] of Object.entries(wants)) {
+    if (!Array.isArray(packageWants)) return false;
+    for (const want of packageWants) {
+      if (
+        typeof want !== 'object' ||
+        !('name' in want && 'from' in want && 'under' in want) ||
+        typeof want.name !== 'string' ||
+        typeof want.from !== 'string' ||
+        typeof want.under !== 'string'
+      ) {
+        return false;
+      }
+      const versionFrom = parseVersion(want.from);
+      const versionUnder = parseVersion(want.under);
+      if (compareVersions(versionFrom, versionUnder) >= 0) return false;
+      if (!shelf[packageName]) return false;
+    }
+  }
+  return true;
+}
+
+function isValidPlan(plan: Record<string, unknown>): plan is { shelf: Record<string, string[]>; needs: Record<string, { name: string; from: string; under: string }[]>; root: { name: string; from: string; under: string }[] } {
+  if (
+    typeof plan !== 'object' ||
+    !('shelf' in plan && 'needs' in plan && 'root' in plan) ||
+    typeof plan.shelf !== 'object' ||
+    typeof plan.needs !== 'object' ||
+    !Array.isArray(plan.root)
+  ) {
+    return false;
+  }
+  if (!isValidShelf(plan.shelf)) return false;
+  if (!isValidWants(plan.needs, plan.shelf)) return false;
+  for (const want of plan.root) {
+    if (
+      typeof want !== 'object' ||
+      !('name' in want && 'from' in want && 'under' in want) ||
+      typeof want.name !== 'string' ||
+      typeof want.from !== 'string' ||
+      typeof want.under !== 'string'
+    ) {
+      return false;
+    }
+    const versionFrom = parseVersion(want.from);
+    const versionUnder = parseVersion(want.under);
+    if (compareVersions(versionFrom, versionUnder) >= 0) return false;
+    if (!plan.shelf[want.name]) return false;
+  }
+  return true;
+}
+
+export function pinPackageSet(plan: Record<string, unknown>): Record<string, unknown> {
+  if (!isValidPlan(plan)) throw new Error('Invalid plan');
+
+  const { shelf, needs, root } = plan;
+
+  type PackageState = {
+    wants: { name: string; from: string; under: string }[];
+    reached: boolean;
+    settledVersion?: string;
+  };
+
+  const packageStates: Record<string, PackageState> = {};
+
+  for (const want of root) {
+    if (!packageStates[want.name]) {
+      packageStates[want.name] = { wants: [], reached: true };
+    }
+    packageStates[want.name].wants.push(want);
+  }
+
+  const queue = [...root.map((want) => want.name)];
+
+  while (queue.length > 0) {
+    const packageName = queue.shift()!;
+    if (!packageStates[packageName]) continue;
+    const { wants } = packageStates[packageName];
+
+    for (const want of wants) {
+      if (!packageStates[want.name]) {
+        packageStates[want.name] = { wants: [], reached: true };
+        queue.push(want.name);
+      }
+      packageStates[want.name].wants.push({ name: want.name, from: want.from, under: want.under });
+    }
+
+    const versions = shelf[packageName];
+    const validVersions = versions.filter((version) => {
+      const parsedVersion = parseVersion(version);
+      return wants.every((want) => {
+        const versionFrom = parseVersion(want.from);
+        const versionUnder = parseVersion(want.under);
+        return (
+          compareVersions(parsedVersion, versionFrom) > 0 &&
+          compareVersions(parsedVersion, versionUnder) < 0
+        );
+      });
+    });
+
+    if (validVersions.length > 0) {
+      packageStates[packageName].settledVersion = validVersions.sort((a, b) => {
+        const [majorA, minorA, patchA] = a.split('.').map(Number);
+        const [majorB, minorB, patchB] = b.split('.').map(Number);
+        if (majorA !== majorB) return majorA - majorB;
+        if (minorA !== minorB) return minorA - minorB;
+        return patchB - patchA; // Descending for patch
+      })[0];
+    }
+  }
+
+  const picked: { name: string; version: string }[] = [];
+  const stuck: string[] = [];
+
+  for (const [packageName, state] of Object.entries(packageStates)) {
+    if (state.settledVersion) {
+      picked.push({ name: packageName, version: state.settledVersion });
+    } else {
+      stuck.push(packageName);
+    }
+  }
+
+  return { picked: picked.sort((a, b) => a.name.localeCompare(b.name)), stuck: stuck.sort() };
+}
+```

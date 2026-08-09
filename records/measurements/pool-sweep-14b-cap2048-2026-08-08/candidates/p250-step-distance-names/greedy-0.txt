@@ -1,0 +1,68 @@
+```ts
+export function nameStepDistances(steps: any[]): any {
+  if (!Array.isArray(steps) || steps.length === 0) {
+    throw new Error("Invalid input: steps must be a non-empty array.");
+  }
+
+  const stepNames = [
+    "unison",
+    "minor second",
+    "major second",
+    "minor third",
+    "major third",
+    "perfect fourth",
+    "tritone",
+    "perfect fifth",
+    "minor sixth",
+    "major sixth",
+    "minor seventh",
+    "major seventh"
+  ];
+
+  const sweetLeftovers = new Set([0, 3, 4, 5, 7, 8, 9]);
+  const sharpLeftovers = new Set([1, 2, 6, 10, 11]);
+
+  const names: string[] = [];
+  const lifts: number[] = [];
+  const colours: string[] = [];
+  const tally: { [key: string]: number } = {};
+  let widestReach = 0;
+  let widestIndex = -1;
+
+  steps.forEach((step, index) => {
+    if (!Array.isArray(step) || step.length !== 2) {
+      throw new Error("Invalid input: each step must be a list of exactly two things.");
+    }
+
+    const [mark1, mark2] = step;
+    if (!Number.isInteger(mark1) || !Number.isInteger(mark2)) {
+      throw new Error("Invalid input: pitch marks must be whole numbers.");
+    }
+
+    const reach = Math.abs(mark1 - mark2);
+    const lift = Math.floor(reach / 12);
+    const leftover = reach % 12;
+    const name = stepNames[leftover];
+    const colour = sweetLeftovers.has(leftover) ? "sweet" : sharpLeftovers.has(leftover) ? "sharp" : "";
+
+    names.push(name);
+    lifts.push(lift);
+    colours.push(colour);
+
+    tally[name] = (tally[name] || 0) + 1;
+
+    if (reach > widestReach) {
+      widestReach = reach;
+      widestIndex = index;
+    }
+  });
+
+  return {
+    names,
+    lifts,
+    colours,
+    tally,
+    widest: widestIndex
+  };
+}
+```

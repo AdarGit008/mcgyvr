@@ -1,0 +1,55 @@
+```ts
+export function issueCostTotal(moves: Array<Record<string, unknown>>): number {
+  if (!Array.isArray(moves)) {
+    throw new Error("Invalid input: moves must be an array");
+  }
+
+  const bin: Array<[number, number]> = [];
+  let charged = 0;
+
+  for (const move of moves) {
+    if (typeof move.kind !== "string" || typeof move.units !== "number") {
+      throw new Error("Invalid movement record");
+    }
+
+    if (move.kind === "in") {
+      if (
+        !Number.isInteger(move.units) ||
+        move.units <= 0 ||
+        typeof move.cents !== "number" ||
+        !Number.isInteger(move.cents) ||
+        move.cents < 0
+      ) {
+        throw new Error("Invalid 'in' movement record");
+      }
+      bin.push([move.units, move.cents]);
+    } else if (move.kind === "out") {
+      if (!Number.isInteger(move.units) || move.units <= 0) {
+        throw new Error("Invalid 'out' movement record");
+      }
+
+      let unitsToCharge = move.units;
+      while (unitsToCharge > 0 && bin.length > 0) {
+        const [availableUnits, pricePerUnit] = bin[0];
+        if (availableUnits <= unitsToCharge) {
+          charged += availableUnits * pricePerUnit;
+          unitsToCharge -= availableUnits;
+          bin.shift();
+        } else {
+          charged += unitsToCharge * pricePerUnit;
+          bin[0][0] -= unitsToCharge;
+          unitsToCharge = 0;
+        }
+      }
+
+      if (unitsToCharge > 0) {
+        throw new Error("Issue larger than everything in the bin");
+      }
+    } else {
+      throw new Error("Invalid movement kind");
+    }
+  }
+
+  return charged;
+}
+```

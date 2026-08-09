@@ -1,0 +1,55 @@
+```ts
+export function steadyReadings(readings: unknown, spec: unknown): Record<string, unknown> {
+  if (!Array.isArray(readings) || readings.length === 0) {
+    throw new Error("Invalid readings input");
+  }
+  if (typeof spec !== 'object' || spec === null) {
+    throw new Error("Invalid spec input");
+  }
+
+  const band = (spec as any).band;
+  const hold = (spec as any).hold;
+
+  if (typeof band !== 'number' || band < 0 || !Number.isInteger(band)) {
+    throw new Error("Invalid band value");
+  }
+  if (typeof hold !== 'number' || hold <= 0 || !Number.isInteger(hold)) {
+    throw new Error("Invalid hold value");
+  }
+
+  const isWholeNumber = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n);
+  if (!readings.every(isWholeNumber)) {
+    throw new Error("All readings must be whole numbers");
+  }
+
+  const settled: number[] = [];
+  const moved: number[] = [];
+
+  let steadyFigure = readings[0];
+  let challengeStartIndex = -1;
+
+  for (let i = 0; i < readings.length; i++) {
+    const currentReading = readings[i];
+
+    if (Math.abs(currentReading - steadyFigure) <= band) {
+      // Quiet reading, close any open challenge
+      challengeStartIndex = -1;
+    } else {
+      // Noisy reading
+      if (challengeStartIndex === -1 || Math.abs(currentReading - readings[challengeStartIndex]) > band) {
+        // Start a new challenge
+        challengeStartIndex = i;
+      } else if (i - challengeStartIndex + 1 >= hold) {
+        // Close the challenge and update steady figure
+        steadyFigure = readings[challengeStartIndex];
+        moved.push(i);
+        challengeStartIndex = -1;
+      }
+    }
+
+    settled.push(steadyFigure);
+  }
+
+  return { settled, moved };
+}
+```

@@ -1,0 +1,36 @@
+```ts
+export function tessariValue(text: string): number {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  if (text.length === 0) {
+    throw new Error('Input cannot be an empty string');
+  }
+  const validGlyphs = 'KLMNPQRST';
+  for (const char of text) {
+    if (!validGlyphs.includes(char)) {
+      throw new Error(`Invalid glyph: ${char}`);
+    }
+    if (char !== char.toUpperCase()) {
+      throw new Error('All glyphs must be uppercase');
+    }
+  }
+  if (text.length > 1 && text[0] === 'K') {
+    throw new Error('A numeral padded with a leading K is not allowed');
+  }
+
+  const glyphValues: { [key: string]: number } = {
+    K: 0,
+    L: 1,
+    M: 2,
+    N: 3,
+    P: 4,
+    Q: 5,
+    R: 6,
+    S: 7,
+    T: 8
+  };
+
+  return text.split('').reduce((acc, char) => acc * 9 + glyphValues[char], 0);
+}
+```

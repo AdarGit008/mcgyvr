@@ -1,0 +1,100 @@
+```ts
+export function rangeAlgebra(a: number[][], b: number[][], op: string): number[][] {
+  if (!["union", "intersect", "subtract"].includes(op)) {
+    throw new Error("Invalid operation");
+  }
+
+  const normalize = (ranges: number[][]): number[][] => {
+    return ranges
+      .filter(([lo, hi]) => lo < hi)
+      .sort(([aLo], [bLo]) => aLo - bLo);
+  };
+
+  const mergeDisjoint = (ranges: number[][]): number[][] => {
+    if (ranges.length <= 1) return ranges;
+
+    const result: number[][] = [];
+    let currentRange = [...ranges[0]];
+
+    for (let i = 1; i < ranges.length; i++) {
+      const [lo, hi] = ranges[i];
+      if (lo <= currentRange[1]) {
+        currentRange[1] = Math.max(currentRange[1], hi);
+      } else {
+        result.push([...currentRange]);
+        currentRange = [...ranges[i]];
+      }
+    }
+
+    result.push(currentRange);
+    return result;
+  };
+
+  const rangeUnion = (a: number[][], b: number[][]): number[][] => {
+    return mergeDisjoint(normalize([...a, ...b]));
+  };
+
+  const rangeIntersect = (a: number[][], b: number[][]): number[][] => {
+    const sortedA = normalize(a);
+    const sortedB = normalize(b);
+    const result: number[][] = [];
+    let i = 0, j = 0;
+
+    while (i < sortedA.length && j < sortedB.length) {
+      const [aLo, aHi] = sortedA[i];
+      const [bLo, bHi] = sortedB[j];
+
+      if (aHi <= bLo) {
+        i++;
+      } else if (bHi <= aLo) {
+        j++;
+      } else {
+        result.push([Math.max(aLo, bLo), Math.min(aHi, bHi)]);
+        if (aHi < bHi) i++;
+        else j++;
+      }
+    }
+
+    return mergeDisjoint(result);
+  };
+
+  const rangeSubtract = (a: number[][], b: number[][]): number[][] => {
+    const sortedA = normalize(a);
+    const sortedB = normalize(b);
+    const result: number[][] = [];
+    let i = 0, j = 0;
+
+    while (i < sortedA.length) {
+      const [aLo, aHi] = sortedA[i];
+      if (j >= sortedB.length || b[j][1] <= aLo) {
+        result.push([aLo, aHi]);
+        i++;
+      } else if (b[j][0] >= aHi) {
+        i++;
+      } else {
+        const [bLo, bHi] = sortedB[j];
+        if (aLo < bLo) result.push([aLo, bLo]);
+        if (bHi < aHi) {
+          result.push([bHi, aHi]);
+          i++;
+        } else {
+          j++;
+        }
+      }
+    }
+
+    return mergeDisjoint(result);
+  };
+
+  switch (op) {
+    case "union":
+      return rangeUnion(a, b);
+    case "intersect":
+      return rangeIntersect(a, b);
+    case "subtract":
+      return rangeSubtract(a, b);
+    default:
+      throw new Error("Invalid operation");
+  }
+}
+```

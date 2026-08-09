@@ -1,0 +1,47 @@
+```ts
+export function planRetryWindow(policy: { base: number; factor: number; ceiling: number; tries: number; deadline: number }, outcomes: string[]): { times: number[]; verdict: string } {
+  const { base, factor, ceiling, tries, deadline } = policy;
+
+  if (
+    typeof base !== 'number' || base <= 0 ||
+    typeof factor !== 'number' || factor <= 0 ||
+    typeof ceiling !== 'number' || ceiling < base ||
+    typeof tries !== 'number' || tries <= 0 ||
+    typeof deadline !== 'number' || deadline <= 0
+  ) {
+    throw new Error('Invalid policy');
+  }
+
+  if (!Array.isArray(outcomes) || outcomes.some(outcome => !['won', 'lost', 'held'].includes(outcome))) {
+    throw new Error('Invalid outcomes');
+  }
+
+  const times: number[] = [];
+  let nextAttemptTime = 0;
+  let consecutiveLostCount = 0;
+
+  for (let i = 0; i < tries && i < outcomes.length; i++) {
+    const outcome = outcomes[i];
+
+    if (outcome === 'won') {
+      return { times, verdict: 'succeeded' };
+    }
+
+    if (nextAttemptTime >= deadline) {
+      return { times, verdict: 'expired' };
+    }
+
+    times.push(nextAttemptTime);
+
+    if (outcome === 'lost') {
+      consecutiveLostCount++;
+      nextAttemptTime += Math.min(base * Math.pow(factor, consecutiveLostCount - 1), ceiling);
+    } else if (outcome === 'held') {
+      consecutiveLostCount = 0;
+      nextAttemptTime += ceiling;
+    }
+  }
+
+  return { times, verdict: outcomes.length >= tries ? 'exhausted' : 'unknown' };
+}
+```

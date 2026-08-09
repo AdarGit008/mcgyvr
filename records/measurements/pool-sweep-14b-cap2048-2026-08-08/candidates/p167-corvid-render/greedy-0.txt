@@ -1,0 +1,29 @@
+```ts
+/**
+ * Renders a given whole number into a Corvid tally string.
+ * @param value - The whole number to be rendered.
+ * @returns The Corvid tally string representation of the number.
+ * @throws Error if the input is not a whole number.
+ */
+export function corvidRender(value: number): string {
+  if (!Number.isInteger(value)) {
+    throw new Error("Input must be a whole number.");
+  }
+
+  const marks = ['v', 'w', 'x', 'y', 'z'];
+  let result = '';
+  let remainingValue = value;
+  let placeValue = Math.pow(5, Math.floor(Math.log(Math.abs(value)) / Math.log(5)));
+
+  while (placeValue > 0) {
+    const digit = Math.floor(remainingValue / placeValue);
+    if (digit !== 0) {
+      result += marks[digit + 2];
+    }
+    remainingValue %= placeValue;
+    placeValue /= 5;
+  }
+
+  return result || 'x';
+}
+```

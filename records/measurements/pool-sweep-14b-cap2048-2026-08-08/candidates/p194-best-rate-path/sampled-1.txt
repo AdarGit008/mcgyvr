@@ -1,0 +1,78 @@
+```ts
+export function bestRatePath(quotes: unknown[][], amount: number, source: string, destination: string): Record<string, unknown> {
+    if (!Array.isArray(quotes) || quotes.length === 0) {
+        throw new Error("Invalid quote list");
+    }
+
+    const parsedQuotes: { base: string, counter: string, micro: number }[] = [];
+
+    for (const quote of quotes) {
+        if (!Array.isArray(quote) || quote.length !== 3) {
+            throw new Error("Invalid quote format");
+        }
+        const [base, counter, micro] = quote;
+        if (typeof base !== 'string' || typeof counter !== 'string' || typeof micro !== 'number') {
+            throw new Error("Invalid quote content");
+        }
+        if (base === "" || counter === "") {
+            throw new Error("Empty currency code");
+        }
+        if (micro <= 0) {
+            throw new Error("Micro must be a positive whole number");
+        }
+        if (base === counter) {
+            throw new Error("Base and counter cannot be the same");
+        }
+        parsedQuotes.push({ base, counter, micro });
+    }
+
+    if (amount <= 0 || !Number.isInteger(amount)) {
+        throw new Error("Amount must be a positive whole number");
+    }
+
+    if (source === destination) {
+        throw new Error("Source and destination cannot be the same");
+    }
+
+    const codeSet = new Set();
+    for (const quote of parsedQuotes) {
+        codeSet.add(quote.base);
+        codeSet.add(quote.counter);
+    }
+
+    if (!codeSet.has(source) || !codeSet.has(destination)) {
+        throw new Error("Source or destination not quoted");
+    }
+
+    const memo: Record<string, { amount: number, path: string[] }> = {};
+
+    function dfs(code: string): { amount: number, path: string[] } {
+        if (memo[code]) return memo[code];
+        let maxAmount = 0;
+        let bestPath: string[] = [];
+        for (const quote of parsedQuotes) {
+            if (quote.base === code) {
+                const next = dfs(quote.counter);
+                const convertedAmount = Math.floor(next.amount * quote.micro / 1_000_000);
+                if (convertedAmount > maxAmount || (convertedAmount === maxAmount && (next.path.length + 1 < bestPath.length || (next.path.length + 1 === bestPath.length && next.path.join(',') < bestPath.join(','))))) {
+                    maxAmount = convertedAmount;
+                    bestPath = [code, ...next.path];
+                }
+            }
+        }
+        memo[code] = { amount: code === source ? amount : 0, path: [] };
+        if (maxAmount > 0) {
+            memo[code].amount = maxAmount;
+            memo[code].path = [...bestPath];
+        }
+        return memo[code];
+    }
+
+    const result = dfs(source);
+    if (result.path.length === 0 || result.path[result.path.length - 1] !== destination) {
+        throw new Error("No run connects source to destination");
+    }
+
+    return { amount: result.amount, path: result.path };
+}
+```

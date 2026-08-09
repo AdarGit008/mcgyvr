@@ -1,0 +1,77 @@
+```ts
+export function expandNthWeekday(ordinal: number, weekday: number, start: string, months: number): string[] {
+  if (![-1, 1, 2, 3, 4, 5].includes(ordinal)) {
+    throw new Error("Invalid ordinal");
+  }
+  if (weekday < 0 || weekday > 6) {
+    throw new Error("Invalid weekday");
+  }
+  if (!/^\d{4}-\d{2}$/.test(start) || parseInt(start.slice(0, 4)) < 1 || parseInt(start.slice(0, 4)) > 9999) {
+    throw new Error("Invalid start month");
+  }
+  if (months <= 0 || months > 240) {
+    throw new Error("Invalid number of months");
+  }
+
+  const result: string[] = [];
+  let year = parseInt(start.slice(0, 4));
+  let month = parseInt(start.slice(5));
+
+  for (let i = 0; i < months; i++) {
+    const daysInMonth = [31, (isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+    const firstDayOfWeek = getFirstDayOfWeek(year, month);
+
+    let targetDate: number | null = null;
+
+    if (ordinal === -1) {
+      // Find the last occurrence of the weekday
+      for (let day = daysInMonth; day > 0; day--) {
+        if ((firstDayOfWeek + day - 1) % 7 === weekday) {
+          targetDate = day;
+          break;
+        }
+      }
+    } else {
+      // Find the ordinal-th occurrence of the weekday
+      for (let occurrence = 1, day = 1; day <= daysInMonth; day++) {
+        if ((firstDayOfWeek + day - 1) % 7 === weekday) {
+          if (occurrence === ordinal) {
+            targetDate = day;
+            break;
+          }
+          occurrence++;
+        }
+      }
+    }
+
+    if (targetDate !== null) {
+      result.push(`${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${targetDate.toString().padStart(2, '0')}`);
+    }
+
+    // Move to the next month
+    month++;
+    if (month > 12) {
+      month = 1;
+      year++;
+      if (year > 9999) {
+        break; // Stop if we exceed the year limit
+      }
+    }
+  }
+
+  return result;
+}
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+}
+
+function getFirstDayOfWeek(year: number, month: number): number {
+  // Zeller's Congruence to find the day of the week
+  const q = month < 3 ? month + 12 : month;
+  const k = year % 100;
+  const j = Math.floor(year / 100);
+  const f = Math.floor(q + 13 * (q + 1) / 5 + k + Math.floor(k / 4) + Math.floor(j / 4) - 2 * j) % 7;
+  return (f + 5) % 7; // Adjusting for Monday=0 to Sunday=6
+}
+```

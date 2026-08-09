@@ -1,0 +1,38 @@
+```ts
+/**
+ * Builds a min-heap from a list of numbers using insertion method.
+ * @param values - An array of whole numbers to be inserted into the heap.
+ * @returns The array representing the min-heap.
+ * @throws Error if the input is not an array or contains non-whole numbers.
+ */
+export function buildMinHeapByInsertion(values: number[]): number[] {
+  if (!Array.isArray(values)) {
+    throw new Error("Input must be an array.");
+  }
+
+  for (const value of values) {
+    if (!Number.isInteger(value)) {
+      throw new Error("All elements must be whole numbers.");
+    }
+  }
+
+  const heap: number[] = [];
+
+  for (const value of values) {
+    heap.push(value);
+    let currentIndex = heap.length - 1;
+
+    while (currentIndex > 0) {
+      const parentIndex = Math.floor((currentIndex - 1) / 2);
+      if (heap[currentIndex] < heap[parentIndex]) {
+        [heap[currentIndex], heap[parentIndex]] = [heap[parentIndex], heap[currentIndex]];
+        currentIndex = parentIndex;
+      } else {
+        break;
+      }
+    }
+  }
+
+  return heap;
+}
+```

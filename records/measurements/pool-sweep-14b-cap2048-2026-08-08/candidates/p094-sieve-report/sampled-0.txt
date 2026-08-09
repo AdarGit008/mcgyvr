@@ -1,0 +1,55 @@
+```ts
+export function sieveReport(items: Array<Record<string, unknown>>, rules: Array<Record<string, unknown>>): string[] {
+  const validOps = new Set(['eq', 'ne', 'gt', 'lt', 'present', 'absent']);
+  const usedRuleNames = new Set<string>();
+
+  for (const rule of rules) {
+    const name = rule.name as string;
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new Error('Invalid rule name');
+    }
+    if (usedRuleNames.has(name)) {
+      throw new Error('Duplicate rule name');
+    }
+    usedRuleNames.add(name);
+
+    const op = rule.op as string;
+    if (!validOps.has(op)) {
+      throw new Error(`Invalid operation: ${op}`);
+    }
+  }
+
+  return items.map(item => {
+    for (const rule of rules) {
+      const { name, field, op, value } = rule;
+      const itemValue = item[field as string];
+
+      switch (op) {
+        case 'eq':
+          if (itemValue !== value) return name as string;
+          break;
+        case 'ne':
+          if (itemValue === value) return name as string;
+          break;
+        case 'gt':
+          if (typeof itemValue !== 'number' || typeof value !== 'number' || itemValue <= value) {
+            return name as string;
+          }
+          break;
+        case 'lt':
+          if (typeof itemValue !== 'number' || typeof value !== 'number' || itemValue >= value) {
+            return name as string;
+          }
+          break;
+        case 'present':
+          if (itemValue === undefined) return name as string;
+          break;
+        case 'absent':
+          if (itemValue !== undefined) return name as string;
+          break;
+      }
+    }
+    return 'pass';
+  });
+}
+```

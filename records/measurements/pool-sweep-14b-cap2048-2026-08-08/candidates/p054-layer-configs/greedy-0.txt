@@ -1,0 +1,36 @@
+```ts
+/**
+ * Applies a list of configuration layers onto an initially empty result.
+ * @param layers - An ordered list of configuration layers, each a mapping.
+ * @returns The accumulated result after applying all layers.
+ * @throws Error if the argument is not a list or when any layer is not a mapping.
+ */
+export function layerConfigs(layers: Array<Record<string, unknown>>): Record<string, unknown> {
+  if (!Array.isArray(layers)) {
+    throw new Error("Input must be an array of configuration layers.");
+  }
+
+  const result: Record<string, unknown> = {};
+
+  for (const layer of layers) {
+    if (typeof layer !== 'object' || layer === null) {
+      throw new Error("Each layer must be a mapping.");
+    }
+
+    for (const key in layer) {
+      if (layer.hasOwnProperty(key)) {
+        const value = layer[key];
+        if (value === null) {
+          delete result[key];
+        } else if (typeof value === 'object' && value !== null && typeof result[key] === 'object' && result[key] !== null) {
+          result[key] = layerConfigs([result[key] as Record<string, unknown>, value]);
+        } else {
+          result[key] = value;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+```

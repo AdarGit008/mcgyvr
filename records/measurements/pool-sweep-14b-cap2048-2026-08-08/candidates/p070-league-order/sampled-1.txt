@@ -1,0 +1,74 @@
+```ts
+export function leagueOrder(matches: (string | number)[][]): string[] {
+  // Helper to validate and parse matches
+  function parseMatches(matches: (string | number)[][]): { home: string, away: string, homeGoals: number, awayGoals: number }[] {
+    return matches.map((match, index) => {
+      if (!Array.isArray(match) || match.length !== 4) {
+        throw new Error(`Match at index ${index} is not a 4-item list.`);
+      }
+      const [home, away, homeGoals, awayGoals] = match;
+      if (typeof home !== 'string' || typeof away !== 'string') {
+        throw new Error(`Team names in match at index ${index} must be strings.`);
+      }
+      if (home === away) {
+        throw new Error(`Match at index ${index} has the same team playing against itself.`);
+      }
+      if (!Number.isInteger(homeGoals) || homeGoals < 0 || !Number.isInteger(awayGoals) || awayGoals < 0) {
+        throw new Error(`Goal figures in match at index ${index} must be non-negative integers.`);
+      }
+      return { home, away, homeGoals, awayGoals };
+    });
+  }
+
+  // Helper to calculate points
+  function calculatePoints(homeGoals: number, awayGoals: number): number {
+    if (homeGoals > awayGoals) return 3;
+    if (homeGoals < awayGoals) return 0;
+    return 1;
+  }
+
+  // Parse and validate matches
+  const parsedMatches = parseMatches(matches);
+
+  // Initialize team standings
+  const standings: Record<string, { points: number, goalDifference: number, goalsFor: number }> = {};
+
+  // Calculate initial standings
+  for (const match of parsedMatches) {
+    const { home, away, homeGoals, awayGoals } = match;
+    const homePoints = calculatePoints(homeGoals, awayGoals);
+    const awayPoints = calculatePoints(awayGoals, homeGoals);
+
+    standings[home] = {
+      points: (standings[home]?.points ?? 0) + homePoints,
+      goalDifference: (standings[home]?.goalDifference ?? 0) + homeGoals - awayGoals,
+      goalsFor: (standings[home]?.goalsFor ?? 0) + homeGoals
+    };
+
+    standings[away] = {
+      points: (standings[away]?.points ?? 0) + awayPoints,
+      goalDifference: (standings[away]?.goalDifference ?? 0) + awayGoals - homeGoals,
+      goalsFor: (standings[away]?.goalsFor ?? 0) + awayGoals
+    };
+  }
+
+  // Sort teams based on the given criteria
+  const sortedTeams = Object.keys(standings).sort((a, b) => {
+    const aStand = standings[a];
+    const bStand = standings[b];
+
+    if (aStand.points !== bStand.points) return bStand.points - aStand.points;
+    const headToHeadMatches = parsedMatches.filter(m => (m.home === a && m.away === b) || (m.home === b && m.away === a));
+    const headToHeadPoints = {
+      [a]: headToHeadMatches.reduce((sum, m) => sum + calculatePoints(...(m[0] === a ? [m[2], m[3]] : [m[3], m[2]])), 0),
+      [b]: headToHeadMatches.reduce((sum, m) => sum + calculatePoints(...(m[0] === b ? [m[2], m[3]] : [m[3], m[2]])), 0)
+    };
+    if (headToHeadPoints[a] !== headToHeadPoints[b]) return headToHeadPoints[b] - headToHeadPoints[a];
+    if (aStand.goalDifference !== bStand.goalDifference) return bStand.goalDifference - aStand.goalDifference;
+    if (aStand.goalsFor !== bStand.goalsFor) return bStand.goalsFor - aStand.goalsFor;
+    return a.localeCompare(b);
+  });
+
+  return sortedTeams;
+}
+```

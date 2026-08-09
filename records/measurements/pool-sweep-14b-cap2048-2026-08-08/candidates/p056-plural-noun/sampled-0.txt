@@ -1,0 +1,45 @@
+```ts
+/**
+ * Returns the plural form of a given singular English noun.
+ * @param word - A singular English noun in lowercase letters.
+ */
+export function pluralNoun(word: string): string {
+  if (typeof word !== 'string' || !/^[a-z]+$/.test(word)) {
+    throw new Error('Invalid input: must be a non-empty string of lowercase letters.');
+  }
+
+  const irregulars: { [key: string]: string } = {
+    child: 'children',
+    person: 'people',
+    foot: 'feet',
+    mouse: 'mice',
+    sheep: 'sheep'
+  };
+
+  if (irregulars[word]) {
+    return irregulars[word];
+  }
+
+  const lastChar = word[word.length - 1];
+  const secondLastChar = word[word.length - 2];
+
+  if (lastChar === 's' || lastChar === 'x' || lastChar === 'z' ||
+      (lastChar === 'h' && (secondLastChar === 'c' || secondLastChar === 's'))) {
+    return word + 'es';
+  }
+
+  if (lastChar === 'y' && !(aeiou).includes(secondLastChar)) {
+    return word.slice(0, -1) + 'ies';
+  }
+
+  if (word.endsWith('fe')) {
+    return word.slice(0, -2) + 'ves';
+  }
+
+  if (lastChar === 'f') {
+    return word.slice(0, -1) + 'ves';
+  }
+
+  return word + 's';
+}
+```

@@ -1,0 +1,98 @@
+```ts
+/**
+ * The term mark built from weighted strands with discards.
+ */
+export function strandMarkSheet(
+  strands: Array<Record<string, unknown>>
+): Record<string, unknown> {
+  const nameSet = new Set();
+  let totalShare = 0;
+
+  for (const strand of strands) {
+    if (typeof strand.name !== "string" || !(strand.name.length > 0)) {
+      throw Error("Strand name must be a non-empty string");
+    }
+    if (nameSet.has(strand.name)) {
+      throw Error("Repeated strand name");
+    }
+    nameSet.add(strand.name);
+
+    const share = strand.share as number;
+    totalShare += share;
+
+    const discard = strand.discard as number;
+    if (discard < 0) {
+      throw Error("Negative discard count");
+    }
+
+    const work = strand.work as any[];
+    if (!Array.isArray(work) || work.length === 0) {
+      throw Error("Strand with no work");
+    }
+
+    for (const entry of work) {
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        throw Error("Invalid work entry");
+      }
+      const [score, availability] = entry;
+      if (
+        typeof score !== "number" &&
+        typeof score !== "string" &&
+        score !== "absent"
+      ) {
+        throw Error("Score must be a number, string 'absent', or undefined");
+      }
+      if (typeof availability !== "number" || availability < 0) {
+        throw Error("Availability must be a non-negative number");
+      }
+      if (
+        typeof score === "number" &&
+        (score < 0 || score > availability || !Number.isInteger(score))
+      ) {
+        throw Error("Score must be a whole number from zero to availability");
+      }
+    }
+  }
+
+  if (totalShare !== 1000) {
+    throw Error("Shares across all strands must come to exactly 1000");
+  }
+
+  const discarded: string[] = [];
+  let mark = 0;
+
+  for (const strand of strands as any[]) {
+    const work = strand.work as any[];
+    const order = work.map((entry, index) => ({
+      index,
+      crossProduct:
+        entry[0] === "absent" ? 0 : entry[0] * work.reduce((max, e) => Math.max(max, e[1]), 0),
+      availability: entry[1],
+    }));
+    order.sort((a, b) =>
+      a.crossProduct === b.crossProduct
+        ? a.availability - b.availability
+        : a.crossProduct - b.crossProduct
+    );
+
+    const dropped = order.slice(0, strand.discard);
+    for (const { index } of dropped) {
+      discarded.push(strand.name + "#" + index);
+    }
+
+    let scored = 0;
+    let available = 0;
+    work.forEach((entry, index) => {
+      if (dropped.some(d => d.index === index) || entry[0] === "absent") {
+        return;
+      }
+      scored += typeof entry[0] === "number" ? entry[0] : 0;
+      available += entry[1];
+    });
+
+    mark += Math.floor((strand.share * scored) / available);
+  }
+
+  return { mark, discarded };
+}
+```

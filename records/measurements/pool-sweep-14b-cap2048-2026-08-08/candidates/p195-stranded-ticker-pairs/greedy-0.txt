@@ -1,0 +1,75 @@
+```ts
+/**
+ * Finds all pairs of distinct tickers that have no route between them.
+ * @param legs - An array of legs, where each leg is a two-element list naming the ticker it sells out of and the ticker it buys into.
+ * @returns A sorted array of strings representing pairs of tickers with no route between them.
+ */
+export function strandedTickerPairs(legs: unknown[][]): string[] {
+  if (!Array.isArray(legs) || legs.length === 0) {
+    throw new Error("No legs are published.");
+  }
+
+  const tickerGraph: Record<string, Set<string>> = {};
+
+  for (const leg of legs) {
+    if (!Array.isArray(leg) || leg.length !== 2) {
+      throw new Error("A leg is not exactly two elements.");
+    }
+
+    const [sellTicker, buyTicker] = leg;
+
+    if (typeof sellTicker !== "string" || typeof buyTicker !== "string") {
+      throw new Error("A ticker is not a non-empty string.");
+    }
+
+    if (sellTicker === "" || buyTicker === "") {
+      throw new Error("A ticker is not a non-empty string.");
+    }
+
+    if (sellTicker === buyTicker) {
+      throw new Error("A leg sells and buys the same ticker.");
+    }
+
+    if (!tickerGraph[sellTicker]) {
+      tickerGraph[sellTicker] = new Set();
+    }
+
+    if (tickerGraph[sellTicker].has(buyTicker)) {
+      throw new Error("The identical leg is published twice.");
+    }
+
+    tickerGraph[sellTicker].add(buyTicker);
+  }
+
+  const allTickers = Object.keys(tickerGraph);
+
+  function canReach(start: string, target: string, visited: Set<string>): boolean {
+    if (start === target) return true;
+    if (visited.has(start)) return false;
+
+    visited.add(start);
+
+    for (const next of tickerGraph[start] || []) {
+      if (canReach(next, target, visited)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  const strandedPairs: string[] = [];
+
+  for (let i = 0; i < allTickers.length; i++) {
+    for (let j = i + 1; j < allTickers.length; j++) {
+      const [tickerA, tickerB] = [allTickers[i], allTickers[j]];
+
+      if (!canReach(tickerA, tickerB, new Set()) && !canReach(tickerB, tickerA, new Set())) {
+        strandedPairs.push(`${tickerA} > ${tickerB}`);
+      }
+    }
+  }
+
+  return strandedPairs.sort((a, b) => a.localeCompare(b));
+}
+```

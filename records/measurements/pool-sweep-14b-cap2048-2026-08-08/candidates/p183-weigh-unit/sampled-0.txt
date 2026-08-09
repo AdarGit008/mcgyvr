@@ -1,0 +1,68 @@
+```ts
+export function weighUnit(spec: string, masses: Record<string, number>): number {
+  if (typeof spec !== "string") {
+    throw new Error("Invalid spec type");
+  }
+  if (spec.length === 0) {
+    throw new Error("Spec cannot be empty");
+  }
+
+  let at = 0;
+  const outer: { sum: number; expectedClose: string }[] = [];
+  let sum = 0;
+
+  const readCount = (): number => {
+    let digits = "";
+    while (at < spec.length && spec[at] >= "0" && spec[at] <= "9") {
+      digits += spec[at];
+      at += 1;
+    }
+    if (digits.startsWith("0")) {
+      throw new Error("Count cannot start with zero");
+    }
+    return digits === "" ? 1 : Number(digits);
+  };
+
+  const readName = (): string => {
+    let name = "";
+    while (
+      at < spec.length &&
+      ((spec[at] >= "A" && spec[at] <= "Z") ||
+        (name.length > 0 && spec[at] >= "a" && spec[at] <= "z"))
+    ) {
+      name += spec[at];
+      at += 1;
+    }
+    return name;
+  };
+
+  while (at < spec.length) {
+    const ch = spec[at];
+    if (ch === "(" || ch === "[") {
+      outer.push({ sum, expectedClose: ch === "(" ? ")" : "]" });
+      sum = 0;
+      at += 1;
+    } else if (ch === ")" || ch === "]") {
+      at += 1;
+      const last = outer.pop();
+      if (!last || (ch !== last.expectedClose)) {
+        throw new Error("Mismatched brackets");
+      }
+      const count = readCount();
+      sum = last.sum + sum * count;
+    } else {
+      const name = readName();
+      if (!(name in masses)) {
+        throw new Error(`Unknown mass for: ${name}`);
+      }
+      sum += masses[name] * readCount();
+    }
+  }
+
+  if (outer.length !== 0) {
+    throw new Error("Unclosed brackets");
+  }
+
+  return sum;
+}
+```

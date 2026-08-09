@@ -1,0 +1,38 @@
+```ts
+export function unmutedAlerts(alerts: Array<{ id: string; resource: string; severity: number }>): string[] {
+  // Validate input
+  const seenIds = new Set<string>();
+  for (const alert of alerts) {
+    if (seenIds.has(alert.id)) {
+      throw new Error(`Duplicate alert id: ${alert.id}`);
+    }
+    seenIds.add(alert.id);
+    if (!Number.isInteger(alert.severity) || alert.severity <= 0) {
+      throw new Error(`Invalid severity for alert id: ${alert.id}`);
+    }
+  }
+
+  // Group alerts by resource
+  const groupedAlerts = new Map<string, { id: string; severity: number }[]>();
+  for (const alert of alerts) {
+    if (!groupedAlerts.has(alert.resource)) {
+      groupedAlerts.set(alert.resource, []);
+    }
+    groupedAlerts.get(alert.resource)!.push(alert);
+  }
+
+  // Find unmuted alerts in each group
+  const unmutedAlerts: { id: string; severity: number }[] = [];
+  for (const [resource, resourceAlerts] of groupedAlerts.entries()) {
+    const sortedAlertsBySeverityDescending = resourceAlerts.sort(
+      (a, b) => b.severity - a.severity || a.id.localeCompare(b.id)
+    );
+    unmutedAlerts.push(sortedAlertsBySeverityDescending[0]);
+  }
+
+  // Return ids of unmuted alerts ordered by severity descending, breaking ties by id ascending
+  return unmutedAlerts
+    .sort((a, b) => b.severity - a.severity || a.id.localeCompare(b.id))
+    .map((alert) => alert.id);
+}
+```

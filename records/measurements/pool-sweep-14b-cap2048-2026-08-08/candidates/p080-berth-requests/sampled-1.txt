@@ -1,0 +1,71 @@
+```ts
+/**
+ * Assigns berths to boats based on requests and quota limits.
+ * @param berths - An array of berth objects with id and size.
+ * @param quota - A record mapping owner names to their berth quota.
+ * @param requests - An array of request objects with operation, boat, owner, and size.
+ * @returns An array of result strings for each request.
+ */
+export function assignBerths(berths: Array<{ id: string; size: number }>, quota: Record<string, number>, requests: Array<Record<string, unknown>>): string[] {
+  const results: string[] = [];
+  const boatToBerth: Record<string, string> = {};
+  const ownerToBerthCount: Record<string, number> = {};
+
+  // Validate berths for unique ids
+  const berthIds = new Set(berths.map(berth => berth.id));
+  if (berthIds.size !== berths.length) {
+    throw new Error("Berths must have unique ids.");
+  }
+
+  requests.forEach(request => {
+    const { op, boat, owner, size } = request as { op: string; boat: string; owner?: string; size?: number };
+
+    switch (op) {
+      case "dock": {
+        if (boatToBerth[boat]) {
+          results.push("rejected:already_docked");
+          continue;
+        }
+
+        const quotaLimit = quota[owner!] || Infinity;
+        if (owner && ownerToBerthCount[owner] >= quotaLimit) {
+          results.push("rejected:over_quota");
+          continue;
+        }
+
+        const suitableBerth = berths.find(berth => !boatToBerth[berth.id] && berth.size >= size!);
+        if (!suitableBerth) {
+          results.push("rejected:no_berth");
+          continue;
+        }
+
+        boatToBerth[boat] = suitableBerth.id;
+        ownerToBerthCount[owner!] = (ownerToBerthCount[owner!] || 0) + 1;
+        results.push(suitableBerth.id);
+        break;
+      }
+      case "leave": {
+        if (!boatToBerth[boat]) {
+          results.push("rejected:not_docked");
+          continue;
+        }
+
+        const berthId = boatToBerth[boat];
+        delete boatToBerth[boat];
+        const owner = Object.keys(ownerToBerthCount).find(key => {
+          return Object.values(boatToBerth).includes(berthId);
+        });
+        if (owner) {
+          ownerToBerthCount[owner] -= 1;
+        }
+        results.push("left");
+        break;
+      }
+      default:
+        throw new Error(`Invalid operation: ${op}`);
+    }
+  });
+
+  return results;
+}
+```

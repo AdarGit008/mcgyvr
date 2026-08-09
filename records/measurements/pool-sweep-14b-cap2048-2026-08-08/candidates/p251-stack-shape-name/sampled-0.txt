@@ -1,0 +1,47 @@
+```ts
+export function nameTriadStack(marks: number[]): { base: number, name: string } {
+  if (!Array.isArray(marks) || marks.length === 0) {
+    throw new Error("Invalid input");
+  }
+
+  const classes = Array.from(new Set(marks.map(mark => (mark % 12 + 12) % 12))).sort((a, b) => a - b);
+
+  if (classes.length < 3) {
+    throw new Error("Stack is left with fewer than three classes");
+  }
+
+  const shapes = [
+    [0, 4, 7], // major
+    [0, 3, 7], // minor
+    [0, 3, 6], // diminished
+    [0, 4, 8], // augmented
+    [0, 5, 7], // quartal
+    [0, 2, 6], // narrow
+    [0, 4, 7, 11], // major seventh
+    [0, 4, 7, 10], // dominant seventh
+    [0, 3, 7, 10], // minor seventh
+    [0, 3, 6, 9] // shrunk seventh
+  ];
+
+  let bestBase = -1;
+  let bestName = "unknown";
+
+  for (const base of classes) {
+    const shape = classes.map(cls => ((cls - base + 12) % 12)).sort((a, b) => a - b);
+
+    for (const [index, row] of shapes.entries()) {
+      if (row.every(step => shape.includes(step))) {
+        if (bestBase === -1 || index < shapes.indexOf(bestName)) {
+          bestBase = base;
+          bestName = shapes[index].join("-");
+        } else if (index === shapes.indexOf(bestName) && base < bestBase) {
+          bestBase = base;
+        }
+        break;
+      }
+    }
+  }
+
+  return { base: bestBase, name: bestName };
+}
+```

@@ -1,0 +1,44 @@
+```ts
+/**
+ * Calculates the accrual ledger for a given opening balance and schedule of steps.
+ * @param opening - The initial balance in cents.
+ * @param steps - An array of steps, each represented as [dayCount, tenThousandths, capitalise].
+ * @returns An array of rows, each containing [earned, principal, heap] for each step.
+ */
+export function stepAccrualLedger(opening: number, steps: number[][]): number[][] {
+    if (!Array.isArray(steps) || steps.length === 0) {
+        throw new Error("Invalid schedule");
+    }
+
+    let principal = opening;
+    let heap = 0;
+    let leftover = 0;
+
+    return steps.map(([dayCount, tenThousandths, capitalise]) => {
+        if (
+            !Array.isArray(step) ||
+            step.length !== 3 ||
+            !Number.isInteger(principal) ||
+            principal < 0 ||
+            !Number.isInteger(dayCount) ||
+            dayCount < 1 ||
+            !Number.isInteger(tenThousandths) ||
+            tenThousandths < 0 ||
+            capitalise !== 0 && capitalise !== 1
+        ) {
+            throw new Error("Invalid step");
+        }
+
+        const earnings = Math.floor((principal * tenThousandths * dayCount + leftover) / 3650000);
+        leftover = (principal * tenThousandths * dayCount + leftover) % 3650000;
+
+        if (capitalise === 1) {
+            principal += earnings;
+        } else {
+            heap += earnings;
+        }
+
+        return [earnings, principal, heap];
+    });
+}
+```

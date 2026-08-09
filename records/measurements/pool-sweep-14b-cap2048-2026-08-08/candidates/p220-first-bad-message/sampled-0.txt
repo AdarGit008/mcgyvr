@@ -1,0 +1,95 @@
+```ts
+export function firstBadMessage(exchange: unknown): number {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid exchange");
+  }
+
+  const validKinds = ["HELLO", "OFFER", "CHOOSE", "ACCEPT", "DATA", "BYE"];
+  const validFroms = ["client", "server"];
+
+  for (let i = 0; i < exchange.length; i++) {
+    const message = exchange[i];
+
+    if (typeof message !== "object" || message === null) {
+      throw new Error("Invalid message");
+    }
+
+    const { from, kind } = message;
+
+    if (!validFroms.includes(from)) {
+      throw new Error("Invalid 'from' field");
+    }
+
+    if (!validKinds.includes(kind)) {
+      throw new Error("Invalid 'kind' field");
+    }
+  }
+
+  let clientHelloCount = 0;
+  let serverOfferCount = 0;
+  let clientChooseCount = 0;
+  let serverAcceptCount = 0;
+  let clientDataCount = 0;
+  let serverDataCount = 0;
+  let clientByeCount = 0;
+  let serverByeCount = 0;
+
+  for (let i = 0; i < exchange.length; i++) {
+    const message = exchange[i];
+
+    if (message.from === "client") {
+      if (message.kind === "HELLO") {
+        if (clientHelloCount > 0) {
+          return i;
+        }
+        clientHelloCount++;
+      } else if (message.kind === "CHOOSE") {
+        if (clientChooseCount > 0 || serverOfferCount === 0) {
+          return i;
+        }
+        clientChooseCount++;
+      } else if (message.kind === "DATA") {
+        if (serverAcceptCount === 0 || clientDataCount >= serverAcceptCount) {
+          return i;
+        }
+        clientDataCount++;
+      } else if (message.kind === "BYE") {
+        if (clientByeCount > 0 || serverAcceptCount !== clientDataCount || serverByeCount === 0) {
+          return i;
+        }
+        clientByeCount++;
+        break;
+      } else {
+        return i;
+      }
+    } else if (message.from === "server") {
+      if (message.kind === "OFFER") {
+        if (clientHelloCount !== 1 || serverOfferCount > 0) {
+          return i;
+        }
+        serverOfferCount++;
+      } else if (message.kind === "ACCEPT") {
+        if (serverAcceptCount > 0 || clientChooseCount === 0 || serverOfferCount !== clientHelloCount) {
+          return i;
+        }
+        serverAcceptCount++;
+      } else if (message.kind === "DATA") {
+        if (clientDataCount === 0 || serverDataCount >= clientDataCount || serverAcceptCount !== clientChooseCount) {
+          return i;
+        }
+        serverDataCount++;
+      } else if (message.kind === "BYE") {
+        if (serverByeCount > 0 || clientDataCount !== serverAcceptCount || clientByeCount === 0) {
+          return i;
+        }
+        serverByeCount++;
+        break;
+      } else {
+        return i;
+      }
+    }
+  }
+
+  return exchange.length;
+}
+```

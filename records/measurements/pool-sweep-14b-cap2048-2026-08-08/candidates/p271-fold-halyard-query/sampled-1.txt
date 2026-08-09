@@ -1,0 +1,77 @@
+```ts
+export function foldHalyardQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const escapeMap = {
+    _26: '&',
+    _2c: ',',
+    _3d: '=',
+    _5f: '_'
+  };
+
+  const unescape = (str: string): string => {
+    return str.replace(/(_[0-9a-f]{2})/g, (match) => {
+      const code = parseInt(match.slice(1), 16);
+      if (code < 33 || code > 126) {
+        throw new Error('Invalid escape sequence');
+      }
+      return String.fromCharCode(code);
+    });
+  };
+
+  const parseParameter = (param: string): { name: string, payload?: string } => {
+    const parts = param.split('=');
+    if (parts.length === 1) {
+      return { name: unescape(parts[0]) };
+    } else if (parts.length === 2) {
+      const name = unescape(parts[0]);
+      const payload = unescape(parts[1]);
+      if (name.includes('=')) {
+        throw new Error('Name cannot contain an equals sign');
+      }
+      return { name, payload };
+    } else {
+      throw new Error('Invalid parameter format');
+    }
+  };
+
+  const parameters = text.split('&').map(parseParameter);
+
+  const foldedParameters: Record<string, string[]> = {};
+
+  for (const param of parameters) {
+    if (!param.name || param.name.includes('=')) {
+      throw new Error('Invalid name');
+    }
+    const lowerName = param.name.toLowerCase();
+    if (foldedParameters[lowerName]) {
+      if (!param.payload) {
+        continue;
+      }
+      foldedParameters[lowerName].push(param.payload);
+    } else {
+      foldedParameters[lowerName] = param.payload ? [param.payload] : [];
+    }
+  }
+
+  const escape = (str: string): string => {
+    return str.replace(/([&,_=])/g, (match) => `_${match.charCodeAt(0).toString(16)}`);
+  };
+
+  const result: string[] = [];
+
+  for (const lowerName of Object.keys(foldedParameters).sort()) {
+    const payloads = foldedParameters[lowerName];
+    if (payloads.length === 0) {
+      result.push(lowerName);
+    } else {
+      const uniquePayloads = [...new Set(payloads)].sort((a, b) => a.localeCompare(b));
+      result.push(`${lowerName}=${uniquePayloads.join(',')}`);
+    }
+  }
+
+  return result.join('&');
+}
+```

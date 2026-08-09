@@ -1,0 +1,48 @@
+```ts
+export function gradeReruns(log: string[], budget: number): string[] {
+  if (!Array.isArray(log)) {
+    throw new Error("Log must be an array.");
+  }
+  if (typeof budget !== "number" || budget < 0) {
+    throw new Error("Budget must be a non-negative integer.");
+  }
+
+  const goes = new Map<string, string[]>();
+  for (const entry of log) {
+    if (typeof entry !== "string") {
+      throw new Error("Each log entry must be a string.");
+    }
+    const [name, mark] = entry.split(" ");
+    if (name === undefined || name.includes(" ") || (mark !== "green" && mark !== "red")) {
+      throw new Error("Invalid log entry format.");
+    }
+
+    const marks = goes.get(name);
+    if (marks === undefined) {
+      goes.set(name, [mark]);
+    } else {
+      if (marks.length >= budget + 1) {
+        throw new Error(`Job ${name} has exceeded the allowed number of reruns.`);
+      }
+      marks.push(mark);
+    }
+  }
+
+  const graded: string[] = [];
+  for (const [name, marks] of goes) {
+    if (marks.includes("green")) {
+      if (marks.indexOf("green") === 0) {
+        graded.push(name + ":solid");
+      } else {
+        graded.push(name + ":shaky");
+      }
+    } else if (marks.length === budget) {
+      graded.push(name + ":dropped");
+    } else {
+      graded.push(name + ":broken");
+    }
+  }
+
+  return graded.sort();
+}
+```

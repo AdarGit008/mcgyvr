@@ -1,0 +1,45 @@
+```ts
+/**
+ * Deals a packet of distinct non-empty strings to multiple hands based on a specified turn sequence.
+ * @param items - The list of distinct non-empty strings to be dealt.
+ * @param seats - A list of holding limits per hand, where length is the number of hands.
+ * @param order - The turn sequence: "round", "reverse", or "snake".
+ * @returns An object with a "hands" key mapping each hand's received items and a "left" key for leavings.
+ */
+export function dealPacket(items: string[], seats: number[], order: string): Record<string, unknown> {
+  if (!Array.isArray(items) || !items.every(item => typeof item === 'string' && item.length > 0)) {
+    throw new Error('Invalid packet');
+  }
+  if (new Set(items).size !== items.length) {
+    throw new Error('Packet contains duplicate entries');
+  }
+  if (!Array.isArray(seats) || seats.length === 0 || !seats.every(limit => Number.isInteger(limit) && limit > 0)) {
+    throw new Error('Invalid limits');
+  }
+  if (order !== 'round' && order !== 'reverse' && order !== 'snake') {
+    throw new Error('Invalid turn sequence');
+  }
+
+  const hands: string[][] = seats.map(() => []);
+  let handIndex = 0;
+  let direction = 1;
+
+  for (const item of items) {
+    while (hands[handIndex].length >= seats[handIndex]) {
+      handIndex += direction;
+      if (order === 'round') {
+        handIndex %= seats.length;
+      } else if (order === 'reverse') {
+        handIndex = (handIndex + seats.length) % seats.length;
+      } else if (order === 'snake' && (handIndex < 0 || handIndex >= seats.length)) {
+        direction *= -1;
+        handIndex += direction;
+      }
+    }
+    hands[handIndex].push(item);
+  }
+
+  const leavings = items.filter(item => !hands.some(hand => hand.includes(item)));
+  return { hands, left: leavings };
+}
+```

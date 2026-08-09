@@ -1,0 +1,35 @@
+```ts
+export function shingleOverlapRatio(left: string, right: string, width: number): number[] {
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error("Width must be a positive integer.");
+  }
+  if (typeof left !== "string" || typeof right !== "string") {
+    throw new Error("Both passages must be strings.");
+  }
+
+  const tokens = (passage: string): string[] => passage.split(/\s+/).filter(token => token.length > 0);
+
+  const getWindows = (tokens: string[], width: number): Set<string> => {
+    const windows = new Set<string>();
+    for (let i = 0; i <= tokens.length - width; i++) {
+      windows.add(tokens.slice(i, i + width).join(" "));
+    }
+    return windows;
+  };
+
+  const leftTokens = tokens(left);
+  const rightTokens = tokens(right);
+
+  if (leftTokens.length < width || rightTokens.length < width) {
+    throw new Error("A passage must have at least as many tokens as the width.");
+  }
+
+  const leftWindows = getWindows(leftTokens, width);
+  const rightWindows = getWindows(rightTokens, width);
+
+  const intersectionSize = [...leftWindows].filter(window => rightWindows.has(window)).length;
+  const unionSize = new Set([...leftWindows, ...rightWindows]).size;
+
+  return [intersectionSize, unionSize];
+}
+```

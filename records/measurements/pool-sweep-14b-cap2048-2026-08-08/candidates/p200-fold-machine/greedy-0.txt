@@ -1,0 +1,98 @@
+```ts
+export function foldMachine(machine: Record<string, unknown>): Record<string, unknown> {
+  const alphabet = machine.alphabet as string[];
+  const states = machine.states as string[];
+  const start = machine.start as string;
+  const accepting = machine.accepting as string[];
+  const moves = machine.moves as [string, string, string][];
+
+  // Validate input
+  if (alphabet.length === 0 || alphabet.some(s => typeof s !== 'string' || s.trim() === '')) {
+    throw new Error('Invalid alphabet');
+  }
+  if (states.length === 0 || states.some(s => typeof s !== 'string' || s.trim() === '')) {
+    throw new Error('Invalid states');
+  }
+  if (!states.includes(start)) {
+    throw new Error('Start state not in states');
+  }
+  if (accepting.some(a => !states.includes(a) || accepting.filter(x => x === a).length > 1)) {
+    throw new Error('Invalid accepting states');
+  }
+  const moveMap = new Map<string, Map<string, string>>();
+  for (const [from, symbol, to] of moves) {
+    if (!states.includes(from) || !alphabet.includes(symbol) || !states.includes(to)) {
+      throw new Error('Invalid move');
+    }
+    if (!moveMap.has(from)) {
+      moveMap.set(from, new Map());
+    }
+    const fromMoves = moveMap.get(from)!;
+    if (fromMoves.has(symbol)) {
+      throw new Error('Duplicate move');
+    }
+    fromMoves.set(symbol, to);
+  }
+  for (const state of states) {
+    for (const symbol of alphabet) {
+      if (!moveMap.get(state)?.has(symbol)) {
+        throw new Error('Missing move');
+      }
+    }
+  }
+
+  // Reachable states
+  const reachable = new Set<string>();
+  const queue: string[] = [start];
+  while (queue.length > 0) {
+    const state = queue.shift()!;
+    if (!reachable.has(state)) {
+      reachable.add(state);
+      for (const symbol of alphabet) {
+        const next = moveMap.get(state)?.get(symbol)!;
+        queue.push(next);
+      }
+    }
+  }
+
+  // Equivalence classes
+  const equivalence: Map<string, number> = new Map();
+  let groupCount = 0;
+  const worklist: string[] = Array.from(reachable);
+  while (worklist.length > 0) {
+    const state = worklist.shift()!;
+    if (!equivalence.has(state)) {
+      equivalence.set(state, groupCount++);
+      for (const symbol of alphabet) {
+        const next = moveMap.get(state)?.get(symbol)!;
+        if (reachable.has(next) && !equivalence.has(next)) {
+          worklist.push(next);
+        }
+      }
+    }
+  }
+
+  // Merge equivalent states
+  const mergedMoves: [number, string, number][] = [];
+  for (const [from, symbol, to] of moves) {
+    if (reachable.has(from) && reachable.has(to)) {
+      const fromGroup = equivalence.get(from)!;
+      const toGroup = equivalence.get(to)!;
+      mergedMoves.push([fromGroup, symbol, toGroup]);
+    }
+  }
+
+  // Accepting groups
+  const acceptingGroups = Array.from(reachable)
+    .filter(state => accepting.includes(state))
+    .map(state => equivalence.get(state)!)
+    .sort((a, b) => a - b);
+
+  return {
+    size: groupCount,
+    start: 0,
+    accepting: acceptingGroups,
+    moves: mergedMoves.sort((a, b) => a[0] - b[0] || alphabet.indexOf(a[1]) - alphabet.indexOf(b[1]))
+  };
+}
+```

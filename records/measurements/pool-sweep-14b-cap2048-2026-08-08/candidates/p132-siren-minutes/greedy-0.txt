@@ -1,0 +1,51 @@
+```ts
+export function sirenMinutes(events: Array<Record<string, unknown>>, horizon: number): Array<[string, number]> {
+  if (!Number.isInteger(horizon) || horizon < 0) {
+    throw new Error("Invalid horizon");
+  }
+
+  const activeAlerts = new Map<string, { severity: number; at: number }>();
+  const alertTimes = new Map<string, number>();
+
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    const { at, kind, id, channel, severity } = event;
+
+    if (!Number.isInteger(at) || typeof kind !== "string" || typeof id !== "string") {
+      throw new Error("Invalid event format");
+    }
+
+    if (i > 0 && events[i - 1].at >= at) {
+      throw new Error("Event times do not strictly increase");
+    }
+
+    if (at > horizon) {
+      throw new Error("Event time exceeds horizon");
+    }
+
+    if (kind === "raise") {
+      if (typeof channel !== "string" || typeof severity !== "number" || severity < 1 || severity > 5) {
+        throw new Error("Invalid raise event format");
+      }
+
+      if (activeAlerts.has(id)) {
+        throw new Error(`Id ${id} already active`);
+      }
+
+      activeAlerts.set(id, { severity, at });
+    } else if (kind === "clear") {
+      if (!activeAlerts.delete(id)) {
+        throw new Error(`Id ${id} not active`);
+      }
+    } else {
+      throw new Error("Invalid event kind");
+    }
+  }
+
+  for (const [id, { at }] of activeAlerts) {
+    alertTimes.set(id, horizon - at);
+  }
+
+  return Array.from(alertTimes.entries()).sort(([id1], [id2]) => id1.localeCompare(id2));
+}
+```

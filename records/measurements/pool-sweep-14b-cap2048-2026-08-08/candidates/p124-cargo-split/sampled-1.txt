@@ -1,0 +1,55 @@
+```ts
+/**
+ * Splits cargo into two holds such that the weight totals differ as little as possible.
+ * @param weights - An array of positive integer weights of the freight items.
+ * @returns An ascending list of item indices assigned to the forward hold.
+ */
+export function splitCargo(weights: number[]): number[] {
+  if (weights.length === 0) {
+    throw new Error("Manifest cannot be empty.");
+  }
+  if (weights.length > 16) {
+    throw new Error("More than sixteen items is not supported.");
+  }
+  if (weights.some(weight => weight < 1)) {
+    throw new Error("Weight must be at least one.");
+  }
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const targetWeight = Math.floor(totalWeight / 2);
+
+  // Start with item 0 in the forward hold
+  const initialForwardHold = [0];
+  let bestDifference = Infinity;
+  let bestForwardHold: number[] = [];
+
+  function backtrack(index: number, currentForwardWeight: number, forwardHold: number[]): void {
+    if (index === weights.length) {
+      const currentDifference = Math.abs(currentForwardWeight - (totalWeight - currentForwardWeight));
+      if (
+        currentDifference < bestDifference ||
+        (currentDifference === bestDifference && (forwardHold.length < bestForwardHold.length ||
+          (forwardHold.length === bestForwardHold.length && forwardHold.every((value, i) => value <= bestForwardHold[i]))))
+      ) {
+        bestDifference = currentDifference;
+        bestForwardHold = [...forwardHold];
+      }
+      return;
+    }
+
+    // Include the current item in the forward hold
+    if (currentForwardWeight + weights[index] <= targetWeight) {
+      forwardHold.push(index);
+      backtrack(index + 1, currentForwardWeight + weights[index], forwardHold);
+      forwardHold.pop();
+    }
+
+    // Exclude the current item from the forward hold
+    backtrack(index + 1, currentForwardWeight, forwardHold);
+  }
+
+  backtrack(1, weights[0], initialForwardHold);
+
+  return bestForwardHold;
+}
+```

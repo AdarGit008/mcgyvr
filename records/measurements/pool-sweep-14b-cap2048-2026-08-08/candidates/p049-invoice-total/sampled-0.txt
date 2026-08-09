@@ -1,0 +1,41 @@
+```ts
+export function invoiceTotal(lines: { qty: number; unit: number; discount: number }[], rate: number): { subtotal: number; tax: number; total: number } {
+  if (lines.length === 0) {
+    throw new Error("Empty line list");
+  }
+
+  const validateLine = (line: { qty: number; unit: number; discount: number }) => {
+    if (!Number.isInteger(line.qty) || line.qty <= 0) {
+      throw new Error(`Invalid qty: ${line.qty}`);
+    }
+    if (!Number.isInteger(line.unit) || line.unit < 0) {
+      throw new Error(`Invalid unit: ${line.unit}`);
+    }
+    if (!Number.isInteger(line.discount) || line.discount < 0 || line.discount > 10000) {
+      throw new Error(`Invalid discount: ${line.discount}`);
+    }
+  };
+
+  lines.forEach(validateLine);
+
+  const calculateNet = (line: { qty: number; unit: number; discount: number }): number => {
+    const gross = line.qty * line.unit;
+    const rebate = Math.round((gross * line.discount) / 10000);
+    return gross - rebate;
+  };
+
+  const subtotal = lines.reduce((acc, line) => acc + calculateNet(line), 0);
+
+  if (!Number.isInteger(rate) || rate < 0 || rate > 10000) {
+    throw new Error(`Invalid tax rate: ${rate}`);
+  }
+
+  const tax = Math.round((subtotal * rate) / 10000);
+
+  return {
+    subtotal,
+    tax,
+    total: subtotal + tax,
+  };
+}
+```

@@ -1,0 +1,48 @@
+```ts
+/**
+ * The chore board shared out around the crew.
+ */
+export function handOutChores(chores: string[], crew: string[]): Record<string, string[]> {
+  if (!Array.isArray(chores)) {
+    throw new Error("Chore board must be a list.");
+  }
+  if (!Array.isArray(crew) || crew.length === 0) {
+    throw new Error("Crew must be a non-empty list.");
+  }
+
+  const uniqueChores = new Set<string>();
+  chores.forEach(chore => {
+    if (typeof chore !== 'string' || chore.trim() === '') {
+      throw new Error("Each chore must be a non-empty string.");
+    }
+    if (!uniqueChores.add(chore)) {
+      throw new Error("Chore names must be unique.");
+    }
+  });
+
+  const uniqueCrewNames = new Set<string>();
+  crew.forEach(member => {
+    if (typeof member !== 'string' || member.trim() === '') {
+      throw new Error("Each crew member's name must be a non-empty string.");
+    }
+    if (!uniqueCrewNames.add(member)) {
+      throw new Error("Crew members must have unique names.");
+    }
+  });
+
+  const share: Record<string, string[]> = {};
+  crew.forEach(member => {
+    share[member] = [];
+  });
+
+  let markerPosition = 0;
+  chores.forEach(chore => {
+    const choreLength = chore.length;
+    markerPosition = (markerPosition + choreLength) % crew.length;
+    const assignee = crew[markerPosition];
+    share[assignee].push(chore);
+  });
+
+  return share;
+}
+```

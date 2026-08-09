@@ -1,0 +1,51 @@
+```ts
+export function labelValueRegions(grid: number[][]): any {
+  if (!Array.isArray(grid) || grid.length === 0) {
+    throw new Error("Grid must be a non-empty list of rows.");
+  }
+
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+
+  if (!grid.every(row => Array.isArray(row) && row.length === numCols)) {
+    throw new Error("Every row must be a non-empty list of the same length as the first row.");
+  }
+
+  if (!grid.every(row => row.every(num => Number.isInteger(num)))) {
+    throw new Error("Every square must be a whole number.");
+  }
+
+  const map: number[][] = Array.from({ length: numRows }, () => Array(numCols).fill(0));
+  const sizes: number[] = [];
+  const values: number[] = [];
+  let regionNumber = 1;
+
+  function dfs(row: number, col: number, value: number): void {
+    if (row < 0 || row >= numRows || col < 0 || col >= numCols || map[row][col] !== 0 || grid[row][col] !== value) {
+      return;
+    }
+
+    map[row][col] = regionNumber;
+    sizes[regionNumber - 1]++;
+    values[regionNumber - 1] = value;
+
+    dfs(row + 1, col, value);
+    dfs(row - 1, col, value);
+    dfs(row, col + 1, value);
+    dfs(row, col - 1, value);
+  }
+
+  for (let row = 0; row < numRows; row++) {
+    for (let col = 0; col < numCols; col++) {
+      if (map[row][col] === 0) {
+        sizes.push(0);
+        values.push(grid[row][col]);
+        dfs(row, col, grid[row][col]);
+        regionNumber++;
+      }
+    }
+  }
+
+  return { map, sizes, values };
+}
+```

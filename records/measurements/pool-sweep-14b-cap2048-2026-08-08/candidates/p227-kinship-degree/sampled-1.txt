@@ -1,0 +1,101 @@
+```ts
+/**
+ * How far apart two people stand in a register of forebears.
+ */
+export function kinshipDegree(
+  register: Record<string, string[]>,
+  one: string,
+  other: string,
+): Record<string, unknown> {
+  // Validate the register
+  if (typeof register !== "object" || Array.isArray(register) || register === null) {
+    throw new Error("Invalid register");
+  }
+
+  for (const [name, forebears] of Object.entries(register)) {
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error("Invalid key in register");
+    }
+    if (!Array.isArray(forebears) || forebears.length > 2) {
+      throw new Error("Invalid forebear list");
+    }
+    for (const forebear of forebears) {
+      if (typeof forebear !== "string" || forebear.trim() === "") {
+        throw new Error("Invalid forebear name");
+      }
+      if (!register.hasOwnProperty(forebear)) {
+        throw new Error("Forebear not a key in register");
+      }
+      if (forebear === name) {
+        throw new Error("Person cannot be their own forebear");
+      }
+    }
+  }
+
+  // Validate the input names
+  if (typeof one !== "string" || typeof other !== "string") {
+    throw new Error("Invalid person name");
+  }
+  if (!register.hasOwnProperty(one) || !register.hasOwnProperty(other)) {
+    throw new Error("Person not a key in register");
+  }
+
+  const climb = (start: string): Map<string, number> => {
+    const seen = new Map<string, number>();
+    let frontier = [start];
+    let step = 0;
+    while (frontier.length > 0) {
+      const next: string[] = [];
+      for (const name of frontier) {
+        if (!seen.has(name)) {
+          seen.set(name, step);
+          const forebears = register[name] ?? [];
+          for (const forebear of forebears) {
+            if (!next.includes(forebear) && !seen.has(forebear)) {
+              next.push(forebear);
+            }
+          }
+        }
+      }
+      frontier = next;
+      step += 1;
+    }
+    return seen;
+  };
+
+  const mine = climb(one);
+  const theirs = climb(other);
+
+  // Direct line check
+  if (mine.has(other) || theirs.has(one)) {
+    const elder = mine.has(other) ? one : other;
+    const steps = Math.abs(mine.get(other) ?? 0 - theirs.get(one) ?? 0);
+    return { steps, line: "direct", meet: elder };
+  }
+
+  // Collateral line check
+  let minSteps = Infinity;
+  let meetingPoint = "";
+
+  for (const [name, up] of mine) {
+    const down = theirs.get(name);
+    if (down !== undefined) {
+      const totalSteps = up + down;
+      if (
+        totalSteps < minSteps ||
+        (totalSteps === minSteps && name < meetingPoint)
+      ) {
+        minSteps = totalSteps;
+        meetingPoint = name;
+      }
+    }
+  }
+
+  if (meetingPoint !== "") {
+    return { steps: minSteps, line: "collateral", meet: meetingPoint };
+  }
+
+  // Apart
+  return { steps: 0, line: "apart", meet: "" };
+}
+```

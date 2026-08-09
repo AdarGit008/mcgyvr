@@ -1,0 +1,51 @@
+```ts
+export function collapseBlocks(berths: string[]): string[] {
+  if (!Array.isArray(berths)) {
+    throw new Error("Input must be a list of strings");
+  }
+
+  const validateBerth = (berth: string): boolean => {
+    const parts = berth.split(".");
+    return (
+      parts.length === 4 &&
+      parts.every((part) => /^[0-7]$/.test(part))
+    );
+  };
+
+  const normalizeBerths = (): string[] => {
+    return berths
+      .filter((berth, index, self) => self.indexOf(berth) === index && validateBerth(berth))
+      .sort();
+  };
+
+  const findSlab = (berth: string): string => {
+    for (let pin = 3; pin >= 0; pin--) {
+      const prefix = berth.split(".").slice(0, pin + 1).join(".") + "." + "0".repeat(3 - pin);
+      if (berths.every((b) => b.startsWith(prefix))) {
+        return prefix + "/" + pin;
+      }
+    }
+    return berth; // This should never happen due to validation
+  };
+
+  const berthsList = normalizeBerths();
+  const slabs: string[] = [];
+
+  for (const berth of berthsList) {
+    let added = false;
+    for (let i = 0; i < slabs.length; i++) {
+      const [prefix, pinStr] = slabs[i].split("/");
+      const pin = parseInt(pinStr);
+      if (berth.startsWith(prefix)) {
+        added = true;
+        break;
+      }
+    }
+    if (!added) {
+      slabs.push(findSlab(berth));
+    }
+  }
+
+  return slabs;
+}
+```

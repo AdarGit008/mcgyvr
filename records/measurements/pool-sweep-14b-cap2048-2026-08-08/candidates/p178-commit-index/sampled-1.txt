@@ -1,0 +1,54 @@
+```ts
+/**
+ * Determines the commit index for a leader in a Raft-like consensus algorithm.
+ * @param log - An array of terms stamped on each entry in the leader's log.
+ * @param matches - An array of numbers representing the highest entry copied by each follower.
+ * @param currentTerm - The term the leader is serving now.
+ * @returns An object with commit, safe, and behind fields as per the problem description.
+ */
+export function commitIndex(log: number[], matches: number[], currentTerm: number): { commit: number; safe: number; behind: number[] } {
+  if (!Array.isArray(log) || !Array.isArray(matches)) {
+    throw new Error("log and matches must be arrays");
+  }
+  if (log.some(term => typeof term !== 'number' || term < 1 || term % 1 !== 0)) {
+    throw new Error("all terms in log must be whole numbers of one or more");
+  }
+  for (let i = 1; i < log.length; i++) {
+    if (log[i] < log[i - 1]) {
+      throw new Error("terms never fall as the log grows");
+    }
+  }
+  if (currentTerm <= 0 || currentTerm % 1 !== 0) {
+    throw new Error("current term must be a whole number of one or more");
+  }
+  if (log.some(term => term > currentTerm)) {
+    throw new Error("no entry may be stamped above the leader's current term");
+  }
+  if (!matches.every(copied => typeof copied === 'number' && Number.isInteger(copied) && copied >= 0 && copied <= log.length)) {
+    throw new Error("copied numbers must be whole numbers between zero and the log's length");
+  }
+
+  const N = log.length;
+  const quorumSize = Math.floor(matches.length / 2) + 1;
+  let commit = 0;
+  let safe = 0;
+
+  for (let i = N - 1; i >= 0; i--) {
+    if (log[i] === currentTerm && matches.filter(m => m >= i + 1).length >= quorumSize) {
+      commit = i + 1;
+      break;
+    }
+  }
+
+  safe = commit > 0 ? Math.min(...matches.filter(m => m !== 0)) : 0;
+
+  const behind: number[] = [];
+  for (let j = 0; j < matches.length; j++) {
+    if (matches[j] < commit) {
+      behind.push(j);
+    }
+  }
+
+  return { commit, safe, behind };
+}
+```

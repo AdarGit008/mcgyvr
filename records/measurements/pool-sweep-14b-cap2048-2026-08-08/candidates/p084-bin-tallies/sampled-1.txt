@@ -1,0 +1,33 @@
+```ts
+export function binTallies(readings: number[], edges: number[]): { bands: number[]; below: number; above: number } {
+  if (edges.length < 2) {
+    throw new Error("At least two edges are required.");
+  }
+  for (let i = 1; i < edges.length; i++) {
+    if (edges[i] <= edges[i - 1]) {
+      throw new Error("Edges must be in strictly increasing order.");
+    }
+  }
+
+  const bands: number[] = new Array(edges.length - 1).fill(0);
+  let below = 0;
+  let above = 0;
+
+  for (const r of readings) {
+    if (r < edges[0]) {
+      below++;
+    } else if (r >= edges[edges.length - 1]) {
+      above++;
+    } else {
+      for (let i = 0; i < edges.length - 1; i++) {
+        if (edges[i] <= r && r < edges[i + 1]) {
+          bands[i]++;
+          break;
+        }
+      }
+    }
+  }
+
+  return { bands, below, above };
+}
+```

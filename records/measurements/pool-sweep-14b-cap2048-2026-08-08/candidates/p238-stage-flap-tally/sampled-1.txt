@@ -1,0 +1,68 @@
+```ts
+export function tallyStageRetries(stages: any[], budget: number): string[] {
+  if (budget < 1) throw new Error("Budget must be at least one.");
+
+  const stageResults: { name: string; attempts: number; retries: number; flaps: number; halts: number; verdict: string }[] = [];
+  let totalAttempts = 0;
+  let totalRetries = 0;
+  let totalFlaps = 0;
+  let totalHalts = 0;
+  let greenCount = 0;
+
+  for (const stage of stages) {
+    const { name, outcomes } = stage;
+
+    if (typeof name !== "string" || !name.trim() || name.includes(" ")) {
+      throw new Error(`Invalid stage name: "${name}".`);
+    }
+    if (!Array.isArray(outcomes) || outcomes.length === 0) {
+      throw new Error(`Stage "${name}" has an invalid or empty outcome list.`);
+    }
+
+    const validOutcomes = ["pass", "flap", "halt"];
+    for (const outcome of outcomes) {
+      if (!validOutcomes.includes(outcome)) {
+        throw new Error(`Invalid outcome "${outcome}" in stage "${name}".`);
+      }
+      if ((outcome === "pass" || outcome === "halt") && outcomes.indexOf(outcome) !== outcomes.length - 1) {
+        throw new Error(`Outcome "${outcome}" must be the last one in stage "${name}".`);
+      }
+    }
+
+    if (outcomes.length > budget) {
+      throw new Error(`Stage "${name}" has more outcomes than the budget.`);
+    }
+
+    const attempts = outcomes.length;
+    const retries = attempts - 1;
+    const flaps = outcomes.filter(o => o === "flap").length;
+    const halts = outcomes.filter(o => o === "halt").length;
+    let verdict: string;
+
+    if (outcomes[outcomes.length - 1] === "pass") {
+      verdict = "green";
+      greenCount++;
+    } else if (outcomes[outcomes.length - 1] === "halt") {
+      verdict = "dead";
+    } else if (flaps === budget) {
+      verdict = "spent";
+    } else {
+      verdict = "open";
+    }
+
+    stageResults.push({ name, attempts, retries, flaps, halts, verdict });
+    totalAttempts += attempts;
+    totalRetries += retries;
+    totalFlaps += flaps;
+    totalHalts += halts;
+  }
+
+  const resultLines = stageResults.map(({ name, attempts, retries, flaps, halts, verdict }) =>
+    `${name} ${attempts} ${retries} ${flaps} ${halts} ${verdict}`
+  );
+
+  resultLines.push(`* ${totalAttempts} ${totalRetries} ${totalFlaps} ${totalHalts} ${greenCount}`);
+
+  return resultLines;
+}
+```

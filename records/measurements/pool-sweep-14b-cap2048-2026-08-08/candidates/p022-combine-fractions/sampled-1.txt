@@ -1,0 +1,49 @@
+```ts
+export function combineFractions(parts: string[]): string {
+  if (parts.length === 0) {
+    throw new Error("Input list cannot be empty");
+  }
+
+  const gcd = (a: number, b: number): number => {
+    while (b !== 0) {
+      [a, b] = [b, a % b];
+    }
+    return a;
+  };
+
+  const parseFraction = (fraction: string): { numerator: number; denominator: number } => {
+    const match = fraction.match(/^(-?\d+)(?:\/(\d+))$/);
+    if (!match) {
+      throw new Error(`Invalid fraction format: ${fraction}`);
+    }
+    const numerator = parseInt(match[1], 10);
+    const denominator = parseInt(match[2], 10);
+
+    if (denominator === 0) {
+      throw new Error("Denominator cannot be zero");
+    }
+
+    return { numerator, denominator };
+  };
+
+  let totalNumerator = 0;
+  let totalDenominator = 1;
+
+  for (const part of parts) {
+    const { numerator, denominator } = parseFraction(part);
+
+    if (denominator < 0) {
+      throw new Error("Denominator cannot be negative");
+    }
+
+    totalNumerator = totalNumerator * denominator + numerator * totalDenominator;
+    totalDenominator *= denominator;
+
+    const commonDivisor = gcd(totalNumerator, totalDenominator);
+    totalNumerator /= commonDivisor;
+    totalDenominator /= commonDivisor;
+  }
+
+  return `${totalNumerator}/${totalDenominator}`;
+}
+```

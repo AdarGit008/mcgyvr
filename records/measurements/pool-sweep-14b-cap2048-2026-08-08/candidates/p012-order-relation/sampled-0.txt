@@ -1,0 +1,55 @@
+```ts
+export function orderRelation(pairs: [string, string][], x: string, y: string): string {
+  if (x === y) {
+    throw new Error("Query items cannot be the same");
+  }
+
+  const graph: Record<string, Set<string>> = {};
+  const allItems = new Set<string>();
+
+  // Build the graph
+  for (const [a, b] of pairs) {
+    if (!graph[a]) {
+      graph[a] = new Set();
+    }
+    graph[a].add(b);
+    allItems.add(a);
+    allItems.add(b);
+  }
+
+  // Check if x and y are in the graph
+  if (!allItems.has(x) || !allItems.has(y)) {
+    throw new Error("Query item not found in any pair");
+  }
+
+  // Depth-first search to find reachability
+  function dfs(current: string, target: string, visited: Set<string>): boolean {
+    if (current === target) {
+      return true;
+    }
+    if (!graph[current] || visited.has(current)) {
+      return false;
+    }
+    visited.add(current);
+    for (const neighbor of graph[current]) {
+      if (dfs(neighbor, target, visited)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  const xBeforeY = dfs(x, y, new Set());
+  const yBeforeX = dfs(y, x, new Set());
+
+  if (xBeforeY && yBeforeX) {
+    return "both";
+  } else if (xBeforeY) {
+    return "before";
+  } else if (yBeforeX) {
+    return "after";
+  } else {
+    return "unordered";
+  }
+}
+```

@@ -1,0 +1,67 @@
+```ts
+export function routeLogRecords(rules: Array<Record<string, unknown>>, records: Array<Record<string, unknown>>, spare: string): Array<Record<string, unknown>> {
+  const validLevels = ["trace", "debug", "info", "warn", "error", "fatal"];
+
+  if (!Array.isArray(rules) || !Array.isArray(records)) {
+    throw new Error("rules and records must be arrays");
+  }
+
+  for (const rule of rules) {
+    if (typeof rule !== "object" || rule === null) {
+      throw new Error("each rule must be a mapping");
+    }
+    const { sink, least, tag, stop } = rule;
+    if (typeof sink !== "string" || sink.trim() === "") {
+      throw new Error("sink must be a non-empty string");
+    }
+    if (!validLevels.includes(least as string)) {
+      throw new Error("level must be one of the six names");
+    }
+    if (typeof tag !== "string") {
+      throw new Error("tag must be a string");
+    }
+    if (stop !== true && stop !== false) {
+      throw new Error("stop must be either true or false");
+    }
+  }
+
+  for (const record of records) {
+    if (typeof record !== "object" || record === null) {
+      throw new Error("each record must be a mapping");
+    }
+    const { level, tag } = record;
+    if (!validLevels.includes(level as string)) {
+      throw new Error("level must be one of the six names");
+    }
+    if (typeof tag !== "string") {
+      throw new Error("tag must be a string");
+    }
+  }
+
+  if (typeof spare !== "string" || spare.trim() === "") {
+    throw new Error("spare name must be a non-empty string");
+  }
+
+  return records.map((record, index) => {
+    const recordSinks: string[] = [];
+    for (const rule of rules) {
+      const { sink, least, tag, stop } = rule as any;
+      if (
+        validLevels.indexOf(level as string) >= validLevels.indexOf(least as string) &&
+        (tag === "" || tag === record.tag)
+      ) {
+        if (!recordSinks.includes(sink)) {
+          recordSinks.push(sink);
+        }
+        if (stop) {
+          break;
+        }
+      }
+    }
+    if (recordSinks.length === 0) {
+      recordSinks.push(spare);
+    }
+    return { at: index, sinks: recordSinks };
+  });
+}
+```

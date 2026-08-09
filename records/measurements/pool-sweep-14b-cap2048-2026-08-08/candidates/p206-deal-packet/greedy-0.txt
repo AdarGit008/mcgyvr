@@ -1,0 +1,41 @@
+```ts
+export function dealPacket(items: string[], seats: number[], order: string): Record<string, unknown> {
+  if (!Array.isArray(items) || items.some(item => typeof item !== 'string' || item.length === 0)) {
+    throw new Error('Invalid packet');
+  }
+  if (new Set(items).size !== items.length) {
+    throw new Error('Duplicate entries in packet');
+  }
+  if (!Array.isArray(seats) || seats.length === 0 || seats.some(limit => typeof limit !== 'number' || limit <= 0)) {
+    throw new Error('Invalid limits');
+  }
+  if (order !== 'round' && order !== 'reverse' && order !== 'snake') {
+    throw new Error('Invalid turn sequence');
+  }
+
+  const hands: string[][] = Array(seats.length).fill([]);
+  let handIndex = 0;
+  let direction = 1;
+
+  for (const item of items) {
+    while (hands[handIndex].length >= seats[handIndex]) {
+      if (order === 'round') {
+        handIndex = (handIndex + 1) % seats.length;
+      } else if (order === 'reverse') {
+        handIndex = (handIndex - 1 + seats.length) % seats.length;
+      } else if (order === 'snake') {
+        handIndex += direction;
+        if (handIndex >= seats.length || handIndex < 0) {
+          direction *= -1;
+          handIndex += direction * 2;
+        }
+      }
+    }
+    hands[handIndex].push(item);
+  }
+
+  const left = items.filter((_, index) => hands.some(hand => hand.includes(items[index])));
+
+  return { hands, left };
+}
+```

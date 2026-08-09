@@ -1,0 +1,75 @@
+```ts
+/**
+ * Unspools text that has been shortened by pointing backwards at itself.
+ * @param spool - The spooled text to unspool.
+ * @returns The fully expanded text.
+ */
+export function unspoolText(spool: string): string {
+  if (typeof spool !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let output = '';
+  let i = 0;
+
+  while (i < spool.length) {
+    const char = spool[i];
+
+    if (char === '<') {
+      if (spool[i + 1] === '<') {
+        // Double less-than sign, append one less-than sign
+        output += '<';
+        i += 2;
+        continue;
+      }
+
+      // Find the position of the next greater-than sign
+      let gtIndex = spool.indexOf('>', i);
+      if (gtIndex === -1) {
+        throw new Error('Pointer must end with a greater-than sign');
+      }
+
+      const pointer = spool.substring(i + 1, gtIndex);
+
+      // Check for comma in the pointer
+      const commaIndex = pointer.indexOf(',');
+      if (commaIndex === -1) {
+        throw new Error('Pointer must contain a comma');
+      }
+
+      const reachStr = pointer.substring(0, commaIndex);
+      const haulStr = pointer.substring(commaIndex + 1);
+
+      // Validate reach and haul
+      if (!/^\d+$/.test(reachStr) || !/^\d+$/.test(haulStr)) {
+        throw new Error('Reach and haul must be digits');
+      }
+
+      const reach = parseInt(reachStr, 10);
+      const haul = parseInt(haulStr, 10);
+
+      if (reach === 0 || haul === 0) {
+        throw new Error('Reach and haul must be greater than zero');
+      }
+
+      if (reach > output.length) {
+        throw new Error('Reach cannot be larger than the number of characters produced so far');
+      }
+
+      // Append haul characters from reach behind the current end of the output
+      for (let j = 0; j < haul; j++) {
+        const indexToAppend = output.length - reach + (j % reach);
+        output += output[indexToAppend];
+      }
+
+      i = gtIndex + 1;
+    } else {
+      // Append character as it stands
+      output += char;
+      i++;
+    }
+  }
+
+  return output;
+}
+```

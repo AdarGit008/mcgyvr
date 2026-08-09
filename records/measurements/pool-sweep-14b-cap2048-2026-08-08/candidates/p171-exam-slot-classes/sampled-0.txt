@@ -1,0 +1,57 @@
+```ts
+export function examSlotClasses(conflicts: number[][]): number[][] {
+  if (!Array.isArray(conflicts) || conflicts.length === 0) {
+    throw new Error("Invalid input: conflicts must be a non-empty list of lists.");
+  }
+
+  const conflictMap: Map<number, Set<number>> = new Map();
+
+  for (let i = 0; i < conflicts.length; i++) {
+    if (!Array.isArray(conflicts[i]) || conflicts[i].length === 0) {
+      throw new Error("Invalid input: each entry must be a non-empty list.");
+    }
+
+    const examSet = new Set<number>();
+    for (const exam of conflicts[i]) {
+      if (exam < 0 || exam >= conflicts.length) {
+        throw new Error("Invalid input: exam number out of bounds.");
+      }
+      if (exam === i) {
+        throw new Error("Invalid input: an exam cannot share with itself.");
+      }
+      if (examSet.has(exam)) {
+        throw new Error("Invalid input: duplicate exam in the same list.");
+      }
+      examSet.add(exam);
+    }
+
+    conflictMap.set(i, examSet);
+  }
+
+  const examsByConflicts = Array.from(conflictMap.entries()).sort((a, b) => {
+    if (b[1].size !== a[1].size) {
+      return b[1].size - a[1].size;
+    }
+    return a[0] - b[0];
+  });
+
+  const sittings: number[][] = [];
+
+  for (const [exam, conflictsSet] of examsByConflicts) {
+    let placed = false;
+    for (let i = 0; i < sittings.length; i++) {
+      if (sittings[i].every(e => !conflictsSet.has(e))) {
+        sittings[i].push(exam);
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      sittings.push([exam]);
+    }
+  }
+
+  return sittings.map(sitting => sitting.sort((a, b) => a - b));
+}
+```

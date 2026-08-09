@@ -1,0 +1,39 @@
+```ts
+export function fillPlaceholders(text: string, slots: Record<string, string>): string {
+  let out = '';
+  let i = 0;
+  const len = text.length;
+
+  while (i < len) {
+    if (text[i] === '%') {
+      i++;
+      if (i >= len) {
+        throw new Error('Unterminated percent sign');
+      }
+      if (text[i] === '%') {
+        out += '%';
+        i++;
+      } else {
+        const start = i;
+        while (i < len && text[i] !== '%') {
+          i++;
+        }
+        if (i >= len) {
+          throw new Error('Unterminated slot name');
+        }
+        const slotName = text.substring(start, i);
+        if (!(slotName in slots)) {
+          throw new Error(`Slot "${slotName}" not found`);
+        }
+        out += slots[slotName];
+        i++;
+      }
+    } else {
+      out += text[i];
+      i++;
+    }
+  }
+
+  return out;
+}
+```

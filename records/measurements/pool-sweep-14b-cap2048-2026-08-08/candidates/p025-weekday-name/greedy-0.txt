@@ -1,0 +1,53 @@
+```ts
+const NAMES = [
+  "Saturday",
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+];
+const MONTH_LEN = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+export function weekdayName(year: number, month: number, day: number): string {
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
+    throw new Error("weekdayName expects integer arguments");
+  }
+  if (year < 1) {
+    throw new Error("year must be at least 1");
+  }
+  if (month < 1 || month > 12) {
+    throw new Error("month outside 1..12");
+  }
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const length = month === 2 && leap ? 29 : MONTH_LEN[month - 1];
+  if (day < 1 || day > length) {
+    throw new Error("day does not exist in that month");
+  }
+
+  // Adjust January and February to be months 13 and 14 of the previous year
+  let adjustedYear = year;
+  let adjustedMonth = month;
+  if (month <= 2) {
+    adjustedYear -= 1;
+    adjustedMonth += 12;
+  }
+
+  const k = adjustedYear % 100;
+  const j = Math.floor(adjustedYear / 100);
+  const h =
+    (day +
+      Math.floor((13 * (adjustedMonth + 1)) / 5) +
+      k +
+      Math.floor(k / 4) +
+      Math.floor(j / 4) +
+      5 * j) %
+    7;
+  return NAMES[h];
+}
+```

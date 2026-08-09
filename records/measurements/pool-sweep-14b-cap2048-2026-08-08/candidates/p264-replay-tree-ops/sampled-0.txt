@@ -1,0 +1,95 @@
+```ts
+export function replayTreeOps(steps: string[]): number[] {
+  if (!Array.isArray(steps)) {
+    throw new Error("Invalid steps input");
+  }
+
+  interface TreeNode {
+    value: number;
+    left?: TreeNode;
+    right?: TreeNode;
+  }
+
+  let root: TreeNode | undefined = undefined;
+
+  const addValue = (node: TreeNode | undefined, value: number): TreeNode => {
+    if (!node) {
+      return { value };
+    }
+    if (value < node.value) {
+      node.left = addValue(node.left, value);
+    } else if (value > node.value) {
+      node.right = addValue(node.right, value);
+    }
+    // If the value already exists, it is ignored
+    return node;
+  };
+
+  const findMinNode = (node: TreeNode): TreeNode => {
+    let current = node;
+    while (current.left) {
+      current = current.left;
+    }
+    return current;
+  };
+
+  const removeValue = (node: TreeNode | undefined, value: number): TreeNode | undefined => {
+    if (!node) {
+      throw new Error(`Cannot drop ${value}: not found`);
+    }
+
+    if (value < node.value) {
+      node.left = removeValue(node.left, value);
+    } else if (value > node.value) {
+      node.right = removeValue(node.right, value);
+    } else {
+      if (!node.left && !node.right) {
+        return undefined;
+      }
+      if (!node.left) {
+        return node.right;
+      }
+      if (!node.right) {
+        return node.left;
+      }
+
+      const minRightNode = findMinNode(node.right!);
+      node.value = minRightNode.value;
+      node.right = removeValue(node.right, minRightNode.value);
+    }
+    return node;
+  };
+
+  for (const step of steps) {
+    if (typeof step !== "string") {
+      throw new Error("Invalid step input");
+    }
+
+    const matchAdd = step.match(/^add:(-?\d+)$/);
+    const matchDrop = step.match(/^drop:(-?\d+)$/);
+
+    if (matchAdd) {
+      const value = parseInt(matchAdd[1], 10);
+      root = addValue(root, value);
+    } else if (matchDrop) {
+      const value = parseInt(matchDrop[1], 10);
+      root = removeValue(root, value);
+    } else {
+      throw new Error("Invalid step format");
+    }
+  }
+
+  const result: number[] = [];
+
+  const inorderTraversal = (node: TreeNode | undefined): void => {
+    if (!node) return;
+    inorderTraversal(node.left);
+    result.push(node.value);
+    inorderTraversal(node.right);
+  };
+
+  inorderTraversal(root);
+
+  return result;
+}
+```

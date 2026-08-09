@@ -1,0 +1,77 @@
+```ts
+export function routeLogRecords(
+  rules: Array<Record<string, unknown>>,
+  records: Array<Record<string, unknown>>,
+  spare: string
+): Array<Record<string, unknown>> {
+  const validLevels = ["trace", "debug", "info", "warn", "error", "fatal"];
+
+  if (!Array.isArray(rules) || !Array.isArray(records)) {
+    throw new Error("Rules and records must be arrays.");
+  }
+
+  rules.forEach((rule, index) => {
+    if (typeof rule !== "object" || Array.isArray(rule) || rule === null) {
+      throw new Error(`Rule at index ${index} is not a valid mapping.`);
+    }
+    const { sink, least, tag, stop } = rule;
+    if (
+      typeof sink !== "string" ||
+      typeof spare !== "string" ||
+      !sink.trim() ||
+      !spare.trim()
+    ) {
+      throw new Error("Sink and spare name must be non-empty strings.");
+    }
+    if (!validLevels.includes(least as string)) {
+      throw new Error(`Invalid level at rule index ${index}.`);
+    }
+    if (typeof tag !== "string") {
+      throw new Error(`Invalid tag at rule index ${index}.`);
+    }
+    if (stop !== true && stop !== false) {
+      throw new Error(`Invalid stop value at rule index ${index}.`);
+    }
+  });
+
+  records.forEach((record, index) => {
+    if (typeof record !== "object" || Array.isArray(record) || record === null) {
+      throw new Error(`Record at index ${index} is not a valid mapping.`);
+    }
+    const { level, tag } = record;
+    if (!validLevels.includes(level as string)) {
+      throw new Error(`Invalid level at record index ${index}.`);
+    }
+    if (typeof tag !== "string") {
+      throw new Error(`Invalid tag at record index ${index}.`);
+    }
+  });
+
+  return records.map((record, atIndex) => {
+    const { level, tag } = record;
+    const sinks: string[] = [];
+
+    for (const rule of rules) {
+      const { sink, least, tag: ruleTag, stop } = rule;
+
+      if (
+        validLevels.indexOf(level as string) >= validLevels.indexOf(least as string) &&
+        (ruleTag === "" || ruleTag === tag)
+      ) {
+        if (!sinks.includes(sink as string)) {
+          sinks.push(sink as string);
+        }
+        if (stop) {
+          break;
+        }
+      }
+    }
+
+    if (sinks.length === 0) {
+      sinks.push(spare);
+    }
+
+    return { at: atIndex, sinks };
+  });
+}
+```

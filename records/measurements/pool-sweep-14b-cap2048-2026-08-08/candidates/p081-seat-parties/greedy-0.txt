@@ -1,0 +1,39 @@
+```ts
+/**
+ * Seats parties in rows according to their sizes.
+ * @param rows - An array of numbers representing the lengths of each row.
+ * @param parties - An array of numbers representing the sizes of each party.
+ * @returns An array of strings indicating where each party is seated or if they are rejected.
+ */
+export function seatParties(rows: number[], parties: number[]): string[] {
+  const results: string[] = [];
+  const freeSeatsInRows: number[] = [...rows];
+
+  for (const partySize of parties) {
+    if (partySize < 1) {
+      throw new Error("Party size must be at least 1.");
+    }
+
+    let seated = false;
+    for (let i = 0; i < rows.length; i++) {
+      if (freeSeatsInRows[i] >= partySize) {
+        const seatNumber = rows[i] - freeSeatsInRows[i] + 1;
+        results.push(`${i + 1}-${seatNumber}`);
+        freeSeatsInRows[i] -= partySize;
+        seated = true;
+        break;
+      }
+    }
+
+    if (!seated) {
+      if (partySize > Math.max(...rows)) {
+        results.push("rejected:too_big");
+      } else {
+        results.push("rejected:full");
+      }
+    }
+  }
+
+  return results;
+}
+```

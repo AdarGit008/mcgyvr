@@ -1,0 +1,84 @@
+```ts
+export function fitGridWords(slots: Array<Record<string, unknown>>, words: string[]): Record<string, unknown> {
+  if (!Array.isArray(slots) || slots.length === 0) {
+    throw new Error("Slots must be a non-empty list.");
+  }
+  if (!Array.isArray(words)) {
+    throw new Error("Words must be a list.");
+  }
+
+  const slotMap: Map<string, { row: number; col: number; run: string; len: number }> = new Map();
+  const grid: Map<string, { word: string; slotId: string }> = new Map();
+
+  slots.forEach((slot) => {
+    if (typeof slot !== "object" || slot === null) {
+      throw new Error("Each slot must be a mapping.");
+    }
+    const id = slot.id as string;
+    const row = Number(slot.row);
+    const col = Number(slot.col);
+    const run = String(slot.run);
+    const len = Number(slot.len);
+
+    if (typeof id !== "string" || id.trim() === "") {
+      throw new Error("Each slot must have a non-empty string 'id'.");
+    }
+    if (slotMap.has(id)) {
+      throw new Error("Slot ids must be unique.");
+    }
+    if (!Number.isInteger(row) || row < 0) {
+      throw new Error("'row' must be a whole number of nought or more.");
+    }
+    if (!Number.isInteger(col) || col < 0) {
+      throw new Error("'col' must be a whole number of nought or more.");
+    }
+    if (run !== "across" && run !== "down") {
+      throw new Error("'run' must be either 'across' or 'down'.");
+    }
+    if (!Number.isInteger(len) || len < 2) {
+      throw new Error("'len' must be a whole number of two or more.");
+    }
+
+    slotMap.set(id, { row, col, run, len });
+  });
+
+  const usedWords = new Set<string>();
+  const placed: { slot: string; word: string }[] = [];
+  let stuck = "";
+
+  slots.forEach((slot) => {
+    const id = slot.id as string;
+    const { row, col, run, len } = slotMap.get(id)!;
+
+    for (const word of words) {
+      if (usedWords.has(word)) continue;
+      if (word.length !== len) continue;
+
+      let conflict = false;
+      for (let i = 0; i < len; i++) {
+        const key = `${row + (run === "down" ? i : 0)}-${col + (run === "across" ? i : 0)}`;
+        if (grid.has(key)) {
+          if (grid.get(key)?.word !== word[i]) {
+            conflict = true;
+            break;
+          }
+        } else {
+          grid.set(key, { word: word[i], slotId: id });
+        }
+      }
+
+      if (!conflict) {
+        placed.push({ slot: id, word });
+        usedWords.add(word);
+        break;
+      }
+    }
+
+    if (!stuck && !grid.has(`${row}-${col}`)) {
+      stuck = id;
+    }
+  });
+
+  return { placed, stuck };
+}
+```

@@ -1,0 +1,61 @@
+```ts
+export function numberGridSlots(rows: string[]): Array<Record<string, number>> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("Rows must be a non-empty list");
+  }
+
+  const rowLength = rows[0].length;
+  if (rowLength === 0) {
+    throw new Error("Rows must contain non-empty strings");
+  }
+
+  for (const row of rows) {
+    if (typeof row !== "string" || row.length !== rowLength || !/^[.#]+$/.test(row)) {
+      throw new Error("Each row must be a string of equal length with only '.' or '#' characters");
+    }
+  }
+
+  const result: Array<Record<string, number>> = [];
+  let slotNumber = 1;
+
+  for (let row = 0; row < rows.length; row++) {
+    for (let col = 0; col < rowLength; col++) {
+      if (rows[row][col] === ".") {
+        const isStartOfAcrossSlot =
+          (col === 0 || rows[row][col - 1] === "#") && countOpenRun(rows[row], col) >= 2;
+        const isStartOfDownSlot =
+          (row === 0 || rows[row - 1][col] === "#") && countOpenRunInColumn(rows, row, col) >= 2;
+
+        if (isStartOfAcrossSlot || isStartOfDownSlot) {
+          result.push({
+            at: slotNumber,
+            row: row + 1,
+            col: col + 1,
+            across: isStartOfAcrossSlot ? countOpenRun(rows[row], col) : 0,
+            down: isStartOfDownSlot ? countOpenRunInColumn(rows, row, col) : 0,
+          });
+          slotNumber++;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+function countOpenRun(row: string, startCol: number): number {
+  let length = 0;
+  for (let col = startCol; col < row.length && row[col] === "."; col++) {
+    length++;
+  }
+  return length;
+}
+
+function countOpenRunInColumn(rows: string[], startRow: number, col: number): number {
+  let length = 0;
+  for (let row = startRow; row < rows.length && rows[row][col] === "."; row++) {
+    length++;
+  }
+  return length;
+}
+```

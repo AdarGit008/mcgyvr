@@ -1,0 +1,64 @@
+```ts
+/** Sifts events into lanes by channel prefix and severity ceiling. */
+export function siftEventStreams(
+  lanes: Array<Record<string, unknown>>,
+  events: Array<Record<string, unknown>>,
+): Record<string, unknown> {
+  const RANK = ["chatter", "notice", "alarm", "panic"];
+  
+  // Validate input
+  if (!Array.isArray(lanes) || !Array.isArray(events)) {
+    throw new Error("Lanes and events must be arrays.");
+  }
+
+  lanes.forEach((lane: any) => {
+    if (typeof lane !== 'object' || lane === null) {
+      throw new Error("Each lane must be a mapping.");
+    }
+    if (typeof lane.name !== 'string' || lane.name.trim() === '') {
+      throw new Error("Lane name must be a non-empty string.");
+    }
+    if (typeof lane.prefix !== 'string') {
+      throw new Error("Lane prefix must be a string.");
+    }
+    if (!RANK.includes(lane.upTo)) {
+      throw new Error("Lane upTo must be one of the four words: chatter, notice, alarm, panic.");
+    }
+    if (lane.last !== true && lane.last !== false) {
+      throw new Error("Lane last must be either true or false.");
+    }
+  });
+
+  events.forEach((event: any, at: number) => {
+    if (typeof event !== 'object' || event === null) {
+      throw new Error("Each event must be a mapping.");
+    }
+    if (typeof event.channel !== 'string' || event.channel.trim() === '') {
+      throw new Error("Event channel must be a non-empty string.");
+    }
+    if (!RANK.includes(event.severity)) {
+      throw new Error("Event severity must be one of the four words: chatter, notice, alarm, panic.");
+    }
+  });
+
+  const gathered = lanes.map((lane: any) => ({
+    name: lane.name as string,
+    took: [] as number[],
+  }));
+  const dropped: number[] = [];
+
+  events.forEach((event: any, at: number) => {
+    let caught = false;
+    for (let which = 0; which < lanes.length && !caught; which++) {
+      const lane = lanes[which];
+      if (!event.channel.startsWith(lane.prefix)) continue;
+      if (RANK.indexOf(event.severity) > RANK.indexOf(lane.upTo)) continue;
+      gathered[which].took.push(at);
+      caught = lane.last;
+    }
+    if (!caught) dropped.push(at);
+  });
+
+  return { lanes: gathered, dropped };
+}
+```

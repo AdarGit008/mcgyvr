@@ -1,0 +1,40 @@
+```ts
+export function canonicalTagQuery(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const escapeRegex = /~([0-9A-F]{2})/g;
+  const unescape = (str: string) => str.replace(escapeRegex, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+
+  const escapeSpecialChars = (str: string) => str
+    .replace(/:/g, '~3A')
+    .replace(/;/g, '~3B')
+    .replace(/~/g, '~7E');
+
+  const items = text.split(';').map(item => {
+    const parts = item.split(':');
+    if (parts.length !== 2) {
+      throw new Error('Item must contain exactly one colon');
+    }
+    const [key, value] = parts;
+    if (!key || key.includes(':')) {
+      throw new Error('Key must be non-empty and may not contain a colon');
+    }
+    return { key: unescape(key), value: unescape(value) };
+  });
+
+  items.sort((a, b) => {
+    if (a.key === b.key) {
+      return a.value.localeCompare(b.value);
+    }
+    return a.key.localeCompare(b.key);
+  });
+
+  const uniqueItems = items.filter((item, index, self) =>
+    index === 0 || (item.key !== self[index - 1].key || item.value !== self[index - 1].value)
+  );
+
+  return uniqueItems.map(item => `${escapeSpecialChars(item.key)}:${escapeSpecialChars(item.value)}`).join(';');
+}
+```

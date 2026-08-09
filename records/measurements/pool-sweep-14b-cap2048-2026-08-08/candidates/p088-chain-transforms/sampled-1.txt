@@ -1,0 +1,107 @@
+```ts
+export function chainTransforms(grid: number[][], steps: string[]): number[][] {
+  if (grid.length === 0) {
+    throw new Error("Grid must have at least one row.");
+  }
+  if (!grid.every(row => row.length === grid[0].length)) {
+    throw new Error("All rows in the grid must have the same length.");
+  }
+
+  const validSteps = ['cw', 'ccw', 'mirror', 'flip', 'diag'];
+  for (const step of steps) {
+    if (!validSteps.includes(step)) {
+      throw new Error(`Invalid step name: ${step}`);
+    }
+  }
+
+  let transformedGrid = [...grid];
+
+  for (const step of steps) {
+    switch (step) {
+      case 'cw':
+        transformedGrid = rotateClockwise(transformedGrid);
+        break;
+      case 'ccw':
+        transformedGrid = rotateCounterclockwise(transformedGrid);
+        break;
+      case 'mirror':
+        transformedGrid = mirrorHorizontally(transformedGrid);
+        break;
+      case 'flip':
+        transformedGrid = flipVertically(transformedGrid);
+        break;
+      case 'diag':
+        transformedGrid = reflectAcrossDiagonal(transformedGrid);
+        break;
+    }
+  }
+
+  return transformedGrid;
+}
+
+function rotateClockwise(grid: number[][]): number[][] {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const newGrid = Array.from({ length: cols }, () => Array(rows).fill(0));
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      newGrid[c][rows - 1 - r] = grid[r][c];
+    }
+  }
+
+  return newGrid;
+}
+
+function rotateCounterclockwise(grid: number[][]): number[][] {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const newGrid = Array.from({ length: cols }, () => Array(rows).fill(0));
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      newGrid[cols - 1 - c][r] = grid[r][c];
+    }
+  }
+
+  return newGrid;
+}
+
+function mirrorHorizontally(grid: number[][]): number[][] {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const newGrid = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+  for (let r = 0; r < rows; r++) {
+    newGrid[r] = [...grid[r]].reverse();
+  }
+
+  return newGrid;
+}
+
+function flipVertically(grid: number[][]): number[][] {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const newGrid = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+  for (let r = 0; r < rows; r++) {
+    newGrid[rows - 1 - r] = [...grid[r]];
+  }
+
+  return newGrid;
+}
+
+function reflectAcrossDiagonal(grid: number[][]): number[][] {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const newGrid = Array.from({ length: cols }, () => Array(rows).fill(0));
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      newGrid[c][r] = grid[r][c];
+    }
+  }
+
+  return newGrid;
+}
+```

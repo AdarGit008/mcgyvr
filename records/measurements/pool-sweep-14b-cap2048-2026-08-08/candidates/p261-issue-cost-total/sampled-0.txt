@@ -1,0 +1,57 @@
+```ts
+export function issueCostTotal(moves: Array<Record<string, unknown>>): number {
+  if (!Array.isArray(moves)) {
+    throw new Error("Invalid argument: moves must be an array");
+  }
+
+  const bin: Array<[number, number]> = [];
+  let charged = 0;
+
+  for (const move of moves) {
+    if (
+      typeof move.kind !== "string" ||
+      !["in", "out"].includes(move.kind) ||
+      typeof move.units !== "number" ||
+      move.units <= 0 || move.units % 1 !== 0
+    ) {
+      throw new Error("Invalid movement record");
+    }
+
+    if (move.kind === "in") {
+      if (
+        typeof move.cents !== "number" ||
+        move.cents < 0 ||
+        move.cents % 1 !== 0
+      ) {
+        throw new Error("Invalid arrival cents");
+      }
+      bin.push([move.units as number, move.cents as number]);
+    } else {
+      let unitsToIssue = move.units as number;
+      while (unitsToIssue > 0) {
+        if (bin.length === 0) {
+          throw new Error("Issue larger than everything in the bin");
+        }
+        const consignment = bin[0];
+        const unitsInConsignment = consignment[0];
+        const centsPerUnit = consignment[1];
+
+        if (unitsToIssue <= unitsInConsignment) {
+          charged += unitsToIssue * centsPerUnit;
+          consignment[0] -= unitsToIssue;
+          unitsToIssue = 0;
+          if (consignment[0] === 0) {
+            bin.shift();
+          }
+        } else {
+          charged += unitsInConsignment * centsPerUnit;
+          unitsToIssue -= unitsInConsignment;
+          bin.shift();
+        }
+      }
+    }
+  }
+
+  return charged;
+}
+```

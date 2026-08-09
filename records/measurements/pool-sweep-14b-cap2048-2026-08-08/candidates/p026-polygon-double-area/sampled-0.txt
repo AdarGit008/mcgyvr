@@ -1,0 +1,32 @@
+```ts
+/**
+ * Calculates twice the area of a simple polygon given its vertices on the integer lattice.
+ * @param vertices - An array of [x, y] pairs representing the vertices of the polygon in order.
+ */
+export function polygonDoubleArea(vertices: number[][]): number {
+  if (vertices.length < 3) {
+    throw new Error("At least three vertices are required.");
+  }
+
+  let doubleArea = 0;
+
+  for (let i = 0; i < vertices.length; i++) {
+    const [x1, y1] = vertices[i];
+    const [x2, y2] = vertices[(i + 1) % vertices.length];
+
+    if (!Array.isArray([x1, y1]) || !Array.isArray([x2, y2])) {
+      throw new Error("Each vertex must be a pair of integers.");
+    }
+    if (!Number.isInteger(x1) || !Number.isInteger(y1) || !Number.isInteger(x2) || !Number.isInteger(y2)) {
+      throw new Error("Vertex coordinates must be integers.");
+    }
+    if (x1 === x2 && y1 === y2) {
+      throw new Error("Consecutive vertices must not be identical.");
+    }
+
+    doubleArea += x1 * y2 - x2 * y1;
+  }
+
+  return Math.abs(doubleArea);
+}
+```

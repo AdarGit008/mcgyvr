@@ -1,0 +1,55 @@
+```ts
+export function stageAttrition(
+  specimens: Array<Record<string, unknown>>,
+  stages: Array<Record<string, unknown>>,
+): [string, number][] {
+  const seen = new Set<string>();
+  for (const stage of stages) {
+    const name = stage.stage;
+    if (typeof name !== "string" || name === "") {
+      throw new Error("stage name must be a non-empty string");
+    }
+    if (name === "through") {
+      throw new Error('a stage may not be named "through"');
+    }
+    if (seen.has(name)) {
+      throw new Error(`stage name repeated: ${name}`);
+    }
+    seen.add(name);
+    const low = stage.low as number | null;
+    const high = stage.high as number | null;
+    if (low !== null && high !== null && low > high) {
+      throw new Error("low exceeds high");
+    }
+  }
+
+  const fails = (specimen: Record<string, unknown>, stage: Record<string, unknown>): boolean => {
+    const value = specimen[stage.field as string];
+    if (typeof value !== "number") {
+      return true;
+    }
+    const low = stage.low as number | null;
+    const high = stage.high as number | null;
+    return (low !== null && value < low) || (high !== null && value > high);
+  };
+
+  const pairs: [string, number][] = [];
+  for (const specimen of specimens) {
+    let leftStage = false;
+    for (const stage of stages) {
+      if (!leftStage && fails(specimen, stage)) {
+        leftStage = true;
+        pairs.push([stage.stage as string, (pairs.find(p => p[0] === stage.stage)?.[1] || 0) + 1]);
+      }
+    }
+    if (!leftStage) {
+      const throughCount = pairs.find(p => p[0] === "through")?.[1] || 0;
+      pairs.push(["through", throughCount + 1]);
+    }
+  }
+
+  return pairs.filter((pair, index, self) =>
+    index === self.findIndex(p => p[0] === pair[0])
+  );
+}
+```

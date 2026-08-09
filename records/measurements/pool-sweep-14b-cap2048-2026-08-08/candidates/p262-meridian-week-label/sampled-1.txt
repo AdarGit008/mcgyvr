@@ -1,0 +1,55 @@
+```ts
+/**
+ * Determines the Meridian week label for a given date.
+ * @param date - A zero-padded "YYYY-MM-DD" string.
+ * @returns The Meridian week label in the format "YYYY-WWW".
+ * @throws Error if the input is not a valid "YYYY-MM-DD" string or falls outside the allowed range.
+ */
+export function meridianWeekLabel(date: string): string {
+    const datePattern = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+    if (!datePattern.test(date)) {
+        throw new Error("Invalid date format");
+    }
+
+    const [yearStr, monthStr, dayStr] = date.split("-");
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const day = parseInt(dayStr, 10);
+
+    if (year < 2 || year > 9999) {
+        throw new Error("Year out of range");
+    }
+
+    // Determine if the year is a leap year
+    const isLeapYear = (y: number): boolean => (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+
+    // Calculate the day of the week for January 1st of the given year
+    // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const january1DayOfWeek = (year: number): number => {
+        let y = year;
+        let k = y % 100;
+        let j = Math.floor(y / 100);
+        return (1 + ((13 * (month + 1)) / 5) + k + Math.floor(k / 4) + Math.floor(j / 4) - (2 * j)) % 7;
+    };
+
+    // Calculate the day of the week for the given date
+    const daysInMonth = [0, 31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let dayOfYear = day;
+    for (let m = 1; m < month; m++) {
+        dayOfYear += daysInMonth[m];
+    }
+
+    const dayOfWeek = (january1DayOfWeek(year) + dayOfYear - 1) % 7;
+
+    // Calculate the Meridian week number
+    const firstWednesdayOfYear = (8 - january1DayOfWeek(year)) % 7;
+    if (firstWednesdayOfYear === 0) {
+        firstWednesdayOfYear += 7;
+    }
+
+    const daysSinceFirstWednesday = dayOfYear - Math.floor((dayOfWeek + firstWednesdayOfYear - 1) / 7) * 7;
+    const meridianWeekNumber = Math.ceil(daysSinceFirstWednesday / 7);
+
+    return `${yearStr}-W${meridianWeekNumber.toString().padStart(2, '0')}`;
+}
+```

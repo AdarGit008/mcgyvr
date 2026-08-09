@@ -1,0 +1,68 @@
+```ts
+/**
+ * A chart with its twin rows squashed together.
+ */
+export function squashRows(chart: Record<string, unknown>): Record<string, unknown> {
+  // Validate signals
+  const signals = chart.signals as string[];
+  if (signals.length === 0) throw new Error("Signals list is empty");
+  for (const signal of signals) {
+    if (typeof signal !== "string" || signal.trim() === "") {
+      throw new Error("Invalid signal: must be a non-empty string");
+    }
+  }
+
+  // Validate rows
+  const rows = chart.rows as any[];
+  if (rows.length === 0) throw new Error("No rows provided");
+
+  const labels = new Set<string>();
+  for (const row of rows) {
+    if (
+      typeof row.label !== "string" ||
+      row.label.trim() === "" ||
+      labels.has(row.label)
+    ) {
+      throw new Error("Invalid or duplicate row label");
+    }
+    labels.add(row.label);
+
+    if (typeof row.mark !== "string" || row.mark.trim() === "") {
+      throw new Error("Invalid mark: must be a non-empty string");
+    }
+
+    if (!Array.isArray(row.next) || row.next.length !== signals.length) {
+      throw new Error("Row's next list does not match the signals' length");
+    }
+  }
+
+  // Validate head
+  const head = chart.head as string;
+  if (typeof head !== "string" || !labels.has(head)) {
+    throw new Error("Head row label is invalid or does not exist");
+  }
+
+  // Grouping logic
+  const groupOf = new Map<string, number>();
+  const chosen: any[] = [];
+  const seen = new Map<string, number>();
+
+  for (const row of rows) {
+    const key = row.mark + "|" + row.next.join(",");
+    if (!seen.has(key)) {
+      seen.set(key, chosen.length);
+      chosen.push(row);
+    }
+    groupOf.set(row.label, seen.get(key) as number);
+  }
+
+  // Mapping next labels to group numbers
+  const folded = chosen.map((row, at) => ({
+    at,
+    mark: row.mark,
+    next: row.next.map((label: string) => groupOf.get(label)),
+  }));
+
+  return { entry: groupOf.get(head), rows: folded };
+}
+```

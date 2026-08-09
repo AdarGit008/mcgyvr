@@ -1,0 +1,61 @@
+```ts
+export function holdShelfReplay(slips: string[]): string[] {
+  const queue: string[] = [];
+  const responses: string[] = [];
+
+  for (const slip of slips) {
+    if (typeof slip !== 'string') {
+      throw new Error('Invalid slip type');
+    }
+
+    const parts = slip.split(' ');
+    const verb = parts[0];
+    let name: string | null = null;
+
+    if (verb === 'join' || verb === 'leave') {
+      if (parts.length < 2) {
+        throw new Error('Name missing in join or leave slip');
+      }
+      name = parts.slice(1).join(' ');
+      if (!name.trim()) {
+        throw new Error('Empty name in join or leave slip');
+      }
+    } else if (verb === 'serve') {
+      if (parts.length > 1) {
+        throw new Error('Unexpected content after serve');
+      }
+    } else {
+      throw new Error('Invalid verb in slip');
+    }
+
+    if (verb === 'join') {
+      const index = queue.indexOf(name);
+      if (index !== -1) {
+        responses.push('no:again');
+      } else {
+        queue.push(name);
+        responses.push(`at:${queue.length}`);
+      }
+    } else if (verb === 'leave') {
+      const index = queue.indexOf(name);
+      if (index !== -1) {
+        queue.splice(index, 1);
+        responses.push('out');
+      } else {
+        responses.push('no:absent');
+      }
+    } else if (verb === 'serve') {
+      if (queue.length === 0) {
+        responses.push('idle');
+      } else {
+        const served = queue.shift();
+        if (served) {
+          responses.push(`take:${served}`);
+        }
+      }
+    }
+  }
+
+  return responses;
+}
+```

@@ -1,0 +1,45 @@
+```ts
+/**
+ * Computes the American Soundex code for a given word.
+ * @param word - The input string to be encoded.
+ * @returns The Soundex code in the format "LDDD", where L is the first letter and DDD are digits.
+ */
+export function soundexCode(word: string): string {
+    if (typeof word !== 'string' || !/^[A-Za-z]+$/.test(word) || word.length === 0) {
+        throw new Error('Invalid input');
+    }
+
+    const soundexMap: { [key: string]: string } = {
+        b: '1', f: '1', p: '1', v: '1',
+        c: '2', g: '2', j: '2', k: '2', q: '2', s: '2', x: '2', z: '2',
+        d: '3', t: '3',
+        l: '4',
+        m: '5', n: '5',
+        r: '6'
+    };
+
+    const firstLetter = word[0].toUpperCase();
+    let soundexDigits = '';
+
+    for (let i = 1; i < word.length; i++) {
+        const letter = word[i].toLowerCase();
+        const digit = soundexMap[letter];
+
+        if (digit) {
+            if (!soundexDigits || soundexDigits[soundexDigits.length - 1] !== digit) {
+                soundexDigits += digit;
+            }
+        } else if (letter === 'h' || letter === 'w') {
+            // Keep the same digit if there's one before h or w
+            if (soundexDigits && soundexMap[word[i - 1].toLowerCase()] === soundexDigits[soundexDigits.length - 1]) {
+                continue;
+            }
+        }
+    }
+
+    // Pad with zeros or truncate to exactly three digits
+    const paddedSoundex = soundexDigits.padEnd(3, '0').slice(0, 3);
+
+    return `${firstLetter}${paddedSoundex}`;
+}
+```

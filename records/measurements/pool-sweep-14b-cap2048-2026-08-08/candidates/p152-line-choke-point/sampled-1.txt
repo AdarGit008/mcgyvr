@@ -1,0 +1,41 @@
+```ts
+/**
+ * Finds the station that acts as the choke point for the production line,
+ * based on the smallest station capacity.
+ * @param stations - Array of [name, machines, ratePerMachine] tuples.
+ * @returns An object with the choke point's name and the line's hourly output.
+ */
+export function lineChokePoint(stations: Array<[string, number, number]>): { station: string; output: number } {
+  if (stations.length === 0) {
+    throw new Error("Station list cannot be empty.");
+  }
+
+  const seenNames = new Set<string>();
+  let chokePointStation = "";
+  let minCapacity = Infinity;
+
+  for (const [name, machines, rate] of stations) {
+    if (typeof name !== "string" || name.trim() === "") {
+      throw new Error("Each station must have a non-empty string name.");
+    }
+    if (!Number.isInteger(machines) || machines <= 0) {
+      throw new Error("Machine count must be a positive integer.");
+    }
+    if (!Number.isInteger(rate) || rate <= 0) {
+      throw new Error("Rate per machine must be a positive integer.");
+    }
+    if (seenNames.has(name)) {
+      throw new Error("Station names must be unique.");
+    }
+
+    seenNames.add(name);
+    const capacity = machines * rate;
+    if (capacity < minCapacity) {
+      minCapacity = capacity;
+      chokePointStation = name;
+    }
+  }
+
+  return { station: chokePointStation, output: minCapacity };
+}
+```

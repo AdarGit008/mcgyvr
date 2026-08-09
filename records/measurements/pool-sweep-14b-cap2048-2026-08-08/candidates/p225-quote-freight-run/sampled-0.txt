@@ -1,0 +1,57 @@
+```ts
+export function quoteFreightRun(bands: Array<Record<string, unknown>>, kilos: number): Record<string, unknown> {
+  if (!Array.isArray(bands) || bands.length === 0) {
+    throw new Error("Bands must be a non-empty list.");
+  }
+
+  const validatedBands = bands.map((band, index) => {
+    if (typeof band !== 'object' || band === null) {
+      throw new Error("Each band must be a mapping.");
+    }
+    
+    const from = band['from'];
+    const perKilo = band['perKilo'];
+
+    if (!Number.isInteger(from) || from < 0) {
+      throw new Error("A starting weight must be a whole number of nought or more.");
+    }
+
+    if (index === 0 && from !== 0) {
+      throw new Error("The first band must start at nought.");
+    }
+
+    if (index > 0 && from <= bands[index - 1]['from']) {
+      throw new Error("Starting weights must climb strictly.");
+    }
+
+    if (!Number.isInteger(perKilo) || perKilo < 0) {
+      throw new Error("A rate must be a non-negative whole number.");
+    }
+
+    return { from, perKilo };
+  });
+
+  if (validatedBands.some(band => typeof band['from'] !== 'number' || typeof band['perKilo'] !== 'number')) {
+    throw new Error("Invalid band format.");
+  }
+
+  if (!Number.isInteger(kilos) || kilos < 1) {
+    throw new Error("The consignment weight must be a whole number of one or more.");
+  }
+
+  const split = [];
+  let totalCents = 0;
+
+  for (let i = 0; i < kilos; i++) {
+    for (const band of validatedBands) {
+      if (i >= band['from']) {
+        split.push(band['perKilo']);
+        totalCents += band['perKilo'];
+        break;
+      }
+    }
+  }
+
+  return { split, cents: totalCents };
+}
+```

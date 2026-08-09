@@ -1,0 +1,35 @@
+```ts
+export function packFields(widths: number[], values: number[]): number {
+  if (widths.length !== values.length) {
+    throw new Error("Widths and values arrays must have the same length.");
+  }
+  if (widths.length === 0 || values.length === 0) {
+    throw new Error("Widths and values arrays cannot be empty.");
+  }
+
+  let totalWidth = 0;
+  for (let i = 0; i < widths.length; i++) {
+    const width = widths[i];
+    if (!Number.isInteger(width) || width < 1) {
+      throw new Error("All widths must be positive integers.");
+    }
+    totalWidth += width;
+    if (totalWidth > 30) {
+      throw new Error("Combined width of fields exceeds 30 bits.");
+    }
+
+    const value = values[i];
+    if (!Number.isInteger(value) || value < 0 || value >= (1 << width)) {
+      throw new Error(`Value ${value} does not fit in field of width ${width}.`);
+    }
+  }
+
+  let result = 0;
+  for (let i = 0; i < widths.length; i++) {
+    result <<= widths[i];
+    result |= values[i];
+  }
+
+  return result;
+}
+```

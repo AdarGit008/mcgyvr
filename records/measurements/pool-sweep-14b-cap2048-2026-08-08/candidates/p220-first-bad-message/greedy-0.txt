@@ -1,0 +1,67 @@
+```ts
+export function firstBadMessage(exchange: unknown): number {
+  if (!Array.isArray(exchange) || exchange.length === 0) {
+    throw new Error("Invalid exchange");
+  }
+
+  const validKinds = ["HELLO", "OFFER", "CHOOSE", "ACCEPT", "DATA", "BYE"];
+  const validFroms = ["client", "server"];
+
+  for (let i = 0; i < exchange.length; i++) {
+    const message = exchange[i];
+
+    if (typeof message !== "object" || message === null) {
+      throw new Error("Invalid message");
+    }
+
+    const { from, kind } = message as Record<string, unknown>;
+
+    if (!validFroms.includes(from as string)) {
+      throw new Error("Invalid 'from' field");
+    }
+
+    if (!validKinds.includes(kind as string)) {
+      throw new Error("Invalid 'kind' field");
+    }
+  }
+
+  let clientHelloCount = 0;
+  let serverOfferCount = 0;
+  let clientChooseCount = 0;
+  let serverAcceptCount = 0;
+  let dataPairs = 0;
+
+  for (let i = 0; i < exchange.length; i++) {
+    const message = exchange[i] as Record<string, string>;
+
+    if (message.from === "client" && message.kind === "HELLO") {
+      clientHelloCount++;
+      if (clientHelloCount > 1) return i;
+    } else if (message.from === "server" && message.kind === "OFFER") {
+      serverOfferCount++;
+      if (serverOfferCount !== clientHelloCount) return i;
+    } else if (message.from === "client" && message.kind === "CHOOSE") {
+      clientChooseCount++;
+      if (clientChooseCount !== serverOfferCount) return i;
+    } else if (message.from === "server" && message.kind === "ACCEPT") {
+      serverAcceptCount++;
+      if (serverAcceptCount !== clientChooseCount) return i;
+    } else if (message.from === "client" && message.kind === "DATA") {
+      dataPairs++;
+    } else if (message.from === "server" && message.kind === "DATA") {
+      if (dataPairs === 0) return i;
+      dataPairs--;
+    } else if (message.from === "client" && message.kind === "BYE") {
+      if (serverAcceptCount !== clientChooseCount || dataPairs !== 0) return i;
+      for (let j = i + 1; j < exchange.length; j++) {
+        if ((exchange[j] as Record<string, string>).kind !== "BYE") return exchange.length;
+      }
+      return -1;
+    } else if (message.from === "server" && message.kind === "BYE") {
+      if (clientChooseCount !== serverAcceptCount || dataPairs !== 0) return i;
+    }
+  }
+
+  return exchange.length;
+}
+```

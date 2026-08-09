@@ -1,0 +1,69 @@
+```ts
+export function tallyReplyRemoves(links: string[][]): number[] {
+  if (!Array.isArray(links) || links.length === 0) {
+    throw new Error("Invalid input: batch must be a non-empty list of links.");
+  }
+
+  const idToAnswers = new Map<string, string>();
+  const idToRemove = new Map<string, number>();
+
+  for (const link of links) {
+    if (!Array.isArray(link) || link.length !== 2) {
+      throw new Error("Invalid input: each link must be a pair of strings.");
+    }
+
+    const [id, answers] = link;
+
+    if (typeof id !== "string" || typeof answers !== "string") {
+      throw new Error("Invalid input: both elements of a link must be strings.");
+    }
+
+    if (id === "" || answers === "") {
+      throw new Error("Invalid input: ids and answers cannot be empty strings.");
+    }
+
+    if (idToAnswers.has(id)) {
+      throw new Error("Invalid input: id used twice.");
+    }
+
+    idToAnswers.set(id, answers);
+  }
+
+  for (const [id, answers] of idToAnswers.entries()) {
+    if (answers !== "" && !idToAnswers.has(answers)) {
+      throw new Error("Invalid input: answers field names a note not in the batch.");
+    }
+  }
+
+  const visited = new Set<string>();
+
+  function calculateRemove(id: string, currentRemove: number): void {
+    if (visited.has(id)) {
+      throw new Error("Invalid input: some note cannot be traced back to a starting note because the answering runs in a circle.");
+    }
+
+    visited.add(id);
+    idToRemove.set(id, currentRemove);
+
+    const answers = idToAnswers.get(id);
+    if (answers !== "") {
+      calculateRemove(answers, currentRemove + 1);
+    }
+  }
+
+  for (const [id, answers] of idToAnswers.entries()) {
+    if (answers === "") {
+      calculateRemove(id, 0);
+    }
+  }
+
+  const maxRemove = Math.max(...idToRemove.values());
+  const result: number[] = new Array(maxRemove + 1).fill(0);
+
+  for (const remove of idToRemove.values()) {
+    result[remove]++;
+  }
+
+  return result;
+}
+```

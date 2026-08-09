@@ -1,0 +1,47 @@
+```ts
+export function divideCoefficients(
+  dividend: number[],
+  divisor: number[],
+): number[][] {
+  if (!Array.isArray(dividend) || !Array.isArray(divisor)) {
+    throw new Error("Both arguments must be arrays.");
+  }
+  if (dividend.some(c => !Number.isInteger(c)) || divisor.some(c => !Number.isInteger(c))) {
+    throw new Error("All coefficients must be whole numbers.");
+  }
+  if (dividend.length > 0 && dividend[dividend.length - 1] === 0) {
+    throw new Error("Dividend cannot end in zero.");
+  }
+  if (divisor.length > 0 && divisor[divisor.length - 1] === 0) {
+    throw new Error("Divisor cannot end in zero.");
+  }
+  if (divisor.length === 0) {
+    throw new Error("Divisor cannot be an empty run.");
+  }
+
+  const quotient: number[] = [];
+  const rest = [...dividend];
+
+  while (rest.length >= divisor.length) {
+    const leadingDividend = rest[rest.length - 1];
+    const leadingDivisor = divisor[divisor.length - 1];
+    if (leadingDividend % leadingDivisor !== 0) {
+      throw new Error("Leading coefficient of the remainder is not an exact multiple of the divisor's leading coefficient.");
+    }
+
+    const factor = leadingDividend / leadingDivisor;
+    quotient.push(factor);
+
+    for (let i = 0; i < divisor.length; i++) {
+      rest[rest.length - divisor.length + i] -= factor * divisor[i];
+    }
+
+    // Remove leading zeros from the remainder
+    while (rest.length > 0 && rest[rest.length - 1] === 0) {
+      rest.pop();
+    }
+  }
+
+  return [quotient.reverse(), rest];
+}
+```

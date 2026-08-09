@@ -1,0 +1,47 @@
+```ts
+export function pluralNoun(word: string): string {
+  if (typeof word !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  if (!/^[a-z]+$/.test(word)) {
+    throw new Error('Input must contain only lowercase letters a to z');
+  }
+  if (word === '') {
+    throw new Error('Input cannot be an empty string');
+  }
+
+  const irregulars: { [key: string]: string } = {
+    child: 'children',
+    person: 'people',
+    foot: 'feet',
+    mouse: 'mice',
+    sheep: 'sheep'
+  };
+
+  if (irregulars[word]) {
+    return irregulars[word];
+  }
+
+  const lastChar = word[word.length - 1];
+  const secondLastChar = word[word.length - 2];
+
+  if (lastChar === 's' || lastChar === 'x' || lastChar === 'z' ||
+      (lastChar === 'h' && (secondLastChar === 'c' || secondLastChar === 's'))) {
+    return word + 'es';
+  }
+
+  if (lastChar === 'y' && !/[aeiou]/.test(secondLastChar)) {
+    return word.slice(0, -1) + 'ies';
+  }
+
+  if (word.endsWith('fe')) {
+    return word.slice(0, -2) + 'ves';
+  }
+
+  if (lastChar === 'f') {
+    return word.slice(0, -1) + 'ves';
+  }
+
+  return word + 's';
+}
+```

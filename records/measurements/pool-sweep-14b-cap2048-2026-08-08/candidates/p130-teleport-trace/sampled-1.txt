@@ -1,0 +1,42 @@
+```ts
+/**
+ * Traces the teleports through the hall of numbered pads.
+ * @param pads - An array of numbers representing the teleport destinations.
+ * @param start - The starting index of the pad.
+ * @returns A list containing three numbers: how many rides happen before first arriving at a pad of that endless circuit, how many distinct pads the circuit itself contains, and the index of the first circuit pad the journey reaches.
+ */
+export function traceTeleports(pads: number[], start: number): number[] {
+    if (pads.length === 0) {
+        throw new Error("Empty hall");
+    }
+    if (start < 0 || start >= pads.length) {
+        throw new Error("Start index outside the hall");
+    }
+    for (const pad of pads) {
+        if (pad < 0 || pad >= pads.length) {
+            throw new Error("Destination outside the hall");
+        }
+    }
+
+    const visited = new Set<number>();
+    let rides = 0;
+    let current = start;
+
+    while (!visited.has(current)) {
+        visited.add(current);
+        current = pads[current];
+        rides++;
+    }
+
+    const circuitStart = current;
+    let circuitLength = 1;
+    current = pads[current];
+
+    while (current !== circuitStart) {
+        circuitLength++;
+        current = pads[current];
+    }
+
+    return [rides - circuitLength, circuitLength, circuitStart];
+}
+```

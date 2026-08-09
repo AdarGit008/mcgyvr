@@ -1,0 +1,94 @@
+```ts
+/**
+ * The term mark built from weighted strands with discards.
+ */
+export function strandMarkSheet(strands: Array<Record<string, unknown>>): Record<string, unknown> {
+  if (strands.length === 0) {
+    throw new Error("Empty report");
+  }
+
+  const strandNames = new Set();
+  let totalShare = 0;
+
+  for (const strand of strands as any[]) {
+    if (typeof strand.name !== "string" || strand.name.trim() === "") {
+      throw new Error("Strand name must be a non-empty string");
+    }
+    if (strandNames.has(strand.name)) {
+      throw new Error("Repeated strand name");
+    }
+    strandNames.add(strand.name);
+
+    totalShare += strand.share;
+    if (typeof strand.share !== "number" || strand.share < 0 || !Number.isInteger(strand.share)) {
+      throw new Error("Strand share must be a non-negative whole number");
+    }
+
+    if (typeof strand.discard !== "number" || strand.discard < 0) {
+      throw new Error("Discard count must be a non-negative number");
+    }
+
+    const work = strand.work as any[];
+    if (!Array.isArray(work) || work.length === 0) {
+      throw new Error("Strand must have non-empty work");
+    }
+
+    for (const entry of work) {
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        throw new Error("Work entries must be two-element lists");
+      }
+      const [score, availability] = entry;
+      if (typeof availability !== "number" || availability <= 0 || !Number.isInteger(availability)) {
+        throw new Error("Piece availability must be a positive whole number");
+      }
+      if (
+        typeof score !== "number" ||
+        (score < 0 && score !== -1) ||
+        score > availability ||
+        !Number.isInteger(score)
+      ) {
+        throw new Error("Score must be a whole number within the availability or 'absent'");
+      }
+    }
+  }
+
+  if (totalShare !== 1000) {
+    throw new Error("Shares across all strands must come to exactly 1000");
+  }
+
+  const discarded: string[] = [];
+  let mark = 0;
+
+  for (const strand of strands as any[]) {
+    const work = strand.work as any[];
+    const order = work.map((_, index) => index);
+    order.sort((a, b) => {
+      if (work[a][0] === "absent") return -1;
+      if (work[b][0] === "absent") return 1;
+      return (
+        work[a][0] * work[b][1] -
+        work[b][0] * work[a][1]
+      );
+    });
+
+    const dropped = order.slice(0, strand.discard);
+    for (const index of dropped) {
+      discarded.push(strand.name + "#" + index);
+    }
+
+    let scored = 0;
+    let available = 0;
+    work.forEach((entry, index) => {
+      if (dropped.includes(index) || entry[0] === "absent") {
+        return;
+      }
+      scored += entry[0];
+      available += entry[1];
+    });
+
+    mark += Math.floor((strand.share * scored) / available);
+  }
+
+  return { mark, discarded };
+}
+```

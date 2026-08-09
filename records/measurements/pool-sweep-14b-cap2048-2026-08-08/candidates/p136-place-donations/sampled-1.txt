@@ -1,0 +1,59 @@
+```ts
+export function placeDonations(
+  requests: Array<{ id: string; kind: string; from: number; to: number; urgent: boolean }>,
+  lots: Array<{ id: string; kind: string; day: number }>
+): Array<[string, string]> {
+  const requestMap = new Map<string, { kind: string; from: number; to: number; urgent: boolean }>();
+  for (const request of requests) {
+    if (requestMap.has(request.id)) {
+      throw new Error(`Duplicate request id: ${request.id}`);
+    }
+    if (request.from > request.to || !Number.isInteger(request.from) || !Number.isInteger(request.to)) {
+      throw new Error(`Invalid span for request ${request.id}: from=${request.from}, to=${request.to}`);
+    }
+    requestMap.set(request.id, request);
+  }
+
+  const lotMap = new Map<string, { kind: string; day: number }>();
+  for (const lot of lots) {
+    if (lotMap.has(lot.id)) {
+      throw new Error(`Duplicate lot id: ${lot.id}`);
+    }
+    if (!Number.isInteger(lot.day)) {
+      throw new Error(`Invalid day for lot ${lot.id}: day=${lot.day}`);
+    }
+    lotMap.set(lot.id, lot);
+  }
+
+  const placedPairs: Array<[string, string]> = [];
+  const sortedLots = [...lots].sort((a, b) => a.day - b.day);
+
+  for (const lot of sortedLots) {
+    let bestRequest: { id: string; kind: string; from: number; to: number; urgent: boolean } | null = null;
+
+    for (const [requestId, request] of requestMap.entries()) {
+      if (
+        (request.kind === lot.kind || lot.kind === "ANY") &&
+        lot.day >= request.from &&
+        lot.day <= request.to
+      ) {
+        if (
+          bestRequest === null ||
+          request.urgent !== bestRequest.urgent ||
+          (!request.urgent && request.to < bestRequest.to) ||
+          (request.urgent && bestRequest.urgent && requests.indexOf(request) < requests.indexOf(bestRequest))
+        ) {
+          bestRequest = request;
+        }
+      }
+    }
+
+    if (bestRequest !== null) {
+      placedPairs.push([lot.id, bestRequest.id]);
+      requestMap.delete(bestRequest.id);
+    }
+  }
+
+  return placedPairs;
+}
+```

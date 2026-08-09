@@ -1,0 +1,52 @@
+```ts
+export function repairReplicas(replicas: Array<Array<number | null>>): number[] {
+  if (replicas.length === 0) {
+    throw new Error("Replica list cannot be empty");
+  }
+
+  const replicaLength = replicas[0].length;
+  for (const replica of replicas) {
+    if (replica.length !== replicaLength) {
+      throw new Error("All replicas must have the same length");
+    }
+  }
+
+  const result: number[] = [];
+  for (let i = 0; i < replicaLength; i++) {
+    const values: Map<number, number> = new Map();
+    let validCount = 0;
+
+    for (const replica of replicas) {
+      const value = replica[i];
+      if (value !== null) {
+        validCount++;
+        values.set(value, (values.get(value) || 0) + 1);
+      }
+    }
+
+    if (validCount === 0) {
+      throw new Error("Every position is lost in every replica");
+    }
+
+    const majorityThreshold = Math.floor(validCount / 2) + 1;
+    let majorityValue: number | null = null;
+
+    for (const [value, count] of values.entries()) {
+      if (count >= majorityThreshold) {
+        if (majorityValue !== null) {
+          throw new Error("No value reaches a strict majority at some position");
+        }
+        majorityValue = value;
+      }
+    }
+
+    if (majorityValue === null) {
+      throw new Error("No value reaches a strict majority at some position");
+    }
+
+    result.push(majorityValue);
+  }
+
+  return result;
+}
+```

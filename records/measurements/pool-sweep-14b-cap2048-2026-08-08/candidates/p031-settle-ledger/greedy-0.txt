@@ -1,0 +1,52 @@
+```ts
+export function settleLedger(entries: Array<Record<string, unknown>>): Array<[string, number]> {
+  if (!Array.isArray(entries)) {
+    throw new Error("Invalid input: entries must be an array");
+  }
+
+  const ledgerMap: Map<string, { balance: number; seqs: Set<number> }> = new Map();
+
+  for (const entry of entries) {
+    const account = entry.account;
+    const amount = entry.amount;
+    const seq = entry.seq;
+
+    if (
+      typeof account !== "string" ||
+      typeof amount !== "number" ||
+      typeof seq !== "number" ||
+      !account.trim() ||
+      !Number.isInteger(amount) ||
+      !Number.isInteger(seq)
+    ) {
+      throw new Error("Invalid entry: missing or invalid properties");
+    }
+
+    if (ledgerMap.has(account)) {
+      const accountData = ledgerMap.get(account)!;
+      if (accountData.seqs.has(seq)) {
+        throw new Error("Duplicate seq number found");
+      }
+      accountData.seqs.add(seq);
+    } else {
+      ledgerMap.set(account, { balance: 0, seqs: new Set([seq]) });
+    }
+
+    const currentBalance = ledgerMap.get(account)!.balance;
+    if (currentBalance + amount < 0) {
+      throw new Error("Insufficient funds for transaction");
+    }
+
+    ledgerMap.get(account)!.balance += amount;
+  }
+
+  const result: Array<[string, number]> = [];
+  for (const [account, { balance }] of ledgerMap.entries()) {
+    if (balance !== 0) {
+      result.push([account, balance]);
+    }
+  }
+
+  return result.sort((a, b) => a[0].localeCompare(b[0]));
+}
+```

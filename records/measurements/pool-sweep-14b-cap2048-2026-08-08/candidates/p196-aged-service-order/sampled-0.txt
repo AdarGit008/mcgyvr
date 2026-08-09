@@ -1,0 +1,70 @@
+```ts
+/**
+ * Processes a log of service events to determine the order in which callers are served.
+ * @param events - An array of event records with "kind" and "tick". "join" kind also includes "who" and "rank".
+ * @param step - A positive whole number representing the aging step interval.
+ * @returns An array of names of callers taken out of the waiting room in the order they were served.
+ */
+export function agedServiceOrder(events: Array<Record<string, unknown>>, step: number): string[] {
+  if (step <= 0 || !Number.isInteger(step)) {
+    throw new Error("Step must be a positive whole number.");
+  }
+  if (events.length === 0) {
+    throw new Error("Log cannot be empty.");
+  }
+
+  const waitingRoom: { who: string; rank: number; joinTick: number }[] = [];
+  const servedNames: string[] = [];
+
+  for (const event of events) {
+    const kind = String(event.kind);
+    const tick = Number(event.tick);
+
+    if (Number.isNaN(tick) || tick < 0 || !Number.isInteger(tick)) {
+      throw new Error("Tick must be a non-negative whole number.");
+    }
+
+    if (tick < (waitingRoom.length > 0 ? waitingRoom[waitingRoom.length - 1].joinTick : 0)) {
+      throw new Error("Ticks must not run backwards.");
+    }
+
+    if (kind === "join") {
+      const who = String(event.who);
+      const rank = Number(event.rank);
+
+      if (!who || !Number.isInteger(rank) || rank < 0) {
+        throw new Error("A joining caller must have a non-empty name and a non-negative whole number rank.");
+      }
+
+      if (waitingRoom.some(call => call.who === who)) {
+        throw new Error("A name already in the waiting room cannot join again.");
+      }
+
+      waitingRoom.push({ who, rank, joinTick: tick });
+    } else if (kind === "call") {
+      if (waitingRoom.length === 0) {
+        throw new Error("A call cannot be made when the waiting room is empty.");
+      }
+
+      const now = tick;
+      const standing = (caller: { who: string; rank: number; joinTick: number }) =>
+        caller.rank + Math.floor((now - caller.joinTick) / step);
+
+      const [nextCaller] = [...waitingRoom].sort((a, b) => {
+        const diff = standing(b) - standing(a);
+        if (diff !== 0) return diff;
+        if (a.joinTick !== b.joinTick) return a.joinTick - b.joinTick;
+        return a.who.localeCompare(b.who);
+      });
+
+      const indexToRemove = waitingRoom.findIndex(caller => caller === nextCaller);
+      servedNames.push(nextCaller.who);
+      waitingRoom.splice(indexToRemove, 1);
+    } else {
+      throw new Error("Event kind must be either 'join' or 'call'.");
+    }
+  }
+
+  return servedNames;
+}
+```

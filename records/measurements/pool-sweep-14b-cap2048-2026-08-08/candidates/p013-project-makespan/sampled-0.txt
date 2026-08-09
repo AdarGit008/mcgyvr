@@ -1,0 +1,74 @@
+```ts
+export function projectMakespan(durations: Record<string, number>, deps: [string, string][]): number {
+  // Validate durations
+  for (const task in durations) {
+    if (typeof durations[task] !== 'number' || durations[task] <= 0 || !Number.isInteger(durations[task])) {
+      throw new Error('Invalid duration');
+    }
+  }
+
+  // Validate dependencies
+  const tasks = new Set(Object.keys(durations));
+  for (const [a, b] of deps) {
+    if (!tasks.has(a) || !tasks.has(b)) {
+      throw new Error('Dependency references an absent task');
+    }
+    if (a === b) {
+      throw new Error('Self-referencing dependency');
+    }
+  }
+
+  // Build graph
+  const graph: Record<string, string[]> = {};
+  const inDegree: Record<string, number> = {};
+
+  for (const task of tasks) {
+    graph[task] = [];
+    inDegree[task] = 0;
+  }
+
+  for (const [a, b] of deps) {
+    graph[a].push(b);
+    inDegree[b]++;
+  }
+
+  // Topological sort using Kahn's algorithm
+  const queue: string[] = [];
+  for (const task of tasks) {
+    if (inDegree[task] === 0) {
+      queue.push(task);
+    }
+  }
+
+  const topologicalOrder: string[] = [];
+
+  while (queue.length > 0) {
+    const task = queue.shift()!;
+    topologicalOrder.push(task);
+
+    for (const neighbor of graph[task]) {
+      inDegree[neighbor]--;
+      if (inDegree[neighbor] === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  if (topologicalOrder.length !== tasks.size) {
+    throw new Error('Cycle detected in dependencies');
+  }
+
+  // Calculate makespan
+  const earliestFinishTime: Record<string, number> = {};
+
+  for (const task of topologicalOrder) {
+    let maxPrerequisiteFinish = 0;
+    for (const predecessor of graph[task]) {
+      maxPrerequisiteFinish = Math.max(maxPrerequisiteFinish, earliestFinishTime[predecessor]);
+    }
+    earliestFinishTime[task] = maxPrerequisiteFinish + durations[task];
+  }
+
+  return Math.max(...Object.values(earliestFinishTime));
+}
+```

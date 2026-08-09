@@ -1,0 +1,42 @@
+```ts
+export function nestOutline(text: string): any[] {
+  if (typeof text !== 'string' || text.trim().length === 0) {
+    throw new Error('Input must be a non-empty string');
+  }
+  if (text.includes('\t')) {
+    throw new Error('Input contains a tab character');
+  }
+
+  const lines = text.split('\n').filter(line => line.trim() !== '');
+  const outline: any[] = [];
+  let stack: { level: number, node: any }[] = [];
+
+  for (const line of lines) {
+    const leadingSpaces = /^(\s*)/.exec(line)[0].length;
+    if (leadingSpaces % 2 !== 0) {
+      throw new Error('Leading spaces are not a multiple of two');
+    }
+    const level = leadingSpaces / 2;
+    const textContent = line.trim();
+
+    const newNode = { text: textContent, children: [] };
+
+    if (level === 0) {
+      outline.push(newNode);
+      stack = [{ level, node: newNode }];
+    } else {
+      while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+        stack.pop();
+      }
+      const parent = stack[stack.length - 1];
+      if (!parent) {
+        throw new Error('Line is more than one level deeper than its predecessor');
+      }
+      parent.node.children.push(newNode);
+      stack.push({ level, node: newNode });
+    }
+  }
+
+  return outline;
+}
+```

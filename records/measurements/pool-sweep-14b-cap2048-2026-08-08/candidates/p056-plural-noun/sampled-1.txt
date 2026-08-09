@@ -1,0 +1,40 @@
+```ts
+export function pluralNoun(word: string): string {
+  if (typeof word !== 'string' || !/^[a-z]+$/.test(word)) {
+    throw new Error('Input must be a non-empty string of lowercase letters.');
+  }
+
+  const irregulars = new Map([
+    ['child', 'children'],
+    ['person', 'people'],
+    ['foot', 'feet'],
+    ['mouse', 'mice'],
+    ['sheep', 'sheep']
+  ]);
+
+  if (irregulars.has(word)) {
+    return irregulars.get(word)!;
+  }
+
+  const lastChar = word[word.length - 1];
+  const secondLastChar = word[word.length - 2];
+
+  if (['s', 'x', 'z', 'ch', 'sh'].includes(lastChar + (secondLastChar ?? ''))) {
+    return word + 'es';
+  }
+
+  if (lastChar === 'y' && !['a', 'e', 'i', 'o', 'u'].includes(secondLastChar)) {
+    return word.slice(0, -1) + 'ies';
+  }
+
+  if (word.endsWith('fe')) {
+    return word.slice(0, -2) + 'ves';
+  }
+
+  if (lastChar === 'f') {
+    return word.slice(0, -1) + 'ves';
+  }
+
+  return word + 's';
+}
+```

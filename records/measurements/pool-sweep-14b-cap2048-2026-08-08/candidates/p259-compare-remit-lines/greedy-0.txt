@@ -1,0 +1,76 @@
+```ts
+export function compareRemitLines(ours: unknown[][], theirs: unknown[][]): { agreed: string[]; queried: string[]; ourSide: string[]; theirSide: string[] } {
+  if (!Array.isArray(ours) || !Array.isArray(theirs)) {
+    throw new Error("Both arguments must be arrays.");
+  }
+
+  const validateLine = (line: unknown[]): line is [string, number] => {
+    if (!Array.isArray(line) || line.length !== 2) {
+      return false;
+    }
+    const [label, cents] = line;
+    return typeof label === "string" && label.trim() !== "" && Number.isInteger(cents);
+  };
+
+  const validateLines = (lines: unknown[][]): lines is [string, number][] => {
+    for (const line of lines) {
+      if (!validateLine(line)) {
+        throw new Error("Invalid remit line.");
+      }
+    }
+    return true;
+  };
+
+  if (!validateLines(ours) || !validateLines(theirs)) {
+    throw new Error("Invalid remit lines.");
+  }
+
+  const labelSet = (lines: [string, number][]): Set<string> => {
+    const set = new Set<string>();
+    for (const [label] of lines) {
+      if (set.has(label)) {
+        throw new Error("Duplicate label found.");
+      }
+      set.add(label);
+    }
+    return set;
+  };
+
+  labelSet(ours);
+  labelSet(theirs);
+
+  const ourMap = new Map<string, number>(ours);
+  const theirMap = new Map<string, number>(theirs);
+
+  const agreed: string[] = [];
+  const queried: string[] = [];
+  const ourSide: string[] = [];
+  const theirSide: string[] = [];
+
+  for (const [label, cents] of ourMap) {
+    if (theirMap.has(label)) {
+      const theirCents = theirMap.get(label)!;
+      if (cents === theirCents) {
+        agreed.push(label);
+      } else {
+        queried.push(label);
+      }
+    } else {
+      ourSide.push(label);
+    }
+  }
+
+  for (const [label] of theirMap) {
+    if (!ourMap.has(label)) {
+      theirSide.push(label);
+    }
+  }
+
+  return {
+    agreed: agreed.sort(),
+    queried: queried.sort(),
+    ourSide: ourSide.sort(),
+    theirSide: theirSide.sort(),
+  };
+}
+```

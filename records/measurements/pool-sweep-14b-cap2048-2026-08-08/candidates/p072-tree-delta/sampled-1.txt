@@ -1,0 +1,72 @@
+```ts
+/**
+ * Compares two tree nodes and returns a flat list of operations describing the changes.
+ * @param before - The original tree node.
+ * @param after - The updated tree node.
+ * @returns An array of operation mappings.
+ */
+export function treeDelta(before: { name: string; value: number; children: unknown[] }, after: { name: string; value: number; children: unknown[] }): Array<Record<string, unknown>> {
+  if (before.name !== after.name) {
+    throw new Error("Root names differ");
+  }
+
+  const operations: Array<Record<string, unknown>> = [];
+
+  const beforeChildrenMap = new Map(before.children.map(child => [child['name'], child]));
+  const afterChildrenMap = new Map(after.children.map(child => [child['name'], child]));
+
+  if (before.value !== after.value) {
+    operations.push({
+      op: "change",
+      path: before.name,
+      from: before.value,
+      to: after.value
+    });
+  }
+
+  for (const afterChild of after.children) {
+    const afterChildName = afterChild['name'];
+    const afterChildValue = afterChild['value'];
+    const afterChildChildren = afterChild['children'];
+
+    if (!afterChildName || !afterChildValue || !Array.isArray(afterChildChildren)) {
+      throw new Error("Invalid node structure");
+    }
+
+    if (beforeChildrenMap.has(afterChildName)) {
+      const beforeChild = beforeChildrenMap.get(afterChildName)!;
+      operations.push(...treeDelta(beforeChild, afterChild));
+    } else {
+      operations.push({
+        op: "add",
+        path: `${before.name}/${afterChildName}`,
+        value: afterChildValue
+      });
+      // Recursively add all descendants
+      for (const descendant of afterChildChildren) {
+        const descendantName = descendant['name'];
+        if (!descendantName) {
+          throw new Error("Invalid node structure");
+        }
+        operations.push(...treeDelta({ name: "", value: 0, children: [] }, descendant));
+      }
+    }
+  }
+
+  for (const beforeChild of before.children) {
+    const beforeChildName = beforeChild['name'];
+    if (!beforeChildrenMap.has(beforeChildName)) {
+      throw new Error("Invalid node structure");
+    }
+
+    if (!afterChildrenMap.has(beforeChildName)) {
+      operations.push({
+        op: "remove",
+        path: `${before.name}/${beforeChildName}`
+      });
+    }
+  }
+
+  return operations;
+}
+```

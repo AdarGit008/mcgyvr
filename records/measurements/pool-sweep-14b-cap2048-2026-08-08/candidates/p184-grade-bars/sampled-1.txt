@@ -1,0 +1,55 @@
+```ts
+/**
+ * Grades each bar in a line of rhythm based on the given meter.
+ * @param line - The written-out rhythm with bars separated by vertical bars.
+ * @param beats - The number of beats a bar holds.
+ * @param unit - The note value that gets one beat (1, 2, 4, 8, or 16).
+ * @returns An array of strings indicating if each bar is "short", "exact", or "long".
+ */
+export function gradeBars(line: string, beats: number, unit: number): string[] {
+    if (typeof line !== 'string') {
+        throw new Error('Line must be a string');
+    }
+    if (![1, 2, 4, 8, 16].includes(unit)) {
+        throw new Error('Unit must be one of 1, 2, 4, 8, or 16');
+    }
+    if (beats < 1) {
+        throw new Error('Beats must be at least 1');
+    }
+
+    const barDuration = (beats * 64) / unit;
+    const noteValues: { [key: string]: number } = {
+        w: 64,
+        h: 32,
+        q: 16,
+        e: 8,
+        s: 4
+    };
+
+    return line.split('|').map(bar => {
+        if (bar.trim() === '') {
+            throw new Error('Bar must contain at least one note');
+        }
+
+        const notes = bar.split(' ');
+        let totalTicks = 0;
+
+        for (const note of notes) {
+            if (!noteValues[note[0]] || (note.length > 1 && note !== `${note[0]}.`)) {
+                throw new Error('Invalid note found');
+            }
+
+            const baseValue = noteValues[note[0]];
+            totalTicks += baseValue + (note.endsWith('.') ? baseValue / 2 : 0);
+        }
+
+        if (totalTicks < barDuration) {
+            return 'short';
+        } else if (totalTicks === barDuration) {
+            return 'exact';
+        } else {
+            return 'long';
+        }
+    });
+}
+```

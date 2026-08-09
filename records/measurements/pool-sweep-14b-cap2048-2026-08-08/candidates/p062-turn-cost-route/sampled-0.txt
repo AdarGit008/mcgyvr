@@ -1,0 +1,69 @@
+```ts
+/**
+ * Calculates the smallest total cost of any route from the top-left to the bottom-right cell
+ * in a grid, considering step costs and turn costs.
+ * @param grid - A 2D array representing the grid with 0s as open cells and 1s as walls.
+ * @param stepCost - The cost of each move.
+ * @param turnCost - The extra cost for changing direction.
+ * @returns The smallest total cost or -1 if no route exists.
+ */
+export function turnCostRoute(grid: number[][], stepCost: number, turnCost: number): number {
+    if (grid.length === 0 || grid.some(row => row.length !== grid[0].length)) {
+        throw new Error("Grid must be non-empty and rectangular.");
+    }
+    if (!Number.isPositiveInteger(stepCost) || !Number.isNonNegativeInteger(turnCost)) {
+        throw new Error("Step cost must be a positive integer and turn cost must be a non-negative integer.");
+    }
+    const rows = grid.length;
+    const cols = grid[0].length;
+
+    if (grid[0][0] === 1 || grid[rows - 1][cols - 1] === 1) {
+        return -1;
+    }
+
+    if (rows === 1 && cols === 1) {
+        return 0;
+    }
+
+    const directions = [
+        { dx: 0, dy: 1 }, // right
+        { dx: 1, dy: 0 }, // down
+        { dx: 0, dy: -1 }, // left
+        { dx: -1, dy: 0 }  // up
+    ];
+
+    const isValid = (x: number, y: number): boolean => x >= 0 && x < rows && y >= 0 && y < cols && grid[x][y] === 0;
+
+    const dp: { cost: number, direction: number | null }[][][] = Array.from({ length: rows }, () =>
+        Array.from({ length: cols }, () =>
+            directions.map(() => ({ cost: Infinity, direction: null }))
+        )
+    );
+
+    dp[0][0] = directions.map((_, i) => ({ cost: 0, direction: i }));
+
+    for (let x = 0; x < rows; x++) {
+        for (let y = 0; y < cols; y++) {
+            if (grid[x][y] === 1) continue;
+            for (const dir of directions) {
+                const nx = x + dir.dx;
+                const ny = y + dir.dy;
+                if (!isValid(nx, ny)) continue;
+                for (let i = 0; i < directions.length; i++) {
+                    const prevDir = i;
+                    const turnCostValue = (prevDir !== undefined && prevDir !== directions.indexOf(dir)) ? turnCost : 0;
+                    const newCost = dp[x][y][prevDir].cost + stepCost + turnCostValue;
+                    if (newCost < dp[nx][ny][directions.indexOf(dir)].cost) {
+                        dp[nx][ny][directions.indexOf(dir)] = { cost: newCost, direction: prevDir };
+                    }
+                }
+            }
+        }
+    }
+
+    const finalCell = dp[rows - 1][cols - 1];
+    const minCost = Math.min(...finalCell.map(cell => cell.cost));
+
+    return minCost === Infinity ? -1 : minCost;
+}
+```

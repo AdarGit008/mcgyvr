@@ -1,0 +1,64 @@
+```ts
+export function unionCoverage(rects: number[][]): number {
+  if (!Array.isArray(rects) || rects.length === 0) return 0;
+
+  const validateRect = (rect: number[]): boolean => {
+    if (rect.length !== 4) return false;
+    const [x1, y1, x2, y2] = rect;
+    if (!Number.isInteger(x1) || !Number.isInteger(y1) || !Number.isInteger(x2) || !Number.isInteger(y2)) return false;
+    if (x1 >= x2 || y1 >= y2) return false;
+    if (x1 < -10000 || x1 > 10000 || y1 < -10000 || y1 > 10000 || x2 < -10000 || x2 > 10000 || y2 < -10000 || y2 > 10000) return false;
+    return true;
+  };
+
+  const events: { x: number; type: 'start' | 'end'; index: number }[] = [];
+  rects.forEach((rect, i) => {
+    if (!validateRect(rect)) throw new Error('Invalid rectangle');
+    const [x1, y1, x2, y2] = rect;
+    events.push({ x: x1, type: 'start', index: i });
+    events.push({ x: x2, type: 'end', index: i });
+  });
+
+  events.sort((a, b) => a.x - b.x);
+
+  const activeRects = new Set<number>();
+  let totalArea = 0;
+  let currentX = events[0].x;
+
+  for (const event of events) {
+    if (activeRects.size > 0) {
+      const yIntervals: { start: number; end: number }[] = [];
+      rects.forEach((rect, i) => {
+        if (activeRects.has(i)) {
+          const [x1, y1, x2, y2] = rect;
+          yIntervals.push({ start: y1, end: y2 });
+        }
+      });
+
+      yIntervals.sort((a, b) => a.start - b.start);
+      let currentY = yIntervals[0].start;
+      let segmentStart = currentY;
+
+      for (const interval of yIntervals) {
+        if (interval.start > currentY) {
+          totalArea += (currentX - events[currentEventIndex - 1].x) * (currentY - segmentStart);
+          segmentStart = interval.start;
+        }
+        currentY = Math.max(currentY, interval.end);
+      }
+
+      totalArea += (currentX - events[currentEventIndex - 1].x) * (currentY - segmentStart);
+    }
+
+    if (event.type === 'start') {
+      activeRects.add(event.index);
+    } else {
+      activeRects.delete(event.index);
+    }
+
+    currentX = event.x;
+  }
+
+  return totalArea;
+}
+```

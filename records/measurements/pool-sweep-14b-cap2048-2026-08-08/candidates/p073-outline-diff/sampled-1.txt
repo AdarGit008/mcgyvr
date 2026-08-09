@@ -1,0 +1,37 @@
+```ts
+export function outlineDiff(
+  before: Record<string, any>,
+  after: Record<string, any>
+): string[] {
+  const lines: string[] = [];
+
+  const diffRecursive = (
+    path: string,
+    beforeNode: Record<string, any>,
+    afterNode: Record<string, any>
+  ): void => {
+    const addedKeys = new Set(Object.keys(afterNode));
+    const removedKeys = new Set(Object.keys(beforeNode));
+
+    for (const key of Object.keys(afterNode)) {
+      if (!(key in beforeNode)) {
+        lines.push("added " + [path, key].filter(Boolean).join("/"));
+      } else {
+        addedKeys.delete(key);
+        removedKeys.delete(key);
+        diffRecursive([path, key].filter(Boolean).join("/"), beforeNode[key], afterNode[key]);
+      }
+    }
+
+    for (const key of Object.keys(beforeNode)) {
+      if (!(key in afterNode)) {
+        lines.push("removed " + [path, key].filter(Boolean).join("/"));
+      }
+    }
+  };
+
+  diffRecursive("", before, after);
+
+  return lines.sort();
+}
+```
