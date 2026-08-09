@@ -60,6 +60,18 @@ from mcgyvr.capability import CapabilityTable, Model
 # about five tasks: far enough apart that the ordering is not an artifact of
 # the harness, close enough to keep a real gradient on a small card. It is a
 # judgment about measurement resolution, not itself a measured value.
+#
+# **This is a rung-separation floor and nothing else.** It answers "are these
+# two models different enough that both are worth carrying in the ladder", per
+# rule 3 above. It is not an adoption bar, and it never was: "is this
+# improvement worth shipping" is a different question with a different cost
+# side, and there is no reason the two numbers should coincide.
+#
+# #189 borrowed it as the adoption bar for a fine-tune and scored +1.9pp a
+# "miss" against it. That reading is withdrawn — #219 showed the instrument
+# could not resolve +3pp in the first place, so the comparison decided nothing.
+# ADR-0019 replaces the borrowing with a reality floor plus a per-lever rule and
+# leaves this constant at its own job. Do not reuse it as an adoption threshold.
 MIN_QUALITY_GAIN = 0.03
 
 # Naming tokens for a ladder tier: <locality>_<model>. There is no role
