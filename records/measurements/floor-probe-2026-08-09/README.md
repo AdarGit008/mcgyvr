@@ -34,8 +34,12 @@ so neither of the obvious samplings is trustworthy at this size.
 ## The finding
 
 **Zero is not an instrument artifact.** Across all 50 3B rows: zero parse
-refusals, zero truncation (`overran_cap` false everywhere), every `stop_reason`
-`complete`. The replies are well-formed fenced TypeScript and Python. The
+refusals and **every `stop_reason` `complete`**, so nothing was cut off. Read
+the stop reason, not `overran_cap` — the latter is `output_tokens >
+max_output_tokens`, a cap *violation* check, and it is correctly `false` on a
+reply that stopped exactly at the ceiling (`runner.py:242`). It is not a
+truncation flag and the two are easy to confuse. The replies are well-formed
+fenced TypeScript and Python. The
 failures were read by hand rather than counted — `p001` declares no `match`
 before `while ((match = regex.exec(input)) !== null)`, `p002` returns
 `' the quick'` where the test wants `'the quick'`. Genuine wrong answers.

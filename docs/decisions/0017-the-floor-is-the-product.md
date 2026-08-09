@@ -112,13 +112,16 @@ every harness each time it moves.
   evidence. This is the single largest gap the ADR opens.
 - **What a floor instrument needs is *resolution*, not difficulty.** It must sit
   in a band where the target model scores well above 0 and well below 100, so
-  that gains and regressions are both visible. We hold exactly one measured
-  point in that band — `d1` at 50.6% — and it is #189's training set, so it is
-  contaminated for any tuned 3B and cannot serve as a holdout anchor. Between it
-  and the pool's 0% **nothing is measured**: `d2` exists (12 problems) but has
-  no 3B rows at all. Generating a corpus at a guessed difficulty inside that gap
-  is how a build lands at 0% or at 90%; a graded probe to locate the band is the
-  cheap step that comes first.
+  that gains and regressions are both visible. Grading the 3B across the
+  difficulty rungs at a common cap gives `d1` 50.0% (reproducing the 50.6% above
+  at a different cap and host), `d2` 41.7%, `d3` 16.7%,
+  the pool 0% — **a slope, not a cliff**, with a usable band reaching further
+  down than expected. Two things that follow: the collapse happens somewhere
+  between `d3` and the pool and **nothing occupies that range**, so what takes a
+  3B from 16.7% to zero is unidentified; and every rung is `jsts`, so the band
+  is unmapped for Python. Located as #224, which is upstream of both the
+  harness (#113) and the training question (#221). Figures are directional —
+  12 tasks per rung, one draw, one rig.
 - **The front door does not close it.** HumanEval+ is where the 3B has headroom,
   which makes it tempting. It is also underpowered at n=164 (paired McNemar MDE
   ~+4.8pp against a +3pp bar) and contamination-prone after fine-tuning in
