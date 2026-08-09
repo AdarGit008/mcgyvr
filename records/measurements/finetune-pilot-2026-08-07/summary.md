@@ -57,3 +57,33 @@ bar, and the quant question, and those are answered.
 
 Training: 32 min on rig_b (RTX 3060). Export: ~3 min. Each GPU eval arm:
 7–13 min. Total pilot cost: an afternoon on owned hardware, $0 rented.
+
+## Amendment — 2026-08-10 (#229): the bar this was scored against is withdrawn
+
+The measurements above stand. **The verdict does not.**
+
+The pre-registered bar named at the top of this record — "+3pp HumanEval+ on the
+served q4_K_M quant (`MIN_QUALITY_GAIN`, the table's own admission rule)" —
+borrowed a constant that was never an adoption threshold. `propose.py:32` states
+its actual job: the separation two **rungs** need before both are worth carrying
+in the ladder. ADR-0018 Q1 withdrew the borrowing as doctrine; ADR-0019 replaces
+it with a reality floor and a per-lever rule and states the provenance at the
+constant itself.
+
+Three things follow for this record:
+
+- **"Miss" is not the outcome; UNDECIDED is.** #219 showed HumanEval+ at n = 164
+  cannot resolve +3pp. Recomputed in `tools/power/mde.py` at the 10% discordance
+  rate the field plans against, the instrument resolves **+6.9pp** — so +1.9pp
+  and +3pp were never separable here, and the comparison decided nothing about
+  the tune. Under ADR-0019 that is a failure of the instrument, not a verdict on
+  the lever.
+- **This record's own best finding is now doctrine.** "Backend numerics move
+  deltas by more than half the admission bar" — the +1.9pp CUDA / −0.7pp CPU
+  pair, a 2.6pp swing from identical weights — is one of the three reality-floor
+  figures ADR-0019 binds every arm to. The caveat it asked to have "filed
+  wherever `MIN_QUALITY_GAIN` is consumed" is now filed there.
+- **#190's sequencing behind the "miss" loses its premise**, which ADR-0017 had
+  already flagged and #234 corrected in that issue's body.
+
+Nothing in the 2×2, the quant tax, the dataset caveat or the costs changes.

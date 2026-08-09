@@ -976,8 +976,40 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   the campaign driver cannot climb into. Its acceptance asserted a case its own
   contract declared unstated. Repairing it changed no outcome (0 of 36 draws
   before and after), so the defect was real and explained nothing.
+- Decision `0019-the-bar-is-a-reality-floor-and-a-per-lever-rule` (#229) — the
+  bar splits in two. A **reality floor**, which is a property of the instrument
+  and binds at *resolution* rather than at drift; and a **per-lever adoption
+  rule**, because a reversible prompt line and a fine-tune costing GPU hours are
+  not the same proposition. For a reversible zero-marginal-cost lever the bar is
+  whatever the bench resolves, so a small gain is adoptable. Three verdicts
+  replace two — EFFECT, NULL and UNDECIDED — and only NULL retires a lever.
+- `tools/power/` — the paired-power arithmetic that decision runs on, derived
+  from the checked-in records rather than asserted. In a paired design the
+  discordant pairs carry the power, so nominal *n* is the wrong denominator, and
+  with `m` discordant pairs the best-case two-sided p is `2 / 2**m` — below six
+  nothing is detectable at any effect size. Applied to what the repository
+  already held: **eleven of the twelve bundle contrasts ever measured were
+  unresolvable before the model was dispatched**, and the Python arm is 5%
+  responsive — nineteen of its twenty tasks pinned — while reading 65–70% and
+  looking in band. Greedy re-run drift is 0–1 task across four model sizes, so
+  #216's ±0.7pp transfers and the instruments are quiet but coarse. Sizes the
+  bench at **n = 400** paired tasks (+5 to +8pp over the measured discordance
+  range), whose cost is authoring rather than the 3–5 rig-hours it runs in.
+- `docs/adoption-bar-prior-art-2026-08-10.md` — searched before choosing a
+  number. The noise side converges on discordance as the binding quantity, and
+  one source's HumanEval figure matches `tools/power`'s to the decimal. We did
+  not find a published adoption threshold in what was searched; reported gains
+  cluster at 9–51pp, an order of magnitude above the margin in question.
 
 ### Changed
+- `src/mcgyvr/propose.py` states `MIN_QUALITY_GAIN`'s provenance where the
+  constant lives: it is a rung-separation floor, #189 borrowed it as an adoption
+  bar, and that borrowing is withdrawn. The value and its own job are unchanged.
+- `records/measurements/finetune-pilot-2026-08-07/summary.md` carries an
+  amendment: the measurements stand, the verdict does not. HumanEval+ at n = 164
+  resolves +6.9pp, so "miss at +1.9pp against a +3pp bar" was UNDECIDED rather
+  than a verdict on the tune. The record's own finding that backend numerics
+  swing deltas 2.6pp is now one of ADR-0019's reality-floor figures.
 - `records/claims/CLM-0013.json` carries a correction: the measurement stands,
   its consequence does not generalise, and the sentence shipping breadth with a
   default of 1 is withdrawn. It was taken on the strongest local rung against
