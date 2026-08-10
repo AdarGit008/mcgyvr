@@ -26,6 +26,8 @@ import types
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from mcgyvr.runner import Completion, Request, StopReason
 from mcgyvr.worker.reply import ParsedFile
 
@@ -244,7 +246,7 @@ def test_a_chosen_sampled_temperature_reaches_every_sampled_draw() -> None:
 
 
 def test_rows_drawn_at_another_temperature_refuse_to_join_the_run(
-    tmp_path: Path,
+    tmp_path: Path, live_instruments: types.ModuleType
 ) -> None:
     """Temperature is identity, not a note: two arms are two experiments.
 
@@ -276,6 +278,39 @@ def test_rows_drawn_at_another_temperature_refuse_to_join_the_run(
         assert "sampled_temperature" in str(exc)
     else:  # pragma: no cover - the guard is the point of the test
         raise AssertionError("a temperature change was allowed to resume")
+
+
+def test_a_retired_tier_cannot_have_a_run_recorded_for_it(tmp_path: Path) -> None:
+    """#240, at the seam every dispatching path passes through.
+
+    ``record_run`` is where a sweep and a campaign both stake their claim to a
+    directory, before the first draw. Refusing here — with the real declaration
+    rather than the fixture above — is what makes retirement a property of the
+    code instead of something the operator has to remember, and it costs
+    nothing but the error: the tier still loads, because its contracts are
+    released training material now.
+    """
+    with pytest.raises(breadth.bundle.instruments.RetiredError, match="tier 'd2'"):
+        breadth.record_run(
+            tmp_path,
+            _worker(),
+            {"started": "2026-08-10T00:00:00+00:00", "tasks": ["t01"]},
+            tier="d2",
+        )
+    assert not (tmp_path / "run.json").exists()
+    assert breadth.load_tier_tasks("d2"), "a retired tier must still load"
+
+
+def test_the_cli_refuses_a_retired_tier_before_it_resolves_a_worker(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    """The operator's version of the same refusal, and it costs no tokens."""
+    monkeypatch.setattr(
+        sys, "argv", ["measure.py", "--tier", "d1", "--out", str(tmp_path / "run")]
+    )
+    assert breadth.main() == 2
+    assert "retired by #240" in capsys.readouterr().err
+    assert not (tmp_path / "run").exists()
 
 
 def test_the_repaired_task_moves_the_contract_and_never_the_acceptance() -> None:
@@ -355,7 +390,7 @@ def test_thinning_keeps_the_authors_order() -> None:
 
 
 def test_the_cap_the_run_records_is_the_cap_the_worker_was_sent(
-    tmp_path: Path, monkeypatch: Any
+    tmp_path: Path, monkeypatch: Any, live_instruments: types.ModuleType
 ) -> None:
     """#216: the cap is a parameter now, and the two halves must not drift.
 
@@ -404,7 +439,9 @@ def test_the_cap_the_run_records_is_the_cap_the_worker_was_sent(
     assert recorded["max_output_tokens"] == runner.requests[0].max_output_tokens
 
 
-def test_rows_drawn_under_another_cap_refuse_to_join_the_run(tmp_path: Path) -> None:
+def test_rows_drawn_under_another_cap_refuse_to_join_the_run(
+    tmp_path: Path, live_instruments: types.ModuleType
+) -> None:
     """A cap change is a new experiment, exactly as a temperature change is.
 
     Truncation is the outcome the cap decides, so averaging draws taken at 768

@@ -1,13 +1,20 @@
 {
-  "record": "instruments/1",
-  "issue": 230,
-  "doctrine": "ADR-0018's corollary: the instrument is declared, and protected at the point of entry. A task set listed here is something the project measures with. Nothing trained on may be drawn from it, in either language arm, and the pool (tools/problems/) must stay distinct from every id and every prose here.",
+  "record": "instruments/2",
+  "issue": 240,
+  "amends": 230,
+  "doctrine": "ADR-0018's corollary: the instrument is declared, and protected at the point of entry. A task set listed here is something the project measures with, or something it has stopped measuring with and will not measure with again. The pool (tools/problems/) must stay distinct from every id and every prose here.",
+  "flags": {
+    "retired": "The project does not measure on this set any more, and an attempt to is an error at dispatch rather than a warning (ADR-0020). Retirement is what makes release safe: a set never measured on again cannot be contaminated by training on it.",
+    "trainable": "Material drawn from this set may reach a training corpus. A set that is not retired is never trainable — measuring on what you trained on is the #189 failure — so the two flags are checked against each other when the declaration loads.",
+    "why_two": "They are separate properties and collapsing them costs something either way. One flag meaning 'retired' would release HumanEval-derived material that must never be released; one flag meaning 'protected' would strand 9,173 pinned replies for no reason."
+  },
   "consumers": [
-    "tools/problems/admit.py — the pool may not collide with these ids or prose",
+    "tools/problems/admit.py — the pool may not collide with these ids or prose, retired or not",
     "tools/replies/pin.py — every pinned reply is stamped with the instrument it came from, at the point of entry",
-    "tools/finetune/build_dataset.py — no stamped reply reaches a training set"
+    "tools/finetune/build_dataset.py — no reply from a set that is not trainable reaches a training set",
+    "tools/bundle/measure.py and tools/breadth/measure.py — no run record may be written for a retired set"
   ],
-  "adding_a_set": "A new measurement set is declared here in the same change that creates it. Until it is declared, the pin cannot stamp it and the builder cannot refuse it. #113's held-out bench set is the next entry this file expects.",
+  "adding_a_set": "A new measurement set is declared here in the same change that creates it. Until it is declared, the pin cannot stamp it and the builder cannot refuse it. #225's bench half is the next entry this file expects; it arrives retired=null, trainable=false, and its reserved half is not an instrument at all.",
   "sets": [
     {
       "id": "bundle-ts",
@@ -15,7 +22,13 @@
       "language": "jsts",
       "tiers": ["d1"],
       "paired_with": ["bundle-py"],
-      "note": "The floor instrument's TypeScript half — the twenty contracts CLM-0012 measured on the 3B at 45/55/50/45%. The breadth rig's d1 tier is this set, byte for byte, rather than a copy of it (tools/breadth/measure.py, load_tier_tasks): one set, two rigs, two names. #189 drew 622 of 738 training examples from it."
+      "retired": {
+        "issue": 240,
+        "date": "2026-08-10",
+        "why": "20 tasks. #229 measured what a set this size can decide on a paired bench and the answer is nothing: at n = 20 no effect size reaches 80% power across the measured discordance range."
+      },
+      "trainable": true,
+      "note": "The floor instrument's TypeScript half — the twenty contracts CLM-0012 measured on the 3B at 45/55/50/45%. The breadth rig's d1 tier is this set, byte for byte, rather than a copy of it (tools/breadth/measure.py, load_tier_tasks): one set, two rigs, two names. #189 drew 622 of 738 training examples from it, which is why it is released rather than deleted — the material was always fine, it was the measuring that was spoiled."
     },
     {
       "id": "bundle-py",
@@ -23,7 +36,13 @@
       "language": "python",
       "tiers": [],
       "paired_with": ["bundle-ts"],
-      "note": "The floor instrument's Python half. Roughly two-thirds of its problems are bundle-ts restated in Python and the rest are language-idiomatic analogues of the same categories, so the pair is one instrument in two languages. #189 measured positive cross-language transfer, so protecting only the trained-on arm is not protection. It has no tier name in the breadth rig — that is #227, and it does not make the set less of an instrument."
+      "retired": {
+        "issue": 240,
+        "date": "2026-08-10",
+        "why": "20 tasks, and the paired arm of a retired set. Retiring one arm and keeping the other would leave a ruler whose problems are two-thirds a restatement of released training material."
+      },
+      "trainable": true,
+      "note": "The floor instrument's Python half. Roughly two-thirds of its problems are bundle-ts restated in Python and the rest are language-idiomatic analogues of the same categories, so the pair is one instrument in two languages. It never got a tier name in the breadth rig — that was #227, which this retirement makes moot."
     },
     {
       "id": "breadth-d1r",
@@ -31,6 +50,12 @@
       "language": "jsts",
       "tiers": ["d1r"],
       "paired_with": ["bundle-ts"],
+      "retired": {
+        "issue": 240,
+        "date": "2026-08-10",
+        "why": "1 task. It exists to repair one contract in a retired set and cannot outlive it."
+      },
+      "trainable": true,
       "note": "The repaired t20, run as its own tier so a fix to one contract did not silently redefine d1 mid-campaign. Same problem as bundle-ts t20."
     },
     {
@@ -39,6 +64,12 @@
       "language": "jsts",
       "tiers": ["d2"],
       "paired_with": [],
+      "retired": {
+        "issue": 240,
+        "date": "2026-08-10",
+        "why": "12 tasks — below n = 20, so strictly worse than a set that already cannot resolve an effect. Eleven of the twelve bundle contrasts this project has run were unresolvable before the model was dispatched, and this rung supplied several of them."
+      },
+      "trainable": true,
       "note": "The breadth rig's harder rung — twelve contracts, its own problems despite reusing the t01..t12 id shape. ADR-0017's floor band was probed on d1/d2/d3, and #189 drew its remaining 116 training examples from here."
     },
     {
@@ -47,7 +78,37 @@
       "language": "jsts",
       "tiers": ["d3"],
       "paired_with": [],
+      "retired": {
+        "issue": 240,
+        "date": "2026-08-10",
+        "why": "12 tasks, same arithmetic as d2."
+      },
+      "trainable": true,
       "note": "The breadth rig's hardest rung — twelve contracts, its own problems, the same id shape again."
+    },
+    {
+      "id": "humaneval-plus",
+      "root": null,
+      "external": {
+        "source": "HumanEval, OpenAI 2021 — 164 Python problems, public on GitHub for five years and mirrored into a large number of derivative datasets. EvalPlus (0.3.1, the version #189 used) augments the *test suites* of those same 164 problems and adds none of its own, so the exposure question is about HumanEval.",
+        "ids_from": "tools/problems/humaneval-entrypoints.json",
+        "id_field": "task_id",
+        "why_rootless": "It has no contracts in this repository — it is reached through EvalPlus, not through a rig — so it is declared by its id space instead of by a directory. Declaring it here rather than only in an ADR puts the doctrine where a reader of the declaration will look."
+      },
+      "language": "python",
+      "tiers": [],
+      "paired_with": [],
+      "retired": {
+        "issue": 240,
+        "date": "2026-08-10",
+        "why": "Stated without an absence claim: we did not find, for any model served on the rigs, evidence that its pretraining corpus excluded HumanEval. Vendor decontamination claims are unverifiable from outside and n-gram filtering is documented as leaky against paraphrase and translation, so the prudent default is to treat every served model as having seen it. The number is not worthless — it lines up against published figures — but it is reporting, not evidence, and cannot decide whether a lever worked."
+      },
+      "trainable": false,
+      "never_trainable": {
+        "why": "A set whose contamination status cannot be established is one whose *training* status must be. Taking HumanEval-derived material into a tune would make every published comparison against a HumanEval figure — ours or anyone's — unreadable, and unlike the local five there is no version of this set we could retire our way out of.",
+        "scope": "The 164 problems, their solutions, their tests, and anything derived from them, including EvalPlus's augmented suites and any dataset that mirrors them."
+      },
+      "note": "#189 scored its 2x2 here, which is why that pilot is UNDECIDED on the benchmark it used rather than negative (#229). A suggestive local signal, offered with its confound: qwen2.5-coder:3b reads 78.0% here and 0/50 on the #197 pool (#221). That gap is what contamination looks like; it is also what a difficulty difference looks like, and ADR-0017 attributes it to the pool's whole-problem unit of work sitting above the 3B's ceiling. Neither reading makes the set safe to decide on."
     }
   ]
 }

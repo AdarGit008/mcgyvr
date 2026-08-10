@@ -44,8 +44,17 @@ admit = _by_path("pool_admit", REPO / "tools" / "problems" / "admit.py")
 
 
 def test_every_declared_set_is_on_disk_with_contracts() -> None:
-    """A declaration naming an absent directory would silently protect nothing."""
+    """A declaration naming an absent directory would silently protect nothing.
+
+    An external set (#240's HumanEval+ entry) has no directory here by
+    definition, so it is held to the other half of the same rule: it must name
+    an id space that resolves, or it protects nothing either.
+    """
     for inst in instruments.declared():
+        if inst.root is None:
+            assert inst.external, f"{inst.id}: rootless and not declared external"
+            assert inst.task_ids, f"{inst.id}: external set resolves to no ids"
+            continue
         assert inst.root.is_dir(), f"{inst.id}: {inst.root} does not exist"
         assert inst.task_ids, f"{inst.id}: no contracts under {inst.root}"
 
@@ -109,6 +118,8 @@ def test_a_set_added_to_the_declaration_reaches_every_consumer(
                         "language": "jsts",
                         "tiers": ["z"],
                         "paired_with": [],
+                        "retired": None,
+                        "trainable": False,
                     }
                 ],
             }
@@ -124,6 +135,130 @@ def test_a_set_added_to_the_declaration_reaches_every_consumer(
         assert instruments.classify({"tier": "z"}).sets == ("made-up",)
     finally:
         instruments.declared.cache_clear()
+
+
+# --- #240: retired, and trainable, are two facts ---------------------------
+
+
+def _fixture_declaration(path: Path, **flags: Any) -> Path:
+    """A one-set declaration, so a flag combination can be stated exactly."""
+    root = path / "tasks" / "made-up"
+    (root / "z01").mkdir(parents=True)
+    (root / "z01" / "contract.yaml").write_text("id: z01\n", encoding="utf-8")
+    declaration = path / "instruments.json"
+    entry: dict[str, Any] = {
+        "id": "made-up",
+        "root": str(root.relative_to(path)),
+        "language": "jsts",
+        "tiers": ["z"],
+        "paired_with": [],
+        "retired": None,
+        "trainable": False,
+    }
+    entry.update(flags)
+    declaration.write_text(
+        json.dumps({"record": "instruments/2", "sets": [entry]}), encoding="utf-8"
+    )
+    return declaration
+
+
+def test_the_five_local_sets_are_retired_and_released() -> None:
+    """#240's decision, as data rather than as prose in an ADR."""
+    local = [i for i in instruments.declared() if i.root is not None]
+    assert {i.id for i in local} == {
+        "bundle-ts",
+        "bundle-py",
+        "breadth-d1r",
+        "breadth-d2",
+        "breadth-d3",
+    }
+    assert sum(len(i.task_ids) for i in local) == 65
+    for inst in local:
+        assert inst.retired is not None and inst.retired.issue == 240
+        assert inst.trainable
+
+
+def test_humaneval_is_retired_and_never_trainable() -> None:
+    """The asymmetry the second flag exists for.
+
+    Retiring it stops it deciding anything; barring it from training is a
+    separate and permanent commitment, because unlike the local five there is
+    no version of HumanEval this project could retire its way out of having
+    published a number against.
+    """
+    humaneval = instruments.by_id("humaneval-plus")
+    assert humaneval.retired is not None
+    assert not humaneval.trainable
+    assert humaneval.root is None
+    assert len(humaneval.task_ids) == 164
+    assert "HumanEval/0" in humaneval.task_ids
+
+
+def test_a_live_set_cannot_be_declared_trainable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The combination nobody means to make, refused where it is written down.
+
+    Training on a set the project still measures on is #189 exactly. The
+    declaration is the last place it is a sentence rather than a number
+    somebody quotes.
+    """
+    declaration = _fixture_declaration(tmp_path, trainable=True)
+    monkeypatch.setattr(instruments, "REPO", tmp_path)
+    monkeypatch.setattr(instruments, "DECLARATION", declaration)
+    instruments.declared.cache_clear()
+    try:
+        with pytest.raises(
+            instruments.InstrumentError, match="trainable while still live"
+        ):
+            instruments.declared()
+    finally:
+        instruments.declared.cache_clear()
+
+
+def test_a_set_that_states_no_trainable_flag_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Silence is not a default in either direction."""
+    declaration = _fixture_declaration(tmp_path)
+    doc = json.loads(declaration.read_text(encoding="utf-8"))
+    del doc["sets"][0]["trainable"]
+    declaration.write_text(json.dumps(doc), encoding="utf-8")
+    monkeypatch.setattr(instruments, "REPO", tmp_path)
+    monkeypatch.setattr(instruments, "DECLARATION", declaration)
+    instruments.declared.cache_clear()
+    try:
+        with pytest.raises(instruments.InstrumentError, match="no 'trainable' flag"):
+            instruments.declared()
+    finally:
+        instruments.declared.cache_clear()
+
+
+def test_a_retired_set_is_refused_by_tier_and_by_root() -> None:
+    """Both handles, because the two rigs hold the set by different ones.
+
+    The breadth rig knows a tier name; the bundle rig knows a task directory
+    and has no tier at all. A guard that understood only one of them would
+    leave the other rig free to publish.
+    """
+    with pytest.raises(instruments.RetiredError, match="tier 'd1' is bundle-ts"):
+        instruments.refuse_to_measure(tier="d1")
+    root = instruments.by_id("bundle-py").root
+    with pytest.raises(instruments.RetiredError, match="bundle-py"):
+        instruments.refuse_to_measure(root=root)
+    # The pool is not an instrument and never was: it must stay measurable.
+    instruments.refuse_to_measure(tier="pool-ts")
+    instruments.refuse_to_measure(tier="pool-py")
+
+
+def test_the_refusal_carries_the_argument_it_was_retired_on() -> None:
+    """An operator who hits this needs the reason, not a policy code."""
+    with pytest.raises(instruments.RetiredError) as caught:
+        instruments.refuse_to_measure(tier="d2", what="--tiers d2")
+    message = str(caught.value)
+    assert "--tiers d2" in message
+    assert "#240" in message
+    assert "12 tasks" in message
 
 
 # --- classification --------------------------------------------------------

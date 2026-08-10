@@ -82,7 +82,14 @@ class _Prompt:
         self.user = f"user for {contract}"
 
 
-_LANGUAGES = {"pool-ts": _Language("jsts"), "pool-py": _Language("python")}
+#: The tiers the stub can resolve. ``d1`` is here because #240 released the set
+#: it names: a retired tier is no longer measurable, but its contracts are still
+#: what a prompt behind one of its replies has to be rebuilt from.
+_LANGUAGES = {
+    "pool-ts": _Language("jsts"),
+    "pool-py": _Language("python"),
+    "d1": _Language("jsts"),
+}
 
 
 class _FakeBreadth:
@@ -381,18 +388,20 @@ def test_an_unknown_split_mode_is_refused(
         wired.build(40, tmp_path / "out", "by-vibes")
 
 
-# --- #230: no training example may come from an instrument -----------------
+# --- #230, #240: a training example comes only from a set marked trainable --
 
 
-def test_a_d1_run_cannot_reach_the_training_set(
+def test_a_released_set_is_drawn_from_and_the_manifest_says_so(
     wired: types.ModuleType, tmp_path: Path
 ) -> None:
-    """The test that would have caught #189.
+    """#240 released the five local sets, and release has to be legible.
 
-    ``d1`` *is* ``tools/bundle/tasks/`` — half the floor instrument — and the
-    pilot drew 622 examples from it. Here a whole run of it produces nothing,
-    and the manifest says which set it was held away from rather than leaving
-    the absence to be inferred.
+    ``d1`` *is* ``tools/bundle/tasks/`` — half the floor instrument — and #189
+    drew 622 examples from it while scoring on the same twenty contracts. What
+    made that a defect was measuring on it afterwards, and #240 retired it, so
+    the material is now drawable. The thing that must not happen is drawing it
+    *silently*: a reader has to be able to see that this corpus contains a
+    retired ruler's replies.
     """
     corpus = Corpus(tmp_path / "measurements")
     for draw in range(3):
@@ -408,27 +417,30 @@ def test_a_d1_run_cannot_reach_the_training_set(
 
     manifest = wired.build(40, tmp_path / "out")
 
-    assert manifest["counts"]["train"] == 0
-    assert manifest["counts"]["val"] == 0
-    assert manifest["instruments"]["excluded_replies"] == {"bundle-ts": 3}
-    assert manifest["instruments"]["excluded_runs"] == ["d1-run"]
-    assert (tmp_path / "out" / "train.jsonl").read_text(encoding="utf-8") == ""
+    assert manifest["counts"]["train"] + manifest["counts"]["val"] == 3
+    released = manifest["instruments"]["released"]
+    assert released["replies"] == {"bundle-ts": 3}
+    assert released["runs"] == ["d1-run"]
+    assert "bundle-ts" in released["sets"]
+    assert manifest["instruments"]["refused"]["replies"] == {}
+    assert (tmp_path / "out" / "train.jsonl").read_text(encoding="utf-8") != ""
 
 
-def test_the_other_language_arm_goes_too(
+def test_material_that_is_retired_but_not_trainable_is_still_refused(
     wired: types.ModuleType, tmp_path: Path
 ) -> None:
-    """A paired-id instrument is one instrument.
+    """The two flags cannot collapse into one.
 
-    The Python arm has no tier name of its own (#227), so it is recognised by
-    its contract digests. Protecting only the arm a tune was trained on would
-    leave the other one scorable-looking and contaminated — and #189 measured
-    the cross-language transfer that makes that a real risk, not a theoretical
-    one.
+    Every declared set is retired, so a guard keyed on retirement would now
+    release everything — including HumanEval+, which #240 retired *and* barred
+    from training permanently, because its exposure cannot be established and
+    a tune that had seen it would make every published comparison unreadable.
+    The set is external and has no contracts here, so it is recognised the only
+    way it can be: by its id space, vendored beside the pool gate that already
+    screens against it.
     """
-    digests = next(i for i in INSTRUMENTS.declared() if i.id == "bundle-py").digests()
     corpus = Corpus(tmp_path / "measurements")
-    corpus.add(run="py-run", tier=None, task="t01", model="m1", reply="t01 py")
+    corpus.add(run="he-run", tier="pool-py", task="he12", model="m1", reply="he12 py")
     corpus.add(
         run="clean-run",
         tier="pool-py",
@@ -436,11 +448,17 @@ def test_the_other_language_arm_goes_too(
         model="m1",
         reply="p001-alpha pool-py solution 0",
     )
-    corpus.write(wired.GOLDEN, meta_extra={"py-run": {"tasks_sha256": digests}})
+    corpus.write(
+        wired.GOLDEN,
+        meta_extra={"he-run": {"tasks_sha256": {"HumanEval/12": "0" * 64}}},
+    )
 
     manifest = wired.build(40, tmp_path / "out")
 
-    assert manifest["instruments"]["excluded_replies"] == {"bundle-py": 1}
+    refused = manifest["instruments"]["refused"]
+    assert refused["sets"] == ["humaneval-plus"]
+    assert refused["replies"] == {"humaneval-plus": 1}
+    assert refused["runs"] == ["he-run"]
     assert manifest["counts"]["train"] + manifest["counts"]["val"] == 1
 
 
@@ -530,11 +548,11 @@ def test_the_belt_refuses_what_the_drop_missed(wired: types.ModuleType) -> None:
     Exercised directly because its whole purpose is to survive a bug in the
     loop above it — a state the loop itself will not produce on demand.
     """
-    verdict = INSTRUMENTS.classify({"tier": "d1"})
-    kept = [{"run": "d1-run", "task": "t01", "language": "jsts"}]
+    verdict = INSTRUMENTS.classify({"tasks_sha256": {"HumanEval/3": "0" * 64}})
+    kept = [{"run": "he-run", "task": "he03", "language": "python"}]
 
-    with pytest.raises(wired.Contamination, match="bundle-ts"):
-        wired.refuse_instrument_material(kept, {"d1-run": verdict})
+    with pytest.raises(wired.Contamination, match="humaneval-plus"):
+        wired.refuse_withheld_material(kept, {"he-run": verdict}, INSTRUMENTS)
 
     with pytest.raises(wired.Contamination, match="never classified"):
-        wired.refuse_instrument_material(kept, {})
+        wired.refuse_withheld_material(kept, {}, INSTRUMENTS)

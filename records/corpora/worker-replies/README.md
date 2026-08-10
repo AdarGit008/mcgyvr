@@ -69,12 +69,22 @@ written into the document, under `instruments.runs`:
 instrument material, and they stay: ADR-0016 requires the parser to be measured
 on the population it actually faces, and dropping three quarters of it to
 protect a *different* consumer would curate this corpus back to the shapes that
-happen to be safe for fine-tuning. The training path refuses what the stamp
-names; this corpus keeps it.
+happen to be safe for fine-tuning. The training path decides what to do with
+what the stamp names; this corpus keeps it either way.
 
 What is not optional is the verdict itself. A run stating no tier, no contract
 digests and no task id cannot be classified, and an unclassifiable run is not a
 clean one — it refuses to pin.
+
+**The stamp says where a reply came from, not whether it may be drawn.**
+[#240](https://github.com/AdarGit008/mcgyvr/issues/240) retired all five local
+sets and released them for training
+([ADR-0020](../../../docs/decisions/0020-retire-the-rulers.md)), so the same
+9,173 replies that #230 walled off are now the bulk of the training corpus —
+with no change to a single stamp. That separation is the point of writing the
+provenance down rather than the policy: `retired` and `trainable` live in
+`tools/instruments.json` and can be re-decided there, while what this file
+records is a fact about each run that does not change when the policy does.
 
 ## Re-pinning
 

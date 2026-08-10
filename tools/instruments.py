@@ -40,6 +40,27 @@ A run that answers none of the three questions — no tier, no task digests — 
 not "clean", it is **unclassifiable**, and this module says so rather than
 guessing. Provenance that cannot be stated is the thing the corpus discipline
 exists to replace.
+
+#240 added two flags to every set, because "this is an instrument" turned out
+to be two facts wearing one name:
+
+``retired``
+    The project does not measure on it any more. Enforced at dispatch by both
+    rigs rather than remembered — a retired set is refused where a run record
+    would be written, so no new number can be produced from one.
+
+``trainable``
+    Material from it may reach a training corpus. Read by
+    ``tools/finetune/build_dataset.py``, which now refuses by *this* flag
+    rather than by set membership.
+
+They are independent in one direction and coupled in the other. A retired set
+may be trainable (the five local sets, released by #240) or not (HumanEval+,
+whose exposure cannot be established and which therefore must never be trained
+on). A set that is **not** retired is never trainable, and :func:`declared`
+refuses a declaration that says otherwise — measuring on what you trained on is
+the #189 failure, and this file is where it stops being possible to write it
+down.
 """
 
 from __future__ import annotations
@@ -64,20 +85,50 @@ class InstrumentError(Exception):
     """The declaration is unreadable, or a run's provenance cannot be decided."""
 
 
+class RetiredError(InstrumentError):
+    """Something that measures reached a set the project has stopped measuring on."""
+
+
+@dataclass(frozen=True)
+class Retirement:
+    """When a set stopped being a ruler, and on what argument."""
+
+    issue: int
+    date: str
+    why: str
+
+
 @dataclass(frozen=True)
 class Instrument:
-    """One declared measurement set."""
+    """One declared measurement set.
+
+    ``root`` is ``None`` for an external set — one reached through somebody
+    else's harness rather than through a rig in this repository. It has no
+    contracts here, so it is declared by its id space instead, and every
+    root-shaped question about it answers empty rather than raising.
+    """
 
     id: str
-    root: Path
+    root: Path | None
     language: str
     tiers: tuple[str, ...]
     paired_with: tuple[str, ...]
+    retired: Retirement | None
+    trainable: bool
     note: str
+    external: Mapping[str, Any] | None = None
 
     @property
     def task_ids(self) -> frozenset[str]:
-        """Ids on disk — the directory names carrying a ``contract.yaml``."""
+        """Ids on disk — the directory names carrying a ``contract.yaml``.
+
+        An external set has none, and names its ids in a vendored file instead:
+        HumanEval's 164 task ids are already in the tree because the pool gate
+        screens against their entry points, so the declaration points at that
+        file rather than restating it and letting the two drift.
+        """
+        if self.root is None:
+            return self._external_ids()
         if not self.root.is_dir():
             return frozenset()
         return frozenset(
@@ -85,6 +136,19 @@ class Instrument:
             for d in self.root.iterdir()
             if d.is_dir() and (d / "contract.yaml").is_file()
         )
+
+    def _external_ids(self) -> frozenset[str]:
+        if not self.external or "ids_from" not in self.external:
+            return frozenset()
+        path = REPO / str(self.external["ids_from"])
+        try:
+            rows = json.loads(path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise InstrumentError(
+                f"{self.id}: declares its ids in {path}, which cannot be read: {exc}"
+            ) from exc
+        field = str(self.external.get("id_field", "id"))
+        return frozenset(str(row[field]) for row in rows)
 
     def digests(self) -> dict[str, str]:
         """``id -> sha256(dumps(contract))``, as the rigs pin it.
@@ -94,6 +158,8 @@ class Instrument:
         in ``tasks_sha256`` — that identity is the whole point of comparing
         the two.
         """
+        if self.root is None:
+            return {}
         from mcgyvr.contract import dumps, load
 
         out: dict[str, str] = {}
@@ -137,24 +203,96 @@ def declared() -> tuple[Instrument, ...]:
         raise InstrumentError(f"cannot read {DECLARATION}: {exc}") from exc
     sets = []
     for entry in doc["sets"]:
-        sets.append(
-            Instrument(
-                id=entry["id"],
-                root=REPO / entry["root"],
-                language=entry["language"],
-                tiers=tuple(entry.get("tiers", ())),
-                paired_with=tuple(entry.get("paired_with", ())),
-                note=entry.get("note", ""),
+        root = entry.get("root")
+        retired = entry.get("retired")
+        if "trainable" not in entry:
+            raise InstrumentError(
+                f"{entry.get('id')}: declares no 'trainable' flag. Whether a set "
+                "may be drawn from is not a default — #240 made it a stated "
+                "property of every set, in both directions."
             )
+        inst = Instrument(
+            id=entry["id"],
+            root=None if root is None else REPO / root,
+            language=entry["language"],
+            tiers=tuple(entry.get("tiers", ())),
+            paired_with=tuple(entry.get("paired_with", ())),
+            retired=(
+                None
+                if retired is None
+                else Retirement(
+                    issue=int(retired["issue"]),
+                    date=str(retired["date"]),
+                    why=str(retired["why"]),
+                )
+            ),
+            trainable=bool(entry["trainable"]),
+            note=entry.get("note", ""),
+            external=entry.get("external"),
         )
+        if inst.trainable and inst.retired is None:
+            # The one combination that is never a decision anybody meant to
+            # make. Training on a set the project still measures on is #189
+            # exactly, and the declaration is the last place it could be
+            # written down before it becomes a number somebody quotes.
+            raise InstrumentError(
+                f"{inst.id}: declared trainable while still live. A set may be "
+                "drawn from only once it is retired — otherwise the next run "
+                "measures the model on what it was trained on."
+            )
+        sets.append(inst)
     if not sets:
         raise InstrumentError(f"{DECLARATION} declares no instrument sets")
     return tuple(sets)
 
 
+def by_id(set_id: str) -> Instrument:
+    """One declared set, by the id the verdicts name it with."""
+    for inst in declared():
+        if inst.id == set_id:
+            return inst
+    raise InstrumentError(f"no instrument set named {set_id!r} in {DECLARATION}")
+
+
 def task_roots() -> tuple[Path, ...]:
-    """The roots the pool must stay distinct from — ``admit.py``'s list."""
-    return tuple(inst.root for inst in declared())
+    """The roots the pool must stay distinct from — ``admit.py``'s list.
+
+    RetiredError sets stay on it. Retirement stops the project measuring on a set;
+    it does not make the set's directory a place a pool problem may reappear
+    under, and an id that names two different problems is a confusion whether
+    or not either is still a ruler.
+    """
+    return tuple(inst.root for inst in declared() if inst.root is not None)
+
+
+def refuse_to_measure(
+    *, tier: str | None = None, root: Path | None = None, what: str = "this run"
+) -> None:
+    """Raise if a tier name or a task root belongs to a retired set.
+
+    Called where a run record is written — the point every dispatching path
+    passes through, in both rigs and in the campaign driver — so retirement is
+    enforced by the code rather than remembered by the operator. It is
+    deliberately *not* in the task loaders: the retired sets are released
+    training material now, and rebuilding a prompt over their contracts is the
+    thing #240 released them for.
+    """
+    for inst in declared():
+        if inst.retired is None:
+            continue
+        hit = ""
+        if tier is not None and tier in inst.tiers:
+            hit = f"tier {tier!r} is {inst.id}"
+        elif root is not None and inst.root is not None and root == inst.root:
+            hit = f"{root} is {inst.id}"
+        if not hit:
+            continue
+        raise RetiredError(
+            f"{what}: {hit}, retired by #{inst.retired.issue} on "
+            f"{inst.retired.date}. {inst.retired.why} Measuring on it again "
+            "would produce a number that decides nothing and re-contaminate "
+            "material that has since been released for training."
+        )
 
 
 def id_space() -> dict[str, tuple[str, ...]]:
@@ -268,13 +406,18 @@ def main() -> int:
     print(f"{DECLARATION.relative_to(REPO)}: {len(declared())} instrument sets")
     for inst in declared():
         ids = sorted(inst.task_ids)
+        where = "external" if inst.root is None else str(inst.root.relative_to(REPO))
+        flags = "retired" if inst.retired else "live"
+        flags += ", trainable" if inst.trainable else ", never trainable"
         print(
-            f"  {inst.id:<12} {inst.language:<7} "
+            f"  {inst.id:<15} {inst.language:<7} "
             f"{len(ids):>3} tasks  tiers={list(inst.tiers)}  "
-            f"{inst.root.relative_to(REPO)}"
+            f"[{flags}]  {where}"
         )
         if not ids:
             print("    (no contracts on disk — declared but absent)")
+        if inst.retired:
+            print(f"    retired by #{inst.retired.issue} on {inst.retired.date}")
     return 0
 
 

@@ -239,15 +239,27 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    problem = bundle.JSTS.capability()
-    if problem is not None:
-        print(f"error: {problem}", file=sys.stderr)
-        return 2
-
     tiers = [t for t in args.tiers.split(",") if t]
     unknown = sorted(set(tiers) - set(measure.TIERS))
     if unknown:
         print(f"error: unknown tier(s): {', '.join(unknown)}", file=sys.stderr)
+        return 2
+
+    # #240 retired every rung this driver was written to climb, so unless it is
+    # pointed at something new it stops here — ahead of the runtime check,
+    # because whether this machine can score the arm has no bearing on whether
+    # the project will measure it. The escalation method survives the ladder it
+    # was demonstrated on; what it needs is a live set to climb.
+    try:
+        for tier in tiers:
+            bundle.instruments.refuse_to_measure(tier=tier, what=f"--tiers {tier}")
+    except bundle.instruments.RetiredError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    problem = bundle.JSTS.capability()
+    if problem is not None:
+        print(f"error: {problem}", file=sys.stderr)
         return 2
 
     args.out.mkdir(parents=True, exist_ok=True)
