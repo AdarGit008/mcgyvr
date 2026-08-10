@@ -1027,6 +1027,34 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   not find a published adoption threshold in what was searched; reported gains
   cluster at 9–51pp, an order of magnitude above the margin in question.
 
+### Fixed
+- A dispatch error no longer occupies the cell it failed to fill (#217).
+  `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
+  cell, so the row saying "this draw reached no worker" was indistinguishable
+  from one saying what the worker replied — and a resume skipped it forever. A
+  269-problem sweep lost **152 of 807 draws (18.8%)** to a contiguous srv2
+  outage that closed on its own; re-running the identical command printed
+  `resuming: 807 draws already recorded` and dispatched nothing. The rows file
+  is append-only, so refilling means rewriting it: the displaced rows are kept
+  verbatim in `dispatch-errors-invocation-<n>.jsonl` and the rewrite is recorded
+  in `run.json` against the invocation that did it. Not behind a flag — needing
+  to notice is the defect's own first failure mode. Last-row-wins was rejected
+  because three readers would each carry the rule, and one of them
+  (`pin.py._join_candidate`, which matches the *first* row) would take the reply
+  corpus down with a `KeyError` rather than its own `PinError`.
+- A run directory now states whether an observation reached every cell it set
+  out to fill, in `run.json`, at the head of `summary.md` and in the exit code —
+  the old summary counted lost draws in its last line, which is where a reader
+  stops looking and where a multi-hour run's operator was never looking. The
+  question is derived from what every manifest already records, so `--audit`
+  can ask it of the whole corpus at once: **87 breadth-shaped run directories
+  judged, 0 holed.**
+- A dead backend stops the run rather than re-learning the same fact for hours.
+  Three consecutive tasks losing *every* draw to transport cannot happen on a
+  healthy backend; the outage above spent five hours proving it 51 times.
+  Row-level behaviour is unchanged — a failed draw is still a row, and the
+  resume fills what the abort left. `--abort-after-dead-tasks 0` disables it.
+
 ### Changed
 - `src/mcgyvr/propose.py` states `MIN_QUALITY_GAIN`'s provenance where the
   constant lives: it is a rung-separation floor, #189 borrowed it as an adoption

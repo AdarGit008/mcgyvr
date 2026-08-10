@@ -19,6 +19,7 @@ one is whether the *instrument* observes the thing it claims to:
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import sys
@@ -465,3 +466,233 @@ def test_rows_drawn_under_another_cap_refuse_to_join_the_run(
         assert "max_output_tokens" in str(exc)
     else:  # pragma: no cover - the guard is the point of the test
         raise AssertionError("a cap change was allowed to resume")
+
+
+# --- #217: a dispatch error occupies its cell, so a resume can never fill it ---
+
+
+class _DeadRunner:
+    """A backend that has gone away — every draw fails below the model."""
+
+    def generate(self, model: str, request: Request) -> Completion:
+        raise breadth.RunnerError(
+            "could not reach http://test:11434/v1/chat/completions within 120s"
+        )
+
+
+def _sweep_argv(out: Path, tasks: str, draws: int = 1) -> list[str]:
+    return [
+        "measure.py",
+        "--tier",
+        "d1",
+        "--tasks",
+        tasks,
+        "--out",
+        str(out),
+        "--endpoint",
+        "http://test:11434",
+        "--protocol",
+        "openai",
+        "--model",
+        "test-model",
+        "--draws",
+        str(draws),
+    ]
+
+
+def _always_passes(monkeypatch: Any) -> None:
+    """Parse and acceptance stubbed out: this is about cells, not verdicts."""
+    monkeypatch.setattr(
+        breadth,
+        "parse_reply",
+        lambda text, **kwargs: ParsedFile(content="export const x = 1;\n"),
+    )
+    monkeypatch.setattr(
+        breadth.bundle,
+        "run_acceptance",
+        lambda task, content, workdir: breadth.bundle.Acceptance(True, ""),
+    )
+
+
+def test_a_dispatch_error_does_not_fill_the_cell_it_occupies(tmp_path: Path) -> None:
+    """The defect itself, at the function that had it.
+
+    ``done_keys`` counted any row as a recorded cell, so the row that says
+    "this draw reached no worker" was indistinguishable from one that says
+    what the worker replied — and a resume skipped it forever.
+    """
+    rows_path = tmp_path / "results.jsonl"
+    rows_path.write_text(
+        "".join(
+            json.dumps(row) + "\n"
+            for row in [
+                {"task": "t01", "arm": "greedy", "draw": 0, "passed": True},
+                {
+                    "task": "t01",
+                    "arm": "sampled",
+                    "draw": 0,
+                    "passed": False,
+                    "dispatch_error": "TransportError: could not reach",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert breadth.done_keys(rows_path) == {("t01", "greedy", 0)}
+
+
+def test_the_backend_going_away_stops_the_run_and_the_directory_says_so(
+    tmp_path: Path, monkeypatch: Any, capsys: Any, live_instruments: types.ModuleType
+) -> None:
+    """#217's third question, answered as a run-level circuit breaker.
+
+    51 consecutive tasks of identical 120s timeouts cost five hours to learn
+    one fact. The breaker stops at three, which cannot fire on a healthy
+    backend because it needs *every* draw of three consecutive tasks to fail
+    below the model. What it must not do is hide the shortfall: the run exits
+    non-zero, ``run.json`` names the cells nobody observed, and the summary
+    says so before it says anything a reader might quote.
+    """
+    out = tmp_path / "run"
+    monkeypatch.setattr(breadth, "runner_for", lambda endpoint: _DeadRunner())
+    monkeypatch.setattr(sys, "argv", _sweep_argv(out, "t01,t02,t03,t04,t05"))
+
+    assert breadth.main() == 1
+    assert "the backend went away at task t03" in capsys.readouterr().err
+
+    rows = breadth.read_rows(out / "results.jsonl")
+    assert len(rows) == 6, "three tasks x (greedy + one sampled), then it stopped"
+    assert all(row.get("dispatch_error") for row in rows)
+
+    completeness = json.loads((out / "run.json").read_text())["completeness"]
+    assert completeness == {
+        "expected": 10,
+        "recorded": 0,
+        "missing": 10,
+        "complete": False,
+        "missing_cells": sorted(
+            f"t0{n}/{arm}/0" for n in range(1, 6) for arm in ("greedy", "sampled")
+        ),
+    }
+    assert (out / "summary.md").read_text().startswith("**INCOMPLETE — 10 cell(s)")
+
+
+def test_the_identical_command_refills_what_the_outage_lost(
+    tmp_path: Path, monkeypatch: Any, capsys: Any, live_instruments: types.ModuleType
+) -> None:
+    """The acceptance criterion, end to end and by the same command twice.
+
+    Before this, the second run printed ``resuming: N draws already recorded``
+    and dispatched nothing — the hole was permanent at exit 0 with the
+    expected line count. The displaced rows are not discarded to achieve it:
+    they are kept verbatim in a sidecar and the rewrite is recorded against
+    the invocation that did it.
+    """
+    out = tmp_path / "run"
+    argv = _sweep_argv(out, "t01,t02")
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(breadth, "runner_for", lambda endpoint: _DeadRunner())
+    assert breadth.main() == 1
+    capsys.readouterr()
+
+    # The identical command, against a backend that has come back.
+    monkeypatch.setattr(breadth, "runner_for", lambda endpoint: _CountingRunner())
+    _always_passes(monkeypatch)
+    assert breadth.main() == 0
+    assert "retrying 4 draw(s) that reached no worker" in capsys.readouterr().err
+
+    rows = breadth.read_rows(out / "results.jsonl")
+    assert len(rows) == 4, "one row per cell — no cell carries two"
+    assert not any(row.get("dispatch_error") for row in rows)
+    assert {(row["task"], row["arm"], row["draw"]) for row in rows} == {
+        (task, arm, 0) for task in ("t01", "t02") for arm in ("greedy", "sampled")
+    }
+
+    sidecar = out / breadth.DISPATCH_ERROR_SIDECAR.format(n=1)
+    assert len(breadth.read_rows(sidecar)) == 4, "the lost draws are kept, not dropped"
+
+    recorded = json.loads((out / "run.json").read_text())
+    assert recorded["completeness"]["complete"] is True
+    assert recorded["invocations"][1]["retried_dispatch_errors"] == 4
+    assert recorded["invocations"][1]["quarantined_to"] == sidecar.name
+    assert "retried_dispatch_errors" not in recorded["invocations"][0]
+    assert (
+        (out / "summary.md")
+        .read_text()
+        .startswith("complete: an observation reached every cell.")
+    )
+
+
+def test_the_quarantine_is_what_keeps_the_pin_join_total(
+    tmp_path: Path, monkeypatch: Any, live_instruments: types.ModuleType
+) -> None:
+    """Acceptance: ``pin.py``'s (task, arm, draw) join survives the mechanism.
+
+    It survives because a dispatch error writes no candidate file, so no
+    capture ever pointed at a row the quarantine removes. The rejected
+    mechanism is the interesting half: ``_join_candidate`` returns the *first*
+    matching row, and a dispatch-error row carries no ``stop_reason`` — so
+    last-row-wins would not merely mis-join, it would take the corpus down
+    with a ``KeyError`` where every other provenance failure raises a
+    diagnosable ``PinError``.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "replies_pin", REPO / "tools" / "replies" / "pin.py"
+    )
+    assert spec is not None and spec.loader is not None
+    pin = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pin)
+
+    out = tmp_path / "run"
+    argv = _sweep_argv(out, "t01")
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(breadth, "runner_for", lambda endpoint: _DeadRunner())
+    assert breadth.main() == 1
+    assert not list(out.glob("candidates/*/*.txt")), "a lost draw captures nothing"
+
+    monkeypatch.setattr(breadth, "runner_for", lambda endpoint: _CountingRunner())
+    _always_passes(monkeypatch)
+    assert breadth.main() == 0
+
+    rows = breadth.read_rows(out / "results.jsonl")
+    captures = sorted(out.glob("candidates/*/*.txt"))
+    assert captures, "the refilled cells captured their replies"
+    for path in captures:
+        joined = pin._join_candidate(path, rows)
+        assert joined["stop_reason"]
+        assert joined["row_sha"] == hashlib.sha256(path.read_bytes()).hexdigest()
+
+    # And the shape the quarantine prevented: the error row, matched first.
+    displaced = breadth.read_rows(out / breadth.DISPATCH_ERROR_SIDECAR.format(n=1))
+    with pytest.raises(KeyError):
+        pin._join_candidate(captures[0], displaced + rows)
+
+
+def test_a_run_directory_this_rig_did_not_write_is_not_judged(tmp_path: Path) -> None:
+    """ "Complete" and "unanswerable" are different verdicts.
+
+    The bundle rig's runs are shaped by condition rather than by draw, so its
+    manifests imply no cell grid. Returning ``[]`` for one would report it
+    complete, which is a claim nothing here is entitled to make.
+    """
+    (tmp_path / "run.json").write_text(
+        json.dumps({"model": "m", "conditions_sha256": {"c0": "x"}}), encoding="utf-8"
+    )
+    assert breadth.missing_cells(tmp_path) is None
+    assert breadth.missing_cells(tmp_path / "absent") is None
+
+
+def test_a_task_the_resume_skipped_never_advances_the_breaker() -> None:
+    """No rows is not the same fact as no observations.
+
+    A resumed run walks every task and returns nothing for the ones already
+    filled; counting those toward the dead streak would abort a healthy resume
+    three tasks in.
+    """
+    assert breadth.task_lost_every_draw([]) is False
+    assert breadth.task_lost_every_draw([{"passed": True}]) is False
+    assert breadth.task_lost_every_draw([{"dispatch_error": "down"}]) is True
+    assert (
+        breadth.task_lost_every_draw([{"dispatch_error": "down"}, {"passed": False}])
+        is False
+    )

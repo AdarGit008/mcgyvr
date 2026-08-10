@@ -106,23 +106,42 @@ def run_stage(
 
     Rows already on disk from an interrupted campaign are loaded rather than
     re-dispatched, so the returned list is always the stage's complete picture.
+
+    The resume, the circuit breaker and the completeness stamp are the rig's
+    (#217), reached through ``measure`` rather than reimplemented — a campaign
+    stage is an ordinary ``measure.py`` run directory and a second copy of this
+    logic is a second place for it to be wrong. A stage that the breaker stops
+    raises, because the driver's next act would be to climb a ladder on a rate
+    computed over a hole.
     """
     tasks = measure.load_tier_tasks(tier)
     out.mkdir(parents=True, exist_ok=True)
     rows_path = out / "results.jsonl"
-    already = measure.done_keys(rows_path)
+    resume = measure.resume_state(out)
+    already = resume.keys
+    note = resume.note()
+    if note is not None:
+        print(f"  {tier} {note}", file=sys.stderr)
+    invocation: dict[str, Any] = {
+        "started": datetime.now(UTC).isoformat(timespec="seconds"),
+        "tasks": [task.id for task in tasks],
+        "rig_revision": bundle.rig_revision(),
+    }
+    if resume.retrying and resume.sidecar is not None:
+        invocation |= {
+            "retried_dispatch_errors": resume.retrying,
+            "quarantined_to": resume.sidecar.name,
+        }
     measure.record_run(
         out,
         worker,
-        {
-            "started": datetime.now(UTC).isoformat(timespec="seconds"),
-            "tasks": [task.id for task in tasks],
-            "rig_revision": bundle.rig_revision(),
-        },
+        invocation,
         tier=tier,
         draws=draws,
         sampled_temperature=sampled_temperature,
     )
+    aborted = None
+    dead_streak = 0
     with (
         tempfile.TemporaryDirectory(prefix="mcgyvr-campaign-") as tmp,
         rows_path.open("a", encoding="utf-8") as handle,
@@ -143,14 +162,22 @@ def run_stage(
             if rows:
                 marks = "".join("P" if r.get("passed") else "." for r in rows)
                 print(f"  {tier} {task.id} {marks}", file=sys.stderr)
-    all_rows = [
-        json.loads(line)
-        for line in rows_path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+            dead_streak = dead_streak + 1 if measure.task_lost_every_draw(rows) else 0
+            if dead_streak >= measure.DEAD_TASKS_BEFORE_ABORT:
+                aborted = task.id
+                break
+    measure.record_completeness(out)
+    all_rows = measure.read_rows(rows_path)
     (out / "summary.md").write_text(
         measure.summarise(rows_path) + "\n", encoding="utf-8"
     )
+    if aborted is not None:
+        raise bundle.MeasureError(
+            f"{worker.model}: the backend went away at {tier} task {aborted} — "
+            f"{dead_streak} consecutive tasks lost every draw to transport. "
+            f"{out} keeps what was measured; re-run the identical command once "
+            "it is back."
+        )
     return all_rows
 
 

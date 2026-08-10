@@ -871,7 +871,20 @@ def measure_cell(
 
 
 def done_keys(rows_path: Path) -> set[tuple[str, str]]:
-    """The (task, condition) cells an interrupted run already recorded."""
+    """The (task, condition) cells an interrupted run already recorded.
+
+    This counts a ``dispatch_error`` row as a recorded cell, which is the
+    defect #217 fixed in the breadth rig — a cell that reached no worker is
+    skipped by every later resume, so the hole is permanent at exit 0 with the
+    expected line count. It is left alone here because both of this rig's arms
+    were retired by #240 and ``record_run`` refuses every sweep it is given, so
+    no new dispatch error can be written. **Reviving this rig means porting
+    ``resume_state``, the circuit breaker and the completeness stamp from
+    ``tools/breadth/measure.py`` first** — and the port is not a copy: a
+    dispatch error on this rig's *retry* leaves a row that already carries a
+    first reply and its capture, so what is unfillable is part of the cell
+    rather than all of it.
+    """
     if not rows_path.is_file():
         return set()
     keys: set[tuple[str, str]] = set()
