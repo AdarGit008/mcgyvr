@@ -87,3 +87,39 @@ Three things follow for this record:
   already flagged and #234 corrected in that issue's body.
 
 Nothing in the 2×2, the quant tax, the dataset caveat or the costs changes.
+
+## Amendment — 2026-08-10 (#230): this adapter is unmeasurable on the floor instrument
+
+The measurements above still stand, and this amendment does **not** say they are
+contaminated. It says something narrower and worse.
+
+`dataset-manifest.json` pins every example's provenance, and the tiers read
+**622 `d1` + 116 `d2`** over 20 problems. `d1` is not a tier with its own
+directory — it **is** `tools/bundle/tasks/`, byte for byte
+(`tools/breadth/measure.py`, `load_tier_tasks`), which is the TypeScript half of
+the only floor instrument the project has: the twenty contracts CLM-0012
+measured at 45/55/50/45%. `d2` is the breadth rig's next rung, probed for
+ADR-0017's floor band. Both are declared instruments as of
+`tools/instruments.json`.
+
+What follows, precisely:
+
+- **The reported 2×2 is not contaminated.** The eval was EvalPlus HumanEval+ —
+  164 Python tasks, a different set from the TypeScript material trained on.
+  No arm of this pilot was ever run on `d1`, `d2` or `d3`; the graded runs on
+  those tiers in `records/measurements/floor-probe-2026-08-09/` are all base
+  `qwen2.5-coder:3b`.
+- **The adapter can never be scored on the bench.** ADR-0018 puts every lever on
+  one bench built from the floor instrument, and this adapter has trained on
+  both rungs of it — including, through the paired ids and the positive
+  cross-language transfer this record itself measured, the Python arm it never
+  saw. A number it produced there would measure recall, not capability.
+- **So the pilot's verdict is UNDECIDED on the benchmark it used (#229) and
+  inadmissible on the benchmark that matters (this issue).** Neither is
+  "negative". The lever — fine-tuning a small worker — has not been tested, and
+  the artifact in hand cannot be the thing that tests it.
+
+The tune is re-runnable; the finding is what it costs. What a future tune may
+draw from is `docs/what-a-tune-may-train-on-2026-08-10.md`, and the guard that
+makes the question unavoidable is in `tools/replies/pin.py` and
+`tools/finetune/build_dataset.py`.

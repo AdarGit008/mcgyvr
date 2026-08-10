@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import re
 import shutil
@@ -38,6 +39,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from mcgyvr.contract import Contract, ContractError, load
 
@@ -100,14 +102,36 @@ ARMS = (
     ),
 )
 
-# Every task set whose ids and prose the pool must stay distinct from.
-EXISTING_TASK_ROOTS = (
-    REPO / "tools" / "bundle" / "tasks",
-    REPO / "tools" / "bundle" / "python" / "tasks",
-    REPO / "tools" / "breadth" / "tasks" / "d2",
-    REPO / "tools" / "breadth" / "tasks" / "d3",
-    REPO / "tools" / "breadth" / "tasks" / "d1r",
-)
+
+def _instruments() -> Any:
+    """The instrument declaration, imported by path — ``tools/`` is no package.
+
+    Loaded once per process and shared: the declaration is meant to be one
+    object with one answer, so a second copy with its own cache is exactly
+    the drift this module exists to prevent.
+    """
+    cached = sys.modules.get("instruments")
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(
+        "instruments", REPO / "tools" / "instruments.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def existing_task_roots() -> tuple[Path, ...]:
+    """Every task set whose ids and prose the pool must stay distinct from.
+
+    Read from ``tools/instruments.json`` rather than listed here, because the
+    same list decides what a training set may not draw from (#230). This gate
+    is the reason the id rule over there is sound: no pool problem can take an
+    instrument's id, so an instrument id in a run is instrument material.
+    """
+    return _instruments().task_roots()
 
 
 @dataclass(frozen=True)
@@ -180,7 +204,7 @@ def preflight() -> None:
 def existing_tasks() -> dict[str, Contract]:
     """Contracts of every non-pool task set, keyed by a set-qualified label."""
     found: dict[str, Contract] = {}
-    for root in EXISTING_TASK_ROOTS:
+    for root in existing_task_roots():
         if not root.is_dir():
             continue
         for directory in sorted(root.iterdir()):

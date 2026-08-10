@@ -995,6 +995,32 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   #216's ±0.7pp transfers and the instruments are quiet but coarse. Sizes the
   bench at **n = 400** paired tasks (+5 to +8pp over the measured discordance
   range), whose cost is authoring rather than the 3–5 rig-hours it runs in.
+- `tools/instruments.json` and `tools/instruments.py` (#230) — the measurement
+  sets, declared once as data and read by every producer that could reach them.
+  `tools/problems/admit.py` already refused pool problems that collide with
+  them; `tools/replies/pin.py` and `tools/finetune/build_dataset.py` had no
+  concept of a set they must not draw from at all, which is how the #189 pilot
+  came to train on **622 examples from `d1` and 116 from `d2`** — `d1` being not
+  a copy of `tools/bundle/tasks/` but that directory itself, half the floor
+  instrument. A run is recognised three ways, because provenance hides in three
+  places: the tier it declared, the contract digests it pinned, and the
+  instrument id space its tasks fall in. A run that answers none of the three is
+  unclassifiable rather than clean, and raises.
+- Instrument protection at the point of entry and again at the point of use.
+  The pin stamps every run's verdict into `golden.json` (**9,173 of 12,331
+  replies are instrument material**) rather than dropping them — ADR-0016
+  requires the parser to be measured on the population it faces, and a stamp
+  serves both readers where an exclusion would serve neither. The dataset
+  builder then refuses stamped material, cross-checks the stamp against a live
+  classification, and treats **disagreement as fatal** rather than resolving it
+  the permissive way. Rebuilt clean, the training corpus is **608 examples over
+  150 problems** — smaller than #189's 738 and 7.5× wider in problems.
+- `docs/what-a-tune-may-train-on-2026-08-10.md` — the guard removes three
+  quarters of the captured replies from the training path, so it ships with the
+  answer to what is left: the #197 pool today, #225's reserved split when it
+  exists, and "no usable source yet" recorded as a finding rather than worked
+  around.
+
 - `docs/adoption-bar-prior-art-2026-08-10.md` — searched before choosing a
   number. The noise side converges on discordance as the binding quantity, and
   one source's HumanEval figure matches `tools/power`'s to the decimal. We did

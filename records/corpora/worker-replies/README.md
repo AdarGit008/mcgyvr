@@ -9,9 +9,8 @@ uv run --no-sync python tools/replies/pin.py --check
 ```
 
 `tests/test_reply_corpus.py` runs the same recomputation offline on every
-suite run. As of pinning it reports 120 replies: 119 parses, 1 refusal
-(`incomplete-reply`, a cap-truncated draw on t03 of the 2026-08-06 breadth
-run).
+suite run. As of the #230 re-pin it reports **12,331 replies over 88 runs**:
+11,932 parses and 399 refusals.
 
 ## Why a corpus at all
 
@@ -48,6 +47,35 @@ pinned with the failure as its expected outcome, until someone improves the
 parser and re-pins deliberately. Excluding failures would reintroduce the
 author-imagination bound the corpus exists to escape.
 
+## Which instrument a reply came from
+
+[#230](https://github.com/AdarGit008/mcgyvr/issues/230): this corpus is walked
+by `tools/finetune/build_dataset.py` on its way to a training set, so a run
+over a measurement set joins the training path at the moment it lands. That is
+how the #189 pilot came to train on 622 examples from `d1` — which **is**
+`tools/bundle/tasks/`, half the floor instrument.
+
+So every run is classified against `tools/instruments.json` and the verdict is
+written into the document, under `instruments.runs`:
+
+```json
+"breadth-campaign-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1": {
+  "sets": ["bundle-ts"], "primary": "bundle-ts",
+  "why": "bundle-ts: tier 'd1' is declared as it"
+}
+```
+
+**It is a stamp, not an exclusion.** 9,173 of the 12,331 replies here are
+instrument material, and they stay: ADR-0016 requires the parser to be measured
+on the population it actually faces, and dropping three quarters of it to
+protect a *different* consumer would curate this corpus back to the shapes that
+happen to be safe for fine-tuning. The training path refuses what the stamp
+names; this corpus keeps it.
+
+What is not optional is the verdict itself. A run stating no tier, no contract
+digests and no task id cannot be classified, and an unclassifiable run is not a
+clean one — it refuses to pin.
+
 ## Re-pinning
 
 `uv run --no-sync python tools/replies/pin.py` regenerates `golden.json` from
@@ -61,6 +89,11 @@ events that force it apart:
   review.
 - **A reply file was edited or lost** — corpus rot; restore the file rather
   than re-pinning around it.
+- **A set was declared in `tools/instruments.json`** — the stamps are only as
+  good as their date, so declaring a set makes this file stale until it is
+  re-pinned. The dataset builder treats a stamp that disagrees with the
+  declaration as fatal rather than resolving it the permissive way, which is
+  what makes the staleness loud instead of silent.
 
 A reply with no row in its run's `results.jsonl`, or whose bytes disagree
 with the sha its row recorded, refuses to pin: a fixture that cannot say

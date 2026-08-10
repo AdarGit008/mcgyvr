@@ -87,3 +87,38 @@ def test_refusals_are_corpus_not_noise(pinned: dict[str, Any]) -> None:
     assert totals["refusals"] == len(refusals)
     assert totals["replies"] == len(entries)
     assert refusals, "no refusal is pinned; the corpus has been curated clean"
+
+
+def test_a_run_with_no_provenance_cannot_be_pinned(tmp_path: Path) -> None:
+    """#230: the guard sits at the point of entry, and it is not optional.
+
+    Everything under ``records/measurements/`` is walked into this corpus and
+    from there into the training path. A run that states neither a tier nor
+    contract digests nor a task id cannot be classified against
+    ``tools/instruments.json``, and an unclassifiable run is not a clean one —
+    it would reach the dataset builder as drawable material.
+    """
+    pin = _pin()
+    run = tmp_path / "mystery"
+    run.mkdir()
+    (run / "run.json").write_text("{}", encoding="utf-8")
+
+    with pytest.raises(pin.PinError, match="provenance cannot be decided"):
+        pin._provenance(run, set())
+
+
+def test_every_pinned_run_states_which_instrument_it_came_from(
+    pinned: dict[str, Any],
+) -> None:
+    """The stamp the training path reads, present for every run in the corpus."""
+    runs = pinned["instruments"]["runs"]
+    assert pinned["record"] == "reply-corpus/2"
+    for entry in pinned["entries"]:
+        stamp = runs[entry["run"]]
+        assert "sets" in stamp and "why" in stamp
+    # The floor instrument is most of this corpus. Keeping those replies is
+    # deliberate — the parser must be measured on the population it faces —
+    # and the count is what makes the exclusion downstream auditable.
+    assert pinned["totals"]["instrument_replies"] == sum(
+        1 for e in pinned["entries"] if runs[e["run"]]["sets"]
+    )

@@ -1,0 +1,53 @@
+{
+  "record": "instruments/1",
+  "issue": 230,
+  "doctrine": "ADR-0018's corollary: the instrument is declared, and protected at the point of entry. A task set listed here is something the project measures with. Nothing trained on may be drawn from it, in either language arm, and the pool (tools/problems/) must stay distinct from every id and every prose here.",
+  "consumers": [
+    "tools/problems/admit.py — the pool may not collide with these ids or prose",
+    "tools/replies/pin.py — every pinned reply is stamped with the instrument it came from, at the point of entry",
+    "tools/finetune/build_dataset.py — no stamped reply reaches a training set"
+  ],
+  "adding_a_set": "A new measurement set is declared here in the same change that creates it. Until it is declared, the pin cannot stamp it and the builder cannot refuse it. #113's held-out bench set is the next entry this file expects.",
+  "sets": [
+    {
+      "id": "bundle-ts",
+      "root": "tools/bundle/tasks",
+      "language": "jsts",
+      "tiers": ["d1"],
+      "paired_with": ["bundle-py"],
+      "note": "The floor instrument's TypeScript half — the twenty contracts CLM-0012 measured on the 3B at 45/55/50/45%. The breadth rig's d1 tier is this set, byte for byte, rather than a copy of it (tools/breadth/measure.py, load_tier_tasks): one set, two rigs, two names. #189 drew 622 of 738 training examples from it."
+    },
+    {
+      "id": "bundle-py",
+      "root": "tools/bundle/python/tasks",
+      "language": "python",
+      "tiers": [],
+      "paired_with": ["bundle-ts"],
+      "note": "The floor instrument's Python half. Roughly two-thirds of its problems are bundle-ts restated in Python and the rest are language-idiomatic analogues of the same categories, so the pair is one instrument in two languages. #189 measured positive cross-language transfer, so protecting only the trained-on arm is not protection. It has no tier name in the breadth rig — that is #227, and it does not make the set less of an instrument."
+    },
+    {
+      "id": "breadth-d1r",
+      "root": "tools/breadth/tasks/d1r",
+      "language": "jsts",
+      "tiers": ["d1r"],
+      "paired_with": ["bundle-ts"],
+      "note": "The repaired t20, run as its own tier so a fix to one contract did not silently redefine d1 mid-campaign. Same problem as bundle-ts t20."
+    },
+    {
+      "id": "breadth-d2",
+      "root": "tools/breadth/tasks/d2",
+      "language": "jsts",
+      "tiers": ["d2"],
+      "paired_with": [],
+      "note": "The breadth rig's harder rung — twelve contracts, its own problems despite reusing the t01..t12 id shape. ADR-0017's floor band was probed on d1/d2/d3, and #189 drew its remaining 116 training examples from here."
+    },
+    {
+      "id": "breadth-d3",
+      "root": "tools/breadth/tasks/d3",
+      "language": "jsts",
+      "tiers": ["d3"],
+      "paired_with": [],
+      "note": "The breadth rig's hardest rung — twelve contracts, its own problems, the same id shape again."
+    }
+  ]
+}
