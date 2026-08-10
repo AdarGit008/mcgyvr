@@ -200,3 +200,15 @@ bench that can resolve it.
 **A future set is declared retired=null, trainable=false**, and the declaration
 refuses any other combination for a live set. #225's bench half arrives that
 way; its reserved training half is not an instrument at all.
+
+**#231's positive control loses its material, and the fix is #225's to choose.**
+The control is to recover CLM-0017's ~+20pp output-shape effect, measured on the
+twenty JS/TS contracts this record just released. A bench containing them cannot
+measure a tune; a bench without them cannot run the control. Three routes, none
+settled here: recover the effect on newly generated material and compare the
+size directionally; **un-release `bundle-ts`**, which is free *today* because
+nothing has been trained on the released material yet and gets less free the
+longer it waits; or choose a different known effect on unreleased material.
+Recorded rather than resolved, because choosing is #225's job and this record
+should not pre-empt it — but the "free today" clause is a real expiry, and the
+first tune drawn from `bundle-ts` closes that door.
