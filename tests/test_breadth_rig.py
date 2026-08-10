@@ -19,6 +19,7 @@ one is whether the *instrument* observes the thing it claims to:
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import importlib.util
 import json
@@ -500,6 +501,24 @@ def _sweep_argv(out: Path, tasks: str, draws: int = 1) -> list[str]:
     ]
 
 
+def _scorable_arm(monkeypatch: Any) -> None:
+    """Say the JS/TS runtime is present, because this is not about the runtime.
+
+    ``main`` refuses to dispatch on a machine whose Node cannot import a
+    ``.ts`` file directly, which is right — twenty red rows from a missing
+    runtime look exactly like a model that cannot write the language. But CI's
+    baseline job pins Node 20 and type stripping is unflagged only from 23.6,
+    so a test that reaches the loop through ``main`` would pass here and fail
+    there for a reason it is not about. These tests are about which cells hold
+    an observation; nothing in them scores anything.
+    """
+    monkeypatch.setattr(
+        breadth.bundle,
+        "JSTS",
+        dataclasses.replace(breadth.bundle.JSTS, capability=lambda: None),
+    )
+
+
 def _always_passes(monkeypatch: Any) -> None:
     """Parse and acceptance stubbed out: this is about cells, not verdicts."""
     monkeypatch.setattr(
@@ -554,6 +573,7 @@ def test_the_backend_going_away_stops_the_run_and_the_directory_says_so(
     says so before it says anything a reader might quote.
     """
     out = tmp_path / "run"
+    _scorable_arm(monkeypatch)
     monkeypatch.setattr(breadth, "runner_for", lambda endpoint: _DeadRunner())
     monkeypatch.setattr(sys, "argv", _sweep_argv(out, "t01,t02,t03,t04,t05"))
 
@@ -589,6 +609,7 @@ def test_the_identical_command_refills_what_the_outage_lost(
     the invocation that did it.
     """
     out = tmp_path / "run"
+    _scorable_arm(monkeypatch)
     argv = _sweep_argv(out, "t01,t02")
     monkeypatch.setattr(sys, "argv", argv)
     monkeypatch.setattr(breadth, "runner_for", lambda endpoint: _DeadRunner())
@@ -644,6 +665,7 @@ def test_the_quarantine_is_what_keeps_the_pin_join_total(
     spec.loader.exec_module(pin)
 
     out = tmp_path / "run"
+    _scorable_arm(monkeypatch)
     argv = _sweep_argv(out, "t01")
     monkeypatch.setattr(sys, "argv", argv)
     monkeypatch.setattr(breadth, "runner_for", lambda endpoint: _DeadRunner())
