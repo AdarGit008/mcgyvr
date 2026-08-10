@@ -158,6 +158,15 @@ POOL_ROOT = HERE.parent / "problems" / "tasks"
 POOL_MANIFEST = HERE.parent / "problems" / "admissions.jsonl"
 POOL_TIERS = ("pool-ts", "pool-py")
 
+# The bench (#225), one tier per language arm — the pool's pattern exactly:
+# the arm lives in the tier name, run identity carries it, and the campaign
+# driver never climbs into either. Served manifest-pinned only, filtered to
+# the bench half: the reserve half is training capacity (#222), never a tier,
+# and an unadmitted candidate directory is not part of any run's identity.
+BENCH_ROOT = HERE.parent / "bench" / "tasks"
+BENCH_MANIFEST = HERE.parent / "bench" / "admissions.jsonl"
+BENCH_TIERS = ("bench-ts", "bench-py")
+
 # Where the machine-specific half lives, git-ignored — same contract as the
 # bundle rig's worker file, kept beside this script so the two experiments can
 # name different workers.
@@ -221,6 +230,28 @@ def pinned_pool_ids() -> frozenset[str]:
     return frozenset(admitted)
 
 
+def pinned_bench_ids() -> frozenset[str]:
+    """The bench half of the bench manifest — the only ids a bench tier serves.
+
+    Same argument as :func:`pinned_pool_ids`, plus the split: the manifest
+    records each admitted problem's half under the pre-declared rule
+    (``tools/bench/split.py``), and only ``split == "bench"`` is instrument
+    material. The reserve half lives outside the declared roots and is never
+    served; an entry here saying otherwise would be caught by
+    ``admit.py --verify`` long before a sweep.
+    """
+    if not BENCH_MANIFEST.is_file():
+        return frozenset()
+    admitted: set[str] = set()
+    for line in BENCH_MANIFEST.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        entry = json.loads(line)
+        if not entry.get("superseded_by") and entry.get("split") == "bench":
+            admitted.add(str(entry["id"]))
+    return frozenset(admitted)
+
+
 def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
     """The tier's tasks, contracts validated by the real loader.
 
@@ -234,6 +265,10 @@ def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
         root = POOL_ROOT / tier.removeprefix("pool-")
         language = bundle.PYTHON if tier == "pool-py" else bundle.JSTS
         admitted = pinned_pool_ids()
+    elif tier in BENCH_TIERS:
+        root = BENCH_ROOT / tier.removeprefix("bench-")
+        language = bundle.PYTHON if tier == "bench-py" else bundle.JSTS
+        admitted = pinned_bench_ids()
     else:
         root = TIER_ROOT / tier
         # Every tier in this rig's own tree is JS/TS, d1 because it *is* the
@@ -244,7 +279,7 @@ def load_tier_tasks(tier: str, only: Sequence[str] = ()) -> list[Any]:
     if not root.is_dir():
         raise bundle.MeasureError(
             f"no such tier {tier!r}: {root} does not exist. "
-            f"Known: {TIERS + VARIANT_TIERS + POOL_TIERS}"
+            f"Known: {TIERS + VARIANT_TIERS + POOL_TIERS + BENCH_TIERS}"
         )
     tasks = []
     for directory in sorted(root.iterdir()):
@@ -789,10 +824,11 @@ def main() -> int:
     )
     parser.add_argument(
         "--tier",
-        choices=TIERS + VARIANT_TIERS + POOL_TIERS,
+        choices=TIERS + VARIANT_TIERS + POOL_TIERS + BENCH_TIERS,
         default="d1",
         help="difficulty tier to run (default d1, the bundle rig's set); "
-        "pool-ts/pool-py are the #197 problem pool's arms, not rungs",
+        "pool-ts/pool-py are the #197 problem pool's arms, not rungs; "
+        "bench-ts/bench-py are the #225 bench's arms, manifest-pinned",
     )
     parser.add_argument(
         "--draws",
@@ -869,7 +905,9 @@ def main() -> int:
             return 2
 
     if not args.summarise_only:
-        language = bundle.PYTHON if args.tier == "pool-py" else bundle.JSTS
+        language = (
+            bundle.PYTHON if args.tier in ("pool-py", "bench-py") else bundle.JSTS
+        )
         problem = language.capability()
         if problem is not None:
             print(f"error: {problem}", file=sys.stderr)

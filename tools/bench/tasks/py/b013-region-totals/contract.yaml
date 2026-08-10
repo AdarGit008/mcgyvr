@@ -1,0 +1,39 @@
+id: b013-region-totals
+task_type: function_implementation
+task: >-
+  Implement region_totals. The first argument is a grid: a non-empty list of
+  rows, each row a non-empty list of integers, every row the same length.
+  The second is a list of queries, each a four-integer list [top, left,
+  bottom, right] naming the block of cells in rows top up to but not
+  including bottom and columns left up to but not including right. Return
+  the block totals in query order, each the sum of every cell inside its
+  block; no queries yields an empty list. Precomputing a prefix-sum table
+  keeps repeated queries cheap. Reject a grid with no rows, a first row with
+  no cells, rows of differing lengths, a cell that is not an integer, a
+  query that is not a list of exactly four integers, a query whose top is
+  not strictly less than its bottom or whose left is not strictly less than
+  its right, and a query reaching outside the grid, with an error.
+target: solution.py
+target_content: |
+  def region_totals(grid, queries):
+      if not isinstance(grid, list) or not grid:
+          raise ValueError("grid must be a non-empty list of rows")
+      width = len(grid[0]) if isinstance(grid[0], list) else 0
+      if width == 0:
+          raise ValueError("rows must be non-empty lists")
+      for row in grid:
+          if not isinstance(row, list) or len(row) != width:
+              raise ValueError("rows must all share one length")
+          for cell in row:
+              if isinstance(cell, bool) or not isinstance(cell, int):
+                  raise ValueError("cells must be integers")
+      # TODO: build a prefix-sum table over the grid, then validate each
+      # query and answer it from the table.
+      return []
+interface: "def region_totals(grid: list, queries: list) -> list"
+stop_conditions:
+  - Whether a bound on grid size or cell magnitude applies is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

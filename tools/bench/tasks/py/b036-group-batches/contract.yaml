@@ -1,0 +1,28 @@
+id: b036-group-batches
+task_type: function_implementation
+task: >-
+  Implement group_batches. The first argument is a list of jobs, each a
+  [name, group, priority, weight] quadruple; the second is the weight
+  capacity of one batch. Jobs in the same group must run in arrival order,
+  so at any moment only the earliest unscheduled job of each group is
+  eligible. Build batches round by round: rank the eligible heads by
+  priority descending, breaking ties by earlier arrival, then walk that
+  ranking taking each head whose weight still fits within the capacity
+  left in this batch and passing over heads that do not fit; the batch
+  closes when the ranking is exhausted, and scheduling continues with
+  fresh heads until every job is placed. A job scheduled in one round
+  frees its group's next job only for later rounds, never for the same
+  batch. Return the batches as lists of job names in the order taken; no
+  jobs yields an empty list. Reject a jobs argument that is not a list, a
+  job that is not a four-item list, a name or group that is not a
+  non-empty string, a priority that is not an integer, a weight that is
+  not an integer from 1 to the capacity, a duplicate job name, and a
+  capacity that is not a positive integer, with an error.
+target: solution.py
+interface: "def group_batches(jobs: list, capacity: int) -> list"
+stop_conditions:
+  - Whether group labels are case-sensitive is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

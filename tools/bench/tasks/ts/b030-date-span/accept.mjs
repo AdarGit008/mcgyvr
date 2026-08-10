@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import { spanDays } from "./solution.ts";
+
+assert.equal(spanDays([2024, 5, 10], [2024, 5, 10]), 0, "equal dates span zero");
+assert.equal(spanDays([2024, 5, 10], [2024, 5, 11]), 1, "next day spans one");
+assert.equal(spanDays([2023, 1, 31], [2023, 2, 1]), 1, "across a month end");
+assert.equal(spanDays([2023, 2, 28], [2023, 3, 1]), 1, "plain February has 28 days");
+assert.equal(spanDays([2024, 2, 28], [2024, 3, 1]), 2, "leap February has 29 days");
+assert.equal(spanDays([1900, 2, 28], [1900, 3, 1]), 1, "1900 is not a leap year");
+assert.equal(spanDays([2000, 2, 28], [2000, 3, 1]), 2, "2000 is a leap year");
+assert.equal(spanDays([2023, 1, 1], [2024, 1, 1]), 365, "a plain year");
+assert.equal(spanDays([1899, 12, 31], [1901, 1, 1]), 366, "a span across 1900");
+assert.equal(spanDays([2024, 2, 29], [2024, 3, 1]), 1, "leap day is a real date");
+assert.throws(() => spanDays([2024, 1, 2], [2024, 1, 1]), Error, "start after end is rejected");
+assert.throws(() => spanDays([2024, 0, 10], [2024, 1, 1]), Error, "month zero is rejected");
+assert.throws(() => spanDays([2024, 13, 1], [2025, 1, 1]), Error, "month thirteen is rejected");
+assert.throws(() => spanDays([2024, 1, 0], [2024, 2, 1]), Error, "day zero is rejected");
+assert.throws(() => spanDays([2023, 4, 31], [2023, 5, 1]), Error, "April the 31st is rejected");
+assert.throws(() => spanDays([2023, 2, 29], [2023, 3, 1]), Error, "February 29 outside a leap year");
+assert.throws(() => spanDays([2024, 1, 1.5], [2024, 2, 1]), Error, "fractional component is rejected");
+console.log("ok");

@@ -1,0 +1,94 @@
+/**
+ * A lift's service sweep: split directional call buttons around the
+ * boarding floor, run the sweep, and measure the travel it costs.
+ */
+
+export function splitCalls(
+  start: number,
+  calls: [number, string][],
+): { upAhead: number[]; upBehind: number[]; down: number[] } {
+  if (!Number.isInteger(start)) {
+    throw new Error("boarding floor must be an integer");
+  }
+  if (!Array.isArray(calls)) {
+    throw new Error("calls must be a list");
+  }
+  const up = new Set<number>();
+  const downSet = new Set<number>();
+  for (const call of calls) {
+    if (!Array.isArray(call) || call.length !== 2) {
+      throw new Error("each call is a [floor, direction] pair");
+    }
+    const [floor, direction] = call;
+    if (!Number.isInteger(floor)) {
+      throw new Error("call floor must be an integer");
+    }
+    if (direction !== "up" && direction !== "down") {
+      throw new Error("call direction must be up or down");
+    }
+    if (direction === "up") {
+      up.add(floor);
+    } else {
+      downSet.add(floor);
+    }
+  }
+  const upFloors = [...up].sort((a, b) => a - b);
+  return {
+    upAhead: upFloors.filter((floor) => floor >= start),
+    upBehind: upFloors.filter((floor) => floor < start),
+    down: [...downSet].sort((a, b) => a - b),
+  };
+}
+
+export function runLift(start: number, calls: [number, string][]): number[] {
+  const parts = splitCalls(start, calls);
+  const stops: number[] = [...parts.upAhead];
+  for (let i = parts.down.length - 1; i >= 0; i--) {
+    stops.push(parts.down[i]);
+  }
+  for (const floor of parts.upBehind) {
+    stops.push(floor);
+  }
+  return stops;
+}
+
+export function liftDistance(start: number, stops: number[]): number {
+  if (!Number.isInteger(start)) {
+    throw new Error("boarding floor must be an integer");
+  }
+  if (!Array.isArray(stops)) {
+    throw new Error("stops must be a list");
+  }
+  let at = start;
+  let travelled = 0;
+  for (const stop of stops) {
+    if (!Number.isInteger(stop)) {
+      throw new Error("each stop must be an integer");
+    }
+    travelled += Math.abs(stop - at);
+    at = stop;
+  }
+  return travelled;
+}
+
+export function sweepReport(
+  start: number,
+  calls: [number, string][],
+): { stops: number[]; travelled: number; reversals: number } {
+  const stops = runLift(start, calls);
+  const travelled = liftDistance(start, stops);
+  let reversals = 0;
+  let at = start;
+  let lastStep = 0;
+  for (const stop of stops) {
+    const step = Math.sign(stop - at);
+    if (step !== 0) {
+      if (lastStep !== 0 && step !== lastStep) {
+        reversals += 1;
+      }
+      lastStep = step;
+    }
+    at = stop;
+  }
+  return { stops, travelled, reversals };
+}

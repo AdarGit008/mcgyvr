@@ -1,0 +1,59 @@
+id: b033-till-session
+task_type: function_implementation
+task: >-
+  Implement runTillSession. It replays one point-of-sale till session from
+  a price list, a mapping from item name to a price in integer cents, and
+  a list of events, each a list opening with its action. The session
+  starts open with an empty cart. A scan event, ["scan", item], adds one
+  unit of the item and a void event, ["void", item], removes one, dropping
+  the item at zero; both are lawful only while the session is open. A
+  close event, ["close"], moves an open session with a non-empty cart to
+  payment and fixes the total. Pay events, ["pay", cents], are lawful only
+  during payment and accumulate; the moment the amount paid reaches the
+  total the session is paid and the excess is the change. A cancel event,
+  ["cancel"], ends an open or payment session as cancelled. Paid and
+  cancelled sessions admit no further events. Return a mapping with state;
+  items, the [name, quantity] pairs sorted by name; total, fixed at close
+  and 0 for a session never closed; paid, the cents received; and change,
+  the cents handed back. Reject a price that is not a positive integer, an
+  event that is not a list of its action and exactly its payload, an
+  unknown action, an action unlawful in the session's current state, a
+  scan of an item absent from the price list, a void of an item not in the
+  cart, a pay amount that is not a positive integer, a close with an empty
+  cart, and any event after the session is paid or cancelled, with an
+  error.
+target: solution.ts
+target_content: |
+  /** One point-of-sale till session, replayed from its events. */
+  const OPEN = "open";
+  const PAYMENT = "payment";
+  const PAID = "paid";
+  const CANCELLED = "cancelled";
+
+  export function runTillSession(
+    events: (string | number)[][],
+    prices: Record<string, number>,
+  ): {
+    state: string;
+    items: [string, number][];
+    total: number;
+    paid: number;
+    change: number;
+  } {
+    for (const name of Object.keys(prices)) {
+      if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+        throw new Error("price must be a positive integer: " + name);
+      }
+    }
+    // TODO: replay the events over the open/payment/paid/cancelled states,
+    // maintain the cart, fix the total at close, accumulate payments and
+    // compute the change, rejecting every unlawful event.
+    throw new Error("not implemented");
+  }
+interface: "export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number }"
+stop_conditions:
+  - How a price list with no entries is treated before the first scan is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

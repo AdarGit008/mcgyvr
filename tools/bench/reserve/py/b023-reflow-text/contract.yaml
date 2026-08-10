@@ -1,0 +1,51 @@
+id: b023-reflow-text
+task_type: function_implementation
+task: >-
+  Implement reflow_text. Given a block of text and a positive integer
+  width, rewrap the text into lines of at most width characters. Runs of
+  spaces, tabs, and single line breaks merely separate words, but one or
+  more blank lines split the text into paragraphs, rendered with exactly
+  one empty line between them in the output. Fill each line greedily:
+  words on a line are joined by single spaces while the line stays within
+  the width, and a word that does not fit starts the next line. A word
+  longer than the width is broken into width-sized pieces, each full
+  piece on its own line, and the final piece — at most the width — starts
+  the next line, where later words may join it if they fit. Return the
+  list of lines with no leading or trailing spaces on any line; text that
+  is empty or all whitespace yields an empty list. Reject a non-string
+  text, a non-integer width, and a width below one with an error.
+target: solution.py
+target_content: |
+  """Greedy re-wrap of free text into lines of a fixed width."""
+
+
+  def _paragraphs_of(text):
+      paragraphs = []
+      words = []
+      for line in text.split("\n"):
+          tokens = line.split()
+          if not tokens:
+              if words:
+                  paragraphs.append(words)
+                  words = []
+          else:
+              words.extend(tokens)
+      if words:
+          paragraphs.append(words)
+      return paragraphs
+
+
+  def reflow_text(text: str, width: int) -> list:
+      # TODO: validate the arguments, fill lines greedily, separate the
+      # paragraphs, and break words longer than the width into pieces.
+      lines = []
+      for words in _paragraphs_of(text):
+          lines.append(" ".join(words))
+      return lines
+interface: "def reflow_text(text: str, width: int) -> list"
+stop_conditions:
+  - How a carriage return in the text is treated is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

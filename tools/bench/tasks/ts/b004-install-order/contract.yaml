@@ -1,0 +1,53 @@
+id: b004-install-order
+task_type: bug_fix
+task: >-
+  installOrder arranges packages into an installation order incorrectly.
+  Fix it: the input is a list of package names and a list of requirement
+  pairs, each pair [pkg, needed] meaning needed must already be installed
+  when pkg is installed. Every package is installed exactly once,
+  requirements always come first, and whenever several packages could
+  equally go next the one whose name sorts alphabetically first goes
+  next — at present the newest available package jumps the queue instead.
+  A repeated requirement pair is harmless. Also add the missing
+  validation: reject a package name listed twice, a requirement pair
+  naming a package absent from the list, and requirements that chase
+  each other in a cycle — at present a cycle silently yields a truncated
+  order. Reject each with an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** An installation order for packages under prerequisite pairs. */
+  export function installOrder(
+    packages: string[],
+    requires: string[][],
+  ): string[] {
+    const needs: Record<string, number> = {};
+    const enables: Record<string, string[]> = {};
+    for (const name of packages) {
+      needs[name] = 0;
+      enables[name] = [];
+    }
+    for (const [pkg, needed] of requires) {
+      needs[pkg] += 1;
+      enables[needed].push(pkg);
+    }
+    const ready = packages.filter((name) => needs[name] === 0);
+    const order: string[] = [];
+    while (ready.length > 0) {
+      const next = ready.pop() as string;
+      order.push(next);
+      for (const follower of enables[next]) {
+        needs[follower] -= 1;
+        if (needs[follower] === 0) {
+          ready.push(follower);
+        }
+      }
+    }
+    return order;
+  }
+interface: "export function installOrder(packages: string[], requires: string[][]): string[]"
+stop_conditions:
+  - Whether the packages list itself may be reordered in place is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

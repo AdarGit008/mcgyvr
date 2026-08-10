@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "data_structure",
+  "steering_band": "g2",
+  "target_symbol": {"ts": "siteTotals", "py": "site_totals"}
+}

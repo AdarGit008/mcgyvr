@@ -1,0 +1,68 @@
+id: b020-route-pattern
+task_type: bug_fix
+task: >-
+  matchRoute matches a slash-separated route pattern against a request
+  path, and its wildcard handling is wrong. A pattern and a path are
+  strings of segments joined by "/", and the empty string holds no
+  segments. A literal segment matches only itself. A segment written
+  :name matches exactly one path segment and records it under name. A
+  segment written ** must span zero or more path segments, but the current
+  code makes it span at least one, so a/**/b fails against a/b, a trailing
+  ** fails when the path is already exhausted, and ** alone fails against
+  the empty path. Fix it so the whole path must be consumed and the
+  captures come back as a mapping from names to matched segments, an empty
+  mapping when the pattern captures nothing, and a null result when the
+  pattern does not match. Also add the missing validation: reject a
+  pattern holding an empty segment, and a capture segment that is only a
+  colon with no name, with an error. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Match a slash-separated route pattern against a request path. */
+  export function matchRoute(
+    pattern: string,
+    path: string,
+  ): Record<string, string> | null {
+    const pats = pattern === "" ? [] : pattern.split("/");
+    const parts = path === "" ? [] : path.split("/");
+    return matchFrom(pats, 0, parts, 0, {});
+  }
+
+  function matchFrom(
+    pats: string[],
+    pi: number,
+    parts: string[],
+    si: number,
+    caps: Record<string, string>,
+  ): Record<string, string> | null {
+    if (pi === pats.length) {
+      return si === parts.length ? caps : null;
+    }
+    const seg = pats[pi];
+    if (seg === "**") {
+      for (let take = si + 1; take <= parts.length; take++) {
+        const found = matchFrom(pats, pi + 1, parts, take, caps);
+        if (found !== null) {
+          return found;
+        }
+      }
+      return null;
+    }
+    if (si === parts.length) {
+      return null;
+    }
+    if (seg.startsWith(":")) {
+      const next = { ...caps, [seg.slice(1)]: parts[si] };
+      return matchFrom(pats, pi + 1, parts, si + 1, next);
+    }
+    if (seg === parts[si]) {
+      return matchFrom(pats, pi + 1, parts, si + 1, caps);
+    }
+    return null;
+  }
+interface: "export function matchRoute(pattern: string, path: string): Record<string, string> | null"
+stop_conditions:
+  - How a path containing an empty segment is treated is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

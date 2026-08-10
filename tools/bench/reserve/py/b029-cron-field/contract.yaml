@@ -1,0 +1,25 @@
+id: b029-cron-field
+task_type: function_implementation
+task: >-
+  Implement expand_cron_field. The first argument is one cron schedule field;
+  the second and third are the inclusive lower and upper bounds of the
+  values that field ranges over. The field is one or more comma-separated
+  items; an item is a star, a single number, or a range written as two
+  numbers joined by a hyphen, and a star or a range may carry a step
+  written as a slash then a number, as in */15 or 2-11/3. A star stands
+  for every value between the bounds; a range stands for every value from
+  its low end to its high end inclusive; a step keeps only every step-th
+  value counting from the start of its star or range. Return the matching
+  values as an increasing list without repeats. Reject with an error: a
+  non-string field, an empty field, an empty item, a number outside the
+  bounds, a range whose low end exceeds its high end, a step of zero, a
+  step attached to a single number, and any character besides digits,
+  commas, hyphens, slashes and stars.
+target: solution.py
+interface: "def expand_cron_field(field: str, low: int, high: int) -> list"
+stop_conditions:
+  - Whether the two bounds may arrive equal, reversed or non-integer is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

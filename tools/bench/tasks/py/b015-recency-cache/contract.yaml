@@ -1,0 +1,28 @@
+id: b015-recency-cache
+task_type: function_implementation
+task: >-
+  Implement cache_write, the writing half of a recency cache built by
+  new_cache and read by cache_read. new_cache takes a limit and returns the
+  cache: a mapping holding limit, keys — the held keys ordered least
+  recently touched first — and store, the held key-value pairs; it rejects a
+  limit that is not a positive integer, with an error. cache_write records
+  value under key in place: a key already held gets its value replaced and
+  moves to most recently touched, and such a write spills nothing; a new key
+  enters as most recently touched, and when the cache already holds limit
+  keys the least recently touched key is dropped from keys and store first.
+  cache_write returns the list of keys it spilled — empty when nothing was
+  dropped, exactly the one dropped key otherwise. cache_read returns the
+  value held under key and moves that key to most recently touched; reading
+  a key that is not held is an error. Both cache_write and cache_read reject
+  a key that is not a non-empty string, with an error.
+target: solution.py
+interface: |-
+  def new_cache(limit: int) -> dict
+  def cache_write(cache: dict, key: str, value: int) -> list
+  def cache_read(cache: dict, key: str) -> int
+stop_conditions:
+  - Whether values other than integers must be accepted or rejected is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

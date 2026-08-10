@@ -1,0 +1,29 @@
+id: b015-recency-cache
+task_type: function_implementation
+task: >-
+  Implement cacheWrite, the writing half of a recency cache built by
+  newCache and read by cacheRead. newCache takes a limit and returns the
+  cache: a mapping holding limit, keys — the held keys ordered least
+  recently touched first — and store, the held key-value pairs; it rejects a
+  limit that is not a positive integer, with an error. cacheWrite records
+  value under key in place: a key already held gets its value replaced and
+  moves to most recently touched, and such a write spills nothing; a new key
+  enters as most recently touched, and when the cache already holds limit
+  keys the least recently touched key is dropped from keys and store first.
+  cacheWrite returns the list of keys it spilled — empty when nothing was
+  dropped, exactly the one dropped key otherwise. cacheRead returns the
+  value held under key and moves that key to most recently touched; reading
+  a key that is not held is an error. Both cacheWrite and cacheRead reject a
+  key that is not a non-empty string, with an error.
+target: solution.ts
+interface: |-
+  type CacheState = { limit: number; keys: string[]; store: Record<string, number> };
+  export function newCache(limit: number): CacheState
+  export function cacheWrite(cache: CacheState, key: string, value: number): string[]
+  export function cacheRead(cache: CacheState, key: string): number
+stop_conditions:
+  - Whether values other than integers must be accepted or rejected is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

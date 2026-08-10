@@ -163,8 +163,13 @@ def _fixture_declaration(path: Path, **flags: Any) -> Path:
 
 
 def test_the_five_local_sets_are_retired_and_released() -> None:
-    """#240's decision, as data rather than as prose in an ADR."""
-    local = [i for i in instruments.declared() if i.root is not None]
+    """#240's decision, as data rather than as prose in an ADR.
+
+    Scoped to the retired sets: #225's bench arms joined the declaration
+    live, so "every local set" stopped being the same statement as "#240's
+    five" the day the bench was declared.
+    """
+    local = [i for i in instruments.declared() if i.root is not None and i.retired]
     assert {i.id for i in local} == {
         "bundle-ts",
         "bundle-py",
@@ -176,6 +181,27 @@ def test_the_five_local_sets_are_retired_and_released() -> None:
     for inst in local:
         assert inst.retired is not None and inst.retired.issue == 240
         assert inst.trainable
+
+
+def test_the_two_bench_arms_are_declared_live_and_untrainable() -> None:
+    """#225's bench: one instrument in two languages, protected from birth.
+
+    `retired: null, trainable: false` is the only combination the
+    declaration accepts for a live set, and the bench must hold it in both
+    arms — its whole reason to exist is measuring tunes it never fed.
+    """
+    by_id = {inst.id: inst for inst in instruments.declared()}
+    ts, py = by_id["bench-ts"], by_id["bench-py"]
+    assert "bench-py" in ts.paired_with
+    assert "bench-ts" in py.paired_with
+    assert ts.task_ids == py.task_ids
+    assert ts.task_ids, "a declared bench with no contracts protects nothing"
+    assert (ts.language, py.language) == ("jsts", "python")
+    for inst in (ts, py):
+        assert inst.retired is None
+        assert not inst.trainable
+    assert instruments.tier_owner("bench-ts") == "bench-ts"
+    assert instruments.tier_owner("bench-py") == "bench-py"
 
 
 def test_humaneval_is_retired_and_never_trainable() -> None:

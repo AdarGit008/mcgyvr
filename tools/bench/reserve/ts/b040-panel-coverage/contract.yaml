@@ -1,0 +1,95 @@
+id: b040-panel-coverage
+task_type: bug_fix
+task: >-
+  panelCoverage misreads two of its statistics and validates nothing.
+  Each panel is an [x1, y1, x2, y2] axis-aligned rectangle on the integer
+  grid, covering x1 up to but not including x2 and y1 up to but not
+  including y2. The report carries union, the total ground covered by at
+  least one panel; overlap, the ground covered by two or more; deepest,
+  the greatest number of panels stacked over any single point, zero with
+  no panels; perimeter, the length of the boundary between covered and
+  uncovered ground, seams between covered patches not included; and
+  bounds, the tightest [minX, minY, maxX, maxY] enclosing every panel,
+  null with none. As shipped, overlap comes back zero wherever exactly
+  two panels share ground — only ground under at least three registers —
+  and perimeter counts every side of every covered patch, seams included,
+  so it runs long whenever coverage spans more than one patch. Fix both
+  statistics. Also add the missing validation: reject a panels argument
+  that is not a list, a panel that is not a four-item list, a coordinate
+  that is not an integer, and a panel whose x1 does not lie below its x2
+  or whose y1 does not lie below its y2, with an error. Return the
+  complete fixed file.
+target: solution.ts
+target_content: |
+  /** Coverage statistics for axis-aligned panels laid over an integer grid. */
+  export function panelCoverage(panels: number[][]): {
+    union: number;
+    overlap: number;
+    deepest: number;
+    perimeter: number;
+    bounds: number[] | null;
+  } {
+    if (panels.length === 0) {
+      return { union: 0, overlap: 0, deepest: 0, perimeter: 0, bounds: null };
+    }
+    const xs = [...new Set(panels.flatMap((p) => [p[0], p[2]]))].sort(
+      (a, b) => a - b,
+    );
+    const ys = [...new Set(panels.flatMap((p) => [p[1], p[3]]))].sort(
+      (a, b) => a - b,
+    );
+    const covered: boolean[][] = xs.map(() => ys.map(() => false));
+    let union = 0;
+    let overlap = 0;
+    let deepest = 0;
+    for (let i = 0; i + 1 < xs.length; i++) {
+      for (let j = 0; j + 1 < ys.length; j++) {
+        let depth = 0;
+        for (const p of panels) {
+          if (
+            p[0] <= xs[i] &&
+            xs[i + 1] <= p[2] &&
+            p[1] <= ys[j] &&
+            ys[j + 1] <= p[3]
+          ) {
+            depth += 1;
+          }
+        }
+        const area = (xs[i + 1] - xs[i]) * (ys[j + 1] - ys[j]);
+        if (depth >= 1) {
+          union += area;
+          covered[i][j] = true;
+        }
+        if (depth > 2) {
+          overlap += area;
+        }
+        if (depth > deepest) {
+          deepest = depth;
+        }
+      }
+    }
+    let perimeter = 0;
+    for (let i = 0; i + 1 < xs.length; i++) {
+      for (let j = 0; j + 1 < ys.length; j++) {
+        if (covered[i][j]) {
+          const width = xs[i + 1] - xs[i];
+          const height = ys[j + 1] - ys[j];
+          perimeter += 2 * (width + height);
+        }
+      }
+    }
+    const bounds = [
+      Math.min(...panels.map((p) => p[0])),
+      Math.min(...panels.map((p) => p[1])),
+      Math.max(...panels.map((p) => p[2])),
+      Math.max(...panels.map((p) => p[3])),
+    ];
+    return { union, overlap, deepest, perimeter, bounds };
+  }
+interface: "export function panelCoverage(panels: number[][]): { union: number; overlap: number; deepest: number; perimeter: number; bounds: number[] | null }"
+stop_conditions:
+  - Whether coordinate magnitudes are bounded is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

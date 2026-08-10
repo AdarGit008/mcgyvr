@@ -1,0 +1,45 @@
+id: b002-option-pairs
+task_type: function_implementation
+task: >-
+  Implement scan_pairs, whose helper parse_option is already written. An
+  options string is a run of key=value segments separated by semicolons,
+  like mode=fast;retry=3. parse_option turns one segment into a [key,
+  value] pair: the key is everything before the first equals sign and
+  must be a bare identifier, a letter followed by letters, digits or
+  underscores; the value is everything after it, stripped of its double
+  quotes when it is wrapped in them, and kept as it is otherwise; a
+  segment with no equals sign or with a key that is not a bare
+  identifier is an error. scan_pairs splits the whole string on
+  semicolons, except that a semicolon sitting between double quotes
+  does not split, hands each segment to parse_option, and returns the
+  pairs in input order; a value may be empty. Reject a non-string
+  argument, the empty string, a repeated key, and a quoted value that
+  is never closed, with an error.
+target: solution.py
+target_content: |
+  import re
+
+
+  def parse_option(segment: str) -> list:
+      key, eq, raw = segment.partition("=")
+      if not eq or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", key) is None:
+          raise ValueError("malformed option segment: " + segment)
+      if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+          raw = raw[1:-1]
+      return [key, raw]
+
+
+  def scan_pairs(text: str) -> list:
+      # TODO: validate the input, split it on semicolons outside double
+      # quotes, reject an unterminated quote and a repeated key, and build
+      # the pairs with parse_option.
+      raise NotImplementedError
+interface: |-
+  def scan_pairs(text: str) -> list
+  def parse_option(segment: str) -> list
+stop_conditions:
+  - How a quote character in the middle of an unquoted value is treated is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

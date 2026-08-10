@@ -1,0 +1,34 @@
+"""Match a slash-separated route pattern against a request path."""
+
+
+def match_route(pattern, path):
+    """Return captured segments as a dict, or None when there is no match."""
+    pats = pattern.split("/") if pattern else []
+    for seg in pats:
+        if seg == "":
+            raise ValueError("pattern has an empty segment")
+        if seg == ":":
+            raise ValueError("a capture segment needs a name after the colon")
+    parts = path.split("/") if path else []
+
+    def match_from(pi, si, caps):
+        if pi == len(pats):
+            return caps if si == len(parts) else None
+        seg = pats[pi]
+        if seg == "**":
+            for take in range(si, len(parts) + 1):
+                found = match_from(pi + 1, take, caps)
+                if found is not None:
+                    return found
+            return None
+        if si == len(parts):
+            return None
+        if seg.startswith(":"):
+            merged = dict(caps)
+            merged[seg[1:]] = parts[si]
+            return match_from(pi + 1, si + 1, merged)
+        if seg == parts[si]:
+            return match_from(pi + 1, si + 1, caps)
+        return None
+
+    return match_from(0, 0, {})

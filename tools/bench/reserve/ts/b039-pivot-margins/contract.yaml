@@ -1,0 +1,27 @@
+id: b039-pivot-margins
+task_type: function_implementation
+task: >-
+  Implement pivotMargins. The input is a flat list of entries, each a
+  [row, column, amount] triple; pivot it into a dense table. Entries
+  landing on the same row and column pair accumulate into one cell.
+  Return {rows, cols, cells, rowTotals, colTotals, grand, blanks,
+  leaders}: rows and cols are the distinct labels, each ordered by its
+  descending total with ties alphabetical ascending; cells is the matrix
+  of sums in that ordering, holding zero where no entry landed; rowTotals,
+  colTotals and grand are the margin sums; blanks counts the cells that
+  received no entry at all — a cell whose amounts cancel to zero is not
+  blank; leaders gives, per row, the column label of that row's largest
+  cell, ties going to the leftmost tied column in the returned column
+  order. Amounts may be negative. No entries yields empty lists and a
+  zero grand and blanks. Reject an entries argument that is not a list,
+  an entry that is not a three-item list, a row or column label that is
+  not a non-empty string, and an amount that is not an integer, with an
+  error.
+target: solution.ts
+interface: "export function pivotMargins(entries: [string, string, number][]): { rows: string[]; cols: string[]; cells: number[][]; rowTotals: number[]; colTotals: number[]; grand: number; blanks: number; leaders: string[] }"
+stop_conditions:
+  - Whether label comparison should fold letter case is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

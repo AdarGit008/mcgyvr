@@ -1,0 +1,56 @@
+id: b012-stride-weave
+task_type: function_implementation
+task: >-
+  Complete a stride toolkit by implementing strideWeave. The toolkit's
+  sampling half is strideTake, which returns the items whose zero-based
+  index leaves remainder offset when divided by step, in their original
+  order, and strideSkip, which returns exactly the items strideTake leaves
+  out, also in order; both reject an items argument that is not a list, a
+  step that is not a positive integer, and an offset that is not an integer
+  from zero up to but not including step, with an error. strideWeave puts
+  strides back together: given a list of parts it walks them left to right,
+  taking the first unconsumed element of each part that still holds one,
+  then cycles back to the first part, passing over parts already spent,
+  until every part is spent, and returns the woven list. Weaving the step
+  strides of one list, offsets in rising order, rebuilds that list exactly;
+  no parts at all weave to an empty list. strideWeave rejects a parts
+  argument that is not a list and a part that is not a list, with an error.
+target: solution.ts
+target_content: |
+  function checkStride(items: number[], step: number, offset: number): void {
+    if (!Array.isArray(items)) {
+      throw new Error("items must be a list");
+    }
+    if (!Number.isInteger(step) || step < 1) {
+      throw new Error("step must be a positive integer");
+    }
+    if (!Number.isInteger(offset) || offset < 0 || offset >= step) {
+      throw new Error("offset must be an integer in [0, step)");
+    }
+  }
+
+  export function strideTake(items: number[], step: number, offset: number): number[] {
+    checkStride(items, step, offset);
+    return items.filter((_, index) => index % step === offset);
+  }
+
+  export function strideSkip(items: number[], step: number, offset: number): number[] {
+    checkStride(items, step, offset);
+    return items.filter((_, index) => index % step !== offset);
+  }
+
+  export function strideWeave(parts: number[][]): number[] {
+    // TODO: validate parts, then take one element from each unspent part in
+    // turn, cycling left to right until every part is spent.
+    return [];
+  }
+interface: |-
+  export function strideTake(items: number[], step: number, offset: number): number[]
+  export function strideSkip(items: number[], step: number, offset: number): number[]
+  export function strideWeave(parts: number[][]): number[]
+stop_conditions:
+  - Whether the parts may hold elements of mixed types is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

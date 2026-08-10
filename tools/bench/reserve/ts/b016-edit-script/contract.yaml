@@ -1,0 +1,24 @@
+id: b016-edit-script
+task_type: function_implementation
+task: >-
+  Implement applyEditScript. The input is a document string and an edit
+  script, a list of [tag, text] pairs applied in order while a cursor walks
+  the document from its start. A keep pair copies from the cursor as many
+  characters as its text holds, and those characters must equal the text; a
+  drop pair skips that many characters, which must likewise equal the text;
+  an add pair appends its text to the output without moving the cursor.
+  After the final pair the cursor must sit exactly at the end of the
+  document. Return the rebuilt document. Reject a document that is not a
+  string, a script that is not a list, a tag other than keep, drop or add,
+  an edit text that is empty or not a string, a keep or drop whose text
+  differs from the document at the cursor, an edit that runs past the end
+  of the document, and a script that leaves document characters unconsumed,
+  with an error.
+target: solution.ts
+interface: "export function applyEditScript(doc: string, script: string[][]): string"
+stop_conditions:
+  - Whether edit texts may contain newline characters is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

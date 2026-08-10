@@ -1,0 +1,55 @@
+id: b020-route-pattern
+task_type: bug_fix
+task: >-
+  match_route matches a slash-separated route pattern against a request
+  path, and its wildcard handling is wrong. A pattern and a path are
+  strings of segments joined by "/", and the empty string holds no
+  segments. A literal segment matches only itself. A segment written
+  :name matches exactly one path segment and records it under name. A
+  segment written ** must span zero or more path segments, but the current
+  code makes it span at least one, so a/**/b fails against a/b, a trailing
+  ** fails when the path is already exhausted, and ** alone fails against
+  the empty path. Fix it so the whole path must be consumed and the
+  captures come back as a mapping from names to matched segments, an empty
+  mapping when the pattern captures nothing, and a null result when the
+  pattern does not match. Also add the missing validation: reject a
+  pattern holding an empty segment, and a capture segment that is only a
+  colon with no name, with an error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  """Match a slash-separated route pattern against a request path."""
+
+
+  def match_route(pattern, path):
+      """Return captured segments as a dict, or None when there is no match."""
+      pats = pattern.split("/") if pattern else []
+      parts = path.split("/") if path else []
+
+      def match_from(pi, si, caps):
+          if pi == len(pats):
+              return caps if si == len(parts) else None
+          seg = pats[pi]
+          if seg == "**":
+              for take in range(si + 1, len(parts) + 1):
+                  found = match_from(pi + 1, take, caps)
+                  if found is not None:
+                      return found
+              return None
+          if si == len(parts):
+              return None
+          if seg.startswith(":"):
+              merged = dict(caps)
+              merged[seg[1:]] = parts[si]
+              return match_from(pi + 1, si + 1, merged)
+          if seg == parts[si]:
+              return match_from(pi + 1, si + 1, caps)
+          return None
+
+      return match_from(0, 0, {})
+interface: "def match_route(pattern: str, path: str) -> dict | None"
+stop_conditions:
+  - How a path containing an empty segment is treated is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,55 @@
+id: b018-status-word
+task_type: function_implementation
+task: >-
+  Implement decodeStatusWord. The input is one 16-bit telemetry status
+  word, an integer from 0 to 65535. Bits 15 down to 12 carry the channel,
+  unsigned. Bits 11 down to 2 carry the reading, a 10-bit two's-complement
+  value from -512 to 511. Bit 1 is the stale flag. Bit 0 is a parity bit
+  the sender picks so that the whole word carries an even count of one
+  bits. Return the decoded fields as {channel, reading, stale} with stale
+  as a boolean. Reject a word that is not an integer, counting booleans as
+  non-integers, a word below 0 or above 65535, and a word whose count of
+  one bits is odd, with an error.
+target: solution.ts
+target_content: |
+  /**
+   * One 16-bit telemetry status word:
+   *
+   *   bit 15..12  channel (unsigned)
+   *   bit 11..2   reading (10-bit two's complement)
+   *   bit 1       stale flag
+   *   bit 0       even-parity bit over the whole word
+   */
+  const CHANNEL_SHIFT = 12;
+  const CHANNEL_MASK = 0xf;
+  const READING_SHIFT = 2;
+  const READING_MASK = 0x3ff;
+  const SIGN_BIT = 0x200;
+  const READING_SPAN = 0x400;
+  const STALE_SHIFT = 1;
+  const WORD_MAX = 0xffff;
+
+  const NIBBLE_ONES = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
+
+  function oneBits(word: number): number {
+    let count = 0;
+    for (let rest = word; rest > 0; rest >>= 4) {
+      count += NIBBLE_ONES[rest & 0xf];
+    }
+    return count;
+  }
+
+  export function decodeStatusWord(
+    word: number,
+  ): { channel: number; reading: number; stale: boolean } {
+    // TODO: reject a non-integer, out-of-range, or odd-parity word, then
+    // unpack the channel, the two's-complement reading, and the stale flag.
+    throw new Error("decodeStatusWord is not implemented");
+  }
+interface: "export function decodeStatusWord(word: number): { channel: number; reading: number; stale: boolean }"
+stop_conditions:
+  - Whether channel zero carries any reserved meaning is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

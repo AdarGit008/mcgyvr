@@ -456,7 +456,10 @@ def test_material_that_is_retired_but_not_trainable_is_still_refused(
     manifest = wired.build(40, tmp_path / "out")
 
     refused = manifest["instruments"]["refused"]
-    assert refused["sets"] == ["humaneval-plus"]
+    # Every never-trainable set by policy: HumanEval+ (retired, permanently
+    # barred) and #225's two live bench arms, refused from the day they were
+    # declared.
+    assert refused["sets"] == ["bench-py", "bench-ts", "humaneval-plus"]
     assert refused["replies"] == {"humaneval-plus": 1}
     assert refused["runs"] == ["he-run"]
     assert manifest["counts"]["train"] + manifest["counts"]["val"] == 1

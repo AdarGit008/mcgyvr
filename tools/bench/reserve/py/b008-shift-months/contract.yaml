@@ -1,0 +1,36 @@
+id: b008-shift-months
+task_type: function_implementation
+task: >-
+  Implement shift_months. Given a calendar date as year, month and day
+  numbers (months and days are one-based) and a signed whole number of
+  months to shift by, return the resulting date as a [year, month, day]
+  triple. Walk the month and year forward or backward by the shift; when
+  the original day does not exist in the destination month, clamp it to
+  that month's last day. February's length follows the leap-year rule:
+  divisible by 4, except centuries not divisible by 400. A shift of zero
+  returns the date unchanged. Reject a year, month, day or shift that is
+  not an integer, a month outside 1..12, and a day that does not exist in
+  the starting month, with an error.
+target: solution.py
+target_content: |
+  """Calendar-date month arithmetic with day clamping."""
+
+
+  def shift_months(year: int, month: int, day: int, shift: int) -> list:
+      month_days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+      def month_length(y, m):
+          leap = y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)
+          if m == 2 and leap:
+              return 29
+          return month_days[m - 1]
+
+      # TODO: validate the arguments, then walk the month index and clamp the day.
+      raise NotImplementedError
+interface: "def shift_months(year: int, month: int, day: int, shift: int) -> list"
+stop_conditions:
+  - Whether years before 1 (a proleptic calendar) must be supported is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

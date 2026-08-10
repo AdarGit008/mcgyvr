@@ -1,0 +1,24 @@
+id: b019-reservoir-ticks
+task_type: function_implementation
+task: >-
+  Implement run_reservoir. Simulate an irrigation reservoir tick by tick.
+  The reservoir has an integer capacity and an integer starting level from
+  0 to the capacity. Each tick is an [inflow, demand] pair of non-negative
+  integers, applied in order: the inflow is added to the level first, and
+  any water above the capacity spills; the demand is then drawn from
+  whatever the level can cover, and the uncovered remainder goes unmet.
+  After the final tick, return the ending level, the total water spilled,
+  the total unmet demand as shortfall, and the total water actually drawn
+  as served, in the structure {level, spilled, shortfall, served}. Reject
+  a capacity that is not a positive integer, a starting level that is not
+  an integer from 0 to the capacity, a tick that is not a two-item pair,
+  and an inflow or demand that is not a non-negative integer, with an
+  error.
+target: solution.py
+interface: "def run_reservoir(capacity: int, start: int, ticks: list) -> dict"
+stop_conditions:
+  - Whether a single demand may exceed the capacity itself is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

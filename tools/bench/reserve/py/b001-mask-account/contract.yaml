@@ -1,0 +1,21 @@
+id: b001-mask-account
+task_type: function_implementation
+task: >-
+  Implement mask_account. The account argument is an identifier made of
+  digits grouped by single spaces or hyphens, such as "1234-5678-9012";
+  the keep argument says how many trailing digits stay readable. Return
+  the identifier with every digit before those last keep digits replaced
+  by an asterisk, every space and hyphen kept exactly where it was. An
+  account holding exactly keep digits comes back unchanged. Reject a
+  non-string account, an account that is empty or contains a character
+  besides digits, spaces and hyphens, a separator at either end or two
+  separators in a row, a keep that is not a whole number of at least 1,
+  and an account holding fewer digits than keep, with an error.
+target: solution.py
+interface: "def mask_account(account: str, keep: int) -> str"
+stop_conditions:
+  - Whether a maximum account length is enforced is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

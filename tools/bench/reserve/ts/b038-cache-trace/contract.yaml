@@ -1,0 +1,68 @@
+id: b038-cache-trace
+task_type: function_implementation
+task: >-
+  Implement traceCache. Replay a request trace against a bounded key cache
+  with least-recently-used eviction. The first argument is the capacity,
+  the most keys the cache may hold; the second is the trace, a list of
+  [operation, key] pairs. A put stores its key as the most recently used,
+  refreshing a key already resident rather than duplicating it, and when
+  storing a new key pushes the count above capacity the least recently
+  used key is evicted. A get of a resident key is a hit and refreshes its
+  recency; a get of an absent key is a miss and stores nothing. A del
+  removes its key if resident and is otherwise a no-op. Return {hits,
+  misses, dropped, evictions, contents, hotKey, peak}: the counts of hits,
+  misses and del removals, the evicted keys in eviction order, the keys
+  still resident from most recently used to least, the key with the most
+  hits (ties to the alphabetically first, null when nothing has hit), and
+  the largest number of keys ever resident at once. An empty trace yields
+  zero counts, empty lists, a null hotKey and a zero peak. Reject a
+  capacity that is not a positive integer, a trace that is not a list, an
+  entry that is not a two-item pair, an operation other than get, put or
+  del, and a key that is not a non-empty string, with an error.
+target: solution.ts
+target_content: |
+  /**
+   * Replay a request trace against a bounded key cache with
+   * least-recently-used eviction.
+   */
+  export function traceCache(
+    capacity: number,
+    requests: [string, string][],
+  ): {
+    hits: number;
+    misses: number;
+    dropped: number;
+    evictions: string[];
+    contents: string[];
+    hotKey: string | null;
+    peak: number;
+  } {
+    if (!Number.isInteger(capacity) || capacity < 1) {
+      throw new Error("capacity must be a positive integer");
+    }
+    if (!Array.isArray(requests)) {
+      throw new Error("requests must be a list");
+    }
+    const contents: string[] = []; // most recently used first
+    const evictions: string[] = [];
+    const hitCounts = new Map<string, number>();
+    // TODO: replay the trace — validate each entry, apply get/put/del
+    // with LRU refresh and eviction, count hits, misses and drops, and
+    // track the peak residency; then derive the hottest key.
+    return {
+      hits: 0,
+      misses: 0,
+      dropped: 0,
+      evictions,
+      contents,
+      hotKey: null,
+      peak: 0,
+    };
+  }
+interface: "export function traceCache(capacity: number, requests: [string, string][]): { hits: number; misses: number; dropped: number; evictions: string[]; contents: string[]; hotKey: string | null; peak: number }"
+stop_conditions:
+  - How large the trace may grow is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

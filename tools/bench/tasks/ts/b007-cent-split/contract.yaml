@@ -1,0 +1,56 @@
+id: b007-cent-split
+task_type: bug_fix
+task: >-
+  splitEvenly divides a total given in whole cents into a number of parts
+  incorrectly: it rounds each share on its own, so for many totals the
+  parts no longer add up to the total that was split. Fix it: the returned
+  parts must sum to exactly the total, no two parts may differ by more
+  than one cent, and the parts must be in non-increasing order, so any
+  extra cents land on the earliest parts. Also add the missing validation:
+  reject a total that is not a non-negative integer and a ways count that
+  is not a positive integer, with an error. The other helpers in the file
+  are correct and their behaviour must not change. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  /** Cent-exact money helpers for order totals. */
+
+  export function splitEvenly(totalCents: number, ways: number): number[] {
+    const share = Math.round(totalCents / ways);
+    const parts: number[] = [];
+    for (let i = 0; i < ways; i++) {
+      parts.push(share);
+    }
+    return parts;
+  }
+
+  export function applyBps(cents: number, bps: number): number {
+    if (!Number.isInteger(cents) || cents < 0) {
+      throw new Error("cents must be a non-negative integer");
+    }
+    if (!Number.isInteger(bps) || bps < 0) {
+      throw new Error("bps must be a non-negative integer");
+    }
+    return Math.floor((cents * bps + 5000) / 10000);
+  }
+
+  export function sumParts(parts: number[]): number {
+    let total = 0;
+    for (const part of parts) {
+      if (!Number.isInteger(part)) {
+        throw new Error("parts must be integers");
+      }
+      total += part;
+    }
+    return total;
+  }
+interface: |-
+  export function splitEvenly(totalCents: number, ways: number): number[]
+  export function applyBps(cents: number, bps: number): number
+  export function sumParts(parts: number[]): number
+stop_conditions:
+  - How many parts a caller might request (an upper bound on ways) is not stated.
+demonstration: ["node accept.mjs"]
+risk: medium
+scope:
+  allow: ["solution.ts"]

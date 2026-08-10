@@ -1,0 +1,46 @@
+id: b013-region-totals
+task_type: function_implementation
+task: >-
+  Implement regionTotals. The first argument is a grid: a non-empty list of
+  rows, each row a non-empty list of integers, every row the same length.
+  The second is a list of queries, each a four-integer list [top, left,
+  bottom, right] naming the block of cells in rows top up to but not
+  including bottom and columns left up to but not including right. Return
+  the block totals in query order, each the sum of every cell inside its
+  block; no queries yields an empty list. Precomputing a prefix-sum table
+  keeps repeated queries cheap. Reject a grid with no rows, a first row with
+  no cells, rows of differing lengths, a cell that is not an integer, a
+  query that is not a list of exactly four integers, a query whose top is
+  not strictly less than its bottom or whose left is not strictly less than
+  its right, and a query reaching outside the grid, with an error.
+target: solution.ts
+target_content: |
+  export function regionTotals(grid: number[][], queries: number[][]): number[] {
+    if (!Array.isArray(grid) || grid.length === 0) {
+      throw new Error("grid must be a non-empty list of rows");
+    }
+    const width = Array.isArray(grid[0]) ? grid[0].length : 0;
+    if (width === 0) {
+      throw new Error("rows must be non-empty lists");
+    }
+    for (const row of grid) {
+      if (!Array.isArray(row) || row.length !== width) {
+        throw new Error("rows must all share one length");
+      }
+      for (const cell of row) {
+        if (!Number.isInteger(cell)) {
+          throw new Error("cells must be integers");
+        }
+      }
+    }
+    // TODO: build a prefix-sum table over the grid, then validate each query
+    // and answer it from the table.
+    return [];
+  }
+interface: "export function regionTotals(grid: number[][], queries: number[][]): number[]"
+stop_conditions:
+  - Whether a bound on grid size or cell magnitude applies is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

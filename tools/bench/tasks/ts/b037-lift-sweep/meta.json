@@ -1,0 +1,6 @@
+{
+  "file_shape": "multi_symbol",
+  "shape": "iteration",
+  "steering_band": "g4",
+  "target_symbol": {"ts": "runLift", "py": "run_lift"}
+}

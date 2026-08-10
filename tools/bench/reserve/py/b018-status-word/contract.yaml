@@ -1,0 +1,43 @@
+id: b018-status-word
+task_type: function_implementation
+task: >-
+  Implement decode_status_word. The input is one 16-bit telemetry status
+  word, an integer from 0 to 65535. Bits 15 down to 12 carry the channel,
+  unsigned. Bits 11 down to 2 carry the reading, a 10-bit two's-complement
+  value from -512 to 511. Bit 1 is the stale flag. Bit 0 is a parity bit
+  the sender picks so that the whole word carries an even count of one
+  bits. Return the decoded fields as {channel, reading, stale} with stale
+  as a boolean. Reject a word that is not an integer, counting booleans as
+  non-integers, a word below 0 or above 65535, and a word whose count of
+  one bits is odd, with an error.
+target: solution.py
+target_content: |
+  """Decode one 16-bit telemetry status word into its fields.
+
+  bit 15..12  channel (unsigned)
+  bit 11..2   reading (10-bit two's complement)
+  bit 1       stale flag
+  bit 0       even-parity bit over the whole word
+  """
+
+  CHANNEL_SHIFT = 12
+  CHANNEL_MASK = 0xF
+  READING_SHIFT = 2
+  READING_MASK = 0x3FF
+  SIGN_BIT = 0x200
+  READING_SPAN = 0x400
+  STALE_SHIFT = 1
+  WORD_MAX = 0xFFFF
+
+
+  def decode_status_word(word):
+      # TODO: reject a non-integer, out-of-range, or odd-parity word, then
+      # unpack the channel, the two's-complement reading, and the stale flag.
+      raise NotImplementedError("decode_status_word is not implemented")
+interface: "def decode_status_word(word: int) -> dict"
+stop_conditions:
+  - Whether channel zero carries any reserved meaning is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

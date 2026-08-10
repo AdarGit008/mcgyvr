@@ -1,0 +1,63 @@
+id: b017-site-totals
+task_type: bug_fix
+task: >-
+  site_totals aggregates a shipment ledger incorrectly. The module parses
+  ledger lines with load_ledger, where each line reads site,item,qty with a
+  non-empty site and item and a qty of decimal digits, and load_ledger
+  rejects a line that does not carry exactly those three fields with an
+  error. busiest_site names the site with the largest total, breaks total
+  ties by taking the alphabetically first site, and yields a null result
+  for an empty ledger. site_totals must report one [site, total] pair per
+  distinct site, sorted by site name ascending, where total sums every row
+  belonging to that site; the current code instead reports only the
+  quantity of the most recent row whenever a site appears in several rows.
+  Fix the aggregation. Also add the missing validation in site_totals:
+  reject a row whose qty is not a positive integer, counting booleans,
+  zero, negatives and fractions as invalid, with an error. Return the
+  complete fixed file.
+target: solution.py
+target_content: |
+  """A shipment ledger: parse lines, total by site, find the busiest site."""
+
+
+  def load_ledger(lines):
+      rows = []
+      for line in lines:
+          parts = line.split(",")
+          if len(parts) != 3:
+              raise ValueError("each ledger line is site,item,qty")
+          site, item, raw = parts
+          if not site or not item:
+              raise ValueError("site and item must be non-empty")
+          if not raw.isdigit():
+              raise ValueError("qty must be a run of decimal digits")
+          rows.append({"site": site, "item": item, "qty": int(raw)})
+      return rows
+
+
+  def site_totals(rows):
+      totals = {}
+      for row in rows:
+          totals[row["site"]] = row["qty"]
+      return [[site, totals[site]] for site in sorted(totals)]
+
+
+  def busiest_site(rows):
+      pairs = site_totals(rows)
+      if not pairs:
+          return None
+      best = pairs[0]
+      for pair in pairs:
+          if pair[1] > best[1]:
+              best = pair
+      return best[0]
+interface: |-
+  def load_ledger(lines: list) -> list
+  def site_totals(rows: list) -> list
+  def busiest_site(rows: list) -> str | None
+stop_conditions:
+  - Whether site and item fields may contain spaces is not stated.
+demonstration: ["python accept.py"]
+risk: medium
+scope:
+  allow: ["solution.py"]

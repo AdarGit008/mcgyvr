@@ -1,0 +1,39 @@
+id: b003-carve-shift
+task_type: function_implementation
+task: >-
+  Implement carve_shift. A work shift runs from start up to but not
+  including end, and every argument is a whole number; the bounds may be
+  negative. Carve the shift into work stretches: each stretch lasts at
+  most span units, consecutive stretches are separated by a rest of
+  exactly rest units, and carving walks forward from the start until the
+  shift is used up. A stretch that would last fewer than least units is
+  dropped and carving stops there, so the tail of a shift can go unused;
+  the final kept stretch may be shorter than span. Return the stretches
+  in order as half-open [from, to) pairs of integers. Reject an argument
+  that is not a whole number, a start that does not precede end, a span
+  or rest below 1, and a least below 1 or above span, with an error.
+target: solution.py
+target_content: |
+  """Work stretches of a shift: span-long, rest-separated, short tails dropped."""
+
+
+  def carve_shift(start: int, end: int, span: int, rest: int, least: int) -> list:
+      for value in (start, end, span, rest, least):
+          if isinstance(value, bool) or not isinstance(value, int):
+              raise ValueError("every argument must be an integer")
+      if start >= end:
+          raise ValueError("shift start must precede its end")
+      if span < 1 or rest < 1:
+          raise ValueError("span and rest must be at least 1")
+      if least < 1 or least > span:
+          raise ValueError("least must be between 1 and span")
+      # TODO: walk the shift, cutting a stretch of at most span units, then
+      # skipping rest units, dropping a final stretch shorter than least.
+      return []
+interface: "def carve_shift(start: int, end: int, span: int, rest: int, least: int) -> list"
+stop_conditions:
+  - Whether an upper bound on the shift length is enforced is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

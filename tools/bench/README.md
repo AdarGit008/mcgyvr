@@ -23,15 +23,17 @@ carries the decisions and their arguments. What lives here:
   and places reserve problems outside the roots the declaration will
   walk. `--verify` holds the tree, the manifest, and the split rule to
   each other; `--cells` reports realized counts per steering cell.
-- **`tasks/ts/`, `tasks/py/`** *(Phase 3+)* — the bench half's roots, flat
-  per language, declared in `tools/instruments.json` (`retired: null,
-  trainable: false`) in the same change that creates the first contracts.
-- **`reserve/ts/`, `reserve/py/`** *(Phase 3+)* — the reserved training
-  half. Deliberately outside the declared roots and never given a tier:
-  not an instrument, never swept in this lane, consumed (or not) by #222.
-- **`admissions.jsonl`** *(Phase 3+)* — the append-only digest-pin manifest,
-  both halves in one file, split assignment recorded per entry.
-- **`strata.json`** *(Phase 3+)* — measured stratum assignment from the
-  calibration sweep; re-assignment is a new dated block, never an edit.
+- **`tasks/ts/`, `tasks/py/`** — the bench half's roots, flat per language,
+  declared in `tools/instruments.json` (`retired: null, trainable: false`)
+  in the same change that created the first contracts (the 2026-08-10
+  pilot, 40 problems pinned, 22 bench / 18 reserve). Served as tiers
+  `bench-ts`/`bench-py` by `tools/breadth/measure.py`, manifest-pinned only.
+- **`reserve/ts/`, `reserve/py/`** — the reserved training half.
+  Deliberately outside the declared roots and never given a tier: not an
+  instrument, never swept in this lane, consumed (or not) by #222.
+- **`admissions.jsonl`** — the append-only digest-pin manifest, both halves
+  in one file, split assignment recorded per entry.
+- **`strata.json`** — measured stratum assignment from the calibration
+  sweep; re-assignment is a new dated block, never an edit.
 
 Sweep caps, tier names, and the campaign order are in the design doc.

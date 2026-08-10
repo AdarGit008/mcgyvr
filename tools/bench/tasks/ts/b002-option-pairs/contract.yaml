@@ -1,0 +1,47 @@
+id: b002-option-pairs
+task_type: function_implementation
+task: >-
+  Implement scanPairs, whose helper parseOption is already written. An
+  options string is a run of key=value segments separated by semicolons,
+  like mode=fast;retry=3. parseOption turns one segment into a [key,
+  value] pair: the key is everything before the first equals sign and
+  must be a bare identifier, a letter followed by letters, digits or
+  underscores; the value is everything after it, stripped of its double
+  quotes when it is wrapped in them, and kept as it is otherwise; a
+  segment with no equals sign or with a key that is not a bare
+  identifier is an error. scanPairs splits the whole string on
+  semicolons, except that a semicolon sitting between double quotes
+  does not split, hands each segment to parseOption, and returns the
+  pairs in input order; a value may be empty. Reject a non-string
+  argument, the empty string, a repeated key, and a quoted value that
+  is never closed, with an error.
+target: solution.ts
+target_content: |
+  export function parseOption(segment: string): string[] {
+    const eq = segment.indexOf("=");
+    const key = segment.slice(0, eq);
+    if (eq === -1 || !/^[A-Za-z][A-Za-z0-9_]*$/.test(key)) {
+      throw new Error("malformed option segment: " + segment);
+    }
+    let raw = segment.slice(eq + 1);
+    if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+      raw = raw.slice(1, -1);
+    }
+    return [key, raw];
+  }
+
+  export function scanPairs(input: string): string[][] {
+    // TODO: validate the input, split it on semicolons outside double
+    // quotes, reject an unterminated quote and a repeated key, and build
+    // the pairs with parseOption.
+    throw new Error("not implemented");
+  }
+interface: |-
+  export function scanPairs(input: string): string[][]
+  export function parseOption(segment: string): string[]
+stop_conditions:
+  - How a quote character in the middle of an unquoted value is treated is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
