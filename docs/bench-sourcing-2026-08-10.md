@@ -67,10 +67,64 @@ specify:
   contribute nothing; and n = 20, which no effect size rescues (m ≥ 6 wall,
   ADR-0019).
 
-## 3. Outside sets
+## 3. Outside sets — searched, and one measured
 
-*Appended when the search runs (Phase 1 of the lane): the
-`docs/problem-pool-prior-art-2026-08-07.md` adopt-nothing verdict re-checked
-with provenance, and MBPP+ measured against the 3B with its contamination
-caveat attached to whatever it reads. Nothing outside the repository has been
-considered before this section carries the record of it.*
+### The recorded search, and why its verdict transfers
+
+The search of record is `docs/problem-pool-prior-art-2026-08-07.md` — three
+delegated investigations, queries and URLs recorded per report, dated
+2026-08-07 (three days before this document), question: do ≥500 distinct
+problems with executable checkers in both languages already exist to adopt?
+**Verdict: adopt nothing; generate** — every found TS-with-tests set ≥150
+problems is HumanEval/MBPP-derived, and the two non-derived sources
+(AutoCodeBench ~196 TS, Exercism ~100) fail on scale and memorization. Stated
+as that survey states it: true of what was found on 2026-08-07, not of the
+world.
+
+That verdict transfers to the bench *a fortiori*, because the bench's bar is
+strictly higher than the pool's was. The pool needed material free of two
+disqualifiers (front-door item overlap; pretraining memorization). The bench
+is a **measurement instrument**: contamination does not merely confound a
+training signal, it overstates capability and biases the band upward, and
+instrument material must additionally be non-public by construction — a
+declared set nothing can train on (`retired: null, trainable: false`).
+No public dataset can satisfy that last property at all. The search is
+therefore not re-run here; it is cited with its date, its recorded
+provenance, and its expiry discipline, and its conclusion is adopted for the
+stronger requirement.
+
+### MBPP+ measured against the 3B (acceptance item 2)
+
+`records/measurements/mbpp-plus-3b-2026-08-10/`: **70.6% base / 60.6% plus**,
+greedy, EvalPlus 0.3.1, served by Ollama on srv1:11434 — the same path every
+rig sweep uses. Placement against the graded band:
+
+| bundle-py | **MBPP+** | d1 | d2 | d3 | pool |
+|---|---|---|---|---|---|
+| 65–70% | **60.6%** | 50.0% | 41.7% | 16.7% | 0% |
+
+- **The hypothesis this issue carried — "plausibly between `d3` and the pool"
+  — is refuted.** MBPP+ reads above `d1`, at the easy end the retired sets
+  already covered. It contributes no anchors to the d3→pool gap.
+- **The gap is not "harder small functions".** The 3B holds ~60% on
+  MBPP+-scale units while reading 0% on the pool's median 44-line unit — the
+  collapse is the unit of work, which tells the campaign to interpolate
+  reference size and assertion count between d3-class and pool-class in the
+  gap strata.
+- **The caveat travels with the number:** MBPP is pretraining-memorized
+  (12.2–20.8% gold-solution presence, arXiv 2403.04811), so 60.6% is an upper
+  bound and cuts against the easy-end placement rather than for it; the
+  operational conclusion — locator, never anchor — does not depend on the
+  caveat's size.
+- **Screen consequence for the campaign:** MBPP+'s 378 ids and prose join
+  HumanEval's 164 entry points in the item-level decontamination blocklist —
+  memorized *and* now the band's locator; a generated problem restating an
+  MBPP item would overstate the floor and couple the bench to its own ruler.
+
+### The sourcing conclusion
+
+In-repo material is barred (§1), the outside search adopts nothing under a
+stricter bar than the one that already rejected everything, and the one
+plausible free anchor set measures at the wrong end of the band. **Generation
+is the route, as #225's amendment already sized it** — and nothing in this
+record was consulted before §1 and §2 were written.

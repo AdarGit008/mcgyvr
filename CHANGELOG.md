@@ -1034,6 +1034,20 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   barred from the bench, and the sourcing order the rest of the search must
   follow.
 
+- `records/measurements/mbpp-plus-3b-2026-08-10/` (#225) — MBPP+ measured
+  against the floor model through the rig sweeps' own serving path: 70.6%
+  base / 60.6% plus, greedy, EvalPlus 0.3.1 against Ollama on srv1. The
+  issue's "plausibly between d3 and the pool" hypothesis is refuted — MBPP+
+  reads above d1, at the easy end the retired sets already covered — and the
+  d3→pool collapse is confirmed as a unit-of-work cliff, not
+  small-function difficulty. The contamination caveat travels with the
+  number, cutting against the easy-end placement rather than for it; the
+  operational conclusion (locator, never anchor) survives either way.
+  `docs/bench-sourcing-2026-08-10.md` §3 records the outside-set search:
+  the 2026-08-07 adopt-nothing verdict adopted under the bench's strictly
+  higher bar, and MBPP+'s 378 ids joining HumanEval's 164 in the campaign's
+  decontamination blocklist.
+
 ### Fixed
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded

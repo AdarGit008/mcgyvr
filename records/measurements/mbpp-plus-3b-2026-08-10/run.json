@@ -1,0 +1,24 @@
+{
+  "record": "measurement/mbpp-plus-3b/1",
+  "issue": 225,
+  "date": "2026-08-10",
+  "question": "Where does MBPP+-shaped difficulty sit for the floor model, relative to the graded band (d1 50.0%, d2 41.7%, d3 16.7%, pool 0%)? #225's sourcing acceptance: measured against the 3B specifically, contamination caveat attached.",
+  "result": {
+    "mbpp_base_pass1": 0.706,
+    "mbpp_plus_pass1": 0.606,
+    "n_tasks": 378,
+    "decode": "greedy, one seed"
+  },
+  "protocol": {
+    "eval": "EvalPlus 0.3.1, --backend openai, --greedy, dataset mbpp (MBPP+, 378 tasks, base + plus tests), max_new_tokens 768 (the provider default, same cap as #189's HumanEval+ arms)",
+    "server": "Ollama 0.32.4 OpenAI-compatible endpoint on srv1:11434 — the same serving path every rig sweep uses, DELIBERATELY not #189's llama-server front door: this number's job is band location relative to the floor probes, which all ran against Ollama on 11434. Backend numerics move greedy deltas by ~2.6pp on this model (#189's cpu/gpu cross-check), which does not change any conclusion drawn here.",
+    "client_host": "srv1 (localhost), venv ~/evalplus031 — the #189 EvalPlus install",
+    "wall_clock": "codegen 10m54s, evaluate ~1m"
+  },
+  "artifact": {
+    "model": "qwen2.5-coder:3b (Ollama tag, Q4_K_M, 3.1B, ollama id f72c60cabf62)",
+    "note": "The floor model itself, as served to every sweep. #189 pinned the underlying blob sha256 4a188102020e9c9530b687fd6400f775c45e90a0d7baafe65bd0a36963fbb7ba for the same tag."
+  },
+  "caveat": "MBPP is a front-door benchmark: 12.2–20.8% of its gold solutions appear verbatim in major pretraining corpora (Riddell, Ni & Cohan, NAACL 2024, arXiv 2403.04811), and contamination inflates the score, so 60.6% is an upper bound and the uncontaminated level could sit lower — the caveat cuts against the easy-end placement, not for it. Two things survive it: the measured number cannot support placing MBPP+ in the d3→pool gap (it reads above d1 as measured), and the task shape — 5–15-line single functions with few assertions — independently argues the easy end that d1 already covers. Either way the operational conclusion is unchanged, because a front-door set was never admissible as anchors: MBPP+ is a locator only (tolerable for locating, not tolerable as the instrument — #225's own words).",
+  "conclusion": "The '#225 hypothesis' that MBPP+ is plausibly between d3 and the pool is REFUTED: 60.6% plus / 70.6% base sits above d1's 50.0%, in bundle-py's 65–70% neighbourhood. MBPP+ contributes no anchors to the d3→pool gap; the gap material must be generated. Secondary reading: the 3B's collapse between d3 (16.7%) and the pool (0%) is not explained by 'small function synthesis' difficulty — MBPP+-scale units stay easy — which is consistent with the pool's unit-of-work reading (median 44-line references, 16 assertions) and tells the campaign to interpolate reference size and assertion count between d3-class and pool-class to occupy the gap."
+}
