@@ -1027,6 +1027,13 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   not find a published adoption threshold in what was searched; reported gains
   cluster at 9–51pp, an order of magnitude above the margin in question.
 
+- `docs/bench-sourcing-2026-08-10.md` (#225) — the in-repo inventory recorded
+  before any outside set is considered: the five retired sets with their n,
+  language, 3B rates and CLM sources as the *specification* of in-band
+  material, the vendored local-ai originals and the pool as adjacent material
+  barred from the bench, and the sourcing order the rest of the search must
+  follow.
+
 ### Fixed
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
@@ -1164,3 +1171,18 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   `worker_local_qwen2.5-coder-7b`), replacing the positional `local-N`. A
   name says what a binding IS rather than where it sits in an ordering, so
   inserting a rung cannot silently change what a policy reference means.
+- The positive control's premise is corrected in the places that carried it
+  wrong (#225). CLM-0017's ~+20pp ran on local-ai's unported **Python**
+  contracts under local-ai's own harness — not "the twenty JS/TS contracts" as
+  ADR-0020 and #231's body both said (the same arm-A/arm-B confusion #234
+  repaired, standing in two more places) — and across harnesses the effect
+  nulls, because mcgyvr's own user message already carries the rule. Both
+  documents now say so, and the route ADR-0020 left to #225 is chosen there:
+  check 2 becomes a rule-ablation condition recovered directionally on the
+  generated bench, where n = 400 makes it decidable; un-releasing `bundle-ts`
+  — which never bought the exactness it was priced at — lapses unchosen.
+- ADR-0019's "eleven of the twelve" headline miscounted its own table (#225).
+  The live `tools/power/report.py` reports **nine** of twelve contrasts
+  structurally unresolvable and **zero** of twelve rejecting, and the zero is
+  what the argument rides on; the correction note names where the figure
+  propagated.

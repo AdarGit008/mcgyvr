@@ -301,3 +301,19 @@ the distinction.
   answer by itself, the per-lever table will be argued about, and D6 means some
   levers end their lives labelled "unresolved at affordable power" rather than
   decided. That is the decision, not a side effect of it.
+
+## Correction — 2026-08-10 (#225)
+
+One figure above does not survive re-running the tool this record names as the
+check.
+
+**"Eleven of the twelve" is not what `report.py` reports.** The live table
+(`python tools/power/report.py --section contrasts`) flags **nine** of the
+twelve contrasts as structurally unresolvable — and this record's own table
+already showed two `yes` rows (arm B c0→c1 and c0→c3), which the headline
+miscounted as one. The remaining gap is that the prose collapsed srv1 and srv2
+into a single JS/TS series, hiding srv2's c0→c3 (3 gained, 3 lost, m = 6 —
+resolvable, p = 1.000). Nothing downstream moves: **zero of the twelve rejected
+anything** (minimum p = 0.070), and that is what the argument rides on. The
+"eleven" figure propagated to `tools/instruments.json` (breadth-d2's
+`retired.why`) before this correction; the live tool is the authority.
