@@ -1061,6 +1061,24 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   the 2048 sweep cap, and the campaign order in which the declaration
   precedes the first sweep.
 
+- `tools/bench/admit.py` (#225) — the bench admission gate, live and
+  smoke-tested end to end. The pool gate's execution machinery imported by
+  path, with the bench's own semantics: `b<nnn>-<slug>` ids; the
+  `meta.json` sidecar carrying `file_shape`, shape and `steering_band`
+  labels plus a `multi_symbol` problem's per-arm `target_symbol`;
+  **declared-target anti-triviality** — the stub is the reference with
+  only the target symbol's behaviour degraded (Python shadows, TypeScript
+  renames the mandated `export function` form or refuses as its own named
+  failure), helpers intact, so the checker guarantee means the same thing
+  at every file shape; both front doors screened over every declared
+  function; and the near-duplicate screen running across the split by
+  screening every candidate against the whole manifest, the pool, and the
+  instruments. `--pin` computes the half from the pre-declared rule and
+  places reserve problems outside the roots the declaration will walk;
+  `--verify` holds tree, manifest and split rule to each other; `--cells`
+  reports realized counts per steering cell. Offline invariants pinned in
+  `tests/test_bench_gate.py`.
+
 ### Fixed
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded

@@ -13,11 +13,16 @@ carries the decisions and their arguments. What lives here:
   *and* the band's locator (`records/measurements/mbpp-plus-3b-2026-08-10/`),
   so a bench problem restating an MBPP item would overstate the floor and
   couple the bench to its own ruler.
-- **`admit.py`** *(Phase 2, in progress)* — the bench admission gate: the
-  pool gate's execution machinery with bench semantics — `b<nnn>-<slug>`
-  ids, the declared-target anti-triviality rule for multi-symbol files,
-  both front-door blocklists, and the near-duplicate screen that runs
-  across the split by screening against the whole manifest.
+- **`admit.py`** — the bench admission gate: the pool gate's execution
+  machinery with bench semantics — `b<nnn>-<slug>` ids, the `meta.json`
+  sidecar (labels + `target_symbol`), the declared-target anti-triviality
+  rule that degrades only the target symbol's behaviour with helpers
+  intact, both front-door blocklists over *every* declared function, the
+  near-duplicate screen that runs across the split by screening against
+  the whole manifest, and `--pin`, which records the pre-declared split
+  and places reserve problems outside the roots the declaration will
+  walk. `--verify` holds the tree, the manifest, and the split rule to
+  each other; `--cells` reports realized counts per steering cell.
 - **`tasks/ts/`, `tasks/py/`** *(Phase 3+)* — the bench half's roots, flat
   per language, declared in `tools/instruments.json` (`retired: null,
   trainable: false`) in the same change that creates the first contracts.
