@@ -15,6 +15,28 @@ rebuild recomputes it and refuses to emit a run whose prompt no longer matches.
 A training pair whose prompt is not the prompt the reply actually answered is
 worse than a missing one.
 
+**No example may come from a declared instrument (#230).** ``d1`` *is*
+``tools/bundle/tasks/`` byte for byte — half the floor instrument — and #189's
+training set drew 622 of its 738 examples from it, then scored the result on
+the same twenty contracts. Nothing here noticed, because this tool's only
+notion of held-out material was the train/val split, which partitions what it
+has already decided to draw from and has no concept of a set it must not draw
+from at all.
+
+So two checks read one declaration:
+
+1. the run's stamp in ``golden.json``, written by ``tools/replies/pin.py`` at
+   the point of entry;
+2. an independent classification of the same run against
+   ``tools/instruments.json``, made here and now.
+
+Either one is enough to drop the material, and **disagreement between them is
+fatal** rather than resolved in the permissive direction: a corpus whose stamps
+predate the current declaration is a corpus that would quietly readmit whatever
+was declared since. The instrument is a *problem*, not a language, so both
+arms of a paired id go — protecting only the trained-on language is not
+protection, and #189 measured the cross-language transfer that makes it so.
+
 Curation, all deterministic:
 
 - dedup by reply sha across the whole set — the same solution drawn twice is
@@ -100,6 +122,103 @@ def _load_breadth() -> Any:
     return module
 
 
+def _load_instruments() -> Any:
+    """The declaration, loaded once per process and shared with every other
+    consumer — a second copy with its own cache is the drift the declaration
+    exists to prevent."""
+    cached = sys.modules.get("instruments")
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(
+        "instruments", REPO / "tools" / "instruments.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+class Contamination(SystemExit):
+    """Instrument material reached, or nearly reached, a training set."""
+
+
+def _golden_label() -> str:
+    """The corpus path, repo-relative when it is inside the repo."""
+    try:
+        return GOLDEN.relative_to(REPO).as_posix()
+    except ValueError:
+        return str(GOLDEN)
+
+
+def refuse_instrument_material(
+    kept: list[dict[str, Any]], tainted: dict[str, Any]
+) -> None:
+    """The belt over the braces: nothing kept may trace back to an instrument.
+
+    Whatever the filters upstream did or failed to do, this reads the run
+    classifications rather than the drop counters, so an edit that reorders or
+    bypasses the loop's guard still cannot land contamination. A run with no
+    classification at all is refused for the same reason an unstamped run is:
+    silence is not an acquittal.
+    """
+    for item in kept:
+        verdict = tainted.get(str(item["run"]))
+        if verdict is None:
+            raise Contamination(
+                f"{item['run']}: kept an example from a run that was never "
+                "classified against tools/instruments.json"
+            )
+        if verdict.sets:
+            raise Contamination(
+                f"{item['run']} ({item['task']}, {item['language']}) belongs to "
+                f"{', '.join(verdict.sets)} and reached the training set. That "
+                "is the #189 failure by another route; the drop above did not "
+                "hold."
+            )
+
+
+def _stamps(golden: dict[str, Any]) -> dict[str, list[str]]:
+    """``run -> the instruments it belongs to``, as the pin recorded them."""
+    block = golden.get("instruments")
+    if not isinstance(block, dict) or "runs" not in block:
+        raise Contamination(
+            f"{_golden_label()} carries no instrument stamps "
+            f"(record {golden.get('record')!r}): it predates #230 and cannot "
+            "say which of its replies came from a measurement set. Re-pin with "
+            "tools/replies/pin.py before building a training set."
+        )
+    return {run: list(v.get("sets", ())) for run, v in block["runs"].items()}
+
+
+def _instrument_of(
+    run: str, meta: dict[str, Any], stamped: dict[str, list[str]], instruments: Any
+) -> Any:
+    """The sets this run belongs to, agreed by the stamp and by the declaration.
+
+    The stamp is what the corpus was pinned with; the classification is what
+    the declaration says today. They are checked against each other rather
+    than merged, because the failure mode worth catching is a set declared
+    after the corpus was last pinned — where a merge would silently prefer the
+    stale, permissive answer.
+    """
+    if run not in stamped:
+        raise Contamination(
+            f"{run}: no instrument stamp in {_golden_label()}. An "
+            "unstamped run is not a clean run — re-pin with "
+            "tools/replies/pin.py."
+        )
+    verdict = instruments.classify(meta, where=run)
+    if sorted(verdict.sets) != sorted(stamped[run]):
+        raise Contamination(
+            f"{run}: the corpus stamps it {stamped[run] or '[]'} but "
+            f"tools/instruments.json classifies it {list(verdict.sets) or '[]'} "
+            "today. The declaration changed since the corpus was pinned; re-pin "
+            "with tools/replies/pin.py so both checks read the same answer."
+        )
+    return verdict
+
+
 def _results_index(run_dir: Path) -> dict[tuple[str, str, int], dict[str, Any]]:
     index: dict[tuple[str, str, int], dict[str, Any]] = {}
     path = run_dir / "results.jsonl"
@@ -118,7 +237,12 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
             f"unknown --split-by {split_by!r}: expected one of {SPLIT_MODES}"
         )
     breadth = _load_breadth()
+    instruments = _load_instruments()
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))
+    stamped = _stamps(golden)
+    #: run -> its instrument verdict, decided once per run.
+    tainted: dict[str, Any] = {}
+    excluded = collections.Counter[str]()
 
     #: (tier, task) -> (system, user, language). Keyed on the tier because that
     #: is what resolves a contract; the language it yields is what the cap and
@@ -129,7 +253,31 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
     dropped = collections.Counter[str]()
     candidates: dict[str, dict[str, Any]] = {}
 
+    metas: dict[str, dict[str, Any]] = {}
     for entry in golden["entries"]:
+        # First, before anything is read or counted: does this reply come from
+        # something the project measures with? Checked per run rather than per
+        # reply, and checked before the refusal and path filters so the count
+        # reports what the guard refused rather than what survived the others.
+        run = entry["run"]
+        if run not in metas:
+            manifest = MEASUREMENTS / run / "run.json"
+            metas[run] = (
+                json.loads(manifest.read_text(encoding="utf-8"))
+                if manifest.is_file()
+                else {}
+            )
+            tainted[run] = _instrument_of(run, metas[run], stamped, instruments)
+        verdict = tainted[run]
+        if verdict.sets:
+            # Counted once per reply, under the set the strong evidence named.
+            # A run recognised only by its id space belongs to *some* declared
+            # instrument and the declaration cannot say which; "unattributed"
+            # records that honestly instead of charging it to all five
+            # claimants and inflating every one of them.
+            excluded[verdict.primary or "unattributed"] += 1
+            continue
+
         if "expect" not in entry or "content_sha256" not in entry.get("expect", {}):
             dropped["refusal"] += 1
             continue
@@ -137,7 +285,7 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
         if match is None:
             dropped["unrecognized-path"] += 1
             continue
-        run, task = entry["run"], match.group("task")
+        task = match.group("task")
         run_dir = MEASUREMENTS / run
         if run not in results:
             results[run] = _results_index(run_dir)
@@ -154,8 +302,18 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
         if hashlib.sha256(reply).hexdigest() != entry["sha256"]:
             raise SystemExit(f"corpus rot: {reply_path} disagrees with its pinned sha")
 
-        run_meta = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
-        tier = run_meta.get("tier", "d1")
+        run_meta = metas[run]
+        tier = run_meta.get("tier")
+        if not tier:
+            # This used to default to "d1", which is the instrument — a run
+            # that never said what it served would have had its replies
+            # rebuilt against the bundle set's contracts and labelled with the
+            # instrument's tier. Nothing that reaches here may be guessed at.
+            raise Contamination(
+                f"{run}: run.json declares no tier, so the contracts behind "
+                "its replies cannot be resolved. It is neither drawable nor "
+                "safely guessable."
+            )
         if (tier, task) not in prompts:
             tasks = {t.id: t for t in breadth.load_tier_tasks(tier, (task,))}
             prompt = breadth.build_prompt(tasks[task].contract)
@@ -228,6 +386,8 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
         kept.extend(chosen)
 
     kept.sort(key=lambda i: (str(i["task"]), str(i["language"]), str(i["sha256"])))
+
+    refuse_instrument_material(kept, tainted)
     train, val = [], []
     for item in kept:
         held_out = _in_validation(split_by, str(item["task"]), str(item["sha256"]))
@@ -252,12 +412,18 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
 
     by_language = collections.Counter(str(item["language"]) for item in kept)
     manifest = {
-        # /2: the cap and the split became arm-aware (#210), so counts carry a
-        # language breakdown and `tasks` no longer doubles as an example unit.
-        "record": "finetune-dataset/2",
+        # /3: the instrument guard (#230). The exclusion is recorded rather
+        # than merely performed — a training set has to be able to say which
+        # measurement sets it was held away from, and #189's could not.
+        "record": "finetune-dataset/3",
         "source": "records/corpora/worker-replies/golden.json",
         "cap_per_arm": cap,
         "split_by": split_by,
+        "instruments": {
+            "declared": "tools/instruments.json",
+            "excluded_replies": dict(sorted(excluded.items())),
+            "excluded_runs": sorted(run for run, v in tainted.items() if v.sets),
+        },
         "counts": {
             "train": len(train),
             "val": len(val),

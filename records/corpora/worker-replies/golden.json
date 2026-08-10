@@ -1,10 +1,612 @@
 {
-  "record": "reply-corpus/1",
+  "record": "reply-corpus/2",
   "issue": 184,
   "totals": {
     "replies": 12331,
     "parses": 11932,
-    "refusals": 399
+    "refusals": 399,
+    "instrument_replies": 9173
+  },
+  "instruments": {
+    "declared": "tools/instruments.json",
+    "runs": {
+      "breadth-2026-08-06": {
+        "sets": [
+          "breadth-d1r",
+          "breadth-d2",
+          "breadth-d3",
+          "bundle-py",
+          "bundle-ts"
+        ],
+        "primary": null,
+        "why": "breadth-d1r: 1 task id(s) in its id space (t20); breadth-d2: 12 task id(s) in its id space (t01, t02, t03\u2026); breadth-d3: 12 task id(s) in its id space (t01, t02, t03\u2026); bundle-py: 20 task id(s) in its id space (t01, t02, t03\u2026); bundle-ts: 20 task id(s) in its id space (t01, t02, t03\u2026)"
+      },
+      "breadth-batch-b-2026-08-06/srv1/llama3.2-3b/controls": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/llama3.2-3b/sweep-d1-T03": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/llama3.2-3b/sweep-d1-T07-r2": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/llama3.2-3b/sweep-d1-T07-r3": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/llama3.2-3b/sweep-d1-T10": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/llama3.2-3b/sweep-d1-T10-r2": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/llama3.2-3b/sweep-d1-T10-r3": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/llama3.2-3b/t20-repaired": {
+        "sets": [
+          "breadth-d1r"
+        ],
+        "primary": "breadth-d1r",
+        "why": "breadth-d1r: tier 'd1r' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/controls": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T03": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T07-r2": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T07-r3": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T10": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T10-k16": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T10-r2": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T10-r3": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1-T13": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-1.5b/t20-repaired": {
+        "sets": [
+          "breadth-d1r"
+        ],
+        "primary": "breadth-d1r",
+        "why": "breadth-d1r: tier 'd1r' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-3b/controls": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1-T03": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1-T07-r2": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1-T07-r3": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1-T10": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1-T10-k16": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1-T10-r2": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1-T10-r3": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1-T13": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-3b/t20-repaired": {
+        "sets": [
+          "breadth-d1r"
+        ],
+        "primary": "breadth-d1r",
+        "why": "breadth-d1r: tier 'd1r' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-7b/controls": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-7b/sweep-d1-T03": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-7b/sweep-d1-T07-r2": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-7b/sweep-d1-T07-r3": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-7b/sweep-d1-T10": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-7b/sweep-d1-T10-r2": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-7b/sweep-d1-T10-r3": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv1/qwen2.5-coder-7b/t20-repaired": {
+        "sets": [
+          "breadth-d1r"
+        ],
+        "primary": "breadth-d1r",
+        "why": "breadth-d1r: tier 'd1r' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv2/qwen2.5-coder-14b/sweep-d1-T10": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv2/qwen2.5-coder-7b/sweep-d1-T10": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv2/qwen3-coder-30b/sweep-d2-r2": {
+        "sets": [
+          "breadth-d2"
+        ],
+        "primary": "breadth-d2",
+        "why": "breadth-d2: tier 'd2' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv2/qwen3-coder-30b/sweep-d2-r3": {
+        "sets": [
+          "breadth-d2"
+        ],
+        "primary": "breadth-d2",
+        "why": "breadth-d2: tier 'd2' is declared as it"
+      },
+      "breadth-batch-b-2026-08-06/srv2/yi-coder-9b/sweep-d1-T10": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv1/llama3.2-3b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv1/llama3.2-3b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv1/qwen2.5-coder-1.5b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv1/qwen2.5-coder-1.5b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv1/qwen2.5-coder-3b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv1/qwen2.5-coder-3b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv1/qwen2.5-coder-7b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv1/qwen2.5-coder-7b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/deepseek-coder-v2-16b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/deepseek-coder-v2-16b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/gpt-oss-20b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/gpt-oss-20b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen2.5-coder-1.5b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen2.5-coder-1.5b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen2.5-coder-14b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen2.5-coder-14b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen2.5-coder-3b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen2.5-coder-3b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen2.5-coder-7b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen2.5-coder-7b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen3-30b-a3b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen3-30b-a3b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen3-coder-30b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen3-coder-30b/probe-d2": {
+        "sets": [
+          "breadth-d2"
+        ],
+        "primary": "breadth-d2",
+        "why": "breadth-d2: tier 'd2' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen3-coder-30b/sweep-d2": {
+        "sets": [
+          "breadth-d2"
+        ],
+        "primary": "breadth-d2",
+        "why": "breadth-d2: tier 'd2' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen3-coder-next-ud-q3_K_XL/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen3-coder-next-ud-q3_K_XL/probe-d2": {
+        "sets": [
+          "breadth-d2"
+        ],
+        "primary": "breadth-d2",
+        "why": "breadth-d2: tier 'd2' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/qwen3-coder-next-ud-q3_K_XL/sweep-d2": {
+        "sets": [
+          "breadth-d2"
+        ],
+        "primary": "breadth-d2",
+        "why": "breadth-d2: tier 'd2' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/yi-coder-9b/probe-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "breadth-campaign-2026-08-06/srv2/yi-coder-9b/sweep-d1": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: tier 'd1' is declared as it"
+      },
+      "floor-probe-2026-08-09/14b-ts-heldout30": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "floor-probe-2026-08-09/3b-d1-graded": {
+        "sets": [
+          "bundle-ts"
+        ],
+        "primary": "bundle-ts",
+        "why": "bundle-ts: 20 contract digest(s) identical to it; bundle-ts: tier 'd1' is declared as it"
+      },
+      "floor-probe-2026-08-09/3b-d2-graded": {
+        "sets": [
+          "breadth-d2"
+        ],
+        "primary": "breadth-d2",
+        "why": "breadth-d2: 12 contract digest(s) identical to it; breadth-d2: tier 'd2' is declared as it"
+      },
+      "floor-probe-2026-08-09/3b-d3-graded": {
+        "sets": [
+          "breadth-d3"
+        ],
+        "primary": "breadth-d3",
+        "why": "breadth-d3: 12 contract digest(s) identical to it; breadth-d3: tier 'd3' is declared as it"
+      },
+      "floor-probe-2026-08-09/3b-py-early": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "floor-probe-2026-08-09/3b-ts-early": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "floor-probe-2026-08-09/3b-ts-heldout": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "floor-probe-2026-08-09/7b-ts-heldout30": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "pool-probe-2026-08-07/srv1-py": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "pool-probe-2026-08-07/srv1-ts": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "pool-sweep-14b-2026-08-07/srv2-ts": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "pool-sweep-14b-cap2048-2026-08-08": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "pool-sweep-2026-08-07/srv1-ts": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "pool-sweep-2026-08-07/srv2-py": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "pool-sweep-7b-batch67-2026-08-08": {
+        "sets": [],
+        "primary": null,
+        "why": "no instrument material"
+      },
+      "python-bundle-2026-08-07": {
+        "sets": [
+          "bundle-py"
+        ],
+        "primary": "bundle-py",
+        "why": "bundle-py: 20 contract digest(s) identical to it"
+      }
+    }
   },
   "entries": [
     {

@@ -45,6 +45,22 @@ def _builder() -> types.ModuleType:
     return module
 
 
+def _by_path(name: str, path: Path) -> types.ModuleType:
+    """A tool module, imported by path — ``tools/`` is not a package."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+#: The real declaration (#230). The fixtures below run on pool ids and pool
+#: tiers, which it declares clean; the guard tests reach for a declared tier
+#: on purpose.
+INSTRUMENTS = _by_path("instruments", REPO / "tools" / "instruments.py")
+
+
 class _Language:
     def __init__(self, name: str) -> None:
         self.name = name
@@ -103,7 +119,7 @@ class Corpus:
         self,
         *,
         run: str,
-        tier: str,
+        tier: str | None,
         task: str,
         model: str,
         reply: str,
@@ -111,7 +127,8 @@ class Corpus:
         draw: int = 0,
         passed: bool = True,
     ) -> None:
-        self.tiers[run] = tier
+        if tier is not None:
+            self.tiers[run] = tier
         rel = f"candidates/{task}/{sample}-{draw}.txt"
         path = self.root / run / rel
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -129,18 +146,60 @@ class Corpus:
             }
         )
 
-    def write(self, golden: Path, *, bundle_sha: str | None = None) -> None:
+    def write(
+        self,
+        golden: Path,
+        *,
+        bundle_sha: str | None = None,
+        stamps: dict[str, list[str]] | None = None,
+        meta_extra: dict[str, dict[str, Any]] | None = None,
+    ) -> None:
+        """Lay the corpus down, stamped the way ``pin.py`` would stamp it.
+
+        The stamp is computed from the real declaration rather than asserted
+        here, so a fixture cannot claim a provenance the tool under test would
+        disagree with — that disagreement is itself fatal (#230), and a test
+        that hard-coded the stamps would be exercising the wrong branch.
+        ``stamps`` overrides it, for the tests that need them to disagree;
+        ``meta_extra`` adds fields to a run's ``run.json`` — digests, mostly,
+        which is how a set with no tier name of its own is recognised.
+        """
+        verdicts: dict[str, dict[str, Any]] = {}
         for run, rows in self.runs.items():
             run_dir = self.root / run
-            meta: dict[str, Any] = {"tier": self.tiers[run]}
+            meta: dict[str, Any] = {}
+            if run in self.tiers:
+                meta["tier"] = self.tiers[run]
+            meta.update((meta_extra or {}).get(run, {}))
             if bundle_sha is not None:
                 meta["bundle_sha256"] = bundle_sha
             (run_dir / "run.json").write_text(json.dumps(meta), encoding="utf-8")
             (run_dir / "results.jsonl").write_text(
                 "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8"
             )
+            verdict = INSTRUMENTS.classify(meta, where=run)
+            verdicts[run] = {
+                "sets": list(verdict.sets),
+                "primary": verdict.primary,
+                "why": verdict.why,
+            }
+        if stamps is not None:
+            for run, sets in stamps.items():
+                verdicts.setdefault(run, {"primary": None, "why": "fixture"})
+                verdicts[run]["sets"] = list(sets)
         golden.parent.mkdir(parents=True, exist_ok=True)
-        golden.write_text(json.dumps({"entries": self.entries}), encoding="utf-8")
+        golden.write_text(
+            json.dumps(
+                {
+                    "entries": self.entries,
+                    "instruments": {
+                        "declared": "tools/instruments.json",
+                        "runs": verdicts,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
 
 
 @pytest.fixture
@@ -320,3 +379,162 @@ def test_an_unknown_split_mode_is_refused(
 ) -> None:
     with pytest.raises(SystemExit, match="unknown --split-by"):
         wired.build(40, tmp_path / "out", "by-vibes")
+
+
+# --- #230: no training example may come from an instrument -----------------
+
+
+def test_a_d1_run_cannot_reach_the_training_set(
+    wired: types.ModuleType, tmp_path: Path
+) -> None:
+    """The test that would have caught #189.
+
+    ``d1`` *is* ``tools/bundle/tasks/`` — half the floor instrument — and the
+    pilot drew 622 examples from it. Here a whole run of it produces nothing,
+    and the manifest says which set it was held away from rather than leaving
+    the absence to be inferred.
+    """
+    corpus = Corpus(tmp_path / "measurements")
+    for draw in range(3):
+        corpus.add(
+            run="d1-run",
+            tier="d1",
+            task="t01",
+            model="m1",
+            reply=f"t01 solution {draw}",
+            draw=draw,
+        )
+    corpus.write(wired.GOLDEN)
+
+    manifest = wired.build(40, tmp_path / "out")
+
+    assert manifest["counts"]["train"] == 0
+    assert manifest["counts"]["val"] == 0
+    assert manifest["instruments"]["excluded_replies"] == {"bundle-ts": 3}
+    assert manifest["instruments"]["excluded_runs"] == ["d1-run"]
+    assert (tmp_path / "out" / "train.jsonl").read_text(encoding="utf-8") == ""
+
+
+def test_the_other_language_arm_goes_too(
+    wired: types.ModuleType, tmp_path: Path
+) -> None:
+    """A paired-id instrument is one instrument.
+
+    The Python arm has no tier name of its own (#227), so it is recognised by
+    its contract digests. Protecting only the arm a tune was trained on would
+    leave the other one scorable-looking and contaminated — and #189 measured
+    the cross-language transfer that makes that a real risk, not a theoretical
+    one.
+    """
+    digests = next(i for i in INSTRUMENTS.declared() if i.id == "bundle-py").digests()
+    corpus = Corpus(tmp_path / "measurements")
+    corpus.add(run="py-run", tier=None, task="t01", model="m1", reply="t01 py")
+    corpus.add(
+        run="clean-run",
+        tier="pool-py",
+        task="p001-alpha",
+        model="m1",
+        reply="p001-alpha pool-py solution 0",
+    )
+    corpus.write(wired.GOLDEN, meta_extra={"py-run": {"tasks_sha256": digests}})
+
+    manifest = wired.build(40, tmp_path / "out")
+
+    assert manifest["instruments"]["excluded_replies"] == {"bundle-py": 1}
+    assert manifest["counts"]["train"] + manifest["counts"]["val"] == 1
+
+
+def test_a_corpus_with_no_stamps_is_refused(
+    wired: types.ModuleType, tmp_path: Path
+) -> None:
+    """A pre-#230 corpus cannot say what it holds, so it cannot be drawn from."""
+    corpus = Corpus(tmp_path / "measurements")
+    corpus.add(
+        run="ts-run",
+        tier="pool-ts",
+        task="p001-alpha",
+        model="m1",
+        reply="p001-alpha pool-ts solution 0",
+    )
+    corpus.write(wired.GOLDEN)
+    golden = json.loads(wired.GOLDEN.read_text(encoding="utf-8"))
+    del golden["instruments"]
+    wired.GOLDEN.write_text(json.dumps(golden), encoding="utf-8")
+
+    with pytest.raises(wired.Contamination, match="no instrument stamps"):
+        wired.build(40, tmp_path / "out")
+
+
+def test_a_stamp_that_disagrees_with_the_declaration_is_fatal(
+    wired: types.ModuleType, tmp_path: Path
+) -> None:
+    """Two checks, and disagreement resolves to a stop rather than to the
+    permissive answer.
+
+    A set declared *after* the corpus was last pinned is the case that
+    matters: the stamp says clean because nothing knew better at pin time,
+    and merging the two answers would prefer exactly that stale one.
+    """
+    corpus = Corpus(tmp_path / "measurements")
+    corpus.add(run="d1-run", tier="d1", task="t01", model="m1", reply="t01 sol")
+    corpus.write(wired.GOLDEN, stamps={"d1-run": []})
+
+    with pytest.raises(wired.Contamination, match="re-pin"):
+        wired.build(40, tmp_path / "out")
+
+
+def test_an_unstamped_run_is_not_a_clean_run(
+    wired: types.ModuleType, tmp_path: Path
+) -> None:
+    corpus = Corpus(tmp_path / "measurements")
+    corpus.add(
+        run="ts-run",
+        tier="pool-ts",
+        task="p001-alpha",
+        model="m1",
+        reply="p001-alpha pool-ts solution 0",
+    )
+    corpus.write(wired.GOLDEN)
+    golden = json.loads(wired.GOLDEN.read_text(encoding="utf-8"))
+    golden["instruments"]["runs"] = {}
+    wired.GOLDEN.write_text(json.dumps(golden), encoding="utf-8")
+
+    with pytest.raises(wired.Contamination, match="no instrument stamp"):
+        wired.build(40, tmp_path / "out")
+
+
+def test_a_tierless_run_is_not_silently_treated_as_d1(
+    wired: types.ModuleType, tmp_path: Path
+) -> None:
+    """The default that used to sit here named the instrument.
+
+    ``tier = run_meta.get("tier", "d1")`` meant a run that never said what it
+    served had its replies rebuilt against the bundle set's contracts and
+    labelled with the instrument's tier. A run that clears the instrument
+    check but cannot say what it served is refused instead of guessed at.
+    """
+    corpus = Corpus(tmp_path / "measurements")
+    corpus.add(run="nameless", tier=None, task="p001-alpha", model="m1", reply="x")
+    corpus.write(
+        wired.GOLDEN,
+        meta_extra={"nameless": {"tasks_sha256": {"p001-alpha": "abc123"}}},
+    )
+
+    with pytest.raises(wired.Contamination, match="declares no tier"):
+        wired.build(40, tmp_path / "out")
+
+
+def test_the_belt_refuses_what_the_drop_missed(wired: types.ModuleType) -> None:
+    """The last check reads the classification, not the drop counters.
+
+    Exercised directly because its whole purpose is to survive a bug in the
+    loop above it — a state the loop itself will not produce on demand.
+    """
+    verdict = INSTRUMENTS.classify({"tier": "d1"})
+    kept = [{"run": "d1-run", "task": "t01", "language": "jsts"}]
+
+    with pytest.raises(wired.Contamination, match="bundle-ts"):
+        wired.refuse_instrument_material(kept, {"d1-run": verdict})
+
+    with pytest.raises(wired.Contamination, match="never classified"):
+        wired.refuse_instrument_material(kept, {})
