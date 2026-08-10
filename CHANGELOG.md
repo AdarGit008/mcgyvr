@@ -1048,6 +1048,19 @@ Format: [Keep a Changelog](https://keepachangelog.com).
   higher bar, and MBPP+'s 378 ids joining HumanEval's 164 in the campaign's
   decontamination blocklist.
 
+- `tools/bench/` and `docs/bench-design-2026-08-10.md` (#225) — the bench
+  campaign's design of record and its first committed mechanisms, landed
+  deliberately before any generated problem exists: `split.py`, the
+  bench/reserve split rule (salted per-id hash — blind by the commit date,
+  stable under the pauses the #197 record guarantees, pinned by test so it
+  can never drift), and `mbpp-entrypoints.json`, MBPP+'s 378 entry points
+  joining HumanEval's 164 in the item-level decontamination blocklist. The
+  design fixes the names (`bench-ts`/`bench-py`, flat roots, `b<nnn>-<slug>`
+  ids, reserve outside the declared roots), the declared-target
+  anti-triviality rule multi-symbol files need, the manifest-only serving,
+  the 2048 sweep cap, and the campaign order in which the declaration
+  precedes the first sweep.
+
 ### Fixed
 - A dispatch error no longer occupies the cell it failed to fill (#217).
   `tools/breadth/measure.py`'s `done_keys` counted **any** row as a recorded
