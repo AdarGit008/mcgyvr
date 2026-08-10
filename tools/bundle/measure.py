@@ -103,6 +103,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
@@ -127,6 +128,31 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 TASKS = HERE / "tasks"
 CONDITIONS = HERE / "conditions"
+
+
+def _instruments() -> Any:
+    """The instrument declaration, loaded once per process and shared.
+
+    ``tools/`` is not a package, so it is reached by path — and through the
+    same ``sys.modules`` slot the pool gate, the reply pin and the dataset
+    builder use, because a second copy with its own cache is the drift the
+    declaration exists to prevent. The breadth rig reaches it as
+    ``bundle.instruments`` rather than importing it again for that reason.
+    """
+    cached = sys.modules.get("instruments")
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(
+        "instruments", REPO / "tools" / "instruments.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+instruments = _instruments()
 
 # The Python arm's conditions are the measured bundles themselves, not a copy of
 # them. Vendoring the same three files twice would create exactly the drift the
@@ -614,7 +640,16 @@ def record_run(
     arm that was the only one there was. Defaulting it to *absent* would refuse
     to resume the completed JS/TS sweep on the strength of a key the sweep could
     not have written, which is a spurious refusal rather than a caught one.
+
+    Both of this rig's arms were retired by #240, so in practice this now
+    refuses every run it is asked to record. That is the intended state and not
+    a bug to route around: the rig's machinery is kept because #225's material
+    will need it, and its task sets are kept because they are released training
+    material — what is gone is the licence to produce a number from them.
     """
+    instruments.refuse_to_measure(
+        root=language.tasks, what=f"{out}/run.json ({language.name} arm)"
+    )
     path = out / "run.json"
     identity = {
         "endpoint": redact(worker.endpoint),
@@ -966,6 +1001,22 @@ def main() -> int:
     except MeasureError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+
+    # Said here as well as in record_run, so a retired arm costs an error
+    # message rather than a resolved worker and a half-built directory. Both
+    # arms of this rig were retired by #240, so this is now the ordinary exit
+    # of every sweep invocation — and it is ahead of the runtime check on
+    # purpose, since whether this machine can score the arm has no bearing on
+    # whether the project will measure it. --selftest and --summarise-only are
+    # not measurements and still work.
+    if not args.selftest and not args.summarise_only:
+        try:
+            instruments.refuse_to_measure(
+                root=language.tasks, what=f"--language {language.name}"
+            )
+        except instruments.RetiredError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
 
     # Every path that runs a task needs the arm's runtime; summarising rows
     # already on disk does not. Refused here rather than discovered as a uniform

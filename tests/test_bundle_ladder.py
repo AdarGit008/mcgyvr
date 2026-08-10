@@ -424,7 +424,9 @@ def test_the_example_worker_file_names_a_protocol_a_sweep_can_use() -> None:
     measure.check_protocol_can_carry_a_measurement(worker)
 
 
-def test_the_run_manifest_records_what_was_reached(tmp_path: Path) -> None:
+def test_the_run_manifest_records_what_was_reached(
+    tmp_path: Path, live_instruments: types.ModuleType
+) -> None:
     """A rate without its backend is not quotable (CAV-02)."""
     measure = _measure()
     worker = measure.resolve_worker(
@@ -444,7 +446,9 @@ def test_the_run_manifest_records_what_was_reached(tmp_path: Path) -> None:
     assert "secret" not in json.dumps(manifest)
 
 
-def test_a_second_invocation_is_appended_not_replaced(tmp_path: Path) -> None:
+def test_a_second_invocation_is_appended_not_replaced(
+    tmp_path: Path, live_instruments: types.ModuleType
+) -> None:
     """A table assembled over three sittings still says what it measured."""
     measure = _measure()
     worker = measure.resolve_worker({"endpoint": "http://box", "model": "m"}, {})
@@ -456,7 +460,9 @@ def test_a_second_invocation_is_appended_not_replaced(tmp_path: Path) -> None:
     assert [i["conditions"] for i in manifest["invocations"]] == [["c0"], ["c1"]]
 
 
-def test_resuming_onto_a_different_worker_is_refused(tmp_path: Path) -> None:
+def test_resuming_onto_a_different_worker_is_refused(
+    tmp_path: Path, live_instruments: types.ModuleType
+) -> None:
     """Two backends in one denominator is a table that looks like one run."""
     measure = _measure()
     first = measure.resolve_worker({"endpoint": "http://box", "model": "3b"}, {})
@@ -468,7 +474,7 @@ def test_resuming_onto_a_different_worker_is_refused(tmp_path: Path) -> None:
 
 
 def test_resuming_onto_an_edited_task_set_is_refused(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, live_instruments: types.ModuleType
 ) -> None:
     """The other axis of the same failure: same worker, different contracts.
 
@@ -486,6 +492,44 @@ def test_resuming_onto_an_edited_task_set_is_refused(
 
     with pytest.raises(measure.MeasureError, match="tasks_sha256"):
         measure.record_run(tmp_path, worker, {})
+
+
+def test_neither_arm_can_have_a_run_recorded_for_it_any_more(tmp_path: Path) -> None:
+    """#240 retired both of this rig's task sets, so this rig no longer measures.
+
+    Stated as a test rather than left implicit, because "the sweep errors now"
+    is otherwise indistinguishable from "the sweep broke". The rig keeps its
+    machinery — #225's material will need a ladder runner — and it keeps its
+    contracts, which are released training material. What it does not keep is
+    the ability to turn either into a number.
+    """
+    measure = _measure()
+    worker = measure.resolve_worker({"endpoint": "http://box", "model": "m"}, {})
+    arms = ((measure.JSTS, "bundle-ts"), (measure.PYTHON, "bundle-py"))
+    for language, set_id in arms:
+        with pytest.raises(measure.instruments.RetiredError, match=set_id):
+            measure.record_run(tmp_path, worker, {}, language)
+    assert not (tmp_path / "run.json").exists()
+
+
+def test_the_cli_refuses_a_sweep_before_it_resolves_a_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The operator's version of the same refusal, and it costs no tokens.
+
+    Retirement bars measuring a *model*; it does not bar checking the task set.
+    ``--selftest`` and ``--summarise-only`` return before this point and stay
+    available, which matters now that the released contracts are training
+    material — a contract that stopped passing its own acceptance would be a
+    defect in the material rather than in a ruler nobody reads.
+    """
+    measure = _measure()
+    monkeypatch.setattr(
+        sys, "argv", ["measure.py", "--out", str(tmp_path / "sweep"), "--model", "m"]
+    )
+    assert measure.main() == 2
+    assert "retired by #240" in capsys.readouterr().err
+    assert not (tmp_path / "sweep").exists()
 
 
 def test_the_task_digest_is_of_the_contract_not_of_the_file(tmp_path: Path) -> None:

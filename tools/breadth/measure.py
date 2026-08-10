@@ -373,7 +373,14 @@ def record_run(
     experiment, exactly as a different worker is. The prompt is pinned through
     the task digests (the user message is a function of the contract) plus the
     bundle each ``.ts`` target selects, hashed here once.
+
+    A retired tier is refused here rather than warned about (#240). This is the
+    seam every dispatching path passes through — ``main`` below and
+    ``campaign.run_stage`` both write the provenance before the first draw — so
+    the refusal lands before a token is spent, and adding a fourth driver
+    cannot route around it without also deciding not to record what it did.
     """
+    bundle.instruments.refuse_to_measure(tier=tier, what=f"{out}/run.json")
     prompt = build_prompt(load_tier_tasks(tier)[0].contract)
     identity = {
         "endpoint": bundle.redact(worker.endpoint),
@@ -590,6 +597,21 @@ def main() -> int:
     except bundle.MeasureError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+
+    # Said here as well as in record_run, so a retired tier costs an error
+    # message rather than a resolved worker and a half-built directory. Ahead
+    # of the runtime check on purpose: whether this machine can score the arm
+    # has no bearing on whether the project will measure it. --selftest checks
+    # the contracts against their own acceptance and --summarise-only reads
+    # rows already collected; neither is a measurement, and both survive.
+    if not args.selftest and not args.summarise_only:
+        try:
+            bundle.instruments.refuse_to_measure(
+                tier=args.tier, what=f"--tier {args.tier}"
+            )
+        except bundle.instruments.RetiredError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
 
     if not args.summarise_only:
         language = bundle.PYTHON if args.tier == "pool-py" else bundle.JSTS

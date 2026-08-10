@@ -15,13 +15,13 @@ rebuild recomputes it and refuses to emit a run whose prompt no longer matches.
 A training pair whose prompt is not the prompt the reply actually answered is
 worse than a missing one.
 
-**No example may come from a declared instrument (#230).** ``d1`` *is*
-``tools/bundle/tasks/`` byte for byte — half the floor instrument — and #189's
-training set drew 622 of its 738 examples from it, then scored the result on
-the same twenty contracts. Nothing here noticed, because this tool's only
-notion of held-out material was the train/val split, which partitions what it
-has already decided to draw from and has no concept of a set it must not draw
-from at all.
+**No example may come from a set the declaration does not mark trainable
+(#230, #240).** ``d1`` *is* ``tools/bundle/tasks/`` byte for byte — half the
+floor instrument — and #189's training set drew 622 of its 738 examples from
+it, then scored the result on the same twenty contracts. Nothing here noticed,
+because this tool's only notion of held-out material was the train/val split,
+which partitions what it has already decided to draw from and has no concept of
+a set it must not draw from at all.
 
 So two checks read one declaration:
 
@@ -30,19 +30,32 @@ So two checks read one declaration:
 2. an independent classification of the same run against
    ``tools/instruments.json``, made here and now.
 
-Either one is enough to drop the material, and **disagreement between them is
-fatal** rather than resolved in the permissive direction: a corpus whose stamps
-predate the current declaration is a corpus that would quietly readmit whatever
-was declared since. The instrument is a *problem*, not a language, so both
-arms of a paired id go — protecting only the trained-on language is not
-protection, and #189 measured the cross-language transfer that makes it so.
+They must agree on *which sets* a run belongs to, and **disagreement between
+them is fatal** rather than resolved in the permissive direction: a corpus
+whose stamps predate the current declaration is a corpus that would quietly
+readmit whatever was declared since. The instrument is a *problem*, not a
+language, so a set's membership carries both arms of a paired id — protecting
+only the trained-on language is not protection, and #189 measured the
+cross-language transfer that makes it so.
+
+What the agreed verdict then *means* is #240's change. Set membership is no
+longer the refusal; ``trainable`` is. #240 retired all five local sets and
+released them, on the argument that a set nobody will measure on again cannot
+be contaminated by training on it — so their material is drawn, and the
+manifest records that it was released rather than pretending it was never an
+instrument. ``humaneval-plus`` is retired and **never** trainable, and is
+refused by name here for as long as it is declared. That asymmetry is the point
+of two flags: one flag would either strand the 9,173 replies the local sets
+account for or release material that must never be released.
 
 Curation, all deterministic:
 
 - dedup by reply sha across the whole set — the same solution drawn twice is
   one example;
 - per-``(problem, language)`` cap (``--cap``, default 40), selected round-robin
-  across models so no single model's phrasing dominates;
+  across models so no single model's phrasing dominates — where a *problem* is
+  its id **and the set it came from**, because ``t01`` names one problem in
+  ``d1`` and a different one in ``d2`` and #240 released both;
 - validation split by problem (``--split-by``, default ``problem``), so both
   language arms of a problem land on the same side.
 
@@ -140,7 +153,35 @@ def _load_instruments() -> Any:
 
 
 class Contamination(SystemExit):
-    """Instrument material reached, or nearly reached, a training set."""
+    """Material the declaration withholds reached, or nearly reached, a training set."""
+
+
+def _origin(verdict: Any) -> str:
+    """Where a reply's problem lives, as a name a task id can be scoped by.
+
+    ``pool`` for material the declaration claims no part of, the set's id for
+    the rest, and ``unattributed`` when several sets claim it and none can be
+    singled out. This exists because a task id is unique only inside a set:
+    ``t01`` is one problem in ``d1`` and a different problem in ``d2``, and
+    the counting and the cap both need to tell them apart.
+    """
+    if not verdict.sets:
+        return "pool"
+    return verdict.primary or "unattributed"
+
+
+def _withheld(verdict: Any, instruments: Any) -> tuple[str, ...]:
+    """The sets claiming this run that may not be drawn from.
+
+    A run can be claimed by several sets at once — the id space is shared —
+    and one untrainable claimant is enough to withhold the whole run. There is
+    no partial draw: the reply exists because *some* declared set produced it,
+    and if the declaration cannot say that every claimant is released then it
+    cannot say the reply is.
+    """
+    return tuple(
+        set_id for set_id in verdict.sets if not instruments.by_id(set_id).trainable
+    )
 
 
 def _golden_label() -> str:
@@ -151,10 +192,10 @@ def _golden_label() -> str:
         return str(GOLDEN)
 
 
-def refuse_instrument_material(
-    kept: list[dict[str, Any]], tainted: dict[str, Any]
+def refuse_withheld_material(
+    kept: list[dict[str, Any]], classified: dict[str, Any], instruments: Any
 ) -> None:
-    """The belt over the braces: nothing kept may trace back to an instrument.
+    """The belt over the braces: nothing kept may trace back to a withheld set.
 
     Whatever the filters upstream did or failed to do, this reads the run
     classifications rather than the drop counters, so an edit that reorders or
@@ -163,18 +204,19 @@ def refuse_instrument_material(
     silence is not an acquittal.
     """
     for item in kept:
-        verdict = tainted.get(str(item["run"]))
+        verdict = classified.get(str(item["run"]))
         if verdict is None:
             raise Contamination(
                 f"{item['run']}: kept an example from a run that was never "
                 "classified against tools/instruments.json"
             )
-        if verdict.sets:
+        withheld = _withheld(verdict, instruments)
+        if withheld:
             raise Contamination(
                 f"{item['run']} ({item['task']}, {item['language']}) belongs to "
-                f"{', '.join(verdict.sets)} and reached the training set. That "
-                "is the #189 failure by another route; the drop above did not "
-                "hold."
+                f"{', '.join(withheld)}, which the declaration does not mark "
+                "trainable, and it reached the training set. That is the #189 "
+                "failure by another route; the drop above did not hold."
             )
 
 
@@ -241,8 +283,15 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))
     stamped = _stamps(golden)
     #: run -> its instrument verdict, decided once per run.
-    tainted: dict[str, Any] = {}
-    excluded = collections.Counter[str]()
+    classified: dict[str, Any] = {}
+    #: replies withheld, by the set that withheld them; and replies drawn from
+    #: a released set, by the set that released them. Both are recorded because
+    #: "this came from a retired instrument" is a fact about a training example
+    #: that a reader six months from now has to be able to recover.
+    refused = collections.Counter[str]()
+    released = collections.Counter[str]()
+    #: run -> replies released but unresolvable, named rather than only counted.
+    unresolved = collections.Counter[str]()
 
     #: (tier, task) -> (system, user, language). Keyed on the tier because that
     #: is what resolves a contract; the language it yields is what the cap and
@@ -267,16 +316,19 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
                 if manifest.is_file()
                 else {}
             )
-            tainted[run] = _instrument_of(run, metas[run], stamped, instruments)
-        verdict = tainted[run]
-        if verdict.sets:
-            # Counted once per reply, under the set the strong evidence named.
-            # A run recognised only by its id space belongs to *some* declared
-            # instrument and the declaration cannot say which; "unattributed"
-            # records that honestly instead of charging it to all five
-            # claimants and inflating every one of them.
-            excluded[verdict.primary or "unattributed"] += 1
+            classified[run] = _instrument_of(run, metas[run], stamped, instruments)
+        verdict = classified[run]
+        # Counted once per reply, under the set the strong evidence named. A run
+        # recognised only by its id space belongs to *some* declared set and the
+        # declaration cannot say which; "unattributed" records that honestly
+        # instead of charging it to every claimant and inflating all of them.
+        attribution = verdict.primary or "unattributed"
+        withheld = _withheld(verdict, instruments)
+        if withheld:
+            refused[withheld[0] if len(withheld) == 1 else attribution] += 1
             continue
+        if verdict.sets:
+            released[attribution] += 1
 
         if "expect" not in entry or "content_sha256" not in entry.get("expect", {}):
             dropped["refusal"] += 1
@@ -308,7 +360,22 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
             # This used to default to "d1", which is the instrument — a run
             # that never said what it served would have had its replies
             # rebuilt against the bundle set's contracts and labelled with the
-            # instrument's tier. Nothing that reaches here may be guessed at.
+            # instrument's tier. Nothing that reaches here may be guessed at,
+            # and that has not changed: the two branches below both refuse to
+            # draw. What differs is whether the record can still be fixed.
+            if verdict.sets:
+                # A released instrument's old run. Its rig is retired, so the
+                # manifest is frozen and no future edit will supply the tier —
+                # `breadth-2026-08-06` is the case, 120 replies whose ids fall
+                # in five sets at once. The material is drawable in principle
+                # and unresolvable in fact, which makes it a counted drop
+                # rather than a build failure: a training pair whose prompt is
+                # not the prompt the reply answered is worse than a missing one.
+                dropped["released-but-unresolvable"] += 1
+                unresolved[run] += 1
+                continue
+            # A live rig that did not say what it ran. That is a defect in the
+            # rig and it is still fatal, because it is still fixable.
             raise Contamination(
                 f"{run}: run.json declares no tier, so the contracts behind "
                 "its replies cannot be resolved. It is neither drawable nor "
@@ -340,6 +407,7 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
         sha = entry["sha256"]
         item = {
             "task": task,
+            "origin": _origin(verdict),
             "tier": tier,
             "language": language,
             "model": entry["model"],
@@ -363,10 +431,18 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
         candidates[sha] = item
 
     # The cap's unit is the (problem, language) pair — one problem id names two
-    # contracts, and each is its own training material.
-    by_arm: dict[tuple[str, str], list[dict[str, Any]]] = collections.defaultdict(list)
+    # contracts, and each is its own training material. The problem is
+    # identified by *where it came from* as well as by its id, because a task
+    # id is only unique within a set: ``t01`` names one problem in ``d1`` and a
+    # different one in ``d2``, and #240 released both. Keyed on the bare id
+    # those two would share a single budget and one would crowd out the other;
+    # keyed on the tier instead, one problem served under two tier names would
+    # get two budgets, which is the opposite error.
+    by_arm: dict[tuple[str, str, str], list[dict[str, Any]]] = collections.defaultdict(
+        list
+    )
     for item in candidates.values():
-        by_arm[(item["task"], item["language"])].append(item)
+        by_arm[(item["origin"], item["task"], item["language"])].append(item)
 
     kept: list[dict[str, Any]] = []
     for key in sorted(by_arm):
@@ -385,11 +461,23 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
         dropped["over-arm-cap"] += len(pool) - len(chosen)
         kept.extend(chosen)
 
-    kept.sort(key=lambda i: (str(i["task"]), str(i["language"]), str(i["sha256"])))
+    kept.sort(
+        key=lambda i: (
+            str(i["origin"]),
+            str(i["task"]),
+            str(i["language"]),
+            str(i["sha256"]),
+        )
+    )
 
-    refuse_instrument_material(kept, tainted)
+    refuse_withheld_material(kept, classified, instruments)
     train, val = [], []
     for item in kept:
+        # Hashed on the bare id rather than on the scoped one, deliberately.
+        # Two sets sharing an id are two problems, and holding out both when
+        # either is held out is the conservative reading — val exists to
+        # measure generalisation, and a near-neighbour under the same name in
+        # train is the thing it must not contain.
         held_out = _in_validation(split_by, str(item["task"]), str(item["sha256"]))
         (val if held_out else train).append(item)
 
@@ -411,23 +499,45 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
                 )
 
     by_language = collections.Counter(str(item["language"]) for item in kept)
+    drawn_from = sorted(
+        {str(item["run"]) for item in kept if classified[str(item["run"])].sets}
+    )
     manifest = {
-        # /3: the instrument guard (#230). The exclusion is recorded rather
-        # than merely performed — a training set has to be able to say which
-        # measurement sets it was held away from, and #189's could not.
-        "record": "finetune-dataset/3",
+        # /4: the two flags (#240). /3 recorded what was excluded, which was
+        # the whole instrument. Now a set can be released, so the manifest has
+        # to say which sets were *drawn from* as well as which were refused —
+        # a training set built on retired rulers is a fine thing and an opaque
+        # one, and the difference is whether it says so.
+        "record": "finetune-dataset/4",
         "source": "records/corpora/worker-replies/golden.json",
         "cap_per_arm": cap,
         "split_by": split_by,
         "instruments": {
             "declared": "tools/instruments.json",
-            "excluded_replies": dict(sorted(excluded.items())),
-            "excluded_runs": sorted(run for run, v in tainted.items() if v.sets),
+            "released": {
+                "sets": sorted(
+                    inst.id for inst in instruments.declared() if inst.trainable
+                ),
+                "replies": dict(sorted(released.items())),
+                "runs": drawn_from,
+                "unresolvable": dict(sorted(unresolved.items())),
+            },
+            "refused": {
+                "sets": sorted(
+                    inst.id for inst in instruments.declared() if not inst.trainable
+                ),
+                "replies": dict(sorted(refused.items())),
+                "runs": sorted(
+                    run for run, v in classified.items() if _withheld(v, instruments)
+                ),
+            },
         },
         "counts": {
             "train": len(train),
             "val": len(val),
-            "problems": len({str(item["task"]) for item in kept}),
+            "problems": len(
+                {(str(item["origin"]), str(item["task"])) for item in kept}
+            ),
             "arms": len(by_arm),
             "by_language": dict(sorted(by_language.items())),
             "dropped": dict(sorted(dropped.items())),
@@ -435,7 +545,16 @@ def build(cap: int, out_dir: Path, split_by: str = "problem") -> dict[str, Any]:
         "examples": [
             {
                 k: item[k]
-                for k in ("task", "tier", "language", "model", "run", "file", "sha256")
+                for k in (
+                    "task",
+                    "origin",
+                    "tier",
+                    "language",
+                    "model",
+                    "run",
+                    "file",
+                    "sha256",
+                )
             }
             for item in kept
         ],
