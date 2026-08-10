@@ -65,7 +65,14 @@ tightens what the levers need. Checks, in order (deltas from
    **id matches `b<nnn>-<slug>`**, arms agree on `task_type`,
    **`file_shape` label present** (`single_definition` | `multi_symbol`),
    **shape label present** (#162's axis: `recursion`, `iteration`, `string`,
-   `numeric`, `data_structure`, `error_handling`).
+   `numeric`, `data_structure`, `error_handling`). The labels live in a
+   gate-owned **`meta.json` sidecar** per problem (one per id, beside the
+   arms), pinned in the manifest like every other file — the contract
+   schema is strict and its `target` names a *file*, so the target
+   **symbol** a `multi_symbol` problem stubs is `meta.json`'s
+   `target_symbol`, which must appear among the interface's declarations;
+   a `single_definition` problem's target symbol is its interface's single
+   declared function, exactly the pool's rule.
 2. Contract validity via the real loader; `task_type` ∈ {`function_implementation`,
    `bug_fix`} (type_annotation deferred with #211, per #225's amendment).
 3. Selftest — the reference passes its own checker in a fresh directory.
