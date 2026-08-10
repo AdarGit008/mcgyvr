@@ -41,6 +41,16 @@ and the claim record says so.
 beside the rows, pass or fail, parseable or refused — replies are the corpus
 #184 observes gets discarded exactly where it is free.
 
+**A cell without an observation is not a filled cell (#217).** A
+``dispatch_error`` row records that a draw was never seen, so a resume
+re-dispatches it rather than skipping it forever; the rows it displaces are
+kept verbatim in a sidecar, and the act is recorded in ``run.json``. Every run
+directory then states whether an observation reached every cell it set out to
+fill — in ``run.json``, at the head of ``summary.md`` and in the exit code —
+because the failure this guards against is quiet: the sweep exits 0, the rows
+file has the expected line count, and only a summary line that scrolled past
+hours ago distinguishes a complete run from one missing a fifth of its draws.
+
 The task set, the acceptance runner and the worker plumbing are the bundle
 rig's (`tools/bundle/measure.py`), imported by path — the task set is pinned
 by the same digests, so a row here and a row there describe the same twenty
@@ -71,7 +81,8 @@ import sys
 import tempfile
 import time
 import types
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -81,6 +92,7 @@ from mcgyvr.worker.prompt import build_prompt
 from mcgyvr.worker.reply import ReplyError, parse_reply
 
 HERE = Path(__file__).resolve().parent
+REPO = HERE.parent.parent
 
 
 def _bundle_rig() -> types.ModuleType:
@@ -150,6 +162,22 @@ POOL_TIERS = ("pool-ts", "pool-py")
 # bundle rig's worker file, kept beside this script so the two experiments can
 # name different workers.
 WORKER_FILE = HERE / "worker.local.json"
+
+# Where a resume parks the rows it displaces (#217). Named for the invocation
+# that produced them, matching the file the manual recovery of the 2026-08-08
+# srv2 outage already left beside its rows in
+# records/measurements/pool-sweep-14b-cap2048-2026-08-08/.
+DISPATCH_ERROR_SIDECAR = "dispatch-errors-invocation-{n}.jsonl"
+
+# How many consecutive tasks may lose *every* draw to transport before the run
+# stops (#217). The srv2 outage cost 51 tasks x 3 draws of identical 120s
+# timeouts — about five hours spent learning one fact the first three tasks had
+# already established. Three is chosen rather than tuned: it cannot fire on a
+# healthy backend, because it requires every draw of three consecutive tasks to
+# fail below the model, which is not a thing a model does. This is a *run*-level
+# breaker and it does not change the row-level rule — a failed draw is still a
+# row, and the rows already written are what the resume then refills.
+DEAD_TASKS_BEFORE_ABORT = 3
 
 
 def draw_plan(
@@ -344,17 +372,183 @@ def measure_task(
     return rows
 
 
-def done_keys(rows_path: Path) -> set[tuple[str, str, int]]:
-    """The (task, arm, draw) cells an interrupted run already recorded."""
+def read_rows(rows_path: Path) -> list[dict[str, Any]]:
+    """The rows on disk, one per line, blank lines ignored."""
     if not rows_path.is_file():
+        return []
+    return [
+        json.loads(line)
+        for line in rows_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def done_keys(rows_path: Path) -> set[tuple[str, str, int]]:
+    """The (task, arm, draw) cells an interrupted run actually observed.
+
+    A ``dispatch_error`` row is **not** a recorded cell (#217). It is the
+    record of a draw nobody saw, and counting it as done is what made a hole
+    permanent: re-running the identical command printed ``resuming: 807 draws
+    already recorded`` and dispatched nothing, so a run that lost 18.8% of its
+    draws to a backend that came back forty minutes later stayed lost — at exit
+    0, with the expected line count.
+
+    Excluding them here is only half of it. The rows file is append-only, so a
+    caller that resumes must first move the displaced rows out of it; that is
+    :func:`resume_state`, which is what both drivers call.
+    """
+    return {
+        (row["task"], row["arm"], row["draw"])
+        for row in read_rows(rows_path)
+        if not row.get("dispatch_error")
+    }
+
+
+@dataclass(frozen=True, eq=False)
+class ResumeState:
+    """What a resume found, and what it had to move to be able to refill it."""
+
+    keys: set[tuple[str, str, int]]
+    retrying: int
+    sidecar: Path | None
+
+    def note(self) -> str | None:
+        """One line for stderr, or ``None`` when nothing was displaced."""
+        if not self.retrying or self.sidecar is None:
+            return None
+        return (
+            f"retrying {self.retrying} draw(s) that reached no worker; their "
+            f"rows are kept verbatim in {self.sidecar.name}"
+        )
+
+
+def resume_state(out: Path) -> ResumeState:
+    """Prepare ``out`` for a resume: quarantine unfillable rows, report the rest.
+
+    **Why the rows file is rewritten rather than appended to.** Three
+    mechanisms could let a resume refill a cell whose only row is a dispatch
+    error, and this is the one taken:
+
+    * *Last-row-wins in every reader* is the worst of the three, because it
+      makes each reader carry the rule and there are already three. ``summarise``
+      and ``campaign.classify`` would double-count the cell; worse,
+      ``tools/replies/pin.py`` joins a capture to the **first** matching row
+      (``_join_candidate``), and a dispatch-error row carries no ``stop_reason``
+      at all — so the corpus would die on ``KeyError`` rather than on the
+      diagnosable ``PinError`` that module raises for every other provenance
+      failure.
+    * *A flag* (``--retry-dispatch-errors``) keeps the rewrite explicit, but it
+      reproduces the defect's own first failure mode: it requires noticing.
+      Nothing fails, and the number that would tell you to pass the flag is in a
+      summary line that scrolled past hours ago.
+    * *Rewrite on resume*, taken here. The deliberateness the run-identity
+      discipline asks for is bought by preserving and recording rather than by
+      requiring foreknowledge: the displaced rows are written verbatim to
+      :data:`DISPATCH_ERROR_SIDECAR` beside the rows, the act is announced on
+      stderr, and ``run.json`` records it under the invocation that does it.
+      Nothing is destroyed and the run says what happened to it.
+
+    The join ``pin.py`` depends on stays total either way: a dispatch error
+    writes no candidate file, so no capture ever pointed at a row this removes.
+    """
+    rows_path = out / "results.jsonl"
+    rows = read_rows(rows_path)
+    lost = [row for row in rows if row.get("dispatch_error")]
+    if not lost:
+        return ResumeState(done_keys(rows_path), 0, None)
+
+    manifest = out / "run.json"
+    invocation = 1
+    if manifest.is_file():
+        recorded = json.loads(manifest.read_text(encoding="utf-8"))
+        invocation = max(1, len(recorded.get("invocations", [])))
+    sidecar = out / DISPATCH_ERROR_SIDECAR.format(n=invocation)
+    with sidecar.open("a", encoding="utf-8") as handle:
+        handle.write("".join(json.dumps(row) + "\n" for row in lost))
+
+    kept = [row for row in rows if not row.get("dispatch_error")]
+    # Sidecar first, then a replace: an interrupted quarantine must never be
+    # the state where the rows are in neither file.
+    scratch = rows_path.with_suffix(".jsonl.partial")
+    scratch.write_text(
+        "".join(json.dumps(row) + "\n" for row in kept), encoding="utf-8"
+    )
+    scratch.replace(rows_path)
+    return ResumeState(
+        {(row["task"], row["arm"], row["draw"]) for row in kept}, len(lost), sidecar
+    )
+
+
+def task_lost_every_draw(rows: list[dict[str, object]]) -> bool:
+    """Whether a task produced rows and every one of them reached no worker.
+
+    A task the resume skipped entirely produces no rows, which is not the same
+    thing and must not advance the circuit breaker.
+    """
+    return bool(rows) and all(row.get("dispatch_error") for row in rows)
+
+
+def expected_cells(meta: Mapping[str, Any]) -> set[tuple[str, str, int]]:
+    """Every cell a run's own manifest says it set out to fill.
+
+    Derived from what ``run.json`` already records rather than from a new
+    field, so the question can be asked of every run directory ever written by
+    this rig: the union of the task lists its invocations name, crossed with
+    the plan its recorded ``draws`` implies. A manifest with no ``draws`` is
+    not this rig's — the bundle rig's runs are shaped by condition, not by draw
+    — and answers empty rather than inventing cells for it.
+    """
+    if "draws" not in meta:
         return set()
-    keys: set[tuple[str, str, int]] = set()
-    for line in rows_path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        row = json.loads(line)
-        keys.add((row["task"], row["arm"], row["draw"]))
-    return keys
+    plan = draw_plan(int(meta["draws"]))
+    tasks = {
+        str(task)
+        for invocation in meta.get("invocations", [])
+        for task in invocation.get("tasks", [])
+    }
+    return {(task, arm, draw) for task in tasks for arm, draw, _ in plan}
+
+
+def missing_cells(out: Path) -> list[tuple[str, str, int]] | None:
+    """The cells a run meant to fill and has no observation for.
+
+    ``None`` when the directory cannot be judged — no manifest, or one this rig
+    did not write. That is deliberately distinct from ``[]``: "complete" and
+    "unanswerable" are different verdicts and the second must not read as the
+    first.
+    """
+    manifest = out / "run.json"
+    if not manifest.is_file():
+        return None
+    meta = json.loads(manifest.read_text(encoding="utf-8"))
+    expected = expected_cells(meta)
+    if not expected:
+        return None
+    return sorted(expected - done_keys(out / "results.jsonl"))
+
+
+def record_completeness(out: Path) -> list[tuple[str, str, int]] | None:
+    """Stamp into ``run.json`` whether every cell holds an observation.
+
+    Written where a reader cannot scroll past it, because the summary line is
+    exactly what did get scrolled past. The cells are listed rather than
+    counted: a hole that names itself is one a resume can be checked against.
+    """
+    missing = missing_cells(out)
+    manifest = out / "run.json"
+    if missing is None or not manifest.is_file():
+        return missing
+    meta = json.loads(manifest.read_text(encoding="utf-8"))
+    expected = len(expected_cells(meta))
+    meta["completeness"] = {
+        "expected": expected,
+        "recorded": expected - len(missing),
+        "missing": len(missing),
+        "complete": not missing,
+        "missing_cells": [f"{task}/{arm}/{draw}" for task, arm, draw in missing],
+    }
+    manifest.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    return missing
 
 
 def record_run(
@@ -445,12 +639,15 @@ def summarise(rows_path: Path) -> str:
     The intended draw count comes from ``run.json`` beside the rows when it
     exists (a resume must judge completeness against what was *meant* to run),
     falling back to the module default for rows produced without a manifest.
+
+    **Completeness leads rather than trails (#217).** The old summary counted
+    lost draws in its last line, which is where a reader stops looking and
+    where a multi-hour run's operator was never looking at all. A run missing
+    an observation says so in its first line, before any rate it might be
+    quoted for; a run that is whole says *that* in its first line, so the
+    statement's absence from an older summary is itself informative.
     """
-    rows = [
-        json.loads(line)
-        for line in rows_path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    rows = read_rows(rows_path)
     if not rows:
         return "no rows"
     draws = DRAWS
@@ -464,6 +661,22 @@ def summarise(rows_path: Path) -> str:
         )
 
     lines: list[str] = []
+    missing = missing_cells(rows_path.parent)
+    if missing:
+        tasks_holed = sorted({task for task, _, _ in missing})
+        shown = ", ".join(tasks_holed[:5]) + ("…" if len(tasks_holed) > 5 else "")
+        lines.append(
+            f"**INCOMPLETE — {len(missing)} cell(s) hold no observation**, "
+            f"across {len(tasks_holed)} task(s): {shown}. Every rate below is "
+            "over the cells that were filled, so this directory is not a "
+            "measurement of the task set its manifest names. Re-run the "
+            "identical command to fill them."
+        )
+        lines.append("")
+    elif missing is not None:
+        lines.append("complete: an observation reached every cell.")
+        lines.append("")
+
     greedy = [r for r in rows if r["arm"] == "greedy"]
     sampled = [r for r in rows if r["arm"] == "sampled"]
     if greedy:
@@ -520,6 +733,30 @@ def summarise(rows_path: Path) -> str:
         f"{dispatch_errors} draws lost to dispatch errors."
     )
     return "\n".join(lines)
+
+
+def audit(root: Path) -> int:
+    """Name every run directory under ``root`` that is missing an observation.
+
+    The per-run stamp makes a *new* holed run impossible to cite unknowingly.
+    This answers the same question of the runs already on disk, which were
+    written before anything asked it and whose summaries therefore do not say.
+    """
+    judged = holed = 0
+    for manifest in sorted(root.rglob("run.json")):
+        missing = missing_cells(manifest.parent)
+        if missing is None:
+            continue
+        judged += 1
+        if missing:
+            holed += 1
+            tasks = sorted({task for task, _, _ in missing})
+            print(
+                f"HOLED {manifest.parent.relative_to(root)}: "
+                f"{len(missing)} cell(s) over {len(tasks)} task(s)"
+            )
+    print(f"{judged} run directories judged, {holed} holed", file=sys.stderr)
+    return 1 if holed else 0
 
 
 def main() -> int:
@@ -581,6 +818,15 @@ def main() -> int:
         "identity: a directory measured at one cap refuses another.",
     )
     parser.add_argument(
+        "--abort-after-dead-tasks",
+        type=int,
+        default=DEAD_TASKS_BEFORE_ABORT,
+        metavar="N",
+        help=f"stop once N consecutive tasks lose every draw to transport "
+        f"(default {DEAD_TASKS_BEFORE_ABORT}, 0 disables). The rows already "
+        "written stay, so the resume refills them.",
+    )
+    parser.add_argument(
         "--selftest",
         action="store_true",
         help="run every reference against its own acceptance and stop; needs no worker",
@@ -590,7 +836,16 @@ def main() -> int:
         action="store_true",
         help="print the table from an existing results.jsonl, dispatching nothing",
     )
+    parser.add_argument(
+        "--audit",
+        action="store_true",
+        help="report which run directories under records/measurements/ hold a "
+        "cell with no observation, and stop. Exits 1 if any does.",
+    )
     args = parser.parse_args()
+
+    if args.audit:
+        return audit(REPO / "records" / "measurements")
 
     try:
         tasks = load_tier_tasks(args.tier, [t for t in args.tasks.split(",") if t])
@@ -628,7 +883,10 @@ def main() -> int:
             print("error: --summarise-only needs --out", file=sys.stderr)
             return 2
         print(summarise(args.out / "results.jsonl"))
-        return 0
+        # A read of a holed directory exits non-zero for the same reason the
+        # sweep does: a caller that only checks the status of the command that
+        # printed the table still learns the table is over a hole.
+        return 1 if missing_cells(args.out) else 0
 
     if args.out is None:
         print(
@@ -657,19 +915,33 @@ def main() -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     rows_path = args.out / "results.jsonl"
-    already = done_keys(rows_path)
+    resume = resume_state(args.out)
+    already = resume.keys
     if already:
         print(f"resuming: {len(already)} draws already recorded", file=sys.stderr)
+    note = resume.note()
+    if note is not None:
+        print(note, file=sys.stderr)
+
+    invocation: dict[str, object] = {
+        "started": datetime.now(UTC).isoformat(timespec="seconds"),
+        "tasks": [task.id for task in tasks],
+        "rig_revision": bundle.rig_revision(),
+    }
+    if resume.retrying and resume.sidecar is not None:
+        # The rewrite is recorded where the run's provenance is, so a reader who
+        # notices the rows file is shorter than the invocations imply is told
+        # why, by the run, rather than having to reconstruct it.
+        invocation |= {
+            "retried_dispatch_errors": resume.retrying,
+            "quarantined_to": resume.sidecar.name,
+        }
 
     try:
         record_run(
             args.out,
             worker,
-            {
-                "started": datetime.now(UTC).isoformat(timespec="seconds"),
-                "tasks": [task.id for task in tasks],
-                "rig_revision": bundle.rig_revision(),
-            },
+            invocation,
             tier=args.tier,
             draws=args.draws,
             max_output_tokens=args.max_output_tokens,
@@ -688,6 +960,8 @@ def main() -> int:
     )
     plan = draw_plan(args.draws, args.sampled_temperature)
 
+    aborted = None
+    dead_streak = 0
     with (
         tempfile.TemporaryDirectory(prefix="mcgyvr-breadth-") as tmp,
         rows_path.open("a", encoding="utf-8") as handle,
@@ -709,11 +983,27 @@ def main() -> int:
             marks = "".join("P" if r.get("passed") else "." for r in rows)
             if rows:
                 print(f"{task.id} {marks}", file=sys.stderr)
+            dead_streak = dead_streak + 1 if task_lost_every_draw(rows) else 0
+            limit = args.abort_after_dead_tasks
+            if limit and dead_streak >= limit:
+                aborted = task.id
+                break
 
+    if aborted is not None:
+        print(
+            f"error: the backend went away at task {aborted} — "
+            f"{dead_streak} consecutive tasks lost every draw to transport. "
+            "Stopping rather than spending the rest of the run learning the "
+            "same fact; re-run the identical command once it is back and the "
+            "resume will fill what is missing.",
+            file=sys.stderr,
+        )
+
+    missing = record_completeness(args.out)
     summary = summarise(rows_path)
     (args.out / "summary.md").write_text(summary + "\n", encoding="utf-8")
     print(summary)
-    return 0
+    return 1 if missing or aborted is not None else 0
 
 
 if __name__ == "__main__":

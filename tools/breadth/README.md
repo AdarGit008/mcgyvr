@@ -44,6 +44,42 @@ explicitly blocked on this number.
 - **Provenance and resume** follow the bundle rig: `run.json` pins worker,
   sampler, cap, bundle and task digests; resuming into a directory measured
   under any other identity is refused.
+- **A cell without an observation is not filled** ([#217](https://github.com/AdarGit008/mcgyvr/issues/217)).
+  A `dispatch_error` row records that a draw reached no worker, so `done_keys`
+  does not count it and a resume re-dispatches it. See below for what that
+  costs and how it is kept honest.
+
+## When the backend goes away
+
+On 2026-08-08 a 269-problem sweep lost **152 of 807 draws** — 18.8% — to a
+contiguous srv2 outage that opened and closed on its own; the host answered
+0.14s later. The rig handled each failure correctly at the row level, and then
+made the loss permanent: `done_keys` counted the error rows as filled cells, so
+re-running the identical command printed `resuming: 807 draws already recorded`
+and dispatched nothing. The sweep exited 0, the rows file had the expected line
+count, and only a summary line that had scrolled past hours earlier said
+otherwise. Three things answer that:
+
+- **The resume refills, and rewrites the rows file to be able to.** The file is
+  append-only, so re-dispatching without removing the old row would leave two
+  rows for one cell and make three readers each learn a last-row-wins rule —
+  including `tools/replies/pin.py`, which joins a capture to the *first*
+  matching row and would die on `KeyError` where it otherwise raises a
+  diagnosable `PinError`. The rewrite is deliberate in the way the run-identity
+  discipline means: the displaced rows are kept verbatim in
+  `dispatch-errors-invocation-<n>.jsonl`, the act is announced on stderr and
+  recorded in `run.json` against the invocation that did it. It is **not**
+  behind a flag — needing to notice is the defect's own first failure mode.
+- **A holed run says so where it cannot be scrolled past.** `run.json` carries
+  a `completeness` block naming every unobserved cell, `summary.md` leads with
+  it rather than trailing, and the run exits non-zero. `--audit` asks the same
+  question of every run directory under `records/measurements/` at once; all 87
+  breadth-shaped directories on disk answer complete.
+- **A dead backend stops the run.** Three consecutive tasks losing *every* draw
+  to transport is not a model behaviour, so it aborts rather than spending the
+  remaining hours re-learning it — the outage above cost five. Rows already
+  written stay, and the resume fills them. `--abort-after-dead-tasks 0`
+  disables it.
 
 ## Usage
 
