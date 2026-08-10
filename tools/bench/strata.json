@@ -1,0 +1,47 @@
+{
+  "record": "bench-strata/1",
+  "issue": 225,
+  "doctrine": "Strata are measured, not asserted (#225's amendment, point 3): membership comes from a calibration sweep of the floor tier, never from generator self-labels — #197's record is that steered difficulty drifted ~2x and a ten-task probe misread by ~2x. A re-assignment is a new dated block appended to `blocks`, never an edit of an old one; consumers read the newest block. Rates are quoted with their n because a pilot-sized cell is a locator, not an anchor.",
+  "blocks": [
+    {
+      "date": "2026-08-10",
+      "phase": "pilot calibration (Phase 3)",
+      "source": "records/measurements/bench-calibration-3b-2026-08-10",
+      "model": "qwen2.5-coder:3b",
+      "endpoint": "http://srv1:11434",
+      "protocol": "openai",
+      "draws": "greedy only (--draws 0)",
+      "max_output_tokens": 2048,
+      "failure_modes": "All 38 failing arms are acceptance failures: 0 of 44 arm-draws overran the cap (max completion 740 of 2048 tokens), 0 parse errors. The rates below are capability, not censoring (#212's trap, checked before believing any 0).",
+      "assignment_rule": "Provisional: stratum = steering band, held until campaign-scale measurement. At n = 4-6 bench problems per band per arm, measured re-binning would be fitting noise; boundaries harden when Phase 4 fills each stratum toward ~100 and the calibration re-runs. The ids listed are the bench half only — the reserve is never measured (design doc section 2).",
+      "strata": {
+        "s1": {
+          "steering_band": "g1",
+          "steered_at": "ts 30-45 reference lines, 10-14 asserts/arm — just above d3-class",
+          "bench_ids": ["b002-option-pairs", "b003-carve-shift", "b004-install-order", "b005-command-chain", "b007-cent-split", "b009-pack-entries"],
+          "rate": {"bench-ts": "1/6", "bench-py": "2/6"}
+        },
+        "s2": {
+          "steering_band": "g2",
+          "steered_at": "ts 45-60 lines, 13-17 asserts/arm — lower gap",
+          "bench_ids": ["b013-region-totals", "b014-fill-order", "b015-recency-cache", "b017-site-totals", "b019-reservoir-ticks", "b020-route-pattern"],
+          "rate": {"bench-ts": "1/6", "bench-py": "1/6"}
+        },
+        "s3": {
+          "steering_band": "g3",
+          "steered_at": "ts 60-80 lines, 16-20 asserts/arm — upper gap",
+          "bench_ids": ["b022-allocate-cents", "b027-thread-score", "b028-pass-plan", "b030-date-span"],
+          "rate": {"bench-ts": "0/4", "bench-py": "0/4"}
+        },
+        "s4": {
+          "steering_band": "g4",
+          "steered_at": "ts 80-120 lines, 18-26 asserts/arm — pool-class and past it",
+          "bench_ids": ["b032-bitmap-runs", "b033-till-session", "b034-notepad-replay", "b035-route-params", "b036-group-batches", "b037-lift-sweep"],
+          "rate": {"bench-ts": "0/6", "bench-py": "1/6"}
+        }
+      },
+      "reading": "The bands interpolate the d3-to-pool cliff as designed — rates fall monotonically-ish from ~17% to ~0% as reference size climbs — but the whole ladder landed lower than steered: g1, aimed 'just above d3-class', reads AT d3-class (ts 1/6 vs the floor probe's 16.7%), and both upper bands sit at ~0. The interior requirement holds (s1 and s2 are interior on both arms, so #119's attempts arm is not foreclosed), and never-passers exist in quantity under pinned ids for #162's no-rung-fixes-this cell.",
+      "phase4_steering": "If the campaign wants a stratum reading 30-50% on the floor tier (a band point clearly above the cliff edge, where regressions as well as gains can show), it must steer a band EASIER than the pilot's g1 — roughly ts 20-30 reference lines, d2-class unit of work — because size-to-difficulty came out steeper than the pilot's targets assumed. Recorded here as the calibration's implication; the re-aim itself is Phase 4's steering decision, taken before its first batch."
+    }
+  ]
+}

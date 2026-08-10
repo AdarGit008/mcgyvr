@@ -1,0 +1,72 @@
+{
+  "endpoint": "http://srv1:11434",
+  "protocol": "openai",
+  "model": "qwen2.5-coder:3b",
+  "tier": "bench-py",
+  "draws": 0,
+  "greedy_temperature": 0.0,
+  "sampled_temperature": 0.7,
+  "max_output_tokens": 2048,
+  "bundle_sha256": "bceead24fa06b33e68382e9a81dff49a4e15328f2f275322c4d0a0df651326a3",
+  "tasks_sha256": {
+    "b002-option-pairs": "8cfc86051cdf507399c16be8cf57f0a566215f442ff55c4dcffb80160649ee98",
+    "b003-carve-shift": "1bdd7ac74fb68003640f6159b264927b2533ae93f58fd2e886629ef7e90bc936",
+    "b004-install-order": "da4135c8e2e7c14b72053c0fef5e25db6857a0baeee2582e5b3cc6b933353d89",
+    "b005-command-chain": "ae5f2432c71817eb0efd10022e920cd7d170206510c2d509ec6bbb8bc785c767",
+    "b007-cent-split": "5ba644cd9184b4cf093b618b86acadce295a2bb30cbd1f6577afebf44eae9cec",
+    "b009-pack-entries": "643068cd8272a11463e96580e4a2b5e39534d3023b85de76feda530f02c000dc",
+    "b013-region-totals": "7b40ba64ca680ff4e789d78af766b859c29c0eb49d4d558b2d3727fa735f30f4",
+    "b014-fill-order": "d335d5dd9b77b41698f2a1ca31c64cbd08af679ab11bddee5db2970fb49e74f1",
+    "b015-recency-cache": "2d43708e75abf82d11aad5bd0514f18b728fd2d152a55fc9192849d8d12db38c",
+    "b017-site-totals": "9c48ceef47ec635241ea3557529b1758a104c9bd57ec06918a97228f16c5ddfe",
+    "b019-reservoir-ticks": "6ddbe1abc57c0d8a3455b723e65e0fbe2c3c439b4041a977812da21d1f891b0b",
+    "b020-route-pattern": "8f72c36f91147db823fd63a3cd1ae36434f56ab8cd228c2368e49b1c5fe18a27",
+    "b022-allocate-cents": "b11f838d0f0faa6d2917af249bbe7740f513fea1074ecdf6f64e36383022a874",
+    "b027-thread-score": "5705dff865e6bacb4539cb9c834e3dcd36327c232bd7158e585c994ea2ce96bb",
+    "b028-pass-plan": "ea3eca8917c82f9050123cf68e9f09d5ee81ddb469627be343c6127e32acb08a",
+    "b030-date-span": "c4b0ee4513c649dfda0657a809466d1075baed447bb98d3250e7bd3558819f17",
+    "b032-bitmap-runs": "ea8db2769fcf281d67f2fd0cc82456e4301ba9ab1a578ec7a76cfac12691c299",
+    "b033-till-session": "99521f152bc11aa9c84b02830f4490b9f687c8b85f493d265beee75bf614849d",
+    "b034-notepad-replay": "dd3e01bb55d534574f6f7d6138df0afc71d9144901131a852abeb0c1e781063f",
+    "b035-route-params": "c950791450c5323cc5e4477f9f1b5f307b1ad017615e7db009d435aebda7fa11",
+    "b036-group-batches": "fec8d559717a5829eed576b69207371a4b6950cbea53a123f907403e3fc891de",
+    "b037-lift-sweep": "5fc89ffd94f0a5dd8274b160fe6bd4cbce85b89dff74cae259cba2b9b4bf3796"
+  },
+  "invocations": [
+    {
+      "started": "2026-08-10T19:15:38+00:00",
+      "tasks": [
+        "b002-option-pairs",
+        "b003-carve-shift",
+        "b004-install-order",
+        "b005-command-chain",
+        "b007-cent-split",
+        "b009-pack-entries",
+        "b013-region-totals",
+        "b014-fill-order",
+        "b015-recency-cache",
+        "b017-site-totals",
+        "b019-reservoir-ticks",
+        "b020-route-pattern",
+        "b022-allocate-cents",
+        "b027-thread-score",
+        "b028-pass-plan",
+        "b030-date-span",
+        "b032-bitmap-runs",
+        "b033-till-session",
+        "b034-notepad-replay",
+        "b035-route-params",
+        "b036-group-batches",
+        "b037-lift-sweep"
+      ],
+      "rig_revision": "9c3cbf1603a725da8438f13ef50ba5355c02e387"
+    }
+  ],
+  "completeness": {
+    "expected": 22,
+    "recorded": 22,
+    "missing": 0,
+    "complete": true,
+    "missing_cells": []
+  }
+}
