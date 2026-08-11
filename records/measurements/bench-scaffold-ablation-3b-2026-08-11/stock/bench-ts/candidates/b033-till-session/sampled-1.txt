@@ -1,0 +1,143 @@
+```ts
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  if (!Object.keys(prices).length) {
+    return {
+      state: OPEN,
+      items: [],
+      total: 0,
+      paid: 0,
+      change: 0,
+    };
+  }
+
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  let state = OPEN;
+  const cart: Record<string, number> = {};
+  let total = 0;
+  let paid = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event)) {
+      throw new Error("event must be a list");
+    }
+
+    switch (event[0]) {
+      case "scan":
+        if (typeof event[1] !== "string") {
+          throw new Error("item name must be a string");
+        }
+        const itemName = event[1];
+        const itemPrice = prices[itemName];
+
+        if (state === PAID || state === CANCELLED) {
+          throw new Error("cannot scan during paid or cancelled session");
+        }
+
+        if (!prices.hasOwnProperty(itemName)) {
+          throw new Error(`unknown item: ${itemName}`);
+        }
+
+        cart[itemName] = (cart[itemName] ?? 0) + 1;
+        total += itemPrice;
+
+        break;
+
+      case "void":
+        if (typeof event[1] !== "string") {
+          throw new Error("item name must be a string");
+        }
+        const voidItemName = event[1];
+
+        if (state === PAID || state === CANCELLED) {
+          throw new Error("cannot void during paid or cancelled session");
+        }
+
+        if (!cart.hasOwnProperty(voidItemName)) {
+          throw new Error(`unknown item: ${voidItemName}`);
+        }
+
+        cart[voidItemName] = Math.max(cart[voidItemName] - 1, 0);
+        total -= prices[voidItemName];
+
+        // If the item count drops to zero, remove it from the cart.
+        if (cart[voidItemName] === 0) {
+          delete cart[voidItemName];
+        }
+
+        break;
+
+      case "close":
+        if (Object.keys(cart).length === 0) {
+          throw new Error("cannot close an empty cart");
+        }
+
+        if (!(state === OPEN || state === PAYMENT)) {
+          throw new Error("cannot close in current session state");
+        }
+
+        state = PAYMENT;
+        break;
+
+      case "pay":
+        if (typeof event[1] !== "number") {
+          throw new Error("cents must be a number");
+        }
+        const paidAmount = Math.floor(event[1]);
+
+        if (paidAmount <= 0) {
+          throw new Error("pay amount must be a positive integer");
+        }
+
+        if (state !== PAYMENT) {
+          throw new Error("cannot pay during non-payment session state");
+        }
+
+        paid += paidAmount;
+
+        // Calculate change.
+        const change = total - paid;
+        total = 0; // Reset total to zero after payment.
+
+        state = PAID;
+        return { state, items: Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0])), total, paid, change };
+
+      case "cancel":
+        if (!(state === OPEN || state === PAYMENT)) {
+          throw new Error("cannot cancel in current session state");
+        }
+
+        state = CANCELLED;
+        return { state, items: [], total, paid, change: 0 }; // Reset all values.
+
+      default:
+        throw new Error(`unknown action: ${event[0]}`);
+    }
+  }
+
+  if (state === PAYMENT) {
+    // If we reach here without closing the session, it's an error.
+    throw new Error("session was not closed");
+  }
+
+  return { state, items: [], total, paid, change: 0 }; // Reset all values on exit.
+}
+```

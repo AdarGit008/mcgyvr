@@ -1,0 +1,32 @@
+```python
+def validate_segment(segment):
+    if segment in ("", "*"):
+        raise ValueError("Invalid path or rule segment")
+
+def split_strict(path):
+    segments = path.split("/")
+    for segment in segments:
+        validate_segment(segment)
+    return segments
+
+def matches_pattern(path_segments, pattern_segments):
+    if len(pattern_segments) > len(path_segments):
+        return False
+    for i in range(len(pattern_segments)):
+        if pattern_segments[i] == "*":
+            continue
+        elif pattern_segments[i] != path_segments[i]:
+            return False
+    return True
+
+def prune_listing(listing: list, rules: list) -> list:
+    def matches_any_rule(path):
+        for rule in rules:
+            is_keep = rule[0] != "!"
+            pattern_segments = split_strict(rule.lstrip("!"))
+            if matches_pattern(split_strict(path), pattern_segments):
+                return is_keep
+        return False
+
+    return [path for path in listing if matches_any_rule(path)]
+```

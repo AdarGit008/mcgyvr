@@ -1,0 +1,46 @@
+```python
+from typing import *
+from collections import defaultdict
+
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0 or not all(isinstance(x, (int,)) and x >= 0 for x in board):
+        raise ValueError("Length must be a non-negative integer.")
+    
+    # Initialize the result dictionary with default values
+    result = {
+        'takings': 0,
+        'pieces': []
+    }
+    
+    # Sort the board by price in descending order and length in ascending order
+    board.sort(key=lambda x: (-x[1], x[0]))
+    
+    # Iterate over each piece on the board
+    for metres, price in board:
+        if length >= metres:
+            # Check if cutting this piece maximizes takings
+            current_takings = result['takings'] + price * (length // metres)
+            if current_takings > result['takings']:
+                result['takings'] = current_takings
+                result['pieces'].clear()
+                result['pieces'].append(length % metres)
+                if length % metres > 0:
+                    result['pieces'].append(length - (length % metres))
+            elif current_takings == result['takings']:
+                # If the price is equal, prefer longer pieces
+                if len(result['pieces']) > 0 and result['pieces'][0] < length - (length % metres):
+                    result['pieces'] = [length - (length % metres)]
+                else:
+                    # Prefer shorter pieces in case of a tie
+                    result['pieces'].append(length % metres)
+        else:
+            # If the piece is too long, skip it and consider scrapping the last metre
+            if length > 0:
+                current_takings = result['takings'] + price * (length - 1)
+                if current_takings > result['takings']:
+                    result['takings'] = current_takings
+                    result['pieces'].clear()
+                    result['pieces'].append(length)
+    
+    return result
+```

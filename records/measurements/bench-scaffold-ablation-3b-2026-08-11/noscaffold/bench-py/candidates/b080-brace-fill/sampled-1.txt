@@ -1,0 +1,41 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    """
+    Fill template with values from dictionary.
+    
+    :param template: Literal text containing placeholders.
+    :param values: Dictionary mapping placeholder names to their replacements.
+    :return: Modified string with placeholders replaced by values.
+    
+    :raises ValueError: If template is not a string, if there are unmatched braces,
+                       if a placeholder name is invalid or unknown, or if template
+                       contains non-printable characters.
+    """
+    def parse_template(template):
+        stack = []
+        result = []
+        for char in template:
+            if char == '{' and len(stack) > 0:
+                raise ValueError("Unmatched opening brace")
+            elif char == '}':
+                if not stack or stack[-1] != '{':
+                    raise ValueError("Mismatched closing brace")
+                placeholder_name = ''.join(result)
+                result.clear()
+                stack.pop()
+                if placeholder_name not in values:
+                    raise ValueError(f"Unknown placeholder: {placeholder_name}")
+                result.append(values[placeholder_name])
+            else:
+                if len(stack) > 0 or char == ' ' or ord(char) < 32:
+                    raise ValueError("Invalid character in template")
+                result.append(char)
+        if stack:
+            raise ValueError("Unmatched opening brace")
+        return ''.join(result)
+
+    try:
+        return parse_template(template)
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"Template fill error: {e}")
+```

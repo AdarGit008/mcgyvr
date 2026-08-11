@@ -1,0 +1,53 @@
+```ts
+export function parseSpan(text: string): number {
+  if (typeof text !== 'string' || text.trim() === '') {
+    throw new Error('Invalid input: span must be a non-empty string');
+  }
+
+  const parts = text.split(/\s+/);
+  const units = ['yd', 'ft', 'in'];
+  let totalInches = 0;
+
+  for (let i = 0; i < parts.length; i++) {
+    if (!/^\d+$/.test(parts[i]) || parseInt(parts[i], 10) <= 0) {
+      throw new Error('Invalid input: value must be a positive integer');
+    }
+    const unitIndex = units.indexOf(parts[i + 1]);
+    if (unitIndex === -1) {
+      throw new Error(`Unknown unit: ${parts[i + 1]}`);
+    }
+
+    totalInches += parts[i] * Math.pow(36, units.length - unitIndex - 2);
+  }
+
+  return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+  if (typeof inches !== 'number' || inches < 0 || !Number.isInteger(inches)) {
+    throw new Error('Invalid input: inches must be a non-negative integer');
+  }
+
+  const units = ['yd', 'ft', 'in'];
+  let result = '';
+
+  for (let i = units.length - 1; i >= 0; i--) {
+    const unitValue = Math.floor(inches / Math.pow(36, units.length - i - 2));
+    if (unitValue > 0) {
+      result += `${unitValue}${units[i]} `;
+      inches -= unitValue * Math.pow(36, units.length - i - 2);
+    }
+  }
+
+  return result.trim();
+}
+
+export function addSpans(first: string, second: string): string {
+  if (typeof first !== 'string' || typeof second !== 'string') {
+    throw new Error('Invalid input: spans must be strings');
+  }
+
+  const totalInches = parseSpan(first) + parseSpan(second);
+  return formatSpan(totalInches);
+}
+```

@@ -1,0 +1,44 @@
+```python
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0 or any(metres < 1 for metres, _ in board):
+        raise ValueError("Length must be a non-negative whole number and each board piece must have a positive length.")
+    
+    # Initialize the best result as an empty dictionary
+    best_result = {
+        "takings": 0,
+        "largest_piece": -1,
+        "pieces": []
+    }
+    
+    def dfs(current_length, current_takings, current_pieces):
+        nonlocal best_result
+        
+        if current_length == length:
+            # If we've reached the exact length, update the best result
+            if best_result["takings"] < current_takings or (best_result["takings"] == current_takings and current_pieces > best_result["pieces"]):
+                best_result = {
+                    "takings": current_takings,
+                    "largest_piece": max(current_pieces),
+                    "pieces": current_pieces
+                }
+            return
+        
+        # Try each board piece that fits at the end of the current length
+        for metres, price in board:
+            if current_length + metres <= length:
+                dfs(current_length + metres, current_takings + price, current_pieces + [metres])
+        
+        # If no piece fits, consider scrapping the last metre
+        if best_result["takings"] < current_takings or (best_result["takings"] == current_takings and current_pieces > best_result["pieces"]):
+            dfs(current_length + 1, current_takings, current_pieces)
+    
+    # Start the depth-first search from a roll of length 0
+    dfs(0, 0, [])
+    
+    return best_result
+
+# Example usage:
+print(cut_roll(12, [(3, 5), (4, 7)]))
+```
+
+This code defines a function `cut_roll` that calculates the maximum value that can be obtained by cutting a fabric roll of a given length using pieces from a board list. It uses a depth-first search to explore all possible ways to cut the roll and keep track of the best solution found. The function raises a `ValueError` if the input is invalid, such as a negative length or a board piece with a non-positive length.

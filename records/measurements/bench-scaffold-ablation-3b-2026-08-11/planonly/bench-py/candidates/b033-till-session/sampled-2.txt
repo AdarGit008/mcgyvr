@@ -1,0 +1,97 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    def is_positive_integer(n):
+        return isinstance(n, int) and n > 0
+
+    if not all(isinstance(event, list) and len(event) == 2 for event in events):
+        raise ValueError("Invalid event format. Each event must be a list of two elements.")
+
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0
+    }
+
+    def handle_scan(item: str) -> None:
+        if item not in prices:
+            raise ValueError(f"Unknown item: {item}")
+        if state["session_state"] != "open":
+            raise ValueError("Cannot scan an item while session is closed or paid.")
+        if item in [i[0] for i in state["items"]]:
+            state["items"].append((item, state["items"].count(item) + 1))
+        else:
+            state["items"].append((item, 1))
+
+    def handle_void(item: str) -> None:
+        if item not in [i[0] for i in state["items"]]:
+            raise ValueError(f"Cannot void an item that is not in the cart: {item}")
+        if state["session_state"] != "open":
+            raise ValueError("Cannot void an item while session is closed or paid.")
+        state["items"].remove((item, 1))
+        if state["items"][0][1] == 0:
+            state["items"].pop(0)
+
+    def handle_close() -> None:
+        if not state["items"]:
+            raise ValueError("Cannot close a session with an empty cart.")
+        if state["session_state"] != "open":
+            raise ValueError("Cannot close a session while it is closed or paid.")
+        total_paid = sum(price * quantity for price, quantity in state["items"])
+        if total_paid < state["total"]:
+            raise ValueError(f"Not enough money to pay the total: {state['total']}")
+        change = total_paid - state["total"]
+        state["paid"] = total_paid
+        state["change"] = change
+        state["session_state"] = "paid"
+
+    def handle_pay(amount: int) -> None:
+        if not is_positive_integer(amount):
+            raise ValueError("Pay amount must be a positive integer.")
+        if state["session_state"] != "payment":
+            raise ValueError("Cannot pay while session is not in payment state.")
+        total_paid += amount
+        if total_paid >= state["total"]:
+            handle_close()
+
+    def handle_cancel() -> None:
+        if state["session_state"] == "open" or state["session_state"] == "paid":
+            state["session_state"] = "cancelled"
+            state["items"] = []
+            state["total"] = 0
+            state["paid"] = 0
+            state["change"] = 0
+
+    def process_events(events: list) -> None:
+        for event in events:
+            action = event[0]
+            payload = event[1]
+
+            if action == "scan":
+                handle_scan(payload)
+            elif action == "void":
+                handle_void(payload)
+            elif action == "close":
+                handle_close()
+            elif action == "pay":
+                handle_pay(payload)
+            elif action == "cancel":
+                handle_cancel()
+            else:
+                raise ValueError(f"Unknown action: {action}")
+
+    if state["session_state"] != "open":
+        raise ValueError("Cannot process events before session starts.")
+
+    try:
+        process_events(events)
+    except ValueError as e:
+        return {"error": str(e)}
+
+    return {
+        "items": sorted(state["items"]),
+        "total": state["total"],
+        "paid": state["paid"],
+        "change": state["change"]
+    }
+```

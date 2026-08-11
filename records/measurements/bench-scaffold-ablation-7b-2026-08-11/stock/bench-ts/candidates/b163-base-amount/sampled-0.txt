@@ -1,0 +1,24 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("amount must be a non-negative integer");
+  }
+
+  const visited = new Set<string>();
+
+  while (unit !== base) {
+    if (visited.has(unit)) {
+      throw new Error("chain loops to an undefined unit");
+    }
+    const [factor, finer] = defs[unit];
+    if (!Number.isInteger(factor) || factor <= 0) {
+      throw new Error("bad factor");
+    }
+    amount *= factor;
+    visited.add(unit);
+    unit = finer;
+  }
+
+  return amount;
+}
+```

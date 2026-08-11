@@ -1,0 +1,58 @@
+```python
+
+from typing import Union
+
+def parse_span(text: str) -> int:
+    """
+    Parse a span text into total inches.
+    """
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    unit_map = {'in': 12, 'ft': 36, 'yd': 36 * 3}
+    parts = text.split()
+    
+    if len(parts) < 3:
+        raise ValueError("A span must have at least three parts: yards, feet, and inches.")
+    
+    total_inches = 0
+    for i in range(0, len(parts), 2):
+        value = int(parts[i])
+        unit = parts[i + 1]
+        
+        if not unit.isdigit() or not (unit.lower() in unit_map):
+            raise ValueError(f"Invalid unit '{unit}'. Allowed units are yd, ft, and in.")
+        
+        total_inches += value * unit_map[unit.lower()]
+    
+    return total_inches
+
+def format_span(inches: int) -> str:
+    """
+    Format a non-negative integer of total inches canonically.
+    """
+    if not isinstance(inches, (int, float)) or inches < 0:
+        raise ValueError("Inches must be a non-negative integer.")
+    
+    units = [('yd', 36), ('ft', 12), ('in', 1)]
+    formatted_parts = []
+    
+    for unit, value in units:
+        if inches >= value:
+            count = inches // value
+            inches %= value
+            formatted_parts.append(f"{count}{unit}")
+    
+    return ' '.join(formatted_parts)
+
+def add_spans(first: str, second: str) -> str:
+    """
+    Add two span texts and return their sum in the canonical form.
+    """
+    if not isinstance(first, str) or not isinstance(second, str):
+        raise ValueError("Both arguments must be strings.")
+    
+    total_inches = parse_span(first) + parse_span(second)
+    return format_span(total_inches)
+
+```

@@ -1,0 +1,51 @@
+```typescript
+export function splitCents(total: number, weights: number[]): number[] {
+  if (typeof total !== 'number' || !Number.isInteger(total) || total < 0) {
+    throw new Error('Total must be a non-negative integer');
+  }
+  if (!Array.isArray(weights)) {
+    throw new Error('Weights must be an array');
+  }
+  if (weights.length === 0) {
+    throw new Error('Weights cannot be empty');
+  }
+  weights.forEach((weight, i) => {
+    if (typeof weight !== 'number' || !Number.isInteger(weight) || weight <= 0) {
+      throw new Error(`Weight at index ${i} must be a positive integer`);
+    }
+  });
+
+  const totalCents = Math.floor(total);
+  if (!Number.isInteger(total)) {
+    throw new Error('Total must be an exact number of cents');
+  }
+
+  const sumOfWeights = weights.reduce((sum, weight) => sum + weight, 0);
+  const parts: number[] = [];
+
+  for (const [i, weight] of weights.entries()) {
+    const share = Math.floor(totalCents * (weight / sumOfWeights));
+    parts.push(share);
+    totalCents -= share;
+  }
+
+  if (totalCents !== 0) {
+    // If there are remaining cents, distribute them to the partners with the largest discarded fraction.
+    const fractions: { partnerIndex: number, fraction: number }[] = [];
+    for (let i = 0; i < parts.length; i++) {
+      const fraction = totalCents / weights[i];
+      fractions.push({ partnerIndex: i, fraction });
+    }
+    fractions.sort((a, b) => b.fraction - a.fraction);
+
+    let remaining = totalCents;
+    for (const { partnerIndex } of fractions) {
+      parts[partnerIndex] += 1;
+      remaining -= 1;
+      if (remaining === 0) break;
+    }
+  }
+
+  return parts;
+}
+```

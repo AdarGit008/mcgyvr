@@ -1,0 +1,40 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+    if (!(kit in catalog)) {
+        throw new Error("Unknown kit name");
+    }
+
+    const partsMap = (catalog[kit].parts as [string, number][]).reduce((acc, [part, count]) => {
+        acc[part] = count;
+        return acc;
+    }, {} as Record<string, number>);
+
+    function consumeKit(kit: string, want: number): number {
+        if (!(kit in catalog)) {
+            throw new Error("Unknown kit name");
+        }
+
+        const partsMap = (catalog[kit].parts as [string, number][]).reduce((acc, [part, count]) => {
+            acc[part] = count;
+            return acc;
+        }, {} as Record<string, number>);
+
+        let totalPartsConsumed = 0;
+        for (const [subKit, subCount] of partsMap) {
+            const runsNeeded = Math.ceil(want / catalog[kit].makes);
+            totalPartsConsumed += consumeKit(subKit, want * runsNeeded);
+        }
+
+        partsMap[kit] += totalPartsConsumed;
+
+        return totalPartsConsumed;
+    }
+
+    const basePartTotals: Record<string, number> = {};
+    for (const [part, count] of Object.entries(partsMap)) {
+        basePartTotals[part] += consumeKit(part, want);
+    }
+
+    return basePartTotals;
+}
+```

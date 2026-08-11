@@ -1,0 +1,32 @@
+```python
+import math
+
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """Total the base parts an order of a kit consumes."""
+    if kit not in catalog:
+        raise ValueError(f"the catalog does not define {kit}")
+
+    def calculate_parts(kit_name, want_quantity):
+        if kit_name == "base_part":
+            return want_quantity
+        recipe = catalog[kit_name]
+        count_of_kit = math.ceil(want_quantity / recipe['makes'])
+        parts_to_charge = 0
+        for component, count in recipe['parts']:
+            sub_total = calculate_parts(component, count * count_of_kit)
+            parts_to_charge += sub_total
+
+        totals[kit_name] = parts_to_charge
+        return parts_to_charge
+
+    totals = {}
+    calculate_parts(kit, want)
+    return totals
+```
+
+Explanation:
+- The `calculate_parts` function is a helper that recursively calculates the total parts consumed for a given kit and its `want_quantity`.
+- If the kit name is "base_part", it simply returns the `want_quantity` since base parts are not part of any recipe.
+- For other kits, it calculates how many whole runs are needed to produce `want_quantity` units, then recursively calculates the total parts consumed for each component in those runs.
+- The results are stored in the `totals` dictionary and returned at the end.

@@ -1,0 +1,31 @@
+```python
+from typing import Dict, List, Tuple
+
+def cut_roll(length: int, board: List[Tuple[int, int]]) -> Dict[str, Union[int, List[int]]]:
+    if length < 0:
+        raise ValueError("Length must be a non-negative whole number.")
+    
+    # Create a dictionary to store the best options
+    best_options = {
+        'takings': 0,
+        'pieces': []
+    }
+    
+    # Iterate over each board piece and see how it fits into the roll
+    for piece_length, piece_price in board:
+        if piece_length <= length:
+            # Calculate the takings from cutting this piece
+            total_takings = best_options['takings'] + piece_price
+            
+            # Determine if this is a better option than the current best
+            if total_takings > best_options['takings']:
+                best_options['takings'] = total_takings
+                best_options['pieces'] = [piece_length]
+            
+            elif total_takings == best_options['takings']:
+                # If it's a tie, prefer the longer piece and keep the current pieces
+                if piece_length > best_options['pieces'][0]:
+                    best_options['pieces'] = [piece_length]
+    
+    return best_options
+```

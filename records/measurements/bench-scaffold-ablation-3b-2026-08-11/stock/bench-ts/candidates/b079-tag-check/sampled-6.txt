@@ -1,0 +1,31 @@
+```
+export function lineTag(body: string): string {
+  if (typeof body !== "string") {
+    throw new Error("lineTag expects a string");
+  }
+  let sum = 0;
+  for (const ch of body) {
+    sum = (sum + ch.codePointAt(0)!) % 256;
+  }
+  return sum.toString(16).padStart(2, "0");
+}
+
+export function checkLine(line: string): string {
+  if (typeof line !== "string") {
+    throw new Error("checkLine expects a string");
+  }
+  const parts = line.split("~");
+  if (parts.length !== 2) {
+    throw new Error("line must contain exactly one tilde separator");
+  }
+  const { body, tag } = parts;
+  if (body === "" || tag.length !== 2 || !/^[0-9a-fA-F]+$/.test(tag)) {
+    throw new Error("tag is invalid or missing");
+  }
+  const computedTag = lineTag(body);
+  if (computedTag !== tag) {
+    throw new Error("tag does not match the body");
+  }
+  return body;
+}
+```

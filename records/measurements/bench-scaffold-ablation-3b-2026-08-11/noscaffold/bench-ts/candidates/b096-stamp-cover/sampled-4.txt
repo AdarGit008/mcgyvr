@@ -1,0 +1,32 @@
+```ts
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+  for (const [fragment, price] of dies) {
+    if (typeof fragment !== 'string' || typeof price !== 'number' || price <= 0 || table.has(fragment)) {
+      throw new Error('Invalid die entry');
+    }
+    table.set(fragment, price);
+  }
+  return table;
+}
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  if (typeof label !== 'string' || label.length === 0) {
+    throw new Error('Invalid label');
+  }
+
+  const priceMap = stampTable(dies);
+  const dp = Array(label.length + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= label.length; i++) {
+    for (const [fragment, price] of dies) {
+      if (label.substring(i - fragment.length, i) === fragment) {
+        dp[i] = Math.min(dp[i], dp[i - fragment.length] + price);
+      }
+    }
+  }
+
+  return dp[label.length];
+}
+```

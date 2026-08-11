@@ -1,0 +1,45 @@
+```python
+"""Replay tile requests against a size-limited cache of fresh renders."""
+
+
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if isinstance(fresh_for, bool) or not isinstance(fresh_for, int) or fresh_for < 1:
+        raise ValueError("fresh_for must be a positive integer")
+    if isinstance(size, bool) or not isinstance(size, int) or size < 1:
+        raise ValueError("size must be a positive integer")
+
+    held = {}
+    renders = []
+
+    for tick, name in requests:
+        if tick <= fresh_for:
+            # Serve a still-fresh render
+            if name in held and held[name][0] == tick:
+                renders.append([tick, name])
+            else:
+                # Make room by dropping the oldest render if full
+                if len(held) >= size:
+                    oldest_tick = min(held.values(), key=lambda x: x[0])[0]
+                    oldest_name = next(iter(filter(lambda k: held[k][0] == oldest_tick, held)))
+                    del held[oldest_name]
+
+                # Store the new render
+                held[name] = [tick, name]
+                renders.append([tick, name])
+        else:
+            # Render again and store under the current tick
+            if name in held and held[name][0] == tick - 1:
+                renders.append([tick, name])
+            else:
+                # Make room by dropping the oldest render if full
+                if len(held) >= size:
+                    oldest_tick = min(held.values(), key=lambda x: x[0])[0]
+                    oldest_name = next(iter(filter(lambda k: held[k][0] == oldest_tick, held)))
+                    del held[oldest_name]
+
+                # Store the new render
+                held[name] = [tick, name]
+                renders.append([tick, name])
+
+    return renders
+```

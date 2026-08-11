@@ -1,0 +1,64 @@
+```typescript
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof rules !== 'object' || rules === null) {
+    throw new Error('Rules must be an object');
+  }
+  
+  if (!name || typeof name !== 'string') {
+    return null;
+  }
+
+  const isStar = (selector: string): boolean => selector.length > 1 && selector.endsWith('*');
+
+  const getExactMatch = (rules: Record<string, string>, name: string): [string, string] | null => {
+    if (rules.hasOwnProperty(name)) {
+      return [name, rules[name]];
+    }
+    return null;
+  };
+
+  const getCoveringWildcardMatch = (rules: Record<string, string>, name: string): [string, string] | null => {
+    let longestPrefix = '';
+    for (const [selector, value] of Object.entries(rules)) {
+      if (name.startsWith(selector) && selector.endsWith('*')) {
+        // Ensure the wildcard is not standalone and ends with ".*"
+        if ((selector.length > 1 && selector[selector.length - 2] !== '*') || !selector.endsWith('.*')) {
+          continue;
+        }
+        const prefix = selector.slice(0, -1); // Remove the trailing "*"
+        if (prefix.length > longestPrefix.length) {
+          longestPrefix = prefix;
+        }
+      }
+    }
+
+    if (longestPrefix) {
+      return [longestPrefix + '*', rules[longestPrefix]];
+    }
+    return null;
+  };
+
+  const getLoneStarMatch = (rules: Record<string, string>): [string, string] | null => {
+    for (const selector of Object.keys(rules)) {
+      if (selector === '*') {
+        return ['*', rules['*']];
+      }
+    }
+    return null;
+  };
+
+  const matches = [
+    getExactMatch(rules, name),
+    getCoveringWildcardMatch(rules, name),
+    getLoneStarMatch(rules)
+  ];
+
+  for (const match of matches) {
+    if (match) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+```

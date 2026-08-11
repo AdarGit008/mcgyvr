@@ -1,0 +1,20 @@
+```python
+from typing import *
+from collections import *
+
+def lay_conveyor(floor: List[str], row: int, col: int, length: int) -> List[str]:
+    # Check if the run would leave the plan
+    if row < 0 or row >= len(floor) or col + length > len(floor[0]):
+        raise ValueError("Run would leave the plan")
+
+    for i in range(length):
+        if floor[row][col + i] != ".":
+            raise ValueError(f"Cell at [{row}, {col + i}] is not open")
+
+    # Lay the conveyor run
+    new_floor = [list(row) for row in floor]
+    for i in range(length):
+        new_floor[row][col + i] = "="
+
+    return new_floor
+```

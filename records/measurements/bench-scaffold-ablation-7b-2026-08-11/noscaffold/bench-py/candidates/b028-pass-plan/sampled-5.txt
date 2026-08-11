@@ -1,0 +1,38 @@
+```python
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    if not trip_days:
+        return {"total": 0, "purchases": []}
+    
+    if min(trip_days) <= 0 or not all(trip_days[i] < trip_days[i + 1] for i in range(len(trip_days) - 1)):
+        raise ValueError("Invalid trip days")
+    
+    if not passes:
+        raise ValueError("Empty pass list")
+    
+    for pass_ in passes:
+        if pass_["span"] <= 0 or pass_["cost"] < 0:
+            raise ValueError("Invalid pass span or cost")
+    
+    n = len(trip_days)
+    dp = [float('inf')] * (n + 1)
+    dp[0] = 0
+    
+    for i in range(n):
+        for pass_ in passes:
+            if trip_days[i] >= pass_["span"]:
+                dp[i + 1] = min(dp[i + 1], dp[i - pass_["span"] + 1] + pass_["cost"])
+    
+    if dp[n] == float('inf'):
+        raise ValueError("No valid pass plan")
+    
+    purchases = []
+    i = n
+    while i > 0:
+        for pass_ in passes:
+            if trip_days[i - 1] >= pass_["span"] and dp[i] == dp[i - pass_["span"] + 1] + pass_["cost"]:
+                purchases.append([trip_days[i - pass_["span"]] + 1, pass_["span"]])
+                i -= pass_["span"]
+                break
+    
+    return {"total": dp[n], "purchases": purchases[::-1]}
+```

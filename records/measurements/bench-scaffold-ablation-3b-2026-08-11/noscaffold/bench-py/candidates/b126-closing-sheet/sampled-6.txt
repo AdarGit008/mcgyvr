@@ -1,0 +1,66 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_entry(entry: str) -> tuple[str, int]:
+        # Split entry by colon and convert count to integer
+        name, count_str = entry.split(':')
+        if not 0 <= int(count_str):
+            raise ValueError("Invalid count format in entry")
+        return (name, int(count_str))
+
+    def parse_moves(moves: str) -> list[tuple[str, int]]:
+        # Split moves by semicolon, split each move and convert quantity to integer
+        if moves:
+            entries = moves.split(';')
+            parsed_moves = []
+            for entry in entries:
+                name, qty_str = entry.split('+', 1)
+                if '-' in name:
+                    raise ValueError("Invalid move format containing '-'")
+                try:
+                    qty = int(qty_str)
+                    if qty <= 0:
+                        raise ValueError("Quantity must be a positive integer")
+                    parsed_moves.append((name, qty))
+                except ValueError as e:
+                    raise ValueError(str(e)) from None
+            return parsed_moves
+        return []
+
+    def apply_move(closing: dict[str, int], move: tuple[str, int]):
+        name, qty = move
+        if name not in closing:
+            if qty > 0:
+                closing[name] = qty
+        else:
+            if qty < closing[name]:
+                closing[name] -= qty
+            elif qty == closing[name]:
+                del closing[name]
+            else:
+                raise ValueError(f"Cannot issue more than {closing[name]} units of {name}")
+
+    def format_sheet(closing: dict[str, int]) -> str:
+        return ';'.join(f"{name}:{count}" for name, count in sorted(closing.items()))
+
+    # Validate inputs
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Arguments must be strings")
+
+    opening_entries = opening.split(';')
+    move_entries = parse_moves(moves)
+
+    # Process opening sheet entries
+    closing_sheet = {}
+    for entry in opening_entries:
+        name, count = parse_entry(entry)
+        if name in closing_sheet:
+            raise ValueError(f"Duplicate item name: {name}")
+        closing_sheet[name] = count
+
+    # Apply moves to the closing sheet
+    for move in move_entries:
+        apply_move(closing_sheet, move)
+
+    # Format and return the final sheet
+    return format_sheet(closing_sheet)
+```

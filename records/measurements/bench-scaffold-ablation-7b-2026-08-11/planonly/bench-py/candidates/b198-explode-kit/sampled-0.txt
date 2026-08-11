@@ -1,0 +1,33 @@
+```python
+from collections import defaultdict
+import math
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """
+    Returns a mapping from base part to the total count consumed by an order of want units of kit.
+    
+    :param catalog: A dictionary where keys are kit names and values are tuples (makes, parts).
+                     Parts is a list of tuples (component, count).
+    :param kit: The name of the kit to be exploded.
+    :param want: The number of units of the kit to be produced.
+    :return: A dictionary mapping base part to the total count consumed.
+    """
+    
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' not found in catalog.")
+    
+    def calculate_parts(kit_name, required):
+        parts_consumed = defaultdict(int)
+        makes, kit_parts = catalog[kit_name]
+        runs_needed = math.ceil(required / makes)
+        
+        for component, count in kit_parts:
+            if component in catalog:
+                parts_consumed.update(calculate_parts(component, count * runs_needed))
+            else:
+                parts_consumed[component] += count * runs_needed
+        
+        return parts_consumed
+    
+    return calculate_parts(kit, want)
+```

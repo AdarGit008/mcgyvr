@@ -1,0 +1,56 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (!Array.isArray(grid) || grid.length === 0) {
+    throw new Error("grid must be a non-empty list of rows");
+  }
+  const width = Array.isArray(grid[0]) ? grid[0].length : 0;
+  if (width === 0) {
+    throw new Error("rows must be non-empty lists");
+  }
+  for (const row of grid) {
+    if (!Array.isArray(row) || row.length !== width) {
+      throw new Error("rows must all share one length");
+    }
+    for (const cell of row) {
+      if (!Number.isInteger(cell)) {
+        throw new Error("cells must be integers");
+      }
+    }
+  }
+
+  const prefixSum: number[][] = Array.from({ length: grid.length + 1 }, () => 
+    Array(width + 1).fill(0)
+  );
+
+  for (let i = 1; i <= grid.length; i++) {
+    for (let j = 1; j <= width; j++) {
+      prefixSum[i][j] = prefixSum[i - 1][j] + prefixSum[i][j - 1] 
+        - prefixSum[i - 1][j - 1] + grid[i - 1][j - 1];
+    }
+  }
+
+  const results: number[] = [];
+  for (const query of queries) {
+    if (!Array.isArray(query) || query.length !== 4) {
+      throw new Error("query must be a list of exactly four integers");
+    }
+    const [top, left, bottom, right] = query;
+    if (typeof top !== 'number' || typeof left !== 'number' 
+        || typeof bottom !== 'number' || typeof right !== 'number') {
+      throw new Error("cell indices must be numbers");
+    }
+    if (top < 0 || left < 0 || bottom > grid.length || right > width) {
+      throw new Error("query reaches outside the grid");
+    }
+    if (top >= bottom || left >= right) {
+      throw new Error("query dimensions are invalid");
+    }
+
+    const sum = prefixSum[bottom][right] - prefixSum[top][right] 
+                - prefixSum[bottom][left] + prefixSum[top][left];
+    results.push(sum);
+  }
+
+  return results;
+}
+```

@@ -1,0 +1,27 @@
+```python
+def dose_totals(log: list) -> dict:
+    reagent_totals = {}
+
+    for entry in log:
+        reagent, amount_str = entry
+        if not (reagent and isinstance(amount_str, str)):
+            raise ValueError("Invalid log entry")
+
+        try:
+            amount_float = float(amount_str)
+        except ValueError:
+            raise ValueError(f"Invalid amount '{amount_str}' for reagent '{reagent}'")
+
+        if reagent in reagent_totals:
+            reagent_totals[reagent] += amount_float
+        else:
+            reagent_totals[reagent] = amount_float
+
+    result = {}
+    for reagent, total in reagent_totals.items():
+        total_str = f"{total:.3f}"
+        decimal_places = len(total_str.split('.')[1]) if '.' in total_str else 0
+        result[reagent] = f"{'-' if total < 0 else ''}{abs(total):.{decimal_places}f}"
+
+    return result
+```

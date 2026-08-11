@@ -1,0 +1,66 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern, text):
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text, what):
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    # Validate every rule and path with split_strict
+    def validate_path(path):
+        split_strict(path, "path")
+
+    def validate_rule(rule):
+        if not isinstance(rule, str) or rule == "":
+            raise ValueError("rule must be a non-empty string")
+        if rule.startswith("!") and len(rule) == 1:
+            raise ValueError("bare ! is not allowed")
+        if rule.count("/") != len(split_strict(rule, "rule")) - 1:
+            raise ValueError(f"invalid pattern: {rule}")
+
+    for path in listing:
+        validate_path(path)
+    for rule in rules:
+        validate_rule(rule)
+
+    # Keep each path the last matching rule allows; a path no rule matches survives.
+    result = []
+    for path in listing:
+        match_found = False
+        for rule in reversed(rules):
+            pattern = rule[1:] if rule.startswith("!") else rule
+            keep = not rule.startswith("!")
+            matched = all(segment_fits(p, t) for p, t in zip(split_strict(pattern, "pattern"), split_strict(path, "path")))
+            if matched:
+                match_found = True
+                break
+        if match_found:
+            result.append(path)
+    return result
+```

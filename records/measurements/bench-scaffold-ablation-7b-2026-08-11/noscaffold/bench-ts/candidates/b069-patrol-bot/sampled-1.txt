@@ -1,0 +1,45 @@
+```ts
+/**
+ * Clamps a move to a corridor position.
+ * @param position The current position.
+ * @param delta The move delta.
+ * @param width The width of the corridor.
+ * @returns A tuple with the new position and a boolean indicating if a wall was hit.
+ */
+export function clampMove(position: number, delta: number, width: number): [number, boolean] {
+  if (!Number.isInteger(width) || width <= 0) throw new Error('Invalid width');
+  if (!Number.isInteger(position) || position < 0 || position >= width) throw new Error('Invalid start position');
+  if (!Number.isInteger(delta) || delta === 0) throw new Error('Invalid move');
+
+  let newPosition = position + delta;
+  if (newPosition < 0) {
+    return [0, true];
+  } else if (newPosition >= width) {
+    return [width - 1, true];
+  }
+  return [newPosition, false];
+}
+
+/**
+ * Runs a patrol in the corridor.
+ * @param width The width of the corridor.
+ * @param start The starting position.
+ * @param moves A list of move deltas.
+ * @returns An object with the final position, number of bumps, and visited cells.
+ */
+export function runPatrol(width: number, start: number, moves: number[]): Record<string, number> {
+  if (!Array.isArray(moves)) throw new Error('Invalid moves');
+
+  let position = start;
+  let bumps = 0;
+  const visited = new Set<number>();
+
+  for (const move of moves) {
+    [position, bump] = clampMove(position, move, width);
+    bumps += bump ? 1 : 0;
+    visited.add(position);
+  }
+
+  return { position, bumps, visited: visited.size };
+}
+```

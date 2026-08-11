@@ -1,0 +1,87 @@
+```typescript
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid argument type');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const parts = entry.split(':');
+    if (parts.length !== 2) {
+      throw new Error('Malformed sheet entry');
+    }
+    const name = parts[0].trim();
+    const countStr = parts[1];
+    const count = parseInt(countStr, 10);
+    if (!isNaN(count) && count >= 0 && /^[a-z]+$/.test(name)) {
+      return [name, count];
+    } else {
+      throw new Error('Malformed sheet entry');
+    }
+  };
+
+  const parseMove = (move: string): [string, number] => {
+    const parts = move.split('+-');
+    if (parts.length !== 2) {
+      throw new Error('Malformed move');
+    }
+    const name = parts[0].trim();
+    const qtyStr = parts[1];
+    const qty = parseInt(qtyStr, 10);
+    if (!isNaN(qty) && qty > 0) {
+      return [name, qty];
+    } else {
+      throw new Error('Malformed move');
+    }
+  };
+
+  const openSheet: Map<string, number> = new Map();
+
+  let isValidOpening = true;
+  opening.split(';').forEach(entry => {
+    try {
+      const [name, count] = parseEntry(entry);
+      if (openSheet.has(name)) {
+        throw new Error('Duplicate name on the opening sheet');
+      }
+      openSheet.set(name, count);
+    } catch (e) {
+      isValidOpening = false;
+      console.error(e.message); // Log for debugging
+    }
+  });
+
+  if (!isValidOpening) return '';
+
+  const processMove = ([name, qty]: [string, number]) => {
+    if (!openSheet.has(name)) {
+      throw new Error('Issue of an item the sheet does not hold');
+    }
+    const currentCount = openSheet.get(name)!;
+    if (qty > currentCount) {
+      throw new Error('Issue of more units than the item then holds');
+    }
+    openSheet.set(name, currentCount - qty);
+  };
+
+  let isValidMoves = true;
+  moves.split(';').forEach(move => {
+    try {
+      processMove(parseMove(move));
+    } catch (e) {
+      isValidMoves = false;
+      console.error(e.message); // Log for debugging
+    }
+  });
+
+  if (!isValidMoves) return '';
+
+  const closingSheetArray: [string, number][] = [];
+  openSheet.forEach((count, name) => {
+    if (count > 0) {
+      closingSheetArray.push([name, count]);
+    }
+  });
+
+  return closingSheetArray.sort(([a], [b]) => a.localeCompare(b)).join(';');
+}
+```

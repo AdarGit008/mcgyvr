@@ -1,0 +1,73 @@
+```ts
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || !root) throw new Error('Invalid root');
+  
+  const paths = [];
+  
+  function walk(node: any, currentPath: string = ''): void {
+    if (typeof node !== 'object' || !node) throw new Error('Invalid node');
+    if (!Array.isArray(node.children)) throw new Error('Invalid children');
+    
+    for (const name of Object.keys(node)) {
+      const nextPath = `${currentPath}${name}/`;
+      
+      if (typeof name === 'string' && /^[^\s/]+$/.test(name)) {
+        if ('bytes' in node) paths.push(nextPath);
+        else walk(node[name], nextPath);
+      } else throw new Error('Invalid name');
+    }
+  }
+  
+  walk(root);
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || !root) throw new Error('Invalid root');
+  
+  function calculateBytes(node: any): number {
+    if (typeof node !== 'object' || !node) throw new Error('Invalid node');
+    
+    let total = 0;
+    if ('bytes' in node) total += node.bytes;
+    else {
+      for (const child of node.children) {
+        total += calculateBytes(child);
+      }
+    }
+    return total;
+  }
+  
+  return calculateBytes(root);
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || !root) throw new Error('Invalid root');
+  if (!Number.isInteger(minBytes) || minBytes < 0) throw new Error('Invalid minBytes');
+  
+  const result = [];
+  
+  function walk(node: any, currentPath: string = '', totalBytes: number = 0): void {
+    if (typeof node !== 'object' || !node) throw new Error('Invalid node');
+    if (!Array.isArray(node.children)) throw new Error('Invalid children');
+    
+    for (const name of Object.keys(node)) {
+      const nextPath = `${currentPath}${name}/`;
+      
+      if (typeof name === 'string' && /^[^\s/]+$/.test(name)) {
+        totalBytes += node.bytes || 0;
+        
+        if ('bytes' in node) result.push([nextPath, totalBytes]);
+        else walk(node[name], nextPath, totalBytes);
+      } else throw new Error('Invalid name');
+    }
+    
+    if (totalBytes >= minBytes && currentPath === '') {
+      result.push([currentPath, totalBytes]);
+    }
+  }
+  
+  walk(root);
+  return result;
+}
+```

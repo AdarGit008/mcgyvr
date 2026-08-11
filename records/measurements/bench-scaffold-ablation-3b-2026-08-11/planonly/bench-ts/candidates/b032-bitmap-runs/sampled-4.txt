@@ -1,0 +1,43 @@
+```typescript
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+
+  const wordsCount = Math.ceil(capacity / 32);
+  if (words.length !== wordsCount) {
+    throw new Error("Word count does not match the capacity.");
+  }
+
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("Length must be a positive integer.");
+  }
+
+  for (let wordIndex = 0; wordIndex < wordsCount; wordIndex++) {
+    const word = words[wordIndex];
+
+    if (!Number.isInteger(word)) {
+      throw new Error("Invalid bitmap word.");
+    }
+
+    if ((word >>> 31) & 1 !== 0) {
+      // This bit is set, so the rest of the word must also be set.
+      continue;
+    }
+
+    let freeBlocks = 32;
+    for (let i = 0; i < 32 && freeBlocks > 0; i++) {
+      if ((word & (1 << i)) !== 0) {
+        // This bit is set, so we don't have a free block here.
+        freeBlocks--;
+      }
+    }
+
+    if (freeBlocks >= length) {
+      return wordIndex * 32;
+    }
+  }
+
+  return -1;
+}
+```

@@ -1,0 +1,31 @@
+```python
+from typing import List, Dict
+
+def cheapest_pass_plan(trip_days: List[int], passes: List[Dict[str, int]]) -> dict:
+    if not trip_days or any(not isinstance(day, int) or day <= 0 for day in trip_days):
+        raise ValueError("Trip days must be positive integers and strictly increasing.")
+    if not passes or any(span <= 0 or cost < 0 for pass_ in passes for span, cost in pass_.items()):
+        raise ValueError("Passes must have positive spans and non-negative costs.")
+
+    n = len(trip_days)
+    dp = [float('inf')] * (n + 1)
+    dp[0] = 0
+    purchases = []
+
+    for i in range(n):
+        if trip_days[i] <= trip_days[0]:
+            continue
+        min_cost = float('inf')
+        cheapest_pass = None
+        for pass_ in passes:
+            span = next(iter(pass_.values()))
+            cost = pass_[span]
+            if i >= span - 1 and dp[i - span + 1] + cost < min_cost:
+                min_cost = dp[i - span + 1] + cost
+                cheapest_pass = (trip_days[i - span + 1], span)
+        dp[i + 1] = min(dp[i + 1], min_cost)
+        if cheapest_pass and not purchases or cheapest_pass[0] < purchases[-1][0]:
+            purchases.append(cheapest_pass)
+
+    return {'total': dp[n], 'purchases': [purchase for purchase in purchases if purchase[0] >= trip_days[0]]}
+```

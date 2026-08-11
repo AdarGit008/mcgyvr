@@ -1,0 +1,23 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (!catalog[kit]) throw new Error(`Unknown kit: ${kit}`);
+
+  const getConsumption = (component: string, count: number): Record<string, number> => {
+    const { makes, parts } = catalog[component];
+    let totalConsumption: Record<string, number> = {};
+
+    for (const [part, partCount] of parts) {
+      if (!catalog[part]) throw new Error(`Unknown component: ${part}`);
+      const subConsumption = getConsumption(part, Math.ceil(count / makes));
+      for (const [subPart, subPartCount] of Object.entries(subConsumption)) {
+        totalConsumption[subPart] = (totalConsumption[subPart] || 0) + subPartCount;
+      }
+    }
+
+    return { ...totalConsumption, [component]: count };
+  };
+
+  const consumption = getConsumption(kit, want);
+  return Object.fromEntries(Object.entries(consumption).sort((a, b) => a[0].localeCompare(b[0])));
+}
+```

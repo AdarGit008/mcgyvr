@@ -1,0 +1,62 @@
+```typescript
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (tripDays.length === 0 || passes.length === 0) {
+    throw new Error("Invalid input");
+  }
+
+  for (let i = 1; i < tripDays.length; i++) {
+    if (tripDays[i] <= tripDays[i - 1]) {
+      throw new Error("Trip days must be strictly increasing");
+    }
+  }
+
+  const tripDaysSet = new Set(tripDays);
+
+  for (const pass of passes) {
+    if (!Number.isInteger(pass.span) || !Number.isPositiveInt(pass.cost)) {
+      throw new Error("Invalid input");
+    }
+  }
+
+  function findCheapestPlan(days: Set<number>, passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+    if (days.size === 0) return { total: 0, purchases: [] };
+
+    const minCostPass = passes.reduce((prev, pass) => {
+      if (!prev || prev.cost > pass.cost) {
+        return pass;
+      }
+      return prev;
+    }, null);
+
+    if (!minCostPass) {
+      throw new Error("Invalid input");
+    }
+
+    const { span, cost } = minCostPass;
+
+    let total = 0;
+    const purchases: number[][] = [];
+    let remainingDays = days.size;
+
+    for (let i = 0; i < tripDays.length && remainingDays > 0; ) {
+      if (!days.has(tripDays[i])) {
+        i++;
+        continue;
+      }
+
+      const lastPurchaseStartDay = purchases[purchases.length - 1]?.[0] || 1;
+      if (tripDays[i] >= lastPurchaseStartDay + span) {
+        total += cost;
+        purchases.push([tripDays[i], span]);
+        remainingDays -= span;
+      } else {
+        i++;
+      }
+    }
+
+    return { total, purchases };
+  }
+
+  return findCheapestPlan(tripDaysSet, passes);
+}
+```

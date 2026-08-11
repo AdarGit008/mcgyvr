@@ -1,0 +1,46 @@
+```python
+from typing import List
+
+def split_cents(total: int, weights: list) -> List[int]:
+    """
+    Share market stall takings among partners based on their share weights.
+    
+    Args:
+        total (int): The day's takings in whole cents.
+        weights (list): A list of positive whole numbers representing each partner's share weight.
+        
+    Returns:
+        List[int]: The amounts each partner receives, in the order they are given.
+        
+    Raises:
+        ValueError: If total is not a whole number, negative, or if weights are invalid.
+    """
+    if not isinstance(total, int) or total < 0:
+        raise ValueError("Total takings must be a non-negative integer.")
+    
+    if not isinstance(weights, list) or any(not isinstance(weight, int) or weight <= 0 for weight in weights):
+        raise ValueError("Weights must be a list of positive whole numbers.")
+    
+    if len(weights) == 0:
+        raise ValueError("Weights list cannot be empty.")
+    
+    total_cents = total
+    total_weight = sum(weights)
+    
+    # Calculate initial parts based on share weights
+    parts = [total * weight // total_weight for weight in weights]
+    
+    # Remaining cents to distribute
+    remaining_cents = total_cents - sum(parts)
+    
+    # Distribute remaining cents to partners with the largest discarded fraction
+    while remaining_cents > 0:
+        max_fraction = 1.0 / (total_weight + len(weights))
+        max_index = weights.index(max(max_parts + [0]))
+        
+        parts[max_index] += 1
+        remaining_cents -= 1
+    
+    return parts
+
+```

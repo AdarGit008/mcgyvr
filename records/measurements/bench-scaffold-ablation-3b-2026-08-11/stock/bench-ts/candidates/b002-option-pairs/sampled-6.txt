@@ -1,0 +1,61 @@
+```ts
+export function parseOption(segment: string): string[] {
+  const eq = segment.indexOf("=");
+  const key = segment.slice(0, eq);
+  if (eq === -1 || !/^[A-Za-z][A-Za-z0-9_]*$/.test(key)) {
+    throw new Error("malformed option segment: " + segment);
+  }
+  let raw = segment.slice(eq + 1);
+  if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+    raw = raw.slice(1, -1);
+  }
+  return [key, raw];
+}
+
+export function scanPairs(input: string): string[][] {
+  const result: string[][] = [];
+  let currentSegment = "";
+  let inQuotes = false;
+  let lastKey: string | null = null;
+
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === '"') {
+      if (!inQuotes) {
+        inQuotes = true;
+        if (currentSegment.trim()) {
+          result.push(parseOption(currentSegment));
+          currentSegment = "";
+        }
+        continue;
+      } else {
+        inQuotes = false;
+      }
+    }
+
+    if (input[i] === ';' && !inQuotes) {
+      const segment = currentSegment.trim();
+      if (!segment) continue;
+
+      const [key, value] = parseOption(segment);
+      if (lastKey !== null && key === lastKey) {
+        throw new Error("repeated key: " + key);
+      }
+      result.push([key, value]);
+
+      currentSegment = "";
+      lastKey = key;
+    } else {
+      currentSegment += input[i];
+    }
+
+    // Handle unterminated quote
+    if (inQuotes && i === input.length - 1) {
+      throw new Error("unterminated quoted value");
+    }
+  }
+
+  const segment = currentSegment.trim();
+  if (!segment) return result;
+  return result.concat(parseOption(segment));
+}
+```

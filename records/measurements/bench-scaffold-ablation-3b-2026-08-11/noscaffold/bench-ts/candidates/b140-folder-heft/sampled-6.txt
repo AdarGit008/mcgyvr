@@ -1,0 +1,74 @@
+```ts
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+  if (typeof root !== "object") throw new Error("Invalid root type");
+
+  function traverse(node: any, path: string[] = []): void {
+    if (!isObject(node) || typeof node.name !== "string" || /\//.test(node.name)) {
+      throw new Error("Invalid node structure");
+    }
+    if (typeof node.bytes !== "number" && !Array.isArray(node.children)) {
+      throw new Error("Invalid node content");
+    }
+
+    paths.push([...path, node.name].join("/"));
+    if (Array.isArray(node.children)) {
+      node.children.forEach((child) => traverse(child, [...path, node.name]));
+    }
+  }
+
+  traverse(root);
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== "object") throw new Error("Invalid root type");
+
+  function countBytes(node: any): number {
+    if (!isObject(node) || typeof node.name !== "string" || /\//.test(node.name)) {
+      throw new Error("Invalid node structure");
+    }
+    if (typeof node.bytes !== "number" && !Array.isArray(node.children)) {
+      throw new Error("Invalid node content");
+    }
+
+    let total = 0;
+    if (node.bytes !== undefined) {
+      total += node.bytes;
+    } else if (Array.isArray(node.children)) {
+      total += node.children.reduce((acc, child) => acc + countBytes(child), 0);
+    }
+    return total;
+  }
+
+  return countBytes(root);
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== "object" || typeof minBytes !== "number") throw new Error("Invalid args type");
+  if (minBytes < 0) throw new Error("Invalid minBytes value");
+
+  const results: [string, number][] = [];
+  function traverse(node: any, path: string[] = [], totalBytes: number = 0): void {
+    if (!isObject(node) || typeof node.name !== "string" || /\//.test(node.name)) {
+      throw new Error("Invalid node structure");
+    }
+    if (typeof node.bytes !== "number" && !Array.isArray(node.children)) {
+      throw new Error("Invalid node content");
+    }
+
+    totalBytes += node.bytes;
+    const currentPath = [...path, node.name].join("/");
+    if (totalBytes >= minBytes) {
+      results.push([currentPath, totalBytes]);
+    }
+
+    if (Array.isArray(node.children)) {
+      node.children.forEach((child) => traverse(child, [...path, node.name], totalBytes));
+    }
+  }
+
+  traverse(root);
+  return results;
+}
+```

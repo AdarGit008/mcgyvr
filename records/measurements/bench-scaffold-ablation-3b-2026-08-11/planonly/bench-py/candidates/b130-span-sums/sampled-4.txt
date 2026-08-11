@@ -1,0 +1,50 @@
+```python
+def parse_span(text: str) -> int:
+    def validate_unit(unit: str) -> bool:
+        return unit in ["yd", "ft", "in"]
+
+    def parse_part(part: str) -> (int, str):
+        value_str, unit = part.rsplit(maxsplit=1)
+        if not value_str.isdigit() or len(value_str) > 1 and value_str[0] == '0':
+            raise ValueError("Invalid value format")
+        if not validate_unit(unit):
+            raise ValueError(f"Unknown unit: {unit}")
+        return int(value_str), unit
+
+    parts = text.split()
+    if len(parts) != 3:
+        raise ValueError("Invalid span format: exactly three parts required")
+
+    total_inches = 0
+    for value, unit in parse_part(part) for part in parts:
+        if unit == "yd":
+            total_inches += value * 36
+        elif unit == "ft":
+            total_inches += value * 12
+        else:
+            total_inches += value
+
+    return total_inches
+
+
+def format_span(inches: int) -> str:
+    units = ["in", "ft", "yd"]
+    parts = []
+    for unit in units:
+        if inches >= 12 and unit == "ft":
+            parts.append(f"{int(inches / 12)}{unit}")
+            inches %= 12
+        elif inches >= 36 and unit == "yd":
+            parts.append(f"{int(inches / 36)}{unit}")
+            inches %= 36
+
+    if inches > 0:
+        parts.append(f"{inches}in")
+
+    return " ".join(parts)
+
+
+def add_spans(first: str, second: str) -> str:
+    total_inches = parse_span(first) + parse_span(second)
+    return format_span(total_inches)
+```

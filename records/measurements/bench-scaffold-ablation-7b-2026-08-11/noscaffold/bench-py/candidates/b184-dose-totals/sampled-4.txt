@@ -1,0 +1,29 @@
+```python
+import re
+
+def dose_totals(log: list) -> dict:
+    if not log:
+        return {}
+    
+    amount_pattern = re.compile(r'^-?\d+(\.\d{1,3})?$')
+    total_map = {}
+    
+    for reagent, amount in log:
+        if not isinstance(amount, str):
+            raise ValueError("Amount must be a string")
+        
+        if not amount_pattern.match(amount):
+            raise ValueError(f"Invalid amount format: {amount}")
+        
+        amount_float = float(amount)
+        if abs(amount_float - round(amount_float * 1000)) > 0.499:
+            raise ValueError(f"Amount does not fit the written form: {amount}")
+        
+        total_map[reagent] = total_map.get(reagent, 0) + amount_float
+    
+    for reagent in total_map:
+        total_map[reagent] = f"{total_map[reagent]:.3f}"
+    
+    return {reagent: str(round(float(amount), len(amount.split('.')[1]))) if '.' in amount else amount
+            for reagent, amount in total_map.items()}
+```

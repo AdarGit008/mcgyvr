@@ -1,0 +1,47 @@
+```python
+def mask_from_prefix(prefix: int) -> str:
+    if not isinstance(prefix, int):
+        raise ValueError("Prefix must be an integer.")
+    
+    if prefix < 0 or prefix > 32:
+        raise ValueError("Prefix must be between 0 and 32.")
+    
+    # Construct the mask string
+    mask_parts = [str(255 - (prefix - i)) for i in range(4)]
+    mask_str = '.'.join(mask_parts)
+    return mask_str
+
+
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("Mask must be a string.")
+    
+    # Check if the mask has exactly four dot-separated fields
+    parts = mask.split('.')
+    if len(parts) != 4:
+        raise ValueError("Mask must contain exactly four dot-separated fields.")
+    
+    # Validate each part of the mask
+    for i, part in enumerate(parts):
+        if not part.isdigit():
+            raise ValueError(f"Invalid octet: {part}. All parts must be decimal digits.")
+        
+        number = int(part)
+        if number < 0 or number > 255:
+            raise ValueError(f"Octet out of range: {number}. Each octet must be between 0 and 255.")
+        
+        # Check for broken one bits
+        if i > 0 and parts[i - 1].isdigit():
+            raise ValueError("One bits are not unbroken across octets or inside one.")
+    
+    # Calculate the prefix from the mask
+    prefix = 32
+    for part in reversed(parts):
+        number = int(part)
+        if number < 256:
+            prefix -= (256 - number).bit_length()
+        else:
+            raise ValueError("Invalid mask format: one bits are broken.")
+    
+    return prefix
+```

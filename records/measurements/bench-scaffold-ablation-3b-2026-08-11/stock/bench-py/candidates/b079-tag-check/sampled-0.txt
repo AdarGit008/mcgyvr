@@ -1,0 +1,31 @@
+```python
+def line_tag(body: str) -> str:
+    if not isinstance(body, str):
+        raise ValueError("line_tag expects a string")
+    return format(sum(ord(ch) for ch in body) % 256, "02x")
+
+
+def check_line(line: str) -> str:
+    # Check if the line is shorter than three characters
+    if len(line) < 3:
+        raise ValueError("Line must be at least three characters long")
+
+    # Find the position of the tilde
+    tilde_index = line.rfind('~')
+    
+    # Check if there is a tilde in the line and it's not at the end
+    if tilde_index == -1 or tilde_index == len(line) - 1:
+        raise ValueError("Line must contain a tilde that is not at the end")
+
+    # Extract the body from the line
+    body = line[:tilde_index]
+
+    # Calculate the expected tag for this body
+    expected_tag = line_tag(body)
+
+    # Check if the last two characters of the line are the expected tag
+    if line[tilde_index+1:] != expected_tag:
+        raise ValueError("Line's tag does not match its body")
+
+    return body
+```

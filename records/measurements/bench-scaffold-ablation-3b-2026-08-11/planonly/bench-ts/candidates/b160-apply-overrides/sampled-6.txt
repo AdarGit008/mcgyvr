@@ -1,0 +1,25 @@
+```ts
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("overrides must be a list");
+  }
+
+  const merged = { ...base };
+
+  for (const override of overrides) {
+    const [name, value] = override.split('=', 2);
+
+    if (!value || !override.includes('=')) {
+      throw new Error("Each override must be in the form 'name=value'");
+    }
+
+    if (!base[name]) {
+      throw new Error(`Base does not have setting '${name}'`);
+    }
+
+    merged[name] = value;
+  }
+
+  return merged;
+}
+```

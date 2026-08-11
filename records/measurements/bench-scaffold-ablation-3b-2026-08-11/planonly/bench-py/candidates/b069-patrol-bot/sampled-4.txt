@@ -1,0 +1,31 @@
+```python
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    if not isinstance(moves, list):
+        raise ValueError("moves must be a list")
+
+    position = start
+    bumps = 0
+    visited = set()
+    visited.add(position)
+
+    for delta in moves:
+        result = clamp_move(position, delta, width)
+        new_position, wall_cut_short = result
+
+        if not (0 <= new_position < width):
+            raise ValueError(f"Invalid position: {new_position}")
+
+        if wall_cut_short:
+            bumps += 1
+
+        visited.add(new_position)
+        position = new_position
+
+    summary = {
+        "position": position,
+        "bumps": bumps,
+        "visited": len(visited) - 1  # Exclude the start
+    }
+
+    return summary
+```

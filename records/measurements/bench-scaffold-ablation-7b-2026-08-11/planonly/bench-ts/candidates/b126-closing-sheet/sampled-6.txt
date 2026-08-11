@@ -1,0 +1,44 @@
+```typescript
+export function closingSheet(opening: string, moves: string): string {
+  const parseEntry = (entry: string) => {
+    const [name, countStr] = entry.split(':');
+    if (!/^[a-z]+$/.test(name) || isNaN(parseInt(countStr))) throw new Error('Malformed sheet entry');
+    return { name, count: parseInt(countStr) };
+  };
+
+  const applyMove = (sheet: { [item: string]: number }, move: string) => {
+    if (!move) return sheet;
+    const [name, qtyStr] = move.split(/[+-]/);
+    const qty = parseInt(qtyStr);
+    if (!/^[a-z]+$/.test(name) || isNaN(qty)) throw new Error('Malformed move');
+    if (!sheet[name]) throw new Error(`Issue of item ${name} the sheet does not hold`);
+    if ((move.startsWith('-') && sheet[name] < qty) || (move.startsWith('+') && qty === 0))
+      throw new Error(`Invalid move for item ${name}`);
+    sheet[name] += move.startsWith('+') ? qty : -qty;
+    return sheet;
+  };
+
+  const entries = opening.split(';').filter(Boolean).map(parseEntry);
+  if (new Set(entries.map(e => e.name)).size !== entries.length) throw new Error('Duplicate name on the opening sheet');
+
+  const movesArr = moves.split(';').filter(Boolean);
+  movesArr.forEach(move => {
+    const moveParts = move.match(/[+-]/g);
+    if (!moveParts || moveParts.length > 1) throw new Error('Invalid move format');
+  });
+
+  let sheet: { [item: string]: number } = {};
+  entries.forEach(e => (sheet[e.name] = e.count));
+
+  movesArr.forEach(move => {
+    sheet = applyMove(sheet, move);
+  });
+
+  const result = Object.entries(sheet)
+    .filter(([_, count]) => count > 0)
+    .map(([name, count]) => `${name}:${count}`)
+    .sort();
+
+  return result.join(';');
+}
+```

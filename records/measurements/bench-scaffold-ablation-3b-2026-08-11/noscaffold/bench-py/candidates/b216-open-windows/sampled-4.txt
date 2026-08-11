@@ -1,0 +1,50 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    """
+    Calculate the free stretches of a clinic's day given its span and booked appointments.
+    
+    :param span: The day's opening stretch in the format "HH:MM-HH:MM".
+    :param booked: A list of appointments in the same format.
+    :return: A string of free stretches in "HH:MM-HH:MM" format, separated by ", ".
+           If no free stretches exist, return "none".
+    """
+    
+    def parse_time(time_str: str) -> int:
+        """Parse a time string into minutes since midnight."""
+        hour, minute = map(int, time_str.split(':'))
+        return hour * 60 + minute
+    
+    def format_time(minutes: int) -> str:
+        """Format minutes since midnight into HH:MM."""
+        hours, minutes = divmod(minutes, 60)
+        return f"{hours:02}:{minutes:02}"
+    
+    # Parse the span and each appointment
+    start_time = parse_time(span.split('-')[0])
+    end_time = parse_time(span.split('-')[1])
+    appointments = [parse_time(appointment) for appointment in booked]
+    
+    # Sort appointments and span times
+    appointments.sort()
+    span_times = sorted([start_time, end_time])
+    
+    free_stretches = []
+    i = 0
+    
+    while i < len(bookings):
+        if bookings[i] >= span_times[1]:
+            break
+        
+        if i == 0 or bookings[i] > span_times[0]:
+            free_stretches.append(format_time(span_times[0]))
+        
+        free_stretches.append(format_time(bookings[i - 1]))
+        
+        while i < len(bookings) and bookings[i] <= span_times[1]:
+            i += 1
+    
+    if not free_stretches:
+        return "none"
+    
+    return ", ".join(free_stretches)
+```

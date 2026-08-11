@@ -1,0 +1,57 @@
+```python
+import re
+
+
+def parse_option(segment: str) -> list:
+    key, eq, raw = segment.partition("=")
+    if not eq or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", key) is None:
+        raise ValueError("malformed option segment: " + segment)
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    return [key, raw]
+
+
+def scan_pairs(text: str) -> list:
+    if not isinstance(text, str):
+        raise ValueError("input must be a string")
+    if text == "":
+        return []
+
+    result = []
+    key_set = set()
+    i = 0
+    while i < len(text):
+        start_quote = False
+        quote_depth = 0
+        j = i
+        while j < len(text):
+            if text[j] == '"':
+                if quote_depth == 0:
+                    start_quote = True
+                else:
+                    quote_depth += 1
+                j += 1
+            elif text[j] == ';' and quote_depth == 0:
+                break
+            else:
+                j += 1
+
+        segment = text[i:j]
+        if start_quote:
+            raise ValueError(f"unterminated quoted value: {segment}")
+
+        try:
+            option = parse_option(segment)
+        except ValueError as e:
+            raise ValueError(f"error parsing option '{segment}': {e}")
+
+        if option[0] in key_set:
+            raise ValueError(f"duplicate key '{option[0]}' found")
+
+        result.append(option)
+        key_set.add(option[0])
+
+        i = j
+
+    return result
+```

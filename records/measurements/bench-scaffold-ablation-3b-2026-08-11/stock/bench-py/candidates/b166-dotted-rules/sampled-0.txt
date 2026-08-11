@@ -1,0 +1,26 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+
+    # Function to check if the selector matches the beginning of the name
+    def matches_selector(selector: str, name: str) -> bool:
+        return selector.startswith(name)
+
+    # Check for exact match
+    if name in rules:
+        return rules[name]
+
+    # Find longest covering wildcard selector
+    wildcard_selectors = [k for k in rules.keys() if k.endswith(".*")]
+    if wildcard_selectors:
+        longest_wildcard_selector = max(wildcard_selectors, key=len)
+        if matches_selector(longest_wildcard_selector[:-2], name):
+            return rules[longest_wildcard_selector[:-2]]
+
+    # Check for lone star
+    if "*" in rules:
+        return rules["*"]
+
+    return None
+```

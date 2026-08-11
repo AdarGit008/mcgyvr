@@ -1,0 +1,46 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    
+    def walk_template(i: int) -> tuple[int, str]:
+        # Find the next literal character or placeholder
+        start = i
+        while i < len(template) and template[i] != '{' and template[i] != '}':
+            i += 1
+        literal = template[start:i]
+        
+        if i == len(template):
+            raise ValueError("Unterminated placeholder found")
+        
+        # Check for an opening brace followed by a name
+        i += 1
+        if template[i] != '{':
+            raise ValueError("Invalid format: expected '{{...}}'")
+        
+        start = i + 1
+        while i < len(template) and (template[i].isalnum() or template[i] == '_'):
+            i += 1
+        
+        placeholder_name = template[start:i]
+        
+        if not placeholder_name:
+            raise ValueError("Empty or malformed placeholder name")
+        
+        # Check if the placeholder name exists in values
+        if placeholder_name not in values:
+            raise ValueError(f"Unknown placeholder '{placeholder_name}'")
+        
+        value = values[placeholder_name]
+        
+        return i + 1, literal + str(value)
+    
+    output = []
+    i = 0
+    while i < len(template):
+        next_i, result = walk_template(i)
+        output.append(result)
+        i = next_i
+    
+    return ''.join(output)
+```

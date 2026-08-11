@@ -1,0 +1,63 @@
+```ts
+/**
+ * Parses a span text into total inches.
+ * @param text - The span text to parse.
+ * @returns The total inches represented by the span text.
+ */
+export function parseSpan(text: string): number {
+  if (typeof text !== 'string' || !text.trim()) throw new Error('Invalid input');
+
+  const parts = text.split(/\s+/);
+  const unitsMap: { [key: string]: number } = { yd: 36 * 12, ft: 12, in: 1 };
+  let totalInches = 0;
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (!/^\d+$/.test(part)) throw new Error('Invalid value');
+
+    const unitIndex = Object.keys(unitsMap).indexOf(part);
+    if (unitIndex === -1) throw new Error('Unknown unit');
+    const unitKey = Object.keys(unitsMap)[unitIndex];
+
+    if (i > 0 && Object.keys(unitsMap).indexOf(parts[i - 1]) < unitIndex) {
+      throw new Error('Units out of order');
+    }
+
+    totalInches += parseInt(part, 10) * unitsMap[unitKey];
+  }
+
+  return totalInches;
+}
+
+/**
+ * Renders a non-negative integer of total inches in canonical form.
+ * @param inches - The total inches to render.
+ * @returns The span text representing the total inches in canonical form.
+ */
+export function formatSpan(inches: number): string {
+  if (typeof inches !== 'number' || inches < 0 || !Number.isInteger(inches)) throw new Error('Invalid input');
+
+  const unitsMap: { [key: string]: number } = { yd: 36 * 12, ft: 12, in: 1 };
+  let result = '';
+
+  for (const unit of ['yd', 'ft', 'in']) {
+    if (inches >= unitsMap[unit]) {
+      const count = Math.floor(inches / unitsMap[unit]);
+      inches -= count * unitsMap[unit];
+      if (count > 0) result += `${count}${unit}`;
+    }
+  }
+
+  return result || '0in';
+}
+
+/**
+ * Adds two span texts and returns their sum in canonical form.
+ * @param first - The first span text to add.
+ * @param second - The second span text to add.
+ * @returns The sum of the two span texts in canonical form.
+ */
+export function addSpans(first: string, second: string): string {
+  return formatSpan(parseSpan(first) + parseSpan(second));
+}
+```

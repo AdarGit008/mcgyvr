@@ -1,0 +1,76 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (grid.length === 0) throw new Error("Grid must contain at least one row.");
+  const numCols = grid[0].length;
+  
+  // Helper function to validate a query
+  const isValidQuery = (query: number[]): boolean => {
+    return (
+      Array.isArray(query) &&
+      query.length === 4 &&
+      typeof query[0] === "number" && typeof query[1] === "number" &&
+      typeof query[2] === "number" && typeof query[3] === "number" &&
+      Number.isInteger(query[0]) && Number.isInteger(query[1]) &&
+      Number.isInteger(query[2]) && Number.isInteger(query[3]) &&
+      query[0] < query[2] && query[1] < query[3]
+    );
+  };
+
+  // Check if each row has the same length
+  const checkRowLengths = (grid: number[][]) => {
+    const firstRowLength = grid[0].length;
+    return grid.every(row => row.length === firstRowLength);
+  };
+
+  // Validate that all cells are integers
+  const validateCells = (grid: number[][]): boolean => {
+    return grid.every(row => row.every(cell => typeof cell === "number" && Number.isInteger(cell)));
+  };
+
+  // Check if queries reach outside the grid
+  const checkQueries = (queries: number[][], numCols: number, numRows: number) => {
+    return queries.every(query => query[0] >= 0 && query[1] >= 0 &&
+                            query[2] <= numRows && query[3] <= numCols);
+  };
+
+  // Check if the grid has valid dimensions and cell values
+  const validateGrid = (grid: number[][], numCols: number): boolean => {
+    return checkRowLengths(grid) && validateCells(grid) && checkQueries(queries, numCols, grid.length);
+  };
+
+  if (!validateGrid(grid, numCols)) {
+    throw new Error("Invalid grid or queries.");
+  }
+
+  // Helper function to compute prefix sums
+  const computePrefixSums = (grid: number[][]): number[][] => {
+    const prefixSums: number[][] = [];
+    for (let i = 0; i < grid.length; i++) {
+      const rowPrefixSum: number[] = [0];
+      for (let j = 0; j < numCols; j++) {
+        rowPrefixSum.push(rowPrefixSum[j] + grid[i][j]);
+      }
+      prefixSums.push(rowPrefixSum);
+    }
+    return prefixSums;
+  };
+
+  // Compute the prefix sums table
+  const prefixSumsTable = computePrefixSums(grid);
+
+  // Helper function to calculate the sum of a query using prefix sums
+  const calcQueryTotal = (prefixSums: number[][], top: number, left: number, bottom: number, right: number): number => {
+    return prefixSums[bottom][right] - prefixSums[top][right] -
+           prefixSums[bottom][left] + prefixSums[top][left];
+  };
+
+  // Calculate the total for each query
+  const totals = queries.map(([top, left, bottom, right]) =>
+    calcQueryTotal(prefixSumsTable, top, left, bottom - 1, right - 1)
+  );
+
+  return totals;
+}
+```
+
+This code implements the `regionTotals` function as described. It first validates the grid and queries for correctness, then computes a prefix-sum table to efficiently answer each query. The helper functions ensure that all checks are performed correctly before any calculations are carried out.

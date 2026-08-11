@@ -1,0 +1,34 @@
+```python
+from typing import Union
+
+def apply_overrides(base: dict, overrides: list) -> dict:
+    """
+    Apply command-line overrides to base settings.
+
+    :param base: A flat mapping of setting names to string values.
+    :param overrides: A list of strings in the format "setting_name=value".
+    :return: A copy of base with applied overrides.
+    """
+
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list.")
+
+    merged = base.copy()
+
+    for override in overrides:
+        try:
+            name, value = override.split('=', 1)
+        except ValueError:
+            raise ValueError(f"Invalid override: '{override}'. Must contain exactly one equals sign.")
+
+        if not name or '=' in name:
+            raise ValueError(f"Override name must be non-empty and cannot contain equals signs: '{name}'.")
+
+        if name not in merged:
+            raise ValueError(f"Override {name} is missing from base settings.")
+
+        # Only set the value if it's not empty; leave it unchanged otherwise.
+        merged[name] = value.strip() or ""
+
+    return merged
+```

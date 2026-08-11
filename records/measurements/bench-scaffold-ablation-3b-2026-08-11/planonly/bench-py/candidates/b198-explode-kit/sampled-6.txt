@@ -1,0 +1,43 @@
+```python
+from typing import Dict
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """
+    Calculate the total parts consumed by an order of 'want' units of a 'kit'.
+    
+    :param catalog: A dictionary mapping kit names to tuples (makes, parts).
+                 Each part is a tuple (component, count).
+    :param kit: The name of the kit to explode.
+    :param want: The number of units of the kit to work on.
+    :return: A dictionary mapping base parts to their total count consumed.
+    """
+    
+    def get_makes(kit_name):
+        if kit_name not in catalog:
+            raise ValueError(f"Kit '{kit_name}' is not defined.")
+        return catalog[kit_name][0]
+    
+    def get_parts(kit_name):
+        return catalog[kit_name][1]
+    
+    def explode(kit_name, want):
+        base_total = {part[0]: 0 for part in get_parts(kit_name)}
+        
+        while want > 0:
+            makes = get_makes(kit_name)
+            if want < makes:
+                # Calculate the exact number of runs needed
+                runs = (want + makes - 1) // makes
+            else:
+                runs = 1
+            
+            parts = {part[0]: part[1] * runs for part in get_parts(kit_name)}
+            
+            base_total.update(parts)
+            
+            want -= runs * makes
+        
+        return base_total
+    
+    return explode(kit, want)
+```

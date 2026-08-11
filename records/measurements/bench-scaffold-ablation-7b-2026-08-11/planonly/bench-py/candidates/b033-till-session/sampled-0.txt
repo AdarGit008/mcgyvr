@@ -1,0 +1,60 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not all(isinstance(price, int) and price > 0 for price in prices.values()):
+        raise ValueError("All prices must be positive integers")
+
+    states = {
+        "open": {"cart": {}, "total": 0},
+        "payment": {"cart": None, "paid": 0},
+        "paid": {},
+        "cancelled": {}
+    }
+
+    state = "open"
+    for event in events:
+        if not isinstance(event, list) or len(event) < 2:
+            raise ValueError("Each event must be a list with at least two elements")
+
+        action, *payload = event
+        if action == "scan":
+            item = payload[0]
+            if item not in prices:
+                raise ValueError(f"Item '{item}' is not in the price list")
+            if state != "open":
+                raise ValueError("Scan action is unlawful in the current session state")
+            states[state]["cart"][item] = states[state]["cart"].get(item, 0) + 1
+        elif action == "void":
+            item = payload[0]
+            if item not in states[state]["cart"]:
+                raise ValueError(f"Item '{item}' is not in the cart")
+            if state != "open":
+                raise ValueError("Void action is unlawful in the current session state")
+            states[state]["cart"][item] -= 1
+            if states[state]["cart"][item] == 0:
+                del states[state]["cart"][item]
+        elif action == "close":
+            if not states[state]["cart"]:
+                raise ValueError("Close action cannot be performed with an empty cart")
+            if state != "open":
+                raise ValueError("Close action is unlawful in the current session state")
+            total = sum(prices[item] * quantity for item, quantity in states[state]["cart"].items())
+            states["payment"] = {**states[state], "total": total}
+            state = "payment"
+        elif action == "pay":
+            amount = payload[0]
+            if not isinstance(amount, int) or amount <= 0:
+                raise ValueError("Pay amount must be a positive integer")
+            if state != "payment":
+                raise ValueError("Pay action is unlawful in the current session state")
+            states[state]["paid"] += amount
+            states["paid"] = {**states[state], "change": max(0, states[state]["paid"] - states[state]["total"])}
+            state = "paid"
+        elif action == "cancel":
+            if state not in ["open", "payment"]:
+                raise ValueError("Cancel action is unlawful in the current session state")
+            state = "cancelled"
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    return states[state]
+```

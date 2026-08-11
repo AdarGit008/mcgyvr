@@ -1,0 +1,66 @@
+```
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern: str, text: str) -> bool:
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text: str, what: str) -> list:
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    def match_path(path: str, rule: str) -> bool:
+        path_segments = split_strict(path, "path")
+        rule_segments = split_strict(rule, "rule")
+        if not path_segments and not rule_segments:
+            return False
+        for i in range(min(len(path_segments), len(rule_segments))):
+            if (path_segments[i] != rule_segments[i] and
+                    rule_segments[i] != "*"):
+                return False
+        return True
+
+    def is_keep_rule(rule: str) -> bool:
+        return rule.startswith("!")
+
+    # TODO: validate every rule and path with split_strict, then keep each
+    # path the last matching rule allows; a path no rule matches survives.
+    result = []
+    for path in listing:
+        if not isinstance(path, str) or path == "":
+            raise ValueError(f"path must be a non-empty string")
+        found_match = False
+        for i, rule in enumerate(rules):
+            if (isinstance(rule, str) and
+                    split_strict(rule, "rule")[0] != "!"):
+                if match_path(path, rule):
+                    found_match = True
+                    break
+        if not found_match:
+            result.append(path)
+    return result
+
+```

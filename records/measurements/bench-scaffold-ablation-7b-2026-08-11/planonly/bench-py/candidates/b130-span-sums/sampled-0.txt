@@ -1,0 +1,51 @@
+```python
+def parse_span(text: str) -> int:
+    """Parse a span text into total inches."""
+    units = {'yd': 36 * 12, 'ft': 12, 'in': 1}
+    parts = [part.strip() for part in text.split()]
+    
+    if not parts or any(len(part.split()) != 2 for part in parts):
+        raise ValueError("Invalid span format")
+    
+    total_inches = 0
+    seen_units = set()
+    
+    for part in parts:
+        value, unit = part.split()
+        if not value.isdigit() or int(value) == 0:
+            raise ValueError("Value must be a non-zero positive integer")
+        if unit not in units or unit in seen_units:
+            raise ValueError("Unknown or repeated unit")
+        total_inches += int(value) * units[unit]
+        seen_units.add(unit)
+    
+    return total_inches
+
+def format_span(inches: int) -> str:
+    """Format a non-negative integer of total inches canonically."""
+    if not isinstance(inches, int) or inches < 0:
+        raise ValueError("Inches must be a non-negative integer")
+    
+    remaining_inches = inches
+    parts = []
+    
+    for unit in ['yd', 'ft', 'in']:
+        value = remaining_inches // units[unit]
+        if value > 0:
+            parts.append(f"{value}{unit[0]}")
+            remaining_inches %= units[unit]
+    
+    return ''.join(parts) + 'in' if parts else '0in'
+
+def add_spans(first: str, second: str) -> str:
+    """Add two span texts and return their sum in canonical form."""
+    if not (isinstance(first, str) and isinstance(second, str)):
+        raise ValueError("Arguments must be strings")
+    
+    inches_first = parse_span(first)
+    inches_second = parse_span(second)
+    
+    total_inches = inches_first + inches_second
+    
+    return format_span(total_inches)
+```

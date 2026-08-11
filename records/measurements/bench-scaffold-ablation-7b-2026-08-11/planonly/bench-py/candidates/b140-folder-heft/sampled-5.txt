@@ -1,0 +1,63 @@
+```python
+def validate_node(node: dict) -> None:
+    if not isinstance(node, dict):
+        raise ValueError("Node must be a mapping")
+    name = node.get('name')
+    if not isinstance(name, str) or not name or '/' in name:
+        raise ValueError("Name must be a non-empty string without slashes")
+    children = node.get('children')
+    bytes_ = node.get('bytes')
+    if (children and bytes_) or (not children and not bytes_):
+        raise ValueError("Node must have either 'children' or 'bytes', but not both")
+    if bytes_ is not None:
+        if not isinstance(bytes_, int) or bytes_ < 0:
+            raise ValueError("Bytes must be a non-negative whole number")
+    if children is not None:
+        if not isinstance(children, list):
+            raise ValueError("Children must be a list")
+
+def validate_root(root: dict) -> None:
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a mapping")
+    name = root.get('name')
+    if not isinstance(name, str) or not name or '/' in name:
+        raise ValueError("Root name must be a non-empty string without slashes")
+
+def validate_min_bytes(min_bytes: int) -> None:
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("Min bytes must be a non-negative whole number")
+
+def file_paths(root: dict) -> list:
+    validate_root(root)
+    paths = []
+    def walk(node: dict, path: str) -> None:
+        if 'children' in node:
+            for child in node['children']:
+                walk(child, f"{path}/{node['name']}")
+        else:
+            paths.append(f"{path}/{node['name']}")
+    walk(root, "")
+    return paths
+
+def tree_bytes(root: dict) -> int:
+    validate_node(root)
+    if 'bytes' in root:
+        return root['bytes']
+    return sum(tree_bytes(child) for child in root['children'])
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    validate_min_bytes(min_bytes)
+    paths = []
+    def walk(node: dict, path: str, total: int) -> None:
+        if 'children' in node:
+            for i, child in enumerate(node['children']):
+                new_total = total + tree_bytes(child)
+                if new_total >= min_bytes:
+                    paths.append([f"{path}/{node['name']}", new_total])
+                walk(child, f"{path}/{node['name']}", new_total)
+        else:
+            if total >= min_bytes:
+                paths.append([f"{path}/{node['name']}", total])
+    walk(root, "", tree_bytes(root))
+    return paths
+```

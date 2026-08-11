@@ -1,0 +1,18 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+    const isValidPath = (path: string): boolean => path !== "" && !/\/\//.test(path);
+    const isValidRule = (rule: string): boolean => rule !== "" && rule !== "!" && !/\/\//.test(rule);
+
+    if (!listing.every(isValidPath) || !rules.every(isValidRule)) {
+        throw new Error("Invalid path or rule");
+    }
+
+    return listing.filter(path => rules.some((rule, index) => {
+        const isKeepRule = rule.startsWith('!');
+        const pattern = isKeepRule ? rule.slice(1) : rule;
+        const parts = pattern.split('/').map(p => p === '*' ? '.*' : p.replace(/\./g, '\\.'));
+        const regex = new RegExp(`^${parts.join('\/')}(\/|$)`);
+        return regex.test(path) !== isKeepRule;
+    }));
+}
+```

@@ -1,0 +1,30 @@
+```ts
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const totals: Record<string, number> = {};
+
+  for (const [reagent, amount] of log) {
+    // Validate the amount string is in the correct format
+    if (!/^-?\d+(\.\d{1,3})?$/i.test(amount)) {
+      throw new Error('Invalid amount format');
+    }
+
+    // Convert amount to a number in thousandths of a millilitre
+    const amountInThousandths = parseFloat(amount) * 1000;
+
+    // Accumulate the total for this reagent
+    if (totals[reagent]) {
+      totals[reagent] += amountInThousandths;
+    } else {
+      totals[reagent] = amountInThousandths;
+    }
+  }
+
+  // Format each total back to a decimal string with the finest place count
+  return Object.fromEntries(
+    Object.entries(totals).map(([reagent, total]) => [
+      reagent,
+      total.toFixed(Math.max(0, Math.min(3, log.flat().some(a => /(\.\d{2})/.test(a)))),
+    ]),
+  );
+}
+```

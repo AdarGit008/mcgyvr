@@ -1,0 +1,19 @@
+```python
+from typing import Dict
+
+def match_setting(rules: Dict[str, str], name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string.")
+    
+    if '*' in name:
+        if len(name) != 1 and not name.endswith('.*'):
+            raise ValueError("Star (*) can only stand alone or end with '.*'.")
+        
+        return rules.get('*', None)
+    
+    for selector, value in rules.items():
+        if selector == name or selector.startswith(name + '.*') and '.'.join(selector.split('.')[:-1]) == name:
+            return value
+    
+    return None
+```

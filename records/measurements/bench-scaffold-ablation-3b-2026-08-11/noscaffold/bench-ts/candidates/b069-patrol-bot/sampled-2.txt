@@ -1,0 +1,56 @@
+```typescript
+export function clampMove(position: number, delta: number, width: number): [number, boolean] {
+    if (typeof position !== 'number' || typeof delta !== 'number' || typeof width !== 'number') {
+        throw new Error('Invalid input types');
+    }
+    if (!Number.isInteger(width) || width <= 0) {
+        throw new Error('Width must be a positive integer');
+    }
+    if (!Number.isInteger(position) || position < 0 || position >= width) {
+        throw new Error('Position must be an integer inside the corridor');
+    }
+    if (delta === 0) {
+        return [position, false];
+    }
+
+    let newPosition = position + delta;
+    if (newPosition < 0) {
+        newPosition = 0;
+    } else if (newPosition >= width) {
+        newPosition = width - 1;
+    }
+
+    const isWallCut = newPosition !== position;
+    return [newPosition, isWallCut];
+}
+
+export function runPatrol(width: number, start: number, moves: number[]): Record<string, number> {
+    if (!Array.isArray(moves)) {
+        throw new Error('Moves must be a list');
+    }
+    for (const move of moves) {
+        if (!Number.isInteger(move) || move === 0) {
+            throw new Error('Invalid move value');
+        }
+    }
+
+    let position = start;
+    let bumps = 0;
+    const visited: Set<number> = new Set([start]);
+
+    for (const delta of moves) {
+        const [newPosition, isWallCut] = clampMove(position, delta, width);
+        if (isWallCut) {
+            bumps++;
+        }
+        position = newPosition;
+        visited.add(position);
+    }
+
+    return {
+        position,
+        bumps,
+        visited: visited.size
+    };
+}
+```

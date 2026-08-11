@@ -1,0 +1,38 @@
+```ts
+export function carveShift(start: number, end: number, span: number, rest: number, least: number): number[][] {
+  if (
+    typeof start !== 'number' ||
+    typeof end !== 'number' ||
+    typeof span !== 'number' ||
+    typeof rest !== 'number' ||
+    typeof least !== 'number'
+  ) {
+    throw new Error('All inputs must be whole numbers.');
+  }
+  
+  if (start >= end) {
+    throw new Error('Start must precede end.');
+  }
+
+  if (span < 1 || rest < 1 || least < 1 || span < least) {
+    throw new Error('Span, rest, least must all be at least 1 and span cannot be less than least.');
+  }
+
+  const stretches: number[][] = [];
+  let currentPos = start;
+  
+  while (currentPos + least <= end) {
+    const stretchEnd = Math.min(currentPos + span, end);
+    if (stretchEnd > currentPos + least) {
+      stretches.push([currentPos, stretchEnd]);
+      currentPos += stretchEnd - currentPos;
+    } else {
+      break;
+    }
+    
+    currentPos += rest;
+  }
+
+  return stretches;
+}
+```

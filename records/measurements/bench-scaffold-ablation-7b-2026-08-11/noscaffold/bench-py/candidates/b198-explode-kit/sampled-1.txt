@@ -1,0 +1,30 @@
+```python
+import math
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    if want <= 0:
+        raise ValueError("want must be a positive integer")
+    
+    def expand(kit_name: str, needed: int) -> dict:
+        recipe = catalog.get(kit_name)
+        if not recipe:
+            raise ValueError(f"kit '{kit_name}' is not defined in the catalog")
+        
+        makes = recipe['makes']
+        parts = recipe['parts']
+        
+        runs_needed = math.ceil(needed / makes)
+        total_used = {}
+        
+        for part, count in parts.items():
+            if part in catalog:
+                used_parts = expand(part, runs_needed * count)
+                for p, c in used_parts.items():
+                    total_used[p] = total_used.get(p, 0) + c
+            else:
+                total_used[part] = total_used.get(part, 0) + runs_needed * count
+        
+        return total_used
+    
+    return expand(kit, want)
+```

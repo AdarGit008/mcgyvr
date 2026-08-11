@@ -1,0 +1,63 @@
+```python
+import re
+
+
+def parse_option(segment: str) -> list:
+    key, eq, raw = segment.partition("=")
+    if not eq or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", key) is None:
+        raise ValueError("malformed option segment: " + segment)
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    return [key, raw]
+
+
+def scan_pairs(text: str) -> list:
+    if not isinstance(text, str):
+        raise ValueError("input must be a string")
+    if text == "":
+        return []
+
+    pairs = []
+    key_set = set()
+    current_key = None
+    current_value = ""
+    in_quotes = False
+
+    for char in text:
+        if char == '"':
+            if in_quotes:
+                # End of quoted value
+                if current_key is not None and current_value:
+                    pairs.append([current_key, current_value])
+                    key_set.add(current_key)
+                    current_key = None
+                    current_value = ""
+                in_quotes = False
+            else:
+                # Start of quoted value
+                in_quotes = True
+        elif char == ';':
+            if in_quotes:
+                # Semicolon inside quotes is not a split point
+                continue
+            if current_key is not None and current_value:
+                pairs.append([current_key, current_value])
+                key_set.add(current_key)
+                current_key = None
+                current_value = ""
+        elif char == '=' and not in_quotes:
+            # End of key segment
+            if current_key is not None:
+                raise ValueError("repeated key: " + current_key)
+            current_key = current_value
+            current_value = ""
+        else:
+            # Collect value characters
+            current_value += char
+
+    if current_key is not None and current_value:
+        pairs.append([current_key, current_value])
+        key_set.add(current_key)
+
+    return pairs
+```

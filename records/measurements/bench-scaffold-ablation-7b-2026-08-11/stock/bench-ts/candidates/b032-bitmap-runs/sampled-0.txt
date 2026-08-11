@@ -1,0 +1,81 @@
+```ts
+/** A block-allocation bitmap: 32-bit words, LSB-first, a set bit is occupied. */
+const WORD_BITS = 32;
+const WORD_MAX = 0xffffffff;
+
+function checkWords(words: number[]): void {
+  for (const word of words) {
+    if (!Number.isInteger(word) || word < 0 || word > WORD_MAX) {
+      throw new Error("bitmap words must be integers from 0 to 4294967295");
+    }
+  }
+}
+
+function bitOf(words: number[], index: number): number {
+  return (words[Math.floor(index / WORD_BITS)] >>> index % WORD_BITS) & 1;
+}
+
+export function bitAt(words: number[], index: number): number {
+  checkWords(words);
+  if (!Number.isInteger(index)) {
+    throw new Error("bit index must be an integer");
+  }
+  if (index < 0 || index >= words.length * WORD_BITS) {
+    throw new Error("bit index is outside the words");
+  }
+  return bitOf(words, index);
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  checkWords(words);
+  if (!Number.isInteger(start) || start < 0) {
+    throw new Error("run start must be a non-negative integer");
+  }
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("run length must be a positive integer");
+  }
+  if (start + length > words.length * WORD_BITS) {
+    throw new Error("run leaves the words");
+  }
+  for (let i = start; i < start + length; i++) {
+    if (bitOf(words, i) === 1) {
+      throw new Error("run touches an occupied block");
+    }
+  }
+  const marked = words.slice();
+  for (let i = start; i < start + length; i++) {
+    const word = Math.floor(i / WORD_BITS);
+    marked[word] = (marked[word] | (1 << i % WORD_BITS)) >>> 0;
+  }
+  return marked;
+}
+
+export function findFreeRun(words: number[], bits: number, length: number): number {
+  if (!Number.isInteger(bits) || bits <= 0) {
+    throw new Error("capacity must be a positive integer");
+  }
+  if (bits % WORD_BITS !== 0 && words.length * WORD_BITS < bits) {
+    throw new Error("word count disagrees with the capacity");
+  }
+  const capacityWords = Math.ceil(bits / WORD_BITS);
+  if (words.length < capacityWords || bitOf(words, bits) === 1) {
+    throw new Error("stray bits at or beyond the capacity");
+  }
+
+  for (let start = 0; start <= words.length * WORD_BITS - length; start++) {
+    let freeBlocks = 0;
+    for (let i = start; i < start + length; i++) {
+      if (bitOf(words, i) === 0) {
+        freeBlocks++;
+      } else {
+        break;
+      }
+    }
+    if (freeBlocks === length) {
+      return start;
+    }
+  }
+
+  return -1;
+}
+```

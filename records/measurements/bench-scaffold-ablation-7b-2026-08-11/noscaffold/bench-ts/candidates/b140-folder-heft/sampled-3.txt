@@ -1,0 +1,102 @@
+```ts
+/**
+ * Lists the paths of all files in the storage tree.
+ * @param root - The root node of the storage tree.
+ * @returns An array of file paths.
+ */
+export function filePaths(root: object): string[] {
+  const result: string[] = [];
+
+  function traverse(node: any, path: string) {
+    if (typeof node !== 'object' || node === null || Array.isArray(node)) {
+      throw new Error('Invalid tree node');
+    }
+    if (typeof node.name !== 'string' || node.name.trim() === '' || node.name.includes('/')) {
+      throw new Error('Invalid node name');
+    }
+    path += (path ? '/' : '') + node.name;
+    if ('bytes' in node) {
+      result.push(path);
+    } else if ('children' in node && Array.isArray(node.children)) {
+      for (const child of node.children) {
+        traverse(child, path);
+      }
+    }
+  }
+
+  traverse(root, '');
+  return result;
+}
+
+/**
+ * Calculates the total bytes of all nodes in the storage tree.
+ * @param root - The root node of the storage tree.
+ * @returns The total number of bytes.
+ */
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null || Array.isArray(root)) {
+    throw new Error('Invalid tree node');
+  }
+  if ('bytes' in root) {
+    return typeof root.bytes === 'number' && Number.isInteger(root.bytes) && root.bytes >= 0 ? root.bytes : -1;
+  } else if ('children' in root && Array.isArray(root.children)) {
+    let total = 0;
+    for (const child of root.children) {
+      const bytes = treeBytes(child);
+      if (bytes === -1) {
+        throw new Error('Invalid node bytes');
+      }
+      total += bytes;
+    }
+    return total;
+  } else {
+    throw new Error('Node must have either bytes or children');
+  }
+}
+
+/**
+ * Finds all folders in the storage tree that contain at least minBytes.
+ * @param root - The root node of the storage tree.
+ * @param minBytes - The minimum number of bytes required for a folder to be considered heavy.
+ * @returns An array of [path, bytes] pairs for each heavy folder.
+ */
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof minBytes !== 'number' || !Number.isInteger(minBytes) || minBytes < 0) {
+    throw new Error('Invalid minBytes');
+  }
+
+  const result: [string, number][] = [];
+
+  function traverse(node: any, path: string): number {
+    if (typeof node !== 'object' || node === null || Array.isArray(node)) {
+      throw new Error('Invalid tree node');
+    }
+    if (typeof node.name !== 'string' || node.name.trim() === '' || node.name.includes('/')) {
+      throw new Error('Invalid node name');
+    }
+    path += (path ? '/' : '') + node.name;
+    let total = 0;
+    if ('bytes' in node) {
+      result.push([path, bytes]);
+      return bytes;
+    } else if ('children' in node && Array.isArray(node.children)) {
+      for (const child of node.children) {
+        const bytes = traverse(child, path);
+        if (bytes === -1) {
+          throw new Error('Invalid node bytes');
+        }
+        total += bytes;
+      }
+      return total >= minBytes ? total : -1;
+    } else {
+      throw new Error('Node must have either bytes or children');
+    }
+  }
+
+  const rootBytes = traverse(root, '');
+  if (rootBytes !== -1 && rootBytes >= minBytes) {
+    result.push(['', rootBytes]);
+  }
+  return result;
+}
+```

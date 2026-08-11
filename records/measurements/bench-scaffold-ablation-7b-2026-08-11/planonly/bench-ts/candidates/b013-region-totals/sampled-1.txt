@@ -1,0 +1,44 @@
+```ts
+/**
+ * Computes the sum of elements in specified regions of a grid using prefix sums.
+ *
+ * @param grid - A non-empty 2D array of integers with all rows having the same length.
+ * @param queries - An array of queries, each query is an array of four integers [top, left, bottom, right].
+ * @returns An array of numbers representing the sum of elements in each queried region in the order they appear in queries.
+ */
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  // Validate grid
+  if (rows === 0 || cols === 0) throw new Error("Grid must have at least one row and one column.");
+  for (let i = 1; i < rows; i++) {
+    if (grid[i].length !== cols) throw new Error("All rows must have the same length.");
+  }
+
+  // Validate queries
+  for (const query of queries) {
+    if (query.length !== 4) throw new Error("Each query must contain exactly four integers.");
+    const [top, left, bottom, right] = query;
+    if (typeof top !== 'number' || typeof left !== 'number' || typeof bottom !== 'number' || typeof right !== 'number') {
+      throw new Error("All elements in each query must be numbers.");
+    }
+    if (top >= bottom || left >= right) throw new Error("Query bounds are invalid.");
+    if (top < 0 || left < 0 || bottom > rows || right > cols) throw new Error("Query reaches outside the grid.");
+  }
+
+  // Compute prefix sum table
+  const prefixSum = Array.from({ length: rows + 1 }, () => Array(cols + 1).fill(0));
+  for (let i = 1; i <= rows; i++) {
+    for (let j = 1; j <= cols; j++) {
+      prefixSum[i][j] = grid[i - 1][j - 1] + prefixSum[i - 1][j] + prefixSum[i][j - 1] - prefixSum[i - 1][j - 1];
+    }
+  }
+
+  // Compute region totals
+  return queries.map(([top, left, bottom, right]) => {
+    const total = prefixSum[bottom][right] - prefixSum[top][right] - prefixSum[bottom][left] + prefixSum[top][left];
+    return total;
+  });
+}
+```

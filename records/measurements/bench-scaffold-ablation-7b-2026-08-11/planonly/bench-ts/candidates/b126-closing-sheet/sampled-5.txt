@@ -1,0 +1,62 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid input: arguments must be strings');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const parts = entry.split(':');
+    if (parts.length !== 2) {
+      throw new Error(`Malformed opening sheet entry: ${entry}`);
+    }
+    const name = parts[0];
+    const count = parseInt(parts[1], 10);
+    if (!isNaN(count)) {
+      return [name, count];
+    } else {
+      throw new Error(`Invalid count in opening sheet entry: ${entry}`);
+    }
+  };
+
+  const parseMove = (move: string): [string, number] => {
+    const parts = move.split(/[+-]/);
+    if (parts.length !== 2) {
+      throw new Error(`Malformed move: ${move}`);
+    }
+    const name = parts[0];
+    const qty = parseInt(parts[1], 10);
+    if (!isNaN(qty) && qty > 0) {
+      return [name, qty * (move.startsWith('+') ? 1 : -1)];
+    } else {
+      throw new Error(`Invalid quantity in move: ${move}`);
+    }
+  };
+
+  const openingEntries = opening.split(';').map(parseEntry).reduce((acc, [name, count]) => {
+    if (acc.has(name)) {
+      throw new Error(`Duplicate item name on opening sheet: ${name}`);
+    }
+    acc.set(name, count);
+    return acc;
+  }, new Map<string, number>());
+
+  const movesArray = moves.split(';');
+  for (const move of movesArray) {
+    const [name, qty] = parseMove(move);
+    if (!openingEntries.has(name)) {
+      throw new Error(`Issuing item not on opening sheet: ${name}`);
+    }
+    const newCount = openingEntries.get(name)! + qty;
+    if (newCount < 0) {
+      throw new Error(`Issueing more units than available for item: ${name}`);
+    }
+    openingEntries.set(name, newCount);
+  }
+
+  const closingEntries = Array.from(openingEntries.entries())
+    .filter(([_, count]) => count > 0)
+    .sort((a, b) => a[0].localeCompare(b[0]));
+
+  return closingEntries.map(([name, count]) => `${name}:${count}`).join(';');
+}
+```

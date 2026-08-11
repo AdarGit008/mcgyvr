@@ -1,0 +1,62 @@
+```python
+"""Close out a stockroom count sheet after a day's receive and issue moves."""
+
+import re
+
+
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("closing_sheet expects two strings")
+
+    def parse_sheet(text):
+        held = {}
+        if text == "":
+            return held
+        for part in text.split(";"):
+            name, colon, count = part.partition(":")
+            if colon == "":
+                raise ValueError(f"sheet entry has no colon: {part}")
+            if re.fullmatch(r"[a-z]+", name) is None:
+                raise ValueError(f"bad item name: {part}")
+            if re.fullmatch(r"0|[1-9]\d*", count) is None:
+                raise ValueError(f"bad count: {part}")
+            if name in held:
+                raise ValueError(f"duplicate sheet entry: {name}")
+            held[name] = int(count)
+        return held
+
+    def apply_moves(held, moves):
+        for part in moves.split(";"):
+            if not part:
+                continue
+            parts = part.split("+")  # Receive move
+            if len(parts) != 2:
+                raise ValueError(f"bad move: {part}")
+            name, qty_str = parts
+            qty = int(qty_str)
+            if name not in held or held[name] < qty:
+                raise ValueError(f"issue of item '{name}': cannot receive {qty}, only {held.get(name, 0)} available")
+            held[name] += qty
+
+        for part in moves.split(";"):
+            if not part:
+                continue
+            parts = part.split("-")  # Issue move
+            if len(parts) != 2:
+                raise ValueError(f"bad move: {part}")
+            name, qty_str = parts
+            qty = int(qty_str)
+            if name not in held or held[name] < qty:
+                raise ValueError(f"issue of item '{name}': cannot issue {qty}, only {held.get(name, 0)} available")
+            held[name] -= qty
+
+    held = parse_sheet(opening)
+    apply_moves(held, moves)
+
+    entries = []
+    for name in sorted(held):
+        if held[name] > 0:
+            entries.append(f"{name}:{held[name]}")
+
+    return ";".join(entries) if entries else ""
+```

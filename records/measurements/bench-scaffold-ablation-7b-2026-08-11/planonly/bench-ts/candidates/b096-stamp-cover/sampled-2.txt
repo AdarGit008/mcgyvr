@@ -1,0 +1,71 @@
+```ts
+/**
+ * Validates the label and builds the table with stampTable.
+ * Finds the cheapest sequence of die presses spelling the label exactly.
+ * Rejects a label no sequence can spell.
+ *
+ * @param label - The label to be priced.
+ * @param dies - List of [fragment, price] entries for the engraving dies.
+ * @returns The cheapest total price of any sequence of die presses.
+ */
+export function stampCover(label: string, dies: [string, number][]): number {
+  // Validate the label
+  if (typeof label !== 'string' || label.length === 0) {
+    throw new Error('Label must be a non-empty string');
+  }
+
+  // Build the table with stampTable
+  const table = stampTable(dies);
+
+  // Initialize an array to store the minimum cost for each prefix of the label
+  const minCost: number[] = new Array(label.length + 1).fill(Infinity);
+  minCost[0] = 0; // Base case: empty label has no cost
+
+  // Fill in the minCost array using dynamic programming
+  for (let i = 1; i <= label.length; i++) {
+    for (const [fragment, price] of table) {
+      if (i >= fragment.length && label.slice(i - fragment.length, i) === fragment) {
+        minCost[i] = Math.min(minCost[i], minCost[i - fragment.length] + price);
+      }
+    }
+  }
+
+  // If minCost[label.length] is still Infinity, it means no sequence of dies can spell the label
+  if (minCost[label.length] === Infinity) {
+    throw new Error('No sequence of dies can spell the label');
+  }
+
+  return minCost[label.length];
+}
+
+/**
+ * Turns a list of [fragment, price] entries into a lookup of fragment to price.
+ * Rejects a fragment that is not a non-empty string, a price that is not a positive integer,
+ * and a fragment listed twice.
+ *
+ * @param dies - List of [fragment, price] entries for the engraving dies.
+ * @returns A Map of fragment to price.
+ */
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+
+  for (const [fragment, price] of dies) {
+    // Validate the fragment and price
+    if (typeof fragment !== 'string' || fragment.length === 0) {
+      throw new Error('Fragment must be a non-empty string');
+    }
+    if (!Number.isInteger(price) || price <= 0) {
+      throw new Error('Price must be a positive integer');
+    }
+
+    // Reject the fragment if it is listed twice
+    if (table.has(fragment)) {
+      throw new Error(`Fragment "${fragment}" is listed twice`);
+    }
+
+    table.set(fragment, price);
+  }
+
+  return table;
+}
+```

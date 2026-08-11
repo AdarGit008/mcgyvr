@@ -1,0 +1,25 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  const splitStrict = (input: string): string[] => {
+    if (typeof input !== 'string' || input.includes('//')) throw new Error('Invalid path or rule');
+    return input.split('/').filter(segment => segment !== '');
+  };
+
+  const isKeepRule = (rule: string): boolean => rule.startsWith('!');
+  const matchPatternToPath = (pattern: string[], path: string[]): boolean =>
+    pattern.every((segment, i) => (segment === '*' || segment === path[i]) && (i === pattern.length - 1 || path[i + 1] !== undefined));
+
+  if (!Array.isArray(listing) || !Array.isArray(rules)) throw new Error('Invalid input types');
+  if (listing.some(path => typeof path !== 'string' || splitStrict(path).length === 0)) throw new Error('Invalid path');
+  if (rules.some(rule => typeof rule !== 'string' || splitStrict(rule).length === 0 || (rule[0] === '!' && rule.length === 1))) throw new Error('Invalid rule');
+
+  return listing.filter(path => {
+    const pathSegments = splitStrict(path);
+    for (const rule of rules) {
+      const [isKeep, pattern] = isKeepRule(rule) ? [true, rule.slice(1)] : [false, rule];
+      if (matchPatternToPath(splitStrict(pattern), pathSegments)) return isKeep;
+    }
+    return false;
+  });
+}
+```

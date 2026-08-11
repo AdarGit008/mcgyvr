@@ -1,0 +1,42 @@
+```typescript
+import { isNaN } from "lodash";
+
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const totals: Record<string, number> = {};
+
+  for (const [reagent, amount] of log) {
+    if (!/^-?\d+(\.\d{0,3})?$/s.test(amount)) {
+      throw new Error("Invalid amount format");
+    }
+
+    const numericAmount = parseFloat(amount);
+
+    if (isNaN(numericAmount)) {
+      throw new Error("Invalid amount value");
+    }
+
+    totals[reagent] = (totals[reagent] || 0) + numericAmount * 1000;
+  }
+
+  return Object.fromEntries(
+    Object.entries(totals).map(([reagent, total]): [string, string] => {
+      const decimalPlaces = getTotalDecimalPlaces(total);
+      return [reagent, total.toFixed(decimalPlaces)];
+    })
+  );
+}
+
+function getTotalDecimalPlaces(value: number): number {
+  const strValue = value.toString();
+  if (strValue.indexOf(".") === -1) return 0;
+
+  let dotIndex = strValue.indexOf(".");
+  while (dotIndex > 0 && strValue[dotIndex + 1] === "0") {
+    dotIndex++;
+  }
+
+  return dotIndex;
+}
+```
+
+This code defines the `doseTotals` function, which processes a log of pour entries to calculate the total amount for each reagent. It uses regular expressions to validate amounts and handles negative numbers correctly. The totals are stored in a record with thousandths precision and formatted back to strings according to the finest place count of any amount used for that reagent.

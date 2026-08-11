@@ -1,0 +1,75 @@
+```python
+def validate_node(node):
+    if not isinstance(node, dict):
+        raise ValueError("Node must be a mapping.")
+    
+    if len(node) != 1:
+        raise ValueError("Node must contain exactly one key-value pair.")
+    
+    name, value = list(node.items())[0]
+    
+    if not isinstance(name, str) or '/' in name:
+        raise ValueError("Name must be a non-empty string without slashes.")
+    
+    if 'bytes' in node and 'children' in node:
+        raise ValueError("Node cannot have both bytes and children.")
+        
+    if 'bytes' not in node and 'children' not in node:
+        raise ValueError("Node must contain either bytes or children.")
+    
+    if 'bytes' in node:
+        if not isinstance(value, int) or value < 0:
+            raise ValueError("Bytes must be a non-negative whole number.")
+        
+    if 'children' in node:
+        if not isinstance(value, list):
+            raise ValueError("Children must be a list.")
+        for child in value:
+            validate_node(child)
+
+def file_paths(root: dict) -> list:
+    def walk(node, path):
+        if 'bytes' in node:
+            yield (path + [node['name']]) + (node['bytes'],)
+        
+        if 'children' in node:
+            for i, child in enumerate(node['children']):
+                yield from walk(child, path + [node['name']])
+    
+    return list(walk(root, []))
+
+def tree_bytes(root: dict) -> int:
+    def walk(node):
+        total = 0
+        if 'bytes' in node:
+            total += node['bytes']
+        if 'children' in node:
+            for child in node['children']:
+                total += walk(child)
+        return total
+    
+    return walk(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    def validate_min_bytes(min_bytes):
+        if not isinstance(min_bytes, int) or min_bytes < 0:
+            raise ValueError("min_bytes must be a non-negative whole number.")
+    
+    validate_node(root)
+    validate_min_bytes(min_bytes)
+    
+    return [
+        (path, tree_bytes(node)) for path, node in enumerate_file_paths(root)
+    ]
+
+def enumerate_file_paths(root: dict) -> list:
+    def walk(node, path):
+        if 'bytes' in node:
+            yield (path + [node['name']]) + (node['bytes'],)
+        
+        if 'children' in node:
+            for i, child in enumerate(node['children']):
+                yield from walk(child, path + [node['name']])
+    
+    return list(walk(root, []))
+```

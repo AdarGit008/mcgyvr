@@ -1,0 +1,22 @@
+```python
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if not isinstance(fresh_for, int) or fresh_for <= 0:
+        raise ValueError("fresh_for must be a positive whole number")
+    if not isinstance(size, int) or size <= 0:
+        raise ValueError("size must be a positive whole number")
+
+    cache = {}
+    renders = []
+
+    for tick, tile in requests:
+        if tick < renders[-1][0] if renders else False:
+            raise ValueError("requests must arrive in order of increasing tick")
+        if tile not in cache or tick >= cache[tile][0] + fresh_for:
+            if len(cache) == size:
+                oldest_tile = min(cache, key=lambda t: (cache[t][0], t))
+                del cache[oldest_tile]
+            cache[tile] = (tick, tile)
+            renders.append([tick, tile])
+
+    return renders
+```

@@ -1,0 +1,53 @@
+```python
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    """
+    Simulate a patrol bot's movement in a corridor and count bounces.
+
+    :param width: Number of cells in the corridor (positive integer).
+    :param start: Initial position of the bot (integer between 0 and width-1).
+    :param moves: List of moves to be applied to the bot.
+    :return: A dictionary with 'position' as the final cell, 'bumps' as how many moves
+             a wall cut short, and 'visited' as the total number of distinct cells visited.
+    """
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("Width must be a positive integer.")
+    if not isinstance(start, int) or start < 0 or start >= width:
+        raise ValueError("Start position must be within the corridor bounds.")
+    if not isinstance(moves, list):
+        raise ValueError("Moves must be a list of non-zero integers.")
+
+    position = start
+    bumps = 0
+    visited = set([position])
+
+    for move in moves:
+        if not isinstance(move, int) or move == 0:
+            raise ValueError("Move must be a non-zero integer.")
+        
+        new_position, wall_cut = clamp_move(position, move, width)
+        
+        if wall_cut:
+            bumps += 1
+        position = new_position
+        visited.add(position)
+
+    return {'position': position, 'bumps': bumps, 'visited': len(visited) - 1}
+
+def clamp_move(position: int, delta: int, width: int) -> list:
+    """
+    Apply a move to the bot's position and handle wall collisions.
+
+    :param position: Current position of the bot (integer).
+    :param delta: Signed move amount (integer).
+    :param width: Number of cells in the corridor (positive integer).
+    :return: A list containing the new position and a boolean indicating if a wall cut short the move.
+    """
+    new_position = position + delta
+
+    if new_position < 0:
+        return [0, True]
+    elif new_position >= width:
+        return [width - 1, True]
+
+    return [new_position, False]
+```

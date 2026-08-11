@@ -1,0 +1,7 @@
+```python
+def format_bits(value: int, width: int) -> str:
+    if value < 0 or (width % 4 != 0 or width > 32):
+        raise ValueError("Invalid arguments")
+    binary_str = f"{value:0{width}b}"
+    return " ".join([binary_str[i:i+4] for i in range(0, width, 4)])
+```

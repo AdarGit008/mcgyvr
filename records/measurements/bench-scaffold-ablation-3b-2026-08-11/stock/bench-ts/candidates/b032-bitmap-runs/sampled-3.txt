@@ -1,0 +1,30 @@
+```ts
+export function findFreeRun(words: number[], bits: number, length: number): number {
+  const capacity = Math.ceil(bits / WORD_BITS);
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("capacity must be a positive integer");
+  }
+  if (words.length !== Math.ceil(capacity / WORD_BITS)) {
+    throw new Error("word count disagrees with the capacity");
+  }
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("run length must be a positive integer");
+  }
+
+  for (let start = 0; start + length <= capacity * WORD_BITS; start++) {
+    let freeBlockCount = 0;
+    for (let i = start; i < start + length && i < capacity * WORD_BITS; i++) {
+      if (bitOf(words, i) === 0) {
+        freeBlockCount++;
+      } else {
+        break;
+      }
+    }
+    if (freeBlockCount === length) {
+      return start;
+    }
+  }
+
+  return -1;
+}
+```

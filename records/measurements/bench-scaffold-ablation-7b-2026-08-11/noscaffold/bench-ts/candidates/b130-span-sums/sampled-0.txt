@@ -1,0 +1,43 @@
+```ts
+export function parseSpan(text: string): number {
+  const parts = text.trim().split(/\s+/).map(p => p.split(/(\d+)([yfivn])/));
+  if (parts.length === 0) throw new Error('Empty span');
+
+  const units = ['yd', 'ft', 'in'];
+  let totalInches = 0;
+
+  for (const [value, unit] of parts) {
+    const num = parseInt(value, 10);
+    if (!isNaN(num) && !Number.isInteger(num)) throw new Error('Invalid value');
+
+    const index = units.indexOf(unit);
+    if (index === -1 || parts.some(p => p[1] === unit)) throw new Error('Unknown or repeated unit');
+
+    totalInches += num * Math.pow(36, 2 - index);
+  }
+
+  return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+  if (typeof inches !== 'number' || !Number.isInteger(inches) || inches < 0) throw new Error('Invalid inches');
+
+  let yd = Math.floor(inches / Math.pow(36, 2));
+  inches %= Math.pow(36, 2);
+  let ft = Math.floor(inches / 36);
+  inches %= 36;
+
+  const result: string[] = [];
+  if (yd > 0) result.push(`${yd}yd`);
+  if (ft > 0) result.push(`${ft}ft`);
+  if (inches > 0) result.push(`${inches}in`);
+
+  return result.join(' ') || '0in';
+}
+
+export function addSpans(first: string, second: string): string {
+  const firstInches = parseSpan(first);
+  const secondInches = parseSpan(second);
+  return formatSpan(firstInches + secondInches);
+}
+```

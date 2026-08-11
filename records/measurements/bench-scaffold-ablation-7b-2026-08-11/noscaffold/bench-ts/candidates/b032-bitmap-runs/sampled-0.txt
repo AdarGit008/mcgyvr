@@ -1,0 +1,82 @@
+```ts
+/**
+ * Returns bit at given index in the bitmap.
+ * @param words - The list of 32-bit words representing the bitmap.
+ * @param index - The index of the bit to retrieve.
+ * @returns 0 or 1 if the index is valid, otherwise throws an error.
+ */
+export function bitAt(words: number[], index: number): number {
+    if (!Number.isInteger(index) || index < 0 || index >= words.length * 32) {
+        throw new Error('Invalid index');
+    }
+    const wordIndex = Math.floor(index / 32);
+    const bitPosition = index % 32;
+    return (words[wordIndex] >> bitPosition) & 1;
+}
+
+/**
+ * Marks a run of blocks as occupied in the bitmap.
+ * @param words - The list of 32-bit words representing the bitmap.
+ * @param start - The starting index of the run to occupy.
+ * @param length - The length of the run to occupy.
+ * @returns A new word list with the run marked as occupied, or throws an error if invalid.
+ */
+export function occupyRun(words: number[], start: number, length: number): number[] {
+    if (!Number.isInteger(start) || !Number.isInteger(length)) {
+        throw new Error('Start and length must be integers');
+    }
+    if (start < 0 || length <= 0) {
+        throw new Error('Invalid run parameters');
+    }
+    const end = start + length;
+    if (end > words.length * 32) {
+        throw new Error('Run exceeds bitmap capacity');
+    }
+
+    return words.map((word, i) => {
+        if (i < Math.floor(start / 32) || i >= Math.ceil(end / 32)) {
+            return word;
+        }
+        const startBit = i * 32 - start;
+        const endBit = Math.min((i + 1) * 32 - start, end);
+        const mask = ((1 << (endBit - startBit)) - 1) << startBit;
+        return word | mask;
+    });
+}
+
+/**
+ * Finds the smallest start of a free run of blocks in the bitmap.
+ * @param words - The list of 32-bit words representing the bitmap.
+ * @param bits - The total number of bits in the bitmap.
+ * @param length - The length of the run to find.
+ * @returns The starting index of the free run, or -1 if none exists, or throws an error if invalid.
+ */
+export function findFreeRun(words: number[], bits: number, length: number): number {
+    if (!Number.isInteger(bits) || !Number.isInteger(length)) {
+        throw new Error('Bits and length must be integers');
+    }
+    if (bits <= 0 || length <= 0) {
+        throw new Error('Invalid bitmap or run parameters');
+    }
+    const wordCount = Math.ceil(bits / 32);
+    if (words.length !== wordCount) {
+        throw new Error('Word count does not match bitmap capacity');
+    }
+
+    for (let i = 0; i <= bits - length * 32; i++) {
+        let freeBlocks = 0;
+        for (let j = i; j < i + length; j++) {
+            if (bitAt(words, j) === 0) {
+                freeBlocks++;
+            } else {
+                break;
+            }
+        }
+        if (freeBlocks === length) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+```

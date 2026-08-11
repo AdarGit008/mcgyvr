@@ -1,0 +1,42 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (typeof prefix !== 'number' || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error('Invalid prefix value');
+  }
+
+  const octets = [];
+  for (let i = 8; i >= 1; i--) {
+    if (prefix >= Math.pow(2, i - 1)) {
+      octets.push(255);
+      prefix -= Math.pow(2, i - 1);
+    } else {
+      octets.push(0);
+    }
+  }
+
+  return octets.join('.');
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== 'string' || !mask.split('.').every(s => /^\d+$/.test(s))) {
+    throw new Error('Invalid mask format');
+  }
+
+  const octets = mask.split('.').map(Number);
+  if (!octets.every(octet => octet >= 0 && octet <= 255)) {
+    throw new Error('Octet out of range');
+  }
+  if (octets.some((octet, i) => octet === 0 && octets[i + 1] !== 0)) {
+    throw new Error('Zero in the middle of a one-bits run');
+  }
+
+  let prefix = 0;
+  for (let i = 0; i < octets.length; i++) {
+    if (octets[i] === 255) {
+      prefix += Math.pow(2, 8 - i);
+    }
+  }
+
+  return prefix;
+}
+```

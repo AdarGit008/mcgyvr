@@ -1,0 +1,23 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    
+    visited = set()
+    
+    while unit != base:
+        if unit in visited:
+            raise ValueError(f"Loop detected in definition chain starting from {unit}")
+        if unit not in defs:
+            raise ValueError(f"Unknown unit: {unit}")
+        
+        factor, finer = defs[unit]
+        if not isinstance(factor, int) or factor <= 0:
+            raise ValueError(f"Invalid factor for unit {unit}: {factor}")
+        
+        amount *= factor
+        visited.add(unit)
+        unit = finer
+    
+    return amount
+```

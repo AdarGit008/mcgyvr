@@ -1,0 +1,43 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== 'string') {
+    throw new Error('Invalid template type');
+  }
+
+  let result = '';
+  let i = 0;
+
+  while (i < template.length) {
+    if (template[i] === '{') {
+      const start = i;
+      i++;
+      let name = '';
+
+      while (i < template.length && /^[a-zA-Z0-9_]+$/.test(template[i])) {
+        name += template[i];
+        i++;
+      }
+
+      if (i === start + 1 || template[i] !== '}') {
+        throw new Error('Unterminated placeholder');
+      }
+
+      if (!name) {
+        throw new Error('Empty placeholder name');
+      }
+
+      const value = values[name];
+      if (value === undefined) {
+        throw new Error(`Unknown placeholder: ${name}`);
+      }
+
+      result += value;
+    } else {
+      result += template[i];
+      i++;
+    }
+  }
+
+  return result;
+}
+```

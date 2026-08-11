@@ -1,0 +1,27 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if amount < 0 or amount != int(amount):
+        raise ValueError("Amount must be a non-negative whole number.")
+    
+    if unit not in defs and unit != base:
+        raise ValueError(f"Unit '{unit}' is neither the base nor defined in defs.")
+    
+    def convert_to_base(amt: int, cur_unit: str) -> int:
+        if cur_unit == base:
+            return amt
+        elif cur_unit not in defs:
+            raise ValueError(f"No definition for unit '{cur_unit}'.")
+        
+        factor, finer = defs[cur_unit]
+        if factor <= 0 or type(factor) != int:
+            raise ValueError("Factor must be a positive whole number.")
+        
+        return convert_to_base(amt * factor, finer)
+    
+    try:
+        return convert_to_base(amount, unit)
+    except (ValueError, RecursionError) as e:
+        raise ValueError(f"An error occurred during conversion: {e}")
+```
+
+This implementation defines the `base_amount` function according to the specified interface and requirements. It handles edge cases such as invalid amounts, units, factors, loops in definitions, and raises appropriate errors with informative messages.

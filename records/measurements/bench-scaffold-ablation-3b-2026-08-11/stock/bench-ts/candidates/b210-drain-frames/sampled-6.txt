@@ -1,0 +1,42 @@
+```typescript
+/**
+ * Cut a chunked stream into frames at a marker, doubled to escape it.
+ */
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (typeof marker !== "string" || marker.length !== 1) {
+    throw new Error("marker must be a single character");
+  }
+  
+  let buffer = chunks.join("");
+  const frames: string[] = [];
+  let frameStart = -1;
+  let pendingIndex = 0;
+
+  while (pendingIndex < buffer.length) {
+    if (buffer[pendingIndex] === marker) {
+      if (frameStart !== -1) {
+        // End the current frame
+        frames.push(buffer.substring(frameStart, pendingIndex));
+        frameStart = -1;
+      } else {
+        // Double marker found, fold into one literal marker
+        buffer = buffer.slice(0, pendingIndex) + buffer.slice(pendingIndex + 2);
+      }
+    } else {
+      if (frameStart === -1) {
+        // Start a new frame
+        frameStart = pendingIndex;
+      }
+    }
+
+    pendingIndex++;
+  }
+
+  // If there's an open frame at the end, add it to frames
+  if (frameStart !== -1) {
+    frames.push(buffer.substring(frameStart));
+  }
+
+  return { frames: frames, pending: buffer };
+}
+```

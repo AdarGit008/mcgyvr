@@ -1,0 +1,58 @@
+```typescript
+export function parseSpan(text: string): number {
+    if (typeof text !== 'string' || !text.trim()) {
+        throw new Error("Invalid span input");
+    }
+
+    const parts = text.split(' ').filter(part => part.length > 0);
+    if (parts.length < 3) {
+        throw new Error("Invalid span format: at least three parts required");
+    }
+
+    const units = ['yd', 'ft', 'in'];
+    let inchTotal = 0;
+
+    for (let i = 0; i < parts.length; i++) {
+        if (!/^\d+$/.test(parts[i])) {
+            throw new Error("Invalid span format: value must be a non-negative integer");
+        }
+
+        const [value, unit] = parts[i].split('');
+        if (!units.includes(unit)) {
+            throw new Error(`Unknown unit: ${unit}`);
+        }
+
+        inchTotal += parseInt(value) * Math.pow(12, units.indexOf(unit));
+    }
+
+    return inchTotal;
+}
+
+export function formatSpan(inches: number): string {
+    if (typeof inches !== 'number' || isNaN(inches)) {
+        throw new Error("Invalid input for formatSpan: must be a non-negative integer");
+    }
+
+    const [yd, ft, in] = [
+        Math.floor(inches / 36),
+        Math.floor((inches % 36) / 12),
+        inches % 12
+    ];
+
+    const units = yd ? ['yd', 'ft'] : ft ? ['ft'] : [];
+    if (yd) {
+        units.push('yd');
+    } else if (ft) {
+        units.push('ft');
+    }
+
+    return units.filter(unit => unit === 'yd' || unit === 'ft').join(' ') + (in > 0 ? ` ${in}in` : '');
+}
+
+export function addSpans(first: string, second: string): string {
+    const firstInches = parseSpan(first);
+    const secondInches = parseSpan(second);
+
+    return formatSpan(firstInches + secondInches);
+}
+```

@@ -1,0 +1,29 @@
+```python
+from typing import Dict, List, Tuple
+
+def apply_charges(caps: dict, charges: list) -> dict:
+    """
+    Apply charges to bucket allowances and record who is refused.
+
+    :param caps: A dictionary mapping bucket names to tuples of whole allowance and single charge cap.
+    :param charges: A list of tuples (charge_id, bucket_name, amount).
+    :return: A dictionary with 'left' indicating remaining allowances and 'refused' indicating refused charges.
+    """
+    if not all(isinstance(c, int) for c in caps.values() + [amount for _, _, amount in charges]):
+        raise ValueError("Amounts must be positive whole numbers.")
+
+    left = {bucket_name: allowance for bucket_name, (allowance, _) in caps.items()}
+    refused = []
+
+    for charge_id, bucket_name, amount in charges:
+        if bucket_name not in caps:
+            refused.append((charge_id, "unknown"))
+        elif amount > caps[bucket_name][1]:
+            refused.append((charge_id, "single"))
+        elif amount > left[bucket_name]:
+            refused.append((charge_id, "cap"))
+        else:
+            left[bucket_name] -= amount
+
+    return {'left': left, 'refused': refused}
+```

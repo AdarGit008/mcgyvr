@@ -1,0 +1,32 @@
+```typescript
+export function applyOverrides(
+  base: Record<string, string>,
+  overrides: string[],
+): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("overrides must be a list");
+  }
+
+  const merged = { ...base };
+
+  for (const override of overrides) {
+    const [name, value] = override.split("=", 2);
+
+    if (typeof name !== "string" || typeof value !== "string") {
+      throw new Error("each override must be a string");
+    }
+
+    if (!name || value.includes("=")) {
+      throw new Error("override must have exactly one equals sign");
+    }
+
+    if (!(name in merged)) {
+      throw new Error(`base does not hold the setting name: ${name}`);
+    }
+
+    merged[name] = value;
+  }
+
+  return merged;
+}
+```

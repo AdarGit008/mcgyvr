@@ -1,0 +1,42 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both opening and moves must be strings")
+
+    def parse_entry(entry: str) -> tuple[str, int]:
+        name, count = entry.split(':')
+        if not name.islower() or not name.isalpha():
+            raise ValueError(f"Invalid item name: {name}")
+        if not count.isdigit():
+            raise ValueError(f"Invalid count: {count}")
+        return name, int(count)
+
+    def parse_moves(moves_str: str) -> list[tuple[str, int]]:
+        moves_list = moves_str.split(';')
+        parsed_moves = []
+        for move in moves_list:
+            if not move:
+                continue
+            name, qty = move.split('+') if '+' in move else (move.split('-')[0], -int(move.split('-')[1]))
+            if not name.islower() or not name.isalpha():
+                raise ValueError(f"Invalid item name: {name}")
+            if not qty.isdigit() or int(qty) <= 0:
+                raise ValueError(f"Invalid quantity: {qty}")
+            parsed_moves.append((name, int(qty)))
+        return parsed_moves
+
+    opening_entries = opening.split(';')
+    if len(opening_entries) != len(set(entry.split(':')[0] for entry in opening_entries)):
+        raise ValueError("Duplicate item names on the opening sheet")
+
+    inventory = {name: count for name, count in (parse_entry(entry) for entry in opening_entries)}
+    for move_name, move_qty in parse_moves(moves):
+        if move_name not in inventory:
+            raise ValueError(f"Issue of an item the sheet does not hold: {move_name}")
+        if move_qty > inventory[move_name]:
+            raise ValueError(f"Issue of more units than the item then holds: {move_name} by {move_qty}")
+        inventory[move_name] += move_qty
+
+    closing_entries = [f"{name}:{count}" for name, count in inventory.items() if count > 0]
+    return ';'.join(sorted(closing_entries))
+```

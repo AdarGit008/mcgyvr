@@ -1,0 +1,54 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    """
+    Apply day's stock moves to opening sheet, return closing sheet.
+    """
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both arguments must be strings.")
+
+    def parse_sheet(sheet_str: str) -> dict[str, int]:
+        """Parse an opening sheet string into a dictionary."""
+        items = {}
+        for entry in sheet_str.split(';'):
+            if ':' not in entry:
+                raise ValueError(f"Malformed sheet entry: {entry}")
+            name, count_str = entry.split(':')
+            if not name.islower() or not count_str.isdigit():
+                raise ValueError(f"Invalid item name or count: {name}:{count_str}")
+            items[name] = int(count_str)
+        return items
+
+    def apply_moves(sheet: dict[str, int], moves_str: str) -> None:
+        """Apply day's stock moves to the sheet."""
+        for move in moves_str.split(';'):
+            if not (move.startswith('-') or move.startswith('+')):
+                raise ValueError(f"Malformed move: {move}")
+            name, qty_str = move.rsplit(':', 1)
+            qty = int(qty_str)
+            if qty <= 0:
+                raise ValueError("Quantity must be positive.")
+            if name not in sheet:
+                if name == '0':
+                    # Treat '-' moves on the empty string as zero counts
+                    sheet[name] = qty
+                else:
+                    raise ValueError(f"No such item: {name}")
+            elif sheet[name] < qty:
+                raise ValueError(f"Cannot issue more units than hold: {name}")
+            if move.startswith('+'):
+                sheet[name] += qty
+            else:
+                sheet[name] -= qty
+
+    def render_sheet(sheet: dict[str, int]) -> str:
+        """Render the sheet as a semicolon-separated string."""
+        entries = [f"{item}:{count}" for item, count in sheet.items() if count > 0]
+        return ';'.join(entries)
+
+    try:
+        sheet = parse_sheet(opening)
+        apply_moves(sheet, moves)
+        return render_sheet(sheet)
+    except ValueError as e:
+        raise ValueError(str(e))
+```

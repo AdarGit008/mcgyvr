@@ -1,0 +1,41 @@
+```ts
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+  for (const [fragment, price] of dies) {
+    if (!/^[a-zA-Z]+$/.test(fragment) || !Number.isInteger(price) || price <= 0) {
+      throw new Error("Invalid fragment or price");
+    }
+    if (table.has(fragment)) {
+      throw new Error(`Duplicate fragment: ${fragment}`);
+    }
+    table.set(fragment, price);
+  }
+  return table;
+}
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  const table = stampTable(dies);
+
+  // Function to calculate the cheapest cost for a given prefix
+  function minCost(prefix: string): number {
+    if (prefix.length === label.length) return 0;
+
+    let min = Infinity;
+    for (const [fragment, price] of table.entries()) {
+      const matchLength = prefix.match(new RegExp(`^${fragment}`))?.[0].length || 0;
+      if (matchLength > 0) {
+        const remainingCost = minCost(prefix.substring(matchLength));
+        min = Math.min(min, price + remainingCost);
+      }
+    }
+    return min;
+  }
+
+  if (!/^[a-zA-Z]+$/.test(label)) {
+    throw new Error("Invalid label");
+  }
+
+  const cost = minCost("");
+  return cost === Infinity ? -1 : cost;
+}
+```

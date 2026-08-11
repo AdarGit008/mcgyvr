@@ -1,0 +1,51 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (grid.length === 0 || grid[0].length === 0) throw new Error("Grid must have at least one row and one column.");
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+
+  for (let i = 1; i < numRows; i++) {
+    if (grid[i].length !== numCols) throw new Error("All rows must have the same number of cells.");
+  }
+
+  for (const row of grid) {
+    for (const cell of row) {
+      if (!Number.isInteger(cell)) throw new Error("All cells must be integers.");
+    }
+  }
+
+  const prefixSum: number[][] = [];
+  for (let i = 0; i < numRows; i++) {
+    let sum = 0;
+    prefixSum.push([]);
+    for (let j = 0; j < numCols; j++) {
+      sum += grid[i][j];
+      prefixSum[i].push(sum);
+    }
+  }
+
+  const result: number[] = [];
+  for (const [top, left, bottom, right] of queries) {
+    if (!Array.isArray(top)) throw new Error("Query must be a list of four integers.");
+    if (top.length !== 4 || !top.every(Number.isInteger)) throw new Error("Each query must be exactly four integers.");
+    if (top[0] >= top[2]) throw new Error("Top must be less than bottom.");
+    if (top[1] >= top[3]) throw new Error("Left must be less than right.");
+
+    const effectiveTop = Math.max(0, top[0]);
+    const effectiveLeft = Math.max(0, top[1]);
+    const effectiveBottom = Math.min(numRows - 1, top[2]) + 1;
+    const effectiveRight = Math.min(numCols - 1, top[3]) + 1;
+
+    if (effectiveTop >= effectiveBottom || effectiveLeft >= effectiveRight) throw new Error("Query is out of bounds.");
+
+    result.push(
+      prefixSum[effectiveBottom - 1][effectiveRight - 1] -
+        (prefixSum[effectiveBottom - 1][effectiveLeft - 1] || 0) -
+        (prefixSum[effectiveTop - 1][effectiveRight - 1] || 0) +
+        (prefixSum[effectiveTop - 1][effectiveLeft - 1] || 0)
+    );
+  }
+
+  return result;
+}
+```

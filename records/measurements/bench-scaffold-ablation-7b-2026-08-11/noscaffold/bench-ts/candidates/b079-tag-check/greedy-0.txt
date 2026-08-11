@@ -1,0 +1,39 @@
+```ts
+/**
+ * Computes the tag of a body as the sum of its character codes modulo 256,
+ * rendered as exactly two lowercase hexadecimal digits, zero-padded.
+ * @param body - The string to compute the tag for.
+ * @returns The computed tag.
+ */
+export function lineTag(body: string): string {
+    if (typeof body !== 'string') {
+        throw new Error('Invalid input: expected a string');
+    }
+    const sum = body.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return sum.toString(16).padStart(2, '0').toLowerCase();
+}
+
+/**
+ * Verifies a tagged line and returns its body.
+ * @param line - The tagged line to verify.
+ * @returns The body of the line if it is valid.
+ */
+export function checkLine(line: string): string {
+    if (typeof line !== 'string') {
+        throw new Error('Invalid input: expected a string');
+    }
+    if (line.length < 3) {
+        throw new Error('Invalid line length');
+    }
+    const tildeIndex = line.lastIndexOf('~');
+    if (tildeIndex === -1 || tildeIndex === 0 || tildeIndex === line.length - 2) {
+        throw new Error('Invalid tilde position');
+    }
+    const body = line.slice(0, tildeIndex);
+    const tag = line.slice(tildeIndex + 1);
+    if (tag !== lineTag(body)) {
+        throw new Error('Invalid tag');
+    }
+    return body;
+}
+```

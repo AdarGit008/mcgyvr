@@ -1,0 +1,44 @@
+```python
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    """
+    Run a patrol bot on a corridor of width cells. The bot starts at position and
+    applies the given moves sequentially using clamp_move. Returns the final cell,
+    how many moves were cut short by walls, and how many distinct cells visited.
+    """
+
+    if not isinstance(moves, list):
+        raise ValueError("Moves must be a list.")
+
+    if width <= 0 or not isinstance(width, int):
+        raise ValueError("Width must be a positive integer.")
+    
+    if start < 0 or start >= width:
+        raise ValueError(f"Start position {start} is out of bounds (0 to {width - 1}).")
+
+    position = start
+    bumps = 0
+    visited = set([position])
+
+    for delta in moves:
+        if not isinstance(delta, int) or delta == 0:
+            raise ValueError("Delta must be a non-zero integer.")
+
+        result = clamp_move(position, delta, width)
+        next_position = result[0]
+        wall_bumped = result[1]
+
+        if wall_bumped:
+            bumps += 1
+
+        position = next_position
+        visited.add(position)
+
+    final_cell = position
+    distinct_cells_visited = len(visited)
+
+    return {
+        "position": final_cell,
+        "bumps": bumps,
+        "visited": distinct_cells_visited
+    }
+```

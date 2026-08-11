@@ -1,0 +1,35 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+    if (!catalog[kit]) {
+        throw new Error(`${kit} is not a defined kit`);
+    }
+
+    const components = catalog[kit].parts;
+    let totalParts = 0;
+    let partsNeeded = want;
+
+    while (partsNeeded > 0) {
+        for (let [component, count] of components) {
+            if (catalog[component]) {
+                const componentMakes = catalog[component].makes;
+                const componentNeeded = Math.ceil(partsNeeded / componentMakes);
+                totalParts += componentNeeded * count;
+                partsNeeded -= componentNeeded * componentMakes;
+            } else {
+                throw new Error(`${component} is not a defined kit`);
+            }
+        }
+    }
+
+    const result: Record<string, number> = {};
+    for (let [part, count] of components) {
+        if (catalog[part]) {
+            result[part] = Math.floor(totalParts / catalog[part].makes);
+        } else {
+            throw new Error(`${part} is not a defined kit`);
+        }
+    }
+
+    return result;
+}
+```

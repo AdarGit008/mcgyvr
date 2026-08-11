@@ -1,0 +1,42 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    """
+    Replace placeholders in a template with corresponding values from a dictionary.
+
+    :param template: A string with literal text and placeholders in the format {name}.
+    :param values: A dictionary where keys are placeholder names and values are the replacement strings.
+    :return: The modified string with placeholders replaced by their corresponding values.
+    """
+    if not isinstance(template, str):
+        raise ValueError("Template must be a string.")
+    
+    try:
+        result = []
+        i = 0
+        while i < len(template):
+            if template[i] == '{':
+                start = i + 1
+                if start >= len(template) or template[start] != '}':
+                    raise ValueError("Invalid placeholder format.")
+                name = ''
+                while start < len(template) and template[start].isalnum() or template[start] == '_':
+                    name += template[start]
+                    start += 1
+                
+                if not name:
+                    raise ValueError("Placeholder name cannot be empty.")
+                
+                value = values.get(name)
+                if value is None:
+                    raise ValueError(f"Missing value for placeholder '{name}'.")
+                
+                result.append(value)
+            else:
+                result.append(template[i])
+            i += 1
+        
+        return ''.join(result)
+    
+    except Exception as e:
+        raise ValueError(str(e))
+```

@@ -1,0 +1,53 @@
+```python
+def find_free_run(words: list[int], bits: int, length: int) -> int:
+    if not words or not isinstance(words[0], int) or any(word < 0 or word > 4294967295 for word in words):
+        raise ValueError("Invalid bitmap")
+    if not isinstance(bits, int) or bits <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    if bits * 32 != len(words):
+        raise ValueError("Word count disagrees with capacity")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Run length must be a positive integer")
+
+    limit = (bits + 31) // 32
+    for start in range(limit - length + 1):
+        for i in range(start, start + length):
+            if bit_at(words, i * 32 + i % 32):
+                break
+        else:
+            return start
+
+    return -1
+
+
+def occupy_run(words: list[int], start: int, length: int) -> list[int]:
+    if not words or not isinstance(words[0], int) or any(word < 0 or word > 4294967295 for word in words):
+        raise ValueError("Invalid bitmap")
+    if not isinstance(start, int) or start < 0:
+        raise ValueError("Start must be a non-negative integer")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Run length must be a positive integer")
+
+    limit = len(words)
+    if start + length > limit * 32:
+        raise ValueError("Run does not lie wholly inside the words")
+    for i in range(start, start + length):
+        if bit_at(words, i):
+            raise ValueError("Run touches an occupied block")
+
+    new_words = words[:]
+    for i in range(start, start + length):
+        new_words[i // 32] |= (1 << (i % 32))
+    return new_words
+
+
+def bit_at(words: list[int], index: int) -> int:
+    if not isinstance(index, int) or index < 0:
+        raise ValueError("Index must be a non-negative integer")
+    if index >= len(words) * 32:
+        raise ValueError("Index out of bounds")
+
+    word_index = index // 32
+    bit_index = index % 32
+    return (words[word_index] >> bit_index) & 1
+```

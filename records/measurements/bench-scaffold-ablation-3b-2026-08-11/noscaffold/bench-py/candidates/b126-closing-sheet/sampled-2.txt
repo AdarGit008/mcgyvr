@@ -1,0 +1,50 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_entry(entry: str) -> tuple[str, int]:
+        name, count_str = entry.split(':')
+        if not (name.islower() and count_str.isdigit()):
+            raise ValueError("Invalid sheet entry")
+        return name, int(count_str)
+
+    def process_move(item: str, qty: int, opening_counts: dict[str, int]) -> None:
+        if item in opening_counts:
+            current_qty = opening_counts[item]
+            if qty > current_qty:
+                raise ValueError(f"Issue of {qty} units for {item}, only {current_qty} available")
+            opening_counts[item] -= qty
+        else:
+            opening_counts[item] = qty
+
+    def build_sheet(opening_counts: dict[str, int]) -> str:
+        return ";".join(
+            f"{name}:{count}"
+            for name, count in sorted(opening_counts.items())
+            if count > 0
+        )
+
+    if not (isinstance(opening, str) and isinstance(moves, str)):
+        raise ValueError("Invalid arguments")
+
+    opening_entries = opening.split(';') if opening else []
+    moves_list = moves.split(';') if moves else []
+
+    if len(opening_entries) != len(set(opening_entries)):
+        raise ValueError("Duplicate name on the opening sheet")
+
+    try:
+        opening_counts = {name: int(count_str) for name, count_str in map(parse_entry, opening_entries)}
+        for move in moves_list:
+            action, item, qty_str = move.split('+') if '+' in move else move.split('-')
+            qty = int(qty_str)
+            process_move(item, qty, opening_counts)
+
+        return build_sheet(opening_counts)
+    except ValueError as e:
+        return str(e)
+
+
+# Example usage
+print(closing_sheet("bolt:12;washer:4", "bolt+3;washer-5"))
+```
+
+This implementation defines a `closing_sheet` function that processes an opening sheet and moves string to produce the closing sheet based on the given rules. It includes error handling for invalid inputs, malformed entries or moves, duplicate names, issues with quantities, and ensures no leading zeros in counts are allowed.

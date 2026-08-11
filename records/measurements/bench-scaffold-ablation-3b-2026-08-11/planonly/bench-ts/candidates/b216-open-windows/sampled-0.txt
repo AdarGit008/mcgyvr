@@ -1,0 +1,34 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(span) || !booked.every(appointment => /^[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$/.test(appointment))) {
+    throw new Error("Invalid format for span or appointment.");
+  }
+
+  const [startSpan, endSpan] = span.split('-').map(time => time.split(':').map(Number));
+  const [startBooked, endBooked] = booked.map(appointment => appointment.split('-').map(time => time.split(':').map(Number))).sort((a, b) => a[0] - b[0]);
+
+  function compareTimes(time1: number[], time2: number[]): boolean {
+    return (time1[0] < time2[0]) || (time1[0] === time2[0] && time1[1] <= time2[1]);
+  }
+
+  let freeStart = startSpan;
+  let freeEnd = endSpan;
+
+  for (const [bookedStart, bookedEnd] of booked) {
+    if (!compareTimes([bookedEnd, bookedStart], [freeStart, freeEnd])) continue;
+    
+    const overlapStart = Math.max(freeStart, bookedStart);
+    const overlapEnd = Math.min(freeEnd, bookedEnd);
+
+    freeStart = overlapEnd;
+  }
+
+  const freeStretches: string[] = [];
+
+  if (freeStart < endSpan) {
+    freeStretches.push(`${String(freeStart).padStart(4, '0')}:${String(startSpan - freeStart).padStart(2, '0')}-${String(endSpan).padStart(4, '0')}`);
+  }
+
+  return freeStretches.length > 0 ? freeStretches.join(', ') : "none";
+}
+```

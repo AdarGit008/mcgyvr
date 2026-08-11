@@ -1,0 +1,79 @@
+```ts
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error('Invalid input');
+  }
+
+  const pairs: string[][] = [];
+  let key: string | null = null;
+  let value: string[] = [];
+  let inQuotes = false;
+
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === '"') {
+      if (!inQuotes) {
+        inQuotes = true;
+      } else if (i + 1 < input.length && input[i + 1] !== ';') {
+        value.push(input[i]);
+      } else {
+        inQuotes = false;
+      }
+      i++;
+    } else if (input[i] === ';' && !inQuotes) {
+      if (!key || value.join('') === '') {
+        throw new Error('Invalid segment');
+      }
+      pairs.push([key, parseOption(value.join(''))]);
+      key = null;
+      value = [];
+    } else if (input[i] === '=') {
+      if (!key) {
+        throw new Error('Invalid segment');
+      }
+      value = [];
+    } else if (i === 0 && (input[i] < 'a' || input[i] > 'z')) {
+      throw new Error('Invalid key');
+    } else if (i !== 0 && !/^[a-z0-9_]/.test(input[i])) {
+      throw new Error('Invalid key');
+    } else if (!inQuotes) {
+      if (!key) {
+        key = input[i];
+      } else {
+        value.push(input[i]);
+      }
+    } else {
+      value.push(input[i]);
+    }
+  }
+
+  if (key && !value.join('')) {
+    throw new Error('Invalid segment');
+  }
+  pairs.push([key || '', parseOption(value.join(''))]);
+
+  const keys = new Set<string>();
+  for (const pair of pairs) {
+    if (keys.has(pair[0])) {
+      throw new Error('Repeated key');
+    }
+    keys.add(pair[0]);
+  }
+
+  return pairs;
+}
+
+export function parseOption(segment: string): string[] {
+  const parts = segment.split('=');
+  if (parts.length !== 2) {
+    throw new Error('Invalid segment');
+  }
+  const key = parts[0].trim();
+  let value = parts[1].trim();
+
+  if (value.startsWith('"') && value.endsWith('"')) {
+    value = value.slice(1, -1).replace(/\\(["\\])/g, '$1');
+  }
+
+  return [key, value];
+}
+```

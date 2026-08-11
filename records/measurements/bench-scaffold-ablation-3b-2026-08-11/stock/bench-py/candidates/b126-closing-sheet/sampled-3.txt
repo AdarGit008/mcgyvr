@@ -1,0 +1,57 @@
+```python
+"""Close out a stockroom count sheet after a day's receive and issue moves."""
+import re
+
+
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("closing_sheet expects two strings")
+
+    def parse_sheet(text):
+        held = {}
+        if text == "":
+            return held
+        for part in text.split(";"):
+            name, colon, count = part.partition(":")
+            if colon == "":
+                raise ValueError(f"sheet entry has no colon: {part}")
+            if re.fullmatch(r"[a-z]+", name) is None:
+                raise ValueError(f"bad item name: {part}")
+            if re.fullmatch(r"0|[1-9]\d*", count) is None:
+                raise ValueError(f"bad count: {part}")
+            if name in held:
+                raise ValueError(f"duplicate sheet entry: {name}")
+            held[name] = int(count)
+        return held
+
+    def apply_move(sheet, move):
+        parts = move.split("+")
+        action = parts[0]
+        quantity = int(parts[1])
+        item = action[:-quantity]
+
+        if action.startswith("issue"):
+            if item not in sheet:
+                raise ValueError(f"cannot issue {item}: no such item on hand")
+            if quantity > sheet[item]:
+                raise ValueError(f"cannot issue {quantity} of {item}: only {sheet[item]} left")
+            sheet[item] -= quantity
+        elif action.startswith("receive"):
+            sheet[item] += quantity
+        else:
+            raise ValueError(f"invalid move: {move}")
+
+    held = parse_sheet(opening)
+    
+    if moves == "":
+        return ";".join(entry for entry in sorted(held) if held[entry] > 0)
+
+    for move in moves.split(";"):
+        apply_move(held, move)
+
+    entries = []
+    for name in sorted(held):
+        if held[name] > 0:
+            entries.append(f"{name}:{held[name]}")
+    return ";".join(entries)
+```

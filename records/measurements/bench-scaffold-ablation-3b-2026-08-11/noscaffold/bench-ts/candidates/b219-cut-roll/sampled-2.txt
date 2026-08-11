@@ -1,0 +1,47 @@
+```ts
+export function cutRoll(length: number, board: [number, number][]): Cut {
+    if (!Number.isInteger(length) || length < 0) {
+        throw new Error("Length must be a non-negative integer.");
+    }
+
+    const bestCut: Cut = { takings: 0, pieces: [] };
+
+    function dfs(currentLength: number, currentPieces: [number, number][]): void {
+        if (currentLength === 0) {
+            return;
+        }
+
+        let maxBoardPieceIndex = -1;
+        let maxBoardPrice = -1;
+
+        for (let i = 0; i < board.length; i++) {
+            const [boardMetres, boardPrice] = board[i];
+            if (currentLength >= boardMetres) {
+                if (maxBoardPrice === -1 || boardPrice > maxBoardPrice) {
+                    maxBoardPieceIndex = i;
+                    maxBoardPrice = boardPrice;
+                }
+            }
+        }
+
+        if (maxBoardPieceIndex !== -1) {
+            const [boardMetres, boardPrice] = board[maxBoardPieceIndex];
+            dfs(currentLength - boardMetres, [...currentPieces, board[maxBoardPieceIndex]]);
+            if (bestCut.takings < boardPrice) {
+                bestCut.takings = boardPrice;
+                bestCut.pieces = [...currentPieces, board[maxBoardPieceIndex]];
+            }
+        } else {
+            for (let i = 0; i < currentPieces.length; i++) {
+                dfs(currentLength - currentPieces[i][0], [...currentPieces.slice(0, i), ...currentPieces.slice(i + 1)]);
+            }
+        }
+    }
+
+    dfs(length, []);
+
+    return bestCut;
+}
+
+type Cut = { takings: number, pieces: [number, number][] };
+```

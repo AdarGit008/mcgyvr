@@ -1,0 +1,35 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    
+    def get_factor(unit):
+        if unit not in defs:
+            raise ValueError(f"Unknown unit: {unit}")
+        return defs[unit][0]
+    
+    def is_valid_unit(unit):
+        return unit in defs
+    
+    def is_positive_integer(n):
+        return isinstance(n, int) and n > 0
+    
+    def find_base_factor(unit):
+        while True:
+            factor = get_factor(unit)
+            if unit == base:
+                return factor
+            elif not is_positive_integer(factor):
+                raise ValueError(f"Invalid factor for unit: {unit}")
+            unit = defs[unit][1]
+    
+    try:
+        if not is_valid_unit(unit) or not is_valid_unit(base):
+            raise ValueError("Unit and/or base must be defined in defs")
+        
+        base_factor = find_base_factor(unit)
+        converted_amount = amount * (base_factor ** (len(defs) - 1))
+        return converted_amount
+    except Exception as e:
+        raise ValueError(f"Error converting amount: {e}")
+```

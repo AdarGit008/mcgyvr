@@ -1,0 +1,114 @@
+```python
+from typing import Dict
+
+def run_till_session(events: list, prices: dict) -> Dict[str, int]:
+    """
+    Replay the events over the open/payment/paid/cancelled states,
+    maintain the cart, fix the total at close, accumulate payments and
+    compute the change, rejecting every unlawful event.
+    """
+    
+    def is_valid_price(price: int) -> bool:
+        return price > 0
+    
+    def is_valid_event(event: list) -> bool:
+        return len(event) == 2 and isinstance(event[0], str) and isinstance(event[1], (int, str))
+    
+    def is_unknown_action(action: str) -> bool:
+        return action not in ["scan", "void", "close", "pay", "cancel"]
+    
+    def is_valid_state(session_state: str) -> bool:
+        return session_state in ["open", "payment", "paid", "cancelled"]
+    
+    def get_price(item: str) -> int:
+        if item not in prices:
+            raise ValueError(f"Unknown item: {item}")
+        return prices[item]
+    
+    def is_scan_event(event: list) -> bool:
+        return event[0] == "scan"
+    
+    def is_void_event(event: list) -> bool:
+        return event[0] == "void"
+    
+    def is_close_event(event: list) -> bool:
+        return event[0] == "close"
+    
+    def is_pay_event(event: list) -> bool:
+        return event[0] == "pay"
+    
+    def is_cancel_event(event: list) -> bool:
+        return event[0] == "cancel"
+    
+    def add_item_to_cart(cart: Dict[str, int], item: str) -> None:
+        cart[item] = cart.get(item, 0) + 1
+    
+    def remove_item_from_cart(cart: Dict[str, int], item: str) -> None:
+        if item in cart:
+            cart[item] -= 1
+            if cart[item] == 0:
+                del cart[item]
+    
+    def fix_total(session_state: str, prices: dict, cart: Dict[str, int]) -> int:
+        total = sum(quantity * get_price(item) for item, quantity in cart.items())
+        return total
+    
+    state = "open"
+    items = []
+    total = 0
+    paid = 0
+    change = 0
+    cart = {}
+    
+    for event in events:
+        if not is_valid_event(event):
+            raise ValueError("Invalid event format.")
+        
+        action = event[0]
+        
+        if state == "cancelled" or (state == "paid" and action != "cancel"):
+            raise ValueError("Cannot perform action in the current session state.")
+        
+        try:
+            if is_scan_event(event):
+                item = event[1]
+                if not is_valid_price(get_price(item)):
+                    raise ValueError(f"Invalid price for item: {item}")
+                add_item_to_cart(cart, item)
+                total = fix_total(state, prices, cart)
+                
+            elif is_void_event(event):
+                item = event[1]
+                remove_item_from_cart(cart, item)
+                total = fix_total(state, prices, cart)
+            
+            elif is_close_event(event):
+                if state != "open" or not cart:
+                    raise ValueError("Cannot close an empty session.")
+                state = "paid"
+                
+            elif is_pay_event(event):
+                if state != "payment":
+                    raise ValueError("Cannot pay in the current session state.")
+                cents_paid = event[1]
+                if not isinstance(cents_paid, int) or cents_paid <= 0:
+                    raise ValueError("Pay amount must be a positive integer.")
+                paid += cents_paid
+                change = max(0, total - paid)
+                
+            elif is_cancel_event(event):
+                state = "cancelled"
+            
+            else:
+                raise ValueError(f"Unknown action: {action}")
+        
+        except Exception as e:
+            raise ValueError(f"Error processing event: {event}. Reason: {e}")
+    
+    return {
+        "items": sorted(items),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

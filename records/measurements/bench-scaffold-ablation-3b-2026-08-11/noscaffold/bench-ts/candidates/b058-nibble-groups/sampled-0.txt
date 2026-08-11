@@ -1,0 +1,19 @@
+```ts
+export function formatBits(value: number, width: number): string {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error("Value must be a non-negative integer.");
+  }
+  if (width <= 0 || width % 4 !== 0 || width > 32) {
+    throw new Error("Width must be a positive multiple of four, up to 32 bits.");
+  }
+
+  const binary = value.toString(2).padStart(width, '0');
+  const groups = [];
+  
+  for (let i = 0; i < binary.length; i += 4) {
+    groups.push(binary.substring(i, i + 4));
+  }
+  
+  return groups.join(' ');
+}
+```

@@ -1,0 +1,76 @@
+```python
+from typing import *
+import math
+
+def find_free_run(words: list[int], capacity: int, length: int) -> int:
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    
+    word_count = math.ceil(capacity / 32)
+    if len(words) != word_count:
+        raise ValueError("Word count does not match the capacity.")
+    
+    for word in words:
+        if not isinstance(word, int) or word < 0 or word > 4294967295:
+            raise ValueError("Invalid bitmap word.")
+    
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Run length must be a positive integer.")
+    
+    for i in range(word_count - 1):
+        if words[i] & (1 << 31):
+            return -1
+    
+    start = 0
+    while start < word_count * 32:
+        free_blocks = 0
+        current_word = start // 32
+        current_bit = start % 32
+        
+        for j in range(32):
+            if words[current_word] & (1 << current_bit):
+                break
+            free_blocks += 1
+            current_bit += 1
+        
+        if free_blocks >= length:
+            return start
+        else:
+            start += free_blocks
+    
+    return -1
+
+def occupy_run(words: list[int], start: int, length: int) -> list[int]:
+    if not isinstance(start, int):
+        raise ValueError("Start index must be an integer.")
+    
+    word_count = math.ceil(len(words) / 32)
+    if start < 0 or start >= word_count * 32:
+        raise ValueError("Start index is out of range.")
+    
+    capacity = len(words) * 32
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    
+    for word in words:
+        if not isinstance(word, int) or word < 0 or word > 4294967295:
+            raise ValueError("Invalid bitmap word.")
+    
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Run length must be a positive integer.")
+    
+    if start + length > capacity:
+        raise ValueError("Run extends beyond the capacity.")
+    
+    for i in range(start // 32, (start + length - 1) // 32 + 1):
+        words[i] |= (1 << (i * 32 + start % 32))
+    
+    return words
+
+def bit_at(words: list[int], index: int) -> int:
+    if not isinstance(index, int) or index < 0 or index >= len(words) * 32:
+        raise ValueError("Index out of range.")
+    
+    word = words[index // 32]
+    return (word >> (index % 32)) & 1
+```

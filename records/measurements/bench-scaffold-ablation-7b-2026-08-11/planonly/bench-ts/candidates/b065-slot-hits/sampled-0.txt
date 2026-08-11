@@ -1,0 +1,32 @@
+```ts
+/**
+ * Counts the number of cache hit in a direct-mapped cache.
+ *
+ * @param keys - An array of integer cache keys.
+ * @param slots - The number of slots in the cache, must be a positive integer.
+ * @returns The total number of hits.
+ */
+export function slotHits(keys: number[], slots: number): number {
+  if (!Number.isInteger(slots) || slots <= 0) {
+    throw new Error('Invalid slot count');
+  }
+
+  const cache = new Array<number>(slots).fill(null);
+  let hitCount = 0;
+
+  for (const key of keys) {
+    if (!Number.isInteger(key)) {
+      throw new Error('Non-integer key encountered');
+    }
+
+    const slotIndex = Math.abs(key % slots);
+    if (cache[slotIndex] === key) {
+      hitCount++;
+    } else {
+      cache[slotIndex] = key;
+    }
+  }
+
+  return hitCount;
+}
+```

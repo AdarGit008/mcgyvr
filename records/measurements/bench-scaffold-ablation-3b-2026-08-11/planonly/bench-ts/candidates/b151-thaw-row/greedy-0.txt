@@ -1,0 +1,35 @@
+```ts
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || !row) {
+    throw new Error('Input must be a non-empty string.');
+  }
+  const validChars = new Set(['#', '.']);
+  for (const char of row) {
+    if (!validChars.has(char)) {
+      throw new Error('Row must contain only "#" and "." characters.');
+    }
+  }
+
+  if (!Number.isInteger(steps) || steps < 0) {
+    throw new Error('Step count must be a non-negative integer.');
+  }
+
+  for (let i = 0; i < steps; i++) {
+    let newRow = '';
+    for (let j = 0; j < row.length; j++) {
+      if (
+        (j === 0 && row[j] === '#') ||
+        (j === row.length - 1 && row[j] === '#') ||
+        (row[j] === '#' && row[j - 1] === '.' && row[j + 1] === '.')
+      ) {
+        newRow += '.';
+      } else {
+        newRow += row[j];
+      }
+    }
+    row = newRow;
+  }
+
+  return row;
+}
+```

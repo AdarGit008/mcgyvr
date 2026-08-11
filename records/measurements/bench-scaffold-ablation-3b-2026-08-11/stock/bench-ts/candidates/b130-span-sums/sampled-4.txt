@@ -1,0 +1,65 @@
+```typescript
+/** Tape-measure spans: parse to inches, format canonically, and add. */
+
+const INCHES: Record<string, number> = { yd: 36, ft: 12, in: 1 };
+const ORDER = ["yd", "ft", "in"];
+
+export function parseSpan(text: string): number {
+  if (typeof text !== "string" || !text) {
+    throw new Error("Invalid span text");
+  }
+
+  const parts = text.split(/\s+/).map((part) => {
+    const [value, unit] = part.match(/^(\d+)([ydft])$/);
+    if (!value || !unit || value.length !== part.length - 1) {
+      throw new Error("Invalid span format");
+    }
+    return { value: parseInt(value), unit };
+  });
+
+  if (parts.some((part, i) => parts.slice(i + 1).some(({ unit }) => unit === part.unit))) {
+    throw new Error("Units repeated or out of order");
+  }
+
+  if (!parts.every(({ unit }) => ORDER.includes(unit) || unit === "in")) {
+    throw new Error("Unknown unit");
+  }
+
+  return parts.reduce((total, { value, unit }) => total + value * INCHES[unit], 0);
+}
+
+export function formatSpan(inches: number): string {
+  if (!Number.isInteger(inches) || inches < 0) {
+    throw new Error("inches must be a non-negative integer");
+  }
+  if (inches === 0) {
+    return "0in";
+  }
+
+  const parts: { value: number, unit: keyof typeof INCHES }[] = [];
+  const yardage = Math.floor(inches / INCHES.yd);
+  const feet = Math.floor((inches % INCHES.yd) / INCHES.ft);
+  const inchesRemaining = inches % INCHES.ft;
+
+  if (yardage > 0) {
+    parts.push({ value: yardage, unit: "yd" });
+  }
+  if (feet > 0) {
+    parts.push({ value: feet, unit: "ft" });
+  }
+  if (inchesRemaining > 0 || parts.length === 0) {
+    parts.push({ value: inchesRemaining, unit: "in" });
+  }
+
+  return parts
+    .map(({ value, unit }) => `${value}${unit}`)
+    .reverse()
+    .filter((part) => parseInt(part.substring(0, part.length - 1), 10) > 0)
+    .join(" ");
+}
+
+export function addSpans(first: string, second: string): string {
+  const totalInches = parseSpan(first) + parseSpan(second);
+  return formatSpan(totalInches);
+}
+```

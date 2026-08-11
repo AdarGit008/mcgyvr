@@ -1,0 +1,33 @@
+```python
+from typing import List
+
+def open_windows(span: str, booked: List[str]) -> str:
+    if not re.match(r'^\d{2}:\d{2}-\d{2}:\d{2}$', span):
+        raise ValueError("Invalid span format")
+    
+    for booking in booked:
+        if not re.match(r'^\d{2}:\d{2}-\d{2}:\d{2}$', booking):
+            raise ValueError("Invalid appointment format")
+    
+    start, end = map(parse_time, span.split('-'))
+    free_spans = []
+    
+    for booking in sorted(booked, key=parse_time):
+        booking_start, booking_end = parse_time(booking)
+        if booking_start > start:
+            free_spans.append(f"{format_time(start)}-{format_time(booking_start)}")
+        start = max(start, booking_end)
+    
+    if start < end:
+        free_spans.append(f"{format_time(start)}-{format_time(end)}")
+    
+    return ", ".join(free_spans) if free_spans else "none"
+
+def parse_time(time_str: str) -> int:
+    hours, minutes = map(int, time_str.split(':'))
+    return hours * 60 + minutes
+
+def format_time(time_int: int) -> str:
+    hours, minutes = divmod(time_int, 60)
+    return f"{hours:02}:{minutes:02}"
+```

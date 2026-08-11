@@ -1,0 +1,57 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not prices or any(not isinstance(price, int) or price <= 0 for price in prices.values()):
+        raise ValueError("Invalid prices")
+
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0,
+        "status": "open",
+    }
+
+    def scan(item):
+        if item not in prices:
+            raise ValueError(f"Unknown item: {item}")
+        state["items"].append([item, 1])
+        state["total"] += prices[item]
+
+    def void(item):
+        for i, (name, quantity) in enumerate(state["items"]):
+            if name == item:
+                state["items"][i][1] -= 1
+                if state["items"][i][1] == 0:
+                    del state["items"][i]
+                state["total"] -= prices[item]
+                return
+        raise ValueError(f"Item not in cart: {item}")
+
+    def pay(cents):
+        if cents <= 0 or cent % 1 != 0:
+            raise ValueError(f"Invalid payment amount: {cents}")
+        state["paid"] += cents
+        state["change"] = max(0, state["paid"] - state["total"])
+        if state["change"] == 0:
+            state["status"] = "paid"
+
+    def cancel():
+        state["status"] = "cancelled"
+
+    for event in events:
+        action = event[0]
+        if action == "scan":
+            scan(event[1])
+        elif action == "void":
+            void(event[1])
+        elif action == "pay":
+            pay(int(event[1]))
+        elif action == "close":
+            if state["status"] != "open" or not state["items"]:
+                raise ValueError("Invalid close event")
+            cancel()
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    return state
+```

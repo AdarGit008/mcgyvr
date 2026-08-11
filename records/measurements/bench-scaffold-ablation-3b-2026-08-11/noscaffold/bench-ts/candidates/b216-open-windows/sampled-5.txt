@@ -1,0 +1,58 @@
+```typescript
+export function openWindows(span: string, booked: string[]): string {
+    if (!isValidSpan(span) || !isAllValidAppointments(booked)) {
+        throw new Error("Invalid span or appointment format");
+    }
+
+    const [start, end] = span.split('-');
+    const times = booked.map(time => time.split('-')).flat();
+
+    times.sort((a, b) => a.localeCompare(b));
+
+    let result: string[] = [];
+    let lastEnd = start;
+
+    for (const time of times) {
+        if (time > lastEnd) {
+            result.push(`${lastEnd}-${time}`);
+        }
+        lastEnd = time;
+    }
+
+    if (result.length === 0) {
+        return "none";
+    }
+
+    return result.join(", ");
+}
+
+function isValidSpan(span: string): boolean {
+    const [start, end] = span.split('-');
+    if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(span)) {
+        return false;
+    }
+    if (compareTime(start, end) > 0) {
+        return false;
+    }
+    return true;
+}
+
+function isAllValidAppointments(appointments: string[]): boolean {
+    for (const appointment of appointments) {
+        if (!isValidSpan(appointment)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function compareTime(a: string, b: string): number {
+    const [ah, am] = a.split(':').map(Number);
+    const [bh, bm] = b.split(':').map(Number);
+
+    if (ah !== bh) {
+        return ah - bh;
+    }
+    return am - bm;
+}
+```

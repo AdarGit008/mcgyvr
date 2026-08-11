@@ -1,0 +1,19 @@
+```python
+LADDER = (("m", 1000), ("cm", 10), ("mm", 1))
+
+
+def split_length(mm: int) -> str:
+    if not isinstance(mm, int) or mm < 0:
+        raise ValueError("Length must be a non-negative integer.")
+    
+    units = []
+    for unit, divisor in LADDER:
+        count = mm // divisor
+        if count > 0:
+            units.append(f"{count}{unit}")
+        mm %= divisor
+    
+    return " ".join(units) or "0mm"
+```
+
+This implementation checks if the input is a non-negative integer and raises an error if not. It then iterates over the `LADDER`, carving off whole units at each step and appending them to the result list. Finally, it joins the list into a string with spaces and returns it. If no units are found (i.e., the length is zero), it returns "0mm".

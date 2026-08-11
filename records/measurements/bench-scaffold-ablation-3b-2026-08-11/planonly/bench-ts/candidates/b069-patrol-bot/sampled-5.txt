@@ -1,0 +1,37 @@
+```ts
+export function runPatrol(width: number, start: number, moves: number[]): Record<string, number> {
+  const isValidWidth = typeof width === 'number' && Number.isInteger(width) && width > 0;
+  if (!isValidWidth) throw new Error('Invalid width');
+
+  const isValidStart = typeof start === 'number' && Number.isInteger(start) && start >= 0 && start < width;
+  if (!isValidStart) throw new Error('Invalid starting position');
+
+  const isMovesArray = Array.isArray(moves);
+  if (!isMovesArray) throw new Error('Invalid moves argument');
+
+  let position = start;
+  let bumps = 0;
+  const visited: Set<number> = new Set([start]);
+
+  for (const delta of moves) {
+    const [newPosition, cutShort] = clampMove(position, delta, width);
+    if (!cutShort) {
+      break; // No wall cut short
+    }
+    position = newPosition;
+    bumps++;
+  }
+
+  visited.add(position);
+
+  return { position, bumps, visited: visited.size };
+}
+
+export function clampMove(position: number, delta: number, width: number): [number, boolean] {
+  const newPostion = position + delta;
+  if (newPosition < 0 || newPosition >= width) {
+    return [position, true];
+  }
+  return [newPostion, false];
+}
+```

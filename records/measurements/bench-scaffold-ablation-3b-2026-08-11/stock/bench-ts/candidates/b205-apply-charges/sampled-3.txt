@@ -1,0 +1,39 @@
+```ts
+/** Spend charges against named quota buckets, refusing what will not fit. */
+function whyRefused(cap: [number, number] | undefined, left: number, amount: number): string {
+  if (cap === undefined) {
+    return "unknown";
+  }
+  if (amount < 0 || !Number.isInteger(amount)) {
+    throw new Error("Amount must be a positive whole number.");
+  }
+  if (amount > cap[1]) {
+    return "single";
+  }
+  return amount > left ? "cap" : "";
+}
+
+export function applyCharges(caps: Record<string, [number, number]>, charges: [string, string, number][]): { left: Record<string, number>; refused: [string, string][] } {
+  const left: Record<string, number> = Object.fromEntries(Object.keys(caps).map((name) => [name, caps[name][0]]));
+  const refused: [string, string][] = [];
+  
+  for (const [id, bucket, amount] of charges) {
+    if (!(bucket in caps)) {
+      refused.push([id, "unknown"]);
+      continue;
+    }
+    
+    const cap = caps[bucket];
+    const reason = whyRefused(cap, left[bucket], amount);
+    
+    if (reason) {
+      refused.push([id, reason]);
+      continue;
+    }
+    
+    left[bucket] -= amount;
+  }
+  
+  return { left, refused };
+}
+```

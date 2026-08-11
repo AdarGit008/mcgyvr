@@ -1,0 +1,55 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  if (!/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/.test(span)) {
+    throw new Error("Invalid span format");
+  }
+
+  const [startHour1, startMin1, endHour1, endMin1] = span.split(":").map(Number);
+  const timeFormat = "HH:mm";
+
+  if (!booked.every(appointment => /^[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$/.test(appointment))) {
+    throw new Error("Invalid appointment format");
+  }
+
+  booked.sort((a, b) => {
+    const [startHourA, startMinA, endHourA, endMinA] = a.split(":").map(Number);
+    const [startHourB, startMinB, endHourB, endMinB] = b.split(":").map(Number);
+
+    if (startHourA !== startHourB) return startHourA - startHourB;
+    if (startMinA !== startMinB) return startMinA - startMinB;
+    return endHourA - endHourB || endMinA - endMinB;
+  });
+
+  const schedules = booked.map(appointment => {
+    const [startHour, startMin, endHour, endMin] = appointment.split(":").map(Number);
+    return { start: new Date(0, 0, 1, startHour, startMin), end: new Date(0, 0, 1, endHour, endMin) };
+  });
+
+  const freeSpans: { start: number, end: number }[] = [];
+  let currentStart = new Date(0, 0, 1, startHour1, startMin1);
+
+  schedules.forEach(({ start }) => {
+    if (start > currentStart) {
+      freeSpans.push({ start: currentStart.getTime(), end: start.getTime() });
+      currentStart = start;
+    }
+  });
+
+  const lastEnd = new Date(0, 0, 1, endHour1, endMin1);
+  const finalFreeSpan = { start: currentStart.getTime(), end: lastEnd.getTime() };
+
+  freeSpans.push(finalFreeSpan);
+
+  if (freeSpans.length === 0) return "none";
+
+  const result = freeSpans.map(({ start, end }) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const startStr = startDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const endStr = endDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    return startStr + "-" + endStr;
+  }).join(", ");
+
+  return result;
+}
+```

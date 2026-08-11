@@ -1,0 +1,42 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+
+  const parseEntry = (entry: string) => {
+    const match = entry.match(/([a-z]+):(\d+)/);
+    if (!match) {
+      throw new Error(`Malformed sheet entry: ${entry}`);
+    }
+    return { name: match[1], count: parseInt(match[2], 10) };
+  };
+
+  const applyMove = (item: { name: string; count: number }, move: string) => {
+    const [name, qtyStr] = move.split(/[+-]/);
+    const qty = parseInt(qtyStr, 10);
+    if (isNaN(qty) || qty <= 0) {
+      throw new Error(`Malformed move: ${move}`);
+    }
+    if (item.name !== name) {
+      throw new Error(`Issue of item not on sheet: ${name}`);
+    }
+    if ((move.startsWith('-') && item.count < qty) ||
+        (move.startsWith('+') && qty > 0)) {
+      throw new Error(`Issue of wrong quantity: ${move}`);
+    }
+    return { ...item, count: move.startsWith('+') ? item.count + qty : item.count - qty };
+  };
+
+  const entries = opening.split(';').filter(Boolean).map(parseEntry);
+  if (new Set(entries.map(e => e.name)).size !== entries.length) {
+    throw new Error('Duplicate name on the opening sheet');
+  }
+
+  for (const move of moves.split(';').filter(Boolean)) {
+    entries.forEach(item => applyMove(item, move));
+  }
+
+  return entries.filter(item => item.count > 0).sort((a, b) => a.name.localeCompare(b.name)).map(e => `${e.name}:${e.count}`).join(';');
+}
+```

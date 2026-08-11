@@ -1,0 +1,63 @@
+```python
+def file_paths(root: dict) -> list:
+    """List all file paths in the storage tree."""
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a mapping")
+    if not isinstance(root.get('name'), str) or not root['name']:
+        raise ValueError("Name must be a non-empty string without slashes")
+    if 'bytes' in root and 'children' in root:
+        raise ValueError("Node cannot have both bytes and children")
+    if 'bytes' in root and not isinstance(root['bytes'], int) or root.get('bytes', -1) < 0:
+        raise ValueError("Bytes must be a non-negative whole number")
+
+    paths = []
+
+    def walk(node, prefix):
+        if 'children' in node:
+            for child in node['children']:
+                walk(child, f"{prefix}{child['name']}/")
+        elif 'bytes' in node:
+            paths.append(f"{prefix[:-1]}")
+
+    walk(root, root['name'] + '/')
+    return paths
+
+def tree_bytes(root: dict) -> int:
+    """Calculate the total bytes of the storage tree."""
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a mapping")
+    if not isinstance(root.get('name'), str) or not root['name']:
+        raise ValueError("Name must be a non-empty string without slashes")
+    if 'bytes' in root and 'children' in root:
+        raise ValueError("Node cannot have both bytes and children")
+    if 'bytes' in root and not isinstance(root['bytes'], int) or root.get('bytes', -1) < 0:
+        raise ValueError("Bytes must be a non-negative whole number")
+
+    def walk(node):
+        if 'children' in node:
+            return sum(walk(child) for child in node['children'])
+        elif 'bytes' in node:
+            return node['bytes']
+        return 0
+
+    return walk(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    """List all heavy folders and their paths."""
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative whole number")
+
+    results = []
+
+    def walk(node, prefix):
+        if 'children' in node:
+            total_bytes = sum(walk(child, f"{prefix}{child['name']}/") for child in node['children'])
+            if total_bytes >= min_bytes:
+                results.append([f"{prefix[:-1]}", total_bytes])
+        elif 'bytes' in node and node['bytes'] >= min_bytes:
+            results.append([f"{prefix[:-1]}", node['bytes']])
+        return total_bytes
+
+    walk(root, root['name'] + '/')
+    return results
+```

@@ -1,0 +1,48 @@
+```python
+def parse_span(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = text.split()
+    if len(parts) < 3 or len(parts) > 4:
+        raise ValueError("Span must contain exactly three or four parts.")
+    
+    units = ['yd', 'ft', 'in']
+    values = []
+    
+    for i, part in enumerate(parts):
+        try:
+            value = int(part[:-1])
+            if value < 0:
+                raise ValueError("Value cannot be negative.")
+            if i > 0 and units[i] != units[i - 1]:
+                raise ValueError("Units must be ordered from largest to smallest.")
+            values.append(value)
+        except ValueError as e:
+            raise ValueError(f"Invalid part: {part}. {e}")
+    
+    total_inches = (values[0] * 36) + (values[1] * 12) + values[2]
+    return total_inches
+
+def format_span(inches: int) -> str:
+    if not isinstance(inches, int):
+        raise ValueError("Input must be an integer.")
+    
+    if inches < 0:
+        raise ValueError("Inches cannot be negative.")
+    
+    units = ['yd', 'ft', 'in']
+    parts = []
+    
+    for unit in units:
+        value = inches // (36 if unit == 'yd' else 12)
+        if value > 0:
+            parts.append(f"{value}{unit}")
+            inches %= (36 if unit == 'yd' else 12)
+    
+    return ' '.join(parts)
+
+def add_spans(first: str, second: str) -> str:
+    total_inches = parse_span(first) + parse_span(second)
+    return format_span(total_inches)
+```

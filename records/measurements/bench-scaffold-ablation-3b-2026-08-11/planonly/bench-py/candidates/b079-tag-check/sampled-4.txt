@@ -1,0 +1,33 @@
+```python
+def check_line(line: str) -> str:
+    """
+    Verifies a tagged line and returns its body.
+    A valid line must be at least three characters long,
+    have a tilde as the third-from-last character,
+    have a tag that matches the body, and contain no tildes in the body itself.
+    """
+    if not isinstance(line, str) or len(line) < 3:
+        raise ValueError("Line must be a string of at least three characters.")
+    
+    tilde_index = line.rfind('~')
+    if tilde_index == -1 or tilde_index != len(line) - 2:
+        raise ValueError("Invalid tag format: third-from-last character must be '~'.")
+    
+    body = line[:-2]
+    expected_tag = hex(sum(ord(char) for char in body))[2:].zfill(2)
+    
+    if line[-2:] != expected_tag:
+        raise ValueError(f"Tag does not match the computed tag for this body: {expected_tag}")
+    
+    return body
+
+def line_tag(body: str) -> str:
+    """
+    Computes the integrity check tag of a body as the sum of its character codes modulo 256.
+    The result is rendered as exactly two lowercase hexadecimal digits, zero-padded.
+    """
+    if not isinstance(body, str):
+        raise ValueError("Body must be a string.")
+    
+    return hex(sum(ord(char) for char in body))[2:].zfill(2)
+```

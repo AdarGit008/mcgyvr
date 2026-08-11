@@ -1,0 +1,36 @@
+```python
+from typing import List
+
+def split_cents(total: int, weights: List[int]) -> List[int]:
+    if not isinstance(total, int) or isinstance(total, bool): raise ValueError("total must be whole cents")
+    if total < 0: raise ValueError("total may not be negative")
+    if not isinstance(weights, list) or not weights: raise ValueError("weights must be a non-empty list")
+    if not all(isinstance(w, int) and not isinstance(w, bool) and w > 0 for w in weights): raise ValueError("a weight is a positive whole number")
+    
+    total_cents = total * 100  # Convert to cents
+    
+    while True:
+        # Calculate the integer part of each share
+        parts = [total_cents * w // sum(weights) for w in weights]
+        
+        # Calculate the leftover cents after distributing them
+        leftover = total_cents - sum(parts)
+        
+        if leftover == 0:
+            return parts
+        
+        # Find partners with the largest discarded fractions
+        max_fraction = None
+        max_partner_index = -1
+        for i, part in enumerate(parts):
+            disc_fraction = (part / (total_cents * weights[i])) - (parts[i] // total_cents)
+            if max_fraction is None or disc_fraction > max_fraction:
+                max_fraction = disc_fraction
+                max_partner_index = i
+        
+        # Distribute the leftover cents to the partner with the largest discarded fraction
+        parts[max_partner_index] += leftover
+        
+        # Convert back to whole cents for the next iteration
+        total_cents = sum(parts) / 100
+```

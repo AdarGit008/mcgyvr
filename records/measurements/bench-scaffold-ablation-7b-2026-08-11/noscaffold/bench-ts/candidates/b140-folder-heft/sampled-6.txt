@@ -1,0 +1,69 @@
+```ts
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  const paths: string[] = [];
+  function traverse(node: object, currentPath: string) {
+    if (typeof node !== 'object' || node === null) return;
+    for (const key in node) {
+      if (Object.prototype.hasOwnProperty.call(node, key)) {
+        const value = node[key];
+        if (typeof key !== 'string' || key.length === 0 || key.includes('/')) throw new Error('Invalid name');
+        const newPath = currentPath ? `${currentPath}/${key}` : key;
+        if (Array.isArray(value)) traverse({ [key]: value }, newPath);
+        else paths.push(newPath);
+      }
+    }
+  }
+  traverse(root, '');
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  let bytes = 0;
+  for (const key in root) {
+    if (Object.prototype.hasOwnProperty.call(root, key)) {
+      const value = root[key];
+      if (typeof key !== 'string' || key.length === 0 || key.includes('/')) throw new Error('Invalid name');
+      if (Array.isArray(value)) bytes += treeBytes({ [key]: value });
+      else if (typeof value === 'number' && Number.isInteger(value) && value >= 0) bytes = value;
+      else throw new Error('Invalid node');
+    }
+  }
+  return bytes;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  if (typeof minBytes !== 'number' || !Number.isInteger(minBytes) || minBytes < 0) throw new Error('Invalid minBytes');
+
+  const heavy: [string, number][] = [];
+  const paths = filePaths(root);
+  for (let i = 0; i < paths.length; ) {
+    const path = paths[i];
+    const node = getPathNode(root, path.split('/'));
+    if (Array.isArray(node)) {
+      let totalBytes = treeBytes({ [path]: node });
+      while (i < paths.length && paths[i].startsWith(path + '/')) {
+        const subPath = paths[i++];
+        const subNode = getPathNode(root, subPath.split('/'));
+        if (!Array.isArray(subNode)) throw new Error('Invalid sub-node');
+        totalBytes += treeBytes({ [subPath]: subNode });
+      }
+      if (totalBytes >= minBytes) heavy.push([path, totalBytes]);
+    } else break;
+  }
+  return heavy;
+}
+
+function getPathNode(root: object, pathParts: string[]): object {
+  let current = root;
+  for (const part of pathParts) {
+    if (!Array.isArray(current)) throw new Error('Invalid node');
+    const value = current.find((node: object) => Object.keys(node)[0] === part);
+    if (value === undefined) throw new Error('Invalid path');
+    current = value[Object.keys(value)[0]];
+  }
+  return current;
+}
+```

@@ -1,0 +1,29 @@
+```python
+from typing import Dict, Tuple
+
+def cut_roll(length: int, board: list[Tuple[int, int]]) -> Dict[str, any]:
+    if length < 0:
+        raise ValueError("Length must be a non-negative integer.")
+
+    # Initialize the result dictionary
+    result = {
+        "takings": 0,
+        "pieces": []
+    }
+
+    # Sort the board by price descending and then by length ascending
+    board.sort(key=lambda x: (-x[1], x[0]))
+
+    # Iterate over each board piece
+    for piece_length, price in board:
+        if piece_length == 0:
+            continue
+
+        # Try to cut the roll at this piece's end
+        if piece_length <= length:
+            result["takings"] += price
+            result["pieces"].append(piece_length)
+            length -= piece_length
+
+    return result
+```

@@ -1,0 +1,34 @@
+```python
+def slot_hits(keys: list, slots: int) -> int:
+    '''
+    Returns the total number of hits in a direct-mapped cache with the given number of slots.
+    A hit occurs when the slot currently holds exactly that key; otherwise, it is a miss and the key takes
+    the slot over, evicting whatever the slot held. Rejects invalid input types or values.
+    
+    Parameters:
+        keys (list): A list of integer cache keys to be replayed against the cache.
+        slots (int): The number of slots in the direct-mapped cache. Must be a positive integer.
+        
+    Returns:
+        int: The total number of hits.
+    '''
+    if not isinstance(keys, list) or not all(isinstance(key, int) for key in keys):
+        raise ValueError("All elements in keys must be integers.")
+    
+    if not isinstance(slots, int) or slots <= 0:
+        raise ValueError("Slots must be a positive integer.")
+    
+    hit_count = 0
+    cache_slots = [None] * slots
+    
+    for key in keys:
+        slot_index = key % slots
+        current_slot_value = cache_slots[slot_index]
+        
+        if current_slot_value is None or current_slot_value == key:
+            hit_count += 1
+        else:
+            cache_slots[slot_index] = key
+        
+    return hit_count
+```

@@ -1,0 +1,21 @@
+```python
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """Return a mapping from base part to the total count consumed by an order of want units of kit."""
+    if want <= 0:
+        raise ValueError("want must be greater than zero")
+    
+    def build_dependency_tree(kit_name):
+        recipe = catalog[kit_name]
+        makes, parts = recipe['makes'], recipe['parts']
+        return {part: count * (want // makes + bool(want % makes)) for part, count in parts}
+    
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' not found in the catalog")
+    
+    base_parts_consumed = build_dependency_tree(kit)
+    for dep_kit, runs in base_parts_consumed.items():
+        if dep_kit in catalog:
+            base_parts_consumed += explode_kit(catalog, dep_kit, runs)
+    
+    return base_parts_consumed
+```

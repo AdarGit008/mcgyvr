@@ -1,0 +1,53 @@
+```ts
+/**
+ * Runs the patrol bot through the corridor and returns its final position,
+ * the number of wall bumps, and the number of distinct cells visited.
+ *
+ * @param width - The width of the corridor (positive integer).
+ * @param start - The starting position of the patrol bot (integer within the corridor bounds).
+ * @param moves - An array of signed move deltas to apply to the bot's position.
+ * @returns An object containing the final position, number of wall bumps, and distinct cells visited.
+ */
+export function runPatrol(width: number, start: number, moves: number[]): Record<string, number> {
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error('Invalid corridor width');
+  }
+  if (!Number.isInteger(start) || start < 0 || start >= width) {
+    throw new Error('Invalid starting position');
+  }
+  if (!Array.isArray(moves)) {
+    throw new Error('Invalid moves argument');
+  }
+
+  const visited = new Set<number>();
+  visited.add(start);
+  let bumps = 0;
+  let position = start;
+
+  for (const move of moves) {
+    if (!Number.isInteger(move) || move === 0) {
+      continue; // Skip invalid move
+    }
+    [position, bumps] = clampMove(position, move, width);
+    visited.add(position);
+  }
+
+  return { position, bumps, visited: visited.size };
+}
+
+/**
+ * Applies a move to the bot's position and returns the new position and whether a wall was hit.
+ *
+ * @param position - The current position of the bot (integer within the corridor bounds).
+ * @param delta - The signed move delta to apply.
+ * @param width - The width of the corridor (positive integer).
+ * @returns A tuple containing the new position and a boolean indicating if a wall was hit.
+ */
+export function clampMove(position: number, delta: number, width: number): [number, boolean] {
+  const newPosition = position + delta;
+  if (newPosition < 0 || newPosition >= width) {
+    return [position, true];
+  }
+  return [newPosition, false];
+}
+```

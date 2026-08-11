@@ -1,0 +1,71 @@
+```ts
+export function findFreeRun(words: number[], bits: number, length: number): number {
+  if (!Array.isArray(words) || words.some(w => typeof w !== 'number' || w < 0 || w > 4294967295)) {
+    throw new Error('Invalid bitmap word');
+  }
+  if (typeof bits !== 'number' || !Number.isInteger(bits) || bits <= 0) {
+    throw new Error('Invalid bit count');
+  }
+  if (typeof length !== 'number' || !Number.isInteger(length) || length <= 0) {
+    throw new Error('Invalid run length');
+  }
+  const expectedWords = Math.ceil(bits / 32);
+  if (words.length !== expectedWords) {
+    throw new Error('Word count does not match capacity');
+  }
+
+  for (let i = 0; i < bits - length + 1; i++) {
+    let free = true;
+    for (let j = 0; j < length; j++) {
+      if (bitAt(words, i + j)) {
+        free = false;
+        break;
+      }
+    }
+    if (free) return i;
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Array.isArray(words) || words.some(w => typeof w !== 'number' || w < 0 || w > 4294967295)) {
+    throw new Error('Invalid bitmap word');
+  }
+  if (typeof start !== 'number' || !Number.isInteger(start) || start < 0) {
+    throw new Error('Invalid start index');
+  }
+  if (typeof length !== 'number' || !Number.isInteger(length) || length <= 0) {
+    throw new Error('Invalid run length');
+  }
+  const expectedWords = Math.ceil(words.length * 32);
+  if (start + length > expectedWords) {
+    throw new Error('Run exceeds word count');
+  }
+
+  const result = [...words];
+  for (let i = start; i < start + length; i++) {
+    if (bitAt(result, i)) {
+      throw new Error('Overlap with occupied block');
+    }
+    occupyBit(result, i);
+  }
+
+  return result;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index) || index < 0) {
+    throw new Error('Invalid index');
+  }
+  const wordIndex = Math.floor(index / 32);
+  const bitIndex = index % 32;
+  return (words[wordIndex] >> bitIndex) & 1;
+}
+
+function occupyBit(words: number[], index: number): void {
+  const wordIndex = Math.floor(index / 32);
+  const bitIndex = index % 32;
+  words[wordIndex] |= 1 << bitIndex;
+}
+```

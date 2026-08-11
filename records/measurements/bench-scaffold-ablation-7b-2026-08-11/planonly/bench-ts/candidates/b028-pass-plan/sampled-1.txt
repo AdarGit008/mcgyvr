@@ -1,0 +1,39 @@
+```ts
+/**
+ * Finds the cheapest combination of passes covering every trip day
+ * and reconstructs its purchases in increasing start-day order.
+ */
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (tripDays.length === 0) return { total: 0, purchases: [] };
+
+  // Validate input
+  for (const day of tripDays) {
+    if (!Number.isInteger(day) || day <= 0) throw new Error('Trip days must be positive integers');
+  }
+  if (!Array.isArray(tripDays) || !tripDays.every((day, i, arr) => i === 0 || day > arr[i - 1])) throw new Error('Trip days must be strictly increasing');
+  if (passes.length === 0) throw new Error('Pass list cannot be empty');
+  for (const pass of passes) {
+    if (!Number.isInteger(pass.span) || pass.span <= 0) throw new Error('Span must be a positive integer');
+    if (!Number.isInteger(pass.cost) || pass.cost < 0) throw new Error('Cost must be a non-negative integer');
+  }
+
+  const dp = Array(tripDays.length + 1).fill(Infinity);
+  dp[0] = 0;
+  const purchaseIndices: number[][] = Array(tripDays.length + 1).fill(null);
+
+  for (let i = 1; i <= tripDays.length; i++) {
+    for (const pass of passes) {
+      if (i >= pass.span && dp[i - pass.span] !== Infinity) {
+        const cost = dp[i - pass.span] + pass.cost;
+        if (cost < dp[i]) {
+          dp[i] = cost;
+          purchaseIndices[i] = passIndices[i - pass.span].concat([i]);
+        }
+      }
+    }
+  }
+
+  const purchases: number[][] = purchaseIndices[tripDays.length];
+  return { total: dp[tripDays.length], purchases };
+}
+```

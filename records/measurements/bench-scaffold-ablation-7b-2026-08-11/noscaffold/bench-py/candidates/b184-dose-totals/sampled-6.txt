@@ -1,0 +1,29 @@
+```python
+from typing import List, Dict
+
+def dose_totals(log: List[List[str]]) -> Dict[str, str]:
+    """Total each reagent exactly and return a mapping from reagent to its total."""
+    if not log:
+        return {}
+    
+    totals = {}
+    
+    for reagent, amount in log:
+        try:
+            amount_float = float(amount)
+        except ValueError:
+            raise ValueError("Invalid amount format")
+        
+        if reagent not in totals:
+            totals[reagent] = 0.0
+        
+        totals[reagent] += amount_float
+    
+    result = {}
+    for reagent, total in totals.items():
+        precision = max(len(amount.split('.')[1]) if '.' in amount else 0 for amount in [entry[1] for entry in log if entry[0] == reagent])
+        formatted_total = f"{total:.{precision}f}"
+        result[reagent] = formatted_total
+    
+    return result
+```

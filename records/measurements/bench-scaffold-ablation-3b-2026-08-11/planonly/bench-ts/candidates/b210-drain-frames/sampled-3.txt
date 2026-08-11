@@ -1,0 +1,51 @@
+```ts
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (marker.length !== 1) {
+    throw new Error("Marker must be a single character");
+  }
+
+  let joinedText = chunks.join("");
+  let frames: string[] = [];
+  let pending: string = "";
+  let frameStartIndex = -1;
+  let frameEndIndex = -1;
+
+  for (let i = 0; i < joinedText.length; i++) {
+    if (joinedText[i] === marker) {
+      if (frameStartIndex !== -1) {
+        if (i === frameStartIndex + 1) {
+          // Found a doubled marker, fold it
+          frames.push(joinedText.slice(frameStartIndex, frameEndIndex + 2));
+          frameStartIndex = -1;
+          frameEndIndex = -1;
+        } else {
+          // Found a lone marker, end the current frame
+          let frame = joinedText.slice(frameStartIndex, i);
+          frames.push(frame);
+          pending = joinedText.slice(i + 1);
+          frameStartIndex = -1;
+          frameEndIndex = -1;
+        }
+      } else {
+        // Start of a new frame
+        frameStartIndex = i;
+        frameEndIndex = i;
+      }
+    } else if (frameStartIndex !== -1) {
+      // Continue building the current frame
+      frameEndIndex = i;
+    }
+  }
+
+  // Handle any remaining frame or pending text
+  if (frameStartIndex !== -1) {
+    let frame = joinedText.slice(frameStartIndex);
+    frames.push(frame);
+    pending = "";
+  } else if (!pending) {
+    pending = joinedText;
+  }
+
+  return { frames, pending };
+}
+```

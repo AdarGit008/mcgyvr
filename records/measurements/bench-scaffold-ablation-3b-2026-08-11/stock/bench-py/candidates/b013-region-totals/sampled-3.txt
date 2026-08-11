@@ -1,0 +1,59 @@
+```
+from typing import List
+
+def region_totals(grid: List[List[int]], queries: List[List[int]]) -> List[int]:
+    if not isinstance(grid, list) or not grid:
+        raise ValueError("grid must be a non-empty list of rows")
+    width = len(grid[0]) if isinstance(grid[0], list) else 0
+    if width == 0:
+        raise ValueError("rows must be non-empty lists")
+    
+    for row in grid:
+        if not isinstance(row, list) or len(row) != width:
+            raise ValueError("rows must all share one length")
+        
+        for cell in row:
+            if isinstance(cell, bool) or not isinstance(cell, int):
+                raise ValueError("cells must be integers")
+
+    prefix_sum_table = []
+    current_row_sum = 0
+    for i, row in enumerate(grid):
+        if len(row) != width:
+            raise ValueError("rows must all share one length")
+        
+        # Calculate the current row's sum and update the prefix sum table
+        current_row_sum += sum(row)
+        prefix_sum_table.append(current_row_sum)
+
+    def block_total(top: int, left: int, bottom: int, right: int) -> int:
+        if top < 0 or bottom <= top or left < 0 or right <= left:
+            raise ValueError("query coordinates are out of bounds")
+        
+        # Calculate the sum of the blocks
+        top_block_sum = prefix_sum_table[top - 1] if top > 0 else 0
+        bottom_block_sum = prefix_sum_table[bottom - 1] if bottom < len(grid) else 0
+        left_block_sum = prefix_sum_table[-1][left]
+        right_block_sum = prefix_sum_table[-1][right]
+        
+        # Subtract the overlapping parts to avoid double counting
+        top_left_overlap = (prefix_sum_table[top - 2] if top > 1 else 0) + (
+            left_block_sum - sum(grid[top - 1][:left])
+        )
+        bottom_right_overlap = prefix_sum_table[bottom - 2][right]
+        top_right_overlap = (prefix_sum_table[top - 1][right] - sum(
+            grid[top - 1][left:right]
+        ))
+        bottom_left_overlap = (
+            prefix_sum_table[bottom - 1][:left] + 
+            left_block_sum - sum(grid[top:bottom][:left])
+        )
+        
+        # Calculate the block total
+        block_total = top_block_sum + bottom_block_sum - top_right_overlap - bottom_left_overlap
+        
+        return block_total
+
+    totals = [block_total(query[0], query[1], query[2], query[3]) for query in queries]
+    return totals
+```

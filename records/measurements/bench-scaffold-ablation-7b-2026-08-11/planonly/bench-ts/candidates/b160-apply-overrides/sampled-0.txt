@@ -1,0 +1,25 @@
+```typescript
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("overrides must be an array");
+  }
+
+  const result = { ...base };
+
+  for (const override of overrides) {
+    const [name, value] = override.split('=', 2);
+    if (typeof name !== 'string' || name.length === 0) {
+      throw new Error("override must have a non-empty name");
+    }
+    if (typeof value !== 'string') {
+      throw new Error("override value must be a string");
+    }
+    if (!result.hasOwnProperty(name)) {
+      throw new Error(`base does not contain setting: ${name}`);
+    }
+    result[name] = value;
+  }
+
+  return result;
+}
+```

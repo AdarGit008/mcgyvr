@@ -1,0 +1,58 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  // Validate input format for span and each appointment
+  if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(span)) throw new Error("Invalid span format");
+  return booked.map(appointment => {
+    if (!/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/.test(appointment)) 
+      throw new Error("Invalid appointment format");
+
+    const [startHour, startMin, endHour, endMin] = appointment.split(':').map(Number);
+    return { startHour, startMin, endHour, endMin };
+  }).reduce((freeWindows: string[], current) => {
+    if (!Array.isArray(freeWindows)) throw new Error("Invalid freeWindows state");
+
+    const { startHour, startMin, endHour, endMin } = current;
+
+    let lastEndHour = 0;
+    let lastEndMin = 0;
+
+    for (const window of freeWindows) {
+      const [windowStartHour, windowStartMin, windowEndHour, windowEndMin] = window.split(':').map(Number);
+
+      // Calculate the intersection of the current appointment with the previous free window
+      if (startHour < windowStartHour || (startHour === windowStartHour && startMin <= windowStartMin)) {
+        const endOfIntersection = Math.min(windowEndHour, endHour);
+        const minutesIntoIntersection = Math.min(windowEndMin, endMin) - Math.max(startMin, windowStartMin);
+
+        // If the intersection is non-empty
+        if (endOfIntersection > 0 && minutesIntoIntersection >= 0) {
+          freeWindows.push(`${windowStartHour}:${windowStartMin}-${lastEndHour}:${lastEndMin}`);
+          lastEndHour = endOfIntersection;
+          lastEndMin = minutesIntoIntersection + windowStartMin;
+        }
+      } else {
+        // If the current appointment does not overlap with the previous free window
+        if (endHour < windowStartHour || (endHour === windowStartHour && endMin <= windowStartMin)) {
+          freeWindows.push(`${lastEndHour}:${lastEndMin}-${windowStartHour}:${windowStartMin}`);
+        }
+      }
+
+      // Update lastEndHour and lastEndMin for the next iteration
+      lastEndHour = Math.max(lastEndHour, windowEndHour);
+      lastEndMin = Math.max(lastEndMin, windowEndMin);
+    }
+
+    // If no free window exists after the current appointment
+    if (freeWindows.length === 0) {
+      freeWindows.push(`${lastEndHour}:${lastEndMin}-${startHour}:${startMin}`);
+    } else {
+      const [windowStartHour, windowStartMin, windowEndHour, windowEndMin] = freeWindows[freeWindows.length - 1].split(':').map(Number);
+      if (endHour !== windowEndHour || endMin !== windowEndMin) {
+        freeWindows.push(`${lastEndHour}:${lastEndMin}-${startHour}:${startMin}`);
+      }
+    }
+
+    return freeWindows;
+  }, [] as string[]).join(', ') === "" ? "none" : freeWindows.join(', ');
+}
+```

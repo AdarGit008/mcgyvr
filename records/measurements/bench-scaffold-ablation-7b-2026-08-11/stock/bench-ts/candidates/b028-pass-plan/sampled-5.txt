@@ -1,0 +1,74 @@
+```ts
+/** The cheapest set of travel passes covering every trip day. */
+
+function validatePlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): void {
+  for (const day of tripDays) {
+    if (!Number.isInteger(day) || day < 1) {
+      throw new Error("trip days must be positive integers");
+    }
+  }
+  for (let i = 1; i < tripDays.length; i += 1) {
+    if (tripDays[i] <= tripDays[i - 1]) {
+      throw new Error("trip days must be strictly increasing");
+    }
+  }
+  if (passes.length === 0) {
+    throw new Error("at least one pass kind is required");
+  }
+  for (const pass of passes) {
+    if (!Number.isInteger(pass.span) || pass.span < 1) {
+      throw new Error("pass span must be a positive integer");
+    }
+    if (!Number.isInteger(pass.cost) || pass.cost < 0) {
+      throw new Error("pass cost must be a non-negative integer");
+    }
+  }
+}
+
+export function cheapestPassPlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): { total: number; purchases: number[][] } {
+  validatePlan(tripDays, passes);
+
+  const n = tripDays.length;
+  const dp = new Array(n + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= n; i += 1) {
+    for (const pass of passes) {
+      if (i >= pass.span) {
+        dp[i] = Math.min(dp[i], dp[i - pass.span] + pass.cost);
+      }
+    }
+  }
+
+  const purchases: number[][] = [];
+  let remainingDays = tripDays.slice();
+  while (remainingDays.length > 0) {
+    let minCost = Infinity;
+    let bestPass: { span: number; cost: number } | null = null;
+
+    for (const pass of passes) {
+      if (remainingDays[0] >= pass.span && dp[remainingDays.length - 1] - dp[remainingDays.length - pass.span] === pass.cost) {
+        if (pass.cost < minCost || (pass.cost === minCost && passes.indexOf(pass) < passes.indexOf(bestPass!))) {
+          minCost = pass.cost;
+          bestPass = pass;
+        }
+      }
+    }
+
+    if (bestPass) {
+      purchases.push([tripDays[remainingDays.length - 1] - bestPass.span + 1, bestPass.span]);
+      remainingDays = remainingDays.slice(0, -bestPass.span);
+    } else {
+      throw new Error("no valid pass found to cover trip days");
+    }
+  }
+
+  return { total: dp[n], purchases };
+}
+```

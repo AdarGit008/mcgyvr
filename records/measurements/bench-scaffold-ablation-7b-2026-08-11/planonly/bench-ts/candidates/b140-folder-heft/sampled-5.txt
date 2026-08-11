@@ -1,0 +1,59 @@
+```typescript
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+  const walk = (node: any, currentPath: string) => {
+    if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+    if (typeof currentPath !== 'string') throw new Error('Invalid path');
+
+    for (const name in node) {
+      if (name.includes('/')) throw new Error('Name contains a slash');
+      const child = node[name];
+      const newPath = currentPath ? `${currentPath}/${name}` : name;
+      if (typeof child === 'number') paths.push(newPath);
+      else if (Array.isArray(child)) walk(child, newPath);
+    }
+  };
+  walk(root, '');
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  const total = (node: any): number => {
+    if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+    let sum = 0;
+    for (const name in node) {
+      if (name.includes('/')) throw new Error('Name contains a slash');
+      const child = node[name];
+      if (typeof child === 'number') sum += child;
+      else if (Array.isArray(child)) sum += total(child);
+    }
+    return sum;
+  };
+  return total(root);
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  const result: [string, number][] = [];
+  if (typeof minBytes !== 'number' || minBytes < 0 || !Number.isInteger(minBytes)) throw new Error('Invalid minBytes');
+
+  const walk = (node: any, currentPath: string, totalSoFar: number) => {
+    if (typeof node !== 'object' || node === null) throw new Error('Invalid node');
+    if (typeof currentPath !== 'string') throw new Error('Invalid path');
+    if (typeof totalSoFar !== 'number' || isNaN(totalSoFar)) throw new Error('Invalid totalSoFar');
+
+    let folderTotal = totalSoFar;
+    for (const name in node) {
+      if (name.includes('/')) throw new Error('Name contains a slash');
+      const child = node[name];
+      const newPath = currentPath ? `${currentPath}/${name}` : name;
+      if (typeof child === 'number') folderTotal += child;
+      else if (Array.isArray(child)) walk(child, newPath, folderTotal);
+    }
+
+    if (folderTotal >= minBytes) result.push([currentPath, folderTotal]);
+  };
+
+  walk(root, '', treeBytes(root));
+  return result;
+}
+```

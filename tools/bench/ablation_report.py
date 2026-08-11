@@ -38,13 +38,20 @@ printed for every contrast, because ADR-0019's wall is stated in exactly that
 quantity: below m = 6 no result can reach significance however large the
 effect looks.
 
-**The analysis set was fixed before any of these numbers existed.** Seven of
-the 34 scaffolded problems have task prose that says the helper "is already
+**The analysis set was fixed before any of these numbers existed**, and it
+lives in ``ablation-sets.json`` rather than in whoever ran the command. Seven
+of the 34 dispatched problems have task prose that says the helper "is already
 written", so ablating them yields a prompt contradicting itself — those are
-excluded, not because of what they showed but because of what the prompt
-says. Four more were flagged borderline by the audit and are dropped in the
-``--strict`` set, which is reported alongside so that a conclusion resting on
-them is visible as such.
+excluded, not because of what they showed but because of what the prompt says.
+Four more the eligibility audit flagged as carrying information the prose does
+not are dropped in ``--set strict``, reported alongside so that a conclusion
+resting on them is visible as such.
+
+This is not a formality. Read over all 34 the 7B whole-scaffold contrast is
+significant on both arms; read over the pre-registered 27 it is not, and the
+difference is the seven self-contradicting prompts. The default here is the
+pre-registered set for that reason, and ``--set dispatched`` is available for
+anyone who wants the other number with its name attached.
 
 Usage::
 
@@ -76,6 +83,32 @@ CONTRASTS = (
 # ADR-0019's wall, in the quantity it is stated in: fewer than six problems
 # that moved and no effect size can reach two-sided significance.
 DISCORDANT_WALL = 6
+
+# The sets, declared beside the bench rather than passed in on a command line —
+# a set that lives in the invocation is a set the next reader has to be told,
+# and this one changes the answer (see the declaration's own `why`).
+SETS = HERE / "ablation-sets.json"
+
+
+def declared_sets() -> dict[str, list[str]]:
+    """The three sets, two of them derived so they cannot drift apart.
+
+    `analysis` is the pre-registered one: every dispatched problem whose prompt
+    still makes sense with the scaffold removed. `strict` drops the four the
+    eligibility audit flagged as carrying information the prose does not.
+    `dispatched` is every problem the run holds, which is a fact about the run
+    and not a question anyone registered.
+    """
+    doc = json.loads(SETS.read_text(encoding="utf-8"))
+    dispatched = list(doc["dispatched"]["ids"])
+    excluded = {entry["id"] for entry in doc["excluded"]["ids"]}
+    borderline = {entry["id"] for entry in doc["borderline"]["ids"]}
+    analysis = [i for i in dispatched if i not in excluded]
+    return {
+        "dispatched": dispatched,
+        "analysis": analysis,
+        "strict": [i for i in analysis if i not in borderline],
+    }
 
 
 def counts(run: Path, condition: str, arm: str) -> dict[str, tuple[int, int]]:
@@ -235,26 +268,37 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run", type=Path, required=True, help="measurement dir")
     parser.add_argument(
         "--set",
-        type=Path,
-        default=None,
-        help="file of comma-separated problem ids to analyse (default: every "
-        "problem present in the run, which is NOT the pre-registered set)",
+        default="analysis",
+        metavar="NAME|FILE",
+        help="which problems to read over: a name from ablation-sets.json "
+        f"({', '.join(declared_sets())}) or a file of comma-separated ids. "
+        "Default: analysis, the pre-registered set. `dispatched` is every "
+        "problem in the run and answers a different question — see the "
+        "declaration.",
     )
     parser.add_argument(
         "--json", type=Path, default=None, help="also write the rows here"
     )
     args = parser.parse_args(argv)
 
-    if args.set:
-        keep = set(args.set.read_text(encoding="utf-8").split(","))
+    sets = declared_sets()
+    if args.set in sets:
+        keep, source = set(sets[args.set]), f"{args.set}, declared"
     else:
-        keep = set()
-        for condition, arm in product(CONDITIONS, ARMS):
-            keep |= set(counts(args.run, condition, arm))
-        print("warning: no --set given; analysing every problem in the run")
+        path = Path(args.set)
+        if not path.is_file():
+            parser.error(
+                f"--set {args.set!r} is neither a declared set "
+                f"({', '.join(sets)}) nor a readable file"
+            )
+        # Split then strip: a set file an editor has newline-terminated would
+        # otherwise lose its last id to a trailing "\n" and say nothing.
+        keep = {i.strip() for i in path.read_text(encoding="utf-8").split(",")}
+        keep.discard("")
+        source = f"from {path}"
 
     print(f"# scaffold ablation — {args.run.name}")
-    print(f"# analysis set: {len(keep)} problems, fixed before the run was read")
+    print(f"# analysis set: {len(keep)} problems ({source})")
     print("# cells present:")
     for condition, arm in product(CONDITIONS, ARMS):
         cell = counts(args.run, condition, arm)

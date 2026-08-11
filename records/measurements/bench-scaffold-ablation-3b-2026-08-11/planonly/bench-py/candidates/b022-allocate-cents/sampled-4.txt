@@ -1,0 +1,64 @@
+```python
+def parse_amount(text: str) -> int:
+    """
+    Parse a decimal amount string into integer cents.
+    Raises ValueError for invalid input.
+    """
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = text.split('.')
+    
+    if len(parts) != 2 or len(parts[1]) != 2:
+        raise ValueError("Invalid format. Must be 'digits.digits' with exactly two digits after the dot.")
+    
+    integer_part, fractional_part = parts
+    
+    if not (integer_part.isdigit() and fractional_part.isdigit()):
+        raise ValueError("Both parts must be digits.")
+    
+    return int(integer_part) * 100 + int(fractional_part)
+
+
+def format_amount(cents: int) -> str:
+    """
+    Format non-negative integer cents into a string with exactly two fraction digits.
+    """
+    if cents < 0:
+        raise ValueError("Cents must be non-negative.")
+    
+    dollars = cents // 100
+    cents %= 100
+    
+    return f"{dollars}.{cents:02d}"
+
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    """
+    Allocate total_cents across a list of integer weights proportionally.
+    Returns a list of integers representing the share sizes.
+    Raises ValueError for invalid inputs.
+    """
+    if not isinstance(total_cents, int) or total_cents < 0:
+        raise ValueError("Total cents must be a non-negative integer.")
+    
+    if not isinstance(weights, list) or any(not isinstance(w, int) or w < 0 for w in weights):
+        raise ValueError("Weights must be a list of non-negative integers.")
+    
+    weight_sum = sum(weights)
+    if weight_sum == 0:
+        raise ValueError("Weights cannot sum to zero.")
+    
+    shares = [total_cents // w for w in weights]
+    leftover = total_cents % weight_sum
+    
+    i = 0
+    while leftover > 0 and i < len(shares):
+        shares[i] += 1
+        leftover -= 1
+        i += 1
+    
+    return shares
+```
+
+This solution implements the `parse_amount`, `format_amount`, and `allocate_cents` functions according to the specified task requirements. It includes input validation and edge-case handling for each function.

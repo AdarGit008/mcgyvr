@@ -1,0 +1,39 @@
+```python
+from typing import List
+
+def parse_time(time_str: str) -> tuple[int, int]:
+    hours, minutes = map(int, time_str.split(':'))
+    return hours * 60 + minutes
+
+def format_time(minutes: int) -> str:
+    hours = minutes // 60
+    mins = minutes % 60
+    return f"{hours:02}:{mins:02}"
+
+def open_windows(span: str, booked: List[str]) -> str:
+    if not.span or not.booked:
+        raise ValueError("Invalid span or appointments")
+    
+    start, end = span.split('-')
+    parsed_start = parse_time(start)
+    parsed_end = parse_time(end)
+    
+    if len(booked) == 0:
+        return format_time(parsed_start) + '-' + format_time(parsed_end)
+    
+    if len(booked) == 1 and parsed_start == parsed_end:
+        raise ValueError("Invalid appointments")
+    
+    free_spans = []
+    prev_end = parsed_start
+    
+    for app in sorted(map(parse_time, booked)):
+        if app > prev_end:
+            free_spans.append((prev_end, app))
+        prev_end = max(prev_end, app)
+    
+    if prev_end < parsed_end:
+        free_spans.append((prev_end, parsed_end))
+    
+    return ', '.join('-'.join(format_time(s) for s in span) for span in free_spans)
+```

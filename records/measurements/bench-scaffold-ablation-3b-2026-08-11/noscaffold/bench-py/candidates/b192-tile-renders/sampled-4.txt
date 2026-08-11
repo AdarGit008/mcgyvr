@@ -1,0 +1,31 @@
+```python
+from typing import List, Tuple
+
+def tile_renders(requests: list, fresh_for: int, size: int) -> List[Tuple[int, str]]:
+    if fresh_for <= 0 or size <= 0:
+        raise ValueError("fresh_for and size must be positive whole numbers.")
+    
+    cache = {}
+    rendered_at = {}
+
+    for tick, tile_name in requests:
+        if tick < 0:
+            raise ValueError("tick cannot be negative.")
+
+        if tick not in cache:
+            # If the cache is full, remove the oldest render
+            if len(cache) == size:
+                min_tick = min(rendered_at.values())
+                del cache[min_tick]
+
+            # Store the current render
+            rendered_at[tick] = tile_name
+            cache[tick] = tile_name
+
+        else:
+            # If the cache already has a render for this tick, it's an old request
+            if rendered_at[tick] != tile_name:
+                rendered_at[tick] = tile_name
+
+    return [[tick, tile_name] for tick, tile_name in sorted(rendered_at.items())]
+```

@@ -1,0 +1,32 @@
+```python
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    """
+    Runs a patrol bot through a corridor of width cells. Each move adjusts the bot's position
+    within the corridor and returns the new position along with a flag indicating if a wall was hit.
+    The bot starts at 'start' and follows the sequence of 'moves'. Returns the final
+    position, the number of bumps (wall hits), and the number of distinct visited cells.
+    """
+    if width <= 0 or not isinstance(width, int):
+        raise ValueError("Width must be a positive integer.")
+    if start < 0 or start >= width:
+        raise ValueError("Start position must be within the corridor.")
+    if not all(isinstance(m, int) and m != 0 for m in moves):
+        raise ValueError("Moves must be non-zero integers.")
+
+    position = start
+    bumps = 0
+    visited = {start}
+
+    for delta in moves:
+        new_position, hit_wall = clamp_move(position, delta, width)
+        if hit_wall:
+            bumps += 1
+        position = new_position
+        visited.add(position)
+
+    return {
+        "position": position,
+        "bumps": bumps,
+        "visited": len(visited) - 1  # Subtract one to exclude the start
+    }
+```

@@ -1,0 +1,17 @@
+```python
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    if want == 0:
+        return {}
+    
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' not found in the catalog.")
+    
+    recipe = catalog[kit]
+    makes = recipe['makes']
+    parts = recipe['parts']
+    
+    runs = (want + makes - 1) // makes
+    total_consumed = {part: count * runs for part, count in parts}
+    
+    return total_consumed
+```

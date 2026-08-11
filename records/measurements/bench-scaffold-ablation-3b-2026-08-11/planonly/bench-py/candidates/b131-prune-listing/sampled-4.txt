@@ -1,0 +1,55 @@
+```python
+from typing import List, Pattern
+
+def split_strict(s: str) -> list:
+    """Splits s into segments using '/' as the delimiter and ensures no empty segments."""
+    segments = s.split('/')
+    return [segment for segment in segments if segment]
+
+def prune_listing(listing: List[str], rules: List[Pattern]) -> List[str]:
+    """
+    Prune a listing of file paths based on an ordered list of patterns.
+    
+    Each pattern is a slash-separated string where '*' matches any run of zero or more
+    characters in one segment, and every other character matches only itself. A rule
+    matches a path if it starts with '!' and keeps it, or its leading segments match
+    the corresponding parts of the path. Paths that no rule matches are retained.
+    
+    :param listing: List of relative slash-separated file paths.
+    :param rules: Ordered list of patterns determining which paths survive.
+    :return: List of surviving paths in their original order.
+    """
+    def match_rule(path: str, rule: Pattern) -> bool:
+        segments = split_strict(path)
+        pattern_segments = split_strict(rule.pattern)
+        
+        if len(pattern_segments) > len(segments):
+            return False
+        
+        for segment, pattern_segment in zip(segments, pattern_segments):
+            if pattern_segment == '*':
+                continue
+            elif segment != pattern_segment:
+                return False
+        
+        return True
+    
+    surviving_paths = []
+    
+    for path in listing:
+        if not (isinstance(path, str) and path and not any(segment in ('', '//') for segment in split_strict(path))):
+            raise ValueError("Invalid path or rule.")
+        
+        keep_rule_found = False
+        for rule in rules:
+            if match_rule(path, rule):
+                if rule.pattern.startswith('!'):
+                    surviving_paths.append(path)
+                    keep_rule_found = True
+                break
+        
+        if not keep_rule_found:
+            surviving_paths.append(path)
+    
+    return surviving_paths
+```

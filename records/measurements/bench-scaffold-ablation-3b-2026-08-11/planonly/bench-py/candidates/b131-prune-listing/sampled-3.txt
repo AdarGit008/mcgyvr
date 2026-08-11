@@ -1,0 +1,44 @@
+```python
+from typing import List
+
+def split_strict(s: str) -> List[str]:
+    """Split s into segments based on slashes, ensuring no empty segments."""
+    return [segment for segment in s.split('/') if segment]
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    """Prune the listing according to the given rules."""
+    
+    # Validate inputs
+    if not all(isinstance(rule, str) and rule for rule in rules):
+        raise ValueError("All rules must be strings.")
+    if '' in rules or '//' in rules:
+        raise ValueError("Rules cannot contain empty segments or double slashes.")
+    
+    def match_path_to_rule(path: str, rule: str) -> bool:
+        """Check if a path matches a rule."""
+        path_segments = split_strict(path)
+        rule_segments = split_strict(rule)
+        
+        # Handle keep rules
+        if rule.startswith('!'):
+            return False
+        
+        for i in range(min(len(path_segments), len(rule_segments))):
+            if rule_segments[i] == '*':
+                continue
+            if rule_segments[i] != path_segments[i]:
+                return False
+        return True
+    
+    # Determine the survival of each path
+    surviving_paths = []
+    for path in listing:
+        match = None
+        for rule in rules:
+            if match_path_to_rule(path, rule):
+                if not match or len(rule) > len(match):
+                    match = rule
+        surviving_paths.append(path if match else path)
+    
+    return surviving_paths
+```

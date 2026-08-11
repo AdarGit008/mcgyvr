@@ -1,0 +1,51 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid argument: must be strings.');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [itemName, countStr] = entry.split(':');
+    const count = parseInt(countStr, 10);
+    if (!isNaN(count) && /^[a-z]+$/.test(itemName)) return [itemName, count];
+    throw new Error('Invalid sheet entry.');
+  };
+
+  const parseMove = (move: string): { itemName: string; qty: number } => {
+    const [action, itemName, qtyStr] = move.split('+-');
+    const qty = parseInt(qtyStr, 10);
+    if (!isNaN(qty) && /^[a-z]+$/.test(itemName)) return { itemName, qty };
+    throw new Error('Invalid move.');
+  };
+
+  const sheet: Record<string, number> = {};
+  opening.split(';').forEach(entry => {
+    const [itemName, count] = parseEntry(entry);
+    if (sheet[itemName]) throw new Error(`Duplicate name on the opening sheet.`);
+    sheet[itemName] = count;
+  });
+
+  moves.split(';').forEach(move => {
+    const { itemName, qty } = parseMove(move);
+
+    if (!sheet[itemName]) throw new Error(`Issue of an item not held.`);
+
+    if (qty > sheet[itemName]) {
+      throw new Error(`Issue of more units than the item then holds.`);
+    }
+
+    if (move.includes('-')) {
+      sheet[itemName] -= qty;
+    } else {
+      sheet[itemName] += qty;
+    }
+
+    if (sheet[itemName] === 0) delete sheet[itemName];
+  });
+
+  return Object.entries(sheet)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([itemName, count]) => `${itemName}:${count}`)
+    .join(';');
+}
+```

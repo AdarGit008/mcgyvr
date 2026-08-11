@@ -1,0 +1,40 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+    const parseTime = (timeStr: string): [number, number] => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours >= 24 || minutes < 0 || minutes > 59) {
+            throw new Error("Invalid time format");
+        }
+        return [hours, minutes];
+    };
+
+    const isValidTimeRange = (start: string, end: string): boolean => {
+        if (start === end) return false;
+        const [startParts] = start.split('-');
+        const [endParts] = end.split('-');
+        return parseTime(startParts) <= parseTime(endParts);
+    };
+
+    const formatTime = ([hours, minutes]: [number, number]): string => {
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    };
+
+    if (!isValidTimeRange(span.split('-')[0], span.split('-')[1])) {
+        throw new Error("Invalid time range");
+    }
+
+    const times = [span.split('-')[0]].concat(booked.flatMap(appointment => appointment.split('-'))).map(parseTime);
+    times.sort((a, b) => a[0] * 60 + a[1] - (b[0] * 60 + b[1]));
+
+    let openWindows: string[] = [];
+    for (let i = 0; i < times.length - 1; i++) {
+        const [startHour, startMinute] = times[i];
+        const [endHour, endMinute] = times[i + 1];
+        if (endHour * 60 + endMinute > startHour * 60 + startMinute) {
+            openWindows.push(`${formatTime([startHour, startMinute])}-${formatTime([endHour, endMinute])}`);
+        }
+    }
+
+    return openWindows.length ? openWindows.join(', ') : 'none';
+}
+```

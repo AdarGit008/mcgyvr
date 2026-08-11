@@ -1,0 +1,68 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern: str, text: str) -> bool:
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text: str, what: str) -> list[str]:
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    # Validate every path and rule with split_strict
+    valid_paths = [split_strict(path, "path") for path in listing]
+    valid_rules = []
+    for rule in rules:
+        if not isinstance(rule, str) or rule == "":
+            raise ValueError(f"rule must be a non-empty string")
+        segments = rule.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"rule has an empty segment: {rule}")
+        valid_rules.append(segments)
+
+    # Drop rules are kept as is, keep rules have '!' prepended
+    filter_func = lambda rule: rule[0] != "!" if valid_rules else None
+
+    def matches_rule(path_segments, rule):
+        return all(segment_fits(rule[i], path_segments[i]) for i in range(len(rule)))
+
+    # Find the last matching rule or a no-op if none match
+    def prune_path(path_segments):
+        best_match = False
+        matching_rule_index = -1
+        for index, rule in enumerate(valid_rules):
+            if matches_rule(path_segments, rule):
+                best_match = True
+                matching_rule_index = index
+        return (best_match, matching_rule_index)
+
+    # Apply the filter and prune logic to each path
+    surviving_paths = [
+        path for path in valid_paths if not prune_path(split_strict(path, "path"))
+    ]
+
+    return surviving_paths
+```

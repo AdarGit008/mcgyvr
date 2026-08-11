@@ -1,0 +1,99 @@
+ ```ts
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error('Invalid input');
+  }
+
+  const pairs: string[][] = [];
+  let keySet = new Set<string>();
+
+  for (const segment of splitSegments(input)) {
+    const pair = parseOption(segment);
+    const [key] = pair;
+
+    if (!isValidKey(key) || keySet.has(key)) {
+      throw new Error('Invalid key or repeated key');
+    }
+
+    pairs.push(pair);
+    keySet.add(key);
+  }
+
+  return pairs;
+}
+
+function splitSegments(input: string): string[] {
+  let segments: string[] = [];
+  let currentSegment = '';
+  let quoteCount = 0;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+
+    if (char === ';') {
+      if (quoteCount % 2 === 0) {
+        segments.push(currentSegment + char);
+        currentSegment = '';
+      } else {
+        currentSegment += char;
+      }
+    } else {
+      currentSegment += char;
+
+      if (char === '"') {
+        quoteCount++;
+      }
+    }
+  }
+
+  if (quoteCount % 2 !== 0) {
+    throw new Error('Unterminated quote');
+  }
+
+  return segments.filter(segment => segment.trim() !== '');
+}
+
+function parseOption(segment: string): string[] {
+  const [key, value] = segment.split('=');
+  const trimmedKey = key.trim();
+  const trimmedValue = trimQuotes(value.trim());
+
+  if (!isValidKey(trimmedKey)) {
+    throw new Error('Invalid key');
+  }
+
+  return [trimmedKey, trimmedValue];
+}
+
+function isValidKey(key: string): boolean {
+  if (key.length === 0) {
+    return false;
+  }
+
+  for (let i = 0; i < key.length; i++) {
+    const char = key[i];
+
+    if (!isLetter(char) && !isDigit(char) && char !== '_') {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isLetter(char: string): boolean {
+  return /^[A-Za-z]$/.test(char);
+}
+
+function isDigit(char: string): boolean {
+  return /^\d$/.test(char);
+}
+
+function trimQuotes(value: string): string {
+  if (value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1);
+  }
+
+  return value;
+}
+```

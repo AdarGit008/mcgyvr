@@ -1,0 +1,33 @@
+```typescript
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (marker.length !== 1) {
+    throw new Error("Marker must be a single character");
+  }
+
+  const frames: string[] = [];
+  let pending = chunks.join('');
+  let frame = '';
+
+  for (let i = 0; i < pending.length;) {
+    if (pending[i] === marker) {
+      if (i + 1 < pending.length && pending[i + 1] === marker) {
+        frame += marker;
+        i += 2;
+      } else {
+        frames.push(frame);
+        frame = '';
+        i++;
+      }
+    } else {
+      frame += pending[i];
+      i++;
+    }
+  }
+
+  if (frame) {
+    frames.push(frame);
+  }
+
+  return { frames, pending: '' };
+}
+```

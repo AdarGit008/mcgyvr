@@ -1,0 +1,24 @@
+```typescript
+export function carveShift(start: number, end: number, span: number, rest: number, least: number): number[][] {
+    if (!Number.isInteger(start) || !Number.isInteger(end) ||
+        !Number.isInteger(span) || !Number.isInteger(rest) || !Number.isInteger(least)) {
+        throw new Error("All arguments must be whole numbers.");
+    }
+    if (start >= end || span < 1 || rest < 1 || least < 1 || least > span) {
+        throw new Error("Invalid input values.");
+    }
+
+    const stretches: number[][] = [];
+    let currentStart = start;
+
+    while (currentStart < end) {
+        const stretchLength = Math.min(span, end - currentStart);
+        if (stretchLength >= least) {
+            stretches.push([currentStart, currentStart + stretchLength]);
+        }
+        currentStart += rest;
+    }
+
+    return stretches;
+}
+```

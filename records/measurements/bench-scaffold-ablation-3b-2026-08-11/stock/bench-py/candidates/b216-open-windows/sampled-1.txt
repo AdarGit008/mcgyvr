@@ -1,0 +1,32 @@
+```python
+from typing import *
+import re
+
+
+def open_windows(span: str, booked: list[str]) -> str:
+    def minutes(text: str) -> int:
+        parts = text.split("-")
+        if len(parts) != 2 or any(not re.fullmatch(r"\d{2}:\d{2}", p) for p in parts):
+            raise ValueError("a range must be written HH:MM-HH:MM: " + text)
+        h1, m1 = map(int, parts[0].split(":"))
+        h2, m2 = map(int, parts[1].split(":"))
+        return (h2 * 60 + m2) - (h1 * 60 + m1)
+
+    def stamps(time: int) -> str:
+        return f"{time // 60:02d}:{time % 60:02d}"
+
+    free: list[str] = []
+    booked_times = sorted(minutes(appointment) for appointment in booked)
+    current_time = minutes(span.split("-")[0])
+    
+    for booked_time in booked_times:
+        if booked_time > current_time:
+            free.append(stamps(current_time))
+            current_time = booked_time
+
+    last_end = minutes(span.split("-")[1]) + 60 * 24
+    if last_end > current_time:
+        free.append(stamps(current_time))
+
+    return ", ".join(free) if free else "none"
+```

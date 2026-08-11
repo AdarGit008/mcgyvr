@@ -1,0 +1,13 @@
+```typescript
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== 'string') throw new Error('Invalid template type');
+  
+  const regex = /\{(\w+)\}/g;
+  let match: RegExpExecArray | null;
+
+  return template.replace(regex, (placeholder, name) => {
+    if (!values[name]) throw new Error(`Missing value for placeholder '${name}'`);
+    return values[name];
+  });
+}
+```

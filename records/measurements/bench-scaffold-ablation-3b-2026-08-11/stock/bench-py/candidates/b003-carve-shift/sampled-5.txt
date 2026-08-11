@@ -1,0 +1,21 @@
+```
+"""Work stretches of a shift: span-long, rest-separated, short tails dropped."""
+
+
+def carve_shift(start: int, end: int, span: int, rest: int, least: int) -> list:
+    if start >= end or not all(isinstance(arg, int) for arg in (start, end, span, rest, least)):
+        raise ValueError("all arguments must be integers and shift start must precede its end")
+    if span < 1 or rest < 1 or least < 1 or least > span:
+        raise ValueError("span, rest, least must be at least 1 and least must be between 1 and span")
+
+    stretches = []
+    current_start = start
+
+    while current_start < end:
+        stretch_end = min(current_start + span - 1, end)
+        if stretch_end - current_start >= least:
+            stretches.append((current_start, stretch_end))
+        current_start += rest
+
+    return stretches
+```

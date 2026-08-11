@@ -1,0 +1,39 @@
+```python
+from typing import List
+
+def tile_renders(requests: List[List[int]], fresh_for: int, size: int) -> List[List[int]]:
+    if not isinstance(fresh_for, int) or fresh_for <= 0:
+        raise ValueError("fresh_for must be a positive whole number.")
+    
+    if not isinstance(size, int) or size <= 0:
+        raise ValueError("size must be a positive whole number.")
+    
+    cache = {}
+    
+    for tick, name in requests:
+        if tick < 0:
+            raise ValueError("ticks cannot go backwards.")
+        
+        if tick not in cache or tick >= cache[name]["tick"] + fresh_for:
+            # Request needs to render the tile again
+            cache[name] = {"tick": tick, "name": name}
+            
+            # Drop an old tile from the cache if necessary
+            if len(cache) > size:
+                oldest_tick = min(cache.values(), key=lambda x: (x["tick"], x["name"]))["tick"]
+                for tile in list(cache.keys()):
+                    if cache[tile]["tick"] == oldest_tick:
+                        del cache[tile]
+                        break
+        
+        # Add the render to the result
+        yield [tick, name]
+
+# Example usage:
+# requests = [[4, "tileA"], [5, "tileB"], [6, "tileA"]]
+# fresh_for = 2
+# size = 3
+# print(list(tile_renders(requests, fresh_for, size)))
+```
+
+This implementation handles the specified requirements for managing a cache of tile renders, ensuring that requests are handled in order and that the cache size is maintained. It raises appropriate errors for invalid inputs and uses a generator to yield therenders in the correct order.

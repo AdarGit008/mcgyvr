@@ -1,0 +1,97 @@
+```typescript
+/**
+ * Parses a span text into total inches.
+ * @param text - The span text in the form of "2yd 1ft 4in".
+ * @returns The total inches represented by the span.
+ */
+export function parseSpan(text: string): number {
+    if (typeof text !== 'string' || text.trim() === '') {
+        throw new Error('Invalid input');
+    }
+
+    const parts = text.split(/\s+/);
+    let totalInches = 0;
+    const unitsSeen = new Set<string>();
+
+    for (const part of parts) {
+        const match = part.match(/^(\d+)([yf]?)in?$/);
+        if (!match) {
+            throw new Error('Invalid format');
+        }
+
+        const value = parseInt(match[1], 10);
+        const unit = match[2];
+
+        if (isNaN(value)) {
+            throw new Error('Invalid value');
+        }
+
+        if (unitsSeen.has(unit)) {
+            throw new Error('Duplicate units');
+        }
+        if (unit === 'y' && parts.indexOf('ft') !== -1) {
+            throw new Error('Out of order units');
+        }
+        if (unit === 'f' && parts.indexOf('in') !== -1) {
+            throw new Error('Out of order units');
+        }
+
+        unitsSeen.add(unit);
+
+        switch (unit) {
+            case '':
+                totalInches += value;
+                break;
+            case 'y':
+                totalInches += value * 36;
+                break;
+            case 'f':
+                totalInches += value * 12;
+                break;
+        }
+    }
+
+    return totalInches;
+}
+
+/**
+ * Formats a non-negative integer of total inches into canonical span text.
+ * @param inches - The total inches to format.
+ * @returns The formatted span text.
+ */
+export function formatSpan(inches: number): string {
+    if (typeof inches !== 'number' || !Number.isInteger(inches) || inches < 0) {
+        throw new Error('Invalid input');
+    }
+
+    let result = '';
+
+    const yards = Math.floor(inches / 36);
+    inches %= 36;
+
+    const feet = Math.floor(inches / 12);
+    inches %= 12;
+
+    if (yards > 0) {
+        result += `${yards}yd `;
+    }
+    if (feet > 0) {
+        result += `${feet}ft `;
+    }
+    if (inches > 0) {
+        result += `${inches}in`;
+    }
+
+    return result.trim() || '0in';
+}
+
+/**
+ * Adds two span texts and returns their sum in canonical form.
+ * @param first - The first span text.
+ * @param second - The second span text.
+ * @returns The sum of the two spans in canonical form.
+ */
+export function addSpans(first: string, second: string): string {
+    return formatSpan(parseSpan(first) + parseSpan(second));
+}
+```

@@ -1,0 +1,15 @@
+```python
+def dose_totals(log: list) -> dict:
+    amounts = {}
+    for reagent, amount in log:
+        try:
+            amount_float = float(amount)
+            if not amount.startswith('-') and 'e' not in amount.lower():
+                raise ValueError("Amount must be a valid decimal string without leading plus or scientific notation")
+            amounts[reagent] = amounts.get(reagent, 0) + amount_float
+        except ValueError as e:
+            raise ValueError(f"Invalid amount: {amount}") from e
+    
+    return {reagent: f"{total:.3f}".rstrip('0').rstrip('.') if '.' in f"{total:.3f}" else f"{total:d}"
+            for reagent, total in amounts.items()}
+```

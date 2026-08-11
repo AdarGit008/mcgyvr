@@ -1,0 +1,37 @@
+```
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    # Initialize variables to track the best match and its score
+    best_match = None
+    highest_score = -1
+    
+    for selector, value in rules.items():
+        if not isinstance(value, str):
+            raise ValueError(f"rule value for {selector} is not a string")
+        
+        # Check if the name matches the exact selector
+        if selector == name:
+            return value
+        
+        # Split the selector by '.' to handle wildcard matching
+        parts = selector.split('.')
+        
+        # Check if the selector ends with '.*'
+        if parts[-1] == '.*' and len(parts) > 1:
+            # Calculate the score based on the length of the prefix before '.*'
+            score = len(selector[:-2])
+            
+            # Update the best match if this one is better
+            if score > highest_score:
+                best_match = value
+                highest_score = score
+        
+        # Handle the lone star case
+        elif selector == "*":
+            if highest_score == -1:
+                best_match = value
+    
+    return best_match
+```

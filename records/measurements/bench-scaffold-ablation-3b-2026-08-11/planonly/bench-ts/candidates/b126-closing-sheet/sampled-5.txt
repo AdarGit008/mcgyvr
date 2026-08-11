@@ -1,0 +1,82 @@
+```typescript
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [item, countStr] = entry.split(':').map(v => v.trim());
+    if (!/^[a-z]+$/.test(item) || !Number.isInteger(+countStr) || +countStr < 0) {
+      throw new Error('Malformed sheet entry');
+    }
+    return [item, +countStr];
+  };
+
+  const parseMove = (move: string): { item: string; qty: number } => {
+    const [item, qtyStr] = move.split('+').map(v => v.trim()).concat(move.split('-')).map(v => v.trim());
+    if (!/^[a-z]+$/.test(item) || !Number.isInteger(+qtyStr) || +qtyStr <= 0) {
+      throw new Error('Malformed move');
+    }
+    return { item, qty: +qtyStr };
+  };
+
+  const parseSheet = (sheet: string): Map<string, number> => {
+    if (!sheet) {
+      return new Map();
+    }
+    return sheet.split(';').map(parseEntry).reduce((acc, [item, count]) => {
+      acc.set(item, count);
+      return acc;
+    }, new Map());
+  };
+
+  const parseMoves = (moves: string): Array<{ item: string; qty: number }> => {
+    if (!moves) {
+      return [];
+    }
+    return moves.split(';').map(parseMove).filter(({ item }) => sheet.has(item));
+  };
+
+  const validateSheet = (sheet: Map<string, number>): void => {
+    for (const [item] of sheet.entries()) {
+      if (/^[a-z]+$/.test(item) && Number.isInteger(sheet.get(item)) && sheet.get(item) >= 0) {
+        continue;
+      }
+      throw new Error('Invalid opening sheet');
+    }
+  };
+
+  const validateMoves = (sheet: Map<string, number>, moves: Array<{ item: string; qty: number }>): void => {
+    for (const { item, qty } of moves) {
+      if (!sheet.has(item)) {
+        throw new Error(`Issue of an item the sheet does not hold: ${item}`);
+      }
+      if (qty > sheet.get(item)!) {
+        throw new Error(`Issue of more units than the item then holds: ${item} - ${qty}`);
+      }
+    }
+  };
+
+  const sheet = parseSheet(opening);
+  validateSheet(sheet);
+
+  const moves = parseMoves(moves);
+  validateMoves(sheet, moves);
+
+  const updatedSheet = new Map<string, number>(sheet);
+  for (const { item, qty } of moves) {
+    if (qty > 0) {
+      updatedSheet.set(item, (updatedSheet.get(item) || 0) + qty);
+    } else {
+      updatedSheet.delete(item);
+    }
+  }
+
+  const result = Array.from(updatedSheet.entries())
+    .filter(([item, count]) => count > 0)
+    .map(([item, count]) => `${item}:${count}`)
+    .join(';');
+
+  return result !== '' ? result : '';
+}
+```

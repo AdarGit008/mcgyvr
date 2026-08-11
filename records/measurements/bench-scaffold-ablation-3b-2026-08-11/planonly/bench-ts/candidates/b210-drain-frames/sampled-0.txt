@@ -1,0 +1,36 @@
+```typescript
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  const validateMarker = (m: string) => {
+    if (typeof m !== 'string' || m.length !== 1) {
+      throw new Error('Marker must be a single character');
+    }
+  };
+
+  validateMarker(marker);
+
+  let joinedText = chunks.join('');
+  let frames: string[] = [];
+  let pending: string = '';
+
+  for (let i = 0; i < joinedText.length - 1; i++) {
+    if (joinedText[i] === marker && joinedText[i + 1] === marker) {
+      // Handle a doubled marker
+      i++;
+    } else if (joinedText[i] === marker) {
+      // End the current frame
+      frames.push(joinedText.slice(frames.length > 0 ? frames[frames.length - 1].length : 0, i));
+      pending = joinedText.slice(i + 1);
+      break; // Stop after ending a frame
+    }
+  }
+
+  if (joinedText.length > 0 && joinedText[joinedText.length - 1] === marker) {
+    frames.push(joinedText.slice(frames.length > 0 ? frames[frames.length - 1].length : 0));
+    pending = '';
+  } else {
+    pending = joinedText;
+  }
+
+  return { frames, pending };
+}
+```

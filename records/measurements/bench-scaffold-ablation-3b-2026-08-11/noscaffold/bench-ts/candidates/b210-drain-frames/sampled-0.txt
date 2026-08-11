@@ -1,0 +1,50 @@
+```ts
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+    if (!marker || marker.length !== 1) {
+        throw new Error("Marker must be a single character");
+    }
+
+    let joinedText = chunks.join('');
+    const frames: string[] = [];
+    let currentFrame = '';
+    let isPending = false;
+    let lastMark = '';
+
+    for (let i = 0; i < joinedText.length; i++) {
+        const char = joinedText[i];
+        if (char === marker) {
+            if (isPending) {
+                frames.push(currentFrame);
+                currentFrame = '';
+                isPending = false;
+            }
+            if (lastMark !== '') {
+                // If the last character was a marker, it could be part of a doubled pair
+                isPending = true;
+                lastMark = '';
+            } else {
+                // Otherwise, mark the end of the current frame
+                frames.push(currentFrame);
+                currentFrame = '';
+            }
+        } else if (isPending) {
+            // If we're in pending mode and encounter another marker, it's part of a doubled pair
+            lastMark = char;
+        } else {
+            // Otherwise, add to the current frame
+            currentFrame += char;
+        }
+    }
+
+    // Handle any remaining text that wasn't part of a frame
+    if (isPending) {
+        frames.push(currentFrame);
+    } else if (currentFrame !== '') {
+        frames.push(currentFrame);
+    }
+
+    const pending = joinedText.substring(joinedText.lastIndexOf(marker) + 1);
+
+    return { frames, pending };
+}
+```

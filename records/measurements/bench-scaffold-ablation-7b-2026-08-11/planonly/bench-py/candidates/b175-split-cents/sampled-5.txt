@@ -1,0 +1,34 @@
+```
+def split_cents(total: int, weights: list) -> list:
+    if total < 0 or total % 1 != 0:
+        raise ValueError("Total must be a non-negative integer.")
+    if not isinstance(weights, list) or not weights:
+        raise ValueError("Weights must be a non-empty list of positive integers.")
+    if any(w <= 0 for w in weights):
+        raise ValueError("All weights must be positive integers.")
+
+    total_cents = total
+    num_partners = len(weights)
+    sum_weights = sum(weights)
+
+    # Calculate the initial share for each partner and the remainder
+    shares = [total * w // sum_weights for w in weights]
+    remainder = total_cents - sum(shares)
+
+    # Identify partners with largest discarded fractions
+    largest_fractions = []
+    max_fraction = (total * weights[0] % sum_weights) / sum_weights
+    for i, weight in enumerate(weights):
+        fraction = (total * weight % sum_weights) / sum_weights
+        if fraction == max_fraction:
+            largest_fractions.append(i)
+        elif fraction > max_fraction:
+            largest_fractions = [i]
+            max_fraction = fraction
+
+    # Distribute the remainder to the partners with the largest discarded fractions
+    for i in range(remainder):
+        shares[largest_fractions[i % len(largest_fractions)]] += 1
+
+    return shares
+```

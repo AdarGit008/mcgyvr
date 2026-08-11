@@ -1,0 +1,25 @@
+```python
+from typing import Dict
+
+def explode_kit(catalog: Dict[str, dict], kit: str, want: int) -> Dict[str, int]:
+    if want <= 0:
+        raise ValueError("want must be a positive integer")
+    
+    def consume_parts(parts: Dict[str, int]) -> Dict[str, int]:
+        consumed = {}
+        for component, count in parts.items():
+            if component in catalog:
+                sub_consumed = consume_parts(catalog[component])
+                for part, sub_count in sub_consumed.items():
+                    consumed[part] = consumed.get(part, 0) + sub_count * count
+            else:
+                consumed[component] = consumed.get(component, 0) + count
+        return consumed
+    
+    total_consumed = consume_parts(catalog[kit])
+    runs_needed = (want - 1) // catalog[kit]['makes'] + 1
+    for part, count in total_consumed.items():
+        total_consumed[part] *= runs_needed
+    
+    return total_consumed
+```

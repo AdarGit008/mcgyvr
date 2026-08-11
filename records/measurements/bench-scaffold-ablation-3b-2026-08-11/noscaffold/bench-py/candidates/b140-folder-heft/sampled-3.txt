@@ -1,0 +1,68 @@
+```python
+from typing import *
+from collections import *
+
+def file_paths(root: dict) -> List[str]:
+    def walk(node, path):
+        if not isinstance(node, Mapping):
+            raise ValueError("Node must be a mapping.")
+        for key in node:
+            if not isinstance(key, str) or "/" in key:
+                raise ValueError("Key must be a non-empty string without slashes.")
+            path.append(key)
+            if "bytes" in node and "children" in node:
+                raise ValueError("Node cannot have both bytes and children.")
+            if "bytes" in node:
+                yield f"{'/'.join(path)}/{node['bytes']}"
+            elif "children" in node:
+                for child in walk(node["children"], path):
+                    yield child
+            path.pop()
+    
+    return list(walk(root, []))
+
+def tree_bytes(root: dict) -> int:
+    if not isinstance(root, Mapping):
+        raise ValueError("Root must be a mapping.")
+    total = 0
+    def walk(node):
+        nonlocal total
+        if "bytes" in node:
+            total += node["bytes"]
+        elif "children" in node:
+            for child in node["children"]:
+                walk(child)
+    
+    walk(root)
+    return total
+
+def heavy_folders(root: dict, min_bytes: int) -> List[List[str]]:
+    if not isinstance(root, Mapping):
+        raise ValueError("Root must be a mapping.")
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("Min bytes must be a non-negative whole number.")
+    
+    def walk(node, path, total):
+        results = []
+        if total >= min_bytes and "bytes" in node:
+            results.append([f"{'/'.join(path)}"])
+        
+        for key in node:
+            if not isinstance(key, str) or "/" in key:
+                raise ValueError("Key must be a non-empty string without slashes.")
+            path.append(key)
+            if "bytes" in node and "children" in node:
+                raise ValueError("Node cannot have both bytes and children.")
+            
+            if "bytes" in node:
+                new_total = total + node["bytes"]
+                results.extend(walk(node["children"], path, new_total))
+            elif "children" in node:
+                results.extend(walk(node["children"], path, total))
+            
+            path.pop()
+        
+        return results
+    
+    return walk(root, [], 0)
+```

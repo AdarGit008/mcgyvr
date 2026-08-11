@@ -1,0 +1,60 @@
+```ts
+function splitStrict(s: string): string[] {
+  const result: string[] = [];
+  let segment = '';
+  for (const char of s) {
+    if (char === '/') {
+      if (segment === '') throw new Error('Empty segment in path');
+      result.push(segment);
+      segment = '';
+    } else {
+      segment += char;
+    }
+  }
+  if (segment === '' || segment.includes('/')) throw new Error('Invalid trailing slash');
+  if (result.length > 0 && result[result.length - 1].includes('/')) throw new Error('Empty segment in path');
+  return [...result, segment];
+}
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  const validPath = (path: string): boolean => {
+    const segments = splitStrict(path);
+    for (const seg of segments) if (seg.includes('//')) throw new Error('Empty segment in path');
+    return true;
+  };
+
+  const validRule = (rule: string): boolean => {
+    const segments = rule.startsWith('!') ? rule.slice(1).split('/') : rule.split('/');
+    for (const seg of segments) if (seg === '' || seg.includes('//')) throw new Error('Empty segment in path');
+    return true;
+  };
+
+  listing.forEach(path => {
+    if (typeof path !== 'string' || !path) throw new Error('Invalid empty path');
+    if (!validPath(path)) throw new Error('Invalid path format');
+  });
+
+  rules.forEach(rule => {
+    if (typeof rule !== 'string' || !rule) throw new Error('Invalid empty rule');
+    if (!validRule(rule)) throw new Error('Invalid rule format');
+  });
+
+  return listing.filter(path => {
+    let keep = false;
+    for (const rule of rules) {
+      const isKeepRule = rule.startsWith('!');
+      const patternSegments = isKeepRule ? rule.slice(1).split('/') : rule.split('/');
+      const pathSegments = splitStrict(path);
+      if (pathSegments.length < patternSegments.length) continue;
+      let match = true;
+      for (let i = 0; i < patternSegments.length; i++) {
+        if (patternSegments[i] === '*' || patternSegments[i] === pathSegments[i]) continue;
+        match = false;
+        break;
+      }
+      if (match) keep = isKeepRule;
+    }
+    return keep;
+  });
+}
+```

@@ -1,0 +1,37 @@
+```ts
+export function cutRoll(length: number, board: [number, number][]): { takings: number, pieces: number[] } {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error("Length must be a non-negative integer");
+  }
+
+  const bestCut = (function findBestCut(rollLength: number, boards: [number, number][]): { takings: number, pieces: number[] } | null {
+    if (rollLength === 0 || boards.length === 0) {
+      return { takings: 0, pieces: [] };
+    }
+
+    let bestTakings = 0;
+    let bestPieces: number[] = [];
+
+    for (const [boardLength, price] of boards) {
+      if (boardLength <= rollLength) {
+        const remainingRoll = rollLength - boardLength;
+        const result = findBestCut(remainingRoll, boards);
+
+        const newTakings = price + result.takings;
+
+        if (
+          (newTakings > bestTakings) ||
+          (newTakings === bestTakings && boardLength > boardLengths[bestPieces.length - 1])
+        ) {
+          bestTakings = newTakings;
+          bestPieces = [...result.pieces, boardLength];
+        }
+      }
+    }
+
+    return { takings: bestTakings, pieces: bestPieces };
+  })(length, board);
+
+  return bestCut || { takings: 0, pieces: [] };
+}
+```

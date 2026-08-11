@@ -1,0 +1,70 @@
+```ts
+export function findFreeRun(words: number[], bits: number, length: number): number {
+  if (!Number.isInteger(bits) || bits < 0 || (bits % 32 !== 0 && bits > 0)) {
+    throw new Error('Invalid bit count');
+  }
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error('Invalid run length');
+  }
+  const wordLength = Math.ceil(bits / 32);
+  if (words.length !== wordLength) {
+    throw new Error('Word count mismatch');
+  }
+  for (const word of words) {
+    if (!Number.isInteger(word) || word < 0 || word > 4294967295) {
+      throw new Error('Invalid bitmap word');
+    }
+  }
+
+  const capacity = Math.ceil(length / 32);
+  if (length > bits || length <= 0) {
+    throw new Error('Invalid run length for capacity');
+  }
+
+  for (let i = 0; i <= bits - length; i++) {
+    let freeRun = true;
+    for (let j = 0; j < length; j++) {
+      if (bitAt(words, i + j)) {
+        freeRun = false;
+        break;
+      }
+    }
+    if (freeRun) return i;
+  }
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Number.isInteger(start) || !Number.isInteger(length)) {
+    throw new Error('Invalid indices');
+  }
+  const bitStart = start * 32;
+  const bitEnd = bitStart + length * 32 - 1;
+  for (let i = Math.floor(bitStart / 32); i <= Math.ceil(bitEnd / 32); i++) {
+    if (!Number.isInteger(words[i]) || words[i] < 0 || words[i] > 4294967295) {
+      throw new Error('Invalid bitmap word');
+    }
+  }
+
+  const newWords = [...words];
+  for (let j = 0; j < length; j++) {
+    bitAt(newWords, bitStart + j, 1);
+  }
+  return newWords;
+}
+
+export function bitAt(words: number[], index: number): number;
+export function bitAt(words: number[], index: number, value: 0 | 1): void;
+export function bitAt(words: number[], index: number, value?: 0 | 1): number | void {
+  if (!Number.isInteger(index) || index < 0 || (index % 32 !== 0 && index > 0)) {
+    throw new Error('Invalid index');
+  }
+  const wordIndex = Math.floor(index / 32);
+  const bitIndex = index % 32;
+  if (value === undefined) {
+    return (words[wordIndex] & (1 << bitIndex)) ? 1 : 0;
+  } else {
+    words[wordIndex] = value ? (words[wordIndex] | (1 << bitIndex)) : (words[wordIndex] & ~(1 << bitIndex));
+  }
+}
+```

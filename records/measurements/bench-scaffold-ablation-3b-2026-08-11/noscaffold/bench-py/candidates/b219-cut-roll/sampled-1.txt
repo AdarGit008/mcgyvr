@@ -1,0 +1,39 @@
+```python
+from typing import *
+from collections import *
+
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0:
+        raise ValueError("Length must be a non-negative whole number")
+
+    # Initialize the maximum takings and pieces for the given roll length
+    max_takings = {length: 0}
+    best_pieces = {}
+
+    # For each possible cut point up to the length of the roll
+    for cut_point in range(1, length + 1):
+        current_takings = 0
+        current_pieces = {}
+
+        # Try to find the best pieces by considering each board piece
+        for piece_length, price in board:
+            if piece_length <= cut_point:
+                # Consider cutting a piece at this point
+                new_takings = current_takings + price
+                new_pieces = current_pieces.copy()
+                new_pieces[piece_length] = new_pieces.get(piece_length, 0) + 1
+
+                # If this cut provides better takings or more pieces of the same length
+                if new_takings > max_takings[length] or (new_takings == max_takings[length] and len(new_pieces) > len(best_pieces)):
+                    max_takings[length] = new_takings
+                    best_pieces[length] = new_pieces
+
+        # If cutting the last meter of the roll does not increase takings, stop
+        if current_takings <= max_takings[length]:
+            break
+
+    return {
+        "takings": max_takings[length],
+        "pieces": best_pieces.get(length, {})
+    }
+```

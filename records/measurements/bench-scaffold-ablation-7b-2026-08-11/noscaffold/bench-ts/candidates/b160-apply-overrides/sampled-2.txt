@@ -1,0 +1,33 @@
+```ts
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("overrides must be an array");
+  }
+
+  const result = { ...base };
+
+  for (const override of overrides) {
+    if (typeof override !== "string") {
+      throw new Error("each override must be a string");
+    }
+
+    const parts = override.split("=");
+    if (parts.length !== 2) {
+      throw new Error("override must contain exactly one equals sign");
+    }
+
+    const [name, value] = parts;
+    if (name === "") {
+      throw new Error("override name cannot be empty");
+    }
+
+    if (!(name in result)) {
+      throw new Error(`base does not contain setting "${name}"`);
+    }
+
+    result[name] = value;
+  }
+
+  return result;
+}
+```

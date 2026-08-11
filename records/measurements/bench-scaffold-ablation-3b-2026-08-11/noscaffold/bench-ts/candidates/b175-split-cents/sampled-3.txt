@@ -1,0 +1,38 @@
+```ts
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error("Total must be a non-negative integer.");
+  }
+  if (!(weights instanceof Array)) {
+    throw new Error("Weights must be an array of numbers.");
+  }
+  if (weights.length === 0) {
+    throw new Error("Weights list cannot be empty.");
+  }
+
+  const totalCents = Math.round(total);
+  let sumOfWeights = weights.reduce((acc, weight) => acc + weight, 0);
+
+  if (sumOfWeights === 0) {
+    throw new Error("Sum of weights must not be zero.");
+  }
+
+  const initialParts = weights.map(weight => Math.floor(totalCents * weight / sumOfWeights));
+  let remainingCents = totalCents - initialParts.reduce((acc, part) => acc + part, 0);
+  let parts = [...initialParts];
+
+  while (remainingCents > 0) {
+    const maxFractionalPartIndex = initialParts.findIndex(
+      (_, index) => initialParts[index] === Math.floor(totalCents * weights[index] / sumOfWeights)
+    );
+    if (maxFractionalPartIndex !== -1) {
+      parts[maxFractionalPartIndex]++;
+      remainingCents--;
+    } else {
+      throw new Error("Error in calculation, should not reach here.");
+    }
+  }
+
+  return parts;
+}
+```

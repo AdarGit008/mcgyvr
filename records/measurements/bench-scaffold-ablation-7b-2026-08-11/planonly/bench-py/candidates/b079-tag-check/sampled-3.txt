@@ -1,0 +1,23 @@
+```python
+def line_tag(body: str) -> str:
+    """Compute the tag for a given body."""
+    if not isinstance(body, str):
+        raise ValueError("Body must be a string")
+    tag = sum(ord(char) for char in body) % 256
+    return f"{tag:02x}"
+
+
+def check_line(line: str) -> str:
+    """Verify a tagged line and return its body."""
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string")
+    if len(line) < 3 or line[-3] != '~':
+        raise ValueError("Invalid line format")
+
+    body, tag = line[:-3], line[-2:]
+    expected_tag = line_tag(body)
+    if tag != expected_tag:
+        raise ValueError("Tag does not match body")
+
+    return body
+```

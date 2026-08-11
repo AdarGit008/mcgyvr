@@ -1,0 +1,43 @@
+```ts
+export function parseOption(segment: string): string[] {
+  const eq = segment.indexOf("=");
+  const key = segment.slice(0, eq);
+  if (eq === -1 || !/^[A-Za-z][A-Za-z0-9_]*$/.test(key)) {
+    throw new Error("malformed option segment: " + segment);
+  }
+  let raw = segment.slice(eq + 1);
+  if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+    raw = raw.slice(1, -1);
+  }
+  return [key, raw];
+}
+
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error("invalid input");
+  }
+
+  const pairs: { [key: string]: string } = {};
+  let inQuotes = false;
+  let currentSegment = '';
+  for (let i = 0; i <= input.length; i++) {
+    if (input[i] === '"' && !inQuotes) {
+      inQuotes = true;
+    } else if (input[i] === '"' && inQuotes) {
+      inQuotes = false;
+    } else if (input[i] === ';' && !inQuotes) {
+      const parsedOption = parseOption(currentSegment);
+      if (pairs[parsedOption[0]]) {
+        throw new Error("repeated key");
+      }
+      pairs[parsedOption[0]] = parsedOption[1];
+      currentSegment = '';
+    } else {
+      currentSegment += input[i] || '';
+    }
+  }
+
+  const result: string[][] = Object.entries(pairs).map(([key, value]) => [key, value]);
+  return result;
+}
+```

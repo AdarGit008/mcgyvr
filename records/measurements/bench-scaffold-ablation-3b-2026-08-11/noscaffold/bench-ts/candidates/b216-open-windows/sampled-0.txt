@@ -1,0 +1,58 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  const parseTime = (timeStr: string): number => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  const validateTimeFormat = (timeStr: string): void => {
+    if (!/(\d{2}):(\d{2})-(\d{2}):(\d{2})/.test(timeStr)) {
+      throw new Error('Invalid time format');
+    }
+  };
+
+  const checkValidSpanAndAppointments = (): void => {
+    validateTimeFormat(span);
+    for (const appointment of booked) {
+      validateTimeFormat(appointment);
+    }
+  };
+
+  checkValidSpanAndAppointments();
+
+  const start = parseTime(span.split('-')[0]);
+  const end = parseTime(span.split('-')[1]);
+
+  if (start >= end) {
+    return 'none';
+  }
+
+  const bookedTimes: number[] = booked.map(parseTime);
+
+  let freeStretches: string[] = [];
+
+  for (let i = 0; i < bookedTimes.length - 1;) {
+    if (bookedTimes[i + 1] - bookedTimes[i] <= 60) {
+      // Skip consecutive appointments
+      i++;
+      continue;
+    }
+
+    const freeStart = bookedTimes[i];
+    let freeEnd = bookedTimes[i + 1];
+
+    while (i < bookedTimes.length - 1 && bookedTimes[i + 1] - freeEnd <= 60) {
+      // Merge the free stretch with consecutive appointments
+      i++;
+      freeEnd = bookedTimes[i];
+    }
+
+    const startTime = String(freeStart).padStart(4, '0');
+    const endTime = String(freeEnd).padStart(4, '0');
+
+    freeStretches.push(`${startTime}-${endTime}`);
+  }
+
+  return freeStretches.join(', ');
+}
+```

@@ -1,0 +1,42 @@
+```python
+def format_bits(value: int, width: int) -> str:
+    """
+    Render value as unsigned binary in exactly width bits.
+
+    :param value: Non-negative integer to be rendered.
+    :param width: Positive multiple of four or up to 32 for the bit width.
+    :return: String representation of the value in binary format, left-padded with zeros
+             and grouped into sets of four bits separated by spaces.
+    :raises ValueError: If value is negative or if width is invalid.
+    """
+    # Check if value is non-negative integer
+    if not isinstance(value, int) or value < 0:
+        raise ValueError("Value must be a non-negative integer.")
+
+    # Check if width is positive multiple of four and does not exceed 32
+    if width % 4 != 0 or width > 32:
+        raise ValueError("Width must be a positive multiple of four and up to 32 bits.")
+
+    # Convert value to binary string with '0b' prefix removed
+    binary_str = bin(value)[2:]
+
+    # Calculate padding needed for the specified width
+    padding = (width - len(binary_str)) % 4
+
+    # Left-pad the binary string with zeros and group into sets of four bits
+    formatted_bits = ("0" * padding) + binary_str
+    grouped_bits = " ".join(formatted_bits[i:i+4] for i in range(0, len(formatted_bits), 4))
+
+    return grouped_bits
+
+# Test cases
+print(format_bits(300, 12))  # Output: "0001 0010 1100"
+try:
+    print(format_bits(-5, 8))
+except ValueError as e:
+    print(e)              # Output: Value must be a non-negative integer.
+try:
+    print(format_bits(300, 6))
+except ValueError as e:
+    print(e)              # Output: Width must be a positive multiple of four and up to 32 bits.
+```

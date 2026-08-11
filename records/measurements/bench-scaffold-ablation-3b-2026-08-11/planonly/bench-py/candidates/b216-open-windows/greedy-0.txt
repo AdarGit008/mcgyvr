@@ -1,0 +1,46 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    """
+    Calculate the free stretches of a clinic's day based on its span and booked appointments.
+
+    :param span: A string representing the clinic's opening stretch in 'HH:MM-HH:MM' format.
+    :param booked: A list of strings representing the booked appointments in 'HH:MM-HH:MM' format.
+    :return: A string of free stretches separated by ', ' or "none" if no free stretches exist.
+    """
+    def parse_time(time_str):
+        hours, minutes = map(int, time_str.split(':'))
+        return hours * 60 + minutes
+
+    def format_time(minutes):
+        hours = minutes // 60
+        minutes %= 60
+        return f"{hours:02}:{minutes:02}"
+
+    if not span or not booked:
+        raise ValueError("Invalid input: span and/or booked must be non-empty.")
+
+    start, end = span.split('-')
+    start_minutes = parse_time(start)
+    end_minutes = parse_time(end)
+
+    if start_minutes >= end_minutes:
+        raise ValueError("Invalid span: start time must be before end time.")
+
+    booked_times = sorted(map(parse_time, booked))
+
+    free_stretches = []
+    current_end = start_minutes
+
+    for appointment_start in booked_times:
+        if appointment_start > current_end:
+            free_stretches.append(format_time(current_end))
+            current_end = appointment_start
+        elif appointment_start == current_end:
+            # Overlapping appointments do not create a free stretch
+            continue
+
+    if current_end < end_minutes:
+        free_stretches.append(format_time(current_end))
+
+    return ", ".join(free_stretches) or "none"
+```

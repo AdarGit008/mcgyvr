@@ -1,0 +1,35 @@
+```typescript
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error("Length must be a non-negative integer.");
+  }
+
+  if (length === 0) return { takings: 0, pieces: [] };
+
+  const cuts = board.sort((a, b) => a[1] - b[1]);
+
+  let bestTakings = 0;
+  let bestPieces: number[] = [];
+
+  for (const [boardLength, price] of cuts) {
+    if (length < boardLength) break;
+
+    const newLength = length - boardLength;
+    const { takings, pieces } = cutRoll(newLength, cuts);
+
+    const totalTakings = pieces.reduce((acc, piece) => acc + prices[piece], 0);
+    if (totalTakings > bestTakings || 
+        (totalTakings === bestTakings && pieces.length > bestPieces.length)) {
+      bestTakings = totalTakings;
+      bestPieces = [...pieces, boardLength];
+    }
+  }
+
+  return { takings: bestTakings, pieces: bestPieces };
+}
+
+interface Cut {
+  takings: number;
+  pieces: number[];
+}
+```

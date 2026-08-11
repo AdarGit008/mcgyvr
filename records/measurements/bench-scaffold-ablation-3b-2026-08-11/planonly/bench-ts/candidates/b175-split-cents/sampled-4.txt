@@ -1,0 +1,34 @@
+```ts
+export function splitCents(total: number, weights: number[]): number[] {
+  if (typeof total !== 'number' || !Number.isFinite(total) || total < 0) {
+    throw new Error('Total must be a non-negative whole number.');
+  }
+
+  const totalCents = Math.abs(total);
+  const sumOfWeights = weights.reduce((acc, weight) => acc + weight, 0);
+
+  if (typeof sumOfWeights !== 'number' || !Number.isInteger(sumOfWeights)) {
+    throw new Error('Weights must be a list of positive whole numbers.');
+  }
+
+  if (weights.length === 0 || weights.some(weight => typeof weight !== 'number' || !Number.isInteger(weight) || weight <= 0)) {
+    throw new Error('Each weight must be a positive whole number.');
+  }
+
+  const parts = Array(weights.length).fill(0);
+  for (let i = 0; i < weights.length; i++) {
+    const shareWeight = Math.floor(totalCents * (weights[i] / sumOfWeights));
+    parts[i] += shareWeight;
+  }
+
+  let leftoverCents = totalCents - parts.reduce((acc, part) => acc + part, 0);
+  for (let j = weights.length - 1; j >= 0 && leftoverCents > 0; j--) {
+    if (parts[j] < Math.floor(parts[j] * sumOfWeights / weights[j])) {
+      parts[j]++;
+      leftoverCents--;
+    }
+  }
+
+  return parts;
+}
+```

@@ -1,0 +1,80 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not isinstance(prices, dict):
+        raise ValueError("Price list must be a dictionary.")
+    
+    cart = {}
+    total = 0
+    paid = 0
+    change = 0
+    session_state = "open"
+    
+    for event in events:
+        action, payload = event
+        
+        if not isinstance(action, str) or not isinstance(payload, list):
+            raise ValueError("Each event must be a list with an action and its payload.")
+        
+        action = action.lower()
+        payload = tuple(payload)
+        
+        if action == "scan":
+            item_name, quantity = payload
+            if item_name not in prices:
+                raise ValueError(f"Unknown item: {item_name}")
+            
+            price = prices[item_name]
+            if not isinstance(price, int) or price <= 0:
+                raise ValueError("Price must be a positive integer.")
+            
+            cart[item_name] = cart.get(item_name, 0) + quantity
+            total += price * quantity
+            
+        elif action == "void":
+            item_name, quantity = payload
+            if item_name not in cart:
+                raise ValueError(f"Item {item_name} is not in the cart.")
+            
+            if cart[item_name] <= quantity:
+                del cart[item_name]
+                total -= prices[item_name] * quantity
+            else:
+                cart[item_name] -= quantity
+            
+        elif action == "close":
+            if session_state != "open":
+                raise ValueError("Session already closed or cancelled.")
+            
+            if not cart:
+                raise ValueError("Cannot close an empty cart.")
+            
+            session_state = "payment"
+        
+        elif action == "pay":
+            amount, = payload
+            if not isinstance(amount, int) or amount <= 0:
+                raise ValueError("Pay amount must be a positive integer.")
+            
+            if session_state != "payment":
+                raise ValueError("Cannot pay in this state.")
+            
+            paid += amount
+            change = max(0, total - paid)
+            
+            if paid == total:
+                session_state = "paid"
+        
+        elif action == "cancel":
+            if session_state in ["open", "payment"]:
+                session_state = "cancelled"
+        
+        else:
+            raise ValueError(f"Unknown action: {action}")
+    
+    return {
+        "items": sorted(cart.items()),
+        "total": total,
+        "paid": paid,
+        "change": change
+    }
+```

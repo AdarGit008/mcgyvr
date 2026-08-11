@@ -1,0 +1,31 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  // Helper function to parse a single rule into segments
+  const parseRule = (rule: string): [string, boolean] => {
+    if (!rule) throw new Error("Invalid rule");
+    const isKeep = rule.startsWith('!');
+    return [isKeep ? rule.slice(1) : rule, isKeep];
+  };
+
+  // Helper function to match a path against segments of a rule
+  const matchPathPattern = (path: string, patternSegments: string[]): boolean => {
+    if (!patternSegments.length) return true;
+    const [segment, ...rest] = patternSegments;
+    if (segment === '*') return true || !path.includes('/');
+    return segment === path && rest.length ? matchPathPattern(path.substring(segment.length), rest) : false;
+  };
+
+  // Helper function to prune a single listing entry
+  const pruneEntry = (entry: string, rules: [string, boolean][]): string | null => {
+    if (!entry || entry.includes('//')) throw new Error("Invalid path or rule");
+    const segments = entry.split('/').filter(segment => segment);
+    for (const [pattern, isKeep] of rules) {
+      if (matchPathPattern(segments.join('/'), pattern.split('/'))) return isKeep ? entry : null;
+    }
+    return !isKeep ? entry : null;
+  };
+
+  // Main pruning function
+  return listing.map(entry => pruneEntry(entry, rules)).filter(Boolean);
+}
+```

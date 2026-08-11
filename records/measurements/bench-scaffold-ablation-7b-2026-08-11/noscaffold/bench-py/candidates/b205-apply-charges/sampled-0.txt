@@ -1,0 +1,32 @@
+```python
+from typing import Dict, List, Tuple
+
+class ChargeResult:
+    def __init__(self, left: Dict[str, int], refused: List[Tuple[str, str]]):
+        self.left = left
+        self.refused = refused
+
+def apply_charges(caps: dict, charges: list) -> dict:
+    remaining_caps = {bucket: allowance for bucket, (allowance, _) in caps.items()}
+    refused = []
+
+    for charge_id, bucket, amount in charges:
+        if not isinstance(amount, int) or amount <= 0:
+            raise ValueError("Amount must be a positive whole number")
+
+        if bucket not in remaining_caps:
+            refused.append((charge_id, "unknown"))
+            continue
+
+        if amount > caps[bucket][1]:
+            refused.append((charge_id, "single"))
+            continue
+
+        if amount > remaining_caps[bucket]:
+            refused.append((charge_id, "cap"))
+            continue
+
+        remaining_caps[bucket] -= amount
+
+    return ChargeResult(remaining_caps, refused).__dict__
+```

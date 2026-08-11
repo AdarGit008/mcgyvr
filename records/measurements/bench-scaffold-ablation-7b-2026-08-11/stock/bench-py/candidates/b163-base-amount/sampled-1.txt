@@ -1,0 +1,21 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    
+    if unit == base and unit in defs:
+        raise ValueError(f"loop detected: {unit} is its own finer unit")
+    
+    while unit != base:
+        if unit not in defs:
+            raise ValueError(f"unknown unit: {unit}")
+        
+        factor, finer = defs[unit]
+        if not isinstance(factor, int) or factor <= 0:
+            raise ValueError(f"bad factor for {unit}: {factor}")
+        
+        amount *= factor
+        unit = finer
+    
+    return amount
+```

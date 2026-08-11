@@ -1,0 +1,34 @@
+```ts
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || !links) {
+    throw new Error("Invalid 'links' argument. Expecting a mapping.");
+  }
+  if (!Object.keys(links).includes(start)) {
+    throw new Error(`Invalid 'start' argument. '${start}' is not in the links.`);
+  }
+
+  let visited = new Set<string>();
+  const path: string[] = [start];
+
+  function traverse(post: string): void {
+    if (visited.has(post)) {
+      throw new Error("Circular handoff detected.");
+    }
+    visited.add(post);
+    if (!links.hasOwnProperty(post) || Object.keys(links).includes(post)) {
+      links[post] = '';
+    }
+    path.push(links[post]);
+    traverse(links[post]);
+  }
+
+  try {
+    traverse(start);
+  } catch (error) {
+    console.error(error.message);
+    return [];
+  }
+
+  return path;
+}
+```

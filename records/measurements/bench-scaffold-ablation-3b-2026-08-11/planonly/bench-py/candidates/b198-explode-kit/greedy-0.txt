@@ -1,0 +1,41 @@
+```python
+from typing import Dict
+
+def explode_kit(catalog: dict, kit: str, want: int) -> Dict[str, int]:
+    """
+    Calculate the total parts consumed by a given number of units of a kit.
+
+    :param catalog: A dictionary where keys are kit names and values are tuples (makes, parts).
+                   'makes' is an integer indicating how many finished units one run produces.
+                   'parts' is a list of tuples (component, count) representing the components needed for one run.
+    :param kit: The name of the kit to explode.
+    :param want: The number of units of the kit to produce.
+    :return: A dictionary mapping base parts to their total consumption.
+    """
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' is not defined in the catalog.")
+
+    def calculate_parts(kit_name, quantity):
+        makes, parts = catalog[kit_name]
+        runs = (quantity + makes - 1) // makes
+        total_parts = {part[0]: part[1] * runs for part in parts}
+        return total_parts
+
+    base_parts_consumed = {}
+    current_kit = kit
+    while want > 0:
+        if current_kit not in catalog:
+            raise ValueError(f"Kit '{current_kit}' is not defined in the catalog.")
+        
+        makes, parts = catalog[current_kit]
+        runs = (want + makes - 1) // makes
+        total_parts = {part[0]: part[1] * runs for part in parts}
+        
+        base_parts_consumed.update(total_parts)
+        want -= makes * runs
+        
+        if want > 0:
+            current_kit = next((part[0] for part in parts if catalog.get(part[0])), None)
+
+    return base_parts_consumed
+```

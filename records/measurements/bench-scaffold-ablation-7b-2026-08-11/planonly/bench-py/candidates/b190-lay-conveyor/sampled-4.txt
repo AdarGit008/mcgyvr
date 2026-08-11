@@ -1,0 +1,19 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    if length == 0:
+        raise ValueError("Run covering no cells is not allowed.")
+    
+    if row < 0 or row >= len(floor):
+        raise ValueError("Row is out of bounds.")
+    
+    if col < 0 or col + length > len(floor[row]):
+        raise ValueError("Run would leave the plan horizontally.")
+    
+    new_floor = floor[:]
+    for i in range(length):
+        if floor[row][col + i] != ".":
+            raise ValueError("Run covers a cell that is not open.")
+        new_floor[row] = new_floor[row][:col + i] + "=" + new_floor[row][col + i + 1:]
+    
+    return new_floor
+```

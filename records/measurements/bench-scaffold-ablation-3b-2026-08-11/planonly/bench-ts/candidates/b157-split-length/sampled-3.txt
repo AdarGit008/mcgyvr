@@ -1,0 +1,24 @@
+```ts
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Invalid length: must be a non-negative integer.");
+  }
+
+  const LADDER = [
+    { value: 1000, symbol: "m" },
+    { value: 100, symbol: "cm" },
+    { value: 1, symbol: "mm" }
+  ];
+
+  let result = [];
+  for (const { value, symbol } of LADDER) {
+    const count = Math.floor(mm / value);
+    if (count > 0) {
+      result.push(`${count}${symbol}`);
+      mm -= count * value;
+    }
+  }
+
+  return result.join(" ");
+}
+```

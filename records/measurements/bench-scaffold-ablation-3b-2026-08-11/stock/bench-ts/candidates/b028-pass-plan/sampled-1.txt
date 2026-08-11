@@ -1,0 +1,77 @@
+```typescript
+
+/** The cheapest set of travel passes covering every trip day. */
+
+function validatePlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): void {
+  for (const day of tripDays) {
+    if (!Number.isInteger(day) || day < 1) {
+      throw new Error("trip days must be positive integers");
+    }
+  }
+  for (let i = 1; i < tripDays.length; i += 1) {
+    if (tripDays[i] <= tripDays[i - 1]) {
+      throw new Error("trip days must be strictly increasing");
+    }
+  }
+  if (passes.length === 0) {
+    throw new Error("at least one pass kind is required");
+  }
+  for (const pass of passes) {
+    if (!Number.isInteger(pass.span) || pass.span < 1) {
+      throw new Error("pass span must be a positive integer");
+    }
+    if (!Number.isInteger(pass.cost) || pass.cost < 0) {
+      throw new Error("pass cost must be a non-negative integer");
+    }
+  }
+}
+
+function findCheapestPlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): { total: number; purchases: number[][] } | null {
+  if (tripDays.length === 0) {
+    return { total: 0, purchases: [] };
+  }
+
+  const dp = Array(tripDays[tripDays.length - 1] + 1).fill(Number.MAX_SAFE_INTEGER);
+  dp[0] = 0;
+
+  passes.forEach(({ span, cost }) => {
+    for (let i = span; i <= tripDays[tripDays.length - 1]; i++) {
+      dp[i] = Math.min(dp[i], dp[i - span] + cost);
+    }
+  });
+
+  const total = dp[dp.length - 1];
+  if (total === Number.MAX_SAFE_INTEGER) {
+    throw new Error("no valid plan exists");
+  }
+
+  let purchases: number[][] = [];
+  for (let i = tripDays[tripDays.length - 1]; i > 0; i--) {
+    const costToCover = dp[i] - dp[i - 1];
+    if (costToCover >= 0) {
+      purchases.push([i - span + 1, span]);
+      total -= dp[i - span] - cost;
+    }
+  }
+
+  return { total, purchases };
+}
+
+export function cheapestPassPlan(
+  tripDays: number[],
+  passes: { span: number; cost: number }[],
+): { total: number; purchases: number[][] } {
+  validatePlan(tripDays, passes);
+  const result = findCheapestPlan(tripDays, passes);
+  if (!result) {
+    throw new Error("no valid plan exists");
+  }
+  return result;
+}
+```

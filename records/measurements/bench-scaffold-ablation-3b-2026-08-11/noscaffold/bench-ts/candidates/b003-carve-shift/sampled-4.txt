@@ -1,0 +1,45 @@
+```ts
+export function carveShift(
+  start: number,
+  end: number,
+  span: number,
+  rest: number,
+  least: number
+): number[][] {
+  if (
+    !Number.isInteger(start) ||
+    !Number.isInteger(end) ||
+    !Number.isInteger(span) ||
+    !Number.isInteger(rest) ||
+    !Number.isInteger(least) ||
+    start >= end ||
+    span < 1 ||
+    rest < 1 ||
+    least < 1 || // Ensure least is not below 1 or above span
+    least > span
+  ) {
+    throw new Error("Invalid argument");
+  }
+
+  const stretches: number[][] = [];
+  let currentStart = start;
+  let currentSpan = 0;
+
+  while (currentStart < end) {
+    if (end - currentStart >= span) {
+      currentSpan += span;
+    } else {
+      // If the remaining shift is less than the least, stop carving
+      if (currentSpan !== 0 && currentSpan < least) {
+        break;
+      }
+      stretches.push([currentStart, start + currentSpan]);
+      currentSpan = rest; // Switch to a rest period
+    }
+
+    currentStart += rest; // Move to the next rest period
+  }
+
+  return stretches;
+}
+```

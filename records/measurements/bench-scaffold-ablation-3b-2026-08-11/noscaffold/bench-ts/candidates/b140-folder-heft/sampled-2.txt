@@ -1,0 +1,75 @@
+```typescript
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  const paths: string[] = [];
+
+  function traverse(node: any, currentPath: string) {
+    if (typeof node !== 'object' || Array.isArray(node)) throw new Error('Invalid node');
+    for (const [name, value] of Object.entries(node)) {
+      const fullPath = currentPath ? `${currentPath}/${name}` : name;
+      if (typeof name !== 'string' || name.includes('/')) throw new Error('Invalid name');
+      if (Array.isArray(value) && typeof value[0] === 'object') throw new Error('Invalid children type');
+      if ((typeof value === 'number' && isNaN(value)) || !Number.isSafeInteger(value)) throw new Error('Invalid bytes type');
+
+      if (name === 'bytes') {
+        paths.push(fullPath);
+      } else if (Array.isArray(value) && value.length > 0) {
+        traverse(value[0], fullPath);
+      }
+    }
+  }
+
+  traverse(root, '');
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+
+  function calculateBytes(node: any): number {
+    if (typeof node !== 'object' || Array.isArray(node)) throw new Error('Invalid node');
+    let totalBytes = 0;
+    for (const [name, value] of Object.entries(node)) {
+      if (typeof name !== 'string' || name.includes('/')) throw new Error('Invalid name');
+      if (Array.isArray(value) && typeof value[0] === 'object') throw new Error('Invalid children type');
+      if ((typeof value === 'number' && isNaN(value)) || !Number.isSafeInteger(value)) throw new Error('Invalid bytes type');
+
+      if (name === 'bytes') {
+        totalBytes += value;
+      } else if (Array.isArray(value) && value.length > 0) {
+        totalBytes += calculateBytes(value[0]);
+      }
+    }
+    return totalBytes;
+  }
+
+  return calculateBytes(root);
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  if ((typeof minBytes !== 'number' && isNaN(minBytes)) || !Number.isSafeInteger(minBytes) || minBytes < 0) throw new Error('Invalid minBytes type');
+
+  const heavyFolders: [string, number][] = [];
+
+  function traverse(node: any, currentPath: string, totalBytes: number) {
+    if (typeof node !== 'object' || Array.isArray(node)) throw new Error('Invalid node');
+    for (const [name, value] of Object.entries(node)) {
+      const fullPath = currentPath ? `${currentPath}/${name}` : name;
+      if (typeof name !== 'string' || name.includes('/')) throw new Error('Invalid name');
+      if (Array.isArray(value) && typeof value[0] === 'object') throw new Error('Invalid children type');
+      if ((typeof value === 'number' && isNaN(value)) || !Number.isSafeInteger(value)) throw new Error('Invalid bytes type');
+
+      if (name === 'bytes') {
+        totalBytes += value;
+        if (totalBytes >= minBytes) heavyFolders.push([fullPath, totalBytes]);
+      } else if (Array.isArray(value) && value.length > 0) {
+        traverse(value[0], fullPath, totalBytes);
+      }
+    }
+  }
+
+  traverse(root, '', treeBytes(root));
+  return heavyFolders;
+}
+```

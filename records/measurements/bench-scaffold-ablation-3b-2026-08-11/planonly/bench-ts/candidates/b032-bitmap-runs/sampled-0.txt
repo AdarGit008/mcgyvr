@@ -1,0 +1,78 @@
+```typescript
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+
+  const wordsCount = Math.ceil(capacity / 32);
+  if (words.length !== wordsCount) {
+    throw new Error("Word count does not agree with the capacity.");
+  }
+
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("Length must be a positive integer.");
+  }
+
+  for (let i = 0; i < words.length; i++) {
+    if (!Number.isInteger(words[i]) || words[i] < 0 || words[i] > 4294967295) {
+      throw new Error("Word list must contain integers from 0 to 4294967295.");
+    }
+  }
+
+  const maxStart = capacity - length;
+  for (let start = 0; start <= maxStart; start++) {
+    let freeBlocks = true;
+    for (let i = start; i < start + length && freeBlocks; i++) {
+      if (bitAt(words, i)) {
+        freeBlocks = false;
+      }
+    }
+    if (freeBlocks) {
+      return start;
+    }
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Number.isInteger(start) || !Number.isInteger(length)) {
+    throw new Error("Start and length must be integers.");
+  }
+
+  const maxStart = words.length * 32 - 1;
+  if (start < 0 || start > maxStart) {
+    throw new Error("Start index out of range.");
+  }
+
+  const end = start + length;
+  if (end > maxStart) {
+    throw new Error("Length exceeds the capacity.");
+  }
+
+  for (let i = start; i < end; i++) {
+    const wordIndex = Math.floor(i / 32);
+    const bitIndex = i % 32;
+
+    words[wordIndex] |= (1 << bitIndex);
+  }
+
+  return words;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index) || index < 0) {
+    throw new Error("Index must be a non-negative integer.");
+  }
+
+  const maxIndex = words.length * 32 - 1;
+  if (index > maxIndex) {
+    throw new Error("Index out of range.");
+  }
+
+  const wordIndex = Math.floor(index / 32);
+  const bitIndex = index % 32;
+
+  return (words[wordIndex] >> bitIndex) & 1;
+}
+```

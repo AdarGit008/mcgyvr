@@ -1,0 +1,20 @@
+```python
+def split_length(mm: int) -> str:
+    if not isinstance(mm, int) or mm < 0:
+        raise ValueError("Length must be a non-negative integer")
+
+    units = []
+    if mm >= 1000:
+        meters = mm // 1000
+        units.append(f"{meters}m")
+        mm %= 1000
+    if mm >= 10:
+        centimeters = mm // 10
+        units.append(f"{centimeters}cm")
+        mm %= 10
+
+    if mm > 0:
+        units.append(f"{mm}mm")
+
+    return " ".join(units) or "0mm"
+```

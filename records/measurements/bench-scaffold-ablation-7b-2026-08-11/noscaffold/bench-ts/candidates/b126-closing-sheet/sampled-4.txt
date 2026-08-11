@@ -1,0 +1,51 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Arguments must be strings');
+  }
+
+  const parseEntry = (entry: string) => {
+    const [name, count] = entry.split(':');
+    if (!/^[a-z]+$/.test(name) || isNaN(parseInt(count))) {
+      throw new Error('Malformed sheet entry');
+    }
+    return { name, count: parseInt(count) };
+  };
+
+  const parseMove = (move: string) => {
+    const [name, qtyStr] = move.split(/[+-]/);
+    const qty = parseInt(qtyStr);
+    if (!/^[a-z]+$/.test(name) || isNaN(qty) || qty <= 0) {
+      throw new Error('Malformed move');
+    }
+    return { name, qty, isAdd: move.startsWith('+') };
+  };
+
+  const entries = opening.split(';').filter(Boolean).map(parseEntry);
+  if (new Set(entries.map(e => e.name)).size !== entries.length) {
+    throw new Error('Duplicate item names on the opening sheet');
+  }
+
+  moves.split(';').filter(Boolean).forEach(move => {
+    const { name, qty, isAdd } = parseMove(move);
+
+    const entryIndex = entries.findIndex(e => e.name === name);
+    if (entryIndex === -1) {
+      throw new Error('Issue of an item the sheet does not hold');
+    }
+
+    const currentCount = entries[entryIndex].count;
+    if ((isAdd && currentCount + qty < 0) || (!isAdd && currentCount - qty < 0)) {
+      throw new Error('Issue of more units than the item then holds');
+    }
+
+    entries[entryIndex].count += isAdd ? qty : -qty;
+  });
+
+  return entries
+    .filter(e => e.count > 0)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(e => `${e.name}:${e.count}`)
+    .join(';');
+}
+```

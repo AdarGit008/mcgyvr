@@ -1,0 +1,52 @@
+```python
+"""The cheapest set of travel passes covering every trip day."""
+
+
+def _validate_plan(trip_days, passes):
+    for day in trip_days:
+        if isinstance(day, bool) or not isinstance(day, int) or day < 1:
+            raise ValueError("trip days must be positive integers")
+    for earlier, later in zip(trip_days, trip_days[1:]):
+        if later <= earlier:
+            raise ValueError("trip days must be strictly increasing")
+    if not passes:
+        raise ValueError("at least one pass kind is required")
+    for cover in passes:
+        span = cover["span"]
+        cost = cover["cost"]
+        if isinstance(span, bool) or not isinstance(span, int) or span < 1:
+            raise ValueError("pass span must be a positive integer")
+        if isinstance(cost, bool) or not isinstance(cost, int) or cost < 0:
+            raise ValueError("pass cost must be a non-negative integer")
+
+
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    _validate_plan(trip_days, passes)
+    
+    # Sort passes by span in ascending order
+    sorted_passes = sorted(passes, key=lambda x: x["span"])
+    
+    total_cost = 0
+    purchases = []
+    
+    # Iterate over each trip day and buy the cheapest pass that covers it
+    for day in trip_days:
+        # Find the cheapest pass that covers this day
+        best_pass = None
+        min_cost = float('inf')
+        for pass_info in sorted_passes:
+            if pass_info["span"] > 0 and pass_info["span"] + pass_info["start"] - 1 >= day:
+                cost = pass_info["cost"]
+                if cost < min_cost:
+                    min_cost = cost
+                    best_pass = pass_info
+        
+        # If no pass covers this day, raise an error
+        if best_pass is None:
+            raise ValueError("could not find a pass to cover trip day", day)
+        
+        total_cost += min_cost
+        purchases.append((best_pass["start"], best_pass["span"]))
+    
+    return {"total": total_cost, "purchases": purchases}
+```

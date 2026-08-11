@@ -1,0 +1,18 @@
+```typescript
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error('Invalid length');
+  }
+
+  const units: { [key: string]: number } = {
+    'm': Math.floor(mm / 1000),
+    'cm': Math.floor((mm % 1000) / 10),
+    'mm': mm % 10
+  };
+
+  return Object.entries(units)
+    .filter(([_, count]) => count > 0)
+    .map(([unit, count]) => `${count}${unit}`)
+    .join(' ');
+}
+```

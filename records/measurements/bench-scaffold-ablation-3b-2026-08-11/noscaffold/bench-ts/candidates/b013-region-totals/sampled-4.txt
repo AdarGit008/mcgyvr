@@ -1,0 +1,35 @@
+```typescript
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (!grid.length || !grid[0].length) throw new Error("Grid must have at least one row and one column.");
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+
+  // Check that all rows are of equal length
+  for (let i = 1; i < numRows; i++) {
+    if (grid[i].length !== numCols) throw new Error("All rows must have the same number of elements.");
+  }
+
+  // Check that all queries are exactly four integers and within bounds
+  const validQueries = queries.filter(query => query.length === 4 && query.every(isInteger));
+  for (const [top, left, bottom, right] of validQueries) {
+    if (top >= bottom || left >= right) throw new Error("Query top must be strictly less than bottom and left must be strictly less than right.");
+    if (top < 0 || left < 0) throw new Error("Query coordinates cannot be negative.");
+    if (bottom > numRows || right > numCols) throw new Error("Query reaches outside the grid.");
+  }
+
+  // Create a prefix-sum table
+  const prefixSum: number[][] = Array.from({ length: numRows + 1 }, () => Array(numCols + 1).fill(0));
+  for (let i = 1; i <= numRows; i++) {
+    for (let j = 1; j <= numCols; j++) {
+      prefixSum[i][j] = grid[i - 1][j - 1] + prefixSum[i - 1][j] + prefixSum[i][j - 1] - prefixSum[i - 1][j - 1];
+    }
+  }
+
+  // Compute the block totals for valid queries
+  const blockTotals: number[] = validQueries.map(([top, left, bottom, right]) => {
+    return prefixSum[bottom][right] - prefixSum[bottom][left - 1] - prefixSum[top - 1][right] + prefixSum[top - 1][left - 1];
+  });
+
+  return blockTotals;
+}
+```

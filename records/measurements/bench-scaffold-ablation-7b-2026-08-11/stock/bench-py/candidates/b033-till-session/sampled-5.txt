@@ -1,0 +1,79 @@
+```python
+"""One point-of-sale till session, replayed from its events."""
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> dict:
+    for name, price in prices.items():
+        if isinstance(price, bool) or not isinstance(price, int) or price <= 0:
+            raise ValueError("price must be a positive integer: " + str(name))
+
+    state = {
+        OPEN: {"cart": {}, "total": None, "paid": 0, "change": 0},
+        PAYMENT: {"cart": {}, "total": None, "paid": 0, "change": 0},
+        PAID: {"cart": {}, "total": None, "paid": 0, "change": 0},
+        CANCELLED: {"cart": {}, "total": None, "paid": 0, "change": 0},
+    }
+
+    current_state = OPEN
+
+    for event in events:
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("event must be a list of action and exactly one payload")
+
+        action, payload = event
+        cart = state[current_state]["cart"]
+        total = state[current_state].get("total")
+        paid = state[current_state]["paid"]
+
+        if current_state == OPEN:
+            if action == "scan":
+                if payload not in prices:
+                    raise ValueError("item not in price list: " + str(payload))
+                cart[payload] = cart.get(payload, 0) + 1
+            elif action == "void":
+                if payload not in cart or cart[payload] == 0:
+                    raise ValueError("attempt to void item not in cart or already zero: " + str(payload))
+                cart[payload] -= 1
+            elif action == "close":
+                if not cart:
+                    raise ValueError("cannot close an empty cart")
+                state[PAYMENT] = {"cart": dict(sorted(cart.items())), "total": sum(prices[name] * quantity for name, quantity in cart.items()), "paid": 0, "change": 0}
+                current_state = PAYMENT
+            elif action == "pay":
+                raise ValueError("cannot pay during open session")
+            elif action == "cancel":
+                state[CANCELLED] = {"cart": {}, "total": None, "paid": 0, "change": 0}
+                current_state = CANCELLED
+            else:
+                raise ValueError("unknown action: " + str(action))
+        elif current_state == PAYMENT:
+            if action == "scan":
+                raise ValueError("cannot scan during payment session")
+            elif action == "void":
+                if payload not in cart or cart[payload] == 0:
+                    raise ValueError("attempt to void item not in cart or already zero: " + str(payload))
+                cart[payload] -= 1
+            elif action == "close":
+                raise ValueError("cannot close during payment session")
+            elif action == "pay":
+                if not isinstance(payload, int) or payload <= 0:
+                    raise ValueError("pay amount must be a positive integer: " + str(payload))
+                paid += payload
+                change = max(paid - total, 0)
+                state[PAID] = {"cart": dict(sorted(cart.items())), "total": total, "paid": paid, "change": change}
+                current_state = PAID
+            elif action == "cancel":
+                state[CANCELLED] = {"cart": {}, "total": None, "paid": 0, "change": 0}
+                current_state = CANCELLED
+            else:
+                raise ValueError("unknown action: " + str(action))
+        elif current_state in (PAID, CANCELLED):
+            raise ValueError("cannot process events after session is paid or cancelled")
+
+    return state[current_state]
+```

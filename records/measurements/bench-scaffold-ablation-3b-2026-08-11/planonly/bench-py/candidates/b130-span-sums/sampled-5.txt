@@ -1,0 +1,45 @@
+```python
+def parse_span(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    parts = text.split()
+    
+    if len(parts) < 3 or len(parts) > 4:
+        raise ValueError("Span must contain exactly three or four parts.")
+    
+    unit_map = {'yd': 36, 'ft': 12, 'in': 1}
+    
+    total_inches = 0
+    for i in range(len(parts) - 1):
+        value, unit = parts[i], parts[i + 1]
+        
+        if not value.isdigit() or int(value) < 0:
+            raise ValueError("Value must be a non-negative integer.")
+        if unit not in unit_map:
+            raise ValueError(f"Unknown unit: {unit}")
+        
+        total_inches += int(value) * unit_map[unit]
+    
+    return total_inches
+
+def format_span(inches: int) -> str:
+    units = ['yd', 'ft', 'in']
+    factor = 108
+    value = inches
+    
+    result = []
+    for unit in units:
+        new_value, remainder = divmod(value, factor)
+        result.append(str(new_value))
+        if new_value > 0 or unit != 'in':
+            result[-1] += f"{unit}"
+        if remainder == 0 and unit != 'yd':
+            break
+        value = remainder
+    
+    return ' '.join(result)
+
+def add_spans(first: str, second: str) -> str:
+    total_inch = parse_span(first) + parse_span(second)
+    return format_span(total_inch)
+```

@@ -1,0 +1,92 @@
+```python
+def find_free_run(words: list, capacity: int, length: int) -> int:
+    """
+    Finds the smallest start of a free run of length 'length' lying entirely below the capacity.
+
+    :param words: List of 32-bit words representing the bitmap.
+    :param capacity: Total capacity in blocks (max index + 1).
+    :param length: Length of the free block run to find.
+    :return: Start index of the free run or -1 if none exists.
+    """
+    if not isinstance(words, list) or not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("Bitmap must be a list of integers from 0 to 4294967295.")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    word_count = len(words)
+    expected_word_count = (capacity + 31) // 32
+    if expected_word_count != word_count:
+        raise ValueError("Word count does not match the capacity.")
+    
+    last_used_word_index = capacity // 32 - 1
+    
+    for start_word_index in range(last_used_word_index + 1):
+        first_free_bit = start_word_index * 32
+        bit_at_start_word = bits & (1 << first_free_bit)
+        
+        if bit_at_start_word == 0:
+            end_word_index = min(start_word_index + length - 1, last_used_word_index)
+            for word_index in range(start_word_index, end_word_index + 1):
+                all_bits_occupied = True
+                for bit_position in range(32):
+                    if (bits >> (word_index * 32 + bit_position)) & 1:
+                        all_bits_occupied = False
+                        break
+                if all_bits_occupied:
+                    return word_index * 32
+            
+            for word_index in range(end_word_index + 1, last_used_word_index + 1):
+                if bits >> (word_index * 32) != 0:
+                    raise ValueError("Run touches an occupied block.")
+        
+        bits >>= 32
+    
+    return -1
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    """
+    Marks a run of blocks starting at 'start' with the given 'length'.
+
+    :param words: List of 32-bit words representing the bitmap.
+    :param start: Starting index of the block run to mark.
+    :param length: Length of the block run to mark.
+    :return: Updated list of 32-bit words with the run marked occupied.
+    """
+    if not isinstance(words, list) or not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("Bitmap must be a list of integers from 0 to 4294967295.")
+    if start < 0 or length <= 0:
+        raise ValueError("Start index and length must be non-negative, with length positive.")
+    
+    end = start + length
+    if end > len(words) * 32:
+        raise ValueError("Run does not lie wholly inside the words.")
+    
+    for word_index in range(start // 32, end // 32):
+        bits = words[word_index]
+        for bit_position in range(32):
+            if start + bit_position >= end:
+                break
+            words[word_index] |= (1 << (bit_position + start % 32))
+    
+    return words
+
+def bit_at(words: list, index: int) -> int:
+    """
+    Returns the bit at the specified 'index'.
+
+    :param words: List of 32-bit words representing the bitmap.
+    :param index: Index of the bit to query.
+    :return: Bit value (0 or 1).
+    """
+    if not isinstance(words, list) or not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("Bitmap must be a list of integers from 0 to 4294967295.")
+    if index < 0:
+        raise ValueError("Index must be non-negative.")
+    
+    word_index = index // 32
+    bit_position = index % 32
+    
+    return (words[word_index] >> bit_position) & 1
+```

@@ -1,0 +1,21 @@
+```typescript
+export function formatBits(value: number, width: number): string {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new Error('Value must be a non-negative integer.');
+  }
+  
+  if (width % 4 !== 0 || width > 32) {
+    throw new Error('Width must be a positive multiple of four and no more than 32 bits.');
+  }
+
+  const binaryString = value.toString(2);
+  if (binaryString.length > width) {
+    throw new Error('Value does not fit in the specified width.');
+  }
+
+  const paddedBinaryString = binaryString.padStart(width, '0');
+  const nibbleGroups = paddedBinaryString.match(/.{1,4}/g);
+
+  return nibbleGroups.join(' ');
+}
+```

@@ -1,0 +1,44 @@
+```ts
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') throw new Error('Invalid input');
+  const match = text.match(/^(\d+)\.(\d{2})$/);
+  if (!match) throw new Error('Invalid format');
+  return parseInt(match[1], 10) * 100 + parseInt(match[2], 10);
+}
+
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || isNaN(cents) || !isFinite(cents)) throw new Error('Invalid input');
+  return `${cents < 0 ? '-' : ''}${Math.abs(Math.floor(cents / 100)).toString().padStart(1, '0')}.${String(cents % 100).padStart(2, '0')}`;
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (!Array.isArray(weights) || weights.length === 0) throw new Error('Empty weight list');
+  if (weights.some(weight => typeof weight !== 'number' || isNaN(weight) || !isFinite(weight) || weight < 0)) throw new Error('Invalid weight');
+  if (totalCents < 0) throw new Error('Negative total cents');
+  if (weights.reduce((sum, weight) => sum + weight, 0) === 0) throw new Error('Weights sum to zero');
+
+  const totalWeight = weights.reduce((sum, weight) => sum + (weight > 0 ? Math.floor(weight * totalCents / 100) : 0), 0);
+  const remainder = totalCents - totalWeight;
+  const shares = weights.map(weight => {
+    if (weight <= 0) return 0;
+    const exactValue = Math.floor(weight * totalCents / 100);
+    return exactValue + (remainder > 0 ? 1 : 0);
+  });
+
+  // Distribute the remainder to the shares with the largest remainders
+  for (let i = 0; i < remainder; i++) {
+    let maxIndex = -1;
+    let maxValue = -1;
+    for (let j = 0; j < weights.length; j++) {
+      if (weights[j] > 0 && shares[j] / weights[j] > maxValue) {
+        maxIndex = j;
+        maxValue = shares[j] / weights[j];
+      }
+    }
+    if (maxIndex !== -1) shares[maxIndex]++;
+    else break; // This should never happen
+  }
+
+  return shares;
+}
+```

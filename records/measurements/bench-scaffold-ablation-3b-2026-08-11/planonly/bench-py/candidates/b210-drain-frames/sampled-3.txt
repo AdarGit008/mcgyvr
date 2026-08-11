@@ -1,0 +1,40 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    """
+    Scans through a list of chunks and joins them to form a single string. This string is then scanned for markers.
+    A doubled marker is collapsed into one literal marker, ending a frame at a lone marker, and keeps any pending text
+    after the last ended frame.
+    
+    :param chunks: List of strings to be joined and scanned.
+    :param marker: Single character used to mark frames in the joined string.
+    :return: A dictionary with 'frames' as a list of ended frames and 'pending' as the remaining text.
+    """
+    if not isinstance(marker, str) or len(marker) != 1:
+        raise ValueError("Marker must be a single character.")
+    
+    joined_text = ''.join(chunks)
+    result = {'frames': [], 'pending': ''}
+    frame = []
+    
+    for char in joined_text:
+        if char == marker:
+            if not frame:
+                # End of the last frame
+                result['frames'].extend(frame)
+                frame.clear()
+            elif len(frame) == 1 and frame[0] == marker:
+                # Double marker, collapse it into a single literal marker
+                pass
+            else:
+                # Lone marker, end the current frame and start a new one
+                result['frames'].extend(frame)
+                frame.clear()
+        else:
+            frame.append(char)
+    
+    if frame:
+        # Add any remaining frame to the results
+        result['frames'].append(''.join(frame))
+    
+    return result
+```

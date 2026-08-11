@@ -1,0 +1,22 @@
+```python
+from math import ceil
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    if want <= 0:
+        raise ValueError("want must be greater than zero")
+    
+    if kit not in catalog:
+        raise ValueError(f"kit '{kit}' is not defined in the catalog")
+    
+    parts_needed = {}
+    runs = ceil(want / catalog[kit]['makes'])
+    for component, count in catalog[kit]['parts']:
+        if isinstance(component, str):
+            sub_parts = explode_kit(catalog, component, count * runs)
+            for part, amount in sub_parts.items():
+                parts_needed[part] = parts_needed.get(part, 0) + amount
+        else:
+            parts_needed[component] = parts_needed.get(component, 0) + count * runs
+    
+    return parts_needed
+```

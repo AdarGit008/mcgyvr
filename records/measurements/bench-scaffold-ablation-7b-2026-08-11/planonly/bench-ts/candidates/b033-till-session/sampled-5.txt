@@ -1,0 +1,74 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const initialState = 'open';
+  let cart: Record<string, number> = {};
+  let total = 0;
+  let paid = 0;
+  let state = initialState;
+
+  for (const event of events) {
+    if (state === 'closed' || state === 'cancelled') {
+      throw new Error('Event after session is paid or cancelled');
+    }
+
+    switch (event[0]) {
+      case 'scan':
+        const item = event[1] as string;
+        if (!prices[item] || prices[item] <= 0) {
+          throw new Error('Invalid price for item');
+        }
+        cart[item] = (cart[item] || 0) + 1;
+        break;
+
+      case 'void':
+        const voidItem = event[1] as string;
+        if (cart[voidItem]) {
+          cart[voidItem]--;
+          if (cart[voidItem] === 0) {
+            delete cart[voidItem];
+          }
+        } else {
+          throw new Error('Attempt to void an item not in the cart');
+        }
+        break;
+
+      case 'close':
+        if (Object.keys(cart).length === 0) {
+          throw new Error('Attempt to close with an empty cart');
+        }
+        total = Object.values(cart).reduce((acc, qty) => acc + qty * prices[event[1] as string], 0);
+        state = 'closed';
+        break;
+
+      case 'pay':
+        const payAmount = event[1] as number;
+        if (typeof payAmount !== 'number' || payAmount <= 0) {
+          throw new Error('Invalid payment amount');
+        }
+        paid += payAmount;
+        if (paid >= total) {
+          state = 'cancelled';
+        }
+        break;
+
+      case 'cancel':
+        state = 'cancelled';
+        break;
+
+      default:
+        throw new Error('Unknown action');
+    }
+  }
+
+  const items: [string, number][] = Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0]));
+  const change = paid - total;
+
+  return {
+    state,
+    items,
+    total,
+    paid,
+    change
+  };
+}
+```

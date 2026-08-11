@@ -1,0 +1,63 @@
+```python
+def parse_amount(text: str) -> int:
+    """Converts a decimal amount string to integer cents."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = text.split('.')
+    if len(parts) != 2 or len(parts[1]) != 2:
+        raise ValueError("Amount must be in the format 'xx.xx' with exactly two fraction digits.")
+    
+    integer_part = int(parts[0])
+    fractional_part = int(parts[1])
+    
+    if integer_part < 0 or fractional_part < 0:
+        raise ValueError("Both parts of the amount must be non-negative integers.")
+    
+    return integer_part * 100 + fractional_part
+
+def format_amount(cents: int) -> str:
+    """Converts integer cents back to a dotted form with exactly two fraction digits."""
+    if not isinstance(cents, int):
+        raise ValueError("Input must be an integer.")
+    
+    if cents < 0:
+        raise ValueError("Amount in cents cannot be negative.")
+    
+    dollars = cents // 100
+    cents_leftover = cents % 100
+    
+    return f"{dollars}.{cents_leftover:02d}"
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    """Allocates total_cents across a list of integer weights proportionally."""
+    if not isinstance(total_cents, int):
+        raise ValueError("Total cents must be an integer.")
+    
+    if total_cents < 0:
+        raise ValueError("Total cents cannot be negative.")
+    
+    if not isinstance(weights, list) or len(weights) == 0:
+        raise ValueError("Weights must be a non-empty list of non-negative integers.")
+    
+    for weight in weights:
+        if not isinstance(weight, int) or weight < 0:
+            raise ValueError("All weights must be non-negative integers.")
+    
+    total_weight = sum(weights)
+    if total_weight == 0:
+        raise ValueError("Total weights cannot be zero.")
+    
+    shares = [weight * total_cents // total_weight for weight in weights]
+    leftover_cents = total_cents - sum(shares)
+    
+    # Distribute leftover cents to the shares with the largest remainders
+    remainder_map = {i: (shares[i] % total_weight, i) for i in range(len(weights))}
+    sorted_remainders = sorted(remainder_map.items(), key=lambda x: (-x[0], x[1]))
+    
+    for i, (_, index) in sorted_remainders:
+        shares[index] += 1
+        leftover_cents -= 1
+    
+    return shares
+```

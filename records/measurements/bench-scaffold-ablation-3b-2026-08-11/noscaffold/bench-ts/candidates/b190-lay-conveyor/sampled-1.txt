@@ -1,0 +1,28 @@
+```ts
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+    // Check if the input is valid
+    if (row < 0 || row >= floor.length) {
+        throw new Error("Run would leave the plan horizontally");
+    }
+    if (col + length > floor[0].length) {
+        throw new Error("Run would leave the plan vertically");
+    }
+
+    // Check for open cells in the run's path
+    for (let i = col; i < col + length; i++) {
+        if (floor[row][i] !== ".") {
+            throw new Error(`Cell at [${row}, ${i}] is not an open cell`);
+        }
+    }
+
+    // Create a copy of the original floor plan
+    const result: string[] = [...floor];
+
+    // Lay the conveyor run
+    for (let i = col; i < col + length; i++) {
+        result[row] = result[row].substr(0, i) + "=" + result[row].substr(i + 1);
+    }
+
+    return result;
+}
+```

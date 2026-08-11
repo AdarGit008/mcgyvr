@@ -1,0 +1,42 @@
+```ts
+function splitStrict(input: string): string[] {
+  if (typeof input !== 'string' || input === '' || input.includes('//')) {
+    throw new Error('Invalid path or rule');
+  }
+  return input.split('/').filter(Boolean);
+}
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  const splitRules = rules.map(rule => {
+    if (rule === '!') {
+      throw new Error('Invalid rule');
+    }
+    const segments = splitStrict(rule);
+    if (segments.some(segment => segment === '')) {
+      throw new Error('Invalid rule');
+    }
+    return { keep: rule.startsWith('!'), segments };
+  });
+
+  return listing.filter(path => {
+    if (!path) {
+      throw new Error('Invalid path');
+    }
+    const segments = splitStrict(path);
+    if (segments.some(segment => segment === '')) {
+      throw new Error('Invalid path');
+    }
+    let matchedRule: { keep: boolean } | null = null;
+    for (const rule of splitRules) {
+      if (segments.length >= rule.segments.length) {
+        const matches = segments.slice(0, rule.segments.length).every((segment, index) => segment === '*' || segment === rule.segments[index]);
+        if (matches) {
+          matchedRule = rule.keep ? rule : null;
+          break;
+        }
+      }
+    }
+    return matchedRule !== null;
+  });
+}
+```

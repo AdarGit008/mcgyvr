@@ -1,0 +1,101 @@
+```typescript
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || Array.isArray(root)) {
+    throw new Error('Invalid root');
+  }
+
+  const paths: string[] = [];
+
+  function walk(node: any, path: string) {
+    if (typeof node !== 'object') {
+      throw new Error('Invalid node');
+    }
+    if (!Array.isArray(node.children)) {
+      throw new Error('Invalid children');
+    }
+    if (node.bytes !== undefined && node.children.length > 0) {
+      throw new Error('Node cannot have both bytes and children');
+    }
+    if (typeof node.name !== 'string' || node.name.includes('/')) {
+      throw new Error('Invalid name');
+    }
+
+    paths.push(path);
+
+    for (const child of node.children) {
+      walk(child, `${path}/${child.name}`);
+    }
+  }
+
+  walk(root, '');
+
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || Array.isArray(root)) {
+    throw new Error('Invalid root');
+  }
+
+  let total = 0;
+
+  function traverse(node: any) {
+    if (typeof node !== 'object') {
+      throw new Error('Invalid node');
+    }
+    if (!Array.isArray(node.children)) {
+      throw new Error('Invalid children');
+    }
+    if (node.bytes !== undefined && node.children.length > 0) {
+      throw new Error('Node cannot have both bytes and children');
+    }
+
+    total += node.bytes || 0;
+
+    for (const child of node.children) {
+      traverse(child);
+    }
+  }
+
+  traverse(root);
+
+  return total;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || Array.isArray(root)) {
+    throw new Error('Invalid root');
+  }
+  if (!Number.isInteger(minBytes) || minBytes < 0) {
+    throw new Error('Invalid minBytes');
+  }
+
+  const heavyFolders: [string, number][] = [];
+
+  function traverse(node: any, path: string, total: number) {
+    if (typeof node !== 'object') {
+      throw new Error('Invalid node');
+    }
+    if (!Array.isArray(node.children)) {
+      throw new Error('Invalid children');
+    }
+    if (node.bytes !== undefined && node.children.length > 0) {
+      throw new Error('Node cannot have both bytes and children');
+    }
+
+    total += node.bytes || 0;
+
+    if (total >= minBytes) {
+      heavyFolders.push([path, total]);
+    }
+
+    for (const child of node.children) {
+      traverse(child, `${path}/${child.name}`, total);
+    }
+  }
+
+  traverse(root, '', 0);
+
+  return heavyFolders;
+}
+```

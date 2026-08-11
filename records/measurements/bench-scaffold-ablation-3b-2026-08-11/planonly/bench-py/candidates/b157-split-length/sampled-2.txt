@@ -1,0 +1,24 @@
+```python
+def split_length(mm: int) -> str:
+    """
+    Convert a length in millimetres to its workshop notation representation.
+    """
+    if mm is None or not isinstance(mm, int):
+        raise ValueError("Length must be a whole number.")
+    
+    if mm < 0:
+        raise ValueError("Negative length is not allowed.")
+    
+    ladder = [(1000, 'm'), (10, 'cm')]
+    result = []
+    
+    for unit_value, unit_symbol in ladder:
+        count, mm = divmod(mm, unit_value)
+        if count > 0:
+            result.append(f"{count}{unit_symbol}")
+    
+    if not result:
+        return "0mm"
+    
+    return ' '.join(result)
+```

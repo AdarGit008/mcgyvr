@@ -1,0 +1,58 @@
+```python
+"""Close out a stockroom count sheet after a day's receive and issue moves."""
+
+import re
+
+
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("closing_sheet expects two strings")
+
+    def parse_sheet(text):
+        held = {}
+        if text == "":
+            return held
+        for part in text.split(";"):
+            name, colon, count = part.partition(":")
+            if colon == "":
+                raise ValueError(f"sheet entry has no colon: {part}")
+            if re.fullmatch(r"[a-z]+", name) is None:
+                raise ValueError(f"bad item name: {part}")
+            if re.fullmatch(r"0|[1-9]\d*", count) is None:
+                raise ValueError(f"bad count: {part}")
+            if name in held:
+                raise ValueError(f"duplicate sheet entry: {name}")
+            held[name] = int(count)
+        return held
+
+    def apply_move(held, move):
+        if not isinstance(move, str):
+            raise ValueError("move must be a string")
+        parts = move.split("+", "-")
+        if len(parts) != 2:
+            raise ValueError(f"invalid move format: {move}")
+        name, qty_str = parts
+        if re.fullmatch(r"[a-z]+", name) is None:
+            raise ValueError(f"bad item name in move: {move}")
+        try:
+            qty = int(qty_str)
+        except ValueError:
+            raise ValueError(f"invalid quantity in move: {move}")
+        if name not in held:
+            if qty == 0:
+                return
+            raise ValueError(f"issue of non-existent item: {move}")
+        if held[name] < qty:
+            raise ValueError(f"issue more than available: {move}")
+        held[name] -= qty
+
+    held = parse_sheet(opening)
+    for move in moves.split(";"):
+        apply_move(held, move)
+
+    entries = []
+    for name in sorted(held):
+        if held[name] > 0:
+            entries.append(f"{name}:{held[name]}")
+    return ";".join(entries)
+```

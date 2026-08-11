@@ -1,0 +1,27 @@
+```typescript
+type Unit = "mm" | "cm" | "m";
+
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Invalid length. Must be a non-negative integer.");
+  }
+
+  const ladder = [
+    { name: "m", factor: 1000 },
+    { name: "cm", factor: 10 },
+    { name: "mm", factor: 1 },
+  ];
+
+  let result = "";
+  ladder.forEach(({ name, factor }) => {
+    const count = Math.floor(mm / factor);
+    if (count > 0) {
+      result += `${count}${name} `;
+      mm %= factor;
+    }
+  });
+
+  // Trim trailing space and return
+  return result.trim();
+}
+```

@@ -1,0 +1,44 @@
+```python
+def tile_renders(requests: list[tuple[int, str]], fresh_for: int, size: int) -> list[tuple[int, str]]:
+    if not isinstance(fresh_for, int) or fresh_for <= 0:
+        raise ValueError("fresh_for must be a positive whole number")
+    
+    if not isinstance(size, int) or size <= 0:
+        raise ValueError("size must be a positive whole number")
+    
+    cache = []
+    
+    for tick, name in requests:
+        if tick < len(cache):
+            # Request for a tile that is already cached and recent
+            continue
+        
+        if len(cache) == size:
+            # Cache is full, drop the oldest render by age or name
+            if fresh_for <= 0:
+                raise ValueError("Cannot have stale tiles in cache")
+            
+            oldest_age = float('inf')
+            oldest_name = None
+            
+            for i, (tick_cache, name_cache) in enumerate(cache):
+                age = tick - tick_cache
+                if age <= fresh_for:
+                    if age < oldest_age or (age == oldest_age and name_cache < name):
+                        oldest_age = age
+                        oldest_name = name_cache
+        
+        cache.append((tick, name))
+        
+        # Return the renders that happened
+        renders = [(tick, name) for tick_cache, name_cache in cache]
+        return renders
+
+# Example usage:
+# requests = [(10, 'tileA'), (20, 'tileB'), (30, 'tileC')]
+# fresh_for = 5
+# size = 3
+# print(tile_renders(requests, fresh_for, size))
+```
+
+This implementation handles the constraints and edge cases as described in the task contract. It ensures that only valid requests are processed and that the cache is managed correctly according to the specified rules.

@@ -1,0 +1,39 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("Count of leading ones must be an integer from 0 to 32");
+  }
+  let octets = [];
+  for (let i = 0; i < 4; i++) {
+    if (prefix >= 8 * (3 - i)) {
+      octet = Math.pow(2, 8) - 1;
+      prefix -= 8 * (3 - i);
+    } else {
+      octet = 0;
+    }
+    octets.push(octet);
+  }
+  return `${octets[0]}.${octets[1]}.${octets[2]}.${octets[3]}`;
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== "string" || !mask.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/)) {
+    throw new Error("Mask must be a valid dotted-quad format");
+  }
+  let octets = mask.split(".").map(Number);
+  for (let i = 0; i < 4; i++) {
+    if (!(octets[i] >= 0 && octets[i] <= 255)) {
+      throw new Error("Each octet must be a decimal number between 0 and 255");
+    }
+  }
+  let prefix = 32;
+  for (let i = 0; i < 4; i++) {
+    if (octets[i] === 0) {
+      prefix -= 8 * (i + 1);
+    } else if (octets[i] !== Math.pow(2, 8 - i) - 1 && octets[i] !== 0) {
+      throw new Error("Mask must not have one bits broken by a zero");
+    }
+  }
+  return prefix;
+}
+```

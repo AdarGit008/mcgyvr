@@ -1,0 +1,34 @@
+```typescript
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total)) throw new Error("total must be whole cents");
+  if (total < 0) throw new Error("total may not be negative");
+  if (!Array.isArray(weights) || weights.length === 0) throw new Error("weights must be a non-empty list");
+  if (!weights.every((w) => Number.isInteger(w) && w > 0)) throw new Error("a weight is a positive whole number");
+
+  const sumOfWeights = weights.reduce((a, b) => a + b, 0);
+
+  // Calculate the base parts
+  const baseParts: number[] = weights.map((weight) => Math.floor(total * weight / sumOfWeights));
+
+  // Calculate the total of base parts
+  const baseTotal = baseParts.reduce((acc, part) => acc + part, 0);
+
+  // Calculate the leftover cents
+  const leftoverCents = total - baseTotal;
+
+  // Sort partners by their discarded fraction in descending order
+  weights.sort((a, b) => {
+    const baseFractionA = (total * a) / sumOfWeights;
+    const baseFractionB = (total * b) / sumOfWeights;
+    return baseFractionB - baseFractionA;
+  });
+
+  // Distribute leftover cents starting from the partner with the largest discarded fraction
+  for (let i = 0; i < leftoverCents && i < weights.length; i++) {
+    parts[i] += 1;
+    leftoverCents -= 1;
+  }
+
+  return baseParts;
+}
+```

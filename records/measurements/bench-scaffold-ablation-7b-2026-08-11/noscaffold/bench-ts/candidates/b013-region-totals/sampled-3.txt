@@ -1,0 +1,53 @@
+```ts
+/**
+ * Calculates the sum of elements within specified regions in a grid.
+ * @param grid - A non-empty 2D array of integers with rows of equal length.
+ * @param queries - An array of queries, each with four integers [top, left, bottom, right] defining a subgrid.
+ * @returns An array of sums corresponding to each query.
+ */
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+    if (grid.length === 0 || grid[0].length === 0) {
+        throw new Error('Grid must have at least one row and one column.');
+    }
+
+    const rows = grid.length;
+    const cols = grid[0].length;
+
+    for (let i = 1; i < rows; i++) {
+        if (grid[i].length !== cols) {
+            throw new Error('All rows must have the same length.');
+        }
+    }
+
+    for (const query of queries) {
+        if (query.length !== 4) {
+            throw new Error('Query must contain exactly four integers.');
+        }
+        const [top, left, bottom, right] = query;
+        if (typeof top !== 'number' || typeof left !== 'number' || typeof bottom !== 'number' || typeof right !== 'number') {
+            throw new Error('Query elements must be integers.');
+        }
+        if (top < 0 || left < 0 || bottom > rows || right > cols) {
+            throw new Error('Query out of bounds.');
+        }
+        if (top >= bottom || left >= right) {
+            throw new Error('Invalid query range.');
+        }
+    }
+
+    const prefixSum = Array.from({ length: rows + 1 }, () => Array(cols + 1).fill(0));
+    for (let i = 1; i <= rows; i++) {
+        for (let j = 1; j <= cols; j++) {
+            prefixSum[i][j] = grid[i - 1][j - 1] + prefixSum[i - 1][j] + prefixSum[i][j - 1] - prefixSum[i - 1][j - 1];
+        }
+    }
+
+    return queries.map(([top, left, bottom, right]) => {
+        const a = prefixSum[top][left];
+        const b = prefixSum[top][right];
+        const c = prefixSum[bottom][left];
+        const d = prefixSum[bottom][right];
+        return d - (b + c - a);
+    });
+}
+```

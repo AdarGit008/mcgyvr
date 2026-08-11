@@ -1,0 +1,23 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string")
+    
+    # Check for lone star rule
+    if name == "*":
+        return next(iter(rules.values()), None)
+    
+    # Check for exact selector
+    if name in rules:
+        return rules[name]
+    
+    # Find the longest prefix wildcard that covers the name
+    max_prefix = ""
+    for key, value in rules.items():
+        if key.startswith(name):
+            if len(key) > len(max_prefix):
+                max_prefix = key
+    
+    # If no prefix wildcard matches, use the lone star rule
+    return next(iter(rules.values()), None)
+```

@@ -1,0 +1,19 @@
+```python
+def split_length(mm: int) -> str:
+    if not isinstance(mm, int) or mm < 0:
+        raise ValueError("Length must be a non-negative integer.")
+    
+    m = mm // 1000
+    cm = (mm % 1000) // 10
+    mm = mm % 10
+    
+    parts = []
+    if m > 0:
+        parts.append(f"{m}m")
+    if cm > 0:
+        parts.append(f"{cm}cm")
+    if mm > 0:
+        parts.append(f"{mm}mm")
+    
+    return " ".join(parts) or "0mm"
+```

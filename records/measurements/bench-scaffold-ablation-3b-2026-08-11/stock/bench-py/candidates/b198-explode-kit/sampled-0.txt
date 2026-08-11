@@ -1,0 +1,43 @@
+```python
+import math
+
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """Total the base parts an order of a kit consumes."""
+    if kit not in catalog:
+        raise ValueError(f"the catalog does not define {kit}")
+    
+    def get_total_parts(kit_name, run_count):
+        recipe = catalog[kit_name]
+        total_parts = 0
+        for component, count in recipe.items():
+            if component in catalog:
+                total_parts += count * (run_count + math.ceil(run_count / catalog[component][0]))
+            else:
+                total_parts += count * run_count
+        return total_parts
+    
+    totals = {}
+    
+    def process_kit(kit_name, want_units):
+        try:
+            run_count = math.ceil(want_units / catalog[kit_name][0])
+            parts_consumed = get_total_parts(kit_name, run_count)
+            if kit_name in totals:
+                totals[kit_name] += parts_consumed
+            else:
+                totals[kit_name] = parts_consumed
+            
+            want_units -= run_count * catalog[kit_name][0]
+            
+            remaining_kits = {comp: count for comp, count in catalog[kit_name].items() if comp != kit and comp not in totals}
+            for sub_kit, count in remaining_kits.items():
+                process_kit(sub_kit, want_units)
+        
+        except ZeroDivisionError:
+            raise ValueError("A component has a zero makes value, which is invalid.")
+    
+    process_kit(kit, want)
+    
+    return totals
+```

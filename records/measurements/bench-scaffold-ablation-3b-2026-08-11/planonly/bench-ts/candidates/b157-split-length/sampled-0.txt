@@ -1,0 +1,25 @@
+```typescript
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm)) {
+    throw new Error("Input must be a whole number.");
+  }
+  if (mm < 0) {
+    throw new Error("Input must not be negative.");
+  }
+
+  const LADDER = [
+    { unit: "m", divisor: 1000 },
+    { unit: "cm", divisor: 10 },
+    { unit: "mm" },
+  ];
+
+  return LADDER
+    .filter(unit => mm >= unit.divisor)
+    .map(({ unit, divisor }) => {
+      const count = Math.floor(mm / divisor);
+      mm -= count * divisor;
+      return count > 0 ? `${count}${unit}` : "";
+    })
+    .join(" ");
+}
+```

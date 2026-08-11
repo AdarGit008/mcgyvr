@@ -1,0 +1,40 @@
+```ts
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== "string" || row.length === 0) {
+    throw new Error("thawRow expects a non-empty string row");
+  }
+  const validChars = ["#", "."];
+  for (const char of row) {
+    if (!validChars.includes(char)) {
+      throw new Error("thawRow expects a row with only '#' and '.' characters");
+    }
+  }
+  if (!Number.isInteger(steps) || steps < 0) {
+    throw new Error("thawRow expects a non-negative integer number of steps");
+  }
+
+  const meltWater = (cell: string): string => cell === ".";
+  const iceCell = (cell: string): boolean =>
+    cell === "#" && (row.startsWith("#") || row.endsWith("#"));
+
+  for (let i = 0; i < steps; i++) {
+    let newRow = "";
+    for (let j = 0; j < row.length; j++) {
+      const cell = row[j];
+      if (
+        meltWater(cell) ||
+        (cell === "#" && iceCell(cell)) ||
+        (j > 0 && meltWater(row[j - 1])) ||
+        (j < row.length - 1 && meltWater(row[j + 1]))
+      ) {
+        newRow += ".";
+      } else {
+        newRow += cell;
+      }
+    }
+    row = newRow;
+  }
+
+  return row;
+}
+```

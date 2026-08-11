@@ -1,0 +1,55 @@
+```typescript
+/**
+ * Replays a POS till session from price list and events to produce the final state.
+ */
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  let cart: Map<string, number> = new Map();
+  let total: number = 0;
+  let paid: number = 0;
+  let change: number = 0;
+  let state: string = "open";
+
+  for (const event of events) {
+    if (state === "paid" || state === "cancelled") throw new Error("Event after session is paid or cancelled");
+
+    switch (event[0]) {
+      case "scan":
+        const itemScan = event[1] as string;
+        if (!(itemScan in prices)) throw new Error(`Unknown item: ${itemScan}`);
+        cart.set(itemScan, (cart.get(itemScan) || 0) + 1);
+        break;
+
+      case "void":
+        const itemVoid = event[1] as string;
+        if (!cart.has(itemVoid) || cart.get(itemVoid) === 0) throw new Error(`Item not in cart or already zero: ${itemVoid}`);
+        cart.set(itemVoid, (cart.get(itemVoid)! - 1));
+        break;
+
+      case "close":
+        if (cart.size === 0) throw new Error("Close with an empty cart");
+        state = "payment";
+        total = Array.from(cart.entries()).reduce((acc, [item, quantity]) => acc + prices[item]! * quantity, 0);
+        break;
+
+      case "pay":
+        const amountPay = event[1] as number;
+        if (typeof amountPay !== 'number' || amountPay <= 0) throw new Error("Invalid pay amount");
+        paid += amountPay;
+        change = paid - total;
+        state = "paid";
+        break;
+
+      case "cancel":
+        state = "cancelled";
+        break;
+
+      default:
+        throw new Error(`Unknown action: ${event[0]}`);
+    }
+  }
+
+  const items: [string, number][] = Array.from(cart.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+  return { state, items, total, paid, change };
+}
+```

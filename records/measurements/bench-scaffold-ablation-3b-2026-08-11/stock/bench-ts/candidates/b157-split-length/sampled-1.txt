@@ -1,0 +1,17 @@
+```typescript
+const LADDER: [string, number][] = [["m", 1000], ["cm", 10], ["mm", 1]];
+
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Invalid length: must be a non-negative integer.");
+  }
+
+  return LADDER
+    .map(([unit, divisor]) => {
+      const count = Math.floor(mm / divisor);
+      return count > 0 ? `${count}${unit}` : "";
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+```

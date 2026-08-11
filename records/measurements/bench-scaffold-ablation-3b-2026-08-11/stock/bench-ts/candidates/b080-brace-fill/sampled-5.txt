@@ -1,0 +1,60 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  const isPlaceholder = (char: string): boolean => char === '{';
+
+  const isValidNameChar = (char: string): boolean =>
+    /[a-zA-Z0-9_]/.test(char);
+
+  const parsePlaceholder = (index: number, template: string): { name: string, endIndex: number } | null => {
+    let name = '';
+    let endIndex = index + 1;
+
+    while (endIndex < template.length && isValidNameChar(template[endIndex])) {
+      name += template[endIndex];
+      endIndex++;
+    }
+
+    if (!name || !isPlaceholder(template[endIndex])) {
+      throw new Error("Invalid placeholder");
+    }
+
+    return { name, endIndex };
+  };
+
+  const buildOutput = (index: number, template: string, values: Record<string, string>): [string, number] => {
+    if (index >= template.length) {
+      return ['', template.length];
+    }
+
+    const char = template[index];
+
+    if (char === '{') {
+      const placeholder_info = parsePlaceholder(index, template);
+      if (!placeholder_info) return [''] + buildOutput(placeholder_info.endIndex, template, values);
+
+      const { name } = placeholder_info;
+      const value = values[name];
+      if (!value) throw new Error(`Unknown placeholder: ${name}`);
+
+      return [char + value + ']', endIndex];
+    }
+
+    return [char, index + 1];
+  };
+
+  let result = '';
+  let lastIndex = 0;
+
+  while (lastIndex < template.length) {
+    const [output, nextLastIndex] = buildOutput(lastIndex, template, values);
+    result += output;
+    lastIndex = nextLastIndex;
+  }
+
+  return result;
+}
+```

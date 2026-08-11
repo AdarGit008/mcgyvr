@@ -1,0 +1,33 @@
+```ts
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || !row || !/^[#\.\s]+$/g.test(row) || !Number.isInteger(steps) || steps < 0) {
+    throw new Error('Invalid input');
+  }
+
+  const rows = row.split('\n');
+
+  for (let i = 0; i < steps; i++) {
+    let newRow: string[] = [];
+
+    for (let j = 0; j < rows[i].length; j++) {
+      if (j === 0 || j === rows[i].length - 1) { // At the edges
+        newRow.push('.');
+      } else if (rows[i][j] === '#') { // Inside, not at an edge
+        const left = rows[i][j - 1];
+        const right = rows[i][j + 1];
+        if (left === '.' || right === '.') {
+          newRow.push('.');
+        } else {
+          newRow.push('#');
+        }
+      } else {
+        newRow.push(rows[i][j]);
+      }
+    }
+
+    rows[i] = newRow.join('');
+  }
+
+  return rows.join('\n');
+}
+```

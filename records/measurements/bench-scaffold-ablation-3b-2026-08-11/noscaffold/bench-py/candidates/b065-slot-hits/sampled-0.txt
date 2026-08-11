@@ -1,0 +1,25 @@
+```python
+def slot_hits(keys: list, slots: int) -> int:
+    """
+    Replays a stream of integer cache keys against a direct-mapped cache with a given number of slots.
+    
+    :param keys: List of integers representing the cache keys.
+    :param slots: Number of slots in the cache, must be a positive integer.
+    :return: Total number of hits in the cache.
+    """
+    if not isinstance(slots, int) or slots <= 0:
+        raise ValueError("Slot count must be a positive integer.")
+    
+    cache = [None] * slots
+    hits = 0
+    
+    for key in keys:
+        slot_index = abs(key) % slots
+        
+        if cache[slot_index] == key:
+            hits += 1
+        else:
+            cache[slot_index] = key
+    
+    return hits
+```

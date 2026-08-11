@@ -1,0 +1,24 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  const isValidPath = (path: string) => path && !/^\s*\/+|\/{2,}|\/\s*$/.test(path);
+  const isValidRule = (rule: string) => rule && !/^\/+/ && !/--+$/.test(rule);
+
+  if (!listing.every(isValidPath) || !rules.every((r) => r.startsWith('!') ? isValidRule(r.slice(1)) : isValidRule(r))) {
+    throw new Error("Invalid path or rule");
+  }
+
+  return listing.filter(path =>
+    rules.some((rule, index) => {
+      const isKeepRule = rule.startsWith('!');
+      if (!isKeepRule && (index === 0 || rules[index - 1].startsWith('!'))) return false;
+      const patternSegments = rule.split('/').filter(Boolean);
+      const pathSegments = path.split('/').filter(Boolean);
+      for (let i = 0; i < patternSegments.length; i++) {
+        if (patternSegments[i] === '*') continue;
+        if (i >= pathSegments.length || (patternSegments[i] !== '*' && patternSegments[i] !== pathSegments[i])) return false;
+      }
+      return true;
+    })
+  );
+}
+```

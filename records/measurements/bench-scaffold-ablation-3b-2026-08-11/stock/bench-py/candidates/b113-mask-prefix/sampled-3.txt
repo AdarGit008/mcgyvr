@@ -1,0 +1,49 @@
+```python
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("mask must be a string")
+    
+    # Split the mask into four octet fields based on the dot separator
+    parts = mask.split('.')
+    if len(parts) != 4:
+        raise ValueError("mask must contain exactly four dot-separated fields")
+    
+    def is_valid_octet(octet: str) -> bool:
+        # Check if the octet consists only of decimal digits and does not start with zero unless it's '0'
+        return all(char.isdigit() for char in octet) and (octet[0] == '0' or not octet.startswith('0'))
+    
+    def count_leading_ones(octet: int) -> int:
+        # Count the leading ones in an octet
+        if octet == 0:
+            return 8
+        for i in range(7, -1, -1):
+            if (octet >> i) & 1 == 1:
+                return 8 - i
+        return 0
+    
+    total_ones = 0
+    
+    for part in parts:
+        if not is_valid_octet(part):
+            raise ValueError(f"invalid octet {part}: must be a non-negative decimal number")
+        
+        octet_value = int(part)
+        if octet_value > 255:
+            raise ValueError(f"octet {part} exceeds 255")
+        
+        leading_ones = count_leading_ones(octet_value)
+        total_ones += leading_ones
+    
+    return total_ones
+
+
+def mask_from_prefix(prefix: int) -> str:
+    if not isinstance(prefix, int) or not 0 <= prefix <= 32:
+        raise ValueError("prefix must be an integer from 0 to 32")
+    
+    octets = []
+    for slot in range(4):
+        ones = min(8, max(0, prefix - slot * 8))
+        octets.append(str(256 - 2 ** (8 - ones)))
+    return ".".join(octets)
+```

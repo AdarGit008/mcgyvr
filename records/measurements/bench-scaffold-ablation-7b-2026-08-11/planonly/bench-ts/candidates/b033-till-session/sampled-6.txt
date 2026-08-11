@@ -1,0 +1,67 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const initialState = {
+    cart: {} as Record<string, number>,
+    total: 0,
+    paid: 0,
+    state: "open",
+  };
+
+  const isValidPrice = (price: number) => price > 0 && Number.isInteger(price);
+  const isLegalEvent = (event: any[]) => Array.isArray(event) && event.length === 2;
+  const isActionValid = (action: string, currentState: string) => {
+    if (currentState === "open") return action === "scan" || action === "void" || action === "close" || action === "cancel";
+    else if (currentState === "payment") return action === "pay" || action === "cancel";
+    else return false;
+  };
+  const getItemPrice = (item: string) => prices[item];
+
+  let state = { ...initialState };
+
+  for (const event of events) {
+    const [action, payload] = event;
+
+    if (!isLegalEvent(event)) throw new Error("Invalid event format");
+    if (!isActionValid(action, state.state)) throw new Error(`Illegal action ${action} in current state ${state.state}`);
+    if (action === "scan" && !prices[payload as string]) throw new Error(`Item ${payload} not found in price list`);
+    if ((action === "void" || action === "pay") && typeof payload !== "number") throw new Error("Invalid payload type for action");
+    if ((action === "void" || action === "pay") && !isValidPrice(payload as number)) throw new Error("Invalid price value");
+    if (action === "close" && Object.keys(state.cart).length === 0) throw new Error("Cannot close an empty cart");
+    if (state.state !== "open" && state.state !== "payment") throw new Error("Event after session is paid or cancelled");
+
+    if (action === "scan") {
+      const item = payload as string;
+      state.cart[item] = (state.cart[item] || 0) + 1;
+    } else if (action === "void") {
+      const item = payload as string;
+      if (!state.cart[item]) throw new Error(`Item ${item} not in cart`);
+      state.cart[item]--;
+      if (state.cart[item] === 0) delete state.cart[item];
+    } else if (action === "close") {
+      state.state = "payment";
+      state.total = Object.entries(state.cart).reduce((sum, [item, quantity]) => sum + getItemPrice(item)! * quantity, 0);
+    } else if (action === "pay") {
+      if (state.paid + payload > state.total) throw new Error("Excessive payment");
+      state.paid += payload;
+      if (state.paid >= state.total) {
+        state.change = state.paid - state.total;
+        state.state = "paid";
+      }
+    } else if (action === "cancel") {
+      state.cart = {};
+      state.total = 0;
+      state.paid = 0;
+      state.change = 0;
+      state.state = "cancelled";
+    }
+  }
+
+  return {
+    state: state.state,
+    items: Object.entries(state.cart).sort((a, b) => a[0].localeCompare(b[0])),
+    total: state.total,
+    paid: state.paid,
+    change: state.change,
+  };
+}
+```

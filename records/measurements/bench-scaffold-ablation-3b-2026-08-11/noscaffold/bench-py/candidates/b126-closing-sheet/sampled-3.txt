@@ -1,0 +1,66 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    """
+    Process the opening sheet and stock moves to determine the closing stock.
+    
+    :param opening: A string with entries in the format "name:count".
+    :param moves: A string with entries in the format "name+qty" or "name-qty".
+    :return: A string representing the closing stock, sorted by item name, items
+             without a count left out, and an empty string if nothing remains.
+    """
+    
+    def parse_entry(entry):
+        parts = entry.split(':')
+        if len(parts) != 2:
+            raise ValueError("Malformed opening sheet entry")
+        item_name, count_str = parts
+        if not item_name.islower() or not count_str.isdigit() or int(count_str) < 0:
+            raise ValueError("Invalid opening sheet entry")
+        return item_name, int(count_str)
+    
+    def parse_move(move):
+        parts = move.split('+') + move.split('-')
+        if len(parts) != 2:
+            raise ValueError("Malformed move")
+        item_name, qty_str = parts
+        if not item_name.islower() or not qty_str.isdigit():
+            raise ValueError("Invalid move entry")
+        return item_name, int(qty_str)
+    
+    def update_stock(stock, item_name, qty):
+        if item_name in stock:
+            if qty > stock[item_name]:
+                raise ValueError(f"Issue of {qty} units of {item_name}, but only have {stock[item_name]} remaining")
+            stock[item_name] += qty
+        else:
+            stock[item_name] = qty
+    
+    def remove_stock(stock, item_name, qty):
+        if item_name not in stock or stock[item_name] < qty:
+            raise ValueError(f"Issue of {qty} units of {item_name}, but only have {stock[item_name]} available")
+        stock[item_name] -= qty
+        if stock[item_name] == 0:
+            del stock[item_name]
+    
+    def process_stock(moves, stock):
+        for move in moves.split(';'):
+            if move == '':
+                continue
+            item_name, qty = parse_move(move)
+            update_stock(stock, item_name, qty)
+    
+    def format_entry(item_name, count):
+        return f"{item_name}:{count}"
+    
+    def format_entries(entries):
+        return ';'.join(format_entry(name, count) for name, count in entries if count > 0)
+    
+    stock = {}
+    try:
+        process_stock(moves, stock)
+        result = format_entries(stock.items())
+    except ValueError as e:
+        result = str(e)
+    
+    return result
+```

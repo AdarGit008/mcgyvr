@@ -1,0 +1,38 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    """
+    Applies command-line overrides to a copy of base settings.
+
+    Parameters:
+    - base (dict): Flat mapping of setting names to string values.
+    - overrides (list): List of strings representing overrides.
+
+    Returns:
+    - dict: Copy of base with applied overrides.
+
+    Raises:
+    - ValueError: If overrides is not a list, contains invalid override strings,
+      or if an override's name does not exist in base.
+    """
+
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list.")
+
+    merged = base.copy()
+
+    for override in overrides:
+        if not isinstance(override, str) or "=" not in override:
+            raise ValueError(f"Invalid override '{override}'. Must be 'name=value'.")
+
+        name, _, value = override.partition("=")
+
+        if not name or " " in name:
+            raise ValueError(f"Override name '{name}' is invalid.")
+
+        if name not in base:
+            raise ValueError(f"No such setting '{name}' in base to apply override.")
+
+        merged[name] = value
+
+    return merged
+```

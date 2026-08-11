@@ -1,0 +1,48 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    # Validate span format
+    if len(span.split('-')) != 2:
+        raise ValueError("Invalid span format. Expected HH:MM-HH:MM.")
+    
+    start, end = span.split('-')
+    
+    # Validate appointment format
+    for a in booked:
+        if len(a.split('-')) != 2:
+            raise ValueError("Invalid appointment format. Expected HH:MM-HH:MM.")
+    
+    # Convert spans to minutes since midnight
+    def time_to_minutes(time_str):
+        hours, minutes = map(int, time_str.split(':'))
+        return hours * 60 + minutes
+    
+    start_minutes = time_to_minutes(start)
+    end_minutes = time_to_minutes(end)
+    
+    booked_minutes = set(time_to_minutes(a) for a in booked)
+    
+    # Find free intervals
+    free_intervals = []
+    current_start = start_minutes
+    
+    for minute in range(current_start, end_minutes + 1):
+        if minute not in booked_minutes:
+            continue
+        
+        # Check if the current free interval is valid
+        if current_start != minute:
+            free_intervals.append(f"{current_start // 60:02}:{current_start % 60:02}-{minute // 60:02}:{minute % 60:02}")
+        
+        current_start = minute + 1
+    
+    # Convert end back to HH:MM format
+    if not free_intervals:
+        return "none"
+    
+    last_free_interval = free_intervals[-1]
+    last_mins, _ = map(int, last_free_interval.split(':'))
+    if last_mins == 0 and current_start < end_minutes:
+        return f"{current_start // 60:02}:{current_start % 60:02}-{end // 60:02}:{end % 60:02}"
+    
+    return ", ".join(free_intervals)
+```

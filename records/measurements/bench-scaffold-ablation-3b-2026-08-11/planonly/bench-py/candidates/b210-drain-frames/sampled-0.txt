@@ -1,0 +1,42 @@
+```python
+from typing import List, Dict
+
+def drain_frames(chunks: List[str], marker: str) -> Dict[str, str]:
+    if not chunks or not marker:
+        raise ValueError("chunks and marker must be non-empty strings")
+
+    # Initialize the pending text and a list to hold frames
+    pending_text = ""
+    frames: List[str] = []
+
+    def fold_markers(text):
+        result = []
+        i = 0
+        while i < len(text):
+            if text[i] == marker:
+                if text[i+1:i+2] == marker:
+                    # Fold a doubled marker into one literal marker
+                    result.append(marker)
+                    i += 2
+                else:
+                    # End the current frame and start a new one
+                    if frames:
+                        frames.append(pending_text)
+                    pending_text = ""
+                    i += 1
+            else:
+                pending_text += text[i]
+                i += 1
+        if frames:
+            frames.append(pending_text)
+        return result
+
+    # Fold markers in each chunk and accumulate the frames and pending text
+    for chunk in chunks:
+        fold_markers(chunk)
+
+    return {
+        "frames": frames,
+        "pending": pending_text
+    }
+```

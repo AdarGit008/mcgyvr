@@ -1,0 +1,72 @@
+```typescript
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+  walkTree(root, "", paths);
+  return paths;
+}
+
+function walkTree(node: any, path: string, paths: string[]): void {
+  if (typeof node !== "object" || !node) {
+    throw new Error("Node is not a mapping");
+  }
+  if (typeof node.name !== "string" || node.name.includes("/")) {
+    throw new Error("Name is not a non-empty string or holds a slash");
+  }
+
+  paths.push(`${path}${node.name}`);
+
+  for (const child of node.children) {
+    walkTree(child, `${path}${node.name}/`, paths);
+  }
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== "object" || !root) {
+    throw new Error("Node is not a mapping");
+  }
+
+  let total = 0;
+
+  for (const child of root.children) {
+    total += treeBytes(child);
+  }
+
+  return total + (root.bytes ?? 0);
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== "object" || !root) {
+    throw new Error("Node is not a mapping");
+  }
+  if (!Number.isInteger(minBytes) || minBytes < 0) {
+    throw new Error("minBytes must be a non-negative whole number");
+  }
+
+  const heavyFolders: [string, number][] = [];
+  let currentPath = "";
+  let totalBytes = 0;
+
+  function walkTreeForHeavyFolders(node: any): void {
+    if (typeof node !== "object" || !node) {
+      throw new Error("Node is not a mapping");
+    }
+    if (typeof node.name !== "string" || node.name.includes("/")) {
+      throw new Error("Name is not a non-empty string or holds a slash");
+    }
+
+    totalBytes += node.bytes ?? 0;
+
+    for (const child of node.children) {
+      walkTreeForHeavyFolders(child);
+    }
+
+    if (totalBytes >= minBytes && currentPath !== "") {
+      heavyFolders.push([currentPath, totalBytes]);
+    }
+  }
+
+  walkTreeForHeavyFolders(root);
+
+  return heavyFolders;
+}
+```

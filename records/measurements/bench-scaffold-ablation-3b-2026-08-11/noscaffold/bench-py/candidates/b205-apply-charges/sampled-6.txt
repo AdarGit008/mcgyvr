@@ -1,0 +1,42 @@
+```python
+def apply_charges(caps: dict, charges: list) -> dict:
+    """
+    Applies charges to quotas based on bucket allowances and maximum charges.
+
+    Args:
+    caps (dict): A mapping from bucket name to a pair of the bucket's whole allowance and largest single charge.
+    charges (list): A list of triples of charge id, bucket name, and amount to apply.
+
+    Returns:
+    dict: An object holding left, allowance still standing in every bucket, and refused, pairs of charge id and reason.
+    """
+    def is_positive_integer(n):
+        return isinstance(n, int) and n > 0
+
+    result = {
+        bucket_name: {"left": allow, "refused": []}
+        for bucket_name, (allow, max_charge) in caps.items()
+    }
+
+    refused = []
+
+    for charge_id, bucket_name, amount in charges:
+        if bucket_name not in caps:
+            refused.append((charge_id, "unknown"))
+            continue
+        allow, max_charge = caps[bucket_name]
+
+        if not is_positive_integer(amount):
+            raise ValueError("Amount must be a positive whole number.")
+
+        if amount > max_charge:
+            refused.append((charge_id, "single"))
+            continue
+        if amount > allow:
+            refused.append((charge_id, "cap"))
+            continue
+
+        result[bucket_name]["left"] -= amount
+
+    return {"left": result, "refused": refused}
+```

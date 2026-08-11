@@ -1,0 +1,23 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    if not grid or not all(len(row) == len(grid[0]) for row in grid) or not all(isinstance(cell, int) for row in grid for cell in row):
+        raise ValueError("Invalid grid")
+    
+    M, N = len(grid), len(grid[0])
+    prefix_sum = [[0] * (N + 1) for _ in range(M + 1)]
+    
+    for i in range(1, M + 1):
+        for j in range(1, N + 1):
+            prefix_sum[i][j] = grid[i - 1][j - 1] + prefix_sum[i - 1][j] + prefix_sum[i][j - 1] - prefix_sum[i - 1][j - 1]
+    
+    results = []
+    for query in queries:
+        if len(query) != 4 or not (0 <= query[0] < query[2] <= M and 0 <= query[1] < query[3] <= N):
+            raise ValueError("Invalid query")
+        
+        top, left, bottom, right = query
+        block_sum = prefix_sum[bottom][right] - prefix_sum[top][right] - prefix_sum[bottom][left] + prefix_sum[top][left]
+        results.append(block_sum)
+    
+    return results
+```

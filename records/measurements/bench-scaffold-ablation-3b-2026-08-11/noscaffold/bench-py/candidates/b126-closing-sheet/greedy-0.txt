@@ -1,0 +1,45 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_entry(entry: str) -> tuple[str, int]:
+        name, count = entry.split(':')
+        if not (name.islower() and count.isdigit()):
+            raise ValueError("Invalid sheet entry format")
+        return name, int(count)
+
+    def parse_move(move: str) -> tuple[str, int]:
+        parts = move.split('+') if '+' in move else move.split('-')
+        if len(parts) != 2:
+            raise ValueError("Invalid move format")
+        name, qty_str = parts
+        if not (name.islower() and qty_str.isdigit()):
+            raise ValueError("Invalid move format")
+        return name, int(qty_str)
+
+    def update_sheet(sheet: dict[str, int], entry: tuple[str, int]) -> None:
+        name, count = entry
+        sheet[name] = sheet.get(name, 0) + count
+
+    def apply_moves(sheet: dict[str, int], moves: str) -> None:
+        for move in moves.split(';'):
+            if not move:
+                continue
+            name, qty = parse_move(move)
+            if name not in sheet:
+                raise ValueError(f"Issue with move '{move}': item does not exist")
+            if sheet[name] < qty:
+                raise ValueError(f"Issue with move '{move}': cannot issue {qty} units of {name}")
+            update_sheet(sheet, (name, -qty))
+
+    def format_sheet(sheet: dict[str, int]) -> str:
+        return ';'.join(f"{name}:{count}" for name, count in sheet.items() if count > 0)
+
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Invalid argument type")
+
+    try:
+        opening_sheet = {name: int(count) for name, count in (parse_entry(entry) for entry in opening.split(';'))}
+        apply_moves(opening_sheet, moves)
+        return format_sheet(opening_sheet)
+    except ValueError as e:
+        return str(e)
+```

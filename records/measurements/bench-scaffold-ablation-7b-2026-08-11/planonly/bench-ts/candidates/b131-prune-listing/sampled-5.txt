@@ -1,0 +1,39 @@
+```ts
+import { split } from 'path';
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  const splitStrict = (str: string) => {
+    if (typeof str !== 'string') throw new Error('Invalid path or rule');
+    if (!str || str === '/') throw new Error('Empty path or rule');
+    return str.split('/').filter(segment => segment !== '');
+  };
+
+  const matchPattern = (pathSegment: string, patternSegment: string): boolean => {
+    if (patternSegment === '*') return true;
+    if (pathSegment !== patternSegment) return false;
+    return true;
+  };
+
+  const matchesRule = (pathSegments: string[], rule: string[]): boolean => {
+    for (let i = 0; i < Math.min(pathSegments.length, rule.length); i++) {
+      if (!matchPattern(pathSegments[i], rule[i])) return false;
+    }
+    return pathSegments.length >= rule.length || rule[rule.length - 1] === '*';
+  };
+
+  const shouldKeepPath = (path: string[], rules: string[]): boolean => {
+    for (const rule of rules) {
+      const pattern = splitStrict(rule);
+      if (!pattern.every(segment => segment !== '')) throw new Error('Empty segment in path or rule');
+      if (matchesRule(path, pattern)) return rule.startsWith('!');
+    }
+    return false;
+  };
+
+  return listing.filter(path => {
+    const pathSegments = splitStrict(path);
+    if (!pathSegments.every(segment => segment !== '')) throw new Error('Empty segment in path or rule');
+    return shouldKeepPath(pathSegments, rules);
+  });
+}
+```

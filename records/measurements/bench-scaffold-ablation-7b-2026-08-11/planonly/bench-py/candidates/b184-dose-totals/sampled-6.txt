@@ -1,0 +1,23 @@
+```python
+from typing import List, Dict
+
+def dose_totals(log: List[List[str]]) -> Dict[str, str]:
+    reagent_totals = {}
+
+    for reagent, amount in log:
+        if not reagent_digits := re.match(r'[-+]?\d+(\.\d{1,3})?', amount):
+            raise ValueError(f"Invalid amount format: {amount}")
+
+        amount_float = float(amount)
+        if reagent in reagent_totals:
+            reagent_totals[reagent] += amount_float
+        else:
+            reagent_totals[reagent] = amount_float
+
+    result = {}
+    for reagent, total in reagent_totals.items():
+        total_str = f"{total:.3f}"
+        result[reagent] = total_str.rstrip('0').rstrip('.') if '.' in total_str else total_str.lstrip('+')
+
+    return result
+```

@@ -1,0 +1,32 @@
+```python
+def dose_totals(log: list) -> dict:
+    """
+    Calculate the total amount of each reagent in the pour log.
+
+    Args:
+        log (list): A list of [reagent, amount] entries in pour order,
+                       where each amount is a string representing millilitres.
+
+    Returns:
+        dict: A mapping from reagent to its total amount as a decimal string.
+    """
+    result = {}
+    for reagent, amount_str in log:
+        try:
+            amount_float = float(amount_str)
+        except ValueError:
+            raise ValueError(f"Invalid amount format: {amount_str}")
+
+        if reagent not in result:
+            result[reagent] = 0.0
+
+        # Convert to thousandths of a milliliter and add to the total
+        result[reagent] += amount_float / 1000
+
+    # Format each total with the finest place count from the log entries
+    for reagent, total in result.items():
+        max_places = len(str(round(total * 1000)))  # Find the maximum places needed
+        result[reagent] = f"{total:.{max_places}f}"
+
+    return result
+```

@@ -1,0 +1,40 @@
+```python
+from typing import Dict, List, Tuple
+
+def apply_charges(caps: dict, charges: list) -> dict:
+    """
+    Process a list of charges against bucket allowances and quotas. Returns
+    the remaining allowances and a list of refused charges with reasons.
+    """
+
+    if not caps or not charges:
+        return {}
+
+    left = caps.copy()
+    refused = []
+
+    for charge in charges:
+        charge_id, bucket_name, amount = charge
+
+        # Validate charge amount
+        if not isinstance(amount, int) or amount <= 0:
+            raise ValueError("Charge amount must be a positive whole number.")
+
+        # Check quota and reason
+        if bucket_name not in caps:
+            refused.append((charge_id, "unknown"))
+            continue
+        allowance, max_single_charge = caps[bucket_name]
+
+        if amount > max_single_charge:
+            refused.append((charge_id, "single"))
+            continue
+        if amount > allowance:
+            refused.append((charge_id, "cap"))
+            continue
+
+        # Charge the bucket
+        left[bucket_name] -= amount
+
+    return left, refused
+```

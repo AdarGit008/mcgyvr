@@ -1,0 +1,17 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== 'string') {
+    throw new Error('Invalid template type');
+  }
+
+  return template.replace(/{(\w+)}/g, (match, name) => {
+    if (!name || !/^\w+$/.test(name)) {
+      throw new Error(`Invalid placeholder: ${match}`);
+    }
+    if (!(name in values)) {
+      throw new Error(`Unknown name: ${name}`);
+    }
+    return values[name];
+  });
+}
+```

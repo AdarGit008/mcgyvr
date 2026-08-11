@@ -1,0 +1,65 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  const tokens = [];
+  let braceCount = 0;
+  let currentToken = '';
+  let placeholderName = '';
+
+  for (let i = 0; i < template.length; i++) {
+    const char = template[i];
+
+    if (char === '{') {
+      if (braceCount > 0) {
+        throw new Error('Unterminated placeholder');
+      }
+      braceCount++;
+      currentToken += char;
+    } else if (char === '}') {
+      if (--braceCount < 0) {
+        throw new Error('Unmatched closing brace');
+      }
+      currentToken += char;
+
+      if (braceCount === 0) {
+        const nameStart = i - placeholderName.length - 1;
+        const nameEnd = i + 1;
+        const name = template.substring(nameStart, nameEnd);
+
+        if (!isValidPlaceholderName(name)) {
+          throw new Error('Invalid placeholder name');
+        }
+
+        if (values.hasOwnProperty(name)) {
+          tokens.push(values[name]);
+        } else {
+          throw new Error(`Unknown placeholder: ${name}`);
+        }
+        currentToken = '';
+      }
+    } else {
+      if (braceCount === 0) {
+        tokens.push(char);
+      } else {
+        currentToken += char;
+      }
+    }
+  }
+
+  if (braceCount !== 0) {
+    throw new Error('Unterminated placeholder');
+  }
+
+  return tokens.join('');
+}
+
+function isValidPlaceholderName(name: string): boolean {
+  if (!name || !/^[a-zA-Z0-9_]+$/.test(name)) {
+    return false;
+  }
+  return true;
+}
+```

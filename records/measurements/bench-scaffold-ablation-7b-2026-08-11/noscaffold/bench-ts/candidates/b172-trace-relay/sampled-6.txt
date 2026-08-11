@@ -1,0 +1,25 @@
+```ts
+/**
+ * Trace the relay path from the start post to the final empty post, following handoffs in links.
+ * @param links - A mapping of post names to the next post's name in the relay.
+ * @param start - The starting post's name.
+ * @returns An array of post names visited in order during the relay.
+ */
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+    if (typeof links !== 'object' || links === null) throw new Error('links must be a mapping');
+    if (typeof start !== 'string') throw new Error('start must be a post name');
+
+    const visited = new Set<string>();
+    let current = start;
+
+    while (current && !visited.has(current)) {
+        visited.add(current);
+        if (links[current] === undefined) throw new Error(`handoff to unknown post: ${current}`);
+        current = links[current];
+    }
+
+    if (!current) throw new Error('relay loop detected');
+
+    return Array.from(visited).concat(current);
+}
+```

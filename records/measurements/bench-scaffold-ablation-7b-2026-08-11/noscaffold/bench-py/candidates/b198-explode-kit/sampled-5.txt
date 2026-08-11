@@ -1,0 +1,22 @@
+```python
+import math
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    if want <= 0:
+        raise ValueError("want must be a positive integer")
+    
+    def consume_parts(parts: dict, count: int):
+        consumed = {}
+        for part, part_count in parts.items():
+            if part in catalog:
+                sub_consumed = consume_parts(catalog[part], count * part_count)
+                for sub_part, sub_count in sub_consumed.items():
+                    consumed[sub_part] = consumed.get(sub_part, 0) + sub_count
+            else:
+                consumed[part] = consumed.get(part, 0) + count * part_count
+        return consumed
+    
+    total_parts = consume_parts(catalog[kit], math.ceil(want / catalog[kit]['makes']))
+    
+    return total_parts
+```

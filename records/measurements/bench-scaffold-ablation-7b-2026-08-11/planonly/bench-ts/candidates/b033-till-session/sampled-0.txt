@@ -1,0 +1,70 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const initialState = {
+    state: 'open',
+    items: [] as [string, number][],
+    total: 0,
+    paid: 0,
+    change: 0
+  };
+
+  let state = { ...initialState };
+  let cart: Record<string, number> = {};
+
+  for (const event of events) {
+    const action = event[0];
+    const payload = event.slice(1);
+
+    switch (action) {
+      case 'scan': {
+        if (state.state !== 'open') throw new Error('Action unlawful in the session\'s current state');
+        const [item] = payload;
+        if (typeof item !== 'string' || prices[item] === undefined) throw new Error('Invalid scan');
+        cart[item] = (cart[item] ?? 0) + 1;
+        break;
+      }
+
+      case 'void': {
+        if (state.state !== 'open') throw new Error('Action unlawful in the session\'s current state');
+        const [item] = payload;
+        if (typeof item !== 'string' || cart[item] === undefined) throw new Error('Invalid void');
+        cart[item]--;
+        if (cart[item] === 0) delete cart[item];
+        break;
+      }
+
+      case 'close': {
+        if (state.state !== 'open') throw new Error('Action unlawful in the session\'s current state');
+        if (!Object.keys(cart).length) throw new Error('Close with an empty cart');
+        state.state = 'payment';
+        state.total = Object.entries(cart).reduce((total, [item, quantity]) => total + prices[item]! * quantity, 0);
+        break;
+      }
+
+      case 'pay': {
+        if (state.state !== 'payment') throw new Error('Action unlawful in the session\'s current state');
+        const [cents] = payload;
+        if (typeof cents !== 'number' || cents <= 0) throw new Error('Invalid pay amount');
+        state.paid += cents;
+        state.change = Math.max(state.paid - state.total, 0);
+        state.state = 'paid';
+        break;
+      }
+
+      case 'cancel': {
+        if (state.state === 'open') state.state = 'cancelled';
+        else if (state.state === 'payment') state.state = 'cancelled';
+        break;
+      }
+
+      default:
+        throw new Error('Unknown action');
+    }
+  }
+
+  return {
+    ...state,
+    items: Object.entries(cart).sort(([name1], [name2]) => name1.localeCompare(name2))
+  };
+}
+```

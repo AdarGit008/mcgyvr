@@ -1,0 +1,23 @@
+```ts
+/**
+ * Formats a number as an unsigned binary string with a specified width.
+ *
+ * @param value - The non-negative integer to format.
+ * @param width - The total bit width of the output, must be a multiple of 4 and not exceed 32.
+ * @returns A formatted binary string or throws an error if constraints are violated.
+ */
+export function formatBits(value: number, width: number): string {
+    if (!Number.isInteger(value) || value < 0) {
+        throw new Error("Value must be a non-negative integer.");
+    }
+    if (width % 4 !== 0 || width > 32 || width === 0) {
+        throw new Error("Width must be a positive multiple of four not exceeding 32.");
+    }
+    if (value >= 1 << width) {
+        throw new Error("Value does not fit within the specified bit width.");
+    }
+
+    const binaryString = value.toString(2).padStart(width, '0');
+    return binaryString.match(/.{4}/g)?.join(' ') || '';
+}
+```

@@ -1,0 +1,55 @@
+```python
+def scan_pairs(text: str) -> list:
+    """Splits options string into key=value pairs."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    if text == "":
+        return []
+    
+    def parse_option(segment: str) -> list:
+        """Converts segment to [key, value] pair."""
+        parts = segment.split('=', 1)
+        
+        key = parts[0]
+        if not (key.isidentifier() and all(c in ('_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z') for c in key)):
+            raise ValueError("Invalid key.")
+        
+        value = parts[1] if len(parts) > 1 else ''
+        # Strip quotes from the value
+        if value.startswith('"') and value.endswith('"'):
+            value = value.strip('"')
+        
+        return [key, value]
+    
+    # Split on semicolons, except those between double quotes
+    result = []
+    i, j = 0, len(text)
+    while i < j:
+        open_quote = False
+        while i < j and text[i] != ';':
+            if text[i] == '"':
+                open_quote = not open_quote
+            i += 1
+        if i >= j:
+            break
+        # Parse the segment between the quotes or semicolon
+        result.append(parse_option(text[j:i]))
+        j = i + 1
+    
+    return result
+
+def parse_option(segment: str) -> list:
+    """Converts segment to [key, value] pair."""
+    parts = segment.split('=', 1)
+    
+    key = parts[0]
+    if not (key.isidentifier() and all(c in ('_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z') for c in key)):
+        raise ValueError("Invalid key.")
+        
+    value = parts[1] if len(parts) > 1 else ''
+    # Strip quotes from the value
+    if value.startswith('"') and value.endswith('"'):
+        value = value.strip('"')
+    
+    return [key, value]
+```

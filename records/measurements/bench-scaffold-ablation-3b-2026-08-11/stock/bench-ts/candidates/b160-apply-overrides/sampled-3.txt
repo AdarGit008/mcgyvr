@@ -1,0 +1,24 @@
+```typescript
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+  const merged = { ...base };
+  if (!Array.isArray(overrides)) {
+    throw new Error("overrides must be an array");
+  }
+  for (const override of overrides) {
+    const [name, value] = splitOverride(override);
+    if (!name || !value) {
+      throw new Error("Invalid override format");
+    }
+    merged[name] = value;
+  }
+  return merged;
+}
+
+function splitOverride(override: string): [string, string] {
+  const equalsIndex = override.indexOf('=');
+  if (equalsIndex === -1) {
+    throw new Error("Override must contain an equal sign");
+  }
+  return [override.slice(0, equalsIndex), override.slice(equalsIndex + 1)];
+}
+```

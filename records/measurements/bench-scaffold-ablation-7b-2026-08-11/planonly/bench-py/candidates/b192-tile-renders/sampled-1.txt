@@ -1,0 +1,19 @@
+```python
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if fresh_for <= 0 or size <= 0:
+        raise ValueError("fresh_for and size must be positive integers")
+
+    cache = {}
+    renders = []
+
+    for tick, tile in requests:
+        while cache and tick >= cache[next(iter(cache))][1] + fresh_for:
+            oldest_tile = min(cache.items(), key=lambda x: (x[1][1], x[0]))
+            del cache[oldest_tile[0]]
+
+        if len(cache) < size or tile not in cache:
+            renders.append([tick, tile])
+            cache[tile] = (tick, tick)
+
+    return renders
+```

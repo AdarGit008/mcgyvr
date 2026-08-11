@@ -1,0 +1,34 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== "string" || typeof moves !== "string") {
+    throw new Error("closingSheet expects two strings");
+  }
+  const held = parseSheet(opening);
+  for (const part of moves.split(";")) {
+    if (part === "") continue;
+    const [name, qtyStr] = part.split("+", 2);
+    const [qtyStr2, issueQtyStr] = part.split("-", 2);
+    let qty: number | undefined;
+    let issueQty: number | undefined;
+
+    if (name && qtyStr) {
+      qty = parseInt(qtyStr, 10);
+      if (isNaN(qty)) throw new Error(`invalid quantity: ${qtyStr}`);
+      if (!/^[a-z]+$/.test(name)) throw new Error(`bad item name: ${part}`);
+      held.set(name, (held.get(name) || 0) + qty);
+    } else if (name && issueQtyStr) {
+      issueQty = parseInt(issueQtyStr, 10);
+      if (isNaN(issueQty)) throw new Error(`invalid quantity: ${issueQtyStr}`);
+      if (!/^[a-z]+$/.test(name)) throw new Error(`bad item name: ${part}`);
+      const currentCount = held.get(name) || 0;
+      if (currentCount < issueQty)
+        throw new Error(`insufficient stock for ${name}: ${issueQty} > ${currentCount}`);
+      held.set(name, currentCount - issueQty);
+    } else {
+      throw new Error(`invalid move format: ${part}`);
+    }
+  }
+  const entries = [...held.entries()].filter(([name, count]) => count > 0).sort((a, b) => a[0].localeCompare(b[0]));
+  return entries.map(([name, count]) => `${name}:${count}`).join(";");
+}
+```

@@ -1,0 +1,52 @@
+```ts
+/**
+ * Converts a prefix length to a network mask in dotted-quad format.
+ * @param prefix The number of leading ones (0-32).
+ * @returns A string representing the network mask.
+ */
+export function maskFromPrefix(prefix: number): string {
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+        throw new Error('Invalid prefix');
+    }
+
+    const octets = [];
+    for (let i = 0; i < 4; i++) {
+        const bits = Math.min(8, prefix - i * 8);
+        octets.push((1 << bits) - 1);
+        if (bits === 0) break;
+    }
+    return octets.join('.');
+}
+
+/**
+ * Converts a network mask in dotted-quad format to its prefix length.
+ * @param mask The network mask as a string.
+ * @returns The number of leading ones representing the prefix length.
+ */
+export function prefixFromMask(mask: string): number {
+    if (typeof mask !== 'string') {
+        throw new Error('Invalid mask type');
+    }
+
+    const fields = mask.split('.');
+    if (fields.length !== 4) {
+        throw new Error('Invalid mask format');
+    }
+
+    let prefix = 0;
+    for (let i = 0; i < 4; i++) {
+        const octet = parseInt(fields[i], 10);
+        if (isNaN(octet) || octet < 0 || octet > 255) {
+            throw new Error('Invalid mask field');
+        }
+
+        if (octet !== 0 && octet !== -1 >>> (8 - i % 8)) {
+            throw new Error('Invalid mask continuation');
+        }
+
+        prefix += 32 - Math.floor(Math.log2(octet + 1));
+    }
+
+    return prefix;
+}
+```

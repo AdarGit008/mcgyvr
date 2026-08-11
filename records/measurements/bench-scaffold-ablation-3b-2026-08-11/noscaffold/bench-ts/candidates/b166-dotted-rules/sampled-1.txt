@@ -1,0 +1,48 @@
+```typescript
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof rules !== 'object' || typeof name !== 'string') {
+    throw new Error('Invalid input type');
+  }
+
+  const hasStar = (str: string) => str.includes('*');
+
+  const splitName = (name: string): [string, string?][] => {
+    return name
+      .split('.')
+      .filter(Boolean)
+      .map((part, index, array) => [
+        part,
+        index < array.length - 1 ? `${part}.*` : null,
+      ]);
+  };
+
+  const findMatch = (prefix: string): [string, string] | null => {
+    for (const key of Object.keys(rules)) {
+      if (key === prefix || hasStar(key) && key.startsWith(prefix + '.')) {
+        return [key, rules[key]];
+      }
+    }
+    return null;
+  };
+
+  const nameParts = splitName(name);
+
+  for (const [part] of nameParts) {
+    const match = findMatch(part);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  // If no match is found, check for an exact '*', but only if it's the last part
+  if (
+    nameParts.length === 1 &&
+    hasStar(nameParts[0][0]) &&
+    nameParts[0][1] === null
+  ) {
+    return rules['*'];
+  }
+
+  return null;
+}
+```

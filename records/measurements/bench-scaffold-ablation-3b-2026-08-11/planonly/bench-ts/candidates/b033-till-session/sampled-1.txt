@@ -1,0 +1,128 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+    // Helper functions
+    const isPositiveInteger = (value: number): boolean => Number.isInteger(value) && value > 0;
+
+    const validatePriceList = (prices: Record<string, number>): void => {
+        for (const item in prices) {
+            if (!isPositiveInteger(prices[item])) {
+                throw new Error("Invalid price list: all prices must be positive integers.");
+            }
+        }
+    };
+
+    const validateEvent = (event: string[]): boolean => {
+        return Array.isArray(event) && event.length === 2;
+    };
+
+    const isValidAction = (action: string): boolean => ["scan", "void", "close", "pay", "cancel"].includes(action);
+
+    const getItemPrice = (item: string, prices: Record<string, number>): number | null => {
+        return prices[item] ?? null;
+    };
+
+    const addItemToCart = (cartItems: [string, number][], item: string): void => {
+        const existingItem = cartItems.find(([itemName]) => itemName === item);
+        if (existingItem) {
+            existingItem[1]++;
+        } else {
+            cartItems.push([item, 1]);
+        }
+    };
+
+    const removeItemFromCart = (cartItems: [string, number][], item: string): void => {
+        const index = cartItems.findIndex(([itemName]) => itemName === item);
+        if (index !== -1) {
+            cartItems.splice(index, 1);
+        }
+    };
+
+    const calculateTotal = (cartItems: [string, number][]): number => {
+        return cartItems.reduce((total, [item, quantity]) => total + prices[item] * quantity, 0);
+    };
+
+    validatePriceList(prices);
+
+    let state = "open";
+    let cartItems: [string, number][] = [];
+    let total = 0;
+    let paid = 0;
+
+    for (const event of events) {
+        if (!validateEvent(event)) {
+            throw new Error("Invalid event format.");
+        }
+
+        const [action, ...payload] = event;
+
+        switch (action) {
+            case "scan":
+                if (state !== "open") {
+                    throw new Error("Scan event is illegal in the current session state.");
+                }
+                const item = payload[0];
+                const price = getItemPrice(item, prices);
+                if (!price) {
+                    throw new Error(`Unknown item: ${item}`);
+                }
+                addItemToCart(cartItems, item);
+                total = calculateTotal(cartItems);
+                break;
+            case "void":
+                if (state !== "open") {
+                    throw new Error("Void event is illegal in the current session state.");
+                }
+                const voidItem = payload[0];
+                if (!cartItems.some(([itemName]) => itemName === voidItem)) {
+                    throw new Error(`Cannot void item: ${voidItem} not in cart.`);
+                }
+                removeItemFromCart(cartItems, voidItem);
+                total = calculateTotal(cartItems);
+                break;
+            case "close":
+                if (state !== "open") {
+                    throw new Error("Close event is illegal in the current session state.");
+                }
+                if (cartItems.length === 0) {
+                    return { state, items: [], total, paid, change: 0 };
+                }
+                state = "payment";
+                break;
+            case "pay":
+                const payAmount = payload[0];
+                if (!isPositiveInteger(payAmount)) {
+                    throw new Error("Invalid pay amount.");
+                }
+                if (state !== "payment") {
+                    throw new Error("Pay event is illegal in the current session state.");
+                }
+                paid += payAmount;
+                if (paid >= total) {
+                    const change = paid - total;
+                    state = "paid";
+                    return { state, items: cartItems.sort(([a], [b]) => a.localeCompare(b)), total, paid, change };
+                }
+                break;
+            case "cancel":
+                state = paid > 0 ? "cancelled" : "closed";
+                cartItems = [];
+                total = 0;
+                paid = 0;
+                break;
+            default:
+                throw new Error(`Unknown action: ${action}`);
+        }
+
+        if (paid > total && state !== "payment") {
+            throw new Error("Pay amount exceeds the total.");
+        }
+    }
+
+    // Final check for illegal events after payment/cancellation
+    if (state === "payment" || state === "cancelled") {
+        throw new Error(`Event is illegal in the current session state.`);
+    }
+
+    return { state, items: cartItems.sort(([a], [b]) => a.localeCompare(b)), total, paid, change };
+}
+```

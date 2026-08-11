@@ -1,0 +1,107 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    """
+    Replay events over the open/payment/paid/cancelled states,
+    maintain cart, fix total at close, accumulate payments and compute change.
+    Reject every unlawful event.
+    """
+    if not isinstance(prices, dict):
+        raise ValueError("Prices must be a dictionary with item names as keys and integer prices in cents as values.")
+    
+    def is_positive_integer(n: int) -> bool:
+        return n > 0
+    
+    def is_valid_event(event: list) -> bool:
+        return isinstance(event, list) and len(event) == 2 and isinstance(event[0], str) and (event[1] is None or isinstance(event[1], int))
+    
+    def is_known_action(action: str) -> bool:
+        return action in ["scan", "void", "close", "pay", "cancel"]
+    
+    def is_valid_price(price: int) -> bool:
+        return isinstance(price, int) and price > 0
+    
+    def is_item_in_prices(item: str) -> bool:
+        return item in prices
+    
+    def get_quantity(cart: dict, item: str) -> int:
+        return cart.get(item, 0)
+    
+    def update_cart(cart: dict, action: str, item: str, quantity: int = None) -> dict:
+        if action == "scan":
+            cart[item] = cart.get(item, 0) + 1
+        elif action == "void":
+            if item in cart:
+                cart[item] = max(0, cart[item] - 1)
+        return cart
+    
+    def calculate_total(cart: dict, prices: dict) -> int:
+        total = 0
+        for item, quantity in cart.items():
+            if is_item_in_prices(item):
+                total += prices[item] * quantity
+        return total
+
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0,
+        "session_state": "open"
+    }
+    
+    for event in events:
+        if not is_valid_event(event):
+            raise ValueError("Invalid event format.")
+        
+        action, payload = event
+        
+        if state["session_state"] != "open" and action != "cancel":
+            raise ValueError("Illegal action in the current session state.")
+        
+        if action == "scan":
+            item = payload
+            if not is_item_in_prices(item):
+                raise ValueError(f"Item '{item}' not found in prices list.")
+            state["items"].append([item, get_quantity(state["cart"], item) + 1])
+            state["cart"] = update_cart(state["cart"], "scan", item)
+        elif action == "void":
+            item = payload
+            if not is_item_in_prices(item):
+                raise ValueError(f"Item '{item}' not found in prices list.")
+            state["items"].append([item, get_quantity(state["cart"], item) - 1])
+            state["cart"] = update_cart(state["cart"], "void", item)
+        elif action == "close":
+            if len(state["cart"]) == 0:
+                raise ValueError("Cannot close an empty cart.")
+            state["session_state"] = "payment"
+        elif action == "pay":
+            cents_paid = payload
+            if not is_valid_price(cents_paid):
+                raise ValueError(f"Invalid pay amount: {cents_paid}.")
+            total_due = calculate_total(state["cart"], prices)
+            
+            if cents_paid < total_due:
+                raise ValueError(f"Insufficient payment. Paid: {cents_paid}, Due: {total_due}")
+            
+            state["paid"] += cents_paid
+            state["change"] = cents_paid - total_due
+            
+            state["session_state"] = "paid"
+        elif action == "cancel":
+            if state["session_state"] != "open" and state["session_state"] != "payment":
+                raise ValueError("Cannot cancel in the current session state.")
+            
+            # Reset cart and session state
+            state["cart"] = {}
+            state["total"] = 0
+            state["paid"] = 0
+            state["change"] = 0
+            state["session_state"] = "cancelled"
+    
+    return {
+        "items": sorted(state["items"]),
+        "total": state["total"],
+        "paid": state["paid"],
+        "change": state["change"]
+    }
+```

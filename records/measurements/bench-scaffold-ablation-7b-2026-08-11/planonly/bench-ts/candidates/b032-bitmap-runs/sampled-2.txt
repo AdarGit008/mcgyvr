@@ -1,0 +1,53 @@
+```typescript
+export function findFreeRun(words: number[], bits: number, length: number): number {
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error('Invalid run length');
+  }
+  const requiredWords = Math.ceil((bits + length - 1) / 32);
+  if (words.length !== requiredWords) {
+    throw new Error('Word count disagrees with capacity');
+  }
+
+  for (let i = 0; i < words.length; i++) {
+    if (!Number.isInteger(words[i]) || words[i] < 0 || words[i] > 4294967295) {
+      throw new Error('Invalid bitmap word');
+    }
+    if (i >= bits / 32 && bitAt(words, i * 32) === 1) {
+      throw new Error('Occupied bit beyond capacity');
+    }
+  }
+
+  for (let start = 0; start <= bits - length; start++) {
+    let free = true;
+    for (let j = 0; j < length; j++) {
+      if (bitAt(words, start + j) === 1) {
+        free = false;
+        break;
+      }
+    }
+    if (free) {
+      return start;
+    }
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  const newWords = words.slice();
+  for (let i = start; i < start + length; i++) {
+    if (!Number.isInteger(i) || i < 0 || i >= bits) {
+      throw new Error('Invalid index');
+    }
+    newWords[Math.floor(i / 32)] |= 1 << (i % 32);
+  }
+  return newWords;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index) || index < 0 || index >= bits) {
+    throw new Error('Invalid index');
+  }
+  return (words[Math.floor(index / 32)] >> (index % 32)) & 1;
+}
+```

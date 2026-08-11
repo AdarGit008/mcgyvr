@@ -1,0 +1,60 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern: str, text: str) -> bool:
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text: str, what: str) -> list:
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    def matches(rule: str, path: str) -> bool:
+        path_segments = split_strict(path, "path")
+        rule_segments = split_strict(rule, "rule")
+
+        if not rule_segments or rule_segments[0] == "!":
+            # Drop rule
+            for i in range(min(len(path_segments), len(rule_segments))):
+                if rule_segments[i] != "*":
+                    if path_segments[i] != rule_segments[i]:
+                        return False
+            if len(rule_segments) > 1:
+                return True
+        else:
+            # Keep rule
+            for i in range(len(rule_segments)):
+                if rule_segments[i] == "*":
+                    break
+                elif rule_segments[i] != path_segments[i]:
+                    return False
+            return True
+
+    # Validate every rule and path with split_strict, then keep each
+    # path the last matching rule allows; a path no rule matches survives.
+    filtered_listing = [path for path in listing if any(matches(rule, path) for rule in rules)]
+    return filtered_listing
+```

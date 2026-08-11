@@ -1,0 +1,26 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (!Object.prototype.hasOwnProperty.call(catalog, kit)) {
+    throw new Error(`the catalog does not define ${kit}`);
+  }
+  const totals: Record<string, number> = {};
+  
+  function consumeKit(kitName: string, units: number): void {
+    const recipe = catalog[kitName];
+    if (!recipe) {
+      throw new Error(`catalog entry for ${kitName} is missing`);
+    }
+
+    const runCount = Math.ceil(units / recipe.makes);
+    totals[kitName] += runCount * recipe.makes;
+
+    recipe.parts.forEach(([subKit, partCount]) => {
+      consumeKit(subKit, partCount * runCount);
+    });
+  }
+
+  consumeKit(kit, want);
+
+  return totals;
+}
+```

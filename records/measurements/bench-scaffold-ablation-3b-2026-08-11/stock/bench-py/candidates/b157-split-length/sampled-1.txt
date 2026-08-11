@@ -1,0 +1,23 @@
+```python
+LADDER = (("m", 1000), ("cm", 10), ("mm", 1))
+
+
+def split_length(mm: int) -> str:
+    if mm < 0:
+        raise ValueError("Length cannot be negative.")
+    
+    if not isinstance(mm, int):
+        raise ValueError("Length must be a whole number.")
+    
+    units = []
+    
+    for unit, divisor in LADDER:
+        count = mm // divisor
+        if count > 0:
+            units.append(f"{count}{unit}")
+        mm %= divisor
+    
+    return " ".join(units) or "0mm"
+```
+
+This code implements the `split_length` function as described in the task contract. It first checks if the input is a whole number and not negative. Then, it iterates over the LADDER to convert the millimetres into metres, centimetres, and millimetres, appending each valid unit's count to the result list. If no units are found (i.e., the length is zero), it returns "0mm".

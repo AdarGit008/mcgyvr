@@ -1,0 +1,20 @@
+```python
+def split_length(mm: int) -> str:
+    """Split a length in millimetres into workshop notation."""
+    if not isinstance(mm, int) or mm < 0:
+        raise ValueError("Length must be a non-negative whole number.")
+    
+    metres = mm // 1000
+    centimetres = (mm % 1000) // 10
+    millimetres = mm % 10
+    
+    parts = []
+    if metres > 0:
+        parts.append(f"{metres}m")
+    if centimetres > 0:
+        parts.append(f"{centimetres}cm")
+    if millimetres > 0:
+        parts.append(f"{millimetres}mm")
+    
+    return " ".join(parts) or "0mm"
+```

@@ -1,0 +1,13 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    if not floor or row < 0 or row >= len(floor) or col < 0 or col + length > len(floor[0]):
+        raise ValueError("Invalid run dimensions")
+    
+    new_floor = [row[:] for row in floor]
+    for i in range(length):
+        if new_floor[row][col + i] != '.':
+            raise ValueError("Run covers a non-open cell")
+        new_floor[row][col + i] = '='
+    
+    return new_floor
+```

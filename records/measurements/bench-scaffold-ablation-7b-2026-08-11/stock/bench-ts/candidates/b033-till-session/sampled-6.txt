@@ -1,0 +1,87 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  let state: string = OPEN;
+  let cart: [string, number][] = [];
+  let total: number = 0;
+  let paid: number = 0;
+
+  for (const event of events) {
+    switch (state) {
+      case OPEN:
+        if (event.length !== 2 || typeof event[0] !== "string" || !["scan", "void"].includes(event[0])) {
+          throw new Error("invalid event in open state");
+        }
+        if (event[0] === "scan") {
+          const item: string = event[1];
+          if (!prices.hasOwnProperty(item)) {
+            throw new Error("item not found in price list: " + item);
+          }
+          cart.push([item, (cart.find(([i]) => i === item) || [item, 0])[1] + 1]);
+        } else {
+          const item: string = event[1];
+          if (!cart.some(([i]) => i === item)) {
+            throw new Error("item not in cart to void: " + item);
+          }
+          cart = cart.filter(([i]) => i !== item);
+        }
+        break;
+      case PAYMENT:
+        if (event.length !== 2 || typeof event[0] !== "string" || !["pay", "cancel"].includes(event[0])) {
+          throw new Error("invalid event in payment state");
+        }
+        if (event[0] === "pay") {
+          const cents: number = event[1];
+          if (!Number.isInteger(cents) || cents <= 0) {
+            throw new Error("payment must be a positive integer: " + cents);
+          }
+          paid += cents;
+          if (paid >= total) {
+            state = PAID;
+            change = paid - total;
+          }
+        } else {
+          state = CANCELLED;
+        }
+        break;
+      case PAID:
+      case CANCELLED:
+        throw new Error("no further events allowed after session is paid or cancelled");
+    }
+  }
+
+  if (state === OPEN && cart.length > 0) {
+    throw new Error("close event required with non-empty cart for payment");
+  }
+
+  total = state === PAID ? total : 0;
+
+  return {
+    state,
+    items: cart.sort((a, b) => a[0].localeCompare(b[0])),
+    total,
+    paid,
+    change,
+  };
+}
+```

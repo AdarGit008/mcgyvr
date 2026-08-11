@@ -1,0 +1,46 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    """
+    Applies day's stock moves to opening sheet and returns closing sheet.
+
+    :param opening: Opening count sheet as semicolon-separated entries (item_name:count).
+    :param moves: Day's stock moves as semicolon-separated entries (name+qty or name-qty).
+    :return: Closing sheet as semicolon-separated entries.
+    """
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both opening and moves must be strings.")
+
+    # Parse the opening sheet
+    try:
+        items = {item.split(":")[0]: int(item.split(":")[1]) for item in opening.split(";")}
+    except (ValueError, IndexError):
+        raise ValueError("Malformed opening sheet entries.")
+
+    # Apply moves
+    for move in moves.split(";"):
+        if not move or len(move) < 2:
+            raise ValueError("Malformed move entry.")
+        
+        direction, quantity = move[:1], int(move[1:])
+        
+        if direction == '+':
+            if item := items.get(move[2:]):
+                items[move[2:]] += quantity
+            else:
+                items[move[2:]] = quantity
+        elif direction == '-':
+            if item := items.get(move[2:]):
+                if item >= quantity:
+                    items[move[2:]] -= quantity
+                else:
+                    raise ValueError(f"Issue of {quantity} units from {move[2:]}, not enough in stock.")
+            else:
+                raise ValueError(f"Issue of {quantity} units for non-existent item {move[2:]}.")
+
+    # Build the closing sheet
+    closing_sheet = ";".join([f"{item}:{count}" for item, count in items.items() if count > 0])
+
+    return closing_sheet
+```
+
+This implementation fulfills the task requirements by parsing the opening sheet and applying the moves to update the stock. It handles errors for malformed inputs, invalid move entries, and issues with stock operations. The result is a valid closing sheet string.

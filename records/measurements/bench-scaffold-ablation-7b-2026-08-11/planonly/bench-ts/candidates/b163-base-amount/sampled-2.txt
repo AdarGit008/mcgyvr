@@ -1,0 +1,31 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("Invalid amount; must be a non-negative whole number.");
+  }
+
+  const seen = new Set<string>();
+
+  while (unit !== base) {
+    if (seen.has(unit)) {
+      throw new Error("Loop detected in the unit definitions chain.");
+    }
+    seen.add(unit);
+
+    const definition = defs[unit];
+    if (!definition) {
+      throw new Error(`Unknown unit: ${unit}`);
+    }
+
+    const [factor, finer] = definition;
+    if (!Number.isInteger(factor) || factor <= 0) {
+      throw new Error("Invalid factor; must be a positive whole number.");
+    }
+
+    amount *= factor;
+    unit = finer;
+  }
+
+  return amount;
+}
+```

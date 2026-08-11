@@ -1,0 +1,46 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    """
+    Calculate the sum of each query's block in the grid.
+
+    :param grid: A non-empty list of rows, each row a non-empty list of integers.
+    :param queries: A list of queries, each a four-integer list [top, left, bottom, right].
+    :return: A list of block totals in query order.
+    """
+    if not grid or not grid[0]:
+        raise ValueError("Grid must have at least one row and one cell.")
+    
+    for i, row in enumerate(grid):
+        if len(row) != len(grid[0]):
+            raise ValueError("All rows must have the same length.")
+        
+        for num in row:
+            if not isinstance(num, int):
+                raise ValueError("Each cell must be an integer.")
+    
+    for query in queries:
+        if not isinstance(query, list) or len(query) != 4:
+            raise ValueError("Each query must be a list of exactly four integers.")
+        
+        top, left, bottom, right = query
+        if top >= bottom or left >= right:
+            raise ValueError("Query's top must be strictly less than its bottom and left must be strictly less than its right.")
+        
+        if top < 0 or left < 0 or bottom > len(grid) or right > len(grid[0]):
+            raise ValueError("Query reaches outside the grid.")
+    
+    prefix_sum = [[0] * (len(grid[0]) + 1) for _ in range(len(grid) + 1)]
+    
+    for i, row in enumerate(grid):
+        for j, num in enumerate(row):
+            prefix_sum[i + 1][j + 1] = prefix_sum[i][j + 1] + prefix_sum[i + 1][j] - prefix_sum[i][j] + num
+    
+    block_totals = []
+    
+    for query in queries:
+        top, left, bottom, right = query
+        block_total = prefix_sum[bottom][right] - prefix_sum[top][right] - prefix_sum[bottom][left] + prefix_sum[top][left]
+        block_totals.append(block_total)
+    
+    return block_totals
+```

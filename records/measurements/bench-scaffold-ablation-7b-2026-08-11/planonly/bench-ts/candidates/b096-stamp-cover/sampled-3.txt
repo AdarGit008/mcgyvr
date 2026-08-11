@@ -1,0 +1,51 @@
+```ts
+/**
+ * Validates the label and builds a lookup table of fragment to price.
+ * @param dies Array of [fragment, price] entries.
+ * @returns A Map where keys are fragments and values are prices.
+ */
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+
+  for (const [fragment, price] of dies) {
+    if (typeof fragment !== 'string' || fragment === '') {
+      throw new Error('Invalid fragment');
+    }
+    if (!Number.isInteger(price) || price <= 0) {
+      throw new Error('Invalid price');
+    }
+    if (table.has(fragment)) {
+      throw new Error('Duplicate fragment');
+    }
+    table.set(fragment, price);
+  }
+
+  return table;
+}
+
+/**
+ * Finds the cheapest total price of any sequence of die presses spelling the label exactly.
+ * @param label The label to be stamped.
+ * @param dies Array of [fragment, price] entries.
+ * @returns The cheapest total price or throws an error if no sequence can spell the label.
+ */
+export function stampCover(label: string, dies: [string, number][]): number {
+  if (typeof label !== 'string' || label === '') {
+    throw new Error('Invalid label');
+  }
+
+  const table = stampTable(dies);
+  const dp = Array(label.length + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= label.length; i++) {
+    for (const [fragment, price] of table.entries()) {
+      if (i >= fragment.length && label.slice(i - fragment.length) === fragment) {
+        dp[i] = Math.min(dp[i], dp[i - fragment.length] + price);
+      }
+    }
+  }
+
+  return dp[label.length] === Infinity ? throw new Error('No sequence can spell the label') : dp[label.length];
+}
+```

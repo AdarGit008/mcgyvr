@@ -1,0 +1,41 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+
+    def is_valid_rule_value(value):
+        return isinstance(value, str)
+
+    def matches_exact_selector(rule_name, selector):
+        return rule_name == selector
+
+    def matches_wildcard(selector, dotted_option):
+        if selector == "*":
+            return True
+        if not selector.endswith(".*"):
+            raise ValueError(f"invalid wildcard: {selector}")
+        return dotted_option.startswith(selector[:-2])
+
+    covered_names = set()
+
+    for rule_name, value in rules.items():
+        if not is_valid_rule_value(value):
+            raise ValueError(f"value of rule {rule_name} must be a string")
+
+        if matches_exact_selector(rule_name, name):
+            covered_names.add(rule_name)
+            return value
+
+        if matches_wildcard(rule_name, name):
+            covered_names.add(rule_name)
+
+    if len(covered_names) == 0:
+        return None
+    elif len(covered_names) > 1:
+        raise ValueError("multiple rules matched: {}".format(", ".join(covered_names)))
+    
+    # If we get here, the longest wildcard rule covers the name.
+    for rule_name in sorted(covered_names, reverse=True):
+        if matches_wildcard(rule_name, name):
+            return rules[rule_name]
+```

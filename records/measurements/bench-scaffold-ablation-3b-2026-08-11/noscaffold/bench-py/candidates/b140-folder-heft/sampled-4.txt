@@ -1,0 +1,68 @@
+```python
+from typing import Dict
+
+def file_paths(root: dict) -> list:
+    def walk(node: dict, path: str = "") -> None:
+        nonlocal paths
+        if not isinstance(node, dict):
+            raise ValueError("Tree node must be a mapping")
+        
+        for name, value in node.items():
+            if not isinstance(name, str) or "/" in name:
+                raise ValueError("Node names must be non-empty strings without slashes")
+            
+            new_path = f"{path}/{name}"
+            if isinstance(value, dict):
+                walk(value, new_path)
+            elif isinstance(value, int):
+                paths.append((new_path, value))
+    
+    paths: list[tuple[str, int]] = []
+    walk(root)
+    return paths
+
+def tree_bytes(root: dict) -> int:
+    def dfs(node: dict) -> int:
+        if not isinstance(node, dict):
+            raise ValueError("Tree node must be a mapping")
+        
+        total: int = 0
+        for name, value in node.items():
+            if not isinstance(name, str) or "/" in name:
+                raise ValueError("Node names must be non-empty strings without slashes")
+            
+            if isinstance(value, dict):
+                total += dfs(value)
+            elif isinstance(value, int):
+                total += value
+        
+        return total
+    
+    return dfs(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative whole number")
+    
+    def walk(node: dict, path: str = "", total_bytes: int = 0) -> tuple[str, int]:
+        nonlocal heavy_folders_list
+        if not isinstance(node, dict):
+            raise ValueError("Tree node must be a mapping")
+        
+        for name, value in node.items():
+            if not isinstance(name, str) or "/" in name:
+                raise ValueError("Node names must be non-empty strings without slashes")
+            
+            new_path = f"{path}/{name}"
+            if isinstance(value, dict):
+                folder_info = walk(value, new_path, total_bytes + 1)
+                heavy_folders_list.append((folder_info[0], folder_info[1]))
+            elif isinstance(value, int):
+                return (new_path, total_bytes + value)
+        
+        return (path, total_bytes)
+    
+    heavy_folders_list: list[tuple[str, int]] = []
+    walk(root)
+    return [folder for folder in heavy_folders_list if folder[1] >= min_bytes]
+```

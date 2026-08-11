@@ -1,0 +1,47 @@
+```typescript
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error("Length must be a non-negative integer.");
+  }
+
+  const memo: { [key: string]: [number, number[], number] } = {};
+
+  function cutRollHelper(remainingLength: number, pieces: [number, number][]): Cut {
+    if (remainingLength === 0) {
+      return { takings: 0, pieces: [] };
+    }
+
+    const key = `${remainingLength}-${pieces.map(([m]) => m).join(',')}`;
+    if (memo[key] !== undefined) {
+      return memo[key];
+    }
+
+    let bestTakings = 0;
+    let bestPieces: [number, number][] = [];
+
+    for (const [boardPiece, price] of pieces) {
+      if (remainingLength >= boardPiece) {
+        const subProblemResult = cutRollHelper(remainingLength - boardPiece, pieces);
+        const takings = price + subProblemResult.takings;
+        if (
+          takings > bestTakings ||
+          takings === bestTakings && (boardPiece > bestPieces[0][0] || boardPiece < bestPieces[bestPieces.length - 1][0])
+        ) {
+          bestTakings = takings;
+          bestPieces = [...pieces, [boardPiece, price]].sort((a, b) => a[0] - b[0]);
+        }
+      }
+    }
+
+    memo[key] = [bestTakings, pieces.sort((a, b) => a[0] - b[0]), remainingLength];
+    return { takings: bestTakings, pieces };
+  }
+
+  return cutRollHelper(length, board);
+}
+
+type Cut = {
+  takings: number;
+  pieces: [number, number][];
+};
+```

@@ -1,0 +1,27 @@
+```typescript
+export function slotHits(keys: number[], slots: number): number {
+  if (!Array.isArray(keys) || !Number.isInteger(slots)) {
+    throw new Error("Invalid input types");
+  }
+
+  const hitCount = keys.reduce((count, key) => {
+    if (!Number.isInteger(key)) {
+      throw new Error("Invalid key type");
+    }
+    const slotIndex = Math.abs(key) % slots;
+    if (slotIndex < 0) {
+      throw new Error("Negative slot index calculated");
+    }
+
+    const currentSlotValue = keys[slotIndex];
+    if (currentSlotValue === key) {
+      count++;
+    } else {
+      keys[slotIndex] = key;
+    }
+    return count;
+  }, 0);
+
+  return hitCount;
+}
+```

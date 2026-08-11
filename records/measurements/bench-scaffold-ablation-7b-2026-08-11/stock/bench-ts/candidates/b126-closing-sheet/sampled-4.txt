@@ -1,0 +1,77 @@
+```ts
+/** Close out a stockroom count sheet after a day's receive and issue moves. */
+
+function parseSheet(opening: string): Map<string, number> {
+  const held = new Map<string, number>();
+  if (opening === "") {
+    return held;
+  }
+  for (const part of opening.split(";")) {
+    const colon = part.indexOf(":");
+    if (colon < 0) {
+      throw new Error(`sheet entry has no colon: ${part}`);
+    }
+    const name = part.slice(0, colon).trim();
+    const count = part.slice(colon + 1).trim();
+    if (!/^[a-z]+$/.test(name)) {
+      throw new Error(`bad item name: ${name}`);
+    }
+    if (!/^(?:0|[1-9]\d*)$/.test(count)) {
+      throw new Error(`bad count: ${count}`);
+    }
+    if (held.has(name)) {
+      throw new Error(`duplicate sheet entry: ${name}`);
+    }
+    held.set(name, Number(count));
+  }
+  return held;
+}
+
+function applyMoves(held: Map<string, number>, moves: string[]): void {
+  for (const move of moves) {
+    const parts = move.split(/[-+]/);
+    if (parts.length !== 2) {
+      throw new Error(`malformed move: ${move}`);
+    }
+    const name = parts[0].trim();
+    const qtyStr = parts[1].trim();
+    if (!/^[a-z]+$/.test(name)) {
+      throw new Error(`bad item name in move: ${name}`);
+    }
+    if (!/^\d+$/.test(qtyStr)) {
+      throw new Error(`invalid quantity in move: ${qtyStr}`);
+    }
+    const qty = Number(qtyStr);
+    if (qty <= 0) {
+      throw new Error(`non-positive quantity in move: ${qty}`);
+    }
+    if (!held.has(name)) {
+      throw new Error(`item not on sheet for move: ${name}`);
+    }
+    if (move.startsWith("-") && held.get(name)! < qty) {
+      throw new Error(`issue more than available: ${name} by ${qty}`);
+    }
+    const newCount = move.startsWith("+")
+      ? held.get(name)! + qty
+      : held.get(name)! - qty;
+    if (newCount === 0) {
+      held.delete(name);
+    } else {
+      held.set(name, newCount);
+    }
+  }
+}
+
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== "string" || typeof moves !== "string") {
+    throw new Error("closingSheet expects two strings");
+  }
+  const held = parseSheet(opening);
+  applyMoves(held, moves.split(";").filter(Boolean));
+  const entries: string[] = [];
+  for (const name of [...held.keys()].sort()) {
+    entries.push(`${name}:${held.get(name)}`);
+  }
+  return entries.join(";");
+}
+```

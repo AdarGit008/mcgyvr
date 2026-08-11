@@ -1,0 +1,30 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    def parse_time(time_str: str) -> tuple[int, int]:
+        h, m = map(int, time_str.split(':'))
+        if not (0 <= h < 24 and 0 <= m < 60):
+            raise ValueError("Invalid time format")
+        return h * 100 + m
+
+    def format_time(time_int: int) -> str:
+        return f"{time_int // 100:02}:{time_int % 100:02}"
+
+    span_start, span_end = parse_time(span.split('-')[0]), parse_time(span.split('-')[1])
+    booked = sorted(parse_time(appointment) for appointment in booked)
+
+    if not (span_start < span_end and all(start < end for start, end in zip(booked, booked[1:]))):
+        raise ValueError("Invalid span or booking format")
+
+    free_spans = []
+    current_start = span_start
+
+    for start, end in booked:
+        if start > current_start:
+            free_spans.append((current_start, start))
+        current_start = max(current_start, end)
+
+    if current_start < span_end:
+        free_spans.append((current_start, span_end))
+
+    return ", ".join(format_time(start) + '-' + format_time(end) for start, end in free_spans)
+```

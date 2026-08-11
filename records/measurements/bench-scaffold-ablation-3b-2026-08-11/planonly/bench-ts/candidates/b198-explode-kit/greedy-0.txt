@@ -1,0 +1,26 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (!catalog[kit]) {
+    throw new Error(`Unknown kit name: ${kit}`);
+  }
+
+  const baseParts: Record<string, number> = {};
+
+  function processKit(kitName: string, units: number): void {
+    const { makes, parts } = catalog[kitName];
+    const runs = Math.ceil(units / makes);
+
+    for (const [component, count] of parts) {
+      if (catalog[component]) {
+        processKit(component, runs * count);
+      } else {
+        baseParts[component] = (baseParts[component] || 0) + runs * count;
+      }
+    }
+  }
+
+  processKit(kit, want);
+
+  return baseParts;
+}
+```

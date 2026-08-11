@@ -1,0 +1,49 @@
+```ts
+export function parseOption(segment: string): string[] {
+  const eq = segment.indexOf("=");
+  const key = segment.slice(0, eq);
+  if (eq === -1 || !/^[A-Za-z][A-Za-z0-9_]*$/.test(key)) {
+    throw new Error("malformed option segment: " + segment);
+  }
+  let raw = segment.slice(eq + 1);
+  if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+    raw = raw.slice(1, -1);
+  }
+  return [key, raw];
+}
+
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== "string" || input === "") {
+    throw new Error("invalid input");
+  }
+
+  const pairs: { [key: string]: string } = {};
+  let inQuotes = false;
+  let currentSegment = "";
+  for (let i = 0; i <= input.length; i++) {
+    if (i < input.length) {
+      const char = input[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ";" && !inQuotes) {
+        const parsedPair = parseOption(currentSegment);
+        currentSegment = "";
+        if (pairs[parsedPair[0]]) {
+          throw new Error("repeated key");
+        }
+        pairs[parsedPair[0]] = parsedPair[1];
+      } else {
+        currentSegment += char;
+      }
+    } else if (currentSegment !== "") {
+      const parsedPair = parseOption(currentSegment);
+      if (pairs[parsedPair[0]]) {
+        throw new Error("repeated key");
+      }
+      pairs[parsedPair[0]] = parsedPair[1];
+    }
+  }
+
+  return Object.entries(pairs);
+}
+```

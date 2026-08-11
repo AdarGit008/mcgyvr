@@ -1,0 +1,41 @@
+```ts
+import { maxBy } from 'lodash';
+
+interface Cut {
+  takings: number;
+  pieces: number[];
+}
+
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (length < 0) {
+    throw new Error('Length must be a non-negative whole number');
+  }
+
+  const dp = Array.from({ length: length + 1 }, () => ({
+    takings: 0,
+    pieces: [] as number[],
+  }));
+
+  for (let i = 1; i <= length; i++) {
+    let bestCut: [number, number] | null = null;
+
+    for (const [metres, price] of board) {
+      if (i >= metres && (!bestCut || price > dp[i - metres].takings)) {
+        bestCut = [metres, price];
+      }
+    }
+
+    if (bestCut) {
+      dp[i] = {
+        takings: bestCut[1],
+        pieces: [...dp[i - bestCut[0]].pieces, bestCut[0]],
+      };
+    } else {
+      dp[i].takings = dp[i - 1].takings;
+      dp[i].pieces = [...dp[i - 1].pieces];
+    }
+  }
+
+  return dp[length];
+}
+```

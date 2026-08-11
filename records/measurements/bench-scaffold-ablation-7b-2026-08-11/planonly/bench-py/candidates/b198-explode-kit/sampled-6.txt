@@ -1,0 +1,24 @@
+```python
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    if want <= 0:
+        raise ValueError("want must be a positive integer")
+    
+    def run_recipe(recipe):
+        parts_used = {}
+        for component, count in recipe['parts']:
+            if component in catalog:
+                sub_parts = run_recipe(catalog[component])
+                for part, sub_count in sub_parts.items():
+                    parts_used[part] = parts_used.get(part, 0) + sub_count * count
+            else:
+                parts_used[component] = parts_used.get(component, 0) + count
+        return parts_used
+    
+    recipe = catalog[kit]
+    runs_needed = (want - 1) // recipe['makes'] + 1
+    total_parts = run_recipe(recipe)
+    for part in total_parts:
+        total_parts[part] *= runs_needed
+
+    return total_parts
+```

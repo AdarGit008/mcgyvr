@@ -1,0 +1,27 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be provided as a list.")
+    
+    merged = base.copy()
+    
+    for override in overrides:
+        if not isinstance(override, str):
+            raise ValueError("Each override must be a string.")
+        
+        equals_index = override.find('=')
+        if equals_index == -1 or equals_index == 0:
+            raise ValueError("Each override must contain at least one '=' and it cannot be the first character.")
+        
+        name, value = override[:equals_index], override[equals_index+1:]
+        
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("Override names must be non-empty strings.")
+        
+        if base.get(name) is None:
+            raise ValueError(f"Base does not contain the setting '{name}'.")
+        
+        merged[name] = value
+    
+    return merged
+```

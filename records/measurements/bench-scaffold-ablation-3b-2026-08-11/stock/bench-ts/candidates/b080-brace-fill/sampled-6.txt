@@ -1,0 +1,57 @@
+```
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  const validatePlaceholder = (placeholder: string): void => {
+    if (!/^[a-zA-Z0-9_]+$/.test(placeholder)) {
+      throw new Error(`Invalid placeholder name: ${placeholder}`);
+    }
+  };
+
+  const result: string[] = [];
+  let braceLevel = 0;
+  let placeholderName = '';
+
+  for (const char of template) {
+    if (char === '{') {
+      braceLevel++;
+      if (braceLevel === 1 && !placeholderName) {
+        // Start a new placeholder
+        placeholderName = '';
+      } else {
+        throw new Error("Unterminated placeholder");
+      }
+    } else if (char === '}') {
+      braceLevel--;
+      if (braceLevel < 0) {
+        throw new Error("Mismatched closing brace");
+      }
+      if (braceLevel === 0 && placeholderName) {
+        validatePlaceholder(placeholderName);
+        const value = values[placeholderName];
+        if (!value) {
+          throw new Error(`Unknown placeholder: ${placeholderName}`);
+        }
+        result.push(value);
+      } else {
+        // End the current placeholder
+        result.push(char);
+      }
+    } else if (braceLevel > 0) {
+      // Inside a placeholder, accumulate characters
+      placeholderName += char;
+    } else {
+      // Outside of any brace, pass literal characters through
+      result.push(char);
+    }
+  }
+
+  if (braceLevel !== 0 || placeholderName) {
+    throw new Error("Unmatched opening brace");
+  }
+
+  return result.join('');
+}
+```

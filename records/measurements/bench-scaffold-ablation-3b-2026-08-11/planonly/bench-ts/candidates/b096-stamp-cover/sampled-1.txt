@@ -1,0 +1,42 @@
+```typescript
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+
+  for (const [fragment, price] of dies) {
+    if (!/^[a-zA-Z]+$/.test(fragment) || !Number.isInteger(price) || price <= 0) {
+      throw new Error("Invalid fragment or price.");
+    }
+    if (table.has(fragment)) {
+      throw new Error("Fragment listed twice.");
+    }
+    table.set(fragment, price);
+  }
+
+  return table;
+}
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  const table = stampTable(dies);
+
+  if (!/^[a-zA-Z]+$/.test(label)) {
+    throw new Error("Label is not a non-empty string.");
+  }
+
+  const labelLength = label.length;
+  const dp: Map<number, number> = new Map();
+
+  for (let i = 0; i <= labelLength; i++) {
+    dp.set(i, Infinity);
+
+    for (const [fragment, price] of table.entries()) {
+      if (i >= fragment.length) {
+        const remainingCost = dp.get(i - fragment.length)!;
+        const totalCost = remainingCost + price;
+        dp.set(i, Math.min(dp.get(i)!, totalCost));
+      }
+    }
+  }
+
+  return dp.get(labelLength)! === Infinity ? -1 : dp.get(labelLength)!;
+}
+```

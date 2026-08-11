@@ -1,0 +1,33 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    """
+    Resolve a dotted option name against style rules.
+
+    Parameters:
+    - rules (dict): A dictionary where keys are selector strings and values are string values.
+    - name (str): The dotted option name to look up.
+
+    Returns:
+    - str | None: The winning value from the rules, or None if no match is found.
+
+    Raises:
+    - ValueError: If the name is not a non-empty string, does not start with a "*", ends with "*", or contains invalid characters.
+    """
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string.")
+
+    if "*" in name and len(name.split(".")) > 2:
+        raise ValueError("Invalid selector name format: star cannot have multiple segments.")
+
+    if name.startswith("*") and name != "*":
+        raise ValueError("Star must stand alone or end the selector as '.*'.")
+
+    def is_covering_prefix(prefix: str, rule: tuple[str, str]) -> bool:
+        return prefix == ".".join(rule) or prefix.endswith(f".*")
+
+    for selector, value in rules.items():
+        if name == selector or (name.startswith(selector + ".") and is_covering_prefix(selector, rule)):
+            return value
+
+    return None
+```

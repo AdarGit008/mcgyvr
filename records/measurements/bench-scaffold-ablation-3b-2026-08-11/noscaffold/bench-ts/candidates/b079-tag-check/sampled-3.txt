@@ -1,0 +1,23 @@
+```typescript
+export function lineTag(body: string): string {
+  if (typeof body !== 'string') throw new Error('lineTag requires a string');
+  const sum = body.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return sum % 256.toString(16).padStart(2, '0');
+}
+
+export function checkLine(line: string): string {
+  if (typeof line !== 'string' || line.length < 3) throw new Error('checkLine requires a string of at least three characters');
+
+  const parts = line.split('~');
+  if (parts.length !== 2) throw new Error('checkLine requires exactly one tilde in the line');
+
+  const body = parts[0];
+  const tag = lineTag(body);
+
+  if (body.charAt(body.length - 1) !== '~' || !tag.startsWith(parts[1])) {
+    throw new Error(`checkLine: Tag does not match body`);
+  }
+
+  return body;
+}
+```

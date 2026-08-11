@@ -1,0 +1,19 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    exact_match = rules.get(name)
+    prefix_matches = [(len(prefix), value) for prefix, value in rules.items() if name.startswith(prefix + ".") and prefix.endswith(".*")]
+    wildcard_match = rules.get("*", None)
+    
+    if exact_match is not None:
+        return exact_match
+    elif prefix_matches:
+        _, longest_prefix_value = max(prefix_matches, key=lambda x: x[0])
+        return longest_prefix_value
+    elif wildcard_match is not None:
+        return wildcard_match
+    
+    return None
+```

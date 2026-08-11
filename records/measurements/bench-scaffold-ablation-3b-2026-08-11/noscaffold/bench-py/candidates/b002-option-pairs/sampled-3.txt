@@ -1,0 +1,43 @@
+```python
+def parse_option(segment: str) -> list:
+    """Converts a key=value segment into a [key, value] pair."""
+    if '=' in segment:
+        key, value = segment.split('=', 1)
+        if not key.isidentifier():
+            raise ValueError("Key must be a bare identifier.")
+        value = value.strip()
+        if value.startswith('"') and value.endswith('"'):
+            value = value[1:-1]
+        return [key, value]
+    else:
+        raise ValueError("Segment must contain an equal sign.")
+
+def scan_pairs(text: str) -> list:
+    """Splits the input text into key=value pairs based on semicolons."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    if not text.strip():
+        return []
+
+    result = []
+    in_quotes = False
+    current_segment = ""
+
+    for char in text:
+        if char == ';':
+            if in_quotes:
+                current_segment += char
+            else:
+                result.append(parse_option(current_segment))
+                current_segment = ""
+        elif char == '"':
+            in_quotes = not in_quotes
+        else:
+            current_segment += char
+
+    # Process the last segment
+    if current_segment.strip():
+        result.append(parse_option(current_segment))
+
+    return result
+```

@@ -1,0 +1,61 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern: str, text: str) -> bool:
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text: str, what: str) -> list[str]:
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    def is_valid_rule(rule: str) -> bool:
+        if rule == "":
+            raise ValueError("Empty rule or bare exclamation mark is not allowed")
+        if rule.startswith("!"):
+            return True
+        return len(split_strict(rule, "rule")) > 1
+
+    def is_valid_path(path: str) -> bool:
+        if path == "":
+            raise ValueError("Empty path is not allowed")
+        return all(segment != "" for segment in split_strict(path, "path"))
+
+    listing = [path for path in listing if is_valid_path(path)]
+    rules = [rule for rule in rules if is_valid_rule(rule)]
+
+    result = []
+    for path in listing:
+        match = False
+        for rule in reversed(rules):
+            pattern = rule[1:] if rule.startswith("!") else rule
+            if segment_fits(pattern, path):
+                match = not rule.startswith("!")
+                break
+        if match:
+            result.append(path)
+    return result
+```

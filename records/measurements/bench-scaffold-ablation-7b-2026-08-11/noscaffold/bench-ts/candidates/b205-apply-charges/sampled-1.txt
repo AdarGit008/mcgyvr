@@ -1,0 +1,38 @@
+```typescript
+/**
+ * Applies charges to buckets based on their capacity limits and returns the remaining allowance and refused charges.
+ * @param caps - A mapping from bucket name to a pair of allowance and largest single charge allowed in that bucket.
+ * @param charges - An array of triples representing charge id, bucket name, and amount.
+ * @returns An object with the remaining allowance for each bucket and an array of refused charges with their reasons.
+ */
+export function applyCharges(caps: Record<string, [number, number]>, charges: [string, string, number][]): { left: Record<string, number>; refused: [string, string][] } {
+    const result = { left: { ...caps }, refused: [] as [string, string][] };
+
+    for (const [id, bucket, amount] of charges) {
+        if (!Number.isInteger(amount) || amount <= 0) {
+            throw new Error("Invalid charge amount. Must be a positive whole number.");
+        }
+
+        const bucketCap = caps[bucket];
+        if (!bucketCap) {
+            result.refused.push([id, "unknown"]);
+            continue;
+        }
+
+        const [allowance, singleCharge] = bucketCap;
+        if (amount > singleCharge) {
+            result.refused.push([id, "single"]);
+            continue;
+        }
+
+        if (result.left[bucket] - amount < 0) {
+            result.refused.push([id, "cap"]);
+            continue;
+        }
+
+        result.left[bucket] -= amount;
+    }
+
+    return result;
+}
+```

@@ -1,0 +1,29 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    """
+    Replace placeholders in a template with corresponding values from a dictionary.
+
+    :param template: A string containing literal text and placeholders.
+    :param values: A dictionary mapping placeholder names to their replacements.
+    :return: The filled template string.
+    :raises ValueError: If the template is not a string, contains invalid placeholders,
+                       or if a placeholder name does not exist in the values dictionary.
+    """
+    if not isinstance(template, str):
+        raise ValueError("Template must be a string.")
+
+    def replace_placeholder(match):
+        placeholder = match.group(0)
+        name = placeholder[1:-1]
+        if not name.isalnum() or len(name) == 0:
+            raise ValueError(f"Invalid placeholder: {placeholder}")
+        return values.get(name, f"Missing value for placeholder: {name}")
+
+    try:
+        import re
+        pattern = r'\{([a-zA-Z0-9_]+)\}'
+        filled_template = re.sub(pattern, replace_placeholder, template)
+        return filled_template
+    except Exception as e:
+        raise ValueError(f"Error filling template: {e}")
+```

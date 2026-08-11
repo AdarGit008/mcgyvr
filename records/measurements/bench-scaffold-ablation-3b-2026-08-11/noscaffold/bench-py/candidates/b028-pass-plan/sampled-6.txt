@@ -1,0 +1,41 @@
+```python
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    if not trip_days or not passes:
+        return {"total": 0, "purchases": []}
+
+    # Validate and sort trip days
+    for day in trip_days:
+        if not isinstance(day, int) or day <= 0:
+            raise ValueError("All trip days must be strictly increasing positive integers.")
+    trip_days.sort()
+
+    # Validate passes
+    for pass_info in passes:
+        span = pass_info.get('span', None)
+        cost = pass_info.get('cost', None)
+
+        if not isinstance(span, int) or span < 1:
+            raise ValueError("Pass span must be a positive integer.")
+        if not isinstance(cost, int) or cost < 0:
+            raise ValueError("Pass cost must be a non-negative integer.")
+
+    # Initialize variables
+    total_cost = 0
+    purchases = []
+    day_index = 0
+
+    for pass_info in passes:
+        span = pass_info['span']
+        cost = pass_info['cost']
+
+        while day_index < len(trip_days) and trip_days[day_index] < trip_days[-1]:
+            # Try to cover the remaining trip days with this pass
+            if day_index + span > len(trip_days):
+                break
+
+            total_cost += cost
+            purchases.append([trip_days[day_index], span])
+            day_index += span
+
+    return {"total": total_cost, "purchases": purchases}
+```

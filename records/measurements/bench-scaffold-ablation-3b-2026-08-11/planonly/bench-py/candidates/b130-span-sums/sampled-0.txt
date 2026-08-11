@@ -1,0 +1,59 @@
+```python
+from typing import Union
+
+def parse_span(text: str) -> int:
+    def parse_part(part: str) -> Union[int, None]:
+        try:
+            value = int(part[:-2])  # Extract number and ignore unit
+            if part.endswith('yd'):
+                return value * 36
+            elif part.endswith('ft'):
+                return value * 12
+            elif part.endswith('in'):
+                return value
+        except ValueError:
+            raise ValueError(f"Invalid part: {part}")
+        return None
+
+    parts = text.split()
+    if len(parts) < 3 or any(part[-2:] not in ['yd', 'ft', 'in'] for part in parts):
+        raise ValueError("Span must have at least three parts and units must be yd, ft, or in.")
+    
+    total_inches = sum(parse_part(part) for part in parts if parse_part(part) is not None)
+    return total_inches
+
+def format_span(inches: int) -> str:
+    def format_unit(value: int, unit: str) -> str:
+        if value == 0:
+            return ""
+        elif value < 3 and unit == "ft":
+            return f"{value}{unit}"
+        elif value > 11 and unit == "in":
+            return f"{value//12'yd {value%12}'ft"
+        else:
+            return f"{value} {unit}"
+
+    if inches == 0:
+        return "0in"
+
+    parts = []
+    for unit, factor in [(36, 'yd'), (12, 'ft')]:
+        value = inches // factor
+        inches %= factor
+        if value > 0:
+            parts.append(format_unit(value, unit))
+
+    parts.append(f"{inches}in")
+    return " ".join(parts)
+
+def add_spans(first: str, second: str) -> str:
+    total_inches_first = parse_span(first)
+    total_inches_second = parse_span(second)
+
+    if not isinstance(total_inches_first, int) or not isinstance(total_inches_second, int):
+        raise ValueError("Both arguments must be valid span strings.")
+
+    total_inches_sum = total_inches_first + total_inches_second
+
+    return format_span(total_inches_sum)
+```

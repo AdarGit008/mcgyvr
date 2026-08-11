@@ -1,0 +1,34 @@
+```python
+def dose_totals(log: list) -> dict:
+    """
+    Calculate the total for each reagent in the log.
+
+    Args:
+    log (list): A list of [reagent, amount] entries where amount is a decimal string.
+
+    Returns:
+    dict: A mapping from reagent to its total as a decimal string.
+    """
+
+    totals = {}
+    
+    for reagent, amount in log:
+        if not amount.replace('.', '', 1).isdigit():
+            raise ValueError(f"Invalid amount format '{amount}'")
+        
+        millilitres = float(amount) * 1000
+        
+        # Determine the precision of the total based on the finest entry
+        max_precision = 3
+        for reagent_total in totals.values():
+            if '.' in reagent_total:
+                _, decimal_part = reagent_total.split('.')
+                max_precision = max(max_precision, len(decimal_part))
+        
+        # Format the total to match the maximum precision
+        formatted_total = f"{millilitres:.{max_precision}f}"
+        
+        totals[reagent] = formatted_total
+    
+    return totals
+```

@@ -1,0 +1,60 @@
+```python
+"""The cheapest set of travel passes covering every trip day."""
+
+
+def _validate_plan(trip_days, passes):
+    for day in trip_days:
+        if isinstance(day, bool) or not isinstance(day, int) or day < 1:
+            raise ValueError("trip days must be positive integers")
+    for earlier, later in zip(trip_days, trip_days[1:]):
+        if later <= earlier:
+            raise ValueError("trip days must be strictly increasing")
+    if not passes:
+        raise ValueError("at least one pass kind is required")
+    for cover in passes:
+        span = cover["span"]
+        cost = cover["cost"]
+        if isinstance(span, bool) or not isinstance(span, int) or span < 1:
+            raise ValueError("pass span must be a positive integer")
+        if isinstance(cost, bool) or not isinstance(cost, int) or cost < 0:
+            raise ValueError("pass cost must be a non-negative integer")
+
+
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    _validate_plan(trip_days, passes)
+
+    # Initialize variables to track the minimum total cost and purchases
+    min_total_cost = float('inf')
+    best_purchases = []
+
+    # Sort pass kinds by their cost per day
+    sorted_passes = sorted(passes, key=lambda p: p['cost'] / p['span'])
+
+    # Iterate over all possible combinations of passes
+    from itertools import chain, product
+
+    def is_valid_combination(combination):
+        covered_days = set()
+        for start, span in combination:
+            for i in range(start, start + span):
+                if i not in trip_days:
+                    return False
+                covered_days.add(i)
+        return len(covered_days) == len(trip_days)
+
+    for combination in chain.from_iterable(product([[], [p['span']]], repeat=len(passes))):
+        if is_valid_combination(combination):
+            total_cost = sum(p['cost'] * (span // p['span']) + 
+                           (span % p['span']) * (span % p['span'] > 0) for p, span in zip(sorted_passes, combination))
+            if total_cost < min_total_cost:
+                min_total_cost = total_cost
+                best_purchases = combinations
+
+    # Reconstruct the purchases in increasing start-day order
+    best_purchases.sort(key=lambda purchase: purchase[0])
+
+    return {
+        'total': min_total_cost,
+        'purchases': best_purchases
+    }
+```

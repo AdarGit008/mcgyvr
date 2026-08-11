@@ -1,0 +1,45 @@
+```ts
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error('Invalid input');
+  }
+
+  const pairs: string[][] = [];
+  let keySet = new Set<string>();
+
+  const segments = input.split(/(?<!\\);/).map(segment => segment.replace(/\\\\;/g, ';'));
+
+  for (const segment of segments) {
+    const [key, value] = parseOption(segment);
+
+    if (!key || !/^[a-zA-Z][a-zA-Z0-9_]*$/.test(key) || keySet.has(key)) {
+      throw new Error('Invalid key');
+    }
+
+    if (value.startsWith('"') && !value.endsWith('"')) {
+      throw new Error('Unterminated quote');
+    }
+
+    pairs.push([key, value]);
+    keySet.add(key);
+  }
+
+  return pairs;
+}
+
+export function parseOption(segment: string): string[] {
+  const [key, value] = segment.split(/=(.*)/, 2);
+
+  if (!key) {
+    throw new Error('Missing key');
+  }
+
+  let parsedValue = value || '';
+
+  if (parsedValue.startsWith('"') && parsedValue.endsWith('"')) {
+    parsedValue = parsedValue.slice(1, -1);
+  }
+
+  return [key.trim(), parsedValue];
+}
+```

@@ -1,0 +1,49 @@
+```ts
+
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== 'string') {
+    throw new Error('Input must be a string.');
+  }
+
+  const parts: Array<string | string[]> = [];
+  let braceLevel = 0;
+  let currentPlaceholderName = '';
+
+  for (let i = 0; i < template.length; i++) {
+    const char = template[i];
+
+    if (char === '{') {
+      braceLevel++;
+      if (braceLevel > 1) {
+        throw new Error('Unterminated placeholder.');
+      }
+      currentPlaceholderName = '';
+    } else if (char === '}') {
+      braceLevel--;
+      if (braceLevel < 0) {
+        throw new Error('Mismatched closing brace.');
+      }
+
+      if (currentPlaceholderName.length === 0 || !/^[a-zA-Z0-9_]+$/.test(currentPlaceholderName)) {
+        throw new Error(`Invalid placeholder name: ${currentPlaceholderName}.`);
+      }
+
+      const value = values[currentPlaceholderName];
+      if (!value) {
+        throw new Error(`Unknown placeholder name: ${currentPlaceholderName}.`);
+      }
+
+      parts.push(value);
+    } else if (braceLevel === 0) {
+      // Outside any brace, add the character as a literal
+      parts.push(char);
+    }
+  }
+
+  if (braceLevel !== 0) {
+    throw new Error('Unterminated opening brace.');
+  }
+
+  return parts.join('');
+}
+```

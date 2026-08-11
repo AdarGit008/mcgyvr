@@ -1,0 +1,28 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    """
+    Lay a conveyor run on the factory floor plan.
+
+    :param floor: List of strings representing the factory floor plan.
+    :param row: Row index where the conveyor run starts.
+    :param col: Column index where the conveyor run starts.
+    :param length: Number of cells the conveyor run covers.
+    :return: Modified floor plan with the conveyor run laid.
+    """
+    if not (0 <= row < len(floor) and 0 <= col < len(floor[0])):
+        raise ValueError("The start position is out of the factory floor.")
+    
+    if length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    for i in range(length):
+        current_col = col + i
+        if current_col >= len(floor[0]) or floor[row][current_col] != ".":
+            raise ValueError("The conveyor run cannot cover occupied cells.")
+    
+    # Create a copy of the floor to avoid modifying the original list
+    new_floor = [row[:] for row in floor]
+    new_floor[row][col:col + length] = ['=' for _ in range(length)]
+    
+    return new_floor
+```

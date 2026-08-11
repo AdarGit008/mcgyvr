@@ -1,0 +1,24 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== "string" || name === "" || name.includes("*")) {
+    throw new Error("name must be a star-free non-empty string");
+  }
+
+  const keys = Object.keys(rules).sort((a, b) => b.length - a.length);
+
+  for (const key of keys) {
+    if (key === "*") {
+      return rules[key];
+    } else if (key.endsWith(".*")) {
+      const prefix = key.slice(0, -2);
+      if (name.startsWith(prefix)) {
+        return rules[key];
+      }
+    } else if (key === name) {
+      return rules[key];
+    }
+  }
+
+  return null;
+}
+```

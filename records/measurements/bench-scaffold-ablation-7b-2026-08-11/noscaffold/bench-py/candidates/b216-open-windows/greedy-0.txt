@@ -1,0 +1,32 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    def parse_time(time_str: str) -> tuple[int, int]:
+        hours, minutes = map(int, time_str.split(':'))
+        if not (0 <= hours < 24 and 0 <= minutes < 60):
+            raise ValueError("Invalid time format")
+        return hours * 100 + minutes
+
+    def format_time(time_int: int) -> str:
+        hours = time_int // 100
+        minutes = time_int % 100
+        return f"{hours:02}:{minutes:02}"
+
+    span_start, span_end = parse_time(span.split('-')[0]), parse_time(span.split('-')[1])
+    booked_times = sorted(parse_time(app) for app in booked)
+
+    if not (span_start < span_end and all(start < end for start, end in zip(booked_times, booked_times[1:]))):
+        raise ValueError("Invalid span or overlapping appointments")
+
+    free_stretches = []
+    current_start = span_start
+
+    for appointment in booked_times:
+        if appointment > current_start:
+            free_stretches.append(f"{format_time(current_start)}-{format_time(appointment)}")
+        current_start = max(current_start, appointment)
+
+    if current_start < span_end:
+        free_stretches.append(f"{format_time(current_start)}-{format_time(span_end)}")
+
+    return ", ".join(free_stretches) if free_stretches else "none"
+```

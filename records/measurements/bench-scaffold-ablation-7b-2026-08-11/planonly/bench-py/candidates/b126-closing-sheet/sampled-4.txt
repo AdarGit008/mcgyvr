@@ -1,0 +1,49 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both opening and moves must be strings.")
+
+    def parse_entry(entry: str) -> tuple[str, int]:
+        parts = entry.split(':')
+        if len(parts) != 2:
+            raise ValueError(f"Malformed entry: {entry}")
+        name, count_str = parts
+        if not name.isalpha() or not name.islower():
+            raise ValueError(f"Invalid item name in entry: {name}")
+        try:
+            count = int(count_str)
+        except ValueError:
+            raise ValueError(f"Non-integer count in entry: {count_str}")
+        return name, count
+
+    def parse_move(move: str) -> tuple[str, int]:
+        if not move:
+            return "", 0
+        parts = move.split('+')
+        if len(parts) == 2 and parts[1].isdigit():
+            return parts[0], int(parts[1])
+        parts = move.split('-')
+        if len(parts) == 2 and parts[1].isdigit() and int(parts[1]) > 0:
+            return parts[0], -int(parts[1])
+        raise ValueError(f"Malformed move: {move}")
+
+    opening_entries = [parse_entry(entry) for entry in opening.split(';') if entry]
+    moves_list = [parse_move(move) for move in moves.split(';')]
+
+    sheet: dict[str, int] = {}
+    for name, count in opening_entries:
+        if name in sheet:
+            raise ValueError(f"Duplicate item name on opening sheet: {name}")
+        sheet[name] = count
+
+    for name, qty in moves_list:
+        if name not in sheet and qty > 0:
+            raise ValueError(f"Issue of item not held: {name}")
+        if sheet.get(name, 0) < -qty:
+            raise ValueError(f"Issue of more units than held: {name}, move: {qty}")
+        sheet[name] += qty
+        if sheet[name] == 0:
+            del sheet[name]
+
+    return ';'.join(f"{name}:{count}" for name, count in sorted(sheet.items()))
+```

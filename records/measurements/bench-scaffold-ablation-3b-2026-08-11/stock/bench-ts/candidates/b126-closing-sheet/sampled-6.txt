@@ -1,0 +1,65 @@
+```typescript
+
+/** Close out a stockroom count sheet after a day's receive and issue moves. */
+
+function parseSheet(opening: string): Map<string, number> {
+  const held = new Map<string, number>();
+  if (opening === "") {
+    return held;
+  }
+  for (const part of opening.split(";")) {
+    const colon = part.indexOf(":");
+    if (colon < 0) {
+      throw new Error(`sheet entry has no colon: ${part}`);
+    }
+    const name = part.slice(0, colon);
+    const count = part.slice(colon + 1);
+    if (!/^[a-z]+$/.test(name)) {
+      throw new Error(`bad item name: ${part}`);
+    }
+    if (!/^(?:0|[1-9]\d*)$/.test(count)) {
+      throw new Error(`bad count: ${part}`);
+    }
+    if (held.has(name)) {
+      throw new Error(`duplicate sheet entry: ${name}`);
+    }
+    held.set(name, Number(count));
+  }
+  return held;
+}
+
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== "string" || typeof moves !== "string") {
+    throw new Error("closingSheet expects two strings");
+  }
+  const held = parseSheet(opening);
+  
+  for (const move of moves.split(";")) {
+    const parts = move.split("+", "-").map(part => part.trim()).filter(Boolean); // Trim and filter
+    if (parts.length !== 2) {
+      throw new Error(`malformed move: ${move}`);
+    }
+    
+    const [name, qtyStr] = parts;
+    const qty = parseInt(qtyStr, 10);
+    if (isNaN(qty) || qty <= 0) {
+      throw new Error(`invalid quantity in move: ${move}`);
+    }
+
+    if (!held.has(name)) {
+      throw new Error(`issue of item not held: ${move}`);
+    }
+    const currentCount = held.get(name)!;
+    if (qty > currentCount) {
+      throw new Error(`cannot issue more than available: ${move}`);
+    }
+
+    held.set(name, currentCount - qty);
+  }
+
+  // Filter out zero counts and sort the remaining entries
+  const resultEntries = [...held.entries()].filter(([_, count]) => count !== 0).sort((a, b) => a[0].localeCompare(b[0]));
+  
+  return resultEntries.map(([name, count]) => `${name}:${count}`).join(";");
+}
+```

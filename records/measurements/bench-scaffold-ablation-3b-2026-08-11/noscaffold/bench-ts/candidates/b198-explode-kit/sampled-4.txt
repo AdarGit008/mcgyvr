@@ -1,0 +1,36 @@
+```ts
+
+function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+    if (!catalog[kit]) {
+        throw new Error(`Unknown kit name: ${kit}`);
+    }
+
+    const totalPartsNeeded = calculateTotalPartsNeeded(catalog, want);
+
+    return getPartDistribution(totalPartsNeeded);
+}
+
+function calculateTotalPartsNeeded(catalog: Record<string, { makes: number; parts: [string, number][] }>, want: number): number {
+    let totalPartsNeeded = 0;
+
+    while (totalPartsNeeded < want) {
+        const currentPartsNeeded = catalog[kit].parts.reduce((sum, [part, count]) => sum + (count * Math.ceil(want / totalPartsNeeded)), 0);
+        totalPartsNeeded += currentPartsNeeded;
+    }
+
+    return totalPartsNeeded;
+}
+
+function getPartDistribution(totalPartsNeeded: number): Record<string, number> {
+    const partDistribution: Record<string, number> = {};
+
+    catalog[kit].parts.forEach(([part, count]) => {
+        const distributionPart = Math.ceil((count * want) / totalPartsNeeded);
+        if (distributionPart > 0) {
+            partDistribution[part] = distributionPart;
+        }
+    });
+
+    return partDistribution;
+}
+```

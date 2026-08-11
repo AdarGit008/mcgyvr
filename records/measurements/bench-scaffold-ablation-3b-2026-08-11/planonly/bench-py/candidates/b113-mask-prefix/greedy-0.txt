@@ -1,0 +1,43 @@
+```python
+def mask_from_prefix(prefix: int) -> str:
+    if not isinstance(prefix, int):
+        raise ValueError("Prefix must be an integer.")
+    
+    if prefix < 0 or prefix > 32:
+        raise ValueError("Prefix must be between 0 and 32.")
+    
+    # Convert the prefix to a binary string with leading zeros
+    binary_str = format(prefix, '08b')
+    
+    # Find the length of the longest run of leading ones
+    max_ones_length = len(binary_str.lstrip('0'))
+    
+    # Construct the mask string
+    mask_octets = [str(255) if i < max_ones_length else '0' for i in range(4)]
+    return '.'.join(mask_octets)
+
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("Mask must be a string.")
+    
+    # Split the mask into four octet fields
+    octets = mask.split('.')
+    
+    # Validate each octet
+    for i, octet in enumerate(octets):
+        if not octet.isdigit() or int(octet) < 0 or int(octet) > 255:
+            raise ValueError("Each octet must be a non-negative integer between 0 and 255.")
+    
+    # Check for leading zeros in any octet except the first
+    for i, octet in enumerate(octets[1:], start=1):
+        if octet.startswith('0') and octet != '0':
+            raise ValueError("Octets must not have leading zeros except 0 itself.")
+    
+    # Convert the mask to a binary string with leading zeros
+    binary_str = ''.join(format(int(octet), '08b') for octet in octets)
+    
+    # Find the length of the longest run of leading ones
+    max_ones_length = len(binary_str.lstrip('0'))
+    
+    return max_ones_length
+```

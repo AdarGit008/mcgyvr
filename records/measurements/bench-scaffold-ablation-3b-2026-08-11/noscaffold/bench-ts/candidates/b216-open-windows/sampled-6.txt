@@ -1,0 +1,88 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+    if (span.split('-').length !== 2 || booked.some(appointment => !appointment.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/))) {
+        throw new Error("Invalid span or appointment format.");
+    }
+
+    const [start, end] = span.split('-').map(time => time.split(':').map(Number));
+    const appointments = booked.map(appointment => {
+        const [startTime, endTime] = appointment.split(':').map(Number);
+        return { startTime, endTime };
+    });
+
+    // Sort appointments by start time
+    appointments.sort((a, b) => a.startTime - b.startTime);
+
+    let freeSpans: { fromHour: number, fromMinute: number, toHour: number, toMinute: number }[] = [];
+
+    let currentIndex = 0;
+    for (let i = 0; i < appointments.length; i++) {
+        const { startTime, endTime } = appointments[i];
+        if (startTime > end) break;
+
+        // Check if there's a free span before the current appointment
+        if (currentIndex < appointments.length && startIndex.startTime <= startTime) {
+            const freeSpan: { fromHour: number, fromMinute: number, toHour: number, toMinute: number } = {
+                fromHour: freeSpans[currentIndex].toHour,
+                fromMinute: freeSpans[currentIndex].toMinute,
+                toHour: appointments[i].startTime,
+                toMinute: 0
+            };
+            if (freeSpan.toHour !== 0 || freeSpan.fromHour !== end[0] || freeSpan.fromMinute !== end[1]) {
+                freeSpans.push(freeSpan);
+            }
+        }
+
+        // Check if there's a free span after the current appointment
+        while (i < appointments.length - 1 && appointments[i + 1].startTime <= endTime) {
+            i++;
+        }
+        const lastAppointment = appointments[i];
+        if (lastAppointment.endTime > end) {
+            const freeSpan: { fromHour: number, fromMinute: number, toHour: number, toMinute: number } = {
+                fromHour: lastAppointment.endTime,
+                fromMinute: 0,
+                toHour: end[0],
+                toMinute: end[1]
+            };
+            if (freeSpan.toHour !== 0 || freeSpan.fromHour !== start[0] || freeSpan.fromMinute !== start[1]) {
+                freeSpans.push(freeSpan);
+            }
+        }
+
+        currentIndex++;
+    }
+
+    // Handle any remaining free span after the last appointment
+    if (currentIndex < appointments.length && appointments[currentIndex].startTime > end) {
+        const freeSpan: { fromHour: number, fromMinute: number, toHour: number, toMinute: number } = {
+            fromHour: start[0],
+            fromMinute: start[1],
+            toHour: appointments[currentIndex].startTime,
+            toMinute: 0
+        };
+        if (freeSpan.toHour !== 0 || freeSpan.fromHour !== end[0] || freeSpan.fromMinute !== end[1]) {
+            freeSpans.push(freeSpan);
+        }
+    }
+
+    // Sort free spans by start time and format them
+    freeSpans.sort((a, b) => {
+        if (a.toHour !== b.toHour) return a.toHour - b.toHour;
+        return a.fromMinute - b.fromMinute;
+    });
+
+    const formattedFreeSpans = freeSpans.map(freeSpan => {
+        const fromTime = `${String(freeSpan.fromHour).padStart(2, '0')}:${String(freeSpan.fromMinute).padStart(2, '0')}`;
+        let toTime: string;
+        if (freeSpan.toHour === 0) {
+            toTime = "24:00";
+        } else {
+            toTime = `${String(freeSpan.toHour).padStart(2, '0')}:${String(freeSpan.toMinute).padStart(2, '0')}`;
+        }
+        return fromTime + '-' + toTime;
+    });
+
+    return formattedFreeSpans.join(", ") || "none";
+}
+```

@@ -1,0 +1,35 @@
+```python
+def tile_renders(requests: list[tuple[int, str]], fresh_for: int, size: int) -> list[tuple[int, str]]:
+    if isinstance(fresh_for, bool) or not isinstance(fresh_for, int) or fresh_for < 1:
+        raise ValueError("fresh_for must be a positive integer")
+    if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+        raise ValueError("size must be a positive integer")
+
+    held = {}
+    renders = []
+
+    for tick, name in requests:
+        # Check if the request is fresh
+        if tick < fresh_for:
+            render = held.get(name)
+            if render:  # If it's still fresh
+                renders.append((tick, name))
+            else:
+                renders.append((fresh_for + (size - len(held)), name))  # Store a fresh render
+                held[name] = render
+        elif tick == fresh_for:
+            renders.append((tick, name))
+            held[name] = None  # Mark as stale once it's rendered at fresh_for
+        else:  # If the request is older than fresh_for
+            if len(held) < size:
+                holds[name] = None  # Store a new render
+                renders.append((tick, name))
+            else:
+                oldest_tick = min(held.keys(), default=None)
+                if oldest_tick is not None and oldest_tick != tick:
+                    held.pop(oldest_tick, None)  # Drop the oldest render
+                    holds[name] = None  # Store a new render
+                    renders.append((tick, name))
+
+    return renders
+```

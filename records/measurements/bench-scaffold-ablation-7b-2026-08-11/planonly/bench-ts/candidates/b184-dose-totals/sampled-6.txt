@@ -1,0 +1,30 @@
+```ts
+/**
+ * Total each reagent exactly from a pour log and return a mapping with totals formatted to the finest place count.
+ * @param log - List of [reagent, amount] entries in pour order.
+ * @returns A mapping from reagent to its total as a decimal string.
+ * @throws Error if an amount does not fit the expected written form.
+ */
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const totals: Record<string, number> = {};
+
+  for (const [reagent, amount] of log) {
+    const regex = /^-?\d+(\.\d{1,3})?$/;
+    if (!regex.test(amount)) {
+      throw new Error(`Invalid amount format: ${amount}`);
+    }
+
+    const ml = parseFloat(amount);
+    totals[reagent] = (totals[reagent] || 0) + ml;
+  }
+
+  return Object.fromEntries(
+    Object.entries(totals).map(([reagent, total]) => [
+      reagent,
+      total.toFixed(
+        Math.max(...log.filter(([r]) => r === reagent).map(([, a]) => a.match(/\.\d{1,3}/)?.[0].length || 0))
+      ),
+    ])
+  );
+}
+```

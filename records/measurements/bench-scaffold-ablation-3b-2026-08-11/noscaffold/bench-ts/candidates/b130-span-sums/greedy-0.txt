@@ -1,0 +1,54 @@
+```ts
+export function parseSpan(text: string): number {
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error('Invalid span format');
+  }
+
+  const parts = text.split(/\s+/);
+  if (parts.length < 3) {
+    throw new Error('Invalid span format');
+  }
+
+  const units = ['yd', 'ft', 'in'];
+  let totalInches = 0;
+
+  for (let i = 0; i < parts.length; i++) {
+    const [value, unit] = parts[i].split('');
+    if (!/^\d+$/.test(value) || !units.includes(unit)) {
+      throw new Error('Invalid span format');
+    }
+
+    totalInches += parseInt(value, 10) * (i === 0 ? 36 : i === 1 ? 12 : 1);
+  }
+
+  return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+  if (typeof inches !== 'number' || inches < 0 || !Number.isInteger(inches)) {
+    throw new Error('Invalid span format');
+  }
+
+  const units = [36, 12, 1];
+  let result = '';
+
+  for (let i = 0; i < units.length; i++) {
+    const value = Math.floor(inches / units[i]);
+    if (value > 0) {
+      result += `${value}${units[i]}`;
+      inches -= value * units[i];
+    }
+  }
+
+  return result;
+}
+
+export function addSpans(first: string, second: string): string {
+  const totalInches1 = parseSpan(first);
+  const totalInches2 = parseSpan(second);
+
+  const totalInchesSum = totalInches1 + totalInches2;
+
+  return formatSpan(totalInchesSum);
+}
+```

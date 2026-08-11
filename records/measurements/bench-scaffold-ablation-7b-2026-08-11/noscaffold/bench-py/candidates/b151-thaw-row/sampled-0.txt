@@ -1,0 +1,18 @@
+```python
+def thaw_row(row: str, steps: int) -> str:
+    if not isinstance(row, str) or not row:
+        raise ValueError("Row must be a non-empty string")
+    if not all(c in "#." for c in row):
+        raise ValueError("Row can only contain '#' and '.'")
+    if not isinstance(steps, int) or steps < 0:
+        raise ValueError("Steps must be a non-negative integer")
+
+    cells = list(row)
+    for _ in range(steps):
+        new_cells = cells.copy()
+        for i in range(len(cells)):
+            if (i == 0 or cells[i-1] == ".") and cells[i] == "#" and (i == len(cells) - 1 or cells[i+1] == "."):
+                new_cells[i] = "."
+        cells = new_cells
+    return "".join(cells)
+```

@@ -1,0 +1,33 @@
+```ts
+export function runThermostat(start: number, low: number, high: number, power: number, drifts: number[]): { temp: number; heated: number; switches: number; coldest: number } {
+  if (!Number.isInteger(start) || !Number.isInteger(low) || !Number.isInteger(high) || !Number.isInteger(power) || start !== Math.floor(start) || low !== Math.floor(low) || high !== Math.floor(high) || power !== Math.floor(power)) {
+    throw new Error('Invalid argument: start, low, high, and power must be integers');
+  }
+  if (low >= high) {
+    throw new Error('Invalid argument: low must be strictly below high');
+  }
+  if (!Array.isArray(drifts) || drifts.some(d => !Number.isInteger(d))) {
+    throw new Error('Invalid argument: drifts must be a list of integers');
+  }
+
+  let temp = start;
+  let heated = 0;
+  let switches = 0;
+  let coldest = start;
+
+  for (const drift of drifts) {
+    if (temp < low) {
+      temp += power;
+      switches++;
+    } else if (temp >= high) {
+      temp -= power;
+      switches++;
+    }
+    heated += temp < low || temp > high ? 1 : 0;
+    coldest = Math.min(coldest, temp);
+    temp += drift;
+  }
+
+  return { temp, heated, switches, coldest };
+}
+```

@@ -1,0 +1,51 @@
+```python
+from typing import List, Dict
+
+def cheapest_pass_plan(trip_days: List[int], passes: List[Dict[str, int]]) -> Dict[str, int]:
+    if not trip_days or not passes:
+        return {"total": 0, "purchases": []}
+    
+    # Validate input types and values
+    for day in trip_days:
+        if not isinstance(day, int) or day <= 0:
+            raise ValueError("Every trip day must be a strictly positive integer.")
+    if len(trip_days) != len(set(trip_days)):
+        raise ValueError("Trip days must be strictly increasing integers.")
+    
+    for pass_info in passes:
+        span = pass_info.get("span")
+        cost = pass_info.get("cost")
+        
+        if not isinstance(span, int) or span <= 0:
+            raise ValueError("Pass span must be a positive integer.")
+        if not isinstance(cost, int) or cost < 0:
+            raise ValueError("Pass cost must be a non-negative integer.")
+    
+    # Sort passes by cost and then by span
+    passes.sort(key=lambda x: (x["cost"], x["span"]))
+    
+    total_cost = 0
+    purchases = []
+    covered_days = set(trip_days)
+    
+    for pass_info in passes:
+        span = pass_info["span"]
+        cost = pass_info["cost"]
+        
+        if not covered_days:
+            break
+        
+        # Find the earliest day to start a new pass covering un-covered days
+        min_day = min(covered_days)
+        max_day = min_day + span - 1
+        
+        # Calculate the total cost to cover the current range of days
+        total_cost += cost * (max_day - min_day + 1)
+        
+        # Update purchases and covered days
+        purchases.append([min_day, span])
+        covered_days.discard(min_day)
+        covered_days.discard(max_day)
+    
+    return {"total": total_cost, "purchases": purchases}
+```

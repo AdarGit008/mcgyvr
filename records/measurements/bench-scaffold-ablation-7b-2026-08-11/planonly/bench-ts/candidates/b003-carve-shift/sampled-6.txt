@@ -1,0 +1,19 @@
+```ts
+export function carveShift(start: number, end: number, span: number, rest: number, least: number): number[][] {
+  if (!Number.isInteger(start) || !Number.isInteger(end) ||
+      !Number.isInteger(span) || !Number.isInteger(rest) || !Number.isInteger(least)) {
+    throw new Error('All arguments must be whole numbers.');
+  }
+  if (start >= end || span < 1 || rest < 1 || least < 1 || least > span) {
+    throw new Error('Invalid arguments: start must precede end, span and rest must be at least 1, least must be between 1 and span.');
+  }
+
+  const stretches: number[][] = [];
+  for (let current = start; current + span < end;) {
+    if (current + span - least >= end) break;
+    stretches.push([current, Math.min(current + span, end)]);
+    current += span + rest;
+  }
+  return stretches;
+}
+```

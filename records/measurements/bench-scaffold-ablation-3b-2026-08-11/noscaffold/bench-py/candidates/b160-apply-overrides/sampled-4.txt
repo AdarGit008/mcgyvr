@@ -1,0 +1,33 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    """
+    Apply command-line overrides to base settings.
+
+    :param base: Flat mapping of setting names to string values.
+    :param overrides: List of strings in the format 'name=value'.
+    :return: A new dictionary with overrides applied.
+    """
+
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list.")
+
+    result = base.copy()
+
+    for override in overrides:
+        parts = override.split('=')
+        
+        if len(parts) != 2 or "=" not in override:
+            raise ValueError("Invalid override format.")
+        
+        name, value = parts
+        
+        if not name or not (name.isalpha() or '-' in name):
+            raise ValueError("Override name must be non-empty and may only contain alphabetic characters or dashes.")
+
+        if name not in base:
+            raise ValueError(f"Setting '{name}' does not exist in base settings.")
+
+        result[name] = value
+
+    return result
+```

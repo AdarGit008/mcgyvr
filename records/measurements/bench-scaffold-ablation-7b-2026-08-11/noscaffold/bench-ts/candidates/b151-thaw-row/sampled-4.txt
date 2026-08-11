@@ -1,0 +1,27 @@
+```ts
+/**
+ * Thaws a row of cells by melting ice (#) into meltwater (.)
+ * at the ends or next to meltwater, while preserving ice between walls.
+ * @param row - The input row of "#" and "." characters.
+ * @param steps - The number of thaw steps to perform.
+ * @returns The row after applying the specified number of thaw steps.
+ */
+export function thawRow(row: string, steps: number): string {
+    if (typeof row !== 'string' || row === '') throw new Error('Invalid row');
+    if (!Number.isInteger(steps) || steps < 0) throw new Error('Invalid step count');
+
+    const cells = row.split('');
+    for (let s = 0; s < steps; s++) {
+        const nextCells = [...cells];
+        for (let i = 0; i < cells.length; i++) {
+            if (i === 0 || i === cells.length - 1) {
+                if (cells[i] === '#') nextCells[i] = '.';
+            } else if (cells[i - 1] === '.' || cells[i + 1] === '.') {
+                if (cells[i] === '#') nextCells[i] = '.';
+            }
+        }
+        cells = nextCells;
+    }
+    return cells.join('');
+}
+```

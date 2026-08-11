@@ -1,0 +1,32 @@
+```ts
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (typeof length !== 'number' || length < 0 || !Number.isInteger(length)) {
+    throw new Error('Invalid length');
+  }
+
+  type Memo = { takings: number; pieces: number[] };
+  const memo: Memo[][] = Array.from({ length }, () => []);
+
+  for (let i = 1; i <= length; i++) {
+    let maxTakings = 0;
+    let bestPieces: number[] = [];
+
+    for (const [pieceLength, price] of board) {
+      if (i >= pieceLength) {
+        const remainingLength = i - pieceLength;
+        const takings = price + memo[remainingLength][0].takings;
+        const pieces = [pieceLength, ...memo[remainingLength][0].pieces];
+
+        if (takings > maxTakings || (takings === maxTakings && pieceLength >= bestPieces[0])) {
+          maxTakings = takings;
+          bestPieces = pieces;
+        }
+      }
+    }
+
+    memo[i] = [{ takings, pieces }];
+  }
+
+  return memo[length][0];
+}
+```

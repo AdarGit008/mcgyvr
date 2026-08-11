@@ -1,0 +1,33 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  const splitStrict = (path: string): string[] => {
+    if (typeof path !== 'string' || path === '' || path.includes('//')) {
+      throw new Error('Invalid path');
+    }
+    return path.split('/').filter(segment => segment !== '');
+  };
+
+  const matchesPattern = (pathSegments: string[], patternSegments: string[]): boolean => {
+    for (let i = 0; i < patternSegments.length; i++) {
+      if (patternSegments[i] === '*') continue;
+      if (i >= pathSegments.length || pathSegments[i] !== patternSegments[i]) return false;
+    }
+    return true;
+  };
+
+  const isKeepRule = (rule: string): boolean => rule.startsWith('!');
+
+  const applyRulesToPath = (path: string, rules: string[]): boolean => {
+    const pathSegments = splitStrict(path);
+    for (const rule of rules) {
+      const patternSegments = splitStrict(rule.replace(/^!/, ''));
+      if (matchesPattern(pathSegments, patternSegments)) {
+        return isKeepRule(rule);
+      }
+    }
+    return false;
+  };
+
+  return listing.filter(applyRulesToPath.bind(null, rules));
+}
+```

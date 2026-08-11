@@ -1,0 +1,41 @@
+```python
+from typing import List, Dict
+
+def dose_totals(log: List[List[str]]) -> Dict[str, str]:
+    """
+    Calculate the total amount of each reagent in a lab's pour log.
+
+    Args:
+    log (List[List[str]]): A list of [reagent, amount] entries, where amount is a string
+                           representing millilitres. The amount may include a leading minus,
+                           one or more digits, and an optional point with one to three digits.
+
+    Returns:
+    Dict[str, str]: A dictionary mapping reagents to their total amounts in thousandths of a millilitre.
+                   Totals are formatted as strings with the same number of decimal places as the
+                   finest entry for that reagent. Negative totals retain a leading minus.
+    """
+    totals = {}
+    for entry in log:
+        if len(entry) != 2 or not isinstance(entry[0], str) or not isinstance(entry[1], str):
+            raise ValueError("Each entry must be a list with two strings: [reagent, amount].")
+        
+        reagent, amount_str = entry
+        try:
+            # Convert the amount string to a float and round it to 3 decimal places
+            amount = round(float(amount_str), 3) * 1000  # Convert to thousandths of a millilitre
+            if amount not in totals:
+                totals[reagent] = str(amount)
+            else:
+                totals[reagent] = str(round(totals[reagent], 3))  # Update total with new amount rounded
+        except ValueError as e:
+            raise ValueError(f"Invalid amount '{amount_str}': {e}")
+    
+    return totals
+
+# Example usage:
+# log = [["water", "10.5"], ["sugar", "-2.345"], ["water", "3.789"]]
+# print(dose_totals(log))
+```
+
+This implementation calculates the total amounts of each reagent from a lab's pour log, ensuring that totals are rounded to thousandths of a millilitre and formatted according to the specified rules. It also includes error handling for invalid amount strings.

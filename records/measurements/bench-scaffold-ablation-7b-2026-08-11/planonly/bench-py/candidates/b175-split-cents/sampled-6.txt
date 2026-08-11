@@ -1,0 +1,30 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    if total < 0 or not isinstance(total, int):
+        raise ValueError("Total must be a non-negative integer")
+    if not isinstance(weights, list) or len(weights) == 0:
+        raise ValueError("Weights must be a non-empty list of positive integers")
+    for weight in weights:
+        if not isinstance(weight, int) or weight <= 0:
+            raise ValueError("All weights must be positive integers")
+
+    total_cents = total
+    partners_count = len(weights)
+    sum_weights = sum(weights)
+
+    base_share = [total * weight // sum_weights for weight in weights]
+    remainder = total_cents - sum(base_share)
+
+    # Sort partners by the fractional part of their share in descending order, ties broken by earlier position
+    fractional_parts = [(base_share[i] + (total * i / sum_weights) % 1, i) for i in range(partners_count)]
+    fractional_parts.sort(key=lambda x: (-x[0], -x[1]))
+
+    # Distribute the remainder to the partners with the largest discarded fraction
+    for i, (_, index) in enumerate(fractional_parts):
+        base_share[index] += 1
+        remainder -= 1
+        if remainder == 0:
+            break
+
+    return base_share
+```

@@ -1,0 +1,68 @@
+```python
+"""Tape-measure spans: parse to inches, format canonically, and add."""
+
+INCHES = {"yd": 36, "ft": 12, "in": 1}
+ORDER = ("yd", "ft", "in")
+
+
+def parse_span(text: str) -> int:
+    # Validate the span text against the part grammar and unit order,
+    # then total its parts in inches.
+    if not isinstance(text, str):
+        raise ValueError("input must be a string")
+    
+    # Split the input into parts
+    parts = text.split()
+    
+    # Check for the correct number of parts
+    if len(parts) != 3:
+        raise ValueError("span must contain exactly three parts: yards, feet, inches")
+    
+    # Validate each part
+    for i in range(3):
+        value, unit = parts[i].split('-')
+        if not value.isdigit():
+            raise ValueError(f"value '{value}' is invalid")
+        if unit not in INCHES:
+            raise ValueError(f"unit '{unit}' is unknown")
+        
+        # Check for duplicate units
+        if i > 0 and unit == ORDER[-1]:
+            raise ValueError("units must be ordered from largest to smallest")
+    
+    # Calculate the total inches
+    return int(parts[0]) * INCHES["yd"] + \
+           int(parts[1]) * INCHES["ft"] + \
+           int(parts[2])
+
+
+def format_span(inches: int) -> str:
+    if isinstance(inches, bool) or not isinstance(inches, int) or inches < 0:
+        raise ValueError("inches must be a non-negative integer")
+    
+    # Handle zero
+    if inches == 0:
+        return "0in"
+    
+    # Determine the largest unit
+    for unit in ORDER:
+        if inches >= INCHES[unit]:
+            break
+    
+    # Calculate each part
+    parts = []
+    while inches > 0:
+        value, rest = divmod(inches, INCHES[unit])
+        if value == 0:
+            break
+        parts.append(f"{value}{unit}")
+        inches = rest
+    
+    # Join the parts into a string
+    return " ".join(parts)
+
+
+def add_spans(first: str, second: str) -> str:
+    total = parse_span(first) + parse_span(second)
+    return format_span(total)
+```

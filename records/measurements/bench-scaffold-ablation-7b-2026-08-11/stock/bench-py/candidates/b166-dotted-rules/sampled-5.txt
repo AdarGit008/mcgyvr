@@ -1,0 +1,24 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    exact_match = rules.get(name)
+    if exact_match is not None:
+        return exact_match
+    
+    longest_wildcard = None
+    for selector, value in rules.items():
+        if not isinstance(value, str):
+            raise ValueError("rule values must be strings")
+        
+        if selector == "*":
+            continue
+        
+        if selector.endswith(".*"):
+            prefix = selector[:-2]
+            if name.startswith(prefix) and (longest_wildcard is None or len(selector) > len(longest_wildcard)):
+                longest_wildcard = selector
+    
+    return rules.get(longest_wildcard, None)
+```

@@ -1,0 +1,16 @@
+```python
+def split_length(mm: int) -> str:
+    if not isinstance(mm, int) or mm < 0:
+        raise ValueError("Invalid length")
+    
+    ladder = [("m", 1000), ("cm", 10), ("mm", 1)]
+    result = []
+    
+    for unit, factor in ladder:
+        count = mm // factor
+        if count > 0:
+            result.append(f"{count}{unit}")
+        mm %= factor
+    
+    return " ".join(result) or "0mm"
+```

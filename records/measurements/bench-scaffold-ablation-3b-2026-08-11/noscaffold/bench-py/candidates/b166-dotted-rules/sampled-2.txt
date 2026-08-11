@@ -1,0 +1,27 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string.")
+    if '*' in name and '*.' not in name:
+        raise ValueError("Selector star must either stand alone or end with '.*'.")
+    if len(name.split('.')) > 1 and '.' not in name[:-2]:
+        raise ValueError("Dotted option name must have at least two parts.")
+
+    def matches(rule_name: str, option_name: str) -> bool:
+        if rule_name == '*':
+            return True
+        if rule_name.endswith('.*'):
+            return option_name.startswith(rule_name[:-2])
+        return rule_name == option_name
+
+    for prefix in ["*", *sorted(rules.keys(), key=len), None]:
+        if matches(prefix, name):
+            try:
+                value = rules[prefix]
+                if not isinstance(value, str):
+                    raise ValueError("Rule value must be a string.")
+                return value
+            except KeyError:
+                continue
+    return None
+```

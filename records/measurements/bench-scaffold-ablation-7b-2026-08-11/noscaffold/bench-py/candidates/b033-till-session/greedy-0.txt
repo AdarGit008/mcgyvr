@@ -1,0 +1,59 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not all(isinstance(price, int) and price > 0 for price in prices.values()):
+        raise ValueError("All prices must be positive integers")
+
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0,
+        "status": "open"
+    }
+
+    def update_items():
+        state["items"] = sorted(state["items"], key=lambda x: x[0])
+
+    for event in events:
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("Each event must be a list of two elements")
+
+        action, payload = event
+        if action == "scan":
+            if state["status"] != "open":
+                raise ValueError("Cannot scan during payment or cancellation")
+            if payload not in prices:
+                raise ValueError(f"Item '{payload}' is not in the price list")
+            state["items"].append([payload, 1])
+            update_items()
+        elif action == "void":
+            if state["status"] != "open":
+                raise ValueError("Cannot void during payment or cancellation")
+            if payload not in [item[0] for item in state["items"]]:
+                raise ValueError(f"Item '{payload}' is not in the cart")
+            state["items"] = [item for item in state["items"] if item[0] != payload]
+            update_items()
+        elif action == "close":
+            if state["status"] != "open":
+                raise ValueError("Cannot close during payment or cancellation")
+            if not state["items"]:
+                raise ValueError("Cannot close with an empty cart")
+            state["total"] = sum(prices[item[0]] * item[1] for item in state["items"])
+            state["status"] = "payment"
+        elif action == "pay":
+            if state["status"] != "payment":
+                raise ValueError("Cannot pay during session open or cancellation")
+            if not isinstance(payload, int) or payload <= 0:
+                raise ValueError("Pay amount must be a positive integer")
+            state["paid"] += payload
+            state["change"] = max(state["paid"] - state["total"], 0)
+            state["status"] = "closed"
+        elif action == "cancel":
+            if state["status"] != "open" and state["status"] != "payment":
+                raise ValueError("Cannot cancel during session open or payment")
+            state["status"] = "cancelled"
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    return state
+```

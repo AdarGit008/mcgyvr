@@ -1,0 +1,63 @@
+```ts
+/**
+ * Parses a decimal amount string into integer cents.
+ * @param text - The string to parse.
+ * @returns The parsed integer cents.
+ */
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') {
+    throw new Error('Invalid input: expected a string');
+  }
+  const match = text.match(/^\d+(\.\d{2})?$/);
+  if (!match) {
+    throw new Error('Invalid format, expected digits optionally followed by . and exactly two fraction digits');
+  }
+  return Math.floor(Number(text) * 100);
+}
+
+/**
+ * Formats a non-negative integer cents back into a dotted form with exactly two fraction digits.
+ * @param cents - The integer cents to format.
+ * @returns The formatted string.
+ */
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || cents < 0) {
+    throw new Error('Invalid input: expected a non-negative integer');
+  }
+  return cents.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/**
+ * Allocates totalCents across a list of integer weights proportionally.
+ * @param totalCents - The total amount to allocate in integer cents.
+ * @param weights - An array of non-negative integer weights.
+ * @returns An array of allocated amounts in integer cents.
+ */
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error('Invalid input: expected a non-empty array of weights');
+  }
+  for (const weight of weights) {
+    if (typeof weight !== 'number' || weight < 0 || !Number.isInteger(weight)) {
+      throw new Error('Invalid input: expected non-negative integer weights');
+    }
+  }
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  if (totalWeight === 0) {
+    throw new Error('Invalid input: expected weights to sum to a non-zero value');
+  }
+
+  const exactValues = weights.map(weight => Math.floor((weight / totalWeight) * totalCents));
+  let remainingCents = totalCents - exactValues.reduce((sum, value) => sum + value, 0);
+  let allocations = exactValues.slice();
+
+  for (let i = 0; i < remainingCents; i++) {
+    const maxRemainderIndex = allocations
+      .map((value, index) => ({ index, remainder: (weights[index] / totalWeight * totalCents - value) % 1 }))
+      .sort((a, b) => b.remainder - a.remainder)[0].index;
+    allocations[maxRemainderIndex]++;
+  }
+
+  return allocations;
+}
+```

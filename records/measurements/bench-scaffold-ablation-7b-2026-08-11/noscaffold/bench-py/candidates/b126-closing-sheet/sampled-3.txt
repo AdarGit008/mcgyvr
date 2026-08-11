@@ -1,0 +1,46 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both opening and moves must be strings")
+
+    def parse_entry(entry: str) -> tuple[str, int]:
+        name, count = entry.split(':')
+        if not name.islower() or not name:
+            raise ValueError(f"Invalid item name: {name}")
+        try:
+            count = int(count)
+        except ValueError:
+            raise ValueError(f"Invalid count: {count}")
+        return name, count
+
+    def parse_moves(moves: str) -> list[tuple[str, int]]:
+        if moves == "":
+            return []
+        
+        move_entries = moves.split(';')
+        parsed_moves = []
+        for entry in move_entries:
+            name, change = entry.split('+') if '+' in entry else (entry.split('-'), -1)
+            name, qty_str = name.rsplit('-', 1) if '-' in entry else (name, qty_str)
+            try:
+                qty = int(qty_str)
+            except ValueError:
+                raise ValueError(f"Invalid quantity: {qty_str}")
+            parsed_moves.append((name.strip(), qty * change))
+        return parsed_moves
+
+    opening_entries = opening.split(';')
+    if len(opening_entries) != len(set(entry.split(':')[0] for entry in opening_entries)):
+        raise ValueError("Duplicate item names on the opening sheet")
+
+    stock = {name: count for name, count in map(parse_entry, opening_entries)}
+    for name, change in parse_moves(moves):
+        if name not in stock:
+            raise ValueError(f"Issue of an item not held by the sheet: {name}")
+        if change > 0 and (stock[name] + change < 0 or stock[name] + change == 0):
+            raise ValueError(f"Issue of more units than the item then holds: {name} - {change}")
+        stock[name] += change
+
+    closing_entries = [f"{name}:{count}" for name, count in stock.items() if count > 0]
+    return ';'.join(sorted(closing_entries))
+```

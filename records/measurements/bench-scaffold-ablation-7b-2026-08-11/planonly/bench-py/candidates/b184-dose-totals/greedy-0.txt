@@ -1,0 +1,30 @@
+```python
+def dose_totals(log: list) -> dict:
+    """Total each reagent exactly in thousandths of a millilitre."""
+    from decimal import Decimal, getcontext
+
+    # Set precision high enough to handle thousandths without rounding
+    getcontext().prec = 4
+
+    totals = {}
+
+    for reagent, amount_str in log:
+        try:
+            amount = Decimal(amount_str)
+        except ValueError:
+            raise ValueError(f"Invalid amount format: {amount_str}")
+
+        if reagent not in totals:
+            totals[reagent] = Decimal(0)
+
+        totals[reagent] += amount
+
+    # Format the totals with the correct number of decimal places
+    formatted_totals = {}
+    for reagent, total in totals.items():
+        fractional_part = str(total).split('.')[1]
+        num_places = len(fractional_part)
+        formatted_totals[reagent] = f"{total:.{num_places}f}"
+
+    return formatted_totals
+```

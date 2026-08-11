@@ -1,0 +1,57 @@
+```ts
+export function cutRoll(length: number, board: [number, number][]): { takings: number; pieces: number[] } {
+  if (length < 0 || !Number.isInteger(length)) {
+    throw new Error("Length must be a non-negative whole number");
+  }
+
+  // Initialize the best result with the empty roll
+  let bestTakings = 0;
+  let bestPieces: number[] = [];
+
+  const pieceValues = board.map(([metres, price]) => price);
+
+  const cut = (remainingLength: number, currentPieces: number[]): { takings: number; pieces: number[] } | null => {
+    if (remainingLength <= 0) {
+      return { takings: bestTakings, pieces: bestPieces };
+    }
+
+    let maxTakings = -1;
+    let bestPieceIndex = -1;
+
+    for (let i = 0; i < board.length; i++) {
+      const [metres, price] = pieceValues[i];
+      if (remainingLength >= metres) {
+        // Try cutting this piece
+        const newTakings = bestTakings + price;
+        const newPieces = [...currentPieces, metres];
+
+        const result = cut(remainingLength - metres, newPieces);
+        if (result && result.takings > maxTakings) {
+          maxTakings = result.takings;
+          bestPieceIndex = i;
+        }
+      }
+    }
+
+    // If no piece fits, consider scrapping the last metre
+    if (bestPieceIndex === -1) {
+      const newTakings = bestTakings + 0; // No price for scrap
+      const newPieces = [...currentPieces];
+
+      const result = cut(remainingLength - 1, newPieces);
+      if (result && result.takings > maxTakings) {
+        maxTakings = result.takings;
+      }
+    }
+
+    return maxTakings > bestTakings ? { takings: maxTakings, pieces: currentPieces } : null;
+  };
+
+  const result = cut(length, []);
+  if (!result || result.takings === -1) {
+    throw new Error("Failed to find a valid cut");
+  }
+
+  return result;
+}
+```

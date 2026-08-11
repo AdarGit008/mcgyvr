@@ -1,0 +1,40 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    """
+    Drain frames from a stream of chunks based on a marker character.
+
+    :param chunks: List of strings representing parts of the input stream.
+    :param marker: Single character string used to mark frame boundaries.
+    :return: A dictionary with 'frames' as a list of ended frames and 'pending' as the remaining text.
+    """
+    if not isinstance(marker, str) or len(marker) != 1:
+        raise ValueError("Marker must be a single character.")
+
+    def process_chunk(chunk):
+        nonlocal frame
+        for char in chunk:
+            if char == marker:
+                if frame:
+                    frames.append(frame)
+                    frame = ""
+                else:
+                    frame += char
+
+    frames = []
+    frame = ""
+
+    for chunk in chunks:
+        process_chunk(chunk)
+
+    # Final processing after all chunks are processed
+    if frame:
+        frames.append(frame)
+
+    return {'frames': frames, 'pending': ""}
+
+# Example usage:
+chunks = ["a", "b", "c", "d", "e", "f", "g"]
+marker = "x"
+result = drain_frames(chunks, marker)
+print(result)  # Output: {'frames': ['abc'], 'pending': ''}
+```

@@ -1,0 +1,38 @@
+```python
+def parse_span(text: str) -> int:
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("Invalid span format")
+    
+    units = {'yd': 36 * 12, 'ft': 12, 'in': 1}
+    parts = text.split()
+    total_inches = 0
+    
+    for part in parts:
+        if len(part) < 2 or not part[:-2].isdigit():
+            raise ValueError("Invalid span format")
+        
+        value = int(part[:-2])
+        unit = part[-2:]
+        
+        if unit not in units:
+            raise ValueError(f"Unknown unit: {unit}")
+        
+        total_inches += value * units[unit]
+    
+    return total_inches
+
+def format_span(inches: int) -> str:
+    if not isinstance(inches, int) or inches < 0:
+        raise ValueError("Invalid inches value")
+    
+    units = {'yd': 36 * 12, 'ft': 12, 'in': 1}
+    result_parts = []
+    
+    for unit, factor in sorted(units.items(), key=lambda x: -x[1]):
+        count = inches // factor
+        if count > 0:
+            result_parts.append(f"{count}{unit}")
+            inches %= factor
+    
+    return ' '.join(result_parts) or "0in"
+```

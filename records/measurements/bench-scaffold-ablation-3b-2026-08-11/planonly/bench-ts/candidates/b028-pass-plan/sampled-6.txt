@@ -1,0 +1,52 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (!tripDays || tripDays.length === 0) return { total: 0, purchases: [] };
+  if (!passes || passes.length === 0) throw new Error("Pass list cannot be empty");
+
+  const sortedTrips = [...tripDays].sort((a, b) => a - b);
+  let currentStartDay = 1;
+  let currentEndDay = 0;
+  let totalCost = 0;
+  const purchases: number[][] = [];
+
+  for (const pass of passes) {
+    if (!Number.isInteger(pass.span) || !Number.isInteger(pass.cost))
+      throw new Error("Span and cost must be positive integers");
+    if (pass.span <= 0 || pass.cost < 0)
+      throw new Error("Span and cost must be non-negative integers");
+
+    while (currentStartDay <= sortedTrips[0]) {
+      const purchase = [currentStartDay, pass.span];
+      purchases.push(purchase);
+      currentEndDay = currentStartDay + pass.span - 1;
+      totalCost += pass.cost;
+
+      if (currentEndDay >= sortedTrips[0]) {
+        for (let i = 0; i < purchases.length && purchases[i][0] <= sortedTrips[0]; i++) {
+          const purchaseToRemove = purchases[i];
+          const daysToCover = purchaseToRemove[1];
+          let firstUnusedTripIndex = i;
+          while (
+            firstUnusedTripIndex < purchases.length &&
+            purchases[firstUnusedTripIndex][0] <= purchaseToRemove[1]
+          ) {
+            firstUnusedTripIndex++;
+          }
+          if (firstUnusedTripIndex >= purchases.length) break;
+          const daysToCoverInNextPurchase = sortedTrips[firstUnusedTripIndex] - purchaseToRemove[1];
+          purchases.splice(i, 1);
+          purchases.push([purchaseToRemove[0], daysToCoverInNextPurchase]);
+          totalCost -= pass.cost;
+          totalCost += daysToCoverInNextPurchase * pass.cost;
+        }
+      } else {
+        currentStartDay = currentEndDay + 1;
+      }
+    }
+
+    if (currentStartDay <= sortedTrips[0]) break;
+  }
+
+  return { total: totalCost, purchases };
+}
+```

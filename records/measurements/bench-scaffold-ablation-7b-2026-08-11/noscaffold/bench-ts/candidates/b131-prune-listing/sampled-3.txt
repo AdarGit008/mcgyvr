@@ -1,0 +1,33 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || !Array.isArray(rules)) {
+    throw new Error("Invalid input types");
+  }
+
+  const isValidPathOrRule = (pathOrRule: string): boolean => {
+    return typeof pathOrRule === "string" && 
+           pathOrRule.length > 0 && 
+           !/\/\//.test(pathOrRule) &&
+           (!pathOrRule.startsWith("!") || pathOrRule === "!") && 
+           pathOrRule.split("/").every(segment => segment !== "");
+  };
+
+  const isKeepRule = (rule: string): boolean => rule.startsWith("!");
+
+  if (listing.some(isValidPathOrRule) && rules.every(isValidPathOrRule)) {
+    return listing.filter(path =>
+      rules.reduce((shouldKeep, rule) => {
+        const segmentsMatch = path.split("/").slice(0, rule.split("/").length).every((segment, index) => 
+          rule[index] === "*" || segment === rule[index]
+        );
+        if (segmentsMatch && (!isKeepRule(rule) || shouldKeep)) {
+          return isKeepRule(rule);
+        }
+        return shouldKeep;
+      }, false)
+    );
+  } else {
+    throw new Error("Invalid path or rule");
+  }
+}
+```

@@ -1,0 +1,51 @@
+```typescript
+export function splitCents(total: number, weights: number[]): number[] {
+  if (typeof total !== 'number' || total % 1 !== 0) {
+    throw new Error('Total must be a whole number.');
+  }
+  if (total < 0) {
+    throw new Error('Total must not be negative.');
+  }
+  if (!Array.isArray(weights)) {
+    throw new Error('Weights must be an array.');
+  }
+  if (weights.length === 0) {
+    throw new Error('Weights list cannot be empty.');
+  }
+
+  for (const weight of weights) {
+    if (typeof weight !== 'number' || weight % 1 !== 0 || weight <= 0) {
+      throw new Error('All weights must be positive whole numbers.');
+    }
+  }
+
+  const totalCents = Math.floor(total);
+  const sumWeights = weights.reduce((acc, weight) => acc + weight, 0);
+
+  if (sumWeights === 0) {
+    throw new Error('Sum of weights cannot be zero.');
+  }
+
+  const parts: number[] = [];
+  for (let i = 0; i < weights.length; i++) {
+    const share = Math.floor(totalCents * (weights[i] / sumWeights));
+    parts.push(share);
+  }
+
+  let leftoverCents = totalCents - parts.reduce((acc, share) => acc + share, 0);
+
+  const fractionalParts: { partnerIndex: number, fraction: number }[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const fraction = ((totalCents * weights[i]) / sumWeights) - parts[i];
+    fractionalParts.push({ partnerIndex: i, fraction });
+  }
+
+  fractionalParts.sort((a, b) => b.fraction - a.fraction || a.partnerIndex - b.partnerIndex);
+
+  for (let i = 0; i < leftoverCents && i < fractionalParts.length; i++) {
+    parts[fractionalParts[i].partnerIndex]++;
+  }
+
+  return parts;
+}
+```

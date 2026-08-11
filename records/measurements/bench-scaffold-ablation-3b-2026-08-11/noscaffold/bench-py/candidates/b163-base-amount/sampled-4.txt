@@ -1,0 +1,30 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    """
+    Convert amount of unit into the base unit by unwinding one definition at a time.
+    An amount of the base unit is already converted, and otherwise amount of unit is converted onward.
+    Raises ValueError for invalid inputs.
+    """
+
+    if not isinstance(amount, (int, float)) or amount < 0:
+        raise ValueError("Amount must be a non-negative integer.")
+    
+    if not isinstance(unit, str) or unit == "":
+        raise ValueError("Unit name must be a non-empty string.")
+    
+    if base not in defs:
+        raise ValueError(f"Base unit '{base}' is not defined.")
+    
+    def convert_to_base(amount: int, unit: str) -> int:
+        factor = defs.get(unit)
+        if factor is None or factor[0] <= 0 or factor[1] == "":
+            raise ValueError("Invalid definition for unit.")
+        
+        return amount * factor[0] + convert_to_base(amount // factor[0], factor[1])
+    
+    try:
+        return convert_to_base(int(amount), unit)
+    except (ZeroDivisionError, OverflowError):
+        raise ValueError("Amount cannot be converted due to overflow or division by zero.")
+```
+This implementation recursively converts the given amount from the specified unit into the base unit using the provided definitions. It checks for valid inputs and handles potential overflow conditions.

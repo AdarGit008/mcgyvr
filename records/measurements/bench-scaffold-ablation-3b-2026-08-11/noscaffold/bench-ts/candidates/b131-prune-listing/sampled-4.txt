@@ -1,0 +1,55 @@
+```typescript
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || !Array.isArray(rules)) {
+    throw new Error("Arguments must be arrays.");
+  }
+
+  const isValidPath = (path: string): boolean => {
+    return typeof path === "string" && path !== "" && path.split("/").filter(segment => segment.length > 0).join("/") === path;
+  };
+
+  const isValidRule = (rule: string): boolean => {
+    return typeof rule === "string" && rule.startsWith("!") || /^[^/]+(\*\/?)*$/.test(rule);
+  };
+
+  if (!listing.every(isValidPath) || !rules.every(isValidRule)) {
+    throw new Error("Invalid paths or rules provided.");
+  }
+
+  const parseRule = (rule: string): [string[], boolean] => {
+    const isKeepRule = rule.startsWith("!");
+    const segments = rule.replace(/^!/, "").split("/");
+    return [segments, isKeepRule];
+  };
+
+  const matchRule = (path: string, rule: [string[], boolean]): boolean => {
+    if (rule[0].length === 0 && !rule[1]) return true; // Every path matches the keep rule
+    for (let i = 0; i < rule[0].length; i++) {
+      const segment = rule[0][i];
+      if (!path.startsWith(segment) || (segment !== "*" && segment.length > path[i].length)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const result: string[] = [];
+  for (const path of listing) {
+    let matchedRuleIndex = -1;
+    for (let i = 0; i < rules.length; i++) {
+      if (matchRule(path, parseRule(rules[i]))) {
+        if (!matchedRuleIndex || !parseRule(rules[matchedRuleIndex])[1]) {
+          matchedRuleIndex = i;
+        }
+      }
+    }
+    if (matchedRuleIndex !== -1) {
+      result.push(path);
+    } else {
+      throw new Error(`Unmatched path: ${path}`);
+    }
+  }
+
+  return result;
+}
+```

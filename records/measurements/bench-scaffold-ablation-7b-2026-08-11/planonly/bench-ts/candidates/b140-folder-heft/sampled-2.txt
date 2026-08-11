@@ -1,0 +1,85 @@
+```ts
+/**
+ * Generates the paths of files in the tree.
+ *
+ * @param root - The root node of the storage tree.
+ * @returns An array of file paths.
+ */
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root must be an object');
+  }
+
+  const paths: string[] = [];
+  const traverse = (node: any, currentPath: string) => {
+    for (const name in node) {
+      if (typeof name !== 'string' || name.length === 0 || name.includes('/')) {
+        throw new Error('Node names must be non-empty strings without slashes');
+      }
+      const fullPath = currentPath ? `${currentPath}/${name}` : name;
+      if (node[name].children) {
+        paths.push(fullPath);
+        node[name].children.forEach((child: any) => traverse(child, fullPath));
+      } else if (typeof node[name].bytes === 'number' && Number.isInteger(node[name].bytes) && node[name].bytes >= 0) {
+        paths.push(fullPath);
+      }
+    }
+  };
+  traverse(root, '');
+  return paths;
+}
+
+/**
+ * Calculates the total bytes of a node.
+ *
+ * @param root - The root node of the storage tree.
+ * @returns The total bytes in the tree.
+ */
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root must be an object');
+  }
+
+  let total = 0;
+  const traverse = (node: any) => {
+    for (const name in node) {
+      if (node[name].children) {
+        total += node[name].children.reduce((acc, child: any) => acc + treeBytes(child), 0);
+      } else if (typeof node[name].bytes === 'number' && Number.isInteger(node[name].bytes) && node[name].bytes >= 0) {
+        total += node[name].bytes;
+      }
+    }
+  };
+  traverse(root);
+  return total;
+}
+
+/**
+ * Finds folders with a total size of at least minBytes.
+ *
+ * @param root - The root node of the storage tree.
+ * @param minBytes - The minimum size of the folder.
+ * @returns An array of [path, bytes] pairs for each folder reaching minBytes.
+ */
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof minBytes !== 'number' || !Number.isInteger(minBytes) || minBytes < 0) {
+    throw new Error('Min bytes must be a non-negative integer');
+  }
+
+  const paths: [string, number][] = [];
+  const traverse = (node: any, currentPath: string, total: number): number => {
+    let folderTotal = total;
+    for (const name in node) {
+      if (node[name].children) {
+        folderTotal += node[name].children.reduce((acc, child: any) => acc + traverse(child, `${currentPath}/${name}`, 0), 0);
+        paths.push([`${currentPath}/${name}`, folderTotal]);
+      } else if (typeof node[name].bytes === 'number' && Number.isInteger(node[name].bytes) && node[name].bytes >= 0) {
+        folderTotal += node[name].bytes;
+      }
+    }
+    return folderTotal;
+  };
+  traverse(root, '', 0);
+  return paths.filter(([_, bytes]) => bytes >= minBytes);
+}
+```

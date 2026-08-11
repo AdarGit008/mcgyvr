@@ -1,0 +1,68 @@
+```python
+from typing import Dict
+
+def run_till_session(events: list, prices: dict) -> dict:
+    """
+    Replays one point-of-sale till session from events and prices.
+
+    :param events: List of events, each a list with action and payload.
+    :param prices: Mapping from item name to price in integer cents.
+    :return: State map with items, total, paid, and change.
+    """
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0
+    }
+
+    def process_event(event):
+        action, payload = event
+
+        if not isinstance(payload, list) or len(payload) != 2:
+            raise ValueError("Event must be a list with an action and exactly one payload.")
+
+        item = payload[0]
+        quantity = payload[1]
+
+        if action == "scan":
+            if not isinstance(item, str) or item not in prices:
+                raise ValueError("Unknown item or price list is empty.")
+            if quantity <= 0:
+                raise ValueError("Quantity must be positive.")
+            state["items"].append([item, state.get(item, 0) + quantity])
+        elif action == "void":
+            if not isinstance(item, str) or item not in [i[0] for i in state["items"]]:
+                raise ValueError("Unknown item or not in the cart.")
+            index = next((index for index, (name, _) in enumerate(state["items"]) if name == item), None)
+            if index is not None:
+                state["items"][index][1] -= 1
+                if state["items"][index][1] <= 0:
+                    state["items"].pop(index)
+        elif action == "close":
+            if not state["total"] == 0:
+                raise ValueError("Session must be in payment to close.")
+            total = sum(item[1] * prices[item[0]] for item in state["items"])
+            if total != state["paid"]:
+                state["change"] = state["paid"] - total
+        elif action == "pay":
+            cents = payload[0]
+            if not isinstance(cents, int) or cents <= 0:
+                raise ValueError("Pay amount must be a positive integer.")
+            state["total"] += cents
+            if state["total"] >= state["paid"]:
+                state["change"] = state["total"] - state["paid"]
+        elif action == "cancel":
+            if not (state["total"] == 0 or state["paid"] == 0):
+                raise ValueError("Session must be open or in payment to cancel.")
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    for event in events:
+        process_event(event)
+
+    # Sort items by name
+    state["items"].sort(key=lambda item: item[0])
+
+    return state
+```

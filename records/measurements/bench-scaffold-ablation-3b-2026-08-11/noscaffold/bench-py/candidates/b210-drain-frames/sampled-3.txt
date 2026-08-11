@@ -1,0 +1,43 @@
+```python
+from typing import Dict
+
+def drain_frames(chunks: list[str], marker: str) -> dict:
+    if not isinstance(marker, str) or len(marker) != 1:
+        raise ValueError("marker must be a single character")
+
+    def is_marker(c: str) -> bool:
+        return c == marker
+
+    frames = []
+    pending_text = ""
+    
+    for chunk in chunks:
+        # Process each chunk
+        i = 0
+        while i < len(chunk):
+            if is_marker(chunk[i]):
+                if i + 1 < len(chunk) and is_marker(chunk[i + 1]):
+                    # Double marker: continue to the next character
+                    pending_text += marker
+                    i += 2
+                else:
+                    # Single marker: end current frame if any
+                    if frames:
+                        frames[-1] += marker
+                    else:
+                        pending_text += marker
+                    i += 1
+            else:
+                # Normal text: add to either the last frame or pending text
+                if frames:
+                    frames[-1] += chunk[i]
+                else:
+                    pending_text += chunk[i]
+                i += 1
+
+    # Finalize frames
+    while len(frames) > 0 and frames[-1].endswith(marker):
+        frames.pop()
+
+    return {"frames": frames, "pending": pending_text}
+```

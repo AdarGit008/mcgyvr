@@ -1,0 +1,23 @@
+```ts
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Invalid length");
+  }
+
+  const ladder = [
+    { symbol: "m", divisor: 1000 },
+    { symbol: "cm", divisor: 10 },
+    { symbol: "mm", divisor: 1 }
+  ];
+
+  let result = [];
+  for (let { symbol, divisor } of ladder) {
+    if (mm >= divisor) {
+      result.push(`${Math.floor(mm / divisor)}${symbol}`);
+      mm %= divisor;
+    }
+  }
+
+  return result.join(" ");
+}
+```

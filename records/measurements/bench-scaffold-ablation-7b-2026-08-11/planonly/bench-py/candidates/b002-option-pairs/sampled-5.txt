@@ -1,0 +1,50 @@
+```python
+import re
+
+def parse_option(segment: str) -> list:
+    """Parse a key=value segment into [key, value]."""
+    match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*)=(.*?)(;|$)', segment)
+    if not match:
+        raise ValueError("Invalid segment format")
+    
+    key, value, _ = match.groups()
+    value = value.strip('"')
+    return [key, value]
+
+def scan_pairs(text: str) -> list:
+    """Split an options string into [key, value] pairs."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    
+    if text == "":
+        raise ValueError("Empty input is not allowed")
+    
+    result = []
+    in_quotes = False
+    current_segment = ""
+    key_set = set()
+    
+    for char in text:
+        if char == '"':
+            in_quotes = not in_quotes
+        elif char == ';' and not in_quotes:
+            segment = current_segment.strip()
+            current_segment = ""
+            pairs = parse_option(segment)
+            if pairs[0] in key_set:
+                raise ValueError(f"Repeated key: {pairs[0]}")
+            key_set.add(pairs[0])
+            result.append(pairs)
+        else:
+            current_segment += char
+    
+    if current_segment.strip():
+        segment = current_segment.strip()
+        pairs = parse_option(segment)
+        if pairs[0] in key_set:
+            raise ValueError(f"Repeated key: {pairs[0]}")
+        key_set.add(pairs[0])
+        result.append(pairs)
+    
+    return result
+```

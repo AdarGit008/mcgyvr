@@ -1,0 +1,28 @@
+```typescript
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || links == null) {
+    throw new Error('links must be a non-null object');
+  }
+  if (!Object.keys(links).includes(start)) {
+    throw new Error(`start post '${start}' not in links`);
+  }
+
+  const visited = new Set<string>();
+  const result: string[] = [start];
+
+  let currentPost = start;
+  while (currentPost !== '') {
+    if (!visited.has(currentPost)) {
+      visited.add(currentPost);
+      currentPost = links[currentPost];
+      if (!Object.keys(links).includes(currentPost)) {
+        throw new Error(`handoff from '${currentPost}' is not in links`);
+      }
+    } else {
+      throw new Error('watch comes back to a post already visited');
+    }
+  }
+
+  return result;
+}
+```

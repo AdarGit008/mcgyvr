@@ -1,0 +1,25 @@
+```ts
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || row.length === 0) {
+    throw new Error('Invalid input: Row must be a non-empty string.');
+  }
+  const iceCells = [...row].map((cell, index) => cell === '#');
+
+  for (let step = 0; step < steps; step++) {
+    const nextIceCells = [];
+    for (let i = 0; i < iceCells.length; i++) {
+      if (
+        (i === 0 || !iceCells[i - 1]) &&
+        (i === iceCells.length - 1 || !iceCells[i + 1])
+      ) {
+        nextIceCells.push(false);
+      } else {
+        nextIceCells.push(true);
+      }
+    }
+    iceCells = [...nextIceCells];
+  }
+
+  return [...iceCells].map(cell => cell ? '#' : '.').join('');
+}
+```

@@ -1,0 +1,73 @@
+```ts
+import { splitStrict } from './utils'; // Assuming utils.ts contains splitStrict function
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || !Array.isArray(rules)) {
+    throw new Error('Both listing and rules must be arrays.');
+  }
+
+  const validatePath = (path: string): void => {
+    if (typeof path !== 'string' || path === '' || path.includes('//')) {
+      throw new Error('Invalid path: ' + path);
+    }
+  };
+
+  const validateRule = (rule: string): void => {
+    if (typeof rule !== 'string' || rule === '') {
+      throw new Error('Invalid rule: ' + rule);
+    }
+
+    const segments = splitStrict(rule, '/');
+    for (const segment of segments) {
+      if (segment === '' || segment.includes('//')) {
+        throw new Error('Invalid rule segment: ' + segment);
+      }
+    }
+  };
+
+  listing.forEach(validatePath);
+  rules.forEach(validateRule);
+
+  const isKeepRule = (rule: string): boolean => rule.startsWith('!');
+
+  const matchPattern = (pattern: string, path: string): boolean => {
+    const segments = splitStrict(pattern, '/');
+    const pathSegments = splitStrict(path, '/');
+
+    if (segments.length > pathSegments.length) return false;
+
+    for (let i = 0; i < segments.length; i++) {
+      const segment = segments[i];
+      const pathSegment = pathSegments[i];
+
+      if (segment === '*') {
+        continue;
+      } else if (segment !== pathSegment) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const prune = (path: string): boolean => {
+    for (const rule of rules) {
+      if (isKeepRule(rule)) {
+        const pattern = rule.substring(1);
+        if (matchPattern(pattern, path)) {
+          return true;
+        }
+      } else {
+        const pattern = rule;
+        if (!matchPattern(pattern, path)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  };
+
+  return listing.filter(prune);
+}
+```

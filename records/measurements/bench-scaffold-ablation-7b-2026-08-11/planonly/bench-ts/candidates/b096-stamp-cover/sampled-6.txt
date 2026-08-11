@@ -1,0 +1,23 @@
+```ts
+import { stampTable } from "./solution";
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  if (label.length === 0) {
+    throw new Error("Label must be a non-empty string");
+  }
+
+  const dieTable = stampTable(dies);
+  const dp: number[] = Array(label.length + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= label.length; i++) {
+    for (const [fragment, price] of dieTable.entries()) {
+      if (i >= fragment.length && label.slice(i - fragment.length) === fragment) {
+        dp[i] = Math.min(dp[i], dp[i - fragment.length] + price);
+      }
+    }
+  }
+
+  return dp[label.length] === Infinity ? throw new Error("No sequence of dies can spell the label") : dp[label.length];
+}
+```

@@ -1,0 +1,23 @@
+```ts
+export function lineTag(body: string): string {
+    if (typeof body !== 'string') {
+        throw new Error('Input must be a string');
+    }
+    const checksum = body.split('').reduce((sum, char) => (sum + char.charCodeAt(0)) % 256, 0);
+    return checksum.toString(16).padStart(2, '0');
+}
+
+export function checkLine(line: string): string {
+    if (!/^[^~]*~[^~]*~$/.test(line)) {
+        throw new Error('Invalid line format: must have a tilde between two tildes');
+    }
+    const [body, tag] = line.split('~').map(s => s.trim());
+    if (typeof body !== 'string' || typeof tag !== 'string') {
+        throw new Error('Body and tag must be strings');
+    }
+    if (tag !== lineTag(body)) {
+        throw new Error('Invalid tag: does not match the checksum of the body');
+    }
+    return body;
+}
+```

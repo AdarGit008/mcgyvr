@@ -1,0 +1,24 @@
+```python
+from typing import *
+from collections import *
+
+def slot_hits(keys: List[int], slots: int) -> int:
+    if not isinstance(slots, int) or slots <= 0:
+        raise ValueError("Slot count must be a positive integer.")
+    
+    cache = [None] * slots
+    
+    hits = 0
+    for key in keys:
+        if not isinstance(key, int):
+            raise ValueError("All keys must be integers.")
+        
+        slot_index = abs(key) % slots
+        
+        if cache[slot_index] == key:
+            hits += 1
+        else:
+            cache[slot_index] = key
+    
+    return hits
+```

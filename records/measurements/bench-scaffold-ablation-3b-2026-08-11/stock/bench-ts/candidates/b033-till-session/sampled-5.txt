@@ -1,0 +1,97 @@
+```typescript
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  // Validate price list
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  const cart: [string, number][] = [];
+  let total = 0;
+  let paid = 0;
+  let state = OPEN;
+
+  for (const event of events) {
+    if (event.length !== 2 || !Array.isArray(event[1])) {
+      throw new Error("each event must be a list with an action and payload");
+    }
+
+    const [action, payload] = event;
+
+    switch (action) {
+      case OPEN:
+        if (state === PAID || state === CANCELLED) {
+          throw new Error("cannot open session in current state: " + state);
+        }
+        break;
+      case PAYMENT:
+        if (state !== OPEN && state !== PAID) {
+          throw new Error("cannot pay in current state: " + state);
+        }
+        if (!Number.isInteger(payload)) {
+          throw new Error("pay amount must be a positive integer");
+        }
+        paid += payload;
+        if (paid >= total) {
+          state = PAID;
+          change = paid - total;
+        }
+        break;
+      case CANCEL:
+        if (state !== OPEN && state !== PAYMENT) {
+          throw new Error("cannot cancel in current state: " + state);
+        }
+        state = CANCELLED;
+        break;
+      default:
+        throw new Error("unknown action: " + action);
+    }
+
+    switch (action) {
+      case SCAN:
+        const [itemName] = payload as string[];
+        if (!prices[itemName]) {
+          throw new Error("item not in price list");
+        }
+        const quantity = cart.find(([name]) => name === itemName)?.[1] || 0;
+        cart.push([itemName, quantity + 1]);
+        total += prices[itemName];
+        break;
+      case VOID:
+        const [voidItem] = payload as string[];
+        const index = cart.findIndex(([name]) => name === voidItem);
+        if (index === -1) {
+          throw new Error("item not in cart");
+        }
+        const [voidQuantity, quantityToRemove] = cart[index];
+        cart.splice(index, 1);
+        total -= prices[voidItem] * Math.min(quantityToRemove, 1);
+        break;
+      default:
+        throw new Error("unknown action: " + action);
+    }
+
+    if (state === OPEN && cart.length === 0) {
+      state = CANCELLED; // Automatically cancel empty cart
+    }
+  }
+
+  return { state, items: cart.sort((a, b) => a[0].localeCompare(b[0])), total, paid, change };
+}
+```

@@ -1,0 +1,40 @@
+```typescript
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (!catalog[kit]) {
+    throw new Error(`Invalid kit name: ${kit}`);
+  }
+
+  const partConsumption = (parts: [string, number][], want: number) => {
+    const consumed: Record<string, number> = {};
+    let totalProduced = 0;
+
+    while (totalProduced < want) {
+      let runParts = [];
+      for (const [componentName, count] of parts) {
+        if (catalog[componentName]) {
+          const { makes } = catalog[componentName];
+          const requiredRuns = Math.ceil(want / makes);
+          for (let i = 0; i < requiredRuns; i++) {
+            runParts.push([componentName, count]);
+          }
+          totalProduced += makes * requiredRuns;
+        } else {
+          throw new Error(`Invalid component name: ${componentName}`);
+        }
+      }
+
+      for (const [componentName, count] of runParts) {
+        if (!consumed[componentName]) {
+          consumed[componentName] = 0;
+        }
+        consumed[componentName] += count;
+      }
+    }
+
+    return consumed;
+  };
+
+  const { parts } = catalog[kit];
+  return partConsumption(parts, want);
+}
+```

@@ -1,0 +1,58 @@
+```python
+from typing import Dict, Tuple
+
+def explode_kit(catalog: dict, kit: str, want: int) -> Dict[str, int]:
+    """
+    Calculate how many parts of each base part are consumed to produce a given number of kits.
+
+    :param catalog: A dictionary where keys are kit names and values are tuples (makes, parts).
+                   'makes' is the number of finished units one run of the recipe makes.
+                   'parts' is a list of tuples [(component_name, count)].
+    :param kit: The name of the kit to produce want units of.
+    :param want: The number of units of the kit to produce.
+    :return: A dictionary mapping base part names to the total parts consumed.
+    """
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' is not defined in the catalog.")
+
+    def consume_parts(parts: List[Tuple[str, int]], want: int) -> Tuple[int, Dict[str, int]]:
+        """
+        Calculate how many runs and their parts are needed to produce a given number of units.
+
+        :param parts: A list of tuples [(component_name, count)].
+        :param want: The number of units to produce.
+        :return: A tuple containing the total number of runs needed (rounded up) and
+                a dictionary mapping base part names to their consumed counts.
+        """
+        total_count = 0
+        parts_consumed = {}
+        
+        for component, count in parts:
+            if is_kit(catalog, component):
+                sub_runs, sub_parts = consume_parts(catalog[component][1], want)
+                total_count += sub_runs
+                for part, c in sub_parts.items():
+                    parts_consumed.setdefault(part, 0)
+                    parts_consumed[part] += c
+            else:  # Base part
+                if want > 0:
+                    runs = (want + catalog[component][0] - 1) // catalog[component][0]
+                    total_count += runs
+                    want -= runs * catalog[component][0]
+                    parts_consumed[catalog[component][0]] = runs * catalog[component][1]
+
+        return total_count, parts_consumed
+
+    def is_kit(catalog: dict, name: str) -> bool:
+        """
+        Check if a component is a kit in the catalog.
+
+        :param catalog: The workshop catalog.
+        :param name: The name of the component to check.
+        :return: True if the component is a kit, False otherwise.
+        """
+        return (name in catalog) and isinstance(catalog[name], tuple)
+
+    want_runs, parts_consumed = consume_parts(catalog[kit][1], want)
+    return parts_consumed
+```

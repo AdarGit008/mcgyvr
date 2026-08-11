@@ -1,0 +1,25 @@
+```python
+from typing import *
+from collections import *
+
+def line_tag(body: str) -> str:
+    return format(sum(ord(c) for c in body), '02x')
+
+def check_line(line: str) -> str:
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string.")
+    
+    if len(line) < 3:
+        raise ValueError("Line must have at least three characters.")
+    
+    if line[2] != '~':
+        raise ValueError("Third-from-last character must be a tilde (~).")
+    
+    tag = line_tag(line[:-1])
+    expected_tag = line[-2:]
+    
+    if tag != expected_tag:
+        raise ValueError(f"Tag mismatch: {tag} vs {expected_tag}")
+    
+    return line[3:]
+```

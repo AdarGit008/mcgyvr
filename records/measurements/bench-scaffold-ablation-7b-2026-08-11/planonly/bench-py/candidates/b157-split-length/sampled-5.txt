@@ -1,0 +1,23 @@
+```python
+def split_length(mm: int) -> str:
+    if not isinstance(mm, int):
+        raise ValueError("Length must be a whole number")
+    if mm < 0:
+        raise ValueError("Length cannot be negative")
+
+    meters = mm // 1000
+    remainder = mm % 1000
+    centimeters = remainder // 10
+    millimeters = remainder % 10
+
+    parts = []
+    if meters > 0:
+        parts.append(f"{meters}m")
+    if centimeters > 0:
+        parts.append(f"{centimeters}cm")
+    if millimeters > 0 or not parts:
+        # Ensure at least "mm" is included even for zero length
+        parts.append(f"{millimeters}mm")
+
+    return ' '.join(parts)
+```

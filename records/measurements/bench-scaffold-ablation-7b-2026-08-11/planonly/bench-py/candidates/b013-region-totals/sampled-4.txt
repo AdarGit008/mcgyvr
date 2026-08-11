@@ -1,0 +1,29 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    if not grid or not isinstance(grid[0], list):
+        raise ValueError("Grid must be a non-empty list of rows")
+    row_length = len(grid[0])
+    if any(len(row) != row_length for row in grid):
+        raise ValueError("All rows must have the same length")
+    if not all(isinstance(cell, int) for row in grid for cell in row):
+        raise ValueError("Grid cells must be integers")
+
+    prefix_sums = [[0] * (row_length + 1) for _ in range(len(grid) + 1)]
+    for i in range(1, len(grid) + 1):
+        for j in range(1, row_length + 1):
+            prefix_sums[i][j] = grid[i - 1][j - 1] + prefix_sums[i - 1][j] + prefix_sums[i][j - 1] - prefix_sums[i - 1][j - 1]
+
+    results = []
+    for query in queries:
+        if not isinstance(query, list) or len(query) != 4:
+            raise ValueError("Each query must be a list of four integers")
+        top, left, bottom, right = query
+        if not (0 <= top < bottom <= len(grid)) or not (0 <= left < right <= row_length):
+            raise ValueError("Query indices must be within the grid bounds")
+
+        total = (prefix_sums[bottom][right] - prefix_sums[top][right] -
+                 prefix_sums[bottom][left] + prefix_sums[top][left])
+        results.append(total)
+
+    return results
+```

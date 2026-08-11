@@ -1,0 +1,34 @@
+```python
+def thaw_row(row: str, steps: int) -> str:
+    # Validate input types and values
+    if not isinstance(row, str):
+        raise ValueError("Input must be a string.")
+    if not row or not all(c in "#." for c in row):
+        raise ValueError("Row must contain only '#' and '.' characters.")
+    if not isinstance(steps, int) or steps < 0:
+        raise ValueError("Steps must be a non-negative integer.")
+
+    # If no steps are taken, return the original row
+    if steps == 0:
+        return row
+
+    # Process each step
+    for _ in range(steps):
+        # Initialize the new row with zeros to track changes
+        new_row = [0] * len(row)
+
+        # Iterate over the original row and apply thawing rules
+        for i, cell in enumerate(row):
+            if i == 0 or i == len(row) - 1:
+                # Edge cases: cells at the start or end melt
+                if cell == '#':
+                    new_row[i] = '.'
+            elif row[i-1] == '#' and row[i+1] == '#':
+                # Walls of ice, no change
+                new_row[i] = '#'
+
+        # Update the original row with changes from the new row
+        row = ''.join('.' if cell else '#' for cell in new_row)
+
+    return row
+```

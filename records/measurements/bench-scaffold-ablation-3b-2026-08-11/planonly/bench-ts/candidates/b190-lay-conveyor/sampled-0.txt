@@ -1,0 +1,20 @@
+```ts
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (row < 0 || row >= floor.length) {
+    throw new Error("Row out of bounds");
+  }
+
+  for (let i = col; i < col + length; i++) {
+    if (i < 0 || i >= floor[row].length || floor[row][i] !== ".") {
+      throw new Error("Invalid run position or cell is not open");
+    }
+  }
+
+  const newRow = Array(floor[row].length).fill(".");
+  for (let i = col; i < col + length; i++) {
+    newRow[i] = "=";
+  }
+
+  return [...floor.slice(0, row), newRow, ...floor.slice(row + 1)];
+}
+```

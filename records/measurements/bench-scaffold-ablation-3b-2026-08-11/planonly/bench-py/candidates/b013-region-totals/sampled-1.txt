@@ -1,0 +1,57 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    # Validate grid
+    if not grid or not grid[0]:
+        raise ValueError("Grid must be non-empty and have at least one row.")
+    
+    num_rows = len(grid)
+    col_len = len(grid[0])
+    
+    for i in range(num_rows):
+        if not grid[i] or len(grid[i]) != col_len:
+            raise ValueError("All rows must have the same length.")
+        
+        for cell in grid[i]:
+            if not isinstance(cell, int):
+                raise ValueError("Grid cells must be integers.")
+    
+    # Validate queries
+    for query in queries:
+        if not isinstance(query, list) or len(query) != 4:
+            raise ValueError("Queries must be lists of exactly four integers.")
+        
+        top, left, bottom, right = query
+        
+        if not (0 <= top < num_rows and 0 <= left < col_len and
+                0 < bottom <= num_rows and 0 < right <= col_len):
+            raise ValueError("Query boundaries must be within the grid dimensions.")
+        
+        if top >= bottom or left >= right:
+            raise ValueError("Bottom must be greater than top, and right must be greater than left.")
+    
+    # Build prefix sum table
+    prefix_sum = [[0] * (col_len + 1) for _ in range(num_rows + 1)]
+    
+    for i in range(1, num_rows + 1):
+        for j in range(1, col_len + 1):
+            prefix_sum[i][j] = (
+                grid[i - 1][j - 1]
+                + prefix_sum[i - 1][j]
+                + prefix_sum[i][j - 1]
+                - prefix_sum[i - 1][j - 1]
+            )
+    
+    # Calculate query totals
+    query_totals = []
+    for query in queries:
+        top, left, bottom, right = query
+        query_total = (
+            prefix_sum[bottom][right]
+            - prefix_sum[bottom][left]
+            - prefix_sum[top][right]
+            + prefix_sum[top][left]
+        )
+        query_totals.append(query_total)
+    
+    return query_totals
+```

@@ -1,0 +1,29 @@
+```python
+from typing import Dict
+
+def explode_kit(catalog: Dict[str, tuple[int, dict]], kit: str, want: int) -> Dict[str, int]:
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' is not defined in the catalog.")
+    
+    def recursive_explode(kit_name, remaining_units):
+        recipe_count = 0
+        used_parts = {}
+        
+        # Calculate how many full runs are needed to meet the want
+        while remaining_units > 0:
+            run_count = -(-remaining_units // catalog[kit_name][0])  # Ceiling division
+            used_parts.update(catalog[kit_name][1])
+            recipe_count += run_count
+            remaining_units -= run_count * catalog[kit_name][0]
+        
+        return recipe_count, used_parts
+    
+    used_parts_map = {}
+    recursive_explode(kit, want)
+    
+    for part, count in used_parts.items():
+        if count > 0:
+            used_parts_map[part] = count
+    
+    return used_parts_map
+```

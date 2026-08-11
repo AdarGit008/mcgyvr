@@ -1,0 +1,70 @@
+```typescript
+// Define constants for unit conversion factors
+const YARDS_TO_INCHES = 36;
+const FEET_TO_INCHES = 12;
+
+export function parseSpan(text: string): number {
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error('Invalid span format');
+  }
+
+  const parts = text.split(' ');
+  if (parts.length < 3) {
+    throw new Error('Invalid span format');
+  }
+
+  // Define a set of valid units to ensure uniqueness
+  const validUnits = new Set(['yd', 'ft', 'in']);
+  let totalInches = 0;
+
+  for (let i = 0; i < parts.length; i += 2) {
+    const value = parseInt(parts[i], 10);
+    if (isNaN(value)) {
+      throw new Error('Invalid span format');
+    }
+    const unit = parts[i + 1];
+
+    // Validate the unit
+    if (!validUnits.has(unit)) {
+      throw new Error('Unknown unit');
+    }
+
+    totalInches += value * (unit === 'yd' ? YARDS_TO_INCHES : 
+                              unit === 'ft' ? FEET_TO_INCHES : 1);
+  }
+
+  return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+  if (!Number.isInteger(inches) || inches < 0) {
+    throw new Error('Invalid span format');
+  }
+
+  // Convert the total inches to yards, feet, and remaining inches
+  const yards = Math.floor(inches / YARDS_TO_INCHES);
+  const feet = Math.floor((inches % YARDS_TO_INCHES) / FEET_TO_INCHES);
+  const remainingInches = inches % FEET_TO_INCHES;
+
+  // Construct the formatted string, omitting zero-valued parts
+  let result = '';
+  if (yards > 0) {
+    result += `${yards}yd `;
+  }
+  if (feet > 0) {
+    result += `${feet}ft `;
+  }
+  if (remainingInches > 0) {
+    result += `${remainingInches}in`;
+  }
+
+  // Trim any trailing space
+  return result.trim();
+}
+
+export function addSpans(first: string, second: string): string {
+  const total1 = parseSpan(first);
+  const total2 = parseSpan(second);
+  return formatSpan(total1 + total2);
+}
+```

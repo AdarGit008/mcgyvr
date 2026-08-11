@@ -1,0 +1,22 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list.")
+    
+    result = base.copy()
+    for override in overrides:
+        if not isinstance(override, str):
+            raise ValueError("Each override must be a string.")
+        
+        parts = override.split('=', 1)
+        if len(parts) != 2 or not parts[0]:
+            raise ValueError(f"Invalid override format: {override}")
+        
+        name, value = parts
+        if name not in result:
+            raise ValueError(f"Override name '{name}' is not in the base settings.")
+        
+        result[name] = value
+    
+    return result
+```

@@ -1,0 +1,39 @@
+```ts
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+  for (const [fragment, price] of dies) {
+    if (typeof fragment !== 'string' || fragment === '') {
+      throw new Error('Invalid fragment');
+    }
+    if (!Number.isInteger(price) || price <= 0) {
+      throw new Error('Invalid price');
+    }
+    if (table.has(fragment)) {
+      throw new Error('Duplicate fragment');
+    }
+    table.set(fragment, price);
+  }
+  return table;
+}
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  if (typeof label !== 'string' || label === '') {
+    throw new Error('Invalid label');
+  }
+
+  const table = stampTable(dies);
+  const n = label.length;
+  const dp: number[] = Array(n + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= n; i++) {
+    for (const [fragment, price] of table.entries()) {
+      if (i >= fragment.length) {
+        dp[i] = Math.min(dp[i], dp[i - fragment.length] + price);
+      }
+    }
+  }
+
+  return dp[n] === Infinity ? throw new Error('Label cannot be spelled with given dies') : dp[n];
+}
+```

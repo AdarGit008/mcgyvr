@@ -1,0 +1,63 @@
+```ts
+/**
+ * Rejects invalid input arguments for runPatrol.
+ *
+ * @param width - The width of the corridor.
+ * @param start - The starting position of the bot.
+ * @param moves - The list of moves to apply.
+ */
+function validateInput(width: number, start: number, moves: number[]): void {
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error('Width must be a positive integer.');
+  }
+  if (!Number.isInteger(start) || start < 0 || start >= width) {
+    throw new Error('Start must be an integer inside the corridor.');
+  }
+  if (!Array.isArray(moves)) {
+    throw new Error('Moves must be a list of integers.');
+  }
+}
+
+/**
+ * Clamps a move within the bounds of the corridor.
+ *
+ * @param position - The current position of the bot.
+ * @param delta - The move to apply.
+ * @param width - The width of the corridor.
+ * @returns A tuple with the new position and a boolean indicating if the move bumped into a wall.
+ */
+export function clampMove(position: number, delta: number, width: number): [number, boolean] {
+  const newPosition = Math.max(0, Math.min(width - 1, position + delta));
+  return [newPosition, newPosition !== position + delta];
+}
+
+/**
+ * Runs the patrol bot along a corridor.
+ *
+ * @param width - The width of the corridor.
+ * @param start - The starting position of the bot.
+ * @param moves - The list of moves to apply.
+ * @returns An object with the final position, number of bumps, and visited cells.
+ */
+export function runPatrol(width: number, start: number, moves: number[]): Record<string, number> {
+  validateInput(width, start, moves);
+
+  let position = start;
+  let bumps = 0;
+  const visited = new Set<number>();
+
+  for (const move of moves) {
+    if (!Number.isInteger(move)) {
+      throw new Error('Each move must be an integer.');
+    }
+    const [newPosition, moved] = clampMove(position, move, width);
+    if (!moved) continue; // Skip no-op moves
+    position = newPosition;
+    bumps++;
+  }
+
+  visited.add(start);
+
+  return { position, bumps, visited: visited.size };
+}
+```

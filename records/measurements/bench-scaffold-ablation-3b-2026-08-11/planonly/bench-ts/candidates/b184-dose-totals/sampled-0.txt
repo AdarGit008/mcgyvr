@@ -1,0 +1,25 @@
+```typescript
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const totalMap: Record<string, number> = {};
+
+  for (const [reagent, amount] of log) {
+    if (!/^-?\d+(\.\d{1,3})?/.test(amount)) {
+      throw new Error(`Invalid amount format for reagent ${reagent}: ${amount}`);
+    }
+
+    const numericAmount = parseFloat(amount);
+    totalMap[reagent] = (totalMap[reagent] || 0) + numericAmount;
+  }
+
+  return Object.keys(totalMap).reduce((acc, reagent) => {
+    let total = totalMap[reagent];
+    const places = Math.max(...log.map(([_, amount]) => amount).map(amountStr => {
+      if (!/^-?\d+(\.\d{1,3})?$/.test(amountStr)) return 0;
+      return (parseFloat(amountStr) + Number.EPSILON) * 1000; // Round to thousandths
+    }));
+
+    acc[reagent] = places === 0 ? Math.round(total) : total.toPrecision(places);
+    return acc;
+  }, {} as Record<string, string>);
+}
+```

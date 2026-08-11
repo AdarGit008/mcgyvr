@@ -1,0 +1,38 @@
+```ts
+export function findFreeRun(words: number[], bits: number, length: number): number {
+  if (length <= 0) throw new Error("Run length must be a positive integer");
+  const wordCount = Math.ceil(bits / 32);
+  if (words.length !== wordCount) throw new Error("Word count does not match capacity");
+
+  for (let start = 0; start <= bits - length; start++) {
+    let free = true;
+    for (let i = start / 32; i < start / 32 + Math.ceil(length / 32); i++) {
+      if (words[i] !== 0) {
+        free = false;
+        break;
+      }
+    }
+    if (free) return start;
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  const newWords = [...words];
+  for (let i = start / 32; i < start / 32 + Math.ceil(length / 32); i++) {
+    if (i >= newWords.length) throw new Error("Run extends beyond word array");
+    if (newWords[i] !== 0) throw new Error("Occupied block found in run");
+    newWords[i] = 0xFFFFFFFF;
+  }
+  return newWords;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index)) throw new Error("Index must be an integer");
+  const wordIndex = Math.floor(index / 32);
+  const bitIndex = index % 32;
+  if (wordIndex >= words.length) throw new Error("Index out of bounds for words array");
+  return ((words[wordIndex] >> bitIndex) & 1) >>> 0;
+}
+```

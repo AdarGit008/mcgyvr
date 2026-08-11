@@ -1,0 +1,47 @@
+```ts
+/**
+ * Scans the buffer once to fold a doubled marker into one literal marker,
+ * ending a frame at a lone marker, and keeping what follows the last ended
+ * frame — a dangling marker included — as the pending text.
+ * @param chunks - Array of string chunks to be drained.
+ * @param marker - Single character used as the marker for frames.
+ * @returns An object containing an array of completed frames and the pending text.
+ */
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (marker.length !== 1) {
+    throw new Error('Marker must be a single character');
+  }
+
+  const frames: string[] = [];
+  let pending: string = '';
+  let currentFrame: string = '';
+
+  for (const chunk of chunks) {
+    currentFrame += chunk;
+    let i = 0;
+
+    while (i < currentFrame.length - 1) {
+      if (currentFrame[i] === marker && currentFrame[i + 1] === marker) {
+        frames.push(currentFrame.slice(0, i));
+        currentFrame = currentFrame.slice(i + 2);
+        i = 0;
+      } else if (currentFrame[i] === marker) {
+        frames.push(currentFrame.slice(0, i));
+        pending = currentFrame.slice(i + 1);
+        currentFrame = '';
+        break;
+      } else {
+        i++;
+      }
+    }
+
+    // Handle any remaining part of the chunk that might not form a complete frame
+    if (currentFrame.length > 0) {
+      pending += currentFrame;
+      currentFrame = '';
+    }
+  }
+
+  return { frames, pending };
+}
+```

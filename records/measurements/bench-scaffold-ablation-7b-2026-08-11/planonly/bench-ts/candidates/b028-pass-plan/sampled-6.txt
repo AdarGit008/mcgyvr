@@ -1,0 +1,34 @@
+```ts
+/**
+ * Finds the cheapest combination of passes covering every trip day and reconstructs its purchases in increasing start-day order.
+ */
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (tripDays.length === 0) return { total: 0, purchases: [] };
+
+  const n = tripDays.length;
+  const dp: number[] = Array(n + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= n; i++) {
+    for (const pass of passes) {
+      if (tripDays[i - 1] - tripDays[Math.max(0, i - pass.span)] + 1 >= pass.span) {
+        dp[i] = Math.min(dp[i], dp[Math.max(0, i - pass.span)] + pass.cost);
+      }
+    }
+  }
+
+  const purchases: number[][] = [];
+  let i = n;
+  while (i > 0) {
+    for (const pass of passes) {
+      if (tripDays[i - 1] - tripDays[Math.max(0, i - pass.span)] + 1 >= pass.span && dp[i] === dp[Math.max(0, i - pass.span)] + pass.cost) {
+        purchases.unshift([tripDays[Math.max(0, i - pass.span)], pass.span]);
+        i -= pass.span;
+        break;
+      }
+    }
+  }
+
+  return { total: dp[n], purchases };
+}
+```

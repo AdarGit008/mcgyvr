@@ -1,0 +1,27 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    # Helper function to determine the matching selector for a given name
+    def find_matching_selector(name: str):
+        exact_match = rules.get(name)
+        if exact_match is not None and isinstance(exact_match, str):
+            return name
+        
+        wildcard_matches = []
+        for rule_key in rules:
+            if rule_key.endswith(".*"):
+                if rule_key[:-2] == name or rule_key == "*":
+                    wildcard_matches.append(rule_key)
+        
+        # Sort wildcard matches by length (longest first) and alphabetically
+        wildcard_matches.sort(key=lambda k: (-len(k), k))
+        
+        return wildcard_matches[0] if wildcard_matches else None
+    
+    matching_selector = find_matching_selector(name)
+    
+    # Return the value associated with the winning selector or None
+    return rules.get(matching_selector, None)
+```

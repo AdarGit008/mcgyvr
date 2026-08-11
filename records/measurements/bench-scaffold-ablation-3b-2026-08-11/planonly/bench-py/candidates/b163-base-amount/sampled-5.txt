@@ -1,0 +1,24 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    def is_valid_factor(factor):
+        return isinstance(factor, int) and factor > 0
+
+    if not isinstance(amount, int) or amount < 0:
+        raise ValueError("Amount must be a non-negative whole number.")
+    
+    if unit == base:
+        return amount
+    
+    if unit not in defs:
+        raise ValueError(f"Unit '{unit}' is not defined.")
+    
+    factor = defs[unit][0]
+    finer_unit = defs[unit][1]
+    
+    if not is_valid_factor(factor):
+        raise ValueError(f"Factor for unit '{unit}' must be a positive whole number.")
+    
+    return base_amount(amount * factor, finer_unit, defs, base)
+```
+
+This function unwinds the definition chain from the given `unit` to the `base` unit, multiplying the amount by each step's factor. It checks for valid inputs and raises appropriate errors if any of them are invalid or if the chain loops (which is not possible with the given structure).

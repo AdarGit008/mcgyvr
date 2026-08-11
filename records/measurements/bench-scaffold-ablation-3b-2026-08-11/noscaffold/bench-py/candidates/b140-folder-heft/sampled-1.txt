@@ -1,0 +1,63 @@
+```python
+from typing import List, Dict
+
+def file_paths(root: dict) -> List[str]:
+    """Return a list of paths to each file in the tree."""
+    def walk(node: Dict, path: str = "") -> None:
+        nonlocal paths
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a mapping.")
+        
+        for key, value in node.items():
+            if not isinstance(key, str) or "/" in key:
+                raise ValueError("Key must be a non-empty string without slashes.")
+            
+            new_path = f"{path}/{key}" if path else key
+            if isinstance(value, dict):
+                walk(value, new_path)
+            elif isinstance(value, int) and value >= 0:
+                paths.append(new_path)
+    
+    paths: List[str] = []
+    walk(root)
+    return paths
+
+def tree_bytes(root: dict) -> int:
+    """Return the total number of bytes in the tree."""
+    def walk(node: Dict) -> int:
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a mapping.")
+        
+        children_total = sum(walk(child) for child in node.values() if isinstance(child, dict))
+        return 0 if not children_total else children_total
+        # This handles the case where there are no children by returning 0.
+    
+    try:
+        return walk(root)
+    except ValueError as e:
+        raise ValueError(f"Error computing tree bytes: {e}")
+
+def heavy_folders(root: Dict, min_bytes: int) -> List[List[str]]:
+    """Return a list of folders with total bytes at least min_bytes."""
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("Min_bytes must be a non-negative whole number.")
+    
+    def walk(node: Dict) -> None:
+        nonlocal heavy_folders_list
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a mapping.")
+        
+        for key, value in node.items():
+            if not isinstance(key, str) or "/" in key:
+                raise ValueError("Key must be a non-empty string without slashes.")
+            
+            new_path = f"{path}/{key}" if path else key
+            if isinstance(value, dict):
+                walk(value, new_path)
+            elif isinstance(value, int) and value >= 0:
+                heavy_folders_list.append([new_path, value])
+    
+    heavy_folders_list: List[List[str]] = []
+    walk(root)
+    return [folder for folder in heavy_folders_list if folder[1] >= min_bytes]
+```

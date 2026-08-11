@@ -1,0 +1,51 @@
+```typescript
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+  for (const [fragment, price] of dies) {
+    if (typeof fragment !== "string" || fragment.length === 0) {
+      throw new Error("a die fragment must be a non-empty string");
+    }
+    if (!Number.isInteger(price) || price <= 0) {
+      throw new Error("a die price must be a positive integer");
+    }
+    if (table.has(fragment)) {
+      throw new Error("die listed twice: " + fragment);
+    }
+    table.set(fragment, price);
+  }
+  return table;
+}
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  if (typeof label !== "string" || label.length === 0) {
+    throw new Error("a label must be a non-empty string");
+  }
+
+  const table = stampTable(dies);
+
+  const memo: Map<string, number> = new Map();
+  function dp(index = 0): number {
+    if (index === label.length) return 0;
+    if (memo.has(index)) return memo.get(index)!;
+
+    let minPrice = Infinity;
+    for (const [fragment, price] of table.entries()) {
+      const nextIndex = label.indexOf(fragment, index);
+      if (nextIndex !== -1 && nextIndex <= index + fragment.length) {
+        minPrice = Math.min(minPrice, dp(nextIndex + fragment.length));
+      }
+    }
+
+    memo.set(index, minPrice === Infinity ? price : minPrice + price);
+    return memo.get(index)!;
+  }
+
+  const result = dp(0);
+
+  if (result === Infinity) {
+    throw new Error("no sequence can spell the label");
+  }
+
+  return result;
+}
+```

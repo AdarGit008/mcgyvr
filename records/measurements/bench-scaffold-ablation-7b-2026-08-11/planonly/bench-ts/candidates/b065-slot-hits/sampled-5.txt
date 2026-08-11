@@ -1,0 +1,22 @@
+```ts
+export function slotHits(keys: number[], slots: number): number {
+  if (!Array.isArray(keys)) throw new Error("keys must be a list");
+  if (!Number.isInteger(slots) || slots <= 0) throw new Error("slots must be a positive integer");
+
+  const cache = new Array<number>(slots).fill(-1);
+  let hits = 0;
+
+  for (const key of keys) {
+    if (!Number.isInteger(key)) throw new Error("all keys must be integers");
+
+    const slot = Math.abs(key % slots);
+    if (cache[slot] === key) {
+      hits++;
+    } else {
+      cache[slot] = key;
+    }
+  }
+
+  return hits;
+}
+```

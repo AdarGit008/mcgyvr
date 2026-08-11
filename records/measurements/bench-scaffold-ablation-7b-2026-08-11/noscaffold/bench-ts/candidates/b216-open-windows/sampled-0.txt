@@ -1,0 +1,36 @@
+```typescript
+export function openWindows(span: string, booked: string[]): string {
+  const timeRe = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/;
+  if (!timeRe.test(span)) throw new Error("Invalid span format");
+
+  const times = (timesStr: string) => timesStr.split('-').map(time => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  });
+
+  const [spanStart, spanEnd] = times(span).sort((a, b) => a - b);
+
+  booked.sort((a, b) => times(a)[0] - times(b)[0]);
+
+  let freeSlots: string[] = [];
+  let lastEnd = spanStart;
+
+  for (const booking of booked) {
+    const [bookingStart, bookingEnd] = times(booking);
+    if (bookingStart > lastEnd) freeSlots.push(formatTime(lastEnd, bookingStart));
+    lastEnd = Math.max(lastEnd, bookingEnd);
+  }
+
+  if (lastEnd < spanEnd) freeSlots.push(formatTime(lastEnd, spanEnd));
+
+  return freeSlots.length === 0 ? "none" : freeSlots.join(", ");
+}
+
+const formatTime = (start: number, end: number): string => {
+  const startHours = Math.floor(start / 60);
+  const startMinutes = start % 60;
+  const endHours = Math.floor(end / 60);
+  const endMinutes = end % 60;
+  return `${String(startHours).padStart(2, '0')}:${String(startMinutes).padStart(2, '0')}-${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+};
+```

@@ -1,0 +1,36 @@
+```ts
+export function findFreeRun(words: number[], bits: number, length: number): number {
+  if (!Number.isInteger(bits) || bits < 0) throw new Error("Bits must be a non-negative integer");
+  if (words.length !== Math.ceil(length / 32)) throw new Error("Word count disagrees with capacity");
+  if (!Number.isInteger(length) || length <= 0) throw new Error("Length must be a positive integer");
+
+  for (let start = 0; start <= words.length * 32 - length; start++) {
+    let free = true;
+    for (let i = start, end = Math.min(start + length, (start / 32 | 0) * 32 + 32); i < end; i++) {
+      if (bitAt(words, i)) {
+        free = false;
+        break;
+      }
+    }
+    if (free) return start;
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  const newWords = [...words];
+  for (let i = start; i < Math.min(start + length, words.length * 32); i++) {
+    if (bitAt(newWords, i)) throw new Error("Run touches an occupied block");
+    newWords[i / 32 | 0] |= 1 << i % 32;
+  }
+  return newWords;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index) || index < 0) throw new Error("Index must be a non-negative integer");
+  const word = words[index / 32 | 0];
+  if (word < 0 || word > 4294967295) throw new Error("Bitmap word out of range");
+  return (word >> index % 32) & 1;
+}
+```

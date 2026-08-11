@@ -1,0 +1,37 @@
+```python
+import re
+
+def parse_option(segment: str) -> list:
+    """Converts a key=value segment into [key, value]."""
+    match = re.match(r'([a-zA-Z_]\w*)=(.*?)(;|$)', segment)
+    if not match:
+        raise ValueError("Invalid option format")
+    key, value, _ = match.groups()
+    return [key, value.strip('"')]
+
+
+def scan_pairs(text: str) -> list:
+    """Splits the options string into [key, value] pairs."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    if not text:
+        raise ValueError("Empty input is not allowed")
+    
+    pairs = []
+    key_values = re.split(r';(?=(?:[^"\\]*(?:\\.["\\])*[^"\\]*)*")', text)
+    seen_keys = set()
+    
+    for kv in key_values:
+        try:
+            key, value = parse_option(kv)
+        except ValueError as e:
+            raise ValueError(f"Invalid segment: {kv}") from e
+        
+        if key in seen_keys:
+            raise ValueError(f"Repeated key: {key}")
+        
+        pairs.append([key, value])
+        seen_keys.add(key)
+    
+    return pairs
+```

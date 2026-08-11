@@ -1,0 +1,42 @@
+```ts
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') throw new Error('Invalid input');
+  const match = text.match(/^\d+(\.\d{2})?$/);
+  if (!match) throw new Error('Invalid format');
+  return Math.round(parseFloat(text) * 100);
+}
+
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || isNaN(cents) || cents < 0)
+    throw new Error('Invalid input');
+  return cents.toFixed(2).padStart(5, '0').slice(0, -2) + '.' + cents.toFixed(2).slice(-2);
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (!Array.isArray(weights) || weights.length === 0)
+    throw new Error('Invalid input');
+  for (const weight of weights) {
+    if (typeof weight !== 'number' || !Number.isInteger(weight) || weight < 0)
+      throw new Error('Invalid input');
+  }
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  if (totalWeight === 0) throw new Error('Invalid input');
+  if (typeof totalCents !== 'number' || isNaN(totalCents) || totalCents < 0)
+    throw new Error('Invalid input');
+
+  const shares = weights.map(weight => Math.floor((weight / totalWeight) * totalCents));
+  let remainingCents = totalCents - shares.reduce((sum, share) => sum + share, 0);
+  const remainderIndices = shares
+    .map((share, index) => ({ share, index }))
+    .sort((a, b) => a.share % (totalWeight / weights.length) - b.share % (totalWeight / weights.length))
+    .filter(item => item.share < Math.ceil((weights[item.index] / totalWeight) * totalCents));
+
+  while (remainingCents > 0 && remainderIndices.length > 0) {
+    const index = remainderIndices.shift()!.index;
+    shares[index]++;
+    remainingCents--;
+  }
+
+  return shares;
+}
+```

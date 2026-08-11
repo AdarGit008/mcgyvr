@@ -1,0 +1,28 @@
+```
+def apply_charges(caps: dict, charges: list) -> tuple:
+    def _why_refused(charge_id, bucket_name, amount, caps):
+        if bucket_name not in caps:
+            return f"unknown"
+        allowance, single_charge = caps[bucket_name]
+        if amount > single_charge:
+            return "single"
+        if amount > allowance:
+            return "cap"
+
+    left = {bucket: (allowance, 0) for bucket, (allowance, _) in caps.items()}
+    refused = []
+
+    for charge_id, bucket_name, amount in charges:
+        reason = _why_refused(charge_id, bucket_name, amount, caps)
+        if reason == "unknown":
+            refused.append((charge_id, reason))
+        elif reason == "single":
+            refused.append((charge_id, reason))
+        elif reason == "cap":
+            refused.append((charge_id, reason))
+        else:
+            left[bucket_name] = (left[bucket_name][0] - amount,
+                                left[bucket_name][1] + 1)
+
+    return {bucket: allowance for bucket, (allowance, _) in left.items()}, refused
+```

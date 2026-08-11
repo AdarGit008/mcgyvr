@@ -1,0 +1,69 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    """Prune paths based on given rules."""
+    
+    def is_valid_path(path):
+        # Check if path is a string and not empty
+        return isinstance(path, str) and bool(path.strip())
+    
+    def is_valid_rule(rule):
+        # Check if rule is a string and not empty
+        return isinstance(rule, str) and bool(rule.strip())
+    
+    def parse_pattern(pattern: str) -> list:
+        if '*' not in pattern:
+            return [pattern]
+        parts = pattern.split('*')
+        parsed = []
+        for part in parts[:-1]:
+            # Validate leading/trailing slashes
+            if part.startswith('/') or part.endswith('/'):
+                raise ValueError("Invalid pattern segment")
+            parsed.append(part)
+        parsed.append(parts[-1])
+        return parsed
+    
+    def match_path(path: str, rule: list) -> bool:
+        path_segments = path.split('/')
+        for i, pattern in enumerate(rule):
+            if '*' in pattern:
+                # Match wildcard
+                if not i < len(path_segments):
+                    return False
+                path_segment = path_segments[i]
+                leading_part = path_segment[:len(pattern)]
+                if leading_part != pattern:
+                    return False
+                i += 1
+            else:
+                # Exact match
+                if path_segments[i] != pattern:
+                    return False
+        return True
+    
+    def prune(path: str, rules: list) -> bool:
+        for rule in rules:
+            if rule.startswith('!'):
+                # Keep rule
+                keep = True
+            else:
+                # Drop rule
+                keep = not match_path(path, parse_pattern(rule))
+            if keep:
+                return True
+        # No matching rule
+        raise ValueError("No matching rule")
+    
+    valid_listing = [path for path in listing if is_valid_path(path)]
+    valid_rules = [rule for rule in rules if is_valid_rule(rule)]
+    
+    surviving_paths = []
+    for path in valid_listing:
+        try:
+            prune(path, valid_rules)
+            surviving_paths.append(path)
+        except ValueError as e:
+            print(f"Error processing {path}: {e}")
+    
+    return surviving_paths
+```

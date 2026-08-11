@@ -1,0 +1,52 @@
+```ts
+export function parseAmount(text: string): number {
+    if (typeof text !== 'string') throw new Error('Invalid input: expected a string');
+    const match = text.match(/^\d+(\.\d{2})?$/);
+    if (!match) throw new Error('Invalid amount format: must be "12.34" or a whole number');
+    return parseInt(text, 10);
+}
+
+export function formatAmount(cents: number): string {
+    if (cents < 0) throw new Error('Invalid cents: cannot be negative');
+    const dollars = Math.floor(cents / 100);
+    const centsStr = String(cents % 100).padStart(2, '0');
+    return `${dollars}.${centsStr}`;
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+    if (totalCents < 0) throw new Error('Invalid total cents: cannot be negative');
+    if (!Array.isArray(weights)) throw new Error('Invalid weights: must be an array');
+    if (weights.length === 0) throw new Error('Invalid weights: cannot be empty');
+
+    let sum = 0;
+    for (const weight of weights) {
+        if (typeof weight !== 'number' || !Number.isInteger(weight) || weight < 0) {
+            throw new Error('Invalid weight: must be a non-negative integer');
+        }
+        sum += weight;
+    }
+
+    if (sum === 0) throw new Error('Invalid total cents: cannot be zero');
+
+    const shares = weights.map(() => 0);
+    let remainder = totalCents;
+
+    for (let i = 0; i < weights.length; i++) {
+        const shareSize = Math.floor(remainder / sum);
+        if (shareSize > 0) {
+            shares[i] += shareSize;
+            remainder -= shareSize * sum;
+            if (remainder === 0) break;
+        } else {
+            // Assign the last remaining cent to the first weight with a remainder
+            const index = weights.lastIndexOf(1);
+            if (index !== -1) {
+                shares[index]++;
+                remainder--;
+            }
+        }
+    }
+
+    return shares;
+}
+```

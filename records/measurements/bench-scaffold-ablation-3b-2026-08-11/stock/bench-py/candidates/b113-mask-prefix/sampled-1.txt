@@ -1,0 +1,40 @@
+```
+def mask_from_prefix(prefix):
+    if isinstance(prefix, bool) or not isinstance(prefix, int) or not 0 <= prefix <= 32:
+        raise ValueError("prefix must be an integer from 0 to 32")
+    octets = []
+    for slot in range(4):
+        ones = min(8, max(0, prefix - slot * 8))
+        octets.append(str(256 - 2 ** (8 - ones)))
+    return ".".join(octets)
+
+
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("mask must be a string")
+    
+    # Split the mask into four parts by dot
+    fields = mask.split('.')
+    
+    # Validate each field to ensure it is a non-empty string of digits
+    for i, field in enumerate(fields):
+        if not field.isdigit() or (i == 0 and field.startswith('0')):
+            raise ValueError("Invalid character in mask")
+        
+        # Convert the field to an integer and validate it is between 0 and 255
+        value = int(field)
+        if value < 0 or value > 255:
+            raise ValueError("Invalid octet in mask")
+    
+    # Construct the binary representation of the mask as a string
+    binary_mask = ''.join(f'{value:08b}' for value in map(int, fields))
+    
+    # Count the leading ones
+    count_ones = sum(1 for bit in binary_mask if bit == '1')
+    
+    # Verify that all following bits are zeros
+    if list(binary_mask[count_ones:]) != ['0'] * (32 - count_ones):
+        raise ValueError("Broken mask")
+    
+    return count_ones
+```

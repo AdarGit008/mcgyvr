@@ -1,0 +1,21 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    """
+    Replace placeholders in a template with corresponding values from a dictionary.
+
+    :param template: A string containing literal text and placeholders.
+                    Placeholders are formatted as {{name}}, where name is alphanumeric or underscore.
+    :param values: A dictionary mapping placeholder names to their replacements.
+    :return: The filled template string.
+    """
+    if not isinstance(template, str) or not isinstance(values, dict):
+        raise ValueError("Template must be a string and values must be a dictionary.")
+
+    def parse_placeholder(match):
+        name = match.group(1)
+        if not (name.isalnum() or '_' in name) or name not in values:
+            raise ValueError(f"Invalid placeholder '{name}' in template.")
+        return str(values[name])
+
+    return re.sub(r'\{\{([a-zA-Z0-9_]+)\}\}', parse_placeholder, template)
+```

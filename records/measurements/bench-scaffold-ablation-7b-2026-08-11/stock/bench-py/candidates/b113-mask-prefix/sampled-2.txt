@@ -1,0 +1,28 @@
+```python
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("mask must be a string")
+    
+    octets = mask.split('.')
+    if len(octets) != 4:
+        raise ValueError("mask must have exactly four dot-separated fields")
+    
+    count = 0
+    for octet in octets:
+        if not octet.isdigit():
+            raise ValueError("all fields must hold decimal digits")
+        
+        num = int(octet)
+        if num > 255:
+            raise ValueError("octets must be between 0 and 255 inclusive")
+        
+        if num != 0 and num != 255:
+            raise ValueError("ones bits are broken by a zero in the octet")
+        
+        if num == 255:
+            count += 8
+        else:
+            break
+    
+    return count
+```

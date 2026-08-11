@@ -1,0 +1,61 @@
+```python
+def parse_span(text: str) -> int:
+    """Converts span text into total inches."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    if not text.strip():
+        raise ValueError("Input cannot be empty.")
+    
+    parts = text.split()
+    units = []
+    values = []
+    
+    for part in parts:
+        value, unit = part[:-2], part[-2:]
+        if not value.isdigit() or (value == '0' and len(value) > 1):
+            raise ValueError("Invalid value: must be a non-negative integer with no leading zero.")
+        
+        if unit not in {'yd', 'ft', 'in'}:
+            raise ValueError(f"Unknown unit: {unit}.")
+        if unit in units:
+            raise ValueError(f"Unit repeated: {unit}.")
+        
+        units.append(unit)
+        values.append(int(value))
+    
+    yard_value, foot_value, inch_value = 0, 0, 0
+    for i, (value, unit) in enumerate(zip(values, units)):
+        if unit == 'yd':
+            yard_value += value
+        elif unit == 'ft':
+            foot_value += value
+        else:
+            inch_value += value
+    
+    total_inches = yard_value * 36 + foot_value * 12 + inch_value
+    return total_inches
+
+def format_span(inches: int) -> str:
+    """Renders a non-negative integer of total inches canonically."""
+    if not isinstance(inches, int):
+        raise ValueError("Input must be an integer.")
+    if inches < 0:
+        raise ValueError("Input must be non-negative.")
+    
+    units = [('yd', 36), ('ft', 12), ('in', 1)]
+    result = []
+    
+    for unit, factor in units:
+        value, inches = divmod(inches, factor)
+        if value > 0 or result:
+            result.append(f"{value}{unit}")
+    
+    return "{}in".format(' '.join(result)) if result else "0in"
+
+def add_spans(first: str, second: str) -> str:
+    """Takes two span texts and returns their sum in that canonical form."""
+    first_inches = parse_span(first)
+    second_inches = parse_span(second)
+    total_inches = first_inches + second_inches
+    return format_span(total_inches)
+```

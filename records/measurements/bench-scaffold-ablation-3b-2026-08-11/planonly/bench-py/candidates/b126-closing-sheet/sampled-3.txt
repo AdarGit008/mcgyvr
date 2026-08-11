@@ -1,0 +1,58 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    """
+    Validates and applies moves to a stockroom's opening count sheet,
+    returning the updated sheet with only entries still on hand.
+    """
+
+    def parse_sheet(sheet_text):
+        items = {}
+        for entry in sheet_text.split(';'):
+            try:
+                name, count_str = entry.split(':')
+                if not name.islower() or not count_str.isdigit():
+                    raise ValueError("Invalid sheet entry format.")
+                count = int(count_str)
+                items[name] = count
+            except (ValueError, IndexError):
+                raise ValueError("Malformed sheet entry.")
+        return items
+
+    def apply_move(items, move_text):
+        if not move_text:
+            return items
+        
+        for action in move_text.split(';'):
+            try:
+                name_qty = action.split('+', 1) if '+' in action else action.split('-', 1)
+                name, qty_str = (name_qty[0], name_qty[1]) if len(name_qty) == 2 else (name_qty[0], '1')
+                
+                if not name.islower() or not qty_str.isdigit():
+                    raise ValueError("Invalid move format.")
+                qty = int(qty_str)
+                
+                if name in items:
+                    new_count = items[name] + qty
+                    if new_count < 0:
+                        raise ValueError(f"Issue of {qty} units of {name}.")
+                    items[name] = new_count
+                else:
+                    raise ValueError(f"Issue of {qty} units of {name}, but it's not on the sheet.")
+            except (ValueError, IndexError):
+                raise ValueError("Malformed move.")
+
+    def format_sheet(items):
+        return ';'.join([f"{item}:{count}" for item, count in items.items() if count > 0])
+
+    try:
+        if not isinstance(opening, str) or not isinstance(moves, str):
+            raise ValueError("Invalid arguments type.")
+        
+        sheet = parse_sheet(opening)
+        apply_move(sheet, moves)
+        return format_sheet(sheet)
+    
+    except ValueError as e:
+        return str(e)
+
+```

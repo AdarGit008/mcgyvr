@@ -1,0 +1,42 @@
+```
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("amount must be a non-negative integer");
+  }
+  if (!defs[unit]) {
+    throw new Error(`unknown unit: ${unit}`);
+  }
+
+  function multiplyByFactor(factor: number, finerUnit: string): number {
+    return amount * factor;
+  }
+
+  function isLoopingChain(unit: string, seenUnits: Set<string>): boolean {
+    if (seenUnits.has(unit)) {
+      return true;
+    }
+    seenUnits.add(unit);
+    const [factor, finerUnit] = defs[unit];
+    if (!finerUnit || finerUnit === base) {
+      return false;
+    }
+    return isLoopingChain(finerUnit, seenUnits);
+  }
+
+  if (isLoopingChain(unit, new Set<string>())) {
+    throw new Error("chain loops and can never reach the base");
+  }
+
+  let currentUnit = unit;
+  while (currentUnit !== base) {
+    const [factor, finerUnit] = defs[currentUnit];
+    if (!Number.isInteger(factor) || factor <= 0) {
+      throw new Error(`invalid factor for unit: ${unit}`);
+    }
+    amount = multiplyByFactor(factor, finerUnit);
+    currentUnit = finerUnit;
+  }
+
+  return amount;
+}
+```

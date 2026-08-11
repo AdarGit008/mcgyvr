@@ -1,0 +1,23 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    if not isinstance(total, int) or isinstance(total, bool): raise ValueError("total must be a whole number")
+    if total < 0: raise ValueError("total may not be negative")
+    if not isinstance(weights, list) or not weights: raise ValueError("weights must be a non-empty list")
+    if not all(isinstance(w, int) and not isinstance(w, bool) and w > 0 for w in weights): raise ValueError("a weight is a positive whole number")
+    
+    whole = sum(weights)
+    parts = [total * w // whole for w in weights]
+    remainder = total - sum(parts)
+    
+    # Sort partners by the discarded fraction (descending), ties go to earlier partners
+    discard_fractions = [(w / whole, i) for i, w in enumerate(weights)]
+    discard_fractions.sort(key=lambda x: (-x[0], x[1]))
+    
+    # Distribute the remainder
+    for _, index in discard_fractions:
+        if remainder > 0:
+            parts[index] += 1
+            remainder -= 1
+    
+    return parts
+```

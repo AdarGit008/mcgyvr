@@ -1,0 +1,75 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+    if (typeof rules !== 'object' || rules === null) {
+        throw new Error('Rules must be an object');
+    }
+    if (typeof name !== 'string') {
+        throw new Error('Name must be a non-empty string');
+    }
+
+    const isValidSelector = (selector: string): boolean => {
+        return selector === '*' ||
+               selector.endsWith('.*') ||
+               /^[a-zA-Z0-9_]*$/.test(selector);
+    };
+
+    const isDottedName = (name: string): boolean => name.includes('.');
+
+    const getBaseName = (dottedName: string): string => dottedName.split('.')[0];
+
+    const matchExactSelector = (rules: Record<string, string>, selector: string): string | null => {
+        return rules[selector] || null;
+    };
+
+    const matchLongestCoveringWildcard = (rules: Record<string, string>, name: string): string | null => {
+        for (const [selector, value] of Object.entries(rules)) {
+            if (isDottedName(selector) && selector.startsWith(name + '.')) {
+                return value;
+            }
+        }
+        return null;
+    };
+
+    const matchLoneStar = (rules: Record<string, string>): string | null => {
+        for (const [selector, value] of Object.entries(rules)) {
+            if (selector === '*') {
+                return value;
+            }
+        }
+        return null;
+    };
+
+    try {
+        if (!isValidSelector(name) && !isDottedName(name)) {
+            throw new Error("Invalid name: must be a non-empty string containing only alphanumeric characters or underscores, or start with an asterisk.");
+        }
+
+        const baseName = getBaseName(name);
+
+        if (name === '*') {
+            return matchLoneStar(rules);
+        } else if (!isValidSelector(baseName)) {
+            throw new Error(`Invalid selector: ${baseName}`);
+        }
+
+        let result = matchExactSelector(rules, name);
+        if (result !== null) {
+            return result;
+        }
+
+        result = matchLongestCoveringWildcard(rules, name);
+        if (result !== null) {
+            return result;
+        }
+
+        result = matchLoneStar(rules);
+        if (result !== null) {
+            return result;
+        }
+
+        return null;
+    } catch (err) {
+        throw new Error(err.message);
+    }
+}
+```

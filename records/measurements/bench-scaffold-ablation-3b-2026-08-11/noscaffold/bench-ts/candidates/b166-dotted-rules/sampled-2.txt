@@ -1,0 +1,36 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+    if (typeof rules !== 'object' || typeof name !== 'string') {
+        throw new Error('Invalid arguments');
+    }
+
+    const splitName = name.split('.');
+    const wildcards = splitName.filter(s => s === '*');
+
+    let bestMatch: string | null = null;
+
+    for (let start = 0; start <= splitName.length - wildcards.length; start++) {
+        const parts = splitName.slice(start, start + wildcards.length);
+        const prefix = parts.join('.');
+        const suffix = splitName.slice(start + wildcards.length).join('.');
+
+        if (parts.length > 1 && parts[parts.length - 1] === '*') {
+            throw new Error('Invalid selector');
+        }
+
+        let currentMatch: string | null = prefix in rules ? rules[prefix] : null;
+
+        for (let i = 0; i < wildcards.length; i++) {
+            if (currentMatch !== null && suffix) {
+                currentMatch += `.*${suffix}`;
+            }
+        }
+
+        if (bestMatch === null || currentMatch !== null && (!bestMatch || currentMatch > bestMatch)) {
+            bestMatch = currentMatch;
+        }
+    }
+
+    return bestMatch;
+}
+```

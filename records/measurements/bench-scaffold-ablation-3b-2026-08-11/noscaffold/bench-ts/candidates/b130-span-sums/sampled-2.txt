@@ -1,0 +1,74 @@
+```ts
+export function parseSpan(text: string): number {
+  if (typeof text !== "string" || !text.trim()) {
+    throw new Error("Invalid span format");
+  }
+
+  const parts = text.split(/(\s+)/).filter(Boolean);
+
+  if (parts.length < 3) {
+    throw new Error("Incomplete span components");
+  }
+
+  let totalInches = 0;
+
+  for (let i = 0; i < parts.length - 1; i += 2) {
+    const value = parseInt(parts[i], 10);
+    if (isNaN(value)) {
+      throw new Error("Invalid number in span");
+    }
+    const unit = parts[i + 1].toLowerCase();
+
+    switch (unit) {
+      case "yd":
+        totalInches += value * 36;
+        break;
+      case "ft":
+        totalInches += value * 12;
+        break;
+      case "in":
+        totalInches += value;
+        break;
+      default:
+        throw new Error("Unknown unit in span");
+    }
+  }
+
+  return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+  if (typeof inches !== "number" || isNaN(inches) || inches < 0) {
+    throw new Error("Invalid number of inches");
+  }
+
+  const units = [
+    { value: 36, unit: "yd" },
+    { value: 12, unit: "ft" },
+    { value: 1, unit: "in" }
+  ];
+
+  let result = [];
+
+  for (const { value, unit } of units) {
+    const count = Math.floor(inches / value);
+    if (count > 0) {
+      inches -= count * value;
+      result.push(`${count}${unit}`);
+    }
+  }
+
+  return result.join(" ");
+}
+
+export function addSpans(first: string, second: string): string {
+  const total1 = parseSpan(first);
+  const total2 = parseSpan(second);
+
+  if (isNaN(total1) || isNaN(total2)) {
+    throw new Error("Invalid span format");
+  }
+
+  return formatSpan(total1 + total2);
+}
+```

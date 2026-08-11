@@ -1,0 +1,38 @@
+```python
+import re
+
+def mask_from_prefix(prefix: int) -> str:
+    """Render a network mask with the given count of leading ones."""
+    if not isinstance(prefix, int) or prefix < 0 or prefix > 32:
+        raise ValueError("Invalid prefix")
+    return '.'.join([str((1 << (32 - i)) - 1) for i in range(4)])
+
+def prefix_from_mask(mask: str) -> int:
+    """Read the count of leading ones from a network mask string."""
+    if not isinstance(mask, str):
+        raise ValueError("Invalid mask")
+    
+    octets = mask.split('.')
+    if len(octets) != 4:
+        raise ValueError("Mask must have exactly four dot-separated fields")
+    
+    for octet in octets:
+        if not re.match(r'^[0-9]+$', octet):
+            raise ValueError("All mask fields must be decimal digits")
+        
+        num = int(octet)
+        if num > 255 or (octet.startswith('0') and octet != '0'):
+            raise ValueError("Mask octets must not exceed 255 or have leading zeros")
+    
+    count = 0
+    for octet in octets:
+        num = int(octet)
+        if num == 255:
+            count += 8
+        elif num == 0:
+            break
+        else:
+            raise ValueError("Mask must be a run of leading ones followed by zeros")
+    
+    return count
+```

@@ -1,0 +1,45 @@
+```typescript
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (!grid.length || !grid[0].length) {
+    throw new Error("Grid must have at least one row and one cell.");
+  }
+
+  for (let i = 1; i < grid.length; i++) {
+    if (grid[i].length !== grid[0].length) {
+      throw new Error("All rows in the grid must have the same length.");
+    }
+  }
+
+  const prefixSumTable: number[][] = [];
+  for (let row of grid) {
+    let currentRowPrefixSum: number[] = [0];
+    for (let cell of row) {
+      if (!Number.isInteger(cell)) {
+        throw new Error("All cells in the grid must be integers.");
+      }
+      currentRowPrefixSum.push(currentRowPrefixSum[currentRowPrefixSum.length - 1] + cell);
+    }
+    prefixSumTable.push(currentRowPrefixSum);
+  }
+
+  const result: number[] = [];
+  for (let query of queries) {
+    if (!Array.isArray(query) || query.length !== 4) {
+      throw new Error("Each query must be a list of exactly four integers.");
+    }
+    const [top, left, bottom, right] = query;
+    if (top >= bottom || left >= right) {
+      throw new Error("Query top and left must be strictly less than their respective bottom and right values.");
+    }
+
+    let total: number = 0;
+    for (let i = top; i < bottom; i++) {
+      const rowPrefixSum = prefixSumTable[i];
+      total += rowPrefixSum[right] - rowPrefixSum[left];
+    }
+    result.push(total);
+  }
+
+  return result;
+}
+```

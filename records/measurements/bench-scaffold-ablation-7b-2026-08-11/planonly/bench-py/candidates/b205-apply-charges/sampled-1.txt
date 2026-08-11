@@ -1,0 +1,30 @@
+```python
+def apply_charges(caps: dict, charges: list) -> dict:
+    """
+    Apply charges to buckets according to the given caps and return the remaining allowance and refused charges.
+    """
+    def _why_refused(charge_id: int, bucket_name: str, amount: int) -> str:
+        if amount <= 0:
+            raise ValueError("Amount must be a positive whole number")
+        bucket_cap = caps.get(bucket_name)
+        if not bucket_cap:
+            return "unknown"
+        bucket_allowance, max_single_charge = bucket_cap
+        if amount > max_single_charge:
+            return "single"
+        if amount > bucket_allowance:
+            return "cap"
+        return None
+
+    left = {bucket: allowance for bucket, (allowance, _) in caps.items()}
+    refused = []
+
+    for charge_id, bucket_name, amount in charges:
+        reason = _why_refused(charge_id, bucket_name, amount)
+        if reason:
+            refused.append((charge_id, reason))
+        else:
+            left[bucket_name] -= amount
+
+    return {'left': left, 'refused': refused}
+```

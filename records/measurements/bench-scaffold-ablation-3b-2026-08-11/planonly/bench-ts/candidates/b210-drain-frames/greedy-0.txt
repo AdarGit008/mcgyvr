@@ -1,0 +1,47 @@
+```typescript
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (marker.length !== 1) {
+    throw new Error("Marker must be a single character");
+  }
+
+  let joinedText = chunks.join("");
+  let frames: string[] = [];
+  let pending: string = "";
+  let frameStartIndex = -1;
+  let frameEndIndex = -1;
+
+  for (let i = 0; i < joinedText.length; i++) {
+    if (joinedText[i] === marker) {
+      if (frameStartIndex !== -1 && frameEndIndex === -1) {
+        // Found a lone marker, end the current frame
+        frames.push(joinedText.substring(frameStartIndex, frameEndIndex));
+        frameStartIndex = -1;
+        frameEndIndex = i;
+      } else if (i + 1 < joinedText.length && joinedText[i + 1] === marker) {
+        // Found a doubled marker, treat it as one literal marker
+        pending += marker;
+        i++; // Skip the next character
+      } else {
+        // Found an unmatched marker, keep it in pending
+        pending += marker;
+      }
+    } else if (frameStartIndex === -1) {
+      // Start of a new frame
+      frameStartIndex = i;
+    } else if (i + 1 < joinedText.length && joinedText[i + 1] === marker) {
+      // Found the end of a frame
+      frameEndIndex = i + 1;
+      frames.push(joinedText.substring(frameStartIndex, frameEndIndex));
+      frameStartIndex = -1;
+      frameEndIndex = -1;
+    }
+  }
+
+  if (frameStartIndex !== -1) {
+    // If there's an unfinished frame at the end
+    frames.push(joinedText.substring(frameStartIndex));
+  }
+
+  return { frames, pending };
+}
+```

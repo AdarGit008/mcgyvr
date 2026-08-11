@@ -1,0 +1,20 @@
+```ts
+import { stampTable } from './stampTable';
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  if (typeof label !== 'string' || label === '') throw new Error('Invalid label');
+  const dieMap = stampTable(dies);
+  const dp: number[] = Array(label.length + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= label.length; i++) {
+    for (const [fragment, price] of dieMap.entries()) {
+      if (label.startsWith(fragment, i - fragment.length)) {
+        dp[i] = Math.min(dp[i], dp[i - fragment.length] + price);
+      }
+    }
+  }
+
+  return dp[label.length] === Infinity ? throw new Error('Unstampable label') : dp[label.length];
+}
+```

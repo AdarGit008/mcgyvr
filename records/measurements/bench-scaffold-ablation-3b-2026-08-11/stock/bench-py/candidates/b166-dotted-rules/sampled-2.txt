@@ -1,0 +1,36 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+
+    def is_valid_selector(selector):
+        return selector.endswith(".*") and len(selector) > 1
+
+    def match_exact(rule_name, value):
+        return rule_name == name
+
+    def match_wildcard(rule_name, value):
+        if not isinstance(value, str) or "." in value:
+            raise ValueError(f"invalid wildcard value for {rule_name}")
+        return rule_name.startswith(name)
+
+    winners = []
+
+    for rule_name, value in rules.items():
+        if not is_valid_selector(rule_name):
+            continue
+        if match_exact(rule_name, value):
+            winners.append((1, rule_name))
+        elif match_wildcard(rule_name, value):
+            winners.append((2, rule_name))
+
+    if not winners:
+        return None
+
+    # Sort by preference and then lexicographically
+    winners.sort(key=lambda x: (x[0], x[1]))
+
+    # Return the winning value for the first selector
+    _, winning_selector = winners[0]
+    return rules[winning_selector]
+```

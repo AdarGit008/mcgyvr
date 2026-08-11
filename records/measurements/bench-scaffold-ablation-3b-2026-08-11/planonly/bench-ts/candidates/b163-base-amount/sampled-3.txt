@@ -1,0 +1,26 @@
+```typescript
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (amount < 0 || !Number.isInteger(amount)) {
+    throw new Error("Amount must be a non-negative whole number.");
+  }
+  if (!defs[unit]) {
+    throw new Error(`Unit ${unit} is not defined in defs.`);
+  }
+  const [factor, finer] = defs[unit];
+  if (factor <= 0 || !Number.isInteger(factor)) {
+    throw new Error("Factor must be a positive whole number.");
+  }
+
+  let currentUnit = unit;
+  while (currentUnit !== base) {
+    if (!defs[currentUnit]) {
+      throw new Error(`Chain loops: undefined definition for unit ${currentUnit}.`);
+    }
+    [factor, finer] = defs[currentUnit];
+    amount *= factor;
+    currentUnit = finer;
+  }
+
+  return amount;
+}
+```

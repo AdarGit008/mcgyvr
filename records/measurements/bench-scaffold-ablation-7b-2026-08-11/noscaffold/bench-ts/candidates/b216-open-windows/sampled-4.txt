@@ -1,0 +1,33 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+    const timeRE = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/;
+    if (!timeRE.test(span)) throw new Error("Invalid span format");
+    for (const appt of booked) {
+        if (!timeRE.test(appt)) throw new Error("Invalid appointment format");
+    }
+
+    const [startH, startM, endH, endM] = span.split('-').flatMap(time => time.split(':').map(Number));
+    const openIntervals: [number, number][] = [[startH, startM]];
+
+    for (const appt of booked) {
+        const [apptStartH, apptStartM, apptEndH, apptEndM] = appt.split('-').flatMap(time => time.split(':').map(Number));
+        if (apptStartH < openIntervals[openIntervals.length - 1][0]) throw new Error("Appointments must not overlap");
+        const lastOpenEnd = openIntervals[openIntervals.length - 1][1];
+        if (apptStartH > openIntervals[openIntervals.length - 1][0] || apptStartM > lastOpenEnd) {
+            openIntervals.push([apptStartH, apptStartM]);
+        }
+        if (apptEndH > lastOpenEnd || apptEndM > endM) {
+            openIntervals[openIntervals.length - 1][1] = Math.max(apptEndH, endH) * 60 + apptEndM;
+        }
+    }
+
+    const result: string[] = [];
+    for (let i = 1; i < openIntervals.length; i++) {
+        if (openIntervals[i - 1][1] !== openIntervals[i][0]) {
+            result.push(`${String(openIntervals[i - 1][0]).padStart(2, '0')}:${String(openIntervals[i - 1][1] % 60).padStart(2, '0')}-${String(openIntervals[i][0]).padStart(2, '0')}:${String(openIntervals[i][1] % 60).padStart(2, '0')}`);
+        }
+    }
+
+    return result.length > 0 ? result.join(', ') : "none";
+}
+```

@@ -1,0 +1,38 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    if not span or not all(appointment in span for appointment in booked):
+        raise ValueError("Invalid span or appointment format")
+
+    start_time, end_time = map(int, span.split('-'))
+    appointments = sorted(map(lambda time: (int(time[:2]), int(time[3:])), booked))
+
+    result = []
+    current_start = start_time
+    current_end = end_time
+
+    for app_start, app_end in appointments:
+        if app_start <= current_end and app_end > current_start:
+            # Overlapping or adjacent appointment found
+            current_start = max(current_start, app_start)
+            current_end = max(current_end, app_end)
+
+    if current_start == start_time and current_end == end_time:
+        return "none"
+    else:
+        free_stretches = []
+        while current_start < current_end:
+            if current_start % 10 == 0:
+                hour_str = f"{current_start // 60:02d}"
+            else:
+                hour_str = f"{(current_start // 60) + 1:02d}"
+
+            if (current_end - current_start) % 60 == 0:
+                minute_str = "00"
+            else:
+                minute_str = f"{((current_end - current_start) // 60) * 60 + current_start % 60:02d}"
+
+            free_stretches.append(f"{hour_str}:{minute_str}")
+            current_start += 60
+
+        return ", ".join(free_stretches)
+```

@@ -1,0 +1,30 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+    const isValidPath = (path: string) => path && !path.match(/^\/+|\/$/);
+    const isValidRule = (rule: string) => rule && !rule.startsWith('!') && rule !== '!';
+
+    if (!listing.every(isValidPath)) throw new Error('Invalid path');
+    if (!rules.every((r, i) => (i === 0 || r !== '!') && isValidRule(r))) throw new Error('Invalid rule');
+
+    return listing.filter(path => {
+        let shouldKeep = false;
+        for (const rule of rules) {
+            const parts = rule.split('/');
+            const pathParts = path.split('/');
+            if (parts.length > pathParts.length + 1) continue;
+
+            let matches = true;
+            for (let i = 0; i < parts.length; i++) {
+                if (parts[i] === '*') continue;
+                if (parts[i] !== pathParts[i]) {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (matches) shouldKeep = rule.startsWith('!');
+        }
+        return shouldKeep;
+    });
+}
+```

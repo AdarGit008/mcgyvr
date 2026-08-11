@@ -1,0 +1,25 @@
+```python
+from typing import Dict
+
+def explode_kit(catalog: Dict[str, dict], kit: str, want: int) -> Dict[str, int]:
+    if want <= 0:
+        raise ValueError("want must be a positive integer")
+    
+    def run_recipe(kit_name: str, units_needed: int) -> Dict[str, int]:
+        recipe = catalog[kit_name]
+        makes = recipe['makes']
+        parts = recipe['parts']
+        
+        runs = (units_needed + makes - 1) // makes
+        total_parts = {}
+        
+        for component, count in parts:
+            if component in catalog:
+                total_parts.update(run_recipe(component, runs * count))
+            else:
+                total_parts[component] = total_parts.get(component, 0) + runs * count
+        
+        return total_parts
+    
+    return run_recipe(kit, want)
+```

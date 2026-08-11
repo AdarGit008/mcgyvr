@@ -1,0 +1,59 @@
+```python
+def prefix_from_mask(mask_str: str) -> int:
+    """
+    Convert a network mask string to its corresponding count of leading ones.
+    
+    :param mask_str: A string representing a network mask in dotted-quad format.
+    :return: An integer representing the count of leading ones in the mask.
+    Raises ValueError if the mask is invalid.
+    """
+    # Validate the input
+    if not isinstance(mask_str, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = mask_str.split('.')
+    if len(parts) != 4:
+        raise ValueError("Mask must have exactly four dot-separated fields.")
+    
+    count = 0
+    for part in parts:
+        try:
+            num = int(part)
+            if num < 0 or num > 255:
+                raise ValueError("Octets must be between 0 and 255.")
+            
+            # Check for leading zeros
+            if part.startswith('0') and len(part) != 1:
+                raise ValueError("Leading zeros are not allowed except in the first octet.")
+            
+            # Count leading ones
+            while num & 1 == 1:
+                count += 1
+                num >>= 1
+            
+        except ValueError as e:
+            raise ValueError(f"Invalid field '{part}': {e}.")
+    
+    return count
+
+def mask_from_prefix(prefix: int) -> str:
+    """
+    Convert a count of leading ones to its corresponding network mask string.
+    
+    :param prefix: An integer representing the count of leading ones in the mask.
+    :return: A string representing the network mask in dotted-quad format.
+    Raises ValueError if the prefix is invalid.
+    """
+    # Validate the input
+    if not isinstance(prefix, int) or prefix < 0 or prefix > 32:
+        raise ValueError("Prefix must be an integer between 0 and 32.")
+    
+    octets = [256 - (2 ** (32 - i)) for i in range(4)]
+    mask_str = '.'.join(str(octet) for octet in octets[:prefix])
+    
+    # Add trailing zeros to the last octet
+    while len(mask_str.split('.')) != 4:
+        mask_str += '.0'
+    
+    return mask_str
+```

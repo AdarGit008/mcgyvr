@@ -1,0 +1,56 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    """
+    Match a dotted option name against style rules to resolve its value.
+    
+    :param rules: A dictionary mapping selector strings to string values.
+    :param name: The dotted option name to resolve.
+    :return: The winning value if found, otherwise None.
+    """
+
+    def is_valid_selector(selector: str) -> bool:
+        return (
+            (selector == "*") or
+            (selector.startswith("*.") and selector.endswith(".*"))
+        )
+
+    def get_longest_matching_rule(prefix: str) -> tuple[str, str | None]:
+        if prefix in rules:
+            return (prefix, rules[prefix])
+        
+        for rule_prefix, value in rules.items():
+            if rule_prefix[:len(prefix)] == prefix:
+                return (rule_prefix, value)
+        
+        return ("", None)
+
+    def match_dotted_name(name: str) -> tuple[str, str | None]:
+        parts = name.split('.')
+        longest_matching_rule = None
+        current_prefix = ""
+
+        for part in parts[:-1]:
+            current_prefix += f"{part}."
+            rule, value = get_longest_matching_rule(current_prefix)
+            if rule is not None and longest_matching_rule is None:
+                longest_matching_rule = (rule, value)
+
+        final_part = parts[-1]
+        rule, value = get_longest_matching_rule(current_prefix + final_part)
+        if rule is not None and longest_matching_rule is None:
+            longest_matching_rule = (rule, value)
+
+        return longest_matching_rule
+
+    # Validate input
+    if not isinstance(name, str) or name in ("", "*", None):
+        raise ValueError("Invalid name: must be a non-empty string, '*', or None.")
+    for rule_value in rules.values():
+        if not isinstance(rule_value, str):
+            raise ValueError("Rule values must all be strings.")
+
+    # Get the winning rule
+    winning_rule, value = match_dotted_name(name)
+    
+    return value
+```

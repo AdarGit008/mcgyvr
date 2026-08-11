@@ -1,0 +1,73 @@
+```python
+from typing import List
+
+def split_strict(s: str) -> List[str]:
+    if s == "":
+        raise ValueError("Empty string")
+    segments = []
+    current_segment = ""
+    in_segment = False
+    for char in s:
+        if char == '/':
+            if in_segment and current_segment != "":
+                segments.append(current_segment)
+                current_segment = ""
+                in_segment = False
+        else:
+            if not in_segment:
+                in_segment = True
+            current_segment += char
+    if in_segment:
+        segments.append(current_segment)
+    if "" in segments:
+        raise ValueError("Empty segment")
+    return segments
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    def matches_pattern(path_segments: List[str], pattern_segments: List[str]) -> bool:
+        for path, pattern in zip(path_segments, pattern_segments):
+            if pattern == "*":
+                continue
+            if path != pattern:
+                return False
+        return True
+
+    def is_valid_rule(rule: str) -> bool:
+        if not isinstance(rule, str):
+            raise ValueError("Rule must be a string")
+        if rule == "":
+            raise ValueError("Empty rule")
+        if rule.startswith("!"):
+            return is_valid_pattern(rule[1:])
+        return is_valid_pattern(rule)
+
+    def is_valid_pattern(pattern: str) -> bool:
+        if pattern == "":
+            raise ValueError("Empty pattern segment")
+        if not all(c.isalnum() or c == '*' for c in pattern):
+            raise ValueError("Invalid characters in pattern")
+
+    for path in listing:
+        if not isinstance(path, str):
+            raise ValueError("Path must be a string")
+        if path == "":
+            raise ValueError("Empty path")
+        split_strict(path)
+
+    for rule in rules:
+        is_valid_rule(rule)
+
+    surviving_paths = []
+    for path in listing:
+        match_found = False
+        for rule in rules[::-1]:
+            pattern = rule.strip('!')
+            segments = split_strict(path)
+            if matches_pattern(segments, split_strict(pattern)):
+                matched = rule.startswith('!')
+                match_found |= matched
+        if match_found:
+            surviving_paths.append(path)
+
+    return surviving_paths
+```

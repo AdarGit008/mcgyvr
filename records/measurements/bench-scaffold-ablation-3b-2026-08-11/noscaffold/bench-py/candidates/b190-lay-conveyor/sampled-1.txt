@@ -1,0 +1,39 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    """
+    Lays a conveyor run on a factory floor plan.
+    
+    Parameters:
+        floor (list): A 2D list representing the factory floor plan,
+                      with '.' for open cells and '#' for machines.
+        row (int): The starting row of the conveyor run.
+        col (int): The starting column of the conveyor run.
+        length (int): The length of the conveyor run in cells.
+        
+    Returns:
+        list: A new 2D list representing the updated factory floor plan
+              with the conveyor run laid.
+    
+    Raises:
+        ValueError: If the row is out of bounds, the length exceeds the row's column count,
+                   or any cell covered by the run is not open.
+    """
+    
+    # Validate inputs
+    if not 0 <= row < len(floor):
+        raise ValueError("Row index out of bounds.")
+    if col + length > len(floor[0]):
+        raise ValueError("Conveyor run would extend beyond the right boundary.")
+    for r in range(row, row + length):
+        if floor[r][col] != '.':
+            raise ValueError("Cell at [r, c] is not open for conveyor run.")
+    
+    # Create a deep copy of the original floor plan
+    new_floor = [row[:] for row in floor]
+    
+    # Lay the conveyor run
+    for i in range(length):
+        new_floor[row][col + i] = '='
+
+    return new_floor
+```

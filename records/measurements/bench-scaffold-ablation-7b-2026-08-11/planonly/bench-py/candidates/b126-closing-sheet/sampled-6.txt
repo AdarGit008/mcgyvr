@@ -1,0 +1,37 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both opening and moves must be strings.")
+
+    def parse_entry(entry: str):
+        name, count = entry.split(':')
+        if not name.islower() or not name.isalpha():
+            raise ValueError(f"Invalid item name in opening sheet: {name}")
+        if not count.isdigit():
+            raise ValueError(f"Invalid count for item {name} in opening sheet: {count}")
+        return name, int(count)
+
+    def parse_move(move: str):
+        direction, name = move.split('+') if '+' in move else move.split('-')
+        if direction not in ('+', '-'):
+            raise ValueError(f"Invalid move format: {move}")
+        if not name.islower() or not name.isalpha():
+            raise ValueError(f"Invalid item name in move: {name}")
+        if not direction == '-' and not name in current_inventory:
+            raise ValueError(f"Item {name} not present for issuance in move: {move}")
+        return name, int(direction + '1')
+
+    opening_entries = [parse_entry(entry) for entry in opening.split(';') if entry]
+    moves_list = [parse_move(move) for move in moves.split(';') if move]
+
+    current_inventory = dict(opening_entries)
+
+    for name, qty in moves_list:
+        if direction == '+':
+            current_inventory[name] += qty
+        else:
+            current_inventory[name] -= qty
+
+    closing_entries = [f"{name}:{qty}" for name, qty in sorted(current_inventory.items()) if qty > 0]
+    return ';'.join(closing_entries)
+```

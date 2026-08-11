@@ -1,0 +1,116 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  let state = OPEN;
+  const cart: [string, number][] = [];
+  let total = 0;
+  let paid = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event)) {
+      throw new Error("event must be a list");
+    }
+
+    const [action, ...payload] = event;
+    const itemName = payload[0] as string;
+
+    switch (state) {
+      case OPEN:
+        switch (action) {
+          case "scan":
+            if (!prices[itemName]) {
+              throw new Error(`unknown item: ${itemName}`);
+            }
+            cart.push([itemName, 1]);
+            total += prices[itemName];
+            break;
+          case "void":
+            const index = cart.findIndex(([item]) => item === itemName);
+            if (index !== -1) {
+              cart.splice(index, 1);
+              total -= prices[itemName];
+            } else {
+              throw new Error(`cannot void non-existent item: ${itemName}`);
+            }
+            break;
+          case "close":
+            if (cart.length === 0) {
+              throw new Error("cannot close an empty cart");
+            }
+            state = PAYMENT;
+            break;
+          default:
+            throw new Error(`illegal action in open session: ${action}`);
+        }
+        break;
+
+      case PAYMENT:
+        switch (action) {
+          case "pay":
+            if (!Number.isInteger(payments[0])) {
+              throw new Error("pay amount must be a positive integer");
+            }
+            const payment = payments[0] as number;
+            if (payment >= total) {
+              paid = payment;
+              change = payment - total;
+              state = PAID;
+            } else {
+              throw new Error(`insufficient funds: ${payment} < ${total}`);
+            }
+            break;
+          case "cancel":
+            state = CANCELLED;
+            break;
+          default:
+            throw new Error(`illegal action in payment session: ${action}`);
+        }
+        break;
+
+      case PAID:
+      case CANCELLED:
+        if (state === PAID) {
+          throw new Error("cannot pay again");
+        } else if (state === CANCELLED) {
+          throw new Error("cannot cancel twice");
+        }
+        break;
+
+      default:
+        throw new Error(`illegal state: ${state}`);
+    }
+
+    if (state !== OPEN && event.length > 1) {
+      throw new Error(`event after final session state: ${JSON.stringify(event)}`);
+    }
+  }
+
+  return {
+    state,
+    items: cart.sort((a, b) => a[0].localeCompare(b[0])),
+    total,
+    paid,
+    change,
+  };
+}
+```

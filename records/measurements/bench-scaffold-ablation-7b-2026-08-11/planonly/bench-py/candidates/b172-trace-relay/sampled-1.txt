@@ -1,0 +1,20 @@
+```python
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+    if start not in links:
+        raise ValueError(f"start post '{start}' is not named in links")
+    
+    visited = set()
+    current_post = start
+    handoff_path = []
+    
+    while current_post != "":
+        if current_post in visited:
+            raise ValueError("watch comes back to a post already visited")
+        visited.add(current_post)
+        handoff_path.append(current_post)
+        current_post = links[current_post]
+    
+    return handoff_path
+```

@@ -1,0 +1,48 @@
+```python
+def find_free_run(words: list, bits: int, length: int) -> int:
+    if not isinstance(words, list) or not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("Invalid bitmap words")
+    if not isinstance(bits, int) or bits <= 0:
+        raise ValueError("Invalid capacity")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Invalid run length")
+    expected_words = (bits + 31) // 32
+    if len(words) != expected_words:
+        raise ValueError(f"Word count {len(words)} does not match capacity {expected_words}")
+    for i in range(bits):
+        if bit_at(words, i):
+            raise ValueError("Occupied block at or beyond capacity")
+    for start in range(0, bits - length + 1):
+        if any(bit_at(words, start + i) for i in range(length)):
+            continue
+        return start
+    return -1
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    if not isinstance(words, list) or not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("Invalid bitmap words")
+    if not isinstance(start, int) or start < 0:
+        raise ValueError("Invalid start index")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Invalid run length")
+    end = start + length
+    if end > len(words) * 32:
+        raise ValueError("Run exceeds bitmap bounds")
+    new_words = words[:]
+    for i in range(start, end):
+        word_index, bit_index = divmod(i, 32)
+        mask = 1 << (31 - bit_index)
+        if mask & new_words[word_index]:
+            raise ValueError("Touching occupied block")
+        new_words[word_index] |= mask
+    return new_words
+
+def bit_at(words: list, index: int) -> int:
+    if not isinstance(words, list) or not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("Invalid bitmap words")
+    if not isinstance(index, int) or index < 0:
+        raise ValueError("Invalid bit index")
+    word_index, bit_index = divmod(index, 32)
+    mask = 1 << (31 - bit_index)
+    return (words[word_index] & mask) >> (31 - bit_index)
+```

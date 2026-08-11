@@ -1,0 +1,30 @@
+```python
+def thaw_row(row: str, steps: int) -> str:
+    # Validate input
+    if not isinstance(row, str):
+        raise ValueError("Input row must be a string.")
+    if not row:
+        return row  # An empty row is unchanged after any number of steps
+    for char in row:
+        if char != "#" and char != ".":
+            raise ValueError("Row must contain only '#' or '.' characters.")
+    
+    if not isinstance(steps, int) or steps < 0:
+        raise ValueError("Step count must be a non-negative integer.")
+    
+    # Initialize the melted state
+    melted = [True if cell == "#" else False for cell in row]
+    
+    # Perform the thawing steps
+    for _ in range(steps):
+        new_melted = melted[:]
+        for i in range(len(melted)):
+            left, right = (i - 1) % len(melted), (i + 1) % len(melted)
+            if melted[i] and (left == False or right == False):
+                new_melted[i] = False
+        melted = new_melted
+    
+    # Convert back to the original format for return
+    return ''.join("#" if cell else "." for cell in melted)
+
+```

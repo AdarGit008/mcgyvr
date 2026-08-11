@@ -1,0 +1,17 @@
+```ts
+export function formatBits(value: number, width: number): string {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error("Value must be a non-negative integer");
+  }
+  if (width % 4 !== 0 || width > 32) {
+    throw new Error("Width must be a positive multiple of four not exceeding 32");
+  }
+  if (value >= 1 << width) {
+    throw new Error("Value does not fit in the specified width");
+  }
+
+  const binary = value.toString(2).padStart(width, '0');
+  return Array.from({ length: width }, (_, i) => binary[i])
+             .reduce((acc, bit, index) => (index % 4 === 3 ? acc + ' ' : acc) + bit);
+}
+```

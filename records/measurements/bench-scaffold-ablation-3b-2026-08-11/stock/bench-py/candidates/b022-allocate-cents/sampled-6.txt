@@ -1,0 +1,48 @@
+```python
+"""Fixed-point money helpers: parse, format, and allocate integer cents."""
+
+import re
+
+
+def parse_amount(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("amount must be a string")
+    match = re.fullmatch(r"(\d+)(?:\.(\d{2}))?", text)
+    if match is None:
+        raise ValueError(f"malformed amount: {text}")
+    whole = int(match.group(1))
+    cents = 0 if match.group(2) is None else int(match.group(2))
+    return whole * 100 + cents
+
+
+def format_amount(cents: int) -> str:
+    if isinstance(cents, bool) or not isinstance(cents, int) or cents < 0:
+        raise ValueError("cents must be a non-negative integer")
+    return f"{cents // 100}.{cents % 100:02d}"
+
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    if not isinstance(weights, list):
+        raise ValueError("weights must be a list")
+    total_weights = sum(weights)
+    
+    if len(weights) == 0 or any(weight < 0 for weight in weights) or total_weights == 0:
+        raise ValueError("invalid weights")
+
+    # Calculate the floor of each share
+    shares = [total_cents * weight // total_weights for weight in weights]
+    
+    # Calculate the leftover cents to distribute
+    leftovers = total_cents - sum(shares)
+    
+    # Distribute leftover cents to shares with the largest remainder first
+    remainder_pairs = [(share, share % 1) for share in shares]
+    remainder_pairs.sort(key=lambda x: (-x[1], x[0]))
+    
+    for i, (remainder, _) in enumerate(remainder_pairs):
+        if leftovers > 0:
+            shares[i] += 1
+            leftovers -= 1
+    
+    return shares
+```

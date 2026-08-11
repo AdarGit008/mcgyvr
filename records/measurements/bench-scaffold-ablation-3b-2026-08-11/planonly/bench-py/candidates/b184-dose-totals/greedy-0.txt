@@ -1,0 +1,28 @@
+```python
+def dose_totals(log: list) -> dict:
+    """
+    Calculate the total amount for each reagent in the pour log.
+
+    :param log: List of [reagent, amount] entries where amount is a string.
+    :return: Dictionary mapping reagents to their total amounts as strings.
+    """
+    totals = {}
+    for reagent, amount_str in log:
+        try:
+            # Convert amount from string to float
+            amount = float(amount_str)
+            
+            # Calculate the total in thousandths of a millilitre
+            total = round(amount * 1000, 3)
+            
+            # Update or add the total to the dictionary
+            if reagent in totals:
+                totals[reagent] += total
+            else:
+                totals[reagent] = total
+        
+        except ValueError as e:
+            raise ValueError(f"Invalid amount '{amount_str}': {e}")
+    
+    return totals
+```

@@ -1,0 +1,51 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    """
+    Matches a dotted option name against style rules to resolve its value.
+
+    :param rules: A dictionary where keys are selector strings and values are strings.
+    :param name: The dotted option name to search for in the rules.
+    :return: The resolved string value or None if no match is found.
+    """
+    if not isinstance(name, str):
+        raise ValueError("Name must be a non-empty string.")
+    
+    if "*" not in name and "." in name:
+        return None
+    
+    def resolve_name_with_prefix(prefix: str) -> str | None:
+        if prefix == "*":
+            if len(rules) == 0:
+                return None
+            return next(iter(rules.values()))
+        
+        if not prefix.endswith(".*"):
+            raise ValueError(f"Selector '{prefix}' must end with '.*' or be '*'.")
+        
+        matching_rules = {k: v for k, v in rules.items() if k.startswith(prefix)}
+        
+        if len(matching_rules) == 0:
+            return None
+        
+        longest_prefix_length = max(len(k) for k in matching_rules)
+        best_match = max(matching_rules.items(), key=lambda x: (len(x[0]), -x[1]))
+        
+        return best_match[1]
+    
+    try:
+        if "." not in name and "*" not in name:
+            return rules.get(name, None)
+        elif "." in name:
+            parts = name.split(".")
+            for i in range(len(parts)):
+                sub_name = ".".join(parts[:i+1])
+                result = resolve_name_with_prefix(sub_name)
+                if result is not None:
+                    return result
+            return None
+        else:
+            return resolve_name_with_prefix(name)
+    
+    except (KeyError, ValueError) as e:
+        raise ValueError(e)
+```

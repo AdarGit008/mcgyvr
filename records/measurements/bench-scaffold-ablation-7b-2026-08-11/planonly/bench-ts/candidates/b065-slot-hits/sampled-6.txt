@@ -1,0 +1,23 @@
+```ts
+export function slotHits(keys: number[], slots: number): number {
+  if (!Array.isArray(keys)) throw new Error("keys must be an array");
+  if (!Number.isInteger(slots) || slots <= 0) throw new Error("slots must be a positive integer");
+
+  const cache = new Array<number>(slots).fill(-1);
+  let hits = 0;
+
+  for (const key of keys) {
+    if (!Number.isInteger(key)) throw new Error("all keys must be integers");
+    const expectedSlot = key % slots;
+    if (expectedSlot < 0) throw new Error("keys must be non-negative");
+
+    if (cache[expectedSlot] === key) {
+      hits++;
+    } else {
+      cache[expectedSlot] = key;
+    }
+  }
+
+  return hits;
+}
+```

@@ -1,0 +1,51 @@
+```python
+from typing import *
+from collections import *
+
+def open_windows(span: str, booked: list[str]) -> str:
+    """
+    Returns the free stretches of the clinic's day based on the span and booked appointments.
+    
+    :param span: Span of the day as a string in "HH:MM-HH:MM" format.
+    :param booked: List of appointment strings in "HH:MM-HH:MM" format.
+    :return: A string containing free stretches separated by ", ", or "none" if no free stretch exists.
+    """
+    
+    # Validate inputs
+    if not re.match(r'^\d{2}:\d{2}-\d{2}:\d{2}$', span):
+        raise ValueError("Invalid span format. Expected HH:MM-HH:MM.")
+    for appointment in booked:
+        if not re.match(r'^\d{2}:\d{2}-\d{2}:\d{2}$', appointment):
+            raise ValueError("Invalid appointment format. Expected HH:MM-HH:MM.")
+    
+    # Convert span and appointments to tuples of integers
+    start, end = map(int, span.split('-'))
+    booked_times = sorted(map(lambda t: (int(t[:2]), int(t[3:])), booked))
+    
+    free_stretches = []
+    i = 0
+    for current_start, current_end in booked_times:
+        if current_start > end or current_end < start:
+            if not free_stretches or free_stretches[-1][-1] != current_start - 1:
+                free_stretches.append([start, current_start])
+        elif current_end > end:
+            if not free_stretches or free_stretches[-1][-1] != end - 1:
+                free_stretches.append([current_end, end])
+        else:
+            start = max(start, current_start)
+            end = min(end, current_end)
+    
+    # Add final free stretch if any
+    if start < end:
+        free_stretches.append([start, end])
+    
+    # Format and return result
+    if not free_stretches:
+        return "none"
+    return ", ".join(format_time(start) + "-" + format_time(end) for start, end in free_stretches)
+
+def format_time(minutes: int) -> str:
+    hours = minutes // 60
+    minutes %= 60
+    return f"{hours:02}:{minutes:02}"
+```

@@ -1,0 +1,31 @@
+```ts
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || !row) {
+    throw new Error('Invalid input: row must be a non-empty string.');
+  }
+  if (!/^[.#]*$/.test(row)) {
+    throw new Error('Invalid input: row must contain only "#" and ".".');
+  }
+  if (!Number.isInteger(steps) || steps < 0) {
+    throw new Error('Invalid input: steps must be a non-negative integer.');
+  }
+
+  const iceCells = Array.from(row).map((cell, index) => cell === '#');
+  let hasChanges = true;
+
+  while (hasChanges && steps > 0) {
+    hasChanges = false;
+    for (let i = 0; i < row.length; i++) {
+      if (row[i] === '#' && 
+          (i === 0 || iceCells[i - 1]) && 
+          (i === row.length - 1 || iceCells[i + 1])) {
+        hasChanges = true;
+        iceCells[i] = false;
+      }
+    }
+    steps--;
+  }
+
+  return iceCells.map(cell => cell ? '#' : '.').join('');
+}
+```

@@ -1,0 +1,27 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (!catalog[kit]) throw new Error(`Kits must be defined in catalog`);
+  
+  const needToFind = new Set(kit);
+  const result: Record<string, number> = {};
+  
+  function countParts(catalogItem: { makes: number; parts: [string, number][] }, units: number): void {
+    if (needToFind.has(catalogItem.name)) {
+      const actualUnits = Math.ceil(units / catalogItem.makes);
+      for (const [component, componentCount] of catalogItem.parts) {
+        if (!result[component]) result[component] = 0;
+        result[component] += componentCount * actualUnits;
+      }
+      needToFind.delete(catalogItem.name);
+    } else if (!needToFind.size) return; // All needed kits are found
+    for (const [component, count] of catalogItem.parts) {
+      const subResult = { ...result }; // Ensure sub-results do not affect the main result
+      countParts(catalog[component], want * count / catalogItem.makes);
+    }
+  }
+
+  countParts(catalog[kit], want);
+
+  return result;
+}
+```

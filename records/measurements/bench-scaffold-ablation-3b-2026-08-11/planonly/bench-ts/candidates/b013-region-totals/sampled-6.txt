@@ -1,0 +1,43 @@
+```typescript
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (grid.length === 0) {
+    throw new Error('Grid must have at least one row');
+  }
+  const numCols = grid[0].length;
+  for (let row of grid) {
+    if (row.length !== numCols || !Array.isArray(row)) {
+      throw new Error('Grid rows must be non-empty lists of integers');
+    }
+  }
+
+  // Build a prefix-sum table
+  const psTable: number[][] = [];
+  for (let i = 0; i <= grid.length; ++i) {
+    psTable[i] = Array(numCols + 1).fill(0);
+    if (i > 0) {
+      for (let j = 0; j < numCols; ++j) {
+        psTable[i][j + 1] = psTable[i - 1][j + 1] + grid[i - 1][j];
+      }
+    }
+  }
+
+  const results: number[] = [];
+  for (const [top, left, bottom, right] of queries) {
+    if (
+      !Array.isArray([top, left, bottom, right]) ||
+      top >= bottom || left >= right || top < 0 || left < 0
+    ) {
+      throw new Error('Invalid query: must be a list of exactly four integers and within grid bounds');
+    }
+
+    const topLeft = psTable[top][left];
+    const topRight = psTable[top][right + 1];
+    const bottomLeft = psTable[bottom + 1][left];
+    const bottomRight = psTable[bottom + 1][right + 1];
+
+    results.push(bottomRight - topLeft - topRight + bottomLeft);
+  }
+
+  return results;
+}
+```

@@ -1,0 +1,24 @@
+```typescript
+/** Lay a straight eastward conveyor run across a factory floor plan. */
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (row < 0 || row >= floor.length) {
+    throw new Error("the run starts off the plan");
+  }
+  const cells = floor[row].split("");
+  if (length <= 0 || col + length > cells.length) {
+    throw new Error("run would leave the plan or cover an invalid cell");
+  }
+
+  for (let i = col; i < col + length; i++) {
+    if (cells[i] !== ".") {
+      throw new Error("run would cover a cell that is not open");
+    }
+  }
+
+  cells[col] = "=";
+  for (let i = col + 1; i < col + length; i++) {
+    cells[i] = ">";
+  }
+  return floor.map((_, r) => r === row ? cells.join("") : r);
+}
+```

@@ -1,0 +1,43 @@
+```typescript
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error("Total takings must be a non-negative integer.");
+  }
+  
+  const sumWeights = weights.reduce((acc, weight) => acc + weight, 0);
+  if (sumWeights === 0 || !Array.isArray(weights) || weights.length === 0) {
+    throw new Error("Weights must be a non-empty array of positive integers.");
+  }
+
+  const parts = [];
+  let leftoverCents = total;
+
+  // First part for each partner
+  for (let i = 0; i < weights.length; i++) {
+    const weight = weights[i];
+    const share = Math.floor((total * weight) / sumWeights);
+    parts.push(share);
+    leftoverCents -= share;
+  }
+
+  // Distribute leftover cents to the partners with the largest discarded fraction
+  for (let i = 0; i < leftoverCents; i++) {
+    let maxDiscardedFraction = -1;
+    let bestIndex = -1;
+
+    for (let j = 0; j < weights.length; j++) {
+      const weight = weights[j];
+      const discardedFraction = 1 - ((total * weight) / sumWeights).toFixed(2);
+      if (discardedFraction > maxDiscardedFraction) {
+        maxDiscardedFraction = discardedFraction;
+        bestIndex = j;
+      }
+    }
+
+    parts[bestIndex]++;
+    leftoverCents--;
+  }
+
+  return parts;
+}
+```

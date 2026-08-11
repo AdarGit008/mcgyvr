@@ -1,0 +1,45 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    """
+    Return free stretches of time in HH:MM format between span and booked appointments.
+    Each stretch is returned as HH:MM-HH:MM with two digits for hour and minute,
+    joined by ", ". Returns "none" if the span is covered end to end.
+    Raises ValueError for invalid input.
+    """
+    if not span or not all(appointment for appointment in booked) or len(span.split('-')) != 2:
+        raise ValueError("Invalid span or appointments format.")
+
+    start, end = span.split('-')
+    start_hour, start_minute = map(int, start.split(':'))
+    end_hour, end_minute = map(int, end.split(':'))
+
+    start_day, _ = divmod(start_hour, 24)
+    end_day, _ = divmod(end_hour, 24)
+
+    if start_day != end_day:
+        raise ValueError("Span spans multiple days.")
+
+    booked_times = sorted((int(appointment.split(':')[0]), int(appointment.split(':')[1])) for appointment in booked)
+
+    free_stretches = []
+    current_start = (start_hour + start_minute / 60) * 60
+
+    for hour, minute in booked_times:
+        if hour > end_hour or (hour == end_hour and minute >= end_minute):
+            break
+        if (hour, minute) < (current_start // 60, current_start % 60):
+            free_stretches.append(format_time(current_start // 60, current_start % 60))
+        current_start = (hour + minute / 60) * 60
+
+    if current_start <= end_hour * 60 + end_minute:
+        free_stretches.append(format_time(current_start // 60, current_start % 60))
+
+    return ", ".join(free_stretches) or "none"
+
+
+def format_time(hour: int, minute: int) -> str:
+    """
+    Format time as HH:MM.
+    """
+    return f"{hour:02}:{minute:02}"
+```

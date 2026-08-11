@@ -1,0 +1,76 @@
+```python
+def scan_pairs(text: str) -> list:
+    """
+    Parses an options string into a list of key-value pairs.
+
+    :param text: A run of key=value segments separated by semicolons, like mode=fast;retry=3.
+    :return: A list of [key, value] pairs.
+    """
+    if not isinstance(text, str) or len(text) == 0:
+        raise ValueError("Input must be a non-empty string.")
+
+    def parse_option(segment: str) -> list:
+        """
+        Parses one segment into a [key, value] pair.
+
+        :param segment: A key=value segment.
+        :return: A [key, value] pair.
+        """
+        parts = segment.split('=', 1)
+        if len(parts) != 2:
+            raise ValueError("Invalid format for option.")
+
+        key = parts[0].strip()
+        value = parts[1]
+
+        # Strip leading and trailing quotes
+        if value.startswith('"') and value.endswith('"'):
+            value = value[1:-1]
+
+        return [key, value]
+
+    pairs = []
+    current_quote_count = 0
+
+    for char in text:
+        if char == ';':
+            if current_quote_count % 2 == 0:  # Not inside a quoted value
+                if not pairs or pairs[-1][0] != '':
+                    raise ValueError("Repeated key detected.")
+                pair = parse_option(''.join(pairs))
+                pairs.pop()  # Remove the existing pair before appending the new one
+                pairs.append(pair)
+        elif char == '"':
+            current_quote_count += 1
+        else:
+            if current_quote_count % 2 != 0:  # Inside a quoted value
+                pass  # Keep the character as part of the current value
+            else:  # Not inside a quoted value
+                pairs[-1][1] += char
+
+    if current_quote_count % 2 != 0:
+        raise ValueError("Unterminated quote detected.")
+
+    return pairs
+
+
+def parse_option(segment: str) -> list:
+    """
+    Parses one segment into a [key, value] pair.
+
+    :param segment: A key=value segment.
+    :return: A [key, value] pair.
+    """
+    if '=' not in segment or not segment.split('=', 1)[0].isidentifier():
+        raise ValueError("Invalid key format.")
+
+    parts = segment.split('=', 1)
+    key = parts[0]
+    value = parts[1]
+
+    # Strip leading and trailing quotes
+    if value.startswith('"') and value.endswith('"'):
+        value = value[1:-1]
+
+    return [key, value]
+```

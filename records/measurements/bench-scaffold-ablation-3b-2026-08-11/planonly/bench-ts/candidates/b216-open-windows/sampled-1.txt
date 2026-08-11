@@ -1,0 +1,46 @@
+```typescript
+export function openWindows(span: string, booked: string[]): string {
+  if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(span)) {
+    throw new Error("Invalid span format");
+  }
+  if (booked.some(appointment => !/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(appointment))) {
+    throw new Error("Invalid appointment format");
+  }
+
+  const [startSpan, endSpan] = span.split("-").map(t =>
+    t.split(":").map(Number).reduce((acc, val) => acc * 60 + val)
+  );
+  const [startAppointments, endAppointments] = booked.map(appointment =>
+    appointment.split("-").map(t =>
+      t.split(":").map(Number).reduce((acc, val) => acc * 60 + val)
+    )
+  );
+
+  const openWindows: { start: number; end: number }[] = [];
+  let currentStart = startSpan;
+
+  for (const [start, end] of startAppointments.sort((a, b) => a - b)) {
+    if (start > currentStart && currentStart !== endSpan) {
+      openWindows.push({ start: currentStart, end });
+    }
+    currentStart = Math.max(currentStart, end);
+  }
+
+  for (const [start, end] of endAppointments.sort((a, b) => a - b)) {
+    if (end < currentStart && currentStart !== endSpan) {
+      openWindows.push({ start: currentStart, end });
+    }
+    currentStart = Math.max(currentStart, end);
+  }
+
+  if (currentStart !== endSpan) {
+    openWindows.push({ start: currentStart, end: endSpan });
+  } else if (openWindows.length === 0) {
+    return "none";
+  }
+
+  return openWindows
+    .map(({ start, end }) => `${String(start / 60).padStart(2, "0")}:${String((start % 60) / 10).padStart(2, "0")}-${String(end / 60).padStart(2, "0")}:${String((end % 60) / 10).padStart(2, "0")}`)
+    .join(", ");
+}
+```

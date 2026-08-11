@@ -1,0 +1,65 @@
+```python
+def validate_node(node):
+    if not isinstance(node, dict) or len(node) != 2:
+        raise ValueError("Node must be a mapping with exactly two items")
+    name, content = node.items()
+    if not isinstance(name, str) or not name or '/' in name:
+        raise ValueError("Name must be a non-empty string without slashes")
+    if 'bytes' in content and 'children' in content:
+        raise ValueError("Node cannot have both bytes and children")
+    if 'bytes' in content:
+        if not isinstance(content['bytes'], int) or content['bytes'] < 0:
+            raise ValueError("Bytes must be a non-negative whole number")
+    elif 'children' in content:
+        if not isinstance(content['children'], list):
+            raise ValueError("Children must be a list")
+
+def file_paths(root: dict) -> list:
+    paths = []
+    
+    def walk(node, current_path):
+        validate_node(node)
+        name, content = node.items()
+        full_path = f"{current_path}/{name}" if current_path else name
+        if 'bytes' in content:
+            paths.append(full_path)
+        elif 'children' in content:
+            for child in content['children']:
+                walk(child, full_path)
+    
+    walk(root, "")
+    return paths
+
+def tree_bytes(root: dict) -> int:
+    def calculate_size(node):
+        validate_node(node)
+        name, content = node.items()
+        if 'bytes' in content:
+            return content['bytes']
+        elif 'children' in content:
+            return sum(calculate_size(child) for child in content['children'])
+        else:
+            raise ValueError("Node must have either bytes or children")
+    
+    return calculate_size(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative whole number")
+    
+    results = []
+    
+    def collect_heavy(node, current_path):
+        validate_node(node)
+        name, content = node.items()
+        full_path = f"{current_path}/{name}" if current_path else name
+        size = tree_bytes(node)
+        if size >= min_bytes:
+            results.append([full_path, size])
+        if 'children' in content:
+            for child in content['children']:
+                collect_heavy(child, full_path)
+    
+    collect_heavy(root, "")
+    return results
+```

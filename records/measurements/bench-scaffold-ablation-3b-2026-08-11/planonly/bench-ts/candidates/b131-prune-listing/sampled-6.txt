@@ -1,0 +1,52 @@
+```ts
+import { splitStrict } from './utils';
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || !Array.isArray(rules)) {
+    throw new Error('Invalid input types');
+  }
+  const validPaths = listing.filter(isValidPath);
+  const validRules = rules.filter(isValidRule);
+
+  return validPaths.map(keepLastMatchingRule(validRules));
+}
+
+function isValidPath(path: string): boolean {
+  if (typeof path !== 'string' || path.trim() === '' || path.includes('//')) {
+    throw new Error('Invalid path');
+  }
+  return true;
+}
+
+function isValidRule(rule: string): boolean {
+  if (typeof rule !== 'string' || rule.trim() === '') {
+    throw new Error('Invalid rule');
+  }
+  return true;
+}
+
+function keepLastMatchingRule(rules: string[]): (path: string) => string | null {
+  const rulesMap = rules.reduce((acc, rule, index) => {
+    if (rule.startsWith('!')) {
+      acc[rule.substring(1)] = 'keep';
+    } else {
+      acc[rule] = 'drop';
+    }
+    return acc;
+  }, {} as Record<string, 'keep' | 'drop'>);
+
+  return (path: string): string | null => {
+    for (let i = rules.length - 1; i >= 0; i--) {
+      const rule = rules[i];
+      if (rulesMap[rule] === 'keep') {
+        return path;
+      }
+      const [pattern] = splitStrict(rule);
+      if (path.startsWith(pattern)) {
+        return path;
+      }
+    }
+    return null;
+  };
+}
+```

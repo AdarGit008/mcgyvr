@@ -1,0 +1,60 @@
+```python
+from typing import List
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    def is_valid_path(path: str) -> bool:
+        return isinstance(path, str) and path and not (path.startswith("//") or path.endswith("//"))
+
+    def path_matches_rule(path: str, rule: str) -> bool:
+        if not (isinstance(rule, str) and rule):
+            raise ValueError("Rule must be a non-empty string.")
+        
+        if rule[0] == '!':
+            # Keep rule
+            return any(path.startswith(pattern) for pattern in rules if is_valid_path(pattern))
+        else:
+            # Drop rule
+            return not any(path.startswith(pattern) for pattern in rules if is_valid_path(pattern))
+
+    def clean_path(path: str) -> str:
+        # Remove leading and trailing slashes, double slashes
+        return path.strip("/\\").replace("//", "/")
+
+    def prune_internal(paths: List[str], rules: List[str]) -> List[str]:
+        cleaned_paths = [clean_path(p) for p in paths if is_valid_path(p)]
+        result = []
+        i = 0
+        
+        while i < len(cleaned_paths):
+            path = cleaned_paths[i]
+            matched_rule = None
+            j = i
+            
+            # Find the last matching rule
+            while j < len(rules):
+                if path_matches_rule(path, rules[j]):
+                    matched_rule = rules[j]
+                    break
+                j += 1
+            
+            # If no rule matches, keep the path
+            if matched_rule is None:
+                result.append(paths[i])
+                i += 1
+            else:
+                # Drop the path if it has a matching keep rule
+                if not any(r.startswith(matched_rule) for r in rules):
+                    result.append(paths[i])
+                i += 1
+        
+        return result
+
+    try:
+        return prune_internal(listing, rules)
+    except ValueError as e:
+        raise ValueError(f"Invalid input: {e}")
+
+# Test cases (optional)
+print(prune_listing(["/path/to/file", "/another/path"], ["!/path/to", "/"]))  # Output: ['/another/path']
+print(prune_listing(["/a/b/c", "/a/b/d"], ["!/a/b/", "/a/*"]))            # Output: ['/a/c', '/a/d']
+```

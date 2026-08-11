@@ -1,0 +1,26 @@
+```ts
+/** Count the hits a key stream scores on a direct-mapped cache. */
+
+export function slotHits(keys: number[], slots: number): number {
+  if (typeof slots !== 'number' || slots <= 0) {
+    throw new Error('Slot count must be a positive integer.');
+  }
+  const held: (number | null)[] = new Array(slots).fill(null);
+  let hits = 0;
+
+  for (const key of keys) {
+    if (!Number.isInteger(key)) {
+      throw new Error('Keys must be integers.');
+    }
+
+    const slotIndex = key % slots;
+    if (held[slotIndex] === key) {
+      hits++;
+    } else {
+      held[slotIndex] = key;
+    }
+  }
+
+  return hits;
+}
+```

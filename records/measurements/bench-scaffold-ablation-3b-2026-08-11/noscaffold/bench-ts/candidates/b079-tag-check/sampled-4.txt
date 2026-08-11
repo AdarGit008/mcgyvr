@@ -1,0 +1,17 @@
+```ts
+export function checkLine(line: string): string {
+  if (typeof line !== 'string' || line.length < 3) {
+    throw new Error('Invalid line');
+  }
+  const tag = lineTag(line.substring(0, line.length - 1));
+  if (line[line.length - 2] !== '~' || line.substring(line.length - 2).toUpperCase() !== tag.toUpperCase()) {
+    throw new Error('Invalid line');
+  }
+  return line.substring(0, line.length - 3);
+}
+
+export function lineTag(body: string): string {
+  const sum = body.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return sum.toString(16).padStart(2, '0');
+}
+```

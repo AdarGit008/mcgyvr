@@ -1,0 +1,47 @@
+```ts
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (typeof freshFor !== 'number' || typeof size !== 'number' || freshFor <= 0 || size < 1) {
+    throw new Error("freshFor and size must be positive whole numbers.");
+  }
+
+  const cache: { [key: string]: number } = {};
+  const renders: [number, string][] = [];
+
+  requests.forEach(([tick, tileName]) => {
+    if (tick <= (renders.length ? renders[renders.length - 1][0] : -Infinity)) {
+      throw new Error("Requests must arrive in order.");
+    }
+
+    const currentTick = tick;
+    const freshUntil = currentTick + freshFor;
+
+    // Remove tiles from cache that are stale
+    Object.keys(cache).forEach(name => {
+      if (cache[name] < currentTick) {
+        delete cache[name];
+      }
+    });
+
+    // Check if the tile is already in the cache and is still fresh
+    if (cache[tileName] && cache[tileName] >= currentTick) {
+      renders.push([currentTick, tileName]);
+    } else {
+      // Drop an old tile from the cache if it's not stale and size limit is reached
+      const oldestTile = Object.keys(cache).reduce((oldest, name) => {
+        return cache[name] < cache[oldest] ? name : oldest;
+      }, null);
+
+      if (oldestTile && cache.length >= size) {
+        delete cache[oldestTile];
+      }
+
+      // Store the new tile in the cache
+      cache[tileName] = currentTick;
+
+      renders.push([currentTick, tileName]);
+    }
+  });
+
+  return renders;
+}
+```

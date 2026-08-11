@@ -1,0 +1,50 @@
+```ts
+/**
+ * Creates a lookup table for die fragments to their prices.
+ * @param dies Array of [fragment, price] pairs.
+ * @returns Map where keys are fragments and values are prices.
+ */
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+  for (const [fragment, price] of dies) {
+    if (typeof fragment !== 'string' || fragment === '') {
+      throw new Error('Invalid fragment');
+    }
+    if (!Number.isInteger(price) || price <= 0) {
+      throw new Error('Invalid price');
+    }
+    if (table.has(fragment)) {
+      throw new Error('Duplicate fragment');
+    }
+    table.set(fragment, price);
+  }
+  return table;
+}
+
+/**
+ * Calculates the cheapest total price to stamp a label using the given dies.
+ * @param label The label to be stamped.
+ * @param dies Array of [fragment, price] pairs.
+ * @returns The cheapest total price or throws an error if not possible.
+ */
+export function stampCover(label: string, dies: [string, number][]): number {
+  if (typeof label !== 'string' || label === '') {
+    throw new Error('Invalid label');
+  }
+
+  const table = stampTable(dies);
+  const n = label.length;
+  const dp: number[] = Array(n + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= n; i++) {
+    for (const [fragment, price] of table.entries()) {
+      if (i >= fragment.length && label.substring(i - fragment.length) === fragment) {
+        dp[i] = Math.min(dp[i], dp[i - fragment.length] + price);
+      }
+    }
+  }
+
+  return dp[n] === Infinity ? Infinity : dp[n];
+}
+```

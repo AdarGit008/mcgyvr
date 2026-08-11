@@ -1,0 +1,80 @@
+```typescript
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error("Invalid input types");
+  }
+
+  // Parse the opening sheet
+  const parseOpening = (sheet: string): Record<string, number> => {
+    const entries = sheet.split(';').map(entry => {
+      const [name, count] = entry.trim().split(':').map(val => val.trim());
+      if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(count)) return null;
+      return { name, count: parseInt(count, 10) } as { name: string, count: number };
+    }).filter(Boolean);
+
+    const result: Record<string, number> = {};
+    entries.forEach(entry => {
+      if (Object.hasOwn(result, entry.name)) {
+        throw new Error("Duplicate item name on opening sheet");
+      }
+      result[entry.name] = entry.count;
+    });
+    return result;
+  };
+
+  // Parse the moves
+  const parseMoves = (moves: string): [string, number][] => {
+    if (!moves) return [];
+
+    const entries = moves.split(';').map(entry => {
+      const [nameQty, qtyStr] = entry.trim().split('+').map(val => val.trim());
+      if (!/^[a-z]+$/.test(nameQty)) return null;
+      const qty = parseInt(qtyStr, 10);
+      if (isNaN(qty) || qty <= 0) return null;
+
+      const [name, _] = nameQty.split('-', 2).map(val => val.trim());
+      if (!/^[a-z]+$/.test(name)) return null;
+      return { name, qty };
+    }).filter(Boolean);
+
+    return entries;
+  };
+
+  // Apply moves to the opening sheet
+  const applyMoves = (sheet: Record<string, number>, moves: [string, number][]): Record<string, number> => {
+    moves.forEach(([name, qty]) => {
+      if (!Object.hasOwn(sheet, name)) {
+        throw new Error(`Cannot issue ${qty} of non-existent item ${name}`);
+      }
+      if (sheet[name] < qty) {
+        throw new Error(`Cannot issue ${qty} of item ${name}, only ${sheet[name]} left`);
+      }
+      sheet[name] -= qty;
+    });
+    return sheet;
+  };
+
+  // Filter out empty entries and sort the items
+  const filterAndSort = (sheet: Record<string, number>): string => {
+    if (!Object.keys(sheet).length) return "";
+
+    const filteredEntries = Object.entries(sheet)
+      .filter(([_, count]) => count > 0);
+
+    filteredEntries.sort((a, b) => a[0].localeCompare(b[0]));
+
+    return filteredEntries.map(([name, count]) => `${name}:${count}`).join(';');
+  };
+
+  // Main function
+  const openingSheetData = parseOpening(opening);
+  const movesData = parseMoves(moves);
+
+  try {
+    const updatedSheet = applyMoves(openingSheetData, movesData);
+    return filterAndSort(updatedSheet);
+  } catch (error) {
+    throw error;
+  }
+}
+```

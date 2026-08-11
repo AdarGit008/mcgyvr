@@ -1,0 +1,28 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    if total < 0 or total % 1 != 0:
+        raise ValueError("Total must be a non-negative integer")
+    if not isinstance(weights, list):
+        raise ValueError("Weights must be a list")
+    if not weights or any(w <= 0 for w in weights):
+        raise ValueError("Weights list must contain positive integers")
+
+    total_cents = total
+    num_partners = len(weights)
+    sum_weights = sum(weights)
+
+    parts = [total * w // sum_weights for w in weights]
+    leftover_cents = total_cents - sum(parts)
+
+    largest_discarded_fractions = [
+        (w / sum_weights - p / sum_weights, i) for i, p, w in enumerate(zip(parts, weights, weights))
+    ]
+
+    largest_discarded_fractions.sort(reverse=True)
+    for _, i in largest_discarded_fractions:
+        if leftover_cents > 0:
+            parts[i] += 1
+            leftover_cents -= 1
+
+    return parts
+```

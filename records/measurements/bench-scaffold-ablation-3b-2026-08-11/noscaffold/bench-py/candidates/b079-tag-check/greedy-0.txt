@@ -1,0 +1,28 @@
+```python
+def line_tag(body: str) -> str:
+    """Compute the tag for a body string."""
+    if not isinstance(body, str):
+        raise ValueError("Body must be a string.")
+    
+    total = 0
+    for char in body:
+        total += ord(char)
+    return format(total % 256, '02x')
+
+def check_line(line: str) -> str:
+    """Verify and extract the body from a tagged line."""
+    if not isinstance(line, str):
+        raise ValueError("Line must be a string.")
+    
+    if len(line) < 3:
+        raise ValueError("Line must be at least three characters long.")
+    
+    if line[-1] != '~':
+        raise ValueError("Third-from-last character must be a tilde.")
+    
+    tag = line_tag(line[:-2])
+    if line[-2:] != tag:
+        raise ValueError(f"Tag does not match the body: {tag} vs {line[-2:]}")
+    
+    return line[:-2]
+```

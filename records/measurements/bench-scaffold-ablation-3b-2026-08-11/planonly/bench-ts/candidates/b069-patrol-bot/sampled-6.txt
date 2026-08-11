@@ -1,0 +1,65 @@
+```ts
+type Move = {
+  position: number;
+  delta: number;
+};
+
+export function runPatrol(width: number, start: number, moves: Move[]): Record<string, number> {
+  if (typeof width !== 'number' || !Number.isInteger(width) || width <= 0) {
+    throw new Error('width must be a positive integer');
+  }
+  
+  if (!Array.isArray(moves)) {
+    throw new Error('moves must be an array');
+  }
+
+  for (const move of moves) {
+    const { position, delta } = move;
+    if (
+      typeof position !== 'number' || 
+      !Number.isInteger(position) ||
+      position < 0 || 
+      position >= width
+    ) {
+      throw new Error('position must be an integer between 0 and width - 1');
+    }
+
+    if (typeof delta !== 'number' || delta === 0) {
+      throw new Error('delta must be a non-zero integer');
+    }
+  }
+
+  const visited: Set<number> = new Set();
+  let position = start;
+  let bumps = 0;
+
+  for (const { delta } of moves) {
+    const [newPosition, cutShort] = clampMove(position, delta, width);
+    if (cutShort) {
+      bumps++;
+    }
+    visited.add(newPosition);
+    position = newPosition;
+  }
+
+  return {
+    position,
+    bumps,
+    visited: visited.size
+  };
+}
+
+export function clampMove(
+  position: number,
+  delta: number,
+  width: number
+): [number, boolean] {
+  const newPosition = position + delta;
+
+  if (newPosition === 0 || newPosition === width - 1) {
+    return [newPosition, true];
+  }
+
+  return [newPosition, false];
+}
+```

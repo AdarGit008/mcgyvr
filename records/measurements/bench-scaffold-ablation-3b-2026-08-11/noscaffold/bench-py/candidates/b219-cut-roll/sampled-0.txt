@@ -1,0 +1,48 @@
+```python
+from typing import Dict
+
+def cut_roll(length: int, board: list[tuple[int, int]]) -> Dict[str, any]:
+    if length < 0:
+        raise ValueError("Length must be a non-negative integer.")
+
+    def max_takeable_piece(index: int) -> int:
+        """Return the maximum length of a piece that can be cut from the roll."""
+        return min(length - index, board[index][0])
+
+    def max_tookable_price(index: int) -> int:
+        """Return the price of the most valuable piece that can be cut from the roll."""
+        return board[index][1] if index < len(board) else 0
+
+    def dfs(index: int, current_length: int, current_piecelength: int) -> Tuple[int, list]:
+        """
+        Recursively find the maximum price and pieces for a given length of roll.
+        :param index: Current board piece to consider.
+        :param current_length: Length of the remaining roll.
+        :param current_piecelength: Length of the last piece cut.
+        """
+        if current_length == 0:
+            return (0, [])
+
+        # Try cutting the current board piece
+        max_piece = max_takeable_piece(index)
+        if max_piece > 0:
+            take_price = board[index][1]
+            take_pieces = dfs(index + 1, current_length - max_piece, max_piece) + [max_piece]
+
+            # Try scrapping the last metre of the roll
+            scrap_price = 0
+            scrap_pieces = dfs(index + 1, current_length - 1, current_piecelength)
+
+            # Choose the option with the highest price or, in case of a tie, longest piece
+            return max((take_price, take_pieces), (scrap_price, scrap_pieces))
+
+        # If no more board pieces fit, return the best price from scraps
+        return dfs(index + 1, current_length - 1, current_piecelength)
+
+    result = dfs(0, length, 0)
+    return {
+        "takings": result[0],
+        "greatest_price": max_tookable_price(board.index(max_tookable_piece(0))),
+        "pieces": result[1][::-1]
+    }
+```

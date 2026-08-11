@@ -1,0 +1,25 @@
+```typescript
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || !/^[#\.]*$/.test(row) || steps < 0 || !Number.isInteger(steps)) {
+    throw new Error('Invalid input');
+  }
+
+  const len = row.length;
+  let hasChanges = true;
+
+  while (hasChanges && steps > 0) {
+    hasChanges = false;
+    for (let i = 0; i < len; i++) {
+      if (row[i] === '#') {
+        if (i === 0 || row[i - 1] !== '#' || (i + 1 < len && row[i + 1] !== '#')) {
+          hasChanges = true;
+          row = row.slice(0, i) + '.' + row.slice(i + 1);
+        }
+      }
+    }
+    steps--;
+  }
+
+  return row;
+}
+```

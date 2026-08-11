@@ -1,0 +1,37 @@
+```python
+from typing import *
+from collections import *
+
+def trace_relay(links: dict, start: str) -> list:
+    """
+    Follows handoffs from a harbour's night watch starting at 'start'.
+    
+    :param links: A dictionary mapping post names to the next post name.
+    :param start: The starting post name.
+    :return: A list of post names in order of visit, including start and end.
+    :raises ValueError: If links is not a mapping, start is not valid, handoffs form a loop, or posts are invalid.
+    """
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary.")
+    
+    if start not in links:
+        raise ValueError(f"start '{start}' is not in the links.")
+    
+    visited = set()
+    current_post = start
+    path = [current_post]
+    
+    while current_post != "":
+        if current_post in visited:
+            raise ValueError("Handoffs form a loop.")
+        
+        visited.add(current_post)
+        next_post = links.get(current_post)
+        if next_post is None or not isinstance(next_post, str):
+            raise ValueError("Invalid handoff name.")
+        
+        path.append(next_post)
+        current_post = next_post
+    
+    return path
+```

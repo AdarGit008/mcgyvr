@@ -1,0 +1,12 @@
+```typescript
+export function formatBits(value: number, width: number): string {
+    if (!Number.isInteger(value) || value < 0) {
+        throw new Error('Value must be a non-negative integer');
+    }
+    if (width % 4 !== 0 || width > 32) {
+        throw new Error('Width must be a positive multiple of four and not exceed 32');
+    }
+    const binaryStr = value.toString(2).padStart(width, '0');
+    return Array.from(binaryStr.matchAll(/.{1,4}/g)).map(g => g[0]).join(' ');
+}
+```

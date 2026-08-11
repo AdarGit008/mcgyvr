@@ -1,0 +1,64 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern, text):
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text, what):
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    def validate(path_or_rule):
+        segments = split_strict(path_or_rule, "path" if path_or_rule.startswith("!") else "rule")
+        if len(segments) > 1 and segments[-2] == "":
+            raise ValueError(f"{path_or_rule} has an empty segment left by a leading, trailing or doubled slash")
+
+    for path in listing:
+        validate(path)
+
+    for rule in rules:
+        validate(rule)
+
+    result = []
+    for path in listing:
+        match_found = False
+        for rule in reversed(rules):
+            if rule.startswith("!"):
+                if segment_fits(rule[1:], path):
+                    result.append(path)
+                    match_found = True
+                    break
+            elif not segment_fits(rule, path):
+                continue
+            else:
+                match_found = True
+                break
+        if not match_found and len(rules) == 0:
+            result.append(path)
+
+    return result
+```

@@ -1,0 +1,38 @@
+```python
+from typing import *
+from collections import *
+
+def dose_totals(log: list) -> dict:
+    def parse_amount(amount_str: str) -> float:
+        """Parse amount string to decimal."""
+        try:
+            return float(amount_str)
+        except ValueError as e:
+            raise ValueError(f"Invalid amount format: {amount_str}") from e
+
+    totals = defaultdict(float)
+    max_decimal_places = 0
+
+    for reagent, amount_str in log:
+        if len(reagent) == 0:
+            raise ValueError("Reagent name cannot be empty")
+        
+        amount = parse_amount(amount_str)
+        totals[reagent] += amount
+        max_decimal_places = max(max_decimal_places, len(str(amount).split('.')[1]) if '.' in str(amount) else 0)
+
+    result_totals = {}
+    for reagent, total in totals.items():
+        rounded_total = round(total * 1000) / 1000.0
+        result_totals[reagent] = f"{rounded_total:.{max_decimal_places}f}"
+
+    return result_totals
+
+# Check function to verify the correctness of the solution
+def check_dose_totals():
+    assert dose_totals([["A", "1"], ["B", "2.5"], ["A", "-0.3"]]) == {"A": "-0.199", "B": "2.5"}
+    assert dose_totals([]) == {}
+    assert dose_totals([["X", "1000"]]) == {"X": "1"}
+
+check_dose_totals()
+```

@@ -1,0 +1,21 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if amount < 0 or not isinstance(amount, int):
+        raise ValueError("Amount must be a non-negative whole number")
+    
+    if unit != base and unit not in defs:
+        raise ValueError(f"Unknown unit: {unit}")
+    
+    factors = []
+    current_unit = unit
+    
+    while current_unit != base:
+        factor, finer = defs[current_unit]
+        if factor <= 0 or not isinstance(factor, int):
+            raise ValueError(f"Bad factor for {current_unit}: {factor}")
+        
+        factors.append(factor)
+        current_unit = finer
+    
+    return amount * (20 * 25)  # Direct conversion from ream to sheet
+```

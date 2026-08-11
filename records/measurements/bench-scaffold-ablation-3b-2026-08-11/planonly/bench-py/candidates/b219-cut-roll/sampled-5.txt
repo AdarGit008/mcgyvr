@@ -1,0 +1,24 @@
+```python
+from typing import *
+from collections import *
+
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0:
+        raise ValueError("Length must be a non-negative integer.")
+    
+    # Initialize the result dictionary
+    result = {'takings': 0, 'pieces': []}
+    
+    # Sort boards by their price per metre in descending order
+    board.sort(key=lambda x: x[1] / x[0], reverse=True)
+    
+    # Iterate over each board piece
+    for metres, price in board:
+        if length >= metres:
+            # Try to cut a piece of this length and update the result
+            result['takings'] += price
+            result['pieces'].append(metres)
+            length -= metres
+    
+    return result
+```

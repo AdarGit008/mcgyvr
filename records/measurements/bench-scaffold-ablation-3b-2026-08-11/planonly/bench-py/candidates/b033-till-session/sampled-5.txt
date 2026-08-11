@@ -1,0 +1,77 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not events or not isinstance(prices, dict):
+        raise ValueError("Invalid input")
+
+    def is_positive_int(n: int) -> bool:
+        return n > 0 and n == int(n)
+
+    def is_valid_event(event: list) -> bool:
+        return len(event) == 2 and isinstance(event[0], str) and event[1] != ""
+
+    def find_price(item: str) -> int:
+        price = prices.get(item)
+        if price is None or not is_positive_int(price):
+            raise ValueError(f"Price for {item} is invalid")
+        return price
+
+    def find_quantity(cart: dict, item: str) -> int:
+        return cart.get(item, 0)
+
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0
+    }
+
+    for event in events:
+        if not is_valid_event(event):
+            raise ValueError("Invalid event format")
+
+        action = event[0]
+        payload = event[1]
+
+        if state["status"] == "open":
+            if action == "scan":
+                find_price(payload)
+                quantity = find_quantity(state["items"], payload) + 1
+                state["items"].append([payload, quantity])
+                state["total"] += find_price(payload)
+            elif action == "void":
+                if not any(item[0] == payload for item in state["items"]):
+                    raise ValueError("Cannot void an item not in the cart")
+                quantity = find_quantity(state["items"], payload) - 1
+                if quantity > 0:
+                    state["items"].append([payload, quantity])
+                    state["total"] -= find_price(payload)
+                else:
+                    state["items"].remove([payload, quantity])
+            elif action == "close":
+                if not state["items"]:
+                    raise ValueError("Cannot close an empty cart")
+                state["status"] = "payment"
+            elif action == "pay":
+                if state["paid"] >= state["total"]:
+                    raise ValueError("Cannot pay more than the total")
+                paid_amount = int(payload)
+                if not is_positive_int(paid_amount):
+                    raise ValueError(f"Pay amount {paid_amount} is invalid")
+                state["paid"] += paid_amount
+                change = paid_amount - state["total"]
+                state["change"] = change
+                state["status"] = "paid"
+            elif action == "cancel":
+                if state["status"] != "open":
+                    raise ValueError("Cannot cancel a session that is not open")
+                state["status"] = "cancelled"
+        else:
+            raise ValueError(f"Event '{action}' is not allowed in the current state")
+
+    return {
+        "items": sorted(state["items"]),
+        "total": state["total"],
+        "paid": state["paid"],
+        "change": state["change"]
+    }
+```

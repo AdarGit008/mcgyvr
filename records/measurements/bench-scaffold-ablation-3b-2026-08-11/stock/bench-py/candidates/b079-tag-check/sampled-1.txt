@@ -1,0 +1,25 @@
+```python
+def line_tag(body: str) -> str:
+    if not isinstance(body, str):
+        raise ValueError("line_tag expects a string")
+    return format(sum(ord(ch) for ch in body) % 256, "02x")
+
+
+def check_line(line: str) -> str:
+    # Split the line into before and after the tilde
+    parts = line.rsplit('~', 1)
+    
+    if len(parts) != 2 or not parts[0].isprintable() or not parts[1].isalnum():
+        raise ValueError("check_line expects a valid tagged line with exactly one '~' in the middle")
+    
+    body = parts[0]
+    expected_tag = parts[1]
+    
+    # Verify the tag
+    calculated_tag = line_tag(body)
+    
+    if expected_tag != calculated_tag:
+        raise ValueError(f"Tag mismatch: the calculated tag '{calculated_tag}' does not match the expected '{expected_tag}'")
+    
+    return body
+```

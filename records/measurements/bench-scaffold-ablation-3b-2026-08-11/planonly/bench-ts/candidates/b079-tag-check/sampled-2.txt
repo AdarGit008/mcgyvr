@@ -1,0 +1,17 @@
+```typescript
+export function lineTag(body: string): string {
+  if (typeof body !== 'string') throw new Error('Invalid input type');
+  const sum = [...body].reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return ('0' + sum.toString(16)).slice(-2).toLowerCase();
+}
+
+export function checkLine(line: string): string {
+  if (typeof line !== 'string') throw new Error('Invalid input type');
+  if (line.length < 3) throw new Error('Line too short');
+  const [body, tag] = [...line].slice(0, -2).join('');
+  if (line[line.length - 2] !== '~') throw new Error('Third-from-last character is not a tilde');
+  if (tag !== lineTag(body)) throw new Error('Invalid tag');
+
+  return body;
+}
+```

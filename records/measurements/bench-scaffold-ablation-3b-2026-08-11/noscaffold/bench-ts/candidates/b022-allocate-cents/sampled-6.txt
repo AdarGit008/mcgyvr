@@ -1,0 +1,29 @@
+```ts
+export function parseAmount(text: string): number {
+  const regex = /^(\d+(\.\d{2})?)$/;
+  if (!regex.test(text)) {
+    throw new Error("Invalid amount format");
+  }
+  const [_, wholePart, decimalPart] = text.split(".");
+  const cents = (parseInt(wholePart) * 100 + parseFloat(decimalPart || "0")) | 0;
+  return cents;
+}
+
+export function formatAmount(cents: number): string {
+  if (cents < 0) throw new Error("Negative amount not allowed");
+  const wholePart = Math.floor(cents / 100);
+  const decimalPart = String((cents % 100)).padStart(2, "0");
+  return `${wholePart}.${decimalPart}`;
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (totalCents < 0) throw new Error("Negative total cents not allowed");
+  if (!weights.length) throw new Error("Empty weight list");
+  const totalWeights = weights.reduce((sum, w) => sum + w, 0);
+  if (totalWeights === 0) throw new Error("Total weights cannot be zero");
+
+  return weights.map(weight =>
+    Math.floor(totalCents * (weight / totalWeights)) || 0
+  );
+}
+```

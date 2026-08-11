@@ -1,0 +1,44 @@
+```typescript
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (!Array.isArray(tripDays) || !tripDays.every(day => typeof day === 'number' && day > 0)) {
+    throw new Error("Trip days must be strictly increasing positive integers.");
+  }
+  
+  if (tripDays.length < 1) {
+    return { total: 0, purchases: [] };
+  }
+
+  if (!Array.isArray(passes) || passes.some(pass => typeof pass.span !== 'number' || typeof pass.cost !== 'number')) {
+    throw new Error("Pass objects must have positive span and non-negative cost.");
+  }
+  
+  const sortedTrips = tripDays.slice().sort((a, b) => a - b);
+  const costs: Map<number, number> = new Map(); // {day: cost}
+  let totalCost = 0;
+  let purchases: number[][] = [];
+
+  for (const trip of sortedTrips) {
+    if (!costs.has(trip)) {
+      let minCost = Infinity;
+      let bestSpan = 0;
+
+      for (const pass of passes) {
+        const startDay = Math.max(trip, trip - pass.span + 1);
+        const spanCost = pass.cost * Math.min(pass.span, sortedTrips.length - startDay + 1);
+
+        if (spanCost < minCost) {
+          minCost = spanCost;
+          bestSpan = pass.span;
+        }
+      }
+
+      costs.set(trip, minCost);
+      totalCost += minCost;
+
+      purchases.push([Math.max(trip, trip - bestSpan + 1), bestSpan]);
+    }
+  }
+
+  return { total: totalCost, purchases };
+}
+```

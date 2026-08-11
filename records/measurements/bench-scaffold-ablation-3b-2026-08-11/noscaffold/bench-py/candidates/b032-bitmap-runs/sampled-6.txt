@@ -1,0 +1,79 @@
+```python
+def find_free_run(words: list, capacity: int, length: int) -> int:
+    """
+    Find the smallest start of a free run of length 'length' blocks below the capacity,
+    or -1 if no such run exists. Rejects invalid input such as negative or zero capacity,
+    mismatched word count, or zero or negative length.
+    """
+    if not isinstance(words, list) or any(not isinstance(word, int) for word in words):
+        raise ValueError("All elements of the bitmap must be integers.")
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    if len(words) != (capacity + 31) // 32:
+        raise ValueError("Expected {} words for a capacity of {}".format((capacity + 31) // 32, capacity))
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+
+    total_blocks = len(words) * 32
+    if total_blocks < capacity or total_blocks - capacity < length:
+        return -1
+
+    for i in range(len(words)):
+        word_index = i // 32
+        start_bit = i % 32
+        end_bit = start_bit + length
+        if end_bit > 32:
+            continue
+        mask = ((1 << (length)) - 1) << start_bit
+        if words[word_index] & mask == 0:
+            return word_index * 32 + start_bit
+
+    return -1
+
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    """
+    Mark a run of 'length' blocks starting at 'start' as occupied in the bitmap.
+    Returns the modified bitmap. Rejects invalid input such as negative or zero start,
+    mismatched word count, or zero or negative length.
+    """
+    if not isinstance(words, list) or any(not isinstance(word, int) for word in words):
+        raise ValueError("All elements of the bitmap must be integers.")
+    if start < 0:
+        raise ValueError("Start index cannot be negative.")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+
+    total_blocks = len(words) * 32
+    if start >= capacity or total_blocks - start < length:
+        raise ValueError(f"Invalid range: {start} to {start + length}")
+
+    word_index = start // 32
+    start_bit = start % 32
+    end_bit = start_bit + length
+
+    mask = ((1 << (length)) - 1) << start_bit
+    new_word = words[word_index] | mask
+    if new_word != words[word_index]:
+        words[word_index] = new_word
+
+    return words
+
+
+def bit_at(words: list, index: int) -> int:
+    """
+    Return the value of bit 'index' in the bitmap. Rejects invalid input such as negative or zero index.
+    """
+    if not isinstance(index, int) or index < 0:
+        raise ValueError("Index cannot be negative.")
+    
+    total_blocks = len(words) * 32
+    if index >= total_blocks:
+        raise ValueError(f"Index {index} is out of bounds for the bitmap with {total_blocks} blocks.")
+
+    word_index = index // 32
+    bit_position = index % 32
+
+    mask = (1 << bit_position)
+    return (words[word_index] & mask) > 0
+```

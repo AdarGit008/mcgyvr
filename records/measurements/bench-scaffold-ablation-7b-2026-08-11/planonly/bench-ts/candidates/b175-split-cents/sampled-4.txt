@@ -1,0 +1,40 @@
+```typescript
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error("Total must be a non-negative integer.");
+  }
+
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error("Weights must be a non-empty list of numbers.");
+  }
+
+  for (const weight of weights) {
+    if (!Number.isInteger(weight) || weight <= 0) {
+      throw new Error("Weight must be a positive integer.");
+    }
+  }
+
+  const sum = weights.reduce((acc, curr) => acc + curr, 0);
+  const basePart = Math.floor(total * (1 / sum));
+  const parts = weights.map(() => basePart);
+
+  let remainingCents = total - parts.reduce((acc, curr) => acc + curr, 0);
+  const discardedFractions = weights.map(weight => (total * weight / sum) % 1).sort((a, b) => b - a);
+
+  for (let i = 0; i < remainingCents; i++) {
+    let maxIndex = 0;
+    for (let j = 1; j < discardedFractions.length; j++) {
+      if (discardedFractions[j] > discardedFractions[maxIndex]) {
+        maxIndex = j;
+      } else {
+        break;
+      }
+    }
+
+    parts[maxIndex]++;
+    discardedFractions[maxIndex]--;
+  }
+
+  return parts;
+}
+```

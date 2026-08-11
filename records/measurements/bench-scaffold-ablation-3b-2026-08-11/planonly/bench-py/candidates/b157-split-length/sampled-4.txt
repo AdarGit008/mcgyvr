@@ -1,0 +1,23 @@
+```python
+def split_length(mm: int) -> str:
+    if mm is None or not isinstance(mm, int):
+        raise ValueError("Length must be an integer.")
+    
+    if mm < 0:
+        raise ValueError("Negative length is not allowed.")
+    
+    if mm == 0:
+        return "0mm"
+    
+    units = ["m", "cm", "mm"]
+    counts = []
+    
+    for unit in units:
+        count = mm // (1000 ** units.index(unit))
+        counts.append(count)
+        mm %= (1000 ** units.index(unit))
+    
+    formatted_counts = [f"{count}{unit}" if count > 0 else "" for count, unit in zip(counts, units)]
+    
+    return " ".join(formatted_counts).strip()
+```

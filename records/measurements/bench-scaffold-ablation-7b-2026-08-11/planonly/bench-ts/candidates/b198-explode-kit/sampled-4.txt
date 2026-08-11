@@ -1,0 +1,28 @@
+ ```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (want <= 0) throw new Error("Order of zero units is not allowed.");
+
+  const result: Record<string, number> = {};
+  const queue: [string, number][] = [[kit, want]];
+
+  while (queue.length > 0) {
+    const [currentKit, currentWant] = queue.shift()!;
+    const recipe = catalog[currentKit];
+
+    if (!recipe) throw new Error(`Kit '${currentKit}' not found in catalog.`);
+
+    const runsNeeded = Math.ceil(currentWant / recipe.makes);
+    const partsNeeded = recipe.parts.map(([part, count]) => [part, count * runsNeeded] as [string, number]);
+
+    for (const [part, count] of partsNeeded) {
+      if (catalog[part]) {
+        queue.push([part, count]);
+      } else {
+        result[part] = (result[part] || 0) + count;
+      }
+    }
+  }
+
+  return result;
+}
+```

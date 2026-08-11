@@ -1,0 +1,43 @@
+```ts
+/**
+ * Explodes a kit catalog to determine the total count of each base part consumed to fulfill a demand for units of a specific kit.
+ * @param catalog - An object mapping kit names to their recipes, where 'makes' is the number of finished units per run, and 'parts' is an array of [component, count] tuples.
+ * @param kit - The name of the kit from which to start the explosion.
+ * @param want - The desired number of units of the specified kit.
+ * @returns An object mapping each base part to the total count consumed.
+ */
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+    if (want <= 0 || isNaN(want)) {
+        throw new Error('Invalid want value. Must be a positive number.');
+    }
+
+    const result: Record<string, number> = {};
+    const partsToConsume = new Map<string, number>();
+
+    function explode(currentKit: string, currentWant: number): void {
+        if (!catalog[currentKit]) {
+            throw new Error(`Kit not found in catalog: ${currentKit}`);
+        }
+
+        const { makes, parts } = catalog[currentKit];
+        const runsNeeded = Math.ceil(currentWant / makes);
+
+        for (const [part, count] of parts) {
+            const totalPartCount = runsNeeded * count;
+            if (!partsToConsume.has(part)) {
+                partsToConsume.set(part, 0);
+            }
+            partsToConsume.set(part, partsToConsume.get(part)! + totalPartCount);
+
+            if (catalog[part]) {
+                explode(part, totalPartCount);
+            } else {
+                result[part] = (result[part] || 0) + totalPartCount;
+            }
+        }
+    }
+
+    explode(kit, want);
+    return Object.fromEntries(partsToConsume.entries());
+}
+```

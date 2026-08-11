@@ -1,0 +1,24 @@
+```python
+from typing import Dict, List
+
+def apply_charges(caps: dict, charges: list) -> Dict[str, int]:
+    left: Dict[str, int] = {bucket: allowance for bucket, (allowance, _) in caps.items()}
+    refused: List[Tuple[int, str]] = []
+
+    def _why_refused(bucket: str, charge_id: int, amount: int) -> str:
+        if bucket not in caps:
+            return "unknown"
+        if amount > caps[bucket][1]:
+            return "single"
+        if amount > left[bucket]:
+            return "cap"
+
+    for charge_id, bucket_name, amount in charges:
+        reason = _why_refused(bucket_name, charge_id, amount)
+        if reason:
+            refused.append((charge_id, reason))
+        else:
+            left[bucket_name] -= amount
+
+    return left, refused
+```

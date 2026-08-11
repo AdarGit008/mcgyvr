@@ -1,0 +1,25 @@
+```python
+from typing import Dict
+
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string.")
+    if '.' in name and '.*' not in name:
+        raise ValueError(
+            "Dotted option names must contain '.*' to match wildcard selectors."
+        )
+    if '*' in rules and len(rules) > 1:
+        raise ValueError("Rule map must have at most one rule with a lone star.")
+    
+    if '*' in name:
+        return next(iter(rules.values()), None)
+    
+    for selector, value in rules.items():
+        if selector == '*':
+            continue
+        if selector.startswith(name):
+            if '.' not in selector or selector.endswith('.*'):
+                return value
+    
+    return None
+```

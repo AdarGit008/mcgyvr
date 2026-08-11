@@ -1,0 +1,30 @@
+```python
+from math import ceil
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' is not defined in the catalog.")
+
+    def calculate_cost_recursively(kit_name: str, quantity: int) -> dict:
+        if quantity == 0:
+            return {}
+
+        recipe = catalog[kit_name]
+        cost = {}
+        
+        for component, count in recipe.items():
+            if component in catalog:
+                # If the component is a kit, recursively calculate its cost
+                sub_cost = calculate_cost_recursively(component, ceil(quantity / count))
+                cost[component] = {**cost.get(component, {}), **sub_cost}
+            else:
+                # If the component is a base part, add its quantity to the cost
+                if component in cost:
+                    cost[component] += quantity
+                else:
+                    cost[component] = quantity
+        
+        return cost
+
+    return calculate_cost_recursively(kit, want)
+```

@@ -1,0 +1,38 @@
+```python
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    """
+    Render tiles based on requests and cache constraints.
+
+    :param requests: List of [tick, tile_name] lists.
+    :param fresh_for: Positive whole number representing how long a tile is fresh for.
+    :param size: Positive whole number representing the cache size.
+    :return: List of [tick, tile_name] lists indicating rendered tiles.
+    """
+    if not isinstance(fresh_for, int) or fresh_for <= 0:
+        raise ValueError("fresh_for must be a positive whole number")
+    if not isinstance(size, int) or size <= 0:
+        raise ValueError("size must be a positive whole number")
+
+    cache = []
+    renders = []
+
+    for tick, tile_name in requests:
+        if tick < max([req[0] for req in renders], default=0):
+            raise ValueError("request ticks must not go backwards")
+
+        to_remove = []
+        for cached_tick, cached_tile in cache:
+            if tick >= cached_tick + fresh_for:
+                to_remove.append((cached_tick, cached_tile))
+            elif tile_name < cached_tile:
+                to_remove.append((cached_tick, cached_tile))
+
+        for item in to_remove:
+            cache.remove(item)
+
+        if len(cache) < size:
+            cache.append((tick, tile_name))
+            renders.append([tick, tile_name])
+
+    return renders
+```

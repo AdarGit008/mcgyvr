@@ -1,0 +1,29 @@
+```typescript
+/** Lay a straight eastward conveyor run across a factory floor plan. */
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (row < 0 || row >= floor.length) {
+    throw new Error("the run starts off the plan");
+  }
+  const cells = floor[row].split("");
+
+  // Check if any cell in the range [col, col + length) is not open
+  for (let i = col; i < col + length && i < cells.length; i++) {
+    if (cells[i] !== ".") {
+      throw new Error("the run would cover a cell that is not open");
+    }
+  }
+
+  // If the run would pass the last column, raise an error
+  if (col + length > cells.length) {
+    throw new Error("the run would pass the last column");
+  }
+
+  // Lay the conveyor run: replace open cells with "="
+  for (let i = col; i < col + length; i++) {
+    cells[i] = "=";
+  }
+
+  // Return a fresh list of rows with only the modified row changed
+  return floor.map((r, rIndex) => rIndex === row ? cells.join("") : r);
+}
+```

@@ -1,0 +1,69 @@
+```typescript
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+  const wordCount = Math.ceil(capacity / 32);
+  if (words.length !== wordCount) {
+    throw new Error("Word count does not match the capacity.");
+  }
+
+  for (let i = 0; i < words.length; i++) {
+    if (!Number.isInteger(words[i]) || words[i] < 0 || words[i] > 4294967295) {
+      throw new Error("Word must be an integer from 0 to 4294967295.");
+    }
+  }
+
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("Length must be a positive integer.");
+  }
+
+  const freeStart = words.findIndex((word, index) => {
+    const startBit = index * 32;
+    const endBit = Math.min(startBit + length * 32, capacity);
+    for (let bit = startBit; bit < endBit; bit++) {
+      if (bitAt(words, bit)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  return freeStart === -1 ? -1 : freeStart;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Number.isInteger(start) || !Number.isInteger(length)) {
+    throw new Error("Start and length must be integers.");
+  }
+  const wordCount = Math.ceil((start + length) / 32);
+  if (words.length !== wordCount) {
+    throw new Error("Word count does not match the capacity.");
+  }
+
+  for (let i = 0; i < words.length; i++) {
+    if (!Number.isInteger(words[i]) || words[i] < 0 || words[i] > 4294967295) {
+      throw new Error("Word must be an integer from 0 to 4294967295.");
+    }
+  }
+
+  const end = start + length;
+  for (let i = start; i < end; i++) {
+    if (bitAt(words, i)) {
+      throw new Error("Run touches an occupied block.");
+    }
+    words[i >> 5] |= 1 << (i & 31);
+  }
+
+  return words;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index) || index < 0 || index >= 4294967295) {
+    throw new Error("Index must be an integer from 0 to 4294967295.");
+  }
+
+  const word = words[index >> 5];
+  return (word >> (index & 31)) & 1;
+}
+```

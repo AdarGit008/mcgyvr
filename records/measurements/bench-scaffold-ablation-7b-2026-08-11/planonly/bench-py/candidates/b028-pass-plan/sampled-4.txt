@@ -1,0 +1,61 @@
+```python
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    if not trip_days:
+        return {'total': 0, 'purchases': []}
+    
+    for day in trip_days:
+        if not isinstance(day, int) or day <= 0:
+            raise ValueError("Trip days must be positive integers.")
+    
+    if not passes:
+        raise ValueError("Pass list cannot be empty.")
+    
+    for pass_ in passes:
+        if 'span' not in pass_ or 'cost' not in pass_:
+            raise ValueError("Each pass must have 'span' and 'cost'.")
+        
+        span = pass_['span']
+        cost = pass_['cost']
+        
+        if not isinstance(span, int) or span <= 0:
+            raise ValueError("Pass span must be a positive integer.")
+        
+        if not isinstance(cost, (int, float)) or cost < 0:
+            raise ValueError("Pass cost must be a non-negative number.")
+    
+    n = len(trip_days)
+    dp = [float('inf')] * (n + 1)
+    dp[0] = 0
+    purchase_indices = [-1] * (n + 1)
+    
+    for i in range(1, n + 1):
+        day = trip_days[i - 1]
+        
+        for pass_ in passes:
+            span = pass_['span']
+            cost = pass_['cost']
+            
+            if day >= span:
+                prev_day = day - span
+                if dp[prev_day] + cost < dp[i]:
+                    dp[i] = dp[prev_day] + cost
+                    purchase_indices[i] = i
+    
+    if dp[-1] == float('inf'):
+        raise ValueError("No pass combination covers all trip days.")
+    
+    purchases = []
+    day_index = n
+    
+    while day_index > 0:
+        prev_purchase_index = purchase_indices[day_index]
+        
+        if prev_purchase_index != -1:
+            span = passes[purchase_indices[prev_purchase_index] - 1]['span']
+            purchases.append([trip_days[prev_purchase_index - 1], span])
+            day_index -= span
+        else:
+            break
+    
+    return {'total': dp[-1], 'purchases': purchases}
+```

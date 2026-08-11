@@ -1,0 +1,41 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (grid.length === 0) throw new Error("Grid cannot be empty.");
+  if (grid[0].length === 0) throw new Error("First row of grid cannot be empty.");
+  
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  // Check if all rows are the same length
+  for (let i = 1; i < rows; i++) {
+    if (grid[i].length !== cols) throw new Error("Rows must have the same length.");
+  }
+
+  // Check constraints on each query
+  queries.forEach(query => {
+    if (query.length !== 4) throw new Error("Query must be a list of exactly four integers.");
+    const [top, left, bottom, right] = query;
+    if (top >= bottom || left >= right) throw new Error("Query top must be strictly less than bottom and left must be strictly less than right.");
+    if (top < 0 || left < 0 || bottom > rows || right > cols) throw new Error("Query reaches outside the grid.");
+  });
+
+  // Compute prefix-sum table
+  const prefixSum: number[][] = [...Array(rows + 1)].map(_ => Array(cols + 1).fill(0));
+  for (let i = 1; i <= rows; i++) {
+    for (let j = 1; j <= cols; j++) {
+      prefixSum[i][j] = grid[i - 1][j - 1] + prefixSum[i - 1][j] + prefixSum[i][j - 1] - prefixSum[i - 1][j - 1];
+    }
+  }
+
+  // Compute block totals
+  return queries.map(query => {
+    const [top, left, bottom, right] = query;
+    return (
+      prefixSum[bottom][right] -
+      prefixSum[bottom][left - 1] -
+      prefixSum[top - 1][right] +
+      prefixSum[top - 1][left - 1]
+    );
+  });
+}
+```

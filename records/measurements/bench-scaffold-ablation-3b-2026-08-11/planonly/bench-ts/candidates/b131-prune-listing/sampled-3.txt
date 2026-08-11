@@ -1,0 +1,59 @@
+```ts
+import { splitStrict } from './pathUtils';
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || !Array.isArray(rules)) {
+    throw new Error('Both listing and rules must be arrays.');
+  }
+
+  return listing.filter(path => {
+    if (typeof path !== 'string' || path === '' || typeof rules[i] !== 'string') {
+      throw new Error('Invalid rule or path provided.');
+    }
+
+    const segments = splitStrict(path);
+    const matchedRuleIndex = rules.findIndex(rule => matchPathWithRule(segments, rule));
+
+    return matchedRuleIndex !== -1;
+  });
+}
+
+function matchPathWithRule(pathSegments: string[], rule: string): boolean {
+  if (rule.startsWith('!')) {
+    // Keep rule
+    return pathMatchesRule(pathSegments, rule.substring(1));
+  } else {
+    // Drop rule
+    for (const segment of pathSegments) {
+      if (!pathMatchesPattern(segment, rule)) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+function pathMatchesRule(path: string[], pattern: string): boolean {
+  const segments = splitStrict(pattern);
+  
+  for (let i = 0; i < segments.length && i < path.length; i++) {
+    if (!pathMatchesPattern(path[i], segments[i])) {
+      return false;
+    }
+  }
+
+  // If the rule is longer than the path, it should match only if all remaining
+  // pattern segments are stars.
+  for (let j = i; j < segments.length; j++) {
+    if (segments[j] !== '*') {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function pathMatchesPattern(segment: string, pattern: string): boolean {
+  return segment === '*' || pattern.split('*').join('').includes(segment);
+}
+```

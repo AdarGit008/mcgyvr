@@ -1,0 +1,20 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+    if (!Number.isInteger(amount) || amount < 0) throw new Error('Invalid amount');
+    if (!(unit in defs)) throw new Error('Unit not defined');
+    
+    let currentAmount = amount;
+    let currentUnit = unit;
+
+    while (currentUnit !== base) {
+        const [factor, finer] = defs[currentUnit];
+        if (!Number.isInteger(factor) || factor <= 0) throw new Error('Invalid factor');
+        if (!(finer in defs)) throw new Error('Finer unit not defined');
+        
+        currentAmount *= factor;
+        currentUnit = finer;
+    }
+
+    return currentAmount;
+}
+```

@@ -1,0 +1,24 @@
+```python
+def apply_charges(caps: dict, charges: list) -> dict:
+    if not all(isinstance(k, str) and isinstance(v, (int, float)) for k, v in caps.items()):
+        raise ValueError("Bucket allowances must be positive numbers")
+    if not all(isinstance(x, tuple) and len(x) == 3 for x in charges):
+        raise ValueError("Charges must be triples of charge id, bucket name, and amount")
+
+    left = dict(caps)
+    refused = []
+
+    for charge_id, bucket_name, amount in charges:
+        if not isinstance(amount, int) or amount <= 0:
+            raise ValueError("Amount must be a positive whole number")
+        if bucket_name not in caps:
+            refused.append((charge_id, "unknown"))
+        elif amount > caps[bucket_name]:
+            refused.append((charge_id, "cap"))
+        else:
+            left[bucket_name] -= amount
+            if amount > caps.get(bucket_name, 0):
+                refused.append((charge_id, "single"))
+
+    return {"left": left, "refused": refused}
+```

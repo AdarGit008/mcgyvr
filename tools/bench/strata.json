@@ -254,6 +254,63 @@
       "why_it_could_not_resolve": "The design is UNPAIRED \u2014 the cells are different problems from the baseline, so every comparison spends power like two independent samples. At 80% power, alpha .05: resolving the ts-observed 6.2% -> 26.1% move needs ~52 measured per group (~105 authored after the 50% split); a 10pp move off a 20% base needs ~293 measured (~586 authored); a 15pp move needs ~138 (~276 authored). The probe measured 16-23 per group. This is ADR-0019's wall in a new costume: the project already refuses unpaired 20-problem contrasts as undecidable, and authoring a knob study as separate cohorts re-buys that problem at generation prices.",
       "what_to_do_instead": "Ask the driver question PAIRED, as condition arms on ONE problem set \u2014 which is what #113's condition matrix is for, and which ADR-0019's power tables already govern (discordant pairs, m >= 6). Two arms are available at a fraction of the cost: (1) SCAFFOLD ON/OFF renders the same problem with and without its `target_content`, varying how much code must be produced while holding the problem, the checker and the prose identical \u2014 a paired size manipulation over material the bench already contains; (2) STRICT VS LENIENT GRADING re-scores the SAME saved completions against a second, lighter checker per problem, isolating checker load at zero model cost (the candidates are already pinned under records/measurements/). Neither needs a new cohort.",
       "aim_status": "The 30-50% aim is NOT met and is not dropped. g0a is the closest anything has come: ts 26.1% (95% CI 13-46%), py 17.4%, 35% of its problems solved in at least one arm. Its size profile (median ts 17 lines, py 14) is the best easy-band candidate the campaign has measured, and the campaign remains paused on the owner's instruction until the aim is reached."
+    },
+    {
+      "date": "2026-08-11",
+      "phase": "scaffold ablation (Phase 4, campaign paused) \u2014 a paired driver study, not a tranche",
+      "source": [
+        "records/measurements/bench-scaffold-ablation-3b-2026-08-11",
+        "records/measurements/bench-scaffold-ablation-7b-2026-08-11"
+      ],
+      "model": [
+        "qwen2.5-coder:3b",
+        "qwen2.5-coder:7b"
+      ],
+      "endpoint": [
+        "http://srv1:11434",
+        "http://srv2:11434"
+      ],
+      "protocol": "openai",
+      "draws": "greedy + 7 sampled at T=0.7 (8 per cell). The outcome is passes out of 8, not pass/fail: at one draw per cell 25 of 34 problems failed everywhere and carried nothing. ADR-0019 D6's replication, and the only reason the question is askable on this material.",
+      "max_output_tokens": 2048,
+      "failure_modes": "3,264 rows across the two models: 0 cap overruns (max completion 1,026 of 2,048), 0 parse errors, 0 draws lost to dispatch. Nothing here is censoring (#212's trap).",
+      "purpose": "Block 3's post-mortem, executed. The tranche-2 probe could not resolve what drives floor difficulty because it was UNPAIRED; this asks the same question of the SAME problems under three renders of the prompt \u2014 stock (scaffold as production ships it), planonly (its comment lines, code removed), noscaffold (no scaffold). The three-way split exists because the two-way one was itself confounded: every scaffold carries a TODO stating the approach, so `stock vs noscaffold` moves volume AND recipe together and would have been reported as a size effect. `stock vs planonly` is the code the scaffold saved; `planonly vs noscaffold` is the plan it stated. Cells are prompt conditions, NOT strata: #224 must not read them as band points.",
+      "analysis_set": "Declared in tools/bench/ablation-sets.json before the numbers existed and derived, not listed: 34 dispatched (every scaffolded function_implementation; the 19 scaffolded bug_fix problems have no scaffold to remove), minus 7 whose prose says a helper is 'already written' and whose ablated prompt therefore contradicts itself, = 27 analysed; minus 4 the eligibility audit flagged as carrying information the prose does not = 23 strict. The exclusion is not cosmetic: over all 34 the 7B whole-scaffold contrast reads sign p = 0.049 (ts) / 0.021 (py), over the pre-registered 27 it reads p = 0.180 / 0.146. The seven self-contradicting prompts carried the significance.",
+      "manipulation_check": "Mean prompt tokens per condition, identical across the two models because the prompts are: ts 958.6 stock / 782.7 planonly / 730.5 noscaffold; py 934.9 / 797.6 / 746.5. The knob moved in the direction and the order it claims. Note the plan contrast is the smaller manipulation of the two (~52 tokens ts, ~51 py) and the code contrast the larger (~176, ~137).",
+      "cells": {
+        "note": "Rate = passes / (27 problems x 8 draws) on the pre-registered analysis set; 'solved' = problems passing at least one of 8 draws.",
+        "qwen2.5-coder:3b": {
+          "stock": {
+            "bench-ts": "22/216 = 10.2%, solved 5/27",
+            "bench-py": "21/216 = 9.7%, solved 8/27"
+          },
+          "planonly": {
+            "bench-ts": "11/216 = 5.1%, solved 7/27",
+            "bench-py": "13/216 = 6.0%, solved 7/27"
+          },
+          "noscaffold": {
+            "bench-ts": "6/216 = 2.8%, solved 3/27",
+            "bench-py": "14/216 = 6.5%, solved 7/27"
+          }
+        },
+        "qwen2.5-coder:7b": {
+          "stock": {
+            "bench-ts": "66/216 = 30.6%, solved 15/27",
+            "bench-py": "56/216 = 25.9%, solved 13/27"
+          },
+          "planonly": {
+            "bench-ts": "42/216 = 19.4%, solved 16/27",
+            "bench-py": "42/216 = 19.4%, solved 12/27"
+          },
+          "noscaffold": {
+            "bench-ts": "43/216 = 19.9%, solved 11/27",
+            "bench-py": "32/216 = 14.8%, solved 11/27"
+          }
+        }
+      },
+      "reading": "DIRECTIONALLY CONSISTENT, NOT RESOLVED \u2014 and the two knobs separate. The code contrast moves the same way in all four model-arm cells (3B +5.1pp ts / +3.7pp py; 7B +11.1pp / +6.5pp). The plan contrast does not: +2.3pp ts / -0.5pp py on the 3B, -0.5pp / +4.6pp on the 7B, and it flips sign by arm on both models. Read as a pair, what the scaffold is worth to a floor model is mostly the code it does not have to type, not the approach it is told; that is a statement about direction and it is the one thing both models agree on. Nothing clears ADR-0019's bar on the pre-registered set: the best sign-test p over eight per-arm contrasts is 0.125 and the best Wilcoxon 0.025, with m in the teens \u2014 the tests are exact, the sample is 27, and the effects are of a size 27 pairs cannot certify. The strict set (n = 23) moves nothing qualitatively.",
+      "the_other_finding": "The 7B reads 30.6% ts / 25.9% py stock on these 27 problems (greedy alone: 9/27 = 33.3% ts, 7/27 = 25.9% py; 15/27 and 13/27 solved in at least one of 8 draws). That is at or inside the campaign's 30-50% aim, which two consecutive re-aims failed to reach by making problems easier for the 3B. It is not a stratum measurement \u2014 27 scaffolded fn_impl problems are not the ladder, and they are the easier half of it \u2014 but it is the first evidence in this campaign that the aim may be reachable by choosing the model measured rather than by re-aiming the material. That is a decision for #225's owner, not a conclusion of this block.",
+      "limits": "n = 27 paired problems, one model pair, one bench. The eligibility audit covered 18 of the 34 dispatched problems, so `strict` drops the borderline cases that were looked for and not every one that exists. The plan contrast rests on comments that often name what to VALIDATE as well as what to compute, so it reads 'told the approach, including its rejections' rather than pure algorithmic insight. And the pairing is within a problem, not across models: the 3B and 7B ran on different rigs (srv1, srv2) and are two experiments reported side by side, not a contrast."
     }
   ]
 }

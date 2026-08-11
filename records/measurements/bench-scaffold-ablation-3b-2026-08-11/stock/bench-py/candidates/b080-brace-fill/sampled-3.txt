@@ -1,0 +1,31 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+    
+    def is_valid_name(name: str) -> bool:
+        return name.isalnum() and len(name) > 0
+    
+    def is_valid_placeholder(placeholder: str) -> bool:
+        return placeholder.startswith('{') and placeholder.endswith('}') and \
+               placeholder[1:-1].isalnum()
+    
+    def replace_placeholder(match):
+        name = match.group(1)
+        if not is_valid_name(name):
+            raise ValueError(f"Invalid placeholder name: {name}")
+        
+        value = values.get(name)
+        if value is None:
+            raise ValueError(f"No value found for placeholder: {name}")
+        
+        return str(value)
+    
+    try:
+        # Use regex to find all placeholders and replace them
+        import re
+        template_with_replaced_placeholders = re.sub(r'\{(\w+)\}', replace_placeholder, template)
+        return template_with_replaced_placeholders
+    except ValueError as e:
+        raise ValueError(f"Error during template replacement: {e}")
+```

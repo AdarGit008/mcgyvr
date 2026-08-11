@@ -1,0 +1,43 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both opening and moves must be strings")
+
+    def parse_entry(entry: str) -> tuple[str, int]:
+        name, count = entry.split(':')
+        if not name.islower() or not count.isdigit():
+            raise ValueError(f"Malformed sheet entry: {entry}")
+        return name, int(count)
+
+    def validate_move(move: str, current_counts: dict[str, int]) -> None:
+        name, qty = move.split('+') if '-' not in move else move.split('-')
+        if len(name) != 1 or not name.islower() or not qty.isdigit():
+            raise ValueError(f"Malformed move: {move}")
+        qty = int(qty)
+        if move.startswith('-'):
+            if name not in current_counts:
+                raise ValueError(f"Issue of an item the sheet does not hold: {name}")
+            if current_counts[name] < qty:
+                raise ValueError(f"Issue of more units than the item then holds: {name}, {qty} > {current_counts[name]}")
+        elif move.startswith('+'):
+            if name in current_counts:
+                raise ValueError(f"Duplicate name on the opening sheet: {name}")
+
+    def apply_moves(moves_str: str, current_counts: dict[str, int]) -> dict[str, int]:
+        for move in moves_str.split(';'):
+            validate_move(move, current_counts)
+            name, qty = move.split('+') if '-' not in move else move.split('-')
+            qty = int(qty)
+            if move.startswith('+'):
+                current_counts[name] = current_counts.get(name, 0) + qty
+            elif move.startswith('-'):
+                current_counts[name] -= qty
+        return {name: count for name, count in current_counts.items() if count > 0}
+
+    try:
+        opening_entries = dict(parse_entry(entry) for entry in opening.split(';') if entry)
+        final_counts = apply_moves(moves, opening_entries)
+        return ';'.join(f"{name}:{count}" for name, count in sorted(final_counts.items()))
+    except ValueError as e:
+        raise ValueError(str(e))
+```

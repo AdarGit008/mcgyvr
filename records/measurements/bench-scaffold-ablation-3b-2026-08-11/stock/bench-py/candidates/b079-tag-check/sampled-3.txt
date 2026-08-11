@@ -1,0 +1,25 @@
+```python
+def line_tag(body: str) -> str:
+    if not isinstance(body, str):
+        raise ValueError("line_tag expects a string")
+    return format(sum(ord(ch) for ch in body) % 256, "02x")
+
+
+def check_line(line: str) -> str:
+    if not isinstance(line, str):
+        raise ValueError("check_line expects a string")
+
+    # Split the line into two parts at the last tilde
+    parts = line.rsplit('~', 1)
+    
+    if len(parts) != 2:
+        raise ValueError("Line must contain exactly one tilde")
+
+    body, tag = parts
+
+    # Check if the last two characters of the original line match the calculated tag
+    if tag != line_tag(body):
+        raise ValueError("Tag does not match body")
+    
+    return body
+```

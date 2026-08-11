@@ -1,0 +1,97 @@
+```ts
+import { from } from "node:stream";
+import { pipeline } from "node:stream/promises";
+
+interface Rule {
+  keep: boolean;
+}
+
+function segmentFits(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === "*") {
+      star = p;
+      mark = t;
+      p += 1;
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p += 1;
+      t += 1;
+    } else if (star >= 0) {
+      p = star + 1;
+      mark += 1;
+      t = mark;
+    } else {
+      return false;
+    }
+  }
+  while (p < pattern.length && pattern[p] === "*") {
+    p += 1;
+  }
+  return p === pattern.length;
+}
+
+function splitStrict(text: string, what: string): string[] {
+  if (typeof text !== "string" || text === "") {
+    throw new Error(`${what} must be a non-empty string`);
+  }
+  const segments = text.split("/");
+  if (segments.some((segment) => segment === "")) {
+    throw new Error(`${what} has an empty segment: ${text}`);
+  }
+  return segments;
+}
+
+function parseRule(rule: string): Rule {
+  if (!rule.startsWith("!")) {
+    rule = `!${rule}`;
+  }
+  const keep = !rule.startsWith("!!");
+  return { keep };
+}
+
+function pruneListing(listing: string[], rules: string[]): string[] {
+  // Validate every rule and path with splitStrict, then keep each
+  // path the last matching rule allows; a path no rule matches survives.
+  const validRules = rules.map(parseRule);
+  const result: string[] = [];
+
+  for (const path of listing) {
+    if (!typeof path === "string" || path === "") {
+      throw new Error("Path must be a non-empty string");
+    }
+    if (path.match(/^\.*$/)) {
+      throw new Error(`Path has an empty segment: ${path}`);
+    }
+
+    let match = null;
+    for (const rule of validRules) {
+      const segments = splitStrict(path, "Path");
+      const patternSegments = splitStrict(rule.pattern, "Pattern");
+
+      if (segments.length < patternSegments.length) continue;
+
+      let matched = true;
+      for (let i = 0; i < patternSegments.length; i++) {
+        if (!segmentFits(patternSegments[i], segments[i])) {
+          matched = false;
+          break;
+        }
+      }
+
+      if (matched && rule.keep) {
+        match = { rule, path };
+        break;
+      }
+    }
+
+    if (match === null || !match.rule.keep) {
+      result.push(path);
+    }
+  }
+
+  return result;
+}
+```

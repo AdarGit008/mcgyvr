@@ -1,0 +1,21 @@
+```ts
+export function formatBits(value: number, width: number): string {
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) || value < 0 ||
+    typeof width !== 'number' ||
+    !Number.isInteger(width) || width <= 0 ||
+    width % 4 !== 0 || width > 32
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const binaryString = value.toString(2);
+  if (binaryString.length > width) {
+    throw new Error('Value does not fit in width bits');
+  }
+
+  const paddedBinary = '0'.repeat(width - binaryString.length) + binaryString;
+  return paddedBinary.match(/.{1,4}/g)?.join(' ') || '';
+}
+```

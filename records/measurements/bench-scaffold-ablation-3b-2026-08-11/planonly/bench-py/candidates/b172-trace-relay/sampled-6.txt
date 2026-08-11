@@ -1,0 +1,41 @@
+```python
+from typing import *
+from collections import *
+
+def trace_relay(links: dict, start: str) -> list:
+    """
+    Trace the night watch relay from a start post to the empty name.
+
+    :param links: A dictionary mapping each post's name to the name of the next post.
+    :param start: The starting post for the watch.
+    :return: A list of post names, in order, starting with the start and ending with the last post before reaching the empty name.
+    :raises ValueError: If the links argument is not a mapping, start is not a valid post, or there is an invalid handoff or loop.
+    """
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary.")
+    
+    if start not in links:
+        raise ValueError(f"Invalid start post '{start}'.")
+
+    visited = set()
+    current_post = start
+    watch_path = []
+
+    while True:
+        if current_post == "":
+            break
+
+        if current_post in visited:
+            raise ValueError("There is a loop in the night watch relay.")
+
+        visited.add(current_post)
+        watch_path.append(current_post)
+
+        next_post = links.get(current_post)
+        if not isinstance(next_post, str):
+            raise ValueError(f"Invalid handoff to '{next_post}'. It must be a string name of another post.")
+        
+        current_post = next_post
+
+    return watch_path
+```

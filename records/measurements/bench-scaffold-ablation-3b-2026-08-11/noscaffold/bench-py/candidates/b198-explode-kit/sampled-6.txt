@@ -1,0 +1,34 @@
+```python
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """
+    Calculate the total count of each base part consumed to produce 'want' units of the specified kit.
+
+    :param catalog: dictionary mapping kit names to their recipe and parts list.
+    :param kit: name of the kit to explode.
+    :param want: number of units of the kit to obtain.
+    :return: dictionary mapping base parts to their total count consumed.
+    """
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' not found in catalog.")
+
+    result = {}
+    current_want = want
+    while current_want > 0:
+        recipe, components = catalog[kit]
+        for component, count in components:
+            if component == kit:
+                used = min(count * recipe, current_want)
+                result[component] = result.get(component, 0) + used
+                current_want -= used
+                if current_want == 0:
+                    break
+            else:
+                if component not in catalog:
+                    raise ValueError(f"Component '{component}' is not defined.")
+                # Recursively calculate parts for the base part
+                sub_result = explode_kit(catalog, component, want)
+                result[component] += sub_result.get(component, 0)
+                current_want -= count * recipe
+
+    return result
+```

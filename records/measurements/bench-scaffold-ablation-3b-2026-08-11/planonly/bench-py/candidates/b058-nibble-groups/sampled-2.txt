@@ -1,0 +1,21 @@
+```python
+def format_bits(value: int, width: int) -> str:
+    """
+    Render value as unsigned binary in exactly width bits: most significant bit first,
+    left-padded with zeros to the full width, and split into groups of four bits joined by single spaces.
+    Raise ValueError for invalid values.
+    """
+
+    if not isinstance(value, int) or value < 0:
+        raise ValueError("Value must be a non-negative integer.")
+    
+    if not isinstance(width, int) or width <= 0 or width % 4 != 0:
+        raise ValueError("Width must be a positive multiple of four and less than or equal to 32.")
+
+    bits = bin(value)[2:]
+    if len(bits) > width:
+        raise ValueError("Value does not fit in the specified number of bits.")
+
+    nibbles = [bits[i:i+4] for i in range(0, len(bits), 4)]
+    return ' '.join(nibbles)
+```

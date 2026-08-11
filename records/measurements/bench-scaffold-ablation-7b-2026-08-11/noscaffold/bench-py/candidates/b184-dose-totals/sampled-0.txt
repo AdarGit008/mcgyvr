@@ -1,0 +1,24 @@
+```python
+from typing import List, Dict
+
+def dose_totals(log: List[List[str]]) -> Dict[str, str]:
+    """
+    Total each reagent in the pour log and return a mapping from reagent to its total as a decimal string.
+    Each amount is a decimal string of millilitres. Raise ValueError for invalid amounts.
+    """
+    amounts = {}
+    for reagent, amount_str in log:
+        if not (amount_str.startswith('-') or amount_str.isdigit() or
+                (amount_str[1:].startswith('.') and amount_str[2:].isdigit()) or
+                (amount_str[2:].startswith('.') and amount_str[3:].isdigit())):
+            raise ValueError("Invalid amount format")
+        amount = float(amount_str) * 1000
+        amounts[reagent] = amounts.get(reagent, 0) + amount
+    
+    result = {}
+    for reagent, total in amounts.items():
+        digits = len(str(total).split('.')[1])
+        result[reagent] = f"{total / 1000:.{digits}f}".rstrip('0').rstrip('.')
+    
+    return result
+```

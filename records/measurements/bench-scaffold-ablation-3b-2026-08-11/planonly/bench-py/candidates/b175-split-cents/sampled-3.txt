@@ -1,0 +1,43 @@
+```python
+from typing import List
+
+def split_cents(total: int, weights: list) -> List[int]:
+    """
+    Split total cents among partners based on their weights.
+    """
+    if not isinstance(total, int):
+        raise ValueError("Total must be a whole number.")
+    if total < 0:
+        raise ValueError("Total cannot be negative.")
+    
+    if not isinstance(weights, list):
+        raise ValueError("Weights must be a list.")
+    if not weights:
+        raise ValueError("Weights list cannot be empty.")
+    
+    for weight in weights:
+        if not isinstance(weight, int) or weight <= 0:
+            raise ValueError("Each weight must be a positive whole number.")
+    
+    total_cents = total
+    total_weight = sum(weights)
+    
+    parts_left = []
+    leftover = 0
+    
+    for i, weight in enumerate(weights):
+        share = total_cents * (weight / total_weight) // 1
+        leftover += total_cents * (weight / total_weight) % 1
+        parts_left.append(share)
+    
+    while leftover > 0 and parts_left:
+        current_max = max(parts_left)
+        index_of_current_max = parts_left.index(current_max)
+        parts_left[index_of_current_max] -= 1
+        leftover -= 1
+    
+    if sum(parts_left) != total:
+        raise ValueError("The sum of the parts does not add up to the total.")
+    
+    return parts_left
+```

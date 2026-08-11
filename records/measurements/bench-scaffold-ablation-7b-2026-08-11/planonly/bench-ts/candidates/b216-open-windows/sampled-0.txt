@@ -1,0 +1,40 @@
+```typescript
+export function openWindows(span: string, booked: string[]): string {
+  const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/;
+  if (!TIME_REGEX.test(span)) throw new Error("Invalid span format");
+
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+
+  const minutesToTime = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60).toString().padStart(2, "0");
+    const mins = (minutes % 60).toString().padStart(2, "0");
+    return `${hours}:${mins}`;
+  };
+
+  const spanTimes = span.split("-").map(timeToMinutes);
+  const bookedTimes = booked.map(time => time.split("-").map(timeToMinutes));
+
+  let [openStart, openEnd] = spanTimes;
+  const freeSlots: string[] = [];
+
+  for (const [start, end] of bookedTimes) {
+    if (end <= openStart || start >= openEnd) continue;
+
+    if (start > openStart) {
+      freeSlots.push(`${minutesToTime(openStart)}-${minutesToTime(start)}`);
+    }
+    openStart = Math.max(openStart, end);
+  }
+
+  if (openEnd > openStart) {
+    freeSlots.push(`${minutesToTime(openStart)}-${minutesToTime(openEnd)}`);
+  } else {
+    return "none";
+  }
+
+  return freeSlots.join(", ");
+}
+```

@@ -1,0 +1,43 @@
+```typescript
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("Amount must be a non-negative whole number.");
+  }
+
+  const checkFactor = (factor: number): void => {
+    if (!Number.isInteger(factor) || factor <= 0) {
+      throw new Error("Factor must be a positive whole number.");
+    }
+  };
+
+  const getChainLength = (unit: string, seen: Set<string> = new Set()): number => {
+    if (seen.has(unit)) {
+      throw new Error("Chains cannot loop; unit " + unit + " is part of a cycle.");
+    }
+
+    seen.add(unit);
+    const def = defs[unit];
+    if (!def) {
+      throw new Error(`Unit "${unit}" not defined in definitions.`);
+    }
+    return 1 + getChainLength(def[1], seen);
+  };
+
+  checkFactor(getDefsFactor(unit, defs));
+
+  let convertedAmount = amount;
+  for (let currentUnit = unit; currentUnit !== base; currentUnit = defs[currentUnit][1]) {
+    convertedAmount *= getDefsFactor(currentUnit, defs);
+  }
+
+  return convertedAmount;
+}
+
+const getDefsFactor = (unit: string, defs: Record<string, [number, string]>): number => {
+  const def = defs[unit];
+  if (!def) {
+    throw new Error(`Unit "${unit}" not defined in definitions.`);
+  }
+  return def[0];
+};
+```

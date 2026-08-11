@@ -1,0 +1,27 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    """
+    Match a dotted option name against style rules to resolve its value.
+
+    :param rules: A dictionary mapping selector strings to string values.
+    :param name: The dotted option name to resolve.
+    :return: The winning value or None if no selector covers the name.
+    """
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string.")
+    
+    if "*" in name and (name != "*" or len(name) > 1):
+        raise ValueError("Selector star must stand alone or end with '.*'.")
+    
+    for selector, value in rules.items():
+        if isinstance(value, str):
+            if selector == "*":
+                return value
+            elif selector.endswith(".*"):
+                if name.startswith(selector[:-2]):
+                    return value
+            elif selector == name:
+                return value
+    
+    return None
+```

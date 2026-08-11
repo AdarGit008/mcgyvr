@@ -1,0 +1,27 @@
+```ts
+
+function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (typeof freshFor !== 'number' || typeof size !== 'number' || freshFor < 0 || size <= 0) {
+    throw new Error("freshFor and size must be positive whole numbers.");
+  }
+
+  const cache: { [key: number]: string } = {};
+  let renders: [number, string][] = [];
+
+  for (const request of requests.map(([tick, tile]) => ({ tick, tile }))) {
+    if (!cache[tick] || tick < freshFor) {
+      // Render the new tile and store it in the cache
+      cache[tick] = request.tile;
+      renders.push([request.tick, request.tile]);
+
+      // Determine if any cached tiles need to be dropped
+      while (Object.keys(cache).length > size) {
+        const oldestTick = Math.min(...Object.keys(cache));
+        delete cache[oldestTick];
+      }
+    }
+  }
+
+  return renders;
+}
+```

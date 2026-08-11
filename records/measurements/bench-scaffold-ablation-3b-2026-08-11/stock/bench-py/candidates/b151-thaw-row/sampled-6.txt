@@ -1,0 +1,26 @@
+```python
+"""Melt a row of ice one simultaneous step at a time."""
+
+def thaw_row(row: str, steps: int) -> str:
+    if not isinstance(row, str) or not row:
+        raise ValueError("thaw_row expects a non-empty string row")
+    
+    if not (isinstance(steps, int) and steps >= 0):
+        raise ValueError("steps must be a non-negative integer")
+    
+    rows = [row]
+    
+    for _ in range(steps):
+        new_rows = []
+        for r in rows:
+            new_row = ""
+            for i, cell in enumerate(r):
+                if i == 0 or i == len(r) - 1 or (i > 0 and r[i - 1] == ".") or (i < len(r) - 1 and r[i + 1] == "."):
+                    new_row += "."
+                else:
+                    new_row += "#"
+            new_rows.append(new_row)
+        rows = new_rows
+    
+    return rows[-1]
+```

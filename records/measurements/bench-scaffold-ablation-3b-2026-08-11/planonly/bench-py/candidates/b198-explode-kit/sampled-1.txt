@@ -1,0 +1,51 @@
+```
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """
+    Calculate the total parts consumed by an order of 'want' units of a kit,
+    including all sub-kits and base parts.
+
+    :param catalog: A dictionary where each key is a kit name (str),
+                    and the value is another dictionary containing 'makes' (int)
+                    and 'parts' (list of tuples).
+        - 'makes': The number of finished units one whole run produces.
+        - 'parts': Each tuple contains a component name (str) and its count (int).
+    :param kit: The name of the kit to process (str).
+    :param want: The desired quantity of the kit to order (int).
+    :return: A dictionary mapping base part names to their total consumption.
+    """
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' is not defined in the catalog.")
+
+    def run_parts(kit_name):
+        recipe = catalog[kit_name]
+        return recipe['makes'], recipe['parts']
+
+    def charge_parts(parts, want):
+        charges = {}
+        for component, count in parts:
+            if component in catalog:
+                makes, sub_parts = run_parts(component)
+                need_makes = (want + makes - 1) // makes
+                charges[component] = need_makes * count
+                total_sub_cost = charge_parts(sub_parts, need_makes * makes)
+                charges[component] += total_sub_cost
+            else:
+                charges[component] = want * count
+        return charges
+
+    base_parts_consumed = {}
+    current_kit = kit
+    while want > 0:
+        makes, parts = run_parts(current_kit)
+        need_makes = (want + makes - 1) // makes
+        base_parts_consumed[current_kit] = need_makes * count
+        total_sub_cost = charge_parts(parts, need_makes * makes)
+        base_parts_consumed[current_kit] += total_sub_cost
+
+        if want < makes:
+            break
+        else:
+            want -= makes
+
+    return base_parts_consumed
+```

@@ -1,0 +1,27 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+    if (grid.length === 0 || grid[0].length === 0) throw new Error("Invalid grid dimensions");
+    for (let row of grid) {
+        if (row.length !== grid[0].length) throw new Error("Non-uniform row lengths in the grid");
+        for (let cell of row) {
+            if (!Number.isInteger(cell)) throw new Error("Cell is not an integer");
+        }
+    }
+    for (let query of queries) {
+        if (query.length !== 4) throw new Error("Query must have exactly four integers");
+        let [top, left, bottom, right] = query;
+        if (!Number.isInteger(top) || !Number.isInteger(left) || !Number.isInteger(bottom) || !Number.isInteger(right)) throw new Error("Query elements are not integers");
+        if (top >= bottom || left >= right) throw new Error("Invalid query bounds");
+        if (top < 0 || left < 0 || bottom > grid.length || right > grid[0].length) throw new Error("Query reaches outside the grid");
+    }
+
+    const prefixSums: number[][] = Array.from({ length: grid.length + 1 }, () => Array(grid[0].length + 1).fill(0));
+    for (let i = 1; i <= grid.length; i++) {
+        for (let j = 1; j <= grid[0].length; j++) {
+            prefixSums[i][j] = grid[i - 1][j - 1] + prefixSums[i - 1][j] + prefixSums[i][j - 1] - prefixSums[i - 1][j - 1];
+        }
+    }
+
+    return queries.map(([top, left, bottom, right]) => prefixSums[bottom][right] - prefixSums[top][right] - prefixSums[bottom][left] + prefixSums[top][left]);
+}
+```

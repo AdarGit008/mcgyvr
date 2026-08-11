@@ -1,0 +1,27 @@
+```python
+def format_bits(value: int, width: int) -> str:
+    """
+    Convert an integer to its unsigned binary representation in the specified number of bits,
+    left-padded with zeros to the full width. The result is split into groups of four bits joined by spaces.
+    
+    :param value: A non-negative integer to be formatted.
+    :param width: The total number of bits for the binary representation, must be a positive multiple of four
+                  and no more than 32.
+    :return: A string representing the binary format of the value.
+    """
+    if not isinstance(value, int) or value < 0:
+        raise ValueError("Value must be a non-negative integer.")
+    if not (isinstance(width, int) and width > 0 and width % 4 == 0 and width <= 32):
+        raise ValueError("Width must be a positive multiple of four up to 32.")
+    
+    binary_str = bin(value)[2:]  # Convert to binary string without the '0b' prefix
+    padded_width = (width + 3) // 4 * 4  # Calculate padding for full width, round up to next multiple of 4
+    padded_binary_str = binary_str.zfill(padded_width)
+    
+    # Split into groups of four bits and join with spaces
+    nibble_groups = [padded_binary_str[i:i+4] for i in range(0, padded_width, 4)]
+    return ' '.join(nibble_groups)
+
+```
+
+This implementation checks the input types and values, converts the integer to binary, pads it to the correct width, and formats it into groups of four bits separated by spaces.

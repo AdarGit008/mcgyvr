@@ -1,0 +1,27 @@
+```python
+def check_line(line: str) -> str:
+    if not isinstance(line, str):
+        raise ValueError("Input must be a string.")
+    
+    # Check if the line is at least three characters long
+    if len(line) < 3:
+        raise ValueError("Line must contain at least three characters.")
+    
+    # Find the index of the third-from-last character
+    if line[-2] != '~':
+        raise ValueError("Third-from-last character must be a tilde ('~').")
+    
+    body = line[:-2]
+    
+    tag = line_tag(body)
+    
+    # Check if the last two characters match the computed tag
+    if not (tag == line[-2:] and len(tag) == 2):
+        raise ValueError("Tag does not match the last two characters of the line.")
+    
+    return body
+
+def line_tag(body: str) -> str:
+    total = sum(ord(char) for char in body)
+    return f"{total % 256:02x}"
+```

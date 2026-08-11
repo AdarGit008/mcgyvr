@@ -1,0 +1,62 @@
+```ts
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer.");
+  }
+  const wordCount = Math.ceil(capacity / 32);
+  if (wordCount !== words.length) {
+    throw new Error("Word count does not match the capacity.");
+  }
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("Length must be a positive integer.");
+  }
+
+  for (let i = 0; i < wordCount - (length - 1); i++) {
+    const word = words[i];
+    if (word === 0) {
+      let freeBlocks = 32;
+      for (let j = 0; j < length; j++) {
+        if ((word & (1 << (j + i * 32))) !== 0) {
+          freeBlocks--;
+        }
+      }
+      if (freeBlocks === length) {
+        return i * 32;
+      }
+    }
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Number.isInteger(start) || !Number.isInteger(length)) {
+    throw new Error("Start and length must be integers.");
+  }
+  const wordCount = Math.ceil((start + length) / 32);
+  if (wordCount !== words.length) {
+    throw new Error("Word count does not match the capacity.");
+  }
+
+  for (let i = Math.floor(start / 32); i < wordCount; i++) {
+    const word = words[i];
+    let endBit = start + length - (i * 32);
+    if (endBit > 32) {
+      endBit = 32;
+    }
+    const mask = (1 << endBit) - 1 - ((1 << (start % 32)) - 1);
+    words[i] |= mask;
+  }
+
+  return [...words];
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index) || index < 0) {
+    throw new Error("Index must be a non-negative integer.");
+  }
+  const word = words[Math.floor(index / 32)];
+  const bit = (word >> (index % 32)) & 1;
+  return bit;
+}
+```

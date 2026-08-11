@@ -1,0 +1,85 @@
+```ts
+/**
+ * Lists all file paths in the tree in walking order.
+ */
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root must be an object');
+  }
+  const result: string[] = [];
+  collectPaths(root, '', result);
+  return result;
+}
+
+/**
+ * Calculates the total bytes of all nodes in the tree.
+ */
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root must be an object');
+  }
+  if (typeof root['bytes'] === 'number') {
+    return root['bytes'];
+  } else if (Array.isArray(root['children'])) {
+    return root['children'].reduce((sum, child) => sum + treeBytes(child), 0);
+  } else {
+    throw new Error('Node must have either bytes or children');
+  }
+}
+
+/**
+ * Collects all file paths in the tree using DFS.
+ */
+function collectPaths(node: object, path: string, result: string[]): void {
+  if (typeof node !== 'object' || node === null) {
+    return;
+  }
+  const name = node['name'];
+  if (typeof name !== 'string' || name.length === 0 || name.includes('/')) {
+    throw new Error('Name must be a non-empty string without slashes');
+  }
+  const currentPath = path ? `${path}/${name}` : name;
+  if (typeof node['bytes'] === 'number') {
+    result.push(currentPath);
+  } else if (Array.isArray(node['children'])) {
+    for (const child of node['children']) {
+      collectPaths(child, currentPath, result);
+    }
+  } else {
+    throw new Error('Node must have either bytes or children');
+  }
+}
+
+/**
+ * Finds all folders with at least minBytes in the tree.
+ */
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || root === null) {
+    throw new Error('Root must be an object');
+  }
+  if (typeof minBytes !== 'number' || minBytes < 0 || !Number.isInteger(minBytes)) {
+    throw new Error('Min bytes must be a non-negative whole number');
+  }
+  const result: [string, number][] = [];
+  collectHeavyFolders(root, '', minBytes, result);
+  return result;
+}
+
+/**
+ * Collects all heavy folders in the tree using DFS.
+ */
+function collectHeavyFolders(node: object, path: string, minBytes: number, result: [string, number][]): void {
+  if (typeof node !== 'object' || node === null) {
+    return;
+  }
+  const bytes = treeBytes(node);
+  if (bytes >= minBytes) {
+    result.push([path, bytes]);
+  }
+  if (Array.isArray(node['children'])) {
+    for (const child of node['children']) {
+      collectHeavyFolders(child, path ? `${path}/${node['name']}` : node['name'], minBytes, result);
+    }
+  }
+}
+```

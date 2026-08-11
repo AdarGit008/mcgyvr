@@ -1,0 +1,25 @@
+```typescript
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || links === null) {
+    throw new Error('Links must be a non-null object.');
+  }
+  if (!links.hasOwnProperty(start)) {
+    throw new Error(`Start post '${start}' is not in the links.`);
+  }
+
+  const visited = new Set<string>();
+  const result: string[] = [start];
+
+  let current = start;
+  while (current !== '') {
+    if (visited.has(current) || !links.hasOwnProperty(current)) {
+      throw new Error('Watch comes back to a post already visited or there is an unknown handoff.');
+    }
+    visited.add(current);
+    current = links[current];
+    result.push(current);
+  }
+
+  return result;
+}
+```

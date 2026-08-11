@@ -1,0 +1,12 @@
+```typescript
+export function doseTotals(log: [string, string][]): Record<string, string> {
+    return log.reduce((totals, [reagent, amount]) => {
+        const parsedAmount = parseFloat(amount);
+        if (isNaN(parsedAmount)) {
+            throw new Error(`Invalid amount '${amount}'`);
+        }
+        totals[reagent] = (parsedAmount * 1000).toFixed(3).replace(/\.?0+$/, '');
+        return totals;
+    }, {} as Record<string, string>);
+}
+```

@@ -1,0 +1,63 @@
+```python
+def find_free_run(words: list, capacity: int, length: int) -> int:
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    
+    word_count = len(words)
+    if word_count != (capacity + 31) // 32:
+        raise ValueError("Word count does not match the capacity.")
+    
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    for i in range(word_count):
+        if words[i] < 0 or words[i] > 4294967295:
+            raise ValueError("Word must be an integer from 0 to 4294967295.")
+    
+    start = 0
+    while start + length <= capacity:
+        if all(not bit_at(words, i) for i in range(start, start + length)):
+            return start
+        start += 1
+    
+    return -1
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    if not isinstance(start, int) or start < 0:
+        raise ValueError("Start index must be a non-negative integer.")
+    
+    word_count = len(words)
+    if start >= capacity:
+        raise ValueError("Start index is out of bounds.")
+    
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    for i in range(word_count):
+        if words[i] < 0 or words[i] > 4294967295:
+            raise ValueError("Word must be an integer from 0 to 4294967295.")
+    
+    end = start + length
+    for i in range(start, end):
+        if bit_at(words, i) == 1:
+            raise ValueError("Run touches an occupied block.")
+    
+    for i in range(start, end):
+        words[i // 32] |= (1 << (i % 32))
+    
+    return words
+
+def bit_at(words: list, index: int) -> int:
+    if not isinstance(index, int) or index < 0:
+        raise ValueError("Index must be a non-negative integer.")
+    
+    word_count = len(words)
+    if index >= capacity:
+        raise ValueError("Index is out of bounds.")
+    
+    for i in range(word_count):
+        if words[i] < 0 or words[i] > 4294967295:
+            raise ValueError("Word must be an integer from 0 to 4294967295.")
+    
+    return (words[index // 32] >> (index % 32)) & 1
+```

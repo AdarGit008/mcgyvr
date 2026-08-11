@@ -1,0 +1,23 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+    if (want <= 0) throw new Error("Invalid want value");
+    if (!catalog[kit]) throw new Error(`Kit "${kit}" not found in catalog`);
+
+    const result: Record<string, number> = {};
+
+    function explode(kit: string, want: number): void {
+        const recipe = catalog[kit];
+        const runs = Math.ceil(want / recipe.makes);
+        for (const [part, count] of recipe.parts) {
+            if (catalog[part]) {
+                explode(part, runs * count);
+            } else {
+                result[part] = (result[part] || 0) + runs * count;
+            }
+        }
+    }
+
+    explode(kit, want);
+    return result;
+}
+```

@@ -1,0 +1,63 @@
+```python
+def parse_amount(text: str) -> int:
+    """Turns a decimal amount string into integer cents."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = text.split('.')
+    if len(parts) > 2:
+        raise ValueError("Invalid format for amount.")
+    
+    integer_part = parts[0]
+    fraction_part = parts[1] if len(parts) == 2 else '00'
+    
+    if not integer_part.isdigit() or not fraction_part.isdigit():
+        raise ValueError("Amount must contain only digits and at most one decimal point.")
+    
+    if len(fraction_part) > 2:
+        raise ValueError("Fraction part must have exactly two digits.")
+    
+    return int(integer_part) * 100 + int(fraction_part)
+
+
+def format_amount(cents: int) -> str:
+    """Renders non-negative integer cents back into dotted form with exactly two fraction digits."""
+    if not isinstance(cents, int):
+        raise ValueError("Input must be an integer.")
+    
+    if cents < 0:
+        raise ValueError("Cents must be a non-negative integer.")
+    
+    return f"{cents // 100}.{cents % 100:02d}"
+
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    """Splits total_cents across a list of integer weights proportionally."""
+    if not isinstance(weights, list):
+        raise ValueError("Weights must be a list.")
+    
+    if not weights:
+        raise ValueError("Weight list cannot be empty.")
+    
+    if any(not isinstance(w, int) or w < 0 for w in weights):
+        raise ValueError("All weights must be non-negative integers.")
+    
+    if sum(weights) == 0:
+        raise ValueError("Sum of weights must be greater than zero.")
+    
+    if not isinstance(total_cents, int):
+        raise ValueError("Total cents must be a non-negative integer.")
+    
+    if total_cents < 0:
+        raise ValueError("Cents must be a non-negative integer.")
+    
+    proportional_values = [total_cents * weight // sum(weights) for weight in weights]
+    remainder = total_cents - sum(proportional_values)
+    
+    shares = proportional_values[:]
+    for _ in range(remainder):
+        max_index = shares.index(max(shares))
+        shares[max_index] += 1
+    
+    return shares
+```

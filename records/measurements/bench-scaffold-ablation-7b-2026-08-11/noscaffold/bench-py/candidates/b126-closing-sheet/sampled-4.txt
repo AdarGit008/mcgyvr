@@ -1,0 +1,49 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Arguments must be strings")
+
+    def parse_entry(entry: str) -> tuple[str, int]:
+        name, count = entry.split(':')
+        if not name.islower() or not name.isascii():
+            raise ValueError("Item names must be lowercase ASCII letters")
+        if not count.isdigit():
+            raise ValueError("Counts must be non-negative integers without leading zeros")
+        return name, int(count)
+
+    def parse_moves(move_list: str) -> list[tuple[str, int]]:
+        moves = move_list.split(';')
+        parsed_moves = []
+        for move in moves:
+            if not move:
+                continue
+            name, change_str = move.split('+') if '+' in move else (move, '')
+            name, change_str = name.strip(), change_str.strip()
+            if not change_str.startswith('-'):
+                raise ValueError("Moves must be additions or subtractions")
+            change = int(change_str[1:])
+            parsed_moves.append((name, change))
+        return parsed_moves
+
+    opening_entries = {}
+    for entry in opening.split(';'):
+        if entry:
+            name, count = parse_entry(entry)
+            if name in opening_entries:
+                raise ValueError("Duplicate item names on the opening sheet")
+            opening_entries[name] = count
+
+    moves_list = parse_moves(moves)
+
+    final_counts = opening_entries.copy()
+    for name, change in moves_list:
+        if name not in final_counts:
+            raise ValueError(f"Issue of an item '{name}' the sheet does not hold")
+        if change > final_counts[name]:
+            raise ValueError(f"Issue of more units ({change}) than the item then holds")
+        final_counts[name] -= change
+        if final_counts[name] == 0:
+            del final_counts[name]
+
+    return ';'.join(f"{name}:{count}" for name, count in sorted(final_counts.items()))
+```

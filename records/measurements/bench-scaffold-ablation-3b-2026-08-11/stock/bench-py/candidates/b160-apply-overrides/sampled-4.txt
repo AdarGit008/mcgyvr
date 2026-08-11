@@ -1,0 +1,30 @@
+```python
+from typing import *
+import re
+
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list.")
+    
+    merged = base.copy()
+    
+    for override in overrides:
+        match = re.match(r'^([^=]+)=?(.+)?$', override)
+        if not match:
+            raise ValueError(f"Invalid override: {override}")
+        
+        setting_name = match.group(1)
+        value = match.group(2)
+        
+        # Reject overrides with empty names or base settings that do not already exist
+        if not setting_name or setting_name not in merged:
+            continue
+        
+        # Apply the override, handling an empty value by removing the key
+        if value is None or value == "":
+            merged.pop(setting_name, None)
+        else:
+            merged[setting_name] = value
+    
+    return merged
+```

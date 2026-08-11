@@ -1,0 +1,51 @@
+```typescript
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  // Helper to check if a query is valid
+  const isValidQuery = (query: number[]): boolean => {
+    return (
+      Array.isArray(query) &&
+      query.length === 4 &&
+      typeof query[0] === 'number' && typeof query[1] === 'number' &&
+      typeof query[2] === 'number' && typeof query[3] === 'number' &&
+      query[0] < query[2] && query[1] < query[3]
+    );
+  };
+
+  // Check if grid is valid
+  const isValidGrid = (grid: number[][]): boolean => {
+    if (grid.length === 0 || grid[0].length === 0 || !grid.every(row => row.length === grid[0].length)) {
+      throw new Error("Invalid grid dimensions");
+    }
+
+    if (!grid.every(row => row.every(cell => typeof cell === 'number')) || isNaN(grid[0][0])) {
+      throw new Error("All cells must be integers");
+    }
+  };
+
+  // Check each query
+  queries.forEach(query => {
+    if (!isValidQuery(query)) {
+      throw new Error("Invalid query format");
+    }
+  });
+
+  // Create prefix sum table
+  const prefixSumTable: number[][] = grid.map(row => [...row]);
+  for (let i = 0; i < grid.length; i++) {
+    for (let j = 1; j < grid[0].length; j++) {
+      prefixSumTable[i][j] += prefixSumTable[i][j - 1];
+    }
+  }
+
+  // Compute block totals
+  return queries.map(([top, left, bottom, right]) => {
+    const total = (
+      (prefixSumTable[bottom - 1][right] || 0) -
+      ((left > 0 ? prefixSumTable[bottom - 1][left - 1] : 0)) +
+      ((top > 0 ? prefixSumTable[top - 1][right] : 0)) -
+      ((top > 0 && left > 0 ? prefixSumTable[top - 1][left - 1] : 0))
+    );
+    return total;
+  });
+}
+```

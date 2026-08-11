@@ -1,0 +1,38 @@
+```ts
+/**
+ * Splits total cents among partners based on their weights.
+ * @param total - The total takings in whole cents.
+ * @param weights - List of positive whole number weights for each partner.
+ * @returns Array of parts each partner receives.
+ */
+export function splitCents(total: number, weights: number[]): number[] {
+    if (!Number.isInteger(total) || total < 0) {
+        throw new Error('Total must be a non-negative integer.');
+    }
+    if (!Array.isArray(weights) || weights.length === 0) {
+        throw new Error('Weights must be a non-empty array of positive integers.');
+    }
+    if (weights.some(w => !Number.isInteger(w) || w <= 0)) {
+        throw new Error('All weights must be positive integers.');
+    }
+
+    const sum = weights.reduce((acc, weight) => acc + weight, 0);
+    const basePart = Math.floor(total * (1 / sum));
+    const parts = weights.map(weight => basePart);
+    let remainingCents = total - parts.reduce((acc, part) => acc + part, 0);
+
+    while (remainingCents > 0) {
+        const maxFractionIndex = weights
+            .map((weight, index) => ({ index, fraction: weight / sum }))
+            .sort((a, b) => b.fraction - a.fraction || a.index - b.index)
+            .findIndex(item => parts[item.index] < basePart + 1);
+
+        if (maxFractionIndex === -1) break; // This should never happen
+
+        parts[maxFractionIndex]++;
+        remainingCents--;
+    }
+
+    return parts;
+}
+```

@@ -1,0 +1,52 @@
+```ts
+/**
+ * Finds the cheapest pass plan to cover all trip days.
+ * @param tripDays - An array of strictly increasing positive integers representing trip days.
+ * @param passes - An array of objects with span and cost properties, where span is a positive integer and cost is a non-negative integer.
+ * @returns An object containing the total cost and an array of pass purchase plans [start day, span].
+ */
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (tripDays.length === 0) return { total: 0, purchases: [] };
+  if (!passes.length) throw new Error('Pass list cannot be empty');
+
+  // Validate inputs
+  for (let i = 1; i < tripDays.length; i++) {
+    if (tripDays[i] <= tripDays[i - 1]) throw new Error('Trip days must be strictly increasing');
+    if (!Number.isInteger(tripDays[i]) || tripDays[i] <= 0) throw new Error('All trip days must be positive integers');
+  }
+
+  for (const pass of passes) {
+    if (!Number.isInteger(pass.span) || pass.span <= 0) throw new Error('Pass span must be a positive integer');
+    if (!Number.isInteger(pass.cost) || pass.cost < 0) throw new Error('Pass cost must be a non-negative integer');
+  }
+
+  const n = tripDays.length;
+  const dp: number[] = Array(n).fill(Infinity);
+  const prev: number[] = Array(n).fill(-1);
+
+  dp[0] = passes.some(p => p.span === 1) ? passes.find(p => p.span === 1)!.cost : Infinity;
+
+  for (let i = 1; i < n; i++) {
+    for (const pass of passes) {
+      if (tripDays[i] >= tripDays[i - pass.span + 1]) {
+        const cost = dp[i - pass.span + 1] + pass.cost;
+        if (cost < dp[i]) {
+          dp[i] = cost;
+          prev[i] = i - pass.span + 1;
+        }
+      }
+    }
+  }
+
+  if (dp[n - 1] === Infinity) throw new Error('No valid pass plan found');
+
+  const purchases: number[][] = [];
+  let j = n - 1;
+  while (j >= 0) {
+    purchases.unshift([tripDays[prev[j]], passes.find(p => tripDays[prev[j]] + p.span - 1 === tripDays[j])!.span]);
+    j -= passes.find(p => tripDays[prev[j]] + p.span - 1 === tripDays[j])!.span;
+  }
+
+  return { total: dp[n - 1], purchases };
+}
+```

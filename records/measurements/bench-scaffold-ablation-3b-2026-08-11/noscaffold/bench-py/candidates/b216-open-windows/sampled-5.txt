@@ -1,0 +1,58 @@
+```python
+from typing import List
+
+def open_windows(span: str, booked: list[str]) -> str:
+    """
+    Return free stretches of the day in HH:MM-HH:MM format.
+    Appointments are non-overlapping and inside the span.
+    Returns "none" if the span is fully covered by appointments.
+    Raises ValueError for invalid input formats.
+    """
+
+    def parse_time(time_str):
+        hour, minute = time_str.split(':')
+        return int(hour), int(minute)
+
+    def format_time(hour, minute):
+        return f"{hour:02d}:{minute:02d}"
+
+    def is_valid_format(time_str):
+        try:
+            parts = time_str.split('-')
+            if len(parts) != 2:
+                raise ValueError
+            for part in parts:
+                hour, minute = parse_time(part)
+                if hour not in range(24) or minute not in range(60):
+                    raise ValueError
+            return True
+        except ValueError:
+            return False
+
+    if not is_valid_format(span) or not all(is_valid_format(appointment) for appointment in booked):
+        raise ValueError("Invalid span or appointment format")
+
+    start_hour, start_minute = parse_time(span.split('-')[0])
+    end_hour, end_minute = parse_time(span.split('-')[1])
+
+    appointments = sorted(booked, key=lambda x: (parse_time(x)[0], parse_time(x)[1]))
+
+    free_windows = []
+    previous_end = -1
+
+    for appointment in appointments:
+        start_appointment = parse_time(appointment)
+        if previous_end < start_appointment[0] or (previous_end == start_appointment[0] and start_appointment[1] > end_minute):
+            free_window = format_time(previous_end, 60) + '-' + format_time(start_appointment[0], start_appointment[1])
+            free_windows.append(free_window)
+        previous_end = max(previous_end, start_appointment[1])
+
+    if previous_end < end_hour or (previous_end == end_hour and end_minute > 59):
+        free_window = format_time(previous_end, 60) + '-' + format_time(end_hour, end_minute)
+        free_windows.append(free_window)
+
+    if not free_windows:
+        return "none"
+
+    return ', '.join(free_windows)
+```

@@ -1,0 +1,23 @@
+```ts
+export function applyOverrides(
+  base: Record<string, string>,
+  overrides: string[],
+): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error('Invalid overrides argument');
+  }
+
+  const merged = { ...base };
+
+  for (const override of overrides) {
+    const equalsIndex = override.indexOf('=');
+    if (equalsIndex === -1 || override.startsWith('=') || !merged[override.slice(0, equalsIndex)]) {
+      throw new Error(`Invalid override: ${override}`);
+    }
+
+    merged[override.slice(0, equalsIndex)] = override.slice(equalsIndex + 1);
+  }
+
+  return merged;
+}
+```

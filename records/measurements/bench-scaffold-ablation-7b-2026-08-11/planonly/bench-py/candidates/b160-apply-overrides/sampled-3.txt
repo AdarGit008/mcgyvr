@@ -1,0 +1,26 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    """Apply command-line overrides to the base settings."""
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list.")
+    
+    merged = base.copy()
+    for override in overrides:
+        if not isinstance(override, str):
+            raise ValueError("Each override must be a string.")
+        
+        equals_index = override.find('=')
+        if equals_index == -1:
+            raise ValueError("Override must contain an equals sign.")
+        if equals_index == 0:
+            raise ValueError("Override name cannot be empty.")
+        
+        name = override[:equals_index]
+        if name not in base:
+            raise ValueError(f"Override name '{name}' not found in base settings.")
+        
+        value = override[equals_index + 1:]
+        merged[name] = value
+    
+    return merged
+```

@@ -1,0 +1,72 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const state = "open";
+  let cart: [string, number][] = [];
+  let totalPrice = 0;
+  let paidAmount = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event) || event.length !== 2) {
+      throw new Error("Event must be a list with exactly two elements");
+    }
+
+    const [action, payload] = event;
+
+    switch (action) {
+      case "scan":
+        if (typeof payload !== "string" || !prices[payload]) {
+          throw new Error("Unknown item or invalid price");
+        }
+        cart.push([payload, 1]);
+        totalPrice += prices[payload];
+        break;
+      case "void":
+        if (!Array.isArray(payload) || payload.length !== 1 || typeof payload[0] !== "string" || !cart.some(item => item[0] === payload[0])) {
+          throw new Error("Invalid void action");
+        }
+        const index = cart.findIndex(item => item[0] === payload[0]);
+        if (cart[index][1] > 0) {
+          cart[index][1]--;
+          totalPrice -= prices[payload[0]];
+        }
+        break;
+      case "close":
+        if (!state || state !== "open" || cart.length === 0) {
+          throw new Error("Illegal close action");
+        }
+        state = "payment";
+        break;
+      case "pay":
+        const payAmountInt = parseInt(payload.toString(), 10);
+        if (isNaN(payAmountInt) || payAmountInt <= 0) {
+          throw new Error("Invalid pay amount");
+        }
+        paidAmount += payAmountInt;
+        if (paidAmount >= totalPrice) {
+          state = "paid";
+          const change = paidAmount - totalPrice;
+          cart.length = 0; // Clear the cart
+          totalPrice = 0; // Reset total price
+          paidAmount = 0; // Reset paid amount
+          return { state, items: [], total, paid, change };
+        }
+        break;
+      case "cancel":
+        if (!state || (state === "payment" && paidAmount > 0) || cart.length > 0) {
+          throw new Error("Illegal cancel action");
+        }
+        state = "cancelled";
+        return { state, items: [], total, paid, change };
+      default:
+        throw new Error("Unknown action");
+    }
+  }
+
+  if (state === "open" && cart.length > 0) {
+    throw new Error("Close event required before payment or cancellation");
+  }
+
+  const sortedItems = [...cart].sort((a, b) => a[0].localeCompare(b[0]));
+  return { state, items: sortedItems, total, paid, change };
+}
+```

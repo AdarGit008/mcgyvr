@@ -1,0 +1,27 @@
+```python
+from typing import *
+from collections import *
+
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0 or any(metres <= 0 for _, metres in board):
+        raise ValueError("Length must be a non-negative whole number and board pieces must have positive lengths.")
+    
+    def best_cut(remaining_length: int) -> tuple[int, int]:
+        if remaining_length == 0:
+            return (0, [])
+        
+        best_price = -1
+        best_piece = None
+        
+        for metres, price in board:
+            if metres <= remaining_length:
+                cut_price = price + best_cut(remaining_length - metres)[0]
+                if cut_price > best_price or (cut_price == best_price and metres > best_piece[0]):
+                    best_price = cut_price
+                    best_piece = (metres, price)
+        
+        return (best_price, [best_piece[0]])
+    
+    takings, pieces = best_cut(length)
+    return {"takings": takings, "pieces": pieces}
+```

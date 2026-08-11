@@ -1,0 +1,29 @@
+```typescript
+export function carveShift(start: number, end: number, span: number, rest: number, least: number): number[][] {
+  if (!Number.isInteger(start) || !Number.isInteger(end) || !Number.isInteger(span) || !Number.isInteger(rest) || !Number.isInteger(least)) {
+    throw new Error("All arguments must be whole numbers.");
+  }
+  if (start >= end) {
+    throw new Error("Start cannot precede or equal end.");
+  }
+  if (span < 1 || rest < 1 || least < 1 || span <= least) {
+    throw new Error("Invalid values for span, rest, least: must be greater than 0 and span > least.");
+  }
+
+  const result: number[][] = [];
+  let currentStart = start;
+  while (currentStart + least - 1 < end) {
+    if (end - currentStart >= span) {
+      result.push([currentStart, currentStart + span]);
+      currentStart += span + rest;
+    } else {
+      // If the remaining shift is less than the span, we can't make a full stretch
+      const lastStretchEnd = Math.min(end, currentStart + least);
+      result.push([currentStart, lastStretchEnd]);
+      break;
+    }
+  }
+
+  return result;
+}
+```

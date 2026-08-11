@@ -1,0 +1,23 @@
+```python
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0:
+        raise ValueError("Length must be a non-negative whole number")
+
+    # Initialize the DP table where dp[i] is (max_price, piece_lengths)
+    dp = [(0, []) for _ in range(length + 1)]
+
+    for i in range(1, length + 1):
+        max_price = 0
+        best_pieces = []
+        for metres, price in board:
+            if i >= metres:
+                current_price, current_pieces = dp[i - metres]
+                candidate_price = current_price + price
+                if candidate_price > max_price or (candidate_price == max_price and len(current_pieces) < len(best_pieces)):
+                    max_price = candidate_price
+                    best_pieces = [metres] + current_pieces
+
+        dp[i] = (max_price, best_pieces)
+
+    return {'takings': dp[length][0], 'pieces': dp[length][1]}
+```

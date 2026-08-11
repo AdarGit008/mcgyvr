@@ -1,0 +1,18 @@
+```ts
+/**
+ * Lays a conveyor run on the factory floor plan.
+ * @param floor - The factory floor plan as a list of rows.
+ * @param row - The starting row of the conveyor run.
+ * @param col - The starting column of the conveyor run.
+ * @param length - The length of the conveyor run in cells.
+ * @returns A new list of rows with the conveyor run laid.
+ */
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+    if (length <= 0) throw new Error("Length must be greater than zero.");
+    if (row < 0 || row >= floor.length) throw new Error("Row is out of bounds.");
+    if (col < 0 || col >= floor[row].length) throw new Error("Column is out of bounds.");
+
+    const newRow = floor[row].slice(0, col).padEnd(col + length, '=').slice(0, floor[row].length);
+    return floor.map((r, i) => i === row ? newRow : r);
+}
+```

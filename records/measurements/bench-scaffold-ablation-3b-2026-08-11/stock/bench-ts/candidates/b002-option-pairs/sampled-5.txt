@@ -1,0 +1,98 @@
+```ts
+export function parseOption(segment: string): [string, string] | undefined {
+  if (typeof segment !== "string" || segment.length === 0) {
+    throw new Error("invalid input: not a non-empty string");
+  }
+
+  const eq = segment.indexOf("=");
+  const key = segment.slice(0, eq);
+  if (
+    eq === -1 ||
+    !/^[A-Za-z][A-Za-z0-9_]*$/.test(key) ||
+    (eq < segment.length && segment[eq + 1] !== "=")
+  ) {
+    throw new Error("malformed option segment: " + segment);
+  }
+
+  let raw = segment.slice(eq + 1);
+  if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+    if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(segment)) {
+      throw new Error("malformed option segment: " + segment);
+    }
+    raw = raw.slice(1, -1);
+  } else if (raw.length >= 2 && raw.startsWith('"')) {
+    throw new Error("unterminated quoted value in option segment: " + segment);
+  }
+
+  return [key, raw];
+}
+
+export function scanPairs(input: string): [string, string][] {
+  if (typeof input !== "string" || input.length === 0) {
+    throw new Error("invalid input: not a non-empty string");
+  }
+
+  const pairs: [string, string][] = [];
+  let inQuotes = false;
+  let currentSegment = "";
+  let key: string | null = null;
+
+  for (const char of input) {
+    if (!inQuotes && char === '"') {
+      inQuotes = true;
+      continue;
+    }
+
+    if (inQuotes && char === '"') {
+      // End of quoted value
+      if (currentSegment.length > 0 && key !== null) {
+        pairs.push(parseOption(currentSegment));
+      }
+      currentSegment = "";
+      key = null;
+      inQuotes = false;
+      continue;
+    }
+
+    if (!inQuotes && char === ";") {
+      // Check for escaped semi-colon
+      if (currentSegment.length > 0 && currentSegment[currentSegment.length - 1] === "\\") {
+        currentSegment = currentSegment.slice(0, -1);
+        continue;
+      }
+      if (key !== null) {
+        pairs.push(parseOption(currentSegment));
+      }
+      currentSegment = "";
+      key = null;
+    } else {
+      if (currentSegment.length === 0 && char === "=") {
+        throw new Error("invalid option segment: " + input);
+      }
+      currentSegment += char;
+    }
+
+    // Handle quoted keys
+    if (!inQuotes && key !== null && char === "=") {
+      throw new Error("unquoted equals sign in option segment: " + input);
+    }
+
+    // Determine the key after a semicolon or at the end of the input
+    if (char === ";" || currentSegment.length > 0 && !inQuotes) {
+      const [k, v] = parseOption(currentSegment);
+      if (key !== null && k === key) {
+        throw new Error("repeated key in option segment: " + input);
+      }
+      key = k;
+      currentSegment = "";
+    }
+  }
+
+  // Final pair
+  if (currentSegment.length > 0 && key !== null) {
+    pairs.push(parseOption(currentSegment));
+  }
+
+  return pairs;
+}
+```

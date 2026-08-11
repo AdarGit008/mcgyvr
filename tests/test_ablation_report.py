@@ -15,12 +15,15 @@ than quietly weak.
 from __future__ import annotations
 
 import importlib.util
+import json
 import random
 import sys
 import types
 from itertools import product
 from math import comb
 from pathlib import Path
+
+from mcgyvr.contract import Contract, loads
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -120,3 +123,96 @@ def test_a_dispatch_error_row_is_not_counted_as_a_draw(tmp_path: Path) -> None:
         "\n".join(__import__("json").dumps(r) for r in rows) + "\n", encoding="utf-8"
     )
     assert report.counts(tmp_path, "stock", "bench-ts") == {"b001-x": (1, 2)}
+
+
+# --- the analysis set: declared apart from the numbers, and re-derived here ---
+
+
+def _contract(arm: str, task_id: str) -> Contract:
+    path = REPO / "tools" / "bench" / "tasks" / arm / task_id / "contract.yaml"
+    return loads(path.read_text(encoding="utf-8"))
+
+
+def test_the_dispatched_set_is_every_scaffolded_function_problem() -> None:
+    """The eligibility rule, re-derived from the contracts rather than trusted.
+
+    A hand-kept list of ids is a claim about the bench that stops being true
+    the moment the bench changes. The rule is: a scaffold to remove, and a
+    function to implement. The 19 scaffolded `bug_fix` problems are outside it
+    because their scaffold *is* the problem — removing a buggy program deletes
+    the task instead of enlarging it, which is a different experiment wearing
+    this one's name.
+    """
+    declared = set(report.declared_sets()["dispatched"])
+    for arm in ("ts", "py"):
+        derived = {
+            task.name
+            for task in sorted((REPO / "tools" / "bench" / "tasks" / arm).iterdir())
+            if _contract(arm, task.name).task_type == "function_implementation"
+            and (_contract(arm, task.name).target_content or "").strip()
+        }
+        assert derived == declared, f"{arm}: the declaration and the bench disagree"
+
+
+def test_the_excluded_problems_are_the_ones_whose_prompt_contradicts_itself() -> None:
+    """Seven exclusions, and the reason is checkable in the material.
+
+    Ablating a scaffold the prose calls "already written" dispatches a prompt
+    that contradicts itself, and what it measures is a model's response to an
+    impossible instruction. The list is committed for readability; this test is
+    what makes it a rule, in both arms — a phrase present in one language's
+    prose and not the other's would silently make the two arms different
+    experiments.
+    """
+    doc = json.loads((REPO / "tools" / "bench" / "ablation-sets.json").read_text())
+    phrase = doc["excluded"]["phrase"]
+    declared = {entry["id"] for entry in doc["excluded"]["ids"]}
+    for arm in ("ts", "py"):
+        derived = {
+            task_id
+            for task_id in report.declared_sets()["dispatched"]
+            if phrase in _contract(arm, task_id).task
+        }
+        assert derived == declared, f"{arm}: the exclusion rule moved"
+
+    for entry in doc["excluded"]["ids"]:
+        assert entry["prose"] in " ".join(_contract("ts", entry["id"]).task.split())
+
+
+def test_the_sets_nest_and_the_derived_ones_are_never_listed() -> None:
+    """`analysis` and `strict` are subtractions, so they cannot drift.
+
+    Three committed lists would be three things to keep in agreement, and the
+    one that goes stale is the one nobody reads. Only `dispatched` is listed.
+    """
+    sets = report.declared_sets()
+    assert set(sets["strict"]) < set(sets["analysis"]) < set(sets["dispatched"])
+    assert (len(sets["dispatched"]), len(sets["analysis"]), len(sets["strict"])) == (
+        34,
+        27,
+        23,
+    )
+    doc = json.loads((REPO / "tools" / "bench" / "ablation-sets.json").read_text())
+    assert set(doc) == {
+        "record",
+        "issue",
+        "why",
+        "dispatched",
+        "excluded",
+        "borderline",
+        "audit",
+    }, "a set stored rather than derived is a set that can disagree"
+
+
+def test_a_set_file_survives_being_newline_terminated(tmp_path: Path) -> None:
+    """The silent failure: `split(",")` keeps the newline on the last id.
+
+    An id that matches nothing is dropped without a word, so the report would
+    print n = 26 where 27 was meant and nothing would look wrong. Every editor
+    writes that trailing byte.
+    """
+    ids = report.declared_sets()["analysis"]
+    path = tmp_path / "set.txt"
+    path.write_text(",".join(ids) + "\n", encoding="utf-8")
+    run = REPO / "records" / "measurements" / "bench-scaffold-ablation-3b-2026-08-11"
+    assert report.main(["--run", str(run), "--set", str(path)]) == 0

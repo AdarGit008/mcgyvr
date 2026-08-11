@@ -1,0 +1,24 @@
+```python
+from typing import Dict
+
+def trace_relay(links: Dict[str, str], start: str) -> list:
+    if not isinstance(links, dict): raise ValueError("links must be a mapping")
+    if start not in links: raise ValueError("start is not a post")
+
+    route = [start]
+    current_post = start
+    visited_posts = set()
+
+    while True:
+        next_post = links.get(current_post)
+        if next_post is None or next_post == "":
+            break
+        if next_post in visited_posts:
+            raise ValueError("watch comes back to a post already visited")
+        
+        route.append(next_post)
+        current_post = next_post
+        visited_posts.add(current_post)
+
+    return route
+```

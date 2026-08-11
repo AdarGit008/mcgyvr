@@ -1,0 +1,67 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error("Invalid arguments: both inputs must be strings.");
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [itemName, countStr] = entry.split(':');
+    const count = parseInt(countStr, 10);
+    if (!isNaN(count) && /^[a-z]+$/.test(itemName)) {
+      return [itemName, count];
+    }
+    throw new Error("Invalid sheet entry: " + entry);
+  };
+
+  const parseMove = (move: string): [string, number] => {
+    const [nameQtyStr, qtyStr] = move.split('+');
+    const nameQty = nameQtyStr.replace('-', '');
+    const qty = parseInt(qtyStr, 10);
+    if (!isNaN(qty) && /^[a-z]+$/.test(nameQty)) {
+      return [nameQty, qty];
+    }
+    throw new Error("Invalid move: " + move);
+  };
+
+  const handleMoves = (sheetMap: Map<string, number>, moves: string): void => {
+    for (const move of moves.split(';')) {
+      try {
+        const [nameQty, qty] = parseMove(move);
+        if (!sheetMap.has(nameQty)) {
+          sheetMap.set(nameQty, qty);
+        } else if (qty > 0) {
+          throw new Error("Invalid move: item not on hand");
+        } else {
+          sheetMap.set(nameQty, sheetMap.get(nameQty)! + qty);
+        }
+      } catch (error) {
+        throw new Error(error.message);
+      }
+    }
+  };
+
+  const handleSheet = (opening: string): Map<string, number> => {
+    const sheetMap = new Map<string, number>();
+    for (const entry of opening.split(';')) {
+      try {
+        const [itemName, count] = parseEntry(entry);
+        if (count > 0) {
+          sheetMap.set(itemName, count);
+        }
+      } catch (error) {
+        throw new Error(error.message);
+      }
+    }
+    return sheetMap;
+  };
+
+  const resultSheet = handleMoves(handleSheet(opening), moves);
+
+  return [...resultSheet.entries()]
+    .filter(([_, count]) => count > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([itemName, count]) => `${itemName}:${count}`)
+    .join(';');
+}
+
+```

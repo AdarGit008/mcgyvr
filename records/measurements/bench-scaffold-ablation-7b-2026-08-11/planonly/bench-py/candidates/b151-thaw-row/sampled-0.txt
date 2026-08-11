@@ -1,0 +1,18 @@
+```python
+def thaw_row(row: str, steps: int) -> str:
+    if not isinstance(row, str) or row == "" or any(c not in "#." for c in row):
+        raise ValueError("Invalid row format")
+    if not isinstance(steps, int) or steps < 0:
+        raise ValueError("Invalid step count")
+
+    cells = list(row)
+    for _ in range(steps):
+        new_cells = list(cells)
+        for i in range(len(cells)):
+            if (cells[i] == "#" and
+                (i == 0 or i == len(cells) - 1 or cells[i-1] == "." or cells[i+1] == ".")):
+                new_cells[i] = "."
+        cells = new_cells
+
+    return "".join(cells)
+```

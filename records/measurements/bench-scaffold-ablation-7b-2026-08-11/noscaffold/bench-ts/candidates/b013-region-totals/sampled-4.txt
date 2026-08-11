@@ -1,0 +1,64 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+    if (grid.length === 0 || grid[0].length === 0) {
+        throw new Error("Grid must have at least one row and one cell");
+    }
+
+    const numRows = grid.length;
+    const numCols = grid[0].length;
+
+    for (let i = 1; i < numRows; i++) {
+        if (grid[i].length !== numCols) {
+            throw new Error("All rows must have the same number of cells");
+        }
+    }
+
+    for (const row of grid) {
+        for (const cell of row) {
+            if (!Number.isInteger(cell)) {
+                throw new Error("All cells must be integers");
+            }
+        }
+    }
+
+    for (const query of queries) {
+        if (query.length !== 4) {
+            throw new Error("Each query must have exactly four integers");
+        }
+
+        const [top, left, bottom, right] = query;
+
+        if (!Number.isInteger(top) || !Number.isInteger(left) || !Number.isInteger(bottom) || !Number.isInteger(right)) {
+            throw new Error("Query coordinates must be integers");
+        }
+
+        if (top >= bottom || left >= right) {
+            throw new Error("Invalid query: top must be less than bottom, and left must be less than right");
+        }
+
+        if (top < 0 || left < 0 || bottom > numRows || right > numCols) {
+            throw new Error("Query reaches outside the grid");
+        }
+    }
+
+    const prefixSumTable = Array.from({ length: numRows }, () => Array(numCols).fill(0));
+
+    for (let row = 0; row < numRows; row++) {
+        for (let col = 0; col < numCols; col++) {
+            let sum = grid[row][col];
+            if (row > 0) sum += prefixSumTable[row - 1][col];
+            if (col > 0) sum += prefixSumTable[row][col - 1];
+            if (row > 0 && col > 0) sum -= prefixSumTable[row - 1][col - 1];
+            prefixSumTable[row][col] = sum;
+        }
+    }
+
+    return queries.map(([top, left, bottom, right]) => {
+        const corner1 = prefixSumTable[top][left];
+        const corner2 = top > 0 && left > 0 ? prefixSumTable[top - 1][left - 1] : 0;
+        const corner3 = top > 0 ? prefixSumTable[top - 1][right - 1] : 0;
+        const corner4 = left > 0 ? prefixSumTable[bottom - 1][left - 1] : 0;
+        return corner2 + corner4 - corner1 - corner3;
+    });
+}
+```

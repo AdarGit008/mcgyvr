@@ -1,0 +1,34 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("Template must be a string.")
+    
+    parts = []
+    i = 0
+    
+    while i < len(template):
+        if template[i] != '{':
+            parts.append(template[i])
+            i += 1
+            continue
+        
+        start = i + 1
+        end = template.find('}', i)
+        
+        if end == -1 or not (start < end):
+            raise ValueError("Unmatched opening brace.")
+        
+        placeholder_name = template[start:end]
+        
+        if not placeholder_name.isalnum():
+            raise ValueError(f"Invalid placeholder name: {placeholder_name}.")
+        
+        if placeholder_name in values:
+            parts.append(values[placeholder_name])
+        else:
+            raise ValueError(f"Placeholder not found: {placeholder_name}.")
+        
+        i = end + 1
+    
+    return ''.join(parts)
+```

@@ -1,0 +1,59 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const initialState = { state: 'open', items: [] as [string, number][], total: 0, paid: 0, change: 0 };
+  let state = initialState;
+
+  for (const event of events) {
+    if (state.state === 'cancelled' || state.state === 'paid') {
+      throw new Error('Illegal action after session is paid or cancelled');
+    }
+
+    switch (event[0]) {
+      case 'scan':
+        const item = event[1] as string;
+        if (typeof prices[item] !== 'number' || prices[item] <= 0) {
+          throw new Error(`Invalid price for item ${item}`);
+        }
+        state.items.push(state.items.find(([i]) => i === item)?.map<[string, number]>(([, q]) => [i, q + 1]) ?? [item, 1]);
+        break;
+      case 'void':
+        const voidItem = event[1] as string;
+        const voidIndex = state.items.findIndex(([i]) => i === voidItem);
+        if (voidIndex === -1) {
+          throw new Error(`Cannot void item ${voidItem} that is not in the cart`);
+        }
+        state.items.splice(voidIndex, 1);
+        break;
+      case 'close':
+        if (state.items.length === 0) {
+          throw new Error('Cannot close an empty session');
+        }
+        state.state = 'paid';
+        state.total = state.items.reduce((acc, [_, q]) => acc + q * prices[state.items[0][0]], 0);
+        break;
+      case 'pay':
+        const payAmount = event[1] as number;
+        if (typeof payAmount !== 'number' || payAmount <= 0) {
+          throw new Error('Invalid payment amount');
+        }
+        state.paid += payAmount;
+        state.change = Math.max(state.paid - state.total, 0);
+        state.state = 'paid';
+        break;
+      case 'cancel':
+        state.state = 'cancelled';
+        break;
+      default:
+        throw new Error(`Unknown action: ${event[0]}`);
+    }
+  }
+
+  return {
+    state: state.state,
+    items: state.items.sort(([a], [b]) => a.localeCompare(b)),
+    total: state.total,
+    paid: state.paid,
+    change: state.change
+  };
+}
+```

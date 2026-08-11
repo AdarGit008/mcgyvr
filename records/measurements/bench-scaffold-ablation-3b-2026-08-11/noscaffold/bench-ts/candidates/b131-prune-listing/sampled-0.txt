@@ -1,0 +1,61 @@
+```ts
+function pruneListing(listing: string[], rules: string[]): string[] {
+  if (
+    !Array.isArray(listing) ||
+    listing.some((path) => typeof path !== 'string' || path === '') ||
+    !Array.isArray(rules) ||
+    rules.some((rule) => typeof rule !== 'string' || rule === '')
+  ) {
+    throw new Error("Invalid input: paths and rules must be non-empty arrays of strings.");
+  }
+
+  const parsePattern = (pattern: string): [RegExp, boolean][] => {
+    return pattern.split('/').flatMap((segment, index) => {
+      if (segment === '' || segment.includes('**')) {
+        throw new Error("Invalid pattern: empty segments or '**' are not allowed.");
+      }
+      if (segment[0] === '!') {
+        const isKeep = true;
+        segment = segment.slice(1);
+      } else {
+        const isKeep = false;
+      }
+
+      return [
+        [new RegExp(`^${segment.replace('*', '.*?')}\\/?$`), isKeep],
+      ];
+    });
+  };
+
+  const parseRules = (rules: string[]): ([RegExp, boolean][] | null)[] => {
+    return rules.map((rule) => {
+      if (!rule || rule[0] === '!') {
+        throw new Error("Invalid rule: empty or bare exclamation mark.");
+      }
+
+      try {
+        return parsePattern(rule);
+      } catch (error) {
+        return null;
+      }
+    });
+  };
+
+  const combinedRules = rules.map(parseRules).flat();
+  const sortedPatterns = combinedRules.flat().sort((a, b) => a[0].source.length - b[0].source.length);
+
+  return listing.filter((path, index) => {
+    if (!path || path.includes('//')) {
+      throw new Error("Invalid path: empty strings or paths with double slashes are not allowed.");
+    }
+
+    for (const [pattern, isKeep] of sortedPatterns) {
+      if (pattern.test(path)) {
+        return !isKeep;
+      }
+    }
+
+    return true; // No matching rule means the path survives
+  });
+}
+```

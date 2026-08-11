@@ -1,0 +1,28 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("fill_template expects a string template")
+
+    result = []
+    i = 0
+    while i < len(template):
+        if template[i] == '{':
+            j = i + 1
+            while j < len(template) and template[j].isalnum() or template[j] == '_':
+                j += 1
+            if j == i + 1 or (j < len(template) and template[j] != '}'):
+                raise ValueError("Unterminated placeholder at position {}".format(i))
+            placeholder = template[i + 1:j]
+            if not placeholder:
+                raise ValueError("Empty placeholder at position {}".format(i))
+            replacement = values.get(placeholder)
+            if replacement is None:
+                raise ValueError("Unknown placeholder '{}' at position {}".format(placeholder, i))
+            result.append(replacement)
+            i = j + 1
+        else:
+            result.append(template[i])
+            i += 1
+
+    return ''.join(result)
+```

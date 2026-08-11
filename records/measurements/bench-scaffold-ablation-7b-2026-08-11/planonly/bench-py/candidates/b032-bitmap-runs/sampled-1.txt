@@ -1,0 +1,58 @@
+```python
+def find_free_run(words: list[int], capacity: int, length: int) -> int:
+    """Return the smallest start of a run of `length` free blocks below `capacity`, or -1 if none exists."""
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer")
+    expected_words = (capacity + 31) // 32
+    if len(words) != expected_words:
+        raise ValueError(f"Word count {len(words)} disagrees with capacity {capacity}")
+    for word in words:
+        if not isinstance(word, int) or word < 0 or word > 4294967295:
+            raise ValueError("Bitmap contains invalid word value")
+
+    free_blocks_needed = length
+    for start_index in range(expected_words - free_blocks_needed + 1):
+        consecutive_free = sum(bit_at(words, start_index + i) == 0 for i in range(free_blocks_needed))
+        if consecutive_free >= free_blocks_needed:
+            return start_index
+
+    return -1
+
+
+def occupy_run(words: list[int], start: int, length: int) -> list[int]:
+    """Return a new word list with the run of `length` blocks starting at `start` marked occupied."""
+    if not isinstance(start, int):
+        raise ValueError("Start index must be an integer")
+    if not isinstance(length, int):
+        raise ValueError("Length must be an integer")
+
+    expected_words = (len(words) * 32)
+    if start < 0 or start + length > expected_words:
+        raise ValueError("Run does not lie wholly inside the words")
+    for i in range(start, start + length):
+        if bit_at(words, i):
+            raise ValueError("Run touches an occupied block")
+
+    new_words = words[:]
+    for word_index in range((start // 32), (start + length) // 32 + 1):
+        mask = ~(0xFFFFFFFF << (start % 32))
+        if word_index == ((start + length - 1) // 32):
+            mask &= 0xFFFFFFFF >> ((start + length) % 32)
+        new_words[word_index] |= mask
+
+    return new_words
+
+
+def bit_at(words: list[int], index: int) -> int:
+    """Return the bit at position `index`, rejecting an index that is not an integer inside the words."""
+    if not isinstance(index, int):
+        raise ValueError("Index must be an integer")
+    word_index = index // 32
+    bit_position = index % 32
+    if word_index < 0 or word_index >= len(words) or bit_position < 0 or bit_position > 31:
+        raise ValueError("Index out of bounds")
+
+    return (words[word_index] >> bit_position) & 1
+```

@@ -1,0 +1,33 @@
+```python
+from typing import *
+from collections import deque
+
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(links, dict):
+        raise ValueError("Links must be a dictionary.")
+    
+    if start not in links:
+        raise ValueError(f"Start post '{start}' is not found in links.")
+    
+    visited = set()
+    watch_path = deque([start])
+    
+    while watch_path:
+        current_post = watch_path.popleft()
+        
+        if current_post == '':
+            break
+        
+        if current_post in visited:
+            raise ValueError("Handoffs cannot form a cycle, visit already occurred.")
+        
+        visited.add(current_post)
+        
+        next_post = links.get(current_post)
+        if not isinstance(next_post, str):
+            raise ValueError(f"Next post name '{next_post}' is not a string.")
+        
+        watch_path.append(next_post)
+    
+    return list(watch_path)
+```

@@ -1,0 +1,38 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    def validate_grid():
+        if not grid or not grid[0]:
+            raise ValueError("Grid must be non-empty and with rows of non-zero length.")
+        row_length = len(grid[0])
+        for row in grid:
+            if len(row) != row_length:
+                raise ValueError("All rows must have the same number of cells.")
+            for cell in row:
+                if not isinstance(cell, int):
+                    raise ValueError("All cells must be integers.")
+
+    def validate_queries():
+        for query in queries:
+            if len(query) != 4 or not all(isinstance(x, int) for x in query):
+                raise ValueError("Each query must be a list of exactly four integers.")
+            top, left, bottom, right = query
+            if top >= bottom or left >= right or top < 0 or bottom > len(grid) or left < 0 or right > row_length:
+                raise ValueError("Query coordinates are out of bounds.")
+
+    def create_prefix_sum_table():
+        prefix_sum = [[0] * (row_length + 1) for _ in range(len(grid) + 1)]
+        for i in range(1, len(prefix_sum)):
+            for j in range(1, row_length + 1):
+                prefix_sum[i][j] = grid[i - 1][j - 1] + prefix_sum[i - 1][j] + prefix_sum[i][j - 1] - prefix_sum[i - 1][j - 1]
+        return prefix_sum
+
+    def calculate_query_total(query, prefix_sum):
+        top, left, bottom, right = query
+        return (prefix_sum[bottom][right] - prefix_sum[top][right] -
+                prefix_sum[bottom][left] + prefix_sum[top][left])
+
+    validate_grid()
+    validate_queries()
+    prefix_sum_table = create_prefix_sum_table()
+    return [calculate_query_total(query, prefix_sum_table) for query in queries]
+```

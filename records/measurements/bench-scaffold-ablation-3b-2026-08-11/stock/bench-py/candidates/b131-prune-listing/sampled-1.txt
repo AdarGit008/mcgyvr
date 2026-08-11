@@ -1,0 +1,82 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern: str, text: str) -> bool:
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text: str, what: str) -> list:
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    def is_valid_rule(rule: str) -> bool:
+        if not isinstance(rule, str) or rule.strip() == "":
+            return False
+        if rule.startswith("!"):
+            return True
+        else:
+            return "*" in rule
+
+    # Validate every rule and path with split_strict and is_valid_rule
+    valid_listing = []
+    valid_rules = []
+
+    for path in listing:
+        if not isinstance(path, str) or path == "" or any(segment == "" for segment in split_strict(path, "path")):
+            raise ValueError(f"Invalid path: {path}")
+        valid_listing.append(path)
+
+    for rule in rules:
+        if not is_valid_rule(rule):
+            raise ValueError(f"Invalid rule: {rule}")
+        valid_rules.append(rule)
+
+    def matches(rule: str, path: str) -> bool:
+        path_segments = split_strict(path, "path")
+        rule_segments = split_strict(rule, "rule")
+
+        for i in range(min(len(rule_segments), len(path_segments))):
+            if rule_segments[i] == "*":
+                continue
+            if rule_segments[i] != path_segments[i]:
+                return False
+
+        return True
+
+    surviving_paths = []
+    last_match_index = -1
+
+    for path in valid_listing:
+        match_found = False
+        for i, rule in enumerate(valid_rules):
+            if matches(rule, path):
+                match_found = True
+                last_match_index = i
+        if not match_found or last_match_index == len(valid_rules) - 1:
+            surviving_paths.append(path)
+
+    return surviving_paths
+```

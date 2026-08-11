@@ -1,0 +1,50 @@
+```ts
+/**
+ * Splits a stream of chunks into frames based on a marker character.
+ *
+ * @param chunks - Array of string chunks to be processed.
+ * @param marker - Single character used to mark frame boundaries.
+ * @returns An object containing the array of frames and any pending text.
+ */
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (marker.length !== 1) {
+    throw new Error('Marker must be a single character');
+  }
+
+  const frames: string[] = [];
+  let frameContent = '';
+  let insideFrame = false;
+
+  for (const chunk of chunks) {
+    for (let i = 0; i < chunk.length; i++) {
+      if (chunk[i] === marker) {
+        if (i + 1 < chunk.length && chunk[i + 1] === marker) {
+          // Marker is doubled, add to frame content
+          frameContent += marker;
+          i++; // Skip the next character as it's part of the double marker
+        } else {
+          // Single marker found, end current frame
+          if (insideFrame) {
+            frames.push(frameContent);
+            frameContent = '';
+            insideFrame = false;
+          }
+          insideFrame = !insideFrame; // Toggle frame state
+        }
+      } else {
+        if (!insideFrame && i === chunk.length - 1) {
+          // Last character is not part of a marker and outside a frame
+          frameContent += chunk[i];
+        } else if (insideFrame) {
+          frameContent += chunk[i];
+        }
+      }
+    }
+  }
+
+  return {
+    frames,
+    pending: insideFrame ? frameContent : '',
+  };
+}
+```

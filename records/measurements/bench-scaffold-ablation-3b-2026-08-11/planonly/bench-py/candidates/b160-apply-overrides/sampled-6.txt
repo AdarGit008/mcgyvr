@@ -1,0 +1,21 @@
+```
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list.")
+    
+    merged = base.copy()
+    
+    for override in overrides:
+        equals = override.find('=')
+        if equals == -1 or override.count('=') != 1 or equals == 0 or len(override) <= equals + 1:
+            raise ValueError("Each override must be a string with exactly one equal sign, and the name must not be empty.")
+        
+        key, value = override[:equals], override[equals+1:]
+        
+        if key in merged and isinstance(merged[key], str):
+            merged[key] = value
+        else:
+            raise ValueError(f"Override for '{key}' does not exist in base or is not a string.")
+    
+    return merged
+```

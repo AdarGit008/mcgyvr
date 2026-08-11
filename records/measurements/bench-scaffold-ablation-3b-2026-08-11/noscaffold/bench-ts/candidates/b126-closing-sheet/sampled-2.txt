@@ -1,0 +1,76 @@
+```typescript
+export function closingSheet(opening: string, moves: string): string {
+    if (typeof opening !== 'string' || typeof moves !== 'string') {
+        throw new Error('Invalid argument types');
+    }
+
+    const parseSheetEntry = (entry: string): [string, number] => {
+        const parts = entry.split(':');
+        if (parts.length !== 2) {
+            throw new Error(`Malformed sheet entry: ${entry}`);
+        }
+        const name = parts[0].trim();
+        const count = parseInt(parts[1], 10);
+        if (!isNaN(count) && count >= 0 && /^[a-z]+$/.test(name)) {
+            return [name, count];
+        }
+        throw new Error(`Invalid sheet entry: ${entry}`);
+    };
+
+    const parseMove = (move: string): [string, number] => {
+        const parts = move.split('+-');
+        if (parts.length !== 2) {
+            throw new Error(`Malformed move: ${move}`);
+        }
+        const name = parts[0].trim();
+        const qty = parseInt(parts[1], 10);
+        if (!isNaN(qty) && qty > 0) {
+            return [name, qty];
+        }
+        throw new Error(`Invalid move: ${move}`);
+    };
+
+    const parseSheet = (sheet: string): Map<string, number> => {
+        const entries = sheet.split(';');
+        const map = new Map();
+        for (const entry of entries) {
+            const [name, count] = parseSheetEntry(entry);
+            if (map.has(name)) {
+                throw new Error(`Duplicate item name on the opening sheet: ${entry}`);
+            }
+            map.set(name, count);
+        }
+        return map;
+    };
+
+    const applyMove = (sheet: Map<string, number>, move: [string, number]): void => {
+        const [name, qty] = move;
+        if (!sheet.has(name)) {
+            throw new Error(`Issue of item ${name} the sheet does not hold`);
+        }
+        const currentCount = sheet.get(name)!;
+        if (qty > currentCount) {
+            throw new Error(`Issue of more units than the item then holds: ${move}`);
+        }
+        sheet.set(name, currentCount - qty);
+    };
+
+    try {
+        const openingSheetMap = parseSheet(opening);
+        let finalSheetMap = new Map(openingSheetMap);
+
+        for (const move of moves.split(';')) {
+            applyMove(finalSheetMap, parseMove(move));
+        }
+
+        const resultEntries = Array.from(finalSheetMap.entries())
+            .filter(([, count]) => count > 0)
+            .sort(([name1], [name2]) => name1.localeCompare(name2));
+
+        return resultEntries.map(([name, count]) => `${name}:${count}`).join(';');
+    } catch (error) {
+        console.error(error.message);
+        throw error;
+    }
+}
+```

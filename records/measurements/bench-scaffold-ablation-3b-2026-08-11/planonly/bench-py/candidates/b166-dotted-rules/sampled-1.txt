@@ -1,0 +1,28 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    """
+    Resolves a dotted option name against style rules to find the winning value.
+
+    :param rules: A dictionary mapping selector strings to string values.
+    :param name: The dotted option name to resolve.
+    :return: The resolved value or None if no rule covers the name.
+    """
+    if not isinstance(name, str) or len(name) == 0:
+        raise ValueError("Name must be a non-empty string.")
+    if "*" in name and name != "*":
+        raise ValueError("Name cannot contain a star except as the lone selector.")
+    
+    def is_covering(selector: str) -> bool:
+        return selector.startswith("*") and (selector == "*" or selector.endswith(".*"))
+    
+    exact_match = rules.get(name, None)
+    if exact_match is not None and isinstance(exact_match, str):
+        return exact_match
+    
+    wildcard_matches = {k: v for k, v in rules.items() if is_covering(k)}
+    if wildcard_matches:
+        longest_wildcard = max(wildcard_matches.keys(), key=len)
+        return wildcard_matches[longest_wildcard]
+    
+    return None
+```

@@ -1,0 +1,82 @@
+```python
+def parse_span(text: str) -> int:
+    """
+    Parses a span text into total inches.
+    
+    Args:
+    text (str): The span text in yards, feet and inches format.
+    
+    Returns:
+    int: The total inches equivalent of the input span.
+    
+    Raises:
+    ValueError: If the input is not a valid span text.
+    """
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("Invalid span text")
+    
+    parts = text.split()
+    if len(parts) != 3:
+        raise ValueError("Span must contain exactly three parts")
+    
+    units = {'yd': 36, 'ft': 12, 'in': 1}
+    total_inches = 0
+    
+    for i in range(3):
+        value, unit = parts[i].split()
+        
+        if not (value.isdigit() and int(value) >= 0):
+            raise ValueError("Invalid value in span text")
+        
+        if unit not in units:
+            raise ValueError(f"Unknown unit {unit} in span text")
+        
+        total_inches += int(value) * units[unit]
+    
+    return total_inches
+
+def format_span(inches: int) -> str:
+    """
+    Formats a non-negative integer of total inches canonically.
+    
+    Args:
+    inches (int): The total inches to format.
+    
+    Returns:
+    str: The formatted span text.
+    """
+    if not isinstance(inches, int) or inches < 0:
+        raise ValueError("Invalid input")
+    
+    units = [(36, 'yd'), (12, 'ft'), (1, 'in')]
+    result = []
+    
+    for unit_value, unit in units:
+        multiple, remainder = divmod(inches, unit_value)
+        if multiple > 0:
+            result.append(f"{multiple}{unit}")
+        
+        inches = remainder
+    
+    if not result:
+        return "0in"
+    
+    return ' '.join(result)
+
+def add_spans(first: str, second: str) -> str:
+    """
+    Adds two span texts and returns their sum in the canonical form.
+    
+    Args:
+    first (str): The first span text to add.
+    second (str): The second span text to add.
+    
+    Returns:
+    str: The formatted sum of the input spans.
+    """
+    if not isinstance(first, str) or not isinstance(second, str):
+        raise ValueError("Invalid input")
+    
+    total_inches = parse_span(first) + parse_span(second)
+    return format_span(total_inches)
+```

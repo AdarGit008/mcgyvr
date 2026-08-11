@@ -1,0 +1,46 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    """
+    Drain frames from the input chunks based on a marker character.
+    
+    :param chunks: List of strings to be read and split into frames.
+    :param marker: Character used to denote the start and end of a frame.
+    :return: A dictionary with two keys: 'frames' containing lists of frames, and
+             'pending' containing the pending text after all frames have been processed.
+    """
+    
+    def is_valid_marker(m):
+        return isinstance(m, str) and len(m) == 1
+    
+    if not (isinstance(chunks, list) and isinstance(marker, str)):
+        raise ValueError("Input types are invalid.")
+    
+    if marker not in chunks[0]:
+        return {'frames': [], 'pending': ''.join(chunks)}
+    
+    frames = []
+    pending = []
+    current_frame = ''
+    
+    for chunk in chunks:
+        for char in chunk:
+            if char == marker and len(current_frame) > 0:
+                # End the current frame
+                frames.append(current_frame)
+                current_frame = ''
+            elif char == marker and len(current_frame) == 0:
+                # Start a new frame
+                pending.append(marker)
+            else:
+                current_frame += char
+    
+    if len(current_frame) > 0:
+        frames.append(current_frame)
+    
+    # Handle the last frame if it is not empty or there is pending text after it
+    if frames and (len(pending) == 0 or pending[-1] != marker):
+        frames.pop()
+        pending.extend(frames.pop())
+    
+    return {'frames': frames, 'pending': ''.join(pending)}
+```

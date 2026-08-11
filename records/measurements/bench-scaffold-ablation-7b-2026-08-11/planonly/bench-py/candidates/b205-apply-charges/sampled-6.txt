@@ -1,0 +1,31 @@
+```python
+from typing import Dict, List, Tuple
+
+class Refusal:
+    def __init__(self):
+        self.left: Dict[str, int] = {}
+        self.refused: List[Tuple[str, str]] = []
+
+def apply_charges(caps: Dict[str, Tuple[int, int]], charges: List[Tuple[int, str, int]]) -> Dict[str, int]:
+    result = Refusal()
+    
+    for charge_id, bucket_name, amount in charges:
+        if not isinstance(amount, int) or amount <= 0:
+            raise ValueError("Amount must be a positive whole number")
+        
+        if bucket_name not in caps:
+            result.refused.append((str(charge_id), "unknown"))
+            continue
+        
+        allowance, single_charge = caps[bucket_name]
+        if amount > single_charge:
+            result.refused.append((str(charge_id), "single"))
+            continue
+        if amount > allowance:
+            result.refused.append((str(charge_id), "cap"))
+            continue
+        
+        result.left[bucket_name] = allowance - amount
+    
+    return result.left
+```

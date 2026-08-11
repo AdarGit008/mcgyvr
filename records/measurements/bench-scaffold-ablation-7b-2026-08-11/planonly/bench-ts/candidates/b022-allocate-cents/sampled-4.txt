@@ -1,0 +1,60 @@
+```ts
+/**
+ * Parses a decimal amount string into integer cents.
+ * @param text - The amount string to parse.
+ * @returns The integer cents value.
+ */
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string' || !/^\d+(\.\d{2})?$/.test(text)) {
+    throw new Error('Invalid amount format');
+  }
+  const [integerPart, fractionPart = '00'] = text.split('.');
+  return parseInt(integerPart) * 100 + parseInt(fractionPart);
+}
+
+/**
+ * Formats a non-negative integer cents value into a dotted form with exactly two fraction digits.
+ * @param cents - The integer cents to format.
+ * @returns The formatted amount string.
+ */
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || !Number.isInteger(cents) || cents < 0) {
+    throw new Error('Invalid cents value');
+  }
+  const integerPart = Math.floor(cents / 100).toString();
+  const fractionPart = (cents % 100).toString().padStart(2, '0');
+  return `${integerPart}.${fractionPart}`;
+}
+
+/**
+ * Splits totalCents across a list of integer weights proportionally.
+ * @param totalCents - The total cents to allocate.
+ * @param weights - The list of integer weights to allocate to.
+ * @returns An array of allocated cents for each weight.
+ */
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (!weights.length || weights.some(weight => typeof weight !== 'number' || !Number.isInteger(weight) || weight < 0)) {
+    throw new Error('Invalid weights');
+  }
+  if (totalCents < 0 || !Number.isInteger(totalCents)) {
+    throw new Error('Invalid total cents');
+  }
+  const sumOfWeights = weights.reduce((sum, weight) => sum + weight, 0);
+  if (sumOfWeights === 0) {
+    return Array(weights.length).fill(0);
+  }
+
+  const exactValues = weights.map(weight => Math.floor(totalCents * weight / sumOfWeights));
+  let remainingCents = totalCents - exactValues.reduce((sum, value) => sum + value, 0);
+
+  const result = exactValues.map((value, index) => {
+    if (remainingCents > 0 && weights[index] % totalCents === Math.max(...weights.map(w => w % totalCents))) {
+      remainingCents--;
+      return value + 1;
+    }
+    return value;
+  });
+
+  return result;
+}
+```

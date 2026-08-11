@@ -1,0 +1,49 @@
+```typescript
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  const placeholders = Array.from(template.matchAll(/\{([a-zA-Z0-9_]+)\}/g));
+
+  for (const [_, placeholderName] of placeholders) {
+    if (!placeholderName || !values.hasOwnProperty(placeholderName)) {
+      throw new Error(`Invalid placeholder or missing value: ${placeholderName}`);
+    }
+  }
+
+  let result = '';
+  let braceCount = 0;
+  let currentPlaceholderIndex = -1;
+
+  for (let i = 0; i < template.length; i++) {
+    const char = template[i];
+
+    if (char === '{') {
+      braceCount++;
+      if (braceCount > 1) {
+        throw new Error("Unterminated placeholder");
+      }
+      currentPlaceholderIndex = placeholders.findIndex(
+        ([_, name]) => name === placeholderName
+      );
+    } else if (char === '}') {
+      braceCount--;
+      if (braceCount < 0) {
+        throw new Error("Mismatched closing brace");
+      }
+
+      if (currentPlaceholderIndex !== -1) {
+        result += values[placeholders[currentPlaceholderIndex][0]];
+        currentPlaceholderIndex = -1;
+      } else {
+        result += char; // literal '}' character
+      }
+    } else {
+      result += char;
+    }
+  }
+
+  return result;
+}
+```

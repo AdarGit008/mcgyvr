@@ -1,0 +1,40 @@
+```typescript
+export function openWindows(span: string, booked: string[]): string {
+  // Validate input format
+  const timeFormat = /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/;
+  if (!timeFormat.test(span)) {
+    throw new Error('Invalid span format');
+  }
+  if (booked.some(appointment => !timeFormat.test(appointment))) {
+    throw new Error('Invalid appointment format');
+  }
+
+  // Parse time strings to numbers
+  const [startHour, startMinute, endHour, endMinute] = span.split('-').flatMap(time => time.split(':').map(Number));
+  const appointments = booked.map(appointment => {
+    const [hour, minute] = appointment.split(':').map(Number);
+    return { hour, minute };
+  });
+
+  // Sort by start time
+  appointments.sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
+
+  let freeWindows: string[] = [];
+  let currentEndHour = startHour;
+  let currentEndMinute = startMinute;
+
+  for (const { hour, minute } of appointments) {
+    if (hour > currentEndHour || (hour === currentEndHour && minute > currentEndMinute)) {
+      freeWindows.push(`${currentEndHour.toString().padStart(2, '0')}:${currentEndMinute.toString().padStart(2, '0')}-${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+    }
+    currentEndHour = hour;
+    currentEndMinute = minute;
+  }
+
+  if (endHour > currentEndHour || (endHour === currentEndHour && endMinute > currentEndMinute)) {
+    freeWindows.push(`${currentEndHour.toString().padStart(2, '0')}:${currentEndMinute.toString().padStart(2, '0')}-${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`);
+  }
+
+  return freeWindows.length > 0 ? freeWindows.join(', ') : 'none';
+}
+```

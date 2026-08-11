@@ -1,0 +1,54 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid arguments: both inputs must be strings.');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [name, countStr] = entry.split(':');
+    const count = parseInt(countStr, 10);
+    if (!/^[a-z]+$/.test(name) || !Number.isInteger(count)) {
+      throw new Error(`Malformed sheet entry: ${entry}`);
+    }
+    return [name, count];
+  };
+
+  const parseMove = (move: string): [string, number] => {
+    const [name, qtyStr] = move.split(/[+-]/);
+    const qty = parseInt(qtyStr, 10);
+    if (!/^[a-z]+$/.test(name) || !Number.isInteger(qty)) {
+      throw new Error(`Malformed move: ${move}`);
+    }
+    return [name, qty];
+  };
+
+  const openingEntries = opening.split(';').filter(Boolean).map(parseEntry);
+  const movesArray = moves.split(';').filter(Boolean);
+
+  const inventory: { [key: string]: number } = {};
+  for (const [name, count] of openingEntries) {
+    if (inventory[name]) {
+      throw new Error(`Duplicate item name on the opening sheet: ${name}`);
+    }
+    inventory[name] = count;
+  }
+
+  for (const move of movesArray) {
+    const [name, qty] = parseMove(move);
+    if (!inventory.hasOwnProperty(name)) {
+      throw new Error(`Attempt to issue an item not held: ${name}`);
+    }
+    const currentCount = inventory[name];
+    if ((move.startsWith('-') && currentCount < qty) || (move.startsWith('+') && qty <= 0)) {
+      throw new Error(`Invalid move for item ${name}: ${move}`);
+    }
+    inventory[name] += (move.startsWith '-' ? -qty : qty);
+    if (inventory[name] === 0) {
+      delete inventory[name];
+    }
+  }
+
+  const sortedEntries = Object.entries(inventory).sort((a, b) => a[0].localeCompare(b[0]));
+  return sortedEntries.map(([name, count]) => `${name}:${count}`).join(';');
+}
+```

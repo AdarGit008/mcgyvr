@@ -1,0 +1,34 @@
+```ts
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error('Invalid prefix');
+  }
+  const ones = '1'.repeat(prefix);
+  const zeros = '0'.repeat(32 - prefix);
+  return [ones, zeros].join('.').replace(/(.{8})/g, '$1.');
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== 'string' || mask.split('.').length !== 4) {
+    throw new Error('Invalid mask format');
+  }
+  const parts = mask.split('.');
+  if (!parts.every(part => /^\d+$/.test(part) && (part === '0' || !part.startsWith('0')))) {
+    throw new Error('Invalid mask digits');
+  }
+  const octets = parts.map(octet => parseInt(octet, 10));
+  if (octets.some(octet => octet < 0 || octet > 255)) {
+    throw new Error('Invalid mask octets');
+  }
+  let prefix = 0;
+  for (const octet of octets) {
+    const bits = octet.toString(2).padStart(8, '0');
+    if (/^1+0+$/.test(bits)) {
+      prefix += bits.replace(/1/g, '').length;
+    } else {
+      throw new Error('Invalid mask sequence');
+    }
+  }
+  return prefix;
+}
+```

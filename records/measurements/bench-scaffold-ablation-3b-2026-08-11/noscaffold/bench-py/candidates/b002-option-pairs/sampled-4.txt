@@ -1,0 +1,59 @@
+```python
+def parse_option(segment: str) -> list:
+    """
+    Parse a single option segment into a [key, value] pair.
+
+    :param segment: A key=value segment from an options string.
+    :return: A list containing the parsed key and value.
+    """
+    if not isinstance(segment, str):
+        raise ValueError("Argument must be a string")
+
+    # Split by '=' to separate key and value
+    parts = segment.split('=')
+    
+    # Check for a valid key
+    if len(parts) != 2 or not part[0].isidentifier():
+        raise ValueError("Invalid option format: " + segment)
+
+    key, value = parts
+
+    # Strip quotes from the value if it's wrapped in them
+    if value.startswith('"') and value.endswith('"'):
+        value = value.strip('"')
+
+    return [key, value]
+
+
+def scan_pairs(text: str) -> list:
+    """
+    Scan a string of options into a list of key-value pairs.
+
+    :param text: A run of option segments separated by semicolons.
+    :return: A list of parsed key-value pairs in input order.
+    """
+    if not isinstance(text, str):
+        raise ValueError("Argument must be a string")
+
+    # Split the text by semicolons, except when they're inside quotes
+    parts = []
+    index = 0
+    while index < len(text):
+        start_index = index
+
+        # Find the end of an unquoted segment or quoted value
+        while index < len(text) and (text[index] != ';' or (index + 1 < len(text) and text[index + 1] == ';')):
+            index += 1
+        
+        # If we found a semicolon, split the segment
+        if index > start_index:
+            segment = text[start_index:index]
+            parts.append(segment)
+
+        # Move past any trailing semicolons
+        while index < len(text) and text[index] == ';':
+            index += 1
+
+    # Parse each parsed segment into a key-value pair
+    return [parse_option(part) for part in parts]
+```

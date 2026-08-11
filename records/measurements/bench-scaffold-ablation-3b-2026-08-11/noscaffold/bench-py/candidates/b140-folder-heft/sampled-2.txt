@@ -1,0 +1,100 @@
+```python
+def file_paths(root: dict) -> list:
+    """Returns paths to every file in the tree."""
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    
+    def walk(node, current_path):
+        if not isinstance(node, dict) or "name" not in node or "children" not in node:
+            raise ValueError("Node must be a mapping with 'name' and 'children'.")
+        if node.get("bytes") is not None and node.get("children") is not None:
+            raise ValueError("Node cannot have both 'bytes' and 'children'.")
+        
+        name = node["name"]
+        if not isinstance(name, str) or "/" in name:
+            raise ValueError("'name' must be a non-empty string without slashes.")
+        
+        bytes_ = node.get("bytes", 0)
+        if not isinstance(bytes_, int) or bytes_ < 0:
+            raise ValueError("'bytes' must be a non-negative integer.")
+        
+        children = node.get("children")
+        if not isinstance(children, list):
+            raise ValueError("'children' must be a list.")
+        
+        paths = []
+        for child in children:
+            paths.extend(walk(child, f"{current_path}/{name}"))
+        
+        return paths + [f"{current_path}/{name}" if isinstance(bytes_, int) else current_path]
+    
+    return walk(root, "")
+
+
+def tree_bytes(root: dict) -> int:
+    """Returns the total bytes of all files in the tree."""
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary.")
+    
+    def walk(node):
+        if not isinstance(node, dict) or "name" not in node or "children" not in node:
+            raise ValueError("Node must be a mapping with 'name' and 'children'.")
+        if node.get("bytes") is not None and node.get("children") is not None:
+            raise ValueError("Node cannot have both 'bytes' and 'children'.")
+        
+        name = node["name"]
+        if not isinstance(name, str) or "/" in name:
+            raise ValueError("'name' must be a non-empty string without slashes.")
+        
+        bytes_ = node.get("bytes", 0)
+        if not isinstance(bytes_, int) or bytes_ < 0:
+            raise ValueError("'bytes' must be a non-negative integer.")
+        
+        children = node.get("children")
+        if not isinstance(children, list):
+            raise ValueError("'children' must be a list.")
+        
+        return sum(walk(child) for child in children) + bytes_
+    
+    return walk(root)
+
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    """Returns paths to every folder that is heavier than or equal to min_bytes."""
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("'min_bytes' must be a non-negative integer.")
+    
+    def walk(node, current_path):
+        if not isinstance(node, dict) or "name" not in node or "children" not in node:
+            raise ValueError("Node must be a mapping with 'name' and 'children'.")
+        if node.get("bytes") is not None and node.get("children") is not None:
+            raise ValueError("Node cannot have both 'bytes' and 'children'.")
+        
+        name = node["name"]
+        if not isinstance(name, str) or "/" in name:
+            raise ValueError("'name' must be a non-empty string without slashes.")
+        
+        bytes_ = node.get("bytes", 0)
+        if not isinstance(bytes_, int) or bytes_ < 0:
+            raise ValueError("'bytes' must be a non-negative integer.")
+        
+        children = node.get("children")
+        if not isinstance(children, list):
+            raise ValueError("'children' must be a list.")
+        
+        paths = []
+        for child in children:
+            paths.extend(walk(child, f"{current_path}/{name}"))
+        
+        total_bytes = sum(walk(child) for child in children)
+        total_bytes += bytes_
+        
+        if total_bytes >= min_bytes and current_path != "":
+            paths.append(current_path)
+        
+        return total_bytes
+    
+    walk(root, "")
+    return []
+
+```

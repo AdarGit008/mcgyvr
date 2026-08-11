@@ -1,0 +1,52 @@
+```python
+def find_free_run(words: list[int], bits: int, length: int) -> int:
+    if not isinstance(bits, int) or bits <= 0:
+        raise ValueError("Bits must be a positive integer")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer")
+    capacity = (bits + 31) // 32
+    if len(words) != capacity:
+        raise ValueError(f"Bitmap word count {len(words)} disagrees with capacity {capacity}")
+    for i in range(capacity):
+        if not isinstance(words[i], int) or words[i] < 0 or words[i] > 4294967295:
+            raise ValueError("Bitmap contains invalid value")
+    if length == 0:
+        return -1
+    free_run_start = -1
+    consecutive_free = 0
+    for i in range(bits):
+        if bit_at(words, i) == 0:
+            consecutive_free += 1
+        else:
+            consecutive_free = 0
+        if consecutive_free == length:
+            free_run_start = i - length + 1
+            break
+    return free_run_start
+
+def occupy_run(words: list[int], start: int, length: int) -> list[int]:
+    if not isinstance(start, int) or start < 0:
+        raise ValueError("Start must be a non-negative integer")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer")
+    capacity = len(words)
+    if start + length > capacity * 32:
+        raise ValueError("Run exceeds bitmap capacity")
+    new_words = words[:]
+    for i in range(start, start + length):
+        word_index = i // 32
+        bit_index = i % 32
+        if (new_words[word_index] & (1 << bit_index)) != 0:
+            raise ValueError("Run touches an occupied block")
+        new_words[word_index] |= (1 << bit_index)
+    return new_words
+
+def bit_at(words: list[int], index: int) -> int:
+    if not isinstance(index, int) or index < 0:
+        raise ValueError("Index must be a non-negative integer")
+    word_index = index // 32
+    bit_index = index % 32
+    if word_index >= len(words):
+        raise ValueError("Index out of bounds")
+    return (words[word_index] >> bit_index) & 1
+```

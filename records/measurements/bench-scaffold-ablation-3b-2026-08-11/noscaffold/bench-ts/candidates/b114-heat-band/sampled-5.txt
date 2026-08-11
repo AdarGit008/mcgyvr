@@ -1,0 +1,45 @@
+```ts
+export function runThermostat(start: number, low: number, high: number, power: number, drifts: number[]): { temp: number; heated: number; switches: number; coldest: number } {
+  if (
+    typeof start !== 'number' ||
+    !Number.isInteger(start) ||
+    typeof low !== 'number' ||
+    !Number.isInteger(low) ||
+    typeof high !== 'number' ||
+    !Number.isInteger(high) ||
+    typeof power !== 'number' ||
+    !Number.isInteger(power) ||
+    Array.isArray(drifts) === false ||
+    drifts.some((drift) => typeof drift !== 'number') ||
+    drifts.some((drift) => drift % 1 !== 0)
+  ) {
+    throw new Error('Invalid input: start, low, high, power must be integers; drifts must be a list of integers.');
+  }
+
+  if (low >= high) {
+    throw new Error('Invalid input: the thermostat band should have a strictly lower low than high.');
+  }
+
+  let temp = start;
+  let heated = 0;
+  let switches = 0;
+  let coldest = start;
+
+  for (const drift of drifts) {
+    if (temp < low) {
+      temp += power + drift;
+      heated++;
+      switches++;
+      coldest = Math.min(coldest, temp);
+    } else if (temp >= high) {
+      temp += drift;
+      switches++;
+      coldest = Math.min(coldest, temp);
+    } else {
+      temp += drift;
+    }
+  }
+
+  return { temp, heated, switches, coldest };
+}
+```

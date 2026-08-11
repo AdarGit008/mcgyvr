@@ -1,0 +1,44 @@
+```ts
+export function parseSpan(text: string): number {
+  const parts = text.trim().split(/\s+/);
+  if (parts.length !== 3) throw new Error("Invalid span format");
+  
+  const unitMap: { [key: string]: number } = {
+    "yd": 36,
+    "ft": 12,
+    "in": 1
+  };
+
+  let totalInches = 0;
+
+  parts.forEach((part, index) => {
+    const value = parseInt(part, 10);
+    if (isNaN(value) || value < 0) throw new Error("Invalid span format");
+    
+    if (!unitMap.hasOwnProperty(parts[index + 1])) throw new Error("Unknown unit");
+    totalInches += value * unitMap[parts[index + 1]];
+  });
+
+  return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+  const units = [36, 12, 1];
+  let result = "";
+
+  for (const unit of units) {
+    const count = Math.floor(inches / unit);
+    inches %= unit;
+
+    if (count > 0 || result !== "") result += `${count}${unit.toString().charAt(0)} `;
+  }
+
+  return result.trim();
+}
+
+export function addSpans(first: string, second: string): string {
+  if (typeof first !== "string" || typeof second !== "string") throw new Error("Invalid input type");
+  const totalInches = parseSpan(first) + parseSpan(second);
+  return formatSpan(totalInches);
+}
+```

@@ -1,0 +1,60 @@
+```python
+"""Fixed-point money helpers: parse, format, and allocate integer cents."""
+
+import re
+
+
+def parse_amount(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("amount must be a string")
+    match = re.fullmatch(r"(\d+)(?:\.(\d{2}))?", text)
+    if match is None:
+        raise ValueError(f"malformed amount: {text}")
+    whole = int(match.group(1))
+    cents = 0 if match.group(2) is None else int(match.group(2))
+    return whole * 100 + cents
+
+
+def format_amount(cents: int) -> str:
+    if not isinstance(cents, int) or cents < 0:
+        raise ValueError("cents must be a non-negative integer")
+    return f"{cents // 100}.{cents % 100:02d}"
+
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    if not isinstance(total_cents, int) or total_cents < 0:
+        raise ValueError("total_cents must be a non-negative integer")
+    
+    # Validate the inputs
+    if not isinstance(weights, list):
+        raise ValueError("weights must be a list")
+    if len(weights) == 0:
+        raise ValueError("weights cannot be empty")
+    for weight in weights:
+        if not isinstance(weight, int) or weight < 0:
+            raise ValueError("all weights must be non-negative integers")
+    
+    sum_w = sum(weights)
+    if sum_w == 0:
+        raise ValueError("sum of weights cannot be zero")
+    
+    # Allocate cents
+    result = [total_cents * weight // sum_w for weight in weights]
+    total_allocated = sum(result)
+    leftover_cents = total_cents - total_allocated
+    
+    # Distribute leftover cents to the shares with largest remainders, earliest index first on a tie
+    remaining_cents = leftover_cents
+    for i in range(len(weights)):
+        if result[i] < weights[i]:
+            diff = weights[i] - result[i]
+            if diff <= remaining_cents:
+                result[i] += diff
+                remaining_cents -= diff
+            else:
+                diff = remaining_cents
+                result[i] += diff
+                remaining_cents -= diff
+    
+    return result
+```

@@ -1,0 +1,20 @@
+```typescript
+export function applyOverrides(base: Record<string, string>, overrides: string[]): Record<string, string> {
+  if (!Array.isArray(overrides)) {
+    throw new Error("Overrides argument must be an array.");
+  }
+
+  return overrides.reduce((merged, override) => {
+    const [name, value] = override.split('=', 2);
+    if (typeof name !== 'string' || typeof value !== 'string') {
+      throw new Error("Invalid override format.");
+    }
+    if (!name || !base[name]) {
+      throw new Error(`Setting '${name}' is not defined in base.`);
+    }
+
+    merged[name] = value;
+    return merged;
+  }, { ...base });
+}
+```

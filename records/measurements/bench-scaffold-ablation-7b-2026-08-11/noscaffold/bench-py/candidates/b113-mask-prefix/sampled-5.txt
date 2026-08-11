@@ -1,0 +1,26 @@
+```python
+def mask_from_prefix(prefix: int) -> str:
+    if not isinstance(prefix, int) or prefix < 0 or prefix > 32:
+        raise ValueError("Invalid mask count")
+    
+    return ".".join([str((1 << 8 * i) - (1 << 8 * i - prefix)) for i in range(4)])
+
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("Mask must be a string")
+    
+    parts = mask.split('.')
+    if len(parts) != 4 or any(not part.isdigit() or (part[0] == '0' and part != '0') for part in parts):
+        raise ValueError("Invalid mask format")
+    
+    prefix = 0
+    for part in parts:
+        value = int(part)
+        if value > 255:
+            raise ValueError("Octet above 255")
+        if value & (value - 1) != 0:
+            raise ValueError("Mask has broken ones")
+        prefix += (32 - ((value ^ (value + 1)).bit_length() - 1))
+    
+    return prefix
+```

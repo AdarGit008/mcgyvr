@@ -1,0 +1,29 @@
+```python
+def tile_renders(requests: list, fresh_for: int, size: int) -> list:
+    if not isinstance(fresh_for, int) or not isinstance(size, int):
+        raise ValueError("fresh_for and size must be positive integers.")
+    if fresh_for < 0 or size <= 0:
+        raise ValueError("fresh_for and size must be positive integers.")
+
+    cache = {}
+    renders = []
+
+    for tick, name in requests:
+        if tick < 0:
+            raise ValueError("Tick must not go backwards.")
+
+        if name in cache and tick - fresh_for >= cache[name]["tick"]:
+            # The tile is still fresh
+            renders.append([tick, name])
+        else:
+            # Render the tile again and add it to the cache
+            renders.append([tick, name])
+            cache[name] = {"tick": tick}
+            if len(cache) > size:
+                # Drop the oldest tile
+                oldest_tick_name = min(cache, key=lambda k: cache[k]["tick"])
+                del cache[oldest_tick_name]
+
+    return renders
+
+```

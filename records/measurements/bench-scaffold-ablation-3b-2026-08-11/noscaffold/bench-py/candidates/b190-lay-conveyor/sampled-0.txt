@@ -1,0 +1,33 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    """Lay a conveyor run on the factory floor plan."""
+    
+    # Check if the input is valid
+    if not isinstance(floor, list):
+        raise ValueError("Input must be a list.")
+    if not all(isinstance(row, int) and isinstance(col, int)):
+        raise ValueError("Row and col must be integers.")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    # Check if the row is within bounds
+    rows = len(floor)
+    if row < 0 or row >= rows:
+        raise ValueError(f"Row {row} is out of bounds (0 to {rows-1}).")
+    
+    # Check if the run would leave the plan
+    if col + length > len(floor[0]):
+        raise ValueError("Run would pass beyond the last column.")
+    
+    # Check if any cell in the run is not open
+    for i in range(length):
+        if floor[row][col + i] != '.':
+            raise ValueError(f"Cell at ({row}, {col+i}) is not an open space.")
+    
+    # Lay the conveyor run
+    new_floor = [list(row) for row in floor]
+    for i in range(length):
+        new_floor[row][col + i] = '='
+    
+    return new_floor
+```

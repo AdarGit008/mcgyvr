@@ -1,0 +1,30 @@
+```typescript
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("Amount must be a non-negative whole number.");
+  }
+
+  const isUnitValid = (u: string): boolean => u in defs;
+  if (!isUnitValid(unit)) {
+    throw new Error(`Invalid unit: ${unit}.`);
+  }
+  if (!isUnitValid(base) || base === unit) {
+    throw new Error(`Base unit must not be the same as a defined unit.`);
+  }
+
+  const findFactor = (u: string): number => defs[u][0];
+  const findFiner = (u: string): string => defs[u][1];
+
+  let currentUnit = unit;
+  while (currentUnit !== base) {
+    if (!isUnitValid(currentUnit)) {
+      throw new Error(`Undefined unit chain reached.`);
+    }
+    const [factor, finer] = defs[currentUnit];
+    amount *= factor;
+    currentUnit = finer;
+  }
+
+  return amount;
+}
+```

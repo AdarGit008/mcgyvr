@@ -1,0 +1,62 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    """
+    Prune paths from the listing based on ordered drop and keep rules.
+    
+    :param listing: List of relative slash-separated file paths.
+    :param rules: Ordered list of patterns deciding which paths survive.
+    :return: List of surviving paths in their original order.
+    """
+
+    def split_strict(s: str) -> list:
+        if not isinstance(s, str):
+            raise ValueError("Input must be a string.")
+        if s == "":
+            raise ValueError("Empty path is not allowed.")
+        return [segment for segment in s.split("/") if segment]
+
+    def matches(path_segments, rule_segments):
+        if len(rule_segments) != len(path_segments):
+            return False
+        for path_segment, rule_segment in zip(path_segments, rule_segments):
+            if pattern_matches(path_segment, rule_segment):
+                continue
+            else:
+                return False
+        return True
+
+    def pattern_matches(path_segment, rule_segment):
+        if rule_segment == "":
+            return True
+        elif rule_segment[0] == "!":
+            return path_segment != rule_segment[1:]
+        else:
+            return path_segment.startswith(rule_segment)
+
+    valid_paths = []
+    for path in listing:
+        if not isinstance(path, str) or len(path) == 0:
+            raise ValueError("Invalid path.")
+        
+        try:
+            path_segments = split_strict(path)
+        except ValueError as e:
+            print(f"Error processing path '{path}': {e}")
+            continue
+
+        for rule in rules:
+            if not isinstance(rule, str):
+                raise ValueError("Invalid rule.")
+            
+            try:
+                rule_segments = split_strict(rule)
+            except ValueError as e:
+                print(f"Error processing rule '{rule}': {e}")
+                continue
+            
+            if matches(path_segments, rule_segments):
+                valid_paths.append(path)
+                break
+
+    return valid_paths
+```

@@ -1,0 +1,22 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== 'string') {
+    throw new Error('Template must be a string.');
+  }
+
+  const placeholders = /\{\w+\}/g;
+  let match;
+
+  return template.replace(placeholders, (placeholder) => {
+    const name = placeholder.slice(1, -1);
+    if (!/^[a-zA-Z0-9_]+$/.test(name)) {
+      throw new Error(`Placeholder name '${name}' is invalid.`);
+    }
+    if (!(values[name] ?? '') || typeof values[name] !== 'string') {
+      throw new Error(`Value for placeholder '${name}' does not exist or is not a string.`);
+    }
+
+    return values[name];
+  });
+}
+```

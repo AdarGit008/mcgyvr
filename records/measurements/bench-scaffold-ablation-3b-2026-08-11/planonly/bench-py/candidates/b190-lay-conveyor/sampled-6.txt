@@ -1,0 +1,26 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    """
+    Lay a conveyor belt in the factory floor plan.
+
+    :param floor: List of equally long rows of characters ('.' or '#').
+    :param row: The starting row index (0-based).
+    :param col: The starting column index (0-based).
+    :param length: The number of cells to cover with the conveyor belt.
+    :return: A new list of rows with the conveyor belt laid, leaving the original plan unchanged.
+    :raises ValueError: If the run would pass the last column or cover a cell that is not open.
+    """
+    if row < 0 or col < 0 or length <= 0:
+        raise ValueError("Invalid input: row and col must be non-negative integers.")
+    
+    if row >= len(floor) or col >= len(floor[0]) or col + length > len(floor[0]):
+        raise ValueError("Run would pass the last column or cover a cell that is not open.")
+
+    for i in range(length):
+        if floor[row][col + i] != '.':
+            raise ValueError("Run would cover an already occupied cell.")
+    
+    new_floor = [row[:] for row in floor]
+    new_floor[row][col:col + length] = ['='] * length
+    return new_floor
+```

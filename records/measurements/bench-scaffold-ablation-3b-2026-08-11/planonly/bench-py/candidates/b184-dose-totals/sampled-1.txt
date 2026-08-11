@@ -1,0 +1,43 @@
+```python
+from typing import List, Dict
+
+def dose_totals(log: list) -> dict:
+    """
+    Calculate total dosages for each reagent in the pour log. Each amount is a string of millilitres,
+    potentially with a leading minus sign followed by one or more digits and optionally a decimal part.
+    Return a dictionary mapping reagents to their total dosage, formatted to the finest place count
+    given any amount used.
+
+    :param log: List of [reagent, amount] entries in pour order.
+    :return: Dictionary with reagent names as keys and their total dosages as strings.
+    """
+    def parse_amount(amount: str) -> float:
+        # Validate amount format
+        if not (amount.startswith('-') or amount.replace('.', '', 1).isdigit()):
+            raise ValueError(f"Invalid amount format: {amount}")
+        
+        return float(amount)
+    
+    totals = {}
+    
+    for reagent, amount_str in log:
+        try:
+            amount = parse_amount(amount_str)
+            if reagent not in totals:
+                totals[reagent] = 0
+            totals[reagent] += amount
+            
+            # Determine the finest place count for this reagent's total
+            decimals = int(abs(totals[reagent]).as_integer_ratio()[1])
+            if decimals > 0:
+                decimals = -int(abs(totals[reagent]).as_integer_ratio()[1])
+            
+            # Format the total to the finest place count
+            formatted_total = f"{totals[reagent]:.{decimals}f}"
+            totals[reagent] = formatted_total
+        
+        except ValueError as e:
+            print(f"Error processing amount {amount_str}: {e}")
+    
+    return totals
+```

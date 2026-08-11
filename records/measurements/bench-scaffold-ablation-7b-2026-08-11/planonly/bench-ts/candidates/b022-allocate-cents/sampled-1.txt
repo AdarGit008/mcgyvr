@@ -1,0 +1,63 @@
+```ts
+/**
+ * Parses a decimal amount string into integer cents.
+ * @param text - A string representing a decimal amount with up to two fraction digits.
+ * @returns The integer number of cents represented by the input string.
+ */
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  const match = text.match(/^[0-9]+(\.[0-9]{1,2})?$/);
+  if (!match) {
+    throw new Error('Invalid decimal amount format');
+  }
+  return Math.round(Number(text) * 100);
+}
+
+/**
+ * Formats a non-negative integer cents back into a dotted form with exactly two fraction digits.
+ * @param cents - A non-negative integer representing the amount in cents.
+ * @returns The formatted string representation of the amount.
+ */
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || cents < 0 || !Number.isInteger(cents)) {
+    throw new Error('Input must be a non-negative integer');
+  }
+  return `${cents / 100}.`.padEnd(4, '0').slice(-2);
+}
+
+/**
+ * Allocates totalCents across a list of integer weights proportionally.
+ * @param totalCents - The total number of cents to allocate.
+ * @param weights - An array of non-negative integers representing the shares' weights.
+ * @returns An array of non-negative integers representing the allocated cents for each weight.
+ */
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (!Array.isArray(weights) || weights.length === 0) {
+    throw new Error('Weights list cannot be empty');
+  }
+  if (weights.some(weight => typeof weight !== 'number' || weight < 0 || !Number.isInteger(weight))) {
+    throw new Error('All weights must be non-negative integers');
+  }
+  if (weights.reduce((sum, weight) => sum + weight, 0) === 0) {
+    throw new Error('Weights cannot sum to zero');
+  }
+  if (typeof totalCents !== 'number' || totalCents < 0 || !Number.isInteger(totalCents)) {
+    throw new Error('Total cents must be a non-negative integer');
+  }
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const baseShares = weights.map(weight => Math.floor((weight / totalWeight) * totalCents));
+  let remainingCents = totalCents - baseShares.reduce((sum, share) => sum + share, 0);
+
+  for (let i = 0; i < remainingCents; i++) {
+    const maxRemainderIndex = weights.findIndex(weight => weight > 0);
+    if (maxRemainderIndex === -1) break;
+    baseShares[maxRemainderIndex]++;
+    weights[maxRemainderIndex]--;
+  }
+
+  return baseShares;
+}
+```

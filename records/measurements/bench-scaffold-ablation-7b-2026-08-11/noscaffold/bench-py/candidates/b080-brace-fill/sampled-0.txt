@@ -1,0 +1,28 @@
+```python
+import re
+
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("template must be a string")
+    
+    pattern = r'\{[a-zA-Z0-9_]+\}'
+    placeholders = re.findall(pattern, template)
+    
+    for placeholder in placeholders:
+        name = placeholder[1:-1]
+        if not name or not re.match(r'^[a-zA-Z0-9_]+$', name):
+            raise ValueError(f"invalid placeholder: {placeholder}")
+        
+        if name not in values:
+            raise ValueError(f"missing value for placeholder: {placeholder}")
+    
+    result = []
+    start = 0
+    for match in re.finditer(pattern, template):
+        result.append(template[start:match.start()])
+        result.append(values[match.group(0)[1:-1]])
+        start = match.end()
+    
+    result.append(template[start:])
+    return ''.join(result)
+```

@@ -1,0 +1,61 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern: str, text: str) -> bool:
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text: str, what: str) -> list[str]:
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    # Validate every rule and path with split_strict
+    for path in listing:
+        split_strict(path, "path")
+
+    for rule in rules:
+        if rule == "":
+            continue
+        if rule[0] == "!":
+            if len(rule) == 1 or not all(segment != "" for segment in split_strict(rule[1:], "rule")):
+                raise ValueError(f"keep rule must be a non-empty string with no empty segments: {rule}")
+        else:
+            if len(rule) == 0 or not all(segment != "" for segment in split_strict(rule, "rule")):
+                raise ValueError(f"drop rule must be a non-empty string with no empty segments: {rule}")
+
+    # Keep each path the last matching rule allows; a path no rule matches survives
+    result = []
+    keep_mode = False
+    for rule in rules:
+        if rule[0] == "!":
+            keep_mode = True
+        pattern = rule[1:] if rule.startswith("!") else rule
+        matched = any(segment_fits(pattern, path) for path in listing)
+        if (keep_mode and matched) or not keep_mode and not matched:
+            result.append(rule)
+
+    return result
+```

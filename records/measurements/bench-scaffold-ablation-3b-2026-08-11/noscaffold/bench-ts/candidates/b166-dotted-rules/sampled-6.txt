@@ -1,0 +1,41 @@
+```typescript
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== 'string' || !name) {
+    throw new Error('Name must be a non-empty string');
+  }
+
+  const isStar = (str: string): boolean => str === '*';
+
+  if (!isStar(name)) {
+    if (rules[name]) return rules[name];
+  }
+
+  for (const [selector, value] of Object.entries(rules)) {
+    const splitSelector = selector.split('.');
+    if (splitSelector.pop() !== '.*') {
+      throw new Error('Selectors ending with ".*" are not allowed');
+    }
+
+    let matchIndex = -1;
+    for (let i = 0; i < splitSelector.length; i++) {
+      if (!isStar(splitSelector[i])) {
+        matchIndex = i;
+        break;
+      }
+    }
+
+    if (matchIndex !== -1) {
+      const prefix = splitSelector.slice(0, matchIndex).join('.');
+      return rules[prefix + '.*'];
+    }
+  }
+
+  if (name === '*') {
+    for (const value of Object.values(rules)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+```

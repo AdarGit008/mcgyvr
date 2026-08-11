@@ -1,0 +1,43 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(span)) {
+    throw new Error("Invalid span format");
+  }
+
+  const parseTime = (timeStr: string): [number, number] => {
+    const [hoursStr, minutesStr] = timeStr.split(":").map(Number);
+    if (isNaN(hoursStr) || isNaN(minutesStr) || hoursStr < 0 || hoursStr > 23 || minutesStr < 0 || minutesStr > 59) {
+      throw new Error("Invalid time format");
+    }
+    return [hoursStr, minutesStr];
+  };
+
+  const spanTimes = span.split("-").map(parseTime);
+  const bookedTimes = booked.map((time) => time.split("-").map(parseTime));
+
+  const compareTimes = ([h1, m1]: [number, number], [h2, m2]: [number, number]): number => {
+    if (h1 !== h2) return h1 - h2;
+    return m1 - m2;
+  };
+
+  bookedTimes.sort(compareTimes);
+
+  let freeParts: string[] = [];
+  let currentEnd: [number, number] = spanTimes[0];
+
+  for (const booking of bookedTimes) {
+    if (compareTimes(booking[0], currentEnd) > 0) {
+      const [hours, minutes] = currentEnd;
+      freeParts.push(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}-${booking[0][0]}:${String(booking[0][1]).padStart(2, '0')}`);
+    }
+    currentEnd = booking[1];
+  }
+
+  if (compareTimes(currentEnd, spanTimes[1]) < 0) {
+    const [hours, minutes] = currentEnd;
+    freeParts.push(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}-${spanTimes[1][0]}:${String(spanTimes[1][1]).padStart(2, '0')}`);
+  }
+
+  return freeParts.length > 0 ? freeParts.join(", ") : "none";
+}
+```

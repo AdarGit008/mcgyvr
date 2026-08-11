@@ -1,0 +1,46 @@
+```ts
+import { split } from "lodash";
+
+function splitStrict(path: string): string[] {
+  if (typeof path !== 'string' || path.includes('//') || path.startsWith('/') || path.endsWith('/')) {
+    throw new Error("Invalid path");
+  }
+  return path.split('/');
+}
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  const normalizedRules = rules.map(rule => {
+    if (typeof rule !== 'string' || rule === '' || rule === '!') {
+      throw new Error("Invalid rule");
+    }
+    return splitStrict(rule);
+  });
+
+  const survivingPaths = listing.filter(path => {
+    const segments = splitStrict(path);
+    let lastMatchingRule: boolean | null = null;
+
+    for (const rule of normalizedRules) {
+      if (rule[0] === '!') continue; // Skip keep rules
+      if (segments.length < rule.length) break;
+      if (segments.every((segment, index) => segment === rule[index])) {
+        lastMatchingRule = false;
+        break;
+      }
+    }
+
+    for (const rule of normalizedRules.reverse()) {
+      if (rule[0] !== '!') continue; // Skip drop rules
+      if (segments.length < rule.length) break;
+      if (segments.every((segment, index) => segment === rule[index])) {
+        lastMatchingRule = true;
+        break;
+      }
+    }
+
+    return lastMatchingRule !== false;
+  });
+
+  return survivingPaths;
+}
+```

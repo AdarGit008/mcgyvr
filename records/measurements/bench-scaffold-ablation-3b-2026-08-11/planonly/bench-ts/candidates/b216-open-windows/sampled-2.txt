@@ -1,0 +1,48 @@
+```typescript
+// Define a utility function to parse a time string into minutes past midnight
+function parseTime(time: string): number {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+}
+
+// Define a utility function to format a time in HH:MM format
+function formatTime(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const minutesFormatted = String(minutes % 60).padStart(2, '0');
+    return `${hours.toString().padStart(2, '0')}:${minutesFormatted}`;
+}
+
+// Main function to find free windows in a clinic's schedule
+export function openWindows(span: string, booked: string[]): string {
+    if (!/^([0-9]{2}):([0-9]{2})-([0-9]{2}):([0-9]{2})$/.test(span)) {
+        throw new Error("Invalid span format");
+    }
+    
+    if (booked.some(time => !/^[0-9]{2}:([0-9]{2})-([0-9]{2}):([0-9]{2})$/.test(time))) {
+        throw new Error("Invalid appointment format");
+    }
+
+    const [spanStart, spanEnd] = span.split('-').map(parseTime);
+    const bookedTimes = booked.map(time => time.split('-').map(parseTime));
+
+    // Sort both the span and booked times
+    bookedTimes.sort((a, b) => a[0] - b[0]);
+
+    let freeWindows: string[] = [];
+    let lastEnd = 0;
+
+    for (const [startTime, endTime] of bookedTimes) {
+        if (startTime > lastEnd) {
+            freeWindows.push(formatTime(lastEnd));
+        }
+        lastEnd = Math.max(lastEnd, endTime);
+    }
+
+    // Check if there is a remaining free window after the last appointment
+    if (spanEnd > lastEnd) {
+        freeWindows.push(formatTime(lastEnd));
+    }
+
+    return freeWindows.length === 0 ? "none" : freeWindows.join(", ");
+}
+```

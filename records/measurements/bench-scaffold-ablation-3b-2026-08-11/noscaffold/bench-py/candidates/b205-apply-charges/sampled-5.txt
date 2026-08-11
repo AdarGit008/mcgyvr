@@ -1,0 +1,27 @@
+```python
+def apply_charges(caps: dict, charges: list) -> dict:
+    """
+    Apply charges to buckets based on their quotas.
+
+    :param caps: A dictionary mapping bucket names to a pair of allowance and largest single charge.
+    :param charges: A list of tuples (charge_id, bucket_name, amount).
+    :return: A dictionary with 'left' showing remaining allowances in each bucket,
+             and 'refused' containing pairs of charge id and reason for refusal.
+    """
+    result = {'left': caps.copy(), 'refused': []}
+    
+    for charge_id, bucket_name, amount in charges:
+        if amount <= 0 or not isinstance(amount, int):
+            raise ValueError("Amount must be a positive whole number.")
+        
+        if bucket_name not in caps:
+            result['refused'].append((charge_id, 'unknown'))
+        elif amount > caps[bucket_name][1]:
+            result['refused'].append((charge_id, 'single'))
+        elif amount > (caps[bucket_name][0] - caps[bucket_name][1]):
+            result['left'][bucket_name] -= amount
+        else:
+            result['left'][bucket_name] = caps[bucket_name][0] - amount
+    
+    return result
+```

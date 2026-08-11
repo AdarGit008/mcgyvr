@@ -1,0 +1,55 @@
+```python
+from typing import List, Dict
+
+def stamp_table(dies: List[List[str, int]]) -> Dict[str, int]:
+    def is_valid_fragment(fragment):
+        return isinstance(fragment, str) and fragment
+
+    def is_positive_integer(price):
+        try:
+            price = int(price)
+            return price > 0
+        except ValueError:
+            return False
+
+    stamp_map = {}
+    for die in dies:
+        fragment, price = die
+        if not (is_valid_fragment(fragment) and is_positive_integer(price)):
+            raise ValueError("Fragment must be a non-empty string and price must be a positive integer.")
+        
+        if fragment in stamp_map:
+            raise ValueError(f"Fragment '{fragment}' appears more than once.")
+
+        stamp_map[fragment] = price
+
+    return stamp_map
+
+
+def stamp_cover(label: str, dies: List[List[str, int]]) -> int:
+    def is_valid_label(label):
+        return isinstance(label, str) and label
+
+    if not is_valid_label(label):
+        raise ValueError("Label must be a non-empty string.")
+
+    stamp_table_dict = stamp_table(dies)
+    
+    def dp(i: int) -> int:
+        if i == len(label):
+            return 0
+        min_cost = float('inf')
+        for fragment, price in stamp_table_dict.items():
+            if label.startswith(fragment, i):
+                cost = price + dp(i + len(fragment))
+                min_cost = min(min_cost, cost)
+        return min_cost
+
+    return dp(0)
+
+
+# Example usage:
+# dies = [["aa", 2], ["a", 5]]
+# label = "aaa"
+# print(stamp_cover(label, dies))  # Output: 4
+```

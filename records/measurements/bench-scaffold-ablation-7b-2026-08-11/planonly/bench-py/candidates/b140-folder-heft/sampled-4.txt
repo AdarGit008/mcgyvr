@@ -1,0 +1,58 @@
+```python
+def file_paths(root: dict) -> list:
+    """List all file paths in a storage tree."""
+    result = []
+    
+    def walk(node, path):
+        if isinstance(node, dict):
+            name = node.get('name')
+            if not isinstance(name, str) or '/' in name or (isinstance(node, dict) and ('bytes' in node and 'children' in node)):
+                raise ValueError("Invalid node structure")
+            if 'bytes' in node:
+                result.append(path + [name])
+            elif 'children' in node:
+                for child in node['children']:
+                    walk(child, path + [name])
+    
+    walk(root, [])
+    return ['/'.join(path) for path in result]
+
+def tree_bytes(root: dict) -> int:
+    """Calculate the total bytes of a storage tree."""
+    def walk(node):
+        if isinstance(node, dict):
+            if 'bytes' in node and 'children' in node:
+                raise ValueError("Node cannot have both bytes and children")
+            elif 'bytes' in node:
+                return node['bytes']
+            elif 'children' in node:
+                return sum(walk(child) for child in node['children'])
+        raise ValueError("Invalid node structure")
+    
+    return walk(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    """Report folders with at least min_bytes."""
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative integer")
+    
+    result = []
+    
+    def walk(node, path, current_bytes):
+        if isinstance(node, dict):
+            name = node.get('name')
+            if not isinstance(name, str) or '/' in name or (isinstance(node, dict) and ('bytes' in node and 'children' in node)):
+                raise ValueError("Invalid node structure")
+            if 'bytes' in node:
+                current_bytes += node['bytes']
+                if len(path):
+                    result.append(['/'.join(path), current_bytes])
+                return current_bytes
+            elif 'children' in node:
+                for child in node['children']:
+                    current_bytes = walk(child, path + [name], current_bytes)
+        raise ValueError("Invalid node structure")
+    
+    walk(root, [], 0)
+    return result
+```

@@ -1,0 +1,78 @@
+```typescript
+export function filePaths(root: object): string[] {
+  const paths: string[] = [];
+
+  function walk(node: any, currentPath: string[] = []): void {
+    if (typeof node !== 'object' || !Array.isArray(node)) {
+      throw new Error('Invalid node');
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+      const newPath = [...currentPath, key];
+      if (typeof key === 'string' && /^[^\s/]+$/.test(key) && key.includes('/')) {
+        paths.push(newPath.join('/'));
+      }
+      walk(value, newPath);
+    }
+  }
+
+  walk(root);
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  let totalBytes = 0;
+
+  function calculateBytes(node: any): void {
+    if (typeof node !== 'object' || !Array.isArray(node)) {
+      throw new Error('Invalid node');
+    }
+
+    for (const value of Object.values(node)) {
+      if (typeof value === 'number') {
+        totalBytes += value;
+      } else if (typeof value === 'object' && Array.isArray(value)) {
+        calculateBytes(value);
+      }
+    }
+  }
+
+  calculateBytes(root);
+  return totalBytes;
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  const results: [string, number][] = [];
+
+  if (!Number.isInteger(minBytes) || minBytes < 0) {
+    throw new Error('Invalid minBytes');
+  }
+
+  function processFolder(node: any, path: string[] = []): void {
+    if (typeof node !== 'object' || !Array.isArray(node)) {
+      throw new Error('Invalid node');
+    }
+
+    let folderBytes = 0;
+    const folderPath = path.join('/');
+
+    for (const [key, value] of Object.entries(node)) {
+      if (typeof key === 'string' && /^[^\s/]+$/.test(key) && key.includes('/')) {
+        throw new Error('Invalid node');
+      }
+      if (typeof value === 'number') {
+        folderBytes += value;
+      } else if (typeof value === 'object' && Array.isArray(value)) {
+        processFolder(value, [...path, key]);
+      }
+    }
+
+    if (folderBytes >= minBytes) {
+      results.push([folderPath, folderBytes]);
+    }
+  }
+
+  processFolder(root);
+  return results;
+}
+```

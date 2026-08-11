@@ -1,0 +1,64 @@
+```typescript
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    throw new Error("Capacity must be a positive integer");
+  }
+  const expectedWordCount = Math.ceil(capacity / 32);
+  if (words.length !== expectedWordCount) {
+    throw new Error(`Bitmap word count ${words.length} does not match capacity ${capacity}`);
+  }
+
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("Length must be a positive integer");
+  }
+  if (length > capacity - start) {
+    throw new Error(`Run length exceeds available free space from start`);
+  }
+
+  for (let i = 0; i + Math.floor(length / 32) < words.length; i++) {
+    const word = words[i];
+    let freeStart = 0;
+    let j = 0;
+    while (j < length && freeStart < 32) {
+      if ((word & (1 << freeStart)) === 0) {
+        j++;
+      } else {
+        freeStart += 8 - (freeStart % 8);
+      }
+    }
+    if (j === length) {
+      return i * 32 + freeStart;
+    }
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (!Number.isInteger(start)) {
+    throw new Error("Start index must be an integer");
+  }
+  if (!Number.isInteger(length) || length <= 0) {
+    throw new Error("Length must be a positive integer");
+  }
+
+  const wordCount = words.length;
+  for (let i = start / 32; i < (start + length) / 32 && i < wordCount; i++) {
+    if ((words[i] & ((1 << (length % 32)) - 1)) !== 0) {
+      throw new Error(`Run ${length} starting at index ${start} overlaps an occupied block`);
+    }
+    words[i] |= (((1 << length) - 1) << (start % 32));
+  }
+
+  return words;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (!Number.isInteger(index)) {
+    throw new Error("Index must be an integer");
+  }
+  const word = words[index / 32];
+  const bit = (word >> (index % 32)) & 1;
+  return bit === 0 ? 0 : 1;
+}
+```

@@ -1,0 +1,77 @@
+```typescript
+export function parseSpan(text: string): number {
+  // Validate span text against part grammar and unit order
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error('Invalid input');
+  }
+
+  const parts = text.split(/\s+/).filter(part => !!part);
+
+  const validUnits = ['yd', 'ft', 'in'];
+  let totalInches = 0;
+
+  for (const part of parts) {
+    const match = /^(\d+)([yf]?i?)$/.exec(part);
+    if (!match) {
+      throw new Error('Invalid unit');
+    }
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+
+    // Validate and convert value to inches
+    switch (unit) {
+      case 'yd':
+        totalInches += value * 36;
+        break;
+      case 'ft':
+        totalInches += value * 12;
+        break;
+      case 'i':
+        totalInches += value;
+        break;
+      default:
+        throw new Error('Invalid unit');
+    }
+  }
+
+  return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+  // Validate inches input
+  if (typeof inches !== 'number' || !Number.isInteger(inches) || inches < 0) {
+    throw new Error('Invalid inches value');
+  }
+
+  const units = [
+    { name: 'yd', factor: 36 },
+    { name: 'ft', factor: 12 },
+    { name: 'in', factor: 1 }
+  ];
+
+  let result = '';
+
+  for (const unit of units) {
+    if (inches >= unit.factor) {
+      const count = Math.floor(inches / unit.factor);
+      inches %= unit.factor;
+      result += `${count}${unit.name}${result ? ' ' : ''}`;
+    }
+  }
+
+  return result || '0in';
+}
+
+export function addSpans(first: string, second: string): string {
+  // Validate span arguments
+  if (typeof first !== 'string' || typeof second !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const totalInches1 = parseSpan(first);
+  const totalInches2 = parseSpan(second);
+
+  return formatSpan(totalInches1 + totalInches2);
+}
+```

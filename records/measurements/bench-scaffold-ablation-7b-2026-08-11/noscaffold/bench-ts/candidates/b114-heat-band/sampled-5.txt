@@ -1,0 +1,41 @@
+```ts
+/**
+ * Simulate a thermostat tick by tick.
+ * @param start - Initial room temperature.
+ * @param low - Lower bound of the thermostat band.
+ * @param high - Upper bound of the thermostat band.
+ * @param power - Power output of the heater when on.
+ * @param drifts - List of temperature drifts for each tick.
+ * @returns Object containing final temperature, total ticks the heater was on,
+ *          number of state switches, and the coldest temperature seen.
+ */
+export function runThermostat(start: number, low: number, high: number, power: number, drifts: number[]): { temp: number; heated: number; switches: number; coldest: number } {
+    if (!Number.isInteger(start) || !Number.isInteger(low) || !Number.isInteger(high) || start !== Math.floor(start) || low !== Math.floor(low) || high !== Math.floor(high)) throw new Error('Start, low, and high must be integers.');
+    if (low >= high) throw new Error('Low must be strictly below high.');
+    if (!Number.isInteger(power) || power <= 0) throw new Error('Power must be a positive integer.');
+    if (!Array.isArray(drifts) || drifts.some(d => !Number.isInteger(d))) throw new Error('Drifts must be an array of integers.');
+
+    let temp = start;
+    let heated = 0;
+    let switches = 0;
+    let coldest = start;
+
+    for (let i = 0; i < drifts.length; i++) {
+        const heaterOn = temp < low || temp >= high;
+        if (heaterOn && !heated) {
+            heated++;
+            switches++;
+        } else if (!heaterOn && heated) {
+            switches++;
+        }
+
+        temp += drifts[i];
+        if (power > 0 && heaterOn) {
+            temp += power;
+        }
+        coldest = Math.min(coldest, temp);
+    }
+
+    return { temp, heated, switches, coldest };
+}
+```

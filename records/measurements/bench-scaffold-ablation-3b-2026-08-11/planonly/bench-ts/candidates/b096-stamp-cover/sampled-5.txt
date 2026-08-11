@@ -1,0 +1,45 @@
+```ts
+import { Map } from "typescript-collections";
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  const table = stampTable(dies);
+
+  if (!label || typeof label !== "string" || label.length === 0) {
+    throw new Error("Invalid label");
+  }
+
+  const dp: Array<number | null> = new Array(label.length + 1).fill(null);
+  dp[0] = 0;
+
+  for (let i = 1; i <= label.length; i++) {
+    dp[i] = Infinity;
+    for (const [fragment, price] of table.entries()) {
+      if (i >= fragment.length && label.substring(i - fragment.length, i) === fragment) {
+        const cost = dp[i - fragment.length] + price;
+        if (cost < dp[i]) {
+          dp[i] = cost;
+        }
+      }
+    }
+  }
+
+  return dp[label.length] !== Infinity ? dp[label.length] : -1;
+}
+
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+  for (const [fragment, price] of dies) {
+    if (!fragment || typeof fragment !== "string" || fragment.length === 0) {
+      throw new Error("Invalid fragment");
+    }
+    if (typeof price !== "number" || price <= 0) {
+      throw new Error("Invalid price");
+    }
+    if (table.containsKey(fragment)) {
+      throw new Error(`Fragment ${fragment} listed twice`);
+    }
+    table.put(fragment, price);
+  }
+  return table;
+}
+```

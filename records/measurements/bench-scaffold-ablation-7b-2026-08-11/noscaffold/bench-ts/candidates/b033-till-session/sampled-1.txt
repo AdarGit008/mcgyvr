@@ -1,0 +1,65 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+    let cart: Record<string, number> = {};
+    let state: "open" | "payment" | "paid" | "cancelled" = "open";
+    let total: number = 0;
+    let paid: number = 0;
+
+    for (const event of events) {
+        if (state === "paid" || state === "cancelled") {
+            throw new Error("Event after session is paid or cancelled");
+        }
+
+        switch (event[0]) {
+            case "scan":
+                if (prices[event[1]] !== undefined && prices[event[1]] > 0) {
+                    cart[event[1]] = (cart[event[1]] || 0) + 1;
+                } else {
+                    throw new Error("Invalid item or price");
+                }
+                break;
+
+            case "void":
+                if (cart[event[1]] !== undefined && cart[event[1]] > 0) {
+                    cart[event[1]] -= 1;
+                    if (cart[event[1]] === 0) delete cart[event[1]];
+                } else {
+                    throw new Error("Item not in cart");
+                }
+                break;
+
+            case "close":
+                if (Object.keys(cart).length > 0) {
+                    total = Object.entries(cart).reduce((acc, [item, quantity]) => acc + prices[item] * quantity, 0);
+                    state = "payment";
+                } else {
+                    throw new Error("Cannot close with an empty cart");
+                }
+                break;
+
+            case "pay":
+                if (state === "payment" && event[1] > 0) {
+                    paid += event[1];
+                    if (paid >= total) {
+                        state = "paid";
+                        change = paid - total;
+                    }
+                } else {
+                    throw new Error("Invalid pay amount or not in payment state");
+                }
+                break;
+
+            case "cancel":
+                state = "cancelled";
+                break;
+
+            default:
+                throw new Error("Unknown action");
+        }
+    }
+
+    const items: [string, number][] = Object.entries(cart).sort(([a], [b]) => a.localeCompare(b));
+
+    return { state, items, total, paid, change };
+}
+```

@@ -1,0 +1,41 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("Prefix must be an integer from 0 to 32.");
+  }
+
+  const octets = [];
+  for (let i = 0; i < 4; i++) {
+    const bit = prefix - Math.pow(2, 31 + i);
+    if (bit >= 0) {
+      octets.push(bit / Math.pow(2, 8 + i));
+    } else {
+      octets.push(Math.pow(2, 8 + i) + bit);
+    }
+  }
+
+  return octets.join(".");
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== "string" || !mask.includes(".")) {
+    throw new Error("Invalid mask format.");
+  }
+
+  const parts = mask.split(".");
+  if (parts.length !== 4) {
+    throw new Error("Exactly four dot-separated fields are required.");
+  }
+
+  let prefix = 0;
+  for (let i = 0; i < 4; i++) {
+    const octet = parseInt(parts[i], 10);
+    if (!Number.isInteger(octet) || octet < 0 || octet > 255) {
+      throw new Error("Each field must be a decimal number between 0 and 255.");
+    }
+    prefix += Math.pow(2, 31 - i) * (octet <= 128 ? octet : 256 - octet);
+  }
+
+  return prefix;
+}
+```

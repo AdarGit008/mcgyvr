@@ -1,0 +1,26 @@
+```ts
+/**
+ * Thaws ice in a row of cells for a given number of steps.
+ * @param row - The row of cells as a string, where "#" is ice and "." is meltwater.
+ * @param steps - The number of thaw steps to perform.
+ * @returns The row after the specified number of thaw steps.
+ */
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || row === '') throw new Error('Invalid row input');
+  if (!Number.isInteger(steps) || steps < 0) throw new Error('Invalid step count');
+
+  const cells = row.split('');
+
+  for (let i = 0; i < steps; i++) {
+    const nextCells = [...cells];
+    for (let j = 0; j < cells.length; j++) {
+      if (cells[j] === '.' || (j > 0 && cells[j - 1] === '.') || (j < cells.length - 1 && cells[j + 1] === '.')) {
+        nextCells[j] = '.';
+      }
+    }
+    cells = nextCells;
+  }
+
+  return cells.join('');
+}
+```

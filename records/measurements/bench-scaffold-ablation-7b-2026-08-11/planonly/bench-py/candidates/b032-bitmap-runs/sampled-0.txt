@@ -1,0 +1,59 @@
+```python
+def find_free_run(words: list, bits: int, length: int) -> int:
+    if not words or not isinstance(bits, int) or not isinstance(length, int):
+        raise ValueError("Invalid arguments")
+    
+    if length <= 0:
+        raise ValueError("Run length must be a positive integer")
+    
+    word_count = (bits + 31) // 32
+    if len(words) != word_count:
+        raise ValueError("Word count disagrees with capacity")
+    
+    for i in words:
+        if not isinstance(i, int) or i < 0 or i > 4294967295:
+            raise ValueError("Invalid bitmap word")
+    
+    if bits <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    
+    free_run = -1
+    for start in range(bits):
+        end = start + length
+        if end > bits:
+            break
+        
+        occupied = any(words[i] & (1 << (start % 32)) or words[i] & (1 << ((end - 1) % 32)))
+        if not occupied:
+            free_run = start
+            break
+    
+    return free_run
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    if not isinstance(start, int) or not isinstance(length, int):
+        raise ValueError("Invalid arguments")
+    
+    if length <= 0:
+        raise ValueError("Run length must be a positive integer")
+    
+    word_count = (len(words) * 32)
+    if start + length > word_count:
+        raise ValueError("Run does not lie wholly inside the words or touches an occupied block")
+    
+    new_words = list(words)
+    for i in range(start, start + length):
+        new_words[i // 32] |= (1 << (i % 32))
+    
+    return new_words
+
+def bit_at(words: list, index: int) -> int:
+    if not isinstance(index, int):
+        raise ValueError("Invalid arguments")
+    
+    word_count = (len(words) * 32)
+    if index < 0 or index >= word_count:
+        raise ValueError("Index out of bounds")
+    
+    return (words[index // 32] >> (index % 32)) & 1
+```

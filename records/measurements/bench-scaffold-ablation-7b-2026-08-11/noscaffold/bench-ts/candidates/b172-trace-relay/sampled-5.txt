@@ -1,0 +1,25 @@
+```ts
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || links === null || Array.isArray(links)) {
+    throw new Error('Invalid links argument');
+  }
+
+  const postNames = Object.keys(links);
+  if (!postNames.includes(start)) {
+    throw new Error('Invalid start post');
+  }
+
+  const visited: Set<string> = new Set();
+  let currentPost: string | undefined = start;
+
+  while (currentPost !== '') {
+    if (visited.has(currentPost)) {
+      throw new Error('Handoff loop detected');
+    }
+    visited.add(currentPost);
+    currentPost = links[currentPost];
+  }
+
+  return Array.from(visited).concat('');
+}
+```

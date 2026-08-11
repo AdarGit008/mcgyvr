@@ -1,0 +1,58 @@
+```python
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    """
+    Walks a patrol bot along a corridor and reports its final cell, wall bumps,
+    and distinct cells visited.
+
+    :param width: the width of the corridor (must be a positive integer)
+    :param start: the starting position of the bot (within the corridor)
+    :param moves: a list of signed moves to apply to the bot
+    :return: a dictionary containing the final cell, wall bumps, and visited cells
+    """
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("Width must be a positive integer.")
+    
+    if not (isinstance(start, int) and 0 <= start < width):
+        raise ValueError("Start position must be an integer between 0 and width - 1.")
+
+    if not all(isinstance(move, int) for move in moves):
+        raise ValueError("Moves must be a list of integers.")
+
+    final_position = start
+    wall_bumps = 0
+    visited_set = {start}
+
+    for delta in moves:
+        result = clamp_move(final_position, delta, width)
+        new_position, cut_short = result
+
+        if not cut_short:
+            wall_bumps += abs(delta) - 1
+            final_position = new_position
+            visited_set.add(new_position)
+
+    return {
+        'position': final_position,
+        'bumps': wall_bumps,
+        'visited': len(visited_set)
+    }
+
+def clamp_move(position: int, delta: int, width: int) -> list:
+    """
+    Applies one signed move to a position and reports the landing cell
+    together with a flag telling whether a wall cut the move short.
+
+    :param position: the starting position of the bot (within the corridor)
+    :param delta: the signed move to apply
+    :param width: the width of the corridor
+    :return: a list containing the landing cell and a boolean indicating if a wall cut the move short
+    """
+    new_position = position + delta
+
+    if new_position < 0:
+        return [0, True]
+    elif new_position >= width:
+        return [width - 1, True]
+
+    return [new_position, False]
+```

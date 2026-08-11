@@ -1,0 +1,26 @@
+```typescript
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+    if (want <= 0) {
+        throw new Error('Order must be for a positive number of units.');
+    }
+
+    const result: Record<string, number> = {};
+
+    const resolveComponent = (component: string, count: number): void => {
+        if (!(component in catalog)) {
+            throw new Error(`Unknown component: ${component}`);
+        }
+
+        const { makes, parts } = catalog[component];
+        const runs = Math.ceil(count / makes);
+
+        for (const [part, partCount] of parts) {
+            result[part] = (result[part] || 0) + runs * partCount;
+        }
+    };
+
+    resolveComponent(kit, want);
+
+    return result;
+}
+```

@@ -1,0 +1,77 @@
+```typescript
+/**
+ * Validates a stockroom entry string.
+ * @param entry - The entry to validate.
+ * @returns true if valid, throws Error otherwise.
+ */
+function validateEntry(entry: string): boolean {
+  const [name, count] = entry.split(':');
+  if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(count)) {
+    throw new Error('Malformed sheet entry');
+  }
+  return true;
+}
+
+/**
+ * Validates a stockroom move string.
+ * @param move - The move to validate.
+ * @returns true if valid, throws Error otherwise.
+ */
+function validateMove(move: string): boolean {
+  const [name, qtyStr] = move.split(/[+-]/);
+  if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(qtyStr)) {
+    throw new Error('Malformed move');
+  }
+  return true;
+}
+
+/**
+ * Closes the stockroom sheet based on opening entries and moves.
+ * @param opening - The opening sheet as a semicolon-separated string of name:count pairs.
+ * @param moves - The day's moves as a semicolon-separated string of name+/-qty pairs.
+ * @returns The closing sheet as a semicolon-separated string of name:count pairs, sorted by name.
+ */
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Non-string argument');
+  }
+
+  const entries = opening.split(';').filter(Boolean);
+  const moveList = moves.split(';').filter(Boolean);
+
+  // Validate and parse opening entries
+  const inventory: { [name: string]: number } = {};
+  for (const entry of entries) {
+    if (!validateEntry(entry)) continue;
+    const [name, count] = entry.split(':');
+    if (inventory[name]) throw new Error('Duplicate item name');
+    inventory[name] = parseInt(count, 10);
+  }
+
+  // Process moves
+  for (const move of moveList) {
+    if (!validateMove(move)) continue;
+    const [action, qtyStr] = move.split(/[+-]/);
+    const qty = parseInt(qtyStr, 10);
+    if (qty <= 0) throw new Error('Malformed move');
+
+    if (action === '+') {
+      inventory[action] = (inventory[action] || 0) + qty;
+    } else if (action === '-') {
+      if (!inventory[move] || inventory[move] < qty) {
+        throw new Error('Insufficient stock for issue');
+      }
+      inventory[move] -= qty;
+    }
+  }
+
+  // Filter out items with zero count and sort by name
+  const result = Object.entries(inventory)
+    .filter(([_, count]) => count > 0)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, count]) => `${name}:${count}`)
+    .join(';');
+
+  return result;
+}
+```

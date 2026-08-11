@@ -1,0 +1,28 @@
+```
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    if unit not in defs:
+        raise ValueError(f"unit '{unit}' is not defined in defs")
+    factor = defs[unit][0]
+    if not (isinstance(factor, int) and factor > 0):
+        raise ValueError(f"factor for unit '{unit}' must be a positive integer")
+    
+    def find_base(amount, current_unit):
+        nonlocal base
+        if current_unit == base:
+            return amount
+        finer = defs.get(current_unit)
+        if not finer or len(finer) != 2:
+            raise ValueError(f"chain from {current_unit} to base is invalid")
+        finer_factor = finer[0]
+        if not (isinstance(finer_factor, int) and finer_factor > 0):
+            raise ValueError(f"factor for unit '{current_unit}' must be a positive integer")
+        
+        return find_base(amount * finer_factor, defs[current_unit][1])
+    
+    try:
+        return find_base(amount, unit)
+    except Exception as e:
+        raise ValueError(str(e))
+```

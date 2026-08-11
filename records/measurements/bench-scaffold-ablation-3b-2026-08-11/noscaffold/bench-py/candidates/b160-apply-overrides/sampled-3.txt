@@ -1,0 +1,32 @@
+```python
+from typing import Any
+
+def apply_overrides(base: dict, overrides: list) -> dict:
+    """
+    Apply command-line overrides to base settings.
+    
+    Base is a flat mapping of setting names to string values.
+    Overrides are a list of strings in the format "name=value".
+    Later overrides beat earlier ones for the same name.
+    Returns a copy of base with overrides applied, leaving base unchanged.
+    Raises ValueError if invalid overrides are provided.
+    """
+    def parse_override(override: str) -> tuple[str, Any]:
+        parts = override.split('=', 1)
+        if len(parts) != 2:
+            raise ValueError("Override must be name=value")
+        return parts
+
+    result = base.copy()
+    
+    for override in overrides:
+        try:
+            name, value = parse_override(override)
+            if not name or '=' in name:
+                raise ValueError("Name cannot be empty and must not contain '='")
+            result[name] = value
+        except ValueError as e:
+            raise ValueError(f"Invalid override: {e}")
+    
+    return result
+```

@@ -1,0 +1,41 @@
+```ts
+/**
+ * Calculates the greatest price a fabric roll can fetch by cutting it into sellable pieces.
+ * @param length - The total length of the fabric roll in metres.
+ * @param board - An array of [metres, price] pairs representing the pieces that can be cut from the roll.
+ * @returns An object containing the greatest price and the metre lengths of the cut that fetches it.
+ */
+export function cutRoll(length: number, board: [number, number][]): { takings: number; pieces: number[] } {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error('Length must be a non-negative whole number.');
+  }
+
+  const dp: { [key: number]: { takings: number; pieces: number[] } } = {};
+
+  board.sort((a, b) => a[0] - b[0]);
+
+  for (let i = 1; i <= length; i++) {
+    let maxTakings = 0;
+    let bestCut: number[] = [];
+
+    for (const [pieceLength, price] of board) {
+      if (i >= pieceLength) {
+        const remainingLength = i - pieceLength;
+        const previousResult = dp[remainingLength];
+        const takings = price + previousResult.takings;
+
+        if (takings > maxTakings || (takings === maxTakings && pieceLength > bestCut[0])) {
+          maxTakings = takings;
+          bestCut = [pieceLength, ...previousResult.pieces];
+        }
+      } else {
+        break; // No need to check longer pieces
+      }
+    }
+
+    dp[i] = { takings: maxTakings, pieces: bestCut };
+  }
+
+  return dp[length];
+}
+```

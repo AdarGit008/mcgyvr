@@ -1,0 +1,68 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  if (!Array.isArray(events)) throw new Error("Events must be an array of arrays.");
+  if (!Object.keys(prices).length > 0) throw new Error("Price list must contain at least one item.");
+
+  const cart = [];
+  let sessionState = "open";
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event)) throw new Error("Event must be a list.");
+
+    const [action, ...payload] = event;
+    switch (action.toLowerCase()) {
+      case "scan":
+        const [itemName] = payload;
+        if (!(typeof itemName === "string" && itemName.length > 0)) throw new Error("Item name must be a non-empty string.");
+        if (!prices.hasOwnProperty(itemName)) throw new Error(`Unknown item: ${itemName}.`);
+        cart.push([itemName, 1]);
+        total += prices[itemName];
+        break;
+      case "void":
+        const [itemToRemove] = payload;
+        if (!(typeof itemToRemove === "string" && itemToRemove.length > 0)) throw new Error("Item name must be a non-empty string.");
+        const index = cart.findIndex(([itemName]) => itemName === itemToRemove);
+        if (index !== -1) {
+          cart.splice(index, 1);
+          total -= prices[itemToRemove];
+        }
+        break;
+      case "close":
+        if (sessionState !== "open" || cart.length === 0) throw new Error("Cannot close an empty session or a non-open session.");
+        sessionState = "payment";
+        break;
+      case "pay":
+        const [amount] = payload;
+        if (!(typeof amount === "number" && amount > 0)) throw new Error("Payment amount must be a positive integer.");
+        paid += amount;
+        if (paid >= total) {
+          change = paid - total;
+          sessionState = "paid";
+        } else {
+          change = 0;
+        }
+        break;
+      case "cancel":
+        if ((sessionState === "open" || sessionState === "payment") && cart.length > 0) sessionState = "cancelled";
+        break;
+      default:
+        throw new Error(`Unknown action: ${action}.`);
+    }
+
+    if (sessionState !== "open" && sessionState !== "payment") {
+      throw new Error("Session ended.");
+    }
+  }
+
+  return {
+    state: sessionState,
+    items: cart.sort(([a], [b]) => a.localeCompare(b)),
+    total,
+    paid,
+    change,
+  };
+}
+```

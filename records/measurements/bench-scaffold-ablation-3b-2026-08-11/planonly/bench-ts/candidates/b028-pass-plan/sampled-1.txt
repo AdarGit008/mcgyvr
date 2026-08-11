@@ -1,0 +1,58 @@
+```
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (!Array.isArray(tripDays) || !tripDays.every(Number.isInteger && tripDays.length > 0)) {
+    throw new Error("Invalid tripDays input");
+  }
+  if (tripDays.some((day, i) => day <= tripDays[i - 1])) {
+    throw new Error("Trip days must be strictly increasing");
+  }
+
+  if (!Array.isArray(passes) || passes.length === 0) {
+    throw new Error("Pass list cannot be empty");
+  }
+  for (const pass of passes) {
+    const { span, cost } = pass;
+    if (typeof span !== "number" || !Number.isInteger(span) || span <= 0) {
+      throw new Error("Invalid span value in a pass");
+    }
+    if (typeof cost !== "number" || cost < 0) {
+      throw new Error("Invalid cost value in a pass");
+    }
+  }
+
+  const totalTripDays = tripDays[tripDays.length - 1];
+  let minCost = Infinity;
+  let purchases: number[][] = [];
+
+  function backtrack(day: number, currCost: number, passesUsed: number[][]) {
+    if (day > totalTripDays) {
+      return;
+    }
+    for (const pass of passes) {
+      const { span, cost } = pass;
+      if (day + span - 1 <= totalTripDays && !passesUsed.some(p => p[0] <= day && p[0] + p[1] > day)) {
+        backtrack(day + span, currCost + cost, [...passesUsed, [day, span]]);
+        minCost = Math.min(minCost, currCost);
+      }
+    }
+  }
+
+  backtrack(1, 0, []);
+  if (minCost === Infinity) {
+    return { total: 0, purchases: [] };
+  }
+
+  let currentDay = 1;
+  const resultPurchases: number[][] = [];
+  for (let i = 0; i < passes.length && minCost > 0; i++) {
+    const [start, span] = passes[i];
+    if (currentDay + span - 1 <= totalTripDays) {
+      resultPurchases.push([start, span]);
+      currentDay += span;
+      minCost -= passes[i].cost;
+    }
+  }
+
+  return { total: totalTripDays, purchases: resultPurchases };
+}
+```

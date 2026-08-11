@@ -1,0 +1,61 @@
+```ts
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error('Invalid input');
+  }
+
+  const pairs: string[][] = [];
+  let key: string | null = null;
+  let value: string | null = null;
+  let inQuotes = false;
+
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === '"') {
+      inQuotes = !inQuotes;
+    } else if (!inQuotes && input[i] === ';') {
+      if (key === null) {
+        throw new Error('Invalid segment');
+      }
+      pairs.push([key, value ?? '']);
+      key = null;
+      value = null;
+    } else if (!inQuotes && input[i] === '=') {
+      if (key !== null) {
+        throw new Error('Duplicate key');
+      }
+      key = '';
+    } else if (key !== null) {
+      if (input[i] === '=' && key.length > 0) {
+        continue;
+      }
+      if (!inQuotes && input[i].match(/[^\w]/)) {
+        throw new Error('Invalid segment');
+      }
+      key += input[i];
+    } else if (value !== null) {
+      value += input[i];
+    }
+  }
+
+  if (key !== null) {
+    pairs.push([key, value ?? '']);
+  }
+
+  return pairs;
+}
+
+export function parseOption(segment: string): string[] {
+  const match = segment.match(/^(\w+)=(.*)$/);
+  if (!match) {
+    throw new Error('Invalid segment');
+  }
+  let key = match[1];
+  let value = match[2];
+
+  if (value.startsWith('"') && value.endsWith('"')) {
+    value = value.slice(1, -1).replace(/\\(.)/g, '$1');
+  }
+
+  return [key, value];
+}
+```

@@ -1,0 +1,64 @@
+```ts
+/** Tape-measure spans: parse to inches, format canonically, and add. */
+
+const INCHES: Record<string, number> = { yd: 36, ft: 12, in: 1 };
+const ORDER = ["yd", "ft", "in"];
+
+export function validateSpan(text: string): void {
+  const parts = text.split(" ");
+  if (parts.length < 3) {
+    throw new Error("Invalid span format");
+  }
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (!/\d+/.test(parts[i])) {
+      throw new Error("Value must be a plain decimal integer with no leading zero");
+    }
+    if (!ORDER.includes(parts[i + 1])) {
+      throw new Error(`Unknown unit: ${parts[i + 1]}`);
+    }
+    if (i > 0 && parts[i] === parts[i - 1]) {
+      throw new Error("Units cannot be repeated");
+    }
+    const unit = parts[i + 1];
+    if (ORDER.indexOf(unit) < ORDER.indexOf(parts[i])) {
+      throw new Error(`Unit order must be largest to smallest, not ${unit} before ${parts[i]}`);
+    }
+  }
+}
+
+export function parseSpan(text: string): number {
+  validateSpan(text);
+  let total = 0;
+  for (const part of text.split(" ")) {
+    const value = Number(part.slice(0, -2));
+    const unit = part.slice(-2);
+    total += value * INCHES[unit];
+  }
+  return total;
+}
+
+export function formatSpan(inches: number): string {
+  if (!Number.isInteger(inches) || inches < 0) {
+    throw new Error("inches must be a non-negative integer");
+  }
+  if (inches === 0) {
+    return "0in";
+  }
+  const parts: string[] = [];
+  for (const unit in INCHES) {
+    const value = Math.floor(inches / INCHES[unit]);
+    if (value > 0) {
+      parts.push(`${value}${unit}`);
+      inches %= INCHES[unit];
+    }
+  }
+  return parts.join(" ");
+}
+
+export function addSpans(first: string, second: string): string {
+  validateSpan(first);
+  validateSpan(second);
+  const total = parseSpan(first) + parseSpan(second);
+  return formatSpan(total);
+}
+```

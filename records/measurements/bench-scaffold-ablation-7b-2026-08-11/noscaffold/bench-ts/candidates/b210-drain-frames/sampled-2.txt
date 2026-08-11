@@ -1,0 +1,41 @@
+```ts
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (marker.length !== 1) {
+    throw new Error('Marker must be a single character');
+  }
+
+  const frames = [];
+  let buffer = '';
+  let inFrame = false;
+
+  for (const chunk of chunks) {
+    buffer += chunk;
+    const markers = [...buffer.matchAll(new RegExp(`(${marker})`, 'g'))];
+
+    if (markers.length === 0) continue;
+
+    for (let i = 0; i < markers.length - 1; i++) {
+      const [pos] = markers[i];
+      if (!inFrame) {
+        frames.push(buffer.substring(0, pos));
+        inFrame = true;
+      } else {
+        frames[frames.length - 1] += buffer.substring(pos + marker.length, markers[i + 1].index);
+      }
+    }
+
+    const lastPos = markers[markers.length - 1][1];
+    if (!inFrame) {
+      frames.push(buffer.substring(0, lastPos));
+      inFrame = true;
+    } else if (lastPos === buffer.length - marker.length) {
+      buffer = marker;
+      inFrame = false;
+    } else {
+      buffer = buffer.substring(lastPos + marker.length);
+    }
+  }
+
+  return { frames, pending: buffer };
+}
+```

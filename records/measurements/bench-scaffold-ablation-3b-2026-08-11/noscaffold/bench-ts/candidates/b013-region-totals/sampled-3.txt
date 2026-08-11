@@ -1,0 +1,62 @@
+```ts
+
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (grid.length === 0 || grid[0].length === 0) {
+    throw new Error("Grid must have at least one row and one cell.");
+  }
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  for (let i = 1; i < rows; i++) {
+    if (grid[i].length !== cols) {
+      throw new Error("All rows in the grid must have the same length.");
+    }
+  }
+
+  for (let row of grid) {
+    for (let cell of row) {
+      if (!Number.isInteger(cell)) {
+        throw new Error("All cells in the grid must be integers.");
+      }
+    }
+  }
+
+  const prefixSumTable: number[][] = Array.from({ length: rows + 1 }, () => Array(cols + 1).fill(0));
+
+  for (let i = 1; i <= rows; i++) {
+    for (let j = 1; j <= cols; j++) {
+      prefixSumTable[i][j] =
+        grid[i - 1][j - 1] +
+        prefixSumTable[i][j - 1] +
+        prefixSumTable[i - 1][j] -
+        prefixSumTable[i - 1][j - 1];
+    }
+  }
+
+  const results: number[] = queries.map(([top, left, bottom, right]) => {
+    if (!Array.isArray(top) || !Array.isArray(left) || !Array.isArray(bottom) || !Array.isArray(right)) {
+      throw new Error("Queries must be lists of exactly four integers.");
+    }
+    if (top.length !== 4 || left.length !== 4 || bottom.length !== 4 || right.length !== 4) {
+      throw new Error("Each query must consist of exactly four integers.");
+    }
+
+    const [t, l, b, r] = top.concat(left).concat(bottom).concat(right);
+    if (t >= b || l >= r) {
+      throw new Error("Queries cannot have top greater than or equal to bottom or left greater than or equal to right.");
+    }
+    if (t < 0 || l < 0 || b > rows || r > cols) {
+      throw new Error("Queries must not reach outside the grid.");
+    }
+
+    return (
+      prefixSumTable[b][r] -
+      prefixSumTable[t - 1][r] +
+      prefixSumTable[b][l - 1] -
+      prefixSumTable[t - 1][l - 1]
+    );
+  });
+
+  return results;
+}
+```

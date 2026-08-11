@@ -1,0 +1,71 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  if (!Array.isArray(events) || !events.every(event => Array.isArray(event))) {
+    throw new Error("Invalid events format");
+  }
+
+  const initialState = {
+    state: "open",
+    cart: {},
+    total: 0,
+    paid: 0,
+    change: 0
+  };
+
+  return events.reduce((state, event) => {
+    if (!Array.isArray(event) || event.length !== 2) {
+      throw new Error("Invalid event format");
+    }
+
+    const [action, payload] = event;
+
+    switch (action) {
+      case "scan":
+        if (typeof payload !== "string" || !prices[payload]) {
+          throw new Error(`Unknown item or invalid price for ${payload}`);
+        }
+        state.cart[payload] = (state.cart[payload] || 0) + 1;
+        state.total += prices[payload];
+        break;
+
+      case "void":
+        if (typeof payload !== "string" || !state.cart[payload]) {
+          throw new Error(`Unknown item or not in cart for ${payload}`);
+        }
+        state.cart[payload]--;
+        if (state.cart[payload] === 0) delete state.cart[payload];
+        state.total -= prices[payload];
+        break;
+
+      case "close":
+        if (!Object.keys(state.cart).length) {
+          throw new Error("Cannot close an empty cart");
+        }
+        state.state = "payment";
+        break;
+
+      case "pay":
+        if (typeof payload !== "number" || payload <= 0) {
+          throw new Error("Invalid pay amount");
+        }
+        const paidAmount = Math.min(payload, state.total);
+        state.paid += paidAmount;
+        state.change = state.total - paidAmount;
+        state.state = "paid";
+        break;
+
+      case "cancel":
+        if (state.state !== "open" && state.state !== "payment") {
+          throw new Error("Cannot cancel a session in this state");
+        }
+        state.state = "cancelled";
+        break;
+
+      default:
+        throw new Error(`Unknown action: ${action}`);
+    }
+
+    return state;
+  }, initialState);
+}
+```

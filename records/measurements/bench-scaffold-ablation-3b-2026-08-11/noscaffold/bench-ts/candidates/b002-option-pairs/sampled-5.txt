@@ -1,0 +1,76 @@
+```ts
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string') throw new Error('Input must be a string');
+  if (input === '') return [];
+
+  const segments = parseStringToSegments(input);
+  const pairs = segments.map(parseOption);
+
+  // Ensure there are no repeated keys
+  const seenKeys = new Set<string>();
+  for (const [key, _] of pairs) {
+    if (seenKeys.has(key)) throw new Error('Invalid options string: repeated key');
+    seenKeys.add(key);
+  }
+
+  return pairs;
+}
+
+function parseStringToSegments(input: string): string[] {
+  const segments = [];
+  let i = 0;
+
+  while (i < input.length) {
+    if (input[i] === '"') {
+      // Quoted value
+      let j = i + 1;
+      while (j < input.length && input[j] !== '"') j++;
+      if (j === input.length || input[j] !== '"') throw new Error('Quoted value never closed');
+      segments.push(input.substring(i, j));
+      i = j + 1;
+    } else {
+      // Unquoted key=value segment
+      let j = i;
+      while (j < input.length && input[j] !== '=') j++;
+      if (j === i) throw new Error('Invalid options string: no equals sign');
+      const key = input.substring(i, j);
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) throw new Error('Invalid options string: invalid key');
+      let valueStart = j + 1;
+      if (input[valueStart] === '"') {
+        // Quoted value
+        valueStart++;
+        j = valueStart;
+        while (j < input.length && input[j] !== '"') j++;
+        if (j === input.length || input[j] !== '"') throw new Error('Quoted value never closed');
+      } else {
+        // Unquoted value
+        j = valueStart;
+        while (j < input.length && input[j] !== ';') j++;
+        if (input[j] === ';' && j > valueStart) {
+          // Empty quoted value
+          segments.push([key, '']);
+          i = j + 1;
+          continue;
+        }
+      }
+      const value = input.substring(valueStart, j);
+      segments.push([key, value]);
+      i = j;
+    }
+  }
+
+  return segments;
+}
+
+export function parseOption(segment: string): string[] {
+  if (typeof segment !== 'string') throw new Error('Segment must be a string');
+  let [key, value] = segment.split('=');
+
+  // Strip surrounding double quotes from the value
+  if (value.startsWith('"') && value.endsWith('"')) {
+    value = value.substring(1, value.length - 1);
+  }
+
+  return [key, value];
+}
+```

@@ -1,0 +1,20 @@
+```typescript
+export function formatBits(value: number, width: number): string {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error("Value must be a non-negative integer.");
+  }
+  if (width <= 0 || width % 4 !== 0 || width > 32) {
+    throw new Error(`Width must be a positive multiple of four and not exceed 32.`);
+  }
+
+  const binaryString = value.toString(2);
+  const paddedBinaryString = binaryString.padStart(width, '0');
+
+  let formattedBits = '';
+  for (let i = 0; i < paddedBinaryString.length; i += 4) {
+    formattedBits += paddedBinaryString.substring(i, i + 4) + ' ';
+  }
+
+  return formattedBits.trim();
+}
+```

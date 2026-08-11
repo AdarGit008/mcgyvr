@@ -1,0 +1,55 @@
+```
+"""Tape-measure spans: parse to inches, format canonically, and add."""
+
+INCHES = {"yd": 36, "ft": 12, "in": 1}
+ORDER = ("yd", "ft", "in")
+
+
+def parse_span(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+
+    # Split the input text by spaces to get individual parts
+    parts = text.split()
+
+    # Validate that there are exactly three parts and they match the expected order
+    if len(parts) != 3 or any(part[-1] not in ORDER for part in parts):
+        raise ValueError("Invalid span format: must be 'Xyd Xft Xin'")
+
+    total_inches = 0
+
+    # Parse each part and add it to the total inches
+    for i, (value, unit) in enumerate(zip(parts, ORDER)):
+        try:
+            value_int = int(value)
+            if value_int < 0:
+                raise ValueError("Value must be a non-negative integer")
+            total_inches += value_int * INCHES[unit]
+        except ValueError as e:
+            raise ValueError(f"Invalid part {i+1}: {e}")
+
+    return total_inches
+
+
+def format_span(inches: int) -> str:
+    if not isinstance(inches, int) or inches < 0:
+        raise ValueError("inches must be a non-negative integer")
+
+    # Handle the case where there are no parts
+    if inches == 0:
+        return "0in"
+
+    # Determine the parts to include in the formatted string
+    parts = []
+    for unit, value in zip(ORDER, [inches // INCHES[u] for u in ORDER]):
+        if value:
+            parts.append(f"{value}{unit}")
+
+    # Join the parts into a single string
+    return " ".join(parts)
+
+
+def add_spans(first: str, second: str) -> str:
+    total = parse_span(first) + parse_span(second)
+    return format_span(total)
+```

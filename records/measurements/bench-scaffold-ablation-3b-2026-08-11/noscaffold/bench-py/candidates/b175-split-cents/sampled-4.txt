@@ -1,0 +1,21 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    if total % 1 != 0 or total < 0 or not isinstance(weights, list) or len(weights) == 0:
+        raise ValueError("Invalid total, weights, or format")
+
+    sum_weights = sum(weights)
+    if sum_weights == 0:
+        raise ValueError("Weights cannot be all zeros")
+
+    parts = [total * weight // sum_weights for weight in weights]
+    remaining_cents = total - sum(parts)
+
+    part_indices = list(range(len(parts)))
+    part_indices.sort(key=lambda i: (parts[i] % 1, -i), reverse=True)
+
+    while remaining_cents > 0:
+        parts[part_indices.pop(0)] += 1
+        remaining_cents -= 1
+
+    return parts
+```

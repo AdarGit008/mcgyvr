@@ -1,0 +1,52 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (tripDays.length === 0) return { total: 0, purchases: [] };
+
+  // Sort trip days in ascending order
+  tripDays.sort((a, b) => a - b);
+
+  // Validate inputs
+  for (const day of tripDays) {
+    if (!Number.isInteger(day) || day <= 0) throw new Error("Invalid trip day");
+  }
+  for (const pass of passes) {
+    const { span, cost } = pass;
+    if (!Number.isInteger(span) || span <= 0) throw new Error("Invalid span");
+    if (!Number.isSafeInteger(cost) || cost < 0) throw new Error("Invalid cost");
+  }
+
+  // Sort passes by span length in descending order
+  passes.sort((a, b) => b.span - a.span);
+
+  let total = 0;
+  const purchases: number[][] = [];
+
+  for (const day of tripDays) {
+    if (!purchases.length || day > purchases[purchases.length - 1][0] + purchases[purchases.length - 1][1] - 1) {
+      // Find the cheapest pass that covers the current day
+      let bestCost = Infinity;
+      let bestStartDay = -1;
+      for (const pass of passes) {
+        const { span, cost } = pass;
+        if (day <= pass.span + pass.startDay - 1 && cost < bestCost) {
+          bestCost = cost;
+          bestStartDay = pass.startDay;
+        }
+      }
+
+      if (bestCost === Infinity) throw new Error("No pass covers the trip day");
+
+      total += bestCost;
+      purchases.push([bestStartDay, pass.span]);
+    } else {
+      // Add the cheapest existing pass that still covers the current day
+      const currentPassIndex = purchases.findIndex(([startDay]) => startDay <= day);
+      if (currentPassIndex === -1) throw new Error("Invalid trip day");
+      total -= passes[currentPassIndex].cost;
+      purchases.splice(currentPassIndex, 1);
+    }
+  }
+
+  return { total, purchases };
+}
+```

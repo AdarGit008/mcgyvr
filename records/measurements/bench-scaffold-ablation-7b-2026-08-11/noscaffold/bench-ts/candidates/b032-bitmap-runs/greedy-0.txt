@@ -1,0 +1,80 @@
+```ts
+/**
+ * Returns the smallest start of a run of length free blocks lying entirely below the capacity.
+ * @param words - The bitmap as a list of 32-bit words.
+ * @param bits - The total number of bits in the bitmap.
+ * @param length - The length of the run to find.
+ * @returns The starting index of the free run, or -1 if none exists.
+ */
+export function findFreeRun(words: number[], bits: number, length: number): number {
+    if (!Number.isInteger(length) || length <= 0) {
+        throw new Error('Length must be a positive integer');
+    }
+    const wordCount = Math.ceil(bits / 32);
+    if (words.length !== wordCount) {
+        throw new Error('Word count does not match the capacity');
+    }
+
+    for (let i = 0; i <= bits - length * 32; i++) {
+        let freeBlocks = 0;
+        for (let j = 0; j < length; j++) {
+            const wordIndex = Math.floor(i + j * 32 / 32);
+            const bitIndex = (i + j * 32) % 32;
+            if (bitAt(words, wordIndex * 32 + bitIndex) === 0) {
+                freeBlocks++;
+            } else {
+                break;
+            }
+        }
+        if (freeBlocks === length) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+/**
+ * Returns a new word list with the run of length blocks starting at start marked occupied.
+ * @param words - The bitmap as a list of 32-bit words.
+ * @param start - The starting index of the run to occupy.
+ * @param length - The length of the run to occupy.
+ * @returns A new word list with the run marked occupied.
+ */
+export function occupyRun(words: number[], start: number, length: number): number[] {
+    if (!Number.isInteger(start) || !Number.isInteger(length)) {
+        throw new Error('Start and length must be integers');
+    }
+    const wordCount = Math.ceil((start + length * 32) / 32);
+    if (words.length < wordCount) {
+        throw new Error('Word count does not match the capacity');
+    }
+
+    const newWords = words.slice();
+    for (let i = start; i < start + length * 32; i++) {
+        const wordIndex = Math.floor(i / 32);
+        const bitIndex = i % 32;
+        if (bitAt(words, i) === 1) {
+            throw new Error('Run touches an occupied block');
+        }
+        newWords[wordIndex] |= 1 << bitIndex;
+    }
+
+    return newWords;
+}
+
+/**
+ * Returns the value of the bit at the given index.
+ * @param words - The bitmap as a list of 32-bit words.
+ * @param index - The index of the bit to get.
+ * @returns The value of the bit (0 or 1).
+ */
+export function bitAt(words: number[], index: number): number {
+    if (!Number.isInteger(index)) {
+        throw new Error('Index must be an integer');
+    }
+    const wordIndex = Math.floor(index / 32);
+    const bitIndex = index % 32;
+    return (words[wordIndex] >> bitIndex) & 1;
+}
+```

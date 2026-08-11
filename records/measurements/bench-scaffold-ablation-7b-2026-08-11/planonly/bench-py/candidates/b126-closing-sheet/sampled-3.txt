@@ -1,0 +1,48 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both opening and moves must be strings")
+
+    items = {}
+    for entry in opening.split(';'):
+        if not entry:
+            continue
+        name, count_str = entry.split(':')
+        if not name.islower() or not name.isalpha():
+            raise ValueError(f"Invalid item name: {name}")
+        try:
+            count = int(count_str)
+        except ValueError:
+            raise ValueError(f"Invalid count for item {name}: {count_str}")
+        if count < 0:
+            raise ValueError(f"Negative count for item {name}: {count_str}")
+        if name in items:
+            raise ValueError(f"Duplicate item name: {name}")
+        items[name] = count
+
+    for move in moves.split(';'):
+        if not move:
+            continue
+        parts = move.split('+') if '-' not in move else move.split('-')
+        if len(parts) != 2:
+            raise ValueError(f"Invalid move: {move}")
+        name, qty_str = parts
+        try:
+            qty = int(qty_str)
+        except ValueError:
+            raise ValueError(f"Invalid quantity for move {move}: {qty_str}")
+        if qty < 1:
+            raise ValueError(f"Non-positive quantity for move {move}: {qty_str}")
+
+        if name not in items:
+            raise ValueError(f"Issue of item {name} which is not on the sheet")
+        if '-' in move and items[name] < qty:
+            raise ValueError(f"Issue of more units than available for item {name}: {qty}")
+
+        if '+' in move:
+            items[name] += qty
+        else:
+            items[name] -= qty
+
+    return ';'.join(f"{name}:{count}" for name, count in sorted(items.items()) if count > 0)
+```

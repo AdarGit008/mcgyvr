@@ -1,0 +1,59 @@
+```python
+"""Prune a file listing with ordered drop and keep rules."""
+
+
+def prune_listing(listing: list, rules: list) -> list:
+    def segment_fits(pattern, text):
+        p = t = mark = 0
+        star = -1
+        while t < len(text):
+            if p < len(pattern) and pattern[p] == "*":
+                star = p
+                mark = t
+                p += 1
+            elif p < len(pattern) and pattern[p] == text[t]:
+                p += 1
+                t += 1
+            elif star >= 0:
+                p = star + 1
+                mark += 1
+                t = mark
+            else:
+                return False
+        while p < len(pattern) and pattern[p] == "*":
+            p += 1
+        return p == len(pattern)
+
+    def split_strict(text, what):
+        if not isinstance(text, str) or text == "":
+            raise ValueError(f"{what} must be a non-empty string")
+        segments = text.split("/")
+        if any(segment == "" for segment in segments):
+            raise ValueError(f"{what} has an empty segment: {text}")
+        return segments
+
+    def matches_rule(rule, path_segments):
+        is_keep = rule[0] != "!"
+        pattern_segments = split_strict(rule[1:], "rule")
+        if len(pattern_segments) > len(path_segments):
+            return False
+        for p, r in zip(path_segments, pattern_segments):
+            if not segment_fits(r, p):
+                return False
+        return is_keep
+
+    def last_matching_rule(rule_index, path_segments):
+        for i in range(rule_index, -1, -1):
+            rule = rules[i]
+            if matches_rule(rule, path_segments):
+                return rule[0] != "!"
+        return False
+
+    pruned_listing = []
+    for path in listing:
+        path_segments = split_strict(path, "path")
+        if last_matching_rule(len(rules) - 1, path_segments):
+            pruned_listing.append(path)
+
+    return pruned_listing
+```

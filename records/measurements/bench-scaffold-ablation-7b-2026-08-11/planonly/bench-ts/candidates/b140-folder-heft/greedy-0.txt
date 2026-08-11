@@ -1,0 +1,55 @@
+```ts
+export function filePaths(root: object): string[] {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  const paths: string[] = [];
+  const walk = (node: any, path: string) => {
+    if (typeof node !== 'object' || node === null) return;
+    if (Array.isArray(node)) throw new Error('Node cannot be an array');
+    if (typeof node.name !== 'string' || node.name.includes('/')) throw new Error('Invalid name');
+    if ('bytes' in node && 'children' in node) throw new Error('Node cannot have both bytes and children');
+    if ('bytes' in node) {
+      paths.push(path);
+    } else if ('children' in node) {
+      for (const child of node.children) walk(child, path + '/' + node.name);
+    }
+  };
+  walk(root, '');
+  return paths;
+}
+
+export function treeBytes(root: object): number {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  const total = (node: any): number => {
+    if (typeof node !== 'object' || node === null) return 0;
+    if (Array.isArray(node)) throw new Error('Node cannot be an array');
+    if (typeof node.name !== 'string' || node.name.includes('/')) throw new Error('Invalid name');
+    if ('bytes' in node && 'children' in node) throw new Error('Node cannot have both bytes and children');
+    if ('bytes' in node) {
+      return node.bytes;
+    } else if ('children' in node) {
+      return node.children.reduce((sum, child) => sum + total(child), 0);
+    }
+    return 0;
+  };
+  return total(root);
+}
+
+export function heavyFolders(root: object, minBytes: number): [string, number][] {
+  if (typeof root !== 'object' || root === null) throw new Error('Invalid root');
+  if (!Number.isInteger(minBytes) || minBytes < 0) throw new Error('Invalid minBytes');
+  const paths: [string, number][] = [];
+  const walk = (node: any, path: string, total: number): void => {
+    if (typeof node !== 'object' || node === null) return;
+    if (Array.isArray(node)) throw new Error('Node cannot be an array');
+    if (typeof node.name !== 'string' || node.name.includes('/')) throw new Error('Invalid name');
+    if ('bytes' in node && 'children' in node) throw new Error('Node cannot have both bytes and children');
+    if ('bytes' in node) {
+      paths.push([path, total + node.bytes]);
+    } else if ('children' in node) {
+      for (const child of node.children) walk(child, path + '/' + node.name, total);
+    }
+  };
+  walk(root, '', treeBytes(root));
+  return paths.filter(([_, bytes]) => bytes >= minBytes);
+}
+```

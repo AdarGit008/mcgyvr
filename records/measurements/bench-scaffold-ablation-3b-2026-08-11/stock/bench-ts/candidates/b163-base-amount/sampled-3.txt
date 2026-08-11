@@ -1,0 +1,35 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("amount must be a non-negative integer");
+  }
+
+  const isBaseUnit = (u: string): boolean => u === base;
+  const isValidUnit = (u: string): boolean =>
+    Object.keys(defs).some(([key, _]) => key === u);
+
+  if (!isValidUnit(unit)) {
+    throw new Error("unknown unit");
+  }
+
+  let currentAmount = amount;
+  let currentUnit = unit;
+
+  while (!isBaseUnit(currentUnit)) {
+    const defPair = defs[currentUnit];
+    if (!defPair) {
+      throw new Error("invalid definition chain");
+    }
+    const [factor, finer] = defPair;
+
+    if (typeof factor !== 'number' || !Number.isInteger(factor) || factor <= 0) {
+      throw new Error("invalid factor");
+    }
+
+    currentAmount *= factor;
+    currentUnit = finer;
+  }
+
+  return currentAmount;
+}
+```

@@ -1,0 +1,43 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  // Validate input types
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Both arguments must be strings');
+  }
+
+  // Parse opening sheet
+  const items = opening.split(';').reduce((acc, entry) => {
+    const [name, count] = entry.split(':');
+    if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(count)) {
+      throw new Error('Malformed sheet entry');
+    }
+    acc[name] = parseInt(count);
+    return acc;
+  }, {} as { [key: string]: number });
+
+  // Validate and apply moves
+  moves.split(';').forEach(move => {
+    const [name, changeStr] = move.split(/[+-]/);
+    if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(changeStr)) {
+      throw new Error('Malformed move');
+    }
+    const nameKey = `${name}${move.startsWith('+') ? '+' : '-'}`;
+    if (items[name] === undefined && name !== '') {
+      throw new Error(`Issue of an item the sheet does not hold: ${name}`);
+    }
+    items[name] += move.startsWith('+') ? parseInt(changeStr) : -parseInt(changeStr);
+    if (items[name] < 0) {
+      throw new Error('Issue of more units than the item then holds');
+    }
+  });
+
+  // Filter out zero counts and sort by name
+  const result = Object.entries(items)
+    .filter(([_, count]) => count > 0)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, count]) => `${name}:${count}`)
+    .join(';');
+
+  return result;
+}
+```

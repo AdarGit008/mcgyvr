@@ -1,0 +1,37 @@
+```ts
+export function applyCharges(caps: Record<string, [number, number]>, charges: [string, string, number][]): { left: Record<string, number>; refused: [string, string][] } {
+  if (!Array.isArray(charges)) throw new Error("charges must be an array");
+
+  const result: { left: Record<string, number>; refused: [string, string][] } = {
+    left: {},
+    refused: [],
+  };
+
+  charges.forEach(([chargeId, bucketName, amount]) => {
+    if (typeof chargeId !== 'string') throw new Error("charge id must be a string");
+    if (typeof bucketName !== 'string') throw new Error("bucket name must be a string");
+    if (!Number.isInteger(amount) || amount <= 0) throw new Error("amount must be a positive whole number");
+
+    const [allowance, maxSingleCharge] = caps[bucketName];
+    if (!allowance) {
+      result.refused.push([chargeId, "unknown"]);
+      return;
+    }
+
+    if (amount > maxSingleCharge) {
+      result.refused.push([chargeId, "single"]);
+      return;
+    }
+
+    if (amount > allowance) {
+      result.refused.push([chargeId, "cap"]);
+      return;
+    }
+
+    caps[bucketName][0] -= amount;
+    result.left[bucketName] = caps[bucketName][0];
+  });
+
+  return result;
+}
+```

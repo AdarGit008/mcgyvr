@@ -1,0 +1,88 @@
+```ts
+/** Prune a file listing with ordered drop and keep rules. */
+
+function segmentFits(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === "*") {
+      star = p;
+      mark = t;
+      p += 1;
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p += 1;
+      t += 1;
+    } else if (star >= 0) {
+      p = star + 1;
+      mark += 1;
+      t = mark;
+    } else {
+      return false;
+    }
+  }
+  while (p < pattern.length && pattern[p] === "*") {
+    p += 1;
+  }
+  return p === pattern.length;
+}
+
+function splitStrict(text: string, what: string): string[] {
+  if (typeof text !== "string" || text === "") {
+    throw new Error(`${what} must be a non-empty string`);
+  }
+  const segments = text.split("/");
+  if (segments.some((segment) => segment === "")) {
+    throw new Error(`${what} has an empty segment: ${text}`);
+  }
+  return segments;
+}
+
+function isKeepRule(rule: string): boolean {
+  return rule.startsWith("!");
+}
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  const validRules = rules.filter((rule) => {
+    if (typeof rule !== "string" || rule === "" || rule === "!") {
+      throw new Error(`Invalid rule: ${rule}`);
+    }
+    return true;
+  });
+
+  const validListing = listing.filter((path) => {
+    if (typeof path !== "string" || path === "") {
+      throw new Error(`Invalid path: ${path}`);
+    }
+    return true;
+  });
+
+  const result: string[] = [];
+  for (const path of validListing) {
+    let isMatched = false;
+    for (const rule of validRules) {
+      const segments = splitStrict(path, "path");
+      const patternSegments = splitStrict(rule.slice(isKeepRule(rule) ? 1 : 0), "pattern");
+      if (segments.length < patternSegments.length) {
+        continue;
+      }
+      let match = true;
+      for (let i = 0; i < patternSegments.length; i++) {
+        if (!segmentFits(patternSegments[i], segments[i])) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        isMatched = !isKeepRule(rule);
+        break;
+      }
+    }
+    if (isMatched) {
+      result.push(path);
+    }
+  }
+  return result;
+}
+```

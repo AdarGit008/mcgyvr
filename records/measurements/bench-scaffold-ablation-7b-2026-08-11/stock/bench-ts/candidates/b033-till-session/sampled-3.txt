@@ -1,0 +1,83 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  for (const name of Object.keys(prices)) {
+    if (!Number.isInteger(prices[name]) || prices[name] <= 0) {
+      throw new Error("price must be a positive integer: " + name);
+    }
+  }
+
+  let state: string = OPEN;
+  const cart: Record<string, number> = {};
+  let total: number = 0;
+
+  for (const event of events) {
+    switch (state) {
+      case OPEN:
+        if (event[0] === "scan") {
+          const item: string = event[1] as string;
+          if (!prices[item]) {
+            throw new Error("unknown item: " + item);
+          }
+          cart[item] = (cart[item] || 0) + 1;
+        } else if (event[0] === "close") {
+          total = Object.keys(cart).reduce((acc, item) => acc + prices[item] * cart[item], 0);
+          state = PAYMENT;
+        } else if (event[0] === "cancel") {
+          state = CANCELLED;
+        }
+        break;
+
+      case PAYMENT:
+        if (event[0] === "pay") {
+          const amount: number = event[1] as number;
+          if (!Number.isInteger(amount) || amount <= 0) {
+            throw new Error("pay amount must be a positive integer");
+          }
+          paid += amount;
+          change = paid > total ? paid - total : 0;
+          state = paid >= total ? PAID : OPEN;
+        } else if (event[0] === "cancel") {
+          state = CANCELLED;
+        }
+        break;
+
+      case PAID:
+      case CANCELLED:
+        throw new Error("no further events allowed after session is paid or cancelled");
+    }
+
+    if (state === PAID || state === CANCELLED) {
+      return {
+        state,
+        items: Object.entries(cart).sort(([nameA], [nameB]) => nameA.localeCompare(nameB)),
+        total,
+        paid,
+        change,
+      };
+    }
+  }
+
+  return {
+    state,
+    items: Object.entries(cart).sort(([nameA], [nameB]) => nameA.localeCompare(nameB)),
+    total,
+    paid,
+    change,
+  };
+}
+```

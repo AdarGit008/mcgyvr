@@ -1,0 +1,49 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(span)) {
+    throw new Error("Invalid span format");
+  }
+  if (booked.some(appointment => !/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(appointment))) {
+    throw new Error("Invalid appointment format");
+  }
+
+  const [start, end] = span.split('-').map(time => time.split(':').map(Number));
+  const appointments = booked.map(appointment => appointment.split('-').map(Number));
+
+  // Sort appointments
+  appointments.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+  let openStretches: [number, number][] = [];
+
+  for (let i = 0; i < appointments.length; i++) {
+    const currentStart = appointments[i][0];
+    const currentEnd = appointments[i][1];
+
+    if (i === 0) {
+      // First appointment
+      if (currentStart > start[0] || currentStart > start[1]) {
+        openStretches.push([start[0], start[1]]);
+      }
+    } else {
+      const prevEnd = openStretches[openStretches.length - 1][1];
+      if (currentStart > prevEnd) {
+        openStretches.push([prevEnd, currentStart]);
+      }
+    }
+
+    // Last appointment
+    if (i === appointments.length - 1 && currentEnd < end[0] || currentEnd < end[1]) {
+      openStretches.push([currentEnd, end[0]]);
+    }
+  }
+
+  if (openStretches.length === 0) {
+    return "none";
+  }
+
+  // Format and join open stretches
+  return openStretches.map(([startHour, startMin], endIndex) => 
+    `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}-${endIndex === openStretches.length - 1 ? '' : String(openStretches[endIndex + 1][0]).padStart(2, '0')}:${String(openStretches[endIndex + 1][1]).padStart(2, '0')}`
+  ).join(", ");
+}
+```

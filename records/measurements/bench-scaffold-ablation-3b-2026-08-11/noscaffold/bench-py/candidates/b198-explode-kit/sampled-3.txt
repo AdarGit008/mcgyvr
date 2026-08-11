@@ -1,0 +1,37 @@
+```python
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """
+    Calculate the total consumption of base parts to produce `want` units of a given kit.
+
+    Args:
+    catalog (dict): A dictionary mapping each component name to its recipe and parts list.
+    kit (str): The name of the kit to produce.
+    want (int): The desired quantity of the kit.
+
+    Returns:
+    dict: A dictionary mapping base part names to their total consumption for producing `want` units of the kit.
+    """
+    if want < 0:
+        raise ValueError("Want units must be non-negative.")
+
+    def get_recipe_and_parts(kit):
+        recipe, parts = catalog.get(kit), {}
+        for component, count in (catalog[comp] if comp in catalog else (comp, count)) for comp, count in parts.items():
+            parts[component] += count
+        return recipe, parts
+
+    work_order = {kit: want}
+    seen_kits = set()
+
+    while work_order:
+        current_kit, units_needed = next(iter(work_order.items()))
+        if current_kit in seen_kits or units_needed <= 0:
+            continue
+        seen_kits.add(current_kit)
+        
+        recipe, parts = get_recipe_and_parts(current_kit)
+        for component, count in parts.items():
+            work_order.setdefault(component, 0) += units_needed * count
+
+    return {part: consumed for part, consumed in work_order.items() if part != kit}
+```

@@ -1,0 +1,24 @@
+```typescript
+export function checkLine(line: string): string {
+  if (typeof line !== 'string') {
+    throw new Error('Invalid input: Expected a string');
+  }
+  if (line.length < 3) {
+    throw new Error('Invalid line length: Must be at least 3 characters');
+  }
+  if (line[2] !== '~') {
+    throw new Error('Invalid format: Third-from-last character must be a tilde');
+  }
+  const tag = line.slice(-2);
+  const body = line.slice(0, -2);
+  if (tag !== lineTag(body)) {
+    throw new Error('Invalid tag: Tag does not match body');
+  }
+  return body;
+}
+
+export function lineTag(body: string): string {
+  const sum = body.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return (sum % 256).toString(16).padStart(2, '0');
+}
+```

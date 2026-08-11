@@ -1,0 +1,66 @@
+```python
+def validate_node(node):
+    if not isinstance(node, dict) or 'name' not in node:
+        raise ValueError("Node must be a dictionary with a 'name' key")
+    name = node['name']
+    if not isinstance(name, str) or '/' in name or name == '':
+        raise ValueError("Name must be a non-empty string without slashes")
+    if 'bytes' in node and 'children' in node:
+        raise ValueError("Node cannot have both 'bytes' and 'children'")
+    if 'bytes' in node and not isinstance(node['bytes'], int) or node.get('bytes', 0) < 0:
+        raise ValueError("Bytes must be a non-negative integer")
+    if 'children' in node and not isinstance(node['children'], list):
+        raise ValueError("Children must be a list")
+
+def validate_root(root):
+    if not isinstance(root, dict) or 'name' not in root:
+        raise ValueError("Root must be a dictionary with a 'name' key")
+    if 'bytes' in root or 'children' not in root:
+        raise ValueError("Root must have either 'bytes' or 'children'")
+    validate_node(root)
+
+def validate_min_bytes(min_bytes):
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("Min bytes must be a non-negative integer")
+
+def file_paths(root: dict) -> list:
+    result = []
+    
+    def walk(node, parent_path):
+        full_path = f"{parent_path}/{node['name']}" if parent_path else node['name']
+        if 'bytes' in node:
+            result.append(full_path)
+        elif 'children' in node:
+            for child in node['children']:
+                walk(child, full_path)
+    
+    validate_root(root)
+    walk(root, "")
+    return result
+
+def tree_bytes(node: dict) -> int:
+    if 'bytes' in node:
+        return node['bytes']
+    elif 'children' in node:
+        return sum(tree_bytes(child) for child in node['children'])
+    else:
+        raise ValueError("Node must have either 'bytes' or 'children'")
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    validate_min_bytes(min_bytes)
+    
+    result = []
+    
+    def walk(node, parent_path):
+        full_path = f"{parent_path}/{node['name']}" if parent_path else node['name']
+        total_bytes = tree_bytes(node)
+        if 'children' in node and total_bytes >= min_bytes:
+            result.append([full_path, total_bytes])
+        elif 'children' in node:
+            for child in node['children']:
+                walk(child, full_path)
+    
+    validate_root(root)
+    walk(root, "")
+    return result
+```

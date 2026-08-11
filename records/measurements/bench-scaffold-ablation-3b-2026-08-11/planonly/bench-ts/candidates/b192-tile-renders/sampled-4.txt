@@ -1,0 +1,42 @@
+```ts
+import { maxBy } from "lodash";
+
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (freshFor <= 0 || size <= 0) {
+    throw new Error("freshFor and size must be positive whole numbers");
+  }
+  
+  const cache = new Map<string, { tick: number, name: string }>();
+  let renders: [number, string][] = [];
+
+  for (const [tick, name] of requests) {
+    if (tick < latestTick(cache)) {
+      continue;
+    }
+
+    if (cache.has(name)) {
+      const existingRender = cache.get(name)!;
+      if (existingRender.tick + freshFor > tick) {
+        renders.push([tick, name]);
+        continue;
+      }
+    }
+
+    if (size > 0 && cache.size >= size) {
+      const oldestRender = maxBy([...cache.values()], render => render.tick);
+      if (!oldestRender) throw new Error("Unexpected error: unable to find oldest render");
+      cache.delete(oldestRender.name);
+    }
+
+    renders.push([tick, name]);
+    cache.set(name, { tick, name });
+  }
+
+  return renders;
+}
+
+function latestTick(cache: Map<string, { tick: number, name: string }>): number {
+  if (cache.size === 0) return -1;
+  return Math.max(...Array.from(cache.values()).map(render => render.tick));
+}
+```

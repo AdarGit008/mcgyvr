@@ -1,0 +1,31 @@
+```ts
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const totals: Record<string, number> = {};
+
+  for (const [reagent, amount] of log) {
+    if (!/^-?\d+(\.\d{1,3})?$/g.test(amount)) {
+      throw new Error(`Invalid amount format: ${amount}`);
+    }
+
+    const parsedAmount = parseFloat(amount);
+    totals[reagent] = (totals[reagent] || 0) + parsedAmount;
+  }
+
+  // Determine the precision needed based on the maximum decimal places in any total
+  let maxPrecision = 0;
+  for (const total of Object.values(totals)) {
+    const parts = total.toString().split('.');
+    if (parts.length > 1) {
+      maxPrecision = Math.max(maxPrecision, parts[1].length);
+    }
+  }
+
+  // Format the totals with the determined precision
+  return Object.fromEntries(
+    Object.entries(totals).map(([reagent, amount]) => [
+      reagent,
+      amount.toFixed(maxPrecision),
+    ])
+  );
+}
+```

@@ -1,0 +1,56 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("amount must be a non-negative integer");
+  }
+
+  const getFactor = (unit: string): number => {
+    const def = defs[unit];
+    if (!def || !Number.isInteger(def[0]) || def[0] <= 0) {
+      throw new Error(`invalid factor for unit ${unit}`);
+    }
+    return def[0];
+  };
+
+  const getFinerUnit = (unit: string): string => {
+    const def = defs[unit];
+    if (!def || typeof def[1] !== "string") {
+      throw new Error(`unknown unit ${unit}`);
+    }
+    return def[1];
+  };
+
+  const isBaseUnit = (unit: string): boolean => unit === base;
+
+  const loopCheck = (visited: Set<string>, current: string): boolean => {
+    if (visited.has(current)) {
+      throw new Error("infinite definition chain detected");
+    }
+    visited.add(current);
+    return true;
+  };
+
+  const result = { amount, unit };
+  let visitedUnits = new Set<[number, string]>();
+
+  while (!isBaseUnit(result.unit)) {
+    loopCheck(visitedUnits, result.unit);
+
+    if (visitedUnits.has([result.amount, result.unit])) {
+      throw new Error("infinite definition chain detected");
+    }
+    visitedUnits.add([result.amount, result.unit]);
+
+    const finerUnit = getFinerUnit(result.unit);
+    const factor = getFactor(finerUnit);
+
+    // Calculate the amount in terms of the base unit
+    const amountInBaseUnit = Math.floor(result.amount * factor / (factor === 1 ? 1 : factor - 1));
+
+    result.amount = amountInBaseUnit;
+    result.unit = finerUnit;
+  }
+
+  return result.amount;
+}
+```

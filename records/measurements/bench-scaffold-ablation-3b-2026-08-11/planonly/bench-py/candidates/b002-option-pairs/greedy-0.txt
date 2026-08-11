@@ -1,0 +1,69 @@
+```python
+def parse_option(segment: str) -> list:
+    """Parse a key=value segment into [key, value]."""
+    if '=' in segment:
+        key, value = segment.split('=', 1)
+        if key.isidentifier():
+            return [key.strip(), value.strip('"')]
+        else:
+            raise ValueError("Invalid key identifier")
+    else:
+        raise ValueError("Missing equals sign")
+
+def scan_pairs(text: str) -> list:
+    """Scan an options string into a list of [key, value] pairs."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    
+    result = []
+    current_segment = ""
+    in_quotes = False
+
+    for char in text:
+        if char == '"':
+            if in_quotes:
+                # End of quoted segment
+                if '=' in current_segment:
+                    key, value = current_segment.split('=', 1)
+                    if key.isidentifier():
+                        result.append([key.strip(), value.strip('"')])
+                    else:
+                        raise ValueError("Invalid key identifier")
+                else:
+                    raise ValueError("Missing equals sign")
+                current_segment = ""
+            else:
+                # Start of quoted segment
+                in_quotes = True
+        elif char == ';':
+            if not in_quotes:
+                # End of unquoted segment
+                if '=' in current_segment:
+                    key, value = current_segment.split('=', 1)
+                    if key.isidentifier():
+                        result.append([key.strip(), value.strip('"')])
+                    else:
+                        raise ValueError("Invalid key identifier")
+                else:
+                    raise ValueError("Missing equals sign")
+                current_segment = ""
+        elif char.isspace():
+            # Ignore whitespace
+            continue
+        else:
+            # Add character to current segment
+            current_segment += char
+
+    # Handle the last segment if it's not empty
+    if current_segment:
+        if '=' in current_segment:
+            key, value = current_segment.split('=', 1)
+            if key.isidentifier():
+                result.append([key.strip(), value.strip('"')])
+            else:
+                raise ValueError("Invalid key identifier")
+        else:
+            raise ValueError("Missing equals sign")
+
+    return result
+```

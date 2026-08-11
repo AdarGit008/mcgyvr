@@ -1,0 +1,43 @@
+```ts
+export function stampTable(dies: [string, number][]): Map<string, number> {
+  const table = new Map<string, number>();
+  for (const [fragment, price] of dies) {
+    if (typeof fragment !== "string" || fragment.length === 0) {
+      throw new Error("a die fragment must be a non-empty string");
+    }
+    if (!Number.isInteger(price) || price <= 0) {
+      throw new Error("a die price must be a positive integer");
+    }
+    if (table.has(fragment)) {
+      throw new Error("die listed twice: " + fragment);
+    }
+    table.set(fragment, price);
+  }
+  return table;
+}
+
+export function stampCover(label: string, dies: [string, number][]): number {
+  if (typeof label !== "string" || label.length === 0) {
+    throw new Error("a label must be a non-empty string");
+  }
+
+  const fragmentPrices = stampTable(dies);
+  const n = label.length;
+
+  // Create an array to store the minimum cost up to each position in the label
+  const dp: number[] = Array(n + 1).fill(Infinity);
+  dp[0] = 0; // Base case: no cost for an empty label
+
+  for (let i = 1; i <= n; i++) {
+    for (const [fragment, price] of dies) {
+      const fragmentLength = fragment.length;
+      if (i >= fragmentLength && label.substring(i - fragmentLength, i) === fragment) {
+        dp[i] = Math.min(dp[i], dp[i - fragmentLength] + price);
+      }
+    }
+  }
+
+  // If the last element is infinity, it means no combination of dies can spell the label
+  return dp[n] !== Infinity ? dp[n] : throw new Error("label cannot be spelled with available dies");
+}
+```

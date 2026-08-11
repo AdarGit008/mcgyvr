@@ -1,0 +1,91 @@
+```ts
+export function findFreeRun(words: number[], capacity: number, length: number): number {
+  if (typeof words !== 'number[]' || typeof capacity !== 'number' || typeof length !== 'number') {
+    throw new Error("Invalid input type");
+  }
+  if (!Number.isInteger(capacity) || !Number.isInteger(length)) {
+    throw new Error("Capacity and length must be positive integers");
+  }
+  const wordCount = Math.ceil(capacity / 32);
+  if (words.length !== wordCount) {
+    throw new Error("Word count does not match the capacity");
+  }
+
+  for (let i = 0; i < words.length - 1; i++) {
+    if (!Number.isInteger(words[i]) || words[i] < 0 || words[i] > 4294967295) {
+      throw new Error("Invalid word in bitmap");
+    }
+  }
+
+  const lastWord = words[words.length - 1];
+  const lastIndex = words.length * 32 - 1;
+  if (!Number.isInteger(lastWord) || lastWord < 0 || lastWord > 4294967295 || (lastWord & ((1 << length) - 1)) !== 0) {
+    throw new Error("Last word is not valid or has an occupied run");
+  }
+
+  let start = 0;
+  for (; start < words.length * 32; start += length) {
+    if (!Number.isInteger(words[start / 32]) || words[start / 32] < 0 || words[start / 32] > 4294967295) {
+      throw new Error("Invalid word in bitmap");
+    }
+    const mask = (1 << length) - 1;
+    if ((words[Math.floor(start / 32)] & mask) === 0) {
+      return start;
+    }
+  }
+
+  return -1;
+}
+
+export function occupyRun(words: number[], start: number, length: number): number[] {
+  if (typeof words !== 'number[]' || typeof start !== 'number' || typeof length !== 'number') {
+    throw new Error("Invalid input type");
+  }
+  if (!Number.isInteger(start) || !Number.isInteger(length)) {
+    throw new Error("Start and length must be positive integers");
+  }
+
+  const wordCount = Math.ceil((start + length) / 32);
+  if (words.length !== wordCount) {
+    throw new Error("Word count does not match the start and length");
+  }
+
+  for (let i = 0; i < words.length - 1; i++) {
+    if (!Number.isInteger(words[i]) || words[i] < 0 || words[i] > 4294967295) {
+      throw new Error("Invalid word in bitmap");
+    }
+  }
+
+  const lastWord = words[words.length - 1];
+  const lastIndex = words.length * 32 - 1;
+  if (!Number.isInteger(lastWord) || lastWord < 0 || lastWord > 4294967295 || (lastWord & ((1 << length) - 1)) !== 0) {
+    throw new Error("Last word is not valid or has an occupied run");
+  }
+
+  const mask = (1 << length) - 1;
+  for (let i = start / 32; i < (start + length) / 32; i++) {
+    if (!Number.isInteger(words[i]) || words[i] < 0 || words[i] > 4294967295) {
+      throw new Error("Invalid word in bitmap");
+    }
+    words[i] |= mask;
+  }
+
+  return words;
+}
+
+export function bitAt(words: number[], index: number): number {
+  if (typeof words !== 'number[]' || typeof index !== 'number') {
+    throw new Error("Invalid input type");
+  }
+  if (!Number.isInteger(index)) {
+    throw new Error("Index must be an integer");
+  }
+
+  const word = Math.floor(index / 32);
+  if (!Number.isInteger(word) || words[word] < 0 || words[word] > 4294967295) {
+    throw new Error("Invalid word in bitmap");
+  }
+  const bit = index % 32;
+  return (words[word] >> bit) & 1;
+}
+```

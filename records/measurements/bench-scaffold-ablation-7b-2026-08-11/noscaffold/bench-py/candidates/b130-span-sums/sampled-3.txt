@@ -1,0 +1,41 @@
+```python
+def parse_span(text: str) -> int:
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    if not text:
+        raise ValueError("Empty span is not allowed")
+
+    units = {"yd": 36 * 12, "ft": 12, "in": 1}
+    parts = text.split()
+    inch_total = 0
+
+    for part in parts:
+        value, unit = part[:-2], part[-2:]
+        if not value.isdigit():
+            raise ValueError("Value must be a non-negative integer")
+        if unit not in units:
+            raise ValueError(f"Unknown or invalid unit: {unit}")
+        if int(value) != 0 and value[0] == '0':
+            raise ValueError("Values cannot have leading zeros")
+
+        inch_total += int(value) * units[unit]
+
+    return inch_total
+
+def format_span(inches: int) -> str:
+    if not isinstance(inches, int):
+        raise ValueError("Input must be an integer")
+    if inches < 0:
+        raise ValueError("Negative inches are not allowed")
+
+    units = ["yd", "ft", "in"]
+    result_parts = []
+
+    for unit in units:
+        value = inches // units[unit]
+        inches %= units[unit]
+        if value > 0:
+            result_parts.append(f"{value}{unit}")
+
+    return ' '.join(result_parts) or "0in"
+```

@@ -1,0 +1,38 @@
+```python
+def prune_listing(listing: list, rules: list) -> list:
+    def is_valid_path(path):
+        return all(s for s in path.split('/') if s)
+
+    def is_valid_rule(rule):
+        return isinstance(rule, str) and (rule or rule == '!')
+
+    def matches_pattern(pattern, path):
+        pattern_parts = [p for p in pattern.split('/') if p]
+        path_parts = [p for p in path.split('/') if p]
+        if len(pattern_parts) > len(path_parts):
+            return False
+        for p, pat in zip(path_parts, pattern_parts):
+            if not (pat == '*' or pat == p):
+                return False
+        return True
+
+    def should_keep_path(path):
+        for rule in reversed(rules):
+            if is_valid_rule(rule):
+                if rule.startswith('!'):
+                    if matches_pattern(rule[1:], path):
+                        return True
+                else:
+                    if matches_pattern(rule, path):
+                        return False
+        return False
+
+    if not all(isinstance(p, str) and p for p in listing + rules):
+        raise ValueError("Invalid input - path or rule must be a non-empty string")
+    if any(not is_valid_path(path) for path in listing):
+        raise ValueError("Invalid input - path contains empty segment")
+    if any(not is_valid_rule(rule) for rule in rules):
+        raise ValueError("Invalid input - rule is not a valid pattern")
+
+    return [path for path in listing if should_keep_path(path)]
+```

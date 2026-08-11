@@ -1,0 +1,24 @@
+```python
+import math
+
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """Total the base parts an order of a kit consumes."""
+    if want < 0:
+        raise ValueError("want units must be non-negative")
+    
+    def get_runs(want):
+        return math.ceil(want / catalog[kit][0])
+    
+    def update_totals(total, run_count):
+        for component, count in catalog[kit][1]:
+            if component not in total:
+                total[component] = 0
+            total[component] += run_count * count
+    
+    totals = {}
+    runs = get_runs(want)
+    update_totals(totals, runs)
+    
+    return totals
+```

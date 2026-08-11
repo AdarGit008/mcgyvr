@@ -1,0 +1,38 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(span)) {
+    throw new Error("Invalid span format");
+  }
+  if (booked.some(appointment => !/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(appointment))) {
+    throw new Error("Invalid appointment format");
+  }
+
+  const [start, end] = span.split('-').map(time => time.split(':').map(Number));
+  const appointments = booked.map(appointment => appointment.split('-').map(Number));
+
+  // Sort appointments by start time
+  appointments.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+  let freeStretches: [number, number][] = [];
+  let currentStart = start;
+
+  for (const [appointmentStart, appointmentEnd] of appointments) {
+    if (appointmentStart > currentStart) {
+      // Free stretch before the next appointment
+      freeStretches.push([currentStart, appointmentStart]);
+    }
+    currentStart = Math.max(currentStart, appointmentEnd);
+  }
+
+  // Check for a free stretch after the last appointment
+  if (end > currentStart) {
+    freeStretches.push([currentStart, end]);
+  }
+
+  if (freeStretches.length === 0) {
+    return "none";
+  }
+
+  return freeStretches.map(([start, end]) => `${String(start).padStart(2, '0')}:${String(end).padStart(2, '0')}`).join(", ");
+}
+```

@@ -1,0 +1,84 @@
+```ts
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  if (input === '') {
+    return [];
+  }
+
+  const result: string[][] = [];
+
+  let currentPair: [string, string] | null = null;
+  let buffer = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+
+    if (char === '"' && !inQuotes) {
+      inQuotes = true;
+      buffer += '"';
+      continue;
+    } else if (char === '"' && inQuotes) {
+      inQuotes = false;
+      buffer += '"';
+      continue;
+    }
+
+    if (!inQuotes) {
+      if (char === ';') {
+        if (buffer.includes('=')) {
+          const [key, value] = parseOption(buffer);
+          result.push([key, value]);
+        } else {
+          throw new Error('Invalid segment format');
+        }
+        buffer = '';
+      } else {
+        buffer += char;
+      }
+    } else {
+      buffer += char;
+    }
+  }
+
+  // Handle the final pair if there is one
+  if (buffer.includes('=')) {
+    const [key, value] = parseOption(buffer);
+    result.push([key, value]);
+  } else if (buffer !== '') {
+    throw new Error('Invalid segment format');
+  }
+
+  return result;
+}
+
+export function parseOption(segment: string): string[] {
+  if (typeof segment !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  const [key, value] = segment.split('=');
+
+  // Check for repeated keys
+  const existingKey = Object.keys(parseOption.cache).find(
+    k => parseOption.cache[k][0] === key
+  );
+  if (existingKey) {
+    throw new Error('Repeated key detected');
+  }
+  parseOption.cache[key] = [segment, value];
+
+  // Trim and strip quotes from the value
+  let trimmedValue = value.trim();
+  if (trimmedValue.startsWith('"') && trimmedValue.endsWith('"')) {
+    const withoutQuotes = trimmedValue.slice(1, -1);
+    return [key, withoutQuotes];
+  } else {
+    return [key, trimmedValue];
+  }
+}
+
+// Cache for parseOption to detect repeated keys
+parseOption.cache: Record<string, string[]> = {};
+```

@@ -1,0 +1,27 @@
+```ts
+export function fillTemplate(template: string, values: Record<string, string>): string {
+  if (typeof template !== "string") {
+    throw new Error("fillTemplate expects a string template");
+  }
+
+  let result = '';
+  for (let i = 0; i < template.length; ) {
+    if (template[i] === '{') {
+      const closeIndex = template.indexOf('}', i);
+      if (closeIndex === -1) {
+        throw new Error("Unterminated placeholder at index " + i);
+      }
+      const name = template.slice(i + 1, closeIndex);
+      if (!name || /[^a-zA-Z0-9_]/.test(name)) {
+        throw new Error("Malformed placeholder at index " + i);
+      }
+      result += values[name] ?? '';
+      i = closeIndex + 1;
+    } else {
+      result += template[i++];
+    }
+  }
+
+  return result;
+}
+```

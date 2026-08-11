@@ -1,0 +1,25 @@
+```ts
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+  if (!Number.isInteger(freshFor) || freshFor <= 0) throw new Error('freshFor must be a positive whole number');
+  if (!Number.isInteger(size) || size <= 0) throw new Error('size must be a positive whole number');
+
+  const cache: [number, string][] = [];
+  const renders: [number, string][] = [];
+
+  for (const [tick, tile] of requests) {
+    while (cache.length > 0 && tick >= cache[0][0] + freshFor) {
+      cache.shift();
+    }
+    if (!cache.some(([t]) => t === tick)) {
+      if (cache.length === size) {
+        const oldestTile = cache.shift()!;
+        renders.push(oldestTile);
+      }
+      cache.push([tick, tile]);
+    }
+    renders.push([tick, tile]);
+  }
+
+  return renders;
+}
+```

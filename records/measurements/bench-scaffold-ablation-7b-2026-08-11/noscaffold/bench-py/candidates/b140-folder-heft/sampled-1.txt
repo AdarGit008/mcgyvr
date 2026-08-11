@@ -1,0 +1,60 @@
+```python
+def validate_node(node):
+    if not isinstance(node, dict):
+        raise ValueError("Node must be a dictionary")
+    name = node.get('name')
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string")
+    if '/' in name:
+        raise ValueError("Name cannot contain a slash")
+    bytes_ = node.get('bytes')
+    children = node.get('children')
+    if bytes_ is None and children is None:
+        raise ValueError("Node must have either 'bytes' or 'children'")
+    if bytes_ is not None and children is not None:
+        raise ValueError("Node cannot have both 'bytes' and 'children'")
+    if bytes_ is not None and not isinstance(bytes_, int) or bytes_ < 0:
+        raise ValueError("Bytes must be a non-negative integer")
+    if children is not None and not isinstance(children, list):
+        raise ValueError("Children must be a list")
+
+def file_paths(root: dict) -> list:
+    result = []
+    stack = [(root, '')]
+    while stack:
+        node, path = stack.pop()
+        validate_node(node)
+        name = node['name']
+        if 'bytes' in node:
+            result.append(path + name)
+        else:
+            for child in node['children']:
+                stack.append((child, (path + name + '/') if path else name))
+    return result
+
+def tree_bytes(root: dict) -> int:
+    def _tree_bytes(node):
+        validate_node(node)
+        if 'bytes' in node:
+            return node['bytes']
+        else:
+            return sum(_tree_bytes(child) for child in node['children'])
+    return _tree_bytes(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative integer")
+    
+    result = []
+    stack = [(root, '', tree_bytes(root))]
+    while stack:
+        node, path, total_bytes = stack.pop()
+        validate_node(node)
+        name = node['name']
+        if 'bytes' in node and total_bytes >= min_bytes:
+            result.append([path + name, total_bytes])
+        else:
+            for child in reversed(node.get('children', [])):
+                stack.append((child, (path + name + '/') if path else name, total_bytes))
+    return result
+```

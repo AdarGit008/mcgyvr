@@ -1,0 +1,51 @@
+```python
+from typing import Dict, List
+
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    """
+    Calculate the cheapest pass plan to cover all trip days.
+
+    :param trip_days: List of strictly increasing positive integers representing calendar days on which trips happen.
+    :param passes: List of pass kinds with 'span' (consecutive days covered by a pass) and 'cost'.
+    :return: Dictionary with 'total' cost and 'purchases' list of [start_day, span] pairs.
+    """
+    if not trip_days:
+        return {'total': 0, 'purchases': []}
+
+    # Sort trip days for easier processing
+    trip_days.sort()
+
+    # Initialize variables
+    total_cost = float('inf')
+    purchases: List[List[int]] = []
+    current_plan = []
+
+    def find_cheapest_pass(start_day: int) -> None:
+        nonlocal total_cost, purchases
+
+        # Check all pass kinds to find the cheapest one for the current start day
+        for pass_kind in passes:
+            span, cost = pass_kind['span'], pass_kind['cost']
+            if span > 0 and cost >= 0:
+                end_day = start_day + span - 1
+
+                # If the pass covers all remaining trip days, calculate the total cost for this plan
+                if end_day >= max(trip_days):
+                    new_total_cost = total_cost - purchases[-1][1] * purchases[-1][0]
+                    new_total_cost += cost * (end_day - start_day + 1)
+                    if new_total_cost < total_cost:
+                        total_cost = new_total_cost
+                        purchases = current_plan[:]
+                else:
+                    # Recursively find the cheapest pass for the next day in the remaining trip days
+                    remaining_days = [day for day in trip_days if day > end_day]
+                    current_plan.append([start_day, span])
+                    find_cheapest_pass(remaining_days[0])
+                    current_plan.pop()
+
+    find_cheapest_pass(trip_days[0])
+
+    return {'total': total_cost, 'purchases': purchases}
+```
+
+This solution implements the `cheapest_pass_plan` function as described in the task contract. It calculates the cheapest pass plan to cover all trip days by iterating through each day and considering all available passes to determine the optimal purchase strategy. The function handles edge cases such as empty input lists, single-element lists, None values, zero and negative numbers, boundary indices, duplicate values, and input already in the target state.

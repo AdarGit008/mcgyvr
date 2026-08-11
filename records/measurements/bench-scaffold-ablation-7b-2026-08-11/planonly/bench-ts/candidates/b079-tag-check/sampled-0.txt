@@ -1,0 +1,29 @@
+```ts
+export function checkLine(line: string): string {
+  if (typeof line !== 'string') {
+    throw new Error('Invalid input: expected a string');
+  }
+  if (line.length < 3) {
+    throw new Error('Invalid line length');
+  }
+  const body = line.slice(0, -3);
+  const tag = line.slice(-2);
+  if (body.charCodeAt(body.length - 1) !== 126) {
+    throw new Error('Invalid tilde position in the line');
+  }
+  const expectedTag = lineTag(body);
+  if (expectedTag !== tag) {
+    throw new Error('Invalid tag for the body');
+  }
+  return body;
+}
+
+export function lineTag(body: string): string {
+  let sum = 0;
+  for (let char of body) {
+    sum += char.charCodeAt(0);
+  }
+  const hex = sum.toString(16).padStart(2, '0');
+  return hex;
+}
+```

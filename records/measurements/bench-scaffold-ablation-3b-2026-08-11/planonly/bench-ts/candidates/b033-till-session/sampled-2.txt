@@ -1,0 +1,82 @@
+```typescript
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const isPositiveInteger = (n: number): boolean => Number.isInteger(n) && n > 0;
+
+  if (!events.every(event => Array.isArray(event) && event.length === 2)) {
+    throw new Error("Each event must be a list of its action and exactly its payload.");
+  }
+
+  const isUnknownAction = (action: string): boolean => !["scan", "void", "close", "pay", "cancel"].includes(action);
+
+  if (Object.keys(prices).length === 0 && events.find(event => event[0] !== "scan")) {
+    throw new Error("A price list with no entries is treated as an empty session.");
+  }
+
+  const cart: Record<string, number> = {};
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+  let state = "open";
+
+  const processEvent = (action: string, item?: string): void => {
+    switch (action) {
+      case "scan":
+        if (!prices[item]) {
+          throw new Error(`Unknown item ${item}.`);
+        }
+        cart[item] = (cart[item] || 0) + 1;
+        total += prices[item];
+        break;
+      case "void":
+        if (!(item in cart)) {
+          throw new Error(`Cannot void non-existent item ${item}`);
+        }
+        if (cart[item] > 0) {
+          cart[item]--;
+          total -= prices[item];
+        } else {
+          delete cart[item];
+        }
+        break;
+      case "close":
+        if (!Object.keys(cart).length) {
+          throw new Error("Cannot close with an empty cart.");
+        }
+        state = "payment";
+        break;
+      case "pay":
+        const centsAmount = Number(event[1]);
+        if (!isPositiveInteger(centsAmount)) {
+          throw new Error(`Pay amount ${centsAmount} is not a positive integer.`);
+        }
+        if (state !== "payment") {
+          throw new Error("Cannot pay during an open or cancelled session.");
+        }
+        paid += centsAmount;
+        change = total - paid;
+        state = "paid";
+        break;
+      case "cancel":
+        state = "cancelled";
+        break;
+      default:
+        throw new Error(`Unknown action ${action}.`);
+    }
+  };
+
+  for (const event of events) {
+    const [action, ...payload] = event;
+    if (isUnknownAction(action)) {
+      throw new Error(`Cannot process unknown action ${action}.");
+    }
+
+    try {
+      processEvent(action, payload[0]);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  return { state, items: Object.keys(cart).map(item => [item, cart[item]]), total, paid, change };
+}
+```

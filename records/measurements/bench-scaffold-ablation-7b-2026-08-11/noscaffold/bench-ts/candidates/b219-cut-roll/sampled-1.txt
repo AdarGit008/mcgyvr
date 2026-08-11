@@ -1,0 +1,32 @@
+```typescript
+type Cut = {
+  takings: number;
+  pieces: number[];
+};
+
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (length < 0 || !Number.isInteger(length)) {
+    throw new Error('Invalid length');
+  }
+
+  const dp: { [key: number]: Cut } = {};
+
+  for (let i = 1; i <= length; i++) {
+    let maxTakings = 0;
+    let bestPiece: number[] = [];
+
+    for (const [piece, price] of board) {
+      if (i >= piece && price + dp[i - piece].takings > maxTakings) {
+        maxTakings = price + dp[i - piece].takings;
+        bestPiece = [piece];
+      } else if (i >= piece && price + dp[i - piece].takings === maxTakings) {
+        bestPiece.push(piece);
+      }
+    }
+
+    dp[i] = { takings: maxTakings, pieces: bestPiece };
+  }
+
+  return dp[length];
+}
+```

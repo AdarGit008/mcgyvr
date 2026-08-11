@@ -1,0 +1,47 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid arguments');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [name, countStr] = entry.split(':');
+    if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(countStr)) {
+      throw new Error('Malformed sheet entry');
+    }
+    return [name, parseInt(countStr)];
+  };
+
+  const parseMove = (move: string): [string, number] => {
+    const [name, qtyStr] = move.split(/[+-]/);
+    if (!/^[a-z]+$/.test(name) || !/^\d+$/.test(qtyStr)) {
+      throw new Error('Malformed move');
+    }
+    return [name, parseInt(qtyStr)];
+  };
+
+  const entries = opening === '' ? {} : Object.fromEntries(opening.split(';').map(parseEntry));
+  const moveMap = moves === '' ? [] : moves.split(';').flatMap(move => {
+    const [name, qty] = parseMove(move);
+    return Array(qty).fill(name);
+  });
+
+  for (const name of moveMap) {
+    if (!entries.hasOwnProperty(name)) {
+      throw new Error('Issue of an item the sheet does not hold');
+    }
+    entries[name]--;
+    if (entries[name] < 0) {
+      throw new Error('Issue of more units than the item then holds');
+    }
+  }
+
+  const result: string[] = [];
+  for (const name in entries) {
+    if (entries[name] > 0) {
+      result.push(`${name}:${entries[name]}`);
+    }
+  }
+  return result.sort().join(';');
+}
+```

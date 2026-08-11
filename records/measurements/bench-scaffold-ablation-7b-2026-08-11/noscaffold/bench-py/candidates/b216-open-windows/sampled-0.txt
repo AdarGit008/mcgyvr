@@ -1,0 +1,40 @@
+```python
+from datetime import datetime
+
+def open_windows(span: str, booked: list[str]) -> str:
+    def parse_time(time_str: str) -> tuple[int, int]:
+        hours, minutes = map(int, time_str.split(':'))
+        return hours, minutes
+
+    def format_time(hours: int, minutes: int) -> str:
+        return f"{hours:02}:{minutes:02}"
+
+    if not span.count('-') == 1 or any(not t.count(':') == 2 for t in booked + [span]):
+        raise ValueError("Invalid time format")
+
+    start_span, end_span = span.split('-')
+    start_hours, start_minutes = parse_time(start_span)
+    end_hours, end_minutes = parse_time(end_span)
+
+    if (start_hours > end_hours or
+            (start_hours == end_hours and start_minutes >= end_minutes)):
+        raise ValueError("Invalid time range")
+
+    open_intervals = []
+    current_start = start_hours, start_minutes
+
+    for appt in booked:
+        appt_start, appt_end = appt.split('-')
+        appt_start_hours, appt_start_minutes = parse_time(appt_start)
+        appt_end_hours, appt_end_minutes = parse_time(appt_end)
+
+        if current_start < (appt_start_hours, appt_start_minutes):
+            open_intervals.append(f"{format_time(*current_start)}-{format_time(appt_start_hours, appt_start_minutes)}")
+        
+        current_start = max(current_start, (appt_end_hours, appt_end_minutes))
+
+    if current_start < (end_hours, end_minutes):
+        open_intervals.append(f"{format_time(*current_start)}-{format_time(end_hours, end_minutes)}")
+
+    return ', '.join(open_intervals) if open_intervals else 'none'
+```

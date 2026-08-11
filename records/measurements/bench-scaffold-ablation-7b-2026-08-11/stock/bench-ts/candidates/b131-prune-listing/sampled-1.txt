@@ -1,0 +1,81 @@
+```ts
+/** Prune a file listing with ordered drop and keep rules. */
+
+function segmentFits(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === "*") {
+      star = p;
+      mark = t;
+      p += 1;
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p += 1;
+      t += 1;
+    } else if (star >= 0) {
+      p = star + 1;
+      mark += 1;
+      t = mark;
+    } else {
+      return false;
+    }
+  }
+  while (p < pattern.length && pattern[p] === "*") {
+    p += 1;
+  }
+  return p === pattern.length;
+}
+
+function splitStrict(text: string, what: string): string[] {
+  if (typeof text !== "string" || text === "") {
+    throw new Error(`${what} must be a non-empty string`);
+  }
+  const segments = text.split("/");
+  if (segments.some((segment) => segment === "")) {
+    throw new Error(`${what} has an empty segment: ${text}`);
+  }
+  return segments;
+}
+
+function validatePath(path: string): void {
+  splitStrict(path, "path");
+}
+
+function validateRule(rule: string): void {
+  if (rule === "") {
+    throw new Error("rule must be a non-empty string");
+  }
+  if (rule.includes("//")) {
+    throw new Error(`rule has an empty segment: ${rule}`);
+  }
+}
+
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  for (const path of listing) {
+    validatePath(path);
+  }
+
+  for (const rule of rules) {
+    validateRule(rule);
+  }
+
+  return listing.filter((path) => {
+    let keep = false;
+    for (const rule of rules) {
+      const parts = splitStrict(rule, "rule");
+      const isKeep = rule.startsWith("!");
+      const matches = path.split("/").every((segment, index) => {
+        if (index >= parts.length) return false;
+        if (parts[index] === "*") return true;
+        return segment === parts[index];
+      });
+      if (matches) {
+        keep = isKeep !== keep;
+      }
+    }
+    return keep;
+  });
+}
+```

@@ -1,0 +1,53 @@
+```python
+from typing import List
+
+def region_totals(grid: List[List[int]], queries: List[List[int]]) -> List[int]:
+    """
+    Calculate the totals of specified blocks in a grid.
+    
+    :param grid: A non-empty list of rows, each row is a non-empty list of integers.
+                All rows have the same length and are integers.
+    :param queries: A list of lists, each containing four integers [top, left, bottom, right].
+                  Each query specifies a block to sum within the grid.
+    :return: A list of totals corresponding to each query in order.
+    """
+    
+    # Validate grid
+    if not grid or not grid[0]:
+        raise ValueError("Grid must have at least one row with at least one cell.")
+    for row in grid:
+        if len(row) != len(grid[0]):
+            raise ValueError("All rows must have the same number of cells.")
+        for num in row:
+            if not isinstance(num, int):
+                raise ValueError("Grid cells must be integers.")
+    
+    # Validate queries
+    for query in queries:
+        if len(query) != 4 or any(not isinstance(q, int) for q in query):
+            raise ValueError("Queries must be lists of exactly four integers.")
+        top, left, bottom, right = query
+        if top >= bottom or left >= right:
+            raise ValueError("Query bounds must be strictly less than each other.")
+    
+    # Compute prefix sums horizontally and vertically
+    h_prefix_sums = [[0] * len(row) for row in grid]
+    v_prefix_sums = [[0] * (len(grid[0]) + 1) for _ in range(len(grid))]
+    
+    for i, row in enumerate(grid):
+        for j, num in enumerate(row):
+            h_prefix_sums[i][j] = (h_prefix_sums[i][j-1] if j > 0 else 0) + num
+            v_prefix_sums[i][j+1] += h_prefix_sums[i][j]
+    
+    # Calculate block totals using prefix sums
+    results = []
+    for query in queries:
+        top, left, bottom, right = query
+        result = (v_prefix_sums[bottom-1][right] - 
+                v_prefix_sums[top-1][right] - 
+                h_prefix_sums[bottom-1][left] + 
+                h_prefix_sums[top-1][left])
+        results.append(result)
+    
+    return results
+```

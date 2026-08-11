@@ -1,0 +1,64 @@
+```python
+def parse_span(text: str) -> int:
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("Invalid span format")
+
+    parts = text.split()
+    yard_to_inch = 36
+    foot_to_inch = 12
+
+    total_inches = 0
+    units_seen = set()
+
+    for part in parts:
+        if len(part) < 2 or not part[:-2].isdigit():
+            raise ValueError("Invalid span format")
+
+        value, unit = int(part[:-2]), part[-2:]
+        if unit not in {'yd', 'ft', 'in'} or unit in units_seen:
+            raise ValueError("Unknown unit or repetition")
+        units_seen.add(unit)
+
+        if (unit == 'yd' and value > 0) or (unit == 'ft' and value >= 3) or (unit == 'in' and value >= 12):
+            raise ValueError("Invalid span format")
+
+        if unit == 'yd':
+            total_inches += value * yard_to_inch
+        elif unit == 'ft':
+            total_inches += value * foot_to_inch
+        else:
+            total_inches += value
+
+    return total_inches
+
+
+def format_span(inches: int) -> str:
+    if not isinstance(inches, int) or inches < 0 or inches % 1 != 0:
+        raise ValueError("Invalid inches value")
+
+    yard_to_inch = 36
+    foot_to_inch = 12
+
+    result_parts = []
+    yards = inches // yard_to_inch
+    if yards > 0:
+        result_parts.append(f"{yards}yd")
+        inches %= yard_to_inch
+
+    feet = inches // foot_to_inch
+    if feet > 0 or result_parts:
+        result_parts.append(f"{feet}ft")
+        inches %= foot_to_inch
+
+    if inches > 0 or not result_parts:
+        result_parts.append(f"{inches}in")
+
+    return ' '.join(result_parts)
+
+
+def add_spans(first: str, second: str) -> str:
+    first_inches = parse_span(first)
+    second_inches = parse_span(second)
+    total_inches = first_inches + second_inches
+    return format_span(total_inches)
+```

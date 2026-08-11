@@ -1,0 +1,23 @@
+```python
+import re
+
+def fill_template(template: str, values: dict) -> str:
+    if not isinstance(template, str):
+        raise ValueError("Template must be a string")
+    
+    placeholder_pattern = r'\{([a-zA-Z0-9_]+)\}'
+    open_brace_pattern = r'\{'
+    close_brace_pattern = r'\}'
+    
+    def replace_match(match: re.Match) -> str:
+        name = match.group(1)
+        if not name or not re.match(r'^[a-zA-Z0-9_]+$', name):
+            raise ValueError(f"Invalid placeholder name: {name}")
+        return values.get(name, match.group(0))
+    
+    result = re.sub(placeholder_pattern, replace_match, template)
+    if open_brace_count := len(re.findall(open_brace_pattern, result)) != close_brace_count:
+        raise ValueError(f"Mismatched braces: {open_brace_count} opening brace(s) and {close_brace_count} closing brace(s)")
+    
+    return result
+```

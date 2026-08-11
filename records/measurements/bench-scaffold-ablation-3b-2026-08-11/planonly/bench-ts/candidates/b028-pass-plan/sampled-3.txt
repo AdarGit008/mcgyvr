@@ -1,0 +1,52 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (!Array.isArray(tripDays) || !tripDays.every(Number.isInteger) || tripDays.some((day, i) => day <= (i > 0 ? tripDays[i - 1] : 0))) {
+    throw new Error("Invalid trip days: must be strictly increasing list of positive integers.");
+  }
+
+  if (!Array.isArray(passes) || passes.length === 0) {
+    throw new Error("Pass list cannot be empty.");
+  }
+
+  for (const pass of passes) {
+    if (!Number.isInteger(pass.span) || pass.span <= 0) {
+      throw new Error("Invalid pass span: must be a positive integer.");
+    }
+    if (!Number.isInteger(pass.cost) || pass.cost < 0) {
+      throw new Error("Invalid pass cost: must be a non-negative integer.");
+    }
+  }
+
+  const tripSet = new Set(tripDays);
+
+  // Sort passes by their cost per day
+  passes.sort((a, b) => (a.cost / a.span) - (b.cost / b.span));
+
+  let totalCost = 0;
+  const purchases: number[][] = [];
+
+  for (const pass of passes) {
+    let minStart = tripSet.size > 0 ? Math.min(...tripSet.values()) : 0;
+
+    while (minStart < tripDays[tripDays.length - 1]) {
+      const remainingDays = Array.from(tripDays).filter(day => day >= minStart && day < minStart + pass.span);
+      if (remainingDays.length > 0) {
+        totalCost += pass.cost;
+        purchases.push([minStart, pass.span]);
+        for (const day of remainingDays) {
+          tripSet.delete(day);
+        }
+      } else {
+        break;
+      }
+    }
+
+    // If no days are left to cover, stop
+    if (tripSet.size === 0) {
+      break;
+    }
+  }
+
+  return { total: totalCost, purchases };
+}
+```

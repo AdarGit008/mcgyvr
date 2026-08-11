@@ -1,0 +1,67 @@
+```ts
+/**
+ * Converts a prefix length to a network mask in dotted-quad format.
+ * @param {number} prefix - The number of leading one bits (0-32).
+ * @returns {string} - The corresponding network mask.
+ */
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error('Invalid prefix');
+  }
+
+  const octets = Array(4).fill(0);
+  let onesDone = false;
+
+  for (let i = 0; i < 32; ++i) {
+    if (i < prefix) {
+      if (!onesDone) {
+        octets[Math.floor(i / 8)] |= 1 << (7 - (i % 8));
+      }
+    } else {
+      onesDone = true;
+    }
+  }
+
+  return octets.join('.');
+}
+
+/**
+ * Converts a network mask in dotted-quad format to its prefix length.
+ * @param {string} mask - The network mask in dotted-quad format.
+ * @returns {number} - The corresponding prefix length.
+ */
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== 'string' || !mask) {
+    throw new Error('Invalid input');
+  }
+
+  const octets = mask.split('.');
+  if (octets.length !== 4) {
+    throw new Error('Invalid format');
+  }
+
+  let prefix = 0;
+  let onesDone = true;
+
+  for (let i = 0; i < 4; ++i) {
+    const octetStr = octets[i];
+    const octet = parseInt(octetStr, 10);
+    if (isNaN(octet) || octet < 0 || octet > 255 || (octetStr.startsWith('0') && octetStr !== '0')) {
+      throw new Error('Invalid value');
+    }
+
+    for (let j = 7; j >= 0; --j) {
+      if ((octet & (1 << j)) !== 0) {
+        if (!onesDone) {
+          throw new Error('Broken mask');
+        }
+        ++prefix;
+      } else {
+        onesDone = true;
+      }
+    }
+  }
+
+  return prefix;
+}
+```

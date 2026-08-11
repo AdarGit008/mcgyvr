@@ -1,0 +1,41 @@
+```python
+import re
+
+
+def parse_option(segment: str) -> list:
+    key, eq, raw = segment.partition("=")
+    if not eq or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", key) is None:
+        raise ValueError("malformed option segment: " + segment)
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    return [key, raw]
+
+
+def scan_pairs(text: str) -> list:
+    if not isinstance(text, str) or text == "":
+        raise ValueError("invalid input")
+    
+    pairs = []
+    in_quote = False
+    current_segment = ""
+    
+    for char in text:
+        if char == '"':
+            in_quote = not in_quote
+        elif char == ';' and not in_quote:
+            segment = parse_option(current_segment.strip())
+            if segment[0] in [pair[0] for pair in pairs]:
+                raise ValueError("repeated key")
+            pairs.append(segment)
+            current_segment = ""
+        else:
+            current_segment += char
+    
+    if current_segment:
+        segment = parse_option(current_segment.strip())
+        if segment[0] in [pair[0] for pair in pairs]:
+            raise ValueError("repeated key")
+        pairs.append(segment)
+    
+    return pairs
+```

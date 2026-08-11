@@ -1,0 +1,40 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    """
+    Splits a stream of chunks into frames based on a marker character and returns
+    a mapping of ended frames and pending text.
+    
+    :param chunks: List of strings representing the input stream in chunks.
+    :param marker: Single character string used as the frame marker.
+    :return: Dictionary with 'frames' key holding list of ended frames and 'pending'
+             key holding remaining pending text.
+    """
+    if not isinstance(marker, str) or len(marker) != 1:
+        raise ValueError("Marker must be a single character.")
+    
+    joined_text = ''.join(chunks)
+    frames = []
+    pending = ''
+    i = 0
+    
+    while i < len(joined_text):
+        if joined_text[i] == marker:
+            if i + 1 < len(joined_text) and joined_text[i + 1] == marker:
+                # Double marker, treat as single marker
+                frames.append(marker)
+                i += 2
+            else:
+                # Single marker, end frame
+                frames.append(pending)
+                pending = ''
+                i += 1
+        else:
+            # Add to pending text
+            pending += joined_text[i]
+            i += 1
+    
+    if pending:
+        frames.append(pending)
+    
+    return {'frames': frames, 'pending': pending}
+```

@@ -1,0 +1,24 @@
+```ts
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input === '') {
+    throw new Error('Input must be a non-empty string');
+  }
+
+  const pairs = input.split(';').map((segment) => parseOption(segment.trim()));
+  return pairs.filter(([key, value]) => key && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key));
+}
+
+export function parseOption(segment: string): string[] {
+  if (typeof segment !== 'string') {
+    throw new Error('Segment must be a string');
+  }
+
+  const [key, ...value] = segment.split('=');
+  
+  if (!/^([a-zA-Z_][a-zA-Z0-9_]*)?$/.test(key)) {
+    throw new Error('Invalid key format');
+  }
+
+  return [key, ...value.filter(Boolean)];
+}
+```

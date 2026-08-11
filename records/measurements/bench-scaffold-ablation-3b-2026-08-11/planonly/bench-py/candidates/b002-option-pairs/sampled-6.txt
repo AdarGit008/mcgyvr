@@ -1,0 +1,51 @@
+```python
+def parse_option(segment: str) -> list:
+    """Parse a key=value segment into [key, value]."""
+    if "=" not in segment or not segment.split("=", 1)[0].isidentifier():
+        raise ValueError("Invalid option format")
+    
+    parts = segment.split("=", 1)
+    key = parts[0]
+    value = parts[1].strip('"')
+    
+    return [key, value]
+
+
+def scan_pairs(text: str) -> list:
+    """Scan an options string into pairs of [key, value]."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+    
+    if text == "":
+        return []
+    
+    parts = []
+    current_segment = ""
+    quoted = False
+    
+    for char in text:
+        if char == '"':
+            quoted = not quoted
+        elif char == ';' and not quoted:
+            parts.append(current_segment.strip())
+            current_segment = ""
+        else:
+            current_segment += char
+    
+    parts.append(current_segment.strip())  # Add the last segment
+    
+    seen_keys = set()
+    options = []
+    
+    for part in parts:
+        try:
+            key, value = parse_option(part)
+            if key in seen_keys:
+                raise ValueError("Repeated key")
+            seen_keys.add(key)
+            options.append([key, value])
+        except ValueError as e:
+            raise ValueError(f"Error parsing option '{part}': {e}")
+    
+    return options
+```

@@ -1,0 +1,19 @@
+```ts
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || !links) throw new Error('Links must be an object');
+  if (!(start in links)) throw new Error(`Start post "${start}" is not a valid post`);
+  
+  const visited = new Set<string>();
+  let current = start;
+
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    const next = links[current];
+    if (!next || typeof next !== 'string') throw new Error('Link for post must be a string');
+    current = next;
+  }
+
+  if (current === '') return [...visited];
+  throw new Error(`Watch comes back to post "${start}"`);
+}
+```

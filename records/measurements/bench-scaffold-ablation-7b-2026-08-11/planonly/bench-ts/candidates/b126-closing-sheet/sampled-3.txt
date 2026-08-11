@@ -1,0 +1,51 @@
+```ts
+/**
+ * Applies the day's stock moves to the opening sheet, validating each move,
+ * then returns the closing sheet entries still on hand, sorted by item name and without zero counts.
+ * @param opening - The opening stock count sheet as a semicolon-separated string of items:counts.
+ * @param moves - The day's stock moves as a semicolon-separated string of item+qty or item-qty.
+ * @returns The closing stock count sheet entries still on hand, sorted by item name and without zero counts.
+ */
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid input: arguments must be strings.');
+  }
+
+  const parseEntry = (entry: string): [string, number] => {
+    const [name, countStr] = entry.split(':');
+    const count = parseInt(countStr, 10);
+    if (!/^[a-z]+$/.test(name) || isNaN(count)) {
+      throw new Error(`Invalid opening sheet entry: ${entry}`);
+    }
+    return [name, count];
+  };
+
+  const parseMove = (move: string): [string, number] => {
+    const [name, qtyStr] = move.split(/[+-]/);
+    const qty = parseInt(qtyStr, 10);
+    if (!/^[a-z]+$/.test(name) || isNaN(qty) || qty <= 0) {
+      throw new Error(`Invalid move: ${move}`);
+    }
+    return [name, move.startsWith('+') ? qty : -qty];
+  };
+
+  const openingMap = new Map<string, number>(opening.split(';').map(parseEntry));
+  moves.split(';').forEach(move => {
+    const [name, qty] = parseMove(move);
+    if (!openingMap.has(name)) {
+      throw new Error(`Attempted to move an item not on the sheet: ${move}`);
+    }
+    const newCount = openingMap.get(name)! + qty;
+    if (newCount < 0) {
+      throw new Error(`Attempted to issue more units than available: ${move}`);
+    }
+    openingMap.set(name, newCount);
+  });
+
+  return Array.from(openingMap.entries())
+    .filter(([_, count]) => count > 0)
+    .map(([name, count]) => `${name}:${count}`)
+    .sort()
+    .join(';');
+}
+```

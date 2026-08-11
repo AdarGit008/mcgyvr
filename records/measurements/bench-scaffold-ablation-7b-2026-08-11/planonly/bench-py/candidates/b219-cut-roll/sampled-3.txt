@@ -1,0 +1,36 @@
+```python
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0:
+        raise ValueError("Length must be a non-negative whole number")
+
+    # Initialize a DP table where dp[i] is the maximum price for a roll of length i
+    dp = [0] * (length + 1)
+
+    # Initialize a list to store the pieces used to achieve the maximum price
+    parent = [-1] * (length + 1)
+
+    # Iterate over each possible roll length from 1 to length
+    for i in range(1, length + 1):
+        max_price = dp[i]
+        best_piece = -1
+
+        # Check each piece on the board that can fit at the end of the current roll
+        for piece_length, price in board:
+            if i >= piece_length and dp[i - piece_length] + price > max_price:
+                max_price = dp[i - piece_length] + price
+                best_piece = piece_length
+
+        # Update the DP table and parent list
+        if best_piece != -1:
+            dp[i] = max_price
+            parent[i] = best_piece
+
+    # Reconstruct the pieces used to achieve the maximum price
+    pieces = []
+    while length > 0:
+        piece_length = parent[length]
+        pieces.append(piece_length)
+        length -= piece_length
+
+    return {"takings": dp[-1], "pieces": pieces}
+```

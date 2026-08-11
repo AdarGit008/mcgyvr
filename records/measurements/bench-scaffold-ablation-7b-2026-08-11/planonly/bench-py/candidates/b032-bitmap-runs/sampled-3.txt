@@ -1,0 +1,49 @@
+```python
+def find_free_run(words: list[int], bits: int, length: int) -> int:
+    if not words or not isinstance(bits, int) or not isinstance(length, int):
+        raise ValueError("Invalid arguments")
+    if bits <= 0 or length <= 0:
+        raise ValueError("Capacity and length must be positive integers")
+    word_count = (bits + 31) // 32
+    if len(words) != word_count:
+        raise ValueError("Word count does not match capacity")
+    for word in words:
+        if not isinstance(word, int) or word < 0 or word > 4294967295:
+            raise ValueError("Bitmap word must be an integer from 0 to 4294967295")
+    if bits >= len(words) * 32:
+        return -1
+    for start in range(bits):
+        free_blocks = sum((words[start // 32] >> (start % 32 + i)) & 1 == 0 for i in range(length))
+        if free_blocks == length:
+            return start
+    return -1
+
+def occupy_run(words: list[int], start: int, length: int) -> list[int]:
+    if not words or not isinstance(start, int) or not isinstance(length, int):
+        raise ValueError("Invalid arguments")
+    word_count = (len(words) * 32)
+    if start < 0 or start + length > word_count:
+        raise ValueError("Run does not lie wholly inside the words")
+    for i in range(start // 32, min((start + length - 1) // 32 + 1, len(words))):
+        bit = (start % 32) if i == start // 32 else 0
+        mask = ((1 << length)) - 1
+        while mask >> bit:
+            if (words[i] >> bit) & 1:
+                raise ValueError("Run touches an occupied block")
+            bit += 1
+    new_words = words[:]
+    for i in range(start // 32, min((start + length - 1) // 32 + 1, len(words))):
+        bit = (start % 32) if i == start // 32 else 0
+        mask = ((1 << length)) - 1
+        new_words[i] |= mask << bit
+    return new_words
+
+def bit_at(words: list[int], index: int) -> int:
+    if not words or not isinstance(index, int):
+        raise ValueError("Invalid arguments")
+    word_index = index // 32
+    bit_position = index % 32
+    if word_index >= len(words) or bit_position < 0 or bit_position > 31:
+        raise ValueError("Index out of bounds")
+    return (words[word_index] >> bit_position) & 1
+```

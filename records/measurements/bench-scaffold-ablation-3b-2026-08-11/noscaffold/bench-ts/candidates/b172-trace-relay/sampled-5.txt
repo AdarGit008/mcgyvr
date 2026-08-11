@@ -1,0 +1,30 @@
+```ts
+export function traceRelay(links: Record<string, string>, start: string): string[] {
+  if (typeof links !== 'object' || links === null) {
+    throw new Error('links must be an object');
+  }
+  if (!Object.keys(links).includes(start)) {
+    throw new Error('start must be a post name in links');
+  }
+
+  const visited = new Set<string>();
+  const path: string[] = [];
+  let currentPost = start;
+
+  while (currentPost !== '') {
+    if (!visited.has(currentPost)) {
+      visited.add(currentPost);
+    } else {
+      throw new Error('run of handoffs comes back to a post already visited');
+    }
+    path.push(currentPost);
+
+    currentPost = links[currentPost];
+    if (typeof currentPost !== 'string' || !links.hasOwnProperty(currentPost)) {
+      throw new Error('handoff naming a post that links does not name');
+    }
+  }
+
+  return path;
+}
+```

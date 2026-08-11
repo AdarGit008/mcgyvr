@@ -1,0 +1,66 @@
+```python
+def file_paths(root: dict) -> list:
+    def walk(node: dict, path: str = "") -> list:
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a mapping.")
+        
+        paths = []
+        for name, value in node.items():
+            if not isinstance(name, str) or "/" in name:
+                raise ValueError("Name must be a non-empty string without slashes.")
+            
+            full_path = f"{path}/{name}"
+            if isinstance(value, dict):
+                paths.extend(walk(value, full_path))
+            elif isinstance(value, int) and value >= 0:
+                paths.append(full_path)
+        
+        return paths
+    
+    return walk(root)
+
+def tree_bytes(root: dict) -> int:
+    def walk(node: dict) -> int:
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a mapping.")
+        
+        total = 0
+        for name, value in node.items():
+            if not isinstance(name, str) or "/" in name:
+                raise ValueError("Name must be a non-empty string without slashes.")
+            
+            if isinstance(value, dict):
+                total += walk(value)
+            elif isinstance(value, int) and value >= 0:
+                total += value
+        
+        return total
+    
+    return walk(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    def walk(node: dict, path: str = "", total: int = 0) -> list:
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a mapping.")
+        
+        folders = []
+        for name, value in node.items():
+            if not isinstance(name, str) or "/" in name:
+                raise ValueError("Name must be a non-empty string without slashes.")
+            
+            full_path = f"{path}/{name}"
+            if isinstance(value, dict):
+                folder_paths, folder_bytes = walk(value, full_path, total)
+                folders.extend(folder_paths)
+                total += folder_bytes
+            elif isinstance(value, int) and value >= 0:
+                total += value
+        
+        if total >= min_bytes:
+            folders.append(path)
+        
+        return folders, total
+    
+    paths, _ = walk(root)
+    return paths
+```

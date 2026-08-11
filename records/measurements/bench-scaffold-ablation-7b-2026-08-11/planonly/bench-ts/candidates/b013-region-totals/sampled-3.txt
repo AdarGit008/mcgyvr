@@ -1,0 +1,47 @@
+```ts
+/**
+ * Computes region totals from a grid based on given queries using prefix sums.
+ * @param grid - A non-empty list of rows, each row a non-empty list of integers.
+ * @param queries - A list of queries, each a four-integer list [top, left, bottom, right].
+ * @returns An array of region totals corresponding to the queries.
+ */
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  const numRows = grid.length;
+  const numCols = grid[0].length;
+
+  // Validate grid
+  if (numRows === 0 || numCols === 0) throw new Error('Grid must not be empty');
+  for (const row of grid) {
+    if (row.length !== numCols) throw new Error('All rows must have the same length');
+    for (const cell of row) {
+      if (!Number.isInteger(cell)) throw new Error('All cells must be integers');
+    }
+  }
+
+  // Validate queries
+  const results: number[] = [];
+  for (const query of queries) {
+    if (query.length !== 4) throw new Error('Each query must have exactly four elements');
+    const [top, left, bottom, right] = query;
+    if (
+      top < 0 ||
+      left < 0 ||
+      bottom > numRows ||
+      right > numCols ||
+      top >= bottom ||
+      left >= right
+    ) {
+      throw new Error('Query out of bounds or invalid');
+    }
+
+    // Compute region total using prefix sums
+    let regionSum = 0;
+    for (let i = top; i < bottom; i++) {
+      regionSum += grid[i][right - 1] - (left > 0 ? grid[i][left - 1] : 0);
+    }
+    results.push(regionSum);
+  }
+
+  return results;
+}
+```

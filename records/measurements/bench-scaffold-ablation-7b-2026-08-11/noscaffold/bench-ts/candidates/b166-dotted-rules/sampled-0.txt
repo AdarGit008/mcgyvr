@@ -1,0 +1,28 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== 'string' || name === '' || name.includes('*')) {
+    throw new Error('Invalid name');
+  }
+
+  let result: string | null = null;
+  let longestPrefixLength = -1;
+
+  for (const rule in rules) {
+    const value = rules[rule];
+    if (typeof value !== 'string') {
+      throw new Error('Invalid rule value');
+    }
+
+    if (rule === name || rule.endsWith('.*')) {
+      return value;
+    } else if (rule.startsWith('*')) {
+      continue;
+    } else if (name.startsWith(rule) && rule.length > longestPrefixLength) {
+      result = value;
+      longestPrefixLength = rule.length;
+    }
+  }
+
+  return longestPrefixLength !== -1 ? result : null;
+}
+```

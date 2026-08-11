@@ -1,0 +1,37 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both opening and moves must be strings.")
+    
+    def parse_entry(entry: str) -> (str, int):
+        name, count = entry.split(':')
+        return name, int(count)
+    
+    def parse_move(move: str) -> (str, int):
+        name, qty = move.split('+')
+        action = 1
+    elif move.startswith('-'):
+        name, qty = move[1:].split('-')
+        action = -1
+    else:
+        raise ValueError(f"Malformed move: {move}")
+    
+        return name, int(qty) * action
+    
+    try:
+        entries = dict(parse_entry(entry) for entry in opening.split(';') if entry)
+        moves_list = [parse_move(move) for move in moves.split(';') if move]
+    except (ValueError, KeyError):
+        raise ValueError("Malformed sheet or move.")
+    
+    for name, qty in moves_list:
+        if name not in entries and action == -1:
+            raise ValueError(f"Issue of {qty} units from item {name}, which is not on the sheet.")
+        if qty > entries[name]:
+            raise ValueError(f"Issue of more units than available: {qty} > {entries[name]}")
+        entries[name] += qty
+        if entries[name] == 0:
+            del entries[name]
+    
+    return ';'.join(f"{name}:{count}" for name, count in sorted(entries.items()))
+```

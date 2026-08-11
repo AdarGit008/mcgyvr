@@ -1,0 +1,37 @@
+```ts
+export function openWindows(span: string, booked: string[]): string {
+  const timeRegex = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/;
+  if (!timeRegex.test(span)) {
+    throw new Error("Invalid span format");
+  }
+  for (const appt of booked) {
+    if (!timeRegex.test(appt)) {
+      throw new Error("Invalid appointment format");
+    }
+  }
+
+  const [startHour, startMinute, endHour, endMinute] = span.split('-').flatMap(time => time.split(':').map(Number));
+  const appointments = booked.map(appt => appt.split('-').flatMap(time => time.split(':').map(Number)).sort((a, b) => a - b));
+
+  let freeWindows: [number, number][] = [[startHour, startMinute]];
+  for (const [apptStartHour, apptStartMinute, apptEndHour, apptEndMinute] of appointments) {
+    const lastFreeWindow = freeWindows[freeWindows.length - 1];
+    if (lastFreeWindow[0] < apptStartHour || (lastFreeWindow[0] === apptStartHour && lastFreeWindow[1] <= apptStartMinute)) {
+      freeWindows.push([apptEndHour, apptEndMinute]);
+    } else if (lastFreeWindow[0] === apptStartHour && lastFreeWindow[1] > apptStartMinute) {
+      lastFreeWindow[1] = Math.max(lastFreeWindow[1], apptEndMinute);
+    }
+  }
+
+  const [lastApptEndHour, lastApptEndMinute] = appointments[appointments.length - 1];
+  if (lastApptEndHour < endHour || (lastApptEndHour === endHour && lastApptEndMinute <= endMinute)) {
+    freeWindows.push([endHour, endMinute]);
+  }
+
+  if (freeWindows.length === 1) {
+    return "none";
+  }
+
+  return freeWindows.map(([hour, minute]) => `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`).join(', ');
+}
+```

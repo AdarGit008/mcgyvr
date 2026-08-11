@@ -1,0 +1,17 @@
+```python
+
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or name == "" or "*" in name:
+        raise ValueError("name must be a star-free non-empty string")
+    
+    exact_match = rules.get(name)
+    prefix_matches = {k for k in rules if k.endswith('.*') and name.startswith(k[:-2])}
+    
+    if exact_match is not None:
+        return exact_match
+    elif prefix_matches:
+        return max(prefix_matches, key=len).replace('.*', '')
+    else:
+        return rules.get('*')
+
+```

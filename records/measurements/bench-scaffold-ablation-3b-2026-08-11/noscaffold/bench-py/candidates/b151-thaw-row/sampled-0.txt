@@ -1,0 +1,35 @@
+```python
+def thaw_row(row: str, steps: int) -> str:
+    """
+    Thaw ice cells in a row of cells written as "#" for ice and "." for meltwater.
+    
+    Args:
+        row (str): A string representing the row of cells. It should only contain "#" and ".".
+        steps (int): The number of thaw steps to perform on the row.
+        
+    Returns:
+        str: The row after exactly that many steps.
+        
+    Raises:
+        ValueError: If the input row is not a valid string, is empty, contains invalid characters,
+                   or if steps is not a non-negative integer.
+    """
+    
+    # Validate inputs
+    if not isinstance(row, str) or not row.strip() or set(row) - {"#", "."}:
+        raise ValueError("Row must be a non-empty string containing only '#' and '.'.")
+    if not isinstance(steps, int) or steps < 0:
+        raise ValueError("Steps must be a non-negative integer.")
+    
+    # Convert row to list for easier manipulation
+    cells = list(row)
+    
+    # Thaw the grid multiple times based on the number of steps
+    for _ in range(steps):
+        for i in range(len(cells)):
+            if cells[i] == "#" and (i == 0 or cells[i - 1] == ".") and (i == len(cells) - 1 or cells[i + 1] == "."):
+                cells[i] = "."
+    
+    # Join the list back into a string and return
+    return ''.join(cells)
+```

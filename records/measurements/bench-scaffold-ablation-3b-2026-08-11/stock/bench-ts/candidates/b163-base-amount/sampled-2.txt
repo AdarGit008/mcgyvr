@@ -1,0 +1,75 @@
+```typescript
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("amount must be a non-negative integer");
+  }
+
+  const findFactor = (defMap: Record<string, [number, string]>): ((unit: string) => number | null) => {
+    return (unit: string): number | null => defMap[unit]?.[0] || null;
+  };
+
+  const findFinerUnit = (defMap: Record<string, [number, string]>): ((unit: string) => string | null) => {
+    return (unit: string): string | null => defMap[unit]?.[1] || null;
+  };
+
+  const isValidUnit = (defs: Record<string, [number, string]>, unit: string): boolean => {
+    return Object.keys(defs).includes(unit);
+  };
+
+  const isPositiveFactor = (factor: number): boolean => {
+    return factor > 0;
+  };
+
+  const resolveUnwindChain = (unit: string, defs: Record<string, [number, string]>, base: string): number | null => {
+    if (!isValidUnit(defs, unit)) {
+      throw new Error("unknown unit");
+    }
+
+    let currentAmount = amount;
+    let currentUnit = unit;
+
+    while (currentUnit !== base) {
+      const factor = findFactor(defs)(currentUnit);
+      const finerUnit = findFinerUnit(defs)(currentUnit);
+
+      if (!factor || !finerUnit) {
+        throw new Error("invalid definition chain");
+      }
+
+      if (!isPositiveFactor(factor)) {
+        throw new Error("bad factor");
+      }
+
+      currentAmount *= factor;
+      currentUnit = finerUnit;
+
+      // Check for loops
+      const pathToBase: string[] = [currentUnit];
+      let foundLoop = false;
+
+      while (pathToBase.length > 0) {
+        const nextUnit = findFinerUnit(defs)(pathToBase[pathToBase.length - 1]);
+
+        if (!nextUnit || !defs[nextUnit]) {
+          break;
+        }
+
+        pathToBase.push(nextUnit);
+
+        if (pathToBase.includes(currentUnit)) {
+          foundLoop = true;
+          break;
+        }
+      }
+
+      if (foundLoop) {
+        throw new Error("chain loops");
+      }
+    }
+
+    return currentAmount;
+  };
+
+  return resolveUnwindChain(unit, defs, base);
+}
+```

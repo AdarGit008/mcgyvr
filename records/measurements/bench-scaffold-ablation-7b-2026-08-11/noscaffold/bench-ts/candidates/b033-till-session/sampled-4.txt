@@ -1,0 +1,45 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const initialState = { state: "open", items: [] as [string, number][], total: 0, paid: 0, change: 0 };
+  
+  function isPositiveInteger(value: any): boolean {
+    return Number.isInteger(value) && value > 0;
+  }
+
+  function isValidPrice(price: number | undefined): boolean {
+    return price !== undefined && isPositiveInteger(price);
+  }
+
+  function applyEvent(event: (string | number)[], state: { state: string; items: [string, number][]; total: number; paid: number; change: number }): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+    const action = event[0] as string;
+    const payload = event.length === 2 ? event[1] : undefined;
+
+    switch (action) {
+      case "scan":
+        if (state.state !== "open") throw new Error("Illegal action in current state");
+        if (!isValidPrice(prices[payload as string])) throw new Error("Invalid price");
+        return { ...state, items: [...state.items, [payload as string, 1]] };
+      case "void":
+        if (state.state !== "open") throw new Error("Illegal action in current state");
+        const itemIndex = state.items.findIndex(([name]) => name === payload);
+        if (itemIndex === -1) throw new Error("Item not found in cart");
+        return { ...state, items: [...state.items.slice(0, itemIndex), ...state.items.slice(itemIndex + 1)] };
+      case "close":
+        if (state.state !== "open") throw new Error("Illegal action in current state");
+        if (state.items.length === 0) throw new Error("Empty cart on close");
+        return { ...state, state: "payment", total: state.items.reduce((sum, [_, quantity]) => sum + quantity * prices[payload as string]!, 0) };
+      case "pay":
+        if (state.state !== "payment") throw new Error("Illegal action in current state");
+        if (!isValidPrice(payload)) throw new Error("Invalid pay amount");
+        const change = payload - state.total;
+        return { ...state, state: "paid", paid: state.paid + payload, change };
+      case "cancel":
+        return { ...initialState };
+      default:
+        throw new Error("Unknown action");
+    }
+  }
+
+  return events.reduce(applyEvent, initialState);
+}
+```

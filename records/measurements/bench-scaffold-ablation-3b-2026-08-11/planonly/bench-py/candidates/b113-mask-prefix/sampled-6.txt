@@ -1,0 +1,39 @@
+```python
+def mask_from_prefix(prefix: int) -> str:
+    if not isinstance(prefix, int):
+        raise ValueError("Input must be an integer.")
+    
+    if prefix < 0 or prefix > 32:
+        raise ValueError("Prefix must be between 0 and 32.")
+    
+    binary_mask = format(256 ** (32 - prefix) - 1, '032b')
+    octets = [binary_mask[i:i+8] for i in range(0, 32, 8)]
+    
+    return '.'.join(f"{int(octet, 2):d}" for octet in octets)
+
+def prefix_from_mask(mask: str) -> int:
+    if not isinstance(mask, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = mask.split('.')
+    if len(parts) != 4:
+        raise ValueError("Mask must have exactly four dot-separated fields.")
+    
+    try:
+        octets = [int(part) for part in parts]
+        for octet in octets:
+            if not (0 <= octet <= 255):
+                raise ValueError("Each field must be a decimal digit between 0 and 255.")
+        
+        binary_mask = '.'.join(format(octet, '08b') for octet in octets)
+        
+        prefix = 32
+        for i in range(31, -1, -1):
+            if binary_mask[i] != '1':
+                break
+            prefix -= 1
+        
+        return prefix
+    except ValueError as e:
+        raise ValueError(f"Invalid mask: {e}")
+```

@@ -1,0 +1,23 @@
+```python
+def dose_totals(log: list) -> dict:
+    from decimal import Decimal, getcontext
+
+    def parse_amount(amount_str: str) -> Decimal:
+        if not (amount_str.startswith('-') or amount_str.isdigit()):
+            raise ValueError("Invalid amount format")
+        return Decimal(amount_str)
+
+    reagent_totals = {}
+    getcontext().prec = 4  # Set precision to include thousandths of a milliliter
+
+    for reagent, amount in log:
+        amount_dec = parse_amount(amount)
+        if reagent not in reagent_totals:
+            reagent_totals[reagent] = Decimal(0)
+        reagent_totals[reagent] += amount_dec
+
+    def format_total(total: Decimal) -> str:
+        return format(total, 'f').rstrip('0').rstrip('.') if total != 0 else '0'
+
+    return {reagent: format_total(total) for reagent, total in reagent_totals.items()}
+```

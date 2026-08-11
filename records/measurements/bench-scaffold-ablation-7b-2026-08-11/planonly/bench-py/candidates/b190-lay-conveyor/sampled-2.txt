@@ -1,0 +1,18 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    if length <= 0:
+        raise ValueError("Length must be greater than zero")
+    if row < 0 or row >= len(floor):
+        raise ValueError("Row out of bounds")
+    if col < 0 or col + length > len(floor[row]):
+        raise ValueError("Run passes the last column")
+
+    new_floor = [row[:] for row in floor]
+    run_end = min(col + length, len(floor[row]))
+    for c in range(col, run_end):
+        if new_floor[row][c] != ".":
+            raise ValueError("Cell is not open")
+        new_floor[row][c] = "="
+
+    return new_floor
+```

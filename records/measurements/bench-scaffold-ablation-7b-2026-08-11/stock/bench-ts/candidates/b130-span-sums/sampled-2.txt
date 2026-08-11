@@ -1,0 +1,56 @@
+```ts
+/** Tape-measure spans: parse to inches, format canonically, and add. */
+
+const INCHES: Record<string, number> = { yd: 36, ft: 12, in: 1 };
+const ORDER = ["yd", "ft", "in"];
+
+function validatePart(part: string): boolean {
+  const [value, unit] = part.split(/([a-z]+)$/);
+  return (
+    INCHES.hasOwnProperty(unit) &&
+    !isNaN(Number(value)) &&
+    Number(value) >= 0
+  );
+}
+
+export function parseSpan(text: string): number {
+  // TODO: validate the span text against the part grammar and unit
+  // order, then total its parts in inches.
+  if (typeof text !== "string" || !text.trim()) {
+    throw new Error("invalid span input");
+  }
+  const parts = text.split(/\s+/).filter(validatePart);
+  if (parts.length === 0) {
+    throw new Error("empty or malformed span input");
+  }
+  let total = 0;
+  for (const part of parts) {
+    const [value, unit] = part.split(/([a-z]+)$/);
+    total += Number(value) * INCHES[unit];
+  }
+  return total;
+}
+
+export function formatSpan(inches: number): string {
+  if (!Number.isInteger(inches) || inches < 0) {
+    throw new Error("inches must be a non-negative integer");
+  }
+  if (inches === 0) {
+    return "0in";
+  }
+  const parts: string[] = [];
+  for (const unit of ORDER) {
+    const value = Math.floor(inches / INCHES[unit]);
+    inches %= INCHES[unit];
+    if (value > 0) {
+      parts.push(`${value}${unit}`);
+    }
+  }
+  return parts.join(" ");
+}
+
+export function addSpans(first: string, second: string): string {
+  const total = parseSpan(first) + parseSpan(second);
+  return formatSpan(total);
+}
+```

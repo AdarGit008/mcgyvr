@@ -1,0 +1,39 @@
+```ts
+export function applyCharges(caps: Record<string, [number, number]>, charges: [string, string, number][]): { left: Record<string, number>; refused: [string, string][] } {
+  if (charges.some(([chargeId]) => typeof chargeId !== 'string')) {
+    throw new Error('Invalid charge id');
+  }
+
+  const left: Record<string, number> = {};
+  const refused: [string, string][] = [];
+
+  charges.forEach(([chargeId, bucketName, amount]) => {
+    if (typeof bucketName !== 'string') {
+      throw new Error('Invalid bucket name');
+    }
+    if (typeof amount !== 'number' || !Number.isInteger(amount) || amount <= 0) {
+      throw new Error('Invalid charge amount');
+    }
+
+    const [allowance, singleCharge] = caps[bucketName] || [0, 0];
+    let reason: string | null = null;
+
+    if (!caps.hasOwnProperty(bucketName)) {
+      reason = 'unknown';
+    } else if (amount > singleCharge) {
+      reason = 'single';
+    } else if (amount > allowance) {
+      reason = 'cap';
+    }
+
+    if (reason !== null) {
+      refused.push([chargeId, reason]);
+    } else {
+      caps[bucketName] = [allowance - amount, singleCharge];
+      left[bucketName] = allowance - amount;
+    }
+  });
+
+  return { left, refused };
+}
+```

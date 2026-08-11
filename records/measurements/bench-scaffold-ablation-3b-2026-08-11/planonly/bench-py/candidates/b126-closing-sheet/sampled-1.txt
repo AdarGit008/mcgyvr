@@ -1,0 +1,43 @@
+```python
+from typing import *
+from collections import *
+
+def closing_sheet(opening: str, moves: str) -> str:
+    def parse_sheet(sheet: str) -> defaultdict(str, int):
+        result = defaultdict(int)
+        for entry in sheet.split(';'):
+            item, count = entry.strip().split(':')
+            if not item.islower() or not count.isdigit():
+                raise ValueError("Malformed sheet entry")
+            if len(item) == 0:
+                continue
+            result[item] = int(count)
+        return result
+
+    def apply_moves(sheet: defaultdict(str, int), moves: str) -> defaultdict(str, int):
+        for move in moves.split(';'):
+            direction, count = move.strip().split()
+            if not count.isdigit():
+                raise ValueError("Malformed move")
+            qty = int(count)
+            item = direction[:-1]
+            if item not in sheet:
+                if qty == 0:
+                    continue
+                else:
+                    raise ValueError(f"Issue of an item the sheet does not hold: {item}")
+            if sheet[item] < qty:
+                raise ValueError(f"Issue of more units than the item then holds: {item}, qty={qty}, count={sheet[item]}")
+            if direction.startswith('receive'):
+                sheet[item] += qty
+            elif direction.startswith('issue'):
+                sheet[item] -= qty
+        return sheet
+
+    try:
+        opening_sheet = parse_sheet(opening)
+        closing_sheet = apply_moves(opening_sheet, moves)
+        return ';'.join(f"{item}:{count}" for item, count in closing_sheet.items() if count > 0)
+    except ValueError as e:
+        raise ValueError(str(e))
+```

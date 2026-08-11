@@ -1,0 +1,89 @@
+```typescript
+/** Prune a file listing with ordered drop and keep rules. */
+
+function segmentFits(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === "*") {
+      star = p;
+      mark = t;
+      p += 1;
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p += 1;
+      t += 1;
+    } else if (star >= 0) {
+      p = star + 1;
+      mark += 1;
+      t = mark;
+    } else {
+      return false;
+    }
+  }
+  while (p < pattern.length && pattern[p] === "*") {
+    p += 1;
+  }
+  return p === pattern.length;
+}
+
+function splitStrict(text: string, what: string): string[] {
+  if (typeof text !== "string" || text === "") {
+    throw new Error(`${what} must be a non-empty string`);
+  }
+  const segments = text.split("/");
+  if (segments.some((segment) => segment === "")) {
+    throw new Error(`${what} has an empty segment: ${text}`);
+  }
+  return segments;
+}
+
+function pruneListing(listing: string[], rules: string[]): string[] {
+  const isKeepRule = (rule: string): boolean => rule.startsWith("!");
+
+  for (const rule of rules) {
+    splitStrict(rule, "rule");
+    if (!isKeepRule(rule)) {
+      // Drop rule
+      const patternSegments = rule.split("/");
+      rules.splice(rules.indexOf(rule), 1); // Remove the drop rule
+      let matchIndex = -1;
+      listing = listing.filter((path, index) => {
+        const pathSegments = splitStrict(path, "path");
+        if (patternSegments.length <= pathSegments.length) {
+          matchIndex = pathSegments.findIndex((segment, i) => {
+            return segment !== patternSegments[i] && !segmentFits(patternSegments[i], segment);
+          });
+          if (matchIndex === -1) {
+            // All segments match
+            rules.push(rule); // Re-add the drop rule
+            return true;
+          }
+        }
+        return false;
+      });
+    }
+  }
+
+  return listing.filter((path, index) => {
+    const pathSegments = splitStrict(path, "path");
+    if (rules.some((rule) => isKeepRule(rule))) {
+      let matchIndex = -1;
+      for (const keepRule of rules) {
+        const patternSegments = keepRule.split("/");
+        if (patternSegments.length <= pathSegments.length) {
+          matchIndex = pathSegments.findIndex((segment, i) => {
+            return segment !== patternSegments[i] && !segmentFits(patternSegments[i], segment);
+          });
+          if (matchIndex === -1) {
+            // All segments match
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  });
+}
+```

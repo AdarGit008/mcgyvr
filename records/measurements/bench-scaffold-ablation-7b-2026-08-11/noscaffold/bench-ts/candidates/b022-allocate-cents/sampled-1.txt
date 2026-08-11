@@ -1,0 +1,33 @@
+```ts
+export function parseAmount(text: string): number {
+  if (typeof text !== 'string') throw new Error('Invalid input');
+  const match = text.match(/^\d+(\.\d{2})?$/);
+  if (!match) throw new Error('Invalid amount format');
+  return Math.round(parseFloat(text) * 100);
+}
+
+export function formatAmount(cents: number): string {
+  if (typeof cents !== 'number' || cents < 0 || cents % 1 !== 0) throw new Error('Invalid cents');
+  return cents.toFixed(2).padStart(5, '0').slice(0, -2) + '.' + cents.toString().padStart(2, '0').slice(-2);
+}
+
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (!weights.length || weights.some(w => typeof w !== 'number' || w < 0 || !Number.isInteger(w)) || weights.reduce((a, b) => a + b, 0) === 0) throw new Error('Invalid weights');
+  if (typeof totalCents !== 'number' || totalCents < 0 || !Number.isInteger(totalCents)) throw new Error('Invalid totalCents');
+
+  const sumWeights = weights.reduce((a, b) => a + b, 0);
+  const baseShare = Math.floor(totalCents / sumWeights);
+  const remainder = totalCents % sumWeights;
+  const shares = weights.map(w => w * baseShare);
+
+  let remaining = remainder;
+  for (let i = 0; i < remaining; i++) {
+    const maxRemainderIndex = shares.findIndex(s => s % weights[i] === Math.max(...shares.map((s, j) => s % weights[j])));
+    if (maxRemainderIndex !== -1) {
+      shares[maxRemainderIndex]++;
+    }
+  }
+
+  return shares;
+}
+```

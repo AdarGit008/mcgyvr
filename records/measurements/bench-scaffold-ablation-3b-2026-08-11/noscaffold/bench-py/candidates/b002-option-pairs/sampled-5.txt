@@ -1,0 +1,58 @@
+```python
+def scan_pairs(text: str) -> list:
+    def parse_option(segment: str) -> list:
+        if not isinstance(segment, str):
+            raise ValueError("Argument must be a string")
+        
+        # Split the segment by '=' to separate key and value
+        parts = segment.split('=', 1)
+        
+        # Check if there is exactly one '=' and both parts are valid
+        if len(parts) != 2 or not parts[0] or not parts[1].strip():
+            raise ValueError("Invalid option format")
+        
+        key, value = parts
+        
+        # Strip double quotes from the value if present
+        value = value.strip('"')
+        
+        return [key, value]
+    
+    # Check for invalid input types
+    if not isinstance(text, str):
+        raise ValueError("Argument must be a string")
+    
+    # Return an empty list if the input is an empty string or None
+    if text == "" or text is None:
+        return []
+    
+    pairs = []
+    
+    current_value = ""
+    in_quote = False
+    
+    for char in text:
+        if char == ';':
+            if current_value and not in_quote:
+                try:
+                    pairs.append(parse_option(current_value))
+                except ValueError as e:
+                    raise ValueError(f"Error parsing option: {e}")
+                current_value = ""
+            elif not in_quote:
+                # Handle semicolons between quotes
+                continue
+        else:
+            if char == '"':
+                in_quote = not in_quote
+            current_value += char
+    
+    # Add the last value if present
+    if current_value and not in_quote:
+        try:
+            pairs.append(parse_option(current_value))
+        except ValueError as e:
+            raise ValueError(f"Error parsing option: {e}")
+    
+    return pairs
+```

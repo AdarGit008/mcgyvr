@@ -1,0 +1,41 @@
+```ts
+export function parseOption(segment: string): string[] {
+  const eq = segment.indexOf("=");
+  const key = segment.slice(0, eq);
+  if (eq === -1 || !/^[A-Za-z][A-Za-z0-9_]*$/.test(key)) {
+    throw new Error("malformed option segment: " + segment);
+  }
+  let raw = segment.slice(eq + 1);
+  if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+    raw = raw.slice(1, -1);
+  }
+  return [key, raw];
+}
+
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== "string" || !input) {
+    throw new Error("expected a non-empty string");
+  }
+
+  const result: string[][] = [];
+  let keySet = new Set<string>();
+
+  for (const segment of input.split(/;(?=(?:[^"]*"[^"]*")*[^"]*$)/)) {
+    if (segment.trim() === "") continue;
+
+    try {
+      const pair = parseOption(segment);
+      const [key, value] = pair;
+      if (keySet.has(key)) {
+        throw new Error("duplicate key: " + key);
+      }
+      result.push(pair);
+      keySet.add(key);
+    } catch (e) {
+      throw new Error("invalid option segment: " + segment);
+    }
+  }
+
+  return result;
+}
+```

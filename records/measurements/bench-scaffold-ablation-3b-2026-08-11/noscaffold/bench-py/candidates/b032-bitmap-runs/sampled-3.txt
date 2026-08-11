@@ -1,0 +1,76 @@
+```python
+def find_free_run(words: list, capacity: int, length: int) -> int:
+    if not isinstance(words, list):
+        raise ValueError("words must be a list of integers")
+    if not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("each word must be an integer from 0 to 4294967295")
+    if capacity < 1 or capacity % 32 != 0:
+        raise ValueError("capacity must be a positive integer and divisible by 32")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("length must be a positive integer")
+
+    word_count = len(words)
+    if word_count != capacity // 32 + (1 if capacity % 32 != 0 else 0):
+        raise ValueError("word count does not match the capacity")
+
+    # Check for any occupied bits in the specified range
+    def has_occupied(start, end):
+        for i in range(start // 32, min(end // 32 + 1, word_count)):
+            word = words[i]
+            start_bit = start % 32
+            end_bit = end % 32
+            if start_bit != end_bit:
+                return bit_at(words, start) or bit_at(words, end)
+            elif bit_at(words, start):
+                return True
+        return False
+
+    for i in range(capacity - length + 1):
+        if not has_occupied(i, i + length):
+            return i
+    return -1
+
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    if not isinstance(words, list):
+        raise ValueError("words must be a list of integers")
+    if not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("each word must be an integer from 0 to 4294967295")
+    if not isinstance(start, int) or start < 0:
+        raise ValueError("start index must be a non-negative integer")
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("length must be a positive integer")
+
+    word_count = len(words)
+    if words[word_count - 1] >= (1 << (32 * word_count - start)):
+        raise ValueError("invalid capacity for the given words")
+    if start + length > capacity:
+        raise ValueError("start and length exceed capacity")
+
+    start_word, start_bit = divmod(start, 32)
+    end_word, end_bit = divmod(start + length - 1, 32)
+
+    new_words = words[:]
+    for i in range(start_word, end_word + 1):
+        if i == start_word:
+            new_words[i] |= (1 << start_bit) - 1
+        elif i == end_word:
+            new_words[i] &= ~(1 << end_bit)
+        else:
+            new_words[i] = ~0
+
+    return new_words
+
+
+def bit_at(words: list, index: int) -> int:
+    if not isinstance(words, list):
+        raise ValueError("words must be a list of integers")
+    if not all(isinstance(word, int) and 0 <= word <= 4294967295 for word in words):
+        raise ValueError("each word must be an integer from 0 to 4294967295")
+    if not isinstance(index, int) or index < 0:
+        raise ValueError("index must be a non-negative integer")
+
+    word = words[index // 32]
+    bit = (word >> (index % 32)) & 1
+    return bit
+```

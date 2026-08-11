@@ -1,0 +1,29 @@
+```python
+from typing import Dict, List, Tuple
+
+def apply_charges(caps: Dict[str, Tuple[int, int]], charges: List[Tuple[int, str, int]]) -> Dict:
+    """
+    Apply charges to buckets based on their caps and return the remaining allowances and refused charges.
+    
+    :param caps: Mapping from bucket name to a pair of (allowance, max_single_charge)
+    :param charges: List of triples (charge_id, bucket_name, amount)
+    :return: Dictionary with 'left' as the remaining allowances and 'refused' as the list of refused charges
+    """
+    left = {bucket: allowance for bucket, (allowance, _) in caps.items()}
+    refused = []
+
+    for charge_id, bucket, amount in charges:
+        if not isinstance(amount, int) or amount <= 0:
+            raise ValueError("Charge amount must be a positive whole number")
+        
+        if bucket not in caps:
+            refused.append((charge_id, "unknown"))
+        elif amount > caps[bucket][1]:
+            refused.append((charge_id, "single"))
+        elif amount > left[bucket]:
+            refused.append((charge_id, "cap"))
+        else:
+            left[bucket] -= amount
+
+    return {'left': left, 'refused': refused}
+```

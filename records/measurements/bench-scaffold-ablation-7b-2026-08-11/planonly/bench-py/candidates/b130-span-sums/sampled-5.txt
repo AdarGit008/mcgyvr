@@ -1,0 +1,44 @@
+```python
+def parse_span(text: str) -> int:
+    """Convert a span text in yards, feet, inches to total inches."""
+    units = {'yd': 36 * 12, 'ft': 12, 'in': 1}
+    parts = text.split()
+    if not parts or len(parts) > 3:
+        raise ValueError("Invalid span format")
+    
+    inch_total = 0
+    seen_units = set()
+    
+    for part in parts:
+        value, unit = part[:-2], part[-2:]
+        if not value.isdigit() or (value[0] == '0' and len(value) > 1):
+            raise ValueError("Invalid value format")
+        if unit not in units or unit in seen_units:
+            raise ValueError(f"Invalid or duplicate unit: {unit}")
+        inch_total += int(value) * units[unit]
+        seen_units.add(unit)
+    
+    return inch_total
+
+
+def format_span(inches: int) -> str:
+    """Format a total inches value into the canonical span text."""
+    if not isinstance(inches, int) or inches < 0:
+        raise ValueError("Invalid inches value")
+    
+    result = []
+    for unit, factor in [('yd', 36 * 12), ('ft', 12), ('in', 1)]:
+        value = inches // factor
+        if value > 0:
+            result.append(f"{value}{unit}")
+            inches %= factor
+    
+    return ' '.join(result) or "0in"
+
+
+def add_spans(first: str, second: str) -> str:
+    """Add two span texts and return the sum in canonical form."""
+    return format_span(parse_span(first) + parse_span(second))
+```
+
+This implementation includes validation for the span text format and units, as well as conversion to total inches. The `format_span` function ensures that the output is in the largest units first with values under their respective limits. The `add_spans` function correctly sums two span texts and returns the result in canonical form.

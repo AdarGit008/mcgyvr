@@ -1,0 +1,71 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not all(isinstance(price, int) and price > 0 for price in prices.values()):
+        raise ValueError("Price must be a positive integer")
+
+    state = {
+        'items': [],
+        'total': 0,
+        'paid': 0,
+        'change': 0,
+        'status': 'open'
+    }
+
+    def add_item(item, quantity):
+        item_index = next((i for i, (name, _) in enumerate(state['items']) if name == item), -1)
+        if item_index != -1:
+            state['items'][item_index][1] += quantity
+        else:
+            state['items'].append([item, quantity])
+
+    def remove_item(item):
+        for i, (name, quantity) in enumerate(state['items']):
+            if name == item:
+                if quantity > 0:
+                    state['items'][i][1] -= 1
+                elif quantity == 0:
+                    del state['items'][i]
+                break
+
+    def calculate_total():
+        return sum(quantity * prices[item] for item, quantity in state['items'])
+
+    for event in events:
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("Event must be a list of action and payload")
+
+        action, payload = event
+        if state['status'] == 'paid' or state['status'] == 'cancelled':
+            raise ValueError("No further events after session is paid or cancelled")
+
+        if action == "scan":
+            if payload not in prices:
+                raise ValueError(f"Item '{payload}' not in price list")
+            add_item(payload, 1)
+        elif action == "void":
+            remove_item(payload)
+        elif action == "close":
+            state['total'] = calculate_total()
+            state['status'] = 'payment'
+        elif action == "pay":
+            if not isinstance(payload, int) or payload < 0:
+                raise ValueError("Pay amount must be a positive integer")
+            state['paid'] += payload
+            if state['paid'] >= state['total']:
+                state['change'] = state['paid'] - state['total']
+                state['status'] = 'paid'
+        elif action == "cancel":
+            state['status'] = 'cancelled'
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    if state['status'] == 'open' and len(state['items']) > 0:
+        raise ValueError("Close session with non-empty cart")
+
+    return {
+        'items': sorted(state['items'], key=lambda x: x[0]),
+        'total': state['total'],
+        'paid': state['paid'],
+        'change': state['change']
+    }
+```

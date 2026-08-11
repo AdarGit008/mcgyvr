@@ -1,0 +1,35 @@
+```ts
+import { floor } from 'mathjs';
+
+export function splitCents(total: number, weights: number[]): number[] {
+  if (!Number.isInteger(total) || total < 0) {
+    throw new Error("Total must be a non-negative integer.");
+  }
+  if (!Array.isArray(weights)) {
+    throw new Error("Weights must be an array.");
+  }
+  if (weights.length === 0) {
+    throw new Error("Weights list cannot be empty.");
+  }
+  for (const weight of weights) {
+    if (!Number.isInteger(weight) || weight <= 0) {
+      throw new Error("Each weight must be a positive whole number.");
+    }
+  }
+
+  const totalCents = total * 100;
+  let leftoverCents = totalCents;
+
+  const shares: number[] = weights.map(floor(totalCents / weights.reduce((sum, w) => sum + w, 0)));
+
+  leftoverCents -= shares.reduce((sum, share) => sum + share);
+
+  shares.sort((a, b) => b - a);
+
+  for (let i = 0; i < leftoverCents && i < shares.length; i++) {
+    shares[i]++;
+  }
+
+  return shares;
+}
+```

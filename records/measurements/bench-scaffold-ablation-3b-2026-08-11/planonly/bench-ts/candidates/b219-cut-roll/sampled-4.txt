@@ -1,0 +1,50 @@
+```typescript
+export function cutRoll(length: number, board: [number, number][]): { takings: number, pieces: number[] } {
+    if (!Number.isInteger(length) || length < 0) {
+        throw new Error("Length must be a non-negative whole number");
+    }
+
+    const bestCut = (function() {
+        const memo: Record<number, { takings: number, pieces: number[] }> = {};
+        return function cutRollRecursive(remaining: number): { takings: number, pieces: number[] } {
+            if (remaining === 0) {
+                return { takings: 0, pieces: [] };
+            }
+
+            if (memo[remaining]) {
+                return memo[remaining];
+            }
+
+            let bestTakings = -1;
+            let bestPieces: number[] | null = null;
+
+            for (const [boardLength, price] of board) {
+                const currentPieceLength = Math.min(remaining, boardLength);
+                if (currentPieceLength > 0) {
+                    const { takings, pieces } = cutRollRecursive(remaining - currentPieceLength);
+                    const totalTakings = price + takings;
+                    if (
+                        bestPieces === null ||
+                        totalTakings > bestTakings ||
+                        (totalTakings === bestTakings && pieces.length > bestPieces.length)
+                    ) {
+                        bestTakings = totalTakings;
+                        bestPieces = [currentPieceLength, ...pieces];
+                    }
+                }
+            }
+
+            if (bestPieces !== null) {
+                memo[remaining] = { takings: bestTakings, pieces: bestPieces };
+            } else {
+                memo[remaining] = { takings: 0, pieces: [] };
+            }
+
+            return memo[remaining];
+        };
+
+    })();
+
+    return bestCut(length);
+}
+```

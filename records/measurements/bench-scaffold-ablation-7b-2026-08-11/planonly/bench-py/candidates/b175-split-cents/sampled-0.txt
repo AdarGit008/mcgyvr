@@ -1,0 +1,29 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    if not isinstance(total, int) or total < 0:
+        raise ValueError("Total must be a non-negative integer")
+    if not isinstance(weights, list) or len(weights) == 0:
+        raise ValueError("Weights must be a non-empty list")
+    if any(not isinstance(w, int) or w <= 0 for w in weights):
+        raise ValueError("All weights must be positive integers")
+    
+    total_cents = total * 100
+    sum_weights = sum(weights)
+    base_share = [t * w // sum_weights for t, w in zip([total_cents], weights)]
+    leftover = total_cents - sum(base_share)
+    
+    if leftover == 0:
+        return base_share
+    
+    discards = sorted((t % w for t, w in zip([total_cents], weights)), reverse=True)
+    discards_sum = sum(discards)
+    discard_index = 0
+    while leftover > 0:
+        if discards[discard_index] == 0:
+            discard_index += 1
+            continue
+        base_share[discard_index] += 1
+        leftover -= 1
+    
+    return base_share
+```

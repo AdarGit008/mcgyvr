@@ -1,0 +1,32 @@
+```python
+from typing import *
+from collections import *
+
+def cut_roll(length: int, board: list[tuple[int, int]]) -> dict:
+    if length < 0:
+        raise ValueError("Length must be a non-negative integer.")
+    
+    def dfs(current_length, memo):
+        if current_length == 0:
+            return {'takings': 0, 'pieces': []}
+        
+        key = (current_length, tuple(board))
+        if key in memo:
+            return memo[key]
+        
+        max_price = 0
+        best_pieces = []
+        
+        for piece, price in board:
+            if current_length >= piece:
+                result = dfs(current_length - piece, memo)
+                new_takings = result['takings'] + price
+                if new_takings > max_price or (new_takings == max_price and len(result['pieces']) < len(best_pieces)):
+                    max_price = new_takings
+                    best_pieces = result['pieces'] + [piece]
+        
+        memo[key] = {'takings': max_price, 'pieces': best_pieces}
+        return memo[key]
+    
+    return dfs(length, {})
+```

@@ -1,0 +1,66 @@
+```python
+def find_free_run(words: list, capacity: int, length: int) -> int:
+    """
+    Find the smallest start of a free run of 'length' blocks below the 'capacity'.
+    Return -1 if no such run exists.
+    """
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer.")
+    
+    word_count = len(words)
+    if word_count != (capacity + 31) // 32:
+        raise ValueError("Word count does not match the capacity.")
+    
+    for i in range(word_count):
+        if words[i] < 0 or words[i] > 4294967295:
+            raise ValueError("Each word must be an integer from 0 to 4294967295.")
+    
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    for i in range(word_count):
+        # Check if the run lies entirely below the capacity
+        if i + (length - 1) >= word_count:
+            break
+        
+        # Check if there are enough free bits in the current and next words
+        if bit_at(words, i * 32 + length - 1) == 0 and bit_at(words, (i + 1) * 32 + length - 1) == 0:
+            return i * 32
+    
+    return -1
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    """
+    Occupy a run of 'length' blocks starting at 'start'.
+    Return the modified word list.
+    """
+    if not isinstance(start, int):
+        raise ValueError("Start index must be an integer.")
+    
+    if not isinstance(length, int) or length <= 0:
+        raise ValueError("Length must be a positive integer.")
+    
+    for i in range(word_count):
+        # Check if the run lies entirely within the words
+        if start + length > capacity:
+            break
+        
+        # Mark the bits as occupied
+        for j in range(length):
+            bit_at(words, start + j) = 1
+    
+    return words
+
+def bit_at(words: list, index: int) -> int:
+    """
+    Return the value of the bit at 'index' in the bitmap.
+    Raise an error if 'index' is out of bounds.
+    """
+    word_index = index // 32
+    bit_position = index % 32
+    
+    if not isinstance(words[word_index], int) or words[word_index] < 0 or words[word_index] > 4294967295:
+        raise ValueError("Each word must be an integer from 0 to 4294967295.")
+    
+    return (words[word_index] >> bit_position) & 1
+```

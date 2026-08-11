@@ -1,0 +1,28 @@
+```ts
+import { pow as MathPow } from 'mathjs';
+
+/** Exact per-reagent totals of a pour log, counted in thousandths. */
+export function doseTotals(log: [string, string][]): Record<string, string> {
+  const thousandths: Record<string, number> = {};
+  const places: Record<string, number> = {};
+
+  for (const [reagent, amount] of log) {
+    if (!/^-?\d+(?:\.\d{1,3})?$/.test(amount)) {
+      throw new Error("amount is not a decimal of at most three places: " + amount);
+    }
+
+    const digits = amount.split('.').slice(1).join('');
+    const sign = amount.startsWith('-') ? -1 : 1;
+    thousandths[reagent] = (thousandths[reagent] ?? 0) + sign * Number(digits) * MathPow(10, 3 - digits.length);
+    places[reagent] = Math.max(places[reagent] ?? 0, digits.length);
+  }
+
+  const totals: Record<string, string> = {};
+  for (const [reagent, total] of Object.entries(thousandths)) {
+    const decimalPlaces = places[reagent];
+    totals[reagent] = total.toString().padStart(decimalPlaces + 1, '0');
+  }
+
+  return totals;
+}
+```

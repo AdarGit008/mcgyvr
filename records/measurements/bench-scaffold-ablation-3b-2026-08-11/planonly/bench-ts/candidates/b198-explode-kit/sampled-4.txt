@@ -1,0 +1,24 @@
+```ts
+export function explodeKit(catalog: Record<string, { makes: number; parts: [string, number][] }>, kit: string, want: number): Record<string, number> {
+  if (!catalog[kit]) throw new Error(`The catalog does not define the kit "${kit}".`);
+
+  const need: Record<string, number> = {};
+  const runWant = (want: number) => {
+    if (want <= 0) return;
+
+    const { makes, parts } = catalog[kit];
+    const runs = Math.ceil(want / makes);
+    want -= runs * makes;
+
+    parts.forEach(([part, count]) => {
+      if (!need[part]) need[part] = 0;
+      need[part] += count * runs;
+      runWant(need[part]);
+    });
+  };
+
+  runWant(want);
+
+  return need;
+}
+```

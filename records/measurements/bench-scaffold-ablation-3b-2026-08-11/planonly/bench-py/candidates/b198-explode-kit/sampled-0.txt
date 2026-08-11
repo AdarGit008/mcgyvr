@@ -1,0 +1,32 @@
+```python
+from math import ceil
+
+def explode_kit(catalog: dict, kit: str, want: int) -> dict:
+    """
+    Calculate the total parts consumed by a request for 'want' units of 'kit'.
+    
+    :param catalog: A dictionary where each key is a kit name and each value is a tuple (makes, parts).
+                     'makes' is an integer indicating how many finished units one run makes.
+                     'parts' is a list of tuples (component, count), where component is the kit name or part name,
+                     and count is the number of parts needed for one unit of that component.
+    :param kit: The name of the kit to request.
+    :param want: The number of units of 'kit' to request.
+    :return: A dictionary mapping base part names to the total parts consumed.
+    """
+    
+    if kit not in catalog:
+        raise ValueError(f"Kit '{kit}' is not defined in the catalog.")
+    
+    parts_consumed = {}
+    
+    def get_parts_for_unit(kit_name):
+        makes, parts = catalog[kit_name]
+        return sum(parts[i][1] * ceil(want / makes) for i in range(len(parts)))
+    
+    while want > 0:
+        target_kit = next((part[0] for part in catalog if part[1] and want % part[1] == 0), kit)
+        parts_consumed[target_kit] = get_parts_for_unit(target_kit)
+        want -= parts_consumed[target_kit]
+    
+    return parts_consumed
+```

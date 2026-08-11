@@ -1,0 +1,53 @@
+```ts
+export function closingSheet(opening: string, moves: string): string {
+  if (typeof opening !== 'string' || typeof moves !== 'string') {
+    throw new Error('Invalid arguments');
+  }
+
+  const parseEntry = (entry: string) => {
+    const [name, countStr] = entry.split(':');
+    const count = parseInt(countStr, 10);
+    if (!/^[a-z]+$/.test(name) || isNaN(count) || count < 0) {
+      throw new Error('Malformed sheet entry');
+    }
+    return { name, count };
+  };
+
+  const parseMove = (move: string) => {
+    const [name, qtyStr] = move.split(/[+-]/);
+    const qty = parseInt(qtyStr, 10);
+    if (!/^[a-z]+$/.test(name) || isNaN(qty) || qty <= 0) {
+      throw new Error('Malformed move');
+    }
+    return { name, qty, type: move.startsWith('+') ? 'receive' : 'issue' };
+  };
+
+  const openingEntries = opening.split(';').filter(Boolean).map(parseEntry);
+  if (new Set(openingEntries.map(e => e.name)).size !== openingEntries.length) {
+    throw new Error('Duplicate item name on the opening sheet');
+  }
+
+  let inventory: { [name: string]: number } = {};
+  for (const entry of openingEntries) {
+    inventory[entry.name] = entry.count;
+  }
+
+  const moveEntries = moves.split(';').filter(Boolean).map(parseMove);
+  for (const move of moveEntries) {
+    if (!inventory.hasOwnProperty(move.name)) {
+      throw new Error('Issue of an item the sheet does not hold');
+    }
+    if ((move.type === 'issue' && inventory[move.name] < move.qty) || move.qty > inventory[move.name]) {
+      throw new Error('Issue of more units than the item then holds');
+    }
+    inventory[move.name] += (move.type === 'receive' ? 1 : -1) * move.qty;
+  }
+
+  const closingEntries = Object.entries(inventory)
+    .filter(([_, count]) => count > 0)
+    .map(([name, count]) => `${name}:${count}`)
+    .sort();
+
+  return closingEntries.join(';');
+}
+```

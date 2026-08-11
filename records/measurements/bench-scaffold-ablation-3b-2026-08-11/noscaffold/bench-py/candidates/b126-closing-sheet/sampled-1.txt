@@ -1,0 +1,71 @@
+```python
+from typing import *
+import re
+
+def closing_sheet(opening: str, moves: str) -> str:
+    # Validate opening sheet
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Both inputs must be strings.")
+    
+    def parse_entry(entry: str) -> Tuple[str, int]:
+        match = re.match(r"([a-z]+):(\d+)", entry)
+        if not match:
+            raise ValueError(f"Malformed sheet entry: {entry}")
+        name, count = match.groups()
+        return (name, int(count))
+    
+    def parse_moves(moves_str: str) -> List[Tuple[str, int]]:
+        if moves_str == "":
+            return []
+        
+        patterns = [
+            r"([a-z]+)(\d+)$",  # e.g., "bolt12"
+            r"^([a-z]+)-(\d+)$"  # e.g., "-washer4"
+        ]
+        
+        def parse_move(move: str) -> Tuple[str, int]:
+            for pattern in patterns:
+                match = re.match(pattern, move)
+                if match:
+                    name, qty = match.groups()
+                    return (name, -int(qty))
+            raise ValueError(f"Malformed move: {move}")
+        
+        result = []
+        for move in moves_str.split(";"):
+            try:
+                result.append(parse_move(move))
+            except ValueError as e:
+                raise ValueError(e)
+        return result
+    
+    def update_sheet(sheet: dict, entry: Tuple[str, int], op: str) -> None:
+        name, count = entry
+        if op == "receive":
+            sheet[name] = sheet.get(name, 0) + count
+        elif op == "issue":
+            if name not in sheet or sheet[name] < abs(count):
+                raise ValueError(f"Issue of {abs(count)} {name}, but it only has {sheet.get(name, 0)}.")
+            sheet[name] -= count
+    
+    opening_sheet = {}
+    for entry in opening.split(";"):
+        try:
+            name, count = parse_entry(entry)
+            if name in opening_sheet:
+                raise ValueError(f"Duplicate item name: {name} on the opening sheet.")
+            opening_sheet[name] = count
+        except ValueError as e:
+            raise ValueError(e)
+    
+    moves_list = parse_moves(moves)
+    
+    for move in moves_list:
+        update_sheet(opening_sheet, move, "receive" if move[1] > 0 else "issue")
+    
+    # Filter out items with zero count and sort the result
+    closing_items = [(name, count) for name, count in opening_sheet.items() if count > 0]
+    closing_items.sort()
+    
+    return ";".join(f"{item[0]}:{item[1]}" for item in closing_items)
+```

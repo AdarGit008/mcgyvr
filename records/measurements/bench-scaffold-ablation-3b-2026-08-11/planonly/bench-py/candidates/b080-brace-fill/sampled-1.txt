@@ -1,0 +1,42 @@
+```python
+def fill_template(template: str, values: dict) -> str:
+    """
+    Fill given template with values from provided mapping.
+
+    :param template: Literal text containing placeholders in the format {{placeholder_name}}.
+    :param values: Dictionary holding placeholder names as keys and corresponding values.
+    :return: String with placeholders replaced by their values.
+    """
+    if not isinstance(template, str):
+        raise ValueError("Template must be a string.")
+    
+    result = ""
+    i = 0
+    while i < len(template):
+        if template[i] == '{':
+            if i + 1 >= len(template) or template[i + 1] != '{':
+                raise ValueError("Unterminated placeholder found.")
+            
+            start = i + 2
+            end = i + 1
+            i += 3
+            
+            while i < len(template) and template[i].isalnum() or template[i] == '_':
+                end += 1
+                i += 1
+            
+            if not (0 <= end - start <= 256):  # Placeholder name must be valid ASCII
+                raise ValueError("Placeholder name is invalid.")
+            
+            placeholder_name = template[start:end]
+            
+            if placeholder_name in values:
+                result += values[placeholder_name]
+            else:
+                raise ValueError(f"Unknown placeholder name: {placeholder_name}")
+        else:
+            result += template[i]
+            i += 1
+    
+    return result
+```

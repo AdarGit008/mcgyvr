@@ -1,0 +1,46 @@
+```python
+def region_totals(grid: list, queries: list) -> list:
+    """
+    Calculate the totals of blocks in the grid based on given queries.
+
+    :param grid: A non-empty list of rows, each a non-empty list of integers.
+    :param queries: A list of queries, each [top, left, bottom, right].
+    :return: A list of block totals corresponding to the queries.
+    """
+    if not grid or not grid[0] or any(len(row) != len(grid[0]) for row in grid):
+        raise ValueError("Grid must be non-empty with rows of equal length.")
+    
+    M, N = len(grid), len(grid[0])
+    
+    # Precompute prefix sums
+    prefix_sums = [[0] * (N + 1) for _ in range(M)]
+    
+    for i in range(M):
+        for j in range(N):
+            prefix_sums[i][j + 1] = grid[i][j] + prefix_sums[i][j]
+        
+        for j in range(N - 1, -1, -1):
+            prefix_sums[i][j] += prefix_sums[i][j + 1]
+
+    # Calculate block totals
+    results = []
+    for query in queries:
+        top, left, bottom, right = query
+        
+        if any(val not in [0, 1] for val in query) or len(query) != 4:
+            raise ValueError("Query must be a list of exactly four integers.")
+        if top >= bottom or left >= right:
+            raise ValueError("Top and left must be strictly less than bottom and right.")
+        
+        if top < 0 or left < 0 or bottom > M or right > N:
+            raise ValueError("Queries reaching outside the grid are not allowed.")
+
+        block_total = prefix_sums[bottom - 1][right] - \
+                      prefix_sums[top - 1][right] + \
+                      prefix_sums[top - 1][left] - \
+                      prefix_sums[bottom - 1][left]
+        
+        results.append(block_total)
+    
+    return results
+```

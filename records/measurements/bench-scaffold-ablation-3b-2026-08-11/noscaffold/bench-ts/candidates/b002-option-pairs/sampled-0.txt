@@ -1,0 +1,36 @@
+```ts
+export function scanPairs(input: string): string[][] {
+  if (typeof input !== 'string' || input.length === 0) {
+    throw new Error('Input must be a non-empty string');
+  }
+
+  const segments = input.split(';').map(segment => segment.trim()).filter(Boolean);
+
+  return segments.map(parseOption);
+}
+
+export function parseOption(segment: string): string[] {
+  if (typeof segment !== 'string') {
+    throw new Error('Segment must be a string');
+  }
+
+  const [key, value] = segment.split('=').map(part => part.trim());
+
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+    throw new Error(`Key '${key}' is not a bare identifier`);
+  }
+
+  let processedValue: string;
+  const quoted = value.startsWith('"') && value.endsWith('"');
+  if (quoted) {
+    if (!value.match(/^"[^"]*"$|""$/)) {
+      throw new Error('Quoted value is never closed');
+    }
+    processedValue = value.slice(1, -1);
+  } else {
+    processedValue = value;
+  }
+
+  return [key, processedValue];
+}
+```

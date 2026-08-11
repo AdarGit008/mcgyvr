@@ -1,0 +1,28 @@
+```python
+from typing import List, Dict
+
+def cut_roll(length: int, board: List[Tuple[int, int]]) -> Dict[str, Union[int, List[int]]]:
+    if length < 0:
+        raise ValueError("Length must be a non-negative whole number.")
+    
+    # Initialize the best price and pieces for the given length
+    best_price = 0
+    pieces = []
+    
+    # Iterate over each board piece
+    for board_len, price in board:
+        if board_len <= length:
+            # Calculate the new price if this piece is used
+            new_length = length - board_len
+            new_price = price + cut_roll(new_length, board).get('takings', 0)
+            
+            # Update best_price and pieces if this new price is better or ties with the current best
+            if new_price > best_price:
+                best_price = new_price
+                pieces = [board_len] + cut_roll(new_length, board).get('pieces', [])
+    
+    return {
+        'takings': best_price,
+        'pieces': pieces
+    }
+```

@@ -1,0 +1,49 @@
+```python
+def closing_sheet(opening: str, moves: str) -> str:
+    if not isinstance(opening, str) or not isinstance(moves, str):
+        raise ValueError("Arguments must be strings.")
+    
+    # Parse opening sheet
+    def parse_opening(sheet: str) -> dict:
+        entries = {}
+        for entry in sheet.split(';'):
+            parts = entry.split(':')
+            if len(parts) != 2 or not parts[0].islower() or not parts[1].isdigit():
+                raise ValueError("Malformed opening sheet entry.")
+            name, count = parts
+            entries[name] = int(count)
+        return entries
+    
+    def parse_moves(sheet: str) -> list[tuple[str, int]]:
+        moves = []
+        for move in sheet.split(';'):
+            if not (move.startswith('+') or move.startswith('-')) or move.count(':') != 1:
+                raise ValueError("Malformed move.")
+            sign, qty_str = move[0], move[2:]
+            qty = int(qty_str)
+            if qty <= 0:
+                raise ValueError("Move quantity must be a positive integer.")
+            name = sign + qty_str
+            moves.append((name, qty))
+        return moves
+    
+    opening_sheet = parse_opening(opening)
+    moves_list = parse_moves(moves)
+    
+    # Apply moves to the opening sheet
+    for move in moves_list:
+        name, qty = move
+        if name.startswith('+'):
+            if name[1:] in opening_sheet:
+                raise ValueError(f"Issue: cannot add {qty} of '{name[1:]}' as it already exists.")
+            opening_sheet[name[1:]] = qty
+        elif name.startswith('-'):
+            if name[1:] not in opening_sheet or opening_sheet[name[1:]] < qty:
+                raise ValueError("Issue: insufficient stock to issue the specified quantity.")
+            opening_sheet[name[1:]] -= qty
+    
+    # Filter out items with zero count and sort
+    closing_sheet_str = ';'.join(f"{name}:{count}" for name, count in opening_sheet.items() if count > 0)
+    
+    return closing_sheet_str or ''
+```

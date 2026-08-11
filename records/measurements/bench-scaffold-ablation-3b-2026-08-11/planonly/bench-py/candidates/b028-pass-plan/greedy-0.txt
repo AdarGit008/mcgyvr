@@ -1,0 +1,57 @@
+```python
+from typing import List, Dict
+
+def cheapest_pass_plan(trip_days: List[int], passes: List[Dict[str, int]]) -> Dict[str, int]:
+    if not trip_days or not passes:
+        return {'total': 0, 'purchases': []}
+    
+    # Validate inputs
+    for day in trip_days:
+        if not isinstance(day, int) or day <= 0:
+            raise ValueError("Trip days must be strictly increasing positive integers.")
+    
+    for pass_info in passes:
+        span = pass_info.get('span', 0)
+        cost = pass_info.get('cost', 0)
+        
+        if not isinstance(span, int) or span <= 0:
+            raise ValueError("Pass spans must be positive integers.")
+        if not isinstance(cost, int) or cost < 0:
+            raise ValueError("Pass costs must be non-negative integers.")
+    
+    # Sort passes by cost and then by span
+    passes.sort(key=lambda x: (x['cost'], x['span']))
+    
+    total_cost = 0
+    purchases = []
+    covered_days = set()
+    
+    for day in trip_days:
+        if day in covered_days:
+            continue
+        
+        cheapest_pass = None
+        min_cost = float('inf')
+        
+        for pass_info in passes:
+            start_day = pass_info['start']
+            span = pass_info['span']
+            
+            # Check if the current day is within the pass's coverage
+            if start_day <= day < start_day + span:
+                cost = pass_info['cost']
+                
+                # Find the cheapest pass that covers the current day
+                if cost < min_cost:
+                    min_cost = cost
+                    cheapest_pass = pass_info
+        
+        if cheapest_pass is None:
+            raise ValueError("No pass can cover the trip day.")
+        
+        total_cost += min_cost
+        purchases.append([cheapest_pass['start'], cheapest_pass['span']])
+        covered_days.update(range(cheapest_pass['start'], cheapest_pass['start'] + cheapest_pass['span']))
+    
+    return {'total': total_cost, 'purchases': purchases}
+```

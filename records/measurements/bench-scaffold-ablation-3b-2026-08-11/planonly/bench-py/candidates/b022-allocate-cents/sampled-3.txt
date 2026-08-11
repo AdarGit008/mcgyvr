@@ -1,0 +1,87 @@
+```python
+def parse_amount(text: str) -> int:
+    """
+    Converts a decimal amount string into integer cents.
+    Validates that the text is a valid decimal amount.
+    Returns the integer cents equivalent of the input.
+    Raises ValueError if the format or content of the text is invalid.
+    """
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    try:
+        # Split the text by dot
+        parts = text.split('.')
+        
+        if len(parts) != 2 or not all(part.isdigit() for part in parts):
+            raise ValueError("Invalid amount format. Must be 'XXX.XX' where X is a digit.")
+        
+        integer_part, fractional_part = parts
+        
+        # Convert to integers and check that the fractional part has exactly two digits
+        cents = int(integer_part) * 100 + int(fractional_part)
+        
+        if cents < 0:
+            raise ValueError("Amount cannot be negative.")
+        
+        return cents
+    
+    except (ValueError, TypeError) as e:
+        raise ValueError(str(e))
+
+def format_amount(cents: int) -> str:
+    """
+    Renders non-negative integer cents back into the dotted form with exactly two fraction digits.
+    """
+    if not isinstance(cents, int):
+        raise ValueError("Input must be an integer.")
+    
+    if cents < 0:
+        raise ValueError("Cents cannot be negative.")
+    
+    # Convert cents to dollars and cents
+    dollars = cents // 100
+    remaining_cents = cents % 100
+    
+    # Format the result as a string with exactly two fraction digits
+    return f"{dollars}.{remaining_cents:02}" if remaining_cents else f"{dollars}"
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    """
+    Allocates total_cents across a list of integer weights proportionally.
+    Every share starts at the floor of its exact proportional value,
+    and any leftover cents are handed out one apiece to the shares with
+    the largest division remainders, earliest index first on a tie.
+    Shares always sum exactly to total_cents.
+    Raises ValueError for invalid inputs.
+    """
+    if not isinstance(total_cents, int) or total_cents < 0:
+        raise ValueError("Total cents must be a non-negative integer.")
+    
+    if not isinstance(weights, list):
+        raise ValueError("Weights must be a list of integers.")
+    
+    if not weights:
+        raise ValueError("Weight list cannot be empty.")
+    
+    for weight in weights:
+        if not isinstance(weight, int) or weight < 0:
+            raise ValueError("Each weight must be a non-negative integer.")
+    
+    total_weights = sum(weights)
+    if total_weights == 0:
+        raise ValueError("Total weights cannot be zero.")
+    
+    shares = [total_cents // total_weights for _ in range(total_weights)]
+    
+    remaining_cents = total_cents % total_weights
+    
+    # Distribute the leftover cents to shares with the largest remainders first
+    remainder_index = 0
+    while remaining_cents > 0:
+        shares[remainder_index] += 1
+        remaining_cents -= 1
+        remainder_index = (remainder_index + 1) % total_weights
+    
+    return shares
+```

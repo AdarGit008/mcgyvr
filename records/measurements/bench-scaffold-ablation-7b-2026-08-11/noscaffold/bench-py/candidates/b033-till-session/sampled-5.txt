@@ -1,0 +1,62 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not all(isinstance(price, int) and price > 0 for price in prices.values()):
+        raise ValueError("Price must be a positive integer.")
+    
+    cart = {}
+    total = None
+    paid = 0
+    
+    for event in events:
+        action = event[0]
+        if action == "scan":
+            item = event[1]
+            if item not in prices:
+                raise ValueError(f"Unknown item: {item}")
+            cart[item] = cart.get(item, 0) + 1
+        elif action == "void":
+            item = event[1]
+            if item not in cart or cart[item] == 0:
+                raise ValueError(f"Item not found in cart for void: {item}")
+            cart[item] -= 1
+        elif action == "close":
+            if total is None and cart:
+                total = sum(prices[item] * quantity for item, quantity in cart.items())
+            else:
+                raise ValueError("Invalid close event.")
+        elif action == "pay":
+            if total is not None or not cart:
+                raise ValueError("Invalid pay event.")
+            amount = event[1]
+            if not isinstance(amount, int) or amount <= 0:
+                raise ValueError("Pay amount must be a positive integer.")
+            paid += amount
+            change = max(0, paid - total)
+            return {
+                "items": sorted([[item, quantity] for item, quantity in cart.items()]),
+                "total": total,
+                "paid": paid,
+                "change": change
+            }
+        elif action == "cancel":
+            if not cart:
+                raise ValueError("Invalid cancel event.")
+            return {
+                "items": [],
+                "total": 0,
+                "paid": 0,
+                "change": 0
+            }
+        else:
+            raise ValueError(f"Unknown action: {action}")
+    
+    if total is None and cart:
+        raise ValueError("Session must be closed or paid.")
+    
+    return {
+        "items": sorted([[item, quantity] for item, quantity in cart.items()]),
+        "total": total,
+        "paid": paid,
+        "change": max(0, paid - total)
+    }
+```

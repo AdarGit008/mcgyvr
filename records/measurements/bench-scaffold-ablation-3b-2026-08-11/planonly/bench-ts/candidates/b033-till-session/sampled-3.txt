@@ -1,0 +1,125 @@
+```typescript
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  const error = (message: string): never => {
+    throw new Error(message);
+  };
+
+  if (!events.length || !prices) {
+    return {
+      state: "initial",
+      items: [],
+      total: 0,
+      paid: 0,
+      change: 0
+    };
+  }
+
+  const initialCart = {};
+
+  const cart = (state: { open: boolean, items: Record<string, number> }, action: [string, string | number]) => {
+    if (!Array.isArray(action) || action.length !== 2) {
+      error("Invalid event format");
+    }
+
+    switch (action[0]) {
+      case "scan":
+        if (!prices[action[1]]) {
+          error(`Unknown item ${action[1]}`);
+        }
+        cart.items[action[1]] = (cart.items[action[1]] || 0) + 1;
+        break;
+      case "void":
+        if (!cart.items[action[1]]) {
+          error(`Item ${action[1]} not in cart`);
+        }
+        if (cart.items[action[1]] > 0) {
+          cart.items[action[1]] -= 1;
+        } else {
+          delete cart.items[action[1]];
+        }
+        break;
+      case "close":
+        if (!state.open || Object.keys(cart.items).length === 0) {
+          error("Illegal action for close");
+        }
+        state.open = false;
+        break;
+      case "pay":
+        if (state.state !== "payment") {
+          error(`Illegal action for pay`);
+        }
+        const payAmount = typeof action[1] === 'number' ? action[1] : 0;
+        if (!Number.isInteger(payAmount) || payAmount <= 0) {
+          error("Pay amount must be a positive integer");
+        }
+        cart.paid += payAmount;
+        state.state = "paid";
+        break;
+      case "cancel":
+        if (state.open || state.state === "payment" || state.state === "paid") {
+          error(`Illegal action for cancel`);
+        }
+        state.state = "cancelled";
+        break;
+      default:
+        error("Unknown action");
+    }
+
+    return cart;
+  };
+
+  const sessionState = (events: (string | number)[][], prices: Record<string, number>): { open: boolean, items: Record<string, number>, total: number, paid: number } => {
+    if (!events.length || !prices) {
+      return { open: false, items: {}, total: 0, paid: 0 };
+    }
+
+    let state = {
+      open: true,
+      items: {},
+      total: 0
+    };
+
+    events.forEach(event => {
+      const [action, ...payload] = event;
+      if (typeof action !== 'string' || !Array.isArray(payload)) {
+        error("Invalid event format");
+      }
+      switch (state.state) {
+        case "initial":
+          state = cart(state, { open: true, items: initialCart });
+          break;
+        default:
+          try {
+            state = cart(state, event);
+          } catch (e) {
+            error(e.message);
+          }
+      }
+
+      if (!event.length || typeof event[0] !== 'string' || !events.includes(event)) {
+        error("Illegal action for close");
+      }
+    });
+
+    return state;
+  };
+
+  const result = sessionState(events, prices);
+
+  if (result.state === "initial") {
+    throw new Error("No events provided or price list is empty");
+  }
+
+  const sortItems = (items: Record<string, number>): [string, number][] => {
+    return Object.entries(items).sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  return {
+    state: result.state,
+    items: sortItems(result.items),
+    total: result.total,
+    paid: result.paid,
+    change: result.total > result.paid ? result.total - result.paid : 0
+  };
+}
+```

@@ -1,0 +1,28 @@
+```
+export function slotHits(keys: number[], slots: number): number {
+  if (typeof keys !== 'number' || typeof slots !== 'number') {
+    throw new Error('Both arguments must be numbers.');
+  }
+  if (!Number.isInteger(keys) || !Number.isInteger(slots)) {
+    throw new Error('Both arguments must be integers.');
+  }
+  if (slots <= 0) {
+    throw new Error('Slot count must be a positive integer.');
+  }
+
+  const slotsArray: number[] = Array.from({ length: slots }, () => -1);
+
+  let hits = 0;
+
+  for (const key of keys) {
+    const slotIndex = Math.abs(key % slots);
+    if (slotsArray[slotIndex] === key) {
+      hits++;
+    } else {
+      slotsArray[slotIndex] = key;
+    }
+  }
+
+  return hits;
+}
+```

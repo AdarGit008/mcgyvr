@@ -1,0 +1,85 @@
+```ts
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+    const initialState = {
+        state: "open",
+        cart: {} as Record<string, number>,
+        total: 0,
+        paid: 0,
+        change: 0,
+        events: [] as (string | number)[][]
+    };
+
+    const { cart, total, paid, change } = initialState;
+    let currentSessionState = "open";
+
+    for (const event of events) {
+        if (event.length !== 2) {
+            throw new Error("Event must be a list with exactly two elements.");
+        }
+        const [action, payload] = event;
+
+        switch (action) {
+            case "scan":
+                if (!prices[payload]) {
+                    throw new Error(`Unknown item: ${payload}`);
+                }
+                cart[payload] ||= 0;
+                cart[payload]++;
+                total += prices[payload];
+                break;
+            case "void":
+                if (!(payload in cart)) {
+                    throw new Error(`Item not in cart: ${payload}`);
+                }
+                cart[payload]--;
+                if (cart[payload] === 0) {
+                    delete cart[payload];
+                }
+                total -= prices[payload];
+                break;
+            case "close":
+                if (currentSessionState !== "open" || Object.keys(cart).length === 0) {
+                    throw new Error("Invalid action: close during open or empty cart.");
+                }
+                currentSessionState = "payment";
+                break;
+            case "pay":
+                if (typeof payload !== "number" || payload <= 0) {
+                    throw new Error(`Pay amount must be a positive integer.`);
+                }
+                paid += payload;
+                const changeAmount = Math.max(0, total - paid);
+                if (changeAmount === 0) {
+                    currentSessionState = "paid";
+                } else {
+                    currentSessionState = "payment"; // Partial payment
+                }
+                break;
+            case "cancel":
+                if (currentSessionState !== "open" && currentSessionState !== "payment") {
+                    throw new Error("Invalid action: cancel during open or payment.");
+                }
+                currentSessionState = "cancelled";
+                cart = {};
+                total = 0;
+                paid = 0;
+                change = 0;
+                break;
+            default:
+                throw new Error(`Unknown action: ${action}`);
+        }
+
+        initialState.events.push(event);
+    }
+
+    const sortedItems = Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0]));
+
+    return {
+        state: currentSessionState,
+        items: sortedItems,
+        total,
+        paid,
+        change
+    };
+}
+```

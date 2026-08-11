@@ -1,0 +1,31 @@
+```python
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    """
+    Lay a conveyor run on the factory floor plan.
+
+    Args:
+        floor (list): The factory floor plan as a list of rows.
+        row (int): The starting row index for the conveyor run.
+        col (int): The starting column index for the conveyor run.
+        length (int): The number of cells to cover by the conveyor run.
+
+    Returns:
+        list: The updated factory floor plan with the conveyor run laid.
+
+    Raises:
+        ValueError: If the run would leave the plan or any cell is not open.
+    """
+    if row < 0 or col < 0 or length <= 0:
+        raise ValueError("Invalid start position or length")
+    
+    num_rows = len(floor)
+    if row >= num_rows or col + length > len(floor[0]):
+        raise ValueError("Conveyor run would exceed plan boundaries")
+    
+    for i in range(row, row + length):
+        if floor[i][col] != ".":
+            raise ValueError("Cell is not open for conveyor run")
+    
+    updated_floor = [row[:col] + "=" * length + row[col:]] if floor else []
+    return updated_floor
+```

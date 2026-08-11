@@ -1,0 +1,39 @@
+```
+/** Cut a chunked stream into frames at a marker, doubled to escape it. */
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (typeof marker !== "string" || marker.length !== 1) {
+    throw new Error("marker must be a single character");
+  }
+  const buffer = chunks.join("");
+  let i = 0;
+  const frames: string[] = [];
+  let pending = "";
+
+  while (i < buffer.length) {
+    if (buffer[i] === marker) {
+      // Check for a doubled marker
+      if (buffer[i + 1] === marker) {
+        i += 2; // Skip the second marker as it's part of an escaped single marker
+      } else {
+        // Mark the start of a new frame
+        const frameStart = i;
+        while (i < buffer.length && buffer[i] !== marker) {
+          i++;
+        }
+        if (frameStart === i - 1) {
+          // Empty frame, skip it
+          i++;
+        } else {
+          frames.push(buffer.substring(frameStart, i));
+        }
+      }
+    } else {
+      // Collect pending text
+      pending += buffer[i];
+      i++;
+    }
+  }
+
+  return { frames, pending };
+}
+```

@@ -1,0 +1,35 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    """
+    Drains frames from a list of chunks using a specified marker.
+
+    :param chunks: List of strings representing the stream in chunks.
+    :param marker: Single character string that marks the start and end of frames.
+    :return: A dictionary with 'frames' and 'pending' keys, containing lists of
+             frame segments and any pending text after the last closed frame.
+    """
+
+    if not isinstance(marker, str) or len(marker) != 1:
+        raise ValueError("Marker must be a single character.")
+
+    frames = []
+    pending = ""
+
+    for chunk in chunks:
+        # Split the chunk by marker to find potential frame segments
+        parts = chunk.split(marker)
+        
+        current_frame = []
+        for part in parts[:-1]:
+            # Append non-empty parts to the current frame
+            if part.strip():
+                current_frame.append(part)
+
+        if current_frame:
+            frames.append("".join(current_frame))
+
+    if parts[-1]:  # If there's any remaining text after the last marker
+        pending = parts[-1]
+
+    return {'frames': frames, 'pending': pending}
+```

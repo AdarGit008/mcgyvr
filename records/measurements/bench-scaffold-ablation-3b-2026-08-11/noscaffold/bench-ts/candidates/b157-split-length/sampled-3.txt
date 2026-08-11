@@ -1,0 +1,18 @@
+```typescript
+export function splitLength(mm: number): string {
+  if (!Number.isInteger(mm) || mm < 0) {
+    throw new Error("Input must be a non-negative integer.");
+  }
+
+  const metres = Math.floor(mm / 1000);
+  const centimetres = Math.floor((mm % 1000) / 10);
+  const millimetres = mm % 10;
+
+  const parts: string[] = [];
+  if (metres > 0) parts.push(`${metres}m`);
+  if (centimetres > 0) parts.push(`${centimetres}cm`);
+  if (millimetres > 0) parts.push(`${millimetres}mm`);
+
+  return parts.join(" ");
+}
+```

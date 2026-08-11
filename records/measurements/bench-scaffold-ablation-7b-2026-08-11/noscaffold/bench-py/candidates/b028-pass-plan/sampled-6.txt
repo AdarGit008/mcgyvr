@@ -1,0 +1,44 @@
+```python
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    if not trip_days:
+        return {"total": 0, "purchases": []}
+
+    if not passes:
+        raise ValueError("Pass list cannot be empty")
+
+    for day in trip_days:
+        if not isinstance(day, int) or day <= 0:
+            raise ValueError("Trip days must be positive integers")
+        if trip_days.index(day) != trip_days.index(day, trip_days.index(day) + 1):
+            raise ValueError("Trip days must be strictly increasing")
+
+    for pass_ in passes:
+        if "span" not in pass_ or not isinstance(pass_["span"], int) or pass_["span"] <= 0:
+            raise ValueError("Span must be a positive integer")
+        if "cost" not in pass_ or not isinstance(pass_["cost"], (int, float)) or pass_["cost"] < 0:
+            raise ValueError("Cost must be a non-negative number")
+
+    purchase_plan = []
+    i, total_cost = 0, 0
+
+    while i < len(trip_days):
+        min_cost = float('inf')
+        best_pass_index = -1
+
+        for j, pass_ in enumerate(passes):
+            if trip_days[i] + pass_["span"] - 1 >= trip_days[-1]:
+                span = len(trip_days) - trip_days[i]
+            else:
+                span = pass_["span"]
+            
+            cost = pass_["cost"] * (trip_days[i:i+span].count(trip_days[i]))
+            if cost < min_cost:
+                min_cost = cost
+                best_pass_index = j
+
+        total_cost += passes[best_pass_index]["cost"]
+        purchase_plan.append([trip_days[i], passes[best_pass_index]["span"]])
+        i += passes[best_pass_index]["span"]
+
+    return {"total": total_cost, "purchases": purchase_plan}
+```

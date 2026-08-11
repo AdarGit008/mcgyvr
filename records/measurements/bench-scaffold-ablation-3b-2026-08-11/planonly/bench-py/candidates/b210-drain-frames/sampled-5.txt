@@ -1,0 +1,33 @@
+```python
+def drain_frames(chunks: list[str], marker: str) -> dict:
+    """
+    Drain frames from chunks using a marker character.
+    
+    :param chunks: List of strings to be processed into frames.
+    :param marker: Character used as the frame marker.
+    :return: Dictionary with 'frames' and 'pending' keys.
+    """
+    if len(marker) != 1:
+        raise ValueError("Marker must be a single character.")
+    
+    joined_text = ""
+    for chunk in chunks:
+        joined_text += chunk
+    
+    frames = []
+    pending = ""
+    i = 0
+    while i < len(joined_text):
+        if joined_text[i] == marker:
+            if i + 1 >= len(joined_text) or joined_text[i + 1] != marker:
+                frames.append(marker)
+                i += 1
+            else:
+                pending += marker
+                i += 2
+        else:
+            pending += joined_text[i]
+            i += 1
+    
+    return {'frames': frames, 'pending': pending}
+```

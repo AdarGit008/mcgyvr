@@ -1,0 +1,24 @@
+```typescript
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+  if (!floor.length || floor[row]?.length !== floor[0].length) {
+    throw new Error("Invalid floor plan dimensions");
+  }
+  if (row < 0 || row >= floor.length) {
+    throw new Error("Row out of bounds");
+  }
+  if (col < 0 || col + length > floor[row].length) {
+    throw new Error("Run would leave the plan");
+  }
+  for (let i = col; i < col + length; i++) {
+    if (floor[row][i] !== ".") {
+      throw new Error("Cell is not open");
+    }
+  }
+
+  return floor.map((r, rIndex) =>
+    rIndex === row
+      ? r.slice(0, col) + "=".repeat(length) + r.slice(col + length)
+      : r
+  );
+}
+```

@@ -1,0 +1,35 @@
+```python
+def thaw_row(row: str, steps: int) -> str:
+    """
+    Apply thawing steps to a row of cells.
+
+    Args:
+        row (str): A string representing a row of ice ("#") and meltwater ("."). 
+                   Must be non-empty.
+        steps (int): Number of thawing steps. Must be a non-negative integer.
+
+    Returns:
+        str: The row after applying the specified number of thawing steps.
+
+    Raises:
+        ValueError: If the input is not valid.
+    """
+    if not isinstance(row, str) or not row or set(row) - {'#', '.'}:
+        raise ValueError("Invalid input")
+    if not isinstance(steps, int) or steps < 0:
+        raise ValueError("Step count must be a non-negative integer")
+
+    for _ in range(steps):
+        new_row = []
+        for i in range(len(row)):
+            if row[i] == '#':
+                if i == 0 or row[i - 1] == '.' or (i < len(row) - 1 and row[i + 1] == '.'):
+                    new_row.append('.')
+                else:
+                    new_row.append('#')
+            elif row[i] == '.':
+                new_row.append('.')
+        row = ''.join(new_row)
+
+    return row
+```

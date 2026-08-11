@@ -1,0 +1,42 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    if not isinstance(marker, str) or len(marker) != 1:
+        raise ValueError("marker must be a single character")
+
+    def process_chunk(chunk):
+        nonlocal buffer
+        buffer += chunk
+
+    def scan_buffer():
+        nonlocal buffer, frames, pending
+        found_doubled_marker = False
+        index = 0
+
+        while index < len(buffer):
+            if buffer[index] == marker:
+                # If we have a doubled marker, skip over it
+                if index + 1 < len(buffer) and buffer[index + 1] == marker:
+                    found_doubled_marker = True
+                    index += 2
+                    continue
+
+                # Check for the end of a frame or pending text
+                if not frames or (frames and index != len(frames[-1])):
+                    frames.append(buffer[:index])
+                    pending = buffer[index + 1:]
+                    break
+
+            index += 1
+
+    buffer = ""
+    frames = []
+    pending = ""
+
+    # Process each chunk into the buffer
+    list(map(process_chunk, chunks))
+
+    # Scan the buffer to handle markers and end frames
+    scan_buffer()
+
+    return {"frames": frames, "pending": pending}
+```

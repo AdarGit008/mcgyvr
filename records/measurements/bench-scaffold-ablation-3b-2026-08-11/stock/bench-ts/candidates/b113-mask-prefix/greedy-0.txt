@@ -1,0 +1,53 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("prefix must be an integer from 0 to 32");
+  }
+  const octets: number[] = [];
+  for (let slot = 0; slot < 4; slot += 1) {
+    const ones = Math.min(8, Math.max(0, prefix - slot * 8));
+    octets.push(256 - 2 ** (8 - ones));
+  }
+  return octets.join(".");
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== "string") {
+    throw new Error("mask must be a string");
+  }
+
+  const parts = mask.split(".");
+  if (parts.length !== 4) {
+    throw new Error("mask must have exactly four dot-separated fields");
+  }
+
+  let leadingOnesCount = 0;
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) {
+      throw new Error("each field must hold decimal digits only");
+    }
+    const octet = parseInt(part, 10);
+    if (octet < 0 || octet > 255) {
+      throw new Error("each octet must be between 0 and 255");
+    }
+
+    // Check for leading zeros in non-zero octets
+    if (octet !== 0 && part.startsWith("0")) {
+      throw new Error("leading zero is not allowed except for the first octet");
+    }
+
+    // Count leading ones
+    let count = 0;
+    while (count < 8 && (octet & (1 << (7 - count)))) {
+      count += 1;
+    }
+    if (count !== part.length) {
+      throw new Error("one bits are broken by a zero");
+    }
+
+    leadingOnesCount += count;
+  }
+
+  return leadingOnesCount;
+}
+```

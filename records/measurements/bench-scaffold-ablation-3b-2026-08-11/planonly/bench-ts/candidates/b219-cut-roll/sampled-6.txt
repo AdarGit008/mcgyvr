@@ -1,0 +1,47 @@
+```typescript
+export function cutRoll(length: number, board: [number, number][]): Cut {
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error("Length must be a non-negative whole number.");
+  }
+
+  // Initialize variables to track the best outcome
+  let maxTakings = 0;
+  let bestPieces: number[] = [];
+
+  // Helper function to recursively find the optimal cut
+  function findBestCut(rollLength: number, pieces: [number, number][]): void {
+    if (rollLength === 0) {
+      return;
+    }
+
+    for (let i = 0; i < board.length; i++) {
+      const [boardMetres, boardPrice] = board[i];
+
+      // If the board piece fits
+      if (rollLength >= boardMetres) {
+        // Calculate the total takings and pieces if including this board piece
+        const newTakings = maxTakings + boardPrice;
+        const newPieces = [...bestPieces, boardMetres];
+        
+        // Compare with current best and update if better
+        if (newTakings > maxTakings || 
+            (newTakings === maxTakings && newPieces.length > bestPieces.length)) {
+          maxTakings = newTakings;
+          bestPieces = newPieces;
+        }
+
+        // Recursively consider the remaining roll after cutting this piece
+        findBestCut(rollLength - boardMetres, [...board.slice(i)]);
+      }
+    }
+  }
+
+  // Start the recursion with the full roll
+  findBestCut(length, board);
+
+  return {
+    takings: maxTakings,
+    pieces: bestPieces
+  };
+}
+```

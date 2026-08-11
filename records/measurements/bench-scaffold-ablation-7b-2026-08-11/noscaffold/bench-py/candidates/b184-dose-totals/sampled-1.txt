@@ -1,0 +1,34 @@
+```python
+def dose_totals(log: list) -> dict:
+    reagent_totals = {}
+
+    for entry in log:
+        if len(entry) != 2:
+            raise ValueError("Each entry must be a [reagent, amount] pair.")
+
+        reagent, amount_str = entry
+
+        try:
+            amount = float(amount_str)
+        except ValueError:
+            raise ValueError(f"Invalid amount format: {amount_str}")
+
+        if not str(amount).endswith(str(amount).rstrip('0').rstrip('.')):
+            raise ValueError(f"Amount must have no binary fraction: {amount_str}")
+
+        if reagent in reagent_totals:
+            reagent_totals[reagent] += amount
+        else:
+            reagent_totals[reagent] = amount
+
+    result = {}
+    for reagent, total in reagent_totals.items():
+        formatted_total = f"{total:.3f}".rstrip('0').rstrip('.')
+        if formatted_total == '-0':
+            formatted_total = '0'
+        elif formatted_total.startswith('-') and formatted_total.endswith('.'):
+            formatted_total += '0'
+        result[reagent] = formatted_total
+
+    return result
+```

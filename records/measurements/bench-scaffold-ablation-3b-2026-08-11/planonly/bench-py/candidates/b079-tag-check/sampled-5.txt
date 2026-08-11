@@ -1,0 +1,29 @@
+```python
+def line_tag(body: str) -> str:
+    """Compute the integrity check tag for a given body string."""
+    return format(sum(ord(char) for char in body), '02x')
+
+def check_line(line: str) -> str:
+    """
+    Validate and extract the body of a tagged line.
+    
+    Parameters:
+    line (str): The line to be validated. Must be at least 3 characters long and contain a tilde as the third-from-last character.
+    
+    Returns:
+    str: The body of the tagged line.
+
+    Raises:
+    ValueError: If the input is not a valid tagged line.
+    """
+    if not isinstance(line, str) or len(line) < 3 or line[-2] != '~':
+        raise ValueError("Invalid or incomplete line.")
+    
+    tag = line_tag(line[:-3])
+    body = line[:line.rfind('~')]
+
+    if not (body and line.endswith(tag)):
+        raise ValueError("Tag does not match the body.")
+
+    return body
+```

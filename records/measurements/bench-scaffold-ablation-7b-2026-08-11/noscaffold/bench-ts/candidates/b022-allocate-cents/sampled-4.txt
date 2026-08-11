@@ -1,0 +1,49 @@
+```ts
+/**
+ * Parses a decimal amount string into integer cents.
+ * @param text - The decimal amount string to parse.
+ * @returns The integer cents equivalent of the input string.
+ */
+export function parseAmount(text: string): number {
+  const match = text.match(/^\d+(\.\d{2})?$/);
+  if (!match) throw new Error('Invalid amount format');
+  return Math.round(parseFloat(text) * 100);
+}
+
+/**
+ * Formats a non-negative integer cents value into a dotted form with exactly two fraction digits.
+ * @param cents - The integer cents to format.
+ * @returns The formatted string representation of the cents.
+ */
+export function formatAmount(cents: number): string {
+  if (cents < 0) throw new Error('Negative amount');
+  return `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, '0')}`;
+}
+
+/**
+ * Allocates totalCents across a list of integer weights proportionally.
+ * @param totalCents - The total integer cents to allocate.
+ * @param weights - The list of integer weights to allocate the cents to.
+ * @returns An array of integer cents allocated proportionally.
+ */
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (weights.length === 0) throw new Error('Empty weight list');
+  if (!weights.every(w => typeof w === 'number' && Number.isInteger(w) && w >= 0)) throw new Error('Invalid weight');
+  if (weights.reduce((sum, w) => sum + w, 0) === 0) throw new Error('Weights sum to zero');
+  if (totalCents < 0) throw new Error('Negative total cents');
+
+  const totalWeight = weights.reduce((sum, w) => sum + Math.max(0, w), 0);
+  const baseAllocation = weights.map(w => Math.floor(totalCents * w / totalWeight));
+  const remainder = totalCents - baseAllocation.reduce((sum, a) => sum + a, 0);
+  const sortedWeights = weights
+    .map((w, i) => ({ index: i, weight: w }))
+    .filter(w => w.weight > 0)
+    .sort((a, b) => a.weight % (totalWeight / a.weight) - b.weight % (totalWeight / b.weight));
+
+  const result = new Array(weights.length).fill(0);
+  sortedWeights.forEach(({ index }) => {
+    result[index] += baseAllocation[index] + 1;
+  });
+  return result;
+}
+```

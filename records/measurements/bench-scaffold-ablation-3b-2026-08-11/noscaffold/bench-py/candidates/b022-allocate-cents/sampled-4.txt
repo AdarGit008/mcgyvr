@@ -1,0 +1,58 @@
+```python
+def parse_amount(text: str) -> int:
+    """Parse a decimal amount string into integer cents."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    
+    parts = text.split('.')
+    
+    if len(parts) != 2 or len(parts[1]) != 2:
+        raise ValueError("Amount must have exactly two fraction digits.")
+    
+    try:
+        integer_part = int(parts[0])
+        fractional_part = int(parts[1])
+    except ValueError:
+        raise ValueError("Invalid characters in amount string.")
+    
+    if integer_part < 0 or fractional_part < 0:
+        raise ValueError("Negative amounts are not allowed.")
+    
+    cents = (integer_part * 100) + fractional_part
+    return cents
+
+def format_amount(cents: int) -> str:
+    """Render integer cents back into a dotted form with exactly two fraction digits."""
+    if cents < 0:
+        raise ValueError("Negative amounts are not allowed.")
+    
+    fractional_part = cents % 100
+    integer_part = cents // 100
+    
+    return f"{integer_part}.{fractional_part:02d}"
+
+def allocate_cents(total_cents: int, weights: list) -> list:
+    """Allocate total_cents across weights proportionally."""
+    if not isinstance(weights, list):
+        raise ValueError("Weights must be a list.")
+    if len(weights) < 1 or any(weight < 0 for weight in weights):
+        raise ValueError("All weights must be non-negative integers.")
+    
+    sum_of_weights = sum(weights)
+    if sum_of_weights == 0:
+        raise ValueError("Total cents cannot be distributed among zero weights.")
+    
+    allocated_cents = [0] * len(weights)
+    
+    for i, weight in enumerate(weights):
+        share = total_cents // sum_of_weights
+        fractional_share = total_cents % sum_of_weights
+        
+        if fractional_share > 0:
+            allocated_cents[i] += share + 1
+            fractional_share -= 1
+        
+        total_cents -= share
+    
+    return allocated_cents
+```

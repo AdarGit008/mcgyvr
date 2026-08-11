@@ -1,0 +1,122 @@
+```typescript
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  if (!Array.isArray(events) || !events.every(event => Array.isArray(event))) {
+    throw new Error("Events must be a list of lists.");
+  }
+  
+  if (Object.keys(prices).some(price => typeof prices[price] !== 'number' || prices[price] < 0)) {
+    throw new Error("Price list must contain only non-negative integers.");
+  }
+
+  const initialSession = { state: "open", cart: {}, total: 0, paid: 0, change: 0 };
+
+  return events.reduce((session, event) => {
+    if (!Array.isArray(event) || event.length !== 2) {
+      throw new Error("Each event must be a list of exactly two elements.");
+    }
+
+    const [action, payload] = event;
+
+    switch (action) {
+      case "scan":
+        if (!(typeof payload === 'string' && prices[payload] >= 0)) {
+          throw new Error(`Unknown item: ${payload}`);
+        }
+        if (session.state !== "open") {
+          throw new Error("Cannot scan during an open session.");
+        }
+
+        const itemName = payload;
+        const price = prices[itemName];
+        let quantity = session.cart[itemName] || 0;
+
+        switch (quantity) {
+          case 0:
+            session.cart[itemName] = 1;
+            break;
+          default:
+            session.cart[itemName]++;
+        }
+        
+        session.total += price;
+        break;
+
+      case "void":
+        if (!(typeof payload === 'string' && session.cart[payload])) {
+          throw new Error(`Cannot void an unknown item: ${payload}`);
+        }
+        if (session.state !== "open") {
+          throw new Error("Cannot void during an open or payment session.");
+        }
+
+        const itemName = payload;
+        let quantity = session.cart[itemName];
+
+        switch (quantity) {
+          case 1:
+            delete session.cart[itemName];
+            break;
+          default:
+            session.cart[itemName]--;
+        }
+        
+        session.total -= prices[itemName];
+        break;
+
+      case "close":
+        if (session.state !== "open") {
+          throw new Error("Cannot close an open or payment session.");
+        }
+
+        session.state = "paid";
+        break;
+
+      case "pay":
+        if (!(typeof payload === 'number' && payload >= 0)) {
+          throw new Error(`Payment amount must be a non-negative integer.`);
+        }
+        if (session.state !== "paid") {
+          throw new Error("Cannot pay during an open or cancelled session.");
+        }
+
+        const paidAmount = payload;
+        const change = session.total - paidAmount;
+
+        if (change < 0) {
+          throw new Error(`Payment amount exceeds total: ${paidAmount} > ${session.total}`);
+        }
+
+        session.paid += paidAmount;
+        session.change = change;
+        session.state = "paid";
+        break;
+
+      case "cancel":
+        switch (session.state) {
+          case "open":
+            session.state = "cancelled";
+            break;
+          case "paid":
+            session.state = "cancelled";
+            break;
+          default:
+            throw new Error("Cannot cancel a closed or paid session.");
+        }
+        break;
+
+      default:
+        throw new Error(`Unknown action: ${action}`);
+    }
+
+    if (session.cart.length === 0 && session.state !== "cancelled") {
+      session.state = "close";
+    }
+
+    return session;
+  }, initialSession);
+
+  const sortedItems = Object.entries(session.cart).sort(([nameA, quantityA], [nameB, quantityB]) => nameA.localeCompare(nameB));
+  
+  return { state: session.state, items: sortedItems, total: session.total, paid: session.paid, change: session.change };
+}
+```

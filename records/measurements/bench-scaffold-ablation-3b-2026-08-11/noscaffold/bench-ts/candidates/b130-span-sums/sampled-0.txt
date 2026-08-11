@@ -1,0 +1,52 @@
+```ts
+export function parseSpan(text: string): number {
+    if (typeof text !== 'string' || text.trim() === '') {
+        throw new Error('Invalid input');
+    }
+
+    const parts = text.split(/\s+/).filter(Boolean);
+    const units: { [key: string]: number } = { yd: 36, ft: 12, in: 1 };
+    let totalInches = 0;
+
+    for (const part of parts) {
+        const match = part.match(/^(\d+)(?:\s*(yd|ft|in))?$/);
+        if (!match) {
+            throw new Error('Invalid unit');
+        }
+
+        const [value, unit] = match.slice(1);
+
+        if (!units.hasOwnProperty(unit)) {
+            throw new Error(`Unknown unit: ${unit}`);
+        }
+
+        totalInches += parseInt(value, 10) * units[unit];
+    }
+
+    return totalInches;
+}
+
+export function formatSpan(inches: number): string {
+    const units = [36, 12, 1];
+    let result = '';
+
+    for (const unit of units) {
+        const parts = Math.floor(inches / unit);
+        inches %= unit;
+
+        if (parts > 0 || result !== '') {
+            result += `${parts}${unit} `;
+        }
+    }
+
+    return result.trim();
+}
+
+export function addSpans(first: string, second: string): string {
+    const totalInches1 = parseSpan(first);
+    const totalInches2 = parseSpan(second);
+
+    const totalInchesSum = totalInches1 + totalInches2;
+    return formatSpan(totalInchesSum);
+}
+```

@@ -1,0 +1,39 @@
+```python
+def apply_charges(caps: dict, charges: list) -> dict:
+    """
+    Apply charges to buckets according to their capacity limits.
+
+    :param caps: Mapping from bucket name to a pair of (whole allowance, largest single charge)
+    :param charges: List of triples (charge_id, bucket_name, amount)
+    :return: Dictionary with 'left' showing remaining allowances and 'refused' showing refused charges
+    """
+    if not all(isinstance(k, str) and isinstance(v, tuple) for k, v in caps.items()):
+        raise ValueError("Bucket names must be strings and capacities must be tuples")
+    if not all(isinstance(c, tuple) and len(c) == 3 for c in charges):
+        raise ValueError("Charges must be triples (charge_id, bucket_name, amount)")
+    if not all(isinstance(c[2], int) and c[2] > 0 for c in charges):
+        raise ValueError("Charge amounts must be positive whole numbers")
+
+    refused = []
+    left = {bucket: allowance for bucket, (allowance, _) in caps.items()}
+
+    def _why_refused(bucket, amount):
+        if bucket not in caps:
+            return "unknown"
+        _, max_charge = caps[bucket]
+        remaining_allowance = left.get(bucket, 0)
+        if amount > max_charge:
+            return "single"
+        if remaining_allowance < amount:
+            return "cap"
+        return None
+
+    for charge_id, bucket, amount in charges:
+        reason = _why_refused(bucket, amount)
+        if reason is not None:
+            refused.append((charge_id, reason))
+        else:
+            left[bucket] -= amount
+
+    return {'left': left, 'refused': refused}
+```

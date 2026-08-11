@@ -1,0 +1,25 @@
+```python
+def split_cents(total: int, weights: list) -> list:
+    if total < 0 or (total % 1 != 0):
+        raise ValueError("Total must be a non-negative whole number.")
+    
+    if not isinstance(weights, list) or len(weights) == 0:
+        raise ValueError("Weights must be a non-empty list of positive whole numbers.")
+    
+    for weight in weights:
+        if not isinstance(weight, int) or weight <= 0:
+            raise ValueError("Weights must be positive whole numbers.")
+    
+    total_parts = sum(weights)
+    base_part = [total * weight // total_parts for weight in weights]
+    leftover_cents = total - sum(base_part)
+    
+    # Distribute the leftover cents
+    for i, _ in sorted(zip(weights, range(len(weights))), reverse=True):
+        if leftover_cents == 0:
+            break
+        base_part[i] += 1
+        leftover_cents -= 1
+    
+    return base_part
+```

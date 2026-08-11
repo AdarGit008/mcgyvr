@@ -1,0 +1,25 @@
+```ts
+export function thawRow(row: string, steps: number): string {
+  if (typeof row !== 'string' || row === '' || !/^[.#]+$/.test(row)) {
+    throw new Error('Invalid row format');
+  }
+  if (!Number.isInteger(steps) || steps < 0) {
+    throw new Error('Invalid step count');
+  }
+
+  const n = row.length;
+  let cells = row.split('');
+
+  for (let _ of Array(steps).keys()) {
+    const newCells = cells.slice();
+    for (let i = 0; i < n; i++) {
+      if ((i === 0 || cells[i - 1] === '.') && cells[i] === '#' && (i === n - 1 || cells[i + 1] === '.')) {
+        newCells[i] = '.';
+      }
+    }
+    cells = newCells;
+  }
+
+  return cells.join('');
+}
+```

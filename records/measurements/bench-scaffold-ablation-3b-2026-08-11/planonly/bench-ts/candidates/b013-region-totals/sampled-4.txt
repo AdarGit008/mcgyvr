@@ -1,0 +1,49 @@
+```ts
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+  if (!grid.length) throw new Error("Grid must have at least one row");
+  const [firstRow] = grid;
+  if (!firstRow.length) throw new Error("First row of grid must not be empty");
+
+  for (let i = 1; i < grid.length; i++) {
+    if (grid[i].length !== firstRow.length)
+      throw new Error("All rows in the grid must have the same length");
+  }
+
+  const prefixSumTable: number[][] = [];
+  for (let row = 0; row < grid.length; row++) {
+    let currentSum = 0;
+    const newRow: number[] = [];
+    for (let col = 0; col < grid[row].length; col++) {
+      if (!Number.isInteger(grid[row][col]))
+        throw new Error("All cells in the grid must be integers");
+
+      currentSum += grid[row][col];
+      newRow.push(currentSum);
+    }
+    prefixSumTable.push(newRow);
+  }
+
+  const result: number[] = [];
+  for (let query of queries) {
+    if (!Array.isArray(query) || query.length !== 4)
+      throw new Error("Each query must be a list of exactly four integers");
+
+    const [top, left, bottom, right] = query;
+    if (top >= bottom || left >= right)
+      throw new Error(
+        "Query top index must be strictly less than bottom index and "
+        + "query left index must be strictly less than right index"
+      );
+
+    if (top < 0 || bottom > grid.length || left < 0 || right > grid[0].length)
+      throw new Error("Query indices must not reach outside the grid");
+
+    const topSum = prefixSumTable[top][right - 1] - (left === 0 ? 0 : prefixSumTable[top][left - 1]);
+    const bottomSum = prefixSumTable[bottom - 1][right - 1] - (left === 0 ? 0 : prefixSumTable[bottom - 1][left - 1]);
+
+    result.push(topSum + bottomSum);
+  }
+
+  return result;
+}
+```

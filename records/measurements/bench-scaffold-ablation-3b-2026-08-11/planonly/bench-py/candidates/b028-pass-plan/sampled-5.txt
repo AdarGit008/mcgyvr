@@ -1,0 +1,31 @@
+```python
+from typing import List, Dict
+
+def cheapest_pass_plan(trip_days: List[int], passes: List[Dict[str, int]]) -> Dict:
+    if not trip_days or not passes:
+        return {'total': 0, 'purchases': []}
+
+    # Check for valid trips
+    for day in trip_days:
+        if not isinstance(day, int) or day <= 0:
+            raise ValueError("Trip days must be positive integers.")
+
+    # Sort pass kinds by span and then cost
+    passes.sort(key=lambda x: (x['span'], x['cost']))
+
+    total_cost = 0
+    purchases = []
+    trip_index = 0
+
+    for i, pass_kind in enumerate(passes):
+        span = pass_kind['span']
+        cost = pass_kind['cost']
+
+        # Find the cheapest way to cover remaining trips starting from trip_index
+        while trip_index < len(trip_days) and total_cost + cost * (trip_days[trip_index] - trip_days[i]) >= 0:
+            total_cost += cost * (trip_days[trip_index] - trip_days[i])
+            purchases.append([trip_days[i], span])
+            trip_index += span
+
+    return {'total': total_cost, 'purchases': purchases}
+```

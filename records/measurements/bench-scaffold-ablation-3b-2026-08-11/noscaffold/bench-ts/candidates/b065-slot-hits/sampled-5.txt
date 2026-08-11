@@ -1,0 +1,26 @@
+```typescript
+export function slotHits(keys: number[], slots: number): number {
+  if (!Number.isInteger(slots) || slots <= 0) {
+    throw new Error("Slot count must be a positive integer.");
+  }
+  const cache: Map<number, number> = new Map();
+
+  let hits = 0;
+  for (const key of keys) {
+    if (!Number.isInteger(key)) {
+      throw new Error("All keys must be integers.");
+    }
+
+    const slot = Math.abs(key) % slots;
+    const currentSlotValue = cache.get(slot);
+
+    if (currentSlotValue !== undefined && currentSlotValue === key) {
+      hits++;
+    } else {
+      cache.set(slot, key);
+    }
+  }
+
+  return hits;
+}
+```

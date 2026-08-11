@@ -1,0 +1,17 @@
+```python
+def run_patrol(width: int, start: int, moves: list) -> dict:
+    if not isinstance(moves, list):
+        raise ValueError("moves must be a list")
+
+    position = start
+    bumps = 0
+    visited = {start}
+
+    for move in moves:
+        landed, bumped = clamp_move(position, move, width)
+        position = landed
+        bumps += int(bumped)
+        visited.add(landed)
+
+    return {'position': position, 'bumps': bumps, 'visited': len(visited)}
+```

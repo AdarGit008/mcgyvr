@@ -1,0 +1,37 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== 'string' || name.length === 0) {
+    throw new Error('Name must be a non-empty string');
+  }
+
+  const parts = name.split('.');
+  const depth = parts.length;
+
+  for (let i = 0; i < depth; i++) {
+    const part = parts[i];
+    if (part.includes('*')) {
+      if (part === '*' || !part.endsWith('.*')) {
+        throw new Error('Star must stand alone or end the selector as ".*"');
+      }
+    }
+  }
+
+  function isExactMatch(selector: string): boolean {
+    return selector === name;
+  }
+
+  function isMatchingPrefixWildcard(selector: string): boolean {
+    const prefix = selector.replace(/\.*/, '');
+    return rules[prefix] !== undefined && rules[prefix].endsWith('.*');
+  }
+
+  for (let i = depth; i >= 0; i--) {
+    const selector = parts.slice(0, i).join('.');
+    if (isExactMatch(selector) || isMatchingPrefixWildcard(selector)) {
+      return rules[selector];
+    }
+  }
+
+  return null;
+}
+```

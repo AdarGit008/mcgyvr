@@ -1,0 +1,24 @@
+```python
+from typing import List
+
+def split_cents(total: int, weights: List[int]) -> List[int]:
+    if not isinstance(total, int) or total < 0:
+        raise ValueError("Total must be a non-negative integer")
+    if not isinstance(weights, list) or len(weights) == 0:
+        raise ValueError("Weights must be a non-empty list of positive integers")
+    for weight in weights:
+        if not isinstance(weight, int) or weight <= 0:
+            raise ValueError("Weights must be a non-empty list of positive integers")
+
+    sum_weights = sum(weights)
+    base_share = total * [weight / sum_weights for weight in weights]
+    base_parts = [int(part) for part in base_share]
+    leftover_cents = total - sum(base_parts)
+
+    fractional_parts = sorted([(part - int(part), i) for i, part in enumerate(base_share)], reverse=True)
+    for _ in range(leftover_cents):
+        _, index = fractional_parts.pop(0)
+        base_parts[index] += 1
+
+    return base_parts
+```

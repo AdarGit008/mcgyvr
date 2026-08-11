@@ -1,0 +1,65 @@
+```ts
+/**
+ * Parses a span text into total inches.
+ * @param text - A string representing a span in yards, feet, and inches.
+ * @returns The total inches represented by the span.
+ */
+export function parseSpan(text: string): number {
+  if (typeof text !== 'string' || !text.trim()) throw new Error('Invalid span');
+
+  const parts = text.split(/\s+/);
+  const unitsMap = { yd: 36 * 12, ft: 12, in: 1 };
+  let totalInches = 0;
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const valueMatch = part.match(/^(\d+)\D*$/);
+    if (!valueMatch) throw new Error('Invalid span');
+
+    const value = parseInt(valueMatch[1], 10);
+    if (value === 0 || isNaN(value)) throw new Error('Invalid span');
+
+    const unitPart = parts[i + 1];
+    if (!unitPart || !unitsMap.hasOwnProperty(unitPart)) throw new Error('Invalid span');
+
+    totalInches += value * unitsMap[unitPart];
+
+    i++; // Skip the next part as it's the unit
+  }
+
+  return totalInches;
+}
+
+/**
+ * Renders a non-negative integer of total inches canonically.
+ * @param inches - A number representing total inches.
+ * @returns The canonical string representation of the span in yards, feet, and inches.
+ */
+export function formatSpan(inches: number): string {
+  if (typeof inches !== 'number' || inches < 0 || !Number.isInteger(inches)) throw new Error('Invalid inches');
+
+  const unitsMap = { yd: 36 * 12, ft: 12, in: 1 };
+  let totalYards = Math.floor(inches / unitsMap.yd);
+  inches -= totalYards * unitsMap.yd;
+
+  let totalFeet = Math.floor(inches / unitsMap.ft);
+  inches -= totalFeet * unitsMap.ft;
+
+  if (totalYards > 0) return `${totalYards}yd ${totalFeet}ft ${inches}in`;
+  if (totalFeet > 0) return `${totalFeet}ft ${inches}in`;
+  return `${inches}in`;
+}
+
+/**
+ * Adds two span texts and returns their sum in a canonical form.
+ * @param first - A string representing the first span.
+ * @param second - A string representing the second span.
+ * @returns The sum of the two spans in a canonical form.
+ */
+export function addSpans(first: string, second: string): string {
+  const totalInchesFirst = parseSpan(first);
+  const totalInchesSecond = parseSpan(second);
+
+  return formatSpan(totalInchesFirst + totalInchesSecond);
+}
+```

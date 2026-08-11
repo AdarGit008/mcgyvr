@@ -1,0 +1,49 @@
+```python
+def open_windows(span: str, booked: list[str]) -> str:
+    """
+    Determines free stretches of time in a clinic's day given a spanning period and booked appointments.
+    
+    :param span: The clinic's daily operating hours in the format HH:MM-HH:MM.
+    :param booked: A list of appointment strings in the same format, separated by hyphens.
+    :return: A string of free time stretches between appointments, or "none" if the day is fully covered.
+    """
+    
+    # Parse the span and convert it to a datetime range
+    start_time = datetime.strptime(span.split('-')[0], '%H:%M')
+    end_time = datetime.strptime(span.split('-')[1], '%H:%M')
+    
+    # Convert booked appointments to datetime objects
+    booked_times = [datetime.strptime(appointment, '%H:%M-%H:%M') for appointment in booked]
+    
+    # Sort the booked times
+    booked_times.sort()
+    
+    # Initialize variables to track free time spans
+    free_stretches = []
+    last_end_time = start_time
+    
+    # Iterate through each booked time to find free stretches
+    for book_start, book_end in zip(booked_times[:-1], booked_times[1:]):
+        if book_start > last_end_time:
+            # Calculate the duration of the free stretch
+            free_duration = book_start - last_end_time
+            
+            # Format the free stretch time
+            free_stretches.append(f"{last_end_time.strftime('%H:%M')}-{book_start.strftime('%H:%M')}")
+            
+        # Update the last end time to the current booked end time
+        last_end_time = book_end
+    
+    # Check if there is a remaining free stretch after the last booked appointment
+    if last_end_time < end_time:
+        # Calculate the duration of the final free stretch
+        free_duration = end_time - last_end_time
+        
+        # Format the final free stretch time
+        free_stretches.append(f"{last_end_time.strftime('%H:%M')}-{end_time.strftime('%H:%M')}")
+    
+    # Return the free stretches joined by ", " if any, otherwise return "none"
+    return ', '.join(free_stretches) if free_stretches else "none"
+```
+
+This solution parses the input span and booked appointments into datetime objects, sorts them to find free time intervals between them. It handles overlapping appointments gracefully by checking their durations and formats the free stretches accordingly. If no free stretches are found, it returns "none".

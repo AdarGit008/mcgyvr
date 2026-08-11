@@ -1,0 +1,40 @@
+```ts
+export function cheapestPassPlan(tripDays: number[], passes: { span: number; cost: number }[]): { total: number; purchases: number[][] } {
+  if (!Array.isArray(tripDays) || tripDays.some(day => typeof day !== 'number' || day <= 0)) {
+    throw new Error('Invalid trip days');
+  }
+  if (tripDays.length === 0) return { total: 0, purchases: [] };
+
+  if (!Array.isArray(passes) || passes.some(pass => typeof pass.span !== 'number' || pass.span <= 0 || typeof pass.cost !== 'number' || pass.cost < 0)) {
+    throw new Error('Invalid passes');
+  }
+  if (passes.length === 0) return { total: 0, purchases: [] };
+
+  const sortedTrips = tripDays.slice().sort((a, b) => a - b);
+  const dp = Array(sortedTrips.length + 1).fill(Infinity);
+  dp[0] = 0;
+
+  for (let i = 1; i <= sortedTrips.length; i++) {
+    for (const { span, cost } of passes) {
+      if (sortedTrips[i - 1] >= span) {
+        dp[i] = Math.min(dp[i], dp[i - span] + cost);
+      }
+    }
+  }
+
+  const totalCost = dp[sortedTrips.length];
+  if (totalCost === Infinity) throw new Error('No valid plan found');
+
+  let purchases: number[][] = [];
+  for (let i = sortedTrips.length; i > 0; i--) {
+    for (const { span, cost } of passes) {
+      if (dp[i] - cost === dp[i - span]) {
+        purchases.push([sortedTrips[i - span], span]);
+        break;
+      }
+    }
+  }
+
+  return { total: totalCost, purchases };
+}
+```

@@ -1,0 +1,64 @@
+```typescript
+/**
+ * Parses a span string into total inches.
+ * @param text - The span string to parse.
+ * @returns The total inches as a number.
+ */
+export function parseSpan(text: string): number {
+    if (typeof text !== 'string' || !text.trim()) throw new Error('Invalid span format');
+    const parts = text.split(/\s+/).filter(Boolean);
+    const units = ['yd', 'ft', 'in'];
+    let totalInches = 0;
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const match = part.match(/^(\d+)([a-z]+)$/i);
+        if (!match) throw new Error('Invalid span format');
+        const value = parseInt(match[1], 10);
+        const unit = match[2].toLowerCase();
+
+        if (isNaN(value) || value < 0) throw new Error('Invalid span format');
+
+        if (!units.includes(unit)) throw new Error(`Unknown unit: ${unit}`);
+        const index = units.indexOf(unit);
+
+        if (i > 0 && units.indexOf(parts[i - 1].match(/[a-z]+$/i)[2].toLowerCase()) >= index) throw new Error('Units out of order');
+
+        totalInches += value * Math.pow(36, units.length - index - 1);
+    }
+
+    return totalInches;
+}
+
+/**
+ * Formats a non-negative integer of total inches into the canonical span format.
+ * @param inches - The non-negative integer of total inches to format.
+ * @returns The formatted span string.
+ */
+export function formatSpan(inches: number): string {
+    if (typeof inches !== 'number' || !Number.isInteger(inches) || inches < 0) throw new Error('Invalid inches value');
+    const units = ['yd', 'ft', 'in'];
+    let result: string[] = [];
+
+    for (let i = 0; i < units.length; i++) {
+        const unitFactor = Math.pow(36, units.length - i - 1);
+        if (inches >= unitFactor) {
+            const value = Math.floor(inches / unitFactor);
+            inches %= unitFactor;
+            result.push(`${value}${units[i]}`);
+        }
+    }
+
+    return result.join(' ') || '0in';
+}
+
+/**
+ * Adds two span strings and returns their sum in the canonical span format.
+ * @param first - The first span string to add.
+ * @param second - The second span string to add.
+ * @returns The sum of the two spans as a formatted string.
+ */
+export function addSpans(first: string, second: string): string {
+    return formatSpan(parseSpan(first) + parseSpan(second));
+}
+```

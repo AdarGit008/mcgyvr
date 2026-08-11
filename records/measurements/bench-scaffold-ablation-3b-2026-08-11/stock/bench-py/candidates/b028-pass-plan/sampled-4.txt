@@ -1,0 +1,61 @@
+```python
+"""The cheapest set of travel passes covering every trip day."""
+
+
+def _validate_plan(trip_days, passes):
+    for day in trip_days:
+        if isinstance(day, bool) or not isinstance(day, int) or day < 1:
+            raise ValueError("trip days must be positive integers")
+    for earlier, later in zip(trip_days, trip_days[1:]):
+        if later <= earlier:
+            raise ValueError("trip days must be strictly increasing")
+    if not passes:
+        raise ValueError("at least one pass kind is required")
+    for cover in passes:
+        span = cover.get("span", 0)
+        cost = cover.get("cost", 0)
+        if isinstance(span, bool) or not isinstance(span, int) or span <= 0:
+            raise ValueError("pass span must be a positive integer")
+        if isinstance(cost, bool) or not isinstance(cost, int) or cost < 0:
+            raise ValueError("pass cost must be a non-negative integer")
+
+
+def cheapest_pass_plan(trip_days: list, passes: list) -> dict:
+    _validate_plan(trip_days, passes)
+    
+    if not trip_days:
+        return {"total": 0, "purchases": []}
+    
+    # Initialize the cost table
+    cost_table = [[float('inf')] * (max(trip_days) + 1) for _ in range(len(trip_days))]
+    
+    # Fill the cost table
+    for i, day in enumerate(trip_days):
+        for j in range(1, len(passes) + 1):
+            pass_span = passes[j - 1].get("span", 0)
+            pass_cost = passes[j - 1].get("cost", 0)
+            
+            if day >= pass_span:
+                cost_table[i][day] = min(cost_table[i][day], cost_table[i - pass_span][day - pass_span] + pass_cost)
+    
+    # Find the minimum cost
+    total_cost = cost_table[-1][-1]
+    
+    # Reconstruct purchases
+    purchases = []
+    i, j = len(trip_days) - 1, len(passes) - 1
+    
+    while i >= 0 and j >= 0:
+        pass_span = passes[j].get("span", 0)
+        
+        if total_cost == cost_table[i - pass_span][i - pass_span] + passes[j]["cost"]:
+            purchases.append((trip_days[i - pass_span] + 1, pass_span))
+            total_cost -= passes[j]["cost"]
+            i = i - pass_span
+        else:
+            j -= 1
+    
+    purchases.sort()
+    
+    return {"total": total_cost, "purchases": purchases}
+```

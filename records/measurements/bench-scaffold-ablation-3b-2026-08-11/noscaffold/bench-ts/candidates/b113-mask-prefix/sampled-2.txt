@@ -1,0 +1,32 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("Invalid prefix length");
+  }
+  const octets = Array(4).fill(255);
+  for (let i = 0; i < prefix; i++) {
+    octets[i] = 0;
+  }
+  return octets.join(".");
+}
+
+export function prefixFromMask(mask: string): number {
+  if (!/^\d+\.\d+\.\d+\.\d+$/.test(mask)) {
+    throw new Error("Invalid mask format");
+  }
+  const parts = mask.split(".").map(Number);
+  for (const part of parts) {
+    if (part < 0 || part > 255) {
+      throw new Error("Octet value out of range");
+    }
+  }
+  let count = 32;
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i] !== 0) {
+      count -= i;
+      break;
+    }
+  }
+  return count;
+}
+```

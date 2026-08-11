@@ -1,0 +1,26 @@
+```ts
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (marker.length !== 1) {
+    throw new Error("Marker must be a single character");
+  }
+
+  const frames: string[] = [];
+  let pending = chunks.join('');
+
+  while (pending.length > 0) {
+    const index = pending.indexOf(marker);
+    if (index === -1) {
+      break;
+    }
+    if (index < pending.length - 1 && pending[index + 1] === marker) {
+      frames.push(pending.substring(0, index));
+      pending = pending.substring(index + 2);
+    } else {
+      frames.push(pending.substring(0, index));
+      pending = pending.substring(index + 1);
+    }
+  }
+
+  return { frames, pending };
+}
+```

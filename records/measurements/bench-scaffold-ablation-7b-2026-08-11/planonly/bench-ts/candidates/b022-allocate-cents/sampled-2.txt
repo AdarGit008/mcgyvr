@@ -1,0 +1,53 @@
+```ts
+/**
+ * Parses a decimal amount string into integer cents.
+ */
+export function parseAmount(text: string): number {
+  const match = text.match(/^\d+(\.\d{2})?$/);
+  if (!match) {
+    throw new Error("Invalid amount format");
+  }
+  return Math.round(parseFloat(text) * 100);
+}
+
+/**
+ * Formats non-negative integer cents back into a dotted form with exactly two fraction digits.
+ */
+export function formatAmount(cents: number): string {
+  if (cents < 0 || !Number.isInteger(cents)) {
+    throw new Error("Invalid cents value");
+  }
+  return `${cents / 100.toFixed(2).padStart(3, '0').slice(0, -2)}.${cents % 100}`;
+}
+
+/**
+ * Allocates totalCents across a list of integer weights proportionally.
+ */
+export function allocateCents(totalCents: number, weights: number[]): number[] {
+  if (weights.length === 0) {
+    throw new Error("Empty weight list");
+  }
+  if (!weights.every(w => w >= 0 && Number.isInteger(w))) {
+    throw new Error("Invalid weight");
+  }
+  if (weights.reduce((sum, w) => sum + w, 0) === 0) {
+    throw new Error("Weights sum to zero");
+  }
+  if (totalCents < 0 || !Number.isInteger(totalCents)) {
+    throw new Error("Invalid total cents value");
+  }
+
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  const baseShare = Math.floor(totalCents * 100 / totalWeight);
+  const shares = weights.map(w => Math.floor(w * baseShare));
+  let remainingCents = totalCents - shares.reduce((sum, s) => sum + s, 0);
+
+  while (remainingCents > 0) {
+    const maxRemainder = Math.max(...weights.map((w, i) => w * baseShare % 100 === 0 ? -1 : (w * baseShare % 100) / totalCents));
+    shares[weights.indexOf(maxRemainder)]++;
+    remainingCents--;
+  }
+
+  return shares;
+}
+```

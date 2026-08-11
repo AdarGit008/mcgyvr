@@ -1,0 +1,36 @@
+```python
+from typing import List
+
+def prune_listing(listing: List[str], rules: List[str]) -> List[str]:
+    if any(not isinstance(item, str) for item in listing + rules):
+        raise ValueError("All elements must be strings.")
+    if any(not path for path in listing + rules):
+        raise ValueError("Empty strings are not allowed.")
+    
+    def match_rule(path: str, pattern: str) -> bool:
+        parts = path.split('/')
+        pattern_parts = pattern.split('/')
+        if len(parts) < len(pattern_parts):
+            return False
+        for part, p_part in zip(parts, pattern_parts):
+            if p_part == '*' or part == p_part:
+                continue
+            return False
+        return True
+    
+    def is_keep_rule(rule: str) -> bool:
+        return rule and rule[0] != '!'
+    
+    result = []
+    for path in listing:
+        match_found = False
+        for rule in rules:
+            if (is_keep_rule(rule) and match_rule(path, rule)) or \
+               not is_keep_rule(rule) and match_rule(path, rule):
+                match_found = True
+                break
+        if match_found:
+            result.append(path)
+    
+    return result
+```

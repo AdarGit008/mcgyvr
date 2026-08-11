@@ -1,0 +1,64 @@
+```python
+from typing import List, Dict, Tuple
+
+def cheapest_pass_plan(trip_days: List[int], passes: List[Dict[str, int]]) -> Dict[str, Union[int, List[Tuple[int, int]]]]:
+    if not trip_days:
+        return {'total': 0, 'purchases': []}
+    
+    # Validate input
+    for day in trip_days:
+        if not isinstance(day, int) or day <= 0:
+            raise ValueError("Trip days must be strictly increasing positive integers.")
+    
+    if len(passes) == 0:
+        raise ValueError("Pass list cannot be empty.")
+    
+    for pass_info in passes:
+        span = pass_info.get('span', None)
+        cost = pass_info.get('cost', None)
+        
+        if not isinstance(span, int) or span <= 0:
+            raise ValueError("Span must be a positive integer.")
+        if not isinstance(cost, int) or cost < 0:
+            raise ValueError("Cost must be a non-negative integer.")
+    
+    trip_days.sort()
+    num_days = len(trip_days)
+    
+    # Initialize DP array where dp[i] is the minimum cost to cover up to day i
+    dp = [float('inf')] * (num_days + 1)
+    dp[0] = 0
+    
+    # Array to store the purchase information
+    purchase_info = [[None, None]] * (num_days + 1)
+    
+    for i in range(1, num_days + 1):
+        current_day = trip_days[i - 1]
+        
+        for pass_info in passes:
+            span = pass_info['span']
+            cost = pass_info['cost']
+            
+            # Check if the pass can cover the current day
+            if current_day >= (pass_info['start'] or 1) and current_day <= pass_info['start'] + span - 1:
+                updated_cost = dp[current_day - span] + cost
+                
+                if updated_cost < dp[i]:
+                    dp[i] = updated_cost
+                    purchase_info[i] = [pass_info['start'], span]
+        
+        # If no pass can cover the current day, it means there's a gap in coverage
+        if dp[i] == float('inf'):
+            raise ValueError("No valid combination of passes to cover all trip days.")
+    
+    total_cost = dp[num_days]
+    purchases = []
+    i = num_days
+    
+    while i > 0:
+        start_day, span = purchase_info[i]
+        purchases.append((start_day, span))
+        i -= span
+    
+    return {'total': total_cost, 'purchases': list(reversed(purchases))}
+```

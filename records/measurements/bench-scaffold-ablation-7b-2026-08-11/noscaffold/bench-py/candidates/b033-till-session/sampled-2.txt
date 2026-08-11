@@ -1,0 +1,57 @@
+```python
+def run_till_session(events: list, prices: dict) -> dict:
+    if not all(isinstance(price, int) and price > 0 for price in prices.values()):
+        raise ValueError("All prices must be positive integers")
+    
+    state = {
+        "items": [],
+        "total": 0,
+        "paid": 0,
+        "change": 0,
+        "status": "open"
+    }
+    
+    cart = {}
+    
+    def update_items():
+        state["items"] = sorted([[item, quantity] for item, quantity in cart.items()], key=lambda x: x[0])
+        state["total"] = sum(prices[item] * quantity for item, quantity in cart.items())
+    
+    for event in events:
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("Each event must be a list of action and exactly one payload")
+        
+        action, payload = event
+        
+        if state["status"] == "paid" or state["status"] == "cancelled":
+            raise ValueError("No further events are allowed on paid or cancelled sessions")
+        
+        if action == "scan":
+            if payload not in prices:
+                raise ValueError(f"Item {payload} is absent from the price list")
+            if payload not in cart:
+                cart[payload] = 0
+            cart[payload] += 1
+            update_items()
+        elif action == "void":
+            if payload not in cart or cart[payload] == 0:
+                raise ValueError(f"Item {payload} is not in the cart")
+            cart[payload] -= 1
+            update_items()
+        elif action == "close":
+            if state["total"] == 0:
+                raise ValueError("Cannot close with an empty cart")
+            state["status"] = "payment"
+        elif action == "pay":
+            if not isinstance(payload, int) or payload <= 0:
+                raise ValueError("Pay amount must be a positive integer")
+            state["paid"] += payload
+            state["change"] = state["paid"] - state["total"]
+            state["status"] = "paid"
+        elif action == "cancel":
+            state["status"] = "cancelled"
+        else:
+            raise ValueError(f"Unknown action: {action}")
+    
+    return state
+```

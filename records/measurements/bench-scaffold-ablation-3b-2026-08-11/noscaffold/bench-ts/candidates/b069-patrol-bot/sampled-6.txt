@@ -1,0 +1,48 @@
+```ts
+export function runPatrol(width: number, start: number, moves: number[]): Record<string, number> {
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error("Width must be a positive integer.");
+  }
+  if (!Number.isInteger(start) || start < 0 || start >= width) {
+    throw new Error("Start position must be an integer inside the corridor.");
+  }
+  if (!Array.isArray(moves)) {
+    throw new Error("Moves argument must be a list.");
+  }
+
+  const visited = new Set<number>();
+  let position = start;
+  let bumps = 0;
+
+  for (const delta of moves) {
+    const result = clampMove(position, delta, width);
+    if (!result) {
+      continue; // Skip invalid moves
+    }
+    [position, isWallCut] = result;
+    visited.add(position);
+
+    if (isWallCut) {
+      bumps++;
+    } else if (position === start && visited.size === 1) {
+      throw new Error("Cannot return to start with one cell visited.");
+    }
+  }
+
+  return { position, bumps, visited: visited.size };
+}
+
+export function clampMove(
+  position: number,
+  delta: number,
+  width: number
+): [number, boolean] | null {
+  const newPosition = position + delta;
+
+  if (newPosition < 0 || newPosition >= width) {
+    return [Math.max(0, Math.min(width - 1, position)), true];
+  }
+
+  return [newPosition, false];
+}
+```

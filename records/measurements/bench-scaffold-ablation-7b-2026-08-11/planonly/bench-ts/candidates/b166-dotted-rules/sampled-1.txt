@@ -1,0 +1,31 @@
+```ts
+export function matchSetting(rules: Record<string, string>, name: string): string | null {
+  if (typeof name !== 'string' || name === '' || name.includes('*')) {
+    throw new Error('Invalid name');
+  }
+
+  let winner: [number, string] | null = null;
+
+  for (const selector in rules) {
+    const ruleValue = rules[selector];
+    if (typeof ruleValue !== 'string') {
+      throw new Error('Invalid rule value');
+    }
+
+    if (selector === name) {
+      return ruleValue;
+    } else if (selector.endsWith('.*')) {
+      const prefix = selector.slice(0, -2);
+      if (name.startsWith(prefix)) {
+        if (!winner || winner[0] < selector.length) {
+          winner = [selector.length, ruleValue];
+        }
+      }
+    } else if (selector === '*') {
+      winner = winner ?? ['*', ruleValue];
+    }
+  }
+
+  return winner ? winner[1] : null;
+}
+```

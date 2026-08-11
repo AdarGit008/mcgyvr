@@ -1,0 +1,38 @@
+```ts
+export function drainFrames(chunks: string[], marker: string): { frames: string[]; pending: string } {
+  if (typeof marker !== "string" || marker.length !== 1) {
+    throw new Error("marker must be a single character");
+  }
+  const buffer = chunks.join("");
+  let frames: string[] = [];
+  let pending: string = "";
+  let frameComplete: boolean = false;
+
+  for (let i = 0; i < buffer.length; i++) {
+    if (buffer[i] === marker) {
+      if (!frameComplete && i + 1 < buffer.length && buffer[i + 1] === marker) {
+        // Found a doubled marker, treat as one literal marker
+        pending += marker;
+        frameComplete = false;
+      } else {
+        // Found a lone marker, end the current frame or start a new one
+        if (frameComplete) {
+          frames.push(pending);
+          pending = "";
+        }
+        frameComplete = true;
+      }
+    } else {
+      // Collect characters into the current frame
+      pending += buffer[i];
+    }
+  }
+
+  // If the last chunk ended with a frame, add it to the list
+  if (frameComplete) {
+    frames.push(pending);
+  }
+
+  return { frames, pending };
+}
+```

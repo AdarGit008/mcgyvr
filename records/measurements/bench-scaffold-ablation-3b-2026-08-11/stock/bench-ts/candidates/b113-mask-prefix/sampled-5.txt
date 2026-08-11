@@ -1,0 +1,56 @@
+```typescript
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("prefix must be an integer from 0 to 32");
+  }
+  const octets: number[] = [];
+  for (let slot = 0; slot < 4; slot += 1) {
+    const ones = Math.min(8, Math.max(0, prefix - slot * 8));
+    octets.push(256 - 2 ** (8 - ones));
+  }
+  return octets.join(".");
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== "string") {
+    throw new Error("mask must be a string");
+  }
+
+  const octetFields = mask.split(".");
+  if (octetFields.length !== 4) {
+    throw new Error("mask must have exactly four dot-separated fields");
+  }
+
+  let prefix = 0;
+  for (let i = 0; i < 4; i++) {
+    const octet = octetFields[i];
+    if (!/^\d+$/.test(octet)) {
+      throw new Error(`octet ${i + 1} must be a decimal digit`);
+    }
+    const octetValue = parseInt(octet, 10);
+    if (octetValue < 0 || octetValue > 255) {
+      throw new Error(`octet ${i + 1} cannot be less than 0 or greater than 255`);
+    }
+
+    // Check for leading zeros in the octet
+    if ((octetValue.toString().length > 1 && octetValue.toString()[0] === "0") || octetValue === 0) {
+      throw new Error(`octet ${i + 1} cannot have a leading zero`);
+    }
+
+    // Check for broken ones in the mask
+    let onesCount = 0;
+    while (onesCount < 8 && octetValue > 0) {
+      onesCount += Math.log2(octetValue);
+      octetValue -= 2 ** Math.floor(onesCount / 8) * 2 ** Math.floor((onesCount - 1) / 8);
+    }
+
+    if (onesCount !== Math.min(8, prefix)) {
+      throw new Error("mask's one bits are not unbroken");
+    }
+
+    prefix += onesCount;
+  }
+
+  return prefix;
+}
+```

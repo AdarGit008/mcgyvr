@@ -1,0 +1,57 @@
+```ts
+export function pruneListing(listing: string[], rules: string[]): string[] {
+  if (!Array.isArray(listing) || !Array.isArray(rules)) {
+    throw new Error("Both listing and rules must be arrays.");
+  }
+
+  return listing.filter(path => {
+    if (typeof path !== "string" || typeof rules !== "string") {
+      throw new Error("All inputs must be strings.");
+    }
+    if (path === "" || rules === "") {
+      throw new Error("Paths and rules cannot be empty.");
+    }
+    if (rules.startsWith("!")) {
+      throw new Error("Invalid rule format.");
+    }
+
+    const splitStrict = (str: string): string[] => {
+      return str.split("/").map(segment => {
+        if (segment.trim() === "") {
+          throw new Error("Empty segment found in path or rule.");
+        }
+        return segment;
+      });
+    };
+
+    try {
+      const pathSegments = splitStrict(path);
+      const rulesArray = rules.split("|");
+
+      for (const rule of rulesArray) {
+        const ruleSegments = splitStrict(rule);
+        if (rule.startsWith("!")) {
+          ruleSegments.shift(); // Remove the exclamation mark from keep rules
+        }
+
+        let match = true;
+        for (let i = 0; i < Math.min(pathSegments.length, ruleSegments.length); i++) {
+          if (!pathSegments[i].match(ruleSegments[i])) {
+            match = false;
+            break;
+          }
+        }
+
+        if (match) {
+          return true;
+        }
+      }
+
+    } catch (e) {
+      throw new Error(e.message);
+    }
+
+    return false;
+  });
+}
+```

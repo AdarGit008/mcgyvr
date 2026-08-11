@@ -1,0 +1,36 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    """
+    Convert amount of unit into the base unit by unwinding one definition at a time.
+    An amount of the base unit is already converted, and otherwise amount of unit
+    is amount times factor of the finer unit, converted onward. Reject an amount that
+    is not a non-negative whole number, a unit that is neither the base nor defined in defs,
+    a factor that is not a positive whole number, and a chain that loops so it can never reach the base.
+    """
+    if amount < 0 or not isinstance(amount, int):
+        raise ValueError("Amount must be a non-negative integer.")
+    
+    if unit not in defs:
+        raise ValueError(f"Unit '{unit}' is not defined in defs.")
+    
+    if base not in defs:
+        raise ValueError(f"Base unit '{base}' is not defined in defs.")
+    
+    factor, finer = defs[unit]
+    if factor <= 0 or not isinstance(factor, int):
+        raise ValueError("Factor must be a positive integer.")
+    
+    current_unit = unit
+    while current_unit != base:
+        if current_unit not in defs:
+            raise ValueError(f"Chain loops and cannot reach the base unit '{base}'.")
+        
+        factor, finer = defs[current_unit]
+        if factor <= 0 or not isinstance(factor, int):
+            raise ValueError("Factor must be a positive integer.")
+        
+        amount *= factor
+        current_unit = finer
+    
+    return amount
+```

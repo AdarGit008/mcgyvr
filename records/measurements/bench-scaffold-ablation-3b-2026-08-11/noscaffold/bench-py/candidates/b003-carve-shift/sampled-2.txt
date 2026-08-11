@@ -1,0 +1,25 @@
+```python
+def carve_shift(start: int, end: int, span: int, rest: int, least: int) -> list:
+    if not all(isinstance(arg, int) for arg in (start, end, span, rest, least)):
+        raise ValueError("All arguments must be whole numbers.")
+    
+    if start >= end:
+        raise ValueError("Start must precede end.")
+    
+    if span < 1 or rest < 1 or least < 1 or least > span:
+        raise ValueError("Span and rest must be at least 1, least must be between 1 and span.")
+    
+    stretches = []
+    current_start = start
+    
+    while current_start < end:
+        stretch_length = min(span, end - current_start)
+        
+        if stretch_length >= least:
+            stretches.append((current_start, current_start + stretch_length))
+            
+            # Calculate rest duration for the next stretch
+            current_start += max(stretch_length - least, 0) + rest
+        
+    return stretches
+```

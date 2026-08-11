@@ -1,0 +1,31 @@
+```typescript
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error("Amount must be a non-negative whole number.");
+  }
+
+  if (!(unit in defs)) {
+    throw new Error(`Unknown unit: ${unit}.`);
+  }
+
+  function convertToBase(unit: string, amount: number): number {
+    const [factor, finer] = defs[unit];
+
+    if (!Number.isInteger(factor) || factor <= 0) {
+      throw new Error("Factor must be a positive whole number.");
+    }
+
+    if (unit === base) {
+      return amount;
+    }
+
+    try {
+      return convertToBase(finer, Math.floor(amount / factor));
+    } catch (error) {
+      throw new Error(`Infinite recursion detected in defs for unit: ${unit}.`);
+    }
+  }
+
+  return convertToBase(unit, amount);
+}
+```

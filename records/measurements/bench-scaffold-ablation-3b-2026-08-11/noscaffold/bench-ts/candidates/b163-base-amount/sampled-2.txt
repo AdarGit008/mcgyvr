@@ -1,0 +1,27 @@
+```ts
+
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (amount < 0 || !Number.isInteger(amount)) {
+    throw new Error("Amount must be a non-negative integer.");
+  }
+
+  if (!defs.hasOwnProperty(unit) && unit !== base) {
+    throw new Error("Unit is not defined in defs or is not the base unit.");
+  }
+
+  const findFactor = (u: string): number => {
+    if (u === base) return 1;
+    const [factor, finer] = defs[u];
+    if (!Number.isInteger(factor)) {
+      throw new Error("Factor must be a positive integer.");
+    }
+    return factor * findFactor(finer);
+  };
+
+  try {
+    return findFactor(unit);
+  } catch (e: any) {
+    throw new Error(e.message);
+  }
+}
+```

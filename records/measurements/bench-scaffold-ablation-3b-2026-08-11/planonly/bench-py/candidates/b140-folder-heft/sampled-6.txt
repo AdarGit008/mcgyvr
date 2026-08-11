@@ -1,0 +1,61 @@
+```python
+def file_paths(root: dict) -> list:
+    """Return a list of file paths in the tree."""
+    def walk(node, path):
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a mapping.")
+        result = []
+        for name, value in node.items():
+            if not isinstance(name, str) or "/" in name:
+                raise ValueError("Name must be a non-empty string without slashes.")
+            new_path = f"{path}/{name}"
+            if isinstance(value, dict):
+                result.extend(walk(value, new_path))
+            elif isinstance(value, int):
+                result.append(new_path)
+        return result
+
+    return walk(root, "")
+
+def tree_bytes(root: dict) -> int:
+    """Return the total bytes in the tree."""
+    def total(node):
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a mapping.")
+        if "bytes" in node and "children" in node:
+            raise ValueError("A node cannot have both bytes and children or neither.")
+        if "bytes" in node:
+            return node["bytes"]
+        elif "children" in node:
+            return sum(total(child) for child in node["children"])
+        else:
+            return 0
+
+    return total(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    """Return paths of folders with total bytes at least min_bytes."""
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("Min bytes must be a non-negative whole number.")
+    
+    def walk(node, path):
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a mapping.")
+        result = []
+        for name, value in node.items():
+            if not isinstance(name, str) or "/" in name:
+                raise ValueError("Name must be a non-empty string without slashes.")
+            new_path = f"{path}/{name}"
+            if isinstance(value, dict):
+                children_total_bytes = sum(total(child) for child in value.get("children", []))
+                if children_total_bytes >= min_bytes:
+                    result.append([new_path, children_total_bytes])
+                result.extend(walk(value, new_path))
+            elif isinstance(value, int):
+                total_bytes = node["bytes"]
+                if total_bytes >= min_bytes:
+                    result.append([path, total_bytes])
+        return result
+
+    return walk(root, "")
+```

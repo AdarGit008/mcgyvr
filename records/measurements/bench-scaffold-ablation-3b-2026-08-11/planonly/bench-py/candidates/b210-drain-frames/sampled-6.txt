@@ -1,0 +1,23 @@
+```python
+def drain_frames(chunks: list, marker: str) -> dict:
+    if len(marker) != 1:
+        raise ValueError("Marker must be a single character.")
+
+    frames = []
+    pending_text = ""
+
+    for chunk in chunks:
+        parsed_chunk = ''.join(chunk.split(marker))
+        
+        # Split the parsed chunk into frames
+        frames.extend(parsed_chunk[i:i + len(marker)] * (parsed_chunk.count(f"{marker}{marker}") - 1) for i in range(0, len(parsed_chunk), len(marker)))
+
+    # Handle cases where there's a pending text at the end
+    if chunks and marker in chunks[-1]:
+        pending_text = chunks[-1][chunks[-1].index(marker):]
+
+    return {
+        "frames": frames,
+        "pending": pending_text
+    }
+```

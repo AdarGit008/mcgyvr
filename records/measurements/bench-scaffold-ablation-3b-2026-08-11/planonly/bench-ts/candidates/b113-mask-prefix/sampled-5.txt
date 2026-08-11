@@ -1,0 +1,65 @@
+```typescript
+import { parseInt } from "lodash";
+
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("Invalid prefix. Must be an integer between 0 and 32.");
+  }
+
+  let ones = prefix;
+  let octets = [255, 255, 255, 255];
+
+  for (let i = 0; i < Math.floor(prefix / 8); i++) {
+    if (ones > 0) {
+      octets[i] = 255;
+      ones -= 8;
+    } else {
+      break;
+    }
+  }
+
+  for (let i = Math.ceil(prefix / 8); i < 4; i++) {
+    octets[i] = ones > 0 ? 255 : 0;
+    ones -= 1;
+  }
+
+  return `${octets[0]}.${octets[1]}.${octets[2]}.${octets[3]}`;
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== "string") {
+    throw new Error("Invalid mask. Must be a string.");
+  }
+
+  const [firstOctet, secondOctet, thirdOctet, fourthOctet] = mask.split(".");
+
+  if (
+    firstOctet === "" ||
+    secondOctet === "" ||
+    thirdOctet === "" ||
+    fourthOctet === ""
+  ) {
+    throw new Error("Invalid mask. Must have exactly four dot-separated fields.");
+  }
+
+  let ones = 0;
+  let octets: number[] = [];
+
+  for (let i of [firstOctet, secondOctet, thirdOctet, fourthOctet]) {
+    const num = parseInt(i, 10);
+    if (!Number.isInteger(num) || num < 0 || num > 255) {
+      throw new Error("Invalid mask. Each octet must be a non-negative integer no more than 255.");
+    }
+
+    if (num === 255) {
+      ones += 8;
+    } else if (num !== 0 && ones > 0) {
+      throw new Error("Invalid mask. One bits are broken.");
+    }
+
+    octets.push(num);
+  }
+
+  return ones;
+}
+```

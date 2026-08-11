@@ -1,0 +1,19 @@
+```python
+def apply_overrides(base: dict, overrides: list) -> dict:
+    if not isinstance(overrides, list):
+        raise ValueError("Overrides must be a list of strings")
+
+    merged = base.copy()
+    for override in overrides:
+        if not isinstance(override, str):
+            raise ValueError("Each override must be a string")
+        if '=' not in override:
+            raise ValueError("Each override must contain an equals sign")
+        name, value = override.split('=', 1)
+        if not name or name not in base:
+            raise ValueError(f"Override name '{name}' is not in the base settings")
+
+        merged[name] = value
+
+    return merged
+```

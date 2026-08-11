@@ -1,0 +1,41 @@
+```typescript
+export function regionTotals(grid: number[][], queries: number[][]): number[] {
+    if (!grid.length || !grid[0].length || grid.some(row => row.length !== grid[0].length)) {
+        throw new Error("Grid must be non-empty and all rows must have the same length.");
+    }
+
+    const rows = grid.length;
+    const cols = grid[0].length;
+
+    // Check for valid queries
+    for (const query of queries) {
+        if (!Array.isArray(query) || query.length !== 4 ||
+            typeof query[0] !== 'number' || typeof query[1] !== 'number' || typeof query[2] !== 'number' || typeof query[3] !== 'number') {
+            throw new Error("Query must be an array of exactly four integers.");
+        }
+        if (query[0] >= query[2] || query[1] >= query[3]) {
+            throw new Error("Query boundaries are invalid.");
+        }
+    }
+
+    // Precompute prefix-sum table
+    const prefixSum: number[][] = [];
+    for (let i = 0; i <= rows; i++) {
+        prefixSum[i] = Array(cols + 1).fill(0);
+        if (i > 0) {
+            for (let j = 0; j < cols; j++) {
+                prefixSum[i][j + 1] = prefixSum[i - 1][j + 1] + grid[i - 1][j];
+            }
+        }
+    }
+
+    // Calculate block totals
+    return queries.map(([top, left, bottom, right]) => {
+        if (top < 0 || left < 0 || bottom > rows || right > cols) {
+            throw new Error("Query reaches outside the grid.");
+        }
+        return prefixSum[bottom][right] - prefixSum[top][right] -
+               prefixSum[bottom][left] + prefixSum[top][left];
+    });
+}
+```

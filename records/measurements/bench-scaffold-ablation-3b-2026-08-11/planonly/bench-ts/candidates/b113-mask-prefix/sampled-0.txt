@@ -1,0 +1,43 @@
+```ts
+export function maskFromPrefix(prefix: number): string {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    throw new Error("Leading ones count must be an integer from 0 to 32.");
+  }
+
+  let result = "255.255.255.255";
+  for (let i = 31; i >= prefix; i--) {
+    result = result.replace(/(\d+)$/, `$1`);
+  }
+  return result;
+}
+
+export function prefixFromMask(mask: string): number {
+  if (typeof mask !== "string") {
+    throw new Error("Mask must be a string.");
+  }
+
+  const octets = mask.split(".");
+  if (octets.length !== 4) {
+    throw new Error("Mask must contain exactly four dot-separated fields.");
+  }
+
+  let leadingOnesCount = 0;
+  for (const octet of octets) {
+    if (!/^\d+$/.test(octet)) {
+      throw new Error(`Invalid octet ${octet}: contains non-digit characters.`);
+    }
+
+    const octetValue = parseInt(octet, 10);
+    if (octetValue < 0 || octetValue > 255) {
+      throw new Error(`Invalid octet ${octet}: value is out of range.`);
+    }
+
+    if (octetValue !== 255) {
+      break;
+    }
+    leadingOnesCount++;
+  }
+
+  return leadingOnesCount;
+}
+```

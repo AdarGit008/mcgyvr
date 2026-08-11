@@ -1,0 +1,74 @@
+```
+def validate_node(node):
+    if not isinstance(node, dict) or len(node) != 1:
+        raise ValueError("Node must be a non-empty dictionary with one key.")
+    
+    name, value = next(iter(node.items()))
+    
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Node's name must be a non-empty string.")
+    
+    if '/' in name:
+        raise ValueError("Node's name cannot contain slashes.")
+    
+    if 'bytes' in node and 'children' in node:
+        raise ValueError("Node cannot have both bytes and children.")
+    
+    if 'bytes' in node:
+        if not isinstance(node['bytes'], int) or node['bytes'] < 0:
+            raise ValueError("Node's bytes must be a non-negative integer.")
+    
+    if 'children' in node:
+        if not isinstance(node['children'], list):
+            raise ValueError("Node's children must be a list of dictionaries.")
+        
+        for child in node['children']:
+            validate_node(child)
+
+def file_paths(root: dict) -> list:
+    paths = []
+    
+    def walk(node, path=None):
+        if 'bytes' in node:
+            paths.append((path, node['bytes']))
+        if 'children' in node:
+            for i, child in enumerate(node['children']):
+                walk(child, path + [node['name'] + '/' + str(i)])
+    
+    validate_node(root)
+    walk(root)
+    return sorted(paths)
+
+def tree_bytes(root: dict) -> int:
+    total = 0
+    
+    def traverse(node):
+        nonlocal total
+        if 'bytes' in node:
+            total += node['bytes']
+        if 'children' in node:
+            for child in node['children']:
+                traverse(child)
+    
+    validate_node(root)
+    traverse(root)
+    return total
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative integer.")
+    
+    folders = []
+    
+    def walk(node, path=None):
+        nonlocal folders
+        if 'bytes' in node and node['bytes'] >= min_bytes:
+            folders.append((path + [node['name']], node['bytes']))
+        if 'children' in node:
+            for i, child in enumerate(node['children']):
+                walk(child, path + [node['name'] + '/' + str(i)])
+    
+    validate_node(root)
+    walk(root)
+    return folders
+```

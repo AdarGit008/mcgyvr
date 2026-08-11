@@ -1,0 +1,15 @@
+```ts
+export function baseAmount(amount: number, unit: string, defs: Record<string, [number, string]>, base: string): number {
+  if (amount < 0 || !Number.isInteger(amount)) throw new Error('Invalid amount');
+  if (!(unit in defs) && unit !== base) throw new Error('Unknown unit');
+
+  while (unit !== base) {
+    const [factor, finer] = defs[unit];
+    if (factor <= 0 || !Number.isInteger(factor)) throw new Error('Invalid factor');
+    amount *= factor;
+    unit = finer;
+  }
+
+  return amount;
+}
+```

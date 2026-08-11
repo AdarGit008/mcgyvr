@@ -1,0 +1,41 @@
+```ts
+type ShiftError = 'InvalidArgument' | 'SpanTooShort' | 'LeastTooLow' | 'LeastTooHigh';
+
+function validateInput(start: number, end: number, span: number, rest: number, least: number): void {
+  if (typeof start !== 'number' || typeof end !== 'number' || typeof span !== 'number' || typeof rest !== 'number' || typeof least !== 'number') {
+    throw new Error('InvalidArgument');
+  }
+  if (!Number.isInteger(start) || !Number.isInteger(end) || !Number.isInteger(span) || !Number.isInteger(rest) || !Number.isInteger(least)) {
+    throw new Error('InvalidArgument');
+  }
+  if (start >= end) {
+    throw new Error('InvalidArgument');
+  }
+  if (span < 1 || rest < 1 || least <= 0 || least > span) {
+    throw new Error('InvalidArgument');
+  }
+}
+
+function carveShift(start: number, end: number, span: number, rest: number, least: number): number[][] {
+  validateInput(start, end, span, rest, least);
+
+  const stretches: number[][] = [];
+  let currentFrom = start;
+  let remaining = end - start;
+
+  while (remaining >= least && remaining > span) {
+    const stretchLength = Math.min(span, remaining);
+    stretches.push([currentFrom, currentFrom + stretchLength]);
+    currentFrom += stretchLength + rest;
+    remaining -= stretchLength + rest;
+  }
+
+  if (remaining >= least) {
+    stretches.push([currentFrom, end]);
+  }
+
+  return stretches;
+}
+
+export default carveShift;
+```

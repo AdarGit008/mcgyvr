@@ -1,0 +1,59 @@
+```python
+def find_free_run(words: list, capacity: int, length: int) -> int:
+    if not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Capacity must be a positive integer")
+    
+    words_count = len(words)
+    if words_count != (capacity + 31) // 32:
+        raise ValueError(f"Word count {words_count} does not match capacity {capacity}")
+    
+    for word in words:
+        if not isinstance(word, int) or word < 0 or word > 4294967295:
+            raise ValueError("Bitmap word must be an integer from 0 to 4294967295")
+    
+    for i in range(capacity // 32):
+        if words[i] & ((1 << (capacity % 32)) - 1) != 0:
+            continue
+        free_blocks = 0
+        for j in range(32):
+            if not (words[i] >> j) & 1 and i * 32 + j < capacity:
+                free_blocks += 1
+            else:
+                break
+        if free_blocks >= length:
+            return i * 32
+    
+    return -1
+
+def occupy_run(words: list, start: int, length: int) -> list:
+    if not isinstance(start, int) or start < 0:
+        raise ValueError("Start index must be a non-negative integer")
+    
+    words_count = len(words)
+    if start >= capacity or start + length > capacity:
+        raise ValueError("Start and length exceed the capacity")
+    
+    for word in words:
+        if not isinstance(word, int) or word < 0 or word > 4294967295:
+            raise ValueError("Bitmap word must be an integer from 0 to 4294967295")
+    
+    end = start + length
+    for i in range(start // 32, (end - 1) // 32 + 1):
+        if words[i] & ((1 << (start % 32)) - 1) != 0:
+            raise ValueError("Start touches an occupied block")
+    
+    for i in range(start // 32, end // 32):
+        words[i] |= ((1 << length) - 1) << (i * 32 - start)
+    
+    return words
+
+def bit_at(words: list, index: int) -> int:
+    if not isinstance(index, int) or index < 0:
+        raise ValueError("Index must be a non-negative integer")
+    
+    for word in words:
+        if not isinstance(word, int) or word < 0 or word > 4294967295:
+            raise ValueError("Bitmap word must be an integer from 0 to 4294967295")
+    
+    return (words[index // 32] >> index % 32) & 1
+```

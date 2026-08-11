@@ -1,0 +1,41 @@
+```python
+from typing import *
+from collections import *
+
+def lay_conveyor(floor: list, row: int, col: int, length: int) -> list:
+    """
+    Lays a conveyor run on the factory floor plan.
+
+    Parameters:
+    - floor (list of str): The factory floor plan where each element is '.' for an open cell or '#' for a machine.
+    - row (int): The starting row of the conveyor run. 0-indexed.
+    - col (int): The starting column of the conveyor run. 0-indexed.
+    - length (int): The number of cells to cover by the conveyor run.
+
+    Returns:
+    - list: A new factory floor plan with the conveyor run laid.
+
+    Raises:
+    - ValueError: If the run would leave the plan or cover a cell that is not open, or if any arguments are out of bounds.
+    """
+    # Validate input
+    if row < 0 or row >= len(floor):
+        raise ValueError("Row index is out of bounds.")
+    if col < 0:
+        raise ValueError("Column index must be non-negative.")
+    if length <= 0:
+        raise ValueError("Length must be positive.")
+    if col + length > len(floor[row]):
+        raise ValueError("Conveyor run would exceed the plan's width.")
+
+    # Create a new floor plan with the conveyor run
+    new_floor = [list(row) for row in floor]
+    
+    for i in range(length):
+        if new_floor[row][col + i] == '#':
+            raise ValueError("Cell covered by conveyor run is not open.")
+        new_floor[row][col + i] = '='
+
+    return new_floor
+
+```

@@ -1,0 +1,20 @@
+ ```python
+def trace_relay(links: dict, start: str) -> list:
+    if not isinstance(links, dict):
+        raise ValueError("links must be a dictionary")
+    if start not in links:
+        raise ValueError(f"start post '{start}' is not in the links dictionary")
+
+    visited = []
+    current_post = start
+    while True:
+        if current_post in visited:
+            raise ValueError(f"cycle detected at post '{current_post}'")
+        visited.append(current_post)
+        next_post = links[current_post]
+        if next_post == "":
+            break
+        current_post = next_post
+
+    return visited
+```

@@ -1,0 +1,39 @@
+```python
+from typing import Dict
+
+def base_amount(amount: int, unit: str, defs: Dict[str, Tuple[int, str]], base: str) -> int:
+    """
+    Convert amount of unit into the base unit by unwinding one definition at a time.
+
+    :param amount: The amount to convert.
+    :param unit: The unit name.
+    :param defs: A dictionary mapping unit names to pairs [factor, finer].
+    :param base: The base unit name.
+    :return: The converted amount in the base unit.
+
+    Errors:
+    - ValueError if amount is not a non-negative whole number.
+    - ValueError if unit is neither the base nor defined in defs.
+    - ValueError if factor is not a positive whole number.
+    - RecursionError if a chain loops so it can never reach the base.
+    """
+    if not isinstance(amount, int) or amount < 0:
+        raise ValueError("Amount must be a non-negative whole number.")
+    
+    if unit not in defs:
+        raise ValueError(f"Unit '{unit}' is neither the base nor defined in defs.")
+    
+    factor: int = defs[unit][0]
+    finer_unit: str = defs[unit][1]
+    
+    if factor <= 0:
+        raise ValueError("Factor must be a positive whole number.")
+    
+    if unit == base:
+        return amount
+    
+    try:
+        return base_amount(amount * factor, finer_unit, defs, base)
+    except RecursionError as e:
+        raise ValueError(f"Unit chain loops so it can never reach the base: {e}")
+```

@@ -1,0 +1,91 @@
+```typescript
+export function runTillSession(events: (string | number)[][], prices: Record<string, number>): { state: string; items: [string, number][]; total: number; paid: number; change: number } {
+  if (!Array.isArray(events) || !events.every(e => Array.isArray(e) && e.length > 0)) {
+    throw new Error("Invalid events array.");
+  }
+  for (const event of events) {
+    switch (event[0]) {
+      case "scan":
+        if (typeof event[1] !== "string" || typeof prices[event[1]] !== "number") {
+          throw new Error("Scan item must be a string and its price must be a number.");
+        }
+        break;
+      case "void":
+        if (typeof event[1] !== "string" || !prices[event[1]]) {
+          throw new Error("Void item must be a string present in the prices list.");
+        }
+        break;
+      case "close":
+        if (!events.every(e => e.length === 2 && Array.isArray(e))) {
+          throw new Error("Close event must have exactly two elements.");
+        }
+        break;
+      case "pay":
+        if (typeof event[1] !== "number" || event[1] <= 0) {
+          throw new Error("Pay amount must be a positive integer.");
+        }
+        break;
+      case "cancel":
+        break;
+      default:
+        throw new Error(`Unknown action: ${event[0]}`);
+    }
+  }
+
+  if (events.some(e => e.length === 3)) {
+    throw new Error("No more events allowed after payment or cancellation.");
+  }
+
+  let state = "open";
+  const cart: Record<string, number> = {};
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+
+  for (const event of events) {
+    switch (event[0]) {
+      case "scan":
+        if (!prices[event[1]]) {
+          throw new Error("Scan item must be a string present in the prices list.");
+        }
+        cart[event[1]] = (cart[event[1]] || 0) + 1;
+        total += prices[event[1]];
+        break;
+      case "void":
+        if (!cart[event[1]]) {
+          throw new Error("Void item must be in the cart.");
+        }
+        cart[event[1]] = Math.max(cart[event[1]] - 1, 0);
+        total -= prices[event[1]];
+        break;
+      case "close":
+        if (Object.keys(cart).length === 0) {
+          throw new Error("Close with an empty cart is not allowed.");
+        }
+        state = "closed";
+        paid = Math.min(total, event[1]);
+        change = total - paid;
+        break;
+      case "pay":
+        if (state !== "payment") {
+          throw new Error("Pay event must be during payment.");
+        }
+        paid += event[1];
+        if (paid >= total) {
+          state = "paid";
+          change = paid - total;
+        }
+        break;
+      case "cancel":
+        if (state !== "open" && state !== "payment") {
+          throw new Error("Cancel event must end an open or payment session.");
+        }
+        state = "cancelled";
+        break;
+    }
+  }
+
+  const sortedItems = Object.entries(cart).sort(([a], [b]) => a.localeCompare(b));
+  return { state, items: sortedItems, total, paid, change };
+}
+```

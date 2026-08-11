@@ -1,0 +1,91 @@
+```python
+from typing import *
+from collections import *
+
+def file_paths(root: dict) -> list:
+    """Returns a list of file paths in the tree."""
+    if type(root) != dict or any(not isinstance(key, str) for key in root):
+        raise ValueError("Invalid node structure.")
+    
+    def walk(node, path):
+        if 'bytes' in node and 'children' in node:
+            raise ValueError("Node cannot have both bytes and children.")
+        if 'bytes' not in node and 'children' not in node:
+            raise ValueError("Node must either be a file or a folder.")
+        
+        paths = []
+        if 'bytes' in node:
+            paths.append(path)
+        elif 'children' in node:
+            for i, child in enumerate(node['children']):
+                paths.extend(walk(child, f"{path}/{key}" if key else path))
+        return paths
+    
+    return walk(root, "")
+
+def tree_bytes(root: dict) -> int:
+    """Returns the total bytes of all files and folders."""
+    def walk(node):
+        if type(node) != dict or any(not isinstance(key, str) for key in node):
+            raise ValueError("Invalid node structure.")
+        
+        if 'bytes' in node and 'children' in node:
+            raise ValueError("Node cannot have both bytes and children.")
+        if 'bytes' not in node and 'children' not in node:
+            raise ValueError("Node must either be a file or a folder.")
+        
+        total = 0
+        if 'bytes' in node:
+            total += node['bytes']
+        elif 'children' in node:
+            for child in node['children']:
+                total += walk(child)
+        return total
+    
+    return walk(root)
+
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    """Returns paths of folders with bytes >= min_bytes."""
+    if type(min_bytes) != int or min_bytes < 0:
+        raise ValueError("Invalid min_bytes value.")
+    
+    def get_folder_paths(node):
+        if 'bytes' in node and 'children' in node:
+            raise ValueError("Node cannot have both bytes and children.")
+        if 'bytes' not in node and 'children' not in node:
+            return []
+        
+        paths = []
+        if 'bytes' in node and node['bytes'] >= min_bytes:
+            paths.append(node.get('name', ""))
+        elif 'children' in node:
+            for child in node['children']:
+                paths.extend(get_folder_paths(child))
+        return paths
+    
+    folder_paths = get_folder_paths(root)
+    
+    # Walk the tree again to check if the root itself is a folder with enough bytes
+    def walk(node):
+        if type(node) != dict or any(not isinstance(key, str) for key in node):
+            raise ValueError("Invalid node structure.")
+        
+        if 'bytes' in node and 'children' in node:
+            raise ValueError("Node cannot have both bytes and children.")
+        if 'bytes' not in node and 'children' not in node:
+            raise ValueError("Node must either be a file or a folder.")
+        
+        total = 0
+        if 'bytes' in node:
+            total += node['bytes']
+        elif 'children' in node:
+            for child in node['children']:
+                total += walk(child)
+        
+        if total >= min_bytes and node.get('name') != "":
+            folder_paths.append(node.get('name', ""))
+    
+    walk(root)
+    
+    return folder_paths
+```

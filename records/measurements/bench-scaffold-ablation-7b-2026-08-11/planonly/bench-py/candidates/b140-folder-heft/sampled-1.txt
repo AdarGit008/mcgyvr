@@ -1,0 +1,43 @@
+```python
+def heavy_folders(root: dict, min_bytes: int) -> list:
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise ValueError("min_bytes must be a non-negative integer")
+
+    def is_valid_node(node):
+        if not isinstance(node, dict):
+            return False
+        name = node.get('name')
+        if not isinstance(name, str) or '/' in name or len(name) == 0:
+            return False
+        if 'bytes' in node and 'children' in node:
+            return False
+        if 'bytes' in node:
+            bytes_value = node['bytes']
+            if not isinstance(bytes_value, int) or bytes_value < 0:
+                return False
+        elif 'children' in node:
+            children_value = node['children']
+            if not isinstance(children_value, list):
+                return False
+        return True
+
+    def walk(node, path, total_bytes, result):
+        if 'bytes' in node:
+            total_bytes += node['bytes']
+            if total_bytes >= min_bytes:
+                result.append([path, total_bytes])
+        else:
+            for child in node['children']:
+                if not is_valid_node(child):
+                    raise ValueError("Invalid node encountered")
+                child_path = f"{path}/{child['name']}"
+                walk(child, child_path, total_bytes, result)
+        return total_bytes
+
+    if not is_valid_node(root):
+        raise ValueError("Invalid root node")
+
+    result = []
+    walk(root, root['name'], 0, result)
+    return result
+```

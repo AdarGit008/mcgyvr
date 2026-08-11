@@ -1,0 +1,39 @@
+```ts
+/**
+ * Renders tiles based on requests and cache size, handling freshFor and eviction policy.
+ *
+ * @param requests - Array of tuples [tick, tileName] where tick is a non-negative integer and tileName is a string.
+ * @param freshFor - A positive whole number representing how long each render is valid.
+ * @param size - The maximum number of tiles the cache can hold.
+ * @returns An array of tuples [tick, tileName] representing the renders that happened in order.
+ */
+export function tileRenders(requests: [number, string][], freshFor: number, size: number): [number, string][] {
+    if (!Number.isInteger(freshFor) || freshFor <= 0) {
+        throw new Error("freshFor must be a positive whole number");
+    }
+    if (!Number.isInteger(size) || size <= 0) {
+        throw new Error("size must be a positive whole number");
+    }
+
+    const cache: [number, string][] = [];
+    const renders: [number, string][] = [];
+
+    for (const [tick, tileName] of requests) {
+        while (cache.length > 0 && tick >= cache[0][0] + freshFor) {
+            cache.shift();
+        }
+        if (cache.length < size) {
+            cache.push([tick, tileName]);
+        } else {
+            const oldestIndex = cache.findIndex(([t]) => t === Math.min(...cache.map(([t]) => t)));
+            if (oldestIndex !== -1) {
+                cache.splice(oldestIndex, 1);
+                cache.push([tick, tileName]);
+            }
+        }
+        renders.push([tick, tileName]);
+    }
+
+    return renders;
+}
+```

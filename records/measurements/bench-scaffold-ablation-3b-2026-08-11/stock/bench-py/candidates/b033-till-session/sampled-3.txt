@@ -1,0 +1,74 @@
+```python
+from typing import Dict
+
+OPEN = "open"
+PAYMENT = "payment"
+PAID = "paid"
+CANCELLED = "cancelled"
+
+
+def run_till_session(events: list, prices: dict) -> Dict[str, int]:
+    if not isinstance(prices, dict):
+        raise ValueError("prices must be a dictionary")
+
+    for name, price in prices.items():
+        if not isinstance(price, int) or price <= 0:
+            raise ValueError(f"price must be a positive integer: {name}")
+
+    state = {"cart": {}, "total": 0, "paid": 0, "change": 0}
+    session_state = OPEN
+
+    for event in events:
+        if not isinstance(event, list) or len(event) != 2:
+            raise ValueError("event must be a list with two elements")
+
+        action, payload = event
+        item = payload[0]
+
+        if session_state == CANCELLED or session_state == PAID:
+            raise ValueError(f"Cannot process event in {session_state} state")
+
+        match action:
+            case "scan":
+                if item not in prices:
+                    raise ValueError("Item not found in price list")
+                cart_quantity = state["cart"].setdefault(item, 0)
+                if cart_quantity > 0:
+                    raise ValueError("Cannot scan the same item twice in a row")
+                state["cart"][item] += 1
+            case "void":
+                if item not in state["cart"]:
+                    raise ValueError("Item not found in cart")
+                quantity = state["cart"].get(item, 0)
+                if quantity == 0:
+                    raise ValueError("Cannot void an already sold item")
+                state["cart"][item] -= 1
+                if state["cart"][item] == 0:
+                    del state["cart"][item]
+            case "close":
+                if session_state != OPEN or not state["cart"]:
+                    raise ValueError("Session must be open and have items to close")
+                total = sum(prices[item] * quantity for item, quantity in state["cart"].items())
+                if total > state["paid"]:
+                    raise ValueError("Cannot close with more paid than total")
+                change = state["paid"] - total
+                session_state = PAID
+            case "pay":
+                amount = payload[1]
+                if not isinstance(amount, int) or amount <= 0:
+                    raise ValueError("Pay amount must be a positive integer")
+                if amount > state["total"]:
+                    raise ValueError("Cannot pay more than the session total")
+                state["paid"] += amount
+                if state["paid"] == state["total"]:
+                    session_state = PAID
+            case _:
+                raise ValueError(f"Unknown action: {action}")
+
+    return {
+        "items": sorted(state["cart"].items()),
+        "total": state["total"],
+        "paid": state["paid"],
+        "change": state["change"],
+    }
+```

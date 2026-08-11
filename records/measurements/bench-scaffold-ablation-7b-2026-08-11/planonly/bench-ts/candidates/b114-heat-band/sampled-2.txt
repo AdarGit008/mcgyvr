@@ -1,0 +1,43 @@
+```ts
+export function runThermostat(
+  start: number,
+  low: number,
+  high: number,
+  power: number,
+  drifts: number[]
+): { temp: number; heated: number; switches: number; coldest: number } {
+  if (
+    !Number.isInteger(start) ||
+    !Number.isInteger(low) ||
+    !Number.isInteger(high) ||
+    low >= high ||
+    power <= 0 ||
+    !Array.isArray(drifts) ||
+    drifts.some((d) => !Number.isInteger(d))
+  ) {
+    throw new Error("Invalid arguments");
+  }
+
+  let temp = start;
+  let heated = 0;
+  let switches = 0;
+  let coldest = start;
+
+  for (const drift of drifts) {
+    const heaterOn = temp < low || temp >= high;
+    if (heaterOn && power > 0) {
+      temp += power;
+    }
+    temp += drift;
+    if (temp < coldest) {
+      coldest = temp;
+    }
+    if (heaterOn !== (temp < low || temp >= high)) {
+      switches++;
+    }
+    heated += heaterOn ? 1 : 0;
+  }
+
+  return { temp, heated, switches, coldest };
+}
+```

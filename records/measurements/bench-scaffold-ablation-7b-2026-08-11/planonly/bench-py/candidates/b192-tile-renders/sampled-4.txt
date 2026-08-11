@@ -1,0 +1,20 @@
+```python
+from typing import List
+
+def tile_renders(requests: List[List[int]], fresh_for: int, size: int) -> List[List[int]]:
+    if fresh_for <= 0 or size <= 0:
+        raise ValueError("fresh_for and size must be positive whole numbers")
+
+    cache = {}
+    renders = []
+
+    for tick, tile in requests:
+        if tile not in cache or tick >= cache[tile][1]:
+            if len(cache) == size:
+                oldest_tile = min(cache, key=lambda t: (cache[t][1], t))
+                del cache[oldest_tile]
+            cache[tile] = [tick, tick + fresh_for]
+            renders.append([tick, tile])
+
+    return renders
+```

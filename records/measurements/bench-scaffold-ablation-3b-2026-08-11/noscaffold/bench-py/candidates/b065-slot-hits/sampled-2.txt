@@ -1,0 +1,23 @@
+```python
+def slot_hits(keys: list, slots: int) -> int:
+    if not isinstance(slots, int) or slots <= 0:
+        raise ValueError("Slot count must be a positive integer.")
+    
+    cache = [None] * slots  # Initialize all slots to None (empty)
+    hits = 0
+    
+    for key in keys:
+        if not isinstance(key, int):
+            raise ValueError("All keys must be integers.")
+        
+        slot_index = key % slots
+        current_key_in_slot = cache[slot_index]
+        
+        if current_key_in_slot == key:
+            hits += 1
+        else:
+            cache[slot_index] = key
+    
+    return hits
+
+```

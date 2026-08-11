@@ -1,0 +1,30 @@
+```ts
+export function layConveyor(floor: string[], row: number, col: number, length: number): string[] {
+    // Check if the row is within the bounds of the floor plan
+    if (row < 0 || row >= floor.length) {
+        throw new Error("Run would exceed floor boundaries");
+    }
+
+    // Check if the run would pass the last column
+    if (col + length > floor[0].length) {
+        throw new Error("Run would exceed floor width");
+    }
+
+    // Check if every cell in the run is open
+    for (let i = col; i < col + length; i++) {
+        if (floor[row][i] !== ".") {
+            throw new Error("Cell at " + [row, i] + " is not open");
+        }
+    }
+
+    // Create a copy of the floor plan to avoid mutating it
+    const updatedFloor = [...floor];
+
+    // Update the run's cells in the copied plan
+    for (let i = col; i < col + length; i++) {
+        updatedFloor[row][i] = "=";
+    }
+
+    return updatedFloor;
+}
+```

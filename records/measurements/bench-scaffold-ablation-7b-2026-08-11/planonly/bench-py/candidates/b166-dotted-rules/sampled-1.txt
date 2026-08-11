@@ -1,0 +1,32 @@
+```python
+def match_setting(rules: dict, name: str) -> str | None:
+    if not isinstance(name, str) or not name:
+        raise ValueError("Name must be a non-empty string")
+    
+    matching_values = []
+    
+    for selector, value in rules.items():
+        if not isinstance(value, str):
+            raise ValueError("Rule values must be strings")
+        
+        if selector == name:
+            matching_values.append((selector, value))
+        elif selector.endswith('.*'):
+            prefix = selector[:-2]
+            if name.startswith(prefix):
+                matching_values.append((selector, value))
+    
+    if not matching_values:
+        return None
+    
+    exact_match, wildcard_match = None, None
+    for selector, value in matching_values:
+        if selector == name:
+            exact_match = (value, 1)
+        elif selector.endswith('.*'):
+            prefix_length = len(selector[:-2])
+            if wildcard_match is None or prefix_length > wildcard_match[1]:
+                wildcard_match = (value, prefix_length)
+    
+    return exact_match[0] if exact_match else wildcard_match[0]
+```
