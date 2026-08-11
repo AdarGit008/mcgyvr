@@ -81,9 +81,11 @@ import sys
 import tempfile
 import time
 import types
+import urllib.request
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -130,6 +132,12 @@ DRAWS = 5
 GREEDY_TEMPERATURE = 0.0
 SAMPLED_TEMPERATURE = 0.7
 MAX_OUTPUT_TOKENS = 768
+
+# How long the serving-build probe waits before recording "unknown". Short on
+# purpose: this runs once per invocation against a host the sweep is about to
+# dispatch thousands of draws to, so an endpoint that cannot answer in seconds
+# has a problem the sweep is about to hit anyway.
+BUILD_PROBE_TIMEOUT = 3.0
 
 # Difficulty tiers. d1 is the bundle rig's pinned 20-task set unchanged; d2/d3
 # are harder sets in this tool's own tree, same format, built because the top
@@ -670,6 +678,31 @@ def record_completeness(out: Path) -> list[tuple[str, str, int]] | None:
     return missing
 
 
+@cache
+def serving_build(endpoint: str) -> str | None:
+    """The serving stack's build at ``endpoint``, or ``None`` when it won't say.
+
+    ADR-0024: two rates are only comparable if the same build produced them.
+    This is not hypothetical. The scaffold ablation ran the 3B against srv1 and
+    the 7B against srv2 while those two hosts sat on ollama 0.32.4 and 0.32.5,
+    so the one cross-model contrast the campaign most wanted to draw had a
+    serving-build difference folded into it that no manifest recorded.
+
+    Best-effort by design. An endpoint that does not answer ``/api/version`` is
+    not one this project refuses to measure — it is one whose build is unknown,
+    and ``None`` says exactly that rather than inventing a value. Cached per
+    endpoint because a sweep records its provenance once per invocation and the
+    answer cannot change underneath a run without invalidating the run anyway.
+    """
+    url = endpoint.rstrip("/") + "/api/version"
+    try:
+        with urllib.request.urlopen(url, timeout=BUILD_PROBE_TIMEOUT) as response:
+            version = json.loads(response.read()).get("version")
+    except Exception:
+        return None
+    return str(version) if version else None
+
+
 def record_run(
     out: Path,
     worker: Any,
@@ -693,6 +726,15 @@ def record_run(
     ``campaign.run_stage`` both write the provenance before the first draw — so
     the refusal lands before a token is spent, and adding a fourth driver
     cannot route around it without also deciding not to record what it did.
+
+    **The serving build is probed here rather than passed in.** ``--condition``
+    was a caller-supplied identity field, it reached dispatch and not this
+    function, and eight manifests described a render nobody had run. A field
+    this function derives from the world cannot be forgotten by a fourth
+    driver, so this one is derived. A manifest written before the field existed
+    carries none, and adopts the current value instead of refusing: the
+    protection is for runs made from here on, and a spurious refusal on every
+    directory already on disk would buy nothing.
     """
     bundle.instruments.refuse_to_measure(tier=tier, what=f"{out}/run.json")
     prompt = build_prompt(load_tier_tasks(tier)[0].contract)
@@ -700,6 +742,7 @@ def record_run(
         "endpoint": bundle.redact(worker.endpoint),
         "protocol": worker.protocol.value,
         "model": worker.model,
+        "serving_build": serving_build(worker.endpoint),
         "tier": tier,
         "draws": draws,
         "greedy_temperature": GREEDY_TEMPERATURE,
@@ -712,6 +755,7 @@ def record_run(
     path = out / "run.json"
     if path.is_file():
         previous = json.loads(path.read_text(encoding="utf-8"))
+        previous.setdefault("serving_build", identity["serving_build"])
         drift = sorted(k for k, v in identity.items() if previous.get(k) != v)
         if drift:
             raise bundle.MeasureError(

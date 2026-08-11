@@ -746,6 +746,71 @@ def test_the_condition_the_run_records_is_the_condition_it_dispatched(
     ), "the ablated section reached the worker's prompt, or this proves nothing"
 
 
+def test_rows_drawn_against_another_serving_build_refuse_to_join_the_run(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """ADR-0024: the build that served the draws is identity, not a footnote.
+
+    srv1 and srv2 were on ollama 0.32.4 and 0.32.5 while #225's scaffold
+    ablation ran the 3B on one and the 7B on the other, so the campaign's one
+    cross-model contrast carried an unrecorded serving difference. A rate is
+    quotable against a build or it is not quotable.
+    """
+    invocation = {"started": "2026-08-11T00:00:00+00:00", "tasks": ["t01"]}
+    monkeypatch.setattr(breadth, "serving_build", lambda endpoint: "0.32.4")
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    assert json.loads((tmp_path / "run.json").read_text())["serving_build"] == "0.32.4"
+
+    monkeypatch.setattr(breadth, "serving_build", lambda endpoint: "0.32.5")
+    try:
+        breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    except breadth.bundle.MeasureError as exc:
+        assert "serving_build" in str(exc)
+    else:  # pragma: no cover - the guard is the point of the test
+        raise AssertionError("a build change was allowed to resume")
+
+
+def test_a_manifest_written_before_the_build_was_recorded_still_resumes(
+    tmp_path: Path, live_instruments: types.ModuleType, monkeypatch: Any
+) -> None:
+    """Every run directory already on disk predates the field.
+
+    Refusing them would buy nothing — the build they were served by is not
+    recoverable from the manifest either way — and would strand exactly the
+    sweeps whose rows the campaign still reads. The protection is for runs made
+    from here on, so an absent field adopts the current value instead.
+    """
+    invocation = {"started": "2026-08-11T00:00:00+00:00", "tasks": ["t01"]}
+    monkeypatch.setattr(breadth, "serving_build", lambda endpoint: None)
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    manifest = tmp_path / "run.json"
+    aged = json.loads(manifest.read_text())
+    del aged["serving_build"]
+    manifest.write_text(json.dumps(aged), encoding="utf-8")
+
+    monkeypatch.setattr(breadth, "serving_build", lambda endpoint: "0.32.5")
+    breadth.record_run(tmp_path, _worker(), dict(invocation), tier="d1", draws=2)
+    assert json.loads(manifest.read_text())["serving_build"] == "0.32.5"
+
+
+def test_an_endpoint_that_will_not_name_its_build_records_that_it_did_not(
+    monkeypatch: Any,
+) -> None:
+    """Unknown is a value; a guess is not.
+
+    The probe is best-effort against a host that may not be ollama at all, and
+    the failure it must not have is inventing a build for a run that has none.
+    """
+
+    def refuses(url: str, timeout: float) -> Any:
+        raise OSError("no route to host")
+
+    monkeypatch.setattr(breadth.urllib.request, "urlopen", refuses)
+    breadth.serving_build.cache_clear()
+    assert breadth.serving_build("http://nowhere.invalid:11434") is None
+    breadth.serving_build.cache_clear()
+
+
 def test_a_task_the_resume_skipped_never_advances_the_breaker() -> None:
     """No rows is not the same fact as no observations.
 
