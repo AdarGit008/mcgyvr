@@ -1,0 +1,14 @@
+id: b364-skip-take
+task_type: function_implementation
+task: >-
+  Implement skipTake. Walk a list taking a stated number of entries,
+  then passing over a stated number, and repeat to the end. Return the
+  entries taken, in order. Taking none returns nothing at all.
+target: solution.ts
+interface: "export function skipTake(entries: string[], take: number, skip: number): string[]"
+stop_conditions:
+  - What passing over a negative number of entries should do is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

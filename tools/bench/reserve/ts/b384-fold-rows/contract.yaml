@@ -1,0 +1,41 @@
+id: b384-fold-rows
+task_type: bug_fix
+task: >-
+  rowWidest returns the number of values in the longest of a grid's
+  rows. foldRows pads every row out to that width with zeros, and it
+  pads to the width of the first row instead. Fix foldRows. A grid
+  with no rows folds to no rows. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function rowWidest(grid: number[][]): number {
+    let widest = 0;
+    for (const row of grid) {
+      if (row.length > widest) {
+        widest = row.length;
+      }
+    }
+    return widest;
+  }
+
+  /** Every row padded out to the widest row's width. */
+  export function foldRows(grid: number[][]): number[][] {
+    if (grid.length === 0) {
+      return [];
+    }
+    const width = grid[0].length;
+    return grid.map((row) => {
+      const padded = [...row];
+      while (padded.length < width) {
+        padded.push(0);
+      }
+      return padded;
+    });
+  }
+interface: "export function rowWidest(grid: number[][]): number
+export function foldRows(grid: number[][]): number[][]"
+stop_conditions:
+  - Whether a value other than zero should be used for the padding is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

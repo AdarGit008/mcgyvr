@@ -1,0 +1,15 @@
+id: b348-bill-split
+task_type: function_implementation
+task: >-
+  Implement bill_split. Divide a bill between a number of diners so
+  that each pays a whole number of pence. Everyone pays the same
+  except the first, who also takes whatever pennies are left over.
+  Return what each diner pays, in order.
+target: solution.py
+interface: "def bill_split(total: int, diners: int) -> list"
+stop_conditions:
+  - What should happen when there are no diners at all is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,16 @@
+id: b365-limit-run
+task_type: function_implementation
+task: >-
+  Implement over_limit and limit_run. over_limit says whether a
+  reading stands above a limit. limit_run returns the readings from
+  the start of a run up to but not including the first that does, so a
+  run whose opening reading is already over gives nothing back.
+target: solution.py
+interface: "def over_limit(reading: int, limit: int) -> bool
+def limit_run(readings: list, limit: int) -> list"
+stop_conditions:
+  - Whether the reading that broke the limit should be reported too is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

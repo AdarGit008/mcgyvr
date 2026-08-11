@@ -1,0 +1,16 @@
+id: b382-sort-pairs
+task_type: function_implementation
+task: >-
+  Implement fieldOf and sortPairs. fieldOf returns a record's value
+  for a named field, rejecting a record that lacks it with an error.
+  sortPairs puts records in order by that field, breaking a tie by
+  leaving the earlier record earlier.
+target: solution.ts
+interface: "export function fieldOf(record: Record<string, number>, field: string): number
+export function sortPairs(records: Record<string, number>[], field: string): Record<string, number>[]"
+stop_conditions:
+  - Whether records should be able to sort in the other direction is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,41 @@
+id: b383-store-put
+task_type: bug_fix
+task: >-
+  putOne returns a store with one key set, leaving the store it was
+  given untouched, and it writes into that store instead. putAll sets
+  several keys the same way. Fix putOne so the caller's store is never
+  altered. An empty key is rejected with an error. Return the complete
+  fixed file.
+target: solution.ts
+target_content: |
+  export function putOne(
+    store: Record<string, string>,
+    key: string,
+    value: string,
+  ): Record<string, string> {
+    if (key === "") {
+      throw new Error("a key must be named");
+    }
+    store[key] = value;
+    return store;
+  }
+
+  /** Several keys set at once, the given store left untouched. */
+  export function putAll(
+    store: Record<string, string>,
+    pairs: string[][],
+  ): Record<string, string> {
+    let out = store;
+    for (const pair of pairs) {
+      out = putOne(out, pair[0], pair[1]);
+    }
+    return out;
+  }
+interface: "export function putOne(store: Record<string, string>, key: string, value: string): Record<string, string>
+export function putAll(store: Record<string, string>, pairs: string[][]): Record<string, string>"
+stop_conditions:
+  - Whether a key made only of spaces should count as empty is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

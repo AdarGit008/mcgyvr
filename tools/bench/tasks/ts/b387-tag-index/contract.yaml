@@ -1,0 +1,17 @@
+id: b387-tag-index
+task_type: function_implementation
+task: >-
+  Implement tagsOf and tagIndex. tagsOf breaks a comma-separated line
+  into its tags, trimming the spaces around each and leaving out any
+  that come to nothing. tagIndex returns a mapping from each tag to
+  the lines carrying it, in the order the lines came. Reject a line
+  that is not text with an error.
+target: solution.ts
+interface: "export function tagsOf(line: unknown): string[]
+export function tagIndex(lines: string[]): Record<string, string[]>"
+stop_conditions:
+  - Whether tags differing only in case should be filed together is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

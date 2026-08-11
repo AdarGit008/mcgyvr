@@ -1,0 +1,14 @@
+id: b351-vat-back
+task_type: function_implementation
+task: >-
+  Implement vatBack. A gross price already carries a whole-percent
+  tax. Return what the price was before that tax was added, rounded
+  down. A rate of nothing leaves the price exactly as it stands.
+target: solution.ts
+interface: "export function vatBack(gross: number, rate: number): number"
+stop_conditions:
+  - Whether a rate below zero should be accepted is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

@@ -1,0 +1,41 @@
+id: b372-group-runs
+task_type: bug_fix
+task: >-
+  runOf returns how many times a value repeats without a break from a
+  given place. groupRuns breaks a list into those runs, and it forgets
+  the final one. Fix groupRuns. A list holding nothing breaks into no
+  runs at all. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  export function runOf(entries: string[], start: number): number {
+    let length = 1;
+    while (
+      start + length < entries.length &&
+      entries[start + length] === entries[start]
+    ) {
+      length += 1;
+    }
+    return length;
+  }
+
+  /** The list broken into runs of equal neighbouring values. */
+  export function groupRuns(entries: string[]): string[][] {
+    const runs: string[][] = [];
+    let i = 0;
+    while (i < entries.length) {
+      const length = runOf(entries, i);
+      if (i + length < entries.length) {
+        runs.push(entries.slice(i, i + length));
+      }
+      i += length;
+    }
+    return runs;
+  }
+interface: "export function runOf(entries: string[], start: number): number
+export function groupRuns(entries: string[]): string[][]"
+stop_conditions:
+  - Whether values that are equal but of different kinds should join one run is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

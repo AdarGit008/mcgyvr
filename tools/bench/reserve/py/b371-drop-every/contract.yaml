@@ -1,0 +1,16 @@
+id: b371-drop-every
+task_type: function_implementation
+task: >-
+  Implement keep_index and drop_every. keep_index says whether the
+  entry at a place survives when every nth entry is dropped, places
+  being counted from one. drop_every returns the entries that survive,
+  in order.
+target: solution.py
+interface: "def keep_index(place: int, every: int) -> bool
+def drop_every(entries: list, every: int) -> list"
+stop_conditions:
+  - What dropping every entry, that is a count of one, should leave is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

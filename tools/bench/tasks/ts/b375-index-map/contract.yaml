@@ -1,0 +1,15 @@
+id: b375-index-map
+task_type: function_implementation
+task: >-
+  Implement indexMap. Given a list of labels, return a mapping from
+  each label to every position it holds, the positions counted from
+  zero and given in increasing order. A label appearing once still
+  gets a list.
+target: solution.ts
+interface: "export function indexMap(labels: string[]): Record<string, number[]>"
+stop_conditions:
+  - Whether a label holding no characters should be indexed is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

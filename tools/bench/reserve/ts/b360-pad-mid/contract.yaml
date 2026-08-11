@@ -1,0 +1,16 @@
+id: b360-pad-mid
+task_type: function_implementation
+task: >-
+  Implement padSide and padMid. padSide returns a run of a given
+  number of spaces, or empty text when that number is nothing or less.
+  padMid centres a word in a field of a stated width, giving the extra
+  space to the right when it cannot be shared evenly.
+target: solution.ts
+interface: "export function padSide(count: number): string
+export function padMid(word: string, width: number): string"
+stop_conditions:
+  - Whether a word wider than the field should be cut down is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

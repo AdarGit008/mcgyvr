@@ -1,0 +1,15 @@
+id: b367-wave-count
+task_type: function_implementation
+task: >-
+  Implement wave_count. Return how many times a run of readings
+  changes direction, a change being a rise that follows a fall or a
+  fall that follows a rise. Readings that hold level neither rise nor
+  fall and change nothing.
+target: solution.py
+interface: "def wave_count(readings: list) -> int"
+stop_conditions:
+  - Whether a change too small to matter should be ignored is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

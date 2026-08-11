@@ -1,0 +1,25 @@
+id: b385-slot-fill
+task_type: bug_fix
+task: >-
+  slot_fill lays labels out across a board of a fixed number of slots,
+  leaving any slot it has no label for empty, and it stops as soon as
+  the labels run out so the board comes back short. Fix it. Labels
+  beyond the board are left off. An empty label is rejected with an
+  error. Return the complete fixed file.
+target: solution.py
+target_content: |
+  def slot_fill(labels: list, slots: int) -> list:
+      """Labels laid across a board of a fixed number of slots."""
+      board = []
+      for i in range(min(len(labels), slots)):
+          if labels[i] == "":
+              raise ValueError("a label must not be empty")
+          board.append(labels[i])
+      return board
+interface: "def slot_fill(labels: list, slots: int) -> list"
+stop_conditions:
+  - Whether the board may hold no slots at all is not stated.
+demonstration: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

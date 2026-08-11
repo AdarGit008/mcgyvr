@@ -1,0 +1,15 @@
+id: b361-repeat-text
+task_type: function_implementation
+task: >-
+  Implement repeat_text. Return a phrase written out a given number of
+  times, the copies joined by a stated separator. Asking for one copy
+  gives the phrase alone with no separator, and asking for none or
+  fewer gives empty text.
+target: solution.py
+interface: "def repeat_text(phrase: str, times: int, between: str) -> str"
+stop_conditions:
+  - Whether the separator may itself be empty text is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

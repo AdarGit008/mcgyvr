@@ -1,0 +1,15 @@
+id: b376-count-by
+task_type: function_implementation
+task: >-
+  Implement count_by. Given records that each carry several named
+  fields, return how many records hold each value of one named field.
+  A record lacking that field is passed over. Reject a field name that
+  is empty text with an error.
+target: solution.py
+interface: "def count_by(records: list, field: str) -> dict"
+stop_conditions:
+  - Whether field names should be matched ignoring case is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,31 @@
+id: b378-nest-get
+task_type: bug_fix
+task: >-
+  nestGet walks a path of keys into nested mappings and returns what
+  it finds, or empty text when the path leads nowhere, and it gives up
+  as soon as a step holds a mapping rather than following it. Fix it.
+  An empty path returns empty text. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** What a path of keys finds in nested mappings. */
+  export function nestGet(tree: unknown, path: string[]): string {
+    let here: unknown = tree;
+    for (const key of path) {
+      if (typeof here !== "object" || here === null) {
+        return "";
+      }
+      const next = (here as Record<string, unknown>)[key];
+      if (typeof next !== "string") {
+        return "";
+      }
+      here = next;
+    }
+    return typeof here === "string" ? here : "";
+  }
+interface: "export function nestGet(tree: unknown, path: string[]): string"
+stop_conditions:
+  - Whether a path may name a key holding a list is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

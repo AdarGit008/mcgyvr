@@ -1,0 +1,14 @@
+id: b377-top-keys
+task_type: function_implementation
+task: >-
+  Implement top_keys. Given a mapping of names to counts, return the
+  names sharing the highest count, in alphabetical order. An empty
+  mapping has no highest count and gives an empty list.
+target: solution.py
+interface: "def top_keys(counts: dict) -> list"
+stop_conditions:
+  - Whether a count below zero should be able to be the highest is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,15 @@
+id: b367-wave-count
+task_type: function_implementation
+task: >-
+  Implement waveCount. Return how many times a run of readings changes
+  direction, a change being a rise that follows a fall or a fall that
+  follows a rise. Readings that hold level neither rise nor fall and
+  change nothing.
+target: solution.ts
+interface: "export function waveCount(readings: number[]): number"
+stop_conditions:
+  - Whether a change too small to matter should be ignored is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

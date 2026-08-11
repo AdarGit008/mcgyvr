@@ -1,0 +1,10 @@
+/** A store with every value starred out. */
+export function hideValues(
+  store: Record<string, string>,
+): Record<string, string> {
+  const hidden: Record<string, string> = {};
+  for (const key of Object.keys(store)) {
+    hidden[key] = "*".repeat(store[key].length);
+  }
+  return hidden;
+}

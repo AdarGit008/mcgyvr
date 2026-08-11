@@ -1,0 +1,14 @@
+id: b374-has-all
+task_type: function_implementation
+task: >-
+  Implement hasAll. Say whether a store holds every one of the keys a
+  list names. A list naming no keys at all is satisfied by any store,
+  including an empty one.
+target: solution.ts
+interface: "export function hasAll(store: Record<string, number>, needed: string[]): boolean"
+stop_conditions:
+  - Whether a key named twice should be looked for twice is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

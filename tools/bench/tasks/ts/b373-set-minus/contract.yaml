@@ -1,0 +1,14 @@
+id: b373-set-minus
+task_type: function_implementation
+task: >-
+  Implement setMinus. Return the entries of one list that do not
+  appear in another, keeping the order they came in and keeping any
+  repeats among them. Removing from an empty list gives an empty list.
+target: solution.ts
+interface: "export function setMinus(entries: string[], remove: string[]): string[]"
+stop_conditions:
+  - Whether entries differing only in case should be treated as the same is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]
