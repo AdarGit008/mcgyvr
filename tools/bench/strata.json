@@ -310,7 +310,36 @@
       },
       "reading": "DIRECTIONALLY CONSISTENT, NOT RESOLVED \u2014 and the two knobs separate. The code contrast moves the same way in all four model-arm cells (3B +5.1pp ts / +3.7pp py; 7B +11.1pp / +6.5pp). The plan contrast does not: +2.3pp ts / -0.5pp py on the 3B, -0.5pp / +4.6pp on the 7B, and it flips sign by arm on both models. Read as a pair, what the scaffold is worth to a floor model is mostly the code it does not have to type, not the approach it is told; that is a statement about direction and it is the one thing both models agree on. Nothing clears ADR-0019's bar on the pre-registered set: the best sign-test p over eight per-arm contrasts is 0.125 and the best Wilcoxon 0.025, with m in the teens \u2014 the tests are exact, the sample is 27, and the effects are of a size 27 pairs cannot certify. The strict set (n = 23) moves nothing qualitatively.",
       "the_other_finding": "The 7B reads 30.6% ts / 25.9% py stock on these 27 problems (greedy alone: 9/27 = 33.3% ts, 7/27 = 25.9% py; 15/27 and 13/27 solved in at least one of 8 draws). That is at or inside the campaign's 30-50% aim, which two consecutive re-aims failed to reach by making problems easier for the 3B. It is not a stratum measurement \u2014 27 scaffolded fn_impl problems are not the ladder, and they are the easier half of it \u2014 but it is the first evidence in this campaign that the aim may be reachable by choosing the model measured rather than by re-aiming the material. That is a decision for #225's owner, not a conclusion of this block.",
-      "limits": "n = 27 paired problems, one model pair, one bench. The eligibility audit covered 18 of the 34 dispatched problems, so `strict` drops the borderline cases that were looked for and not every one that exists. The plan contrast rests on comments that often name what to VALIDATE as well as what to compute, so it reads 'told the approach, including its rejections' rather than pure algorithmic insight. And the pairing is within a problem, not across models: the 3B and 7B ran on different rigs (srv1, srv2) and are two experiments reported side by side, not a contrast."
+      "limits": "n = 27 paired problems, one model pair, one bench. The eligibility audit covered 18 of the 34 dispatched problems, so `strict` drops the borderline cases that were looked for and not every one that exists. The plan contrast rests on comments that often name what to VALIDATE as well as what to compute, so it reads 'told the approach, including its rejections' rather than pure algorithmic insight. And the pairing is within a problem, not across models: the 3B and 7B ran on different rigs (srv1, srv2) and are two experiments reported side by side, not a contrast.",
+      "amendment": {
+        "date": "2026-08-11",
+        "record": "ADR-0022 \u2014 a lever is never a difficulty knob",
+        "what_changed": "Nothing in the data. What this block may be READ as. The scaffold is one of the levers ADR-0018 puts the bench under, so using its ablation to calibrate the bench's difficulty would tune the instrument with the thing the instrument later has to measure. The contrast is re-filed as a #113 feature finding and is struck from this campaign's difficulty reasoning.",
+        "still_true": "The paired result stands as evidence about the lever: the code a scaffold saves moves the same way in all four model-arm cells, the plan it states flips sign by arm on both models, and neither clears ADR-0019's bar at n=27. The 7B's 30.6% ts / 25.9% py on these 27 also stands as a locator.",
+        "no_longer_load_bearing": "'Code volume over stated approach' is NOT an input to how the floor band is steered. ADR-0023 replaces it: difficulty is the count of independently specified behaviours that must all be simultaneously correct, and the floor band is authored to a behaviour budget rather than to a size."
+      },
+      "regrade": {
+        "date": "2026-08-11",
+        "record": "ADR-0023 \u2014 a checker tests what the contract states and no more",
+        "what_happened": "104 bench py checkers accepted only ValueError where their ts twins accept any Error, so the py arm was scoring an exception taxonomy no contract states. Fixed, and every saved completion re-scored by tools/bench/regrade.py at zero model cost. 40 cells changed verdict across the whole bench: ALL py, ALL gains, and every ts arm moved +0 \u2014 the ts arms were included as a control and they held, which is what makes the 40 the checker rather than the harness. Re-read with `ablation_report.py --rows regraded`.",
+        "corrected_cells": {
+          "code (stock-planonly)": {
+            "3B ts": "+5.1pp (unchanged)",
+            "3B py": "+3.7pp -> +4.6pp",
+            "7B ts": "+11.1pp (unchanged)",
+            "7B py": "+6.5pp (unchanged; both cells rose together)"
+          },
+          "plan (planonly-noscaffold)": {
+            "3B ts": "+2.3pp (unchanged)",
+            "3B py": "-0.5pp -> -1.4pp",
+            "7B ts": "-0.5pp (unchanged)",
+            "7B py": "+4.6pp -> +5.6pp"
+          },
+          "7B stock rate": "ts 30.6% (unchanged), py 25.9% -> 29.6%"
+        },
+        "does_the_reading_survive": "YES, and slightly strengthened. The code contrast is still positive in all four model-arm cells (+5.1 / +4.6 / +11.1 / +6.5) and the plan contrast still flips sign by arm on both models (3B +2.3 ts / -1.4 py; 7B -0.5 ts / +5.6 py). One thing genuinely changed: the 7B py WHOLE contrast now reads sign p=0.0386, wilcoxon p=0.0200, where it did not before. The whole contrast is the confounded one \u2014 it moves code and plan together \u2014 so it is the least interpretable of the three and this does not promote the finding past ADR-0019's bar. It is recorded because it moved.",
+        "locator_update": "The 7B's stock read on these 27 is now 30.6% ts / 29.6% py, where it was 30.6% / 25.9%. Both arms now sit at the 30-50% aim's lower boundary rather than one inside and one below."
+      }
     }
   ]
 }
