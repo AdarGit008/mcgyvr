@@ -1,0 +1,15 @@
+id: b239-tray-stack
+task_type: function_implementation
+task: >-
+  Implement trayPush and trayTop. trayPush returns a new tray stack
+  with an item resting on top, leaving the stack it was given
+  untouched. trayTop reports the item currently on top, and reports
+  nothing at all when the stack is empty.
+target: solution.ts
+interface: "export function trayPush(stack: string[], item: string): string[]\nexport function trayTop(stack: string[]): string | null"
+stop_conditions:
+  - Whether an item already present lower in the stack may be pushed again is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

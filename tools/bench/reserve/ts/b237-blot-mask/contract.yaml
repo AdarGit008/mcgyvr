@@ -1,0 +1,23 @@
+id: b237-blot-mask
+task_type: bug_fix
+task: >-
+  blotMask hides a reference code by starring out everything except
+  its last four characters, and it masks the wrong end: it keeps the
+  first four visible instead. Fix it. A code of four characters or
+  fewer comes back untouched. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Hide a reference code, leaving only its tail readable. */
+  export function blotMask(code: string): string {
+    if (code.length <= 4) {
+      return code;
+    }
+    return code.slice(0, 4) + "*".repeat(code.length - 4);
+  }
+interface: "export function blotMask(code: string): string"
+stop_conditions:
+  - Whether a code containing spaces should have them masked too is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

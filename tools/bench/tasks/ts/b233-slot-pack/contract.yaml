@@ -1,0 +1,25 @@
+id: b233-slot-pack
+task_type: bug_fix
+task: >-
+  slotPack groups items into slots holding at most a given capacity,
+  keeping the original order, and it gets the boundary wrong: one
+  extra item lands in every slot and items repeat across slots. Fix it
+  so no slot exceeds the capacity and each item appears once. The
+  final slot may be short. Return the complete fixed file.
+target: solution.ts
+target_content: |
+  /** Group items into slots of a fixed capacity, in order. */
+  export function slotPack(items: string[], capacity: number): string[][] {
+    const slots: string[][] = [];
+    for (let i = 0; i < items.length; i += capacity) {
+      slots.push(items.slice(i, i + capacity + 1));
+    }
+    return slots;
+  }
+interface: "export function slotPack(items: string[], capacity: number): string[][]"
+stop_conditions:
+  - What a capacity of zero should produce is not stated.
+demonstration: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

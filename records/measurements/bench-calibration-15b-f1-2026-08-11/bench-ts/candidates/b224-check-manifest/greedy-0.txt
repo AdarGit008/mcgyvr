@@ -1,0 +1,19 @@
+```ts
+export function checkManifest(line: Record<string, unknown>): Record<string, unknown> {
+  const { sku, count, note } = line;
+
+  if (typeof sku !== 'string' || !sku.trim()) {
+    throw new Error('Invalid SKU');
+  }
+
+  if (!Number.isInteger(count) || count <= 0) {
+    throw new Error('Invalid count');
+  }
+
+  if (typeof note !== 'string') {
+    throw new Error('Invalid note');
+  }
+
+  return { sku, count, note };
+}
+```

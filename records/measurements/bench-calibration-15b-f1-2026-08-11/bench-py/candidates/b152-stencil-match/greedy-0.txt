@@ -1,0 +1,24 @@
+```python
+def matches_stencil(stencil: str, code: str) -> bool:
+    if not isinstance(stencil, str):
+        raise ValueError("Stencil must be a string")
+    if not stencil:
+        raise ValueError("Stencil cannot be empty")
+    if not isinstance(code, str):
+        raise ValueError("Code must be a string")
+    if len(stencil) != len(code):
+        return False
+    for i in range(len(stencil)):
+        if stencil[i] == "#":
+            if code[i] < "0" or code[i] > "9":
+                return False
+        elif stencil[i] == "@":
+            if not (code[i].isalpha() or code[i].islower()):
+                return False
+        elif stencil[i] == "?":
+            pass  # Any single character matches itself, case-sensitive
+        else:
+            if stencil[i] != code[i]:
+                return False
+    return True
+```

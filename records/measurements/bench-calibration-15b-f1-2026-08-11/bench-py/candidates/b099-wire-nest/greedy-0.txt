@@ -1,0 +1,20 @@
+```python
+def wire_value(value):
+    if isinstance(value, str):
+        return wire_text(value)
+    elif isinstance(value, int):
+        if value < 0:
+            raise ValueError("Negative numbers are not supported.")
+        return f"n{value:03d};"
+    elif isinstance(value, list):
+        return f"[{wire_value(item) for item in value]}]"
+    else:
+        raise ValueError(f"Unsupported type: {type(value)}")
+
+def wire_text(text: str):
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string.")
+    if "\n" in text:
+        raise ValueError("Text containing newline is not supported.")
+    return f"s{len(text):03d}:{text}"
+```

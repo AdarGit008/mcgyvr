@@ -1,0 +1,62 @@
+```ts
+export function splitSegments(path: string): string[] {
+  if (typeof path !== 'string' || path === '' || !path.startsWith('/')) {
+    throw new Error('Invalid path');
+  }
+  return path.slice(1).split('/');
+}
+
+export function firstRoute(patterns: string[], path: string): number {
+  for (let i = 0; i < patterns.length; i++) {
+    if (matchRoute(patterns[i], path) !== null) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+export function matchRoute(pattern: string, path: string): Record<string, string> | null {
+  const segments = splitSegments(path);
+  const patternSegments = splitSegments(pattern);
+
+  if (segments.length !== patternSegments.length) {
+    throw new Error('Pattern and path do not have the same number of segments');
+  }
+
+  const captureNames: { [key: string]: number } = {};
+  let matchIndex = 0;
+
+  for (let i = 0; i < patternSegments.length; i++) {
+    const segment = patternSegments[i];
+    if (segment === '**') {
+      matchIndex += segments.length - i;
+      break;
+    }
+    if (segment.startsWith(':')) {
+      const name = segment.slice(1);
+      if (! /^[a-zA-Z_][a-zA-Z0-9_]*/.test(name)) {
+        throw new Error('Invalid capture name');
+      }
+      if (name in captureNames) {
+        throw new Error('Capture name repeated within the pattern');
+      }
+      captureNames[name] = matchIndex;
+      matchIndex++;
+    } else if (segment === '*') {
+      matchIndex += segments.length - i;
+      break;
+    } else if (segments[i] !== segment) {
+      return null;
+    }
+  }
+
+  const result: Record<string, string> = {};
+  for (const name in captureNames) {
+    if (!(name in result)) {
+      result[name] = segments[captureNames[name]];
+    }
+  }
+
+  return result;
+}
+```

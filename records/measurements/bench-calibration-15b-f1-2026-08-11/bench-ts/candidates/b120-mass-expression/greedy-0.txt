@@ -1,0 +1,55 @@
+```ts
+export function massExpression(text: string, unit: string): number {
+  if (typeof text !== 'string' || typeof unit !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const terms = text.split(/\s+/);
+  let runningTotal = 0;
+  let drawCount = 0;
+
+  for (let i = 0; i < terms.length; i += 2) {
+    const count = parseInt(terms[i], 10);
+    const unitStr = terms[i + 1];
+
+    if (isNaN(count)) {
+      throw new Error('Invalid term');
+    }
+
+    switch (unitStr.toLowerCase()) {
+      case 'g':
+        runningTotal += count;
+        break;
+      case 'kg':
+        runningTotal += count * 1000;
+        break;
+      case 't':
+        runningTotal += count * 1000 * 1000;
+        break;
+      default:
+        throw new Error('Unknown unit');
+    }
+
+    if (runningTotal < 0) {
+      drawCount++;
+      runningTotal = 0;
+    }
+  }
+
+  if (drawCount > 0) {
+    throw new Error('Draw');
+  }
+
+  const goalUnit = unit.toLowerCase();
+  switch (goalUnit) {
+    case 'g':
+      return Math.round(runningTotal);
+    case 'kg':
+      return Math.round(runningTotal / 1000);
+    case 't':
+      return Math.round(runningTotal / 1000 / 1000);
+    default:
+      throw new Error('Invalid goal unit');
+  }
+}
+```

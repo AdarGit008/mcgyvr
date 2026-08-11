@@ -1,0 +1,48 @@
+```ts
+export function matchesStencil(stencil: string, code: string): boolean {
+  if (typeof stencil !== 'string' || typeof code !== 'string') {
+    throw new Error('Both stencil and code must be strings');
+  }
+
+  if (stencil.length !== code.length) {
+    return false;
+  }
+
+  for (let i = 0; i < stencil.length; i++) {
+    const stencilChar = stencil[i];
+    const codeChar = code[i];
+
+    switch (stencilChar) {
+      case '#':
+        if (!codeChar || !isDigit(codeChar)) {
+          return false;
+        }
+        break;
+      case '@':
+        if (!codeChar || !isLetter(codeChar)) {
+          return false;
+        }
+        break;
+      case '?':
+        if (!codeChar) {
+          return false;
+        }
+        break;
+      default:
+        if (stencilChar !== codeChar) {
+          return false;
+        }
+    }
+  }
+
+  return true;
+}
+
+function isDigit(char: string): boolean {
+  return char >= '0' && char <= '9';
+}
+
+function isLetter(char: string): boolean {
+  return char >= 'A' && char <= 'Z' || char >= 'a' && char <= 'z';
+}
+```

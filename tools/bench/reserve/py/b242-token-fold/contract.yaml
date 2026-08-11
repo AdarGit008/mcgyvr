@@ -1,0 +1,16 @@
+id: b242-token-fold
+task_type: function_implementation
+task: >-
+  Implement token_fold. Return the given phrase with each word's first
+  letter in upper case and the rest of the word in lower case, the
+  words separated by exactly one space. Any run of whitespace
+  collapses to a single space, and whitespace at either end
+  disappears.
+target: solution.py
+interface: "def token_fold(phrase: str) -> str"
+stop_conditions:
+  - How a word beginning with a digit or punctuation should be treated is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

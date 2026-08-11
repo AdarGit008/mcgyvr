@@ -1,0 +1,17 @@
+id: b228-tide-marks
+task_type: function_implementation
+task: >-
+  Implement tide_marks. Given a list of integer water levels read in
+  order, return the positions of every local peak: a position whose
+  level is strictly greater than the level immediately before it and
+  the level immediately after it. The first and last positions are
+  never peaks. Return the positions in increasing order, and an empty
+  list when there are none.
+target: solution.py
+interface: "def tide_marks(levels: list) -> list"
+stop_conditions:
+  - Whether a level equal to a neighbour can still be part of a peak elsewhere in the list is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

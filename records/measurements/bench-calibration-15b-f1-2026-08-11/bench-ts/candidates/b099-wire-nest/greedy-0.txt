@@ -1,0 +1,32 @@
+```ts
+export function wireValue(value: unknown): string {
+  if (typeof value !== 'string') {
+    throw new Error('Invalid argument: expected a string');
+  }
+
+  if (value.includes('\n')) {
+    throw new Error('Invalid argument: text holding a newline is not allowed');
+  }
+
+  return wireText(value);
+}
+
+export function wireText(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Invalid argument: expected a string');
+  }
+
+  const length = text.length;
+  let result = `s${length}`;
+
+  for (let i = 0; i < length; i++) {
+    const char = text[i];
+    if (char === '\n') {
+      throw new Error('Invalid argument: text holding a newline is not allowed');
+    }
+    result += `:${char}`;
+  }
+
+  return result;
+}
+```

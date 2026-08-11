@@ -1,0 +1,28 @@
+```python
+from typing import Dict
+
+def fresh_value(entry: Dict[str, int], now: int) -> str:
+    if not isinstance(entry, dict):
+        raise ValueError("entry must be a dictionary")
+    if not isinstance(now, int):
+        raise ValueError("now must be an integer")
+    
+    stored = entry.get('stored', None)
+    ttl = entry.get('ttl', None)
+    
+    if stored is None or ttl is None:
+        raise ValueError("record must have 'stored' and 'ttl' fields")
+    
+    if not isinstance(stored, int) or stored < 0:
+        raise ValueError("'stored' field must be a non-negative integer")
+    if not isinstance(ttl, int) or ttl <= 0:
+        raise ValueError("'ttl' field must be a positive integer")
+    
+    if now < stored:
+        raise ValueError("now cannot be before the record's stored time")
+    
+    if now >= stored + ttl:
+        raise ValueError("record is no longer usable at now")
+    
+    return entry['value']
+```

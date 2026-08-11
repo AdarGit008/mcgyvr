@@ -1,0 +1,79 @@
+```ts
+/** One point-of-sale till session, replayed from its events. */
+const OPEN = "open";
+const PAYMENT = "payment";
+const PAID = "paid";
+const CANCELLED = "cancelled";
+
+export function runTillSession(
+  events: (string | number)[][],
+  prices: Record<string, number>,
+): {
+  state: string;
+  items: [string, number][];
+  total: number;
+  paid: number;
+  change: number;
+} {
+  const cart: { [item: string]: number } = {};
+  let total = 0;
+  let paid = 0;
+  let change = 0;
+
+  for (const event of events) {
+    if (!Array.isArray(event)) {
+      throw new Error("event must be a list");
+    }
+    const action = event[0];
+    const payload = event.slice(1);
+
+    switch (action) {
+      case "scan":
+        if (!prices.hasOwnProperty(payload[0])) {
+          throw new Error(`item ${payload[0]} not in price list`);
+        }
+        cart[payload[0]] = (cart[payload[0]] || 0) + 1;
+        total += prices[payload[0]];
+        break;
+      case "void":
+        if (!cart.hasOwnProperty(payload[0])) {
+          throw new Error(`item ${payload[0]} not in cart`);
+        }
+        const quantity = cart[payload[0]];
+        if (quantity === 0) {
+          throw new Error("cannot void an item with zero quantity");
+        }
+        cart[payload[0]] -= 1;
+        total -= prices[payload[0]];
+        break;
+      case "pay":
+        if (!Number.isInteger(payload[0]) || payload[0] <= 0) {
+          throw new Error("pay amount must be a positive integer: " + payload[0]);
+        }
+        paid += payload[0];
+        change = Math.max(total - paid, 0);
+        break;
+      case "close":
+        if (Object.keys(cart).length === 0) {
+          throw new Error("cannot close an empty cart");
+        }
+        total -= paid;
+        paid = 0;
+        change = Math.max(total - paid, 0);
+        break;
+      default:
+        throw new Error(`unknown action: ${action}`);
+    }
+
+    if (paid >= total && state !== CANCELLED) {
+      state = PAID;
+    } else if (state === PAYMENT && paid < total) {
+      state = CANCELLED;
+    }
+  }
+
+  const items = Object.entries(cart).sort((a, b) => a[0].localeCompare(b[0]));
+
+  return { state, items, total, paid, change };
+}
+```

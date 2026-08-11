@@ -1,0 +1,27 @@
+```python
+def draw_tree_lines(root: dict) -> list:
+    if not isinstance(root, dict):
+        raise ValueError("Root must be a dictionary")
+    
+    def _draw_node(node, depth=0):
+        if not isinstance(node, dict):
+            raise ValueError("Node must be a dictionary")
+        
+        lines = []
+        for i, child in enumerate(node['children']):
+            if not isinstance(child, str) or '\n' in child:
+                raise ValueError(f"Child name '{child}' is invalid")
+            
+            connector = "|-- " if i < len(node['children']) - 1 else "'-- "
+            column = "   " * depth
+            
+            lines.append(column + connector + child)
+            lines.extend(_draw_node(child, depth + 1))
+        
+        return lines
+    
+    if not isinstance(root, dict) or 'name' not in root or 'children' not in root:
+        raise ValueError("Root must have a 'name' and 'children' key")
+    
+    return _draw_node(root)
+```

@@ -1,0 +1,19 @@
+```ts
+export function trimCaption(text: string, limit: number): string {
+  if (typeof text !== 'string' || !Number.isInteger(limit) || limit <= 0) {
+    throw new Error('Invalid input');
+  }
+
+  const trimmedText = text.slice(0, limit - 1);
+  let lastSpaceIndex = trimmedText.lastIndexOf(' ');
+
+  if (lastSpaceIndex === -1 && trimmedText.length > limit - 2) {
+    // If no space is found and the text length exceeds the limit by more than one character,
+    // cut off the first word.
+    const words = trimmedText.split(' ');
+    trimmedText = words.slice(0, 1).join(' ') + '…';
+  }
+
+  return trimmedText.trim();
+}
+```

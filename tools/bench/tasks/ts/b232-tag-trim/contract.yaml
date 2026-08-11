@@ -1,0 +1,15 @@
+id: b232-tag-trim
+task_type: function_implementation
+task: >-
+  Implement tagTrim. A tag may be wrapped in markers: a leading hash
+  and a trailing colon. Strip whichever markers are present and return
+  what is left. A tag carrying neither marker comes back unchanged,
+  and only one marker of each kind is ever stripped.
+target: solution.ts
+interface: "export function tagTrim(tag: string): string"
+stop_conditions:
+  - Whether whitespace around the markers should also be stripped is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

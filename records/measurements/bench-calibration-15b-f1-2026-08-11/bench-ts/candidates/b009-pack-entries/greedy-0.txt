@@ -1,0 +1,31 @@
+```ts
+export function packEntries(entries: [string, string][]): string {
+  if (!Array.isArray(entries)) {
+    throw new Error("Input must be a list");
+  }
+
+  const serialized = entries.map(([key, value]) => {
+    if (!Array.isArray(key) || key.length !== 2 || !Array.isArray(value) || value.length !== 2) {
+      throw new Error("Each entry must be a two-element array");
+    }
+    if (typeof key[0] !== "string" || typeof key[1] !== "string") {
+      throw new Error("Key and value must be strings");
+    }
+    if (key[0].length === 0) {
+      throw new Error("Key cannot be empty");
+    }
+    if (entries.some(([k, _]) => k === key[0])) {
+      throw new Error("Duplicate keys are not allowed");
+    }
+
+    return `${key[0]}=${value[0]}`;
+  }).join(";");
+
+  // Escape backslashes, equals signs, and semicolons inside keys or values
+  const escaped = serialized.replace(/\\/g, "\\\\")
+                         .replace(/=/g, "\\=")
+                         .replace(/;/g, "\\;");
+
+  return escaped;
+}
+```

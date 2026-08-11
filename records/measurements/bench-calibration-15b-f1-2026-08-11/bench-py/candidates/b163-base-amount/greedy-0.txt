@@ -1,0 +1,23 @@
+```python
+def base_amount(amount: int, unit: str, defs: dict, base: str) -> int:
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValueError("amount must be a non-negative integer")
+    if unit not in defs or unit == base:
+        raise ValueError(f"unknown unit '{unit}' or already at the base '{base}'")
+    factor, finer = defs[unit]
+    if factor <= 0:
+        raise ValueError("factor must be a positive whole number")
+    
+    def unwind(unit):
+        nonlocal amount
+        if unit == base:
+            return amount
+        else:
+            amount *= factor
+            return unwind(finer)
+    
+    try:
+        return unwind(unit)
+    except RecursionError:
+        raise ValueError("chain loops so it can never reach the base")
+```

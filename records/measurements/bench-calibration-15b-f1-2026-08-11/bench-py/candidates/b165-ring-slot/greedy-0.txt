@@ -1,0 +1,22 @@
+```python
+def ring_slot(capacity: int, writes: int, k: int) -> int:
+    if capacity <= 0 or writes < 0 or k < 0:
+        raise ValueError("Invalid input values")
+    
+    if k >= writes:
+        return -1
+    
+    # Initialize the slots with None
+    slots = [None] * capacity
+    
+    # Write the readings into the slots
+    for i in range(writes):
+        index = i % capacity
+        slots[index] = i
+    
+    # Sort the slots based on their values (index)
+    slots.sort(key=lambda x: x[1])
+    
+    # Return the slot number of the k-th oldest survivor
+    return slots[k][0]
+```

@@ -1,0 +1,48 @@
+```python
+from typing import List, Dict
+
+def number_sections(sections: List[Dict[str, any]]) -> List[str]:
+    if not isinstance(sections, list):
+        raise ValueError("outline must be a list")
+    
+    def _number_section(section, depth=0):
+        if not isinstance(section, dict) or 'heading' not in section:
+            raise ValueError("section must be a mapping with 'heading'")
+        
+        heading = section['heading']
+        if not isinstance(heading, str) or not heading.strip():
+            raise ValueError("heading must be a non-empty string")
+        
+        label = f"{depth + 1} {heading}"
+        children = section.get('children', [])
+        
+        if children:
+            for child in children:
+                yield from _number_section(child, depth + 1)
+        else:
+            yield label
+    
+    return list(_number_section(sections))
+
+def section_count(sections: List[Dict[str, any]]) -> int:
+    if not isinstance(sections, list):
+        raise ValueError("outline must be a list")
+    
+    def _count_section(section):
+        if not isinstance(section, dict) or 'heading' not in section:
+            raise ValueError("section must be a mapping with 'heading'")
+        
+        heading = section['heading']
+        if not isinstance(heading, str) or not heading.strip():
+            raise ValueError("heading must be a non-empty string")
+        
+        count = 1
+        children = section.get('children', [])
+        
+        for child in children:
+            count += _count_section(child)
+        
+        return count
+    
+    return sum(_count_section(section) for section in sections)
+```

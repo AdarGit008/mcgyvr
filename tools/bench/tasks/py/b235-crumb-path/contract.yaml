@@ -1,0 +1,16 @@
+id: b235-crumb-path
+task_type: function_implementation
+task: >-
+  Implement crumb_split and crumb_join. crumb_split breaks a
+  breadcrumb trail on forward slashes and discards every empty
+  segment, so /docs//api/ yields docs then api. crumb_join puts
+  segments back with a single slash between them and no slash at
+  either end, discarding empty segments the same way.
+target: solution.py
+interface: "def crumb_split(trail: str) -> list\ndef crumb_join(parts: list) -> str"
+stop_conditions:
+  - Whether a segment made only of spaces counts as empty is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

@@ -1,0 +1,16 @@
+id: b238-pair-gap
+task_type: function_implementation
+task: >-
+  Implement pair_gap. Given a list of whole numbers, return the two
+  values lying closest together in value, smaller one first. When two
+  pairs are equally close, return the one that comes earlier once the
+  values are in ascending order. Reject a list holding fewer than two
+  values with an error.
+target: solution.py
+interface: "def pair_gap(values: list) -> list"
+stop_conditions:
+  - Whether the input list may be reordered in place is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

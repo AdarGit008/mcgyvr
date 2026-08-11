@@ -1,0 +1,56 @@
+```python
+from typing import List
+
+def unpack_frame(data: List[int]) -> List[int]:
+    if not isinstance(data, list):
+        raise ValueError("Input must be a list")
+    
+    if len(data) == 0:
+        return []
+    
+    if not all(isinstance(x, int) and 0 <= x <= 255 for x in data):
+        raise ValueError("All elements in the input must be integers from 0 to 255")
+    
+    if data[-1] != sum(data[:-1]) % 256:
+        raise ValueError("Trailer does not equal the byte sum of all bytes before it modulo 256")
+    
+    varint_length = 1
+    while True:
+        if varint_length > 5:
+            raise ValueError("Varint longer than five bytes")
+        
+        byte = data[varint_length]
+        if byte & 0x80 == 0:
+            break
+        
+        varint_length += 1
+    
+    varint_bytes = data[:varint_length]
+    varint_value = int.from_bytes(varint_bytes, byteorder='big')
+    
+    if varint_value > len(data) - varint_length - 2:
+        raise ValueError("Varint runs past five bytes")
+    
+    readings = []
+    for _ in range(varint_value):
+        varint_length = 1
+        while True:
+            if varint_length > 5:
+                raise ValueError("Varint longer than five bytes")
+            
+            byte = data[varint_length]
+            if byte & 0x80 == 0:
+                break
+            
+            varint_length += 1
+        
+        varint_bytes = data[varint_length:varint_length + varint_value]
+        varint_value = int.from_bytes(varint_bytes, byteorder='big')
+        
+        readings.append(varint_value)
+    
+    if len(readings) != varint_value:
+        raise ValueError("Varint does not match the number of readings")
+    
+    return readings
+```

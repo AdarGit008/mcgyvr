@@ -1,0 +1,15 @@
+id: b231-relay-splits
+task_type: function_implementation
+task: >-
+  Implement relaySplits. Given the cumulative clock readings at the
+  end of each relay leg, return how long each leg itself took. The
+  first leg's time is the first reading. Reject a reading that is not
+  larger than the one before it with an error.
+target: solution.ts
+interface: "export function relaySplits(marks: number[]): number[]"
+stop_conditions:
+  - Whether a first reading of zero is acceptable is not stated.
+acceptance: ["node accept.mjs"]
+risk: low
+scope:
+  allow: ["solution.ts"]

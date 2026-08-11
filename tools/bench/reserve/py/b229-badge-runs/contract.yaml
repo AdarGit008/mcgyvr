@@ -1,0 +1,15 @@
+id: b229-badge-runs
+task_type: function_implementation
+task: >-
+  Implement badge_runs. Given a string of badge letters, collapse each
+  run of identical adjacent letters into that letter followed by the
+  length of the run, so AAAB becomes A3B1. A run of length one still
+  carries its count. Reject the empty string with an error.
+target: solution.py
+interface: "def badge_runs(badges: str) -> str"
+stop_conditions:
+  - Whether letters that differ only in case count as the same badge is not stated.
+acceptance: ["python accept.py"]
+risk: low
+scope:
+  allow: ["solution.py"]

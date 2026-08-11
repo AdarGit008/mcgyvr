@@ -1,0 +1,44 @@
+```ts
+/** Vet a device's proposed firmware upgrade path and report the final tag. */
+
+export function vetUpgradePath(installed: string, steps: {tag: string; requires: string}[]): string {
+  if (typeof installed !== 'string') {
+    throw new Error('installed must be a string');
+  }
+  if (!Array.isArray(steps)) {
+    throw new Error('steps must be an array');
+  }
+
+  let carried = installed;
+  for (const step of steps) {
+    if (typeof step.tag !== 'string' || typeof step.requires !== 'string') {
+      throw new Error('step tag and requires must be strings');
+    }
+    const [line, point] = step.tag.split('.');
+    const [requiresLine, requiresPoint] = step.requires.split('.');
+    if (!/^\d+$/.test(line) || !/^\d+$/.test(point)) {
+      throw new Error('tag parts must be decimal numbers');
+    }
+    if (line.length === 0 || point.length === 0) {
+      throw new Error('tag parts cannot be empty');
+    }
+    if (line[0] === '0') {
+      throw new Error('leading zero in tag part is not allowed');
+    }
+    if (requiresLine.length === 0 || requiresPoint.length === 0) {
+      throw new Error('requires part cannot be empty');
+    }
+    if (requiresLine[0] === '0') {
+      throw new Error('leading zero in requires part is not allowed');
+    }
+    const tagNumber = parseInt(line + '.' + point, 10);
+    const requiresNumber = parseInt(requiresLine + '.' + requiresPoint, 10);
+    if (tagNumber >= requiresNumber) {
+      throw new Error(`step ${step.tag} requires at least ${step.requires}`);
+    }
+    carried = step.tag;
+  }
+
+  return carried;
+}
+```

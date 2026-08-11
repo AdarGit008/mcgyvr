@@ -1,0 +1,25 @@
+```ts
+type CacheEntry = { value: string; stored: number; ttl: number };
+
+export function freshValue(entry: CacheEntry, now: number): string {
+  if (
+    !entry ||
+    typeof entry.value !== 'string' ||
+    typeof entry.stored !== 'number' ||
+    typeof entry.ttl !== 'number' ||
+    typeof now !== 'number' ||
+    entry.stored < 0 ||
+    entry.ttl <= 0 ||
+    now < entry.stored
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const usableUntil = entry.stored + entry.ttl;
+  if (now >= usableUntil) {
+    return null; // Record is no longer usable at now
+  }
+
+  return entry.value;
+}
+```

@@ -340,6 +340,61 @@
         "does_the_reading_survive": "YES, and slightly strengthened. The code contrast is still positive in all four model-arm cells (+5.1 / +4.6 / +11.1 / +6.5) and the plan contrast still flips sign by arm on both models (3B +2.3 ts / -1.4 py; 7B -0.5 ts / +5.6 py). One thing genuinely changed: the 7B py WHOLE contrast now reads sign p=0.0386, wilcoxon p=0.0200, where it did not before. The whole contrast is the confounded one \u2014 it moves code and plan together \u2014 so it is the least interpretable of the three and this does not promote the finding past ADR-0019's bar. It is recorded because it moved.",
         "locator_update": "The 7B's stock read on these 27 is now 30.6% ts / 29.6% py, where it was 30.6% / 25.9%. Both arms now sit at the 30-50% aim's lower boundary rather than one inside and one below."
       }
+    },
+    {
+      "date": "2026-08-11",
+      "phase": "floor band f1 (Phase 4, tranche 4) \u2014 the first band steered by behaviour count",
+      "source": "records/measurements/bench-calibration-15b-f1-2026-08-11/",
+      "brief": "records/sessions/lane/225/2026-08-11-floor-band-f1-brief.md (declared before authoring, stop conditions included)",
+      "model": "qwen2.5-coder:1.5b",
+      "endpoint": "http://srv2:11434",
+      "protocol": "openai",
+      "draws": 0,
+      "max_output_tokens": 2048,
+      "governing_records": [
+        "ADR-0021 (the floor unit is the obligation; separation explicitly not required)",
+        "ADR-0023 (difficulty is behaviour count)",
+        "ADR-0024 (srv2 measures; serving build now in run identity)"
+      ],
+      "design": "16 paired problems (b228-b243) authored to a BEHAVIOUR budget rather than a size band: 2-4 independently specified behaviours, at most one rejection. 16/16 admitted first pass; the pre-declared salted hash split them 7 bench / 9 reserve. 12 fn_impl / 4 bug_fix, 4 multi_symbol, no scaffold anywhere.",
+      "manipulation_check": {
+        "spec_prose_words_median": {
+          "bench_before": 146,
+          "f1": 46,
+          "target": "40-70"
+        },
+        "reference_lines_median_ts": {
+          "bench_before": 27,
+          "f1": 10,
+          "target": "8-14"
+        },
+        "reference_lines_median_py": {
+          "bench_before": 19,
+          "f1": 6,
+          "target": "6-11"
+        },
+        "problems_with_an_error_path": {
+          "bench_before": "95%",
+          "f1": "19%"
+        },
+        "assert_statements_median_ts": {
+          "bench_before": 13,
+          "f1": 7
+        }
+      },
+      "cells": {
+        "f1 bench-ts": "4/7 = 57.1%",
+        "f1 bench-py": "4/7 = 57.1%",
+        "f1 pooled": "8/14 = 57.1%, 95% Wilson 33-79%",
+        "older bands bench-ts": "3/109 = 2.8%",
+        "older bands bench-py": "9/109 = 8.3%",
+        "older bands pooled": "12/218 = 5.5%"
+      },
+      "failure_modes": "0 cap overruns, 0 dispatch errors, 2 parse errors (both incomplete-reply, both in OLDER bands, neither in f1).",
+      "reading": "THE DIAL IS CONFIRMED AND THE RATE IS NOT ESTABLISHED. Same model, same sweep, same rig, same day: the floor unit reads 5.5% on 109 problems built to the old shape and 57.1% on 7 built to a behaviour budget. That is a ten-fold move from one design change and it is the first time anything in this campaign has lifted the floor model off the floor. ADR-0023's thesis - that difficulty is the count of independently specified behaviours and not reference size - is supported by the largest effect the campaign has produced. But n = 7 problems: the 95% interval is 33-79%, which contains the whole 30-50% aim AND a large overshoot. The batch was designed to tell 5% from 40% and it did exactly that; it cannot tell 45% from 57%.",
+      "against_the_pre_registered_stop_conditions": "The brief declared: inside 30-50% -> author the remaining tranches unchanged; below 30% -> lower the budget; above 50% -> raise it toward 4-5 behaviours. The POINT ESTIMATE says raise. The INTERVAL does not license acting on that, and re-designing off n = 7 would repeat in miniature the error that produced two failed re-aims - changing the material on evidence too thin to carry the change. Recommended instead: buy resolution on the design that exists before altering it.",
+      "also_settled": "The 1.5B now has a measurement on current bench material, which ADR-0023 recorded as missing: 2.8% ts / 8.3% py on the 109 older bench problems, against the 3B's ~4%. The floor unit and the rung above it are equally floored on the old shape, which is what made that shape useless as an instrument for either.",
+      "limits": "n = 7 problems per arm, and the two arms are the same 7 problems rendered twice - so the 4/7 agreement across arms is NOT two independent samples and must not be read as replication. Greedy, one draw, one model, one rig. The f1 problems are not a stratum and #224 must not read this band as a band point."
     }
   ]
 }

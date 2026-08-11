@@ -1,0 +1,40 @@
+```python
+from typing import List, Dict
+
+def meter_draws(draws: List[List[str]], allowance: int) -> Dict[str, int]:
+    if not isinstance(allowance, int) or allowance <= 0:
+        raise ValueError("Allowance must be a positive integer")
+    
+    used = {}
+    denied = []
+    
+    for draw in draws:
+        key, units = draw
+        if not isinstance(key, str) or len(key) == 0:
+            raise ValueError("Key must be a non-empty string")
+        
+        if not isinstance(units, int) or units <= 0:
+            raise ValueError("Units must be a positive integer")
+        
+        if key in used:
+            if units > allowance - used[key]:
+                denied.append((draw, used[key]))
+                continue
+            used[key] += units
+        else:
+            used[key] = units
+    
+    return {'used': used, 'denied': denied}
+
+def remaining_for(used: Dict[str, int], key: str, allowance: int) -> int:
+    if not isinstance(key, str) or len(key) == 0:
+        raise ValueError("Key must be a non-empty string")
+    
+    if not isinstance(allowance, int) or allowance <= 0:
+        raise ValueError("Allowance must be a positive integer")
+    
+    if key in used:
+        return allowance - used[key]
+    else:
+        return allowance
+```

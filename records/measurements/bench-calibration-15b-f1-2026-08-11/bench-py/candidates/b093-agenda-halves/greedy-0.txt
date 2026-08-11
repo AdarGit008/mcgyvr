@@ -1,0 +1,36 @@
+```python
+from typing import List
+
+def split_agenda(sessions: List[List[int]], limit: int) -> List[List[int]]:
+    if not sessions or not isinstance(limit, int):
+        raise ValueError("Invalid input")
+
+    def is_valid_session(session):
+        start, end = session
+        return start < end and start >= 0 and end >= 0
+
+    def cut_session(session):
+        start, end = session
+        length = end - start
+        if length <= limit:
+            return [session]
+        mid = (start + end) // 2
+        left_half = [start, mid]
+        right_half = [mid + 1, end]
+        return cut_session(left_half) + cut_session(right_half)
+
+    def validate_sessions(sessions):
+        for session in sessions:
+            if not is_valid_session(session):
+                raise ValueError("Invalid session")
+
+    validate_sessions(sessions)
+    result = []
+    for session in sessions:
+        start, end = session
+        while end - start > limit:
+            result.extend(cut_session([start, end]))
+            start = end
+        result.append([start, end])
+    return result
+```

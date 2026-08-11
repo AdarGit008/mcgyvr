@@ -1,0 +1,21 @@
+```python
+def draw_stock(shelf: dict, order: list) -> dict:
+    if not isinstance(shelf, dict):
+        raise ValueError("Shelf must be a dictionary.")
+    if not isinstance(order, list):
+        raise ValueError("Order must be a list.")
+    
+    for line in order:
+        if len(line) != 2 or not all(isinstance(item, str) and isinstance(count, int) for item, count in line):
+            raise ValueError("Each line must contain exactly two items: an item name and a count.")
+        
+        item, count = line
+        if item not in shelf:
+            raise ValueError(f"Item '{item}' is not on the shelf.")
+        if count < 0 or not isinstance(count, int) or count > shelf[item]:
+            raise ValueError("Count must be a non-negative whole number and less than or equal to the current stock of the item.")
+        
+        shelf[item] -= count
+    
+    return {item: count for item, count in shelf.items() if count > 0}
+```

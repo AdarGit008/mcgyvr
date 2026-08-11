@@ -1,0 +1,140 @@
+```ts
+export function mergeSettings(base: Record<string, string>, ours: Record<string, string>, theirs: Record<string, string>): Record<string, string> {
+  if (typeof base !== 'object' || !base) throw new Error('Base must be a non-empty object');
+  if (typeof ours !== 'object' || !ours) throw new Error('Ours must be a non-empty object');
+  if (typeof theirs !== 'object' || !theirs) throw new Error('Theirs must be a non-empty object');
+
+  const merged: Record<string, string> = {};
+
+  for (const key in base) {
+    if (!ours.hasOwnProperty(key)) {
+      merged[key] = base[key];
+    } else if (!theirs.hasOwnProperty(key)) {
+      merged[key] = ours[key];
+    } else {
+      const ourValue = ours[key];
+      const theirsValue = theirs[key];
+
+      if (ourValue === theirsValue) {
+        merged[key] = ourValue;
+      } else if (typeof ourValue !== 'string' || typeof theirsValue !== 'string') {
+        throw new Error(`Conflict: ${key} has different types in ours and theirs`);
+      } else if (ourValue === null && theirsValue === null) {
+        merged[key] = null;
+      } else if (ourValue === null || theirsValue === null) {
+        merged[key] = ourValue !== null ? ourValue : theirsValue;
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (ourValue === '' || theirsValue === '') {
+        merged[key] = ourValue !== '' ? ourValue : theirsValue;
+      } else if (Number.isNaN(Number(ourValue)) && Number.isNaN(Number(theirsValue))) {
+        merged[key] = NaN;
+      } else if (Number.isNaN(Number(ourValue)) || Number.isNaN(Number(theirsValue))) {
+        merged[key] = Number(ourValue !== NaN ? ourValue : theirsValue);
+      } else if (ourValue === '' && theirsValue === '') {
+        merged[key] = '';
+      } else if (our

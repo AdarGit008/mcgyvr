@@ -1,0 +1,20 @@
+```ts
+export function drawStock(shelf: Record<string, number>, order: [string, number][]): Record<string, number> {
+  if (typeof shelf !== 'object' || !shelf) throw new Error('Shelf must be an object');
+  if (!Array.isArray(order)) throw new Error('Order must be an array');
+
+  const remainingStock = { ...shelf };
+
+  for (const [item, count] of order) {
+    if (typeof item !== 'string') throw new Error('Item name must be a string');
+    if (typeof count !== 'number' || count < 0 || !Number.isInteger(count)) throw new Error('Count must be a non-negative whole number');
+
+    if (!remainingStock.hasOwnProperty(item)) throw new Error(`Shelf does not hold item: ${item}`);
+    if (count > remainingStock[item]) throw new Error(`Cannot pull more of item than available: ${item}`);
+
+    remainingStock[item] -= count;
+  }
+
+  return remainingStock;
+}
+```

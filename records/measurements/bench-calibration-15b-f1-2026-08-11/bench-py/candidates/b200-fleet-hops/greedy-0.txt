@@ -1,0 +1,21 @@
+```python
+def fleet_hops(count: int, lts: list, builds: list, hop: int) -> int:
+    if not (0 <= hop <= count):
+        raise ValueError("hop must be between 0 and count")
+    
+    if not all(0 <= release <= count for release in builds):
+        raise ValueError("builds must contain whole numbers from 0 to count")
+    
+    if not all(release in lts for release in builds):
+        raise ValueError("all builds must be long-term support releases")
+    
+    hops = 0
+    current_release = -1
+    
+    for build in builds:
+        if build > current_release:
+            current_release = build + hop
+            hops += 1
+    
+    return hops
+```

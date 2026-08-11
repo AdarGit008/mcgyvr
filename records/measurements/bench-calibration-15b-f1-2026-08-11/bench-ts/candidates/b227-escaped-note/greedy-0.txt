@@ -1,0 +1,38 @@
+```ts
+export function decodeEscapedNote(text: string): string {
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  let foldedText = '';
+  let currentLine = '';
+
+  for (const char of text) {
+    if (char === '\n') {
+      if (currentLine.endsWith('=')) {
+        const hexCode = currentLine.slice(1, 3);
+        const decodedChar = String.fromCharCode(parseInt(hexCode, 16));
+        foldedText += decodedChar;
+        currentLine = '';
+      } else {
+        foldedText += currentLine + '\n';
+        currentLine = '';
+      }
+    } else if (char === ' ') {
+      // Skip spaces and tabs
+    } else {
+      currentLine += char;
+    }
+  }
+
+  if (currentLine.endsWith('=')) {
+    const hexCode = currentLine.slice(1, 3);
+    const decodedChar = String.fromCharCode(parseInt(hexCode, 16));
+    foldedText += decodedChar;
+  } else {
+    foldedText += currentLine;
+  }
+
+  return foldedText.replace(/\n/g, '\r\n');
+}
+```

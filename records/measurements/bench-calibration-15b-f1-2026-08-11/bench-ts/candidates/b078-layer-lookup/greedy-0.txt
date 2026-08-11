@@ -1,0 +1,31 @@
+```ts
+export function configValue(layers: string[], name: string): string | null {
+  if (!name || typeof name !== 'string') {
+    throw new Error('Invalid name');
+  }
+
+  let effectiveValue = null;
+
+  for (const layer of layers) {
+    const lines = layer.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+
+    for (const line of lines) {
+      const [key, value] = line.split('=');
+
+      if (!key || typeof key !== 'string') {
+        throw new Error('Invalid name in configuration');
+      }
+
+      key = key.trim();
+
+      if (value === undefined) {
+        effectiveValue = null;
+      } else {
+        effectiveValue = value.trim();
+      }
+    }
+  }
+
+  return effectiveValue;
+}
+```
