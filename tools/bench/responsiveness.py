@@ -77,6 +77,12 @@ PSI_WEAK = 0.10
 # (ADR-0019's determinism table). Two cells is slack, not a tolerance.
 DRIFT_ALLOWANCE = 2
 
+# The finished bench in the unit the statistic is computed in. ADR-0021's
+# 2026-08-12 amendment: the 400 is 400 problems each contributing both language
+# arms, so sizing is done over 800 paired cells rather than 400.
+BENCH_PROBLEMS = 400
+COMPLETE_CELLS = BENCH_PROBLEMS * len(ARMS)
+
 
 def retired_ids() -> frozenset[str]:
     """Ids withdrawn after admission, whose rows no figure may count."""
@@ -309,25 +315,32 @@ def main() -> int:
         "reading": verdict,
     }
 
-    # --- what that buys, at both readings of D5's denominator --------------
+    # --- what that buys, against the ruled denominator ---------------------
     # ADR-0021 was written because D5 stated 400 without stating its
-    # denominator. The same ambiguity survives one level down: `f1` counts
-    # problems, the sweep dispatches cells, and a problem carries two arms. Both
-    # are reported rather than resolved here, because resolving it silently is
-    # the error ADR-0021 already had to correct once.
+    # denominator, and the same ambiguity survived one level down: `f1` counts
+    # problems, the sweep dispatches cells, and a problem carries two arms. Its
+    # 2026-08-12 amendment settled it — the 400 is 400 problems contributing
+    # BOTH arms, so the statistic's denominator is 800 paired cells. The
+    # problem-counted row stays visible because the difference decides whether
+    # the bench meets D5's target, and a reader should see what was chosen.
     print()
     print("## what psi_draw would buy, if a lever moved exactly the reachable cells")
     print("#  optimistic by construction — see the module docstring")
     print()
-    print(f"{'n':>8}  {'unit':<10}  {'MDE':>8}")
-    for size, unit in ((n, "cells today"), (400, "problems"), (800, "cells at 400")):
+    print(f"{'n':>8}  {'unit':<22}  {'MDE':>8}")
+    sizes = (
+        (n, "cells today", ""),
+        (400, "if counted by problem", "  <- not the ruling"),
+        (COMPLETE_CELLS, "cells at 400 problems", "  <- ADR-0021, 2026-08-12"),
+    )
+    for size, unit, note in sizes:
         mde = detectable_delta(size, psi_draw)
-        print(
-            f"{size:>8}  {unit:<10}  {('%.1fpp' % (100 * mde)) if mde else 'none':>8}"
-        )
+        shown = f"{100 * mde:.1f}pp" if mde else "none"
+        print(f"{size:>8}  {unit:<22}  {shown:>8}{note}")
     report["mde"] = {
-        str(size): detectable_delta(size, psi_draw) for size in (n, 400, 800)
+        str(size): detectable_delta(size, psi_draw) for size in (n, 400, COMPLETE_CELLS)
     }
+    report["ruled_denominator"] = COMPLETE_CELLS
 
     # --- secondary: per tranche -------------------------------------------
     per: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))

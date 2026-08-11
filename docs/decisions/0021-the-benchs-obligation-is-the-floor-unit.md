@@ -137,6 +137,29 @@ floor-before-ceiling rule.
 Nothing here weakens the previous amendment. Separation is still not required,
 and a shared problem is not evidence of a defective band.
 
+## Amendment — 2026-08-12: the 400 is counted in paired cells, both arms
+
+This record was written because ADR-0019 D5 *"stated the number without stating
+its denominator"*. The same ambiguity survived one level down and
+`records/sessions/lane/225/2026-08-11-f1-responsiveness-adar.md` made it
+load-bearing: `f1` counts **problems**, the sweep dispatches **cells**, and a
+problem carries a `ts` arm and a `py` arm. At the responsiveness run's measured
+figure the two readings give an MDE of 11.8pp and 8.2pp respectively — the
+difference between missing D5's own resolution target and meeting it.
+
+> **DECIDED (2026-08-12, owner).** The 400 is **400 problems, each contributing
+> both language arms — 800 paired cells.** That is the denominator every sizing
+> figure is computed against, and `tools/power/` is fed cells, not problems.
+>
+> This buys no relief from Decision (2)'s count: it is still 400 problems per
+> model. It states what those 400 are worth to the statistic.
+
+Consequence worth naming: at `psi_draw` = 0.659 the completed bench resolves
+**8.2pp**, which sits at the edge of the +5 to +8pp D5 planned rather than
+outside it. The alarm the responsiveness run raised is substantially answered by
+fixing the denominator, and what remains is the open question of what the real
+per-lever `psi` is — **#231's to measure**, not this record's to assume.
+
 ## Consequences
 
 - **The 1.5B is measured before it is designed for.** It has never been swept.

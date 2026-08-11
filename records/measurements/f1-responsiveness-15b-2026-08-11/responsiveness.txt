@@ -15,10 +15,10 @@ pre-registered reading: at or above the planning prior's middle; sizing holds
 ## what psi_draw would buy, if a lever moved exactly the reachable cells
 #  optimistic by construction — see the module docstring
 
-       n  unit             MDE
-     270  cells today    14.4pp
-     400  problems      11.8pp
-     800  cells at 400     8.2pp
+       n  unit                         MDE
+     270  cells today               14.4pp
+     400  if counted by problem     11.8pp  <- not the ruling
+     800  cells at 400 problems      8.2pp  <- ADR-0021, 2026-08-12
 
 ## per tranche — all six reported, not only the one named in advance
 

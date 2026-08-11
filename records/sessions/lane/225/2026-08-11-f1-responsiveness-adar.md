@@ -143,16 +143,22 @@ that.** What this run does is remove the assumption that `psi` for this material
 sits in the 0.10–0.35 planning prior; there is now a reason to think it may sit
 above it, and above it is the expensive direction.
 
-## The denominator, again
+## The denominator — settled 2026-08-12
 
 D5 says 400 and the campaign counts problems. The sweep dispatches cells, and a
 problem carries two language arms, so the same `psi` gives 11.8pp or 8.2pp
 depending on which is meant — a factor that decides whether the bench meets its
-own spec. The tool reports both and picks neither.
+own spec. ADR-0021 exists because D5 *"stated the number without stating its
+denominator"* one level up; the same defect survived one level down.
 
-ADR-0021 exists because D5 *"stated the number without stating its denominator"*
-one level up. The same defect survives one level down and is now load-bearing.
-**Owner's to settle; not settled here.**
+> **DECIDED (2026-08-12, owner).** The 400 is 400 problems **each contributing
+> both arms — 800 paired cells**, and that is the denominator every sizing
+> figure is computed against. Recorded as an amendment to ADR-0021.
+
+**This substantially answers the alarm above.** At 800 cells the completed bench
+resolves **8.2pp**, which sits at the edge of D5's planned +5 to +8pp rather than
+outside it. What remains open is not the bench's size but the real per-lever
+`psi`, and that was never this run's to give.
 
 ## What this decides
 
@@ -165,12 +171,30 @@ one level up. The same defect survives one level down and is now load-bearing.
    it; the pooled read stays in aim.
 3. **160 problems remain**, and the brief stands unchanged.
 
-## What is open, and is the owner's
+## What is open — and the sequence that answers it
 
-- **The denominator.** 400 problems or 800 cells. It decides whether the bench
-  meets D5's own resolution target.
-- **Whether `psi_draw` = 0.659 changes the 400.** If the lever `psi` lands
-  anywhere near it, 400 problems buys ~12pp rather than the 5–8pp planned, and
-  the honest options are more material, more draws per cell (D6's replication
-  route, which this run has now shown is cheap on this rig — 65 minutes for 8×),
-  or accepting a coarser bar. **#231 measures the number that settles it.**
+The denominator is settled above. One question remains: **what the real
+per-lever `psi` is.** `psi_draw` = 0.659 is resampling sensitivity, and the
+contrasts that matter run greedy, which is deterministic and carries no
+resampling in it at all. So there is no established resolution problem — only a
+removed assumption, namely that this material's `psi` sits inside D5's
+0.10–0.35 planning prior.
+
+> **DIRECTION (2026-08-12, owner).** Buy nothing yet. **#231 first, draws
+> second, material last.**
+
+1. **#231 measures `psi` on the commissioning contrast.** It is already scoped
+   to do exactly this, and it is the only thing that can turn the flag into a
+   number. Spending before it reports is paying for an unconfirmed problem.
+2. **If it comes back high, buy draws rather than problems.** Rig time is the
+   spare axis — this run cost 65 minutes for 8× — while 160 problems of
+   authoring is the expensive one. Replication also converts a cell from
+   pass/fail into a graded count, which is how the scaffold ablation recovered a
+   question that was unanswerable at one draw per cell: *"with one greedy draw
+   per cell, 25 of 34 problems"* were concordant and carried nothing. The 63.7%
+   of cells sitting strictly between 0/8 and 8/8 are precisely the ones a graded
+   score rescues and a binary verdict discards.
+3. **A coarser bar is not on the table.** Owner direction of 2026-08-09 was to
+   implement or properly rule out every means of improving the floor *"even for
+   a smaller gain than 3pp"*, and D6 already carries sub-resolution effects
+   through the all-on cell rather than by relaxing the bar.
