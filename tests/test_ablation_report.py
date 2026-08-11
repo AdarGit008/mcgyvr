@@ -1,0 +1,122 @@
+"""The ablation report's statistics (#225), held against first principles.
+
+A defect in these two functions would not crash anything — it would publish a
+p-value. This project has already spent a lane correcting a claim whose
+arithmetic nobody re-derived, so both tests are checked against independent
+computation rather than against a remembered formula.
+
+The anchor worth naming: six problems that all moved the same way give
+p = 0.0312 under both tests, and that is the best a six-pair comparison can
+do. It is where ADR-0019's `m >= 6` wall comes from, and the report prints
+`m` for every contrast so a result below it is visibly undecidable rather
+than quietly weak.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import random
+import sys
+import types
+from itertools import product
+from math import comb
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+
+
+def _by_path(name: str, path: Path) -> types.ModuleType:
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+report = _by_path("ablation_report", REPO / "tools" / "bench" / "ablation_report.py")
+
+
+def test_the_sign_test_matches_the_closed_form_exhaustively() -> None:
+    """Every (m, positives) up to m = 12, against the binomial tail directly."""
+    for m in range(1, 13):
+        for up in range(m + 1):
+            diffs = [1] * up + [-1] * (m - up)
+            got_m, got_up, p = report.sign_test(diffs)
+            tail = sum(comb(m, k) for k in range(min(up, m - up) + 1))
+            assert (got_m, got_up) == (m, up)
+            assert abs(p - min(1.0, 2 * tail / 2**m)) < 1e-12
+
+
+def _independent_wilcoxon(diffs: list[int]) -> float:
+    """The permutation p-value, computed without touching the module's code."""
+    moved = [d for d in diffs if d != 0]
+    m = len(moved)
+    if m == 0:
+        return 1.0
+    absv = sorted(abs(d) for d in moved)
+    rank: dict[int, float] = {}
+    i = 0
+    while i < m:
+        j = i
+        while j + 1 < m and absv[j + 1] == absv[i]:
+            j += 1
+        rank.setdefault(absv[i], (i + j) / 2 + 1)
+        i = j + 1
+    ranks = [rank[abs(d)] for d in moved]
+    total = sum(ranks)
+    plus = sum(r for r, d in zip(ranks, moved, strict=True) if d > 0)
+    observed = min(plus, total - plus)
+    hits = 0
+    for signs in product((0, 1), repeat=m):
+        p = sum(r for r, s in zip(ranks, signs, strict=True) if s)
+        if min(p, total - p) <= observed + 1e-9:
+            hits += 1
+    exact: float = min(1.0, hits / 2**m)
+    return exact
+
+
+def test_wilcoxon_matches_an_independent_enumeration() -> None:
+    """Random vectors, ties and zeros included, against a separate derivation."""
+    random.seed(7)
+    for _ in range(200):
+        m = random.randint(1, 9)
+        diffs = [random.choice([-3, -2, -1, 1, 2, 3]) for _ in range(m)]
+        diffs += [0] * random.randint(0, 4)
+        _, p = report.wilcoxon(diffs)
+        assert p is not None
+        assert abs(p - _independent_wilcoxon(diffs)) < 1e-9
+
+
+def test_six_pairs_all_one_way_is_the_wall() -> None:
+    """ADR-0019's `m >= 6`, in the number it actually denotes."""
+    _, p_wilcoxon = report.wilcoxon([1, 2, 3, 4, 5, 6])
+    _, _, p_sign = report.sign_test([1, 2, 3, 4, 5, 6])
+    assert abs(p_sign - 2 / 64) < 1e-12
+    assert p_wilcoxon is not None and abs(p_wilcoxon - 2 / 64) < 1e-12
+
+    # Five pairs, perfect and one-directional, cannot reach 0.05 — which is
+    # the whole content of the wall.
+    _, _, p_five = report.sign_test([1, 2, 3, 4, 5])
+    assert p_five > 0.05
+
+
+def test_no_movement_is_reported_as_no_information() -> None:
+    """Concordant pairs must not be mistaken for evidence of no effect."""
+    m, up, p = report.sign_test([0, 0, 0, 0])
+    assert (m, up, p) == (0, 0, 1.0)
+
+
+def test_a_dispatch_error_row_is_not_counted_as_a_draw(tmp_path: Path) -> None:
+    """#217: a cell nobody observed must not shrink or pad a denominator."""
+    cell = tmp_path / "stock" / "bench-ts"
+    cell.mkdir(parents=True)
+    rows = [
+        {"task": "b001-x", "passed": True},
+        {"task": "b001-x", "passed": False},
+        {"task": "b001-x", "dispatch_error": "TimeoutError: gone"},
+    ]
+    cell.joinpath("results.jsonl").write_text(
+        "\n".join(__import__("json").dumps(r) for r in rows) + "\n", encoding="utf-8"
+    )
+    assert report.counts(tmp_path, "stock", "bench-ts") == {"b001-x": (1, 2)}
